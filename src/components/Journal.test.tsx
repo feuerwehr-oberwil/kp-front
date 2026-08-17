@@ -4,6 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { Journal } from './Journal'
 import type { TimelineEvent } from '../types'
+import type { OpenReminder } from '../lib/reminders'
 
 afterEach(cleanup)
 
@@ -65,5 +66,91 @@ describe('Journal · alongside a Wiedergabe', () => {
     setup({ onSelect })
     fireEvent.click(screen.getByText('Erkundung Nordseite läuft'))
     expect(onSelect).not.toHaveBeenCalled()
+  })
+})
+
+// ── Pendenzen ───────────────────────────────────────────────────────────────────────────────
+// jsdom has no layout and no ResizeObserver; the block measures itself to decide whether
+// «Aufklappen» is needed, which is a question only a real browser can answer. The stub keeps the
+// ref callback from throwing — everything asserted below is about content and actions, not size.
+class RO { observe() {} unobserve() {} disconnect() {} }
+;(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver ??= RO
+
+const pendenz = (id: string, text: string, over: Partial<OpenReminder> = {}): OpenReminder => ({
+  id, rowId: `row-${id}`, text, createdAt: new Date(1_000_000).toISOString(), notes: [], ...over,
+})
+
+describe('Journal · the Pendenzen block', () => {
+  const open = [
+    pendenz('p1', 'Absperrmaterial Kreuzung', { urgent: true }),
+    pendenz('p2', 'Polizei aufgeboten', {
+      notes: [
+        { rowId: 'n1', text: 'Verkehrsdienst eingerichtet', at: new Date(1_020_000).toISOString() },
+        { rowId: 'n2', text: 'Umleitung signalisiert', at: new Date(1_030_000).toISOString() },
+      ],
+    }),
+  ]
+
+  // ⚠️ EVERY item and EVERY Meldung. The block was capped at four rows once, with «12 offen» in
+  // its own heading — and showed one Meldung of three, which read as the whole story.
+  it('shows every open item with its whole thread', () => {
+    setup({ openReminders: open })
+    expect(screen.getByText('Absperrmaterial Kreuzung')).toBeTruthy()
+    expect(screen.getByText('Polizei aufgeboten')).toBeTruthy()
+    expect(screen.getByText('Verkehrsdienst eingerichtet')).toBeTruthy()
+    expect(screen.getByText('Umleitung signalisiert')).toBeTruthy()
+  })
+
+  it('tapping an item writes a Meldung on it; the ring ticks it off', () => {
+    const onReminderNote = vi.fn()
+    const onReminderDone = vi.fn()
+    setup({ openReminders: open, onReminderNote, onReminderDone })
+    fireEvent.click(screen.getByText('Absperrmaterial Kreuzung'))
+    expect(onReminderNote).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+    fireEvent.click(document.querySelectorAll('.jr-pinned-row .jr-rem')[0])
+    expect(onReminderDone).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+  })
+
+  // ⚠️ The time column says WHEN IT WAS RAISED — an Auftrag has no Fälligkeit, because nobody
+  // checks in on a Schadenplatz. One tap swaps the WHOLE column; a half-clock/half-age column
+  // cannot be read.
+  it('swaps the whole time column between the clock and the age', () => {
+    setup({ openReminders: open })
+    const times = () => [...document.querySelectorAll('.jr-when')].map((e) => e.textContent ?? '')
+    expect(times().every((t) => /^\d{2}:\d{2}$/.test(t))).toBe(true)
+    fireEvent.click(document.querySelector('.jr-when')!)
+    expect(times().every((t) => /^\d{2}:\d{2}$/.test(t))).toBe(false)
+    expect(times()).toHaveLength(open.length)
+  })
+
+  // ⚠️ There were TWO tick-off controls for one item — one here, one on the row that raised it —
+  // and the row's scrolled away while this one cannot.
+  it('is the only place an item is ticked off', () => {
+    setup({
+      events: [{ id: 'e1', t: '', at: new Date(1_000_000).toISOString(), text: 'Absperrmaterial Kreuzung',
+        icon: 'type', kind: 'journal', reminder: { op: 'created', id: 'p1', text: 'Absperrmaterial Kreuzung' } }],
+      openReminders: [pendenz('p1', 'Absperrmaterial Kreuzung')],
+      onReminderDone: vi.fn(),
+    })
+    expect(document.querySelectorAll('.jr-rem')).toHaveLength(1)
+    expect(document.querySelectorAll('.jr-pinned-row .jr-rem')).toHaveLength(1)
+  })
+
+  // ⚠️ A Meldung stands where it happened, among everything else — so it has to name the item it
+  // answers, or three «Pendenz» rows in a row are three unrelated sentences.
+  it('a Meldung row in the log names the item it belongs to, and jumps to it', () => {
+    setup({
+      events: [
+        { id: 'n1', t: '', at: new Date(1_020_000).toISOString(), text: 'Fahrzeug unterwegs',
+          icon: 'type', kind: 'journal', reminder: { op: 'note', id: 'p1' } },
+        { id: 'e1', t: '', at: new Date(1_000_000).toISOString(), text: 'Auftrag · Absperrmaterial Kreuzung',
+          icon: 'type', kind: 'journal', reminder: { op: 'created', id: 'p1', text: 'Absperrmaterial Kreuzung' } },
+      ],
+      openReminders: [pendenz('p1', 'Absperrmaterial Kreuzung')],
+    })
+    const ref = document.querySelector('.jr-note-on') as HTMLButtonElement
+    expect(ref.textContent).toContain('Absperrmaterial Kreuzung')
+    fireEvent.click(ref)
+    expect(cls('e1')).toContain('jr-flash')
   })
 })

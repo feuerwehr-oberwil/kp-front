@@ -257,3 +257,42 @@ async def test_plan_page_url_with_a_version_query_still_resolves(client, editor)
     # and it still refuses anything that is not one dataset id
     assert _REFERENCE_URL.match("/api/reference/a/b") is None
     assert _REFERENCE_URL.match("/api/media/x") is None
+
+
+async def test_report_pdf_carries_the_pendenzen_section(client, editor):
+    """⚠️ End to end through the real endpoint, not just the composer.
+
+    The section is an ordinary extra field on ``ReportPayload``, and pydantic drops unknown keys
+    without a word — so a backend that was not restarted, or a schema that lost the field, returns
+    a perfectly valid PDF that simply has no Aufträge/Pendenzen on it. Nothing anywhere reports an
+    error. This asserts the whole chain: HTTP → validation → composer → page text.
+    """
+    import io
+
+    import pypdfium2 as pdfium
+
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    payload = _minimal_payload(inc)
+    payload["journal"] = [{"timeLabel": "21:58", "area": "Lage", "text": "Blablabla"}]
+    payload["pendenzen"] = [
+        {
+            "text": "Absperrmaterial Kreuzung",
+            "assignee": "Werkhof Oberwil",
+            "urgent": True,
+            "erteilt": "21:02",
+            "notes": [{"timeLabel": "21:19", "text": "Fahrzeug unterwegs"}],
+        },
+        {"text": "Öl binden Vorplatz", "erteilt": "21:18"},
+    ]
+    r = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)})
+    assert r.status_code == 200, r.text
+
+    doc = pdfium.PdfDocument(io.BytesIO(r.content))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Aufträge / Pendenzen" in text
+    assert "Absperrmaterial Kreuzung" in text
+    assert "Werkhof Oberwil" in text
+    assert "Fahrzeug unterwegs" in text  # a Meldung, as an indented sub-line
+    assert "! = dringend" in text  # the legend; the row itself carries only the mark
+    assert "offen" in text  # the item nobody ticked off

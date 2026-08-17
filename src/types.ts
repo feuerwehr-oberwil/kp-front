@@ -311,12 +311,36 @@ export interface TimelineEvent {
   icon: string
   text: string
   kind?: 'audio' | 'symbol' | 'vehicle' | 'layer' | 'note' | 'photo' | 'snapshot' | 'journal' | 'team' | 'history' | 'reminder'
-  /** Wiedervorlage (reminder) lifecycle. The journal is append-only (see kp-front-journal),
-   *  so a reminder is never a row with a mutated status: the `created` row carries op+dueAt,
-   *  and `done`/`snoozed` are their OWN later rows referencing the same `id`. The open set and
-   *  effective due time are DERIVED from these events (see lib/reminders.ts), never edited in place. */
+  /** Pendenz / Wiedervorlage lifecycle. The journal is append-only (see kp-front-journal), so an
+   *  open item is never a row with a mutated status: the `created` row carries op (+ `dueAt` if it
+   *  is a timed Erinnerung), and `done`/`snoozed`/`note` are their OWN later rows referencing the
+   *  same `id`. The open set is DERIVED from these events (see lib/reminders.ts), never edited in
+   *  place.
+   *
+   *  Two ways in, one lifecycle:
+   *   - the ○ switch on an ordinary entry → `created` WITHOUT `dueAt` (a Pendenz: open until done,
+   *     never alarms — there are no check-ins on a Schadenplatz, so a due time would be a fiction)
+   *   - the Erinnerung mode → `created` WITH `dueAt` (alarms, snoozes, the banner)
+   *  ⚠️ The `created` event rides on the ENTRY'S OWN row — «Auftrag · Trupp 2 entraucht …» is both
+   *  the record and the Pendenz. Tracking hangs off this event, never off `entryType: 'auftrag'`:
+   *  keying it to the tag would turn every Auftrag row already written into an eternally open
+   *  Pendenz, in live and archived incidents alike.
+   *  ⚠️ `note` is forward-compatible by construction: the reducer treats everything that is not
+   *  `done` as still open, so an older client meeting one fails in the safe direction. */
   reminder?: {
-    op: 'created' | 'done' | 'snoozed'; id: string; dueAt?: string
+    op: 'created' | 'done' | 'snoozed' | 'note'; id: string; dueAt?: string
+    /** Pendenz only: sorts to the top of the list and prints a marker.
+     *  ⚠️ Written by `created` alone. The composer offered it on a Meldung for a while, as a
+     *  «normal / dringend» switch — but a Meldung reports on an item, and a control sitting on one
+     *  of them silently re-ranked the whole Pendenz. The reducer still takes it from whatever
+     *  event carries it (order-independent, and an older or later client may), so re-ranking could
+     *  be offered again as its own action; nothing writes it after the fact today. */
+    urgent?: boolean
+    /** «Wer», for the Rapport column — the first vocabulary name in the entry's text
+     *  (lib/journalLinks · linkParts). NOT a field anybody fills in: whoever writes «Trupp 2
+     *  entraucht Treppenhaus» has said who it is for, and a Trupp is titled by its Gruppenführer,
+     *  who is in the vocabulary already. Absent when the sentence names nobody. */
+    assignee?: string
     /** ⚠️ The BARE Wiedervorlage, as typed — «Pizza bestellen», not the row's own `text`
      *  («Erinnerung gesetzt für 12:06: Pizza bestellen»). The two are not the same string: the
      *  row is the record and has to say what was decided and for when, while every place that

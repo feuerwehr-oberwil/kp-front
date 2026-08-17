@@ -22,7 +22,9 @@ export function ReminderBanner({ due, onDone, onSnooze, onOpen }: {
       <div className="rb-head">
         <Icon id="bell" />
         <span className="rb-title">{due.length > 1 ? C.dueMany.replace('{n}', String(due.length)) : C.dueOne}</span>
-        <span className="rb-due">{dueClock(top.dueAt)}</span>
+        {/* only a TIMED Erinnerung can ever come due (lib/reminders · isDue), so a banner without
+            a Fälligkeit cannot happen — the guard is here so the type says so too */}
+        <span className="rb-due">{top.dueAt ? dueClock(top.dueAt) : ''}</span>
       </div>
       <div className="rb-text">{top.text}{more > 0 && <span className="rb-more"> +{more}</span>}</div>
       <div className="rb-actions">

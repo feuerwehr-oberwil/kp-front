@@ -38,6 +38,10 @@ export interface ReportOptions {
   attendance: boolean
   mittel: boolean
   journal: boolean
+  /** «Aufträge / Pendenzen» — its OWN section, deliberately not folded into `journal`: dropping
+   *  the long Einsatzjournal is a normal choice, and the outstanding items are the last thing
+   *  that should go with it. */
+  pendenzen: boolean
   /** print the Rapport-Beilagen (document/damage photos) as full-width plates at the end */
   attachments: boolean
   detailedAudit: boolean
@@ -60,6 +64,10 @@ export const defaultReportOptions: ReportOptions = {
   attendance: true,
   mittel: true,
   journal: true,
+  // ⚠️ ITS OWN section, not a part of the Verlauf. It was gated on `journal` at first, and that is
+  // wrong twice over: suppressing the long Einsatzjournal is a common and reasonable choice, and
+  // the one thing you would never want to drop with it is the list of what is still outstanding.
+  pendenzen: true,
   attachments: true,
   detailedAudit: false,
 }
@@ -259,6 +267,63 @@ export function journalRows(
     })
 }
 
+/** One row of the Rapport's «Aufträge / Pendenzen» section — the BGV form's columns. */
+export interface PendenzPrintRow {
+  text: string
+  assignee?: string
+  urgent: boolean
+  erteilt: string
+  /** absent ⇒ still open when the Rapport was written; the cell prints «offen» */
+  erledigt?: string
+  notes: { timeLabel: string; text: string }[]
+}
+
+/**
+ * Every Auftrag / Pendenz the Einsatz raised — the OPEN ones and the closed ones alike.
+ *
+ * ⚠️ Not `deriveReminders`, which answers a different question: that one is «what is still open»,
+ * for the block in the Verlauf. The paper is a record, so it prints the ones that were dealt with
+ * too — a section that showed only the leftovers would say what went wrong and nothing about what
+ * was ordered and done, which is most of an Einsatz.
+ *
+ * Both times come out of the record for free: `erteilt` is the entry's own timestamp, `erledigt`
+ * the timestamp of the row that closed it. Nobody fills a form in for this.
+ */
+export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): PendenzPrintRow[] {
+  const clock = (e: TimelineEvent) => {
+    const iso = eventIso(e, fallbackDate)
+    return iso ? hhmm(new Date(iso)) : e.t
+  }
+  const created = new Map<string, TimelineEvent>()
+  const doneAt = new Map<string, string>()
+  const urgency = new Map<string, boolean>()
+  const notes = new Map<string, { timeLabel: string; text: string }[]>()
+  // oldest → newest, so «the latest wins» falls out of the iteration order
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]
+    const r = e.reminder
+    if (!r) continue
+    if (r.urgent !== undefined) urgency.set(r.id, r.urgent)
+    if (r.op === 'created') created.set(r.id, e)
+    else if (r.op === 'done') doneAt.set(r.id, clock(e))
+    else if (r.op === 'note') notes.set(r.id, [...(notes.get(r.id) ?? []), { timeLabel: clock(e), text: e.text }])
+  }
+  return [...created.entries()]
+    .map(([id, e]) => ({
+      // the BARE text — the row's own text carries the «Auftrag · » tag or the «Erinnerung gesetzt
+      // für …» lead-in, and the section's own heading already says what these are
+      text: e.reminder?.text?.trim() || e.text,
+      assignee: e.reminder?.assignee,
+      urgent: !!urgency.get(id),
+      erteilt: clock(e),
+      erledigt: doneAt.get(id),
+      notes: notes.get(id) ?? [],
+    }))
+    // chronological by Erteilt, like the paper form it replaces — NOT the screen's
+    // dringend-first order, which is a working order for a list you act on
+    .sort((a, b) => a.erteilt.localeCompare(b.erteilt))
+}
+
 export function missingTranscriptCount(events: TimelineEvent[]): number {
   return events.filter((e) => e.kind === 'audio' && e.audioUrl && !(e.transcript ?? '').trim()).length
 }
@@ -274,16 +339,20 @@ export function krokiStandLabel(ms: number | null): string {
     : new Date(ms).toLocaleString(appConfig.locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+/**
+ * «16.08.2026 15:35» — date and time, one space between them.
+ *
+ * ⚠️ Composed from the two parts rather than taken from `toLocaleString`, which puts a COMMA
+ * between them. On the printed Verlauf that comma cost the Zeit column real width — the column has
+ * to fit the longest label without wrapping, and it is the narrowest column on the page beside the
+ * one carrying every entry's text. It also says nothing: a date followed by a time is not a list.
+ */
 export function formatDateTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString(appConfig.locale, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const date = d.toLocaleDateString(appConfig.locale, { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const time = d.toLocaleTimeString(appConfig.locale, { hour: '2-digit', minute: '2-digit' })
+  return `${date} ${time}`
 }
 
 export function proofLabel(proof: AuditProof): string {

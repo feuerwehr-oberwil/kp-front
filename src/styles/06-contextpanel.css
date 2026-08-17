@@ -343,7 +343,16 @@
   border: 1px solid var(--glass-line); border-radius: var(--r-surface); padding: 8px; z-index: 29; box-shadow: var(--shadow); }
 /* overflow-x hidden: with overflow-y:auto the x-axis otherwise computes to `auto` and the
    Verlauf scrolls sideways on a tablet — rows must line-wrap, never scroll horizontally */
-.history-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 2px; }
+/* ⚠️ `overscroll-behavior: none` and NO padding at the top — both for the sticky Pendenzen block.
+   A rubber-band overscroll drags the sticky element down with the content, so rows that had
+   scrolled behind it reappeared ABOVE it for the length of the bounce: log lines floating over
+   the block's rounded top edge, which reads as a rendering fault. `none` removes the bounce on
+   this list (`contain` only stops the chaining, not the affordance), and dropping the top padding
+   lets the block sit flush at the list's edge so nothing shows through in the 2px above it. */
+.history-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: none; padding: 0 2px 2px; }
+/* the Pendenzen block is open and fills it — see Journal.tsx */
+.history-list.jr-locked { overflow-y: hidden; }
 /* overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row */
 .hist-ev { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-ctl); font-size: 13px; font-weight: 500; overflow: hidden; }
 .hist-ev.clickable { cursor: pointer; }
@@ -386,6 +395,33 @@
 .jr-rem { display: inline-flex; align-items: center; gap: 7px; flex: none; border: 1px solid var(--glass-edge); background: var(--surface-2);
   color: var(--ink-dim); border-radius: var(--r-pill); padding: 5px 11px 5px 6px; font-size: 12px; font-weight: 700; cursor: pointer;
   font-family: inherit; min-height: 34px; }
+/* In the pinned block the ring stands alone in the Verlauf's ICON SLOT — 26px wide, the width of
+   `.hist-ev .ic`, so the text beside it lands on the log's own axis. No pill, no word: the block's
+   heading already says these are Pendenzen, and the ring is this row's icon as much as its
+   control. It is the ONLY place an item is ticked off — the Verlauf row carried a second,
+   identical control that scrolled away while this one cannot.
+   ⚠️ 26px wide is under the gloved floor on its own, so the button takes the row's FULL height
+   for its target (26 × 44). A miss lands on the text, which opens the Meldung sheet — recoverable,
+   and its draft now survives a close. */
+/* ⚠️ 26px — the same number `.hist-ev .ic` carries, because the app is `box-sizing: border-box`
+   throughout and that 26 therefore INCLUDES the icon's 1px border. Measured at 28 once, against a
+   test page that lacked the reset, and the text came out 2px right of the log's. If this is ever
+   re-checked, check it with the reset in place. */
+.jr-pinned-row .jr-rem { flex: none; width: 26px; min-height: 34px; align-self: stretch;
+  padding: 0; border: 0; background: none; border-radius: var(--r-sm);
+  display: grid; place-items: start center; padding-top: 3px; }
+/* ⚠️ No fill on hover. `--hover` is a neutral wash meant for white rows; over the block's amber
+   (and over a dringend row's red) it came out as a pale grey tile floating behind the ring. The
+   ring itself answers instead — it greens and ghosts its check in, the same thing the Verlauf's
+   own ring does, which is also what a tap here is about to do. */
+.jr-pinned-row .jr-rem:hover:not(:disabled) { color: var(--green); }
+.jr-pinned-row .jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
+.jr-pinned-row .jr-rem-box { width: 21px; height: 21px; }
+.jr-pinned-row .jr-rem-box .i { width: 14px; }
+/* …and the Verlauf row keeps only the FACT, unstyled as a control: a timed Erinnerung's
+   Fälligkeit. An undatierte Pendenz has none, and its chip already says what the row is. */
+.jr-remstate { flex: none; font: 700 11.5px var(--body); color: var(--ink-faint); white-space: nowrap; }
+.jr-remstate.overdue { color: var(--amber-strong); }
 .jr-rem:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge)); }
 .jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
 .jr-rem:disabled { cursor: default; }
@@ -404,23 +440,135 @@
   /* ⚠️ `--r-ctl`, not a `--r-md` — there is no md tier in the radius scale (ctl/btn/surface/hero
      plus the xs/sm/pill tier below it). This rule asked for one, which is invalid at
      computed-value time, so the block sat in the Verlauf with hard 0px corners. */
-  margin: 0 0 10px; padding: 8px; border-radius: var(--r-ctl);
+  margin: 0 0 10px; padding: 8px 0; border-radius: var(--r-ctl);
   border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--glass-edge));
-  background: color-mix(in srgb, var(--amber) 7%, var(--surface)); }
-.jr-pinned-head { display: flex; align-items: center; gap: 7px; font: 700 12px var(--body); color: var(--ink-dim); }
+  --jr-pinned-bg: color-mix(in srgb, var(--amber) 7%, var(--surface));
+  background: var(--jr-pinned-bg);
+  /* ⚠️ overflow-x: hidden is NOT redundant — the same trap `.ctx-body` and `.history-list` each
+     carry a note about. `overflow-y: auto` computes the x-axis to `auto` too, and the rows used to
+     be drawn 9px wider than this box on each side (a negative margin, so a dringend row's tint
+     could reach the block's edges). The block scrolled SIDEWAYS and cut the item text off
+     mid-word. The horizontal padding sits on the rows now: the tint still reaches the edges, and
+     nothing is wider than the box. */
+  overflow-x: hidden;
+  /* ⚠️ CAPPED AND SCROLLABLE, and the cap is the ONLY thing that keeps it short — every open item
+     is rendered. It is sticky, so it cannot be scrolled past; a block that took the whole drawer
+     by itself would leave no Verlauf behind it. Half the list collapsed, all of it («Aufklappen»,
+     .is-open), and its own scrollbar either way.
+     ⚠️ A sticky element taller than its scrollport is a trap — it pins at the top and its lower
+     rows can never be reached, because the scroll moves the content behind it rather than the
+     block. That is what this cap plus `overflow-y` exist to prevent, and `contain` keeps the
+     block's own scroll from chaining out into the Verlauf underneath it.
+     ⚠️ PERCENTAGES of `.history-list`, whose height is definite. A fixed pixel cap fitted four
+     ordinary rows and then scrolled the moment one of them carried Meldungen — how much fits is a
+     question about heights, and rows here are not one height. */
+  max-height: 50%; overflow-y: auto; overscroll-behavior: contain; }
+/* …and the heading stays put while they scroll: it carries the count, which is the one thing you
+   need while looking for the row you want. `--jr-pinned-bg` rather than `inherit` — a sticky child
+   paints over its siblings and needs a real fill of its own. */
+/* ⚠️ Full-width and opaque. It spans the block edge to edge — the rows carry the padding now — or
+   rows scrolling underneath show past it on both sides, which is the one thing a header is there
+   to prevent. `top: -8px` + the matching negative margin cancel the block's top padding, so the
+   heading sits flush while scrolled and keeps its air when it is not. */
+.jr-pinned-head { flex: none; position: sticky; top: -8px; z-index: 3; margin-top: -8px;
+  padding: 8px 9px 6px; background: var(--jr-pinned-bg);
+  display: flex; align-items: center; gap: 7px; font: 700 12px var(--body); color: var(--ink-dim); }
 .jr-pinned-head .i { width: 14px; height: 14px; flex: none; }
+/* the mirror of the footer's fade: a row scrolling up under the heading dissolves into it rather
+   than being sliced through its letters */
+.jr-pinned-head::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--jr-pinned-bg), color-mix(in srgb, var(--jr-pinned-bg) 0%, transparent)); }
 .jr-pinned-head b { margin-left: auto; font-weight: 700; color: var(--ink-faint); }
-.jr-pinned-row { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
-.jr-pinned-text { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px;
+/* ⚠️ align-items: flex-start, not center. A row carries its Meldungen underneath, and centred
+   against them the time column drifted down from the text it belongs to.
+   ⚠️ And the metrics are the VERLAUF'S, not their own — same 13px regular text, same faint mono
+   time, same rhythm. This block sits directly above the log and read as a different component
+   built by somebody else: bolder, bigger, its own scale, for rows that are the same rows. */
+/* ⚠️ ONE AXIS WITH THE VERLAUF. The columns mirror `.hist-ev` exactly — 10px of row padding, a
+   38px time, a 26px icon slot, 10px gutters — so an item's text starts on the same x as every
+   line in the log below it. It was 15px to the left of them, which is the kind of near-miss that
+   reads as sloppiness before you can name it. The 9px here plus the block's own 1px border make
+   the 10px `.hist-ev` uses — no negative margins, which is what turned the block into a sideways
+   scroller. */
+/* ⚠️ `flex: none` — this is the one that bit. The block is a flex COLUMN with a `max-height`, so
+   once its rows overflowed, the default `flex-shrink: 1` squeezed every one of them down to its
+   own `min-height` of 44px: a row carrying three Meldungen still measured 44, and its Meldungen
+   painted straight over the row below it. It read as a rendering fault and was one. A row is
+   never allowed to be shorter than its contents — the BLOCK scrolls instead, which is what its
+   `overflow-y` is for. */
+.jr-pinned-row { flex: none; position: relative; display: flex; align-items: flex-start; gap: 10px;
+  min-height: var(--tap); padding: 6px 9px; border-radius: var(--r-sm); }
+/* a hairline between items — with several Meldungen hanging under one of them, «where does this
+   item end» stopped being obvious from spacing alone. Not after the last one, and not on a row
+   whose own tint already separates it. */
+.jr-pinned-row + .jr-pinned-row { box-shadow: 0 -1px 0 color-mix(in srgb, var(--amber) 20%, transparent); }
+/* dringend is RED, not a red hairline. A 3px edge on an amber block is a detail you find after
+   you have already read the row — the point of the flag is that you read this row FIRST. So the
+   whole row carries the tint and the time turns red with it. */
+/* dringend colours the ITEM: its ring, its time and a quiet wash behind the row. The wash alone
+   was a salmon slab that shouted louder than the words on it — what has to read as urgent is the
+   thing to do, not the rectangle around it. */
+.jr-pinned-row.urgent { background: color-mix(in srgb, var(--red) 6%, transparent); }
+.jr-pinned-row.urgent .jr-when { color: var(--red); }
+.jr-pinned-row.urgent .jr-rem { color: var(--red); }
+.jr-pinned-row.urgent .jr-pinned-text { color: var(--red-strong); font-weight: 700; }
+/* The column holding the item and its thread — an ordinary div, so its height follows its
+   children. They used to live INSIDE the button, where they rendered outside its box and the next
+   row was drawn over them (see the note in Journal.tsx). */
+.jr-pinned-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 2px 0; }
+/* ⚠️ WRAPS. This is where the item LIVES, so it is read here in full — an Auftrag cut off at
+   «Amrein Patrick Patient an Sanität übergeben Erkundun…» is the half that does not say what to do.
+   Truncation is for the REFERENCE on a Meldung row in the log (.jr-note-on), which stands for
+   something you can go and read.
+   ⚠️ And the button covers the whole row: everything but the ring and the clock opens a Meldung,
+   which is what a tap anywhere on this card should mean. `::after` rather than a bigger element,
+   so the two controls keep their own hit areas (they are raised over it below). */
+.jr-pinned-text { display: block; width: 100%; min-width: 0; overflow-wrap: anywhere;
   border: none; background: none; padding: 0; cursor: pointer; text-align: left;
-  font: 600 13.5px var(--body); color: var(--ink); }
+  font: 500 13px var(--body); line-height: 1.35; color: var(--ink); }
+.jr-pinned-text::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
 .jr-pinned-text:disabled { cursor: default; }
-.jr-pinned-text > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the Fälligkeit leads: on this block the QUESTION is «was ist noch offen und seit wann» */
-.jr-pinned-due { flex: none; font: 700 11.5px var(--body); color: var(--ink-faint);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-pill); padding: 2px 8px; white-space: nowrap; }
-.jr-pinned-row.overdue .jr-pinned-due { color: var(--amber-strong);
-  border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
+.jr-pinned-text:disabled::after { display: none; }
+/* ⚠️ z-index 1, and the two sticky bars sit at 3. These are raised so the stretched tap area of
+   `.jr-pinned-text` does not swallow them — but raising them put them in the same layer as the
+   sticky header, and later-in-DOM wins, so a scrolling row's clock and ring painted straight over
+   «Pendenzen». Anything sticky in this block outranks anything inside a row. */
+.jr-pinned-row .jr-when, .jr-pinned-row .jr-rem { position: relative; z-index: 1; }
+/* Every Meldung, oldest first — the thread on this item. Hung off a rule so several read as a
+   list belonging to the line above rather than as more rows in the block. */
+.jr-pinned-note { overflow-wrap: anywhere;
+  font: 400 12px/1.35 var(--body); color: var(--ink-dim);
+  padding-left: 8px; border-left: 1.5px solid color-mix(in srgb, var(--amber) 45%, transparent); }
+.jr-pinned-note b { font: 400 11px var(--mono); color: var(--ink-faint); margin-right: 6px; }
+/* ⚠️ WHEN IT WAS RAISED, for every row. The column used to print the Fälligkeit, which only a
+   timed Erinnerung has; an Auftrag has none, because nobody checks in on a Schadenplatz. Tapping
+   swaps the whole column to the age — never one row at a time, a half-clock/half-age column is
+   unreadable. */
+/* 38px + 11px type: the Verlauf's own time column, to the pixel (.hist-ev .t).
+   ⚠️ `nowrap`. Both readings have to fit this width on ONE line — the age used to read «vor 32
+   min» and wrapped to three, which made the row three times as tall for a number. The label is
+   bare now (copy · ageLabel), and this is the guard that says so. */
+.jr-when { flex: none; width: 38px; padding: 6px 0 0; border: 0; background: none; cursor: pointer;
+  text-align: left; white-space: nowrap; font: 400 11px var(--mono); color: var(--ink-faint);
+  font-variant-numeric: tabular-nums; }
+.jr-when:hover { color: var(--ink); }
+/* «meldet sich selbst» — the only mark a timed Erinnerung needs in this list. At the right end,
+   where nothing competes with it: the ring moved into the icon slot at the front. */
+.jr-pinned-alarm { flex: none; margin-left: auto; padding-top: 8px; color: var(--amber-strong);
+  display: grid; place-items: center; }
+.jr-pinned-alarm .i { width: 13px; height: 13px; }
+.jr-pinned.is-open { max-height: calc(100% - 10px); }
+.jr-pinned-more { flex: none; position: sticky; bottom: -8px; z-index: 3; margin-bottom: -8px;
+  border: 0; background: var(--jr-pinned-bg); padding: 8px 9px 9px; cursor: pointer; width: 100%;
+  display: flex; align-items: center; gap: 6px; font: 700 12px var(--body); color: var(--blue-strong); }
+/* …and the line it is scrolling over fades into it instead of being sliced in half. A row cut
+   through the middle of its letters reads as a rendering fault; a row fading out reads as «there
+   is more below», which is what it is. */
+.jr-pinned-more::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 14px;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--jr-pinned-bg), color-mix(in srgb, var(--jr-pinned-bg) 0%, transparent)); }
+.jr-pinned-more .i { width: 13px; height: 13px; }
 
 /* the job printed after a linked name («Widmer Céline (EL)»). Normal weight inside the bold
    name: it explains the name, it is not part of it — and every second row of a busy Verlauf

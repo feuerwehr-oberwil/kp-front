@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { Segmented } from './Segmented'
-import { Overlay } from '../lib/overlays'
+import { Menu, Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases, type PhraseMatch } from '../lib/quickPhrases'
@@ -19,6 +19,8 @@ import {
 import type { JournalEntryType, TimelineEvent } from '../types'
 import { acceptName, suggestLinks } from '../lib/journalEntry'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
+import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
+import { clearDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
@@ -41,6 +43,13 @@ export interface JournalDraft {
   dueAt?: string
   /** Info · Auftrag · Sofortmassnahme; absent = an ordinary entry */
   entryType?: JournalEntryType
+  /** the ○ switch: this entry stays open until it is ticked off. `urgent` sorts it to the top.
+   *  Absent = an ordinary entry that nothing tracks. */
+  pendenz?: { urgent: boolean }
+  /** this entry is a Meldung ON an existing Pendenz (the composer was opened from its row) */
+  noteFor?: { id: string }
+  /** «Wer», read off the sentence (first vocabulary name) — never typed into a field */
+  assignee?: string
 }
 
 // Wiedervorlage due selection: a relative "+N min" chip, or an exact wall-clock time.
@@ -105,9 +114,20 @@ function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) =
 // coordinate, which is the weak version of what the Wiedergabe does — scrub to the moment and
 // the entire picture is the one from back then. The row still records its surface; that is
 // addJournal's business, not this sheet's.
-export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, vocab = [] }: {
+export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, vocab = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
+  /** opened from a Pendenz row: everything written here becomes a Meldung ON that item rather
+   *  than a free-standing entry. Deliberately the ORDINARY composer — a Meldung then gets
+   *  Textbausteine, marked names, Sprachnotiz and Foto without a line of extra code. */
+  noteOn?: { id: string; text: string }
+  /** unlink — the entry goes back to being an ordinary one */
+  onClearNote?: () => void
+  /** every still-open Pendenz, so an entry being written can be attached to one without leaving
+   *  this sheet. Absent/empty ⇒ nothing is offered and the row behaves exactly as before. */
+  openPendenzen?: { id: string; text: string; urgent?: boolean }[]
+  /** attach the entry being written to one of them (the workspace owns `noteOn`) */
+  onLinkPendenz?: (p: { id: string; text: string }) => void
   /** everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
    *  Fahrzeuge, Alarmgruppen (see lib/journalLinks · journalVocabulary). Typing three letters
    *  of any of them completes it; whatever ends up in the text is marked. */
@@ -122,7 +142,17 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const quickPhrases = getDeploymentConfig().journal?.quickPhrases?.length
     ? getDeploymentConfig().journal!.quickPhrases!
     : appConfig.journal.quickPhrases
-  const [text, setText] = useState('')
+  // ⚠️ The typed sentence outlives the sheet. This overlay closes on a backdrop press, and a
+  // sheet this size on a tablet is mostly backdrop — one stray touch beside it threw away a
+  // half-written entry with nothing said. The draft is per-session and per-incident (draftKeep
+  // clears on incident change) and is cleared on send and on the ✕, so «✕» keeps meaning
+  // «discard this» while closing any other way means «not now». A Meldung keeps its OWN draft
+  // per item, or two items would hand each other's half-typed text back.
+  // ⚠️ Captured ONCE, from how the sheet opened. It cannot follow `noteOn`, because attaching a
+  // Pendenz from inside the composer changes that — and the key changing mid-composition would
+  // swap the kept draft under the operator and blank the sentence they were half-way through.
+  const [draftKey] = useState(() => (noteOn ? `journal-note:${noteOn.id}` : 'journal-entry'))
+  const [text, setText] = useKeptState(draftKey, '')
   const suggestions = useMemo(() => suggestPhrases(text, quickPhrases), [text, quickPhrases])
   // ⚠️ NAMES come before the Textbausteine, and only from the word being typed (not the whole
   // fragment): you write the sentence you were going to write anyway and the SPELLING of the
@@ -158,6 +188,43 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const [mode, setMode] = useState<'entry' | 'reminder'>('entry')
   const [dueSel, setDueSel] = useState<DueSel>(null)
   const dueAt = mode === 'reminder' ? resolveDueAt(dueSel) : undefined
+  // ── the ○ switch: aus → offen → dringend → aus ────────────────────────────────────────────
+  // ⚠️ THREE states on ONE control, not a second chip appearing beside it. A chip that shows up
+  // on tap pushes the row onto a second line — the sheet grows under the thumb on the one surface
+  // already fighting the keyboard for every row it has. The switch reserves the width of its
+  // longest state instead, so tapping changes colour and word and moves nothing.
+  // ⚠️ And it is a NEW control, which is why a second tap may mean something here: on the Art
+  // chips the second tap has always meant «off» (`cur === t ? null : t`), and redefining a
+  // learned gesture is exactly what shipped as a bug once already.
+  // ⚠️ NOT shown while writing a Meldung. It was, as a two-state «normal / dringend» that edited
+  // the PENDENZ — so a control sitting on one Meldung silently re-ranked the whole item, and the
+  // switch beside it said «offen» about something that was open before this sheet existed. A
+  // Meldung reports on an item; it does not re-decide it.
+  const [openState, setOpenState] = useState<0 | 1 | 2>(0)
+  // …and the open Pendenzen this sentence already names. Offered only while writing an ordinary
+  // entry: once it IS a Meldung the question is answered, and an Erinnerung is a note to oneself.
+  const pendenzHits = useMemo(
+    () => (noteOn || mode === 'reminder' ? [] : suggestPendenzen(text, openPendenzen as OpenReminder[])),
+    [text, openPendenzen, noteOn, mode],
+  )
+  const canLink = !noteOn && mode === 'entry' && openPendenzen.length > 0 && !!onLinkPendenz
+  // ── the ○ opens a menu; it no longer cycles ───────────────────────────────────────────────
+  // ⚠️ Three states reached by tapping the same ring in turn were a guessing game, and the way to
+  // «hang this on something already open» was a long press — a gesture that cannot announce
+  // itself. One menu says the whole model out loud instead: this line is a new open item, or it
+  // is urgent, or it reports on one of these. Nothing to discover, nothing to cycle past.
+  // ⚠️ It costs the common case a second tap («offen halten» was one). Worth it: «Neue Pendenz»
+  // is the first row every time, so it is two taps in the same two places rather than one tap
+  // whose result depends on how many times you pressed before.
+  /** one row of that menu: the ring in the state it stands for, the words, and a tick when it is
+   *  the state the switch is in right now. */
+  const menuRow = (state: 0 | 1 | 2, label: string, active: boolean) => (
+    <>
+      <span className="jc-menu-ring" data-state={state}>{state === 2 && <span className="jc-bang" />}</span>
+      <span className="jc-menu-label">{label}</span>
+      {active && <Icon id="check" />}
+    </>
+  )
   // Who said it, and what kind of statement it is. Both OPTIONAL and both empty by
   // default: the composer's job is still to take a sentence, and a form that asks two
   // questions before it accepts one is a form nobody opens at 3am.
@@ -219,6 +286,20 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
 
   // stop any in-flight recording + release the stream when the composer unmounts
   useEffect(() => () => { try { recRef.current?.rec.stop() } catch { /* already stopped */ } }, [])
+
+  // ⚠️ Caret at the END of a restored draft — driven by the FOCUS EVENT, not by a frame counted
+  // from mount. A focused textarea puts the caret at position 0, so re-opening a half-written
+  // entry landed the cursor in front of it and the next word went to the start of the sentence.
+  // The first attempt set the selection in a rAF after mount and did nothing: the Overlay does
+  // its own focus (`initialFocus`) on its own schedule, and whichever of the two ran last won.
+  // Hanging it on the focus itself cannot lose that race. Once only, so clicking into the middle
+  // of the text later still puts the caret where it was clicked.
+  const caretPlaced = useRef(false)
+  const caretToEnd = (el: HTMLTextAreaElement) => {
+    if (caretPlaced.current) return
+    caretPlaced.current = true
+    if (el.value) el.setSelectionRange(el.value.length, el.value.length)
+  }
 
   const toggleRecord = async () => {
     if (recording) { recRef.current?.rec.stop(); return }
@@ -337,11 +418,19 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       : text.trim().length > 0 || (mode === 'entry' && (clip != null || photos.length > 0))
   const submit = () => {
     if (!canSend || uploading) return
+    clearDraft(draftKey) // sent — the next open starts empty
     if (mode === 'reminder') { onSubmit({ text: text.trim(), dueAt: dueAt! }); return }
     if (imported) { void submitImported(); return }
     onSubmit({
       text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined,
       entryType: entryType ?? undefined,
+      // «Wer»: the first name the sentence marks. No field asks for it — whoever writes «Trupp 2
+      // entraucht Treppenhaus» has already said who it is for, and a Trupp is titled by its
+      // Gruppenführer, who is in the vocabulary anyway (lib/journalLinks).
+      assignee: parts.find((p) => p.kind)?.text,
+      ...(noteOn
+        ? { noteFor: { id: noteOn.id } }
+        : openState > 0 ? { pendenz: { urgent: openState === 2 } } : {}),
       audioMeta: clip ? { source: 'recorded', startedAt: clip.startedAt, durationSec: clip.secs } : undefined,
     })
   }
@@ -367,16 +456,69 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             for every row it has. The tabs name the surface; the ✕ joins them rather than
             claiming a line of its own. The dialog keeps its accessible name on the Overlay. */}
         <div className="jc-mode">
-          <Segmented
-            ariaLabel={C.composerTitle}
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: 'entry', label: <><Icon id="type" />{C.modeEntry}</> },
-              { value: 'reminder', label: <><Icon id="clock" />{C.modeReminder}</> },
-            ]}
-          />
-          <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
+          {/* ⚠️ No mode switch on a Meldung. «Eintrag · Erinnerung» asks which KIND of new row
+              this is, and the answer is already settled: it is a Meldung on the item named below.
+              Offering «Erinnerung» there would have written a free-standing reminder and silently
+              dropped the link. */}
+          {noteOn
+            ? (
+              // ⚠️ The link lives IN the title row, not on one of its own. As a separate amber
+              // band it pushed everything below it down, so the Meldung sheet stood a row taller
+              // than the ordinary one — the same card, two heights, depending on how it was
+              // opened. «Meldung» leads, the item follows: what this is, then what it is about.
+              // ⚠️ The header line IS the control. Merging the link into it took away the ✕ that
+              // used to unlink — «wrong row tapped» needed a way back, and adding a second ✕ beside
+              // the one that closes the sheet is how you build a card nobody dares press. So the
+              // line opens the same menu the ○ switch opens: re-target it, make it a new Pendenz,
+              // or let go of the link entirely.
+              <Menu
+                side="bottom"
+                align="start"
+                // ⚠️ Pulls the popup left by its own inset (6px popup padding + 11px item padding)
+                // so the ring column of the MENU continues the ring on the header that opened it.
+                // Without it the two sit 17px apart — near enough to look like a mistake, far
+                // enough that it is one.
+                alignOffset={-17}
+                popupClassName="rp-print-menu jc-pendenz-menu"
+                itemClassName={() => 'rp-print-menu-item'}
+                items={[
+                  { kind: 'head' as const, label: C.linkPendenzTitle },
+                  ...openPendenzen.map((r) => ({
+                    label: menuRow(r.urgent ? 2 : 1, r.text, r.id === noteOn.id),
+                    onClick: () => onLinkPendenz?.(r),
+                  })),
+                  // ⚠️ LAST and pinned to the bottom, like the ring's menu — not first and pinned
+                  // to the top. This one is declared `side="bottom"`, and on a desktop that is
+                  // where it goes; but the sheet is bottom-anchored on a phone, so the popup
+                  // collides with the screen edge and Base UI flips it UPWARDS. Pinning to the
+                  // end it opened from would then have to know which way it actually went. The
+                  // bottom is the answer either way: it is nearest the thumb when the menu opens
+                  // upwards, and still on screen without scrolling when it opens down.
+                  ...(onClearNote ? [{ label: menuRow(0, C.noteOnClear, false), onClick: onClearNote, sticky: true }] : []),
+                ]}
+                trigger={(
+                  <button type="button" className="jc-mode-title jc-mode-note" title={C.linkPendenzTitle}>
+                    <span className="jc-ring" aria-hidden />
+                    <b>{C.noteOnTitle}</b>
+                    <em>{C.noteOnLabel}</em>
+                    <span className="jc-mode-note-name">{noteOn.text}</span>
+                  </button>
+                )}
+              />
+            )
+            : (
+              <Segmented
+                ariaLabel={C.composerTitle}
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { value: 'entry', label: <><Icon id="type" />{C.modeEntry}</> },
+                  { value: 'reminder', label: <><Icon id="clock" />{C.modeReminder}</> },
+                ]}
+              />
+            )}
+          <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}
+            onClick={() => { clearDraft(draftKey); onClose() }}><Icon id="close" /></button>
         </div>
 
         {/* The backdrop that marks known names. A <textarea> cannot style part of its own
@@ -410,6 +552,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
               else accept(suggestions[0])
             }
           }}
+          onFocus={(e) => caretToEnd(e.currentTarget)}
           onScroll={(e) => { if (marksRef.current) marksRef.current.scrollTop = e.currentTarget.scrollTop }}
         />
         </div>
@@ -422,7 +565,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             the field and the chips moves the field itself, and with matches coming and going on
             almost every keystroke the text you were typing hopped around under the caret. On a
             wide screen the row still collapses to nothing (see .jc-phrases.is-empty). */}
-        {(nameHits.length === 0 && suggestions.length === 0) ? <div className="jc-phrases is-empty" aria-hidden /> : (
+        {/* ⚠️ `canLink` is NOT part of this test any more. It was, while a «Zu einer Pendenz» chip
+            lived in this row — and once that chip moved onto the ○ switch, the condition kept
+            holding an otherwise empty 44px row open for it, so the ordinary Eintrag sheet stood
+            taller than the Meldung sheet with nothing in the gap. */}
+        {(nameHits.length === 0 && suggestions.length === 0 && pendenzHits.length === 0)
+          ? <div className="jc-phrases is-empty" aria-hidden /> : (
           <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
             {nameHits.map((n) => (
               <button
@@ -440,6 +588,22 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 onPointerDown={(e) => e.preventDefault()}
                 onClick={() => accept(m)}
               >{m.phrase}</button>
+            ))}
+            {/* ── an open Pendenz this sentence already names ──
+                ⚠️ LAST in the row, and never the Tab target. Every other chip here INSERTS TEXT;
+                these change what the entry is. Tab takes the top suggestion, so a Pendenz sitting
+                first would mean a reflex keystroke re-filed the entry instead of completing a
+                name — and both look like «the thing I was about to type» from the corner of an eye.
+                Amber and ringed, the colours of the link chip they produce, so the row shows at a
+                glance which of its chips write words and which one changes the sheet. */}
+            {pendenzHits.map((r) => (
+              <button
+                key={`p:${r.id}`}
+                className="jc-phrase jc-phrase-pendenz"
+                title={C.linkPendenzTitle}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => onLinkPendenz?.({ id: r.id, text: r.text })}
+              ><span className="jc-ring" />{C.noteOnLabel}{r.text}</button>
             ))}
           </div>
         )}
@@ -495,6 +659,78 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   onClick={() => setEntryType((cur) => (cur === t ? null : t))}
                 >{C.entryTypes[t]}</button>
               ))}
+              {/* ── … and whether anything has to come back to it ──
+                  Separated from the three by a rule, because it answers a DIFFERENT question.
+                  The chips say what kind of statement this is; the ring says whether it stays
+                  open. Folding it in as a fourth chip would pretend the four are alternatives —
+                  and then «Auftrag» and «Pendenz» would both be true of the same sentence.
+                  ⚠️ The ring, not a word: it is the same ring that appears on the Verlauf row and
+                  in the Pendenzen list, where tapping it fills it in. Three sightings of one shape
+                  carry further than a label that only exists here.
+                  ⚠️ ABSENT while writing a Meldung. The item it reports on is already open — and
+                  the two-state version tried there edited the PENDENZ, so a switch on one Meldung
+                  re-ranked the whole thing. Its grid track goes with it (18-audio.css), or the
+                  three chips would pay 44px for a column holding nothing. */}
+              {!noteOn && (
+              <span className="jc-openwrap">
+              <Menu
+                side="top"
+                align="end"
+                popupClassName="rp-print-menu jc-pendenz-menu"
+                itemClassName={() => 'rp-print-menu-item'}
+                // ⚠️ BOTTOM-UP, because this menu opens UPWARDS (side="top"): the ring sits low in
+                // the sheet — on a phone right above the thumb — so a list read top-first put its
+                // most-used row furthest from the finger that just pressed. The nearest row to the
+                // control is the one it is usually reached for: «Neue Pendenz» is LAST here, which
+                // on screen means bottom, which means under the thumb.
+                // The «Meldung zu» group keeps its heading ABOVE its own rows: a label under the
+                // things it names is not a heading, whichever way the list is read.
+                items={[
+                  // ⚠️ Every row carries THE RING, in the state it produces — empty, amber, or red
+                  // with the bang. The menu is opened from that ring and sets that ring, so a list
+                  // of bare sentences made the two look like unrelated things; the same shape in
+                  // three fills says what the words would have to spell out.
+                  ...(canLink
+                    ? [
+                      { kind: 'head' as const, label: C.linkPendenzTitle },
+                      // the open items in the order the Pendenzen block itself uses: dringend
+                      // first, then the oldest. An item shows ITS OWN urgency, the block's red.
+                      ...openPendenzen.map((r) => ({ label: menuRow(r.urgent ? 2 : 1, r.text, false), onClick: () => onLinkPendenz?.(r) })),
+                      // …no separator: the pinned block below carries its own edge, and one in the
+                      // flow would scroll away from the boundary it is supposed to mark
+                    ]
+                    : []),
+                  // ⚠️ PINNED to the bottom, not merely last. Last alone meant one of the two ends
+                  // of a scrolling list had to lose: opening at the top hid «Neue Pendenz» below
+                  // the fold, opening at the bottom hid the most pressing items above it. Pinned,
+                  // the list keeps its own order — dringend first, then oldest, read from the top —
+                  // while the rows you nearly always want stay under the thumb.
+                  ...(openState > 0 ? [{ label: menuRow(0, C.pendenzNotOpen, false), onClick: () => setOpenState(0), sticky: true }] : []),
+                  { label: menuRow(2, C.pendenzNewUrgent, openState === 2), onClick: () => setOpenState(2), sticky: true },
+                  { label: menuRow(1, C.pendenzNew, openState === 1), onClick: () => setOpenState(1), sticky: true },
+                ]}
+                // ⚠️ The ring IS the trigger. It was an invisible anchor beside it for a while,
+                // with the open state held here — and then a second press on the ring counted as
+                // an OUTSIDE press, so Base UI closed the menu and the click handler opened it
+                // again on the same tap. Base UI's own trigger toggles, and it is the only thing
+                // that can: it knows about the press before the outside-press handler runs.
+                trigger={(
+                  <button
+                    type="button"
+                    className="jc-open"
+                    data-state={openState}
+                    title={C.openStates[openState]}
+                    aria-label={C.openStates[openState]}
+                  >
+                    {/* ⚠️ Not the `warn` triangle. A triangle's optical centre sits below its
+                        bounding box, so inside a ring it reads as hanging — and a triangle inside
+                        a circle is two outlines fighting at 21px. Solid disc + a drawn bang. */}
+                    <span className="jc-ring">{openState === 2 && <span className="jc-bang" />}</span>
+                  </button>
+                )}
+              />
+              </span>
+              )}
             </div>
           </div>
         )}

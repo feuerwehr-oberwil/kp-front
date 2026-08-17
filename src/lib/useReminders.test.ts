@@ -9,7 +9,7 @@ vi.mock('./alarm', () => ({ notify: vi.fn(), startAlarm: vi.fn(), stopAlarm: vi.
 import { useReminders } from './useReminders'
 import type { TimelineEvent } from '../types'
 
-const copy = { dueTitle: 'fällig', doneLog: '{text}', snoozeLog: '{mins} {text}' }
+const copy = { dueTitle: 'fällig', doneLog: '{text}', pendenzDoneLog: 'p {text}', snoozeLog: '{mins} {text}' }
 const createdRow = (id: string, dueAt: string, at: string): TimelineEvent =>
   ({ id: `e-${id}`, t: '03:00', at, icon: 'clock', text: 'Keller prüfen', kind: 'reminder', reminder: { op: 'created', id, dueAt } }) as TimelineEvent
 

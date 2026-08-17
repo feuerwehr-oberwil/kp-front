@@ -21,7 +21,7 @@ import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } f
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import {
-  defaultReportOptions, einsatzleiterFromScene, formatDateTime, krokiStandLabel, missingTranscriptCount, proofLabel,
+  defaultReportOptions, einsatzleiterFromScene, formatDateTime, krokiStandLabel, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
 import { missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
@@ -210,6 +210,15 @@ export function ReportPreflight({
   // map/plan pages, no configuration needed; every toggle stays available as an override.
   // Personal + Material stay ON even with zero records: the rapport is a pre-filled
   // FORM (2026-07-17) — empty sections print as tick-off roster rows / amount stubs.
+  // ⚠️ Derived HERE rather than passed in like the other counts: it comes out of the journal the
+  // sheet already has, and the number is also the diagnostic — «Aufträge / Pendenzen (0)» says the
+  // Einsatz raised none, which is a different answer from a section that failed to reach paper.
+  // ⚠️ And the OPTION is not seeded from it (`defaultReportOptions.pendenzen` is simply true).
+  // Seeding «on if there are any» reads the count ONCE, at mount, from whatever the sheet happened
+  // to know then — every item raised afterwards found the section already switched off, silently
+  // and for the rest of the Einsatz. The payload carries an empty list when there are none, so
+  // «always on» costs nothing: the section prints if and only if there is something to print.
+  const pendenzCount = useMemo(() => pendenzRows(events).length, [events])
   const [options, setOptions] = useState<ReportOptions>({
     ...defaultReportOptions,
     kroki: mapContentCount > 0,
@@ -1125,6 +1134,11 @@ export function ReportPreflight({
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttendance, { n: attendanceCount }), checked: options.attendance, onChange: (v: boolean) => patchOpt({ attendance: v }) },
                   { kind: 'check' as const, label: fillTemplate(P.toggleMittel, { n: mittelCount }), checked: options.mittel, onChange: (v: boolean) => patchOpt({ mittel: v }) },
                   { kind: 'check' as const, label: P.toggleJournal, checked: options.journal, onChange: (v: boolean) => patchOpt({ journal: v }) },
+                  // ⚠️ Its own row, with its own count. Folded into «Einsatzjournal» it was invisible:
+                  // switching the long log off silently dropped the outstanding items too, and nothing
+                  // on the sheet said so. The count is also the diagnostic — «(0)» means the Einsatz
+                  // raised none, not that the section is broken.
+                  { kind: 'check' as const, label: fillTemplate(P.togglePendenzen, { n: pendenzCount }), checked: options.pendenzen && pendenzCount > 0, disabled: pendenzCount === 0, onChange: (v: boolean) => patchOpt({ pendenzen: v }) },
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttachments, { n: attachments.length }), checked: options.attachments && attachments.length > 0, disabled: attachments.length === 0, onChange: (v: boolean) => patchOpt({ attachments: v }) },
                   { kind: 'sep' as const },
                   { kind: 'check' as const, label: P.toggleDetailedAudit, checked: options.detailedAudit, onChange: (v: boolean) => patchOpt({ detailedAudit: v }) },

@@ -14,7 +14,7 @@ import { buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, personalForPdf, readingKindLabel, truppAuftragLabel, truppStatusLabel,
+  annotatedPlans, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingKindLabel, truppAuftragLabel, truppStatusLabel,
 } from './report'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
@@ -185,6 +185,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       photoUrls: r.photoUrls?.filter((u) => u.startsWith('/')),
     }))
 
+  // Aufträge / Pendenzen — derived from the same rows, printed as a section right after them
+  const pendenzen = pendenzRows(events, meta.startedAt ?? incident.started_at)
+
   const kroki = draft.options.kroki && scene
     ? buildKrokiPayload({
         entities: scene.entities, drawings: scene.drawings, layers: scene.layers, byName: scene.byName,
@@ -239,7 +242,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
       partnerContacts: meta.partnerContacts,
     },
-    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, krokiLandscape: draft.options.krokiLandscape },
+    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, krokiLandscape: draft.options.krokiLandscape },
     // Beilagen: only the ones actually ON the server. A blob: URL is a photo that has not
     // finished uploading, and the server cannot fetch it — printing would silently drop it, so
     // it is left out here and the preflight says so beside the row.
@@ -299,6 +302,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         .map((rr) => ({ t: rr.t ? formatDateTime(rr.t) : '', kindLabel: readingKindLabel(rr.kind), bar: rr.bar != null ? String(rr.bar) : undefined }))),
     })),
     journal: draft.options.journal ? journal : [],
+    pendenzen: draft.options.pendenzen ? pendenzen : [],
   }
   return payload
 }

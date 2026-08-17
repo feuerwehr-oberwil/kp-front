@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
@@ -9,6 +9,20 @@ import { appConfig } from '../config/appConfig'
 import { dueClock, formatTime } from '../lib/format'
 import { groupByDay, isNachtrag, rowPhotos, rowTime } from '../lib/verlauf'
 import type { OpenReminder } from '../lib/reminders'
+
+/** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
+function rowClock(iso: string): string {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '–' : formatTime(d)
+}
+
+/** «vor 54 min» / «vor 3 h» — the other half of the time column, one tap away. */
+function ageLabel(iso: string, nowMs: number, C: typeof appConfig.copy.journal): string {
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return '–'
+  const mins = Math.max(0, Math.round((nowMs - t) / 60_000))
+  return mins < 90 ? C.ageLabel.replace('{n}', String(mins)) : C.ageLabelHours.replace('{n}', String(Math.round(mins / 60)))
+}
 
 // One <audio> for the whole drawer: play toggles, a second tap pauses, and the row that
 // is sounding shows a pause icon + a "playing" pulse so it's obvious what's playing.
@@ -54,7 +68,7 @@ const chip = (e: TimelineEvent, plans: PlanDocument[]): string => {
 // The unified Verlauf — the single, append-only stream of everything that
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened.
-export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn }: {
+export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn }: {
   events: TimelineEvent[]
   plans: PlanDocument[]
   /** the linkable vocabulary (lib/journalLinks) — the SAME memo the composer marks with, so a
@@ -73,6 +87,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   openReminders?: OpenReminder[]
   /** mark a reminder done preemptively from its Verlauf row (appends a done event). */
   onReminderDone?: (r: OpenReminder) => void
+  /** write a Meldung on an open item — opens the ordinary composer pre-linked to it. */
+  onReminderNote?: (r: OpenReminder) => void
   /** offline-queue status of a row's media (photo/audio not yet on the server), or undefined
    *  once uploaded — drives the "wird geladen"/"nicht geladen" chip on media rows. */
   mediaStatusOf?: (rowId: string) => 'pending' | 'failed' | undefined
@@ -102,7 +118,32 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // open reminders keyed by id, plus a clock captured when the drawer opens (it remounts on
   // each open, so this is "now" at open time) to flag overdue rows
   const openMap = new Map((openReminders ?? []).map((r) => [r.id, r]))
+  // id → the item's own words, so a Meldung row can name what it is an answer to. Built from the
+  // `created` rows themselves (not from `openReminders`), or a Meldung on an item that has since
+  // been ticked off would lose its anchor the moment it was closed.
+  const pendenzTitles = useMemo(() => new Map(
+    events.filter((e) => e.reminder?.op === 'created')
+      .map((e) => [e.reminder!.id, (e.reminder!.text ?? e.text).trim()] as const),
+  ), [events])
+  /** …and the row each one was raised on, so the reference on a Meldung can jump back to it. */
+  const pendenzRowIds = useMemo(() => new Map(
+    events.filter((e) => e.reminder?.op === 'created').map((e) => [e.reminder!.id, e.id] as const),
+  ), [events])
   const [now] = useState(() => Date.now())
+  // the Pendenzen block: how many rows it may take, and whether the time column shows the clock
+  // or the age. The toggle is per-opening (the drawer remounts each time) — it is a reading
+  // preference for the minute you are in, not a setting worth persisting.
+  // ⚠️ EVERY open item is rendered — the block scrolls instead of hiding rows behind a count.
+  // A cap of four meant «12 offen» in the heading over a list showing three, and the way to the
+  // rest was a control that had to be found. What the toggle changes now is only the block's
+  // HEIGHT: half the drawer, or all of it.
+  const [expanded, setExpanded] = useState(false)
+  // …and the toggle appears only when the collapsed block cannot show everything. Measured, not
+  // counted: one item carrying four Meldungen is taller than four bare ones, so a row count
+  // cannot answer «does this fit».
+  const pinnedRef = useRef<HTMLDivElement | null>(null)
+  const [pinnedOverflows, setPinnedOverflows] = useState(false)
+  const [showAge, setShowAge] = useState(false)
   const [editTx, setEditTx] = useState<{ id: string; value: string } | null>(null)
   const saveTranscript = () => {
     if (!editTx) return
@@ -182,7 +223,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    * assignment provably did not move the list (a scroll container this code did not expect),
    * the platform's own method still gets its turn rather than leaving the operator stranded.
    */
-  const jumpToRow = (id: string) => {
+  const jumpToRow = (id: string, smooth = false) => {
     const list = listRef.current
     const el = findRow(id)
     if (!list || !el) return false
@@ -199,9 +240,18 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     if (lr.height <= 0) return true
     const before = list.scrollTop
     const delta = offCentre(list, el)
-    list.scrollTop += delta
-    // it should have moved. If it did not, this list is not the box that scrolls.
-    if (Math.abs(delta) > 2 && list.scrollTop === before) el.scrollIntoView({ block: 'center' })
+    // ⚠️ `smooth` only where a PERSON asked to go somewhere (the reference on a Meldung): the
+    // travel is what shows that the target row is a different row, further up, rather than the
+    // list having silently redrawn. The landing loop below must stay instant — it re-corrects for
+    // a few hundred ms as fonts and media settle, and an animation would be fighting the next
+    // correction on every frame.
+    if (smooth) list.scrollBy({ top: delta, behavior: 'smooth' })
+    else {
+      list.scrollTop += delta
+      // it should have moved. If it did not, this list is not the box that scrolls.
+      // (Not checked for a smooth scroll — nothing has moved yet by the time this line runs.)
+      if (Math.abs(delta) > 2 && list.scrollTop === before) el.scrollIntoView({ block: 'center' })
+    }
     return true
   }
   /**
@@ -269,12 +319,47 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     }
   }, [landOn])
 
-  // Overdue first, then by Fälligkeit — the same order the Atemschutz board sorts its cards in:
-  // the one that has been waiting longest is the one that is about to be forgotten.
-  const pinnedReminders = useMemo(
-    () => [...(openReminders ?? [])].sort((a, b) => Date.parse(a.dueAt) - Date.parse(b.dueAt)),
-    [openReminders],
-  )
+  // ⚠️ NOT re-sorted here. lib/reminders already orders them — dringend first, then oldest first
+  // — and it is the same order the Rapport prints. Two sorts in two places is how the list on
+  // screen and the list on paper start disagreeing about what is most urgent.
+  const pinnedReminders = openReminders ?? []
+
+  /**
+   * Does the collapsed block hold more than it can show? The answer decides whether «Aufklappen»
+   * exists at all, so getting it wrong makes a capped list one with no way out.
+   *
+   * ⚠️ A REF CALLBACK, not an effect reading `pinnedRef.current`. That was tried twice and never
+   * ran once: this drawer is an `<Overlay>`, and the overlay mounts its children in a LATER commit
+   * than the component's own layout effect — so `pinnedRef.current` was null, the effect took its
+   * `if (!el)` exit, and because `openReminders` does not change identity afterwards it was never
+   * asked again. React calls a ref callback exactly when the node attaches, whatever the commit
+   * order, which is the one hook that cannot be early.
+   *
+   * Then it keeps watching, because «fits» has several answers over time: the next frame (fonts
+   * swap and a wrapped item is a different height), any resize of the block or its rows, and the
+   * scroll event — anything that scrolls has overflowed, by definition.
+   */
+  const detachPinned = useRef<(() => void) | null>(null)
+  const attachPinned = useCallback((el: HTMLDivElement | null) => {
+    detachPinned.current?.()
+    detachPinned.current = null
+    pinnedRef.current = el
+    if (!el) { setPinnedOverflows(false); return }
+    const measure = () => setPinnedOverflows(el.scrollHeight > el.clientHeight + 1)
+    measure()
+    const raf = requestAnimationFrame(measure)
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    for (const child of Array.from(el.children)) ro.observe(child)
+    el.addEventListener('scroll', measure, { passive: true })
+    detachPinned.current = () => { cancelAnimationFrame(raf); ro.disconnect(); el.removeEventListener('scroll', measure) }
+  }, [])
+  // …and once more when the open set or the expansion changes: rows come and go without the block
+  // itself resizing (it is capped), so the ResizeObserver alone would not notice.
+  useEffect(() => {
+    const el = pinnedRef.current
+    if (el) setPinnedOverflows(el.scrollHeight > el.clientHeight + 1)
+  }, [openReminders, expanded])
 
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false}>
@@ -322,43 +407,93 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             </div>
           </div>
         )}
-        <div className="history-list" ref={listRef}>
+        {/* ⚠️ `jr-locked`: expanded AND at its cap, the Pendenzen block covers the whole list, so
+            scrolling the Verlauf underneath moves something nobody can see — and a gesture that
+            starts on the block but chains out of it is exactly how you lose your place in a list
+            you are working through. The lock is on both conditions: expanded but SHORT (a handful
+            of items) leaves the Verlauf visible below, and then it must still scroll. */}
+        <div className={`history-list${expanded && pinnedOverflows ? ' jr-locked' : ''}`} ref={listRef}>
           {events.length === 0 && <EmptyState icon="history" title={C.empty} />}
           {/* OFFENE ERINNERUNGEN, held at the top. The only rows in this list that are not where
               they happened — deliberately: a Wiedervorlage is about what still has to be done,
               and on an Einsatz that writes a row a minute it was scrolled past within ten. Each
               one jumps to its own place in the chronology, which is where the record keeps it. */}
           {pinnedReminders.length > 0 && (
-            <div className="jr-pinned">
+            <div ref={attachPinned} className={`jr-pinned${expanded ? ' is-open' : ''}`}>
               <div className="jr-pinned-head">
-                <Icon id="clock" /><span>{C.openRemindersHead}</span>
+                <Icon id="checklist" /><span>{C.openRemindersHead}</span>
                 <b>{C.openCount.replace('{n}', String(pinnedReminders.length))}</b>
               </div>
               {pinnedReminders.map((r) => {
-                const overdue = Date.parse(r.dueAt) <= now
-                const src = events.find((e) => e.reminder?.op === 'created' && e.reminder.id === r.id)
+                // ⚠️ The time column says WHEN IT WAS RAISED, for every row, always. It used to
+                // say «fällig 22:10 / überfällig», which only a timed Erinnerung can answer — an
+                // Auftrag has no Fälligkeit, because nobody checks in on a Schadenplatz. What is
+                // actually being asked here is «seit wann läuft das», and the sort order (oldest
+                // first) already answers it positionally; tapping swaps the column to the age for
+                // the times the clock stops answering it. Überfällig stays the banner's business.
+                const dueLater = r.dueAt && Date.parse(r.dueAt) > now
                 return (
-                  <div key={r.id} className={`jr-pinned-row ${overdue ? 'overdue' : ''}`}>
+                  <div key={r.id} className={`jr-pinned-row ${r.urgent ? 'urgent' : ''}`}>
                     <button
-                      type="button" className="jr-pinned-text"
-                      title={C.openReminderGo} aria-label={C.openReminderGo}
-                      disabled={!src}
-                      onClick={() => { if (src) jumpToRow(src.id) }}
-                    >
-                      <span className="jr-pinned-due">
-                        {overdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(r.dueAt))}
-                      </span>
-                      <span>{r.text}</span>
-                    </button>
+                      type="button" className="jr-when"
+                      title={C.ageToggle} aria-label={C.ageToggle}
+                      onClick={() => setShowAge((v) => !v)}
+                    >{showAge ? ageLabel(r.createdAt, now, C) : rowClock(r.createdAt)}</button>
+                    {/* ⚠️ The ring sits in the VERLAUF'S ICON SLOT, before the text, not out at the
+                        right margin. Two things come of it: the item's text starts on exactly the
+                        same axis as every line in the log below, so the block reads as the same
+                        list filtered rather than as a separate component — and the ring IS this
+                        row's icon, which is what a checklist circle has always been. */}
                     <button
                       type="button" className="jr-rem"
                       disabled={!onReminderDone}
                       title={C.markDoneTitle} aria-label={C.markDoneTitle}
                       onClick={() => onReminderDone?.(r)}
                     ><span className="jr-rem-box"><Icon id="check" /></span></button>
+                    {/* ⚠️ The Meldungen are SIBLINGS of the button, not children of it. Inside it
+                        they rendered outside its box: a <button> is a replaced-ish element whose
+                        height does not follow block children the way a div's does, so a row with
+                        three Meldungen kept the height of one and the next row was drawn straight
+                        over them. The button stays a button — one line, one action — and the
+                        thread hangs under it in an ordinary div. */}
+                    <div className="jr-pinned-body">
+                      <button
+                        type="button" className="jr-pinned-text"
+                        title={C.noteOpen} aria-label={C.noteOpen}
+                        disabled={!onReminderNote}
+                        onClick={() => onReminderNote?.(r)}
+                      >{r.text}</button>
+                      {/* ⚠️ EVERY Meldung, not the latest one. They stand scattered through the
+                          Verlauf where they happened, so this is the only place the thread reads
+                          as a thread — and showing one of three looked like the whole story. */}
+                      {r.notes.map((n) => (
+                        <span className="jr-pinned-note" key={n.rowId}>
+                          <b>{rowClock(n.at)}</b>{n.text}
+                        </span>
+                      ))}
+                    </div>
+                    {/* a timed Erinnerung also carries a clock — «die meldet sich selbst» */}
+                    {dueLater && (
+                      <span className="jr-pinned-alarm" title={C.dueAtLabel.replace('{t}', dueClock(r.dueAt!))}>
+                        <Icon id="clock" />
+                      </span>
+                    )}
                   </div>
                 )
               })}
+              {/* ⚠️ CAPPED. The block is sticky so it cannot be scrolled past — right for the two
+                  Erinnerungen it used to hold, ruinous for the ten Pendenzen a Lagerapport
+                  produces, which would leave no Verlauf at all. The sort decides what survives
+                  the cap, so dringend and oldest are always among them. */}
+              {/* ⚠️ Sticky at the FOOT of the block. Expanded it fills the drawer and scrolls, so a
+                  «Zuklappen» sitting after the last row is one nobody can reach without scrolling
+                  to the end of the very list they want to collapse. */}
+              {(expanded || pinnedOverflows) && (
+                <button type="button" className="jr-pinned-more" onClick={() => setExpanded((v) => !v)}>
+                  <Icon id={expanded ? 'chevron-up' : 'chevron-down'} />
+                  {expanded ? C.collapse : C.expand}
+                </button>
+              )}
             </div>
           )}
           {groupByDay(events).map((g, gi) => (
@@ -381,10 +516,14 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             const future = replayAtMs != null && Number.isFinite(rowMs) && rowMs > replayAtMs
             // a `created` reminder row: still-open (look up derived state) ⇒ show due + done
             // toggle; gone from the open set ⇒ already erledigt (checked + struck through).
-            const isReminder = e.kind === 'reminder' && e.reminder?.op === 'created'
+            // ⚠️ Keyed off the LIFECYCLE EVENT, not off `kind === 'reminder'`. A Pendenz rides on
+            // an ordinary entry row (kind 'journal' / 'audio' / 'photo'), because the entry IS the
+            // open item — «Auftrag · Trupp 2 entraucht Treppenhaus» is the record and the Pendenz
+            // in one line. Only the timed Erinnerung still writes a row of its own.
+            const isReminder = e.reminder?.op === 'created'
             const openRem = isReminder && e.reminder ? openMap.get(e.reminder.id) : undefined
             const remDone = isReminder && !openRem
-            const remOverdue = !!openRem && Date.parse(openRem.dueAt) <= now
+            const remOverdue = !!openRem?.dueAt && Date.parse(openRem.dueAt) <= now
             return (
               <div
                 className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''}`}
@@ -400,6 +539,28 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 <span className="tx">
                   <span className={`jr-chip jr-chip-${e.surface ?? 'map'}`}>{chip(e, plans)}</span>
                   {isNachtrag(e, closedAt) && <span className="jr-chip jr-chip-nachtrag">{C.nachtrag}</span>}
+                  {/* The row that RAISED an item carries the chip — that is what marks it in the
+                      record as something that had to come back. */}
+                  {isReminder && (
+                    <span className={`jr-chip jr-chip-pendenz${remDone ? ' done' : ''}`}>{C.noteChip}</span>
+                  )}
+                  {/* ⚠️ A MELDUNG names the ITEM instead. The word «PENDENZ» on all of them said
+                      only what one could already see; what was missing is WHICH one, and three
+                      «PENDENZ» rows in a row were three unrelated sentences. The Verlauf is
+                      chronological, so each link has to carry its own anchor — and the anchor is
+                      the item's own opening words, not a label. */}
+                  {/* …and it is a WAY BACK, not a caption. The reference has to be truncated to
+                      fit, so the words alone often cannot identify the item — tapping it scrolls
+                      to the row that raised it and flashes it, which answers «which one» in full
+                      and in its own context. */}
+                  {e.reminder?.op === 'note' && pendenzTitles.get(e.reminder.id) && (
+                    <button
+                      type="button" className="jr-note-on"
+                      title={C.openReminderGo} aria-label={C.openReminderGo}
+                      onClick={(ev) => { ev.stopPropagation(); jumpToRow(pendenzRowIds.get(e.reminder!.id)!, true) }}
+                      disabled={!pendenzRowIds.has(e.reminder.id)}
+                    ><i>{pendenzTitles.get(e.reminder.id)}</i></button>
+                  )}
                   {/* the names in the sentence, marked — the same vocabulary and the same
                       marking the composer used while it was being typed */}
                   <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>
@@ -417,19 +578,16 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       : <span key={pi}>{p.text}</span>))}
                   </span>
                 </span>
-                {isReminder && (
-                  <button
-                    className={`jr-rem ${remDone ? 'done' : remOverdue ? 'overdue' : ''}`}
-                    disabled={remDone || !openRem || !onReminderDone}
-                    title={remDone ? C.doneState : C.markDoneTitle}
-                    aria-label={remDone ? C.doneState : C.markDoneTitle}
-                    onClick={(ev) => { ev.stopPropagation(); if (openRem && onReminderDone) onReminderDone(openRem) }}
-                  >
-                    <span className="jr-rem-box"><Icon id="check" /></span>
-                    <span className="jr-rem-due">
-                      {remDone ? C.doneState : remOverdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(openRem!.dueAt))}
-                    </span>
-                  </button>
+                {/* ⚠️ NO tick-off control here any more. There were two: one on the row where the
+                    item was raised and one in the pinned block above, doing the same thing to the
+                    same item — and the row's was the worse of the two, because it scrolls away
+                    while the block cannot. This row is the RECORD; the block is where you work.
+                    A timed Erinnerung shows its Fälligkeit, since that is a fact about the entry
+                    rather than a control. */}
+                {isReminder && openRem?.dueAt && (
+                  <span className={`jr-remstate ${remOverdue ? 'overdue' : ''}`}>
+                    {remOverdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(openRem.dueAt))}
+                  </span>
                 )}
                 {/* opens IN the app (lib/ui · openPhoto): `target="_blank"` handed the picture to
                     Safari on an installed iPad, which means leaving a running Einsatz to look at

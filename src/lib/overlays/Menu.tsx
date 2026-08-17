@@ -53,11 +53,17 @@ export interface MenuActionItem {
   onClick: () => void
   danger?: boolean
   disabled?: boolean
+  /** Pin this row to the BOTTOM of a scrolling menu. For a list that is long AND has a row or two
+   *  you nearly always want, the two ends of the scroll fight each other: showing the top hides
+   *  the answer, showing the bottom hides the list. A pinned row ends that — it stays put whatever
+   *  the list does, and the bottom is the end that works either way, because a menu near the
+   *  screen's edge flips its side without telling the caller. Only meaningful on the LAST items. */
+  sticky?: boolean
   /** shown as a small reason line under a disabled item (native title never shows when disabled) */
   reason?: ReactNode
 }
 
-export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, collisionPadding = 10 }: {
+export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, alignOffset = 0, collisionPadding = 10, scrollToEnd = false }: {
   trigger: ReactElement
   items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuRadioGroup)[]
   popupClassName?: string
@@ -67,6 +73,16 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
   side?: 'top' | 'bottom' | 'left' | 'right'
   align?: 'start' | 'center' | 'end'
   sideOffset?: number
+  /** Shift along the alignment axis. For a menu whose rows repeat an icon the TRIGGER
+   *  also shows, this is what lets the two line up: the popup's own padding otherwise
+   *  pushes its first column right of the control it came from, which reads as an
+   *  alignment mistake even to someone who could not say what is off. */
+  alignOffset?: number
+  /** Open a scrollable menu at its END rather than its start. For a list whose most-used
+   *  rows sit last — because it opens upwards and the nearest row to the trigger is the
+   *  one being reached for — showing the top means the answer is below the fold, which is
+   *  worse than not having ordered it at all. */
+  scrollToEnd?: boolean
   /** Keep-off distance from the viewport edge. Without it a wide menu on a control near the right
    *  edge is positioned flush to that edge and can render half off screen — which is exactly what
    *  the Rapport's print menu did on a tablet. Applies to every Menu in the app on purpose: this
@@ -116,7 +132,9 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
     return (
       <BaseMenu.Item
         key={key}
-        className={itemClassName ? itemClassName(!!it.danger) : undefined}
+        className={[itemClassName ? itemClassName(!!it.danger) : '',
+          it.sticky ? 'ui-menu-sticky' : '']
+          .filter(Boolean).join(' ') || undefined}
         disabled={it.disabled}
         onClick={it.onClick}
       >
@@ -150,8 +168,20 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
     <BaseMenu.Root>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
-        <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding}>
-          <BaseMenu.Popup className={popupClassName}>
+        <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding}>
+          <BaseMenu.Popup
+            className={popupClassName}
+            // ⚠️ rAF as well as the immediate set: the popup attaches before its own rows have
+            // wrapped to their final heights, so a scrollTop written at that moment lands short.
+            ref={scrollToEnd
+              ? (el) => {
+                if (!el) return
+                const toEnd = () => { el.scrollTop = el.scrollHeight }
+                toEnd()
+                requestAnimationFrame(toEnd)
+              }
+              : undefined}
+          >
             {blocks.map((b, i) => (
               // no label = nothing to associate, so no wrapper either — an extra div around the
               // rows would only add a box for the popup's own layout to reason about

@@ -224,7 +224,17 @@
 /* full-width scrim so the right tool rail is also blocked while the Verlauf drawer is open
    (the drawer sits at z61, above this) */
 .journal-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(12, 18, 28, .48); }
-.journal-drawer { position: fixed; top: 88px; right: 112px; bottom: 12px; width: 440px; max-width: calc(100vw - 124px); z-index: 61;
+/* ⚠️ 620px and closer to the rail, up from 440 at right:112px. The Verlauf now carries the
+   Pendenzen block as well as the log, and both are lines of prose: an item's text plus its
+   Meldungen ellipsised after a handful of words. The 112px gutter was ~30px more than the rail
+   needs (`.tool-rail` sits at right:16px and `--vrail-w` is 60–64px compact), so the panel sat
+   adrift in the middle of the map with air on the side it is anchored to. 84px clears the compact
+   rail with a hair of daylight; `max-width` keeps it honest on a narrow window, and below the
+   mobile breakpoint it becomes a bottom sheet anyway.
+   ⚠️ The WIDE rail (--vrail-w 212) overlaps this — as it always did, and deliberately: it is a
+   transient state you drag open and let go of, and it renders above (z-index 30 vs the drawer's
+   61 puts the drawer on top, so nothing is lost behind it). */
+.journal-drawer { position: fixed; top: 88px; right: 84px; bottom: 12px; width: 620px; max-width: calc(100vw - 96px); z-index: 61;
   display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--shadow); padding: 10px;
   animation: drawerIn .18s var(--ease); }
@@ -254,6 +264,23 @@
 .jr-chip-plan { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green-strong); }
 /* row appended after the Einsatzende (archive → reopen correction) */
 .jr-chip-nachtrag { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+/* a Pendenz, and every Meldung on it. The rows are ordinary in every other respect and stand
+   where they happened — this chip is what says they belong to something that had to come back. */
+.jr-chip-pendenz { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+.jr-chip-pendenz.done { background: var(--fill-soft); color: var(--ink-faint); }
+/* ⚠️ WHICH item a Meldung answers. Without it three «PENDENZ» rows in a row are three unrelated
+   sentences: the Verlauf is chronological, so each link has to carry its own anchor. Quiet and
+   truncated — it is a reference, not the content of the row. */
+.jr-note-on { flex: none; max-width: 40%; min-width: 0; display: inline-flex; align-items: baseline; gap: 5px;
+  border: 0; background: none; padding: 0; cursor: pointer; text-align: left;
+  font: 600 11.5px var(--body); color: var(--amber-strong); }
+.jr-note-on:hover:not(:disabled) i { text-decoration: underline; }
+.jr-note-on:disabled { cursor: default; }
+/* ⚠️ The truncation lives on the INNER span, and the «›» outside it. On the outer element the
+   ellipsis ate the separator too, so a long item name ran straight into the Meldung's own text
+   with nothing between them. */
+.jr-note-on i { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; }
+.jr-note-on::after { content: "›"; flex: none; color: var(--ink-faint); font-weight: 400; }
 .jr-text { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
 /* calendar-day separator: the Verlauf can span days (Hochwasser) or weeks (Nachträge) */
 .jr-day-sep { display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px; font-size: 11px;

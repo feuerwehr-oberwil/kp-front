@@ -246,6 +246,15 @@ export const de = {
             'Ein Verlaufseintrag mit Ort springt beim Antippen zurück auf die Stelle in Karte oder Plan; Fotos und Sprachnotizen lassen sich direkt im Verlauf öffnen/abspielen.',
             '**Wiedergabe starten** spielt Lage und Plan zu einem früheren Zeitpunkt ab (Zeitschieber; Bearbeiten ist dabei gesperrt).',
           ] },
+          { kind: 'sub', text: 'Pendenzen' },
+          { kind: 'list', items: [
+            'Der **Ring** neben «Info · Auftrag · Sofortmassnahme» macht aus einem Eintrag eine **Pendenz**: sie bleibt offen, bis sie abgehakt ist. Ein Tipp auf den Ring öffnet die Auswahl – **Neue Pendenz**, **Dringende Pendenz**, oder eine bereits offene, an die dieser Eintrag als **Meldung** gehängt wird.',
+            'Offene Pendenzen stehen **oben im Verlauf**, dringende zuoberst, danach die ältesten. Die Zeit sagt, **wann sie erteilt wurden**; ein Tipp darauf zeigt stattdessen das Alter. Der Ring links hakt sie ab.',
+            'Eine Pendenz sammelt **Meldungen**: die Zeile antippen schreibt eine dazu – mit allem, was ein Eintrag kann, also auch als Sprachnotiz oder Foto. Alle Meldungen stehen unter ihrer Pendenz, und im Verlauf trägt jede den Anfang der Pendenz als Verweis; ein Tipp darauf springt zu ihr.',
+            'Eine Pendenz hat **keine Fälligkeit** – auf dem Schadenplatz meldet sich niemand zur Uhrzeit zurück. Wer eine Zeit will, nimmt die **Erinnerung**: die meldet sich selbst und trägt in der Liste ein ⏱.',
+            'Auf dem Rapport erscheinen sie als **«Aufträge / Pendenzen»** mit Was · Wer · Erteilt · Erledigt; noch offene stehen als **offen** da. Der Abschnitt lässt sich in **«Abschnitte»** abwählen.',
+          ] },
+          { kind: 'note', text: '**Wer** wird nicht abgefragt: der Satz nennt ihn. «Werkhof Oberwil stellt Absperrmaterial» genügt – der markierte Name landet als Wer auf dem Rapport.' },
         ],
       },
       {
@@ -1018,7 +1027,7 @@ export const de = {
     // but a Wiedervorlage is the one row that is about the FUTURE, and on a busy Einsatz it
     // was thirty rows up within ten minutes. Held here it cannot be scrolled past; the row it
     // came from stays in its place in the chronology, this is a second view of it.
-    openRemindersHead: 'Offene Erinnerungen',
+    openRemindersHead: 'Pendenzen',
     openReminderGo: 'Zum Eintrag springen',
     doneLog: 'Erinnerung erledigt: {text}',
     snoozeLog: 'Erinnerung +{mins} min: {text}',
@@ -1027,6 +1036,43 @@ export const de = {
     overdueLabel: 'überfällig',
     doneState: 'erledigt',
     markDoneTitle: 'Als erledigt markieren',
+    // ── Pendenzen ─────────────────────────────────────────────────────────────────────────
+    // The ○ switch beside the Art chips. THREE states on one control; the accessible name says
+    // what a tap will leave behind, because the ring alone cannot.
+    // ⚠️ `openStates[0]` is what the resting ring announces — «offen halten», an instruction, not
+    // a status. The other two are statuses, because by then it is one.
+    openStates: ['Offen halten', 'Bleibt offen – steht in den Pendenzen', 'Dringend – steht zuoberst'] as string[],
+    pendenzSaved: 'Pendenz erfasst',
+    pendenzUrgentSaved: 'Pendenz erfasst – dringend',
+    // an undatierte Pendenz never called itself an Erinnerung, so its done row must not either
+    pendenzDoneLog: 'Pendenz erledigt: {text}',
+    // Meldungen ON a Pendenz — written in the ORDINARY composer, opened from the item's row
+    noteOnTitle: 'Meldung',
+    noteOnLabel: 'zu ',
+    noteOnClear: 'Verknüpfung lösen',
+    // The ○ switch's menu. ⚠️ «Neue Pendenz» is deliberately the FIRST row and «Meldung zu» the
+    // heading of the second block: the menu has to read as one question — what is this line? — so
+    // that «a new open item» and «a report on an existing one» are visibly the same kind of answer
+    // rather than two features that happen to share a control.
+    linkPendenzTitle: 'Meldung zu',
+    pendenzNew: 'Neue Pendenz',
+    pendenzNewUrgent: 'Dringende Pendenz',
+    pendenzNotOpen: 'Nicht offen halten',
+    noteSaved: 'Meldung erfasst',
+    noteChip: 'Pendenz',
+    noteOpen: 'Meldung erfassen',
+    // the list's time column: when it was raised. Tapping it swaps the whole column to the age —
+    // «seit wann läuft das» is the question, and on a long Einsatz the clock stops answering it.
+    // ⚠️ BARE, and short enough for the 38px column the Verlauf's own clock sits in. «vor 32 min»
+    // wrapped to three lines there and turned every row into a paragraph. The column is a toggle
+    // between two readings of one instant, so the words are not what tells them apart — «21:58»
+    // against «32′» could not be confused for each other if they tried.
+    ageLabel: '{n}′',
+    ageLabelHours: '{n} h',
+    ageToggle: 'Zeit / Alter umschalten',
+    openState: 'offen',
+    expand: 'Aufklappen',
+    collapse: 'Zuklappen',
   },
   errors: {
     noMicrophone: 'Kein Mikrofonzugriff. Audionotiz als Platzhalter vermerkt.',
@@ -2748,6 +2794,7 @@ export const de = {
     toggleAttendance: 'Anwesenheit ({n})',
     toggleMittel: 'Mittel ({n})',
     toggleJournal: 'Einsatzjournal',
+    togglePendenzen: 'Aufträge / Pendenzen ({n})',
     toggleAttachments: 'Fotos ({n})',
     // Fotos: pictures that belong to the RAPPORT (ID, damage), not into the Verlauf.
     // ⚠️ The upload only takes `image/*`. As long as that holds, the surface is called «Fotos»

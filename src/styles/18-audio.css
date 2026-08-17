@@ -203,8 +203,20 @@
    grids sitting directly on top of each other; at 6px against 8px their vertical seams missed
    each other by 2px and the chips came out different widths than the buttons below them —
    which is exactly what you see before you can say what you are seeing. */
-.jc-meta-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+/* ⚠️ FOUR TRACKS, and the last one is FIXED. The ○ switch is a fourth item in a three-column
+   grid, which puts it on a second row — the sheet grows a line the moment you tap it, on the one
+   surface already fighting the keyboard for every row it has. A fixed final track keeps all four
+   on one line at every width, and because the track never changes size, cycling the switch
+   through its three states moves nothing: the three chips keep the width they had. */
+.jc-meta-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) var(--tap);
   align-items: stretch; gap: 8px; min-width: 0; }
+/* ⚠️ …and THREE tracks when there is no switch. Writing a Meldung hides it (a control on one
+   Meldung must not re-rank the whole Pendenz), and a reserved-but-empty fourth track then took
+   44px plus a gutter from three chips that need every pixel — «Sofortmassnahme» hyphenated onto a
+   second line and the strip grew taller on the sheet with the LEAST in it. Keeping the columns
+   identical across the two sheets was the intent; costing a line of height for a column that
+   holds nothing is not worth it. */
+.jc-meta-row:not(:has(.jc-openwrap)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 /* ⚠️ `min-width: 0` + a break opportunity, or the long one does NOT wrap: a grid item's
    min-width is `auto`, so «Sofortmassnahme» — one word with nowhere to break — sized its own
    column to the whole word and hung over the right edge of a phone screen (visible in the
@@ -229,6 +241,16 @@
      reads as the compound it is. Ignored where unsupported — the word still wraps. */
   hyphenate-limit-chars: 8 4 4;
 }
+/* ⚠️ Whenever the ○ switch is in the row it takes 44px + a gutter, and the three chips pay for
+   it: «Sofortmassnahme» then hyphenates onto a second line and the strip stands ~24px taller — so
+   the SAME card was taller as an entry than as a Meldung (which has no switch), which is exactly
+   the thing this row is fought over to avoid. Tied to the switch's presence rather than to a
+   viewport width, because that is what actually takes the space; a phone hits it at 360px and a
+   desktop hits it too, since the sheet is 460px wide there and no wider.
+   ⚠️ Verify this with the app's OWN font. Measured first against a test page that fell back to
+   system-ui, which reported one line at every width while Sora wrapped in the real sheet. */
+.jc-meta-row:has(.jc-openwrap) { gap: 6px; }
+.jc-meta-row:has(.jc-openwrap) .jc-chip { padding: 5px 3px; font-size: 11.5px; }
 .jc-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
 /* --blue, never --accent: this is a SELECTED state, and --accent is the deployment's brand red */
 .jc-chip.on { color: var(--blue-strong); font-weight: 700;
@@ -243,6 +265,151 @@
 .jc-chip.jc-type-sofort.on { color: var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* ── «bleibt offen» ────────────────────────────────────────────────────────────────────────
+   The ring, after the three Arten. It answers a DIFFERENT question than they do — they say what
+   kind of statement this is, it says whether anything has to come back to it — so it is not a
+   fourth chip in their row but its own control beside them, with its own shape.
+   ⚠️ THE RING, NOT A WORD. It is the same ring that appears on the Verlauf row and in the
+   Pendenzen list, where tapping it fills it in and closes the item. Three sightings of one shape
+   carry further than a label that only exists on this sheet — and a label would have to be
+   reserved at its longest state, which is exactly the width the three chips need for
+   «Sofortmassnahme». What the ring means is in `title` + the accessible name, and the toast after
+   sending says it in words («Pendenz erfasst»).
+   ⚠️ Three states on one control, and each has its own fill: empty → filled → filled + warn.
+   A second tap may mean something here because the ring is NEW; on the Art chips the second tap
+   has always meant «off», and redefining a learned gesture shipped as a bug once already. */
+/* ── the two Pendenz chips in the suggestion row ────────────────────────────────────────────
+   ⚠️ They must NOT look like their neighbours. Every other chip in that row inserts a word; these
+   change what the entry is — so they carry the ring and the amber of the link chip they produce,
+   and the row shows at a glance which of its chips write text and which one re-files the sheet. */
+/* ⚠️ `inline-flex`. `.jc-phrase` sets no display, so a <button> stays inline-block — and the ring
+   inside it (`display: grid`) is then a BLOCK box, which pushed the label onto a second line
+   inside the pill. `white-space: nowrap` cannot help with that: the break is between two boxes,
+   not between two words. */
+.jc-phrase-pendenz { display: inline-flex; align-items: center;
+  gap: 7px; padding: 6px 12px 6px 8px; color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 10%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 40%, transparent);
+  max-width: 100%; min-width: 0; overflow: hidden; }
+.jc-phrase-pendenz .jc-ring { width: 15px; height: 15px; border-width: 1.8px; flex: none;
+  background: currentColor; box-shadow: inset 0 0 0 2.5px var(--surface); }
+/* the item's own words, truncated — the chip is a target, not the entry */
+.jc-phrase-pendenz { white-space: nowrap; text-overflow: ellipsis; }
+/* the picker's own list. It borrows the shared menu look (.rp-print-menu) and adds the one thing
+   that surface never needed: a ceiling. Every open item is in here, and at a Lagerapport that is a
+   dozen — each wrapping to as many lines as its Auftrag takes, because this is a list you pick
+   from, not a set of labels. */
+/* ⚠️ `--available-height` is what the POSITIONER measured between the trigger and the viewport
+   edge; without it in this min() the popup simply took its 60vh and hung off the bottom of the
+   screen — measured at 77px past it on a phone, which put the pinned row entirely out of reach.
+   Base UI publishes the variable on `.ui-menu-pos` and it inherits down to the popup; the
+   fallback keeps this honest if a positioner ever stops setting it. */
+.jc-pendenz-menu { max-height: min(60vh, 460px, var(--available-height, 60vh));
+  overflow-y: auto; overscroll-behavior: contain; }
+.jc-pendenz-menu .rp-print-menu-item { align-items: flex-start; white-space: normal; line-height: 1.35; gap: 11px; }
+.jc-pendenz-menu .jc-menu-label { flex: 1; min-width: 0; }
+/* the pinned rows at the foot of the picker (Menu · MenuActionItem.sticky). Opaque, or the list
+   scrolling under them shows through; the first of them carries the rule that used to be a
+   separator in the flow. */
+.jc-pendenz-menu { --jc-menu-step: 48px; }   /* one pinned row: --tap (44) + the 4px item gap */
+.jc-pendenz-menu .ui-menu-sticky { position: sticky; z-index: 1; background: var(--surface); }
+/* ⚠️ The rows are opaque, and the SEAMS between them were not: stacked, they leave the 4px the
+   popup puts between items, and the list scrolled through those slits. Each pinned row therefore
+   paints 4px beyond its own box, and the last one covers the popup's bottom padding too. */
+/* ⚠️ Each pinned row rests on the one below it, so the offsets STACK. Measured in the app at
+   44px + 4px; expressed once as `--jc-menu-step` so the three rules cannot drift apart. Counted
+   from the end, because how many there are depends on whether «Nicht offen halten» is showing. */
+.jc-pendenz-menu .ui-menu-sticky:nth-last-child(3) { bottom: calc(2 * var(--jc-menu-step)); }
+.jc-pendenz-menu .ui-menu-sticky:nth-last-child(2) { bottom: var(--jc-menu-step); }
+.jc-pendenz-menu .ui-menu-sticky:last-child { bottom: 0; }
+.jc-pendenz-menu .ui-menu-sticky { box-shadow: 0 0 0 4px var(--surface); }
+.jc-pendenz-menu .ui-menu-sticky:last-child { box-shadow: 0 0 0 4px var(--surface), 0 10px 0 var(--surface); }
+/* ── the boundary between the list and the pinned block ────────────────────────────────────
+   A line AND a soft shadow: the line says «different thing», the shadow says «the list runs on
+   underneath». Without it «Verknüpfung lösen» read as one more open item to pick — the very
+   confusion the pinned row exists to avoid.
+   ⚠️ On a pseudo-element, NOT in `box-shadow`. It was a second shadow, and the `:last-child` rule
+   above then REPLACED it — which is invisible in the ring's menu (two pinned rows, the upper one
+   keeps its line) and fatal in the header's, where the single pinned row is also the last one and
+   so had no boundary at all.
+   ⚠️ And it is drawn on every pinned row, then taken back off any that follows another: CSS has
+   no previous-sibling combinator, so «only the topmost of them» has to be said backwards. */
+/* ⚠️ NO `position: relative` here. It was, for this pseudo-element — and being a later rule of
+   the same specificity it overwrote `position: sticky` on the very rows whose whole purpose is to
+   stick, so they scrolled away with the list and off the bottom of the screen. A sticky element is
+   already a containing block for its absolutely positioned children; it needs nothing added. */
+.jc-pendenz-menu .ui-menu-sticky::before {
+  content: ""; position: absolute; left: -4px; right: -4px; top: -4px; height: 1px;
+  background: var(--border); box-shadow: 0 -7px 9px -5px rgba(20, 30, 50, .16); }
+.jc-pendenz-menu .ui-menu-sticky + .ui-menu-sticky::before { display: none; }
+.jc-pendenz-menu .i { flex: none; width: 15px; height: 15px; color: var(--green); margin-top: 2px; }
+/* the ring, in the state the row stands for — the same three fills the switch itself shows */
+.jc-menu-ring { flex: none; width: 19px; height: 19px; margin-top: 1px; border-radius: 50%;
+  border: 2px solid var(--ink-faint); display: grid; place-items: center; }
+.jc-menu-ring[data-state="1"] { border-color: var(--amber-strong); background: var(--amber-strong);
+  box-shadow: inset 0 0 0 3px var(--surface); }
+.jc-menu-ring[data-state="2"] { border-color: var(--red); background: var(--red); }
+.jc-menu-ring .jc-bang { transform: translateY(-1px); }
+
+/* ⚠️ There was a «Zu einer Pendenz» chip here, sticky at the row's right edge, and it is gone
+   (17.08.). It was the widest thing in a row that completes words, permanently, for the rarest
+   thing anyone does there — and it did something categorically different from its neighbours. The
+   picker now hangs off a LONG PRESS on the ○ switch (see JournalComposer), which is where «this
+   entry belongs to something open» already lives. */
+
+/* the grid cell the ring lives in — its menu is anchored to the ring itself */
+.jc-openwrap { position: relative; display: grid; min-width: 0; }
+.jc-open { min-width: 0; min-height: var(--tap); padding: 0; border-radius: var(--r-sm); cursor: pointer;
+  display: grid; place-items: center; border: 1px solid var(--glass-edge); background: var(--surface);
+  color: var(--ink-faint); -webkit-tap-highlight-color: transparent; }
+.jc-open:hover { color: var(--ink-dim); border-color: var(--ink-faint); }
+.jc-ring { width: 21px; height: 21px; border-radius: 50%; border: 2px solid currentColor;
+  display: grid; place-items: center; }
+/* the urgency mark, drawn rather than iconised: a bar + a dot on the solid disc. The `warn`
+   triangle was tried and pulled — a triangle's optical centre is below its bounding box, so it
+   hung low inside the ring, and at 12px a triangle outline inside a circle outline is just two
+   shapes competing. `translateY` because the mark is bar-plus-dot: its INK centre is above its
+   box centre by half the gap. */
+.jc-bang { width: 2.5px; height: 7px; border-radius: 1.5px; background: var(--surface);
+  position: relative; transform: translateY(-1.5px); }
+.jc-bang::after { content: ""; position: absolute; left: 0; bottom: -4.5px;
+  width: 2.5px; height: 2.5px; border-radius: 50%; background: var(--surface); }
+/* offen — amber, the same ink the Pendenzen block is tinted with, so the switch and the list it
+   feeds are visibly the same thing */
+.jc-open[data-state="1"] { color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 15%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.jc-open[data-state="1"] .jc-ring { background: currentColor; box-shadow: inset 0 0 0 3px var(--surface); }
+/* dringend — red, and the only state that carries a glyph. Not pulsing: a priority is not an
+   alarm, and the pulsing red in this app belongs to the überfällige Trupp. */
+.jc-open[data-state="2"] { color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  border-color: color-mix(in srgb, var(--red) 45%, transparent); }
+.jc-open[data-state="2"] .jc-ring { background: currentColor; border-color: currentColor; }
+
+/* it replaces the Eintrag/Erinnerung track — the kind of row is already settled */
+.jc-mode-title { flex: 1 1 auto; min-width: 0; font: 800 14px var(--body); color: var(--ink);
+  /* ⚠️ the height of the Eintrag/Erinnerung track it stands in for (.useg-btn min-height + the
+     track's 3px padding), or the same card is shorter as a Meldung than as an entry */
+  min-height: var(--tap); display: flex; align-items: center; }
+/* ⚠️ A Meldung says WHAT IT IS and WHAT IT IS ABOUT on the title row, not on a band of its own
+   beneath it. As a separate amber row it pushed the whole sheet down one line, so the same card
+   stood at two different heights depending on how it had been opened — and the sheet is a
+   bottom-anchored one on a phone, where every row is fought for. */
+/* ⚠️ It is a BUTTON now (it opens the picker), so it has to give back everything a button brings
+   with it: the UA fill, the border, the centred inherited-but-not-quite typography. Without this
+   the title sat in a pale grey box of its own and «Meldung» came out in the UA's button colour. */
+.jc-mode-note { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  border: 0; background: none; padding: 0 8px 0 0; font: inherit; color: var(--ink); cursor: pointer;
+  border-radius: var(--r-sm); }
+.jc-mode-note:hover { background: var(--fill-soft); }
+.jc-mode-note .jc-ring { width: 17px; height: 17px; flex: none; border: 2px solid var(--amber-strong);
+  border-radius: 50%; background: var(--amber-strong); box-shadow: inset 0 0 0 3px var(--surface); }
+.jc-mode-note b { flex: none; font-weight: 800; }
+.jc-mode-note em { flex: none; font-style: normal; font-weight: 700; color: var(--amber-strong); }
+.jc-mode-note-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600; color: var(--ink-dim); }
 
 /* Einsatzuhr: tap-to-cycle clock (duration / wall time / start) beside the wall clock. It's a
    <button> now — strip the native chrome and give it a comfortable tap area. */

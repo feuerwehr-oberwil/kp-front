@@ -756,6 +756,9 @@ export function IncidentWorkspace({
     return () => sw.removeEventListener('message', onMsg)
   }, [])
   const [composerOpen, setComposerOpen] = useState(false)
+  /** the Pendenz the composer is writing a Meldung on — set by tapping its row in the Verlauf.
+   *  Cleared whenever the composer closes, so the next ordinary «Eintrag» is never still linked. */
+  const [noteOn, setNoteOn] = useState<{ id: string; text: string } | null>(null)
   // the moment the Eintrag composer opened — used as the entry timestamp (the info was usually
   // relevant / the order given then, not when Erfassen is finally pressed)
   const composerOpenedAt = useRef<string | null>(null)
@@ -1464,12 +1467,29 @@ export function IncidentWorkspace({
         ? fillTemplate(appConfig.copy.journal.audioImportedNote, { duration: d.audioMeta?.durationSec != null ? formatAudioDuration(d.audioMeta.durationSec) : '–' })
         : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs}s)` : ''}` : photoUrls.length ? appConfig.copy.journal.photoNote : appConfig.copy.log.journalNote)
     const rowId = `e${Date.now()}-j`
+    // ── Pendenz / Meldung ────────────────────────────────────────────────────────────────────
+    // ⚠️ The lifecycle event rides on THIS row — the entry IS the Pendenz. «Auftrag · Trupp 2
+    // entraucht Treppenhaus» is both the record and the open item; there is no shadow row.
+    // ⚠️ And tracking hangs off this event, NEVER off `entryType === 'auftrag'`. Keying it to the
+    // tag would turn every Auftrag row already written — live incidents and the archive alike —
+    // into an eternally open Pendenz nobody can tick off. Old rows stay plain text, no migration.
+    const pendenzId = d.pendenz ? `pnd${Date.now()}` : undefined
+    const reminder: TimelineEvent['reminder'] = d.noteFor
+      ? { op: 'note', id: d.noteFor.id }
+      : pendenzId
+        ? {
+          op: 'created', id: pendenzId,
+          // the BARE text, without the «Auftrag · » tag composeJournalText adds — the list and
+          // the Rapport print their own context and would otherwise stutter it (see types)
+          text: body, urgent: d.pendenz!.urgent || undefined, assignee: d.assignee,
+        }
+        : undefined
     pushEvent({
       // «Wer» and «Art» are composed INTO the text (lib/journalEntry): `text` is the record —
       // Verlauf, Rapport and the hash chain all read this one string, and a row whose meaning
       // lived in a side field would read differently in the app than it does on paper. The
       // structured fields travel along for filtering, not for display.
-      icon, text: composeJournalText(body, d), kind, entryType: d.entryType,
+      icon, text: composeJournalText(body, d), kind, entryType: d.entryType, reminder,
       audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
       // an imported memo lands at its confirmed recording start; everything else at composer-open
       at: (imported ? d.audioMeta?.startedAt : undefined) ?? composerOpenedAt.current ?? undefined,
@@ -1481,12 +1501,22 @@ export function IncidentWorkspace({
     // session blob: URL (in-app recording) still needs the upload/queue path
     if (d.audioUrl?.startsWith('blob:')) void uploadMediaForRow(rowId, d.audioUrl, 'audio')
     emit('journal.add', { id: rowId, kind })
+    // the Pendenz lifecycle goes into the hash-chained audit too, like create/done/snooze already do
+    if (pendenzId) emit('reminder.create', { id: pendenzId })
+    else if (d.noteFor) emit('reminder.note', { id: d.noteFor.id })
     // Leave the Verlauf as it was. Forcing it open is right for exactly one entry point — the
     // Verlauf's own «Eintrag» button — and there it is already open behind the composer, so it
     // is a no-op. From the phone's FAB or a checklist deep link it yanked the operator off the
     // map they were working on, for a save the toast has already confirmed.
     setComposerOpen(false)
-    toast(appConfig.copy.journal.saved, { icon, tone: 'success' })
+    setNoteOn(null)
+    const C = appConfig.copy.journal
+    toast(
+      d.noteFor ? C.noteSaved
+        : d.pendenz ? (d.pendenz.urgent ? C.pendenzUrgentSaved : C.pendenzSaved)
+          : C.saved,
+      { icon: d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success' },
+    )
   }
 
   // Durchhören player: replay a long recording and
@@ -1519,7 +1549,10 @@ export function IncidentWorkspace({
       // reminder lifecycle — done + snooze — not just creation.
       emit(ev.reminder.op === 'done' ? 'reminder.done' : 'reminder.snooze', { id: ev.reminder.id, ...(ev.reminder.dueAt ? { dueAt: ev.reminder.dueAt } : {}) })
     },
-    { dueTitle: appConfig.copy.journal.dueTitle, doneLog: appConfig.copy.journal.doneLog, snoozeLog: appConfig.copy.journal.snoozeLog },
+    {
+      dueTitle: appConfig.copy.journal.dueTitle, doneLog: appConfig.copy.journal.doneLog,
+      pendenzDoneLog: appConfig.copy.journal.pendenzDoneLog, snoozeLog: appConfig.copy.journal.snoozeLog,
+    },
     !replayActive,
     incidentMeta.closed_at,
   )
@@ -3610,6 +3643,16 @@ export function IncidentWorkspace({
           onReplay={!replayActive ? () => { setJournalOpen(false); enterReplay() } : undefined}
           openReminders={reminders.open}
           onReminderDone={!readOnly ? reminders.markDone : undefined}
+          // tap a Pendenz → write a Meldung on it. The Verlauf steps aside so the composer is
+          // not stacked on a drawer the operator can no longer see behind it.
+          // ⚠️ The Verlauf STAYS OPEN behind it. Closing it meant that finishing a Meldung — or
+          // thinking better of it — dropped you back onto the map, away from the list you were
+          // working through; and at a Lagerapport you write several in a row. The composer is a
+          // modal above the drawer (z 81 over 61), so nothing is lost behind it.
+          onReminderNote={!readOnly ? (r) => {
+            setNoteOn({ id: r.id, text: r.text })
+            setComposerOpen(true)
+          } : undefined}
           mediaStatusOf={media.statusOf}
           onOpenPlayer={(e, seekSec) => setPlayer({ row: e, seekSec })}
           onEditText={!readOnly ? (id, text) => journal.appendPatch(id, { textEdit: text }) : undefined}
@@ -3642,7 +3685,14 @@ export function IncidentWorkspace({
           // Fahrzeuge, Alarmgruppen. Typing three letters of any of them completes it.
           vocab={journalVocab}
           onSubmit={addJournal}
-          onClose={() => setComposerOpen(false)}
+          onClose={() => { setComposerOpen(false); setNoteOn(null) }}
+          noteOn={noteOn ?? undefined}
+          onClearNote={() => setNoteOn(null)}
+          // …and the same list the Verlauf pins, so an entry being written can be attached to an
+          // open item without going through the Verlauf at all — the sheet offers the ones the
+          // sentence already names, and holds a picker for the rest.
+          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent }))}
+          onLinkPendenz={(pdz) => setNoteOn(pdz)}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
         />

@@ -20,6 +20,7 @@ import {
   eventIso,
   hasVisiblePlanAnnotation,
   journalRows,
+  pendenzRows,
   metaExtrasForPdf,
   missingTranscriptCount,
   mittelFormForPdf,
@@ -545,5 +546,43 @@ describe('changedReportMetaFields (what the Verlauf row says)', () => {
   it('never prints a raw field identifier on the signed rapport', () => {
     // `startedAt` has no human name; a row reading «startedAt» is worse than no row
     expect(changedReportMetaFields(base, { ...base, startedAt: '2026-08-10T12:00:00Z' })).toEqual([])
+  })
+})
+
+// The Rapport's «Aufträge / Pendenzen» section. Unlike the block in the Verlauf, this prints the
+// CLOSED ones too — paper is a record, and a section showing only the leftovers would say what
+// went wrong and nothing about what was ordered and done.
+describe('report Pendenzen rows', () => {
+  // exactly the shape addJournal writes: the lifecycle event rides on the ENTRY's own row
+  const entry = (id: string, at: string, text: string, r: TimelineEvent['reminder']): TimelineEvent =>
+    ({ id, t: at.slice(11, 16), at, icon: 'type', text, kind: 'journal', surface: 'map', reminder: r })
+
+  const events: TimelineEvent[] = [
+    entry('n2', '2026-08-16T20:59:00.000Z', 'ooooke', { op: 'note', id: 'p2' }),
+    entry('d1', '2026-08-16T20:59:30.000Z', 'erledigt', { op: 'done', id: 'p1' }),
+    entry('n1', '2026-08-16T20:59:10.000Z', 'Fahrzeug unterwegs', { op: 'note', id: 'p1' }),
+    entry('e2', '2026-08-16T20:58:30.000Z', 'Auftrag · Patient an Sanität übergeben',
+      { op: 'created', id: 'p2', text: 'Patient an Sanität übergeben', assignee: 'Sanität' }),
+    entry('e1', '2026-08-16T20:58:00.000Z', 'Testpendenz 1',
+      { op: 'created', id: 'p1', text: 'Testpendenz 1', urgent: true }),
+  ]
+
+  it('lists both the closed and the still-open item, oldest first', () => {
+    const rows = pendenzRows(events)
+    expect(rows.map((r) => r.text)).toEqual(['Testpendenz 1', 'Patient an Sanität übergeben'])
+    expect(rows[0].erledigt).toBeTruthy()
+    expect(rows[1].erledigt).toBeUndefined() // prints «offen»
+  })
+
+  it('prints the bare text, not the row with its «Auftrag · » tag', () => {
+    expect(pendenzRows(events)[1].text).toBe('Patient an Sanität übergeben')
+  })
+
+  it('carries urgency, the assignee and every Meldung', () => {
+    const [first, second] = pendenzRows(events)
+    expect(first.urgent).toBe(true)
+    expect(first.notes.map((n) => n.text)).toEqual(['Fahrzeug unterwegs'])
+    expect(second.assignee).toBe('Sanität')
+    expect(second.notes.map((n) => n.text)).toEqual(['ooooke'])
   })
 })

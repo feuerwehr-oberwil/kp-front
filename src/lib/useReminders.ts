@@ -13,8 +13,10 @@ export interface ReminderEvent {
 interface Copy {
   /** OS-notification title when a reminder comes due */
   dueTitle: string
-  /** Verlauf text for a done row, `{text}` = reminder text */
+  /** Verlauf text for a done row on a timed Erinnerung, `{text}` = the item's text */
   doneLog: string
+  /** …and on an undatierte Pendenz, which never called itself an Erinnerung */
+  pendenzDoneLog: string
   /** Verlauf text for a snooze row, `{mins}` + `{text}` */
   snoozeLog: string
 }
@@ -82,9 +84,12 @@ export function useReminders(
 
   useEffect(() => () => { if (toneTimer.current) clearTimeout(toneTimer.current); stopAlarm() }, [])
 
+  // ⚠️ Two wordings, picked off the item itself: an undatierte Pendenz never called itself an
+  // Erinnerung, so «Erinnerung erledigt: Absperrmaterial» would name a thing that never existed.
   const markDone = useCallback((r: OpenReminder) => {
-    onEvent({ icon: 'check', text: copy.doneLog.replace('{text}', r.text), reminder: { op: 'done', id: r.id } })
-  }, [onEvent, copy.doneLog])
+    const tpl = r.dueAt ? copy.doneLog : copy.pendenzDoneLog
+    onEvent({ icon: 'check', text: tpl.replace('{text}', r.text), reminder: { op: 'done', id: r.id } })
+  }, [onEvent, copy.doneLog, copy.pendenzDoneLog])
 
   const snooze = useCallback((r: OpenReminder, mins: number) => {
     const dueAt = new Date(Date.now() + mins * 60_000).toISOString()

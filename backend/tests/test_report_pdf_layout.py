@@ -591,3 +591,53 @@ def test_a_wrapping_partner_row_keeps_its_box_on_the_first_line():
     # the ✗ in the box and the first word of the organisation share a line (within one line's
     # height); a middle-aligned box on a three-line row sat a full line-and-a-half below it
     assert abs(top_of("X") - top_of("Blaulicht")) < 6, "the tick is not on the organisation's first line"
+
+
+def test_pendenzen_section_prints_after_the_journal():
+    """⚠️ The section is a plain extra field on ``ReportPayload``, so a backend that has not been
+    restarted silently DROPS it (pydantic ignores unknown keys) and the rapport comes out looking
+    exactly as it did before — no error, no hint. This asserts the composer actually emits it."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Pendenz-Probe", "id": "p"},
+            "generatedAt": "16.08.2026 22:00",
+            "journal": [{"timeLabel": "21:58", "area": "Lage", "text": "Blablabla"}],
+            "pendenzen": [
+                {
+                    "text": "Absperrmaterial Kreuzung",
+                    "assignee": "Werkhof Oberwil",
+                    "urgent": True,
+                    "erteilt": "21:02",
+                    "notes": [{"timeLabel": "21:19", "text": "Fahrzeug unterwegs"}],
+                },
+                {"text": "Öl binden Vorplatz", "erteilt": "21:18"},
+            ],
+        }
+    )
+    doc = pdfium.PdfDocument(io.BytesIO(compose_report_pdf(payload, {}, {})))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+
+    assert "Aufträge / Pendenzen" in text
+    assert "Absperrmaterial Kreuzung" in text
+    assert "Werkhof Oberwil" in text
+    # a Meldung prints as its own indented sub-line under the item
+    assert "Fahrzeug unterwegs" in text
+    # ⚠️ Urgency is a single «!» before the text, not a column and not the word — the legend in
+    # the footer is the only place «dringend» is spelled out, once for the whole section.
+    assert "! = dringend" in text
+    # …and an item nobody ticked off says so, which is the point of printing the section at all
+    assert "offen" in text
+
+
+def test_pendenzen_section_is_absent_without_any():
+    """An Einsatz that raised none must not print an empty table — the blank form costs paper."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Ohne", "id": "p"},
+            "generatedAt": "16.08.2026 22:00",
+            "journal": [{"timeLabel": "21:58", "area": "Lage", "text": "Blablabla"}],
+        }
+    )
+    doc = pdfium.PdfDocument(io.BytesIO(compose_report_pdf(payload, {}, {})))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Aufträge / Pendenzen" not in text

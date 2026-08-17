@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveReminders, isDue } from './reminders'
+import { deriveReminders, isDue, suggestPendenzen } from './reminders'
 import type { TimelineEvent } from '../types'
 
 // timeline is stored newest-first (App prepends), so fixtures list newest rows first.
@@ -60,17 +60,12 @@ describe('deriveReminders', () => {
     expect(deriveReminders(tl)[0].dueAt).toBe('2026-06-24T03:10:00.000Z')
   })
 
-  it('ignores a malformed created row that has no due', () => {
+  // ⚠️ REVERSED, deliberately. A `created` row without a due used to be treated as malformed and
+  // dropped, because the only way to make one was the Erinnerung mode, which demands a Fälligkeit.
+  // No due is now the ordinary Pendenz — so the same shape has to be kept, not skipped.
+  it('keeps a created row that has no due (that is a Pendenz, not a malformed reminder)', () => {
     const tl = [row('r1', 'x', { op: 'created', id: 'a' })]
-    expect(deriveReminders(tl)).toHaveLength(0)
-  })
-
-  it('sorts soonest-due first', () => {
-    const tl = [
-      row('r2', 'later', { op: 'created', id: 'b', dueAt: '2026-06-24T04:00:00.000Z' }),
-      row('r1', 'sooner', { op: 'created', id: 'a', dueAt: '2026-06-24T03:10:00.000Z' }),
-    ]
-    expect(deriveReminders(tl).map((r) => r.id)).toEqual(['a', 'b'])
+    expect(deriveReminders(tl)).toHaveLength(1)
   })
 
   it('ignores non-reminder rows', () => {
@@ -79,8 +74,87 @@ describe('deriveReminders', () => {
   })
 })
 
+// A Pendenz is a `created` event WITHOUT a dueAt. It never alarms — there are no check-ins on a
+// Schadenplatz, so a Fälligkeit on an Auftrag would only be alerting yourself.
+describe('deriveReminders — Pendenzen (no due time)', () => {
+  it('keeps a created row that has no dueAt', () => {
+    const tl = [row('r1', 'Absperrmaterial', { op: 'created', id: 'a', text: 'Absperrmaterial' })]
+    const open = deriveReminders(tl)
+    expect(open).toHaveLength(1)
+    expect(open[0].dueAt).toBeUndefined()
+  })
+
+  it('an undated Pendenz is never due', () => {
+    const tl = [row('r1', 'x', { op: 'created', id: 'a', text: 'x' })]
+    expect(isDue(deriveReminders(tl)[0], Date.now() + 10 ** 9)).toBe(false)
+  })
+
+  // The closure rule exists to stop stale ALARMS on a reopened incident. An undatierte Pendenz
+  // cannot alarm and is genuinely unfinished — dropping it would hide the one thing somebody has
+  // to take away from the Einsatz.
+  it('survives the Einsatzende, unlike a stale timed Erinnerung', () => {
+    const tl = [
+      row('r2', 'stale', { op: 'created', id: 'timed', dueAt: '2026-06-24T01:00:00.000Z' }),
+      row('r1', 'offen', { op: 'created', id: 'pend', text: 'offen' }),
+    ]
+    expect(deriveReminders(tl, '2026-06-24T02:00:00.000Z').map((r) => r.id)).toEqual(['pend'])
+  })
+
+  it('sorts dringend first, then oldest first', () => {
+    const tl = [
+      row('r3', 'neu', { op: 'created', id: 'c', text: 'neu' }, '2026-06-24T03:30:00.000Z'),
+      row('r2', 'dringend', { op: 'created', id: 'b', text: 'dringend', urgent: true }, '2026-06-24T03:20:00.000Z'),
+      row('r1', 'alt', { op: 'created', id: 'a', text: 'alt' }, '2026-06-24T03:00:00.000Z'),
+    ]
+    expect(deriveReminders(tl).map((r) => r.id)).toEqual(['b', 'a', 'c'])
+  })
+
+  it('carries the assignee read off the sentence', () => {
+    const tl = [row('r1', 'x', { op: 'created', id: 'a', text: 'x', assignee: 'Werkhof Oberwil' })]
+    expect(deriveReminders(tl)[0].assignee).toBe('Werkhof Oberwil')
+  })
+})
+
+// Meldungen: a third op that reports on an item without opening or closing it.
+describe('deriveReminders — Meldungen', () => {
+  const created = row('r1', 'Absperrmaterial', { op: 'created', id: 'a', text: 'Absperrmaterial' }, '2026-06-24T03:00:00.000Z')
+
+  it('lists every Meldung on the item, oldest first', () => {
+    const tl = [
+      row('r3', 'Material vor Ort', { op: 'note', id: 'a' }, '2026-06-24T03:33:00.000Z'),
+      row('r2', 'Fahrzeug unterwegs', { op: 'note', id: 'a' }, '2026-06-24T03:19:00.000Z'),
+      created,
+    ]
+    const [r] = deriveReminders(tl)
+    // ⚠️ ALL of them, oldest first — the item's row is the only place the thread reads as one
+    expect(r.notes.map((n) => n.text)).toEqual(['Fahrzeug unterwegs', 'Material vor Ort'])
+  })
+
+  // ⚠️ The one that matters: a Meldung must never resurrect a closed item, whatever order the
+  // rows merged in.
+  it('does not reopen an item a later done row closed', () => {
+    const tl = [
+      row('r3', 'noch was', { op: 'note', id: 'a' }, '2026-06-24T03:40:00.000Z'),
+      row('r2', 'erledigt', { op: 'done', id: 'a' }, '2026-06-24T03:35:00.000Z'),
+      created,
+    ]
+    expect(deriveReminders(tl)).toHaveLength(0)
+  })
+
+  // ⚠️ Nothing WRITES this today — the composer's switch is hidden while writing a Meldung, because
+  // a control on one Meldung that re-ranks the whole Pendenz is not what it looks like. The reducer
+  // stays tolerant of it so the action can be given its own control without a second reducer.
+  it('takes urgency from whatever event carries it, latest wins', () => {
+    const tl = [
+      row('r2', 'wird eng', { op: 'note', id: 'a', urgent: true }, '2026-06-24T03:20:00.000Z'),
+      created,
+    ]
+    expect(deriveReminders(tl)[0].urgent).toBe(true)
+  })
+})
+
 describe('isDue', () => {
-  const r = { id: 'a', rowId: 'r1', text: 'x', dueAt: '2026-06-24T03:10:00.000Z', createdAt: '' }
+  const r = { id: 'a', rowId: 'r1', text: 'x', dueAt: '2026-06-24T03:10:00.000Z', createdAt: '', notes: [] }
   it('is false before the due time', () => {
     expect(isDue(r, Date.parse('2026-06-24T03:09:59.000Z'))).toBe(false)
   })
@@ -108,5 +182,36 @@ describe('deriveReminders — expired by closure (Einsatzende)', () => {
   it('without a closed_at everything stays open (live incident unchanged)', () => {
     const open = deriveReminders([created('a', '2026-07-02T12:00:00Z')])
     expect(open.map((r) => r.id)).toEqual(['a'])
+  })
+})
+
+// What the composer offers while an entry is being typed: an open item the sentence already names.
+describe('suggestPendenzen', () => {
+  const open = deriveReminders([
+    row('r2', 'Patient an Sanität übergeben', { op: 'created', id: 'b', text: 'Patient an Sanität übergeben' }, '2026-06-24T03:10:00.000Z'),
+    row('r1', 'Absperrmaterial Kreuzung, Werkhof Oberwil', { op: 'created', id: 'a', text: 'Absperrmaterial Kreuzung, Werkhof Oberwil' }, '2026-06-24T03:00:00.000Z'),
+  ])
+
+  it('offers the item a word of the sentence names', () => {
+    expect(suggestPendenzen('Werkhof meldet Fahrzeug unterwegs', open).map((r) => r.id)).toEqual(['a'])
+  })
+
+  // ⚠️ The one that matters. Accepting a suggestion changes what the entry IS, so a subsequence
+  // coincidence («…s-A-N-I-tät» inside an unrelated sentence) must not offer itself.
+  it('does not match letters scattered through unrelated words', () => {
+    expect(suggestPendenzen('Sonstige Anmerkung ist tabellarisch', open)).toEqual([])
+  })
+
+  it('matches across punctuation inside the item', () => {
+    expect(suggestPendenzen('Kreuzung gesperrt', open).map((r) => r.id)).toEqual(['a'])
+  })
+
+  it('says nothing for a sentence that names none of them', () => {
+    expect(suggestPendenzen('Lüfter im Erdgeschoss gestellt', open)).toEqual([])
+  })
+
+  it('ignores single letters and empty input', () => {
+    expect(suggestPendenzen('a', open)).toEqual([])
+    expect(suggestPendenzen('', open)).toEqual([])
   })
 })

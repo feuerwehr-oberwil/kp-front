@@ -149,6 +149,37 @@ class JournalRowIn(BaseModel):
     photoUrls: list[str] = []
 
 
+class PendenzNoteIn(BaseModel):
+    """One Meldung on an open item — an indented sub-line under its «Was»."""
+
+    timeLabel: str
+    text: str
+
+
+class PendenzRowIn(BaseModel):
+    """One Auftrag / Pendenz, derived by the client from the append-only journal.
+
+    The columns are the BGV form's (KKO BS / KFS BL 2022-09 «AUFTRÄGE / PENDENZEN»): Was · Wer ·
+    Erteilt · Erledigt. Two of them fall out of the record for free — ``erteilt`` is the entry's
+    own timestamp, ``erledigt`` the timestamp of the row that closed it — which is why this prints
+    without anybody filling a form in.
+
+    ⚠️ No Prio COLUMN. Priority is two-state, so a column for it would be blank on almost every
+    row while taking the width «Was» needs; ``urgent`` prints as a short marker before the text
+    instead, where the reading actually happens.
+    """
+
+    text: str
+    #: «Wer» — the first vocabulary name in the sentence, not a field anybody filled in
+    assignee: str | None = None
+    urgent: bool = False
+    erteilt: str  # client-formatted HH:MM (or the full stamp when the Einsatz spans days)
+    #: absent ⇒ still open at the Einsatzende, and the cell prints «offen». That is the whole
+    #: point of the section: what somebody still has to take away from the incident.
+    erledigt: str | None = None
+    notes: list[PendenzNoteIn] = []
+
+
 class KrokiEntityIn(BaseModel):
     """One placed tactical symbol for the server-rendered Kroki. Dynamic glyphs
     (live vehicles, placards) arrive as the client-resolved SVG string."""
@@ -398,6 +429,10 @@ class ReportOptionsIn(BaseModel):
     attendance: bool = True
     mittel: bool = True
     journal: bool = True
+    #: «Aufträge / Pendenzen». ⚠️ Its OWN switch, not part of `journal`: suppressing the long
+    #: Einsatzjournal is a normal choice, and the outstanding items are the last thing that should
+    #: disappear with it. Defaults True so an older client that sends no option still prints them.
+    pendenzen: bool = True
 
 
 class PersonalSummaryIn(BaseModel):
@@ -462,6 +497,9 @@ class ReportPayload(BaseModel):
     partnerPresets: list[str] = []
     personalSummary: PersonalSummaryIn | None = None
     journal: list[JournalRowIn] = []
+    #: Aufträge / Pendenzen — printed right after the Verlauf they are derived from, so a reader
+    #: checking one line only turns back a page.
+    pendenzen: list[PendenzRowIn] = []
     attachments: list[AttachmentIn] = []
 
 
@@ -521,6 +559,16 @@ L = {
     "personalCount": "<b>{n} Anwesende</b>",
     "personalTotals": "<b>{n} Anwesende</b> · Einsatzstunden <b>{h}</b> · gerundet <b>{r}</b>",
     "journal": "Einsatzjournal",
+    # Aufträge / Pendenzen — the column headings are word-for-word the BGV form's, so whoever
+    # knows the paper finds their way on the print without being told it is the same thing.
+    "pendenzen": "Aufträge / Pendenzen",
+    "colWas": "Was",
+    "colWer": "Wer",
+    "colErteilt": "Erteilt",
+    "colErledigt": "Erledigt",
+    "pendenzOpen": "offen",
+    "pendenzUrgent": "dringend",
+    "pendenzFoot": "Abgeleitet aus dem Verlauf · <b>!</b> = dringend · eingerückt: Meldungen zur Pendenz · «offen» = beim Einsatzende nicht erledigt",
     "colArea": "Bereich",
     "colEntry": "Eintrag",
     "transcript": "Transkript",
@@ -697,6 +745,11 @@ def _styles() -> dict[str, ParagraphStyle]:
         "cellhead": ParagraphStyle(
             "rp_cellhead", parent=base["Normal"], fontSize=8, leading=10, textColor=dim, fontName="Helvetica-Bold"
         ),
+        # a Meldung under its Pendenz: indented and quieter, so the item's own «Was» still reads
+        # as the line and the updates read as what came back on it
+        "subline": ParagraphStyle(
+            "rp_subline", parent=base["Normal"], fontSize=8, leading=10.5, textColor=dim, leftIndent=8
+        ),
         "muted": ParagraphStyle("rp_muted", parent=base["Normal"], fontSize=9, leading=12, textColor=dim),
         "mono": ParagraphStyle(
             "rp_mono", parent=base["Normal"], fontSize=8.5, leading=11, textColor=ink, fontName="Courier"
@@ -748,6 +801,9 @@ def _styles() -> dict[str, ParagraphStyle]:
 
 _GRID = colors.HexColor("#d7dde5")
 _PANEL = colors.HexColor("#eef2f7")
+#: the «!» that marks a dringende Pendenz. Dark enough to survive a monochrome
+#: printer as a solid mark rather than a grey smudge — most station printers are one.
+_URGENT = "#b21f14"
 _WRITE = colors.HexColor("#969696")  # write-in dotted leaders/stubs (jsPDF gray 150)
 #: a clock the app derived rather than one somebody recorded — same grey as a write-in stub,
 #: because both mean «this is not a measured value»
@@ -1319,7 +1375,7 @@ def compose_report_pdf(
         story.extend(head(L["journal"]))
         # the Eintrag column's content width — mirrors the colWidths below, minus the two
         # 5pt side paddings _table_style() puts inside every cell
-        entry_w = inner_w - 60 * mm - 10
+        entry_w = inner_w - 53 * mm - 10
         thead = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colTime", "colArea", "colEntry")]
         body: list[list] = []
         for r in payload.journal:
@@ -1340,11 +1396,60 @@ def compose_report_pdf(
                     entry_cells.append(Spacer(1, 2))
                     entry_cells.append(photo)
             body.append([Paragraph(_esc(r.timeLabel), st["cell"]), Paragraph(_esc(r.area), st["cell"]), entry_cells])
-        # time column wide enough for the full "DD.MM.YYYY, HH:MM" label so it never wraps onto
-        # a second line (which inflated every journal row).
-        tbl = Table([thead, *body], colWidths=[36 * mm, 24 * mm, inner_w - 60 * mm], repeatRows=1)
+        # ⚠️ 29mm: the longest label «16.08.2026 15:35» measures 24.7mm at 9pt Helvetica, plus the
+        # 3.5mm of cell padding — so it never wraps onto a second line, which would inflate EVERY
+        # journal row. It was 36mm, sized for a label that still carried a comma between the date
+        # and the time (see lib/report · formatDateTime); a date does not get longer, so the extra
+        # 7mm was permanent white space taken from the one column that holds the entries.
+        tbl = Table([thead, *body], colWidths=[29 * mm, 24 * mm, inner_w - 53 * mm], repeatRows=1)
         tbl.setStyle(_table_style())
         story.append(tbl)
+
+    # --- Aufträge / Pendenzen — a SECTION on the Verlauf's sheet, not a page of its own ------
+    # It is derived from the rows just above it, so it belongs with them: checking a line means
+    # turning back one page, not hunting the document. And it stays out of the main part on
+    # purpose — that part mirrors the WinFAP-Vorlage field for field, and a section inserted
+    # there breaks the correspondence the whole sheet is built on.
+    if opt.pendenzen and payload.pendenzen:
+        story.append(Spacer(1, 7 * mm))
+        story.extend(head(L["pendenzen"]))
+        p_head = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colWas", "colWer", "colErteilt", "colErledigt")]
+        p_body: list[list] = []
+        for pdz in payload.pendenzen:
+            # «dringend» as a marker before the text, not as a column: with two priority levels a
+            # column is blank on nearly every row and costs the width «Was» needs.
+            # ⚠️ A single red «!», not the word «dringend ·». The word plus a middot in front of
+            # the text read as a broken sentence — two punctuation marks and a label competing
+            # with the Auftrag itself, on the column that carries the most prose on the page.
+            # One glyph marks the row without being read as part of it; the footer says what it
+            # means, once, instead of every row saying it.
+            lead = f'<font color="{_URGENT}"><b>!</b></font>  ' if pdz.urgent else ""
+            cells: list = [Paragraph(f"{lead}{_esc(pdz.text)}", st["cell"])]
+            for n in pdz.notes:
+                cells.append(Paragraph(f"{_esc(n.timeLabel)}  {_esc(n.text)}", st["subline"]))
+            p_body.append(
+                [
+                    cells,
+                    Paragraph(_esc(pdz.assignee or ""), st["cell"]),
+                    Paragraph(_esc(pdz.erteilt), st["cell"]),
+                    Paragraph(_esc(pdz.erledigt) if pdz.erledigt else f"<b>{_esc(L['pendenzOpen'])}</b>", st["cell"]),
+                ]
+            )
+        p_tbl = Table(
+            [p_head, *p_body],
+            colWidths=[inner_w - 74 * mm, 34 * mm, 20 * mm, 20 * mm],
+            repeatRows=1,
+        )
+        # ⚠️ `flush_left=False` — the first column keeps its 5pt like every other. The default
+        # drops it to zero so a grid table lines up with the section rule above it, which is right
+        # where that column holds a short label; here it holds the Auftrag in full AND its
+        # Meldungen as indented sub-lines, and with no padding the text sat on the grid line while
+        # each sub-line's own indent was measured from the border rather than from the text. Five
+        # points of daylight against five points of heading alignment is not a close call here.
+        p_tbl.setStyle(_table_style())
+        story.append(p_tbl)
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph(L["pendenzFoot"], st["muted"]))  # carries its own <b> — not escaped
 
     # --- Anhang: Kroki + annotated plans ALWAYS at the end (decided 2026-07-14) — the data
     # sections above are the identical main section; visual material is appended, never
@@ -1582,7 +1687,7 @@ def compose_report_pdf(
             # A pressure log is three short values — a clock, one word and a number. At 45/35/20
             # of the full width it read as a table of mostly empty space.
             tbl = Table([thead, *body], colWidths=[inner_w * x for x in (0.26, 0.16, 0.12)], repeatRows=1)
-            tbl.setStyle(_table_style(flush_left=False))
+            tbl.setStyle(_table_style())
             # ⚠️ Indented to the Trupp's VALUE column, not to the frame edge. The log belongs to
             # the Trupp above it the same way «Eintritt: 20:29» does, and starting it at the page
             # margin made it read as a new full-width section that happened to follow. Its own
@@ -2097,7 +2202,16 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
     return _two_up(mittel, column, label_w + amt_w + unit_w)
 
 
-def _table_style(flush_left: bool = True) -> TableStyle:
+def _table_style() -> TableStyle:
+    """The one grid-table look on the sheet: hairline grid, panel header row, 5pt inside cells.
+
+    ⚠️ The first column once had its LEFTPADDING dropped to zero, so a table would line up with
+    the section rule above it. Every one of these tables draws a GRID, so what that actually did
+    was print the text ON the line — and in a column carrying prose with indented sub-lines
+    («Aufträge / Pendenzen»), each sub-line's indent then measured from the border rather than
+    from the text above it. Five points of daylight beats five points of heading alignment, and
+    with the last caller gone the flag itself is no longer worth its explanation.
+    """
     return TableStyle(
         [
             ("GRID", (0, 0), (-1, -1), 0.4, _GRID),
@@ -2107,12 +2221,5 @@ def _table_style(flush_left: bool = True) -> TableStyle:
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("LEFTPADDING", (0, 0), (-1, -1), 5),
             ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-            # ...but the FIRST column shares the section rule's left edge. At 5pt every
-            # grid table on the sheet started 5pt right of the heading over it.
-            # ⚠️ Only for a table that STARTS at that edge. The Atemschutz pressure log is
-            # indented to its Trupp's value column, so there is no rule to line up with — and
-            # zero padding there put «Zeit» hard against the cell border while «Art» in the
-            # next column had its 5pt. `flush_left=False` keeps all three columns even.
-            *([("LEFTPADDING", (0, 0), (0, -1), 0)] if flush_left else []),
         ]
     )
