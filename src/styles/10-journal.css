@@ -257,7 +257,13 @@
 .journal-x .i { width: 14px; height: 14px; }
 
 /* Verlauf row layout — surface chip + event text (reuses .history-list / .hist-ev) */
-.hist-ev .tx { display: flex; align-items: baseline; gap: 7px; flex: 1; min-width: 0; }
+/* ⚠️ `flex-wrap: wrap`. The chips and the entry text share this line, and on a phone an audio row
+   also carries three trailing buttons — so `.tx` was left about 26px for the text. With
+   `overflow-wrap: anywhere` on it (below) and `min-width: 0` removing the automatic minimum,
+   flexbox happily shrank the text to ONE PIXEL: «Audionotiz (6s)» came out as fourteen lines of
+   one character. Wrapping lets the text drop under the chips and use the row's whole width; it
+   still sits beside them whenever it fits. */
+.hist-ev .tx { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 7px; flex: 1; min-width: 0; }
 .jr-chip { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
   padding: 2px 6px; border-radius: var(--r-xs); line-height: 1.3; }
 .jr-chip-map { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue-strong); }
@@ -281,7 +287,11 @@
    with nothing between them. */
 .jr-note-on i { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; }
 .jr-note-on::after { content: "›"; flex: none; color: var(--ink-faint); font-weight: 400; }
-.jr-text { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
+/* ⚠️ `flex: 1 1 auto` — it TAKES the space left on its line rather than being handed its content
+   width and then shrunk out of existence. `overflow-wrap: anywhere` stays: an unbroken 40-letter
+   street name has to break somewhere, and that is what it is for — but it also drops the text's
+   min-content width to one character, which is why the two rules belong together. */
+.jr-text { flex: 1 1 auto; min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
 /* calendar-day separator: the Verlauf can span days (Hochwasser) or weeks (Nachträge) */
 .jr-day-sep { display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px; font-size: 11px;
   font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
