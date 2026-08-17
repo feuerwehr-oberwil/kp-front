@@ -308,7 +308,11 @@
 /* the pinned rows at the foot of the picker (Menu · MenuActionItem.sticky). Opaque, or the list
    scrolling under them shows through; the first of them carries the rule that used to be a
    separator in the flow. */
-.jc-pendenz-menu { --jc-menu-step: 48px; }   /* one pinned row: --tap (44) + the 4px item gap */
+/* One pinned row's pitch — and the rows in this menu ABUT, so it is the row height and nothing
+   more. ⚠️ It was 48px: measured once between two rows of which one was already pinned at the
+   wrong offset, so the measurement confirmed the gap it had itself created, and the pinned block
+   then stood 4px looser than the list above it. Measured against two ordinary list rows: 44. */
+.jc-pendenz-menu { --jc-menu-step: var(--tap); }
 .jc-pendenz-menu .ui-menu-sticky { position: sticky; z-index: 1; background: var(--surface); }
 /* ⚠️ The rows are opaque, and the SEAMS between them were not: stacked, they leave the 4px the
    popup puts between items, and the list scrolled through those slits. Each pinned row therefore
@@ -319,8 +323,10 @@
 .jc-pendenz-menu .ui-menu-sticky:nth-last-child(3) { bottom: calc(2 * var(--jc-menu-step)); }
 .jc-pendenz-menu .ui-menu-sticky:nth-last-child(2) { bottom: var(--jc-menu-step); }
 .jc-pendenz-menu .ui-menu-sticky:last-child { bottom: 0; }
-.jc-pendenz-menu .ui-menu-sticky { box-shadow: 0 0 0 4px var(--surface); }
-.jc-pendenz-menu .ui-menu-sticky:last-child { box-shadow: 0 0 0 4px var(--surface), 0 10px 0 var(--surface); }
+/* a 2px bleed against sub-pixel rounding between abutting rows, and the last one also covers the
+   popup's own bottom padding so nothing scrolls into it */
+.jc-pendenz-menu .ui-menu-sticky { box-shadow: 0 0 0 2px var(--surface); }
+.jc-pendenz-menu .ui-menu-sticky:last-child { box-shadow: 0 0 0 2px var(--surface), 0 10px 0 var(--surface); }
 /* ── the boundary between the list and the pinned block ────────────────────────────────────
    A line AND a soft shadow: the line says «different thing», the shadow says «the list runs on
    underneath». Without it «Verknüpfung lösen» read as one more open item to pick — the very
@@ -341,7 +347,7 @@
    shapes this menu takes, because whether the rows sit directly in the popup or inside the group
    a heading opened, «is anything before me» is the same question. */
 .jc-pendenz-menu .ui-menu-sticky:not(:first-child)::before {
-  content: ""; position: absolute; left: -4px; right: -4px; top: -4px; height: 1px;
+  content: ""; position: absolute; left: -4px; right: -4px; top: -1px; height: 1px;
   background: var(--border); box-shadow: 0 -7px 9px -5px rgba(20, 30, 50, .16); }
 .jc-pendenz-menu .ui-menu-sticky + .ui-menu-sticky::before { display: none; }
 .jc-pendenz-menu .i { flex: none; width: 15px; height: 15px; color: var(--green); margin-top: 2px; }
