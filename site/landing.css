@@ -232,6 +232,32 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .fit-note { margin-top: 20px; font-size: .9rem; color: var(--ink-faint); max-width: 70ch; }
 .fit-note a { color: var(--ink-dim); }
 
+/* Die Bande trägt zwei Fragen nebeneinander: links «ist das für uns?», rechts
+   «gehört das dann auch uns?». Die zweite ist die, die einem Kommandanten die
+   Sorge nimmt – darum eine eigene Fläche und nicht bloss eine dritte Zeile.
+   Unter 860px stapeln sie, und der Kasten kommt dann unter den Filter. */
+.fit-split { display: grid; grid-template-columns: 1fr minmax(280px, 380px); gap: 40px; }
+.fit-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--red);
+  border-radius: var(--r-surface);
+  padding: 20px 22px;
+  align-self: start;
+}
+.fit-panel h2 { font-size: 1.08rem; font-weight: 700; letter-spacing: -.015em; }
+.fit-panel p { font-size: .89rem; color: var(--ink-dim); margin-top: 8px; }
+.fit-panel ul { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 7px; }
+.fit-panel li {
+  display: flex; align-items: center; gap: 9px;
+  font-size: .87rem; font-weight: 600; color: var(--ink);
+}
+.fit-panel li::before {
+  content: ''; flex: none; width: 11px; height: 6px;
+  border-left: 2px solid var(--red); border-bottom: 2px solid var(--red);
+  transform: rotate(-45deg) translateY(-2px);
+}
+
 /* ---------- 3am band ---------- */
 /* die einzige dunkle Sektion: die Nacht als Story-Moment mitten im Tag */
 .tenet {
@@ -592,6 +618,7 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .pillars-grid { grid-template-columns: 1fr; }
   .stages { grid-template-columns: 1fr; gap: 22px; }
   .contact-grid { grid-template-columns: 1fr; gap: 28px; }
+  .fit-split { grid-template-columns: 1fr; gap: 24px; }
   .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }
 }
 @media (max-width: 560px) {

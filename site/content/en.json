@@ -46,7 +46,16 @@
       "Hazmat and oil spills",
       "Major incidents"
     ],
-    "note": "Grown out of the real operational work of\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – proven there, and developed further with every incident."
+    "note": "Grown out of the real operational work of\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – proven there, and developed further with every incident.",
+    "own": {
+      "h2": "Your data stays with you.",
+      "p": "KP Front is open source and runs on a machine in your own station or in your own cloud. Incident data, plans, crews and reports stay under your control.",
+      "items": [
+        "No licence fees",
+        "No vendor lock-in",
+        "Run it yourself, extend it yourself"
+      ]
+    }
   },
   "tenet": {
     "eyebrow": "The measure",

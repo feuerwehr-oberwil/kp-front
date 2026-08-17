@@ -49,7 +49,16 @@
       "Chemie- und Ölwehr",
       "Grossereignisse"
     ],
-    "note": "Entwickelt aus dem realen Einsatzbetrieb der\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – dort erprobt und laufend weiterentwickelt."
+    "note": "Entwickelt aus dem realen Einsatzbetrieb der\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – dort erprobt und laufend weiterentwickelt.",
+    "own": {
+      "h2": "Eure Daten bleiben bei euch.",
+      "p": "KP Front ist Open Source und läuft im eigenen Magazin oder in eurer eigenen Cloud. Einsatzdaten, Pläne, Mannschaft und Rapporte bleiben unter eurer Kontrolle.",
+      "items": [
+        "Keine Lizenzkosten",
+        "Keine Herstellerbindung",
+        "Selbst betreiben, selbst weiterentwickeln"
+      ]
+    }
   },
   "tenet": {
     "eyebrow": "Der Massstab",

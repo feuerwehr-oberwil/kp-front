@@ -105,24 +105,35 @@
   </section>
 
   <section class="fit">
-    <div class="wrap">
-      <div class="fit-row">
-        <p class="fit-k">{{fit.whoLabel}}</p>
-        <ul class="fit-v">
-          {{#fit.who}}
+    <div class="wrap fit-split">
+      <div>
+        <div class="fit-row">
+          <p class="fit-k">{{fit.whoLabel}}</p>
+          <ul class="fit-v">
+            {{#fit.who}}
+            <li>{{.}}</li>
+            {{/fit.who}}
+          </ul>
+        </div>
+        <div class="fit-row">
+          <p class="fit-k">{{fit.whatLabel}}</p>
+          <ul class="fit-v">
+            {{#fit.what}}
+            <li>{{.}}</li>
+            {{/fit.what}}
+          </ul>
+        </div>
+        <p class="fit-note">{{fit.note}}</p>
+      </div>
+      <div class="fit-panel">
+        <h2>{{fit.own.h2}}</h2>
+        <p>{{fit.own.p}}</p>
+        <ul>
+          {{#fit.own.items}}
           <li>{{.}}</li>
-          {{/fit.who}}
+          {{/fit.own.items}}
         </ul>
       </div>
-      <div class="fit-row">
-        <p class="fit-k">{{fit.whatLabel}}</p>
-        <ul class="fit-v">
-          {{#fit.what}}
-          <li>{{.}}</li>
-          {{/fit.what}}
-        </ul>
-      </div>
-      <p class="fit-note">{{fit.note}}</p>
     </div>
   </section>
 
