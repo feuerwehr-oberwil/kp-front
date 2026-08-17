@@ -24,6 +24,13 @@
 <meta property="og:image:height" content="937">
 <meta property="og:locale" content="{{ogLocale}}">
 <meta name="twitter:card" content="summary_large_image">
+<!--@template
+  The structured data is assembled in build.mjs, not written out here – JSON.stringify
+  keeps it valid JSON, which this template's substitution could not guarantee.
+-->
+<script type="application/ld+json">
+{{jsonLd}}
+</script>
 <link rel="stylesheet" href="{{base}}landing.css">
 
 <svg style="display:none" aria-hidden="true">

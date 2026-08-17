@@ -1,9 +1,9 @@
 {
   "meta": {
     "title": "KP Front – Einsatzführung für die Milizfeuerwehr",
-    "description": "KP Front ist der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport in einer offline-fähigen Open-Source-App.",
+    "description": "KP Front ist der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport – offline-fähig und quelloffen.",
     "ogTitle": "KP Front – Einsatzführung für die Milizfeuerwehr",
-    "ogDescription": "Der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport in einer offline-fähigen Open-Source-App."
+    "ogDescription": "Der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport – offline-fähig und quelloffen."
   },
   "nav": {
     "aria": "Hauptnavigation",

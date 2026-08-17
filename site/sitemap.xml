@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://kp-front.ch/</loc>
+    <xhtml:link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/"/>
+    <xhtml:link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/"/>
+    <xhtml:link rel="alternate" hreflang="it-CH" href="https://kp-front.ch/it/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kp-front.ch/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kp-front.ch/"/>
+  </url>
+  <url>
+    <loc>https://kp-front.ch/fr/</loc>
+    <xhtml:link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/"/>
+    <xhtml:link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/"/>
+    <xhtml:link rel="alternate" hreflang="it-CH" href="https://kp-front.ch/it/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kp-front.ch/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kp-front.ch/"/>
+  </url>
+  <url>
+    <loc>https://kp-front.ch/it/</loc>
+    <xhtml:link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/"/>
+    <xhtml:link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/"/>
+    <xhtml:link rel="alternate" hreflang="it-CH" href="https://kp-front.ch/it/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kp-front.ch/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kp-front.ch/"/>
+  </url>
+  <url>
+    <loc>https://kp-front.ch/en/</loc>
+    <xhtml:link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/"/>
+    <xhtml:link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/"/>
+    <xhtml:link rel="alternate" hreflang="it-CH" href="https://kp-front.ch/it/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kp-front.ch/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kp-front.ch/"/>
+  </url>
+</urlset>

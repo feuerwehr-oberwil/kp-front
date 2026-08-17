@@ -1,10 +1,10 @@
 {
   "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers, et la démo tourne en allemand. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
   "meta": {
-    "title": "KP Front – conduite d’intervention pour les sapeurs-pompiers de milice",
-    "description": "KP Front est le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport dans une application open source qui fonctionne hors ligne.",
-    "ogTitle": "KP Front – conduite d’intervention pour les sapeurs-pompiers de milice",
-    "ogDescription": "Le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport dans une application open source qui fonctionne hors ligne."
+    "title": "KP Front – conduite d’intervention pour pompiers de milice",
+    "description": "KP Front est le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport – hors ligne et open source.",
+    "ogTitle": "KP Front – conduite d’intervention pour pompiers de milice",
+    "ogDescription": "Le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport – hors ligne et open source."
   },
   "nav": {
     "aria": "Navigation principale",

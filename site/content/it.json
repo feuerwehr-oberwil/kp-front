@@ -1,10 +1,10 @@
 {
-  "notice": "Questa versione italiana non è ancora stata riletta da un pompiere di lingua italiana, e la demo gira in tedesco. Un termine che suona sbagliato? <a href=\"#kontakt\">Scrivetecelo</a>, lo correggiamo.",
+  "notice": "Questa versione italiana non è ancora stata riletta da una persona italofona dei pompieri, e la demo gira in tedesco. Un termine che suona sbagliato? <a href=\"#kontakt\">Scrivetecelo</a>, lo correggiamo.",
   "meta": {
     "title": "KP Front – condotta d’intervento per i pompieri di milizia",
-    "description": "KP Front è il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto in un’app open source che funziona anche offline.",
+    "description": "KP Front è il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto – offline e open source.",
     "ogTitle": "KP Front – condotta d’intervento per i pompieri di milizia",
-    "ogDescription": "Il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto in un’app open source che funziona anche offline."
+    "ogDescription": "Il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto – offline e open source."
   },
   "nav": {
     "aria": "Navigazione principale",
