@@ -339,7 +339,12 @@
    the same specificity it overwrote `position: sticky` on the very rows whose whole purpose is to
    stick, so they scrolled away with the list and off the bottom of the screen. A sticky element is
    already a containing block for its absolutely positioned children; it needs nothing added. */
-.jc-pendenz-menu .ui-menu-sticky::before {
+/* ⚠️ `:not(:first-child)` — a boundary only exists when there is something on the other side of
+   it. With no open Pendenzen the menu is just these pinned rows, and the topmost one drew a rule
+   above itself with nothing above it: a separator separating one thing. It works for both DOM
+   shapes this menu takes, because whether the rows sit directly in the popup or inside the group
+   a heading opened, «is anything before me» is the same question. */
+.jc-pendenz-menu .ui-menu-sticky:not(:first-child)::before {
   content: ""; position: absolute; left: -4px; right: -4px; top: -4px; height: 1px;
   background: var(--border); box-shadow: 0 -7px 9px -5px rgba(20, 30, 50, .16); }
 .jc-pendenz-menu .ui-menu-sticky + .ui-menu-sticky::before { display: none; }
