@@ -79,19 +79,29 @@ describe('JournalComposer · writing a Meldung', () => {
     expect(d.pendenz).toBeUndefined()
   })
 
-  // ⚠️ The ring stays, and is the ONE place «what is this line?» is asked — but in this mode it
-  // offers no «Neue Pendenz» and no urgency: this entry already belongs to something, and a
-  // switch on one Meldung that re-ranks the whole item is not what it looks like.
-  it('keeps the ○ switch, offering re-target and unlink but no new item', async () => {
+  // ⚠️ The ring stays, and is the ONE place «what is this line?» is asked — with the SAME rows it
+  // offers anywhere else. Realising halfway through a sentence that it is its own thing after all
+  // is normal, and it used to take two steps.
+  it('keeps the ○ switch, and asks the same question it asks everywhere', async () => {
     const onClearNote = vi.fn()
     const { onLinkPendenz } = setup({ noteOn, onClearNote })
     fireEvent.click(ring())
     expect(await screen.findByRole('menuitem', { name: /Verknüpfung lösen/ })).toBeTruthy()
-    expect(screen.queryByRole('menuitem', { name: /^Neue Pendenz$/ })).toBeNull()
-    expect(screen.queryByRole('menuitem', { name: /Dringende Pendenz/ })).toBeNull()
+    expect(screen.getByRole('menuitem', { name: /^Neue Pendenz$/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /Dringende Pendenz/ })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('menuitem', { name: /Patient an Sanität/ }))
     expect(onLinkPendenz).toHaveBeenCalledWith(expect.objectContaining({ id: 'p2' }))
+  })
+
+  // ⚠️ …and «Neue Pendenz» UNLINKS on the way. `submit` reads `noteFor` before `pendenz`, so a
+  // draft still carrying the link would file the line as a Meldung and drop the choice silently.
+  it('turning a Meldung into its own item lets the link go first', async () => {
+    const onClearNote = vi.fn()
+    setup({ noteOn, onClearNote })
+    fireEvent.click(ring())
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Neue Pendenz$/ }))
+    expect(onClearNote).toHaveBeenCalled()
   })
 
   it('…and lets go of the link entirely', async () => {

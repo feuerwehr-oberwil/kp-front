@@ -398,13 +398,11 @@
    beneath it. As a separate amber row it pushed the whole sheet down one line, so the same card
    stood at two different heights depending on how it had been opened — and the sheet is a
    bottom-anchored one on a phone, where every row is fought for. */
-/* ⚠️ It is a BUTTON now (it opens the picker), so it has to give back everything a button brings
-   with it: the UA fill, the border, the centred inherited-but-not-quite typography. Without this
-   the title sat in a pale grey box of its own and «Meldung» came out in the UA's button colour. */
+/* ⚠️ A LABEL, and it has to LOOK like one: no pointer, no hover fill. It was a button for a while
+   (it opened the picker), and the leftovers said «press me» about a line that does nothing — the
+   ring beside the Art chips is the control. */
 .jc-mode-note { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-  border: 0; background: none; padding: 0 8px 0 0; font: inherit; color: var(--ink); cursor: pointer;
-  border-radius: var(--r-sm); }
-.jc-mode-note:hover { background: var(--fill-soft); }
+  padding: 0 8px 0 0; color: var(--ink); }
 .jc-mode-note .jc-ring { width: 17px; height: 17px; flex: none; border: 2px solid var(--amber-strong);
   border-radius: 50%; background: var(--amber-strong); box-shadow: inset 0 0 0 3px var(--surface); }
 .jc-mode-note b { flex: none; font-weight: 800; }

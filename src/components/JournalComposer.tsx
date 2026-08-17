@@ -644,8 +644,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   lived on the header link instead, which meant the control moved to the other end
                   of the sheet depending on how the sheet had been opened. One place for «what is
                   this line?», whatever the answer currently is.
-                  ⚠️ What it does NOT do in that mode is set urgency. That was tried: a two-state
-                  switch on one Meldung re-ranked the whole Pendenz it reports on. */}
+                  ⚠️ What it does NOT do while a Meldung is linked is set urgency ON THAT ITEM. That
+                  was tried, as a two-state switch, and it re-ranked the whole Pendenz the Meldung
+                  merely reports on. «Dringende Pendenz» in that menu means something else: let the
+                  link go and make THIS line a dringende one. */}
               <span className="jc-openwrap">
               <Menu
                 side="top"
@@ -661,16 +663,24 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 // things it names is not a heading, whichever way the list is read.
                 items={noteOn
                   ? [
-                    // Writing a Meldung: the only open questions are WHICH item it reports on and
-                    // whether it should report on one at all. «Neue Pendenz» is not among them —
-                    // this line already belongs to something.
+                    // Writing a Meldung — and the menu asks the SAME question it asks anywhere
+                    // else, with the same rows in the same places. «this is its own thing after
+                    // all» is a normal thing to realise halfway through a sentence, and it was
+                    // two steps: let the link go, then say what the line is instead.
                     { kind: 'head' as const, label: C.linkPendenzTitle },
                     ...openPendenzen.map((r) => ({
                       label: menuRow(r.urgent ? 2 : 1, r.text, r.id === noteOn.id),
                       onClick: () => onLinkPendenz?.(r),
                     })),
                     ...(onClearNote
-                      ? [{ label: menuRow(0, C.noteOnClear, false), onClick: onClearNote, sticky: true }]
+                      ? [
+                        { label: menuRow(0, C.noteOnClear, false), onClick: onClearNote, sticky: true },
+                        // ⚠️ Both of these UNLINK first. `submit` reads `noteFor` before `pendenz`,
+                        // so a draft still carrying the link would quietly ignore the choice just
+                        // made and file the line as a Meldung anyway.
+                        { label: menuRow(2, C.pendenzNewUrgent, false), onClick: () => { onClearNote(); setOpenState(2) }, sticky: true },
+                        { label: menuRow(1, C.pendenzNew, false), onClick: () => { onClearNote(); setOpenState(1) }, sticky: true },
+                      ]
                       : []),
                   ]
                   : [
