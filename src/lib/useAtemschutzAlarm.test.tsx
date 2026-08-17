@@ -60,3 +60,56 @@ describe('AtemschutzAlarmHost', () => {
     expect(onState.mock.lastCall![0].peak).toBe(2)
   })
 })
+
+// ⚠️ The Verlauf must not fill with the same alarm. Every mount starts with an empty severity
+// map, so a Trupp who was ALREADY überfällig looked like a fresh 0 → 2 crossing and wrote another
+// «Atemschutz-Alarm: … Überfällig» line — on every reload, resume-from-kill and HMR update.
+describe('AtemschutzAlarmHost · the überfällig line is written once per real crossing', () => {
+  const overdueTrupp = () => trupp({
+    // last contact 10 minutes ago: past 5 min + 60 s, i.e. already tier 2 when the app starts
+    lastContactTime: new Date(T0 - 10 * 60_000).toISOString(),
+  })
+
+  it('does not re-log a Trupp who was already overdue when the app started', () => {
+    const logAlarm = vi.fn()
+    render(
+      <AtemschutzAlarmHost trupps={[overdueTrupp()]} muted active logAlarm={logAlarm}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(5 * 60_000) })
+    expect(logAlarm).not.toHaveBeenCalled()
+  })
+
+  // …and the same when the roster arrives asynchronously with the workspace, which is the normal
+  // case: the first evaluation runs over an EMPTY list, so a global «first pass» flag would be
+  // spent before any Trupp had been seen.
+  it('does not re-log when the Trupps land after the first evaluation', () => {
+    const logAlarm = vi.fn()
+    const { rerender } = render(
+      <AtemschutzAlarmHost trupps={[]} muted active logAlarm={logAlarm}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(1000) })
+    rerender(
+      <AtemschutzAlarmHost trupps={[overdueTrupp()]} muted active logAlarm={logAlarm}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(5 * 60_000) })
+    expect(logAlarm).not.toHaveBeenCalled()
+  })
+
+  it('DOES log a crossing this session watched happen', () => {
+    const logAlarm = vi.fn()
+    render(
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    expect(logAlarm).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) }) // past interval + grace
+    expect(logAlarm).toHaveBeenCalledTimes(1)
+    expect(logAlarm.mock.calls[0][1]).toBe('ueberfaellig')
+    // …and staying overdue writes nothing more
+    act(() => { vi.advanceTimersByTime(10 * 60_000) })
+    expect(logAlarm).toHaveBeenCalledTimes(1)
+  })
+})

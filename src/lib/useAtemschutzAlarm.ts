@@ -47,6 +47,9 @@ export function useAtemschutzAlarm({
   const alarmBar = atemschutzDoctrine().alarmBar
   const [now, setNow] = useState(() => Date.now())
   const alarm = useRef<Alarm | null>(null)
+  /** last tier seen per Trupp. Its KEYS matter as much as its values: a Trupp that is not in it
+   *  yet has never been evaluated by this session, so whatever tier it is on is a state we found,
+   *  not a crossing we watched (see `justCrossed`). */
   const prevSeverity = useRef<Map<string, number>>(new Map())
   const lastNotify = useRef<Map<string, number>>(new Map())
 
@@ -89,8 +92,21 @@ export function useAtemschutzAlarm({
       // It is tier 2 outright: the Alarmdruck IS the deadline, it has no amber lead-up.
       const lowPressure = pressureAlarm(l.currentBar ?? null, alarmBar)
       const sev = lowPressure ? 2 : contactSeverity(l.sinceContactSec, intervalMin, graceSec)
+      // ⚠️ A CROSSING THIS APP ACTUALLY SAW — hence «have we met this Trupp before», not «is the
+      // tier below 2». `prevSeverity` starts empty on every mount, so a Trupp that was ALREADY
+      // überfällig read as 0 → 2 on the first evaluation and wrote another «Überfällig» line: on
+      // every reload, every resume from a killed PWA, every HMR update. The Verlauf filled with
+      // the same alarm while nothing had happened, which is how an Überwacher learns to stop
+      // reading it. The line for that crossing is already in the append-only record, written by
+      // the session that watched it happen.
+      // ⚠️ Per TRUPP, not one global «first pass» flag: the roster arrives asynchronously with the
+      // workspace, so the first pass often runs over an EMPTY list — and every Trupp would then
+      // land afterwards as a fresh 0 → 2 crossing, which is the same bug wearing a hat.
+      const seen = prevSeverity.current.has(t.id)
       const was = prevSeverity.current.get(t.id) ?? 0
-      const justCrossed = sev >= 2 && was < 2
+      // …and a contact still resets the tier to 0, so going overdue again DOES log again — that
+      // is the case actually worth a second line.
+      const justCrossed = seen && sev >= 2 && was < 2
       // the Verlauf already carries the pressure crossing from recordPressure (logPressureAlarm),
       // so only the contact crossing is recorded here — otherwise one reading writes two lines
       if (justCrossed && !lowPressure) logAlarm(t.id, 'ueberfaellig') // crossed into overdue → record once
