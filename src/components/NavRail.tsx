@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import type { RailLabels } from '../lib/prefs'
 import type { PlanDocument } from '../types'
 import { clampRailWidth, snapExpanded, planGlyph } from '../lib/navRail'
 import { SURFACE_KEY } from '../lib/hotkeys'
@@ -23,9 +24,18 @@ interface Props {
   /** trailing slot after the surface list — the phone's 🔧 Bearbeiten toggle lives here
    *  (bar swap: tapping it replaces this surface bar with the tool rail) */
   trailing?: ReactNode
+  /** device pref: put each surface's WORD under its glyph (lib/prefs · railLabels). Distinct from
+   *  the expand chevron, which widens the rail and sets the word beside the glyph for as long as
+   *  it stays open — this is a standing decision and costs ~10px, not 156. */
+  labels?: RailLabels
 }
 
-const COMPACT = 60, WIDE = 216
+/** ⚠️ LABELLED is the compact width with room for a word under the glyph — «Anwesenheit» measures
+ *  76px in the app's own Sora at 10.5px, so 88 is what fits with the rail's padding. It has to be a
+ *  number here as well as a width in CSS: everything that sits beside the rail (the map controls,
+ *  the docks) is positioned off `--rail-w`, so a rail that got wider only in the stylesheet would
+ *  be overlapped by them. */
+const COMPACT = 60, LABELLED = 88, WIDE = 216
 
 // The single left navigation rail: it switches the whole surface (Karte · the
 // current object's Pläne · Checkliste) and replaces both the old TopBar mode-switch
@@ -112,7 +122,17 @@ export function NavRail(p: Props) {
 
   // write the live width so the map-control overlays can follow the rail via calc()
   const setRailVar = (px: number) => document.documentElement.style.setProperty('--rail-w', `${px}px`)
-  const apply = (exp: boolean) => { setExpanded(exp); setRailVar(exp ? WIDE : COMPACT) }
+  const compactW = p.labels === 'short' ? LABELLED : COMPACT
+  const apply = (exp: boolean) => { setExpanded(exp); setRailVar(exp ? WIDE : compactW) }
+  // …and the same when the PREFERENCE changes while the rail sits collapsed: the width lives in
+  // CSS, the offset every neighbour reads lives in `--rail-w`, and the two must not disagree.
+  // ⚠️ Switching the words ON also collapses an expanded rail — its «Einklappen» chevron is gone
+  // in that mode, so an expanded rail would be 216px wide with nothing left to close it.
+  useEffect(() => {
+    if (p.labels === 'short' && expanded) { setExpanded(false); setRailVar(compactW); return }
+    if (!expanded) setRailVar(compactW)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on the pref/collapse change only
+  }, [compactW, expanded, p.labels])
 
   // pull the grip to resize (pointer-capture pattern mirrors lib/useHoldEntry); labels
   // stay hidden during the drag so they never clip mid-resize — they fade in on snap.
@@ -120,7 +140,7 @@ export function NavRail(p: Props) {
     e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId)
     setDragging(true)
     document.documentElement.classList.add('rail-dragging')  // overlays drop easing → stay locked to the edge
-    const startX = e.clientX, startW = expanded ? WIDE : COMPACT
+    const startX = e.clientX, startW = expanded ? WIDE : compactW
     e.currentTarget.dataset.startx = String(startX); e.currentTarget.dataset.startw = String(startW)
   }
   const onGripMove = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -132,15 +152,21 @@ export function NavRail(p: Props) {
     if (!dragging) return
     setDragging(false)
     document.documentElement.classList.remove('rail-dragging')
-    const w = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rail-w')) || COMPACT
+    const w = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rail-w')) || compactW
     apply(snapExpanded(w))
   }
 
   return (
-    <nav className={`navrail${expanded ? ' expanded' : ''}${dragging ? ' dragging' : ''}`}>
-      <button className="nav-exp" onClick={() => apply(!expanded)} aria-label={expanded ? nav.collapse : nav.expand}>
-        <span className="nav-exp-ic"><Icon id="chevron" /></span><span className="nav-exp-t">{expanded ? nav.collapse : nav.expand}</span>
-      </button>
+    <nav className={`navrail${expanded ? ' expanded' : ''}${dragging ? ' dragging' : ''}${p.labels === 'short' ? ' labelled' : ''}`}>
+      {/* ⚠️ NO «Ausklappen» while the words are on. The chevron exists to reveal exactly what this
+          setting already shows — with it on, expanding buys 128px of nothing but a second label
+          position. It stays for everybody else, which is who it was for: somebody who does not
+          know the glyphs yet and wants the names once, without a trip to the Einstellungen. */}
+      {p.labels !== 'short' && (
+        <button className="nav-exp" onClick={() => apply(!expanded)} aria-label={expanded ? nav.collapse : nav.expand}>
+          <span className="nav-exp-ic"><Icon id="chevron" /></span><span className="nav-exp-t">{expanded ? nav.collapse : nav.expand}</span>
+        </button>
+      )}
 
       {/* surfaces — scroll if the list grows; the pinned map-controls below never scroll away.
           The wrap holds an unmasked chevron at whichever edge has hidden items (the fade alone

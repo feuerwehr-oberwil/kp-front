@@ -80,6 +80,19 @@ describe('typing a term', () => {
     expect(suggestLinks('Baumann Michael', vocab).map((l) => l.name)).not.toContain('Baumann Michael')
   })
 
+  // ⚠️ …but a SINGLE-word term is the word being typed, not one already written out. «EL» was
+  // suppressed by its own two letters, so the chip row offered «Stv. EL» — the other post — as the
+  // answer to typing «el», which is how «EL Stv.» ends up in a Verlauf.
+  it('keeps offering a one-word term while it is being typed, and stops once it is accepted', () => {
+    const posts: JournalLink[] = [
+      { name: 'EL', kind: 'person', word: true },
+      { name: 'Stv. EL', kind: 'person', word: true },
+    ]
+    expect(suggestLinks('EL', posts).map((l) => l.name)).toContain('EL')
+    expect(suggestLinks('EL', posts).map((l) => l.name)[0]).toBe('EL')
+    expect(suggestLinks('EL ', posts).map((l) => l.name)).not.toContain('EL')
+  })
+
   it('breaks a score tie on who is actually here', () => {
     const tie: JournalLink[] = [
       { name: 'Brunner Thomas', kind: 'person', present: false },

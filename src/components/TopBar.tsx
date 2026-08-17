@@ -179,7 +179,12 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             <span className="tb-vr tb-vr-history" />
           </>
         )}
-        <button className={`tb-act ${journalOpen ? 'on' : ''}`} aria-pressed={journalOpen} onClick={onToggleJournal} title={reminderCount > 0 ? appConfig.copy.journal.openCount.replace('{n}', String(reminderCount)) : appConfig.copy.journal.open}>
+        {/* ⚠️ `has-rem` tints the BUTTON, not just its corner. The count badge alone is 17px of amber
+            hanging off a 44px icon — and on a phone the next thing in the bar is the Atemschutz
+            chip, which is painted after it and simply covered it up. What «12 offen» has to do is
+            be noticed from across a Schadenplatz, so the control it belongs to carries the colour
+            and the number rides along (see .tb-act.has-rem). */}
+        <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-pressed={journalOpen} onClick={onToggleJournal} title={reminderCount > 0 ? appConfig.copy.journal.openCount.replace('{n}', String(reminderCount)) : appConfig.copy.journal.open}>
           <Icon id="history" /><span>{appConfig.copy.journal.open}</span>
           {reminderCount > 0 && <span className="tb-rem-count" aria-label={appConfig.copy.journal.openCount.replace('{n}', String(reminderCount))}>{reminderCount}</span>}
         </button>

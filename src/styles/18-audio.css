@@ -231,11 +231,15 @@
   display: inline-flex; align-items: center; justify-content: center; text-align: center;
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
   font: 600 12px var(--body); line-height: 1.15; -webkit-tap-highlight-color: transparent;
-  -webkit-hyphens: auto; hyphens: auto; overflow-wrap: anywhere;
-  /* …and never break off a two-letter tail: left to itself the engine takes the LAST break
-     that fits and produced «Sofortmassnah-me». At least four characters on each side it
-     reads as the compound it is. Ignored where unsupported — the word still wraps. */
-  hyphenate-limit-chars: 8 4 4;
+  /* ⚠️ Where the long word breaks is AUTHORED, not guessed (17.08.). Three engines' worth of
+     guessing were tried here and all of them broke it mid-syllable: `overflow-wrap: anywhere` and
+     `break-word` both make every character a break opportunity, and the line-breaker then takes
+     the LONGEST prefix that fits («Sofortmassn|ahme»); `hyphens: auto` needs a German dictionary
+     that is simply absent on some engines. So the label carries ONE soft hyphen at the compound
+     seam (copy · entryTypesWrap → «Sofort­massnahme»), `manual` keeps the engine from inventing
+     others, and a narrow chip reads «Sofort-massnahme». Verified with the app's own Sora at 460px
+     and 331px — mockups/journal-erinnerung-layoutprobe.html. */
+  -webkit-hyphens: manual; hyphens: manual;
 }
 /* ⚠️ Whenever the ○ switch is in the row it takes 44px + a gutter, and the three chips pay for
    it: «Sofortmassnahme» then hyphenates onto a second line and the strip stands ~24px taller — so
@@ -283,6 +287,19 @@
    inside it (`display: grid`) is then a BLOCK box, which pushed the label onto a second line
    inside the pill. `white-space: nowrap` cannot help with that: the break is between two boxes,
    not between two words. */
+/* the empty-field opener («EL →»): the same chip, in the ink of a LINK, because that is what it
+   writes — the post, marked, the way it will look in the finished row. The phrases beside it stay
+   plain: they are words, not names. */
+/* ⚠️ No `border-color` here: `.jc-phrase` sets `border: none` on purpose, so it would style
+   nothing. The fill and the ink carry it. */
+.jc-phrase-starter { color: var(--blue-strong);
+  background: color-mix(in srgb, var(--blue) 10%, transparent); font-weight: 700; }
+
+/* the arrow chip — a suggestion like any other, but one character wide, so it needs its own
+   minimum width or it reads as a stray mark rather than as a chip to tap. Ink of the text it
+   writes (not amber, not blue): it inserts a word, it does not change what the entry is. */
+.jc-phrase-arrow { min-width: var(--tap); justify-content: center; font-size: 17px; font-weight: 700;
+  color: var(--ink); }
 .jc-phrase-pendenz { display: inline-flex; align-items: center;
   gap: 7px; padding: 6px 12px 6px 8px; color: var(--amber-strong);
   background: color-mix(in srgb, var(--amber) 10%, transparent);
@@ -367,10 +384,12 @@
 
 /* the grid cell the ring lives in — its menu is anchored to the ring itself */
 .jc-openwrap { position: relative; display: grid; min-width: 0; }
-.jc-open { min-width: 0; min-height: var(--tap); padding: 0; border-radius: var(--r-sm); cursor: pointer;
+/* ⚠️ The clock shares the shell but NOT the class: `.jc-open` means «the ring», and one selector
+   answering to two controls is how a rule written for one of them silently reaches the other. */
+.jc-open, .jc-due-btn { min-width: 0; min-height: var(--tap); padding: 0; border-radius: var(--r-sm); cursor: pointer;
   display: grid; place-items: center; border: 1px solid var(--glass-edge); background: var(--surface);
   color: var(--ink-faint); -webkit-tap-highlight-color: transparent; }
-.jc-open:hover { color: var(--ink-dim); border-color: var(--ink-faint); }
+.jc-open:hover, .jc-due-btn:hover { color: var(--ink-dim); border-color: var(--ink-faint); }
 .jc-ring { width: 21px; height: 21px; border-radius: 50%; border: 2px solid currentColor;
   display: grid; place-items: center; }
 /* the urgency mark, drawn rather than iconised: a bar + a dot on the solid disc. The `warn`
@@ -394,6 +413,67 @@
   background: color-mix(in srgb, var(--red) 12%, transparent);
   border-color: color-mix(in srgb, var(--red) 45%, transparent); }
 .jc-open[data-state="2"] .jc-ring { background: currentColor; border-color: currentColor; }
+
+/* ── the clock beside the ring: when this entry has to come back ──
+   Same shell as the ring's button, so the two read as one pair of questions about this line
+   («bleibt offen» / «meldet sich») rather than as a control and a decoration.
+   ⚠️ A FIFTH TRACK, fixed like the fourth. This row is a grid of exactly as many tracks as it has
+   items (see .jc-meta-row): a fifth item in a four-track grid drops to a second line, and the
+   sheet grows a row on the surface that fights the keyboard for every one it has. */
+/* ⚠️ …and the three Art chips stop being equal thirds here — but they do NOT take the slack
+   either. Equal thirds left «Sofortmassnahme» 105px and it broke mid-word; giving the long one a
+   `1fr` fixed that and produced the opposite complaint («Info» hugging its four letters while the
+   long chip floated in 30px of air on each side). Each chip is its own width now, with the SAME
+   padding around every word, and the leftover room becomes a track of its own between the chips
+   and the two round controls — which is where a gap belongs anyway: those answer a different
+   question than the three. The long one may still shrink (`minmax(0, …)`) on a narrow phone,
+   where it wraps at the authored break point.
+   Measured with the app's own Sora at 460px and 331px — mockups/journal-erinnerung-layoutprobe.html. */
+.jc-meta-row:has(.jc-due-btn) {
+  grid-template-columns: max-content max-content minmax(0, max-content) 1fr var(--tap) var(--tap); }
+/* …and with the row no longer fighting for every pixel, the chips get their ordinary air back
+   (the 3px squeeze above belongs to the four-track layout without a clock). */
+.jc-meta-row:has(.jc-due-btn) .jc-chip { padding: 5px 12px; font-size: 12px; }
+/* the two controls are PLACED, because the flexible track is the fourth: without this the clock
+   would drop into the slack column and float in the middle of the row.
+   ⚠️ POSITIONAL, not by class: `:nth-last-child(2)` is the clock and `:last-child` the ring only
+   as long as this row holds exactly three chips and those two controls. A fourth chip would
+   silently push both into the wrong tracks — if the row ever grows, place them by their own class
+   instead. */
+.jc-meta-row:has(.jc-due-btn) > :nth-last-child(2) { grid-column: 5; }
+.jc-meta-row:has(.jc-due-btn) > :last-child { grid-column: 6; }
+/* ⚠️ …and on a PHONE there is no leftover room to give away: at 331px of card the three chips and
+   the two 44px controls already want more than there is, so the slack track goes and the long
+   chip takes what is left (where it wraps at its authored break point). Equal padding is a
+   luxury of having room; below this width the choice is between a readable long chip and a
+   pretty one. Measured at 390px — mockups/journal-erinnerung-layoutprobe.html. */
+@media (max-width: 480px) {
+  .jc-meta-row:has(.jc-due-btn) {
+    grid-template-columns: max-content max-content minmax(0, 1fr) var(--tap) var(--tap); }
+  .jc-meta-row:has(.jc-due-btn) .jc-chip { padding: 5px 8px; }
+  /* the placement moves with the template — five tracks, so column 6 would be an implicit one
+     (measured once: it squeezed the ring to 23px) */
+  .jc-meta-row:has(.jc-due-btn) > :nth-last-child(2) { grid-column: 4; }
+  .jc-meta-row:has(.jc-due-btn) > :last-child { grid-column: 5; }
+}
+.jc-due-btn { position: relative; }
+.jc-due-btn .i { width: 17px; height: 17px; }
+.jc-due-btn[data-on] { color: var(--blue-strong);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 45%, transparent); }
+/* ⚠️ The time hangs OUT of the button, absolutely positioned. Inline it would widen the control
+   by ~40px, and the three Art chips are the only things in the row that can give that up — at
+   which point «Sofortmassnahme» wraps and the row grows anyway. A lit clock alone says «something
+   was chosen» without saying what, and «wann» is the half you can act on, so it has to be legible
+   rather than merely present. Same badge shape as the Verlauf's open-count (.tb-rem-count). */
+.jc-due-badge { position: absolute; top: -7px; right: -6px; height: 17px; padding: 0 5px;
+  border-radius: var(--r-sm); background: var(--blue); color: var(--on-fill);
+  font: 800 11px/17px var(--mono); letter-spacing: -.02em; white-space: nowrap;
+  box-shadow: 0 0 0 2px var(--surface); }
+/* the plain minute rows have no glyph, but they keep the ring's WIDTH — a menu whose labels start
+   on two different axes reads as two lists (see .jc-menu-ring, the same slot) */
+.jc-menu-lead { border: 0; background: none; }
+.jc-menu-lead .i { width: 16px; height: 16px; color: var(--blue-strong); }
 
 /* it replaces the Eintrag/Erinnerung track — the kind of row is already settled */
 .jc-mode-title { flex: 1 1 auto; min-width: 0; font: 800 14px var(--body); color: var(--ink);

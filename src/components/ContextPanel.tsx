@@ -302,9 +302,15 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
   // all key off them); this is what the row SAYS. «Name» beside «Stv.» named the value on one row
   // and the job on the other, so the two never read as the two halves of one job — which is what
   // they are, and what makes the ⇄ below obvious.
-  const elSym = !readOnly && entity.symbol === appConfig.symbols.einsatzleiterName
+  // ⚠️ Two things, deliberately separated. What the rows are CALLED is a fact about the symbol and
+  // holds for everybody — a viewer, a locked board, the Einsatzleiter's own tablet — so the label
+  // hangs off the symbol alone. Only the ⇄ swap below is an edit and keeps the readOnly guard.
+  // (They were one flag, so a read-only panel said «Stv.» while every other surface and the paper
+  // said «Stv. EL».)
+  const isElSym = entity.symbol === appConfig.symbols.einsatzleiterName
+  const elSym = !readOnly && isElSym
   const rowLabel = (k: string) => {
-    if (!elSym) return k
+    if (!isElSym) return k
     if (k === EL_NAME) return appConfig.copy.anwesenheit.roleEinsatzleiterShort
     if (k === EL_STV) return appConfig.copy.anwesenheit.roleEinsatzleiterStvShort
     return k

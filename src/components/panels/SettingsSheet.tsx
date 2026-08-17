@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { toast } from '../../lib/ui'
-import { loadPrefs, savePrefs, applyTheme, resolveTheme, type ThemeMode, type SymbolSize } from '../../lib/prefs'
+import { loadPrefs, savePrefs, applyTheme, resolveTheme, type ThemeMode, type RailLabels, type SymbolSize } from '../../lib/prefs'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import type { IncidentSettings } from '../../lib/workspace'
@@ -19,7 +19,7 @@ import { Stepper } from '../Stepper'
  *  Also opens from the landing card with no incident: omit settings/onSettings and the
  *  synced section disappears (device prefs need no workspace). */
 export function SettingsSheet({
-  onClose, symbolSize, onSymbolSize, symbolCaptions, onSymbolCaptions, offlineRadiusM, onOfflineRadius, keepScreenOn, onKeepScreenOn, themeCoord, settings, onSettings, canEdit, elView, onElView, onFeedback,
+  onClose, symbolSize, onSymbolSize, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, keepScreenOn, onKeepScreenOn, themeCoord, settings, onSettings, canEdit, elView, onElView, onFeedback,
   shareAs, onSharePosition,
 }: {
   onClose: () => void
@@ -28,6 +28,10 @@ export function SettingsSheet({
   /** on-canvas symbol captions (Aus/Auto/Alle) — device pref like symbolSize */
   symbolCaptions: CaptionMode
   onSymbolCaptions: (m: CaptionMode) => void
+  /** words under the rail glyphs — device pref, off by default (lib/prefs · railLabels). Both
+   *  rails at once: they are one decision («soll da Text stehen»), not two. */
+  railLabels: RailLabels
+  onRailLabels: (v: RailLabels) => void
   /** radius (m) cached around the incident for offline + scope of the Leitungskataster layers */
   offlineRadiusM: number
   onOfflineRadius: (m: number) => void
@@ -133,6 +137,11 @@ export function SettingsSheet({
               <span className="set-row-l">{cp.symbolCaptions}<small>{cp.symbolCaptionsSub}</small></span>
               <Segmented<CaptionMode> ariaLabel={cp.symbolCaptions} value={symbolCaptions} onChange={onSymbolCaptions}
                 options={captionOpts.map(({ m, label }) => ({ value: m, label }))} />
+            </div>
+            <div className="set-row">
+              <span className="set-row-l">{cp.railLabels}<small>{cp.railLabelsSub}</small></span>
+              <Segmented<RailLabels> ariaLabel={cp.railLabels} value={railLabels} onChange={onRailLabels}
+                options={[{ value: 'off', label: cp.railLabelsOff }, { value: 'short', label: cp.railLabelsOn }]} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.offlineRadius}<small>{cp.offlineRadiusSub}</small></span>

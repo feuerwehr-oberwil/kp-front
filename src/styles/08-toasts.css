@@ -85,7 +85,24 @@
 }
 /* the text is the shrinkable part — long messages wrap INSIDE the pill instead of
    ballooning past the action button (undo toast on the capture modal, 2026-07-18) */
-.toast > span { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; line-height: 1.3; }
+/* ⚠️ `break-word`, not `anywhere`: on a phone «Studer Corinne Anwesenheit entfernt» came out as
+   four lines with «Anwesenhe|it» split mid-word, which is harder to read than the wrap it was
+   avoiding. And with the ✕ beside «Rückgängig» the text column got too narrow to help — so on a
+   narrow screen the pill wraps instead and gives the sentence the full width (see 15-mobile). */
+.toast > span { min-width: 0; white-space: normal; overflow-wrap: break-word; text-align: left; line-height: 1.3; }
+/* the action cluster: «Rückgängig» + the ✕ that gets it out of the way. It follows the finger
+   during a flick (inline transform), so `transition` only covers the spring-back — animating the
+   drag itself would lag the touch by exactly the transition's duration. */
+.toast-actions { display: flex; align-items: center; gap: 2px; flex: none; margin-left: 4px;
+  transition: transform .16s var(--ease), opacity .16s var(--ease); touch-action: pan-y; }
+/* ⚠️ 36px, not the 44 the action beside it keeps: this is the SECONDARY way out (the flick is the
+   other), and a second full-size target in a pill that already lands on the FAB would trade one
+   obstruction for a wider one. */
+.toast-x { pointer-events: auto; flex: none; width: 36px; min-height: 44px; display: grid; place-items: center;
+  border: none; background: none; color: var(--on-accent-ink); opacity: .55; cursor: pointer;
+  border-radius: var(--r-sm); }
+.toast-x:hover { opacity: 1; background: color-mix(in srgb, var(--on-accent-ink) 18%, transparent); }
+.toast-x .i { width: 15px; height: 15px; }
 /* inline action (confirm-with-undo): the toaster itself is pointer-events:none, so the
    button re-enables hits; sized to stay a comfortable touch target inside the pill */
 .toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: 4px; padding: 6px 14px; min-height: 44px;

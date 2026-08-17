@@ -67,8 +67,9 @@
    landscape tablet (300 fitted only two); 288 is the smallest width that keeps the action row
    whole, so it buys the row back while staying under the 300 that cost the third column. */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 16px; align-items: stretch; }
-.sep { grid-column: 1 / -1; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--ink-faint); padding: 10px 2px 2px; border-top: 1px solid var(--glass-edge); margin-top: 6px; }
+/* ⚠️ The «Raus»-Abschnitt this separated is GONE (17.08.) — a Trupp that came back keeps its slot
+   on every screen size (see AtemschutzView · board). The rule is kept out of the sheet rather than
+   left behind styling nothing. */
 
 /* --- monitoring card --- */
 .card { background: var(--surface); border-radius: var(--r-surface); overflow: hidden;
@@ -236,6 +237,12 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .logChev { color: var(--ink-faint); }
 .logList { list-style: none; margin: 6px 0 0; padding: 0; max-height: 168px; overflow-y: auto; scrollbar-gutter: stable; }
 .logRow { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 10px; padding: 5px 2px;
+/* ⚠️ Rows from an EARLIER deployment. The log keeps every bottle (the Rapport prints them all),
+   but the numbers in the card's head describe the crew that is inside now — so the older run is
+   dimmed and the current one starts on a ruled line. Without that, «tiefster Druck 300» sat above
+   a row reading 120 and the card contradicted itself. */
+.logRowPast { opacity: .55; }
+.logRowRunStart { border-top: 1px solid var(--border); padding-top: 5px; margin-top: 3px; }
   font-size: 12px; border-top: 1px solid var(--glass-edge); }
 .logRow:first-child { border-top: none; }
 .logTime { font-family: var(--mono); font-weight: 700; color: var(--ink-dim); }
@@ -793,7 +800,19 @@ button.stepVal:hover { border-color: var(--blue); }
   box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm); }
 .trowWarn { border-left-color: var(--amber); background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
 .trowCrit { border-left-color: var(--red); background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
+/* registered, still to come — blue, like the card's own .st-angemeldet */
 .trowIdle { border-left-color: var(--blue); }
+/* …and DRAUSSEN, which since 17.08. sits between the running Trupps rather than in a section of
+   its own: grey and slightly spent, the same reading the card gives it (.st-raus). The state word
+   is hidden below 760px, so on a phone this tone IS the answer to «ist der noch drin?». */
+/* ⚠️ NO `opacity` here, and an OPAQUE fill. Opacity composited the whole row — the name measured
+   4.24:1 and the crew line 3.03:1, both under AA on the board whose job is to be read in a hurry —
+   and `--fill-soft` is translucent, so the card lost its white ground and the panel showed
+   through, unlike its `.trowWarn`/`.trowCrit` siblings which mix into `--surface`. Same grey,
+   mixed rather than faded: the row still reads as spent, and the text stays legible. */
+.trowOut { border-left-color: var(--ink-faint);
+  background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+.trowOut .trowClockVal { color: var(--ink-dim); }
 
 /* identity — the only elastic track, so it takes whatever the fixed ones leave */
 .trowId { min-width: 0; }

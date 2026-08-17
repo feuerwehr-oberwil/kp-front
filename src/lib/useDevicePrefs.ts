@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { loadPrefs, type SymbolSize } from './prefs'
+import { loadPrefs, type RailLabels, type SymbolSize } from './prefs'
 import { appConfig } from '../config/appConfig'
 import type { CaptionMode } from '../types'
 
@@ -15,10 +15,12 @@ export function useDevicePrefs() {
   const [symbolCaptions, setSymbolCaptions] = useState<CaptionMode>(() => loadPrefs().symbolCaptions ?? appConfig.symbols.captionDefault as CaptionMode)
   const [offlineRadiusM, setOfflineRadiusM] = useState<number>(() => loadPrefs().offlineRadiusM ?? 1200)
   const [keepScreenOn, setKeepScreenOn] = useState<boolean>(() => loadPrefs().keepScreenOn ?? true)
+  const [railLabels, setRailLabels] = useState<RailLabels>(() => loadPrefs().railLabels ?? 'off')
   return {
     symbolSize, setSymbolSize,
     symbolCaptions, setSymbolCaptions,
     offlineRadiusM, setOfflineRadiusM,
     keepScreenOn, setKeepScreenOn,
+    railLabels, setRailLabels,
   }
 }

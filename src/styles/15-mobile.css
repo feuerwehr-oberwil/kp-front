@@ -144,6 +144,17 @@
     -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
     mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
   :is(.tool-rail, .wb-tools) .vrail-tool { width: 50px; min-width: 50px; flex: 0 0 auto; }
+
+  /* …and the same for the tool bar, which is the same shape one bar higher. ⚠️ `.vrail-label` is
+     hidden for BOTH bars up at line 116; the preference has to un-hide it here rather than rely on
+     specificity from another file, which is how the desktop rule leaked onto the phone. */
+  .vrail.labelled:not(.expanded):not(.dragging) {
+    width: auto; padding: 5px 8px; }
+  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) :is(.vrail-tool, .vrail-layers, .vrail-views) {
+    width: auto; min-width: 50px; padding: 0 7px; height: auto; min-height: 46px; }
+  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-glyph { height: 22px; }
+  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-label {
+    display: block; font-size: 9.5px; overflow: visible; text-overflow: clip; }
   :is(.tool-rail, .wb-tools) .vrail-sep { width: 1px; height: 26px; margin: 0 4px; flex: none; }
   /* the tool-option dock is a HORIZONTAL bar in line with the other bottom bars (not a right-edge
      vertical column, which overlapped the centred hints + measure panel). It stacks as the third
@@ -306,6 +317,33 @@
     -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
     mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
   .nav-item { width: 50px; min-width: 50px; flex: 0 0 auto; }
+
+  /* ── «Wort unter dem Zeichen» on a PHONE ──
+     ⚠️ The desktop rule for that preference (05-navrail.css · .labelled) sets a rail WIDTH, and on
+     a phone this rail is not a column at all — it is the bottom bar. Unqualified, the 88px landed
+     on the bar itself: a 88px-wide strip holding «Karte» and half of the next item, with every
+     label ellipsised to «Auswa…». Here the width belongs to the ITEM, not the bar, and the bar
+     scrolls as it always did.
+     ⚠️ The labels also have to fit WITHOUT truncation, or the preference costs the map a row and
+     still says «Mehrf…». They are sized to their own words, which is what the horizontal scroll is
+     there to absorb. */
+  .navrail.labelled:not(.expanded):not(.dragging) {
+    width: auto; height: var(--rail-h-labelled, 60px); padding: 5px 8px; }
+  /* ⚠️ `min-height`, not `height: 100%`. The scroller is auto-height, so «100%» resolved against
+     content and the items came out 32px tall — under the gloved floor everything else on this
+     surface respects, on the bar that is pressed most. */
+  .navrail.labelled:not(.expanded):not(.dragging) .nav-item {
+    width: auto; min-width: 50px; padding: 0 7px; height: auto; min-height: 46px; }
+  .navrail.labelled:not(.expanded):not(.dragging) .nav-glyph { height: 22px; }
+  /* …and the same two corrections the desktop rule makes, one size smaller (see 05-navrail.css) */
+  .navrail.labelled:not(.expanded):not(.dragging) .nav-mono-chip { min-width: 22px; min-height: 22px; font-size: 11px; }
+  .navrail.labelled:not(.expanded):not(.dragging) .nav-live { top: -2px; right: -4px; }
+  /* ⚠️ 9.5px — a point below the desktop's 10.5 and well below the 12.5px interactive floor. Same
+     reason as there (it is a legend under the glyph, and the 46px button is the target), plus the
+     phone's own: these bars scroll sideways, and every pixel a word does not need is one more item
+     visible without scrolling. */
+  .navrail.labelled:not(.expanded):not(.dragging) .nav-label {
+    font-size: 9.5px; overflow: visible; text-overflow: clip; }
   .nav-foot { margin-top: 0; }
   .nav-sep { width: 1px; height: 26px; margin: 0 4px; flex: none; }   /* vertical divider in a row */
 
@@ -335,6 +373,16 @@
     bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-width: none;
     max-height: calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     border-radius: var(--r-hero) var(--r-hero) var(--r-surface) var(--r-surface); }
+  /* ⚠️ The Pendenzen block needs a cap this side of a PERCENTAGE. Its `max-height: 50%` resolves
+     against `.history-list`, and on a phone this drawer is `height: auto` (bottom-anchored, capped
+     by max-height) — an indefinite height, against which a percentage max-height computes to
+     `none`. So with a dozen open items the block simply grew to all of them, and because it is
+     `position: sticky` and then taller than its own scrollport, the lower half could not be
+     reached by any gesture: scrolling moved the Verlauf BEHIND it. That is the exact trap the cap
+     in 06-contextpanel.css is written against; on a phone it needs a unit that is always definite.
+     40dvh collapsed / 62dvh expanded ≈ the same share of the drawer the percentages give a tablet. */
+  .jr-pinned { max-height: 40dvh; }
+  .jr-pinned.is-open { max-height: 62dvh; }
 
   /* The suggestion row keeps its space even when it has nothing to suggest. The composer is
      bottom-anchored here, so a row that comes and goes between the field and the chips moves
@@ -448,6 +496,26 @@
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
   .toast { white-space: normal; }
+  /* ⚠️ …and the ACTIONS drop to their own line when they no longer fit beside the sentence.
+     «Studer Corinne Anwesenheit entfernt» with «Rückgängig» and the ✕ next to it left the text a
+     ~140px column — four lines, one of them split mid-word — while the pill itself had the whole
+     screen width. Wrapping gives the sentence that width and puts the two controls under it,
+     right-aligned, where the thumb is anyway.
+     ⚠️ The ICON stays with the sentence: forcing the text onto a line of its own (`flex-basis:
+     100%`) left the ↶ alone on the first row and made the pill three rows tall.
+     ⚠️ And this holds for SHORT texts too — «Hofer Simon anwesend» also gets its buttons on the
+     second row. Deliberate: the alternative is a floor on the text column, and any floor wide
+     enough to help the long sentence pushes the short one into a wrap of its own. One shape for
+     every undo toast on a phone, two rows, with the controls where the thumb already is. */
+  /* ⚠️ Only a toast that HAS an action wraps. Unqualified, the rule also reached the print-job
+     chain, which has its own phone layout a few lines above — one shape being rearranged by a rule
+     written for another. */
+  .toast:has(.toast-actions) { flex-wrap: wrap; }
+  /* ⚠️ `:not(.toast-actions)` — the action cluster is a <span> too, and without the guard it
+     inherited the grow, filled the whole wrapped line and swallowed its own `margin-left: auto`
+     (it was left-aligned under the sentence instead of sitting where the thumb is). */
+  .toast:has(.toast-actions) > span:not(.toast-actions) { flex: 1 1 auto; }
+  .toast-actions { margin-left: auto; }
   /* the stage chain needs ~360px plus the undo button — more than a phone has, and it ran under
      «Rückgängig». Only the running stage keeps its label here: tick › printer «Wird gedruckt» ›
      pip. Same chain, same order as on the tablet, one line. */

@@ -7,7 +7,7 @@ import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
-import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
+import { contactSeverity, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { truppStatusLabel } from '../lib/report'
@@ -53,7 +53,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
+  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus,
@@ -95,6 +95,9 @@ export function AtemschutzView({
   deleteTrupp: (id: string) => void
   /** undo for deleteTrupp — re-adds the captured Trupp (minus its removed placement) */
   restoreTrupp: (t: Trupp) => void
+  /** Trupps taken off the board (types · Trupp.removedAt), newest first — the door behind the
+   *  delete's six-second toast. */
+  removedTrupps?: Trupp[]
   /** the drawn Leitungen offered in the form, excluding the edited Trupp's own from «taken» */
   leitungOptions: (exceptTruppId?: string) => LeitungOption[]
   /** jump to the Leitung a Trupp works on (Lage or Plan) */
@@ -194,6 +197,9 @@ export function AtemschutzView({
    * so nothing is hidden, the cards just don't move out from under the hand. Anything new appears
    * after the frozen ones (stable sort on equal keys) rather than jumping into the middle. */
   const isPhone = useIsPhone()
+  // Compact rows vs cards — a NARROW-SCREEN layout, nothing else (decided 16.08.); the long
+  // note beside `openRow` below says why, and why a Trupp-count trigger was dropped.
+  const compact = isPhone
 
   const FREEZE_MS = 2000
   const [frozenIds, setFrozenIds] = useState<string[] | null>(null)
@@ -205,14 +211,24 @@ export function AtemschutzView({
     const rank = new Map(frozenIds.map((id, i) => [id, i]))
     return sorted.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER))
   }
-  const activeTrupps = sortTrupps(trupps.filter((t) => t.status !== 'raus'))
-  const done = sortTrupps(trupps.filter((t) => t.status === 'raus'))
+  /* ── A Trupp that came back KEEPS ITS SLOT — on the board and in the list (17.08.) ──
+   * There used to be a «Raus»-Abschnitt underneath everything else, and the cards/rows jumped into
+   * it the moment a Trupp came out. That cost the one thing this surface is for: a slot that means
+   * something. «Trupp 2 steht oben rechts» stopped being true exactly when the Trupp came back,
+   * and everything below it moved up — on the surface whose whole promise is that a card does not
+   * move out from under the hand (see the freeze note above).
+   * ⚠️ It went for the CARD GRID first and for the narrow list a day later, on the same reasoning:
+   * the split saves rows, and a row that has moved is worse than a row too many.
+   * What the state IS stays readable on the card itself (banner, colour, «Draussen»), the header's
+   * sort answers «zeig mir die brauchbaren zuerst», and a Trupp nobody needs on the board any more
+   * can be deleted — the Rapport keeps it either way (types · Trupp.removedAt). */
+  const board = sortTrupps(trupps)
 
   // Called from the card's action handlers — i.e. after render, so it simply closes over the
   // arrangement the operator is currently looking at. (A ref would have to be written during
   // render, which is exactly what react-hooks/refs warns about.)
   const freezeOrder = () => {
-    setFrozenIds([...activeTrupps, ...done].map((t) => t.id))
+    setFrozenIds(board.map((t) => t.id))
     window.clearTimeout(freezeTimer.current)
     freezeTimer.current = window.setTimeout(() => setFrozenIds(null), FREEZE_MS)
   }
@@ -307,7 +323,6 @@ export function AtemschutzView({
    * where five cards fitted comfortably. The board CAN still under-report on a wide screen (6
    * Trupps, 3 columns, no scroll cue) — that is a real and separate finding, and the fix for it
    * belongs on the card grid (a total in the header, a fade at the edge), not in this switch. */
-  const compact = isPhone
   const [openRow, setOpenRow] = useState<string | null>(null)
 
   /* Park an opened card at the top of the scroll port — and buy exactly enough room to do it.
@@ -424,9 +439,34 @@ export function AtemschutzView({
             ]}
           />
         )}
+        {/* ⚠️ The way back that does not expire. Deleting a Trupp raises a «Rückgängig» toast for six
+            seconds; miss it — gloves, 3am, a second Trupp overdue — and the card was unreachable,
+            even though the record itself keeps it (types · Trupp.removedAt). Shown only while there
+            IS something to bring back, so an ordinary board never carries it. */}
+        {canEdit && removedTrupps.length > 0 && (
+          <Menu
+            trigger={
+              <button type="button" className={s.orderBtn} aria-label={az.restoreMenu} title={az.restoreMenu}>
+                <Icon id="undo" />
+              </button>
+            }
+            popupClassName="rp-print-menu"
+            itemClassName={() => 'rp-print-menu-item'}
+            items={[
+              { kind: 'head' as const, label: az.restoreMenu },
+              ...removedTrupps.map((t) => ({
+                label: fillTemplate(az.restoreItem, { name: t.name }),
+                onClick: () => restoreTrupp(t),
+              })),
+            ]}
+          />
+        )}
         <button
           className={cx(s.muteBtn, muted && s.muteOn)} onClick={onToggleMuted} aria-pressed={muted}
-          aria-label={muted ? az.alarmOff : az.alarmOn} title={muted ? az.alarmOff : az.alarmOn}
+          // ⚠️ The label is what the press DOES, not what is true now — «Alarmton aus» while muted
+          // reads as the effect of pressing, so somebody who wants sound leaves it alone and the
+          // überfällig alarm stays silent. Same direction as the trail toggles («Spuren einblenden»).
+          aria-label={muted ? az.alarmTurnOn : az.alarmTurnOff} title={muted ? az.alarmTurnOn : az.alarmTurnOff}
         >
           <Icon id={muted ? 'bell-off' : 'bell'} />
         </button>
@@ -447,9 +487,7 @@ export function AtemschutzView({
           </div>
         ) : (
           <div ref={listRef} className={cx(compact ? s.rowList : s.grid, compact && openRow && s.rowListOpen)}>
-            {cards(activeTrupps)}
-            {done.length > 0 && <div className={s.sep}>{az.status.raus}</div>}
-            {cards(done)}
+            {cards(board)}
           </div>
         )}
       </div>
@@ -617,7 +655,12 @@ function TruppRow({
   const dz = atemschutzDoctrine()
   const estimate = inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
   const estimateLow = pressureAlarm(estimate?.bar ?? null, dz.alarmBar)
-  const tone = sev >= 2 ? s.trowCrit : sev === 1 ? s.trowWarn : inField ? '' : s.trowIdle
+  // ⚠️ «Draussen» and «angemeldet» are NOT one tone. They were both `trowIdle` (blue) while the
+  // list still had a «Raus»-Abschnitt to tell them apart — and that section is gone (17.08.), so a
+  // spent Trupp now sits between two running ones and has to say so by itself. Grey and dimmed,
+  // the same reading the card gives it (.st-raus); blue stays what it means everywhere else on
+  // this board: registered, still to come.
+  const tone = sev >= 2 ? s.trowCrit : sev === 1 ? s.trowWarn : inField ? '' : status === 'raus' ? s.trowOut : s.trowIdle
   const rowRef = useRef<HTMLButtonElement>(null)
   // same courtesy the card gets: a Trupp somebody was sent to must land under their eyes
   useEffect(() => { if (flash) rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [flash])
@@ -931,17 +974,28 @@ function TruppCard({
               <Icon id="history" /><span>{az.verlauf}</span>
               <Icon id={logOpen ? 'chevron-down' : 'chevron'} className={s.logChev} />
             </button>
-            {logOpen && (
-              <ul className={s.logList}>
-                {[...readings].reverse().map((r, i) => (
-                  <li key={readings.length - i} className={s.logRow}>
-                    <span className={s.logTime}>{fmtTime(r.t)}</span>
-                    <span className={s.logBar}>{r.bar} bar</span>
-                    <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {logOpen && (() => {
+              // ⚠️ The log spans EVERY deployment since 18.08. («Wieder einrücken» appends rather
+              // than starting a new one, so the first bottle still prints on the Rapport). The card
+              // header, though, is about the crew that is inside NOW — Eingangsdruck, tiefster
+              // Druck. Without a boundary the two contradict each other: «tiefster Druck 300» over
+              // a row saying 120. Everything before the current run is dimmed and gets a line.
+              const from = currentRunStart(readings)
+              return (
+                <ul className={s.logList}>
+                  {[...readings].reverse().map((r, i) => {
+                    const idx = readings.length - 1 - i
+                    return (
+                      <li key={idx} className={cx(s.logRow, idx < from && s.logRowPast, idx === from && from > 0 && s.logRowRunStart)}>
+                        <span className={s.logTime}>{fmtTime(r.t)}</span>
+                        <span className={s.logBar}>{r.bar} bar</span>
+                        <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )
+            })()}
           </div>
         )}
       </div>

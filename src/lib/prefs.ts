@@ -13,6 +13,9 @@ const MAX_AGE = 60 * 60 * 24 * 365 // 1 year
  *  dims itself after dusk on its own; 'day'/'night' are explicit manual overrides. */
 export type ThemeMode = 'auto' | 'day' | 'night'
 
+/** Rail labelling: glyphs only, or the word stacked under each glyph. */
+export type RailLabels = 'off' | 'short'
+
 /** Global tactical-symbol size on both surfaces (map + plan). A personal legibility
  *  preference like `theme` — the symbol size band (lib/mapView · symPx) and the plan
  *  base size are multiplied by this. Default 'M'. */
@@ -41,6 +44,13 @@ export interface Prefs {
   /** on-canvas symbol captions (metadata printed under each glyph) — a personal legibility
    *  preference like `symbolSize`. Default falls to appConfig.symbols.captionDefault ('auto'). */
   symbolCaptions?: CaptionMode
+  /** Words under the glyphs in both rails. Off by default — the icons ARE the rail for anybody who
+   *  uses this app regularly, and the labels cost 10px of map for good.
+   *  ⚠️ Not the same thing as the rails' expand chevron: that one widens the rail and puts the word
+   *  BESIDE the glyph, and it is a transient state (nothing remembers it). This is a device
+   *  preference and stacks the word UNDER the glyph, which is what a first-timer needs on a rail
+   *  of seven surfaces and nine tools with no words at all. Default 'off'. */
+  railLabels?: RailLabels
   /** radius (metres) of the box cached around the incident by "Alles für offline laden".
    *  Device pref — each device decides how much to store. Default 1200. */
   offlineRadiusM?: number
@@ -89,9 +99,13 @@ export interface SharePositionPref {
 }
 
 /** The multiplier the S/M/L preference applies to every tactical symbol's size on
- *  both surfaces. M (1×) is the tuned default; S/L step it ±. */
+ *  both surfaces. M (1×) is the tuned default; S/L step it ±.
+ *  ⚠️ S is 0.6, not the 0.8 it was until 17.08. On a Modul-2/3 Objektplan — a whole floor on one
+ *  sheet — 0.8 was still a symbol you place two of before they touch, which is the one case the
+ *  small setting exists for. It scales the whole band on the map too (see mapView · symPx), so the
+ *  map's floor comes down with it; that is the point of the setting, and M remains the default. */
 export const symbolMul = (size: SymbolSize | undefined): number =>
-  size === 'S' ? 0.8 : size === 'L' ? 1.3 : 1
+  size === 'S' ? 0.6 : size === 'L' ? 1.3 : 1
 
 function readCookie(name: string): string | null {
   const match = document.cookie.split('; ').find((row) => row.startsWith(`${name}=`))

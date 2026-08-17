@@ -9,7 +9,7 @@
 // The view layer (AtemschutzView) feeds it a Trupp + the current wall-clock time and renders
 // the derived live numbers + the contact-clock alarm tier.
 
-import type { Trupp } from '../types'
+import type { Trupp, TruppReading } from '../types'
 
 export interface TruppLive {
   /** seconds under PA: entryTime → exitTime, or → now while still in. A Trupp that is out has
@@ -114,6 +114,27 @@ export function truppNeverDeployed(t: Trupp): boolean {
  * Tier 1 is the amber "Kontakt fällig" from the interval mark (FKS-Standard: 5 min); tier 2 is
  * the hard überfällig alarm once the `contactGraceSec` on top has passed too (default: +1 min).
  */
+/**
+ * Where the CURRENT deployment starts in a Trupp's pressure log.
+ *
+ * ⚠️ The log spans every deployment a Trupp has had (17.08.): «Wieder einrücken» used to replace
+ * `readings` wholesale, so the first Einsatz's entry pressure and every Kontakt/Druck taken during
+ * it vanished from the Atemschutz page of the Rapport — a safety document losing exactly the half
+ * that was under PA the longest. It appends now, and everything that is about the RUNNING
+ * deployment (correcting the Eingangsdruck, the lowest pressure on the card) has to start here
+ * rather than at index 0.
+ *
+ * The marker is the last `entry`/`registered` row: both open a deployment (going straight in vs.
+ * being held as Sicherungstrupp). No such row ⇒ 0, which is the whole log.
+ */
+export function currentRunStart(readings: readonly TruppReading[] | undefined): number {
+  if (!readings?.length) return 0
+  for (let i = readings.length - 1; i >= 0; i--) {
+    if (readings[i].kind === 'entry' || readings[i].kind === 'registered') return i
+  }
+  return 0
+}
+
 export function contactSeverity(sinceContactSec: number | null, contactIntervalMin: number, contactGraceSec: number): 0 | 1 | 2 {
   if (sinceContactSec == null) return 0
   const interval = contactIntervalMin * 60

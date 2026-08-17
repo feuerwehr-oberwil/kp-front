@@ -832,10 +832,18 @@ export function ReportPreflight({
     if (!onComplete) return
     // same shape as the export warning above — the open points are a list, and the question
     // comes after them rather than at the end of a paragraph nobody reads that far into
+    // ⚠️ Pending media belongs in this list. The Abschluss archives the incident, and a Foto or a
+    // Sprachnotiz that never got a connection used to be deleted with it — silently, right after
+    // this screen had promised «wird bei Verbindung ergänzt». It is kept now (App ·
+    // clearUploadedMedia), but the operator is about to walk away from the Einsatz, so the fact
+    // that something is still on this device is part of what they are confirming.
+    const pendingItem = pendingMediaCount > 0
+      ? [fillTemplate(P.pendingMediaConfirm, { n: pendingMediaCount })]
+      : []
     if (await confirmDialog({
       title: A.confirmTitle,
       message: missing.length ? P.exportIncompleteLead : A.confirmMsg,
-      items: missing.map((s) => A.steps[s]),
+      items: [...missing.map((s) => A.steps[s]), ...pendingItem],
       note: missing.length ? A.confirmMsg : undefined,
       confirmLabel: A.confirmBtn,
     })) {

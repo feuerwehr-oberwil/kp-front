@@ -33,6 +33,10 @@ export interface JournalLink {
    *  reads «Rückmeldung an ELZ durch Widmer Céline (EL)» rather than naming somebody the reader
    *  has to look up. Absent for anybody without a job, which is most people. */
   role?: string
+  /** match only as a WHOLE word. Off by default: a name is long enough that a substring match is
+   *  almost always the name. It is on for the command posts, where «EL» would otherwise light up
+   *  inside Melder, Keller and Schnellangriff (see commandRoles). */
+  word?: boolean
 }
 
 /**
@@ -62,8 +66,41 @@ export function journalVocabulary(personnel: Person[], attendance: AttendanceSta
   // «Gr. 1 (Kdo)» is how the Rapport names a group, so that is the form the journal links to
   const groups: JournalLink[] = (cfg.alarms?.groups ?? [])
     .map((g) => ({ name: g.color ? `${g.label} (${g.color})` : g.label, kind: 'group' as const }))
-  return [...people, ...materials, ...partners, ...vehicles, ...groups]
+  return [...commandRoles(people), ...people, ...materials, ...partners, ...vehicles, ...groups]
     .filter((l) => !!l.name?.trim())
+}
+
+/**
+ * «EL» and «Stv. EL» as words of their own.
+ *
+ * A Verlauf is a Funkprotokoll, and its most-written participant is a POST, not a name: «EL →
+ * Sanität: Patient stabil». Written as plain prose those two letters were the only thing in such
+ * a line that was not a link — the one term the record could not resolve, for the one job that
+ * decides everything on the Schadenplatz.
+ *
+ * ⚠️ The name rides along as the `role` suffix, which is the same mechanism reversed: a person's
+ * entry prints «Widmer Céline (EL)», the post's entry prints «EL (Widmer Céline)». Both directions
+ * of the same fact, so it does not matter which way round the operator writes the sentence.
+ * ⚠️ And when nobody holds the post — the first minutes, an exercise, a Nachbarwehr's copy — the
+ * term stays, without a suffix. «EL» is then still what was said; there is simply nobody yet to
+ * name. Dropping the term instead would make the marking come and go with the Anwesenheit.
+ * ⚠️ Resolved at RENDER time, like every other role suffix, so an Ablösung re-labels older rows
+ * too. The row's own `text` — the record, the hash chain, the paper — never changes.
+ */
+function commandRoles(people: JournalLink[]): JournalLink[] {
+  const A = appConfig.copy.anwesenheit
+  return [A.roleEinsatzleiterShort, A.roleEinsatzleiterStvShort]
+    .filter((short) => !!short?.trim())
+    .map((short) => {
+      const holder = people.find((p) => p.role === short)
+      return {
+        name: short, kind: 'person' as const, id: holder?.id, present: holder?.present,
+        role: holder?.name,
+        // ⚠️ «el» is two letters and lives inside Melder, Schnellangriff, Winkel, Keller … — the
+        // one term in this vocabulary that MUST NOT match inside a word (see linkRanges · word).
+        word: true,
+      }
+    })
 }
 
 /**
@@ -114,6 +151,9 @@ export function linkRanges(text: string, vocab: JournalLink[]): LinkRange[] {
       const i = hay.indexOf(needle, from)
       if (i < 0) break
       const end = i + needle.length
+      // …and a `word` term only counts with nothing word-ish on either side of it: «EL» is two
+      // letters, and without this it lit up in Melder, Keller and Schnellangriff.
+      if (l.word && (isWordChar(hay[i - 1]) || isWordChar(hay[end]))) { from = i + 1; continue }
       if (!overlaps(i, end)) {
         out.push({ start: i, end, kind: l.kind, role: roleSaid ? undefined : l.role })
         roleSaid = true
@@ -122,6 +162,11 @@ export function linkRanges(text: string, vocab: JournalLink[]): LinkRange[] {
     }
   }
   return out.sort((a, b) => a.start - b.start)
+}
+
+/** Letters (incl. umlauts and accents) and digits — what a word may not be glued to. */
+function isWordChar(ch: string | undefined): boolean {
+  return ch != null && /[\p{L}\p{N}]/u.test(ch)
 }
 
 /** The text split into plain stretches and marked ones — one shape both the composer's

@@ -87,11 +87,15 @@ describe('useTruppActions placement (one place per Trupp)', () => {
     expect(state.trupps[0].planId).toBe('p1')
   })
 
-  it('deleteTrupp removes whichever placement exists', () => {
+  // ⚠️ The placement goes; the RECORD stays, stamped. A crew that was under PA and then taken off
+  // the Tafel is still part of what happened, and the Atemschutz page of the Rapport prints it
+  // (types · Trupp.removedAt). Everything live filters on that stamp at the source.
+  it('deleteTrupp removes whichever placement exists, and stamps the Trupp instead of erasing it', () => {
     const marker: Entity = { id: 'e1', kind: 'team', layer: 'einheiten', coord: [7.5, 47.4], truppId: 'T1' }
     const { actions, state } = harness(baseTrupp({ entityId: 'e1' }), { entities: [marker] })
     actions.deleteTrupp('T1')
-    expect(state.trupps).toEqual([])
+    expect(state.trupps).toHaveLength(1)
+    expect(state.trupps[0].removedAt).toBeTruthy()
     expect(state.doc.entities).toEqual([])
   })
 
@@ -102,6 +106,7 @@ describe('useTruppActions placement (one place per Trupp)', () => {
     actions.deleteTrupp('T1')
     actions.restoreTrupp(snapshot)
     expect(state.trupps).toHaveLength(1)
+    expect(state.trupps[0].removedAt).toBeUndefined()
     expect(state.trupps[0].readings).toEqual(snapshot.readings)
     expect(state.trupps[0].entityId).toBeUndefined()
     expect(state.trupps[0].annoId).toBeUndefined()
@@ -610,5 +615,48 @@ describe('useTruppActions — the Alarmdruck is a reading of its own kind', () =
     actions.recordPressure('T1', alarmBar - 20)
     const r = state.trupps[0].readings ?? []
     expect(r[r.length - 1]).toMatchObject({ kind: 'pressure' })
+  })
+})
+
+// ⚠️ The Atemschutz page of the Rapport prints `readings`. Re-deploying used to START A NEW LOG,
+// so the deployment that had been under PA the longest was the one missing from the safety
+// document — the same «replace instead of keep» that Trupp-delete was fixed for.
+describe('re-deploying a Trupp keeps the pressure log', () => {
+  const deployed = (): Trupp => baseTrupp({
+    status: 'raus', exitTime: '2026-07-06T10:40:00Z', lowestBar: 120, entryPressureBar: 300,
+    readings: [
+      { t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' },
+      { t: '2026-07-06T10:20:00Z', bar: 180, kind: 'pressure' },
+      { t: '2026-07-06T10:40:00Z', bar: 120, kind: 'pressure' },
+    ],
+  })
+
+  it('appends the fresh cylinder to what was already recorded', () => {
+    const { actions, state } = harness(deployed())
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300 })
+    const r = state.trupps[0].readings!
+    expect(r).toHaveLength(4)
+    expect(r.slice(0, 3).map((x) => x.bar)).toEqual([300, 180, 120])
+    expect(r[3]).toMatchObject({ bar: 300, kind: 'entry' })
+    // …while the CARD is about the running deployment again
+    expect(state.trupps[0].lowestBar).toBe(300)
+    expect(state.trupps[0].exitTime).toBeUndefined()
+  })
+
+  // ⚠️ …and the correction path has to follow: index 0 is now the entry of an Einsatz that is over.
+  // Two harnesses, because the factory closes over the trupps it was given — one render each,
+  // exactly like the app.
+  it('corrects the entry pressure of the RUNNING deployment, not the first one', () => {
+    const first = harness(deployed())
+    first.actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 200 })
+
+    const second = harness(first.state.trupps[0])
+    second.actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300 })
+    const r = second.state.trupps[0].readings!
+    expect(r[0].bar).toBe(300)   // the old deployment's entry, untouched (it happened to be 300)
+    expect(r[1].bar).toBe(180)   // …and its readings
+    expect(r[3].bar).toBe(300)   // the corrected entry of the current run
+    // the lowest is measured over the RUNNING deployment only — 120 bar was another bottle
+    expect(second.state.trupps[0].lowestBar).toBe(300)
   })
 })

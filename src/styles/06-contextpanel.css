@@ -524,7 +524,11 @@
    ⚠️ And the button covers the whole row: everything but the ring and the clock opens a Meldung,
    which is what a tap anywhere on this card should mean. `::after` rather than a bigger element,
    so the two controls keep their own hit areas (they are raised over it below). */
-.jr-pinned-text { display: block; width: 100%; min-width: 0; overflow-wrap: anywhere;
+/* ⚠️ `break-word`, not `anywhere`: an item's own words are what this list is read for, and
+   `anywhere` let the line-breaker take the last character that fits — «Verkehrsdie|nst» in a
+   column that had room to break between the words. Emergency breaks stay available for a single
+   word longer than the column (a Strassenname, a Stichwort), which is what they are for. */
+.jr-pinned-text { display: block; width: 100%; min-width: 0; overflow-wrap: break-word;
   border: none; background: none; padding: 0; cursor: pointer; text-align: left;
   font: 500 13px var(--body); line-height: 1.35; color: var(--ink); }
 .jr-pinned-text::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
@@ -537,7 +541,7 @@
 .jr-pinned-row .jr-when, .jr-pinned-row .jr-rem { position: relative; z-index: 1; }
 /* Every Meldung, oldest first — the thread on this item. Hung off a rule so several read as a
    list belonging to the line above rather than as more rows in the block. */
-.jr-pinned-note { overflow-wrap: anywhere;
+.jr-pinned-note { overflow-wrap: break-word;
   font: 400 12px/1.35 var(--body); color: var(--ink-dim);
   padding-left: 8px; border-left: 1.5px solid color-mix(in srgb, var(--amber) 45%, transparent); }
 .jr-pinned-note b { font: 400 11px var(--mono); color: var(--ink-faint); margin-right: 6px; }
@@ -555,8 +559,12 @@
 .jr-when:hover { color: var(--ink); }
 /* «meldet sich selbst» — the only mark a timed Erinnerung needs in this list. At the right end,
    where nothing competes with it: the ring moved into the icon slot at the front. */
-.jr-pinned-alarm { flex: none; margin-left: auto; padding-top: 8px; color: var(--amber-strong);
-  display: grid; place-items: center; }
+/* the Fälligkeit, as a clock AND the time it stands for — see Journal.tsx. `align-self` rather
+   than the old `padding-top`, so the pair sits on the item's first line whatever the row's height
+   (a row with three Meldungen is four lines tall). */
+.jr-pinned-alarm { flex: none; margin-left: auto; align-self: flex-start; margin-top: 7px;
+  display: inline-flex; align-items: center; gap: 4px; color: var(--amber-strong);
+  font: 700 11.5px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .jr-pinned-alarm .i { width: 13px; height: 13px; }
 .jr-pinned.is-open { max-height: calc(100% - 10px); }
 .jr-pinned-more { flex: none; position: sticky; bottom: -8px; z-index: 3; margin-bottom: -8px;

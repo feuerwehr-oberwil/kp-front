@@ -170,4 +170,14 @@ describe('stripUnprintable', () => {
     const s = 'Wasserversorgung ab Hydrant Schlossgasse sichergestellt.'
     expect(stripUnprintable(s)).toBe(s)
   })
+
+  // ⚠️ …except the two the journal writes ON PURPOSE. They sat inside the arrows block this rule
+  // strips, so «EL → Sanität» lost its arrow again with the very next keystroke. Helvetica still
+  // cannot set them — the PAPER gets «->», mapped where the payload is built (reportPdfDirect).
+  it('keeps the two arrows the Funkprotokoll is written with, and no others', () => {
+    expect(stripUnprintable('EL → Sanität: Patient stabil')).toBe('EL → Sanität: Patient stabil')
+    expect(stripUnprintable('Polizei ← EL')).toBe('Polizei ← EL')
+    expect(stripUnprintable('Trupp 2 ⇒ Keller')).toBe('Trupp 2 Keller')
+    expect(stripUnprintable('nach ↑ oben')).toBe('nach oben')
+  })
 })

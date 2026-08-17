@@ -502,9 +502,20 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     )
   }, [locateNonce, staticView])
 
+  // Frame the incident's existing content — ONCE per incident, not once per map instance.
+  // ⚠️ `didFit`, because `mapReady` is not a one-way flag: a lost WebGL context remounts <Map>
+  // under a new key and sets it false→true again (see useGlRecovery). This effect then re-ran and
+  // fitted to the whole incident extent a tick AFTER `resumeViewState` had put the operator's own
+  // framing back — so every recovery threw away the zoom somebody was working at, and under memory
+  // pressure that repeats every 60s (the auto-heal's rate limit). Which reads, from the operator's
+  // side, as a map that keeps zooming out by itself.
+  // The ref belongs to MapView, which stays mounted across surfaces for the whole incident, so it
+  // outlives exactly what it has to: the <Map> instances underneath it.
+  const didFit = useRef(false)
   useEffect(() => {
     const map = mapInst.current
-    if (!map || !mapReady || !fitPoints?.length) return
+    if (!map || !mapReady || !fitPoints?.length || didFit.current) return
+    didFit.current = true
     setTimeout(() => {
       try {
         map.resize()

@@ -1,8 +1,14 @@
 import { Fragment, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import { LineStylePicker } from '../lib/draw'
 import { DockInfo } from './DockInfo'
+
+/** What a colour swatch is CALLED. The dock item's own title names the group («Truppfarbe»); the
+ *  index names the one square, in the palette's order — a hex value is not a name for anybody. */
+const swatchName = (title: string | undefined, i: number): string =>
+  fillTemplate(appConfig.copy.toolDock.colorName, { group: title ?? appConfig.copy.toolDock.colorGroup, n: String(i + 1) })
 
 const COLORS = appConfig.drawing.colors
 const WIDTHS = appConfig.drawing.widths
@@ -42,11 +48,17 @@ function renderItem(item: DockItem, key: string): ReactNode {
     case 'colors':
       // 2-wide grid (same as colorGrid) so the swatches form a compact block instead of a tall
       // single-file ribbon — keeps the whole dock short without wrapping the dock itself
-      return <div key={key} className="wb-sw-grid">{(item.colors ?? COLORS).map((c) => <button key={c} className={`wb-sw ${item.value === c ? 'on' : ''}`} style={{ background: c }} onClick={() => item.onChange(c)} />)}</div>
+      // ⚠️ Every swatch gets a NAME. A bare coloured square has no accessible label at all, and
+      // on this app a colour is not decoration — a Truppfarbe is which crew this is. The hex is
+      // not a name either (that was the other half of the finding), so the swatches are numbered
+      // in the palette's own order: «Farbe 3».
+      return <div key={key} className="wb-sw-grid">{(item.colors ?? COLORS).map((c, i) => <button key={c} className={`wb-sw ${item.value === c ? 'on' : ''}`} style={{ background: c }} onClick={() => item.onChange(c)} title={swatchName(undefined, i)} aria-label={swatchName(undefined, i)} />)}</div>
     case 'colorGrid':
-      return <div key={key} className="wb-sw-grid">{item.colors.map((c) => <button key={c} className={`wb-sw ${item.value === c ? 'on' : ''}`} style={{ background: c }} onClick={() => item.onChange(c)} title={item.title} />)}</div>
+      return <div key={key} className="wb-sw-grid">{item.colors.map((c, i) => <button key={c} className={`wb-sw ${item.value === c ? 'on' : ''}`} style={{ background: c }} onClick={() => item.onChange(c)} title={swatchName(item.title, i)} aria-label={swatchName(item.title, i)} />)}</div>
     case 'widths':
-      return <Fragment key={key}>{(item.widths ?? WIDTHS).map((w) => <button key={w} className={`wb-ww ${item.value === w ? 'on' : ''}`} onClick={() => item.onChange(w)}><span style={{ height: w }} /></button>)}</Fragment>
+      return <Fragment key={key}>{(item.widths ?? WIDTHS).map((w) => <button key={w} className={`wb-ww ${item.value === w ? 'on' : ''}`} onClick={() => item.onChange(w)}
+        title={fillTemplate(appConfig.copy.toolDock.widthName, { n: String(w) })}
+        aria-label={fillTemplate(appConfig.copy.toolDock.widthName, { n: String(w) })}><span style={{ height: w }} /></button>)}</Fragment>
     case 'lineStyle':
       return <LineStylePicker key={key} dashed={item.dashed} onChange={item.onChange} />
     case 'info':

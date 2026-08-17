@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { JournalLink } from './journalLinks'
-import { linkMarkup, linkParts, linkRanges } from './journalLinks'
+import { journalVocabulary, linkMarkup, linkParts, linkRanges } from './journalLinks'
+import type { AttendanceState, Person } from '../types'
 
 const vocab: JournalLink[] = [
   { name: 'Meier', kind: 'person' },
@@ -29,6 +30,27 @@ describe('linkRanges', () => {
 
   it('marks nothing in a sentence that names nothing', () => {
     expect(linkRanges('Kellerbrand bestätigt', vocab)).toEqual([])
+  })
+
+  // ⚠️ The command posts are the one term short enough to hide inside ordinary words — and the
+  // words it hides in are exactly the ones a Verlauf is full of.
+  describe('a `word` term (EL, Stv. EL)', () => {
+    const withEl: JournalLink[] = [...vocab, { name: 'EL', kind: 'person', word: true, role: 'Widmer Céline' }]
+
+    it('marks it standing on its own, and carries the holder as its suffix', () => {
+      const r = linkRanges('EL → Sanität: Lage stabil', withEl)
+      expect(r).toHaveLength(1)
+      expect(r[0]).toMatchObject({ start: 0, end: 2, role: 'Widmer Céline' })
+    })
+
+    it('does NOT mark it inside Melder, Keller, Schnellangriff or Winkel', () => {
+      expect(linkRanges('Melder 3 im Keller, Schnellangriff am Winkel', withEl)).toEqual([])
+    })
+
+    it('still marks it against punctuation, which is where it usually stands', () => {
+      expect(linkRanges('Rückmeldung an EL, Trupp 2 zurück', withEl)).toHaveLength(1)
+      expect(linkRanges('(EL)', withEl)).toHaveLength(1)
+    })
   })
 })
 
@@ -82,5 +104,34 @@ describe('the job after the name', () => {
   it('prints the role in plain weight beside the bold name', () => {
     expect(linkMarkup('Graf Stefan meldet', withRoles, (x) => x))
       .toBe('<b>Graf Stefan</b> (Fahrer TLF) meldet')
+  })
+})
+
+// ⚠️ Both directions of one fact: the person's entry prints «Widmer Céline (EL)», the post's
+// entry prints «EL (Widmer Céline)» — so it does not matter which way round the sentence is
+// written. And when nobody holds the post, «EL» is still what was said on the radio.
+describe('journalVocabulary · the command posts', () => {
+  const person = (id: string, displayName: string): Person => ({ id, displayName, active: true, updatedAt: '2026-08-17T20:00:00.000Z' })
+  const present = (displayNameSnapshot: string, note?: string) =>
+    ({ status: 'present' as const, displayNameSnapshot, note, intervals: [{ from: '2026-08-17T20:00:00.000Z' }] })
+
+  const personnel = [person('p1', 'Widmer Céline'), person('p2', 'Meier Anna')]
+  const attendance: AttendanceState = {
+    p1: present('Widmer Céline', 'Einsatzleiter'),
+    p2: present('Meier Anna'),
+  }
+
+  it('resolves EL to whoever holds it, in both directions', () => {
+    const vocab = journalVocabulary(personnel, attendance)
+    expect(vocab.find((l) => l.name === 'EL')).toMatchObject({ role: 'Widmer Céline', word: true })
+    expect(vocab.find((l) => l.name === 'Widmer Céline')).toMatchObject({ role: 'EL' })
+  })
+
+  it('keeps the term when nobody holds the post — there is simply nobody to name yet', () => {
+    const vocab = journalVocabulary(personnel, { p2: present('Meier Anna') })
+    const el = vocab.find((l) => l.name === 'EL')
+    expect(el).toBeTruthy()
+    expect(el?.role).toBeUndefined()
+    expect(linkParts('EL → Sanität', vocab).find((p) => p.kind)?.text).toBe('EL')
   })
 })

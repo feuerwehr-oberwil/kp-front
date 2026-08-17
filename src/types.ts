@@ -328,6 +328,11 @@ export interface TimelineEvent {
    *  ⚠️ `note` is forward-compatible by construction: the reducer treats everything that is not
    *  `done` as still open, so an older client meeting one fails in the safe direction. */
   reminder?: {
+    /** ⚠️ `dueAt` on a `note` is a MOVED Wiedervorlage, not a second reminder: a Meldung that
+     *  reports «Werkhof meldet 20 Minuten» is exactly the moment the item's own clock shifts. It
+     *  rides on the note rather than on a `snoozed` row of its own, because the sentence has to
+     *  stay in the item's thread (lib/reminders · the note branch reads the dueAt and leaves the
+     *  open/closed state alone). */
     op: 'created' | 'done' | 'snoozed' | 'note'; id: string; dueAt?: string
     /** Pendenz only: sorts to the top of the list and prints a marker.
      *  ⚠️ Written by `created` alone. The composer offered it on a Meldung for a while, as a
@@ -621,6 +626,15 @@ export interface TruppReading {
 
 export interface Trupp {
   id: string
+  /** Taken off the Tafel (ISO), rather than removed from the record.
+   *
+   * ⚠️ A Trupp that was ever registered is part of what happened, and the Atemschutz page of the
+   * Rapport is a safety document: a crew that went in under PA and was then deleted from the board
+   * used to leave no trace on paper at all. So the delete stamps this and everything LIVE filters
+   * it out (IncidentWorkspace derives the board list once, at the source, so nothing downstream —
+   * alarms, markers, roster locks — can keep seeing it); the Rapport reads the unfiltered slice.
+   * Cleared again by the delete's own «Rückgängig». */
+  removedAt?: string
   /** group leader's name = the Trupp title (also the linked plan chip's label) */
   name: string
   /** other team members (for the board card; the chip shows only the leader) */

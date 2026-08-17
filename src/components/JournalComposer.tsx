@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
-import { Segmented } from './Segmented'
 import { Menu, Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases, type PhraseMatch } from '../lib/quickPhrases'
-import { fillTemplate, formatTime, isNextDay, stripUnprintable } from '../lib/format'
+import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import {
@@ -20,6 +19,7 @@ import type { JournalEntryType, TimelineEvent } from '../types'
 import { acceptName, suggestLinks } from '../lib/journalEntry'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
+import { startChips } from '../lib/startChips'
 import { clearDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
@@ -28,6 +28,13 @@ import { useKeyboardInset } from '../lib/useKeyboardInset'
 // `C` (appConfig.copy.journal) is read at the top of each component below rather than captured
 // here at module-load, so the locale resolved at boot (config/copy) applies.
 const MIN_STEP = 1 // exact-time minute granularity (hold the ± to repeat-fast)
+/** ⚠️ U+2192 / U+2190, never «->» and «<-». The same character has to survive into the Verlauf,
+ *  the Rapport and the PDF, and an ASCII pair renders as two characters that a search will never
+ *  find as one. Both directions, because a Funkprotokoll has both: «EL → Sanität» is an order
+ *  going out, «EL ← Sanität» is a message coming in, and rewriting the second as the first means
+ *  reversing the sentence you just heard. */
+const ARROW = '→'
+const ARROW_BACK = '←'
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
 export interface JournalDraft {
@@ -39,7 +46,9 @@ export interface JournalDraft {
   audioMeta?: TimelineEvent['audioMeta']
   /** several: one damage is rarely one picture (see the composer's photos state) */
   photoUrls?: string[]
-  /** set in Wiedervorlage mode: ISO time this entry becomes due (makes it a reminder) */
+  /** ISO time this entry becomes due — the clock beside the ring. ANY entry can carry one: an
+   *  Erinnerung is not a second kind of row, it is an open item that additionally says when it
+   *  should come back (see lib/reminders · the dueAt distinction). */
   dueAt?: string
   /** Info · Auftrag · Sofortmassnahme; absent = an ordinary entry */
   entryType?: JournalEntryType
@@ -52,24 +61,56 @@ export interface JournalDraft {
   assignee?: string
 }
 
-// Wiedervorlage due selection: a relative "+N min" chip, or an exact wall-clock time.
-type DueSel = { kind: 'in'; mins: number } | { kind: 'at'; hhmm: string } | null
+// Wiedervorlage due selection: a relative "+N min" chip, or an exact date + wall-clock time.
+// ⚠️ The exact one carries its DAY. It used to be «HH:MM, and if that is already past, tomorrow»
+// — a rule that is right nine times out of ten and silent the tenth, on the one surface where a
+// Wiedervorlage set for the wrong day is a check nobody makes. An Einsatz also runs over midnight
+// and over a second day often enough that «morgen» is a real answer, not an edge case.
+type DueSel = { kind: 'in'; mins: number } | { kind: 'at'; day: string; hhmm: string } | null
+
+/** local YYYY-MM-DD — never `toISOString().slice(0,10)`, which is UTC and jumps a day every
+ *  evening west of Greenwich (and every morning east of it). */
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
 
 function resolveDueAt(sel: DueSel): string | null {
   if (!sel) return null
   if (sel.kind === 'in') return new Date(Date.now() + sel.mins * 60_000).toISOString()
+  const [y, mo, da] = sel.day.split('-').map(Number)
   const [h, m] = sel.hhmm.split(':').map(Number)
-  if (Number.isNaN(h) || Number.isNaN(m)) return null
-  const d = new Date(); d.setHours(h, m, 0, 0)
-  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1) // a past time means the next occurrence
-  return d.toISOString()
+  if ([y, mo, da, h, m].some(Number.isNaN)) return null
+  return new Date(y, mo - 1, da, h, m, 0, 0).toISOString()
 }
 
-// default exact time when the Uhrzeit chip is first chosen: ~5 min out, snapped to the grid
-function defaultExactHHMM(): string {
+// default exact due when «Uhrzeit …» is first chosen: ~5 min out, snapped to the grid — which
+// rolls the DAY too, so the dialog opens on tomorrow when it is a few minutes before midnight.
+function defaultExact(): { day: string; hhmm: string } {
   const d = new Date(Date.now() + 5 * 60_000)
   d.setMinutes(Math.ceil(d.getMinutes() / MIN_STEP) * MIN_STEP, 0, 0)
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+  return { day: dayKey(d), hhmm: `${pad2(d.getHours())}:${pad2(d.getMinutes())}` }
+}
+
+/** «Heute · Di 18.08.» — the day the dialog is set to, named the way a person would say it. */
+function dayLabel(day: string): string {
+  const [y, m, d] = day.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const today = new Date()
+  const C = appConfig.copy.journal
+  const diff = Math.round((date.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000)
+  const rel = diff === 0 ? C.dayToday : diff === 1 ? C.dayTomorrow : null
+  const stamp = date.toLocaleDateString(appConfig.locale, { weekday: 'short', day: '2-digit', month: '2-digit' })
+  return rel ? `${rel} · ${stamp}` : stamp
+}
+
+/** step the day by ±1, never before today: a Wiedervorlage in the past fires the moment it is
+ *  saved, which is a banner nobody asked for rather than a reminder. */
+function stepDay(day: string, by: 1 | -1): string {
+  const [y, m, d] = day.split('-').map(Number)
+  const next = new Date(y, m - 1, d + by)
+  const now = new Date()
+  const floor = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return dayKey(next < floor ? floor : next)
 }
 
 // Custom HH:MM stepper — replaces the native <input type="time"> (whose OS spinner clashed with
@@ -91,7 +132,7 @@ function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) =
         <button type="button" className="jc-time-btn" aria-label={C.hourUp} {...hInc}><Icon id="chevron-up" /></button>
         {hEdit.editing
           ? <input className="jc-time-input" aria-label={C.hourUp} {...hEdit.inputProps} />
-          : <button type="button" className="jc-time-val" onClick={() => hEdit.start(h)} title="Tippen zum Eingeben">{pad2(h)}</button>}
+          : <button type="button" className="jc-time-val" onClick={() => hEdit.start(h)} title={appConfig.copy.stepper.typeToEnter}>{pad2(h)}</button>}
         <button type="button" className="jc-time-btn" aria-label={C.hourDown} {...hDec}><Icon id="chevron-down" /></button>
       </div>
       <span className="jc-time-sep">:</span>
@@ -99,7 +140,7 @@ function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) =
         <button type="button" className="jc-time-btn" aria-label={C.minUp} {...mInc}><Icon id="chevron-up" /></button>
         {mEdit.editing
           ? <input className="jc-time-input" aria-label={C.minUp} {...mEdit.inputProps} />
-          : <button type="button" className="jc-time-val" onClick={() => mEdit.start(m)} title="Tippen zum Eingeben">{pad2(m)}</button>}
+          : <button type="button" className="jc-time-val" onClick={() => mEdit.start(m)} title={appConfig.copy.stepper.typeToEnter}>{pad2(m)}</button>}
         <button type="button" className="jc-time-btn" aria-label={C.minDown} {...mDec}><Icon id="chevron-down" /></button>
       </div>
     </div>
@@ -114,7 +155,7 @@ function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) =
 // coordinate, which is the weak version of what the Wiedergabe does — scrub to the moment and
 // the entire picture is the one from back then. The row still records its surface; that is
 // addJournal's business, not this sheet's.
-export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, vocab = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
+export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
   /** opened from a Pendenz row: everything written here becomes a Meldung ON that item rather
@@ -128,6 +169,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   openPendenzen?: { id: string; text: string; urgent?: boolean }[]
   /** attach the entry being written to one of them (the workspace owns `noteOn`) */
   onLinkPendenz?: (p: { id: string; text: string }) => void
+  /** this incident's own rows, for the chips offered while the field is still empty (see
+   *  lib/startChips). Absent ⇒ the station's list is offered as it stands. */
+  timeline?: TimelineEvent[]
   /** everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
    *  Fahrzeuge, Alarmgruppen (see lib/journalLinks · journalVocabulary). Typing three letters
    *  of any of them completes it; whatever ends up in the text is marked. */
@@ -162,6 +206,66 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const nameHits = useMemo(() => suggestLinks(text, vocab), [text, vocab])
   // …and what is already in the text, so the field can mark it as you type
   const parts = useMemo(() => linkParts(text, vocab), [text, vocab])
+  // ── the arrow, offered right after somebody has been named ────────────────────────────────
+  // ⚠️ The Verlauf is a Funkprotokoll, and «wer sagt was zu wem» is the shape of nearly every line
+  // in it — written today as «meldet», «an», «über Funk an», «:» or nothing at all. One sign that
+  // always means the same thing makes the column readable, and later searchable.
+  // It is an ORDINARY suggestion: same row, same size, it inserts text and nothing else. Offered
+  // only when the sentence has just named somebody (a person, a post, a Partnerorganisation, a
+  // Fahrzeug, a Gruppe) and does not already end in one — «EL → → Sanität» is nobody's intention.
+  // ⚠️ Offered while the sentence ENDS on somebody — a name, a post, an organisation, a Fahrzeug —
+  // with or without the space after it, and never once other words have followed. The arrow says
+  // «…and now the other side», so its moment is exactly there; kept alive through the rest of the
+  // sentence it was a chip that never went away, competing with the Textbausteine for the row.
+  // (The trailing space HAS to count: nobody writes the name and then stops mid-air.)
+  const arrowHit = useMemo(() => {
+    const end = text.trimEnd()
+    if (!end || end.endsWith(ARROW) || end.endsWith(ARROW_BACK)) return false
+    const last = linkParts(end, vocab).pop()
+    return !!last?.kind
+  }, [text, vocab])
+  // ── and what the sheet offers before a single letter is typed ──
+  // ⚠️ Only while the field is EMPTY. The Textbausteine stopped being a permanent strip on
+  // 02.07. because a row of them competed with the sentence; these are gone with the first
+  // keystroke, so the row they sit in is the one that was standing empty anyway (on a phone it is
+  // even reserved). What they buy is the first tap, which is the one moment a blank field says
+  // nothing about what belongs in it.
+  // ⚠️ The opener is the ARROW one («EL → »): a Funkprotokoll's first token is a post, and unlike
+  // any phrase that is true on every kind of Einsatz. It only exists if the vocabulary has the
+  // post (journalLinks · commandRoles), so a deployment without one simply gets phrases.
+  // ⚠️ They stay until somebody TYPES, not until the field has something in it. Tapping «EL →» is
+  // exactly the moment the second chip becomes useful — a row that empties itself on its own first
+  // tap offers help once and then takes it away. The first keystroke is the real signal: from
+  // there the fragment under the cursor has better answers (names, Textbausteine) than any list.
+  // ⚠️ seeded from the text, not `false`: this sheet restores a kept draft (draftKeep), and a
+  // half-written sentence with «EL →» and the station's phrases sitting over it is a row offering
+  // to start something that is already started — tapping one would append to the middle of it.
+  const [typed, setTyped] = useState(() => text.trim().length > 0)
+  const starters = useMemo(() => {
+    if (typed) return []
+    const el = vocab.find((l) => l.word)?.name
+    return startChips(timeline, quickPhrases, el ? `${el} ${ARROW}` : undefined)
+  }, [typed, vocab, timeline, quickPhrases])
+  /** …and a second chip APPENDS. «EL → » followed by «Polizei aufgeboten» is one sentence being
+   *  built out of two taps, which is the whole point of leaving the row standing. */
+  const takeStarter = (insert: string) => {
+    setText((t) => (t.trim() ? `${t.trimEnd()} ${insert}` : insert))
+    requestAnimationFrame(() => {
+      const el = textRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(el.value.length, el.value.length)
+    })
+  }
+  const takeArrow = (ch: string = ARROW) => {
+    setText((t) => `${t.trimEnd()} ${ch} `)
+    requestAnimationFrame(() => {
+      const el = textRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(el.value.length, el.value.length)
+    })
+  }
   const textRef = useRef<HTMLTextAreaElement>(null)
   const marksRef = useRef<HTMLDivElement>(null)
   // Accepting a Textbaustein must keep the operator in the writing flow: textarea stays
@@ -185,9 +289,20 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       el.setSelectionRange(el.value.length, el.value.length)
     })
   }
-  const [mode, setMode] = useState<'entry' | 'reminder'>('entry')
+  // ── the clock: any entry may say when it has to come back ─────────────────────────────────
+  // ⚠️ There is no «Eintrag · Erinnerung» switch any more. Asking for the KIND of row first cost
+  // the Erinnerung everything the ordinary sheet has — Art, Foto, Sprachnotiz, the ring — and made
+  // «Auftrag erteilt» and «um 22:10 nachfassen» two rows about one thing. The clock is now a
+  // property of the entry, exactly as the open ring already is.
+  // ⚠️ Resolved PER RENDER, not when the chip is picked: «+10 min» means ten minutes from the moment
+  // it is saved, and the sheet can stand open for a while (unchanged behaviour).
   const [dueSel, setDueSel] = useState<DueSel>(null)
-  const dueAt = mode === 'reminder' ? resolveDueAt(dueSel) : undefined
+  const dueAt = resolveDueAt(dueSel) ?? undefined
+  // the exact due dialog (day + time), opened from the clock menu's «Uhrzeit …» row
+  const [exact, setExact] = useState<{ day: string; hhmm: string } | null>(null)
+  // …and whether what it currently says has already gone by (see the dialog)
+  const exactAt = exact ? resolveDueAt({ kind: 'at', ...exact }) : null
+  const pastDue = !!exactAt && Date.parse(exactAt) <= Date.now()
   // ── the ○ switch: aus → offen → dringend → aus ────────────────────────────────────────────
   // ⚠️ THREE states on ONE control, not a second chip appearing beside it. A chip that shows up
   // on tap pushes the row onto a second line — the sheet grows under the thumb on the one surface
@@ -201,13 +316,19 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // switch beside it said «offen» about something that was open before this sheet existed. A
   // Meldung reports on an item; it does not re-decide it.
   const [openState, setOpenState] = useState<0 | 1 | 2>(0)
+  // ⚠️ A due time and an open ring are ONE fact, so the two controls keep each other honest: a
+  // Fälligkeit on a line nobody can tick off would fire a banner with no way to answer it, and a
+  // line taken off the Pendenzen would keep an alarm nothing owns. Setting a time therefore opens
+  // the ring, and closing the ring drops the time.
+  const setDue = (sel: DueSel) => { setDueSel(sel); if (sel && openState === 0) setOpenState(1) }
+  const setOpen = (s: 0 | 1 | 2) => { setOpenState(s); if (s === 0) setDueSel(null) }
   // …and the open Pendenzen this sentence already names. Offered only while writing an ordinary
-  // entry: once it IS a Meldung the question is answered, and an Erinnerung is a note to oneself.
+  // entry: once it IS a Meldung the question is answered.
   const pendenzHits = useMemo(
-    () => (noteOn || mode === 'reminder' ? [] : suggestPendenzen(text, openPendenzen as OpenReminder[])),
-    [text, openPendenzen, noteOn, mode],
+    () => (noteOn ? [] : suggestPendenzen(text, openPendenzen as OpenReminder[])),
+    [text, openPendenzen, noteOn],
   )
-  const canLink = mode === 'entry' && openPendenzen.length > 0 && !!onLinkPendenz
+  const canLink = openPendenzen.length > 0 && !!onLinkPendenz
   // ── the ○ opens a menu; it no longer cycles ───────────────────────────────────────────────
   // ⚠️ Three states reached by tapping the same ring in turn were a guessing game, and the way to
   // «hang this on something already open» was a long press — a gesture that cannot announce
@@ -221,6 +342,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const menuRow = (state: 0 | 1 | 2, label: string, active: boolean) => (
     <>
       <span className="jc-menu-ring" data-state={state}>{state === 2 && <span className="jc-bang" />}</span>
+      <span className="jc-menu-label">{label}</span>
+      {active && <Icon id="check" />}
+    </>
+  )
+  /** …and one row of the clock's menu, laid out the same way so the two popups read as siblings:
+   *  a leading slot (empty for the plain minute rows), the words, a tick when it is the choice. */
+  const dueRow = (lead: React.ReactNode, label: string, active: boolean) => (
+    <>
+      <span className="jc-menu-ring jc-menu-lead">{lead}</span>
       <span className="jc-menu-label">{label}</span>
       {active && <Icon id="check" />}
     </>
@@ -349,7 +479,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // Pasting a copied Voice Memo (or photo) is the easier mobile path than the Files detour —
   // handled on the composer root so a paste into the textarea bubbles here too.
   const onPaste = (e: React.ClipboardEvent) => {
-    if (mode !== 'entry') return
     const files = Array.from(e.clipboardData?.files ?? [])
     const audio = files.find((f) => f.type.startsWith('audio/') || /\.m4a$/i.test(f.name))
     const image = files.find((f) => f.type.startsWith('image/'))
@@ -384,6 +513,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       onSubmit({
         text: text.trim(), photoUrls: photos.length ? photos : undefined,
         entryType: entryType ?? undefined,
+        // …and the same three facts the typed entry carries. An imported memo used to drop them
+        // silently: the ring could be set on the sheet and the row landed as an ordinary line.
+        dueAt,
+        assignee: parts.find((p) => p.kind)?.text,
+        ...(noteOn ? { noteFor: { id: noteOn.id } } : openState > 0 ? { pendenz: { urgent: openState === 2 } } : {}),
         audioUrl: url, secs: imported.durationSec ?? undefined,
         audioMeta: {
           source: 'imported', startedAt: startAt.toISOString(),
@@ -410,20 +544,18 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     setPhotos((ps) => ps.filter((p) => p !== url))
   }
 
-  const canSend = mode === 'reminder'
-    ? text.trim().length > 0 && !!dueAt
-    : imported != null
-      // hard gate: an imported memo saves only with a confirmed, valid start time
-      ? startConfirmed && importStartAt != null && !uploading
-      : text.trim().length > 0 || (mode === 'entry' && (clip != null || photos.length > 0))
+  const canSend = imported != null
+    // hard gate: an imported memo saves only with a confirmed, valid start time
+    ? startConfirmed && importStartAt != null && !uploading
+    : text.trim().length > 0 || clip != null || photos.length > 0
   const submit = () => {
     if (!canSend || uploading) return
     clearDraft(draftKey) // sent — the next open starts empty
-    if (mode === 'reminder') { onSubmit({ text: text.trim(), dueAt: dueAt! }); return }
     if (imported) { void submitImported(); return }
     onSubmit({
       text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined,
       entryType: entryType ?? undefined,
+      dueAt,
       // «Wer»: the first name the sentence marks. No field asks for it — whoever writes «Trupp 2
       // entraucht Treppenhaus» has already said who it is for, and a Trupp is titled by its
       // Gruppenführer, who is in the vocabulary anyway (lib/journalLinks).
@@ -450,16 +582,14 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef}
       style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}>
       <div onPaste={onPaste} style={{ display: 'contents' }}>
-        {/* mode: a normal Eintrag, or a time-due Wiedervorlage (reminder).
-            ⚠️ No title row above it. «Journaleintrag» sat over «Eintrag · Erinnerung» saying
-            the same thing one line higher, and on a phone this sheet is fighting the keyboard
-            for every row it has. The tabs name the surface; the ✕ joins them rather than
-            claiming a line of its own. The dialog keeps its accessible name on the Overlay. */}
+        {/* What this sheet is, and the ✕ beside it.
+            ⚠️ There is no «Eintrag · Erinnerung» switch here any more (17.08.). It asked which KIND
+            of row this would be BEFORE the sentence was written — and the answer stripped the
+            Erinnerung of Art, Foto, Sprachnotiz and the ring, so «Auftrag erteilt» and «um 22:10
+            nachfassen» had to be written as two rows about one thing. Whether something has to come
+            back is a property of the entry, like the open ring, and it is asked by the clock down
+            in the meta row. The title takes the space the tabs had. */}
         <div className="jc-mode">
-          {/* ⚠️ No mode switch on a Meldung. «Eintrag · Erinnerung» asks which KIND of new row
-              this is, and the answer is already settled: it is a Meldung on the item named below.
-              Offering «Erinnerung» there would have written a free-standing reminder and silently
-              dropped the link. */}
           {noteOn
             ? (
               // ⚠️ The link lives IN the title row, not on one of its own. As a separate amber
@@ -478,17 +608,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <span className="jc-mode-note-name">{noteOn.text}</span>
               </span>
             )
-            : (
-              <Segmented
-                ariaLabel={C.composerTitle}
-                value={mode}
-                onChange={setMode}
-                options={[
-                  { value: 'entry', label: <><Icon id="type" />{C.modeEntry}</> },
-                  { value: 'reminder', label: <><Icon id="clock" />{C.modeReminder}</> },
-                ]}
-              />
-            )}
+            // the word alone: the «T» beside it said «text» about the one surface that could not be
+            // anything else, next to a sheet full of controls that all mean something
+            : <span className="jc-mode-title"><b>{C.composerTitle}</b></span>}
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}
             onClick={() => { clearDraft(draftKey); onClose() }}><Icon id="close" /></button>
         </div>
@@ -511,16 +633,27 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
           ref={textRef}
           className="jc-text"
           value={text}
-          onChange={(e) => setText(stripUnprintable(e.target.value))}
-          placeholder={mode === 'reminder' ? C.reminderTextPlaceholder : C.textPlaceholder}
+          onChange={(e) => {
+            const v = stripUnprintable(e.target.value)
+            setText(v)
+            // …and an emptied field is a fresh start: the chips come back
+            setTyped(v.trim().length > 0)
+          }}
+          placeholder={C.textPlaceholder}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit()
             // Tab accepts the top Textbaustein suggestion (keyboard path; touch just taps)
             // Tab takes the top suggestion — a NAME first when one is offered, because that
             // is the one you were mid-word on
-            else if (e.key === 'Tab' && (nameHits.length > 0 || suggestions.length > 0)) {
+            else if (e.key === 'Tab' && (nameHits.length > 0 || arrowHit || suggestions.length > 0)) {
               e.preventDefault()
+              // ⚠️ The name still wins the keystroke. The arrow is only offered once a name is
+              // COMPLETE, so in practice the two never compete — and where they do, the word being
+              // typed is the one the reflex was aimed at.
               if (nameHits.length > 0) takeName(nameHits[0].name)
+              // …and Tab takes the OUTGOING one. Both are one tap away; the keyboard shortcut
+              // can only have one meaning, and «wer sagt es wem» is written that way round.
+              else if (arrowHit) takeArrow(ARROW)
               else accept(suggestions[0])
             }
           }}
@@ -541,9 +674,30 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             lived in this row — and once that chip moved onto the ○ switch, the condition kept
             holding an otherwise empty 44px row open for it, so the ordinary Eintrag sheet stood
             taller than the Meldung sheet with nothing in the gap. */}
-        {(nameHits.length === 0 && suggestions.length === 0 && pendenzHits.length === 0)
+        {(nameHits.length === 0 && !arrowHit && starters.length === 0 && suggestions.length === 0 && pendenzHits.length === 0)
           ? <div className="jc-phrases is-empty" aria-hidden /> : (
           <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
+            {/* the empty-field chips: the opener first, then what this Einsatz keeps writing */}
+            {starters.map((c) => (
+              <button
+                key={c.label}
+                className={`jc-phrase${c.kind === 'opener' ? ' jc-phrase-starter' : ''}`}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => takeStarter(c.insert)}
+              >{c.label}</button>
+            ))}
+            {/* FIRST — it is the chip whose moment has just arrived (a name was completed), and the
+                one the next keystroke would otherwise have to be typed around. */}
+            {arrowHit && ([ARROW, ARROW_BACK] as const).map((ch) => (
+              <button
+                key={ch}
+                className="jc-phrase jc-phrase-arrow"
+                title={ch === ARROW ? C.arrowTitle : C.arrowBackTitle}
+                aria-label={ch === ARROW ? C.arrowTitle : C.arrowBackTitle}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => takeArrow(ch)}
+              >{ch}</button>
+            ))}
             {nameHits.map((n) => (
               <button
                 key={`n:${n.kind}:${n.id ?? n.name}`}
@@ -580,40 +734,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
           </div>
         )}
 
-        {mode === 'reminder' && (
-          <div className="jc-due">
-            <span className="jc-due-label">{C.reminderWhen}</span>
-            <div className="jc-due-chips">
-              {C.reminderChips.map((n) => (
-                <button
-                  key={n}
-                  className={`jc-due-chip ${dueSel?.kind === 'in' && dueSel.mins === n ? 'on' : ''}`}
-                  onClick={() => setDueSel({ kind: 'in', mins: n })}
-                >{C.reminderChipLabel.replace('{n}', String(n))}</button>
-              ))}
-              <button
-                className={`jc-due-chip ${dueSel?.kind === 'at' ? 'on' : ''}`}
-                onClick={() => setDueSel((s) => (s?.kind === 'at' ? s : { kind: 'at', hhmm: defaultExactHHMM() }))}
-              ><Icon id="clock" />{C.reminderExact}</button>
-            </div>
-            {dueSel?.kind === 'at' && (
-              <TimeStepper hhmm={dueSel.hhmm} onChange={(hhmm) => setDueSel({ kind: 'at', hhmm })} />
-            )}
-            {dueAt && (
-              <span className="jc-due-preview">
-                <Icon id="check" />{formatTime(new Date(dueAt))}
-                {isNextDay(dueAt) && <em>{C.reminderTomorrow}</em>}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* ── Who said it, and what kind of statement it is ──
-            Both live BELOW the text and above the media, in one quiet strip: the sentence is
-            still what this surface is for, and neither of these may look like a field that has
-            to be filled in before it will accept one. Entry mode only — a Wiedervorlage is a
-            note to oneself, so it has no source and no kind. */}
-        {mode === 'entry' && (
+        {/* ── Who said it, what kind of statement it is, and whether it has to come back ──
+            All of it lives BELOW the text and above the media, in one quiet strip: the sentence is
+            still what this surface is for, and none of these may look like a field that has to be
+            filled in before it will accept one. */}
+        {(
           <div className="jc-meta">
             {/* Art — quiet by design: three small chips, none preselected. «Info» is the
                 ordinary case and prints no marker at all (lib/journalEntry).
@@ -629,7 +754,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
                   aria-pressed={entryType === t}
                   onClick={() => setEntryType((cur) => (cur === t ? null : t))}
-                >{C.entryTypes[t]}</button>
+                  // ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
+                  // the plain one. This chip is the narrowest control on the sheet; the word that
+                  // has to wrap in it is a doctrine word, and where it breaks is not the browser's
+                  // guess to make. What gets WRITTEN is still `entryTypes` (lib/journalEntry).
+                >{C.entryTypesWrap[t] ?? C.entryTypes[t]}</button>
               ))}
               {/* ── … and whether anything has to come back to it ──
                   Separated from the three by a rule, because it answers a DIFFERENT question.
@@ -648,6 +777,50 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   was tried, as a two-state switch, and it re-ranked the whole Pendenz the Meldung
                   merely reports on. «Dringende Pendenz» in that menu means something else: let the
                   link go and make THIS line a dringende one. */}
+              {/* ── … and WHEN it has to come back ──
+                  A second round control beside the ring, and deliberately a second one: the ring
+                  says «bleibt offen», the clock says «meldet sich». It carries a MENU rather than a
+                  strip of chips, for the same reason the ring does — a row that unfolds inside the
+                  sheet pushes the field it belongs to under the keyboard, and the answers here are
+                  one-of-N. The preset minutes and «Uhrzeit …» live in that one popup.
+                  ⚠️ The two controls are not independent (see setDue/setOpen): a Fälligkeit implies
+                  an open item, because a banner nobody can tick off has no answer. */}
+              <span className="jc-openwrap">
+              <Menu
+                side="top"
+                align="end"
+                popupClassName="rp-print-menu jc-pendenz-menu"
+                itemClassName={() => 'rp-print-menu-item'}
+                // BOTTOM-UP like the ring's menu: this popup opens upwards, so the rows nearest the
+                // finger are the ones at the END of the list. The minutes therefore descend —
+                // the shortest wait sits closest to the control that was just pressed.
+                items={[
+                  { kind: 'head' as const, label: C.dueHead },
+                  { label: dueRow(<Icon id="clock" />, C.reminderExact, dueSel?.kind === 'at'),
+                    onClick: () => setExact(dueSel?.kind === 'at' ? { day: dueSel.day, hhmm: dueSel.hhmm } : defaultExact()) },
+                  ...[...C.reminderChips].reverse().map((n) => ({
+                    label: dueRow(null, C.reminderChipLabel.replace('{n}', String(n)), dueSel?.kind === 'in' && dueSel.mins === n),
+                    onClick: () => setDue({ kind: 'in', mins: n }),
+                  })),
+                  // …and the way back out, pinned under the thumb — only once there is one
+                  ...(dueSel ? [{ label: dueRow(null, C.dueNone, false), onClick: () => setDueSel(null), sticky: true }] : []),
+                ]}
+                trigger={(
+                  <button
+                    type="button"
+                    className="jc-due-btn"
+                    data-on={dueAt ? '1' : undefined}
+                    title={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
+                    aria-label={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
+                  >
+                    <Icon id="clock" />
+                    {/* the time itself on the button, not just a lit icon: «meldet sich» without
+                        «wann» is the half of the answer nobody can act on */}
+                    {dueAt && <span className="jc-due-badge">{formatTime(new Date(dueAt))}</span>}
+                  </button>
+                )}
+              />
+              </span>
               <span className="jc-openwrap">
               <Menu
                 side="top"
@@ -678,8 +851,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                         // ⚠️ Both of these UNLINK first. `submit` reads `noteFor` before `pendenz`,
                         // so a draft still carrying the link would quietly ignore the choice just
                         // made and file the line as a Meldung anyway.
-                        { label: menuRow(2, C.pendenzNewUrgent, false), onClick: () => { onClearNote(); setOpenState(2) }, sticky: true },
-                        { label: menuRow(1, C.pendenzNew, false), onClick: () => { onClearNote(); setOpenState(1) }, sticky: true },
+                        { label: menuRow(2, C.pendenzNewUrgent, false), onClick: () => { onClearNote(); setOpen(2) }, sticky: true },
+                        { label: menuRow(1, C.pendenzNew, false), onClick: () => { onClearNote(); setOpen(1) }, sticky: true },
                       ]
                       : []),
                   ]
@@ -703,9 +876,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   // the fold, opening at the bottom hid the most pressing items above it. Pinned,
                   // the list keeps its own order — dringend first, then oldest, read from the top —
                   // while the rows you nearly always want stay under the thumb.
-                  ...(openState > 0 ? [{ label: menuRow(0, C.pendenzNotOpen, false), onClick: () => setOpenState(0), sticky: true }] : []),
-                  { label: menuRow(2, C.pendenzNewUrgent, openState === 2), onClick: () => setOpenState(2), sticky: true },
-                  { label: menuRow(1, C.pendenzNew, openState === 1), onClick: () => setOpenState(1), sticky: true },
+                  ...(openState > 0 ? [{ label: menuRow(0, C.pendenzNotOpen, false), onClick: () => setOpen(0), sticky: true }] : []),
+                  { label: menuRow(2, C.pendenzNewUrgent, openState === 2), onClick: () => setOpen(2), sticky: true },
+                  { label: menuRow(1, C.pendenzNew, openState === 1), onClick: () => setOpen(1), sticky: true },
                   ]}
                 // ⚠️ The ring IS the trigger. It was an invisible anchor beside it for a while,
                 // with the open state held here — and then a second press on the ring counted as
@@ -732,8 +905,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
           </div>
         )}
 
-        {/* media: record a voice memo or attach a photo (entry mode only — a Wiedervorlage is text + due) */}
-        {mode === 'entry' && (<>
+        {/* media: record a voice memo or attach a photo — on EVERY entry now, including one that
+            carries a due time. An Erinnerung used to be text-only, which is why «Foto vom Zähler,
+            in 10 min nachschauen» had to be two rows. */}
+        {(<>
           {/* ⚠️ `.file-picker`, never `hidden`: Safari opens a file chooser only for an input it
               actually renders, so `.click()` on a display:none input is a silent no-op on iOS
               (see 02-base.css). Off-screen and transparent, both pickers work on a phone. */}
@@ -811,10 +986,56 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             that must never share a row with anything else. */}
         <div className="jc-foot">
           <button className="jc-send" disabled={!canSend || uploading} onClick={submit}>
-            <Icon id="check" />{uploading ? C.audioUploading : mode === 'reminder' ? C.reminderSend : C.send}
+            <Icon id="check" />{uploading ? C.audioUploading : C.send}
           </button>
         </div>
       </div>
+      {/* «Uhrzeit …» — the one answer that is not a row in a menu. A dialog rather than a strip
+          unfolding inside the sheet: the composer is already fighting the keyboard for its rows,
+          and this is the rare path. It carries the SAME ± stepper the imported memo uses. */}
+      {/* ⚠️ `ui-dialog` is not decoration: it is what POSITIONS and stacks a dialog at all (see
+          08-toasts.css · «der Stift öffnet nichts»). Without it this card mounted into the DOM
+          unstyled at the top of <body> and under the sheet — «Uhrzeit tut nichts», with a DOM that
+          looked perfectly correct. Its z-index (96) is also what puts it over the composer (81).
+          There is deliberately no second backdrop: Base UI renders none for a NESTED dialog, so
+          the sheet stays visible behind — right for a popup that answers one question about it. */}
+      {exact != null && (
+        <Overlay open onClose={() => setExact(null)} className="confirm-card ui-dialog jc-exact" backdropClassName="modal-backdrop"
+          ariaLabel={C.reminderExact}>
+          <h3 className="jc-exact-title">{C.dueExactTitle}</h3>
+          {/* ⚠️ THE DAY, always — not «and if that time is already past, then tomorrow». An Einsatz
+              runs over midnight often enough that the rule was silently right most of the time and
+              silently wrong the rest, on a surface where nobody re-reads what they set. It steps
+              rather than opens a calendar: a Wiedervorlage lands today or tomorrow in nearly every
+              case, and ± is one tap with a glove on. */}
+          <div className="jc-exact-day">
+            <button type="button" className="jc-time-btn" aria-label={C.dayBack}
+              onClick={() => setExact((e) => (e ? { ...e, day: stepDay(e.day, -1) } : e))}
+              disabled={exact.day === dayKey(new Date())}
+            ><Icon id="chevron" className="jc-exact-prev" /></button>
+            <b>{dayLabel(exact.day)}</b>
+            <button type="button" className="jc-time-btn" aria-label={C.dayForward}
+              onClick={() => setExact((e) => (e ? { ...e, day: stepDay(e.day, 1) } : e))}
+            ><Icon id="chevron" /></button>
+          </div>
+          <TimeStepper hhmm={exact.hhmm} onChange={(hhmm) => setExact((e) => (e ? { ...e, hhmm } : e))} />
+          {/* what the two together mean, resolved exactly as `resolveDueAt` will resolve them —
+              including the case the day picker now makes possible: a time that has already gone by */}
+          <p className={`jc-exact-preview${pastDue ? ' is-past' : ''}`}>
+            {pastDue ? C.duePast : `${dayLabel(exact.day)} · ${exact.hhmm}`}
+          </p>
+          <div className="jc-exact-actions">
+            <button className="jc-exact-cancel" onClick={() => setExact(null)}>{appConfig.copy.cancel}</button>
+            {/* ⚠️ Disabled on a past instant rather than quietly rolling it forward: a reminder that
+                fires the second it is saved is not what «22:57» meant, and the fix is one tap on
+                the day. */}
+            <button className="jc-exact-ok" disabled={pastDue}
+              onClick={() => { setDue({ kind: 'at', day: exact.day, hhmm: exact.hhmm }); setExact(null) }}>
+              <Icon id="check" />{C.dueExactConfirm}
+            </button>
+          </div>
+        </Overlay>
+      )}
     </Overlay>
   )
 }

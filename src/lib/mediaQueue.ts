@@ -93,6 +93,25 @@ export const listMediaQueue = (incidentId: string): Promise<MediaQueueItem[]> =>
 /** Drop the whole queue for an incident (called when an incident is archived/closed). */
 export const clearIncidentMedia = (incidentId: string): Promise<void> => idbDel(keyFor(incidentId))
 
+/**
+ * Drop an archived incident's queue — UNLESS something is still waiting in it.
+ *
+ * ⚠️ The Abschluss used to call `clearIncidentMedia` outright. Right for the ordinary case (every
+ * blob is on the server by then and the queue is dead weight), destructive in the one that
+ * actually happens: offline at Einsatzende, with photos and voice memos still pending. That
+ * deleted exactly the media the Rapport had promised to send «bei Verbindung» — no warning, no
+ * undo, and only on the copy that mattered.
+ *
+ * Returns how many items were kept, so the caller can say so. What stays goes up the next time
+ * the incident is opened: the workspace drains the queue whenever the sync reports «synced».
+ */
+export async function clearUploadedMedia(incidentId: string): Promise<number> {
+  const pending = await readQueue(incidentId).catch(() => [] as MediaQueueItem[])
+  if (pending.length) return pending.length
+  await idbDel(keyFor(incidentId)).catch(() => {})
+  return 0
+}
+
 export type MediaUploader = (
   incidentId: string,
   blob: Blob,

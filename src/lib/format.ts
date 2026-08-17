@@ -141,7 +141,13 @@ export function stripUnprintable(s: string): string {
   return s
     // Pictographs proper: emoji, dingbats, arrows-as-symbols, geometric shapes, and the
     // private-use area an icon font would sit in.
-    .replace(/[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{E000}-\u{F8FF}]/gu, '')
+    // ⚠️ …EXCEPT «→» and «←» (U+2192 / U+2190), which the journal writes on purpose: «EL → Sanität»
+    // is the shape of nearly every line in a Funkprotokoll, and the composer offers the character
+    // as a suggestion (JournalComposer · ARROW). They were caught by this range for a day and
+    // vanished from the field the moment the next keystroke arrived. Helvetica still has no glyph
+    // for them, so the PAPER gets «->» instead — mapped once, where the rapport payload is built
+    // (lib/reportPdfDirect · forPaper), not by silently editing what the operator typed.
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2191}\u{2193}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{E000}-\u{F8FF}]/gu, '')
     // …then the glue: variation selectors, the zero-width joiner and the keycap mark. Taking
     // the whole grapheme apart is exactly the intent here — «👨‍🚒» must leave nothing behind,
     // and a lone joiner after its pictograph is gone would be an invisible character in a

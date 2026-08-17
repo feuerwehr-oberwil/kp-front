@@ -126,3 +126,44 @@ describe('sticky/updatable toast (live print status)', () => {
     expect(screen.queryByText('ghost')).toBeNull()
   })
 })
+
+// ⚠️ The pill passes taps through (pointer-events: none) — the ACTION is the one part that cannot,
+// so it is the one part that can be in the way of the FAB or the phone rail underneath it.
+describe('getting a confirm-with-undo toast out of the way', () => {
+  /** the toast just raised — the store is module-level, so a previous test's pill may still stand */
+  const last = (sel: string) => [...document.querySelectorAll(`.toast ${sel}`)].pop() as HTMLElement
+  const drag = (el: Element, dx: number) => {
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 0 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: dx })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: dx })
+    fireEvent.click(el)
+  }
+
+  it('closes on the ✕ without undoing anything', () => {
+    render(<Overlays />)
+    const onClick = vi.fn()
+    act(() => { toast('mit ✕ weg', { action: { label: 'Rückgängig', onClick } }) })
+    fireEvent.click(last('.toast-x'))
+    expect(screen.queryByText('mit ✕ weg')).toBeNull()
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('flicks away without undoing anything — a flick ends on the button, but is not a press', () => {
+    render(<Overlays />)
+    const onClick = vi.fn()
+    act(() => { toast('weggewischt', { action: { label: 'Rückgängig', onClick } }) })
+    drag(last('.toast-action'), 90)
+    expect(screen.queryByText('weggewischt')).toBeNull()
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  // …and a shaky press is still a press: the button is a target first and a slider second
+  it('still undoes when the finger barely moved', () => {
+    render(<Overlays />)
+    const onClick = vi.fn()
+    act(() => { toast('zittrig gedrückt', { action: { label: 'Rückgängig', onClick } }) })
+    drag(last('.toast-action'), 6)
+    expect(onClick).toHaveBeenCalled()
+    expect(screen.queryByText('zittrig gedrückt')).toBeNull()
+  })
+})

@@ -19,7 +19,7 @@ import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { useIncidentTabLock } from './lib/tabLock'
-import { clearIncidentMedia } from './lib/mediaQueue'
+import { clearIncidentMedia, clearUploadedMedia } from './lib/mediaQueue'
 import { ensurePushSubscription } from './lib/push'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAuth } from './lib/auth'
@@ -57,14 +57,16 @@ function rebaseDemoSeed(ws: Saved, incidentId: string): Saved {
 }
 
 function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback?: () => void }) {
-  const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn } = useDevicePrefs()
+  const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   useEffect(() => {
-    savePrefs({ ...loadPrefs(), symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn })
-  }, [symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn])
+    savePrefs({ ...loadPrefs(), symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels })
+  }, [symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels])
   return (
     <SettingsSheet
       onClose={onClose}
       symbolSize={symbolSize}
+      railLabels={railLabels}
+      onRailLabels={setRailLabels}
       onSymbolSize={setSymbolSize}
       symbolCaptions={symbolCaptions}
       onSymbolCaptions={setSymbolCaptions}
@@ -78,6 +80,8 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
     />
   )
 }
+
+
 
 export default function App() {
   const { user, logout } = useAuth()
@@ -288,6 +292,9 @@ export default function App() {
   const undoTake = useCallback(async (id: string) => {
     if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
     await archiveIncident(id).catch(() => {})
+    // ⚠️ the hard clear, deliberately — «Rückgängig» on a one-tap take means this incident should
+    // never have existed, so keeping its blobs would leave an orphan queue nothing ever drains.
+    // Every other archive path keeps what is still pending (clearUploadedMedia).
     await clearIncidentMedia(id).catch(() => {})
     setReviewPendingId(null)
     const list = await refreshList() // returns non-archived only → the taken incident is gone
@@ -380,13 +387,13 @@ export default function App() {
     if (id === activeId) {
       if (syncRef.current) { await syncRef.current.flush().catch(() => {}); syncRef.current.dispose(); syncRef.current = null }
       await archiveIncident(id).catch(() => {})
-      await clearIncidentMedia(id).catch(() => {})
+      await clearUploadedMedia(id)
       const list = await refreshList()
       setActiveId(null); setActiveMeta(null)
       if (list[0]) await selectIncident(list[0].id, { meta: list[0] })
     } else {
       await archiveIncident(id).catch(() => {})
-      await clearIncidentMedia(id).catch(() => {})
+      await clearUploadedMedia(id)
       await refreshList()
     }
   }, [activeId, refreshList, selectIncident])
@@ -430,8 +437,12 @@ export default function App() {
       if (id === activeId && syncRef.current) await syncRef.current.flush().catch(() => {})
       await patchIncident(id, { report_done_at: new Date().toISOString() })
       await archiveIncident(id).catch(() => {})
-      await clearIncidentMedia(id).catch(() => {})
-      toast(appConfig.copy.abschluss.done, { icon: 'check', tone: 'success' })
+      // …and say so when something could not go up: the operator is about to leave this incident,
+      // and «kommt beim nächsten Öffnen» is only reassuring if it was said out loud.
+      const stillQueued = await clearUploadedMedia(id)
+      toast(stillQueued
+        ? fillTemplate(appConfig.copy.abschluss.doneMediaPending, { n: stillQueued })
+        : appConfig.copy.abschluss.done, { icon: stillQueued ? 'warn' : 'check', tone: stillQueued ? 'warn' : 'success' })
       if (id === activeId) {
         if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
         const list = await refreshList()

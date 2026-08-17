@@ -5,6 +5,7 @@ import { ApiError } from './api'
 import { __resetIdbForTests } from './idb'
 import {
   clearIncidentMedia,
+  clearUploadedMedia,
   enqueueMedia,
   flushMediaQueue,
   listMediaQueue,
@@ -169,5 +170,36 @@ describe('sameQueue (re-render loop guard)', () => {
     expect(sameQueue(one, [])).toBe(false)
     expect(sameQueue(one, [{ ...one[0], status: 'failed' as const }])).toBe(false)
     expect(sameQueue(one, [{ ...one[0], attempts: 2 }])).toBe(false)
+  })
+})
+
+// ⚠️ The Abschluss archives the incident and used to drop this queue outright — which is right
+// once everything is on the server, and destructive in the case that actually happens: offline at
+// Einsatzende, with photos and voice memos still pending. That deleted exactly the media the
+// Rapport had promised to send «bei Verbindung».
+describe('clearUploadedMedia (what an archive is allowed to throw away)', () => {
+  it('drops an empty queue and says nothing was kept', async () => {
+    await enqueueMedia(INC, 'e1', 'photo', blob(), 'photo-e1', '2026-07-01T10:00:00Z')
+    const upload: MediaUploader = async () => ({ url: '/media/e1.jpg' })
+    await flushMediaQueue(INC, upload)
+
+    expect(await clearUploadedMedia(INC)).toBe(0)
+    expect(await listMediaQueue(INC)).toEqual([])
+  })
+
+  it('keeps a queue that still holds something, and reports how much', async () => {
+    setOnline(false)
+    await enqueueMedia(INC, 'e1', 'photo', blob(), 'photo-e1', '2026-07-01T10:00:00Z')
+    await enqueueMedia(INC, 'e2', 'audio', blob(), 'audio-e2', '2026-07-01T10:05:00Z')
+    const upload: MediaUploader = async () => { throw new ApiError(0, 'offline') }
+    await flushMediaQueue(INC, upload)
+
+    expect(await clearUploadedMedia(INC)).toBe(2)
+    // …and it is still there for the next time the incident is opened
+    expect(await listMediaQueue(INC)).toHaveLength(2)
+  })
+
+  it('is a no-op on an incident that never queued anything', async () => {
+    expect(await clearUploadedMedia('never-used')).toBe(0)
   })
 })

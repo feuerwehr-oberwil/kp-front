@@ -151,6 +151,28 @@ describe('deriveReminders — Meldungen', () => {
     ]
     expect(deriveReminders(tl)[0].urgent).toBe(true)
   })
+
+  // ⚠️ «Werkhof meldet 20 Minuten» is exactly the moment the Wiedervorlage moves — and it has to
+  // move WITHOUT taking the sentence out of the item's thread, which a separate snooze row would.
+  it('moves the due time when a Meldung carries one, and stays in the thread', () => {
+    const tl = [
+      row('r2', 'Werkhof meldet 20 Minuten', { op: 'note', id: 'a', dueAt: '2026-06-24T03:40:00.000Z' }, '2026-06-24T03:20:00.000Z'),
+      row('r1', 'Absperrmaterial', { op: 'created', id: 'a', text: 'Absperrmaterial', dueAt: '2026-06-24T03:10:00.000Z' }),
+    ]
+    const [r] = deriveReminders(tl)
+    expect(r.dueAt).toBe('2026-06-24T03:40:00.000Z')
+    expect(r.notes.map((n) => n.text)).toEqual(['Werkhof meldet 20 Minuten'])
+  })
+
+  // …and it stays a note in every other respect: it must not reopen what a done row closed.
+  it('does not reopen a closed item through a Meldung that carries a due time', () => {
+    const tl = [
+      row('r3', 'doch noch offen?', { op: 'note', id: 'a', dueAt: '2026-06-24T03:50:00.000Z' }, '2026-06-24T03:45:00.000Z'),
+      row('r2', 'erledigt', { op: 'done', id: 'a' }, '2026-06-24T03:35:00.000Z'),
+      created,
+    ]
+    expect(deriveReminders(tl)).toHaveLength(0)
+  })
 })
 
 describe('isDue', () => {

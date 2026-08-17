@@ -9,7 +9,7 @@ import type { AttendanceState } from '../types'
 
 const STARTED = '2026-06-23T19:12:00.000Z'
 
-function harness(initial: AttendanceState = {}) {
+function harness(initial: AttendanceState = {}, notes = { current: {} as Record<string, string> }) {
   const state = { attendance: initial, log: [] as string[] }
   const apply = <T,>(cur: T, a: SetStateAction<T>): T => (typeof a === 'function' ? (a as (p: T) => T)(cur) : a)
   // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
@@ -19,9 +19,10 @@ function harness(initial: AttendanceState = {}) {
     blockedAttendanceIds: new Set<string>(),
     startedAt: STARTED,
     reportDoneAt: null,
+    noteMemory: notes,
     log: (_icon, text) => state.log.push(text),
   })
-  return { actions, state }
+  return { actions, state, notes }
 }
 
 describe('addGuest — somebody on scene who is not on the Mannschaftsliste', () => {
@@ -82,5 +83,42 @@ describe('removing a guest on purpose', () => {
     actions.clearAttendance(guest)
     expect(state.attendance.g1).toBeUndefined()
     expect(state.log.join(' ')).toContain('Muster Felix')
+  })
+})
+
+// ⚠️ «frei» deletes the entry — that is what «nothing recorded» means, and an empty entry left
+// behind would print on the Personalblatt as present for the whole Einsatz. What must NOT be lost
+// with it is the Bemerkung: «Fahrer TLF» is a statement about what somebody did here, and a row
+// cycled past «frei» by accident threw it away with no way back.
+describe('the Bemerkung survives a row cycled to «frei» and back', () => {
+  const person = { id: 'p1', displayName: 'Meier Anna', active: true, updatedAt: STARTED }
+  const withNote = (note?: string): AttendanceState => ({
+    p1: { status: 'present', displayNameSnapshot: 'Meier Anna', note, intervals: [{ from: STARTED }] },
+  })
+
+  it('remembers it when the row is cleared, and writes it back on the next tick', () => {
+    // ⚠️ two harnesses on purpose: the factory closes over the attendance it was given, exactly
+    // like a render does, so «clear, then tick again» is two renders in the app too
+    const cleared = harness(withNote('Fahrer TLF'))
+    cleared.actions.clearAttendance(person)
+    expect(cleared.state.attendance.p1).toBeUndefined()
+    expect(cleared.notes.current.p1).toBe('Fahrer TLF')
+
+    const back = harness({}, cleared.notes)
+    back.actions.markPresent(person)
+    expect(back.state.attendance.p1.note).toBe('Fahrer TLF')
+  })
+
+  it('never overwrites a note that is on the record', () => {
+    const { actions, state } = harness(withNote('Verkehrsdienst'), { current: { p1: 'Fahrer TLF' } })
+    actions.markLeft(person)
+    actions.markPresent(person)
+    expect(state.attendance.p1.note).toBe('Verkehrsdienst')
+  })
+
+  it('forgets it once the note itself is cleared', () => {
+    const cleared = harness(withNote('Fahrer TLF'))
+    cleared.actions.setAttendanceNote('p1', '')
+    expect(cleared.notes.current.p1).toBeUndefined()
   })
 })

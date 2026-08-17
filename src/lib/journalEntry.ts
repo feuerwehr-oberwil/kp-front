@@ -53,20 +53,37 @@ export function composeJournalText(
 export function suggestLinks(text: string, vocab: JournalLink[], limit = 4): JournalLink[] {
   const word = currentWord(text)
   if (word.length < MIN_NAME_FRAGMENT) return []
-  const written = text.toLowerCase().trimEnd()
+  const written = text.toLowerCase()
   return vocab
     .filter((l) => startsAWord(word, l.name))
     .map((l) => ({ l, score: fuzzyScore(word, l.name) }))
     // ⚠️ Compared against the whole TEXT, not the word. A full name is two words, so after
     // accepting «Baumann Michael» the word under the cursor is «Michael» — which still matches,
     // so the chip kept offering the same name and a second tap wrote it twice.
-    .filter((m) => m.score > 0 && !written.endsWith(m.l.name.toLowerCase()))
+    .filter((m) => m.score > 0 && !alreadyWritten(written, m.l.name))
     // score first — a better spelling match beats being on scene. Presence breaks the tie:
     // two people whose names start the same way, and the one who is here is the likelier one.
     .sort((a, b) => b.score - a.score || Number(b.l.present) - Number(a.l.present)
       || a.l.name.localeCompare(b.l.name, 'de'))
     .slice(0, limit)
     .map((m) => m.l)
+}
+
+/**
+ * Is this term already standing in the text, so that offering it again would duplicate it?
+ *
+ * ⚠️ Two cases, and they need different answers. A MULTI-WORD term is already there once the text
+ * ends with it: the word under the cursor is only its last word, so accepting would keep the head
+ * and write «Baumann Baumann Michael». A SINGLE-WORD term typed without a trailing space is the
+ * word being typed — accepting replaces it with itself, which costs nothing, and suppressing it
+ * cost something real: typing «EL» offered «Stv. EL» and never «EL», so the chip proposed the
+ * wrong post on the two letters where the two posts differ. Once accepted (`acceptName` leaves a
+ * trailing space) it is written out and stops being offered, single word or not.
+ */
+function alreadyWritten(lowerText: string, name: string): boolean {
+  const n = name.toLowerCase()
+  if (lowerText.endsWith(`${n} `)) return true
+  return n.includes(' ') && lowerText.trimEnd().endsWith(n)
 }
 
 /** The word being typed: everything after the last space or newline. Deliberately NOT the

@@ -19,7 +19,7 @@ import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, 
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
-import { fillTemplate, formatSymbolName, formatTime, hhmm } from './lib/format'
+import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM, polygonAreaM2 } from './lib/geo'
@@ -36,12 +36,14 @@ import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
 import { useUndoableDoc } from './lib/useUndoableDoc'
+import { useUndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog } from './lib/ui'
 import { apiDelete } from './lib/api'
 import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
+import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useMittelActions } from './lib/useMittelActions'
 import { useChecklistActions } from './lib/useChecklistActions'
 import { useTeamMarkerActions } from './lib/useTeamMarkerActions'
@@ -315,8 +317,10 @@ export function IncidentWorkspace({
     // kind of contradiction a demo must not show. Matched by NAME as well as by roster id: the
     // demo's Trupps are seeded with names only (backend/app/demo_reset), so an id-only check
     // would have happily picked the Angriffstrupp's Truppführer.
-    const deployedIds = new Set(init.trupps.flatMap((t) => [t.leaderPersonId, ...(t.memberPersonIds ?? [])].filter(Boolean) as string[]))
-    const deployedNames = new Set(init.trupps.flatMap((t) => [t.name, ...(t.members ?? [])]).map((n) => n?.trim()).filter(Boolean))
+    // …and a Trupp taken off the Tafel deploys nobody: its members are free again (Trupp.removedAt)
+    const onBoard = init.trupps.filter((t) => !t.removedAt)
+    const deployedIds = new Set(onBoard.flatMap((t) => [t.leaderPersonId, ...(t.memberPersonIds ?? [])].filter(Boolean) as string[]))
+    const deployedNames = new Set(onBoard.flatMap((t) => [t.name, ...(t.members ?? [])]).map((n) => n?.trim()).filter(Boolean))
     // …and not the Einsatzleiter either: they are already ON the map as their own symbol, so a
     // second, walking dot with the same name reads as two people.
     const el = init.reportMeta.einsatzleiter?.trim()
@@ -355,10 +359,22 @@ export function IncidentWorkspace({
   // below and read these. layers/recent stay in the component (own derivation/effects).
   const {
     incidentSettings, setIncidentSettings, board, setBoard, checklists, setChecklists,
-    trupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, attachments, setAttachments,
+    trupps: allTrupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, attachments, setAttachments,
     planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
     activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
   } = useWorkspaceDoc(init)
+  // ⚠️ The board list, filtered ONCE at the source. A deleted Trupp is stamped rather than
+  // removed (types · Trupp.removedAt) so the Rapport can still print it — and everything else in
+  // this component, from the alarm host to the map markers to the roster lock, must never see it
+  // again. Filtering here is what makes that true by construction instead of by fifteen call
+  // sites remembering. `allTrupps` goes to exactly two places: what is SAVED, and what is PRINTED.
+  const trupps = useMemo(() => allTrupps.filter((t) => !t.removedAt), [allTrupps])
+  // …and the other half: what was taken off the board, newest first. The Atemschutz header offers
+  // them back, so the delete's six-second toast is the fast way and not the only one.
+  const removedTrupps = useMemo(
+    () => allTrupps.filter((t) => t.removedAt).sort((a, b) => (b.removedAt ?? '').localeCompare(a.removedAt ?? '')),
+    [allTrupps],
+  )
 
   // --- time-travel replay (read-only past view) — state/reconstruction owned by useReplay ---
   // enterReplay lives further down, next to clearMapUi, whose reset list it shares.
@@ -484,7 +500,7 @@ export function IncidentWorkspace({
   // global tactical-symbol size (S/M/L), captions, offline cache radius, keep-screen-on —
   // device prefs shared with the landing Einstellungen (see useDevicePrefs; lazy loadPrefs
   // seed). Their persistence rides the mode/activePlanId effect below.
-  const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn } = useDevicePrefs()
+  const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   const symMul = symbolMul(symbolSize)
   // "Mein Standort": bumping this takes a single GPS fix + flies to it. On-demand (no continuous
   // watch) so the GPS chip isn't powered all shift — see MapView.locateNonce.
@@ -855,6 +871,10 @@ export function IncidentWorkspace({
   // Write an authoritative workspace (conflict take-server or live-follow poll) into App's
   // state slices. useIncidentSync wraps this with its skip-save guard and drives it from the
   // poll/auto-merge paths; the state lives here, so the writer does too.
+  // …reached through a ref because the Anwesenheit's history is created much further down (it
+  // needs the roster and the attendance actions), while this merge path has to exist up here.
+  // Same shape as `planHist` below.
+  const attHistClear = useRef<(() => void) | null>(null)
   const applyWorkspace = useCallback((ws: Saved) => {
     const gate = sanitizeWorkspace(ws)
     reportGate(gate)
@@ -864,6 +884,10 @@ export function IncidentWorkspace({
     replaceDoc(next.doc); setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBoard(next.board); setBuilding(next.building)
     setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId)
+    // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
+    // list that no longer exists, and stepping into one would write this device's rows back over
+    // what another device just merged in.
+    attHistClear.current?.()
     // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
@@ -876,13 +900,13 @@ export function IncidentWorkspace({
   // useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
   const buildPayload = useCallback((): Saved => ({
     entities: doc.entities.filter((e) => e.kind !== 'photo'),
-    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings,
+    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings,
     layerState: layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })),
     // Verlauf rows live in the journal store now; the blob echoes an older incident's legacy
     // rows only until they're safely on the server, then ships empty forever (see JournalStore).
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings])
+  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings])
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
@@ -1172,7 +1196,7 @@ export function IncidentWorkspace({
   }, [resolvedPlanDocs])
 
   // remember the active surface + plan document in a cookie (preserve incidentId)
-  useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn }) }, [mode, activePlanId, symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn])
+  useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels }) }, [mode, activePlanId, symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels])
 
   // bake every plan's bitmap into memory at app load (on idle, sized to the
   // window) so the very first time the Plan tab is opened the page appears
@@ -1428,30 +1452,6 @@ export function IncidentWorkspace({
   // current view so the row becomes a clickable, located marker.
   const addJournal = (d: JournalDraft) => {
     const onPlan = mode === 'plans'
-    // Wiedervorlage: an appended `created` reminder row (never a mutable status field — see
-    // lib/reminders.ts). Ask for notification permission here, on the user's submit gesture.
-    if (d.dueAt) {
-      const rid = `rem${Date.now()}`
-      // The row says that a reminder was SET, and for when. It carried the bare text before, so
-      // the only line in the Verlauf naming the word «Erinnerung» was the one saying it had been
-      // done — an answer with no question anywhere above it.
-      const dueDate = new Date(d.dueAt)
-      const createdText = fillTemplate(appConfig.copy.journal.reminderCreated, {
-        t: Number.isFinite(dueDate.getTime()) ? hhmm(dueDate) : '', text: d.text,
-      })
-      pushEvent({
-        icon: 'clock', text: createdText, kind: 'reminder', at: composerOpenedAt.current ?? undefined,
-        surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined,
-        // the bare text travels ALONGSIDE the composed row: the record needs «gesetzt für 12:06»,
-        // the pinned block and the fällig banner need only «Lüfter prüfen» (see types · reminder)
-        reminder: { op: 'created', id: rid, dueAt: d.dueAt, text: d.text },
-      })
-      void ensureNotifyPermission()
-      emit('reminder.create', { id: rid, dueAt: d.dueAt })
-      setComposerOpen(false)
-      toast(appConfig.copy.journal.reminderSaved, { icon: 'clock', tone: 'success' })
-      return
-    }
     // ⚠️ No coordinate. «An aktueller Kartenmitte anheften» is gone (14.08.): it wrote the
     // centre of whatever happened to be on screen — neither where the author stood nor where
     // the event was — and its only payoff was that the row could fly the map back to that spot.
@@ -1473,15 +1473,29 @@ export function IncidentWorkspace({
     // ⚠️ And tracking hangs off this event, NEVER off `entryType === 'auftrag'`. Keying it to the
     // tag would turn every Auftrag row already written — live incidents and the archive alike —
     // into an eternally open Pendenz nobody can tick off. Old rows stay plain text, no migration.
-    const pendenzId = d.pendenz ? `pnd${Date.now()}` : undefined
+    // ⚠️ A due time makes this an open item even when the ring was never touched: an Erinnerung
+    // that cannot be ticked off would keep firing its banner with no way to answer it. The composer
+    // enforces the same rule at its end (setDue/setOpen); this is the second half of it, for every
+    // other caller of addJournal.
+    // ⚠️ `!d.noteFor`: a MELDUNG with a due time is not a new item — it moves the clock of the one
+    // it reports on (see the `reminder` below). Without this guard the row said `op:'note'` while
+    // the hash-chained audit got a `reminder.create` for an id that exists in no row at all, and
+    // the `reminder.note` event never fired: the one feature this change adds, corrupting the
+    // record it is supposed to keep.
+    const pendenzId = !d.noteFor && (d.pendenz || d.dueAt) ? `pnd${Date.now()}` : undefined
     const reminder: TimelineEvent['reminder'] = d.noteFor
-      ? { op: 'note', id: d.noteFor.id }
+      // ⚠️ A Meldung with a due time RE-DATES the item it reports on — «Werkhof meldet 20 Minuten»
+      // is exactly the moment to move the Wiedervorlage. It stays op `note`, NOT `snoozed`: the
+      // note has to keep standing in the item's thread, and a snooze row is not part of it (see
+      // lib/reminders · the note branch, which reads the dueAt without touching open/closed).
+      ? { op: 'note', id: d.noteFor.id, dueAt: d.dueAt }
       : pendenzId
         ? {
           op: 'created', id: pendenzId,
           // the BARE text, without the «Auftrag · » tag composeJournalText adds — the list and
           // the Rapport print their own context and would otherwise stutter it (see types)
-          text: body, urgent: d.pendenz!.urgent || undefined, assignee: d.assignee,
+          text: body, urgent: d.pendenz?.urgent || undefined, assignee: d.assignee,
+          dueAt: d.dueAt,
         }
         : undefined
     pushEvent({
@@ -1502,8 +1516,11 @@ export function IncidentWorkspace({
     if (d.audioUrl?.startsWith('blob:')) void uploadMediaForRow(rowId, d.audioUrl, 'audio')
     emit('journal.add', { id: rowId, kind })
     // the Pendenz lifecycle goes into the hash-chained audit too, like create/done/snooze already do
-    if (pendenzId) emit('reminder.create', { id: pendenzId })
-    else if (d.noteFor) emit('reminder.note', { id: d.noteFor.id })
+    if (pendenzId) emit('reminder.create', { id: pendenzId, ...(d.dueAt ? { dueAt: d.dueAt } : {}) })
+    else if (d.noteFor) emit('reminder.note', { id: d.noteFor.id, ...(d.dueAt ? { dueAt: d.dueAt } : {}) })
+    // …and only a row that will actually ring asks for the OS permission — on this submit gesture,
+    // which is the only moment a browser grants it.
+    if (d.dueAt) void ensureNotifyPermission()
     // Leave the Verlauf as it was. Forcing it open is right for exactly one entry point — the
     // Verlauf's own «Eintrag» button — and there it is already open behind the composer, so it
     // is a no-op. From the phone's FAB or a checklist deep link it yanked the operator off the
@@ -1511,11 +1528,15 @@ export function IncidentWorkspace({
     setComposerOpen(false)
     setNoteOn(null)
     const C = appConfig.copy.journal
+    // ⚠️ The due time wins the confirmation. «Pendenz gesetzt» on a row that will ring in ten
+    // minutes tells the smaller half of what was just decided — and the clock is the half that
+    // acts on its own, so it is the one worth reading back.
     toast(
-      d.noteFor ? C.noteSaved
-        : d.pendenz ? (d.pendenz.urgent ? C.pendenzUrgentSaved : C.pendenzSaved)
-          : C.saved,
-      { icon: d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success' },
+      d.dueAt ? C.reminderSaved
+        : d.noteFor ? C.noteSaved
+          : d.pendenz ? (d.pendenz.urgent ? C.pendenzUrgentSaved : C.pendenzSaved)
+            : C.saved,
+      { icon: d.dueAt ? 'clock' : d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success' },
     )
   }
 
@@ -2212,10 +2233,35 @@ export function IncidentWorkspace({
    *  nonce so tapping the same person twice points again — pointing is a gesture, not a state,
    *  and the AtemschutzView clears it on its own timer. */
   const [truppFocus, setTruppFocus] = useState<{ id: string; nonce: number } | null>(null)
+  // ── the Anwesenheit is undoable, like the map ──────────────────────────────────────────────
+  // ⚠️ Its own stack, driven by the SAME ↶ ↷ in the TopBar (see showHistory below). The list is
+  // the fastest-tapped surface in the app — 60 names, gloves, a neighbouring row half a centimetre
+  // away — and until now only three of its actions offered a way back (the confirm-with-undo
+  // toasts in useAttendanceActions). Those stay: the toast catches the mistake you notice at once,
+  // the stack the one you notice three names later. A toast undo is itself a write through `set`,
+  // so ↶ after it re-applies the tap — «undo the last thing I did», consistently.
+  const attHist = useUndoableSlice(attendance, setAttendance, readOnly)
+  attHistClear.current = attHist.clear
+  // …and what each person's Bemerkung said, for as long as this incident is open here. The record
+  // loses it when a row is cycled to «frei» (the entry goes, as it must); this is what puts it back
+  // when the same person is ticked present again — see useAttendanceActions · noteMemory. Per
+  // incident by construction: this component remounts with the incident.
+  const attNotes = useRef<Record<string, string>>({})
   const { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote, setAttendanceOrt, addGuest } = useAttendanceActions({
-    attendance, setAttendance, blockedAttendanceIds,
+    attendance, setAttendance: attHist.set, blockedAttendanceIds, noteMemory: attNotes,
     startedAt: incidentMeta.started_at, reportDoneAt: incidentMeta.report_done_at, log,
   })
+  /** Step the Anwesenheit back or forward and SAY SO in the Verlauf. The record is append-only, so
+   *  the tap's own row stands; this adds the correction beside it, naming whoever moved — which is
+   *  the only thing a reader six months later needs from it. */
+  const stepAttendance = (dir: 'undo' | 'redo') => {
+    const moved = dir === 'undo' ? attHist.undo() : attHist.redo()
+    if (!moved) return
+    const names = changedAttendanceNames(moved.from, moved.to, rosterById)
+    const A = appConfig.copy.anwesenheit
+    log('undo', fillTemplate(dir === 'undo' ? A.undone : A.redone, { names: names.join(', ') || '–' }), 'team')
+    emit(dir)
+  }
   const { saveMittel, captureMittelForSymbol } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
   // The gate for the symbol→Mittel row: «has this station mapped anything at all». Not a setting
   // anybody has to discover, and a Wehr that never configured it never sees an offer.
@@ -2358,7 +2404,9 @@ export function IncidentWorkspace({
       ? wanted.filter((id) => mergeRoleNote(attendance[id]?.note, roleNote) !== (attendance[id]?.note ?? '').trim())
       : []
     if (!fresh.length && !needNote.length) return
-    setAttendance((cur) => {
+    // through the history, like every other write to this slice — being made Fahrer or EL puts
+    // somebody on the Anwesenheit, and «that was the wrong name» is the same mistake as a tap
+    attHist.set((cur) => {
       const next = { ...cur }
       for (const id of fresh) {
         const name = rosterById.get(id)?.displayName ?? cur[id]?.displayNameSnapshot ?? id
@@ -2680,13 +2728,18 @@ export function IncidentWorkspace({
         onHoldStart={linkScoped ? undefined : startVoiceMemo}
         onHoldEnd={linkScoped ? undefined : voice.stop}
         onHoldPhoto={linkScoped ? undefined : startQuickPhoto}
-        onUndo={mode === 'plans' ? () => planHist.current?.undo() : undo}
-        onRedo={mode === 'plans' ? () => planHist.current?.redo() : redo}
-        canUndo={mode === 'plans' ? planCan.canUndo : canUndo}
-        canRedo={mode === 'plans' ? planCan.canRedo : canRedo}
-        // undo/redo act on the drawing documents — off the drawing surfaces they'd
-        // invisibly mutate the map, so the pair (and its separator) hides there
-        showHistory={!tacticalLocked && (mode === 'map' || mode === 'plans')}
+        // ⚠️ One pair, wherever you are — and it always means «take back what you last did HERE».
+        // Each surface keeps its OWN stack, so stepping back in the Anwesenheit can never reach
+        // into the map's document, and switching surfaces changes what ↶ points at rather than
+        // what it does.
+        onUndo={mode === 'plans' ? () => planHist.current?.undo() : mode === 'anwesenheit' ? () => stepAttendance('undo') : undo}
+        onRedo={mode === 'plans' ? () => planHist.current?.redo() : mode === 'anwesenheit' ? () => stepAttendance('redo') : redo}
+        canUndo={mode === 'plans' ? planCan.canUndo : mode === 'anwesenheit' ? attHist.canUndo : canUndo}
+        canRedo={mode === 'plans' ? planCan.canRedo : mode === 'anwesenheit' ? attHist.canRedo : canRedo}
+        // …and it is only offered where there IS something to step through. On the remaining
+        // surfaces (Checklisten, Mittel, Atemschutz, Rapport) it would still be the map's document
+        // being changed invisibly, so the pair and its separator stay hidden there.
+        showHistory={!tacticalLocked && (mode === 'map' || mode === 'plans' || mode === 'anwesenheit')}
         weather={mapUI ? displayWeather : null}
         onOpenWeather={openWeatherDetails}
         bearing={view.bearing}
@@ -2806,6 +2859,8 @@ export function IncidentWorkspace({
 
       {/* single left navigation rail — all surfaces; switches Karte / object Pläne / Checkliste */}
       <NavRail
+        // device pref: the surface's word under its glyph (Einstellungen · Leisten)
+        labels={railLabels}
         mode={mode}
         // leaving the map ends whatever was in progress on it. Without this the whole tactical
         // state was merely hidden and restored verbatim — you came back to an armed tool, a
@@ -3228,6 +3283,7 @@ export function IncidentWorkspace({
           its scrubber owns the bottom band that the Messen readout would land in. */}
       {mapUI && !replayActive && (
         <ToolRail
+          labels={railLabels}
           className="tool-rail"
           primary={appConfig.copy.primarySymbol}
           tools={tacticalLocked ? slimMapTools : appConfig.copy.mapTools}
@@ -3471,6 +3527,7 @@ export function IncidentWorkspace({
           reactivateTrupp={reactivateTruppA}
           deleteTrupp={deleteTrupp}
           restoreTrupp={restoreTrupp}
+          removedTrupps={removedTrupps}
           muted={atemschutzMuted}
           onToggleMuted={toggleAtemschutzMuted}
           order={atemschutzOrder}
@@ -3501,6 +3558,12 @@ export function IncidentWorkspace({
             if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
           }}
           onReload={() => { void reloadPersonnel() }}
+          // the phone's way back: the top bar drops its ↶ ↷ as soon as an Atemschutz-Alarmchip
+          // claims the room, which is exactly when this list is tapped fastest (AnwesenheitView · onUndo)
+          onUndo={canEditIncident ? () => stepAttendance('undo') : undefined}
+          onRedo={canEditIncident ? () => stepAttendance('redo') : undefined}
+          canUndo={attHist.canUndo}
+          canRedo={attHist.canRedo}
           onSetTimes={canEditIncident ? setAttendanceTimes : undefined}
           onRemoveBlock={canEditIncident ? removeAttendanceBlock : undefined}
           onSetNote={canEditIncident ? setAttendanceNote : undefined}
@@ -3580,7 +3643,10 @@ export function IncidentWorkspace({
           presentIds={presentIds}
           events={timeline}
           annotatedPlanCount={annotatedPlanCount}
-          truppCount={trupps.length}
+          // ⚠️ `allTrupps`, here and on the `trupps` prop below — the two places that print. A Trupp
+          // taken off the Tafel was still under PA, and its readings, entry pressure and times are
+          // exactly what the Atemschutz page exists to record (types · Trupp.removedAt).
+          truppCount={allTrupps.length}
           attendanceCount={Object.keys(attendance).length}
           mittelCount={mittelLineCount(mittel)}
           mittel={mittel}
@@ -3592,7 +3658,7 @@ export function IncidentWorkspace({
           mapContentCount={entities.filter((e) => !e.live).length + drawings.length}
           pendingMediaCount={media.pendingCount}
           attendance={attendance}
-          trupps={trupps}
+          trupps={allTrupps}
           contactIntervalMin={azIntervalMin}
           contactGraceSec={azGraceSec}
           plans={planDocs}
@@ -3618,7 +3684,15 @@ export function IncidentWorkspace({
           // (and on any refusal) `completeRapport` returns early with a toast — and the sheet
           // had already been shut, so the operator lost their place for an action that never
           // happened. The «Abschliessen» confirm closes itself; that is the only thing that should.
-          onComplete={canEditIncident && !readOnly ? () => onCompleteRapport() : undefined}
+          // ⚠️ Drain the media queue FIRST, from here. The Abschluss archives the incident and
+          // then drops its whole upload queue (App · clearIncidentMedia) — so a Foto or a
+          // Sprachnotiz still waiting for a connection was deleted at exactly the moment the
+          // Rapport had promised «wird bei Verbindung ergänzt». It has to happen on this side of
+          // the teardown, because an upload also has to patch its Verlauf row's blob: URL to the
+          // server one (useMediaQueue · onUploaded) — and after the handover this workspace, and
+          // the journal store with it, is gone. Offline it uploads nothing and the queue stays;
+          // App keeps it instead of clearing (nothing is thrown away, it waits for the next open).
+          onComplete={canEditIncident && !readOnly ? () => { void media.flush().finally(onCompleteRapport) } : undefined}
           onFixTranscripts={() => { setJournalOpen(true); setJournalFromRapport(true) }}
         />
       )}
@@ -3684,6 +3758,9 @@ export function IncidentWorkspace({
           // everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
           // Fahrzeuge, Alarmgruppen. Typing three letters of any of them completes it.
           vocab={journalVocab}
+          // …and this Einsatz's own rows, so the chips offered on an empty field are the phrases
+          // that are actually being used tonight (lib/startChips)
+          timeline={timeline}
           onSubmit={addJournal}
           onClose={() => { setComposerOpen(false); setNoteOn(null) }}
           noteOn={noteOn ?? undefined}
@@ -3732,6 +3809,8 @@ export function IncidentWorkspace({
           onSymbolSize={setSymbolSize}
           symbolCaptions={symbolCaptions}
           onSymbolCaptions={setSymbolCaptions}
+          railLabels={railLabels}
+          onRailLabels={setRailLabels}
           offlineRadiusM={offlineRadiusM}
           onOfflineRadius={setOfflineRadiusM}
           keepScreenOn={keepScreenOn}

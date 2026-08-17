@@ -25,6 +25,17 @@ interface AttendanceActionsDeps {
   /** Abschluss bookmark (incidentMeta.report_done_at) — a post-completion time correction
    *  additionally self-documents in the Verlauf. */
   reportDoneAt: string | null
+  /** What each person's Bemerkung said, for as long as this incident is open on this device.
+   *
+   * ⚠️ «frei» DELETES the attendance entry, note and all — that is what «nothing recorded» means,
+   * and keeping an empty entry instead would print somebody on the Personalblatt as present for
+   * the whole Einsatz (report · personalForPdf fills missing blocks from the incident bounds). But
+   * the Bemerkung is not a presence: «Fahrer TLF», «verletzt, abgelöst 21:40» is what this person
+   * DID here, and cycling a row past «frei» by accident threw it away with no way back. So it is
+   * remembered beside the record and written back when the same person is ticked present again.
+   * A ref, not state: nothing re-renders on it, and it must not travel to other devices — the
+   * note that IS recorded is on the entry, where it always was. */
+  noteMemory: { current: Record<string, string> }
   log: (icon: string, text: string, kind?: TimelineEvent['kind']) => void
 }
 
@@ -33,7 +44,7 @@ interface AttendanceActionsDeps {
  * Presence is a record: every tick/removal/correction is a Verlauf event, and «frei» is
  * confirm-with-undo. Pure orchestration over the synced attendance slice — no state of its own.
  */
-export function useAttendanceActions({ attendance, setAttendance, blockedAttendanceIds, startedAt, reportDoneAt, log }: AttendanceActionsDeps) {
+export function useAttendanceActions({ attendance, setAttendance, blockedAttendanceIds, startedAt, reportDoneAt, noteMemory, log }: AttendanceActionsDeps) {
   const markPresent = (p: Person) => {
     // Adding a block while one is still running is a relief in place: close the current one at
     // this moment and open the next. Without this the sheet's «Weiterer Block» would leave two
@@ -62,7 +73,13 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
     // there, and the earlier block keeps its own von–bis untouched.
     const returning = intervalsOf(attendance[p.id]).length > 0
     const at = returning ? new Date().toISOString() : startedAt
-    setAttendance((cur) => ({ ...cur, [p.id]: openPresence(cur[p.id], at, p.displayName) }))
+    // …and whatever this person's Bemerkung said before the row was cycled to «frei» comes back
+    // with them. Only when the entry itself has none — a note still on the record always wins.
+    const remembered = noteMemory.current[p.id]
+    setAttendance((cur) => {
+      const next = openPresence(cur[p.id], at, p.displayName)
+      return { ...cur, [p.id]: remembered && !next.note ? { ...next, note: remembered } : next }
+    })
     log('people', fillTemplate(returning ? appConfig.copy.anwesenheit.logPresentAgain : appConfig.copy.anwesenheit.logPresent, { name: p.displayName }), 'team')
   }
   const markLeft = (p: Person) => {
@@ -73,6 +90,7 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
   const clearAttendance = (p: Person) => {
     const prev = attendance[p.id]
     if (!prev) return
+    if (prev.note?.trim()) noteMemory.current[p.id] = prev.note.trim()
     setAttendance((cur) => { const next = { ...cur }; delete next[p.id]; return next })
     // presence is a record — removing an entry is itself an event worth the Verlauf
     log('people', fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), 'team')
@@ -103,6 +121,9 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
     const list = intervalsOf(prev)
     if (!prev || index < 0 || index >= list.length) return
     const rest = list.filter((_, i) => i !== index)
+    // removing the LAST block deletes the entry, exactly like «frei» — so the Bemerkung is kept
+    // the same way it is there (see noteMemory)
+    if (!rest.length && prev.note?.trim()) noteMemory.current[personId] = prev.note.trim()
     setAttendance((cur) => {
       if (!cur[personId]) return cur
       if (!rest.length) { const next = { ...cur }; delete next[personId]; return next }
@@ -122,6 +143,9 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
     const next = note.trim() || undefined
     if ((e.note ?? undefined) === next) return
     setAttendance((cur) => (cur[personId] ? { ...cur, [personId]: { ...cur[personId], note: next } } : cur))
+    // remember it too, so a row cycled to «frei» and back keeps what was written about this person
+    if (next) noteMemory.current[personId] = next
+    else delete noteMemory.current[personId]
     log('people', fillTemplate(appConfig.copy.anwesenheit.logNote, { name: e.displayNameSnapshot, note: next ?? '–' }), 'team')
   }
 

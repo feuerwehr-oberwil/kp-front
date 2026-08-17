@@ -109,6 +109,36 @@
 .nav-label { display: none; min-width: 0; flex: 1 1 auto; padding-right: 8px; text-align: start; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; font-weight: 600; }
 .navrail.expanded:not(.dragging) .nav-label { display: block; }
+
+/* ── «Wort unter dem Zeichen» (device pref · railLabels) ──
+   ⚠️ A DIFFERENT answer than the expand chevron, not a variant of it. Expanding widens the rail to
+   216px and sets the word beside the glyph — right when you are hunting for something, wrong as a
+   standing state on the surface whose width IS the map. Stacked, the same words cost ~12px and
+   never go away, which is what the rail of seven unlabelled glyphs actually needed.
+   ⚠️ `:not(.expanded)`: with both on, the expanded layout wins — it is the one the operator just
+   asked for with a tap, and two label positions at once reads as a rendering fault. */
+/* ⚠️ 88px, measured — not guessed. «Anwesenheit» needs 76px of Sora at 10.5px, «Atemschutz» 69;
+   at 72px all three long surfaces were cut off mid-word, which is worse than no label at all. The
+   rail also tightens its own padding here (7px → 5px), because every pixel it keeps is one the
+   word does not get. Verified with the app's own font at 88px. */
+.navrail.labelled:not(.expanded):not(.dragging) { width: var(--rail-w-labelled, 88px); padding: 7px 5px; }
+.navrail.labelled:not(.expanded):not(.dragging) .nav-item { flex-direction: column; gap: 0; height: 56px; justify-content: center; }
+.navrail.labelled:not(.expanded):not(.dragging) .nav-glyph { width: auto; min-width: 0; height: 26px; }
+/* ⚠️ …and the two things that were sized against the 46px glyph column have to come with it: the
+   module chip (30px + border) overhung its own box by 2px, and the alarm dot — positioned at the
+   column's corner — landed ON the gauge icon once the column shrank to the glyph. The expanded
+   state has the same pair of corrections (see below); the labelled one was missing them. */
+.navrail.labelled:not(.expanded):not(.dragging) .nav-mono-chip { min-width: 26px; min-height: 26px; }
+.navrail.labelled:not(.expanded):not(.dragging) .nav-live { top: -1px; right: -3px; }
+.navrail.labelled:not(.expanded):not(.dragging) .nav-label {
+  display: block; flex: none; padding: 0 2px; text-align: center; max-width: 100%;
+  /* ⚠️ 10.5px is BELOW the 12.5px interactive-text floor the house rule sets — deliberate, and the
+     reason this is a preference rather than the default: it is a legend under a 26px glyph that is
+     itself the target, not text anybody taps. The whole button stays 56px tall. */
+  font-size: 10.5px; font-weight: 700; line-height: 1.1;
+  overflow: hidden; text-overflow: ellipsis; }
+/* the keyboard hint has no room in a stacked item and is a desktop affordance anyway */
+.navrail.labelled:not(.expanded):not(.dragging) .nav-key { display: none; }
 /* Expanded: left-align the way the right .vrail already right-aligns. The 46px glyph column is
    there to CENTRE an icon in the slim rail; once labels appear it becomes a fixed gutter that
    floats every icon ~12px inward, so the two rails read as a mismatched pair — the right one

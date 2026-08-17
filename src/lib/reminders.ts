@@ -3,7 +3,8 @@
 // The journal never edits or removes a row (see the kp-front-journal note), so an open item's
 // lifecycle is a SEQUENCE of events sharing one `reminder.id`:
 //   - `created`  → carries the text, and a `dueAt` only if it is a timed Erinnerung
-//   - `note`     → a later row reporting what happened, without closing it
+//   - `note`     → a later row reporting what happened, without closing it. It MAY carry a new
+//                  `dueAt` — a Meldung that moves the Wiedervorlage («Werkhof meldet 20 Minuten»)
 //   - `snoozed`  → a later row with a new `dueAt` (timed Erinnerungen only)
 //   - `done`     → a later row that closes it
 // The open set, each item's *effective* due time and its latest Meldung are derived here — never
@@ -85,8 +86,13 @@ export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: s
     // action can be given its own control later without a second reducer.
     if (r.urgent !== undefined) urgency.set(r.id, r.urgent)
     if (r.op === 'note') {
-      // ⚠️ Does NOT touch `latest`. A Meldung reports on an item; it never opens or closes one,
-      // and it must not resurrect an item that a later `done` already closed.
+      // ⚠️ Does NOT touch the item's OP. A Meldung reports on an item; it never opens or closes
+      // one, and it must not resurrect an item that a later `done` already closed.
+      // …but it may carry a new `dueAt` — «Werkhof meldet 20 Minuten» is exactly when the
+      // Wiedervorlage moves. That is a snooze in everything but the row it rides on, and it has to
+      // ride on the note: a separate snooze row would take the sentence out of the item's thread.
+      const st = latest.get(r.id)
+      if (r.dueAt && st) latest.set(r.id, { ...st, dueAt: r.dueAt })
       const list = notes.get(r.id) ?? []
       list.push({ rowId: e.id, text: e.text, at: e.at ?? '' })
       notes.set(r.id, list)

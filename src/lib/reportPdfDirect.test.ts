@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { floorStackPages, planAnnosForPdf } from './reportPdfDirect'
+import { floorStackPages, forPaper, planAnnosForPdf } from './reportPdfDirect'
 import { TILE_AR } from './whiteboard'
 import type { BoardAnno, BuildingDoc, PlanDocument } from '../types'
 
@@ -65,5 +65,24 @@ describe('floorStackPages', () => {
     // outline points stay inside the page box
     const pts = pages[0].annos.filter((x) => x.kind === 'area').flatMap((x) => x.pts as number[][])
     for (const [x, y] of pts) { expect(x).toBeGreaterThanOrEqual(0); expect(x).toBeLessThanOrEqual(1); expect(y).toBeGreaterThanOrEqual(0); expect(y).toBeLessThanOrEqual(1) }
+  })
+})
+
+// The app writes «EL → Sanität» with a real arrow; ReportLab sets the rapport in Helvetica, which
+// has no glyph for one and would draw a black box on the copy that gets signed.
+describe('forPaper', () => {
+  it('maps both arrows to what Helvetica can set, anywhere in the payload', () => {
+    expect(forPaper({
+      journal: [{ text: 'EL → Sanität: Patient stabil' }, { text: 'Polizei ← EL' }],
+      draft: { kurzbericht: 'Übergabe → KSBL' },
+    })).toEqual({
+      journal: [{ text: 'EL -> Sanität: Patient stabil' }, { text: 'Polizei <- EL' }],
+      draft: { kurzbericht: 'Übergabe -> KSBL' },
+    })
+  })
+
+  it('leaves everything else exactly as it was — numbers, nulls, plain text', () => {
+    const payload = { n: 3, ok: true, nothing: null, s: 'Hauptstrasse 4 – 2. OG', list: ['a', 'b'] }
+    expect(forPaper(payload)).toEqual(payload)
   })
 })

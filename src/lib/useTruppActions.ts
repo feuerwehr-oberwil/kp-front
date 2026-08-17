@@ -8,6 +8,7 @@ import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
+import { currentRunStart } from './atemschutz'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
@@ -153,7 +154,10 @@ export function useTruppActions(deps: Deps) {
    *  Trupps. Not logged: where a card sits is a way of looking at the board, not something that
    *  happened at the Einsatz — and the Verlauf is thin enough to keep for what did. */
   const moveTrupp = (id: string, dir: -1 | 1) => setTrupps((ts) => {
-    const ordered = [...ts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    // ⚠️ over the VISIBLE Trupps only. A soft-deleted one (types · Trupp.removedAt) still sits in
+    // the array, so «nach oben» swapped places with a card nobody can see: the board did not move,
+    // and the second tap was the one that appeared to work. At 3am that reads as a dead button.
+    const ordered = ts.filter((t) => !t.removedAt).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     const i = ordered.findIndex((t) => t.id === id)
     const j = i + dir
     if (i < 0 || j < 0 || j >= ordered.length) return ts
@@ -464,12 +468,17 @@ export function useTruppActions(deps: Deps) {
     const bar = f.pressure
     const pressurePatch = (t: Trupp): Partial<Trupp> => {
       if (bar === t.entryPressureBar) return {}
+      // ⚠️ The CURRENT deployment's entry row, not the log's first one. A re-deployed Trupp carries
+      // every earlier reading with it now (see reactivateTrupp), and index 0 is then the entry of
+      // an Einsatz that is over — correcting the Eingangsdruck would have rewritten the wrong row
+      // and measured «tiefster Druck» across both.
+      const from = currentRunStart(t.readings)
       const readings = (t.readings ?? []).map((r, i) =>
-        (i === 0 && (r.kind === 'entry' || r.kind === 'registered') ? { ...r, bar } : r))
-      // the lowest pressure this Trupp ever showed: the corrected entry, plus every reading
+        (i === from && (r.kind === 'entry' || r.kind === 'registered') ? { ...r, bar } : r))
+      // the lowest pressure of the running deployment: the corrected entry, plus every reading
       // actually taken since. Recomputed rather than min()'d against the old lowestBar, which
       // may itself be the wrong entry value.
-      const lowestBar = Math.min(bar, ...readings.map((r) => r.bar))
+      const lowestBar = Math.min(bar, ...readings.slice(from).map((r) => r.bar))
       return { entryPressureBar: bar, readings, lowestBar }
     }
     updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}) })
@@ -486,10 +495,22 @@ export function useTruppActions(deps: Deps) {
     // same nothing, and a Trupp whose Auftrag was untouched said the opposite of what happened.
     // The line now lists what actually changed (same shape as the Sicherheitswerte line).
     const changes = truppEditChanges(tr, f)
-    log('pen', changes.length
+    const line = changes.length
       ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: f.name, changes: changes.join(', ') })
-      : fillTemplate(appConfig.copy.atemschutz.logEdit, { name: f.name }), 'team')
+      : fillTemplate(appConfig.copy.atemschutz.logEdit, { name: f.name })
+    log('pen', line, 'team')
     emit('atemschutz.edit', { id })
+    // ⚠️ confirm-with-undo, like every other Atemschutz mutation (Kontakt, Druck, raus, löschen) —
+    // this one was the gap. It rewrites the Eingangsdruck that «Verbrauch» and «tiefster Druck» are
+    // measured against, and an AdF removed from the crew here is removed from the record. Only the
+    // derived state comes back; the Verlauf keeps its line, because the correction did happen.
+    if (tr && changes.length) {
+      const snapshot = tr
+      toast(line, {
+        icon: 'pen',
+        action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
+      })
+    }
   }
   // re-deploy an exited Trupp (refilled bottle, going back inside): a fresh start — new pressure +
   // reset clocks/log — while letting the EL adjust the Auftrag/team on the way back in.
@@ -508,9 +529,15 @@ export function useTruppActions(deps: Deps) {
           status: standby ? 'angemeldet' : 'aktiv',
           entryTime: standby ? '' : now, lastContactTime: standby ? '' : now, exitTime: undefined,
           entryPressureBar: f.pressure, lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: f.pressure,
-          // standby is the create path exactly: the fresh cylinder was read, so the log opens
-          // with that reading rather than empty (see createTrupp)
-          readings: [{ t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' }] }
+          // ⚠️ APPENDED, not replaced (17.08.). This used to start a new `readings` array, which
+          // threw away the first deployment's entry pressure and every reading taken during it —
+          // and `backend/app/report_pdf.py` prints exactly this array, so the crew that had been
+          // under PA the longest was the half missing from the safety document. The card's own
+          // numbers (entryPressureBar, lowestBar) still describe the RUNNING deployment; what is
+          // «current» in the log is everything from here on (lib/atemschutz · currentRunStart).
+          // standby is the create path exactly: the fresh cylinder was read, so the run opens with
+          // that reading rather than empty (see createTrupp)
+          readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' }] }
       : t)))
     if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
@@ -613,7 +640,12 @@ export function useTruppActions(deps: Deps) {
   }
   const deleteTrupp = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
-    setTrupps((ts) => ts.filter((t) => t.id !== id))
+    // ⚠️ STAMPED, not removed (17.08.). The board loses it — that is what was asked for, and the
+    // live list is filtered at the source (IncidentWorkspace) so no alarm, marker or roster lock
+    // can still see it. But the Atemschutz page of the Rapport is a safety document: a crew that
+    // was under PA and then taken off the Tafel used to vanish from the paper too, readings and
+    // entry pressure with it. Every Trupp ever registered now prints.
+    setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, removedAt: new Date().toISOString() } : t)))
     if (tr) dropPlacements(tr)
     // A Trupp leaving the Tafel is the one Atemschutz action the Verlauf never recorded: the
     // toast said so and vanished, and the reconstruction afterwards showed a crew that had been
@@ -628,9 +660,17 @@ export function useTruppActions(deps: Deps) {
   const restoreTrupp = (t: Trupp) => {
     let restored = false
     setTrupps((ts) => {
-      if (ts.some((x) => x.id === t.id)) return ts
+      const cur = ts.find((x) => x.id === t.id)
+      // it is still in the record (the delete only stamped it) — un-stamp, and put back the
+      // captured monitoring state in case anything changed in between
+      if (cur) {
+        if (!cur.removedAt) return ts // already back — a double tap on «Rückgängig»
+        restored = true
+        return ts.map((x) => (x.id === t.id ? { ...t, removedAt: undefined, annoId: undefined, planId: undefined, entityId: undefined } : x))
+      }
+      // …and a Trupp from a workspace written before the stamp existed is genuinely gone: re-add it
       restored = true
-      return [...ts, { ...t, annoId: undefined, planId: undefined, entityId: undefined }]
+      return [...ts, { ...t, removedAt: undefined, annoId: undefined, planId: undefined, entityId: undefined }]
     })
     // the undo gets its own line rather than erasing the delete: the log is a record of what was
     // done, and «gelöscht, dann doch nicht» is what happened

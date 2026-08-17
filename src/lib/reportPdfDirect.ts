@@ -304,7 +304,29 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     journal: draft.options.journal ? journal : [],
     pendenzen: draft.options.pendenzen ? pendenzen : [],
   }
-  return payload
+  return forPaper(payload) as Record<string, unknown>
+}
+
+/**
+ * «→» and «←» become «->» and «<-» — for the PAPER only.
+ *
+ * The journal writes real arrows on purpose («EL → Sanität» is the shape of a Funkprotokoll line)
+ * and they are what the app shows, searches and stores. The rapport, though, is composed in
+ * Helvetica server-side, which has no glyph for either: ReportLab would draw a black box on the
+ * one copy that gets signed — the exact failure `stripUnprintable` exists to prevent for emoji.
+ *
+ * ⚠️ Mapped HERE, at the single point where the payload is assembled, rather than by editing what
+ * the operator typed: what the app holds stays the record, and only the rendering compromises.
+ * ⚠️ Applied to the whole payload rather than to the journal rows alone — an arrow is just as
+ * likely in a Kurzbericht, a Bemerkung or a Mittel remark.
+ */
+export function forPaper(v: unknown): unknown {
+  if (typeof v === 'string') return v.replace(/→/g, '->').replace(/←/g, '<-')
+  if (Array.isArray(v)) return v.map(forPaper)
+  if (v && typeof v === 'object') {
+    return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, forPaper(x)]))
+  }
+  return v
 }
 
 export async function downloadDirectReportPdf(args: DirectReportArgs): Promise<void> {

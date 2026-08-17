@@ -368,6 +368,10 @@ export function proofLabel(proof: AuditProof): string {
  *  callers that only have one. */
 export function truppStatusLabel(t: Trupp | Trupp['status']): string {
   const az = appConfig.copy.atemschutz
+  // ⚠️ Taken off the Tafel outranks the status it was left in: the Rapport prints it (types ·
+  // Trupp.removedAt), and a deleted Trupp still listed as «aktiv» would read as a crew nobody
+  // ever brought back out.
+  if (typeof t !== 'string' && t.removedAt) return az.statusRemoved
   if (typeof t !== 'string' && truppNeverDeployed(t)) return az.statusNotDeployed
   const status = typeof t === 'string' ? t : t.status
   return az.status[status] ?? status

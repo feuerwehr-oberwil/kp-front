@@ -415,27 +415,16 @@
 .jc-send:hover { background: var(--blue-strong); }
 .jc-send:disabled { opacity: var(--disabled); cursor: default; }
 
-/* composer mode toggle: Eintrag vs Wiedervorlage — the shared <Segmented>, taking the row
-   beside the ✕ (it names the sheet, so it gets the width) with composer-size tap targets */
-.jc-mode .useg { display: flex; flex: 1 1 auto; min-width: 0; }
-.jc-mode .useg-btn { flex: 1; }
-/* ⚠️ The active tab is NOT the shared blue fill here. This sheet has exactly one thing worth
-   a colour — «Erfassen» — and a filled blue tab three rows above it competed for the same
-   attention, which is half of what made the whole surface read as noisy. White on the grey track still reads as
-   selected (it is the ordinary segmented look), and it leaves the sheet with one blue thing. */
-.jc-mode .useg-btn.on { background: var(--surface); color: var(--ink);
-  box-shadow: 0 1px 2px rgba(30, 45, 70, .16); }
+/* ⚠️ The «Eintrag · Erinnerung» track these rules styled is GONE (17.08.) — the head holds the
+   title and the ✕, and a due time is a property of any entry now. Left as a tombstone rather than
+   as three rules that quietly style nothing. */
 
-/* Erinnerung due-time picker */
-.jc-due { display: flex; flex-direction: column; gap: 8px; }
-/* «Fällig in» was the one label the reminder mode had that the entry mode did not — the 23px
-   that made the dialog resize on a mode switch. It is also the one label its chips do not need:
-   «+5 min» already reads as when, and it was never true of «Uhrzeit», which is absolute. The
-   mode segment directly above says «Erinnerung». */
+/* ⚠️ The Erinnerung's own strip of due chips is GONE (17.08.). It belonged to a mode that no
+   longer exists — the clock beside the ring carries those answers in a menu now (see
+   .jc-due-btn), for the same reason the ring does: a row unfolding inside the sheet pushes the
+   field it belongs to under the keyboard. What is left here serves the IMPORTED MEMO's start
+   time, which is a different question on a different row. */
 .jc-due-label { display: none; }
-/* six chips → two rows of three, always. Wrapping put four on one row and two on the next,
-   which read as «these four belong together» when they do not. */
-.jc-due-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .jc-due-chip { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
   color: var(--ink); border-radius: var(--r-sm); padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
   height: var(--tap); min-width: 0; white-space: nowrap; }
@@ -459,12 +448,58 @@
 .jc-time-btn:active { background: var(--fill-soft); }
 .jc-time-btn .i { width: 18px; height: 18px; }
 .jc-time-sep { font: 800 24px/1 var(--mono); color: var(--ink-faint); margin-top: -2px; }
-.jc-due-preview { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: 13px; font-weight: 700;
-  color: var(--blue-strong); }
-.jc-due-preview .i { width: 15px; height: 15px; }
-.jc-due-preview em { font-style: normal; color: var(--ink-dim); font-weight: 600; }
+
+/* «Uhrzeit …» — the one due answer that is not a row in the menu: a day, a time, and what the
+   two mean together. A small dialog over the composer rather than a strip inside it (this is the
+   rare path, and the sheet is already fighting the keyboard for its rows).
+   ⚠️ Every block in here is FULL WIDTH and centred inside itself. The first version let the time
+   stepper keep its own `align-self: flex-start` and its inline-flex width, so the card held a
+   left-hugging box with a hand's width of empty space beside it — a shape that reads as broken
+   before you can say what is wrong with it. */
+.jc-exact { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px;
+  width: min(320px, 92vw); }
+.jc-exact-title { margin: 0; text-align: center; font: 800 15px var(--body); color: var(--ink); }
+/* the day, stepped: ‹ Heute · Di 18.08. › — its buttons are the same 44px squares the time
+   stepper uses, so the dialog has ONE control idiom rather than two */
+.jc-exact-day { display: flex; align-items: center; gap: 8px; padding: 4px 6px;
+  border-radius: var(--r-ctl); background: var(--surface-2); border: 1px solid var(--glass-edge); }
+.jc-exact-day b { flex: 1; text-align: center; font: 700 14px var(--body); color: var(--ink);
+  font-variant-numeric: tabular-nums; }
+.jc-exact-day .jc-time-btn:disabled { opacity: var(--disabled); cursor: default; }
+.jc-exact-prev { transform: rotate(180deg); }
+/* …and the stepper fills the card, centred, instead of sitting in a left-hugging box of its own */
+.jc-exact .jc-time { align-self: stretch; justify-content: center; padding: 10px 14px; }
+.jc-exact-preview { margin: 0; text-align: center; font: 700 14px var(--mono); color: var(--blue-strong);
+  min-height: 20px; font-variant-numeric: tabular-nums; }
+/* a due time that has already gone by would fire the moment it is saved — said in words, in red,
+   and «Übernehmen» is disabled until the day or the time moves */
+.jc-exact-preview.is-past { color: var(--red); font-family: var(--body); font-size: 13px; }
+.jc-exact-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.jc-exact-cancel, .jc-exact-ok { display: flex; align-items: center; justify-content: center; gap: 7px;
+  height: var(--tap); border-radius: var(--r-sm); font: 800 14px var(--body); cursor: pointer; font-family: inherit; }
+.jc-exact-cancel { border: 1px solid var(--glass-edge); background: var(--surface-2); color: var(--ink-dim); }
+.jc-exact-ok { border: 1px solid var(--blue); background: var(--blue); color: var(--on-fill); }
+.jc-exact-ok:disabled { opacity: var(--disabled); cursor: default; }
+.jc-exact-ok .i { width: 16px; height: 16px; }
+
+/* ── the Verlauf button while something is open ──
+   The tint is the signal; the badge is the detail. ⚠️ The badge used to be the whole of it, and on
+   a phone it lost: 17px hanging off the button's corner, drawn BEFORE the Atemschutz chip that
+   sits next to it in the bar, and therefore underneath it. `z-index` fixes the covering; the fill
+   is what makes «da ist etwas offen» readable without looking for a small number. */
+.tb-act.has-rem { color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 16%, transparent); }
+.tb-act.has-rem:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+/* …except while the drawer it opens is on screen — then the button's own «on» state is the truth,
+   and two fills fighting on one control is how a state stops meaning anything. */
+/* ⚠️ `--on-accent-ink`, NOT `--on-fill`. At night the latter is near-black (#0d1118) and the pair
+   measured 1.53:1 on the dark fill — the icon and «Verlauf» all but disappeared, in exactly the
+   state this rule exists for (open Pendenzen, drawer open, 3am). `.tb-act.on` above uses the right
+   token; this one is simply matching it. */
+.tb-act.has-rem.on { color: var(--on-accent-ink); background: var(--ink-fill); }
 
 /* open-reminders count badge on the Verlauf button */
+.tb-rem-count { z-index: 2; }
 .tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-sm); background: var(--amber); color: var(--on-fill); line-height: 17px; text-align: center;
   font-size: 11px; font-weight: 800; letter-spacing: -.2px; }

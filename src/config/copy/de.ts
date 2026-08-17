@@ -213,12 +213,63 @@ export const de = {
             'Gross die Uhr **Seit letztem Kontakt**: grün **Kontakt ok** → nach {contactMin} min gelb **Kontakt fällig** → nach weiteren {graceSec} s rot **Überfällig** mit Alarm. Beide Werte gelten für diese Wehr und stehen in den Einsatz-Einstellungen ([[⌘]] [[,]]).',
             '**Kontakt** (grosser Knopf) bestätigt den Funkkontakt und stellt die Uhr zurück.',
             '**Druck** direkt mit ± einstellen und mit **Bestätigen** übernehmen – das zählt als Kontakt und wird protokolliert; ein Fehlklick ohne Bestätigen ändert nichts. Niedriger Druck wird rot.',
-            'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder einrücken** (neue Flasche) zurück in die Überwachung.',
+            'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug melden** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder einrücken** (neue Flasche) zurück in die Überwachung – der **Druckverlauf der ersten Ausrückung bleibt dabei erhalten** und steht später vollständig auf dem Rapport.',
+            'Draussene Trupps behalten ihren Platz auf der Tafel (grau und gedämpft) statt in einen eigenen Abschnitt zu wandern – die Karte, die du suchst, steht dort, wo sie vorher stand.',
+            'Ein **gelöschter Trupp** verschwindet nur von der Tafel: auf dem Rapport steht er weiter, mit allem, was gemessen wurde, und als **«Von Tafel entfernt»**. Über **Entfernte Trupps** in der Kopfzeile kommt er zurück – der «Rückgängig»-Hinweis ist die schnelle Tür, nicht die einzige.',
             '**Verlauf** je Trupp (ausklappbar) zeigt jeden Kontakt mit Uhrzeit und Druck.',
             '**Bearbeiten** (Stift) passt Auftrag, Ziel/Stockwerk oder Trupp mitten im Einsatz an.',
             'Wer unter AS ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
             'Überfällige Trupps rücken nach oben, oben erscheint ein Zähler; der **Alarmton** ist pro Gerät stummschaltbar (Glocke). Alles landet im Verlauf.',
             'Jeder Trupp lässt sich auf dem Plan platzieren (Knopf „auf Plan zeigen").',
+          ] },
+        ],
+      },
+      // ⚠️ Anwesenheit und Mittel fehlten hier bis 18.08. — die zwei Flächen, an denen ein AdF als
+      // erstes landet, standen in einer Hilfe mit sechzehn Abschnitten nur nebenbei. Der Tipp-Zyklus
+      // der Anwesenheit ist nirgends sonst erklärt.
+      {
+        id: 'anwesenheit', title: 'Anwesenheit & Personal', icon: 'people',
+        blocks: [
+          { kind: 'lead', text: 'Wer im Einsatz ist, von wann bis wann – die Grundlage für Personalblatt und Stunden. Die Mannschaft kommt aus der Verwaltung; hier wird nur festgehalten, wer heute da ist.' },
+          { kind: 'sub', text: 'Erfassen' },
+          { kind: 'list', items: [
+            'Eine Zeile **antippen** schaltet weiter: **frei → anwesend → gegangen → frei**. «Anwesend» beginnt beim ersten Mal ab der **Alarmzeit** (getippt wird meist später als angekommen), bei einer Rückkehr ab jetzt.',
+            'Jede Zeile hat eine **Bemerkung** («Fahrer TLF», «verletzt, abgelöst 21:40»). Sie beschreibt, was diese Person hier getan hat, und steht auf dem Personalblatt. Wird eine Zeile versehentlich auf «frei» gestellt, ist die Bemerkung beim nächsten «anwesend» wieder da.',
+            'Wer **vor Ort** oder im **Magazin** ist, steht als Paar in der Zeile – die Antwort auf «wen könnte ich noch nachziehen». In der Kopfzeile steht die Aufteilung, sobald jemand im Magazin ist.',
+            '**Weitere Person** erfasst jemanden, der nicht auf der Mannschaftsliste steht (Nachbarwehr, Gast). Das ist eine Aussage über diesen Einsatz, nicht über die Mitgliedschaft der Wehr.',
+            'Wer **unter Atemschutz** ist, lässt sich nicht abmelden – ein Tipp springt stattdessen auf die Karte des Trupps.',
+          ] },
+          { kind: 'sub', text: 'Korrigieren' },
+          { kind: 'list', items: [
+            '**Rückgängig / Wiederherstellen** nimmt den letzten Tipp zurück (Kopfleiste, am Telefon in der Kopfzeile der Anwesenheit). Der Verlauf behält beides: den Tipp und die Korrektur.',
+            'Zeiten stimmen nicht? Die **Zeit-Chips** in der Zeile korrigieren von/bis – auch für einen früheren Block, wenn jemand zweimal da war.',
+            'Die drei Ansichten oben: **Anwesenheit** (wer ist da), **Zeitplan** (wer ist wann verfügbar), **Schichten** (Ablösungen als Bänder).',
+          ] },
+          { kind: 'note', text: 'Die Erfassung läuft auch **per QR** (Aushang am Magazin): wer sich dort einträgt, erscheint hier – und beide Seiten dürfen dieselbe Person anfassen, ohne dass etwas verloren geht.' },
+        ],
+      },
+      {
+        id: 'mittel', title: 'Material & Mittel', icon: 'box',
+        blocks: [
+          { kind: 'lead', text: 'Was eingesetzt wurde – aus dem Katalog der Wehr oder frei erfasst. Der Rapport druckt daraus die Materialliste.' },
+          { kind: 'list', items: [
+            'Der **Katalog** kommt aus der Verwaltung, mit Einheit und Bestand («auf dem TLF», «Pio»). **+** erhöht die Menge, die Zeile bleibt stehen.',
+            '**Anderes Mittel** erfasst etwas, das der Katalog nicht kennt – Bezeichnung und Menge genügen.',
+            'Wo ein Symbol auf der Lage für ein Material steht (Lüfter, Ölbinder), bietet seine Karte **«Als Mittel erfassen»** an: einmal tippen, statt dieselbe Sache zweimal zu erfassen.',
+            'Eine Menge auf **0** zu setzen entfernt die Zeile nicht aus dem Protokoll – der Rapport zeigt, was eingesetzt und was zurückgenommen wurde.',
+          ] },
+        ],
+      },
+      {
+        id: 'zeitplan', title: 'Zeitplan & Schichten', icon: 'clock',
+        blocks: [
+          { kind: 'lead', text: 'Die zweite und dritte Ansicht der Anwesenheit: nicht «wer ist da», sondern **wer ist wann verfügbar** – für einen Einsatz, der länger dauert als eine Schicht.' },
+          { kind: 'list', items: [
+            'Im **Zeitplan** liegt jede Person auf einer Zeile; ziehen (oder der Stift) plant ein Verfügbarkeitsfenster. Das ist ein **Plan**, kein Protokoll: er schreibt keine Anwesenheit – die entsteht erst, wenn jemand wirklich antippt.',
+            '**Zugesagt** (voll) oder **Vorschlag** (hohl) – der Unterschied zwischen «kommt» und «könnte».',
+            'Der **Zeitraum** oben bestimmt, wie viele Stunden auf einmal zu sehen sind.',
+            'In **Schichten** werden dieselben Fenster zu benannten Bändern gruppiert («Nacht 22–06»): ein Band anzulegen schreibt keine Schicht, und eine gelöschte Zeile löscht keine Verfügbarkeit.',
+            'Beide Ansichten drucken: über das **Drucker-Menü** in der Kopfzeile – **Schichtplan** oder **Verfügbarkeiten**, als PDF oder direkt auf den Stationsdrucker.',
           ] },
         ],
       },
@@ -240,9 +291,11 @@ export const de = {
           { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan – die Einsatz-Chronik.' },
           { kind: 'list', items: [
             '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe. **Gedrückt halten** klappt zwei Felder auf – **Sprachnotiz** zuerst, **Foto** dahinter. Der Finger schiebt auf eines davon und lässt los. Der Knopf selbst wird dabei zum **✕**: loslassen, ohne geschoben zu haben, bricht ab und hinterlässt nichts. Erst beim Loslassen läuft die Aufnahme bzw. öffnet die Kamera. Fotos lassen sich auch im Eintrag selbst anhängen.',
-            'Ab **zwei Buchstaben** werden Namen vorgeschlagen – Mannschaft, Material, Partnerorganisationen, Fahrzeuge und Alarmgruppen. Angetippt wird der ganze Name eingesetzt; im Verlauf und auf dem gedruckten Rapport ist er hervorgehoben. Ein eigenes «Von»-Feld gibt es nicht: der Satz sagt schon, wer gemeldet hat.',
+            'Ab **zwei Buchstaben** werden Namen vorgeschlagen – Mannschaft, Material, Partnerorganisationen, Fahrzeuge und Alarmgruppen, dazu die Posten **EL** und **Stv. EL**. Angetippt wird der ganze Name eingesetzt; im Verlauf und auf dem gedruckten Rapport ist er hervorgehoben. Wer den Posten schreibt, bekommt den Namen dazu («EL (Widmer Céline)»), und wer den Namen schreibt, den Posten. Ein eigenes «Von»-Feld gibt es nicht: der Satz sagt schon, wer gemeldet hat.',
+            'Sobald der Satz auf einem Namen endet, stehen **→** und **←** als Vorschlag daneben: ein Tipp schreibt den Pfeil, und «EL → Sanität: Patient stabil» liest sich wie das Funkprotokoll, das der Verlauf ist. Auf dem Papier wird daraus «->».',
+            'Solange das Feld **leer** ist, stehen Startchips bereit: zuerst **EL →**, danach die Textbausteine, die auf diesem Einsatz schon geschrieben wurden (sonst die Liste der Wehr). Sie bleiben stehen, bis wirklich getippt wird – ein zweiter Chip hängt sich an den ersten an.',
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
-            '**Rückgängig/Wiederholen** gilt für Lage und Plan.',
+            '**Rückgängig/Wiederholen** gilt für Lage, Plan – und für die **Anwesenheit**: dort nimmt es den letzten Tipp zurück (am Telefon stehen die beiden Pfeile in der Kopfzeile der Anwesenheit).',
             'Ein Verlaufseintrag mit Ort springt beim Antippen zurück auf die Stelle in Karte oder Plan; Fotos und Sprachnotizen lassen sich direkt im Verlauf öffnen/abspielen.',
             '**Wiedergabe starten** spielt Lage und Plan zu einem früheren Zeitpunkt ab (Zeitschieber; Bearbeiten ist dabei gesperrt).',
           ] },
@@ -251,7 +304,7 @@ export const de = {
             'Der **Ring** neben «Info · Auftrag · Sofortmassnahme» macht aus einem Eintrag eine **Pendenz**: sie bleibt offen, bis sie abgehakt ist. Ein Tipp auf den Ring öffnet die Auswahl – **Neue Pendenz**, **Dringende Pendenz**, oder eine bereits offene, an die dieser Eintrag als **Meldung** gehängt wird.',
             'Offene Pendenzen stehen **oben im Verlauf**, dringende zuoberst, danach die ältesten. Die Zeit sagt, **wann sie erteilt wurden**; ein Tipp darauf zeigt stattdessen das Alter. Der Ring links hakt sie ab.',
             'Eine Pendenz sammelt **Meldungen**: die Zeile antippen schreibt eine dazu – mit allem, was ein Eintrag kann, also auch als Sprachnotiz oder Foto. Alle Meldungen stehen unter ihrer Pendenz, und im Verlauf trägt jede den Anfang der Pendenz als Verweis; ein Tipp darauf springt zu ihr.',
-            'Eine Pendenz hat **keine Fälligkeit** – auf dem Schadenplatz meldet sich niemand zur Uhrzeit zurück. Wer eine Zeit will, nimmt die **Erinnerung**: die meldet sich selbst und trägt in der Liste ein ⏱.',
+            'Eine Pendenz hat von sich aus **keine Fälligkeit** – auf dem Schadenplatz meldet sich niemand zur Uhrzeit zurück. Wer eine will, tippt die **Uhr** neben dem Ring: **in 5/10/15/30/60 Minuten** oder **Uhrzeit …** mit Tag und Zeit. Eine Erinnerung ist damit keine eigene Sorte Zeile mehr, sondern ein Eintrag, der sich zusätzlich selber meldet – mit Art, Foto und Sprachnotiz wie jeder andere. In der Liste steht die Fälligkeit als Zeit neben der Zeile.',
             'Auf dem Rapport erscheinen sie als **«Aufträge / Pendenzen»** mit Was · Wer · Erteilt · Erledigt; noch offene stehen als **offen** da. Der Abschnitt lässt sich in **«Abschnitte»** abwählen.',
           ] },
           { kind: 'note', text: '**Wer** wird nicht abgefragt: der Satz nennt ihn. «Werkhof Oberwil stellt Absperrmaterial» genügt – der markierte Name landet als Wer auf dem Rapport.' },
@@ -281,7 +334,7 @@ export const de = {
             'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** schickt den Rapport direkt dorthin (bei Unterbruch wird gespeichert und nachgeschickt).',
             'Hat die Wehr eigene Formulare hinterlegt (Verwaltung › Rapport), steht unter den Fotos **Formulare & Links** – eine Liste zum Abhaken. **Öffnen** ruft das Formular auf, mit Stichwort, Ort, Datum und Einsatzleiter bereits ausgefüllt, soweit der Link das vorsieht. Der Haken wird von Hand gesetzt: ob ein Formular abgeschickt wurde, sieht die App nicht.',
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
-            '**Einsatz abschliessen** archiviert den Einsatz und hält das Einsatzende fest.',
+            '**Einsatz abschliessen** archiviert den Einsatz und hält das Einsatzende fest. Fotos und Sprachnotizen, die noch nicht hochgeladen sind, werden vorher gesendet; geht das nicht (offline), **bleiben sie gespeichert** und gehen beim nächsten Öffnen raus – die Bestätigung sagt, wie viele.',
           ] },
           { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** – spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
         ],
@@ -325,6 +378,11 @@ export const de = {
           { kind: 'list', items: [
             '[[Esc]] bricht das aktive Werkzeug ab bzw. hebt die Auswahl auf.',
             '[[Entf]] / [[Backspace]] löscht die Auswahl (nicht beim Tippen in ein Feld).',
+          ] },
+          { kind: 'sub', text: 'Beschriftete Leisten' },
+          { kind: 'list', items: [
+            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Leisten-Beschriftung»: **Wörter** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr.',
+            'Ohne diese Einstellung bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
           ] },
           { kind: 'sub', text: 'Tag / Nacht' },
           { kind: 'list', items: [
@@ -818,7 +876,7 @@ export const de = {
     // the + in the middle of every segment — the same label on Lage and Plan, because it is
     // the same gesture
     insertPoint: 'Punkt einfügen',
-    deleteNode: 'Rechtsklick zum Entfernen',
+    deleteNode: 'Gedrückt halten zum Entfernen · am Computer Rechtsklick',
     distance: 'Distanz',
     perimeter: 'Umfang',
     area: 'Fläche',
@@ -898,6 +956,11 @@ export const de = {
     drawKinds: { area: 'Fläche', line: 'Zeichnung', circle: 'Absperrkreis' } as Record<string, string>,
   },
   // unified, append-only journal (Verlauf) shared by Lage + Plan
+  toolDock: {
+    colorGroup: 'Farbe',
+    colorName: '{group} {n}',
+    widthName: 'Linienstärke {n} px',
+  },
   journal: {
     open: 'Verlauf',
     add: 'Eintrag',
@@ -988,6 +1051,11 @@ export const de = {
     // different things. «Sofortmassnahme» is a doctrine word — abbreviating it is what made the
     // chip read as a hurry rather than as a kind of entry.
     entryTypes: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofortmassnahme' } as Record<string, string>,
+    // ⚠️ The SAME words, with the break points written in (soft hyphens, U+00AD). Display only:
+    // the chip is the narrowest control on the sheet and the long one has to wrap there, and
+    // «Sofortm-assn-ahme» is what an engine without a German dictionary makes of it. The record
+    // keeps `entryTypes` — an invisible character has no business in the row's own text.
+    entryTypesWrap: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofort­massnahme' } as Record<string, string>,
     send: 'Erfassen',
     saved: 'Journaleintrag erfasst',
     // audio-note transcript editing (Verlauf row)
@@ -995,19 +1063,29 @@ export const de = {
     transcriptSave: 'Speichern',
     transcriptEdit: 'Transkript bearbeiten',
     transcriptAdd: 'Transkript ergänzen',
-    // Erinnerung (reminder) mode of the composer
-    modeEntry: 'Eintrag',
-    modeReminder: 'Erinnerung',
-    reminderTextPlaceholder: 'Woran erinnern? z. B. Lüfter prüfen, Rückmeldung Einsatzleitung …',
-    reminderWhen: 'Fällig in',
-    reminderExact: 'Uhrzeit',
+    // ── the clock beside the ring: when this entry has to come back ──
+    // ⚠️ There is no «Eintrag · Erinnerung» mode any more (17.08.). An Erinnerung is not a second
+    // kind of row, it is an entry that also carries a due time — so these words name a PROPERTY of
+    // the entry, not a surface to switch to.
+    // ⚠️ The arrow is a WORD-shaped suggestion, not a control: it inserts « → » and nothing else.
+    arrowTitle: 'Pfeil einsetzen – wer an wen',
+    arrowBackTitle: 'Pfeil einsetzen – wer von wem',
+    dueHead: 'Erinnern',
+    dueNone: 'Ohne Erinnerung',
+    dueSetTitle: 'Erinnert um {t}',
+    dueExactTitle: 'Erinnern um',
+    dayToday: 'Heute',
+    dayTomorrow: 'Morgen',
+    dayBack: 'Einen Tag zurück',
+    dayForward: 'Einen Tag vor',
+    duePast: 'Zeitpunkt liegt in der Vergangenheit',
+    dueExactConfirm: 'Übernehmen',
+    reminderExact: 'Uhrzeit …',
     reminderChips: [5, 10, 15, 30, 60] as number[],
-    reminderChipLabel: '+{n} min',
+    reminderChipLabel: 'in {n} min',
     reminderTomorrow: ' · morgen',
     hourUp: 'Stunde +', hourDown: 'Stunde −', minUp: 'Minute +', minDown: 'Minute −',
-    reminderSend: 'Erinnerung setzen',
     reminderSaved: 'Erinnerung gesetzt',
-    reminderNeedsDue: 'Fälligkeit wählen',
     // ⚠️ The row a reminder writes WHEN IT IS SET. It used to carry the bare reminder text, so
     // the Verlauf held «Lüfter prüfen» among a hundred other lines and the only row that said
     // the word «Erinnerung» was the one saying it had been done — the record showed an answer
@@ -1286,11 +1364,11 @@ export const de = {
     // «Übersicht» rather than «Einklappen», because what you go back to is the comparison)
     collapse: 'Zur Übersicht',
     // lifecycle action buttons
-    actEnter: 'Eingerückt',
+    actEnter: 'Einrücken',
     actContact: 'Kontakt',
-    actRueckzug: 'Rückzug',
+    actRueckzug: 'Rückzug melden',
     actContinue: 'Fortsetzen',
-    actExit: 'Raus',
+    actExit: 'Raus melden',
     actReenter: 'Wieder einrücken',
     // A Sicherungstrupp mostly does NOT go in. Until 08.08. you could only delete it – i.e. throw
     // away the one thing proving it stood ready. It is now closed out like any other: under
@@ -1299,6 +1377,7 @@ export const de = {
     actNotDeployedHint: 'Trupp abschliessen, ohne dass er unter AS war – bleibt für einen erneuten Einsatz bereit',
     // status word and Verlauf row for exactly this case: «draussen» claims it had been inside
     statusNotDeployed: 'Nicht eingesetzt',
+    statusRemoved: 'Von Tafel entfernt',
     logNotDeployed: 'Trupp {name} nicht eingesetzt',
     exitConfirmTitle: 'Trupp draussen?',
     exitConfirmMsg: 'Den Trupp als draussen markieren und die Überwachung beenden?',
@@ -1315,6 +1394,10 @@ export const de = {
     // alarm sound toggle (per-device, persisted locally)
     alarmOn: 'Alarmton an',
     alarmOff: 'Alarmton aus',
+    alarmTurnOn: 'Alarmton einschalten',
+    alarmTurnOff: 'Alarmton ausschalten',
+    restoreMenu: 'Entfernte Trupps',
+    restoreItem: '{name} wiederherstellen',
     // OS notification when a Trupp goes überfällig while the app is backgrounded
     alarmNotifyTitle: 'Atemschutz überfällig',
     alarmNotifyBody: 'Trupp {name} überfällig – Kontakt herstellen.',
@@ -1726,7 +1809,7 @@ export const de = {
     on: 'An',
     off: 'Aus',
     lock: 'Sperren',
-    lockHint: 'Sperrt die Form gegen versehentliches Verschieben; tippe das Schloss in der Mitte zum Entsperren.',
+    lockHint: 'Sperrt die Form gegen versehentliches Verschieben; halte das Schloss in der Mitte gedrückt zum Entsperren.',
     // map LockChip on a locked drawing (short-hold to unlock)
     unlockHold: 'Zum Entsperren gedrückt halten',
     unlocking: 'Entsperren …',
@@ -1980,6 +2063,10 @@ export const de = {
     symbolSize: 'Symbolgrösse',
     symbolCaptions: 'Beschriftungen',
     symbolCaptionsSub: 'Kennwert unter dem Symbol',
+    railLabels: 'Leisten-Beschriftung',
+    railLabelsSub: 'Wort unter jedem Zeichen in den beiden Leisten',
+    railLabelsOff: 'Aus',
+    railLabelsOn: 'Wörter',
     captionsOff: 'Aus',
     captionsAuto: 'Auto',
     captionsAll: 'Alle',
@@ -2490,6 +2577,7 @@ export const de = {
     confirmMissing: 'Noch offen: {steps}. Trotzdem abschliessen?',
     confirmBtn: 'Abschliessen',
     done: 'Rapport abgeschlossen',
+    doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',
@@ -2906,6 +2994,7 @@ export const de = {
     // the Einsatzende, which lies BEFORE its own start.
     unresolvedHours: '{names}: Zeiten laufen rückwärts oder fehlen – nicht in den Einsatzstunden.',
     pendingMedia: '{n} Foto/Audio noch nicht hochgeladen – wird bei Verbindung ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
+    pendingMediaConfirm: '{n} Foto/Audio noch nicht hochgeladen – bleiben auf diesem Gerät gespeichert',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
     // actions — no «Abbrechen»: a surface is left via the rail or the ✕ in the header, and there
     // would be nothing to cancel anyway (every field writes through as you type).
@@ -2980,6 +3069,12 @@ export const de = {
     // only if none has been written by hand yet.
     // one row per person, not one for the Anwesenheit and a second one for the role
     logPresentAs: '{name} anwesend – {role}',
+    // ⚠️ The record is APPEND-ONLY, so a step back cannot remove the tap's own row — it writes
+    // the correction beside it, naming whoever moved.
+    undoTap: 'Letzten Tipp zurücknehmen',
+    redoTap: 'Tipp wiederherstellen',
+    undone: 'Anwesenheit zurückgenommen: {names}',
+    redone: 'Anwesenheit wiederhergestellt: {names}',
     roleEinsatzleiter: 'Einsatzleiter',
     // ⚠️ The SHORT form, for inside a sentence. A Verlaufszeile names the person and then
     // says what they are — «Rückmeldung an ELZ durch Widmer Céline (EL)» — and the full
@@ -3093,7 +3188,7 @@ export const de = {
     // «Anwes.» and not «Anwesenheit»: only abbreviated do three segments fit on 390 px (~278 px
     // available, ~250 needed). The third one belongs here and not in the ⋯ menu – a whole way of
     // working does not sit behind three dots.
-    viewList: 'Anwes.',
+    viewList: 'Anwesenheit',
     viewPlan: 'Zeitplan',
     viewBands: 'Schichten',
     viewLabel: 'Ansicht',

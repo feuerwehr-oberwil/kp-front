@@ -472,10 +472,15 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                         </span>
                       ))}
                     </div>
-                    {/* a timed Erinnerung also carries a clock — «die meldet sich selbst» */}
+                    {/* ⚠️ …and it says WHEN, not just that there is a when. The bare clock glyph
+                        answered «meldet sich selbst» and left the one thing to act on — «um wie
+                        viel Uhr?» — inside a tooltip nobody on a tablet can open. The row's own
+                        time column says when the item was RAISED, so the two are never the same
+                        number. `dueClock` adds «· morgen» where the Fälligkeit fell to the next
+                        day, which is exactly the case a bare «06:30» reads as long overdue. */}
                     {dueLater && (
                       <span className="jr-pinned-alarm" title={C.dueAtLabel.replace('{t}', dueClock(r.dueAt!))}>
-                        <Icon id="clock" />
+                        <Icon id="clock" /><b>{dueClock(r.dueAt!)}</b>
                       </span>
                     )}
                   </div>

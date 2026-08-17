@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
+import type { RailLabels } from '../lib/prefs'
 import { appConfig } from '../config/appConfig'
 import { clampRailWidth, snapExpanded } from '../lib/navRail'
 
@@ -25,6 +26,10 @@ interface Props {
   toolRefs?: React.MutableRefObject<Record<string, HTMLButtonElement | null>>
   /** surface-specific buttons appended after the tools (e.g. the plan's Trails toggle) */
   extras?: React.ReactNode
+  /** device pref: the tool's WORD under its glyph (lib/prefs · railLabels). This rail is where it
+   *  earns most — «Auswahl», «Linie», «Fläche», «Messen» are short, real words, and nine glyphs
+   *  with no text is the densest thing on the screen for anybody who does not know them. */
+  labels?: RailLabels
   /** pinned footer cluster — surface-specific (map nav vs plan zoom), rendered inside .vrail-nav */
   footer: React.ReactNode
   /** root class so each surface keeps its own selector hook (.tool-rail / .wb-tools) */
@@ -37,7 +42,9 @@ interface Props {
 // COMPACT = icon-only width; WIDE = the drag snap threshold / clamp ceiling. The committed
 // expanded width is measured from the content (longest label) so the rail fits it exactly,
 // capped at MAXW.
-const COMPACT = 60, WIDE = 216, MAXW = 280
+/** …and the labelled compact width — see the twin constant in NavRail: the dock beside this rail
+ *  positions itself off `--vrail-w`, so the CSS width alone would leave it overlapping. */
+const COMPACT = 60, LABELLED = 88, WIDE = 216, MAXW = 280
 
 // Shared right-edge vertical tool rail used by BOTH the Lage map and the Plan
 // whiteboard: an expandable, icon-first rail (matching the left NavRail) with a
@@ -46,7 +53,7 @@ const COMPACT = 60, WIDE = 216, MAXW = 280
 // selection and drawing groups), not pinned at the top. Each surface supplies its
 // own tool list, optional extras, and footer; the shape + look (.vrail) are
 // identical, so the two action sidebars stay in lockstep from one code object.
-export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, footer, className }: Props) {
+export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, footer, className, labels }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [dragging, setDragging] = useState(false)
   const railRef = useRef<HTMLElement>(null)
@@ -99,11 +106,15 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
   // collapse animate the same, smooth way. Earlier this deferred the expanded width to a
   // layout-effect that briefly forced `width: max-content` to fit the longest label — that
   // measurement flash interrupted the transition and made expanding look janky.
-  const apply = (exp: boolean) => { setExpanded(exp); setW(exp ? WIDE : COMPACT) }
+  const compactW = labels === 'short' ? LABELLED : COMPACT
+  const apply = (exp: boolean) => { setExpanded(exp); setW(exp ? WIDE : compactW) }
   useEffect(() => {
-    setW(COMPACT)
+    // …and an expanded rail collapses when the words come on: its chevron is gone in that mode
+    if (labels === 'short' && expanded) setExpanded(false)
+    setW(compactW)
     return () => { document.documentElement.style.removeProperty('--vrail-w') }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pref-driven; `expanded` is read, not tracked
+  }, [compactW, labels])
 
   // pull the LEFT-edge grip to resize: the rail grows as the pointer moves left, so the
   // delta is start − current (mirror of the left rail). Labels hide during the drag so
@@ -113,25 +124,31 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
     setDragging(true)
     e.currentTarget.dataset.startx = String(e.clientX)
     const cur = railRef.current ? parseFloat(getComputedStyle(railRef.current).getPropertyValue('--vrail-w')) : NaN
-    e.currentTarget.dataset.startw = String(Number.isNaN(cur) ? (expanded ? WIDE : COMPACT) : cur)
+    e.currentTarget.dataset.startw = String(Number.isNaN(cur) ? (expanded ? WIDE : compactW) : cur)
   }
   const onGripMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!dragging) return
     const startX = Number(e.currentTarget.dataset.startx), startW = Number(e.currentTarget.dataset.startw)
-    setW(clampRailWidth(startW + (startX - e.clientX), COMPACT, MAXW))
+    setW(clampRailWidth(startW + (startX - e.clientX), compactW, MAXW))
   }
   const onGripUp = () => {
     if (!dragging || !railRef.current) return
     setDragging(false)
-    const w = parseFloat(getComputedStyle(railRef.current).getPropertyValue('--vrail-w')) || COMPACT
+    const w = parseFloat(getComputedStyle(railRef.current).getPropertyValue('--vrail-w')) || compactW
     apply(snapExpanded(w, (COMPACT + WIDE) / 2))
   }
 
   return (
-    <aside ref={railRef} className={`vrail${expanded ? ' expanded' : ''}${dragging ? ' dragging' : ''} ${className ?? ''}`}>
-      <button className="vrail-exp" onClick={() => apply(!expanded)} aria-label={expanded ? nav.collapse : nav.expand}>
-        <span className="vrail-exp-ic"><Icon id="chevron" /></span><span className="vrail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
-      </button>
+    <aside ref={railRef} className={`vrail${expanded ? ' expanded' : ''}${dragging ? ' dragging' : ''}${labels === 'short' ? ' labelled' : ''} ${className ?? ''}`}>
+      {/* ⚠️ NO «Ausklappen» while the words are on. The chevron exists to reveal exactly what this
+          setting already shows — with it on, expanding buys 128px of nothing but a second label
+          position. It stays for everybody else, which is who it was for: somebody who does not
+          know the glyphs yet and wants the names once, without a trip to the Einstellungen. */}
+      {labels !== 'short' && (
+        <button className="vrail-exp" onClick={() => apply(!expanded)} aria-label={expanded ? nav.collapse : nav.expand}>
+          <span className="vrail-exp-ic"><Icon id="chevron" /></span><span className="vrail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
+        </button>
+      )}
 
       {/* tools — scroll if the list grows; the pinned footer below never scrolls away.
           The wrap carries an edge chevron whenever there are hidden tools above/below. */}

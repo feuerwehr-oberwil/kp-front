@@ -159,6 +159,63 @@ function ToastSteps({ steps, text }: { steps: ToastStep[]; text: string }) {
   )
 }
 
+/**
+ * The action cluster of a confirm-with-undo toast — «Rückgängig», and the way to get rid of it.
+ *
+ * ⚠️ The toast pill itself is `pointer-events: none` on purpose: it lands over the FAB and over
+ * the phone's bottom rail, and a tap aimed at either has to reach them. Its BUTTON is the one part
+ * that cannot pass taps through — a «Rückgängig» nobody can press would be pointless — so the
+ * button is also the one part that can be in the way. Everything that removes the toast therefore
+ * lives here, in that same small region, and the pill stays transparent to touch.
+ *
+ * Two ways out, because they suit different moments: the ✕ for «not now, move», and a flick in
+ * either direction for the hand that is already on its way to whatever sits underneath.
+ */
+function ToastAction({ toast: t }: { toast: Toast }) {
+  const [dx, setDx] = useState(0)
+  const drag = useRef<{ id: number; x0: number } | null>(null)
+  // …in CSS pixels of finger travel. Below this it springs back: the button is a target first and
+  // a slider second, so a shaky press must not throw away the undo it was aimed at.
+  const FLICK = 56
+  const end = (e: React.PointerEvent) => {
+    if (!drag.current) return
+    const moved = e.clientX - drag.current.x0
+    drag.current = null
+    if (Math.abs(moved) >= FLICK) dismissToast(t.id)
+    else setDx(0)
+  }
+  return (
+    <span className="toast-actions" style={dx ? { transform: `translateX(${dx}px)`, opacity: Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)) } : undefined}>
+      <button
+        className="btn toast-action"
+        // ⚠️ optional call: pointer capture keeps the flick tracking once the finger leaves the
+        // button, but it is not available everywhere (jsdom has no implementation, and neither did
+        // older WebViews) — and an undo button that THROWS on touch is worse than one that only
+        // follows the finger while it stays on the target.
+        onPointerDown={(e) => { drag.current = { id: e.pointerId, x0: e.clientX }; e.currentTarget.setPointerCapture?.(e.pointerId) }}
+        onPointerMove={(e) => { if (drag.current?.id === e.pointerId) setDx(e.clientX - drag.current.x0) }}
+        onPointerUp={end}
+        onPointerCancel={end}
+        onClick={() => {
+          // a flick ends on the same element as a tap, so the click that follows it must not also
+          // fire the action — the toast is already gone, and undoing was not what was asked for
+          if (Math.abs(dx) >= FLICK) return
+          dismissToast(t.id)
+          t.action!.onClick()
+        }}
+      >
+        {t.action!.label}
+      </button>
+      <button
+        className="toast-x"
+        title={appConfig.copy.closeDialog}
+        aria-label={appConfig.copy.closeDialog}
+        onClick={() => dismissToast(t.id)}
+      ><Icon id="close" /></button>
+    </span>
+  )
+}
+
 export function Overlays() {
   useForceUpdate()
   const req = confirmReq
@@ -183,17 +240,7 @@ export function Overlays() {
                 <span>{t.text}</span>
               </>
             )}
-            {t.action && (
-              <button
-                className="btn toast-action"
-                onClick={() => {
-                  dismissToast(t.id)
-                  t.action!.onClick()
-                }}
-              >
-                {t.action.label}
-              </button>
-            )}
+            {t.action && <ToastAction toast={t} />}
           </div>
         ))}
       </div>

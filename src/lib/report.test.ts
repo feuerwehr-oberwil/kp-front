@@ -296,6 +296,17 @@ describe('report proof and Atemschutz labels', () => {
     // one that really did come out keeps the word it earned
     expect(truppStatusLabel(t({ entryTime: '2026-08-08T22:20:00Z', exitTime: '2026-08-08T22:47:00Z' }))).toBe('Draussen')
   })
+
+  // ⚠️ A Trupp taken off the Tafel still PRINTS (types · Trupp.removedAt) — and «aktiv» on paper
+  // for a crew nobody brought back out is the one thing that page must never say.
+  it('says a Trupp was taken off the board, whatever state it was left in', () => {
+    const t = (over: Partial<Trupp>): Trupp => ({
+      id: 't1', name: 'Meier', entryPressureBar: 300, entryTime: '2026-08-08T22:20:00Z',
+      lastContactTime: '2026-08-08T22:30:00Z', lowestBar: 260, status: 'aktiv', readings: [], ...over,
+    })
+    expect(truppStatusLabel(t({ removedAt: '2026-08-08T22:50:00Z' }))).toBe('Von Tafel entfernt')
+    expect(truppStatusLabel(t({}))).toBe('Im Einsatz')
+  })
 })
 
 describe('server-PDF payload extras', () => {
