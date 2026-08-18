@@ -287,6 +287,12 @@
    inside it (`display: grid`) is then a BLOCK box, which pushed the label onto a second line
    inside the pill. `white-space: nowrap` cannot help with that: the break is between two boxes,
    not between two words. */
+/* …and what a suggested NAME is doing right now — «Meier Anna · Trupp 2». Quiet and secondary:
+   it is there to tell two Meiers apart at the moment of typing, and it is never written into the
+   entry (see journalLinks · JournalLink.hint). */
+.jc-phrase-hint { font-style: normal; font-weight: 600; color: var(--ink-faint); }
+.jc-phrase-hint::before { content: " · "; }
+
 /* the empty-field opener («EL →»): the same chip, in the ink of a LINK, because that is what it
    writes — the post, marked, the way it will look in the finished row. The phrases beside it stay
    plain: they are words, not names. */

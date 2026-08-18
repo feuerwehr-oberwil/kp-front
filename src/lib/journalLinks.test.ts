@@ -135,3 +135,29 @@ describe('journalVocabulary · the command posts', () => {
     expect(linkParts('EL → Sanität', vocab).find((p) => p.kind)?.text).toBe('EL')
   })
 })
+
+// ⚠️ A handover leaves the previous EL's Bemerkung standing (the app warns, it does not overwrite
+// what somebody wrote). Without a time the answer came out of the roster sort, so the journal could
+// keep naming the person who handed over an hour ago.
+describe('journalVocabulary · who holds the post NOW', () => {
+  const person = (id: string, displayName: string): Person =>
+    ({ id, displayName, active: true, updatedAt: '2026-08-18T20:00:00.000Z' })
+  const el = (displayNameSnapshot: string, noteAt?: string) =>
+    ({ status: 'present' as const, displayNameSnapshot, note: 'Einsatzleiter', noteAt, intervals: [{ from: '2026-08-18T20:00:00.000Z' }] })
+
+  it('names the one who took it on last', () => {
+    const vocab = journalVocabulary(
+      [person('p1', 'Aebi Anna'), person('p2', 'Zünd Beat')],
+      { p1: el('Aebi Anna', '2026-08-18T20:10:00.000Z'), p2: el('Zünd Beat', '2026-08-18T21:30:00.000Z') },
+    )
+    expect(vocab.find((l) => l.name === 'EL')?.role).toBe('Zünd Beat')
+  })
+
+  it('sorts an entry with no stamp last — those are the old ones', () => {
+    const vocab = journalVocabulary(
+      [person('p1', 'Aebi Anna'), person('p2', 'Zünd Beat')],
+      { p1: el('Aebi Anna'), p2: el('Zünd Beat', '2026-08-18T21:30:00.000Z') },
+    )
+    expect(vocab.find((l) => l.name === 'EL')?.role).toBe('Zünd Beat')
+  })
+})

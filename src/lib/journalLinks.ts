@@ -33,6 +33,12 @@ export interface JournalLink {
    *  reads «Rückmeldung an ELZ durch Widmer Céline (EL)» rather than naming somebody the reader
    *  has to look up. Absent for anybody without a job, which is most people. */
   role?: string
+  /** What this person is doing right now — «Trupp 2», «Sicherungstrupp». Shown on the SUGGESTION
+   *  CHIP only, never inserted and never printed: it answers «which Meier do I mean» at the moment
+   *  of typing and stops being true ten minutes later, so it has no business in a record that is
+   *  read six months on. (The `role` above is the opposite: it is stable for this Einsatz and does
+   *  print.) */
+  hint?: string
   /** match only as a WHOLE word. Off by default: a name is long enough that a substring match is
    *  almost always the name. It is on for the command posts, where «EL» would otherwise light up
    *  inside Melder, Keller and Schnellangriff (see commandRoles). */
@@ -46,13 +52,19 @@ export interface JournalLink {
  * is not ticked present — the AdF still driving in, the Kommandant on the phone — and a list
  * that cannot spell their name is worse than none. Presence only orders.
  */
-export function journalVocabulary(personnel: Person[], attendance: AttendanceState): JournalLink[] {
+export function journalVocabulary(
+  personnel: Person[],
+  attendance: AttendanceState,
+  /** personId → the Trupp they are in right now, for the chip's hint (see JournalLink.hint) */
+  truppOf?: Map<string, string>,
+): JournalLink[] {
   const cfg = getDeploymentConfig()
   const people: JournalLink[] = personnel
     .filter((p) => p.active)
     .map((p) => ({
       name: p.displayName, kind: 'person' as const, id: p.id, present: isPresent(attendance[p.id]),
       role: shortRole((attendance[p.id]?.note ?? '').trim()),
+      hint: truppOf?.get(p.id),
     }))
     .sort((a, b) => Number(b.present) - Number(a.present)
       || rankOrder(personnel.find((p) => p.id === a.id)?.rank) - rankOrder(personnel.find((p) => p.id === b.id)?.rank)
@@ -66,7 +78,8 @@ export function journalVocabulary(personnel: Person[], attendance: AttendanceSta
   // «Gr. 1 (Kdo)» is how the Rapport names a group, so that is the form the journal links to
   const groups: JournalLink[] = (cfg.alarms?.groups ?? [])
     .map((g) => ({ name: g.color ? `${g.label} (${g.color})` : g.label, kind: 'group' as const }))
-  return [...commandRoles(people), ...people, ...materials, ...partners, ...vehicles, ...groups]
+  const heldAt = new Map(Object.entries(attendance).flatMap(([id, a]) => (a.noteAt ? [[id, a.noteAt] as const] : [])))
+  return [...commandRoles(people, heldAt), ...people, ...materials, ...partners, ...vehicles, ...groups]
     .filter((l) => !!l.name?.trim())
 }
 
@@ -87,12 +100,18 @@ export function journalVocabulary(personnel: Person[], attendance: AttendanceSta
  * ⚠️ Resolved at RENDER time, like every other role suffix, so an Ablösung re-labels older rows
  * too. The row's own `text` — the record, the hash chain, the paper — never changes.
  */
-function commandRoles(people: JournalLink[]): JournalLink[] {
+function commandRoles(people: JournalLink[], heldAt?: Map<string, string>): JournalLink[] {
   const A = appConfig.copy.anwesenheit
   return [A.roleEinsatzleiterShort, A.roleEinsatzleiterStvShort]
     .filter((short) => !!short?.trim())
     .map((short) => {
-      const holder = people.find((p) => p.role === short)
+      // ⚠️ The one who took it on LAST. A handover leaves the previous EL's Bemerkung standing
+      // (the app warns, it does not overwrite what somebody wrote), so «find the first» answered
+      // with whoever the roster sort happened to put on top — and the journal could name a person
+      // who handed over an hour ago. Entries with no stamp sort last: they are the old ones.
+      const holder = people
+        .filter((p) => p.role === short)
+        .sort((a, b) => (heldAt?.get(b.id ?? '') ?? '').localeCompare(heldAt?.get(a.id ?? '') ?? ''))[0]
       return {
         name: short, kind: 'person' as const, id: holder?.id, present: holder?.present,
         role: holder?.name,

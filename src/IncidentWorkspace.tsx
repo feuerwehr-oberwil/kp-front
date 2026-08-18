@@ -2307,7 +2307,17 @@ export function IncidentWorkspace({
   // ⚠️ The PICKABLE roster, guests included — so a Gast's name is marked in the Verlauf like
   // anybody else's. A name the composer offers but the Verlauf then refuses to mark reads as
   // the app not recognising somebody it just autocompleted.
-  const journalVocab = useMemo(() => journalVocabulary(pickablePersonnel, attendance), [pickablePersonnel, attendance])
+  // …and which Trupp somebody is in right now, so the composer's chip can say «Meier Anna · Trupp 2»
+  // while you type. Names only, never inserted: it answers «which of them do I mean» at that moment
+  // (see journalLinks · JournalLink.hint).
+  const truppNameOfPerson = useMemo(() => {
+    const byId = new Map(linkedTrupps.map((t) => [t.id, t.name]))
+    return new Map([...truppOfPerson].map(([personId, truppId]) => [personId, byId.get(truppId) ?? '']))
+  }, [truppOfPerson, linkedTrupps])
+  const journalVocab = useMemo(
+    () => journalVocabulary(pickablePersonnel, attendance, truppNameOfPerson),
+    [pickablePersonnel, attendance, truppNameOfPerson],
+  )
   // active-member names feeding the symbol detail comboboxes (Einsatzleiter / Offizier / Fahrer)
   // ⚠️ Built from the PICKABLE roster, guests included. These names fill the dropdowns on a
   // symbol («Fahrer», «Name» on the Einsatzleiter glyph), and a Nachbarwehr driver recorded
@@ -2415,7 +2425,10 @@ export function IncidentWorkspace({
         const at = intervalsOf(cur[id]).length ? new Date().toISOString() : incidentMeta.started_at
         next[id] = openPresence(cur[id], at, name)
       }
-      for (const id of needNote) if (next[id]) next[id] = { ...next[id], note: mergeRoleNote(next[id].note, roleNote!) }
+      // …stamped, so «wer ist jetzt EL» has an answer that does not depend on a sort order
+      // (types · AttendanceEntry.noteAt)
+      const at = new Date().toISOString()
+      for (const id of needNote) if (next[id]) next[id] = { ...next[id], note: mergeRoleNote(next[id].note, roleNote!), noteAt: at }
       return next
     })
     // ONE row per person, not one for the presence and a second for the remark: naming a Fahrer

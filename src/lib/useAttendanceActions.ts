@@ -142,7 +142,7 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
     if (!e) return
     const next = note.trim() || undefined
     if ((e.note ?? undefined) === next) return
-    setAttendance((cur) => (cur[personId] ? { ...cur, [personId]: { ...cur[personId], note: next } } : cur))
+    setAttendance((cur) => (cur[personId] ? { ...cur, [personId]: { ...cur[personId], note: next, noteAt: new Date().toISOString() } } : cur))
     // remember it too, so a row cycled to «frei» and back keeps what was written about this person
     if (next) noteMemory.current[personId] = next
     else delete noteMemory.current[personId]

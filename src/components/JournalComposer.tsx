@@ -704,7 +704,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 className={`jc-phrase jc-phrase-link jc-link-${n.kind}`}
                 onPointerDown={(e) => e.preventDefault()}
                 onClick={() => takeName(n.name)}
-              >{n.name}</button>
+              >{n.name}{n.hint && <em className="jc-phrase-hint">{n.hint}</em>}</button>
             ))}
             {suggestions.map((m) => (
               <button
