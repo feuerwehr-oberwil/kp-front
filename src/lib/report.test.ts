@@ -613,3 +613,29 @@ describe('readingBarIsMeasured (which pressures the Rapport may print)', () => {
     expect(readingBarIsMeasured('rueckzug')).toBe(false)
   })
 })
+
+// ⚠️ The Verlauf is where the Rapport's journal comes from — a remark that never reaches it is a
+// remark that never reaches the paper either.
+describe('Partnerorganisationen in the Verlauf', () => {
+  const lines = (before: unknown, after: unknown) =>
+    changedReportMetaFields({ partnerContacts: before } as never, { partnerContacts: after } as never)
+
+  it('logs the remark an organisation arrives with, not just the arrival', () => {
+    // …both lines; the caller decides the order they land in the Verlauf (each becomes its own
+    // row with its own clock, so it is the timestamps that order them, not this array)
+    expect(lines([], [{ org: 'Sanität', note: 'avisiert, ETA 20 min' }]).sort()).toEqual([
+      'Partnerorganisation Sanität ergänzt',
+      'Partnerorganisation Sanität – Bemerkung: avisiert, ETA 20 min',
+    ].sort())
+  })
+
+  it('logs a remark that was cleared — the one edit that used to leave no trace', () => {
+    expect(lines([{ org: 'Polizei', note: 'Strasse gesperrt' }], [{ org: 'Polizei', note: '' }]))
+      .toEqual(['Partnerorganisation Polizei – Bemerkung entfernt'])
+  })
+
+  it('says nothing when nothing about the remark changed', () => {
+    const same = [{ org: 'Polizei', note: 'Strasse gesperrt' }]
+    expect(lines(same, [{ ...same[0] }])).toEqual([])
+  })
+})

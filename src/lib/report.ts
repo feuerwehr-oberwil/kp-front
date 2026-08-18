@@ -720,9 +720,22 @@ function _partnerLines(before: PartnerContact[], after: PartnerContact[]): strin
   const out: string[] = []
   for (const [k, p] of B) {
     const org = (p.org ?? '').trim()
-    if (!A.has(k)) { out.push(org ? fillTemplate(P.metaPartnerAdded, { org }) : P.metaPartnerUnnamed); continue }
     const note = (p.note ?? '').trim()
-    if (note !== (A.get(k)?.note ?? '').trim() && note) out.push(fillTemplate(P.metaPartnerNote, { org, note }))
+    const was = (A.get(k)?.note ?? '').trim()
+    // ⚠️ An organisation arriving WITH its remark used to log only the arrival: «Sanität ergänzt»,
+    // while «Ölwehr avisiert, ETA 20 min» — the operational half — never reached the Verlauf and
+    // therefore never reached the printed journal either. Both lines now.
+    if (!A.has(k)) {
+      out.push(org ? fillTemplate(P.metaPartnerAdded, { org }) : P.metaPartnerUnnamed)
+      if (note && org) out.push(fillTemplate(P.metaPartnerNote, { org, note }))
+      continue
+    }
+    if (note === was) continue
+    // …and CLEARING one is a change too. `&& note` skipped it, so deleting a remark was the one
+    // edit on this block that left no trace at all.
+    out.push(note
+      ? fillTemplate(P.metaPartnerNote, { org, note })
+      : fillTemplate(P.metaPartnerNoteCleared, { org }))
   }
   for (const [k, p] of A) {
     if (!B.has(k)) out.push(fillTemplate(P.metaPartnerRemoved, { org: (p.org ?? '').trim() }))
