@@ -7,6 +7,7 @@ import io
 import math
 from pathlib import Path
 
+import pytest
 from PIL import Image
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
@@ -79,12 +80,16 @@ def test_sym_px_band_clamps():
 
 
 def test_kroki_symbol_mul_only_shrinks_close_up_views():
+    """⚠️ The floor is 0.85 since 18.08. — held against the live map the printed symbols came out
+    about half the relative size, and the shrink is only meant to stop a close-up crop merging
+    four glyphs into one blob. Mirrored by ``krokiSymbolMul`` in src/lib/krokiPayload.ts; if the
+    two drift the framing modal stops being WYSIWYG."""
     assert kk.kroki_symbol_mul(16) == 1.0
     assert kk.kroki_symbol_mul(17) == 1.0
     assert kk.kroki_symbol_mul(18) == 0.9
-    assert kk.kroki_symbol_mul(19) == 0.8
-    assert kk.kroki_symbol_mul(20) == 0.7
-    assert kk.kroki_symbol_mul(22) == 0.7
+    assert kk.kroki_symbol_mul(19) == pytest.approx(0.85)
+    assert kk.kroki_symbol_mul(20) == 0.85
+    assert kk.kroki_symbol_mul(22) == 0.85
 
 
 def test_scene_extent_includes_circle_radius():

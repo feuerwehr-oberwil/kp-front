@@ -984,10 +984,17 @@ def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
 
 # Print Kroki canvas size — the composer and the tile prewarm share it so both derive the
 # same View and hit identical tile-cache keys.
-_KROKI_PX = (1600, 940)
+#: ⚠️ Raised 30 % on 18.08. The picture is placed ~180 mm wide, so 1000 px was 141 dpi — every
+#: glyph edge and every number on the Kroki was softer on paper than the same picture on screen,
+#: which is most of what «das PDF sieht schlechter aus» actually was. 1300 px ≈ 183 dpi, still
+#: within what the compositor can hold (it draws at `supersample` × these numbers).
+#: ⚠️ This does NOT make symbols bigger relative to the frame — `ref_width` scales the drawing
+#: rules with the render, on purpose, so the proportions stay the app's. The size lever is
+#: `kroki_symbol_mul`.
+_KROKI_PX = (2080, 1222)
 #: the same crop turned upright — a portrait Kroki page gets a portrait render, so the picture
 #: fills the sheet instead of being letterboxed into a landscape frame
-_KROKI_PX_PORTRAIT = (1000, 1400)
+_KROKI_PX_PORTRAIT = (1300, 1820)
 
 
 def _kroki_view(pk, kw: int, kh: int):
@@ -1558,7 +1565,8 @@ def compose_report_pdf(
         k_h = (land_inner_h if k_land else (ph - 2 * margin)) - 22 * mm
         # the legend claims its own room when there is one, so the picture is never squeezed
         # under a block that then overflows onto a second sheet
-        legend_h = (5 * mm + len(kroki_legend) * 4.6 * mm) if kroki_legend else 0
+        # …and the room it claims halves with it: two columns are half the rows
+        legend_h = (5 * mm + ((len(kroki_legend) + 1) // 2) * 4.6 * mm) if kroki_legend else 0
         img = _fit_image(kroki_png, k_w, k_h - legend_h)
         if img:
             story.append(Spacer(1, 4))
@@ -1569,14 +1577,25 @@ def compose_report_pdf(
         # other reason it is the better fallback than a shortened chip.
         if kroki_legend:
             story.append(Spacer(1, 4))
+            # ⚠️ TWO COLUMNS, directly under the picture (18.08.). One column of «1 …» ran the
+            # legend down half the page for a Lage with eight labelled things, which pushed the
+            # picture itself smaller (the block claims its room below) and put number 8 a hand's
+            # width away from the disc it belongs to. Reading «wo ist die 4» is a scan between two
+            # places; the shorter that distance, the less the numbering costs.
+            half = (len(kroki_legend) + 1) // 2
+            left, right = kroki_legend[:half], kroki_legend[half:]
+            num_w, col_gap = 7 * mm, 6 * mm
+            text_w = (k_w - col_gap) / 2 - num_w
             rows = [
                 [
-                    Paragraph(f"<b>{i}</b>", st["cell"]),
-                    Paragraph(_esc(text), st["cell"]),
+                    Paragraph(f"<b>{i + 1}</b>", st["cell"]),
+                    Paragraph(_esc(left[i]), st["cell"]),
+                    Paragraph(f"<b>{half + i + 1}</b>", st["cell"]) if i < len(right) else "",
+                    Paragraph(_esc(right[i]), st["cell"]) if i < len(right) else "",
                 ]
-                for i, text in enumerate(kroki_legend, start=1)
+                for i in range(len(left))
             ]
-            lt = Table(rows, colWidths=[7 * mm, k_w - 7 * mm])
+            lt = Table(rows, colWidths=[num_w, text_w, num_w, text_w])
             lt.setStyle(
                 TableStyle(
                     [

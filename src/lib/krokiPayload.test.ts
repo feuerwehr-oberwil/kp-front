@@ -103,13 +103,18 @@ describe('buildKrokiPayload', () => {
 })
 
 describe('krokiSymbolMul', () => {
-  it('only reduces symbols in close-up crops and stops at 70%', () => {
+  // ⚠️ The floor is 85% since 18.08. — held against the live map the printed symbols came out
+  // about half the size they read at on screen. The shrink is only there to stop a close-up crop
+  // merging four glyphs into one blob, and 70% took far more than that away.
+  // ⚠️ Mirrored by `kroki_symbol_mul` in backend/app/kroki.py. If the two drift the framing
+  // modal stops showing what the Rapport prints.
+  it('only reduces symbols in close-up crops and stops at 85%', () => {
     expect(krokiSymbolMul(16)).toBe(1)
     expect(krokiSymbolMul(17)).toBe(1)
     expect(krokiSymbolMul(18)).toBeCloseTo(0.9)
-    expect(krokiSymbolMul(19)).toBeCloseTo(0.8)
-    expect(krokiSymbolMul(20)).toBeCloseTo(0.7)
-    expect(krokiSymbolMul(22)).toBe(0.7)
+    expect(krokiSymbolMul(19)).toBeCloseTo(0.85)
+    expect(krokiSymbolMul(20)).toBeCloseTo(0.85)
+    expect(krokiSymbolMul(22)).toBe(0.85)
   })
 })
 

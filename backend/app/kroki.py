@@ -10,7 +10,7 @@ rapport can be composed server-side — the prerequisite for the print relay's �
 drucken» button working without a tablet in the loop.
 
 Deliberately mirrors the client's sizing rules (src/lib/mapView.ts): symbols live in a
-28..48 px band derived from real-world metres × zoom, scaled by the Kroki multiplier 0.7
+28..48 px band derived from real-world metres × zoom, scaled by the Kroki multiplier (0.85..1)
 (ReportPrintView symMul). Rendering is supersampled 2× and downscaled for clean edges.
 """
 
@@ -57,10 +57,16 @@ def kroki_symbol_mul(z: float) -> float:
     """Print-specific scale: close-up crops need less marker growth than the live map.
 
     Keep overview maps unchanged through z17, then ease down by 10% per zoom level and
-    stop at 70%. Mirrored by ``krokiSymbolMul`` in ``src/lib/krokiPayload.ts`` so the
+    stop at 85%. Mirrored by ``krokiSymbolMul`` in ``src/lib/krokiPayload.ts`` so the
     framing modal remains WYSIWYG.
+
+    ⚠️ The floor was 0.70 until 18.08. Held against the live map side by side, the printed
+    symbols came out about half the relative size — 0.70 of the band, on a crop that also covers
+    more ground than the phone view it was compared with. 0.85 keeps the reason the reduction
+    exists (a close-up crop does not need the full on-screen growth, or four glyphs merge into one
+    blob) while leaving the Lage recognisable as the same picture.
     """
-    return max(0.7, 1.0 - max(0.0, z - 17.0) * 0.1)
+    return max(0.85, 1.0 - max(0.0, z - 17.0) * 0.1)
 
 
 @dataclass
@@ -633,7 +639,9 @@ def _label_box(
 
 #: A numbered marker is this many px across at the reference width — big enough to read on
 #: paper, small enough not to become the picture. Scaled by `u` like everything else.
-_NUM_R = 8.0
+#: ⚠️ 9.5, up from 8.0 (18.08.): these discs ARE the labels on paper, and at 8 they were the
+#: smallest thing on the sheet while carrying the most-needed information on it.
+_NUM_R = 9.5
 
 
 def _numbered_marker(draw: ImageDraw.ImageDraw, xy: tuple[float, float], n: int, r: float) -> None:
@@ -747,7 +755,7 @@ def render_kroki(
     height: int = 980,
     view: View | None = None,
     cache: TileCache | None = None,
-    sym_mul: float = 0.7,
+    sym_mul: float = 0.85,
     attribution: str = "© CARTO, © OpenStreetMap-Mitwirkende",
     supersample: int = 2,
     ref_width: int = 1050,

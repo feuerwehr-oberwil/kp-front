@@ -56,7 +56,9 @@ export interface KrokiPayloadOut {
 /** Print-specific marker scale for close-up Kroki crops. Mirrors backend/app/kroki.py:
  * overview maps stay unchanged; from z18 onward symbols ease down to a 70% floor. */
 export const krokiSymbolMul = (zoom: number): number =>
-  Math.max(0.7, 1 - Math.max(0, zoom - 17) * 0.1)
+  // ⚠️ 0.85, not 0.70 (18.08.) — and it MUST stay in step with `kroki_symbol_mul` in
+  // backend/app/kroki.py, or the framing modal stops being WYSIWYG: what you crop is what prints.
+  Math.max(0.85, 1 - Math.max(0, zoom - 17) * 0.1)
 
 /** The same silhouettes as lib/shapes.tsx ShapeGlyph, as plain SVG strings for resvg. */
 export function shapeSvgString(kind: ShapeKind, color: string): string {
