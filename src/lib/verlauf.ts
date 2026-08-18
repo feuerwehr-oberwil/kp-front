@@ -66,3 +66,22 @@ export function swapUrl(list: string[] | undefined, from: string, to: string): s
   const arr = list ?? []
   return arr.includes(from) ? arr.map((u) => (u === from ? to : u)) : [...arr, to]
 }
+
+/**
+ * Did a HUMAN write this line, in their own words?
+ *
+ * Only those rows may be corrected (see Journal · the pen). Everything else in the Verlauf is
+ * the app reporting what happened — «Symbol gesetzt», «Trupp 2 eingerückt», «Haken bei
+ * Bereitstellung» — and a sentence the app wrote about an action is not a sentence anybody may
+ * rewrite: it would say the action went differently than it did, in a record whose whole point
+ * is that it does not.
+ *
+ * ⚠️ The kind alone is not enough. A Checklisten-Haken is written as `kind: 'journal'` too (it
+ * IS a documented decision, see report · journalArea), but its text is composed from the item —
+ * so the icon has to agree as well. The three icons here are exactly what the composer stamps:
+ * `type` for text, `mic` for a Sprachnotiz, `photo` for pictures.
+ */
+export function isHandWritten(e: TimelineEvent): boolean {
+  if (e.kind !== 'journal' && e.kind !== 'audio' && e.kind !== 'photo') return false
+  return e.icon === 'type' || e.icon === 'mic' || e.icon === 'photo'
+}

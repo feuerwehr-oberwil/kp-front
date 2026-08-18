@@ -297,6 +297,7 @@ export const de = {
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
             '**Rückgängig/Wiederholen** gilt für Lage, Plan – und für die **Anwesenheit**: dort nimmt es den letzten Tipp zurück (am Telefon stehen die beiden Pfeile in der Kopfzeile der Anwesenheit).',
             'Ein Verlaufseintrag mit Ort springt beim Antippen zurück auf die Stelle in Karte oder Plan; Fotos und Sprachnotizen lassen sich direkt im Verlauf öffnen/abspielen.',
+            'Ein **Vertipper** lässt sich korrigieren: der **Stift** in der Zeile steht auf allem, was jemand selber getippt hat – nicht auf dem, was die App über eine Aktion geschrieben hat («Trupp 2 eingerückt»). Die Zeile trägt danach **korrigiert HH:MM**; der ursprüngliche Wortlaut bleibt im Protokoll und in der Prüfkette.',
             '**Wiedergabe starten** spielt Lage und Plan zu einem früheren Zeitpunkt ab (Zeitschieber; Bearbeiten ist dabei gesperrt).',
           ] },
           { kind: 'sub', text: 'Pendenzen' },
@@ -1030,6 +1031,9 @@ export const de = {
     mediaFailed: 'Nicht geladen',
     // rows appended after the Einsatzende (archive → reopen, the correction path)
     nachtrag: 'Nachtrag',
+    // a hand-written line corrected later (append-only patch — both wordings stay in the record)
+    corrected: 'korrigiert {t}',
+    correctHint: 'Der ursprüngliche Wortlaut bleibt im Protokoll.',
     // system row appended when a three-way sync merge saw BOTH sides (KP tablet and
     // QR-Erfassung/server) change the SAME person's attendance to different values —
     // last-writer-wins stays, but the divergence is said, not silent (append-only record)
@@ -2912,6 +2916,7 @@ export const de = {
     metaPartnerAdded: 'Partnerorganisation {org} ergänzt',
     metaPartnerRemoved: 'Partnerorganisation {org} entfernt',
     metaPartnerNote: 'Partnerorganisation {org} – Bemerkung: {note}',
+    metaPartnerNoteCleared: 'Partnerorganisation {org} – Bemerkung entfernt',
     // an organisation whose name is still being typed: named as such rather than as «‹› ergänzt»
     metaPartnerUnnamed: 'Partnerorganisation erfasst',
     metaGruppe: 'Alarmzeit {gruppe}: {t}',

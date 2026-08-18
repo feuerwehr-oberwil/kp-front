@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay, isNachtrag, rowTime, rowPhotos, swapUrl } from './verlauf'
+import { groupByDay, isHandWritten, isNachtrag, rowTime, rowPhotos, swapUrl } from './verlauf'
 import type { TimelineEvent } from '../types'
 
 const row = (id: string, at?: string): TimelineEvent =>
@@ -71,5 +71,26 @@ describe('rowPhotos / swapUrl', () => {
   it('appends when the local url is already gone (a late upload must not vanish)', () => {
     expect(swapUrl(['/api/media/1'], 'blob:gone', '/api/media/2')).toEqual(['/api/media/1', '/api/media/2'])
     expect(swapUrl(undefined, 'blob:gone', '/api/media/2')).toEqual(['/api/media/2'])
+  })
+})
+
+describe('isHandWritten', () => {
+  const e = (over: Partial<TimelineEvent>): TimelineEvent =>
+    ({ id: 'x', t: '', at: '2026-08-18T10:00:00.000Z', icon: 'type', text: 'x', ...over })
+
+  it('takes everything the composer writes', () => {
+    expect(isHandWritten(e({ kind: 'journal', icon: 'type' }))).toBe(true)
+    expect(isHandWritten(e({ kind: 'audio', icon: 'mic' }))).toBe(true)
+    expect(isHandWritten(e({ kind: 'photo', icon: 'photo' }))).toBe(true)
+  })
+
+  // ⚠️ the app reporting an action — rewriting one of these would make the record state
+  // something that did not happen
+  it('takes nothing the app wrote about an action', () => {
+    expect(isHandWritten(e({ kind: 'team', icon: 'people' }))).toBe(false)
+    expect(isHandWritten(e({ kind: 'symbol', icon: 'pin' }))).toBe(false)
+    expect(isHandWritten(e({ kind: 'reminder', icon: 'clock' }))).toBe(false)
+    // ⚠️ a Checklisten-Haken IS kind 'journal' — the icon is what separates it
+    expect(isHandWritten(e({ kind: 'journal', icon: 'check' }))).toBe(false)
   })
 })

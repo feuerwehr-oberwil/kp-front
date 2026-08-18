@@ -296,8 +296,10 @@ export class JournalStore {
       patched.set(target.id, {
         ...patched.get(p.patchOf)!,
         ...fields,
-        // a text correction rides in `textEdit` (patch rows carry a filler text: '')
-        ...(textEdit ? { text: textEdit } : {}),
+        // a text correction rides in `textEdit` (patch rows carry a filler text: '') — and the
+        // patch's own time comes along as `correctedAt`, so the Verlauf can say the line was
+        // corrected instead of silently showing different words than were written (see types).
+        ...(textEdit ? { text: textEdit, correctedAt: p.at } : {}),
       })
     }
     // retracted rows fold out of display entirely (the record keeps original + retraction)

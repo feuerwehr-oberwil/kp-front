@@ -364,6 +364,13 @@ export interface TimelineEvent {
    *  `text: ''`, so a text correction needs its own field — the store folds it onto the
    *  target's `text` at display time (append-only correction, same as transcript). */
   textEdit?: string
+  /** DERIVED, never written to a row: when a `textEdit` patch folded onto this row (the patch's
+   *  own `at`). The Verlauf marks the line «korrigiert HH:MM» from it — a corrected line that
+   *  looked untouched would be the one thing an append-only record must not do: quietly show
+   *  something other than what was said at the time. The original text and the correction both
+   *  stay in the record and in the hash chain; this is only how the fold is shown.
+   *  ⚠️ Set by journalStore's fold, so it exists on displayed rows and on nothing that is sent. */
+  correctedAt?: string
   /** retraction (append-only "delete"): a later patch sets this and the row folds out of
    *  display/report — both the original and the retraction stay in the record. Only
    *  player-created Nachdokumentation rows offer this; incident log lines never do. */
@@ -752,6 +759,13 @@ export interface AttendanceEntry {
    *  Printed with the row on the Personalblatt. Deliberately per incident, not on the roster:
    *  it describes what somebody did here, not who they are. */
   note?: string
+  /** when that remark was last written (ISO).
+   *  ⚠️ It exists for ONE question: who is the Einsatzleiter NOW. Nothing stops two people from
+   *  carrying «Einsatzleiter» after a handover — the app warns and does not block — and without a
+   *  time the answer fell out of a sort order, so the Verlauf, the journal's «EL» and the Rapport
+   *  could each name a different one. Absent on entries written before this existed; those sort
+   *  last, which is the safe end. */
+  noteAt?: string
   /** Every executed block, oldest first — the truth (see lib/attendanceIntervals). Absent on an
    *  entry written before blocks existed, which projects its checkedInAt/leftAt pair instead. */
   intervals?: PresenceInterval[]

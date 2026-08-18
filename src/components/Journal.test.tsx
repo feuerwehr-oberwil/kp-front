@@ -154,3 +154,50 @@ describe('Journal · the Pendenzen block', () => {
     expect(cls('e1')).toContain('jr-flash')
   })
 })
+
+describe('Journal · correcting a line (append-only)', () => {
+  const sysRow: TimelineEvent = {
+    id: 's1', t: '', at: new Date(1_050_000).toISOString(),
+    text: 'Trupp 2 eingerückt', icon: 'people', kind: 'team',
+  }
+  const pen = () => screen.queryAllByLabelText('Text bearbeiten')
+
+  it('offers the pen on what a person typed', () => {
+    setup({ onEditText: vi.fn() })
+    expect(pen()).toHaveLength(events.length)
+  })
+
+  // ⚠️ The whole point of the rule: rewriting «Trupp 2 eingerückt» would make the record state
+  // an action that never happened that way.
+  it('never offers it on a row the app wrote about an action', () => {
+    setup({ events: [sysRow, ...events], onEditText: vi.fn() })
+    expect(pen()).toHaveLength(events.length)
+  })
+
+  it('is absent entirely for a viewer (no handler)', () => {
+    setup()
+    expect(pen()).toHaveLength(0)
+  })
+
+  it('patches the row instead of editing it, and drops an empty correction', () => {
+    const onEditText = vi.fn()
+    setup({ onEditText })
+    fireEvent.click(pen()[0])
+    const box = screen.getByRole('textbox')
+    fireEvent.change(box, { target: { value: '   ' } })
+    fireEvent.click(screen.getByText('Speichern'))
+    expect(onEditText).not.toHaveBeenCalled()
+
+    fireEvent.click(pen()[0])
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Feuer aus, Nachkontrolle läuft' } })
+    fireEvent.click(screen.getByText('Speichern'))
+    expect(onEditText).toHaveBeenCalledWith('r3', 'Feuer aus, Nachkontrolle läuft')
+  })
+
+  // the corrected words must never pass for the ones spoken at the time
+  it('marks a corrected line with the time of the correction', () => {
+    const at = new Date(1_060_000).toISOString()
+    setup({ events: [{ ...events[0], correctedAt: at }, ...events.slice(1)] })
+    expect(screen.getByText(/^korrigiert \d{1,2}:\d{2}$/)).toBeTruthy()
+  })
+})

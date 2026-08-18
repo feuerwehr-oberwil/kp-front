@@ -229,6 +229,9 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     const d = s.display()
     expect(d).toHaveLength(1)
     expect(d[0].text).toBe('Trupp 1 an Front')
+    // …and the fold says WHEN, so the Verlauf can mark the line «korrigiert HH:MM» instead of
+    // letting the new words pass for the ones written at the time
+    expect(d[0].correctedAt).toBeTruthy()
     // an empty correction is a no-op, never a blanked row
     s.appendPatch('a', { textEdit: undefined })
     await settle(); await settle()

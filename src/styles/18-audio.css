@@ -128,7 +128,10 @@
 .jr-transcript button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 8px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .jr-transcript button .i { width: 14px; height: 14px; }
 .jr-transcript textarea { width: min(420px, 100%); resize: vertical; border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); padding: 8px; font: inherit; font-size: 12px; }
-.jr-transcript-actions { display: flex; gap: 6px; }
+.jr-transcript-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+/* «Der ursprüngliche Wortlaut bleibt im Protokoll» — beside the buttons, because the question it
+   answers («überschreibe ich hier gerade den Einsatz?») is asked exactly while deciding to save. */
+.jr-korr-hint { flex: 1 1 160px; min-width: 0; font-size: 11.5px; color: var(--ink-faint); line-height: 1.35; }
 
 /* Mannschaft sync dialog */
 .psync-counts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }

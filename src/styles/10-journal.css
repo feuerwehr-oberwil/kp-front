@@ -270,6 +270,9 @@
 .jr-chip-plan { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green-strong); }
 /* row appended after the Einsatzende (archive → reopen correction) */
 .jr-chip-nachtrag { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+/* a line somebody corrected afterwards (append-only patch — both wordings stay in the record).
+   Quiet on purpose: it is a footnote on the row, not a warning about it. */
+.jr-chip-korr { background: var(--fill-soft); color: var(--ink-dim); text-transform: none; font-weight: 600; }
 /* a Pendenz, and every Meldung on it. The rows are ordinary in every other respect and stand
    where they happened — this chip is what says they belong to something that had to come back. */
 .jr-chip-pendenz { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }

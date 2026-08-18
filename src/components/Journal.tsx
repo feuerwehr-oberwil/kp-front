@@ -6,8 +6,8 @@ import { EmptyState } from './EmptyState'
 import { Overlay } from '../lib/overlays'
 import { openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
-import { dueClock, formatTime } from '../lib/format'
-import { groupByDay, isNachtrag, rowPhotos, rowTime } from '../lib/verlauf'
+import { dueClock, fillTemplate, formatTime } from '../lib/format'
+import { groupByDay, isHandWritten, isNachtrag, rowPhotos, rowTime } from '../lib/verlauf'
 import type { OpenReminder } from '../lib/reminders'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
@@ -95,8 +95,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   /** open the Durchhören player sheet for a long recording (rows with audioMeta);
    *  seekSec jumps straight to a moment inside it (annotation rows link back) */
   onOpenPlayer?: (e: TimelineEvent, seekSec?: number) => void
-  /** correct an annotation row's text (append-only textEdit patch — same pattern as the
-   *  transcript edit; offered on rows inside a recording's window) */
+  /** correct a HAND-WRITTEN row's text — append-only `textEdit` patch, same pattern as the
+   *  transcript edit. Offered on everything a person typed (composer entries, Meldungen,
+   *  Nachdokumentation in the player) and on nothing the app wrote about an action; the
+   *  corrected line is marked «korrigiert HH:MM». See lib/verlauf · isHandWritten. */
   onEditText?: (id: string, text: string) => void
   /**
    * The replay playhead. Set ⇒ this Verlauf is being read alongside a Wiedergabe: rows after
@@ -544,6 +546,12 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 <span className="tx">
                   <span className={`jr-chip jr-chip-${e.surface ?? 'map'}`}>{chip(e, plans)}</span>
                   {isNachtrag(e, closedAt) && <span className="jr-chip jr-chip-nachtrag">{C.nachtrag}</span>}
+                  {/* a corrected line says so, with the time of the correction — see the pen below */}
+                  {e.correctedAt && (
+                    <span className="jr-chip jr-chip-korr" title={C.correctHint}>
+                      {fillTemplate(C.corrected, { t: formatTime(new Date(e.correctedAt)) })}
+                    </span>
+                  )}
                   {/* The row that RAISED an item carries the chip — that is what marks it in the
                       record as something that had to come back. */}
                   {isReminder && (
@@ -606,31 +614,37 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     <img src={url} alt="" />
                   </button>
                 ))}
-                {!e.audioUrl && e.at && (onOpenPlayer || onEditText) && (() => {
-                  // annotation of a recording → jump into the player at this moment,
-                  // and (editors) correct its text via an append-only patch
+                {/* ── Der Stift ──
+                    On everything a HUMAN typed, and on nothing else (lib/verlauf · isHandWritten).
+                    A wrong Strassenname or a Trupp number off by one used to be uncorrectable:
+                    the log is append-only, so the only ways out were a second line saying «oben
+                    falsch» or leaving the error standing on the Rapport. The correction is itself
+                    an appended row (a `textEdit` patch) — the original wording and the corrected
+                    one both stay in the record and in the hash chain, and the line says «korrigiert
+                    HH:MM» so nobody reads the new words as the ones spoken at the time.
+                    ⚠️ NEVER on system rows. «Trupp 2 eingerückt» is the app reporting an action;
+                    rewriting that sentence would make the record state something that did not
+                    happen, which is the one thing this journal exists to prevent. */}
+                {onEditText && isHandWritten(e) && editRow?.id !== e.id && (
+                  <button
+                    className="jr-jump"
+                    title={C.editEntry}
+                    aria-label={C.editEntry}
+                    onClick={(ev) => { ev.stopPropagation(); setEditRow({ id: e.id, value: e.text }) }}
+                  ><Icon id="pen" /></button>
+                )}
+                {!e.audioUrl && e.at && onOpenPlayer && (() => {
+                  // annotation of a recording → jump into the player at this moment
                   const t = Date.parse(e.at)
                   const w = audioWindows.find((x) => t >= x.start && t <= x.end)
                   if (!w) return null
                   return (
-                    <>
-                      {onEditText && (
-                        <button
-                          className="jr-jump"
-                          title={C.editEntry}
-                          aria-label={C.editEntry}
-                          onClick={(ev) => { ev.stopPropagation(); setEditRow({ id: e.id, value: e.text }) }}
-                        ><Icon id="pen" /></button>
-                      )}
-                      {onOpenPlayer && (
-                        <button
-                          className="jr-jump"
-                          title={C.playerOpen}
-                          aria-label={C.playerOpen}
-                          onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(w.row, (t - w.start) / 1000) }}
-                        ><Icon id="wave" /></button>
-                      )}
-                    </>
+                    <button
+                      className="jr-jump"
+                      title={C.playerOpen}
+                      aria-label={C.playerOpen}
+                      onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(w.row, (t - w.start) / 1000) }}
+                    ><Icon id="wave" /></button>
                   )
                 })()}
                 {/* ── Durchhören + Transkript, IN der Zeile ──
@@ -706,6 +720,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       onKeyDown={(ev) => { if (ev.key === 'Escape') setEditRow(null) }}
                     />
                     <div className="jr-transcript-actions">
+                      <span className="jr-korr-hint">{C.correctHint}</span>
                       <button onClick={() => setEditRow(null)}>{appConfig.copy.cancel}</button>
                       <button onClick={saveRowText}><Icon id="check" />{C.transcriptSave}</button>
                     </div>
