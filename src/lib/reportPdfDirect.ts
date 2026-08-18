@@ -14,7 +14,7 @@ import { buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingKindLabel, truppAuftragLabel, truppStatusLabel,
+  annotatedPlans, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarIsMeasured, readingKindLabel, truppAuftragLabel, truppStatusLabel,
 } from './report'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
@@ -299,7 +299,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // the record. Undated, because that is all the older shape knows — a made-up clock on a
       // legal document is worse than a missing one.
       readings: ((t.readings?.length ? t.readings : [{ t: '', bar: t.entryPressureBar, kind: 'registered' as const }])
-        .map((rr) => ({ t: rr.t ? formatDateTime(rr.t) : '', kindLabel: readingKindLabel(rr.kind), bar: rr.bar != null ? String(rr.bar) : undefined }))),
+        // ⚠️ no bar on a Kontakt/Rückzug row — that number was carried over, not read off a gauge
+        // (lib/report · readingBarIsMeasured)
+        .map((rr) => ({
+          t: rr.t ? formatDateTime(rr.t) : '',
+          kindLabel: readingKindLabel(rr.kind),
+          bar: rr.bar != null && readingBarIsMeasured(rr.kind) ? String(rr.bar) : undefined,
+        }))),
     })),
     journal: draft.options.journal ? journal : [],
     pendenzen: draft.options.pendenzen ? pendenzen : [],

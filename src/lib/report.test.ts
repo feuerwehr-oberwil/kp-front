@@ -27,6 +27,7 @@ import {
   operationalExtentPoints,
   personalForPdf,
   proofLabel,
+  readingBarIsMeasured,
   readingKindLabel,
   spanAwareClock,
   truppAuftragLabel,
@@ -595,5 +596,20 @@ describe('report Pendenzen rows', () => {
     expect(first.notes.map((n) => n.text)).toEqual(['Fahrzeug unterwegs'])
     expect(second.assignee).toBe('Sanität')
     expect(second.notes.map((n) => n.text)).toEqual(['ooooke'])
+  })
+})
+
+// ⚠️ `contact` and `rueckzug` rows store the LAST reported value, not one taken at that moment —
+// on the board that is context, in a signed document's pressure column it is a measurement that
+// never happened.
+describe('readingBarIsMeasured (which pressures the Rapport may print)', () => {
+  it('prints a reading somebody actually took', () => {
+    expect(readingBarIsMeasured('entry')).toBe(true)
+    expect(readingBarIsMeasured('pressure')).toBe(true)
+  })
+
+  it('stays silent where the value was carried over', () => {
+    expect(readingBarIsMeasured('contact')).toBe(false)
+    expect(readingBarIsMeasured('rueckzug')).toBe(false)
   })
 })

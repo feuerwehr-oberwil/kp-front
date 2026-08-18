@@ -393,6 +393,20 @@ export function truppAuftragLabel(auftrag?: string): string | undefined {
   return spelled.charAt(0).toUpperCase() + spelled.slice(1)
 }
 
+/**
+ * Was this row's pressure MEASURED, or carried over?
+ *
+ * ⚠️ `contact` and `rueckzug` rows store `lastPressureBar ?? entryPressureBar` — the last value
+ * anybody reported, not a reading taken at that moment (useTruppActions · recordContact,
+ * setTruppStatus). On the board that is harmless context; in the Rapport's pressure column it is a
+ * number that looks measured and is not, on a signed document — «300 bar» beside a Kontakt twenty
+ * minutes after the last real reading. The record keeps the value (it is what was known then); the
+ * column stays empty for it.
+ */
+export function readingBarIsMeasured(kind: TruppReading['kind']): boolean {
+  return kind !== 'contact' && kind !== 'rueckzug'
+}
+
 export function readingKindLabel(kind: TruppReading['kind']): string {
   const r = appConfig.copy.report
   const az = appConfig.copy.atemschutz
