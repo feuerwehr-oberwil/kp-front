@@ -1,4 +1,4 @@
-import { useState, type SetStateAction } from 'react'
+import { type SetStateAction, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { resolveLinePreset } from './lineStyle'
 import type { Doc } from './workspace'
@@ -137,6 +137,36 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       ? fillTemplate(L.drawingLabelSet, { kind, value: now })
       : fillTemplate(L.drawingLabelCleared, { kind }), 'symbol')
   }
+  /**
+   * The label WHILE it is being typed — silent, and one undo step for the whole edit.
+   *
+   * ⚠️ Every keystroke used to go through `patchDrawing`, so naming a Fläche «Sicherung» wrote
+   * eleven Verlauf rows: «Zeichnung «S»», «Zeichnung «Si»», «Zeichnung «Sic»» … The record is read
+   * afterwards by somebody looking for what happened, and a name being typed is not something that
+   * happened. Same shape as the Notiz and the Einsatz title (IncidentWorkspace · noteTextLive):
+   * stream into the doc, snapshot once for undo, and let `commitDrawingLabel` write the one row.
+   */
+  const labelLive = useRef<{ id: string; before: string } | null>(null)
+  const patchDrawingLabelLive = (id: string, label: string) => {
+    if (tacticalLocked) return
+    if (labelLive.current?.id !== id) {
+      const before = drawings.find((dr) => dr.id === id)
+      labelLive.current = { id, before: before?.label ?? '' }
+      beginDrag()
+    }
+    setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === id ? { ...dr, label } : dr)) }))
+  }
+  /** …and the one row + one audit event, on blur. Compares against the label as it stood when the
+   *  session started, so «Sicherung» typed over «Sammelplatz» reads as the one change it was. */
+  const commitDrawingLabel = (id: string, label: string) => {
+    if (tacticalLocked) { labelLive.current = null; return }
+    const live = labelLive.current
+    labelLive.current = null
+    if (!live || live.id !== id) { patchDrawingById(id, { label }); return }
+    endDrag()
+    noteDrawingLabel({ ...(drawings.find((dr) => dr.id === id) as Drawing), label: live.before }, { label })
+    emit('draw.edit', { id, patch: { label } })
+  }
   const patchDrawing = (patch: Partial<Drawing>) => {
     if (tacticalLocked) return
     noteDrawingLabel(drawings.find((dr) => dr.id === selectedDrawingId), patch)
@@ -249,6 +279,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     linePreset, setLinePreset, lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
     commitDraft, createLine, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
   }
 }

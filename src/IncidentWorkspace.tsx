@@ -1257,6 +1257,7 @@ export function IncidentWorkspace({
     lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
     commitDraft, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
   } = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
@@ -3130,7 +3131,8 @@ export function IncidentWorkspace({
           onColor={(c) => patchDrawing({ color: c })}
           onWidth={(w) => patchDrawing({ width: w })}
           onDashed={(dashed) => patchDrawing({ dashed })}
-          onLabel={(label) => patchDrawing({ label })}
+          onLabel={(label) => { if (selectedDrawingId) patchDrawingLabelLive(selectedDrawingId, label) }}
+          onLabelCommit={(label) => { if (selectedDrawingId) commitDrawingLabel(selectedDrawingId, label) }}
           onMarker={(marker) => patchDrawing({ marker })}
           onArrow={(arrow) => patchDrawing({ arrow })}
           onEnding={(ending) => void changeMapEnding(ending)}

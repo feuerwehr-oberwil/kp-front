@@ -408,6 +408,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Annotation document + per-plan undo/redo (the keyed history map, the set/commit mutation
   // funnel, audit-emitting CRUD, and the global-TopBar history wiring) live in useBoardDoc; the
   // gesture handlers and render below call the returned mutators exactly as before.
+  // which drawing's label is being typed right now (one undo step per edit, not per keystroke)
+  const labelLive = useRef<string | null>(null)
   const { pushPast, set, commit, add, patch, patchCommit, removeAnno } = useBoardDoc({
     annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState,
   })
@@ -2292,7 +2294,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onColor={(c) => patchCommit(selDraw.id, { color: c })}
           onWidth={(w) => patchCommit(selDraw.id, { width: w })}
           onDashed={(d) => patchCommit(selDraw.id, { dashed: d })}
-          onLabel={(label) => patchCommit(selDraw.id, { label: label || undefined })}
+          // ⚠️ Live while typing, one step on blur — the same split the Lage got (useMapDrawing ·
+          // patchDrawingLabelLive). Through `patchCommit` every keystroke was its own undo step and
+          // its own audit event: eleven of each for the word «Sicherung».
+          onLabel={(label) => {
+            if (labelLive.current !== selDraw.id) { labelLive.current = selDraw.id; pushPast() }
+            patch(selDraw.id, { label: label || undefined })
+          }}
+          onLabelCommit={(label) => {
+            const live = labelLive.current === selDraw.id
+            labelLive.current = null
+            if (live) emit('board.edit', { id: selDraw.id, patch: { label: label || undefined }, planId: activeId })
+            else patchCommit(selDraw.id, { label: label || undefined })
+          }}
           onMarker={(marker) => patchCommit(selDraw.id, { marker: marker || undefined })}
           onArrow={(arrow) => patchCommit(selDraw.id, { arrow: arrow || undefined })}
           onEnding={(ending) => void changePlanEnding(ending)}

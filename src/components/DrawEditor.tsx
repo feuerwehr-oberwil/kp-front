@@ -85,7 +85,10 @@ interface Props {
   onColor: (c: string) => void
   onWidth: (w: number) => void
   onDashed: (dashed: boolean) => void
+  /** live, per keystroke — silent (see useMapDrawing · patchDrawingLabelLive) */
   onLabel: (label: string) => void
+  /** blur/Enter: the one Verlauf row and the one undo step for the whole edit */
+  onLabelCommit?: (label: string) => void
   onMarker: (marker: string) => void
   onArrow: (arrow: boolean) => void
   /** line end: 'none' | 'arrow' | 'teilstueck' (mutually exclusive). Absent ⇒ only the legacy arrow toggle. */
@@ -141,7 +144,7 @@ function MenuPick({ label, on }: { label: string; on: boolean }) {
   )
 }
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -243,7 +246,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
         {!readOnly && (isLine || isArea) && (
           <div className="de-group">
             <div className="de-row"><span>{appConfig.copy.drawingEditor.label}</span>
-              <input className="de-input" value={drawing.label ?? ''} placeholder={isArea ? appConfig.copy.drawingEditor.areaLabelPlaceholder : appConfig.copy.drawingEditor.labelPlaceholder} onChange={(e) => onLabel(e.target.value)} />
+              <input className="de-input" value={drawing.label ?? ''}
+                placeholder={isArea ? appConfig.copy.drawingEditor.areaLabelPlaceholder : appConfig.copy.drawingEditor.labelPlaceholder}
+                onChange={(e) => onLabel(e.target.value)}
+                // ⚠️ the Verlauf row is written HERE, not on every keystroke: naming a Fläche
+                // «Sicherung» used to leave eleven rows, one per letter (see useMapDrawing).
+                onBlur={(e) => onLabelCommit?.(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
             </div>
             {isLine && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.marker}</span>
