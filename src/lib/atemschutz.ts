@@ -163,6 +163,27 @@ export function pressureAlarm(bar: number | null, alarmBar: number): boolean {
   return alarmBar > 0 && bar <= alarmBar
 }
 
+/**
+ * The threshold THIS Trupp is measured against.
+ *
+ * ⚠️ A second tier, and deliberately so — it reopens one half of the 27.07. decision above. That
+ * decision was about a second line on the way IN («Mindestdruck» under the Alarmdruck), and it
+ * stands: a crew still working has one turn-back pressure. This is the other side of it. Once a
+ * Trupp is in **Rückzug** the order has been given and they are on their way out; holding them to
+ * the same line means the card screams for the whole walk back, which is exactly how a warning
+ * stops meaning anything. Below the Rückzug line it speaks up again — that is a crew that is late
+ * getting out.
+ *
+ * Configurable per station (`atemschutzDoctrine().alarmBarRueckzug`); set it equal to `alarmBar`
+ * and the app behaves exactly as it did before.
+ */
+export function alarmBarFor(
+  t: Pick<Trupp, 'status'>,
+  doctrine: { alarmBar: number; alarmBarRueckzug?: number },
+): number {
+  return t.status === 'rueckzug' ? doctrine.alarmBarRueckzug ?? doctrine.alarmBar : doctrine.alarmBar
+}
+
 /** The most-urgent Trupp for the cross-surface badge/chip, plus the loudest tier overall. */
 export interface AtemschutzAlarmState {
   /** loudest contact-clock tier across all in-field Trupps: 0 silent · 1 fällig · 2 überfällig */
@@ -196,6 +217,8 @@ export function peakAtemschutzAlarm(
    *  contact — it has to turn round NOW — and until 10.08. it was visible on its card and
    *  nowhere else: the operator had to be looking at the Atemschutz board to learn about it. */
   alarmBar?: number,
+  /** the lower line a Trupp in Rückzug is held to — see alarmBarFor. Omitted ⇒ same as alarmBar. */
+  alarmBarRueckzug?: number,
 ): AtemschutzAlarmState {
   let peak: 0 | 1 | 2 = 0
   let urgent: AtemschutzAlarmState['urgent'] = null
@@ -207,7 +230,9 @@ export function peakAtemschutzAlarm(
     const contactSev = contactSeverity(sinceContactSec, contactIntervalMin, contactGraceSec)
     // ⚠️ Low pressure is tier 2 outright — there is no «fällig» half-step for it. The Alarmdruck
     // is the point at which the Trupp turns round; it is already the deadline, not a lead-up.
-    const lowPressure = alarmBar != null && currentBar != null && currentBar <= alarmBar
+    // …against THIS Trupp's line: a crew in Rückzug is already on its way out (see alarmBarFor)
+    const line = alarmBar == null ? null : alarmBarFor(t, { alarmBar, alarmBarRueckzug })
+    const lowPressure = line != null && currentBar != null && currentBar <= line
     const sev: 0 | 1 | 2 = lowPressure ? 2 : contactSev
     if (sev > peak) peak = sev
     if (sev === 0) continue // narrows sev to 1 | 2 for the urgent record below
@@ -215,7 +240,7 @@ export function peakAtemschutzAlarm(
     // Rank by tier, then by how far past the line. A low-pressure Trupp ranks by how far BELOW
     // the Alarmdruck it is (in bar, scaled so it sorts against the seconds of a contact clock),
     // so the one with the least air left is the one the chip points at.
-    const overBy = lowPressure ? (alarmBar! - currentBar!) * 60 : sinceContactSec
+    const overBy = lowPressure ? (line! - currentBar!) * 60 : sinceContactSec
     const rank = sev * 1_000_000 + overBy
     if (rank > bestRank) {
       bestRank = rank

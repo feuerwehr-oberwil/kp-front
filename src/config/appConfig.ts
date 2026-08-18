@@ -489,6 +489,11 @@ const base = {
      *  is; 0 switches it off. Visual only: it never touches the contact-clock alarm, which
      *  stays the one audible signal. */
     alarmBar: 100,
+    /** …and the line a Trupp in RÜCKZUG is held to. Lower on purpose: the order to come back has
+     *  been given, so the card would otherwise warn for the whole walk out — and a warning that
+     *  runs for ten minutes is one nobody looks at. Below this one it speaks up again, which is a
+     *  crew taking too long to get out. Set it to `alarmBar` to switch the distinction off. */
+    alarmBarRueckzug: 50,
     /** contact interval (min): amber "Kontakt fällig" from this mark (FKS-Standard: 5) */
     contactIntervalMin: 5,
     /** Nachfrist (sec) on top of the interval before the hard überfällig alarm fires */

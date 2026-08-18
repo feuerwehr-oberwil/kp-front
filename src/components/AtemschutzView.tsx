@@ -7,10 +7,10 @@ import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
-import { contactSeverity, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, contactSeverity, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
-import { truppStatusLabel } from '../lib/report'
+import { readingBarIsMeasured, truppStatusLabel } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
@@ -571,7 +571,12 @@ function FunkkanalStepper({ value, onChange, compact }: { value: number; onChang
 // The INLINE pressure control on a live card: ± adjust a PENDING value (shown distinct); nothing
 // is committed until "Bestätigen". A misclick on ± therefore never silently logs a reading or
 // resets the contact clock — only an explicit confirm does (which is what counts as a Funkkontakt).
-function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: number) => void }) {
+function PressureInline({ value, onCommit, alarmBar }: {
+  value: number
+  onCommit: (bar: number) => void
+  /** the line THIS Trupp is held to — lower while it is in Rückzug (lib/atemschutz · alarmBarFor) */
+  alarmBar?: number
+}) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // keyed on `value` by the caller, so an external change to the committed pressure remounts this
   // with a fresh start — no sync effect needed
@@ -584,7 +589,8 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
   const edit = useTapToType({ min: 0, max: dz.pressureMax, onCommit: (v) => setBar(snapBar(v)), clamp: snapBar })
   // flag the PENDING value too, so the Überwacher sees «that reading is at the Alarmdruck»
   // while dialling it in – before committing, not after
-  const low = pressureAlarm(bar, dz.alarmBar)
+  // ⚠️ the same line the card uses for this Trupp — a crew in Rückzug is held to the lower one
+  const low = pressureAlarm(bar, alarmBar ?? dz.alarmBar)
   return (
     <div className={s.pressureBlock}>
       <div className={s.pressureRow}>
@@ -654,7 +660,7 @@ function TruppRow({
   // like the logged Druck. Same source and same rule as the card (estimatePressure / pressureAlarm).
   const dz = atemschutzDoctrine()
   const estimate = inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
-  const estimateLow = pressureAlarm(estimate?.bar ?? null, dz.alarmBar)
+  const estimateLow = pressureAlarm(estimate?.bar ?? null, alarmBarFor(t, dz))
   // ⚠️ «Draussen» and «angemeldet» are NOT one tone. They were both `trowIdle` (blue) while the
   // list still had a «Raus»-Abschnitt to tell them apart — and that section is gone (17.08.), so a
   // spent Trupp now sits between two running ones and has to say so by itself. Grey and dimmed,
@@ -770,13 +776,15 @@ function TruppCard({
   // down between radio checks, so a reading that still looked fine at the last Kontakt is exactly
   // how a Trupp slips past its turn-back pressure unnoticed. Visual only: the contact clock stays
   // the single audible alarm (see lib/atemschutz).
-  const pressureLow = pressureAlarm(live.currentBar, dz.alarmBar)
-  const estimateLow = pressureAlarm(estimate?.bar ?? null, dz.alarmBar)
+  // …against THIS Trupp's line: in Rückzug it is the lower one (lib/atemschutz · alarmBarFor)
+  const line = alarmBarFor(t, dz)
+  const pressureLow = pressureAlarm(live.currentBar, line)
+  const estimateLow = pressureAlarm(estimate?.bar ?? null, line)
   const airLow = inField && (pressureLow || estimateLow)
   // name the source when ONLY the projection has crossed – an estimate must never read as a
   // logged measurement (same rule the Schätzung row itself follows)
   const airNote = !airLow ? null
-    : fillTemplate(pressureLow ? az.alarmNote : az.alarmNoteEst, { bar: dz.alarmBar })
+    : fillTemplate(pressureLow ? az.alarmNote : az.alarmNoteEst, { bar: line })
 
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
   // as typed either way — an incident is a legal record, so nothing rewrites what was entered.
@@ -955,7 +963,7 @@ function TruppCard({
           </div>
         )}
         {canEdit && inField ? (
-          <PressureInline key={snapBar(live.currentBar)} value={snapBar(live.currentBar)} onCommit={(bar) => onPressure(t.id, bar)} />
+          <PressureInline key={snapBar(live.currentBar)} value={snapBar(live.currentBar)} alarmBar={line} onCommit={(bar) => onPressure(t.id, bar)} />
         ) : (
           <div className={s.metaRow}>
             <span>{az.currentPressure}</span>
@@ -988,7 +996,9 @@ function TruppCard({
                     return (
                       <li key={idx} className={cx(s.logRow, idx < from && s.logRowPast, idx === from && from > 0 && s.logRowRunStart)}>
                         <span className={s.logTime}>{fmtTime(r.t)}</span>
-                        <span className={s.logBar}>{r.bar} bar</span>
+                        {/* …and the same on the board: a Kontakt shows no bar, because the one it
+                            carries is the last reported value, not a fresh reading */}
+                        <span className={s.logBar}>{readingBarIsMeasured(r.kind) ? `${r.bar} bar` : ''}</span>
                         <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
                       </li>
                     )

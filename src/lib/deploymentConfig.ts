@@ -139,6 +139,8 @@ export interface DeploymentDoctrine {
   funkkanalMin?: number | null
   funkkanalMax?: number | null
   alarmBar?: number | null
+  /** the lower Alarmdruck while a Trupp is in Rückzug (lib/atemschutz · alarmBarFor) */
+  alarmBarRueckzug?: number | null
   contactIntervalMin?: number | null
   contactGraceSec?: number | null
   defaultPressureBar?: number | null
@@ -465,6 +467,7 @@ export function atemschutzDoctrine() {
     pressureMax: d.pressureMax ?? a.pressureMax,
     defaultPressureBar: d.defaultPressureBar ?? a.defaultPressureBar,
     alarmBar: d.alarmBar ?? a.alarmBar,
+    alarmBarRueckzug: d.alarmBarRueckzug ?? a.alarmBarRueckzug,
     contactIntervalMin: d.contactIntervalMin ?? a.contactIntervalMin,
     contactGraceSec: d.contactGraceSec ?? a.contactGraceSec,
     defaultFunkkanal: d.defaultFunkkanal ?? a.defaultFunkkanal,

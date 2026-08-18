@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, pressureAlarm, truppInField, truppNeverDeployed } from './atemschutz'
+import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, pressureAlarm, truppInField, truppNeverDeployed } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -356,5 +356,37 @@ describe('truppNeverDeployed', () => {
     expect(truppNeverDeployed({ ...base, status: 'raus', exitTime: '2026-06-21T11:00:00Z' })).toBe(false)
     expect(truppNeverDeployed({ ...base, status: 'angemeldet', entryTime: '' })).toBe(false)
     expect(truppNeverDeployed({ ...base, status: 'aktiv' })).toBe(false)
+  })
+})
+
+// ⚠️ The second threshold, and the one half of the 27.07. decision that was reopened on purpose:
+// a Trupp in Rückzug has already been told to come out, so holding it to the same turn-back
+// pressure means the card warns for the whole walk back — which is how a warning stops meaning
+// anything. Below the Rückzug line it speaks up again: that is a crew taking too long to get out.
+describe('alarmBarFor', () => {
+  const dz = { alarmBar: 100, alarmBarRueckzug: 50 }
+
+  it('holds a working Trupp to the Alarmdruck and one on its way out to the lower line', () => {
+    expect(alarmBarFor({ status: 'aktiv' }, dz)).toBe(100)
+    expect(alarmBarFor({ status: 'ueberfaellig' }, dz)).toBe(100)
+    expect(alarmBarFor({ status: 'rueckzug' }, dz)).toBe(50)
+  })
+
+  it('falls back to the one threshold when a station configured none', () => {
+    expect(alarmBarFor({ status: 'rueckzug' }, { alarmBar: 100 })).toBe(100)
+  })
+
+  it('is what decides the cross-surface alarm, not the status alone', () => {
+    const base = {
+      id: 't1', name: 'Keller Anna', entryPressureBar: 300, entryTime: '2026-08-18T10:00:00Z',
+      lastContactTime: new Date().toISOString(), lowestBar: 80, lastPressureBar: 80, readings: [],
+    }
+    const now = Date.now()
+    // 80 bar: below the working line, above the Rückzug one
+    const working = peakAtemschutzAlarm([{ ...base, status: 'aktiv' }], now, 5, 60, 100, 50)
+    const leaving = peakAtemschutzAlarm([{ ...base, status: 'rueckzug' }], now, 5, 60, 100, 50)
+    expect(working.peak).toBe(2)
+    expect(working.urgent?.reason).toBe('pressure')
+    expect(leaving.peak).toBe(0)
   })
 })

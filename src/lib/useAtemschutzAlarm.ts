@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { anyTruppInField, type AtemschutzAlarmState, contactSeverity, deriveTruppLive, peakAtemschutzAlarm, pressureAlarm } from './atemschutz'
+import { alarmBarFor, anyTruppInField, type AtemschutzAlarmState, contactSeverity, deriveTruppLive, peakAtemschutzAlarm, pressureAlarm } from './atemschutz'
 import { Alarm, chime, notify } from './alarm'
 import { atemschutzDoctrine, isDemoMode } from './deploymentConfig'
 import type { Trupp } from '../types'
@@ -45,6 +45,8 @@ export function useAtemschutzAlarm({
   const az = appConfig.copy.atemschutz
   // the station's Alarmdruck — read here so the tone, the chip and the card all use one number
   const alarmBar = atemschutzDoctrine().alarmBar
+  // …and the lower line a Trupp in Rückzug is held to (lib/atemschutz · alarmBarFor)
+  const alarmBarRueckzug = atemschutzDoctrine().alarmBarRueckzug
   const [now, setNow] = useState(() => Date.now())
   const alarm = useRef<Alarm | null>(null)
   /** last tier seen per Trupp. Its KEYS matter as much as its values: a Trupp that is not in it
@@ -90,7 +92,7 @@ export function useAtemschutzAlarm({
       // exactly like one out of contact — and until 10.08. that fact lived on its card and
       // nowhere else, so it reached nobody who was not already looking at the Atemschutz board.
       // It is tier 2 outright: the Alarmdruck IS the deadline, it has no amber lead-up.
-      const lowPressure = pressureAlarm(l.currentBar ?? null, alarmBar)
+      const lowPressure = pressureAlarm(l.currentBar ?? null, alarmBarFor(t, { alarmBar, alarmBarRueckzug }))
       const sev = lowPressure ? 2 : contactSeverity(l.sinceContactSec, intervalMin, graceSec)
       // ⚠️ A CROSSING THIS APP ACTUALLY SAW — hence «have we met this Trupp before», not «is the
       // tier below 2». `prevSeverity` starts empty on every mount, so a Trupp that was ALREADY
@@ -134,7 +136,7 @@ export function useAtemschutzAlarm({
     // Only ÜBERFÄLLIG (tier 2) makes a sound — the amber "Kontakt fällig" lead stays silent (and
     // board-only), so the tone/wake-lock don't nag before a Trupp is actually overdue.
     alarm.current.set(peak >= 2 ? 2 : 0)
-  }, [trupps, now, muted, active, logAlarm, intervalMin, graceSec, az, demo, alarmBar])
+  }, [trupps, now, muted, active, logAlarm, intervalMin, graceSec, az, demo, alarmBar, alarmBarRueckzug])
 
   useEffect(() => () => alarm.current?.stop(), [])
 
@@ -142,8 +144,8 @@ export function useAtemschutzAlarm({
   // source for the cross-surface surfaces (NavRail dot + TopBar chip), so they never disagree with
   // the tone. Silent during replay (read-only past).
   return useMemo(
-    () => (active ? peakAtemschutzAlarm(trupps, now, intervalMin, graceSec, alarmBar) : SILENT),
-    [active, trupps, now, intervalMin, graceSec, alarmBar],
+    () => (active ? peakAtemschutzAlarm(trupps, now, intervalMin, graceSec, alarmBar, alarmBarRueckzug) : SILENT),
+    [active, trupps, now, intervalMin, graceSec, alarmBar, alarmBarRueckzug],
   )
 }
 
