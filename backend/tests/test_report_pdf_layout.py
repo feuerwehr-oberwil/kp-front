@@ -622,9 +622,10 @@ def test_pendenzen_section_prints_after_the_journal():
     assert "Werkhof Oberwil" in text
     # a Meldung prints as its own indented sub-line under the item
     assert "Fahrzeug unterwegs" in text
-    # ⚠️ Urgency is a single «!» before the text, not a column and not the word — the legend in
-    # the footer is the only place «dringend» is spelled out, once for the whole section.
-    assert "! = dringend" in text
+    # ⚠️ Urgency is a single «!» before the text, not a column and not the word. There is NO
+    # legend explaining it (dropped 18.08.): a «!» in front of a line needs no key, and the
+    # footnote cost a line on every rapport to say what everybody already reads correctly.
+    assert "! = dringend" not in text
     # …and an item nobody ticked off says so, which is the point of printing the section at all
     assert "offen" in text
 

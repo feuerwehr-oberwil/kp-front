@@ -568,7 +568,6 @@ L = {
     "colErledigt": "Erledigt",
     "pendenzOpen": "offen",
     "pendenzUrgent": "dringend",
-    "pendenzFoot": "Abgeleitet aus dem Verlauf · <b>!</b> = dringend · eingerückt: Meldungen zur Pendenz · «offen» = beim Einsatzende nicht erledigt",
     "colArea": "Bereich",
     "colEntry": "Eintrag",
     "transcript": "Transkript",
@@ -1385,16 +1384,44 @@ def compose_report_pdf(
             urls = r.photoUrls or ([r.photoUrl] if r.photoUrl else [])
             shots = [figures.get(r.photoKey)] if r.photoKey else []
             shots += [figures.get(f"photo:{u}") for u in urls]
-            for data in shots:
-                # each picture on its own line under the text, at the same width — a row with
-                # three photos prints three, which is why they were attached
-                # the Eintrag column's own content width, not a fraction of the page: at
-                # `inner_w * 0.45` a landscape shot used 69 % of its column and a portrait
-                # one was height-capped to 2.1 cm across — unreadable on paper.
-                photo = _fit_image(data, entry_w, 55 * mm)
+            # ⚠️ SIDE BY SIDE from the second picture on. One photo is an illustration and gets the
+            # column's full width; four stacked at that width push the next entry a page and a half
+            # down, and «one damage is rarely one picture» is exactly the case the multi-photo entry
+            # was built for. The width is the Eintrag column's own content width, never a fraction
+            # of the page: at `inner_w * 0.45` a landscape shot used 69 % of its column and a
+            # portrait one was height-capped to 2.1 cm across — unreadable on paper.
+            data_shots = [d for d in shots if d]
+            if len(data_shots) == 1:
+                photo = _fit_image(data_shots[0], entry_w, 55 * mm)
                 if photo:
                     entry_cells.append(Spacer(1, 2))
                     entry_cells.append(photo)
+            elif data_shots:
+                per_row = 2 if len(data_shots) <= 4 else 3
+                gap = 2 * mm
+                cell_w = (entry_w - gap * (per_row - 1)) / per_row
+                # …and a height cap that scales with the cell, so a portrait shot in a narrow cell
+                # is not blown up past what its neighbours occupy
+                cell_h = 45 * mm if per_row == 2 else 32 * mm
+                shot_grid: list[list] = []
+                for i in range(0, len(data_shots), per_row):
+                    shot_row = [_fit_image(d, cell_w, cell_h) or "" for d in data_shots[i : i + per_row]]
+                    shot_row += [""] * (per_row - len(shot_row))  # keep the last row's columns aligned
+                    shot_grid.append(shot_row)
+                shot_tbl = Table(shot_grid, colWidths=[cell_w] * per_row, hAlign="LEFT")
+                shot_tbl.setStyle(
+                    TableStyle(
+                        [
+                            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                            ("TOPPADDING", (0, 0), (-1, -1), 1),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                        ]
+                    )
+                )
+                entry_cells.append(Spacer(1, 2))
+                entry_cells.append(shot_tbl)
             body.append([Paragraph(_esc(r.timeLabel), st["cell"]), Paragraph(_esc(r.area), st["cell"]), entry_cells])
         # ⚠️ 29mm: the longest label «16.08.2026 15:35» measures 24.7mm at 9pt Helvetica, plus the
         # 3.5mm of cell padding — so it never wraps onto a second line, which would inflate EVERY
@@ -1448,8 +1475,10 @@ def compose_report_pdf(
         # points of daylight against five points of heading alignment is not a close call here.
         p_tbl.setStyle(_table_style())
         story.append(p_tbl)
-        story.append(Spacer(1, 2 * mm))
-        story.append(Paragraph(L["pendenzFoot"], st["muted"]))  # carries its own <b> — not escaped
+        # ⚠️ No legend line under this table (18.08.). It explained four things the table already
+        # says out loud — «!» sits next to the word «dringend», an indented line under an Auftrag
+        # reads as belonging to it, «offen» is the word in the column — and a caption that repeats
+        # its own table teaches the reader to skip captions.
 
     # --- Anhang: Kroki + annotated plans ALWAYS at the end (decided 2026-07-14) — the data
     # sections above are the identical main section; visual material is appended, never

@@ -8,6 +8,7 @@ hand against the print view. Also covers auth (any user, incl. viewer) and the 4
 import io
 import json
 
+import pypdfium2 as pdfium
 import pytest
 from PIL import Image as PILImage
 from sqlalchemy import select
@@ -294,5 +295,44 @@ async def test_report_pdf_carries_the_pendenzen_section(client, editor):
     assert "Absperrmaterial Kreuzung" in text
     assert "Werkhof Oberwil" in text
     assert "Fahrzeug unterwegs" in text  # a Meldung, as an indented sub-line
-    assert "! = dringend" in text  # the legend; the row itself carries only the mark
+    # ⚠️ No legend line under the table any more (18.08.): it explained four things the table
+    # already says out loud, and a caption that repeats its own table teaches the reader to skip
+    # captions. What it explained has to stand on its own — so that is what is asserted.
+    assert "! = dringend" not in text
     assert "offen" in text  # the item nobody ticked off
+
+
+async def test_journal_photos_print_side_by_side(client, editor):
+    """Several photos on ONE journal row are laid out across the column, not stacked.
+
+    One picture is an illustration and gets the column's full width. Four at that width push the
+    next entry a page and a half down — and «one damage is rarely one picture» is exactly the case
+    the multi-photo entry was built for.
+    """
+    await _login(client, editor)
+    inc = await _create_incident(client)
+
+    urls = []
+    for i in range(4):
+        up = await client.post(
+            f"/api/incidents/{inc}/media",
+            files={"file": (f"schaden{i}.png", io.BytesIO(_png(60, 40)), "image/png")},
+            data={"kind": "photo"},
+        )
+        assert up.status_code in (200, 201), up.text
+        urls.append(up.json()["url"])
+
+    payload = _minimal_payload(inc)
+    payload["options"] = {"journal": True}
+    payload["journal"] = [{"timeLabel": "03:08", "area": "Kroki", "text": "Schaden Vorplatz", "photoUrls": urls}]
+    four = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)})
+    assert four.status_code == 200, four.text
+
+    payload["journal"] = [{"timeLabel": "03:08", "area": "Kroki", "text": "Schaden Vorplatz", "photoUrls": urls[:1]}]
+    one = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)})
+    assert one.status_code == 200, one.text
+
+    # four pictures across two rows of two must not cost four full-width pictures' worth of page
+    doc_four = pdfium.PdfDocument(io.BytesIO(four.content))
+    doc_one = pdfium.PdfDocument(io.BytesIO(one.content))
+    assert len(doc_four) <= len(doc_one) + 1
