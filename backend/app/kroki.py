@@ -734,6 +734,54 @@ def north_dial_svg(deg: float = 0) -> str:
     )
 
 
+def _center_lat(view: View) -> float:
+    """Latitude at the image centre — inverse WebMercator of the view's middle row."""
+    scale = TILE * (2**view.z)
+    wy = view.origin[1] + view.height / 2
+    t = 4 * math.pi * (0.5 - wy / scale)
+    return math.degrees(math.asin(math.tanh(t / 2)))
+
+
+#: candidate bar lengths — the usual cartographic 1/2/2.5/5 ladder, in metres
+_SCALE_STEPS = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000]
+
+
+def _scale_bar(draw: ImageDraw.ImageDraw, img_w: int, img_h: int, u: float, view: View) -> None:
+    """Massstabsbalken, bottom-left — the paper's answer to «wie weit ist das?».
+
+    On screen distances are measured by the Messen tool; on paper the only distance the sheet
+    used to state was an Absperrkreis's radius, and only when one was drawn. Four alternating
+    segments, length picked from the map ladder so the number is one people can halve and
+    quarter in their head."""
+    ppm = px_per_m(_center_lat(view), view.z)
+    target = img_w * 0.16
+    metres = min(_SCALE_STEPS, key=lambda m: abs(m * ppm - target))
+    bar_w = metres * ppm
+    if not (img_w * 0.06 <= bar_w <= img_w * 0.4):  # degenerate zoom — no bar beats a wrong bar
+        return
+    x0, bar_h = 14 * u, 5 * u
+    label = f"{metres} m"
+    f = _font(int(11 * u))
+    y_text = img_h - 30 * u
+    y0 = img_h - 16 * u
+    # white backing so the bar reads on any ground
+    pad = 5 * u
+    draw.rectangle(
+        [x0 - pad, y_text - pad, x0 + bar_w + draw.textlength(f"  {label}", font=f) + pad, y0 + bar_h + pad],
+        fill=(255, 255, 255, 220),
+    )
+    seg = bar_w / 4
+    for i in range(4):
+        draw.rectangle(
+            [x0 + i * seg, y0, x0 + (i + 1) * seg, y0 + bar_h],
+            fill="#1c1c1c" if i % 2 == 0 else "#ffffff",
+            outline="#1c1c1c",
+        )
+    draw.text((x0, y_text), "0", font=f, fill="#1c1c1c")
+    tw = draw.textlength(label, font=f)
+    draw.text((x0 + bar_w - tw, y_text), label, font=f, fill="#1c1c1c")
+
+
 def _north_arrow(img: Image.Image, img_w: float, u: float) -> None:
     """Nordpfeil, top-right of the Kroki.
 
@@ -991,6 +1039,7 @@ def render_kroki(
     out = Image.alpha_composite(img, overlay).resize((width, height), Image.Resampling.LANCZOS).convert("RGB")
     d2 = ImageDraw.Draw(out)
     _north_arrow(out, out.width, u)
+    _scale_bar(d2, out.width, out.height, u, view)
     # attribution (tile ToS) bottom-right
     f = _font(int(11 * u))
     tw = d2.textlength(attribution, font=f)

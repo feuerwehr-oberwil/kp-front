@@ -391,7 +391,7 @@ describe('server-PDF payload extras', () => {
 })
 
 describe('operational extent', () => {
-  it('excludes live GPS vehicles unless requested and includes circle radius bounds', () => {
+  it('excludes live GPS vehicles unless requested; a circle contributes only its centre', () => {
     const entities: Entity[] = [
       { id: 's', kind: 'symbol', layer: 'taktisch', coord: [7.1, 47.1], symbol: 'VKF X' },
       { id: 'v', kind: 'symbol', layer: 'fahrzeuge', coord: [8, 48], symbol: 'VKF Fahrzeug', live: true },
@@ -399,7 +399,10 @@ describe('operational extent', () => {
     const drawings: Drawing[] = [{ id: 'c', kind: 'circle', coords: [[7.2, 47.2]], color: '#f00', radiusM: 100 }]
     expect(operationalExtentPoints([7, 47], entities, drawings, false).some(([lng]) => lng === 8)).toBe(false)
     expect(operationalExtentPoints([7, 47], entities, drawings, true).some(([lng]) => lng === 8)).toBe(true)
-    expect(operationalExtentPoints([7, 47], entities, drawings, false).length).toBeGreaterThan(3)
+    // ⚠️ the Absperrkreis's RADIUS no longer widens the frame (19.08.): the biggest, least
+    // informative object was dictating the scale and shrank the action to a fleck. The ring
+    // may clip — its radius is in the legend either way.
+    expect(operationalExtentPoints([7, 47], entities, drawings, false)).toEqual([[7.1, 47.1], [7.2, 47.2]])
   })
 
   it('frames the PLACED content — the incident pin only anchors an empty scene', () => {

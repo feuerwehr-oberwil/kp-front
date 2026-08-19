@@ -468,12 +468,10 @@ export function operationalExtentPoints(
   for (const d of drawings) {
     if (!Array.isArray(d.coords)) continue
     pts.push(...d.coords)
-    if (d.kind === 'circle' && d.coords[0] && d.radiusM) {
-      const [lng, lat] = d.coords[0]
-      const dLat = d.radiusM / 111_320
-      const dLng = d.radiusM / (111_320 * Math.cos((lat * Math.PI) / 180) || 1e-6)
-      pts.push([lng - dLng, lat - dLat], [lng + dLng, lat + dLat])
-    }
+    // ⚠️ A circle contributes only its CENTRE, never its radius. The Absperrkreis is the
+    // biggest and least informative object on the picture, and letting its rim drive the fit
+    // shrank every symbol, Trupp and Leitung to an unreadable fleck in the middle (19.08.
+    // print). The ring may clip — its radius is in the legend («r = 100 m») either way.
   }
   // the placed content DEFINES the frame; the incident address only anchors it when
   // nothing is placed — including it always dragged the fit to the far-away alarm pin
