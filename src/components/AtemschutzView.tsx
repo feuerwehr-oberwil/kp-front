@@ -53,7 +53,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
+  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus,
@@ -104,6 +104,10 @@ export function AtemschutzView({
   showTruppLine: (id: string) => void
   /** ids of Trupps whose Leitung is actually drawn somewhere */
   truppsWithLine: ReadonlySet<string>
+  /** the Leitung number each Trupp's DRAWN hose carries right now (useTruppActions ·
+   *  truppLineNos) — the picture is the source of truth for the number, the Trupp's stored
+   *  copy only the fallback for a hose that has since been deleted. */
+  lineNoOf?: ReadonlyMap<string, number>
   /** arm «Leitung wählen»: the next tap on a hose line (Lage or Plan) links it to this Trupp */
   pickTruppLine: (id: string) => void
   /** release a Trupp's Leitung — used when another Trupp takes it over (confirmed Ablösung) */
@@ -381,7 +385,7 @@ export function AtemschutzView({
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
       onMove={order === 'manuell' && !compact ? onMove : undefined}
       onPickLine={pickTruppLine}
-      onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)}
+      onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)}
       onCollapse={compact ? () => setOpenRow(null) : undefined}
     />
     )
@@ -723,7 +727,7 @@ function TruppRow({
 }
 
 function TruppCard({
-  t, live, now, color, canEdit, intervalMin, graceSec, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, onCollapse,
+  t, live, now, color, canEdit, intervalMin, graceSec, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors) — set for
@@ -750,6 +754,8 @@ function TruppCard({
   /** is there actually a hose drawn for this Trupp? Decides whether the chip is a jump or plain
    *  text — a button that goes nowhere is worse than no button. */
   hasLine: boolean
+  /** the number the Trupp's drawn hose carries right now — wins over the stored copy */
+  drawnLineNo?: number
   /** set only in compact mode, where this card was opened from a row — collapses back to it */
   onCollapse?: () => void
 }) {
@@ -795,7 +801,12 @@ function TruppCard({
 
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
   // as typed either way — an incident is a legal record, so nothing rewrites what was entered.
-  const lineTag = t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim()
+  // ⚠️ The DRAWN hose's number wins over the Trupp's stored copy: renumbering the Leitung in the
+  // picture used to leave this chip saying «Ltg 1» beside a hose tagged «Ltg 3» (19.08.). The
+  // copy stays the fallback — a Trupp whose hose was deleted keeps the number it worked on —
+  // and an older record's free-text designation is still never rewritten.
+  const lineTag = drawnLineNo != null ? String(drawnLineNo)
+    : t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim()
 
   // «Raus» happens immediately with a Rückgängig toast (house rule: confirm-with-undo, no
   // blocking dialog). The undo lives in the action (setTruppStatus) so it restores the full

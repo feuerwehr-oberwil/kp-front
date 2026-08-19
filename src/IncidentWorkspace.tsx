@@ -2102,7 +2102,7 @@ export function IncidentWorkspace({
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppColors, setTruppColor } =
+  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
     useTruppActions({
       trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // a new map marker lands at the current map centre (the operator drags it to position);
@@ -2264,7 +2264,11 @@ export function IncidentWorkspace({
     if (!moved) return
     const names = changedAttendanceNames(moved.from, moved.to, rosterById)
     const A = appConfig.copy.anwesenheit
-    log('undo', fillTemplate(dir === 'undo' ? A.undone : A.redone, { names: names.join(', ') || '–' }), 'team')
+    // ⚠️ icon 'people', not 'undo'. The Bereich column and the Verlauf chip are derived from the
+    // icon (lib/report · journalArea) and 'undo' is the Atemschutz-Rückzug's icon — so every
+    // «Anwesenheit zurückgenommen» printed under «Atemschutz», on a sheet whose whole job is
+    // saying where a row came from. The undo-ness is in the sentence; the icon says the surface.
+    log('people', fillTemplate(dir === 'undo' ? A.undone : A.redone, { names: names.join(', ') || '–' }), 'team')
     emit(dir)
   }
   const { saveMittel, captureMittelForSymbol } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
@@ -3528,7 +3532,7 @@ export function IncidentWorkspace({
           trupps={effTrupps}
           leitungOptions={truppLeitungOptions}
           truppColors={truppColors()}
-          showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()}
+          showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()} lineNoOf={truppLineNos()}
           pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
           canEdit={canEditIncident}
           personnel={pickablePersonnel}
