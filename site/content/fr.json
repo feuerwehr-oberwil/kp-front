@@ -37,7 +37,8 @@
       "Sapeurs-pompiers de milice",
       "Corps locaux",
       "Centres de renfort",
-      "Sapeurs-pompiers professionnels"
+      "Sapeurs-pompiers professionnels",
+      "Sapeurs-pompiers d’entreprise"
     ],
     "whatLabel": "Pour quoi",
     "what": [
@@ -241,7 +242,8 @@
           "Notes vocales avec transcription, photos, rappels",
           "<strong>Rejouer</strong> : repasser l’intervention minute par minute, attentes sautées –\n            pour le débriefing",
           "Rapport d’intervention en PDF prêt à imprimer – croquis à un instant choisi compris",
-          "Photos en annexe au rapport, organisations partenaires avec leur propre formulaire",
+          "Photos en annexe au rapport",
+          "Organisations partenaires avec leur remarque dans le rapport",
           "Feuille de saisie par code QR, pour tous ceux qui ont quelque chose à apporter",
           "Heures d’alarme et d’intervention tirées du déroulement, pas de la mémoire"
         ]

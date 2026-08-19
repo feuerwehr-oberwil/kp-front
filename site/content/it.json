@@ -37,7 +37,8 @@
       "Pompieri di milizia",
       "Corpi locali",
       "Centri di soccorso",
-      "Pompieri professionisti"
+      "Pompieri professionisti",
+      "Pompieri aziendali"
     ],
     "whatLabel": "Per cosa",
     "what": [
@@ -241,7 +242,8 @@
           "Note vocali con trascrizione, foto, promemoria",
           "<strong>Viaggio nel tempo</strong>: riprodurre l’intervento minuto per minuto, con le\n            attese saltate – per il debriefing",
           "Rapporto d’intervento come PDF già pronto – incluso il croquis a un momento scelto",
-          "Foto come allegati al rapporto, organizzazioni partner con un formulario proprio",
+          "Foto come allegati al rapporto",
+          "Organizzazioni partner con la loro osservazione nel rapporto",
           "Scheda di rilevamento via codice QR per tutti quelli che hanno qualcosa da aggiungere",
           "Orari di allarme e d’intervento dallo svolgimento invece che dalla memoria"
         ]

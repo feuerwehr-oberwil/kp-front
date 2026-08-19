@@ -40,7 +40,8 @@
       "Milizfeuerwehren",
       "Ortsfeuerwehren",
       "Stützpunktfeuerwehren",
-      "Berufsfeuerwehren"
+      "Berufsfeuerwehren",
+      "Betriebsfeuerwehren"
     ],
     "whatLabel": "Für was",
     "what": [
@@ -270,7 +271,8 @@
           "Sprachnotizen mit Transkription, Fotos, Erinnerungen",
           "<strong>Zeitreise</strong>: den Einsatz Minute für Minute nachspielen, Wartezeiten\n            übersprungen – für die Nachbesprechung",
           "Einsatzrapport als fixfertiges PDF – inkl. Kroki zu einem gewählten Zeitpunkt",
-          "Fotos als Beilagen zum Rapport, Partnerorganisationen mit eigenem Formular",
+          "Fotos als Beilagen zum Rapport",
+          "Partnerorganisationen mit Bemerkung im Rapport",
           "Erfassungsblatt für alle, die etwas beitragen, per QR-Code",
           "Alarm- und Einsatzzeiten aus dem Ablauf statt aus dem Gedächtnis"
         ]
