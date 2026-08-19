@@ -3770,6 +3770,9 @@ export function IncidentWorkspace({
             journal.appendPatch(player.row.id, { transcriptSection: { at: atSec, text } })
             toast(appConfig.copy.journal.saved, { icon: 'type', tone: 'success' })
           } : undefined}
+          // fixing a section replaces its words in place ('' removes it) — the recording is
+          // the original, so no «korrigiert» mark and no new Verlauf line
+          onEditSection={!readOnly ? (sectionId, text) => journal.appendPatch(player.row.id, { transcriptSectionEdit: { id: sectionId, text } }) : undefined}
           onPatchEntry={!readOnly ? (rowId, text) => journal.appendPatch(rowId, { textEdit: text }) : undefined}
           onRetractEntry={!readOnly ? (rowId) => {
             journal.appendPatch(rowId, { retracted: true })

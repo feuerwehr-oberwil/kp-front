@@ -269,7 +269,7 @@ describe('report journal rows', () => {
     const events: TimelineEvent[] = [
       { id: 'a', t: '09:00', icon: 'mic', text: 'Audio', kind: 'audio', audioUrl: '/a.wav' },
       { id: 'b', t: '09:01', icon: 'mic', text: 'Audio', kind: 'audio', audioUrl: '/b.wav', transcript: 'Text' },
-      { id: 'c', t: '09:02', icon: 'mic', text: 'Audio', kind: 'audio', audioUrl: '/c.wav', transcriptSections: [{ at: 2, text: 'Wasser halt' }] },
+      { id: 'c', t: '09:02', icon: 'mic', text: 'Audio', kind: 'audio', audioUrl: '/c.wav', transcriptSections: [{ id: 's1', at: 2, text: 'Wasser halt' }] },
     ]
     expect(missingTranscriptCount(events)).toBe(1)
   })
@@ -278,7 +278,7 @@ describe('report journal rows', () => {
     const e: TimelineEvent = {
       id: 'memo', t: '18:45', at: '2026-08-19T16:45:00.000Z', icon: 'mic', kind: 'audio',
       text: 'Audionotiz (8s)', audioUrl: '/api/media/m1',
-      transcriptSections: [{ at: 1, text: 'Trupp 2 meldet Wasser halt' }, { at: 65, text: 'Rückzug eingeleitet' }],
+      transcriptSections: [{ id: 's1', at: 1, text: 'Trupp 2 meldet Wasser halt' }, { id: 's2', at: 65, text: 'Rückzug eingeleitet' }],
     }
     const row = journalRows([e], plans)[0]
     expect(row.transcriptLines).toEqual(['0:01  Trupp 2 meldet Wasser halt', '1:05  Rückzug eingeleitet'])

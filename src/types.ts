@@ -369,10 +369,15 @@ export interface TimelineEvent {
    *  composer (voice memos) and by confirmed STT segments; the store folds them into
    *  `transcriptSections`. Append-only, like every other enrichment. */
   transcriptSection?: { at: number; text: string }
-  /** DERIVED by journalStore's fold: every transcriptSection patch, sorted by offset. The
-   *  Verlauf lists them as subtitle lines under the row; the row's own text stays
-   *  «Audionotiz (8s)» so the recording remains recognisable as one. */
-  transcriptSections?: { at: number; text: string }[]
+  /** patch payload only: replace one section's words (`id` = the section's creating patch row).
+   *  Empty text removes the section. NOT a «Korrektur» that marks the row — the recording is
+   *  the original and stays; its transcription may simply be fixed. */
+  transcriptSectionEdit?: { id: string; text: string }
+  /** DERIVED by journalStore's fold: every transcriptSection patch (id = its patch row, so an
+   *  edit can address it), sorted by offset. The Verlauf lists them as subtitle lines under
+   *  the row; the row's own text stays «Audionotiz (8s)» so the recording remains
+   *  recognisable as one. */
+  transcriptSections?: { id: string; at: number; text: string }[]
   /** DERIVED, never written to a row: when a `textEdit` patch folded onto this row (the patch's
    *  own `at`). The Verlauf marks the line «korrigiert HH:MM» from it — a corrected line that
    *  looked untouched would be the one thing an append-only record must not do: quietly show

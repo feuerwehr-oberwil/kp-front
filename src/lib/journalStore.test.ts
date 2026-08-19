@@ -256,10 +256,22 @@ describe('JournalStore — enrichment patches + session overlay', () => {
 
     const d = s.display()
     expect(d).toHaveLength(1)
-    expect(d[0].transcriptSections).toEqual([
+    expect(d[0].transcriptSections?.map(({ at, text }) => ({ at, text }))).toEqual([
       { at: 1, text: 'Trupp 2 meldet Wasser halt' },
       { at: 5, text: 'Rückzug eingeleitet' },
     ])
+
+    // fixing a section replaces its words IN PLACE — no correctedAt, no extra display row —
+    // and clearing the words removes the section (the recording stays the original)
+    const secId = d[0].transcriptSections![1].id
+    s.appendPatch('a', { transcriptSectionEdit: { id: secId, text: 'Rückzug Treppenhaus' } })
+    await settle(); await settle()
+    expect(s.display()[0].transcriptSections?.map((x) => x.text)).toEqual(
+      ['Trupp 2 meldet Wasser halt', 'Rückzug Treppenhaus'])
+    expect(s.display()[0].correctedAt).toBeUndefined()
+    s.appendPatch('a', { transcriptSectionEdit: { id: secId, text: '' } })
+    await settle(); await settle()
+    expect(s.display()[0].transcriptSections?.map((x) => x.text)).toEqual(['Trupp 2 meldet Wasser halt'])
   })
 
   it('a retraction patch folds the row out of display; a later un-retract restores it', async () => {
