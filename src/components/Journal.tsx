@@ -7,7 +7,7 @@ import { Overlay } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, formatTime } from '../lib/format'
-import { groupByDay, isHandWritten, isNachtrag, rowPhotos, rowTime } from '../lib/verlauf'
+import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowTime } from '../lib/verlauf'
 import { journalArea } from '../lib/report'
 import { formatElapsed } from '../lib/audioPlayer'
 import type { OpenReminder } from '../lib/reminders'
@@ -179,6 +179,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
       return { row: e, start, end: start + (e.audioMeta!.durationSec ?? 0) * 1000 }
     })
     .filter((w) => !Number.isNaN(w.start)), [events])
+
+  // A state the app re-states («Trupp X überfällig» every few seconds, an undo tapped six times)
+  // reads as one line that repeated, not as twenty lines. Display only — see lib/verlauf.
+  const repeats = useMemo(() => repeatRuns(events), [events])
 
   // The strip's own state: the incident's time span, one tick per dated row, and the jump.
   // Rows WITHOUT an absolute time (legacy HH:MM-only entries) are simply not on it — a tick at a
@@ -527,7 +531,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           {groupByDay(events).map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>
               {g.label && <div className="jr-day-sep" role="separator">{g.label}</div>}
-              {g.events.map((e) => {
+              {g.events.filter((e) => !repeats.hidden.has(e.id)).map((e) => {
             const target = targetOf(e)
             // ── during a Wiedergabe every row is a way into the picture ──
             // A row's tap sets the MOMENT, so the map, the Trupps and the Plan all read as they
@@ -568,6 +572,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   <span className={`jr-chip jr-chip-${e.surface ?? 'map'}`}>{chip(e, plans)}</span>
                   {isNachtrag(e, closedAt) && <span className="jr-chip jr-chip-nachtrag">{C.nachtrag}</span>}
                   {/* a corrected line says so, with the time of the correction — see the pen below */}
+                  {/* «und dann noch 5 Mal dasselbe» — the repeats are in the record, the row
+                      says how often rather than being printed again (lib/verlauf · repeatRuns) */}
+                  {(repeats.counts.get(e.id) ?? 1) > 1 && (
+                    <span className="jr-chip jr-chip-rep" title={C.repeatedTitle}>
+                      {fillTemplate(C.repeated, { n: String(repeats.counts.get(e.id)) })}
+                    </span>
+                  )}
                   {e.correctedAt && (
                     <span className="jr-chip jr-chip-korr" title={C.correctHint}>
                       {fillTemplate(C.corrected, { t: formatTime(new Date(e.correctedAt)) })}

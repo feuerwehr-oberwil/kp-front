@@ -147,6 +147,10 @@ class JournalRowIn(BaseModel):
     #: («0:05  Rückzug eingeleitet»). Preferred over ``transcript`` when present; that field
     #: still carries the joined words so an older server prints something.
     transcriptLines: list[str] = []
+    #: how often this line repeated within the client's repeat window (src/lib/verlauf ·
+    #: repeatRuns). >1 prints as a «6×» marker after the entry — the repeats themselves stay in
+    #: the append-only record; a sheet that prints the same sentence twenty times is unreadable.
+    repeats: int | None = None
     #: A corrected line prints as latest wording + a muted «korrigiert HH:MM · ursprünglich: …»
     #: sub-line — the record's first wording; intermediate revisions stay unprinted (the journal
     #: store keeps them all, the paper shows where it started and where it ended, 19.08.).
@@ -1404,7 +1408,8 @@ def compose_report_pdf(
         thead = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colTime", "colArea", "colEntry")]
         body: list[list] = []
         for r in payload.journal:
-            entry_cells: list = [Paragraph(r.markup or _esc(r.text), st["cell"])]
+            rep = f' <font color="{_LABEL}">{r.repeats}×</font>' if (r.repeats or 1) > 1 else ""
+            entry_cells: list = [Paragraph((r.markup or _esc(r.text)) + rep, st["cell"])]
             if r.correctedAt and r.textOriginal:
                 corrected = L["correctedLine"].format(t=_esc(r.correctedAt), text=_esc(r.textOriginal))
                 entry_cells.append(Paragraph(corrected, st["muted"]))

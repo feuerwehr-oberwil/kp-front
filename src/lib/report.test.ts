@@ -229,6 +229,19 @@ describe('report journal rows', () => {
     expect(byId.get('lage')).toBe('Kroki')
   })
 
+  // ⚠️ The Anwesenheit's undo wrote the Atemschutz-Rückzug's icon, so «Anwesenheit
+  // zurückgenommen: Studer Corinne» printed under «Atemschutz». New rows carry 'people'; the
+  // ones already in the record are read off the copy template that wrote them.
+  it('files an Anwesenheit undo under Anwesenheit, whichever icon it was written with', () => {
+    const old: TimelineEvent = {
+      id: 'u', t: '22:26', at: '2026-08-17T20:26:01.000Z', icon: 'undo', kind: 'team',
+      text: 'Anwesenheit zurückgenommen: Studer Corinne',
+    }
+    expect(journalRows([old], plans, undefined, null, { includeBookkeeping: true })[0].area).toBe('Anwesenheit')
+    const fresh: TimelineEvent = { ...old, id: 'u2', icon: 'people' }
+    expect(journalRows([fresh], plans, undefined, null, { includeBookkeeping: true })[0].area).toBe('Anwesenheit')
+  })
+
   it('drops a prefix the Bereich column already says', () => {
     const e: TimelineEvent = {
       id: 'meta', t: '22:47', at: '2026-08-08T20:47:00.000Z', icon: 'clipboard',

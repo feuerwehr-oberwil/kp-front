@@ -273,6 +273,9 @@
 /* a line somebody corrected afterwards (append-only patch — both wordings stay in the record).
    Quiet on purpose: it is a footnote on the row, not a warning about it. */
 .jr-chip-korr { background: var(--fill-soft); color: var(--ink-dim); text-transform: none; font-weight: 600; }
+/* «6×» — how often the app repeated this line. Same quiet register as «korrigiert»: it is a
+   fact about the row, not a state of the Einsatz. */
+.jr-chip-rep { background: var(--fill-soft); color: var(--ink-dim); text-transform: none; font-weight: 700; font-variant-numeric: tabular-nums; }
 /* a Pendenz, and every Meldung on it. The rows are ordinary in every other respect and stand
    where they happened — this chip is what says they belong to something that had to come back. */
 .jr-chip-pendenz { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }

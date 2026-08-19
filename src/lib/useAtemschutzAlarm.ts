@@ -54,6 +54,12 @@ export function useAtemschutzAlarm({
    *  not a crossing we watched (see `justCrossed`). */
   const prevSeverity = useRef<Map<string, number>>(new Map())
   const lastNotify = useRef<Map<string, number>>(new Map())
+  /** the contact stamp a Trupp's «Überfällig» line was written FOR. One line per TURNUS: the
+   *  next one is owed only once a new Funkkontakt has reset the clock, so a tier that dips and
+   *  recovers within the same turnus (a merge from another device, a re-evaluation after the
+   *  tab woke up) cannot write the same alarm twice. `prevSeverity` alone could not promise
+   *  that — it is session memory about a crossing, this is a fact about the record. */
+  const alarmedFor = useRef<Map<string, string>>(new Map())
 
   // per-second tick — only while monitoring is active AND at least one Trupp is actually in the
   // field. With no Trupp inside there is no contact clock to advance, so we skip the tick entirely
@@ -111,7 +117,11 @@ export function useAtemschutzAlarm({
       const justCrossed = seen && sev >= 2 && was < 2
       // the Verlauf already carries the pressure crossing from recordPressure (logPressureAlarm),
       // so only the contact crossing is recorded here — otherwise one reading writes two lines
-      if (justCrossed && !lowPressure) logAlarm(t.id, 'ueberfaellig') // crossed into overdue → record once
+      const turnus = t.lastContactTime ?? t.entryTime ?? ''
+      if (justCrossed && !lowPressure && alarmedFor.current.get(t.id) !== turnus) {
+        alarmedFor.current.set(t.id, turnus)
+        logAlarm(t.id, 'ueberfaellig') // crossed into overdue → record once PER TURNUS
+      }
       // opt-in early nudge: a soft one-shot pip the moment a Trupp crosses into the amber
       // «Kontakt fällig» lead (sev 0→1). Off by default; muted/demo suppress it like the alarm.
       if (cfg.contactDueChime && !muted && !demo && sev >= 1 && was < 1) chime()

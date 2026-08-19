@@ -182,6 +182,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     .map((r) => ({
       timeLabel: r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
       transcriptLines: r.transcriptLines,
+      repeats: r.repeats,
       // a corrected line prints its first wording beside the latest — the paper says the same
       // thing the «korrigiert»-chip says on screen
       correctedAt: r.correctedAt, textOriginal: r.textOriginal,

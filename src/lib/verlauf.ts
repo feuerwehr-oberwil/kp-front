@@ -85,3 +85,46 @@ export function isHandWritten(e: TimelineEvent): boolean {
   if (e.kind !== 'journal' && e.kind !== 'audio' && e.kind !== 'photo') return false
   return e.icon === 'type' || e.icon === 'mic' || e.icon === 'photo'
 }
+
+/** How close two identical lines have to be for the second to read as a REPEAT rather than as
+ *  news. Deliberately short: the ping that spams is a state the app re-states every few seconds
+ *  (an überfällige Kontaktuhr) or a button tapped six times in two seconds, while a genuinely
+ *  new Überfällig is at least one Funkkontakt-Intervall away. Nothing is ever collapsed across
+ *  a gap longer than this, so a second turnus keeps its own line. */
+const REPEAT_WINDOW_MS = 2 * 60_000
+
+/**
+ * Runs of the SAME line repeated within {@link REPEAT_WINDOW_MS} — the Verlauf and the printed
+ * journal show the first of them and say how often it repeated, instead of the same sentence
+ * twenty times.
+ *
+ * ⚠️ Display only. Every row stays in the append-only record and in the hash chain; this decides
+ * what is worth READING. The count is shown («6×») rather than silently swallowed — a reader has
+ * to be able to tell «this happened once» from «this happened and would not stop».
+ *
+ * ⚠️ Hand-written rows are never collapsed. Somebody who types the same sentence twice meant it
+ * both times, and the journal is their record, not the app's.
+ */
+export function repeatRuns(events: TimelineEvent[]): { counts: Map<string, number>; hidden: Set<string> } {
+  const counts = new Map<string, number>()
+  const hidden = new Set<string>()
+  const open = new Map<string, { id: string; lastMs: number }>()
+  const chrono = events
+    .filter((e) => e.at && !isHandWritten(e))
+    .sort((a, b) => Date.parse(a.at!) - Date.parse(b.at!))
+  for (const e of chrono) {
+    const key = e.text.trim()
+    if (!key) continue
+    const ms = Date.parse(e.at!)
+    if (!Number.isFinite(ms)) continue
+    const run = open.get(key)
+    if (run && ms - run.lastMs <= REPEAT_WINDOW_MS) {
+      counts.set(run.id, (counts.get(run.id) ?? 1) + 1)
+      hidden.add(e.id)
+      run.lastMs = ms
+      continue
+    }
+    open.set(key, { id: e.id, lastMs: ms })
+  }
+  return { counts, hidden }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay, isHandWritten, isNachtrag, rowTime, rowPhotos, swapUrl } from './verlauf'
+import { groupByDay, isHandWritten, isNachtrag, rowTime, rowPhotos, swapUrl, repeatRuns } from './verlauf'
 import type { TimelineEvent } from '../types'
 
 const row = (id: string, at?: string): TimelineEvent =>
@@ -92,5 +92,58 @@ describe('isHandWritten', () => {
     expect(isHandWritten(e({ kind: 'reminder', icon: 'clock' }))).toBe(false)
     // ⚠️ a Checklisten-Haken IS kind 'journal' — the icon is what separates it
     expect(isHandWritten(e({ kind: 'journal', icon: 'check' }))).toBe(false)
+  })
+})
+
+// A state the app re-states («Trupp X überfällig» every few seconds while nothing changes, an
+// undo tapped six times in two seconds) is one line that repeated — not twenty lines. Display
+// only: every row stays in the record, and the count is shown rather than swallowed.
+describe('repeatRuns', () => {
+  const row = (id: string, at: string, text: string, over: Partial<TimelineEvent> = {}): TimelineEvent =>
+    ({ id, t: at.slice(11, 16), at, icon: 'warn', text, kind: 'team', ...over })
+
+  it('collapses a run of the same line into the first, counting the repeats', () => {
+    const rows = [
+      row('a', '2026-08-19T20:00:00.000Z', 'Atemschutz-Alarm: Trupp Weber Marco – Überfällig'),
+      row('b', '2026-08-19T20:00:05.000Z', 'Atemschutz-Alarm: Trupp Weber Marco – Überfällig'),
+      row('c', '2026-08-19T20:00:11.000Z', 'Atemschutz-Alarm: Trupp Weber Marco – Überfällig'),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden).toEqual(new Set(['b', 'c']))
+    expect(counts.get('a')).toBe(3)
+  })
+
+  // two Trupps pinging alternately are two runs, not one — each keeps its own first line
+  it('keeps interleaved runs apart', () => {
+    const rows = [
+      row('a1', '2026-08-19T20:00:00.000Z', 'Alarm: Weber'),
+      row('b1', '2026-08-19T20:00:01.000Z', 'Alarm: Müller'),
+      row('a2', '2026-08-19T20:00:06.000Z', 'Alarm: Weber'),
+      row('b2', '2026-08-19T20:00:07.000Z', 'Alarm: Müller'),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden).toEqual(new Set(['a2', 'b2']))
+    expect(counts.get('a1')).toBe(2)
+    expect(counts.get('b1')).toBe(2)
+  })
+
+  // ⚠️ the SECOND turnus is news. A line that comes back after the window is its own row, so a
+  // Trupp that went overdue again after a Funkkontakt can never be hidden behind the first alarm.
+  it('never collapses across a gap longer than the window', () => {
+    const rows = [
+      row('a', '2026-08-19T20:00:00.000Z', 'Atemschutz-Alarm: Trupp Weber Marco – Überfällig'),
+      row('b', '2026-08-19T20:07:00.000Z', 'Atemschutz-Alarm: Trupp Weber Marco – Überfällig'),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden.size).toBe(0)
+    expect(counts.size).toBe(0)
+  })
+
+  it('leaves hand-written rows alone — somebody who typed it twice meant it twice', () => {
+    const rows = [
+      row('a', '2026-08-19T20:00:00.000Z', 'Wasser marsch', { kind: 'journal', icon: 'type' }),
+      row('b', '2026-08-19T20:00:04.000Z', 'Wasser marsch', { kind: 'journal', icon: 'type' }),
+    ]
+    expect(repeatRuns(rows).hidden.size).toBe(0)
   })
 })
