@@ -568,8 +568,17 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   background: var(--surface); border: 2px solid var(--blue); cursor: grab; touch-action: none; box-shadow: var(--shadow-sm); }
 .wb-vertex::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-vertex:active { cursor: grabbing; }
-.wb-vins { position: absolute; z-index: 7; width: 18px; height: 18px; border-radius: 50%; padding: 0; display: grid; place-items: center;
-  background: var(--blue); border: 2px solid var(--surface); color: var(--on-fill); cursor: pointer; touch-action: none; opacity: .55; }
-.wb-vins::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; transform: translate(-50%, -50%); }
+/* Verlängern-Griff auf dem Plan: dieselbe Optik wie auf der Lage (.draw-grow in 11-measure.css),
+   hier nur absolut im Board-Layer positioniert statt in einem Marker. z 8 über Knoten (7) und
+   Einfügepunkten (6) — er liegt ausserhalb der Linie, kann also nichts verdecken, aber am
+   Endpunkt drängen sich Knoten, Tag und Lösen-Chip. */
+.wb-grow { position: absolute; z-index: 8; }
+/* ⚠️ z-index 6, UNDER the vertices: on a dense line the two pads overlap and the node is the
+   more important grab — DOM order alone decided this before, which is a coincidence, not a rule.
+   Dashed + hollow like the map's .measure-insert: one look for «here could be a node». */
+.wb-vins { position: absolute; z-index: 6; width: 20px; height: 20px; border-radius: 50%; padding: 0; display: grid; place-items: center;
+  background: var(--surface); border: 2px dashed var(--blue); color: var(--blue); cursor: pointer; touch-action: none; opacity: .72;
+  box-shadow: 0 1px 3px rgba(30, 45, 70, .18); }
+.wb-vins::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-vins:hover { opacity: 1; }
-.wb-vins .i { width: 11px; height: 11px; stroke-width: 2.6; }
+.wb-vins .i { width: 11px; height: 11px; stroke-width: 3.2; }

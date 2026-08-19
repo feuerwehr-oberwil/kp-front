@@ -877,6 +877,8 @@ export const de = {
     // the + in the middle of every segment — the same label on Lage and Plan, because it is
     // the same gesture
     insertPoint: 'Punkt einfügen',
+    // the arrow grip past an open line end — dragging it appends one point
+    extendLine: 'Linie verlängern',
     deleteNode: 'Gedrückt halten zum Entfernen · am Computer Rechtsklick',
     distance: 'Distanz',
     perimeter: 'Umfang',
@@ -1554,7 +1556,7 @@ export const de = {
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
     insertVertex: 'Punkt einfügen',
-    dragVertex: 'Eckpunkt ziehen · Doppeltippen zum Löschen',
+    dragVertex: 'Eckpunkt ziehen · gedrückt halten zum Löschen',
     groupDeleted: 'Auswahl entfernt',
     groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',

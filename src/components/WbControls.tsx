@@ -117,7 +117,7 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
  * closing edge is only offered for an area (`kind === 'area'`). Positions are board px (caller
  * passes sW/sH + the floor-stack y map).
  */
-export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, onDeleteVertex }: {
+export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, onDeleteVertex, onExtend }: {
   anno: BoardAnno
   sW: number
   sH: number
@@ -125,6 +125,8 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   onVertexDown: (idx: number, e: React.PointerEvent) => void
   onInsert: (idx: number, e: React.PointerEvent) => void
   onDeleteVertex: (idx: number) => void
+  /** grow the line past an open end — appends a point there and hands the drag over to it */
+  onExtend?: (end: 'start' | 'end', e: React.PointerEvent) => void
 }) {
   // still hold = delete, movement cancels into the reshape drag — the SAME gesture and the same
   // chip the map uses (lib/nodeHold · NodeDeleteChip); the two surfaces share the feel, not the
@@ -146,6 +148,22 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
           <button key={`ins-${i}`} className="wb-vins" title={appConfig.copy.whiteboard.insertVertex} aria-label={appConfig.copy.whiteboard.insertVertex}
             style={{ left: 0, top: 0, transform: `translate(${(a[0] + b[0]) / 2}px, ${(a[1] + b[1]) / 2}px) translate(-50%, -50%)` }}
             onPointerDown={(e) => onInsert(i, e)}><Icon id="plus" /></button>
+        )
+      })}
+      {/* ── Verlängern ──────────────────────────────────────────────────────────────────────
+          The arrow grip past each open end, exactly as on the Lage: dragging it appends one
+          point and the grip moves to the new end. A Fläche has no end to grow from. */}
+      {!closed && onExtend && (['start', 'end'] as const).map((ep) => {
+        const i = ep === 'start' ? 0 : sp.length - 1
+        const nb = ep === 'start' ? sp[1] : sp[sp.length - 2]
+        const p0 = sp[i]
+        const dx = p0[0] - nb[0], dy = p0[1] - nb[1], len = Math.hypot(dx, dy) || 1
+        const gx = p0[0] + (dx / len) * 46, gy = p0[1] + (dy / len) * 46
+        const deg = (Math.atan2(dy, dx) * 180) / Math.PI
+        return (
+          <button key={`grow-${ep}`} className="draw-grow wb-grow" title={appConfig.copy.measure.extendLine} aria-label={appConfig.copy.measure.extendLine}
+            style={{ left: 0, top: 0, transform: `translate(${gx}px, ${gy}px) translate(-50%, -50%)`, ['--grow-deg' as string]: `${deg}deg` }}
+            onPointerDown={(e) => onExtend(ep, e)}><Icon id="arrow" /></button>
         )
       })}
       {/* ⚠️ No double-tap delete any more (19.08.). It was the one gesture the map never had, iOS

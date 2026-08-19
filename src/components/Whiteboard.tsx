@@ -942,6 +942,27 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     setPlanEndpointDrag(null)
     if (st?.moved) emit('board.edit', { id: st.id, planId: activeId })
   }
+  /**
+   * Grow the line past one of its open ends: append a point where the finger is, then hand the
+   * gesture straight over to the ordinary vertex drag so the new point follows until release.
+   * One undo step (pushPast once, at the start) — the same shape a reshape has.
+   */
+  const extendLine = (end: 'start' | 'end', e: React.PointerEvent) => {
+    if (tool !== 'pan') return
+    e.stopPropagation()
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
+    const n = toNorm(e.clientX, e.clientY); if (!n) return
+    const floor = a.kind === 'draw' && stack ? floorAt(n[1]) : (a.floor ?? 0)
+    const point: BoardPoint = [n[0], localY(n[1], floor), floor]
+    pushPast()
+    const next = end === 'start' ? [point, ...pts] : [...pts, point]
+    patch(a.id, { pts: next })
+    // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and
+    // vertUp commits exactly as if the node had always been there.
+    vertDrag.current = { id: a.id, idx: end === 'start' ? 0 : next.length - 1, floor, moved: true }
+  }
+
   // insert a node on the segment after vertex `idx` (at its midpoint), then commit
   const insertVertex = (idx: number, e: React.PointerEvent) => {
     e.stopPropagation()
@@ -1768,7 +1789,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 per-node handles would be unusable (mirrors the map's vertex-handle cap). */}
             {selDraw && tool === 'pan' && (selDraw.kind === 'area' || (selDraw.pts?.length ?? 99) <= MAX_VERTEX_HANDLES) && (
               <WbVertexHandles anno={renderAnnos.find((a) => a.id === selDraw.id) ?? selDraw} sW={sW} sH={sH} mapY={mapY}
-                onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} />
+                onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine} />
             )}
             {/* explicit detach: a × chip beside a connected endpoint of the selected line — dragging
                 the node only moves/re-targets (never severs), so this is how a link is broken. */}

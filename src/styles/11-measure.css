@@ -52,16 +52,19 @@
 .measure-handle::after, .draw-handle::after { content: ''; position: absolute; left: 50%; top: 50%;
   width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .measure-handle:active, .draw-handle:active { cursor: grabbing; transform: scale(1.15); }
-/* insert-a-node "+" at a measured segment's midpoint. Held at .55 so a path with many segments
-   doesn't read as a row of buttons with a line behind it; same 34px hit pad as the Plan's
-   .wb-vins, which this deliberately matches pixel for pixel. */
-.measure-insert { position: relative; width: 18px; height: 18px; border-radius: 50%; padding: 0;
-  display: grid; place-items: center; background: var(--blue); border: 2px solid var(--surface);
-  color: var(--on-fill); cursor: pointer; box-sizing: border-box; touch-action: none; opacity: .55; }
+/* Insert-a-node «+» at a segment's midpoint — Messung, Lage-Zeichnung and the Plan's .wb-vins,
+   which this matches pixel for pixel.
+   ⚠️ DASHED and hollow, not a filled blue dot (19.08.): filled, it read as a node that is already
+   there, so a line with five segments looked like a line with eleven points. Dashed says «here
+   COULD be one», the «+» says what happens, and the hit pad stays 44px for a gloved finger. */
+.measure-insert { position: relative; width: 20px; height: 20px; border-radius: 50%; padding: 0;
+  display: grid; place-items: center; background: var(--surface); border: 2px dashed var(--blue);
+  color: var(--blue); cursor: pointer; box-sizing: border-box; touch-action: none; opacity: .72;
+  box-shadow: 0 1px 3px rgba(30, 45, 70, .18); }
 .measure-insert::after { content: ''; position: absolute; left: 50%; top: 50%;
-  width: 34px; height: 34px; transform: translate(-50%, -50%); }
+  width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .measure-insert:hover { opacity: 1; }
-.measure-insert .i { width: 11px; height: 11px; stroke-width: 2.6; }
+.measure-insert .i { width: 11px; height: 11px; stroke-width: 3.2; }
 /* endpoint-attach feedback — a ring on the connection point whose centre fills to solid over ~350ms
    while hovered (the classic "fills up until it locks" affordance). Keyed to the target in JSX, so a
    fresh target restarts the fill. It's a hover flourish; the attach commits on release. Dragging
@@ -79,6 +82,17 @@
 .wb-magnet { position: absolute; z-index: 12; transform: translate(-50%, -50%); }
 /* explicit detach affordance: a chip beside a selected, connected endpoint (map + plan). Sized for
    fat fingers — it's the only on-canvas control that both signals "connected" and breaks the link. */
+/* ── Linie verlängern ───────────────────────────────────────────────────────────────────────
+   Der Pfeilgriff jenseits eines offenen Endes: hohl und blau wie ein Knoten, aber deutlich
+   grösser und mit einem Pfeil in Linienrichtung — er ist KEIN Punkt der Linie, sondern die
+   Einladung, einen anzuhängen. `--grow-deg` dreht nur den Pfeil, nie den Kreis, sonst wandert
+   der Schatten mit. */
+.draw-grow { position: relative; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: 3px solid var(--blue); color: var(--blue); cursor: grab;
+  box-shadow: 0 2px 8px rgba(30, 45, 70, .35); box-sizing: border-box; touch-action: none; }
+.draw-grow::after { content: ''; position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; transform: translate(-50%, -50%); }
+.draw-grow .i { width: 16px; height: 16px; stroke-width: 3; transform: rotate(var(--grow-deg, 0deg)); }
+.draw-grow:active { cursor: grabbing; }
 /* ── Knoten löschen: halten ─────────────────────────────────────────────────────────────────
    Der Chip IST der Lösen-Chip von unten – dieselbe Grösse, derselbe Rand, dasselbe ×. Beides ist
    die rote, wegnehmende Sache an einer Linie, und wer die eine kennt, kennt die andere. Versetzt

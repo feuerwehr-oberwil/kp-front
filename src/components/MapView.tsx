@@ -780,6 +780,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
        editDraw.coords.reduce((s, c) => s + c[1], 0) / editDraw.coords.length]
     : null
   const moveRef = useRef<{ start: LngLat; coords: LngLat[] } | null>(null)
+  /** the line's geometry as it was when an extend-grip drag began — see the ⚠️ at the grip */
+  const growRef = useRef<LngLat[] | null>(null)
   // Translate from the geometry snapshotted at drag-start (moveRef.coords), NOT the live doc —
   // 'move' streams into the doc each frame, so reading it back would re-add the full delta and
   // race the line away. Attached endpoints stay pinned (moveLineBody) and re-resolve on render.
@@ -1345,6 +1347,23 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           <div className="draw-move" title={appConfig.copy.drawingEditor.move} aria-label={appConfig.copy.drawingEditor.move}><Icon id="move" /></div>
         </Marker>
       )}
+      {/* «+» at each segment's midpoint of the SELECTED drawing — the same affordance the Messung
+          has always had, and the Plan too. On the map inserting a node used to mean hitting the
+          line's invisible 18px hit-band with no sign that this was possible at all (19.08.).
+          Rendered BEFORE the vertices so a node handle wins wherever the two overlap. */}
+      {editDraw && editVertices && onDrawingVertexInsert && editDraw.coords.length >= 2 && (() => {
+        const n = editDraw.coords.length
+        return Array.from({ length: pathSegmentCount(n, editArea) }, (_, i) => {
+          const a = editDraw.coords[i], b = editDraw.coords[(i + 1) % n]
+          const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+          return (
+            <Marker key={`di${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
+              <MeasureInsertHandle title={appConfig.copy.measure.insertPoint} onInsert={() => onDrawingVertexInsert(editDraw.id, i + 1, mid)} />
+            </Marker>
+          )
+        })
+      })()}
+
       {editDraw && editVertices && onDrawingEdit && editDraw.coords.map((p, i) => {
         const endpoint: LineEndpoint | null = editDraw.kind === 'line' && i === 0 ? 'start' : editDraw.kind === 'line' && i === editDraw.coords.length - 1 ? 'end' : null
         return (
@@ -1367,6 +1386,55 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         </Marker>
         )
       })}
+      {/* ── Verlängern ─────────────────────────────────────────────────────────────────────────
+          An arrow grip sitting ~46px PAST each open end of a selected line, pointing the way the
+          line runs. Dragging it appends one point where the finger lets go, and the grip then sits
+          at the new end — so a hose that grew gets drawn on rather than re-drawn. Until now the
+          only way to lengthen a line was to draw a second one and magnet it on, which produces a
+          second Leitung with its own number and its own Trupp link (19.08.).
+          ⚠️ Offset OUTWARD, never on the endpoint itself: the endpoint already carries the node
+          handle and, when attached, the detach chip. A grip on top of those would be a third
+          thing competing for the same pixel.
+          Lines only — an area has no end to grow from, and a circle is centre + radius. */}
+      {editDraw && editDraw.kind === 'line' && editVertices && onDrawingEdit && editDraw.coords.length >= 2
+        && (['start', 'end'] as const).map((ep) => {
+        const coords = editDraw.coords
+        const i = ep === 'start' ? 0 : coords.length - 1
+        const pt = coords[i], neighbor = ep === 'start' ? coords[1] : coords[coords.length - 2]
+        const map = mapInst.current
+        let at: LngLat = pt
+        let deg = 0
+        if (map) {
+          const p = map.project(pt), q = map.project(neighbor)
+          const dx = p.x - q.x, dy = p.y - q.y, len = Math.hypot(dx, dy) || 1
+          const ll = map.unproject([p.x + (dx / len) * 46, p.y + (dy / len) * 46])
+          at = [ll.lng, ll.lat]
+          deg = (Math.atan2(dy, dx) * 180) / Math.PI
+        }
+        // ⚠️ Built from the geometry SNAPSHOTTED at drag start (growRef), never from the live
+        // drawing — the same rule the body-move handle follows (moveRef above). Reading the live
+        // coords appends one point per pointermove: a single drag across the screen turned an
+        // 8-point hose into a 21-point one (19.08.).
+        const grownFrom = (base: LngLat[], c: LngLat): LngLat[] => (ep === 'start' ? [c, ...base] : [...base, c])
+        return (
+          <Marker
+            key={`grow-${ep}`}
+            longitude={at[0]}
+            latitude={at[1]}
+            anchor="center"
+            draggable
+            onDragStart={(e) => { growRef.current = coords; onDrawingEdit(editDraw.id, grownFrom(coords, [e.lngLat.lng, e.lngLat.lat]), 'start') }}
+            onDrag={(e) => onDrawingEdit(editDraw.id, grownFrom(growRef.current ?? coords, [e.lngLat.lng, e.lngLat.lat]), 'move')}
+            onDragEnd={(e) => { onDrawingEdit(editDraw.id, grownFrom(growRef.current ?? coords, [e.lngLat.lng, e.lngLat.lat]), 'end'); growRef.current = null }}
+          >
+            <div className="draw-grow" title={appConfig.copy.measure.extendLine} aria-label={appConfig.copy.measure.extendLine}
+              style={{ ['--grow-deg' as string]: `${deg}deg` }}>
+              <Icon id="arrow" />
+            </div>
+          </Marker>
+        )
+      })}
+
       {/* explicit detach: a × chip beside a connected endpoint of the selected line. Dragging the node
           only moves/re-targets (never severs), so this is how a connection is broken on-canvas. */}
       {editDraw && editDraw.kind === 'line' && onDrawingAttachment && !endpointDrag && (['start', 'end'] as const).map((ep) => {
