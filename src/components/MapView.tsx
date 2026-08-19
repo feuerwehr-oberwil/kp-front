@@ -17,7 +17,8 @@ import { MapMarkers } from './MapMarkers'
 import { MapLayers } from './MapLayers'
 // long-press to delete a path vertex (touch — desktop right-click kept); the placed-object
 // move threshold lives in MapMarkers with the entity-drag logic.
-import { useLongPress } from '../lib/useLongPress'
+import { useNodeHold } from '../lib/nodeHold'
+import { NodeDeleteChip } from './NodeDeleteChip'
 import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { reportClientError } from '../lib/reportError'
@@ -247,13 +248,20 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // "facing south" keeps facing south when you spin the map). Streamed on every rotate frame.
   const [bearing, setBearing] = useState(initialBearing)
   const mapInst = useRef<MlMap | null>(null)
-  // long-press to delete a path vertex (touch equivalent of the desktop right-click)
-  const vertexPress = useLongPress()
+  // hold a node to delete it — one gesture for draft, Messung and drawing vertices alike, with
+  // the chip appearing only after the hold has armed (lib/nodeHold). Desktop right-click stays
+  // as the mouse shortcut.
+  const vertexPress = useNodeHold()
   // A long-press vertex-delete fires mid-gesture; the finger's release then lands a map click on
   // the reshaped background, which would deselect and close the editor. This swallows that one
   // click so the line stays selected and more nodes can be deleted in a row.
   const suppressClick = useRef(false)
   const deleteVertexKeepSelection = (id: string, i: number) => { suppressClick.current = true; onDrawingVertexDelete?.(id, i) }
+  // ⚠️ …and the same for the Messung and the draft. Their delete used to be the ONLY one that
+  // did not swallow the release: the finger came up where the node had been, the map read it as
+  // a tap, and the Messen/Zeichnen tool put a fresh point back at exactly that spot — so a
+  // deleted node reappeared and the hold looked broken (19.08.).
+  const deletePointKeepTool = (fn?: (i: number) => void) => (i: number) => { suppressClick.current = true; fn?.(i) }
   const [mapReady, setMapReady] = useState(false)
   // MapLibre paint specs can't read CSS vars, so the two TRANSIENT overlays drawn in the UI blue —
   // the draft shape and the measure path — pick their literal here instead of freezing the day
@@ -1147,11 +1155,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           onDragEnd={(e) => onDraftDrag?.(i, [e.lngLat.lng, e.lngLat.lat])}
         >
           <div
-            className="measure-handle"
+            className={`measure-handle ${vertexPress.armed?.key === `draft:${i}` ? 'doomed' : ''}`}
             title={appConfig.copy.measure.deleteNode}
-            {...vertexPress.press(() => onDraftDelete?.(i))}
+            {...vertexPress.press(`draft:${i}`, () => deletePointKeepTool(onDraftDelete)(i))}
             onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); onDraftDelete?.(i) }}
-          />
+          >{vertexPress.armed?.key === `draft:${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</div>
         </Marker>
       ))}
 
@@ -1183,11 +1191,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           onDragEnd={(e) => onMeasureDrag?.(i, [e.lngLat.lng, e.lngLat.lat])}
         >
           <div
-            className="measure-handle"
+            className={`measure-handle ${vertexPress.armed?.key === `measure:${i}` ? 'doomed' : ''}`}
             title={appConfig.copy.measure.deleteNode}
-            {...vertexPress.press(() => onMeasureDelete?.(i))}
+            {...vertexPress.press(`measure:${i}`, () => deletePointKeepTool(onMeasureDelete)(i), measurePoints.length > (measureKind === 'area' ? 3 : 2))}
             onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); onMeasureDelete?.(i) }}
-          />
+          >{vertexPress.armed?.key === `measure:${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</div>
         </Marker>
       ))}
 
@@ -1351,11 +1359,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           onDragEnd={(e) => endpoint && onDrawingAttachment ? (moveEndpointDrag([e.lngLat.lng, e.lngLat.lat]), finishEndpointDrag()) : onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'end')}
         >
           <div
-            className="draw-handle"
+            className={`draw-handle ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
             title={appConfig.copy.measure.deleteNode}
-            {...vertexPress.press(() => deleteVertexKeepSelection(editDraw.id, i))}
+            {...vertexPress.press(`draw:${i}`, () => deleteVertexKeepSelection(editDraw.id, i), editDraw.coords.length > (editArea ? 3 : 2))}
             onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); deleteVertexKeepSelection(editDraw.id, i) }}
-          />
+          >{vertexPress.armed?.key === `draw:${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</div>
         </Marker>
         )
       })}

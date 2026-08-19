@@ -79,6 +79,27 @@
 .wb-magnet { position: absolute; z-index: 12; transform: translate(-50%, -50%); }
 /* explicit detach affordance: a chip beside a selected, connected endpoint (map + plan). Sized for
    fat fingers — it's the only on-canvas control that both signals "connected" and breaks the link. */
+/* ── Knoten löschen: halten ─────────────────────────────────────────────────────────────────
+   Der Chip IST der Lösen-Chip von unten – dieselbe Grösse, derselbe Rand, dasselbe ×. Beides ist
+   die rote, wegnehmende Sache an einer Linie, und wer die eine kennt, kennt die andere. Versetzt
+   neben dem Knoten, weil der Finger genau auf dem Knoten liegt; der Ring aussen herum füllt sich,
+   solange gehalten wird (lib/nodeHold). Vor dem Armieren wird gar nichts gerendert – ein Zug am
+   Knoten darf nie kurz rot aufblitzen. */
+.node-del { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; pointer-events: none;
+  transform: translate(calc(-50% + 30px), calc(-50% - 30px)); z-index: 10; }
+.node-del-face { position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center;
+  border: 3px solid var(--red); background: var(--surface); color: var(--red);
+  box-shadow: 0 2px 6px rgba(30, 45, 70, .34); }
+.node-del-face .i { width: 20px; height: 20px; stroke-width: 2.6; }
+/* ⚠️ `inset: auto` BEFORE left/top — set after them it resets both to auto and the ring lands at
+   its static position, its lower arc cutting straight through the ×. Order decides here. */
+.node-del-ring { position: absolute; inset: auto; left: 50%; top: 50%; width: 62px; height: 62px;
+  transform: translate(-50%, -50%) rotate(-90deg); pointer-events: none; }
+.node-del-track { fill: none; stroke: color-mix(in srgb, var(--red) 20%, transparent); stroke-width: 3.5; }
+.node-del-fill { fill: none; stroke: var(--red); stroke-width: 3.5; stroke-linecap: round; }
+/* the node under the finger, while the ring fills — it says «this one», not «selected» */
+.draw-handle.doomed, .measure-handle.doomed, .wb-vertex.doomed {
+  border-color: var(--red); background: color-mix(in srgb, var(--red) 12%, var(--surface)); }
 .line-detach-chip { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
   border: 3px solid var(--red); background: var(--surface); color: var(--red);
   box-shadow: 0 2px 6px rgba(30, 45, 70, .34); cursor: pointer; }

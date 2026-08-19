@@ -6,7 +6,7 @@ import { TILE_AR } from '../lib/whiteboard'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
-import { useLongPress } from '../lib/useLongPress'
+import { useNodeHold } from '../lib/nodeHold'
 import type { BoardTool } from '../types'
 import type { PlanScales } from '../lib/workspace'
 import type { PlanLogExtra } from './Whiteboard'
@@ -116,7 +116,7 @@ export function usePlanMeasure({ activeId, stack, aspect, planScale, localY, flo
   }
   const measDelete = (idx: number) => { measDrag.current = null; setMeasPath((p) => p.filter((_, i) => i !== idx)) }
   // touch path for node delete — double-tap rarely synthesizes dblclick on iOS
-  const measPress = useLongPress()
+  const measPress = useNodeHold()
 
   // leaving the metre-entry popover returns to Messen (the auto-calibrate-on-first-measure
   // flow), otherwise drops to pan (the Maßstab chip).

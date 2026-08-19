@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { NodeDeleteChip } from './NodeDeleteChip'
 import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, NoteSize, PlanDocument, ShapeKind, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import { Icon } from '../lib/icons'
@@ -1742,9 +1743,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       {/* positioning wrapper so the handle's :active scale never clobbers the
                           board-px placement (mirrors how the map nests the handle in a Marker) */}
                       <div className="wb-meas-node" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -50%)` }}>
-                        <button className="measure-handle" title={appConfig.copy.measure.deleteNode} aria-label={appConfig.copy.measure.deleteNode}
-                          onPointerDown={(e) => { measPress.press(() => measDelete(i)).onPointerDown(e); measNodeDown(i, e) }}
-                          onDoubleClick={(e) => { e.stopPropagation(); measDelete(i) }} />
+                        <button className={`measure-handle ${measPress.armed?.key === `m${i}` ? 'doomed' : ''}`}
+                          title={appConfig.copy.measure.deleteNode} aria-label={appConfig.copy.measure.deleteNode}
+                          onPointerDown={(e) => { measPress.press(`m${i}`, () => measDelete(i)).onPointerDown(e); measNodeDown(i, e) }}
+                        >{measPress.armed?.key === `m${i}` && <NodeDeleteChip progress={measPress.armed.progress} />}</button>
                       </div>
                       {measMode === 'line' && cum != null && (
                         <span className="wb-line-label wb-meas-label" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -150%)` }}>{fmtDistance(cum)}</span>

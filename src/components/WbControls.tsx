@@ -3,7 +3,8 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { LINE_DASH_SVG } from '../lib/draw'
 import { ToolDock } from './ToolDock'
-import { useLongPress } from '../lib/useLongPress'
+import { useNodeHold } from '../lib/nodeHold'
+import { NodeDeleteChip } from './NodeDeleteChip'
 
 const COLORS = appConfig.drawing.colors
 const NOTES = appConfig.copy.notes
@@ -125,8 +126,10 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   onInsert: (idx: number, e: React.PointerEvent) => void
   onDeleteVertex: (idx: number) => void
 }) {
-  // still hold = delete, movement cancels into the reshape drag (same pattern as the map)
-  const vertexPress = useLongPress()
+  // still hold = delete, movement cancels into the reshape drag — the SAME gesture and the same
+  // chip the map uses (lib/nodeHold · NodeDeleteChip); the two surfaces share the feel, not the
+  // renderer.
+  const vertexPress = useNodeHold()
   const pts = anno.pts ?? []
   if (pts.length < 2) return null
   const closed = anno.kind === 'area'
@@ -145,14 +148,18 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
             onPointerDown={(e) => onInsert(i, e)}><Icon id="plus" /></button>
         )
       })}
+      {/* ⚠️ No double-tap delete any more (19.08.). It was the one gesture the map never had, iOS
+          does not deliver `dblclick` reliably anyway, and on a dense line a stray second tap
+          removed a node with no way to see it coming. The hold is the whole story now. */}
       {sp.map(([x, y], i) => (
-        <button key={`v-${i}`} className="wb-vertex" title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex}
+        <button key={`v-${i}`} className={`wb-vertex ${vertexPress.armed?.key === `v${i}` ? 'doomed' : ''}`}
+          title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex}
           style={{ left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
           onPointerDown={(e) => {
-            if (pts.length > minPts) vertexPress.press(() => onDeleteVertex(i)).onPointerDown(e)
+            vertexPress.press(`v${i}`, () => onDeleteVertex(i), pts.length > minPts).onPointerDown(e)
             onVertexDown(i, e)
           }}
-          onDoubleClick={(e) => { e.stopPropagation(); if (pts.length > minPts) onDeleteVertex(i) }} />
+        >{vertexPress.armed?.key === `v${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</button>
       ))}
     </>
   )
