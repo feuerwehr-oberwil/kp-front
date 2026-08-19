@@ -179,6 +179,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
 
   // one <audio> for the sheet's lifetime; ~4 Hz timeupdate drives readout + canvas redraws
   useEffect(() => {
+    setErrored(false) // the flag belongs to THIS row's load — a new row starts clean
     if (!row.audioUrl) { setErrored(true); return }
     const a = new Audio(row.audioUrl)
     a.preload = 'metadata'
@@ -194,7 +195,15 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
     a.onended = () => setPlaying(false)
     a.onerror = () => setErrored(true)
     audioRef.current = a
-    return () => { a.pause(); a.src = ''; audioRef.current = null }
+    return () => {
+      // ⚠️ Detach the handlers BEFORE tearing down: `a.src = ''` makes the media element fire
+      // `error`, and with `onerror` still attached, StrictMode's dev double-mount latched
+      // `errored` on the healthy second run — the sheet then claimed «Wiedergabe benötigt
+      // eine Verbindung» with the server right there.
+      a.onloadedmetadata = null; a.ondurationchange = null; a.ontimeupdate = null
+      a.onplay = null; a.onpause = null; a.onended = null; a.onerror = null
+      a.pause(); a.src = ''; audioRef.current = null
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row.id])
 
