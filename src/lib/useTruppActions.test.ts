@@ -391,9 +391,21 @@ describe('useTruppActions — renumbering a hose follows onto the anchored Trupp
     expect(state.trupps[0].lineNo).toBe(1)
   })
 
-  it('leaves an out Trupp’s record alone — same guard as the link’s release', () => {
+  // ⚠️ a `raus` Trupp SYNCS — its card keeps showing the Leitung chip, and «Ltg 1» beside a
+  // hose tagged «Ltg 3» is exactly the lie this helper exists to prevent (19.08.). Only a
+  // soft-deleted card is left alone.
+  it('follows the renumber on a raus Trupp too — its chip is still showing', () => {
     const { actions, state } = harness(
       baseTrupp({ lineNo: 1, lineId: 'd1', status: 'raus', exitTime: '2026-07-06T10:30:00Z' }),
+      { drawings: [hose({ truppId: 'T1', lineNo: 1 })] },
+    )
+    actions.syncLineNoToTrupp('d1', 3)
+    expect(state.trupps[0].lineNo).toBe(3)
+  })
+
+  it('leaves a soft-deleted Trupp’s record alone', () => {
+    const { actions, state } = harness(
+      baseTrupp({ lineNo: 1, lineId: 'd1', removedAt: '2026-07-06T10:30:00Z' }),
       { drawings: [hose({ truppId: 'T1', lineNo: 1 })] },
     )
     actions.syncLineNoToTrupp('d1', 3)

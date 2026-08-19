@@ -618,9 +618,12 @@ export function useTruppActions(deps: Deps) {
   const syncLineNoToTrupp = (lineId: string, lineNo: number | undefined) => {
     const line = docLines().find((l) => l.id === lineId)
       ?? Object.values(board).flat().find((a) => a.id === lineId && a.kind === 'draw')
+    // ⚠️ A `raus` Trupp still syncs — its card keeps showing the Leitung chip, and that chip
+    // said «Ltg 1» next to a hose tagged «Ltg 3» (19.08.). Only a soft-deleted card is skipped;
+    // the release-guard from linkTruppLine protects claims, not a number that must stay true.
     const tr = trupps.find((t) =>
       ((line?.truppId && t.id === line.truppId) || (t.lineId && t.lineId === lineId))
-      && !isOutTrupp(t) && !t.removedAt)
+      && !t.removedAt)
     if (!tr || tr.lineNo === lineNo) return
     updateTrupp(tr.id, { lineNo })
     emit('atemschutz.line.renumber', { id: tr.id, lineId, lineNo })
