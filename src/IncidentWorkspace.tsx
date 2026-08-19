@@ -19,6 +19,7 @@ import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, 
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
+import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
@@ -490,6 +491,9 @@ export function IncidentWorkspace({
   /** The Rapport is a surface now, so «open it» is «go there». Kept as a named helper because
    *  half a dozen entry points say it (Abschluss-Assistent, the print action, the return chip). */
   const openRapport = () => setMode('rapport')
+  // Demo-only: which surface someone opened, for the public demo's visit statistics. A no-op
+  // on every real station (isDemoMode) and in a link session — see lib/visitBeacon.ts.
+  useEffect(() => { countSurface(mode, { linkScoped }) }, [mode, linkScoped])
   // `phoneTools` (the second, stacked tool bar → its extra bottom clearances) is computed below,
   // once `planDocs` is known: a viewer-only plan renders NO tool bar, so it must reserve one bar,
   // not two.
@@ -3760,6 +3764,12 @@ export function IncidentWorkspace({
           // same Verlauf, so it completes and marks names identically
           vocab={journalVocab}
           onAddEntry={!readOnly ? addPlayerEntry : undefined}
+          // a voice memo's words land on the memo itself, as a transcript section at the
+          // playhead — appended like every enrichment, never edited in place
+          onAddSection={!readOnly ? (atSec, text) => {
+            journal.appendPatch(player.row.id, { transcriptSection: { at: atSec, text } })
+            toast(appConfig.copy.journal.saved, { icon: 'type', tone: 'success' })
+          } : undefined}
           onPatchEntry={!readOnly ? (rowId, text) => journal.appendPatch(rowId, { textEdit: text }) : undefined}
           onRetractEntry={!readOnly ? (rowId) => {
             journal.appendPatch(rowId, { retracted: true })

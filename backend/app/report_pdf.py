@@ -143,6 +143,10 @@ class JournalRowIn(BaseModel):
     #: «&» somebody typed. It is therefore NOT run through ``_esc`` again here.
     markup: str | None = None
     transcript: str | None = None
+    #: a memo transcribed in SECTIONS — one pre-formatted line per section, offset-prefixed
+    #: («0:05  Rückzug eingeleitet»). Preferred over ``transcript`` when present; that field
+    #: still carries the joined words so an older server prints something.
+    transcriptLines: list[str] = []
     #: A corrected line prints as latest wording + a muted «korrigiert HH:MM · ursprünglich: …»
     #: sub-line — the record's first wording; intermediate revisions stay unprinted (the journal
     #: store keeps them all, the paper shows where it started and where it ended, 19.08.).
@@ -1404,7 +1408,11 @@ def compose_report_pdf(
             if r.correctedAt and r.textOriginal:
                 corrected = L["correctedLine"].format(t=_esc(r.correctedAt), text=_esc(r.textOriginal))
                 entry_cells.append(Paragraph(corrected, st["muted"]))
-            if r.transcript:
+            if r.transcriptLines:
+                for i, line in enumerate(r.transcriptLines):
+                    lead = f"<b>{_esc(L['transcript'])}:</b> " if i == 0 else ""
+                    entry_cells.append(Paragraph(f"{lead}{_esc(line)}", st["muted"]))
+            elif r.transcript:
                 entry_cells.append(Paragraph(f"<b>{_esc(L['transcript'])}:</b> {_esc(r.transcript)}", st["muted"]))
             urls = r.photoUrls or ([r.photoUrl] if r.photoUrl else [])
             shots = [figures.get(r.photoKey)] if r.photoKey else []

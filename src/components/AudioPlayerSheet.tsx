@@ -110,7 +110,12 @@ function useStt(audioUrl: string | undefined, enabled: boolean) {
 // The Durchhören sheet: the recording as a window on the incident timeline. Markers are
 // derived — every Verlauf row whose time falls into the window — and «Eintrag an dieser
 // Stelle» appends an ordinary journal row at the paused wall-clock instant.
-export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
+// ⚠️ Except on a VOICE MEMO (audioMeta.source 'recorded'): its words belong to the memo, not
+// to the incident timeline as free-standing rows — there the composer writes TRANSCRIPT
+// SECTIONS (offset + text) onto the memo's own row, listed as subtitle lines in the Verlauf.
+// A 8-second memo annotated with «ordinary» rows produced an unrelated-looking «Manuell» row
+// while the memo kept nagging for its transcript (19.08.).
+export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSection, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
   row: TimelineEvent
   events: TimelineEvent[]
   readOnly: boolean
@@ -119,6 +124,8 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
   vocab?: JournalLink[]
   /** append a journal row at the given absolute time; returns the created row id */
   onAddEntry?: (text: string, atIso: string, quiet?: boolean) => string
+  /** append one transcript section (offset into the recording, in s) onto THIS row */
+  onAddSection?: (atSec: number, text: string) => void
   /** append a text correction patch for a row this player created (append-only edit) */
   onPatchEntry?: (rowId: string, text: string) => void
   /** retract a row this player created (append-only "delete" with undo) */
@@ -129,6 +136,11 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
 }) {
   const C = appConfig.copy.journal // read per-render so the resolved locale applies
   const baseWin = useMemo(() => audioWindowOf(row), [row])
+  // `row` is the click-time snapshot; sections appended while the sheet is open arrive on the
+  // live timeline (`events`), so the display reads them from there
+  const live = events.find((r) => r.id === row.id) ?? row
+  const isMemo = row.audioMeta?.source === 'recorded' && !!onAddSection
+  const sections = isMemo ? live.transcriptSections ?? [] : []
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = useState(false)
   const [cur, setCur] = useState(0)
@@ -160,10 +172,12 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
     catch { /* the server copy lags a reload — the confirmed journal row is the record */ }
   }
   const confirmDraft = (index: number, seg: SttSegment) => {
-    if (!win || !onAddEntry) return
+    if (!win || (!onAddEntry && !isMemo)) return
     const body = (drafts[index] ?? seg.text).trim()
     if (!body) return
-    const rowId = onAddEntry(body, new Date(win.startMs + seg.start * 1000).toISOString(), true)
+    // on a memo a confirmed segment IS a transcript section — same home as typed ones
+    if (isMemo) { onAddSection!(seg.start, body); void patchSegment(index, 'confirmed', undefined, body); return }
+    const rowId = onAddEntry!(body, new Date(win.startMs + seg.start * 1000).toISOString(), true)
     void patchSegment(index, 'confirmed', rowId, body)
   }
   const confirmAll = () => { for (const s of openDrafts) confirmDraft(s.index, s) }
@@ -360,9 +374,13 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
   const takeName = (name: string) => { setText((t) => acceptName(t, name)); refocus() }
   const sendEntry = () => {
     const body = text.trim()
-    if (!body || !win || !onAddEntry) return
+    if (!body || !win) return
     audioRef.current?.pause()
-    onAddEntry(body, new Date(win.startMs + cur * 1000).toISOString())
+    // a memo's words go onto the memo itself; only a long/imported recording gets
+    // free-standing timeline rows
+    if (isMemo) onAddSection!(cur, body)
+    else if (onAddEntry) onAddEntry(body, new Date(win.startMs + cur * 1000).toISOString())
+    else return
     setText('')
   }
 
@@ -432,9 +450,12 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
             </div>
           )}
 
-          {!readOnly && onAddEntry && !errored && (
+          {!readOnly && (isMemo || onAddEntry) && !errored && (
             <div className="ap-add">
-              <span className="ap-add-label"><Icon id="type" />{C.playerEntryHere}<em>{wallClockAt(win, cur)}</em></span>
+              {/* on a memo this writes the TRANSCRIPT (a section at the playhead), so it
+                  says so and shows the offset; on a long recording it stays the timeline
+                  entry with its wall-clock instant */}
+              <span className="ap-add-label"><Icon id="type" />{isMemo ? C.transcriptAdd : C.playerEntryHere}<em>{isMemo ? formatElapsed(cur) : wallClockAt(win, cur)}</em></span>
               <div className="ap-add-row">
                 {/* the marks backdrop, exactly as in the composer: the same text painted behind
                     a see-through field so only the <mark> spans show. Both layers must share
@@ -448,7 +469,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
                   <input
                     ref={inputRef}
                     value={text}
-                    placeholder={C.playerEntryPlaceholder}
+                    placeholder={isMemo ? C.transcriptPlaceholder : C.playerEntryPlaceholder}
                     onChange={(e) => setText(e.target.value)}
                     onScroll={(e) => { if (marksRef.current) marksRef.current.scrollLeft = e.currentTarget.scrollLeft }}
                     onKeyDown={(e) => {
@@ -523,7 +544,29 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
             </div>
           )}
 
-          <div className="ap-list">
+          {/* a memo's transcript, section by section — tap seeks to where the words fell */}
+          {sections.length > 0 && (
+            <div className="ap-list">
+              <p className="ap-list-head">{appConfig.copy.report.transcript} · {sections.length}</p>
+              {sections.map((s, i) => (
+                <div
+                  key={`${s.at}:${i}`}
+                  className="ap-row"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => seek(s.at)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') seek(s.at) }}
+                >
+                  <span className="ap-row-t">{formatElapsed(s.at)}</span>
+                  <span className="ap-row-tx">{s.text}</span>
+                  <Icon id="chevron" className="ap-row-go" />
+                </div>
+              ))}
+            </div>
+          )}
+          {/* on a memo the transcript IS the content — an empty «Einträge» list under it would
+              only restate that nothing else happened during 8 seconds */}
+          {!(isMemo && markers.length === 0) && <div className="ap-list">
             <p className="ap-list-head">{C.playerEntries}{markers.length > 0 ? ` · ${markers.length}` : ''}</p>
             {markers.length === 0 && <p className="ap-empty">{C.playerNoEntries}</p>}
             {markers.map((m, i) => (
@@ -576,7 +619,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
                 </div>
               )
             ))}
-          </div>
+          </div>}
         </div>
     </Overlay>
   )

@@ -265,12 +265,24 @@ describe('report journal rows', () => {
     expect(journalRows([e], plans, '2026-06-23T00:00:00.000Z')[0].iso).toBeTruthy()
   })
 
-  it('counts missing audio transcripts', () => {
+  it('counts missing audio transcripts — sections written in the player count too', () => {
     const events: TimelineEvent[] = [
       { id: 'a', t: '09:00', icon: 'mic', text: 'Audio', kind: 'audio', audioUrl: '/a.wav' },
       { id: 'b', t: '09:01', icon: 'mic', text: 'Audio', kind: 'audio', audioUrl: '/b.wav', transcript: 'Text' },
+      { id: 'c', t: '09:02', icon: 'mic', text: 'Audio', kind: 'audio', audioUrl: '/c.wav', transcriptSections: [{ at: 2, text: 'Wasser halt' }] },
     ]
     expect(missingTranscriptCount(events)).toBe(1)
+  })
+
+  it('prints transcript sections as offset-prefixed lines, with a joined fallback for old servers', () => {
+    const e: TimelineEvent = {
+      id: 'memo', t: '18:45', at: '2026-08-19T16:45:00.000Z', icon: 'mic', kind: 'audio',
+      text: 'Audionotiz (8s)', audioUrl: '/api/media/m1',
+      transcriptSections: [{ at: 1, text: 'Trupp 2 meldet Wasser halt' }, { at: 65, text: 'Rückzug eingeleitet' }],
+    }
+    const row = journalRows([e], plans)[0]
+    expect(row.transcriptLines).toEqual(['0:01  Trupp 2 meldet Wasser halt', '1:05  Rückzug eingeleitet'])
+    expect(row.transcript).toBe('Trupp 2 meldet Wasser halt · Rückzug eingeleitet')
   })
 })
 

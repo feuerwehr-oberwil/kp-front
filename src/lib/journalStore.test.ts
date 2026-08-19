@@ -245,6 +245,23 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     expect(s.display()[0].text).toBe('Trupp 1 an Front, 2 Rohre')
   })
 
+  it('transcriptSection patches accumulate into a subtitle list sorted by offset', async () => {
+    fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('a', { text: 'Audionotiz (8s)', kind: 'audio' }))
+    s.appendPatch('a', { transcriptSection: { at: 5, text: 'Rückzug eingeleitet' } })
+    s.appendPatch('a', { transcriptSection: { at: 1, text: 'Trupp 2 meldet Wasser halt' } })
+    await settle(); await settle()
+
+    const d = s.display()
+    expect(d).toHaveLength(1)
+    expect(d[0].transcriptSections).toEqual([
+      { at: 1, text: 'Trupp 2 meldet Wasser halt' },
+      { at: 5, text: 'Rückzug eingeleitet' },
+    ])
+  })
+
   it('a retraction patch folds the row out of display; a later un-retract restores it', async () => {
     fakeServer()
     const s = new JournalStore(INC, false)

@@ -398,10 +398,17 @@
    ⚠️ Only the text lives here. «Durchhören» and «Transkript ergänzen» used to be two labelled
    buttons on this line; they are icon buttons IN the row since 2026-08-14, because on a phone
    they never fitted side by side and made every voice memo a three-line block (see Journal). */
-.hist-ev:has(.jr-transcript) { flex-wrap: wrap; }
+.hist-ev:has(.jr-transcript), .hist-ev:has(.jr-subs) { flex-wrap: wrap; }
 /* basis must leave room for the 74px indent — 100% + margin overflowed the drawer */
 .jr-transcript { flex: 0 0 calc(100% - 74px); min-width: 0; margin: 2px 0 2px 74px; display: flex; flex-direction: column; gap: 6px; }
 .jr-transcript p { margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.45; white-space: pre-wrap; }
+/* the words as SUBTITLE lines under an audio row — the korrektur sub-line's quiet register:
+   muted, small, indented to the text column. A timed section leads with its offset into the
+   recording; the plain transcript (one text, no offset) prints without one. */
+.jr-subs { flex: 0 0 calc(100% - 74px); min-width: 0; margin: 0 0 2px 74px; display: flex; flex-direction: column; gap: 2px; }
+.jr-subs p { margin: 0; display: flex; gap: 8px; color: var(--ink-dim); font-size: 12px; line-height: 1.45; }
+.jr-subs p > i { flex: none; font-style: normal; font-variant-numeric: tabular-nums; color: var(--ink-faint); }
+.jr-subs p > span { min-width: 0; white-space: pre-wrap; }
 /* jump chip on rows that annotate a recording — opens the player at that moment. The same
    chip carries «Durchhören» and «Transkript» on an audio row, so the three read as one family
    of small square controls between the text and the green play circle. */

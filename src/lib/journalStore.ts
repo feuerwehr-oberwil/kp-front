@@ -140,7 +140,7 @@ export class JournalStore {
   /** Later-arriving enrichment (transcript, uploaded media URL) — a NEW row, never an edit.
    *  Clearing a field sends '' (never undefined: JSON.stringify drops undefined keys, and
    *  the clear would un-apply once the outbox copy is replaced by the server row). */
-  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'textEdit' | 'retracted'>>) {
+  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'textEdit' | 'retracted'>>) {
     const at = new Date().toISOString()
     const clean = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v ?? '']))
     // seq suffix: two patches for one target can land in the same millisecond
@@ -292,7 +292,7 @@ export class JournalStore {
       if (!p.patchOf) continue
       const target = patched.get(p.patchOf)
       if (!target) continue
-      const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, ...fields } = p
+      const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, transcriptSection, ...fields } = p
       const folded = patched.get(p.patchOf)!
       patched.set(target.id, {
         ...folded,
@@ -303,6 +303,11 @@ export class JournalStore {
         // `textOriginal` keeps the FIRST wording across any number of corrections — the printed
         // rapport shows original + latest and skips the intermediates.
         ...(textEdit ? { text: textEdit, correctedAt: p.at, textOriginal: folded.textOriginal ?? folded.text } : {}),
+        // transcript sections ACCUMULATE (each patch carries one), sorted by offset so the
+        // subtitle list reads in recording order however the patches arrived
+        ...(transcriptSection
+          ? { transcriptSections: [...(folded.transcriptSections ?? []), transcriptSection].sort((a, b) => a.at - b.at) }
+          : {}),
       })
     }
     // retracted rows fold out of display entirely (the record keeps original + retraction)

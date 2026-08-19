@@ -6,6 +6,7 @@ import { fillTemplate, hhmm, restoreUmlauts } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
 import { truppNeverDeployed } from './atemschutz'
+import { formatElapsed } from './audioPlayer'
 import { attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
 import { rowPhotos } from './verlauf'
@@ -146,6 +147,9 @@ export interface JournalPrintRow {
   photoUrls?: string[]
   audioUrl?: string
   transcript?: string
+  /** a memo transcribed in sections: one line per section, offset-prefixed («0:05  Rückzug …»).
+   *  `transcript` still carries the joined words so an older server prints something. */
+  transcriptLines?: string[]
   /** the entry with its linked terms in <b>…</b>, for the PDF. Absent when nothing is linked —
    *  the composer then prints `text` verbatim, as it always did. */
   markup?: string
@@ -263,7 +267,15 @@ export function journalRows(
         kind: e.kind,
         photoUrls: rowPhotos(e),
         audioUrl: e.audioUrl,
-        transcript: e.transcript,
+        transcript: e.transcript ?? (e.transcriptSections?.length
+          ? e.transcriptSections.map((s) => s.text).join(' · ')
+          : undefined),
+        transcriptLines: e.transcriptSections?.length
+          ? [
+              ...(e.transcript ? [e.transcript] : []),
+              ...e.transcriptSections.map((s) => `${formatElapsed(s.at)}  ${s.text}`),
+            ]
+          : undefined,
         nachtrag: Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs,
         correctedAt: e.correctedAt && e.textOriginal ? hhmm(new Date(e.correctedAt)) : undefined,
         // the original through the same prefix-strip as the latest text, or the two would
@@ -345,7 +357,8 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
 }
 
 export function missingTranscriptCount(events: TimelineEvent[]): number {
-  return events.filter((e) => e.kind === 'audio' && e.audioUrl && !(e.transcript ?? '').trim()).length
+  return events.filter((e) =>
+    e.kind === 'audio' && e.audioUrl && !(e.transcript ?? '').trim() && !e.transcriptSections?.length).length
 }
 
 /** «Stand» of the printed Kroki — the instant the picture shows, as the framing panel's slider

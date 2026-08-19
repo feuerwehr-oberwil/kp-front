@@ -9,6 +9,7 @@ import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, formatTime } from '../lib/format'
 import { groupByDay, isHandWritten, isNachtrag, rowPhotos, rowTime } from '../lib/verlauf'
 import { journalArea } from '../lib/report'
+import { formatElapsed } from '../lib/audioPlayer'
 import type { OpenReminder } from '../lib/reminders'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
@@ -234,6 +235,17 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    * assignment provably did not move the list (a scroll container this code did not expect),
    * the platform's own method still gets its turn rather than leaving the operator stranded.
    */
+  // one marking for every piece of prose in the drawer — the row text and the transcript
+  // subtitle lines mark the same vocabulary the composer marked while it was being typed
+  const marked = (text: string) => linkParts(text, vocab).map((p, pi) => (p.kind
+    ? (
+      <b key={pi} className={`jr-link jr-link-${p.kind}`}>
+        {p.text}
+        {p.role && <i className="jr-link-role"> ({p.role})</i>}
+      </b>
+    )
+    : <span key={pi}>{p.text}</span>))
+
   const jumpToRow = (id: string, smooth = false) => {
     const list = listRef.current
     const el = findRow(id)
@@ -590,18 +602,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                         A Verlauf full of surnames tells a reader who was talking only if they
                         already know the Wehr; six months later, or on a Nachbarwehr's copy,
                         nobody does. Quiet weight: it is context for the name, not a second one. */}
-                    {/* an audio row with a transcript SHOWS the transcript — that is what was
-                        said, which is what a reader scans the Verlauf for. The «Audionotiz (4s)»
-                        label stays the row's recorded text and returns whenever no transcript
-                        exists (the amber icon then asks for one). */}
-                    {linkParts(e.audioUrl && e.transcript ? e.transcript : e.text, vocab).map((p, pi) => (p.kind
-                      ? (
-                        <b key={pi} className={`jr-link jr-link-${p.kind}`}>
-                          {p.text}
-                          {p.role && <i className="jr-link-role"> ({p.role})</i>}
-                        </b>
-                      )
-                      : <span key={pi}>{p.text}</span>))}
+                    {marked(e.text)}
                   </span>
                 </span>
                 {/* ⚠️ NO tick-off control here any more. There were two: one on the row where the
@@ -681,14 +682,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(e) }}
                   ><Icon id="wave" /></button>
                 )}
-                {e.audioUrl && onTranscript && (
-                  <button
-                    className={`jr-jump ${e.transcript ? '' : 'jr-jump-miss'}`}
-                    title={e.transcript ? C.transcriptEdit : C.transcriptAdd}
-                    aria-label={e.transcript ? C.transcriptEdit : C.transcriptAdd}
-                    onClick={(ev) => { ev.stopPropagation(); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}
-                  ><Icon id={e.transcript ? 'type' : 'warn'} /></button>
-                )}
+                {e.audioUrl && onTranscript && (() => {
+                  // sections written in the player count as transcription too — the amber asks
+                  // for words that are missing, not for a particular field to be filled
+                  const hasTx = !!e.transcript || !!e.transcriptSections?.length
+                  return (
+                    <button
+                      className={`jr-jump ${hasTx ? '' : 'jr-jump-miss'}`}
+                      title={hasTx ? C.transcriptEdit : C.transcriptAdd}
+                      aria-label={hasTx ? C.transcriptEdit : C.transcriptAdd}
+                      onClick={(ev) => { ev.stopPropagation(); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}
+                    ><Icon id={hasTx ? 'type' : 'warn'} /></button>
+                  )
+                })()}
                 {e.audioUrl && (
                   <button
                     className={`tl-play ${audio.playing === e.id ? 'playing' : ''}`}
@@ -705,9 +711,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   </span>
                 )}
                 {clickable && <span className="hist-go" aria-hidden><Icon id={e.pinned ? 'coords' : 'chevron'} /></span>}
-                {/* the transcript editor, on its own line under the row. The transcript itself
-                    no longer prints here — it IS the row text above once it exists; a second
-                    copy below the row said the same words twice. */}
+                {/* the words, as SUBTITLE lines under the row — the plain transcript first (the
+                    memo's words as one text, no offset), then the player's timed sections with
+                    their offset into the recording. The row's own text stays «Audionotiz (8s)»:
+                    that is what the entry IS; these lines are what it says. */}
+                {e.audioUrl && editTx?.id !== e.id && (e.transcript || e.transcriptSections?.length) && (
+                  <div className="jr-subs">
+                    {e.transcript && <p><span>{marked(e.transcript)}</span></p>}
+                    {(e.transcriptSections ?? []).map((s, i) => (
+                      <p key={i}><i>{formatElapsed(s.at)}</i><span>{marked(s.text)}</span></p>
+                    ))}
+                  </div>
+                )}
+                {/* the transcript editor, on its own line under the row */}
                 {e.audioUrl && editTx?.id === e.id && (
                   <div className="jr-transcript" onClick={(ev) => ev.stopPropagation()}>
                     <textarea
