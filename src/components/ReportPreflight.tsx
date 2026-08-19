@@ -266,7 +266,7 @@ export function ReportPreflight({
   // WHEN anything happened, for the Stand slider's tick marks. Derived from the SAME source the
   // replay bar uses, so the two surfaces cannot disagree about where the Einsatz has substance:
   // the recorded actions plus the Verlauf rows that carry an absolute time.
-  const [krokiMoments, setKrokiMoments] = useState<number[]>([])
+  const [auditMoments, setAuditMoments] = useState<number[]>([])
   const bundleRef = useRef<ReplayBundle | null>(null)
   useEffect(() => {
     if (krokiAt == null) { setPastScene(null); return }
@@ -643,13 +643,20 @@ export function ReportPreflight({
       try {
         const startMs = Date.parse(meta.startedAt ?? incident.started_at)
         bundleRef.current ??= await loadReplay(incident.id, startMs, Date.now())
-        const ws = await stateAt(bundleRef.current, bundleRef.current.endMs)
-        if (alive) setKrokiMoments(activityMoments(bundleRef.current.events, ws?.timeline ?? []))
-      } catch { /* no marks; the slider still works */ }
+        if (alive) setAuditMoments(activityMoments(bundleRef.current.events))
+      } catch { /* no marks from the audit side; the slider still works */ }
     })()
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the panel becoming visible
   }, [krokiShown, incident.id])
+  // ⚠️ The journal moments come from the LIVE timeline (the same rows the Verlauf's own strip
+  // ticks) and are derived REACTIVELY: the effect above runs once when the panel becomes
+  // visible, and the rows routinely arrive after that (the journal store loads async since the
+  // Verlauf moved out of the blob) — a one-shot read latched an empty barcode (19.08.).
+  const krokiMoments = useMemo(
+    () => [...auditMoments, ...activityMoments([], events)],
+    [auditMoments, events],
+  )
   const startOutput = async (action: 'pdf' | 'print') => {
     // ⚠️ A rapport that is still missing Mindestangaben may ALWAYS be produced — printing is
     // never blocked by what somebody has not typed yet, and a half-filled sheet taken to the
