@@ -407,6 +407,22 @@ class Settings(BaseSettings):
             return False
         return v
 
+    # --- Visit statistics (PUBLIC DEMO ONLY; see app/visits.py) ---
+    # Counts landing-page visits, demo visits and coarse demo feature usage into two aggregate
+    # tables. OFF by default and that is a hard requirement, not a default: stations run this
+    # exact code, and analytics must never be silently on for somebody else's Wehr. Only the
+    # demo's Railway project sets VISIT_STATS=true. No cookies, no per-hit rows, no geo, no
+    # third party — PRIVACY.md § «Counting visitors without recognising them» has the whole story.
+    visit_stats: bool = False
+
+    @field_validator("visit_stats", mode="before")
+    @classmethod
+    def _empty_visit_stats_flag_is_false(cls, v: object) -> object:
+        # Same compose-passthrough trap as EXPOSE_API_DOCS — blank means off, not a crash.
+        if isinstance(v, str) and v.strip() == "":
+            return False
+        return v
+
     # Expose the OpenAPI docs (/docs, /redoc, /openapi.json) in production. Off by default —
     # the API has no public surface beyond the same-origin SPA — but a self-hoster can turn it
     # on for integration work. Dev always exposes them regardless of this flag.

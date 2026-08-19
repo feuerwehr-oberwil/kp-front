@@ -274,6 +274,26 @@ async def _vehicle_samples_sweep() -> None:
 POSITION_SWEEP_SECONDS = 3600
 
 
+async def _visit_hashes_sweep() -> None:
+    """Drop the per-day visitor hashes past ``visits.RETAIN_DAYS``. The counters stay.
+
+    A no-op on every deployment where VISIT_STATS is off, which is every station — the table
+    is empty there. The rows are already inert after their own day (their salt is gone), so
+    this is housekeeping rather than the privacy control; ``visit_stats`` is the record.
+    """
+    from . import visits
+
+    async with async_session_maker() as db:
+        try:
+            removed = await visits.prune(db)
+            await db.commit()
+            if removed:
+                logger.info("Visit sweep: %d dedup row(s) removed", removed)
+        except Exception:
+            await db.rollback()
+            logger.exception("Visit sweep failed")
+
+
 async def _positions_sweep() -> None:
     """Drop self-reported crew positions that have gone quiet (`position_ttl_hours`).
 
@@ -458,6 +478,16 @@ async def start_scheduler(app: FastAPI) -> None:
         coalesce=True,
     )
     jobs.append(f"position sweep ({POSITION_SWEEP_SECONDS}s)")
+    # Daily, always on, and empty-table cheap where nothing counts — see _visit_hashes_sweep.
+    _scheduler.add_job(
+        _visit_hashes_sweep,
+        "interval",
+        hours=24,
+        id="visit_hashes_sweep",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append("visit dedup sweep (24h)")
     # Always on, and a no-op unless an admin has opted in — see _telemetry_flush.
     _scheduler.add_job(
         _telemetry_flush,

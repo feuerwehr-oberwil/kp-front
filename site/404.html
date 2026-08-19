@@ -103,6 +103,18 @@
 </main>
 
 <script>
+  // Derselbe Besuchszähler wie auf den Seiten – hier mit fester Kennung «404», weil eine
+  // Datei jede unbekannte Adresse beantwortet. Siehe index.template.html und PRIVACY.md.
+  (function () {
+    if (typeof navigator.sendBeacon !== 'function') return;
+    try {
+      navigator.sendBeacon(
+        'https://demo.kp-front.ch/api/hit',
+        new Blob([JSON.stringify({ kind: 'page', key: '404' })], { type: 'text/plain' })
+      );
+    } catch (e) { /* ein Zähler darf nie auffallen */ }
+  })();
+
   // Which language the visitor was already in. The server cannot tell this page — one file
   // answers every address — so the first path segment does: /fr/vieux-lien → fr. Anything the
   // site does not publish keeps the base language that is already on screen, so a miss here

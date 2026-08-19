@@ -221,8 +221,9 @@ app is fully functional without it.
 ## The project website
 
 `kp-front.ch` is the project's landing page. It is **not** part of the software and has nothing
-to do with your installation: it is a handful of static files on GitHub Pages, and nothing on it
-talks to any station's server.
+to do with your installation: it is a handful of static files on GitHub Pages. It makes exactly
+two requests to anything of ours — a visit count (below) and, if you submit it, the contact form
+— and it never talks to a station's server.
 
 It carries one contact form (name, e-mail, message). Submitting it sends those three fields to
 **staticforms.dev**, which forwards them to the maintainer by e-mail. Static hosting cannot
@@ -239,6 +240,44 @@ Three things follow, and they are the point of this section:
   from a running instance is involved. A deployed KP Front never contacts this service.
 - **Self-hosters are unaffected.** The landing page is not shipped in the Docker image and is not
   served by the app. If you host this software, none of the above applies to your deployment.
+
+### Counting visitors without recognising them
+
+We want to know two things: whether anybody reads the landing page, and which parts of the
+public demo at `demo.kp-front.ch` people actually try. Both are counted by our own backend —
+there is no analytics provider, no tracking script and no consent banner, because there is
+nothing here to consent to.
+
+**How.** Opening a page sends one small request to the demo server naming which page it was
+(the language, or «404»). Inside the demo, switching to a section — Lage, Plan, Atemschutz,
+Anwesenheit, Mittel, Rapport — sends the section's name the same way. That is the entire
+payload: no identifier, no cookie, nothing written to your browser's storage, nothing about
+what is on the screen.
+
+**What is stored.** Counters, and only counters: one row per day, per kind, per name, holding
+a number of visits and a number of visitors. There is no table of individual visits anywhere
+in the design, so «what did this person look at» is not a question the database can answer —
+not for us, and not for anyone who obtains it.
+
+**How visitors are counted without a cookie.** Your IP address and browser string are hashed
+together with a secret salt that is derived fresh for each calendar day and never written
+down. The hash decides whether you have already been counted *today*, and then that is all it
+can ever do: tomorrow's salt is a different one, and yesterday's no longer exists, so two days'
+records cannot be linked — by us or by anybody else. The IP address itself is never stored and
+never logged.
+
+**Referrers.** If you followed a link here, we count the *hostname* it came from, so we can see
+where people hear about the project. The path and query string of that address stay in your
+browser.
+
+**On your own installation this is switched off, permanently.** Your deployment runs the same
+code, but the counters need `VISIT_STATS=true`, which is set on the public demo and nowhere
+else — unset means nothing is counted at all, not that counting happens locally. The landing
+page's request goes to the demo host, so a station's server is not involved in it either.
+
+The mechanism is [`backend/app/visits.py`](backend/app/visits.py) and the browser's half is the
+short block at the bottom of [`site/index.template.html`](site/index.template.html) — read those
+rather than believing this section.
 
 ## Legal
 

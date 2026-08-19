@@ -100,6 +100,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from . import visits
 from .auth.incident_link import enforce_link_scope
 from .auth.router import router as auth_router
 from .auth.token_blocklist import token_blocklist
@@ -297,6 +298,38 @@ async def limit_body_size(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def count_visit(request: Request, call_next):
+    """Demo-only visit statistics — a no-op on every deployment that is not the public demo.
+
+    ⚠️ The `visits.enabled()` check is the FIRST thing here and it is the whole safety story:
+    stations run this same image, and `VISIT_STATS` is unset for them, so this middleware
+    returns before it has looked at a header. See app/visits.py for the second gate (the
+    beacon origin allowlist) and for why nothing here can identify a visitor.
+
+    What it counts: an HTML document served by the SPA fallback is one `demo` visit, and an
+    API call that matches the coarse bucket map is one `feature` hit. Everything else — the
+    health probes, /assets, the beacon route itself, and the large majority of API routes —
+    counts nothing. Only responses the server was happy with, so a bot rattling a 401 does
+    not read as somebody using the app.
+    """
+    response = await call_next(request)
+    if not visits.enabled() or response.status_code >= 400:
+        return response
+
+    path = request.url.path
+    if path.startswith(f"{settings.api_prefix}/hit"):
+        return response  # the beacon counts itself; it must not also be a hit
+    if path.startswith(f"{settings.api_prefix}/"):
+        bucket = visits.bucket_for(path)
+        if bucket:
+            await visits.record("feature", bucket, request)
+    elif request.method == "GET" and response.headers.get("content-type", "").startswith("text/html"):
+        # The SPA shell — index.html is served no-cache, so a returning tablet still asks.
+        await visits.record("demo", "app", request)
+    return response
+
+
 @app.get("/health")
 async def health() -> dict:
     """Liveness only — static by design. Readiness (DB + storage) is /ready; point container
@@ -383,6 +416,7 @@ def _register_optional_routers() -> None:
         ("app.api.system", "router"),
         ("app.api.credentials", "router"),
         ("app.api.diag", "router"),
+        ("app.api.visits", "router"),
     ]:
         try:
             mod = __import__(module_name, fromlist=[attr])

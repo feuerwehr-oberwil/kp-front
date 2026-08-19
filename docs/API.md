@@ -198,3 +198,14 @@ loaded in the right order by [`load.sh`](../examples/demo-data/load.sh).
 
 Full data contract in [CONFIGURATION.md](CONFIGURATION.md); the station-data workflow is
 [STATION-DATA.md](STATION-DATA.md).
+
+### One CLI that is not config-as-code: `admin_visits`
+
+`python -m app.admin_visits` prints the visit counters (`--days N`, `--totals`, `--prune`) —
+the terminal half of `GET /api/admin/visits`. It reads only; there is nothing to load or push.
+
+It exists for the **public demo**, which is the one deployment that sets `VISIT_STATS=true`.
+Everywhere else the counters are never written, so this prints an empty table for ever. What
+is counted, and what deliberately is not, is [`backend/app/visits.py`](../backend/app/visits.py);
+the promise made to visitors is [PRIVACY.md](../PRIVACY.md) § «Counting visitors without
+recognising them».

@@ -341,6 +341,27 @@
 </footer>
 
 <script>
+  // Besuchszähler. Eine Zeile an den Demo-Server: welche Sprachfassung gelesen wurde und –
+  // falls vorhanden – von welchem HOST der Verweis kam. Kein Cookie, kein localStorage, keine
+  // Kennung, kein fremder Dienst; die Antwort wird nicht gelesen. Der Server zählt daraus
+  // Besuche und – über einen täglich wechselnden, nirgends gespeicherten Salt – ungefähre
+  // Besucherzahlen; wiedererkennen kann er niemanden, auch am Folgetag nicht. PRIVACY.md
+  // beschreibt den ganzen Mechanismus, backend/app/visits.py ist der Code dazu.
+  //
+  // ⚠️ Nur der Pfad der Seite und der Hostname des Verweises verlassen diese Datei. Die
+  // vollständige Referrer-URL bleibt hier: sie gehört dem Menschen, der dem Link gefolgt ist.
+  (function () {
+    if (typeof navigator.sendBeacon !== 'function') return;
+    var host = '';
+    try { host = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) { host = ''; }
+    try {
+      navigator.sendBeacon(
+        'https://demo.kp-front.ch/api/hit',
+        new Blob([JSON.stringify({ kind: 'page', key: '{{lang}}', referrer: host })], { type: 'text/plain' })
+      );
+    } catch (e) { /* ein Zähler darf nie auffallen */ }
+  })();
+
   // Scroll-Reveal: nur mit JS und ohne Reduced-Motion; bereits sichtbare
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');

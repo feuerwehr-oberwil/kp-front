@@ -9063,6 +9063,70 @@
         }
       }
     },
+    "/api/admin/visits": {
+      "get": {
+        "tags": [
+          "visits"
+        ],
+        "summary": "Read Visits",
+        "description": "The aggregates, newest day first. ``enabled`` says whether anything is still counting —\nan all-zero month on a box with the flag off is not the same fact as a quiet month.",
+        "operationId": "read_visits_api_admin_visits_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 1,
+              "default": 30,
+              "title": "Days"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Read Visits Api Admin Visits Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/manifest.webmanifest": {
       "get": {
         "tags": [

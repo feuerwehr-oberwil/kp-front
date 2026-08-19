@@ -6,12 +6,13 @@ defined here so migrations stay coherent as features land. Roles are exactly two
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -756,3 +757,57 @@ class IntegrationCredentialAudit(Base):
     source: Mapped[str | None] = mapped_column(String(16), nullable=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
+# --- Visit statistics (public demo + landing page; OFF unless VISIT_STATS=true) ---------
+
+
+class VisitStat(Base):
+    """One counter per day, kind and key. The record — everything else is scaffolding.
+
+    Aggregates only, by construction: there is no row-per-hit table anywhere in this design,
+    so «who visited» is not a question this schema can answer even to whoever holds the
+    database. ``hits`` is every request that matched a bucket; ``uniques`` counts each
+    :class:`VisitHash` the first time it appears on that day and never again.
+
+    ⚠️ Nothing writes here unless ``VISIT_STATS=true``, which only the public demo sets. A
+    station's deployment runs this same code with the flag off and the table stays empty —
+    see app/visits.py for why that gate is a hard requirement rather than a preference.
+    """
+
+    __tablename__ = "visit_stats"
+
+    #: Calendar day in UTC. Not a timestamp: an hour-resolution counter would start being a
+    #: pattern about one person on a day the demo had three visitors.
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    #: 'page' (landing page, per language) | 'referrer' (which host linked here, host only)
+    #: | 'demo' (the demo's app shell) | 'feature' (a coarse usage bucket)
+    kind: Mapped[str] = mapped_column(String(16), primary_key=True)
+    #: The bucket inside the kind — a language code, a hostname, 'app', 'lage', …
+    #: Always from a closed allowlist, except 'referrer' whose keys are clamped hostnames.
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    hits: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    uniques: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+
+
+class VisitHash(Base):
+    """That some visitor already counted towards ``uniques`` for this day/kind/key.
+
+    The hash is ``HMAC(SECRET_KEY, "visit-salt" + YYYY-MM-DD)`` over IP + User-Agent — a salt
+    that rotates at midnight and is never stored. So two rows from consecutive days cannot be
+    told to be the same visitor, by us or by anyone with the database: yesterday's salt no
+    longer exists anywhere. That is the whole reason this is a hash table and not a visitor
+    table, and it is why no cookie, no localStorage and no consent banner is involved.
+
+    Swept after ``RETAIN_DAYS`` (app/visits.py) — the rows are inert well before that, since
+    a hash can only ever be matched within its own day. :class:`VisitStat` is the record.
+    """
+
+    __tablename__ = "visit_hashes"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    #: hex SHA-256, truncated to 32 chars — enough to dedup a day's visitors, and short
+    #: enough that the table stays a counter's scratch space rather than an identifier store.
+    visitor: Mapped[str] = mapped_column(String(32), primary_key=True)
