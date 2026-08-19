@@ -18,7 +18,8 @@ import {
   wallClockAt,
 } from '../lib/audioPlayer'
 
-const SPEEDS = [1, 1.5, 2]
+const SPEEDS = [0.5, 1, 1.5, 2]
+const DEFAULT_SPEED_IDX = SPEEDS.indexOf(1) // the sheet always opens at 1×, wherever 1 sits in the list
 const SKIP_SEC = 15
 
 // Server-side peaks: 200 {peaks:[…]} ready,
@@ -132,7 +133,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
   const [playing, setPlaying] = useState(false)
   const [cur, setCur] = useState(0)
   const [mediaDur, setMediaDur] = useState(0) // from the element; authoritative once known
-  const [speedIdx, setSpeedIdx] = useState(0)
+  const [speedIdx, setSpeedIdx] = useState(DEFAULT_SPEED_IDX)
   const [errored, setErrored] = useState(false)
   const peaks = usePeaks(row.audioUrl)
 
