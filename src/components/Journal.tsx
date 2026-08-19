@@ -8,6 +8,7 @@ import { openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, formatTime } from '../lib/format'
 import { groupByDay, isHandWritten, isNachtrag, rowPhotos, rowTime } from '../lib/verlauf'
+import { journalArea } from '../lib/report'
 import type { OpenReminder } from '../lib/reminders'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
@@ -57,12 +58,20 @@ const targetOf = (e: TimelineEvent): 'map-entity' | 'map-pin' | 'plan' | null =>
   return null
 }
 
-// Short surface chip: "Lage" for the map, the plan's code (e.g. "Modul 1") for
-// the plan so a glance tells you where each event happened.
+// Short chip: WHERE in the app the entry came from — the same classification the printed
+// rapport's «Bereich» column uses (lib/report · journalArea), so screen and paper agree.
+// It used to read the `surface` alone, which the generic logger stamps as 'map' on
+// everything — Anwesenheit, Mittel, Atemschutz all said «Lage». One exception: the print
+// calls the map surface «Kroki» (the word people search the export for); on screen the
+// tab is called Lage, so the chip keeps that name.
 const chip = (e: TimelineEvent, plans: PlanDocument[]): string => {
   const C = appConfig.copy.journal // read at call time so the resolved locale applies
-  if (e.surface !== 'plan') return C.surfaceMap
-  return plans.find((p) => p.id === e.planId)?.code ?? C.surfacePlan
+  const area = journalArea(e, plans)
+  if (area === appConfig.copy.report.areaLage) return C.surfaceMap
+  // a type name breaks on its SET Trennstellen (entryTypesWrap), like the composer's chips —
+  // «Sofortmassnahme» unhyphenated blows the chip open on a phone
+  const typed = Object.entries(C.entryTypes).find(([, label]) => label === area)
+  return typed ? (C.entryTypesWrap[typed[0]] ?? area) : area
 }
 
 // The unified Verlauf — the single, append-only stream of everything that
@@ -581,7 +590,11 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                         A Verlauf full of surnames tells a reader who was talking only if they
                         already know the Wehr; six months later, or on a Nachbarwehr's copy,
                         nobody does. Quiet weight: it is context for the name, not a second one. */}
-                    {linkParts(e.text, vocab).map((p, pi) => (p.kind
+                    {/* an audio row with a transcript SHOWS the transcript — that is what was
+                        said, which is what a reader scans the Verlauf for. The «Audionotiz (4s)»
+                        label stays the row's recorded text and returns whenever no transcript
+                        exists (the amber icon then asks for one). */}
+                    {linkParts(e.audioUrl && e.transcript ? e.transcript : e.text, vocab).map((p, pi) => (p.kind
                       ? (
                         <b key={pi} className={`jr-link jr-link-${p.kind}`}>
                           {p.text}
@@ -624,8 +637,12 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     HH:MM» so nobody reads the new words as the ones spoken at the time.
                     ⚠️ NEVER on system rows. «Trupp 2 eingerückt» is the app reporting an action;
                     rewriting that sentence would make the record state something that did not
-                    happen, which is the one thing this journal exists to prevent. */}
-                {onEditText && isHandWritten(e) && editRow?.id !== e.id && (
+                    happen, which is the one thing this journal exists to prevent.
+                    ⚠️ NOT on audio rows either. Their words live in the transcript, and the
+                    transcript icon beside the play circle is the one way to write them — a
+                    second editor for the row's own «Audionotiz (4s)» label stacked under the
+                    transcript field and read as two competing text boxes for the same entry. */}
+                {onEditText && isHandWritten(e) && !e.audioUrl && editRow?.id !== e.id && (
                   <button
                     className="jr-jump"
                     title={C.editEntry}
@@ -688,26 +705,27 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   </span>
                 )}
                 {clickable && <span className="hist-go" aria-hidden><Icon id={e.pinned ? 'coords' : 'chevron'} /></span>}
-                {/* the transcript itself, on its own line under the row — either the text, or
-                    the field to write it in. The two ways IN live in the row above. */}
-                {e.audioUrl && (editTx?.id === e.id || e.transcript) && (
+                {/* the transcript editor, on its own line under the row. The transcript itself
+                    no longer prints here — it IS the row text above once it exists; a second
+                    copy below the row said the same words twice. */}
+                {e.audioUrl && editTx?.id === e.id && (
                   <div className="jr-transcript" onClick={(ev) => ev.stopPropagation()}>
-                    {editTx?.id === e.id ? (
-                      <>
-                        <textarea
-                          value={editTx.value}
-                          rows={3}
-                          autoFocus
-                          placeholder={C.transcriptPlaceholder}
-                          onChange={(ev) => setEditTx({ id: e.id, value: ev.target.value })}
-                          onKeyDown={(ev) => { if (ev.key === 'Escape') setEditTx(null) }}
-                        />
-                        <div className="jr-transcript-actions">
-                          <button onClick={() => setEditTx(null)}>{appConfig.copy.cancel}</button>
-                          <button onClick={saveTranscript}><Icon id="check" />{C.transcriptSave}</button>
-                        </div>
-                      </>
-                    ) : <p>{e.transcript}</p>}
+                    <textarea
+                      value={editTx.value}
+                      rows={3}
+                      autoFocus
+                      placeholder={C.transcriptPlaceholder}
+                      onChange={(ev) => setEditTx({ id: e.id, value: ev.target.value })}
+                      onKeyDown={(ev) => { if (ev.key === 'Escape') setEditTx(null) }}
+                    />
+                    <div className="jr-transcript-actions">
+                      {/* re-editing an existing transcript is a correction like any other —
+                          appended, never overwritten — and says so; a first transcript has no
+                          original wording to reassure about */}
+                      {e.transcript && <span className="jr-korr-hint">{C.correctHint}</span>}
+                      <button onClick={() => setEditTx(null)}>{appConfig.copy.cancel}</button>
+                      <button onClick={saveTranscript}><Icon id="check" />{C.transcriptSave}</button>
+                    </div>
                   </div>
                 )}
                 {editRow?.id === e.id && (

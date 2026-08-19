@@ -371,6 +371,10 @@ export interface TimelineEvent {
    *  stay in the record and in the hash chain; this is only how the fold is shown.
    *  ⚠️ Set by journalStore's fold, so it exists on displayed rows and on nothing that is sent. */
   correctedAt?: string
+  /** DERIVED, like `correctedAt`: the row's FIRST wording, kept through any number of
+   *  corrections. The printed rapport shows it beside the latest text («korrigiert HH:MM ·
+   *  ursprünglich: …») — intermediate revisions stay in the record but are not printed. */
+  textOriginal?: string
   /** retraction (append-only "delete"): a later patch sets this and the row folds out of
    *  display/report — both the original and the retraction stay in the record. Only
    *  player-created Nachdokumentation rows offer this; incident log lines never do. */

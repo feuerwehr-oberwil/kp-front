@@ -232,10 +232,17 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     // …and the fold says WHEN, so the Verlauf can mark the line «korrigiert HH:MM» instead of
     // letting the new words pass for the ones written at the time
     expect(d[0].correctedAt).toBeTruthy()
+    // …and keeps the FIRST wording through further corrections — the print shows original +
+    // latest, the intermediate stays in the record without being surfaced
+    expect(d[0].textOriginal).toBe('Trupp 1 an Font')
+    s.appendPatch('a', { textEdit: 'Trupp 1 an Front, 2 Rohre' })
+    await settle(); await settle()
+    expect(s.display()[0].text).toBe('Trupp 1 an Front, 2 Rohre')
+    expect(s.display()[0].textOriginal).toBe('Trupp 1 an Font')
     // an empty correction is a no-op, never a blanked row
     s.appendPatch('a', { textEdit: undefined })
     await settle(); await settle()
-    expect(s.display()[0].text).toBe('Trupp 1 an Front')
+    expect(s.display()[0].text).toBe('Trupp 1 an Front, 2 Rohre')
   })
 
   it('a retraction patch folds the row out of display; a later un-retract restores it', async () => {

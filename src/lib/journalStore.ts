@@ -293,13 +293,16 @@ export class JournalStore {
       const target = patched.get(p.patchOf)
       if (!target) continue
       const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, ...fields } = p
+      const folded = patched.get(p.patchOf)!
       patched.set(target.id, {
-        ...patched.get(p.patchOf)!,
+        ...folded,
         ...fields,
         // a text correction rides in `textEdit` (patch rows carry a filler text: '') — and the
         // patch's own time comes along as `correctedAt`, so the Verlauf can say the line was
         // corrected instead of silently showing different words than were written (see types).
-        ...(textEdit ? { text: textEdit, correctedAt: p.at } : {}),
+        // `textOriginal` keeps the FIRST wording across any number of corrections — the printed
+        // rapport shows original + latest and skips the intermediates.
+        ...(textEdit ? { text: textEdit, correctedAt: p.at, textOriginal: folded.textOriginal ?? folded.text } : {}),
       })
     }
     // retracted rows fold out of display entirely (the record keeps original + retraction)
