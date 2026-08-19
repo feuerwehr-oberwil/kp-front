@@ -137,6 +137,10 @@ interface Props {
   onPickLine?: (annoId: string) => void
   /** «Gehört zu Trupp …» in the line editor — undefined truppId unlinks. Omitted ⇒ row hidden. */
   onLinkLineTrupp?: (annoId: string, truppId: string | undefined) => void
+  /** a hose line got a NEW number: the Trupp anchored to it carries a copy of the number (the
+   *  AS chip prints it), so the renumber must reach the Trupp too (useTruppActions ·
+   *  syncLineNoToTrupp). Fires AFTER the drawing itself was patched. */
+  onLineRenumber?: (annoId: string, lineNo: number | undefined) => void
   /** per-Trupp contact-clock tier (atemschutz · AtemschutzAlarmState.severities) — tints the tag
    *  and halo of the Leitung that Trupp works on. Passed in so the 1 Hz clock never reaches this
    *  component (see AtemschutzAlarmHost). */
@@ -163,7 +167,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
@@ -2311,7 +2315,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onArrow={(arrow) => patchCommit(selDraw.id, { arrow: arrow || undefined })}
           onEnding={(ending) => void changePlanEnding(ending)}
           onContent={(content) => patchCommit(selDraw.id, { content })}
-          onLineNo={(lineNo) => patchCommit(selDraw.id, { lineNo })}
+          onLineNo={(lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
           onFloorTag={(floorTag) => patchCommit(selDraw.id, { floorTag })}
           onTrupp={onLinkLineTrupp ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
           trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}

@@ -2098,7 +2098,7 @@ export function IncidentWorkspace({
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine, truppColors, setTruppColor } =
+  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppColors, setTruppColor } =
     useTruppActions({
       trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // a new map marker lands at the current map centre (the operator drags it to position);
@@ -3137,7 +3137,9 @@ export function IncidentWorkspace({
           onArrow={(arrow) => patchDrawing({ arrow })}
           onEnding={(ending) => void changeMapEnding(ending)}
           onContent={(content) => patchDrawing({ content })}
-          onLineNo={(lineNo) => patchDrawing({ lineNo })}
+          // the anchored Trupp carries a COPY of the number (the AS chip prints it), so a
+          // renumbered hose renumbers the Trupp too (useTruppActions · syncLineNoToTrupp)
+          onLineNo={(lineNo) => { patchDrawing({ lineNo }); syncLineNoToTrupp(selectedDrawing.id, lineNo) }}
           onFloorTag={(floorTag) => patchDrawing({ floorTag })}
           // «Gehört zu Trupp …»: linking from the LINE's side. Routed through the same action the
           // Atemschutz board uses, so both directions write both collections identically.
@@ -3487,6 +3489,7 @@ export function IncidentWorkspace({
           onLinkTrupp={(annoId, truppId) => updateTrupp(truppId, { annoId, planId: activePlanId })}
           onPickLine={linePickTrupp ? onLinePicked : undefined}
           onLinkLineTrupp={(annoId, truppId) => (truppId ? linkTruppLine(truppId, annoId) : unlinkLine(annoId))}
+          onLineRenumber={syncLineNoToTrupp}
           onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
           // the chip's colour grid paints the TRUPP, so its board card and its Lage marker follow
           onTruppColor={tacticalLocked ? undefined : (truppId, c) => setTruppColor(truppId, c)}

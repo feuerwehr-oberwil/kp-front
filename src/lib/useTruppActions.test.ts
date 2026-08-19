@@ -356,6 +356,67 @@ describe('useTruppActions hose link — aiming and missing', () => {
   })
 })
 
+// Renumbering the DRAWING is the other direction of the link: the Trupp carries a COPY of the
+// number (the AS chip prints Trupp.lineNo), so the copy must follow the picture — but only for
+// the Trupp actually anchored to this hose, never for one that merely typed the same digit.
+describe('useTruppActions — renumbering a hose follows onto the anchored Trupp', () => {
+  const hose = (over: Partial<Drawing> = {}): Drawing =>
+    ({ id: 'd1', kind: 'line', coords: [[7.5, 47.4], [7.51, 47.41]], ...over })
+
+  it('updates the anchored Trupp’s number (anchor via line.truppId)', () => {
+    const { actions, state } = harness(
+      baseTrupp({ lineNo: 1, lineId: 'd1' }),
+      { drawings: [hose({ truppId: 'T1', lineNo: 1 })] },
+    )
+    actions.syncLineNoToTrupp('d1', 3)
+    expect(state.trupps[0].lineNo).toBe(3)
+    expect(state.trupps[0].lineId).toBe('d1') // the anchor survives — same hose, new name
+  })
+
+  it('still matches when only the Trupp side of the anchor survived', () => {
+    const { actions, state } = harness(
+      baseTrupp({ lineNo: 1, lineId: 'd1' }),
+      { drawings: [hose({ lineNo: 1 })] }, // line.truppId lost (undo of the link)
+    )
+    actions.syncLineNoToTrupp('d1', 5)
+    expect(state.trupps[0].lineNo).toBe(5)
+  })
+
+  it('never touches a Trupp that merely typed the same number (no anchor)', () => {
+    const { actions, state } = harness(
+      baseTrupp({ lineNo: 1 }), // number-only match, not anchored to d1
+      { drawings: [hose({ lineNo: 1 })] },
+    )
+    actions.syncLineNoToTrupp('d1', 3)
+    expect(state.trupps[0].lineNo).toBe(1)
+  })
+
+  it('leaves an out Trupp’s record alone — same guard as the link’s release', () => {
+    const { actions, state } = harness(
+      baseTrupp({ lineNo: 1, lineId: 'd1', status: 'raus', exitTime: '2026-07-06T10:30:00Z' }),
+      { drawings: [hose({ truppId: 'T1', lineNo: 1 })] },
+    )
+    actions.syncLineNoToTrupp('d1', 3)
+    expect(state.trupps[0].lineNo).toBe(1)
+  })
+
+  it('follows a renumber on a PLAN-drawn hose too', () => {
+    const anno = { id: 'p-line', kind: 'draw' as const, pts: [[0.1, 0.1, 0], [0.4, 0.4, 0]] as [number, number, number][], lineNo: 7, truppId: 'T1' }
+    const { actions, state } = harness(baseTrupp({ lineNo: 7, lineId: 'p-line' }), { board: { gebaeude: [anno] } })
+    actions.syncLineNoToTrupp('p-line', 2)
+    expect(state.trupps[0].lineNo).toBe(2)
+  })
+
+  it('clearing the drawing’s number clears the Trupp’s copy with it', () => {
+    const { actions, state } = harness(
+      baseTrupp({ lineNo: 1, lineId: 'd1' }),
+      { drawings: [hose({ truppId: 'T1', lineNo: 1 })] },
+    )
+    actions.syncLineNoToTrupp('d1', undefined)
+    expect(state.trupps[0].lineNo).toBeUndefined()
+  })
+})
+
 describe('useTruppActions — the Leitung number IS the link', () => {
   const hose2 = (over: Partial<Drawing> = {}): Drawing =>
     ({ id: 'd1', kind: 'line', coords: [[7.5, 47.4], [7.51, 47.41]], ...over })

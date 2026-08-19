@@ -605,6 +605,28 @@ export function useTruppActions(deps: Deps) {
   }
 
   /**
+   * The renumber direction of the link: a drawn Leitung got a NEW number, so the Trupp anchored
+   * to it carries the number too. The Atemschutz chip prints the Trupp's OWN `lineNo` (a copy
+   * stamped by linkTruppLine), so without this sync renumbering the drawing leaves the chip
+   * naming a Leitung that no longer exists in the picture. Anchor match ONLY (line.truppId ⇄
+   * Trupp.lineId, the same pair truppForLine resolves first) — never by number, or renumbering
+   * would grab whichever Trupp merely typed the same digit («one Leitung = one Trupp»). A Trupp
+   * that is out or removed keeps what it recorded, mirroring linkTruppLine's release guard.
+   * Called from both renumber entry points (Lage DrawEditor, Plan DrawEditor via Whiteboard's
+   * onLineRenumber); the drawing itself was already patched by the caller.
+   */
+  const syncLineNoToTrupp = (lineId: string, lineNo: number | undefined) => {
+    const line = docLines().find((l) => l.id === lineId)
+      ?? Object.values(board).flat().find((a) => a.id === lineId && a.kind === 'draw')
+    const tr = trupps.find((t) =>
+      ((line?.truppId && t.id === line.truppId) || (t.lineId && t.lineId === lineId))
+      && !isOutTrupp(t) && !t.removedAt)
+    if (!tr || tr.lineNo === lineNo) return
+    updateTrupp(tr.id, { lineNo })
+    emit('atemschutz.line.renumber', { id: tr.id, lineId, lineNo })
+  }
+
+  /**
    * Let go of the Leitung. Clears the anchor on BOTH sides and the Trupp's own number — dropping
    * only the anchor would leave the number match to re-attach the tag on the very next render,
    * so «gelöst» would visibly do nothing. The drawn line keeps its number: the hose is still
@@ -718,5 +740,5 @@ export function useTruppActions(deps: Deps) {
     return out
   }
 
-  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine, truppColors, setTruppColor }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppColors, setTruppColor }
 }
