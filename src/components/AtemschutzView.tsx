@@ -161,19 +161,26 @@ export function AtemschutzView({
   const mostOverdue = [...overdueTrupps]
     .sort((a, b) => (live.get(b.id)?.sinceContactSec ?? 0) - (live.get(a.id)?.sinceContactSec ?? 0))[0]
   /**
-   * How the board is arranged. Whatever is chosen, ÜBERFÄLLIG still floats to the top: a card
-   * that can hide off-screen is the one failure mode this screen exists to prevent, and it is not
-   * a preference. Below that line:
+   * How the board is arranged:
    *   · «wie gesetzt»  — the DEFAULT: the hand-set order (Trupp.order, synced), so a card keeps
-   *                      its slot and «Trupp 2 is the second one» stays true for the whole Einsatz
+   *                      its slot and «Trupp 2 is the second one» stays true for the whole Einsatz.
+   *                      NOTHING moves a row here — not even ÜBERFÄLLIG: whoever chose this mode
+   *                      chose stable slots, and an overdue card is already unmissable (red card,
+   *                      banner, header badge + jump). A row that teleports out of «its» slot is
+   *                      the failure mode this mode exists to prevent.
    *   · «Dringlichkeit» — longest since Funkkontakt first (what the board did before)
    *   · «Auftrag» / «Name» — for a board big enough to look things up in
+   * In the DERIVED sorts überfällig still floats to the top before the mode's own key: those
+   * orders are recomputed anyway, so the float costs no stability and keeps an overdue card
+   * from hiding off-screen.
    * The MODE is per-device (a way of looking); the hand-set order is synced (it is data).
    */
   const orderKey = (t: Trupp) => trupps.findIndex((x) => x.id === t.id)
   const baseSort = (list: Trupp[]) => [...list].sort((a, b) => {
-    const overdue = Number(live.get(b.id)?.status === 'ueberfaellig') - Number(live.get(a.id)?.status === 'ueberfaellig')
-    if (overdue) return overdue
+    if (order !== 'manuell') {
+      const overdue = Number(live.get(b.id)?.status === 'ueberfaellig') - Number(live.get(a.id)?.status === 'ueberfaellig')
+      if (overdue) return overdue
+    }
     if (order === 'name') return a.name.localeCompare(b.name, 'de') || orderKey(a) - orderKey(b)
     if (order === 'auftrag') {
       return (auftragTypeLabel(a) ?? '￿').localeCompare(auftragTypeLabel(b) ?? '￿', 'de') || orderKey(a) - orderKey(b)
@@ -187,7 +194,7 @@ export function AtemschutzView({
 
   /* Hold the ARRANGEMENT still for a moment after any change made on this board.
    *
-   * The überfällig float above is right and stays — but it means a Kontakt re-sorts the board
+   * The überfällig float above is right and stays (in the derived sorts) — but it means a Kontakt re-sorts the board
    * under the finger. Measured at 1194×834: pressing Kontakt on the card in slot 1 reset its
    * clock, dropped it out of the überfällig group, and slid everything below up, so ~250ms later
    * `elementFromPoint` at the pressed pixel returned a DIFFERENT Trupp's card. With four
