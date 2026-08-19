@@ -77,7 +77,12 @@ dev: db migrate
     #!/usr/bin/env bash
     set -euo pipefail
     printf '\033[1;34m→ API  http://localhost:%s   ·   App  http://localhost:5188  (Ctrl+C stops both)\033[0m\n' '{{api_port}}'
-    (cd backend && uv run uvicorn app.main:app --reload --port {{api_port}}) &
+    # PINs are peppered with SECRET_KEY (app/auth/security.py), so the dev backend must run
+    # under the SAME key the dev DB's users were hashed with — the one in the root .env.
+    # ONLY that var: the rest of .env is the docker deployment's config (real Divera/Traccar
+    # keys, telemetry) and must not leak into a dev server. Without it every boot mints a
+    # throwaway key and every login answers «Falsche PIN».
+    (cd backend && SECRET_KEY="$(grep -m1 '^SECRET_KEY=' ../.env 2>/dev/null | cut -d= -f2- || true)" uv run uvicorn app.main:app --reload --port {{api_port}}) &
     api=$!
     # Ctrl+C reaches both directly (same process group). The trap covers the other exit paths —
     # vite crashing or being quit leaves nothing holding {{api_port}}. `uv run` passes the
