@@ -316,7 +316,9 @@ describe('server-PDF payload extras', () => {
       gerettete: { personen: 2, tiere: 1 },
       rueckmeldungElz: { name: 'Muster Hans', at: '2026-07-18T17:15:00' },
     })
-    expect(extras.gerettete).toBe('2 Personen · 1 Tiere')
+    expect(extras.gerettete).toBe('2 Personen · 1 Tier')
+    // the count picks its noun: 1 stays singular, everything else plural
+    expect(metaExtrasForPdf({ gerettete: { personen: 1 } }).gerettete).toBe('1 Person')
     expect(extras.rueckmeldungElz).toBe('Muster Hans · 17:15')
     const empty = metaExtrasForPdf({})
     expect(empty.gerettete).toBeUndefined()
@@ -539,7 +541,7 @@ describe('changedReportMetaFields (what the Verlauf row says)', () => {
 
   it('counts the Gerettete instead of naming the field', () => {
     expect(changedReportMetaFields(base, { ...base, gerettete: { personen: 2, tiere: 1 } }))
-      .toEqual(['Gerettete: 2 Personen · 1 Tiere'])
+      .toEqual(['Gerettete: 2 Personen · 1 Tier'])
   })
 
   it('distinguishes confirming «keine Mittel» from taking it back', () => {
@@ -596,6 +598,20 @@ describe('report Pendenzen rows', () => {
     expect(first.notes.map((n) => n.text)).toEqual(['Fahrzeug unterwegs'])
     expect(second.assignee).toBe('Sanität')
     expect(second.notes.map((n) => n.text)).toEqual(['ooooke'])
+  })
+
+  it('prints the Erinnerung, and a Meldung that reschedules moves it (same rule as the block)', () => {
+    const timed: TimelineEvent[] = [
+      // timezone-less stamps like the rest of this file, so the expected clock reads literally
+      entry('n1', '2026-08-16T21:05:00.000Z', 'Werkhof meldet 20 Minuten',
+        { op: 'note', id: 'p1', dueAt: '2026-08-16T21:25:00' }),
+      entry('e1', '2026-08-16T21:00:00.000Z', 'Absperrmaterial',
+        { op: 'created', id: 'p1', text: 'Absperrmaterial', dueAt: '2026-08-16T21:15:00' }),
+      entry('e2', '2026-08-16T21:01:00.000Z', 'ohne Uhrzeit', { op: 'created', id: 'p2', text: 'ohne Uhrzeit' }),
+    ]
+    const [first, second] = pendenzRows(timed)
+    expect(first.faellig).toBe('21:25') // moved by the Meldung, not the 21:15 it was raised with
+    expect(second.faellig).toBeUndefined() // untimed item prints none
   })
 })
 

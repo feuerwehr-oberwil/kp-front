@@ -608,6 +608,7 @@ def test_pendenzen_section_prints_after_the_journal():
                     "assignee": "Werkhof Oberwil",
                     "urgent": True,
                     "erteilt": "21:02",
+                    "faellig": "21:30",
                     "notes": [{"timeLabel": "21:19", "text": "Fahrzeug unterwegs"}],
                 },
                 {"text": "Öl binden Vorplatz", "erteilt": "21:18"},
@@ -628,6 +629,40 @@ def test_pendenzen_section_prints_after_the_journal():
     assert "! = dringend" not in text
     # …and an item nobody ticked off says so, which is the point of printing the section at all
     assert "offen" in text
+    # a timed Erinnerung is a fact about the Auftrag — it prints under «Was», the untimed
+    # item beside it prints none
+    assert "fällig 21:30" in text
+    assert text.count("fällig") == 1
+
+
+def test_a_corrected_journal_row_prints_its_first_wording():
+    """The app promises «Der ursprüngliche Wortlaut bleibt im Protokoll» — so the paper has to
+    keep it too: latest wording as the row, the original as a muted sub-line, intermediates
+    (which stay in the record) unprinted."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Korrektur-Probe", "id": "k"},
+            "generatedAt": "19.08.2026 22:00",
+            "journal": [
+                {
+                    "timeLabel": "21:58",
+                    "area": "Manuell",
+                    "text": "Trupp 2 sichert Nordseite",
+                    "correctedAt": "22:03",
+                    "textOriginal": "Trupp 3 sichert Nordseite",
+                },
+                {"timeLabel": "22:00", "area": "Manuell", "text": "Unverändert"},
+            ],
+        }
+    )
+    doc = pdfium.PdfDocument(io.BytesIO(compose_report_pdf(payload, {}, {})))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+
+    assert "Trupp 2 sichert Nordseite" in text
+    assert "korrigiert 22:03" in text
+    assert "Trupp 3 sichert Nordseite" in text
+    # an untouched row carries no correction line
+    assert text.count("korrigiert") == 1
 
 
 def test_pendenzen_section_is_absent_without_any():

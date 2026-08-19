@@ -143,6 +143,11 @@ class JournalRowIn(BaseModel):
     #: «&» somebody typed. It is therefore NOT run through ``_esc`` again here.
     markup: str | None = None
     transcript: str | None = None
+    #: A corrected line prints as latest wording + a muted «korrigiert HH:MM · ursprünglich: …»
+    #: sub-line — the record's first wording; intermediate revisions stay unprinted (the journal
+    #: store keeps them all, the paper shows where it started and where it ended, 19.08.).
+    correctedAt: str | None = None  # client-formatted HH:MM of the LAST correction
+    textOriginal: str | None = None
     photoKey: str | None = None  # legacy: figure key of a client-uploaded photo
     photoUrl: str | None = None  # single photo — the shape rows written before 2026-08-06 carry
     #: several photos on one row (one damage is rarely one picture). Readers take both.
@@ -177,6 +182,10 @@ class PendenzRowIn(BaseModel):
     #: absent ⇒ still open at the Einsatzende, and the cell prints «offen». That is the whole
     #: point of the section: what somebody still has to take away from the incident.
     erledigt: str | None = None
+    #: HH:MM of the Erinnerung, when the item carried one — the latest Wiedervorlage, the same
+    #: value the pinned block runs on. Prints as a sub-line under «Was»; a column would be blank
+    #: on every untimed row (same reasoning as Prio above).
+    faellig: str | None = None
     notes: list[PendenzNoteIn] = []
 
 
@@ -571,6 +580,12 @@ L = {
     "colArea": "Bereich",
     "colEntry": "Eintrag",
     "transcript": "Transkript",
+    # a corrected row: latest wording above, this line says when and what it started as —
+    # the printed counterpart of the app's «korrigiert HH:MM»-chip + «Der ursprüngliche
+    # Wortlaut bleibt im Protokoll»
+    "correctedLine": "korrigiert {t} · ursprünglich: «{text}»",
+    # sub-line under «Was» when an Auftrag / eine Pendenz carried a timed Erinnerung
+    "pendenzDue": "fällig {t}",
     "noEntries": "Keine Einträge.",
     "signoff": "Unterschriften",
     "sigOrtDatum": "Ort, Datum",
@@ -1386,6 +1401,9 @@ def compose_report_pdf(
         body: list[list] = []
         for r in payload.journal:
             entry_cells: list = [Paragraph(r.markup or _esc(r.text), st["cell"])]
+            if r.correctedAt and r.textOriginal:
+                corrected = L["correctedLine"].format(t=_esc(r.correctedAt), text=_esc(r.textOriginal))
+                entry_cells.append(Paragraph(corrected, st["muted"]))
             if r.transcript:
                 entry_cells.append(Paragraph(f"<b>{_esc(L['transcript'])}:</b> {_esc(r.transcript)}", st["muted"]))
             urls = r.photoUrls or ([r.photoUrl] if r.photoUrl else [])
@@ -1459,6 +1477,10 @@ def compose_report_pdf(
             # means, once, instead of every row saying it.
             lead = f'<font color="{_URGENT}"><b>!</b></font>  ' if pdz.urgent else ""
             cells: list = [Paragraph(f"{lead}{_esc(pdz.text)}", st["cell"])]
+            # the Erinnerung, when the item carried one — a fact about the Auftrag, so it sits
+            # under «Was» with the Meldungen rather than claiming a column of its own
+            if pdz.faellig:
+                cells.append(Paragraph(L["pendenzDue"].format(t=_esc(pdz.faellig)), st["subline"]))
             for n in pdz.notes:
                 cells.append(Paragraph(f"{_esc(n.timeLabel)}  {_esc(n.text)}", st["subline"]))
             p_body.append(

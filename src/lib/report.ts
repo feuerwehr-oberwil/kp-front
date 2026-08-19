@@ -151,6 +151,10 @@ export interface JournalPrintRow {
   markup?: string
   /** row was appended AFTER the Einsatzende (closed_at) — printed under «Nachträge» */
   nachtrag?: boolean
+  /** HH:MM of the LAST correction + the FIRST wording — the print shows both («korrigiert
+   *  HH:MM · ursprünglich: …») and skips intermediate revisions. Absent on untouched rows. */
+  correctedAt?: string
+  textOriginal?: string
 }
 
 /** ReportLab's Paragraph takes a tiny HTML subset, so anything that is not our own markup has
@@ -177,7 +181,6 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   // a Checklisten-Haken is a documented decision, not a free note — and it is the only other
   // thing `journal` is written for besides the composer
   if (e.kind === 'journal' && e.icon === 'check') return r.areaChecklist
-  if (e.kind === 'reminder') return r.areaManual
   // ⚠️ A row that WAS given a type says so in this column. «Manuell» answers «wo kam das her»,
   // which is the least interesting thing about an Auftrag or a Sofortmassnahme — and the type
   // was already in the text as a «Auftrag · » prefix, so the printed row carried the word twice
@@ -187,6 +190,11 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   if (e.entryType && e.entryType !== 'info') {
     return appConfig.copy.journal.entryTypes[e.entryType] ?? r.areaManual
   }
+  // …and a row raised by the ring is a Pendenz even without a typed tag — on screen the row
+  // carries the «Pendenz» chip, so the printed column says the same word. AFTER the entryType
+  // branch: an «Auftrag» with an Erinnerung is still an Auftrag. Covers the whole lifecycle
+  // (created, Meldung, erledigt) — every one of those rows is about the item.
+  if (e.kind === 'reminder' || e.reminder) return appConfig.copy.journal.noteChip
   if (e.kind === 'audio' || e.kind === 'photo' || e.kind === 'journal' || e.pinned) return r.areaManual
   // ── then by ICON, which is what actually separates the writers ──
   // ⚠️ Every row the QR poster writes has NO kind at all (lib/captureClient · row), so a rule
@@ -257,6 +265,10 @@ export function journalRows(
         audioUrl: e.audioUrl,
         transcript: e.transcript,
         nachtrag: Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs,
+        correctedAt: e.correctedAt && e.textOriginal ? hhmm(new Date(e.correctedAt)) : undefined,
+        // the original through the same prefix-strip as the latest text, or the two would
+        // differ by the «Auftrag · » tag alone and read as a phantom correction
+        textOriginal: e.correctedAt && e.textOriginal ? withoutAreaPrefix(e.textOriginal) : undefined,
       }
     })
     .sort((a, b) => {
@@ -275,6 +287,9 @@ export interface PendenzPrintRow {
   erteilt: string
   /** absent ⇒ still open when the Rapport was written; the cell prints «offen» */
   erledigt?: string
+  /** HH:MM of the Erinnerung, when the item carried one — the LATEST Wiedervorlage (a Meldung
+   *  can move it), the same rule the pinned block runs on (lib/reminders). */
+  faellig?: string
   notes: { timeLabel: string; text: string }[]
 }
 
@@ -297,6 +312,7 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
   const created = new Map<string, TimelineEvent>()
   const doneAt = new Map<string, string>()
   const urgency = new Map<string, boolean>()
+  const due = new Map<string, string>()
   const notes = new Map<string, { timeLabel: string; text: string }[]>()
   // oldest → newest, so «the latest wins» falls out of the iteration order
   for (let i = events.length - 1; i >= 0; i--) {
@@ -304,6 +320,9 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
     const r = e.reminder
     if (!r) continue
     if (r.urgent !== undefined) urgency.set(r.id, r.urgent)
+    // any later row carrying a dueAt MOVES the Wiedervorlage (snooze, or a Meldung that
+    // reschedules) — same rule as lib/reminders, so paper and pinned block agree
+    if (r.dueAt) due.set(r.id, r.dueAt)
     if (r.op === 'created') created.set(r.id, e)
     else if (r.op === 'done') doneAt.set(r.id, clock(e))
     else if (r.op === 'note') notes.set(r.id, [...(notes.get(r.id) ?? []), { timeLabel: clock(e), text: e.text }])
@@ -317,6 +336,7 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
       urgent: !!urgency.get(id),
       erteilt: clock(e),
       erledigt: doneAt.get(id),
+      faellig: due.has(id) ? hhmm(new Date(due.get(id)!)) : undefined,
       notes: notes.get(id) ?? [],
     }))
     // chronological by Erteilt, like the paper form it replaces — NOT the screen's
@@ -496,12 +516,7 @@ export function metaExtrasForPdf(meta: ReportMeta, bounds?: IncidentBounds): {
   // depending on a date that was nowhere on the paper.
   const fmt = spanAwareClock(bounds)
   const clock = (iso?: string) => fmt(iso) ?? ''
-  const gerettete = meta.gerettete && (meta.gerettete.personen != null || meta.gerettete.tiere != null)
-    ? [
-        meta.gerettete.personen != null ? `${meta.gerettete.personen} ${R.gerettetePersonen}` : null,
-        meta.gerettete.tiere != null ? `${meta.gerettete.tiere} ${R.geretteteTiere}` : null,
-      ].filter(Boolean).join(' · ')
-    : undefined
+  const gerettete = _geretteteText(meta.gerettete) || undefined
   const rk = meta.rueckmeldungElz
   const rueckmeldungElz = rk && (rk.name || rk.at)
     ? [rk.name, rk.at ? clock(rk.at) : null].filter(Boolean).join(' · ')
@@ -698,13 +713,15 @@ function _structuredMetaLines(k: string, a: unknown, b: unknown): string[] | und
   return undefined
 }
 
-/** «2 Personen · 1 Tier» — the same wording the printed rapport uses. */
+/** «2 Personen · 1 Tier» — journal text AND the printed rapport's «Gerettet» box (the payload
+ *  sends this string pre-formatted), so the count agrees with its noun exactly once, here. */
 function _geretteteText(g?: { personen?: number; tiere?: number }): string {
   const R = appConfig.copy.report
   if (!g || (g.personen == null && g.tiere == null)) return ''
+  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
   return [
-    g.personen != null ? `${g.personen} ${R.gerettetePersonen}` : null,
-    g.tiere != null ? `${g.tiere} ${R.geretteteTiere}` : null,
+    g.personen != null ? count(g.personen, R.gerettetePerson, R.gerettetePersonen) : null,
+    g.tiere != null ? count(g.tiere, R.geretteteTier, R.geretteteTiere) : null,
   ].filter(Boolean).join(' · ')
 }
 

@@ -2701,6 +2701,9 @@ export const de = {
     gerettete: 'Gerettete (Personen / Tiere)',
     gerettetePersonen: 'Personen',
     geretteteTiere: 'Tiere',
+    // the singulars — «1 Person» / «1 Tier»; the count picks its noun (lib/report · _geretteteText)
+    gerettetePerson: 'Person',
+    geretteteTier: 'Tier',
     alarmierung: 'Alarmierung',
     ausgerueckt: 'Ausgerückt',
     incidentEnd: 'Einsatzende',

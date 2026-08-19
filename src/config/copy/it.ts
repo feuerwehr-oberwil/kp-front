@@ -1934,6 +1934,8 @@ export const it: Localizable<Copy> = {
     gerettete: 'Salvati',
     gerettetePersonen: 'persone',
     geretteteTiere: 'animali',
+    gerettetePerson: 'persona',
+    geretteteTier: 'animale',
     rueckmeldungElz: 'Rapporto alla centrale',
     zeitenHead: 'Orari di allarme / partenza',
     back: 'Indietro',

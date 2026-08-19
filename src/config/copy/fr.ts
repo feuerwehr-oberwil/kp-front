@@ -1934,6 +1934,8 @@ export const fr: Localizable<Copy> = {
     gerettete: 'Sauvés',
     gerettetePersonen: 'personnes',
     geretteteTiere: 'animaux',
+    gerettetePerson: 'personne',
+    geretteteTier: 'animal',
     rueckmeldungElz: 'Retour à la centrale',
     zeitenHead: 'Heures d’alarme / de départ',
     back: 'Retour',

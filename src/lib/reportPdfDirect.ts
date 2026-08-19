@@ -181,6 +181,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const journal = journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at, { includeBookkeeping: draft.options.detailedAudit, vocab: args.vocab })
     .map((r) => ({
       timeLabel: r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
+      // a corrected line prints its first wording beside the latest — the paper says the same
+      // thing the «korrigiert»-chip says on screen
+      correctedAt: r.correctedAt, textOriginal: r.textOriginal,
       // only pictures the SERVER can fetch — a blob: URL is one that never finished uploading
       photoUrls: r.photoUrls?.filter((u) => u.startsWith('/')),
     }))
