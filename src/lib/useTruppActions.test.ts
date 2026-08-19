@@ -181,13 +181,15 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'rueckzug', bar: 140 }) // carries the last known Druck
   })
 
-  it('Fortsetzen out of a Rückzug does the same', () => {
+  it('Fortsetzen out of a Rückzug resets the same clock, and says what it was', () => {
     const { actions, state } = harness(baseTrupp({ status: 'rueckzug', ...stale }))
     actions.setTruppStatus('T1', 'aktiv')
     const t = state.trupps[0]
     expect(t.status).toBe('aktiv')
     expect(t.lastContactTime).not.toBe(stale.lastContactTime)
-    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'contact', bar: 300 }) // no reading yet → entry pressure
+    // ⚠️ 'resume', not 'contact' (19.08.): it is a Kontakt for the clock, but the crew going back
+    // IN is the other half of the Rückzug and must not print as one of twenty radio checks.
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'resume', bar: 300 }) // no reading yet → entry pressure
   })
 
   it('keeps the entry path intact: the FIRST «Eingerückt» still stamps entryTime and an entry reading', () => {
@@ -244,13 +246,15 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     ])
   })
 
-  it('«Raus» ends monitoring and does NOT fake a contact', () => {
+  it('«Raus» ends monitoring, records the Austritt, and does NOT fake a contact', () => {
     const { actions, state } = harness(baseTrupp({ status: 'rueckzug', ...stale }))
     actions.setTruppStatus('T1', 'raus')
     const t = state.trupps[0]
     expect(t.exitTime).toBeTruthy()
     expect(t.lastContactTime).toBe(stale.lastContactTime) // clock untouched — the Trupp is out
-    expect(t.readings).toHaveLength(1)
+    // …and the log SAYS the crew came out, instead of just stopping (19.08.): the printed
+    // Atemschutz page is read as a chronology, and the Austritt used to live only in its header
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'exit' })
   })
 
   // The Sicherungstrupp that stood ready and was stood down. It is closed like any other Trupp,

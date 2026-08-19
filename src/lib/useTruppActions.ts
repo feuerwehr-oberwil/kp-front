@@ -322,6 +322,28 @@ export function useTruppActions(deps: Deps) {
     return false
   }
 
+  /**
+   * The Leitung number each Trupp's DRAWN line currently carries.
+   *
+   * ⚠️ The number lives on the drawing; the Trupp's `lineNo` is a copy taken when the two were
+   * linked (see linkTruppLine). Renumbering the hose syncs that copy going forward, but every
+   * record written before — and every copy a merge from an older client brings back — keeps the
+   * old number, and the Atemschutz card then said «Ltg 1» next to a hose tagged «Ltg 3». Read at
+   * render time, the picture is the single source of truth and stale copies heal themselves.
+   * The stored copy stays the fallback: a Trupp whose line was deleted keeps the number it was
+   * on, which is what the record says happened.
+   */
+  const truppLineNos = (): Map<string, number> => {
+    const lines = [...docLines(), ...Object.values(board).flat().filter((a) => a.kind === 'draw')]
+    const out = new Map<string, number>()
+    for (const l of lines) {
+      if (l.lineNo == null) continue
+      const t = truppForLine(l, trupps)
+      if (t && !out.has(t.id)) out.set(t.id, l.lineNo)
+    }
+    return out
+  }
+
   /** Which Trupps have a drawn Leitung to jump to — drives the card chip's affordance, so it is
    *  a button exactly when there is somewhere to go. */
   const truppsWithLine = (): Set<string> => {
@@ -417,14 +439,22 @@ export function useTruppActions(deps: Deps) {
       if (status === 'aktiv' && !t.entryTime) {
         return { ...t, status, entryTime: now, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.entryPressureBar, kind: 'entry' }] }
       }
-      if (status === 'raus') return { ...t, status, exitTime: now }
+      // ⚠️ The Austritt is a ROW too (19.08.). It lived only in the sheet's header, so the
+      // printed pressure log simply stopped mid-Einsatz and the reader had to look up to find
+      // out whether the crew ever came out. The clock is untouched — this only records.
+      if (status === 'raus') {
+        return { ...t, status, exitTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'exit' }] }
+      }
       if (impliesContact) {
         // ⚠️ A Rückzug is written down AS a Rückzug. It counts as a Funkkontakt and used to be
         // logged as nothing but one, so the printed Journal showed the order to come back as an
         // ordinary radio check — the one row a reconstruction is looking for, indistinguishable
-        // from the twenty around it. A Fortsetzen stays a plain Kontakt: the Trupp was reached
-        // and sent back in, which is what a Kontakt is.
-        const kind = status === 'rueckzug' ? 'rueckzug' as const : 'contact' as const
+        // from the twenty around it.
+        // ⚠️ …and so is the way back IN (19.08., reversing «a Fortsetzen stays a plain Kontakt»).
+        // It IS a Kontakt — the Trupp was reached — but a crew being sent back into the building
+        // is the other half of the Rückzug, and printing it as one of twenty radio checks left
+        // the sheet saying a Trupp withdrew and never went back. Same clock reset, own word.
+        const kind = status === 'rueckzug' ? 'rueckzug' as const : 'resume' as const
         return { ...t, status, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind }] }
       }
       return { ...t, status }
@@ -743,5 +773,5 @@ export function useTruppActions(deps: Deps) {
     return out
   }
 
-  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppColors, setTruppColor }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
 }

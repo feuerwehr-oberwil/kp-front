@@ -1033,6 +1033,9 @@ export const de = {
     nachtrag: 'Nachtrag',
     // a hand-written line corrected later (append-only patch — both wordings stay in the record)
     corrected: 'korrigiert {t}',
+    // a line the app repeated while nothing changed — the record keeps every repeat
+    repeated: '{n}×',
+    repeatedTitle: 'Diese Meldung wiederholte sich – jede Wiederholung bleibt im Protokoll.',
     correctHint: 'Der ursprüngliche Wortlaut bleibt im Protokoll.',
     // system row appended when a three-way sync merge saw BOTH sides (KP tablet and
     // QR-Erfassung/server) change the SAME person's attendance to different values —
@@ -1352,7 +1355,7 @@ export const de = {
     // them, the Rückzug as a plain «Kontakt».
     readingKind: {
       registered: 'Angemeldet', entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck',
-      alarm: 'Alarmdruck', rueckzug: 'Rückzug',
+      alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Ausgerückt', resume: 'Wiedereinstieg',
     } as Record<string, string>,
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',

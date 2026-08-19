@@ -644,9 +644,15 @@ export interface TruppReading {
    * resets the safety clock) but is not ONLY. Both are recorded as their own kind, so the sheet
    * can say so without the reader reconstructing it from the numbers.
    *
+   * ⚠️ `exit` and `resume` complete the CHRONOLOGY (19.08.). The Austritt lived only in the
+   * sheet's header, so the log simply stopped mid-Einsatz, and a Wiedereinstieg after a Rückzug
+   * was written down as a plain `contact` — true (the Trupp was reached) but not the whole
+   * truth, and the one row saying the crew went back IN was indistinguishable from a radio
+   * check. The safety clock is unchanged: a `resume` resets it exactly like a Kontakt.
+   *
    * Rows written before these kinds existed keep theirs — the log is append-only.
    */
-  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug'
+  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug' | 'exit' | 'resume'
 }
 
 export interface Trupp {

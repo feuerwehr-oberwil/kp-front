@@ -9,7 +9,7 @@ import { truppNeverDeployed } from './atemschutz'
 import { formatElapsed } from './audioPlayer'
 import { attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
-import { rowPhotos } from './verlauf'
+import { repeatRuns, rowPhotos } from './verlauf'
 import { linkMarkup, type JournalLink } from './journalLinks'
 
 export interface KrokiView {
@@ -159,6 +159,9 @@ export interface JournalPrintRow {
    *  HH:MM · ursprünglich: …») and skips intermediate revisions. Absent on untouched rows. */
   correctedAt?: string
   textOriginal?: string
+  /** how often this line repeated within the repeat window (lib/verlauf · repeatRuns). >1 prints
+   *  as «6×» after the entry; the repeats themselves are in the record, not on the paper. */
+  repeats?: number
 }
 
 /** ReportLab's Paragraph takes a tiny HTML subset, so anything that is not our own markup has
@@ -204,6 +207,12 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   // ⚠️ Every row the QR poster writes has NO kind at all (lib/captureClient · row), so a rule
   // that went by kind classified all of them as map-tactical. The icon is the only thing the
   // tablet's rows and the poster's rows have in common.
+  // ⚠️ …and by TEXT where the icon is shared. The Anwesenheit's undo wrote icon 'undo', which is
+  // also the Atemschutz-Rückzug's, so «Anwesenheit zurückgenommen: Studer Corinne» printed under
+  // «Atemschutz». New rows carry 'people' (IncidentWorkspace · stepAttendance); this reads the
+  // ones already in the record, off the same copy template that wrote them.
+  if (startsWithTemplate(e.text, appConfig.copy.anwesenheit.undone)
+    || startsWithTemplate(e.text, appConfig.copy.anwesenheit.redone)) return r.areaAnwesenheit
   if (e.icon === 'clipboard') return r.areaRapport
   if (e.icon === 'photo') return r.areaRapport // Beilage added/removed at the poster
   if (e.icon === 'people' || e.icon === 'user' || e.icon === 'clock') return r.areaAnwesenheit
@@ -212,6 +221,14 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   if (e.kind === 'team') return r.areaAtemschutz
   if (e.surface === 'plan') return planLabel(plans.find((p) => p.id === e.planId), e.floor)
   return r.areaLage
+}
+
+/** Does this row's text begin with what a copy template writes before its first placeholder?
+ *  The only handle on rows whose icon cannot say where they came from — read from the live copy,
+ *  so it answers in whatever locale wrote them. */
+function startsWithTemplate(text: string, template: string): boolean {
+  const prefix = template.split('{')[0].trim()
+  return prefix.length > 0 && text.startsWith(prefix)
 }
 
 /** Prefixes a printed entry no longer needs, because the Bereich beside it now says the same
@@ -241,8 +258,12 @@ export function journalRows(
   opts?: { includeBookkeeping?: boolean; vocab?: JournalLink[] },
 ): JournalPrintRow[] {
   const closedMs = closedAt ? Date.parse(closedAt) : NaN
+  // …and a line the app repeated while nothing changed prints ONCE, with its count — the same
+  // rule the Verlauf reads by, so paper and screen tell the same story (lib/verlauf).
+  const repeats = repeatRuns(events)
   return events
     .filter((e) => {
+      if (repeats.hidden.has(e.id)) return false
       // attendance/material bookkeeping rows («X anwesend», «Ölbinder: 3 Sack») duplicate
       // the Anwesenheit/Mittel sections — hidden from the default print, shown only with
       // the detailed audit option (then EVERY action counts). Decided 2026-07-14.
@@ -277,6 +298,7 @@ export function journalRows(
             ]
           : undefined,
         nachtrag: Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs,
+        repeats: repeats.counts.get(e.id),
         correctedAt: e.correctedAt && e.textOriginal ? hhmm(new Date(e.correctedAt)) : undefined,
         // the original through the same prefix-strip as the latest text, or the two would
         // differ by the «Auftrag · » tag alone and read as a phantom correction
@@ -437,7 +459,9 @@ export function truppAuftragLabel(auftrag?: string): string | undefined {
  * column stays empty for it.
  */
 export function readingBarIsMeasured(kind: TruppReading['kind']): boolean {
-  return kind !== 'contact' && kind !== 'rueckzug'
+  // …and neither is the Austritt or the Wiedereinstieg: both carry the last reported value
+  // forward exactly like a Kontakt does (useTruppActions · setTruppStatus).
+  return kind !== 'contact' && kind !== 'rueckzug' && kind !== 'exit' && kind !== 'resume'
 }
 
 export function readingKindLabel(kind: TruppReading['kind']): string {
@@ -449,6 +473,9 @@ export function readingKindLabel(kind: TruppReading['kind']): string {
   // the two rows the sheet is read for — see types · TruppReading
   if (kind === 'alarm') return az.readingKind.alarm
   if (kind === 'rueckzug') return az.readingKind.rueckzug
+  // the two that complete the chronology — the crew came out, or went back in
+  if (kind === 'exit') return az.readingKind.exit
+  if (kind === 'resume') return az.readingKind.resume
   return az.readingKind.pressure
 }
 
