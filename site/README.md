@@ -10,7 +10,7 @@ site/
   content/fr.json       ← die Übersetzung, über de.json gelegt
   landing.css           ← das gemeinsame Design von KP Front und KP Rück
   fonts/                ← Sora + Spline Sans Mono (variable, gehostet, kein CDN)
-  shots/                ← Screenshots aus einer echten Instanz (generiert)
+  shots/                ← Screenshots aus einer echten Instanz (generiert, WebP)
   capture.mjs           ← nimmt shots/ neu auf
   build.mjs             ← baut aus Vorlage + Texten die Seiten
 
@@ -72,6 +72,18 @@ Neue Bilder kommen als neuer Eintrag in die `shots`-Liste im Skript **und** als 
 `shots.items` in `content/de.json` – die Dateinamen sind der Vertrag zwischen beiden. Der
 Dateiname steht nur in `de.json`; die Übersetzungen erben ihn und beschriften nur.
 
+**Das Format ist WebP** – dieselbe Aufnahme wiegt rund halb so viel wie das JPEG von früher, und
+encodiert wird im Chromium, den Playwright ohnehin mitbringt (keine zweite Abhängigkeit, kein
+`cwebp` auf dem Rechner). Drei Ausgaben statt einer, alle aus derselben Aufnahme:
+
+| Datei | wofür |
+| --- | --- |
+| `<name>.webp` (1500 px) | die Kacheln und die Lightbox |
+| `lage-992.webp` | das Hero-Bild auf Telefonen und 1x-Bildschirmen – breiter als 992 px wird es nie gezeigt (`.wrap` = 1040 px minus 2×24 px) |
+| `lage.jpg` | **nur** die Linkvorschau (`og:image`): WhatsApp, Facebook und Co. zeigen kein WebP |
+
+Die kleine Fassung und das JPEG entstehen an dem einen Shot, der im Skript `hero: true` trägt.
+
 Zwei Dinge zur Demo: sie wird von Besuchern mitbenutzt und jede Nacht um 00:00 zurückgesetzt.
 Für saubere Bilder also am besten kurz nach dem Reset aufnehmen – oder mit `--base` gegen eine
 lokale Instanz fahren.
@@ -107,8 +119,8 @@ Auflösung: die Landingpage bindet die Bilder inline ein (1x, Seitengewicht zäh
 README-Bilder werden auf GitHub vergrössert betrachtet.
 
 ```bash
-node site/capture.mjs                    # Landingpage-JPEGs (1x) + README-PNGs
+node site/capture.mjs                    # Landingpage-WebP (1x) + README-PNGs
 node site/capture.mjs --scale 2 --docs-only --only lage,gebaeude,atemschutz,mittel
 ```
 
-`--docs-only` lässt die JPEGs unangetastet. Aktuell liegen die README-Bilder bei 3000 px Breite.
+`--docs-only` lässt die Bilder der Landingpage unangetastet. Aktuell liegen die README-Bilder bei 3000 px Breite.

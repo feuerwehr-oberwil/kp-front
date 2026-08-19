@@ -29,7 +29,8 @@
     "ctaNote": "Ohne Login – in der Demo brennt es gerade in Musterdorf",
     "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
     "frameAlt": "Lage-Ansicht: taktische Karte mit FKS-Symbolen, Sektoren und Schlauchleitungen",
-    "frameFile": "lage.jpg",
+    "frameFile": "lage.webp",
+    "frameFileSmall": "lage-992.webp",
     "frameW": 1500,
     "frameH": 937
   },
@@ -126,7 +127,7 @@
     "lede": "Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klick auf\n        «Demo öffnen», und du stehst in derselben Lage.",
     "items": [
       {
-        "file": "plan.jpg",
+        "file": "plan.webp",
         "w": 1500,
         "h": 937,
         "alt": "Plan-Ansicht: Objektplan als Whiteboard mit Zeichnung, Symbolen und Massstab",
@@ -134,7 +135,7 @@
         "sub": "Objekt- und Einsatzpläne mit taktischen Zeichen, Markierungen und massstabsgetreuem Messen"
       },
       {
-        "file": "atemschutz.jpg",
+        "file": "atemschutz.webp",
         "w": 1500,
         "h": 937,
         "alt": "Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr",
@@ -142,7 +143,7 @@
         "sub": "Überwachung von Trupps, Zeiten, Drücken und Rückmeldungen"
       },
       {
-        "file": "gebaeude.jpg",
+        "file": "gebaeude.webp",
         "w": 1500,
         "h": 937,
         "alt": "Gebäude-Ansicht: Geschossstapel mit Truppzuordnung",
@@ -150,7 +151,7 @@
         "sub": "Die Geschosse übereinander – welcher Trupp arbeitet auf welchem Stock"
       },
       {
-        "file": "verlauf.jpg",
+        "file": "verlauf.webp",
         "w": 1500,
         "h": 937,
         "alt": "Verlauf: chronologische Einträge neben der Karte",
@@ -158,7 +159,7 @@
         "sub": "Laufende Dokumentation aller wichtigen Ereignisse – Sprachnotizen werden automatisch zu Text"
       },
       {
-        "file": "anwesenheit.jpg",
+        "file": "anwesenheit.webp",
         "w": 1500,
         "h": 937,
         "alt": "Anwesenheit: Mannschaftsliste mit Ankunftszeiten",
@@ -166,7 +167,7 @@
         "sub": "Wer ist eingerückt und seit wann – die Grundlage für Mannschaftsliste und Rapport"
       },
       {
-        "file": "zeitplan.jpg",
+        "file": "zeitplan.webp",
         "w": 1500,
         "h": 937,
         "alt": "Zeitplan: Schichtenraster mit einer Zeile pro Person, geplanten und tatsächlichen Balken sowie der Deckungslinie darunter",
@@ -174,7 +175,7 @@
         "sub": "Schichten planen bei langen Einsätzen – verfügbar, eingeteilt, tatsächlich da, und wo die Deckung einbricht"
       },
       {
-        "file": "checkliste.jpg",
+        "file": "checkliste.webp",
         "w": 1500,
         "h": 937,
         "alt": "Checkliste: Aufgaben der Führungsunterstützung mit Fortschritt",
@@ -182,7 +183,7 @@
         "sub": "Die Führungs-Checklisten eurer Feuerwehr, zum Abhaken statt im Ordner"
       },
       {
-        "file": "mittel.jpg",
+        "file": "mittel.webp",
         "w": 1500,
         "h": 937,
         "alt": "Mittel-Ansicht: Materialeinsatz nach Quelle",
@@ -190,7 +191,7 @@
         "sub": "Material und Verbrauch im Einsatz erfassen, statt nachher zu schätzen"
       },
       {
-        "file": "rapport.jpg",
+        "file": "rapport.webp",
         "w": 1500,
         "h": 937,
         "alt": "Einsatzrapport vor dem Druck: Anwesenheit und Mittel bereits übernommen, darunter die Abschnitte des PDF zum Ankreuzen",

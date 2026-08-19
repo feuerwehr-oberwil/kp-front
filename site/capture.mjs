@@ -7,12 +7,14 @@
  *   node site/capture.mjs --only lage,mittel    # only individual shots
  *
  * Drives a real instance with Playwright, switches to day mode, hides the demo
- * chrome (welcome dialog, DEMO ribbon) and writes the images into site/shots/.
+ * chrome (welcome dialog, DEMO ribbon) and writes the images into site/shots/ – WebP for the
+ * page, plus one JPEG of the hero for link previews.
  * The image names are the contract with `shots.items` in site/content/de.json –
  * whoever renames one here has to follow suit there (only there: the translations
  * inherit the file name and merely caption it).
  */
 import { chromium } from '@playwright/test'
+import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -25,7 +27,15 @@ const DOCS_SHOTS = join(HERE, '..', 'docs', 'screenshots')
 
 const DEFAULT_BASE = 'https://demo.kp-front.ch'
 const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – the same tile shape for every shot
-const QUALITY = 82
+// The landing page serves WebP: the same capture weighs about half of the JPEG it used to be.
+// The encoding happens inside the Chromium Playwright ships anyway – no second dependency, and
+// nothing to install on the machine.
+const WEBP_QUALITY = 0.8
+// The hero is never shown wider than this (.wrap is 1040px minus 2×24px padding). That second,
+// small copy is the one phones and 1x screens load; the full width stays for 2x screens.
+const HERO_W = 992
+// The one JPEG left: link previews (og:image). WhatsApp, Facebook and friends show no WebP.
+const OG_QUALITY = 0.82
 
 const argv = process.argv.slice(2)
 const arg = (name) => {
@@ -46,9 +56,11 @@ const scale = Number(arg('scale') || 1)
 const pin = arg('pin')
 
 /** One shot = one view from the left nav rail, plus settle time.
- *  `prep` opens something else first (sheet, menu); `nav` may then be missing. */
+ *  `prep` opens something else first (sheet, menu); `nav` may then be missing.
+ *  `hero` marks the one picture the landing page shows above the fold – it gets the small
+ *  copy for phones and the JPEG for link previews on top. */
 const shots = [
-  { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte', docs: 'lage' },
+  { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte', docs: 'lage', hero: true },
   { name: 'plan', nav: 'Modul 1', settle: 4000, note: 'Objektplan als Whiteboard' },
   { name: 'gebaeude', nav: 'Gebäude', settle: 1500, docs: 'gebaeude' },
   { name: 'atemschutz', nav: 'Atemschutz', settle: 1200, docs: 'atemschutz' },
@@ -108,6 +120,26 @@ const HIDE_CSS = `
   .dv-banner { display: none !important; }
 `
 
+/**
+ * Scales one capture (a lossless PNG) to `width` and encodes it – WebP for the page, JPEG for
+ * the link preview. `page` is a blank second tab: the app itself has nothing to do with it.
+ */
+const encode = async (page, png, { width, type, quality }) => {
+  const b64 = await page.evaluate(async ([src, width, type, quality]) => {
+    const img = new Image()
+    img.src = src
+    await img.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = Math.round(img.naturalHeight * (width / img.naturalWidth))
+    const ctx = canvas.getContext('2d')
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL(type, quality).split(',')[1]
+  }, [`data:image/png;base64,${png.toString('base64')}`, width, type, quality])
+  return Buffer.from(b64, 'base64')
+}
+
 const run = async () => {
   const browser = await chromium.launch()
   const ctx = await browser.newContext({
@@ -137,6 +169,8 @@ const run = async () => {
 
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.warn('  ! page error:', String(e).slice(0, 120)))
+  // The blank tab the images are encoded on (see `encode`).
+  const encoder = await ctx.newPage()
 
   console.log(`→ ${base}`)
   await page.goto(base, { waitUntil: 'domcontentloaded' })
@@ -179,9 +213,19 @@ const run = async () => {
     await page.waitForTimeout(shot.settle)
     if (shot.prep) await shot.prep(page)
     if (!docsOnly) {
-      const path = join(SHOTS, `${shot.name}.jpg`)
-      await page.screenshot({ path, type: 'jpeg', quality: QUALITY })
-      console.log(`  ✓ ${shot.name}.jpg  (${shot.nav})`)
+      // Always out of the lossless PNG: scaling and the single lossy step then happen in one
+      // pass – which is also why `--scale 2` yields a sharper picture here instead of one
+      // twice as wide.
+      const png = await page.screenshot({ type: 'png' })
+      const write = async (file, opts) => {
+        writeFileSync(join(SHOTS, file), await encode(encoder, png, opts))
+        console.log(`  ✓ ${file}  (${shot.nav})`)
+      }
+      await write(`${shot.name}.webp`, { width: VIEWPORT.width, type: 'image/webp', quality: WEBP_QUALITY })
+      if (shot.hero) {
+        await write(`${shot.name}-${HERO_W}.webp`, { width: HERO_W, type: 'image/webp', quality: WEBP_QUALITY })
+        await write(`${shot.name}.jpg`, { width: VIEWPORT.width, type: 'image/jpeg', quality: OG_QUALITY })
+      }
     }
     // Same page state, second output: the README image. PNG, because README images are often
     // viewed enlarged on GitHub and text should stay lossless there.

@@ -31,6 +31,14 @@
 <script type="application/ld+json">
 {{jsonLd}}
 </script>
+<!--@template
+  Beide Schriften stehen in landing.css – der Browser entdeckt sie also erst, wenn das
+  Stylesheet geladen UND geparst ist (PageSpeed mass 770 ms für diese Kette). Der Preload
+  holt sie parallel zum Stylesheet. `crossorigin` ist bei Schriften Pflicht, auch bei
+  eigenen: ohne das Attribut lädt der Browser die Datei ein zweites Mal.
+-->
+<link rel="preload" href="{{base}}fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{base}}fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{base}}landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -100,7 +108,16 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">{{hero.frameAddr}}</span>
       </div>
-      <img src="{{base}}shots/{{hero.frameFile}}" alt="{{hero.frameAlt}}" width="{{hero.frameW}}" height="{{hero.frameH}}">
+      <!--@template
+        Das Hero-Bild ist das LCP-Element: `fetchpriority="high"` zieht es vor Schriften und
+        Stylesheet in der Warteschlange nach vorn. Breiter als 992 px wird es nie gezeigt
+        (.wrap = 1040 px minus 2×24 px Innenabstand) – die kleine Fassung reicht damit für
+        jedes 1x-Display und jedes Telefon, die grosse bleibt für 2x-Bildschirme.
+      -->
+      <img src="{{base}}shots/{{hero.frameFile}}"
+           srcset="{{base}}shots/{{hero.frameFileSmall}} 992w, {{base}}shots/{{hero.frameFile}} {{hero.frameW}}w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="{{hero.frameAlt}}" width="{{hero.frameW}}" height="{{hero.frameH}}" fetchpriority="high">
     </figure>
   </section>
 

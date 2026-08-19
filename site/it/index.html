@@ -66,6 +66,8 @@
   ]
 }
 </script>
+<link rel="preload" href="../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -134,7 +136,10 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">LAGE · ZIMMERBRAND · 2611624 / 1263070</span>
       </div>
-      <img src="../shots/lage.jpg" alt="Vista Situazione: carta tattica con simboli CSP, settori e condotte" width="1500" height="937">
+      <img src="../shots/lage.webp"
+           srcset="../shots/lage-992.webp 992w, ../shots/lage.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Vista Situazione: carta tattica con simboli CSP, settori e condotte" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
@@ -285,63 +290,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/plan.jpg" alt="Vista Piano: piano d’oggetto come lavagna, con disegno, simboli e scala" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/plan.webp" alt="Vista Piano: piano d’oggetto come lavagna, con disegno, simboli e scala" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Piano</div>
           <div class="cap-s">Piani d’oggetto e d’intervento con segni tattici, marcature e misurazione in scala</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/atemschutz.jpg" alt="Vista Protezione respiratoria: squadre con pressione e orologio di contatto in corso" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/atemschutz.webp" alt="Vista Protezione respiratoria: squadre con pressione e orologio di contatto in corso" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Protezione respiratoria</div>
           <div class="cap-s">Sorveglianza di squadre, tempi, pressioni e riscontri</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/gebaeude.jpg" alt="Vista Edificio: piani sovrapposti con l’assegnazione delle squadre" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/gebaeude.webp" alt="Vista Edificio: piani sovrapposti con l’assegnazione delle squadre" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Edificio</div>
           <div class="cap-s">I piani uno sopra l’altro – quale squadra lavora a quale piano</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/verlauf.jpg" alt="Diario: voci in ordine cronologico accanto alla carta" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/verlauf.webp" alt="Diario: voci in ordine cronologico accanto alla carta" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Diario</div>
           <div class="cap-s">Documentazione continua di tutto ciò che conta – le note vocali diventano testo da sole</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/anwesenheit.jpg" alt="Presenze: elenco degli uomini con gli orari di arrivo" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/anwesenheit.webp" alt="Presenze: elenco degli uomini con gli orari di arrivo" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Presenze</div>
           <div class="cap-s">Chi è arrivato e da quando – la base per l’elenco degli uomini e per il rapporto</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/zeitplan.jpg" alt="Piano turni: griglia dei turni con una riga per persona, barre pianificate ed effettive e sotto la linea di copertura" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/zeitplan.webp" alt="Piano turni: griglia dei turni con una riga per persona, barre pianificate ed effettive e sotto la linea di copertura" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Piano turni</div>
           <div class="cap-s">Pianificare i turni negli interventi lunghi – disponibile, impiegato, davvero presente, e dove la copertura cede</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/checkliste.jpg" alt="Lista di controllo: compiti del supporto alla condotta con l’avanzamento" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/checkliste.webp" alt="Lista di controllo: compiti del supporto alla condotta con l’avanzamento" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Liste di controllo</div>
           <div class="cap-s">Le liste di controllo della condotta dei vostri pompieri, da spuntare invece che nel classificatore</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/mittel.jpg" alt="Vista Mezzi: materiale impiegato per provenienza" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/mittel.webp" alt="Vista Mezzi: materiale impiegato per provenienza" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Mezzi</div>
           <div class="cap-s">Rilevare materiale e consumo durante l’intervento, invece di stimarli dopo</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/rapport.jpg" alt="Rapporto d’intervento prima della stampa: presenze e mezzi già ripresi, sotto le sezioni del PDF da spuntare" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/rapport.webp" alt="Rapporto d’intervento prima della stampa: presenze e mezzi già ripresi, sotto le sezioni del PDF da spuntare" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Rapporto</div>
           <div class="cap-s">Quasi pronto al rientro – controllare, completare, esportare in PDF, mandare direttamente in stampa</div>

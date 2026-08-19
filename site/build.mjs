@@ -65,7 +65,7 @@ const merge = (base, over) => {
 // purpose: the images stay German on every language's page (they come from a
 // real instance – restaged ones would be a claim), and the page says so instead
 // of pretending otherwise. Counting those as gaps would bury the real ones.
-const STRUCTURAL = [/^shots\.items\[\d+\]\.(file|w|h)$/, /^hero\.frame(File|W|H)$/]
+const STRUCTURAL = [/^shots\.items\[\d+\]\.(file|w|h)$/, /^hero\.frame(FileSmall|File|W|H)$/]
 const translatable = (path) => !STRUCTURAL.some((re) => re.test(path))
 
 const allLeafPaths = (v, path = '', out = []) => {
@@ -149,6 +149,7 @@ const MIME = {
   woff2: 'font/woff2',
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
+  webp: 'image/webp',
   png: 'image/png',
   svg: 'image/svg+xml',
 }
@@ -174,6 +175,13 @@ const bundle = (html) => {
   html = html.replace(/<span class="langs"[\s\S]*?<\/span>/, (span) =>
     span.replace(/href="((?:\.\.\/|\.\/)*(?:[\w-]+\/)*)"/g, 'href="$1index.html"'),
   )
+  // Zwei Verweise, die in der Einzeldatei nichts mehr zu suchen haben: der Preload zeigt auf
+  // eine Schriftdatei, die hier im Stylesheet mitreist, und srcset/sizes auf eine zweite
+  // Fassung desselben Bildes. Die Einzeldatei bettet je ein Bild ein und zeigt es in jeder
+  // Breite – beides bliebe sonst als Pfad auf eine Datei stehen, die es hier nicht gibt.
+  html = html
+    .replace(/^[ \t]*<link rel="preload"[^>]*>\r?\n/gm, '')
+    .replace(/\s+(?:srcset|sizes)="[^"]*"/g, '')
   // Stylesheet first, so the font URLs inside it come along in the same pass.
   let out = html.replace(/<link rel="stylesheet" href="((?:\.\.\/)*[^"]+)">/g, (_, rel) => {
     const flat = flatten(rel)
@@ -183,7 +191,7 @@ const bundle = (html) => {
   out = out.replace(/url\(((?:\.\.\/)*fonts\/[^)'"]+)\)/g, (_, rel) => `url(${inline(rel, seen)})`)
   out = out.replace(/src="((?:\.\.\/)*(?:shots|fonts)\/[^"]+)"/g, (_, rel) => `src="${inline(rel, seen)}"`)
 
-  if (out.match(/(?:src=|url\()["']?(?:\.\.\/|\.\/)*(?:fonts|shots)\//))
+  if (out.match(/(?:src=|srcset=|href=|url\()["']?(?:\.\.\/|\.\/)*(?:fonts|shots)\//))
     throw new Error('Local references survived the bundle – adjust build.mjs')
   return out
 }

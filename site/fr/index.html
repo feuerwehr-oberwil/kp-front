@@ -66,6 +66,8 @@
   ]
 }
 </script>
+<link rel="preload" href="../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -134,7 +136,10 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">LAGE · ZIMMERBRAND · 2611624 / 1263070</span>
       </div>
-      <img src="../shots/lage.jpg" alt="Vue Situation : carte tactique avec signes conventionnels CSSP, secteurs et conduites" width="1500" height="937">
+      <img src="../shots/lage.webp"
+           srcset="../shots/lage-992.webp 992w, ../shots/lage.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Vue Situation : carte tactique avec signes conventionnels CSSP, secteurs et conduites" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
@@ -287,63 +292,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/plan.jpg" alt="Vue Plan : plan d’objet comme tableau blanc, avec dessin, symboles et échelle" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/plan.webp" alt="Vue Plan : plan d’objet comme tableau blanc, avec dessin, symboles et échelle" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Plan</div>
           <div class="cap-s">Plans d’objet et d’intervention avec signes conventionnels, marquages et mesure à l’échelle</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/atemschutz.jpg" alt="Vue Protection respiratoire : équipes avec pression et temps depuis le dernier contact" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/atemschutz.webp" alt="Vue Protection respiratoire : équipes avec pression et temps depuis le dernier contact" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Protection respiratoire</div>
           <div class="cap-s">Surveillance des équipes, des temps, des pressions et des annonces</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/gebaeude.jpg" alt="Vue Bâtiment : étages superposés avec l’affectation des équipes" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/gebaeude.webp" alt="Vue Bâtiment : étages superposés avec l’affectation des équipes" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Bâtiment</div>
           <div class="cap-s">Les étages les uns sur les autres – quelle équipe travaille à quel niveau</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/verlauf.jpg" alt="Journal : entrées chronologiques à côté de la carte" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/verlauf.webp" alt="Journal : entrées chronologiques à côté de la carte" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Journal</div>
           <div class="cap-s">Documentation continue de tous les événements importants – les notes vocales deviennent du texte</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/anwesenheit.jpg" alt="Présences : liste de l’effectif avec les heures d’arrivée" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/anwesenheit.webp" alt="Présences : liste de l’effectif avec les heures d’arrivée" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Présences</div>
           <div class="cap-s">Qui est arrivé et depuis quand – la base de la liste d’effectif et du rapport</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/zeitplan.jpg" alt="Horaires : grille des tours, une ligne par personne, barres planifiées et réelles, courbe de couverture en dessous" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/zeitplan.webp" alt="Horaires : grille des tours, une ligne par personne, barres planifiées et réelles, courbe de couverture en dessous" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Horaires</div>
           <div class="cap-s">Planifier les tours lors d’interventions longues – disponible, engagé, réellement présent, et où la couverture s’effondre</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/checkliste.jpg" alt="Checklist : tâches de l’aide à la conduite avec l’avancement" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/checkliste.webp" alt="Checklist : tâches de l’aide à la conduite avec l’avancement" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Checklists</div>
           <div class="cap-s">Les checklists de conduite de votre corps, à cocher plutôt que rangées dans un classeur</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/mittel.jpg" alt="Vue Moyens : matériel engagé, par provenance" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/mittel.webp" alt="Vue Moyens : matériel engagé, par provenance" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Moyens</div>
           <div class="cap-s">Saisir le matériel et la consommation pendant l’intervention, au lieu de les estimer après</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/rapport.jpg" alt="Rapport d’intervention avant impression : présences et moyens déjà repris, en dessous les sections du PDF à cocher" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/rapport.webp" alt="Rapport d’intervention avant impression : présences et moyens déjà repris, en dessous les sections du PDF à cocher" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Rapport</div>
           <div class="cap-s">Presque terminé au retour à la caserne – contrôler, compléter, exporter en PDF, lancer l’impression</div>

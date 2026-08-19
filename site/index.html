@@ -66,6 +66,8 @@
   ]
 }
 </script>
+<link rel="preload" href="fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -131,7 +133,10 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">LAGE · ZIMMERBRAND · 2611624 / 1263070</span>
       </div>
-      <img src="shots/lage.jpg" alt="Lage-Ansicht: taktische Karte mit FKS-Symbolen, Sektoren und Schlauchleitungen" width="1500" height="937">
+      <img src="shots/lage.webp"
+           srcset="shots/lage-992.webp 992w, shots/lage.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Lage-Ansicht: taktische Karte mit FKS-Symbolen, Sektoren und Schlauchleitungen" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
@@ -281,63 +286,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="shots/plan.jpg" alt="Plan-Ansicht: Objektplan als Whiteboard mit Zeichnung, Symbolen und Massstab" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/plan.webp" alt="Plan-Ansicht: Objektplan als Whiteboard mit Zeichnung, Symbolen und Massstab" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Plan</div>
           <div class="cap-s">Objekt- und Einsatzpläne mit taktischen Zeichen, Markierungen und massstabsgetreuem Messen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/atemschutz.jpg" alt="Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/atemschutz.webp" alt="Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Atemschutz</div>
           <div class="cap-s">Überwachung von Trupps, Zeiten, Drücken und Rückmeldungen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/gebaeude.jpg" alt="Gebäude-Ansicht: Geschossstapel mit Truppzuordnung" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/gebaeude.webp" alt="Gebäude-Ansicht: Geschossstapel mit Truppzuordnung" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Gebäude</div>
           <div class="cap-s">Die Geschosse übereinander – welcher Trupp arbeitet auf welchem Stock</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/verlauf.jpg" alt="Verlauf: chronologische Einträge neben der Karte" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/verlauf.webp" alt="Verlauf: chronologische Einträge neben der Karte" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Verlauf</div>
           <div class="cap-s">Laufende Dokumentation aller wichtigen Ereignisse – Sprachnotizen werden automatisch zu Text</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/anwesenheit.jpg" alt="Anwesenheit: Mannschaftsliste mit Ankunftszeiten" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/anwesenheit.webp" alt="Anwesenheit: Mannschaftsliste mit Ankunftszeiten" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Anwesenheit</div>
           <div class="cap-s">Wer ist eingerückt und seit wann – die Grundlage für Mannschaftsliste und Rapport</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/zeitplan.jpg" alt="Zeitplan: Schichtenraster mit einer Zeile pro Person, geplanten und tatsächlichen Balken sowie der Deckungslinie darunter" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/zeitplan.webp" alt="Zeitplan: Schichtenraster mit einer Zeile pro Person, geplanten und tatsächlichen Balken sowie der Deckungslinie darunter" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Zeitplan</div>
           <div class="cap-s">Schichten planen bei langen Einsätzen – verfügbar, eingeteilt, tatsächlich da, und wo die Deckung einbricht</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/checkliste.jpg" alt="Checkliste: Aufgaben der Führungsunterstützung mit Fortschritt" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/checkliste.webp" alt="Checkliste: Aufgaben der Führungsunterstützung mit Fortschritt" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Checklisten</div>
           <div class="cap-s">Die Führungs-Checklisten eurer Feuerwehr, zum Abhaken statt im Ordner</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/mittel.jpg" alt="Mittel-Ansicht: Materialeinsatz nach Quelle" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/mittel.webp" alt="Mittel-Ansicht: Materialeinsatz nach Quelle" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Mittel</div>
           <div class="cap-s">Material und Verbrauch im Einsatz erfassen, statt nachher zu schätzen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/rapport.jpg" alt="Einsatzrapport vor dem Druck: Anwesenheit und Mittel bereits übernommen, darunter die Abschnitte des PDF zum Ankreuzen" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/rapport.webp" alt="Einsatzrapport vor dem Druck: Anwesenheit und Mittel bereits übernommen, darunter die Abschnitte des PDF zum Ankreuzen" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Rapport</div>
           <div class="cap-s">Beim Einrücken fast fertig – kontrollieren, ergänzen, als PDF exportieren, direkt drucken lassen</div>

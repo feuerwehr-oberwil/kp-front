@@ -66,6 +66,8 @@
   ]
 }
 </script>
+<link rel="preload" href="../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -131,7 +133,10 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">LAGE · ZIMMERBRAND · 2611624 / 1263070</span>
       </div>
-      <img src="../shots/lage.jpg" alt="Situation view: tactical map with Swiss FKS symbols, sectors and hose lines" width="1500" height="937">
+      <img src="../shots/lage.webp"
+           srcset="../shots/lage-992.webp 992w, ../shots/lage.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Situation view: tactical map with Swiss FKS symbols, sectors and hose lines" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
@@ -282,63 +287,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/plan.jpg" alt="Plan view: building plan as a whiteboard with drawing, symbols and scale" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/plan.webp" alt="Plan view: building plan as a whiteboard with drawing, symbols and scale" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Plan</div>
           <div class="cap-s">Building and pre-incident plans with tactical symbols, markings and measuring to scale</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/atemschutz.jpg" alt="SCBA view: teams with cylinder pressure and a running contact clock" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/atemschutz.webp" alt="SCBA view: teams with cylinder pressure and a running contact clock" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">SCBA</div>
           <div class="cap-s">Monitoring of teams, times, pressures and check-ins</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/gebaeude.jpg" alt="Building view: stack of floors with team assignment" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/gebaeude.webp" alt="Building view: stack of floors with team assignment" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Building</div>
           <div class="cap-s">The floors stacked up – which team is working on which storey</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/verlauf.jpg" alt="Log: chronological entries next to the map" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/verlauf.webp" alt="Log: chronological entries next to the map" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Log</div>
           <div class="cap-s">Running documentation of everything that matters – voice memos turn into text by themselves</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/anwesenheit.jpg" alt="Attendance: crew list with arrival times" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/anwesenheit.webp" alt="Attendance: crew list with arrival times" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Attendance</div>
           <div class="cap-s">Who has turned out and since when – the basis for the crew list and the report</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/zeitplan.jpg" alt="Shift plan: shift grid with one row per person, planned and actual bars, and the coverage line below" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/zeitplan.webp" alt="Shift plan: shift grid with one row per person, planned and actual bars, and the coverage line below" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Shift plan</div>
           <div class="cap-s">Plan shifts on long incidents – available, rostered, actually there, and where coverage breaks down</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/checkliste.jpg" alt="Checklist: command support tasks with progress" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/checkliste.webp" alt="Checklist: command support tasks with progress" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Checklists</div>
           <div class="cap-s">Your own command checklists, there to be ticked off instead of sitting in a folder</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/mittel.jpg" alt="Resources view: material used, by source" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/mittel.webp" alt="Resources view: material used, by source" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Resources</div>
           <div class="cap-s">Record equipment and consumption during the incident instead of estimating afterwards</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/rapport.jpg" alt="Incident report before printing: attendance and resources already carried over, with the sections of the PDF to tick below" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/rapport.webp" alt="Incident report before printing: attendance and resources already carried over, with the sections of the PDF to tick below" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Report</div>
           <div class="cap-s">Nearly done when you head back – check it, add to it, export as PDF, send it straight to the printer</div>
