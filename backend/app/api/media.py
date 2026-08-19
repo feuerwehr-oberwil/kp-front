@@ -17,13 +17,12 @@ import zipfile
 from datetime import UTC, datetime
 from typing import Literal
 
-from starlette.background import BackgroundTask
-
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.background import BackgroundTask
 
 from .. import audio, database, storage
 from ..auth.dependencies import CurrentEditor, CurrentUser
@@ -172,8 +171,7 @@ async def download_media_archive(
     if inc is None:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
     rows = list(
-        (await db.execute(select(Media).where(Media.incident_id == incident_id).order_by(Media.created_at)))
-        .scalars()
+        (await db.execute(select(Media).where(Media.incident_id == incident_id).order_by(Media.created_at))).scalars()
     )
     stored = [m for m in rows if storage.exists(m.storage_key)]
     if not stored:
@@ -184,43 +182,52 @@ async def download_media_archive(
         "exported_at": datetime.now(UTC).isoformat(),
         "files": [],
     }
-    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    fd, tmp_path = tempfile.mkstemp(suffix=".zip")
+    os.close(fd)
     try:
-        # counters per kind, so the names read «foto-01», «audio-02» in Aufnahme order
-        counts: dict[str, int] = {}
-        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as zf:  # media is already compressed
-            for m in stored:
-                counts[m.kind] = counts.get(m.kind, 0) + 1
-                ext = _EXT.get(m.content_type or "") or mimetypes.guess_extension(m.content_type or "") or ""
-                kind_name = "foto" if m.kind == "photo" else m.kind
-                name = f"{kind_name}-{counts[m.kind]:02d}-{m.created_at:%Y%m%d-%H%M%S}{ext}"
-                digest = hashlib.sha256()
-                with open(storage.local_path(m.storage_key), "rb") as src, zf.open(
-                    zipfile.ZipInfo(name, date_time=m.created_at.timetuple()[:6]), "w"
-                ) as dst:
-                    while chunk := src.read(1 << 20):
-                        digest.update(chunk)
-                        dst.write(chunk)
-                manifest["files"].append({
+        # blocking file IO in a worker thread — an archive of hour-long recordings must not
+        # stall every other request while it is written
+        await asyncio.to_thread(_build_archive, stored, manifest, tmp_path)
+    except BaseException:
+        os.unlink(tmp_path)
+        raise
+    filename = f"beilagen-{_ascii_slug(inc.title)}-{inc.started_at:%Y%m%d}.zip"
+    return FileResponse(
+        tmp_path,
+        media_type="application/zip",
+        filename=filename,
+        background=BackgroundTask(os.unlink, tmp_path),
+    )
+
+
+def _build_archive(stored: list[Media], manifest: dict, path: str) -> None:
+    """Write the ZIP + fill the manifest — sync on purpose, run via ``asyncio.to_thread``."""
+    # counters per kind, so the names read «foto-01», «audio-02» in Aufnahme order
+    counts: dict[str, int] = {}
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as zf:  # media is already compressed
+        for m in stored:
+            counts[m.kind] = counts.get(m.kind, 0) + 1
+            ext = _EXT.get(m.content_type or "") or mimetypes.guess_extension(m.content_type or "") or ""
+            kind_name = "foto" if m.kind == "photo" else m.kind
+            name = f"{kind_name}-{counts[m.kind]:02d}-{m.created_at:%Y%m%d-%H%M%S}{ext}"
+            digest = hashlib.sha256()
+            with (
+                open(storage.local_path(m.storage_key), "rb") as src,
+                zf.open(zipfile.ZipInfo(name, date_time=m.created_at.timetuple()[:6]), "w") as dst,
+            ):
+                while chunk := src.read(1 << 20):
+                    digest.update(chunk)
+                    dst.write(chunk)
+            manifest["files"].append(
+                {
                     "name": name,
                     "kind": m.kind,
                     "content_type": m.content_type,
                     "created_at": m.created_at.isoformat(),
                     "sha256": digest.hexdigest(),
-                })
-            zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
-        tmp.close()
-    except BaseException:
-        tmp.close()
-        os.unlink(tmp.name)
-        raise
-    filename = f"beilagen-{_ascii_slug(inc.title)}-{inc.started_at:%Y%m%d}.zip"
-    return FileResponse(
-        tmp.name,
-        media_type="application/zip",
-        filename=filename,
-        background=BackgroundTask(os.unlink, tmp.name),
-    )
+                }
+            )
+        zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
 
 
 # Waveform peaks. Lazily computed once per
