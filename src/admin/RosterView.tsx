@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { caretToEnd } from '../lib/ui'
 import { apiGet, ApiError } from '../lib/api'
 import { downloadBlob } from '../lib/download'
 import { PersonnelSyncDialog } from '../components/PersonnelSyncDialog'
@@ -132,6 +133,7 @@ function EditRow({ person, onSaved, onCancel }: {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 autoFocus
+                onFocus={caretToEnd}
               />
             </label>
           </div>

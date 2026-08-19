@@ -120,6 +120,15 @@ export function confirmDialog(opts: {
  * Imperative like toast()/confirmDialog(), so a thumbnail anywhere can call it without every
  * surface in between having to carry a viewer prop.
  */
+/** Caret to the end on focus. A seeded editor (transcript, correction, a rename) opens to
+ *  CONTINUE the text; the browser's default caret at position 0 invites typing in front of it.
+ *  Attach as `onFocus` — autoFocus fires it exactly once. */
+export function caretToEnd(ev: { currentTarget: HTMLTextAreaElement | HTMLInputElement }) {
+  const el = ev.currentTarget
+  const n = el.value.length
+  try { el.setSelectionRange(n, n) } catch { /* input types without selection (number) — keep the default */ }
+}
+
 export function openPhoto(url: string, opts?: { filename?: string; caption?: string }) {
   photoReq = { url, filename: opts?.filename || 'foto.jpg', caption: opts?.caption }
   emit()

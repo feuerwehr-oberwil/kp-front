@@ -5,7 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
 import { fillTemplate, stripUnprintable } from '../lib/format'
 import { cx } from '../lib/cx'
-import { toast } from '../lib/ui'
+import { caretToEnd, toast } from '../lib/ui'
 import { Menu, Overlay, Sheet } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
@@ -520,7 +520,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
           <>
             <label className="ip-field">
               <span>{M.materialLabel}</span>
-              <input className="ip-input" autoFocus value={label} maxLength={80} onChange={(e) => setLabel(stripUnprintable(e.target.value))} />
+              <input className="ip-input" autoFocus onFocus={caretToEnd} value={label} maxLength={80} onChange={(e) => setLabel(stripUnprintable(e.target.value))} />
             </label>
             <div className={s.dialogRow}>
               <div className="ip-field">
@@ -547,7 +547,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
         <label className="ip-field">
           <span>{M.noteLabel}</span>
           <textarea
-            className="ip-textarea" autoFocus={!target.custom} value={note} placeholder={M.notePlaceholder}
+            className="ip-textarea" autoFocus={!target.custom} onFocus={caretToEnd} value={note} placeholder={M.notePlaceholder}
             // the Rapport joins every source line's remark into one cell, so keep each short —
             // an over-long cell cannot be split across pages and used to fail the whole compose
             maxLength={240}

@@ -4,7 +4,7 @@ import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
 import { Overlay } from '../lib/overlays'
-import { openPhoto } from '../lib/ui'
+import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, formatTime } from '../lib/format'
 import { groupByDay, isHandWritten, isNachtrag, rowPhotos, rowTime } from '../lib/verlauf'
@@ -730,6 +730,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       value={editTx.value}
                       rows={3}
                       autoFocus
+                      onFocus={caretToEnd}
                       placeholder={C.transcriptPlaceholder}
                       onChange={(ev) => setEditTx({ id: e.id, value: ev.target.value })}
                       onKeyDown={(ev) => { if (ev.key === 'Escape') setEditTx(null) }}
@@ -750,6 +751,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       value={editRow.value}
                       rows={2}
                       autoFocus
+                      onFocus={caretToEnd}
                       onChange={(ev) => setEditRow({ id: e.id, value: ev.target.value })}
                       onKeyDown={(ev) => { if (ev.key === 'Escape') setEditRow(null) }}
                     />

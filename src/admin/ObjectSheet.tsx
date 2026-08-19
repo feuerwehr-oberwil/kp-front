@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { caretToEnd } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { Sheet } from '../lib/overlays'
 import { Icon } from '../lib/icons'
@@ -202,6 +203,7 @@ export function ObjectSheet({ object, onClose, onChanged }: {
             className="adm-input adm-input-mono"
             value={key}
             autoFocus
+            onFocus={caretToEnd}
             onChange={(e) => setKey(e.target.value)}
             placeholder={C.keyPlaceholder}
           />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { caretToEnd } from '../lib/ui'
 import type { TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
 import { Overlay } from '../lib/overlays'
@@ -115,7 +116,7 @@ function useStt(audioUrl: string | undefined, enabled: boolean) {
 // SECTIONS (offset + text) onto the memo's own row, listed as subtitle lines in the Verlauf.
 // A 8-second memo annotated with «ordinary» rows produced an unrelated-looking «Manuell» row
 // while the memo kept nagging for its transcript (19.08.).
-export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSection, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
+export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSection, onEditSection, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
   row: TimelineEvent
   events: TimelineEvent[]
   readOnly: boolean
@@ -126,6 +127,9 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
   onAddEntry?: (text: string, atIso: string, quiet?: boolean) => string
   /** append one transcript section (offset into the recording, in s) onto THIS row */
   onAddSection?: (atSec: number, text: string) => void
+  /** replace one section's words ('' removes it). The recording stays the original, so this
+   *  is a plain fix — no «korrigiert» mark, no new Verlauf line. */
+  onEditSection?: (sectionId: string, text: string) => void
   /** append a text correction patch for a row this player created (append-only edit) */
   onPatchEntry?: (rowId: string, text: string) => void
   /** retract a row this player created (append-only "delete" with undo) */
@@ -184,6 +188,14 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
 
   // in-place text correction for marker rows (mirrors the Verlauf pencil; append-only patch)
   const [editMarker, setEditMarker] = useState<{ id: string; value: string } | null>(null)
+  // …and for transcript sections: TAPPING the words opens them for fixing — a transcript is
+  // typed fast and read later, so the way back in must be the words themselves
+  const [editSec, setEditSec] = useState<{ id: string; value: string } | null>(null)
+  const saveSecEdit = () => {
+    if (!editSec || !onEditSection) return
+    onEditSection(editSec.id, editSec.value.trim())
+    setEditSec(null)
+  }
   const saveMarkerEdit = () => {
     if (!editMarker) return
     const v = editMarker.value.trim()
@@ -544,23 +556,51 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
             </div>
           )}
 
-          {/* a memo's transcript, section by section — tap seeks to where the words fell */}
+          {/* a memo's transcript, section by section. TAPPING the words opens them for fixing
+              (the recording is the original — a fixed transcription needs no «korrigiert»
+              mark and writes no Verlauf line); the small play circle seeks to where they
+              fell, like an STT draft's. */}
           {sections.length > 0 && (
             <div className="ap-list">
               <p className="ap-list-head">{appConfig.copy.report.transcript} · {sections.length}</p>
-              {sections.map((s, i) => (
-                <div
-                  key={`${s.at}:${i}`}
-                  className="ap-row"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => seek(s.at)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') seek(s.at) }}
-                >
-                  <span className="ap-row-t">{formatElapsed(s.at)}</span>
-                  <span className="ap-row-tx">{s.text}</span>
-                  <Icon id="chevron" className="ap-row-go" />
-                </div>
+              {sections.map((s) => (
+                editSec?.id === s.id ? (
+                  <div key={s.id} className="ap-row ap-row-editing">
+                    <span className="ap-row-t">{formatElapsed(s.at)}</span>
+                    <input
+                      className="ap-row-input"
+                      value={editSec.value}
+                      autoFocus
+                      onFocus={caretToEnd}
+                      onChange={(e) => setEditSec({ id: s.id, value: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveSecEdit()
+                        else if (e.key === 'Escape') { e.stopPropagation(); setEditSec(null) }
+                      }}
+                    />
+                    <button className="ap-d-btn ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditSec(null)}><Icon id="close" /></button>
+                    <button className="ap-d-btn ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveSecEdit}><Icon id="check" /></button>
+                  </div>
+                ) : (
+                  <div
+                    key={s.id}
+                    className="ap-row"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onEditSection && !readOnly ? () => setEditSec({ id: s.id, value: s.text }) : () => seek(s.at)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (onEditSection && !readOnly ? setEditSec({ id: s.id, value: s.text }) : seek(s.at)) }}
+                  >
+                    <span className="ap-row-t">{formatElapsed(s.at)}</span>
+                    <button
+                      className="ap-draft-play"
+                      title={appConfig.copy.play}
+                      aria-label={appConfig.copy.play}
+                      onClick={(e) => { e.stopPropagation(); playFrom(s.at) }}
+                    ><Icon id="play" /></button>
+                    <span className="ap-row-tx">{s.text}</span>
+                    {onEditSection && !readOnly && <Icon id="pen" className="ap-row-go" />}
+                  </div>
+                )
               ))}
             </div>
           )}
@@ -577,6 +617,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
                     className="ap-row-input"
                     value={editMarker.value}
                     autoFocus
+                    onFocus={caretToEnd}
                     onChange={(e) => setEditMarker({ id: m.row.id, value: e.target.value })}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') saveMarkerEdit()

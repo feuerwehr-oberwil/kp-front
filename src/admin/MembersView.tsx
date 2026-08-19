@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { caretToEnd } from '../lib/ui'
 import { apiGet, apiPost, apiPatch, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -249,6 +250,7 @@ function EditRow({ user, canDemote, onSaved, onCancel }: {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               autoFocus
+              onFocus={caretToEnd}
             />
           </label>
           <RoleChoice

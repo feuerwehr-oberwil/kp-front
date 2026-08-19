@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { caretToEnd } from '../lib/ui'
 import { Icon } from '../lib/icons'
 import type { AttendanceEntry, AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
 import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
@@ -270,7 +271,7 @@ function GuestDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (
         <label className="ip-field">
           <span>{A.addGuestName}</span>
           <input
-            className="ip-input" autoFocus value={name} maxLength={80} placeholder={A.addGuestPlaceholder}
+            className="ip-input" autoFocus onFocus={caretToEnd} value={name} maxLength={80} placeholder={A.addGuestPlaceholder}
             onChange={(e) => setName(stripUnprintable(e.target.value))}
             onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
           />

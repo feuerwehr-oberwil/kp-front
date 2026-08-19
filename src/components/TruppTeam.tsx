@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { caretToEnd } from '../lib/ui'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
@@ -223,7 +224,7 @@ export function TruppTeam({
       {typing ? (
         <div className={s.teamTypeRow}>
           <input
-            ref={typedRef} autoFocus className={s.teamTypeInput} value={typed} maxLength={40}
+            ref={typedRef} autoFocus onFocus={caretToEnd} className={s.teamTypeInput} value={typed} maxLength={40}
             placeholder={az.guestNamePlaceholder} aria-label={az.typeName}
             onChange={(e) => setTyped(stripUnprintable(e.target.value))}
             onKeyDown={(e) => {
