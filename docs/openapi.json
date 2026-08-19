@@ -2508,6 +2508,64 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/media.zip": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Download Media Archive",
+        "description": "Every Beilage of the Einsatz — photos and recordings in ORIGINAL quality — as one ZIP\nfor digital archiving, plus a ``manifest.json`` naming each file with its SHA-256, so an\narchive copy can be checked against the record years later.\n\nFull user session only (viewer included: archiving is reading). A link session never\nreaches this route — it is not on the allowlist, and must not be: the QR poster's scope\nis contributing, not carrying away the whole Einsatz's media.",
+        "operationId": "download_media_archive_api_incidents__incident_id__media_zip_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/{media_id}/peaks": {
       "get": {
         "tags": [

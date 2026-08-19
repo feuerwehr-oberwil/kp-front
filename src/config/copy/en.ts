@@ -2073,6 +2073,7 @@ export const en: Localizable<Copy> = {
     toggleJournal: 'Incident journal',
     togglePendenzen: 'Tasks / open items ({n})',
     toggleAttachments: 'Photos ({n})',
+    archiveZip: 'Download attachments (ZIP)',
     summaryAttachments: 'Photos',
     krokiAtLabel: 'Kroki as of',
     krokiOrientation: 'Orientation',

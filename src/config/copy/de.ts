@@ -2891,6 +2891,8 @@ export const de = {
     toggleJournal: 'Einsatzjournal',
     togglePendenzen: 'Aufträge / Pendenzen ({n})',
     toggleAttachments: 'Fotos ({n})',
+    // the Beilagen in ORIGINAL quality as one ZIP + manifest — for the digital Ablage
+    archiveZip: 'Beilagen herunterladen (ZIP)',
     // Fotos: pictures that belong to the RAPPORT (ID, damage), not into the Verlauf.
     // ⚠️ The upload only takes `image/*`. As long as that holds, the surface is called «Fotos»
     // and not «Beilagen» – a word that promises a PDF Beilage it cannot accept.

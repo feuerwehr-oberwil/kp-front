@@ -2075,6 +2075,7 @@ export const fr: Localizable<Copy> = {
     toggleJournal: 'Journal d’intervention',
     togglePendenzen: 'Ordres / en-suspens ({n})',
     toggleAttachments: 'Photos ({n})',
+    archiveZip: 'Télécharger les annexes (ZIP)',
     summaryAttachments: 'Photos',
     krokiAtLabel: 'Kroki à',
     krokiOrientation: 'Orientation',

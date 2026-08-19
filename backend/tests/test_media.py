@@ -189,3 +189,47 @@ def test_storage_key_traversal_is_rejected():
         storage_mod._full("media/../../etc/passwd")
     # a normal nested key stays under the root
     assert storage_mod._full("media/abc/def.jpg").startswith(storage_mod._ROOT)
+
+
+async def test_media_zip_archives_everything_with_manifest_hashes(client, editor):
+    """One ZIP per Einsatz for the digital Ablage: every stored Beilage in original bytes,
+    plus a manifest whose SHA-256 lets an archive copy be verified years later."""
+    import hashlib
+    import io
+    import json
+    import zipfile
+
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    up1 = await client.post(f"/api/incidents/{inc}/media", files=_photo(), data={"kind": "photo"})
+    up2 = await client.post(
+        f"/api/incidents/{inc}/media",
+        files={"file": ("memo.m4a", M4A, "audio/mp4")},
+        data={"kind": "audio"},
+    )
+    assert up1.status_code == 201 and up2.status_code == 201
+
+    r = await client.get(f"/api/incidents/{inc}/media.zip")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/zip"
+    zf = zipfile.ZipFile(io.BytesIO(r.content))
+    names = zf.namelist()
+    assert "manifest.json" in names
+    manifest = json.loads(zf.read("manifest.json"))
+    assert manifest["incident"]["title"] == "Test Einsatz"
+    assert len(manifest["files"]) == 2
+    # every manifest entry names a file in the archive, and its hash matches the bytes
+    for entry in manifest["files"]:
+        assert entry["name"] in names
+        assert hashlib.sha256(zf.read(entry["name"])).hexdigest() == entry["sha256"]
+    # the originals are byte-identical — full quality, not a re-encode
+    photo_name = next(e["name"] for e in manifest["files"] if e["kind"] == "photo")
+    assert zf.read(photo_name) == JPEG
+
+
+async def test_media_zip_absent_without_media_and_without_session(client, editor):
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    assert (await client.get(f"/api/incidents/{inc}/media.zip")).status_code == 404
+    await client.post("/api/auth/logout")
+    assert (await client.get(f"/api/incidents/{inc}/media.zip")).status_code == 401

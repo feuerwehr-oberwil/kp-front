@@ -4,6 +4,7 @@ import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
+import { rowPhotos } from '../lib/verlauf'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { editorPrintTransport, enqueuePrint, fetchPrintStatus, prewarmPrint, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
@@ -629,6 +630,12 @@ export function ReportPreflight({
    *  the Kroki section OFF and must not show an empty map pretending to be a picture — and
    *  switching the section off by hand means the same thing: nothing is going on the paper. */
   const krokiPanel = options.kroki && mapContentCount > 0 && !!effScene
+  // is there anything on the SERVER to archive? Journal photos/recordings and Rapport-Beilagen
+  // are all Media rows; blob: URLs are uploads still in flight and not fetchable as a ZIP yet
+  const hasStoredMedia = useMemo(() => (
+    attachments.some((a) => a.url.startsWith('/'))
+    || events.some((e) => (e.audioUrl ?? '').startsWith('/') || rowPhotos(e).some((u) => u.startsWith('/')))
+  ), [attachments, events])
   // The panel is a fold: on a wide screen it is open, because seeing the crop while the form is
   // typed is the whole reason it stopped being a modal; below the two-column breakpoint a map
   // crop is a postcard sitting between the operator and the fields, so it starts closed and
@@ -1157,6 +1164,16 @@ export function ReportPreflight({
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttachments, { n: attachments.length }), checked: options.attachments && attachments.length > 0, disabled: attachments.length === 0, onChange: (v: boolean) => patchOpt({ attachments: v }) },
                   { kind: 'sep' as const },
                   { kind: 'check' as const, label: P.toggleDetailedAudit, checked: options.detailedAudit, onChange: (v: boolean) => patchOpt({ detailedAudit: v }) },
+                  { kind: 'sep' as const },
+                  // the Beilagen in ORIGINAL quality — one ZIP with manifest + SHA-256 per file,
+                  // for the digital Ablage. An ACTION among the section ticks, so it sits last;
+                  // plain navigation, the session cookie does the auth. Absent (404) when the
+                  // Einsatz has no stored media — the disabled state mirrors that.
+                  {
+                    label: P.archiveZip,
+                    disabled: !hasStoredMedia,
+                    onClick: () => { window.location.assign(`/api/incidents/${incident.id}/media.zip`) },
+                  },
                 ]}
               />
             </span>

@@ -5,12 +5,19 @@ the file. Returned URL is same-origin (`/api/media/{id}`).
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import mimetypes
+import os
+import re
+import tempfile
 import uuid
+import zipfile
 from datetime import UTC, datetime
 from typing import Literal
+
+from starlette.background import BackgroundTask
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -141,6 +148,79 @@ async def get_media(
         raise HTTPException(status_code=404, detail="Medium nicht gefunden")
     _deny_media_outside_link_scope(request, media)
     return FileResponse(storage.local_path(media.storage_key), media_type=media.content_type or None)
+
+
+def _ascii_slug(text: str) -> str:
+    """Filename-safe ASCII slug — a Content-Disposition filename must survive every OS."""
+    cleaned = re.sub(r"[^a-z0-9]+", "-", text.lower().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue"))
+    return cleaned.strip("-") or "einsatz"
+
+
+@router.get("/incidents/{incident_id}/media.zip")
+async def download_media_archive(
+    incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)
+) -> FileResponse:
+    """Every Beilage of the Einsatz — photos and recordings in ORIGINAL quality — as one ZIP
+    for digital archiving, plus a ``manifest.json`` naming each file with its SHA-256, so an
+    archive copy can be checked against the record years later.
+
+    Full user session only (viewer included: archiving is reading). A link session never
+    reaches this route — it is not on the allowlist, and must not be: the QR poster's scope
+    is contributing, not carrying away the whole Einsatz's media.
+    """
+    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+    if inc is None:
+        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    rows = list(
+        (await db.execute(select(Media).where(Media.incident_id == incident_id).order_by(Media.created_at)))
+        .scalars()
+    )
+    stored = [m for m in rows if storage.exists(m.storage_key)]
+    if not stored:
+        raise HTTPException(status_code=404, detail="Keine Beilagen vorhanden")
+
+    manifest: dict = {
+        "incident": {"id": str(inc.id), "title": inc.title, "started_at": inc.started_at.isoformat()},
+        "exported_at": datetime.now(UTC).isoformat(),
+        "files": [],
+    }
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    try:
+        # counters per kind, so the names read «foto-01», «audio-02» in Aufnahme order
+        counts: dict[str, int] = {}
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as zf:  # media is already compressed
+            for m in stored:
+                counts[m.kind] = counts.get(m.kind, 0) + 1
+                ext = _EXT.get(m.content_type or "") or mimetypes.guess_extension(m.content_type or "") or ""
+                kind_name = "foto" if m.kind == "photo" else m.kind
+                name = f"{kind_name}-{counts[m.kind]:02d}-{m.created_at:%Y%m%d-%H%M%S}{ext}"
+                digest = hashlib.sha256()
+                with open(storage.local_path(m.storage_key), "rb") as src, zf.open(
+                    zipfile.ZipInfo(name, date_time=m.created_at.timetuple()[:6]), "w"
+                ) as dst:
+                    while chunk := src.read(1 << 20):
+                        digest.update(chunk)
+                        dst.write(chunk)
+                manifest["files"].append({
+                    "name": name,
+                    "kind": m.kind,
+                    "content_type": m.content_type,
+                    "created_at": m.created_at.isoformat(),
+                    "sha256": digest.hexdigest(),
+                })
+            zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        tmp.close()
+    except BaseException:
+        tmp.close()
+        os.unlink(tmp.name)
+        raise
+    filename = f"beilagen-{_ascii_slug(inc.title)}-{inc.started_at:%Y%m%d}.zip"
+    return FileResponse(
+        tmp.name,
+        media_type="application/zip",
+        filename=filename,
+        background=BackgroundTask(os.unlink, tmp.name),
+    )
 
 
 # Waveform peaks. Lazily computed once per
