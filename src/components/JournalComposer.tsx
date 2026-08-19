@@ -791,14 +791,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 align="end"
                 popupClassName="rp-print-menu jc-pendenz-menu"
                 itemClassName={() => 'rp-print-menu-item'}
-                // BOTTOM-UP like the ring's menu: this popup opens upwards, so the rows nearest the
-                // finger are the ones at the END of the list. The minutes therefore descend —
-                // the shortest wait sits closest to the control that was just pressed.
+                // ASCENDING, always — «Uhrzeit …», then the minutes short-to-long, and never the
+                // other way round: these rows are read as a scale, and a scale that flips with the
+                // menu's open direction has to be re-read every time. The order does NOT depend on
+                // which way the popup opens (unlike the ring's menu, a different physical control).
                 items={[
                   { kind: 'head' as const, label: C.dueHead },
                   { label: dueRow(<Icon id="clock" />, C.reminderExact, dueSel?.kind === 'at'),
                     onClick: () => setExact(dueSel?.kind === 'at' ? { day: dueSel.day, hhmm: dueSel.hhmm } : defaultExact()) },
-                  ...[...C.reminderChips].reverse().map((n) => ({
+                  ...C.reminderChips.map((n) => ({
                     label: dueRow(null, C.reminderChipLabel.replace('{n}', String(n)), dueSel?.kind === 'in' && dueSel.mins === n),
                     onClick: () => setDue({ kind: 'in', mins: n }),
                   })),
