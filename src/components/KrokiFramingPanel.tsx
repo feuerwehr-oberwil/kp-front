@@ -103,20 +103,20 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
     setDragMs(null)
   }
   const label = krokiStandLabel(dragMs ?? atMs)
-  /** Where the ticks go, as percentages, one per VISIBLE position rather than one per event.
-   *  A busy Einsatz records hundreds of moments inside one hour; drawn raw they merge into a
-   *  solid bar, which says «something happened all the time» — the opposite of what a mark is
-   *  for — and puts hundreds of nodes under the thumb. Rounded to 0.5 % of the track (roughly
-   *  a tick's own width at any usable size) and de-duplicated, so two ticks are two places. */
+  /** Where the ticks go, as percentages — one per recorded moment, exactly like the Verlauf's
+   *  activity strip (Journal · stripTicks): where the ticks crowd is WHERE it was busy, and that
+   *  density is the reading. The old 0.5 %-of-track rounding evened the crowding out, so the
+   *  same Einsatz drew two different barcodes on the two strips. Only literal duplicates
+   *  (several events on one timestamp) collapse — those are one place either way. */
   const markPcts = useMemo(() => {
-    const span = nowMs - startedAtMs!
-    if (startedAtMs == null || span <= 0) return []
+    if (startedAtMs == null) return []
+    const span = nowMs - startedAtMs
+    if (span <= 0) return []
     const seen = new Set<number>()
     for (const t of moments) {
-      if (t < startedAtMs || t > nowMs) continue
-      seen.add(Math.round(((t - startedAtMs) / span) * 200) / 2)
+      if (t >= startedAtMs && t <= nowMs) seen.add(t)
     }
-    return [...seen].sort((a, b) => a - b)
+    return [...seen].sort((a, b) => a - b).map((t) => ((t - startedAtMs) / span) * 100)
   }, [moments, startedAtMs, nowMs])
   const mapRef = useRef<MapRef>(null)
   /**
@@ -426,7 +426,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             <span className={cx('kf-at-track', atBusy && 'busy')}>
               {markPcts.length > 0 && (
                 <span className="kf-at-marks" aria-hidden="true">
-                  {markPcts.map((pct) => <i key={pct} style={{ left: `${pct}%` }} />)}
+                  {markPcts.map((pct, i) => <i key={i} style={{ left: `${pct}%` }} />)}
                 </span>
               )}
               <input

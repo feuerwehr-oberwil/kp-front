@@ -207,27 +207,29 @@
    beside it so the value is never hidden under the finger */
 .kf-at-track { position: relative; flex: 1 1 220px; min-width: 160px; max-width: 340px; display: flex; }
 .kf-at-range { flex: 1 1 auto; min-width: 0; accent-color: var(--blue); height: var(--tap); position: relative; z-index: 1; }
-/* WHEN anything happened, as hairlines under the Stand track. They MARK, they are not targets:
-   pointer-events stay off so the slider keeps every pixel of its own hit area, which is the one
-   thing a gloved drag cannot afford to lose. Inset by the thumb's radius so a tick at t=0 sits
-   under the thumb's centre rather than at the track's very edge. */
+/* WHEN anything happened, under the Stand track — the same BARCODE the Verlauf draws over its
+   list (19-rueckmeldung.css · .jr-strip i): one 1.5px tick per recorded moment, same ink
+   (--ink-faint at .7), so the two strips read as one instrument. Density IS the signal — where
+   the ticks crowd is where it was busy — which is why the old ruler hairline is gone: a tick
+   per moment carries the pattern by itself (the ruler existed to prop up a handful of
+   quantised dashes; see KrokiFramingPanel · markPcts). They MARK, they are not targets:
+   pointer-events stay off so the slider keeps every pixel of its own hit area, which is the
+   one thing a gloved drag cannot afford to lose. Inset by the thumb's radius so a tick at t=0
+   sits under the thumb's centre rather than at the track's very edge. */
 /* ⚠️ ABOVE the input, not below it. The range input carries z-index 1 so its own track paints
    over anything behind it — the marks were being drawn and then covered by the track, which
    looks exactly like «the marks were never added». They still take no pointer events, so the
    slider keeps every pixel of its hit area. */
-/* A RULER under the groove: a hairline the whole width of the track, with a taller tick at
-   every moment. The hairline is what makes them read as marks ON a timeline rather than as
-   specks — a handful of 2px dashes floating under a slider is not a pattern the eye picks
-   up, which is why they were there and nobody saw them. They also sat at --ink-dim, which
-   on this track is barely a shade off the groove itself. */
 .kf-at-marks { position: absolute; inset: 50% 9px auto 9px; height: 0; pointer-events: none; z-index: 2; }
-.kf-at-marks::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; height: 1px;
-  background: color-mix(in srgb, var(--ink-faint) 45%, transparent); }
-.kf-at-marks i { position: absolute; top: 6px; width: 2px; height: 9px; margin-left: -1px;
-  border-radius: 1px; background: var(--ink); opacity: .75; }
+/* top 8px = fully BELOW the ~16px thumb (its lower edge ends 8px past the centre): the marks
+   paint above the input, so a tick starting any higher would draw ON the handle */
+.kf-at-marks i { position: absolute; top: 8px; width: 1.5px; height: 12px; margin-left: -0.75px;
+  border-radius: 1px; background: var(--ink-faint); opacity: .7; }
 /* «wird rekonstruiert» as MOTION on the track it belongs to, not a sentence beside it: a thin
-   bar sweeping the slider says the same thing without a fixed text slot resizing the bar. */
-.kf-at-prog { position: absolute; left: 0; right: 0; top: 50%; margin-top: 17px; height: 2px; border-radius: 1px;
+   bar sweeping the slider says the same thing without a fixed text slot resizing the bar.
+   margin-top 20px = below the ticks (they end 20px past the centre), flush with the track's
+   44px (--tap) bottom edge. */
+.kf-at-prog { position: absolute; left: 0; right: 0; top: 50%; margin-top: 20px; height: 2px; border-radius: 1px;
   overflow: hidden; opacity: 0; transition: opacity .15s ease; pointer-events: none; }
 .kf-at-track.busy .kf-at-prog { opacity: 1; }
 .kf-at-prog::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 1px;
