@@ -46,7 +46,11 @@
 /* font: inherit, exactly as on the left rail's .nav-item and on .vrail-exp below — a <button> does
    not inherit the page font, so once the rail is expanded «Ebenen» and «Ansichten» came out in the
    browser's own face while «Einklappen» directly beneath them, and the whole left rail, did not. */
-.vrail-nbtn { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none; border: none; background: transparent;
+/* ⚠️ `padding: 0` — the UA's default button padding (1px 6px) was the whole bug behind the
+   clipped footer labels. `.vrail-tool` zeroes it; this never did, so a footer button handed its
+   label 64px where a tool handed 76 — «Vergrössern» clipped while the longer «Absperrkreis» in
+   the list above it did not. Twelve pixels of browser default, invisible in the stylesheet. */
+.vrail-nbtn { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none; border: none; background: transparent; padding: 0;
   border-radius: var(--r-sm); color: var(--ink); cursor: pointer; font: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
 .vrail:not(.expanded) .vrail-nbtn, .vrail.dragging .vrail-nbtn { justify-content: center; }
 .vrail-nbtn:not(.on):hover:not(:disabled) { background: var(--hover); color: var(--ink); }
@@ -94,8 +98,13 @@
    Nine tools with no text is the densest thing on this screen for anybody who does not already
    know them, and «Auswahl · Linie · Fläche · Messen» are short enough to sit under the glyph. */
 .vrail.labelled:not(.expanded):not(.dragging) { width: var(--vrail-w-labelled, 88px); padding: 7px 5px; }
+/* ⚠️ `width: 100%` on BOTH. `.vrail-tool` carries it in its base rule and `.vrail-nbtn` never
+   did, so a footer button was sized by its content: its label got 64px where a tool's got 75.
+   «Vergrössern» (66.5px in Sora) therefore clipped in the footer while a longer word like
+   «Absperrkreis» (71px) sat comfortably in the list above it — same rail, same font, eleven
+   pixels apart for no reason anyone could see. */
 .vrail.labelled:not(.expanded):not(.dragging) :is(.vrail-tool, .vrail-nbtn) {
-  flex-direction: column; gap: 0; height: 56px; justify-content: center; }
+  flex-direction: column; gap: 0; height: 56px; justify-content: center; width: 100%; }
 .vrail.labelled:not(.expanded):not(.dragging) .vrail-glyph { width: auto; min-width: 0; height: 26px; }
 .vrail.labelled:not(.expanded):not(.dragging) .vrail-label {
   display: block; padding: 0 2px; text-align: center; max-width: 100%;
@@ -128,6 +137,13 @@
   cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
 .vrail-grip::after { content: ""; width: 4px; height: 38px; border-radius: 3px; background: var(--border); transition: background .14s var(--ease); }
 .vrail-grip:hover::after, .vrail-grip.drag::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+/* ⚠️ Touch + «Beschriftung · Wörter»: der Griff verschwindet. Er ist eine Hover-Geste auf
+   einer Oberfläche ohne Hover, und ausklappen würde nur zeigen, was schon unter jedem Zeichen
+   steht — mit Handschuh eine 20px-Kante ziehen für nichts. Ohne die Wörter bleibt er auch auf
+   dem Tablet: dann ist er der einzige Weg, die Beschriftung überhaupt zu sehen. */
+@media (pointer: coarse) {
+  .vrail.labelled .vrail-grip { display: none; }
+}
 
 /* rail extras */
 .rbtn:disabled { opacity: var(--disabled); cursor: default; }
