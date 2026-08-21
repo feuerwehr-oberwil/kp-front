@@ -46,3 +46,40 @@ describe('the read-only tool rail', () => {
     expect(onPick).toHaveBeenCalledWith('measure')
   })
 })
+
+// «Einstellungen · Leisten-Beschriftung» says «Wort unter jedem Zeichen in den BEIDEN Leisten».
+// It reached the Lage rail and not the Plan's, because Whiteboard rendered this same component
+// without the prop — one setting, two rails, one of them not listening. The class is what the
+// stylesheet keys the words off, so it is what gets pinned here.
+describe('the Beschriftung device preference', () => {
+  const renderRail = (labels?: 'off' | 'short') =>
+    render(<ToolRail
+      className="tool-rail"
+      primary={appConfig.copy.primarySymbol}
+      tools={appConfig.copy.mapTools}
+      active="select"
+      onPick={vi.fn()}
+      labels={labels}
+      footer={<button>{appConfig.copy.nav.zoomIn}</button>}
+    />)
+
+  it('carries the labelled class when the preference is on', () => {
+    const { container } = renderRail('short')
+    expect(container.querySelector('.vrail.labelled')).toBeTruthy()
+  })
+
+  it('does not when it is off, or absent', () => {
+    const { container } = renderRail('off')
+    expect(container.querySelector('.vrail.labelled')).toBeNull()
+    cleanup()
+    const bare = renderRail()
+    expect(bare.container.querySelector('.vrail.labelled')).toBeNull()
+  })
+
+  it('renders the word for every tool either way — the stylesheet decides if it shows', () => {
+    // the label element must EXIST unconditionally; .labelled only flips its display
+    renderRail('short')
+    expect(screen.getByRole('button', { name: 'Messen' }).querySelector('.vrail-label')?.textContent)
+      .toBe('Messen')
+  })
+})

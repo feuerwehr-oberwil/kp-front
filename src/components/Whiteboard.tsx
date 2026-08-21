@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { NodeDeleteChip } from './NodeDeleteChip'
 import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, NoteSize, PlanDocument, ShapeKind, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
+import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
 import { Palette } from './Palette'
 import { PdfViewport, prewarmPlans } from './PdfViewport'
@@ -93,6 +94,9 @@ interface Props {
    *  change nothing. Off for replay (its scrubber owns the bottom band) and for the phone's
    *  Verlauf sheet, where the plan is parked behind a full-width overlay. */
   slimTools?: boolean
+  /** device pref «Leisten-Beschriftung» (lib/prefs · railLabels) — the word under each glyph.
+   *  The setting says «in den beiden Leisten», so the plan's rail has to be handed it too. */
+  railLabels?: RailLabels
   sym: SymbolsApi
   /** active Mannschaft names feeding the symbol detail comboboxes (Einsatzleiter / Fahrer …) */
   rosterNames?: string[]
@@ -168,7 +172,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
@@ -2181,6 +2185,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {(!readOnly || slimRail) && (
         <ToolRail
           className="wb-tools"
+          // ⚠️ the SAME device pref the Lage rail honours. It was missing here, so «Beschriftung
+          // · Wörter» lit up the words on the map's rail and silently did nothing on the plan's —
+          // one setting, two rails, and only one of them listening.
+          labels={railLabels}
           primary={{ id: 'symbol', icon: appConfig.copy.primarySymbol.icon, label: appConfig.copy.whiteboard.symbol }}
           tools={readOnly ? slimPlanTools : appConfig.copy.planTools}
           active={tool}

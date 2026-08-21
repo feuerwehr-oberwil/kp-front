@@ -3383,6 +3383,7 @@ export function IncidentWorkspace({
 
       {mode === 'plans' && sym.ready && (
         <Whiteboard
+          railLabels={railLabels}
           plans={planDocs}
           // on desktop the Verlauf drawer docks beside the plan's tool rail (same as the
           // map), so the rail + its zoom/fit footer stay live. Only a phone still parks
