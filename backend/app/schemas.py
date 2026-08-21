@@ -334,7 +334,12 @@ class DiveraTakeBody(BaseModel):
 # rejected there would be a trap that only shows up on the second integration. Reserving a
 # name Front doesn't use costs nothing; it was never a valid external sender name anyway.
 # Keep in sync with kp-rueck's app/schemas/alarms.py. See docs/RUNNING-BOTH.md.
-RESERVED_ALARM_SOURCES = {"divera", "intake", "manual", "migrated", "operator", "training"}
+#
+# "feld" was missing until 2026-08-19, so the comment above claimed a union this set did not
+# hold: a sender calling itself `feld` was accepted here and rejected there. Both sides
+# asserted the union in prose and neither compared it — which is why the set is now pinned by
+# `docs/alarm-intake-conformance.json` and a CI job instead.
+RESERVED_ALARM_SOURCES = {"divera", "feld", "intake", "manual", "migrated", "operator", "training"}
 
 
 class AlarmIn(BaseModel):
@@ -364,6 +369,25 @@ class AlarmIn(BaseModel):
     # pool ("E-123"); an Einsatz here has no such field, so it is ACCEPTED AND IGNORED rather
     # than rejected. Said out loud because a silently dropped field is worse than a 422.
     number: str | None = Field(default=None, max_length=50)
+
+    @field_validator("title", "text", "address", "source_id", "number", mode="before")
+    @classmethod
+    def strip_strings(cls, v: object) -> object:
+        """Trim, and treat an all-whitespace value as absent — as KP Rück already did.
+
+        Found on 2026-08-19 by the shared conformance corpus, on its first run against this
+        side: `{"title": "   "}` satisfied `min_length=1` here and opened an Einsatz with a
+        blank title, while KP Rück refused the same body. Three spaces are not a title, and a
+        dispatch system that sends them wants to hear about it rather than have the operator
+        find a nameless incident on the board.
+
+        Non-strings pass through UNTOUCHED so pydantic still rejects them. Collapsing them here
+        as well would make `{"address": 0}` a silently absent field instead of a 422 — the
+        exact trade `number` two fields up says out loud is the wrong one.
+        """
+        if not isinstance(v, str):
+            return v
+        return v.strip() or None
 
 
 class AlarmOut(BaseModel):
