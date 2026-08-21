@@ -44,20 +44,36 @@ export type ShapeKind = 'arrow' | 'cloud' | 'square'
 export type SymbolControl = 'rotation' | 'rotation2' | 'count' | 'floor' | 'floorRange' | 'spread' | 'airflow'
 
 /** FKS Entwicklung (spread) on a damage symbol — Feuer/Wasser/Gefahrstoffe.
- *  Rendered as arrows in the symbol's own colour (red/blue/orange): a horizontal
- *  arrow in one of the four cardinal directions, and/or vertical up/down arrows
- *  (which pair with the symbol's Geschoss number). A "bounded" flag adds the
- *  Entwicklungsgrenze bar at the arrow tip (→|). Absent / all-empty = no spread. */
+ *  Rendered as arrows in the symbol's own colour (red/blue/orange): horizontal
+ *  arrows left/right, and/or vertical up/down arrows (which pair with the symbol's
+ *  Geschoss number). Each direction carries its own Entwicklungsgrenze bar at the
+ *  arrow tip (→|). Absent / all-empty = no spread.
+ *
+ *  All four directions are INDEPENDENT, and so is every bar: a fire running both
+ *  ways along a Fassade, stopped at a Brandmauer on one side only, is one symbol
+ *  and not two. ⚠️ `left`/`right` used to be one exclusive `h: 'E' | 'W'` field
+ *  with a single `hBounded`, and `up`/`down` shared one `vBounded` — incidents
+ *  written before this still carry that shape, so nothing reads these fields raw.
+ *  Everything goes through `normalizeSpread` (lib/spread.ts), and the Kroki
+ *  renderer has the same normalisation in Python (`_spread_dirs` in kroki.py). */
 export interface Spread {
-  /** horizontal spread direction — left (W) or right (E) only; absent = none.
-   *  (FKS: horizontal development is always left/right; up/down is vertical.) */
-  h?: 'E' | 'W'
-  /** horizontal spread is bounded (bar at the tip) */
-  hBounded?: boolean
-  /** vertical spread to upper / lower storeys */
+  left?: boolean
+  right?: boolean
   up?: boolean
   down?: boolean
-  /** vertical spread is bounded (bar at the tip) */
+  /** per-direction Entwicklungsgrenze — the bar at that arrow's tip */
+  leftBounded?: boolean
+  rightBounded?: boolean
+  upBounded?: boolean
+  downBounded?: boolean
+}
+
+/** The pre-2026-08 shape, still present in stored incidents. Read-only: nothing writes it. */
+export interface LegacySpread {
+  h?: 'E' | 'W'
+  hBounded?: boolean
+  up?: boolean
+  down?: boolean
   vBounded?: boolean
 }
 

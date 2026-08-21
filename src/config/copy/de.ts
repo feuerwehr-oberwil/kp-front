@@ -1650,11 +1650,11 @@ export const de = {
     spreadH: 'Horizontal',
     spreadV: 'Vertikal',
     spreadBounded: 'Grenze',
-    spreadBoundedTitle: 'Entwicklungsgrenze (Ausbreitung gestoppt)',
-    spreadLeft: 'nach links',
-    spreadRight: 'nach rechts',
-    spreadUp: 'Obergeschoss (↑)',
-    spreadDown: 'Untergeschoss (↓)',
+    // ⚠️ Der Balken gehört zu SEINEM Pfeil, nicht zur Achse: eine Front, die beidseits läuft
+    // und nur an einer Brandmauer steht, ist ein Symbol. Auf einem ausgeschalteten Pfeil
+    // schaltet «Grenze» die Richtung gleich mit ein — sonst kostet der Normalfall zwei Tipps.
+    spreadBoundedTitle: 'Entwicklungsgrenze — Ausbreitung hier gestoppt',
+    spreadDirTitles: { left: 'nach links', right: 'nach rechts', up: 'Obergeschoss (↑)', down: 'Untergeschoss (↓)' } as Record<string, string>,
     count: 'Anzahl',
     rotation: 'Drehung',
     // ⚠️ The Anzahl gets the noun it is counting. A “Patientensammelstelle · Anzahl 12” makes a

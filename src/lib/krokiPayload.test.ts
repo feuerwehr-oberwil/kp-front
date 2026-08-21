@@ -16,9 +16,19 @@ const sym = (over: Partial<Entity>): Entity => ({
 
 describe('krokiEntity (glyph resolution for the server compositor)', () => {
   it('passes plain pack symbols by name with their decor', () => {
-    const out = krokiEntity(sym({ floor: 2, count: 3, spread: { h: 'E' } }), {})
-    expect(out).toMatchObject({ symbol: 'VKF Feuer', floor: 2, count: 3, spread: { h: 'E' } })
+    const out = krokiEntity(sym({ floor: 2, count: 3, spread: { right: true, rightBounded: true } }), {})
+    expect(out).toMatchObject({
+      symbol: 'VKF Feuer', floor: 2, count: 3, spread: { right: true, rightBounded: true },
+    })
     expect(out?.symbolSvg).toBeUndefined()
+  })
+
+  it('passes a pre-2026-08 spread through untouched, for the server to normalise', () => {
+    // ⚠️ The payload must not strip what it no longer types. An archived incident still carries
+    // the exclusive `h`/`hBounded` shape, and kroki.py (`_spread_dirs`) is the one place that
+    // reads it — dropping it here would reprint that Rapport without its arrows.
+    const legacy = { h: 'E', hBounded: true } as unknown as Entity['spread']
+    expect(krokiEntity(sym({ spread: legacy }), {})).toMatchObject({ spread: { h: 'E', hBounded: true } })
   })
 
   it('resolves vehicles to a baked SVG (heading in the glyph, no extra rotation)', () => {

@@ -434,3 +434,36 @@ def test_the_legend_lists_only_what_the_crop_actually_shows():
     legend: list[str] = []
     kk.render_kroki(scene, kk.get_pack(), "", width=900, height=700, view=view, legend_out=legend)
     assert legend == ["im Bild"], legend
+
+
+def test_spread_dirs_reads_both_stored_shapes() -> None:
+    """⚠️ Mirrors src/lib/spread.test.ts. The printed Kroki renders from the same workspace blob
+    as the screen, and incidents written before 2026-08 still carry the exclusive
+    `h`/`hBounded` + shared `vBounded` shape — an archived Rapport reprints from it years later.
+    If this drifts from the client, paper stops matching the screen."""
+    d = kk._spread_dirs
+
+    # legacy: one exclusive horizontal direction, its bar landing on that arrow only
+    assert d({"h": "W"}) == {"left": False}
+    assert d({"h": "E", "hBounded": True}) == {"right": True}
+    # legacy: one shared vertical bar reaching every vertical arrow that was set
+    assert d({"up": True, "down": True, "vBounded": True}) == {"up": True, "down": True}
+    assert d({"up": True, "vBounded": True}) == {"up": True}
+
+    # current: four independent arrows, each with its own bar
+    assert d({"left": True, "right": True, "leftBounded": True}) == {"left": True, "right": False}
+    assert d({"up": True, "down": True, "upBounded": True}) == {"up": True, "down": False}
+
+    # a bar without its arrow never draws one
+    assert d({"leftBounded": True}) == {}
+    assert d({}) == {}
+
+
+def test_spread_overlay_draws_one_arrow_per_direction() -> None:
+    """All four at once is a real Lage: a fire running both ways along a Fassade and into the
+    storeys above and below."""
+    svg = kk.spread_overlay_svg({"left": True, "right": True, "up": True, "down": True}, "#f00")
+    assert svg.count("<path") == 4
+    # only the bounded one grows a bar
+    svg2 = kk.spread_overlay_svg({"left": True, "right": True, "rightBounded": True}, "#f00")
+    assert svg2.count("<rect") == 1

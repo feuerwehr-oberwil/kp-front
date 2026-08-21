@@ -327,9 +327,43 @@ def floor_badge(f: int) -> str:
 _BLOCK_ARROW = "M42 30 L42 20 L34 20 L50 8 L66 20 L58 20 L58 30 Z"
 
 
+# Degrees to rotate the up-pointing arrow onto each edge (symbolRender.tsx SPREAD_DEG).
+_SPREAD_DEG = {"up": 0, "right": 90, "down": 180, "left": 270}
+
+
+def _spread_dirs(spread: dict) -> dict[str, bool]:
+    """Which arrows are set and which of them carry their Entwicklungsgrenze bar.
+
+    ⚠️ Mirrors `normalizeSpread` in `src/lib/spread.ts`, and must keep mirroring it: the printed
+    Kroki is rendered here from the SAME workspace blob the client draws from, so a field one
+    side understands and the other does not is paper that stops matching the screen.
+
+    Two shapes live in stored incidents. Until 2026-08 horizontal spread was one exclusive
+    `h: 'E' | 'W'` with a single `hBounded`, and `up`/`down` shared one `vBounded`; the blob is
+    never migrated in place, so every archived Rapport still reprints from that. Now each of the
+    four directions is independent and carries its own bar.
+    """
+    out: dict[str, bool] = {}
+    legacy_h = spread.get("h")
+    for d in ("left", "right", "up", "down"):
+        on = bool(spread.get(d))
+        if d == "left" and legacy_h == "W":
+            on = True
+        if d == "right" and legacy_h == "E":
+            on = True
+        if not on:
+            continue
+        bounded = bool(spread.get(f"{d}Bounded"))
+        if d in ("left", "right") and legacy_h == {"left": "W", "right": "E"}[d]:
+            bounded = bounded or bool(spread.get("hBounded"))
+        if d in ("up", "down") and f"{d}Bounded" not in spread:
+            bounded = bounded or bool(spread.get("vBounded"))
+        out[d] = bounded
+    return out
+
+
 def spread_overlay_svg(spread: dict, color: str) -> str:
     """The SpreadArrows overlay as one SVG (same paths/rotations as the client)."""
-    parts: list[str] = []
 
     def arrow(deg: int, bounded: bool) -> str:
         bar = '<rect x="33" y="1" width="34" height="6" rx="1.5" stroke-width="3"/>' if bounded else ""
@@ -338,14 +372,9 @@ def spread_overlay_svg(spread: dict, color: str) -> str:
             f'stroke-width="3.5" stroke-linejoin="round"><path d="{_BLOCK_ARROW}"/>{bar}</g>'
         )
 
-    if spread.get("up"):
-        parts.append(arrow(0, bool(spread.get("vBounded"))))
-    if spread.get("down"):
-        parts.append(arrow(180, bool(spread.get("vBounded"))))
-    if spread.get("h") == "E":
-        parts.append(arrow(90, bool(spread.get("hBounded"))))
-    if spread.get("h") == "W":
-        parts.append(arrow(270, bool(spread.get("hBounded"))))
+    dirs = _spread_dirs(spread)
+    # drawn in the client's order (up, down, right, left) so the two SVGs stay diffable
+    parts = [arrow(_SPREAD_DEG[d], dirs[d]) for d in ("up", "down", "right", "left") if d in dirs]
     return f'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>'
 
 

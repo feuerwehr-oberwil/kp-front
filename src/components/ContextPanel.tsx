@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { Icon } from '../lib/icons'
+import { boundedKey, normalizeSpread, tidySpread, type SpreadDir } from '../lib/spread'
 import { openPhoto } from '../lib/ui'
 import { formatSymbolName, stripUnprintable } from '../lib/format'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
@@ -315,23 +316,27 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
     if (k === EL_STV) return appConfig.copy.anwesenheit.roleEinsatzleiterStvShort
     return k
   }
+const SPREAD_GLYPH: Record<SpreadDir, string> = { left: '←', right: '→', up: '↑', down: '↓' }
+// The Entwicklungsgrenze is the bar ACROSS the arrow tip, so it stands perpendicular to its own
+// arrow: upright beside ← →, lying flat beside ↑ ↓. Same stroke the symbol prints.
+const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up: '─', down: '─' }
+
   // a stepper is offered only where its callback is wired (the surface supports it)
   // AND the symbol's preset lists it; no preset passed ⇒ show all wired steppers.
   const allow = (c: SymbolControl) => !controls || controls.has(c)
 
-  // merge a spread change, drop a bounded flag whose axis is gone, and clear the
-  // whole thing back to null once no arrow remains (keeps the prop tidy / unset).
-  const sp = entity.spread ?? {}
-  const setSpread = (patch: Partial<Spread>) => {
-    const n: Spread = { ...sp, ...patch }
-    if (!n.h) n.hBounded = undefined
-    if (!n.up && !n.down) n.vBounded = undefined
-    const empty = !n.h && !n.up && !n.down
-    onSpread?.(empty ? null : {
-      h: n.h, hBounded: n.hBounded || undefined,
-      up: n.up || undefined, down: n.down || undefined, vBounded: n.vBounded || undefined,
-    })
-  }
+  // ⚠️ normalized, not raw: a symbol placed before 2026-08 carries the old exclusive
+  // `h`/`hBounded`/`vBounded` shape (lib/spread.ts). Reading it raw would show no arrows and
+  // then SAVE that emptiness over a spread somebody had set.
+  const sp = normalizeSpread(entity.spread)
+  const setSpread = (patch: Partial<Spread>) => onSpread?.(tidySpread({ ...sp, ...patch }))
+  /** Turning an arrow off takes its own Grenze with it — a bar without its arrow cannot print. */
+  const toggleDir = (d: SpreadDir) =>
+    setSpread(sp[d] ? { [d]: false, [boundedKey(d)]: false } : { [d]: true })
+  /** «Grenze» is never disabled. On an arrow that is off it means «dorthin, und dort gestoppt»
+   *  and switches the direction on with it — the commonest case must not cost two taps. */
+  const toggleBounded = (d: SpreadDir) =>
+    setSpread(sp[d] ? { [boundedKey(d)]: !sp[boundedKey(d)] } : { [d]: true, [boundedKey(d)]: true })
   const [title, setTitle] = useState(entity.label ?? '')
   // Rows come from the stored fields, but ALWAYS surface the symbol's preset fields too —
   // a symbol placed before a preset field existed (e.g. the Offizier «Funktion» or the
@@ -724,28 +729,28 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
           {showSpread && (
             <div className="ctx-section">
               <span className="ctx-section-label">{C.spread}</span>
-              <div className="spread-row">
-                <span className="spread-lbl">{C.spreadH}</span>
-                <div className="spread-btns">
-                  <button className={`spread-btn ${sp.h === 'W' ? 'on' : ''}`} title={C.spreadLeft}
-                    onClick={() => setSpread({ h: sp.h === 'W' ? undefined : 'W' })}>←</button>
-                  <button className={`spread-btn ${sp.h === 'E' ? 'on' : ''}`} title={C.spreadRight}
-                    onClick={() => setSpread({ h: sp.h === 'E' ? undefined : 'E' })}>→</button>
-                  <button className={`spread-btn wide ${sp.hBounded ? 'on' : ''}`} disabled={!sp.h}
-                    title={C.spreadBoundedTitle} onClick={() => setSpread({ hBounded: !sp.hBounded })}>{C.spreadBounded}</button>
+              {/* Each arrow carries its OWN Grenze, glued to it — a fire running both ways
+                  along a Fassade and stopped at a Brandmauer on one side only is one symbol.
+                  The old row had a single «Grenze» per axis and left/right were exclusive. */}
+              {([[C.spreadH, ['left', 'right']], [C.spreadV, ['up', 'down']]] as const).map(([label, dirs]) => (
+                <div className="spread-row" key={label}>
+                  <span className="spread-lbl">{label}</span>
+                  <div className="spread-btns">
+                    {dirs.map((d) => (
+                      <span className="spread-unit" key={d}>
+                        <button className={`spread-btn dir ${sp[d] ? 'on' : ''}`} title={C.spreadDirTitles[d]}
+                          onClick={() => toggleDir(d)}>{SPREAD_GLYPH[d]}</button>
+                        {/* the bar itself, not the word: on paper the Grenze IS the stroke across
+                            the arrow tip (→|), so the button shows what it draws — and it is
+                            perpendicular to its own arrow, like the printed symbol */}
+                        <button className={`spread-btn grenze ${sp[boundedKey(d)] ? 'on' : ''}`}
+                          title={C.spreadBoundedTitle} aria-label={`${C.spreadBounded} ${C.spreadDirTitles[d]}`}
+                          onClick={() => toggleBounded(d)}>{GRENZE_GLYPH[d]}</button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="spread-row">
-                <span className="spread-lbl">{C.spreadV}</span>
-                <div className="spread-btns">
-                  <button className={`spread-btn ${sp.up ? 'on' : ''}`} title={C.spreadUp}
-                    onClick={() => setSpread({ up: !sp.up })}>↑</button>
-                  <button className={`spread-btn ${sp.down ? 'on' : ''}`} title={C.spreadDown}
-                    onClick={() => setSpread({ down: !sp.down })}>↓</button>
-                  <button className={`spread-btn wide ${sp.vBounded ? 'on' : ''}`} disabled={!sp.up && !sp.down}
-                    title={C.spreadBoundedTitle} onClick={() => setSpread({ vBounded: !sp.vBounded })}>{C.spreadBounded}</button>
-                </div>
-              </div>
+              ))}
             </div>
           )}
 

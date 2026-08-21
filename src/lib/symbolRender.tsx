@@ -1,4 +1,5 @@
 import type { Spread } from '../types'
+import { SPREAD_DIRS, boundedKey, hasSpread, normalizeSpread, type SpreadDir } from './spread'
 
 // Shared rendering of a placed FireGIS tactical symbol — used IDENTICALLY by the
 // Lage map (MapView) and the Plan whiteboard (Whiteboard), so the glyph, the
@@ -167,15 +168,19 @@ function BlockArrow({ deg, bounded, color }: { deg: number; bounded?: boolean; c
     </g>
   )
 }
+/** Degrees to rotate the up-pointing arrow onto each edge. */
+const SPREAD_DEG: Record<SpreadDir, number> = { up: 0, right: 90, down: 180, left: 270 }
+
 function SpreadArrows({ spread, color }: { spread: Spread; color: string }) {
-  const { h, hBounded, up, down, vBounded } = spread
-  if (!h && !up && !down) return null
+  // ⚠️ normalized, never read raw: an incident written before 2026-08 carries the old
+  // `h`/`hBounded`/`vBounded` shape and would otherwise lose its arrows (lib/spread.ts).
+  const s = normalizeSpread(spread)
+  if (!hasSpread(s)) return null
   return (
     <svg className="sym-spread" viewBox="0 0 100 100" aria-hidden="true">
-      {up && <BlockArrow deg={0} bounded={vBounded} color={color} />}
-      {down && <BlockArrow deg={180} bounded={vBounded} color={color} />}
-      {h === 'E' && <BlockArrow deg={90} bounded={hBounded} color={color} />}
-      {h === 'W' && <BlockArrow deg={270} bounded={hBounded} color={color} />}
+      {SPREAD_DIRS.filter((d) => s[d]).map((d) => (
+        <BlockArrow key={d} deg={SPREAD_DEG[d]} bounded={s[boundedKey(d)]} color={color} />
+      ))}
     </svg>
   )
 }
