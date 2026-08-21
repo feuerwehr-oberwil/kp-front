@@ -481,7 +481,7 @@ describe('useTruppActions — one Leitung, one Trupp', () => {
       doc: { entities: [], drawings: [{ id: 'd1', kind: 'line', coords: [[7.5, 47.4], [7.51, 47.41]], lineNo: 1 }] } as Doc,
     }
     const apply = <T,>(cur: T, a: SetStateAction<T>): T => (typeof a === 'function' ? (a as (p: T) => T)(cur) : a)
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+    // called outside a component on purpose: a plain closure factory, no hooks inside
     const actions = useTruppActions({
       trupps: state.trupps, drawings: state.doc.drawings, entities: state.doc.entities,
       setTrupps: ((a) => { state.trupps = apply(state.trupps, a) }) as Dispatch<SetStateAction<Trupp[]>>,

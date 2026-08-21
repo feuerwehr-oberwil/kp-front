@@ -131,7 +131,7 @@ export function NavRail(p: Props) {
   useEffect(() => {
     if (p.labels === 'short' && expanded) { setExpanded(false); setRailVar(compactW); return }
     if (!expanded) setRailVar(compactW)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on the pref/collapse change only
+    // runs on the pref/collapse change only
   }, [compactW, expanded, p.labels])
 
   // pull the grip to resize (pointer-capture pattern mirrors lib/useHoldEntry); labels
