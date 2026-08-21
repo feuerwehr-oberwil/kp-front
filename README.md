@@ -54,6 +54,12 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 - **Zeitplan:** Shift planning for long incidents – availability and assignment per person, a
   coverage curve across the span, printable as the «Zeitplan» Führungsformular.
 - **Reference data:** ADR lookup, wind, hydrants, utility lines, and Traccar vehicle positions.
+- **Verlauf:** Append-only incident journal – entries, Meldungen, photos and voice memos with
+  transcripts. An entry can stay open as a **Pendenz** until somebody ticks it off, or carry a
+  **Fälligkeit**; a typo can be corrected and the line says that it was.
+- **Einsatzrapport:** The station's own Erfassungsblatt, pre-filled from the record and printed
+  server-side – Verlauf, Aufträge/Pendenzen, Atemschutz-Journal, Kroki with a Massstab, photos as
+  Beilagen, and the Wehr's own forms as a list to tick off.
 - **Wiedergabe:** Scrub back through an incident as it unfolded – the map, the Verlauf and the
   attendance at any point in time, from the same append-only record the Rapport is built from.
 - **Statistik-Export:** Aggregate incident data for the annual report, with WinFAP matching –
@@ -277,8 +283,11 @@ New connectors are welcome contributions – the alarm seam is the model to copy
 - Workspace data has a schema version but is not yet validated and migration-gated on load.
 - There is no SSO. See the tradeoff above – this is deliberate for the incident login, but a
   station whose IT department mandates central identity has no path today.
-- The UI ships in German, French, Italian, and English, but German is the canonical catalogue;
-  the other locales fall back to German for any untranslated string.
+- The UI ships in German, French, Italian, and English. All four catalogues are complete and a
+  half-translated one fails the build, but German is the canonical one and the other three have
+  **not been read by a firefighter who speaks the language** – terminology follows the national
+  bodies (CSSP for French) rather than a dictionary, and that choice has not been reviewed. If a
+  term reads wrong to you, say so; it gets corrected.
 
 See [GitHub issues](https://github.com/feuerwehr-oberwil/kp-front/issues) for current work.
 

@@ -31,6 +31,34 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **A Schema in a Checkliste opens as a picture, and it is the viewer every other picture uses.**
+  A Kommandoakten page scaled into a 14px reading column is a picture *of* a diagram, not one that
+  can be read, and looking harder was the only option. The preview is a button with a magnifier
+  now; it opens full-screen, starts fitted, and takes the same gestures as a Verlauf photo –
+  pinch, wheel, drag, double-tap onto the point under the finger, panning bounded by the image's
+  own overhang. On a wide screen the reader runs in two columns, so a figure or a wide table now
+  spans both, the way a plate sits in a printed page instead of in half a column. ⚠️ The viewer
+  offers **no** «herunterladen» for a Schema: the document belongs to the BGV and is one tap from
+  its source, and a copy pulled out of the app goes stale silently while the page in the app is
+  kept current. The button is switched off for this one caller (`download: false`), not removed –
+  for a Verlauf photo, a Rapport-Beilage and an Objektfoto, getting the file out *is* the point.
+
+- **The landing page answers «and what if we run both?» before the mail arrives.** The KP-Rück
+  section named the sister app and stopped there, so the obvious next question – how much is set
+  up twice – was answered only by a document in the other repository. Five rows now say what is
+  shared (one alarm payload, one Divera key, one print agent in the Magazin, one roster file, one
+  Stichwort list) and one line says what deliberately stays apart: database, updates and login.
+  Neither app needs the other to run, and the page says that in the same breath, so nobody reads
+  «works together» as «depends on». All four languages, from the same `content/*.json`.
+
+- **The Telefonliste's numbers stand under each other, and a step reads as a step.** The list is
+  twelve separate tables, one per heading, and each one sized its columns to its own longest line
+  – so the number sat somewhere else in every block and the eye had to find it again on every
+  scroll. A fixed column width puts all of them on one line. In the same reading surface, a
+  bullet at level 0 is a STEP and one at level 1 is a detail of it; they differed by 16px of
+  indent and nothing else, so a screenful read as a flat wall. The step keeps full ink and a
+  filled dot, the detail is damped and gets a hollow one.
+
 - **The Wehr's own paperwork sits on the Rapport, pre-filled.** Every station has forms that live
   outside this app and still have to be filled in afterwards – a Getränkeabrechnung for the
   Gemeinde, a Schadenmeldung, an internal form. `report.links` (Verwaltung › Rapport) puts them
@@ -98,6 +126,177 @@ so this file – not the log – is the record of what shipped up to that point.
   so. Name, Sprache, Karte, Doktrin, Alarmierung, Logos, Objektpläne, Kartenebenen and die
   eigenen Formulare stay with the Sicherung's JSON export.
 
+- **An entry can stay open until somebody ticks it off.** The BGV form «AUFTRÄGE / PENDENZEN»
+  wants Was · Wer · Prio · Erteilt · Erledigt, and three of those columns already fell out of the
+  append-only Verlauf – what was missing was a way to say a line is *not finished*. The ring
+  beside Info · Auftrag · Sofortmassnahme says it, and its menu is the whole model in one list: a
+  new open item, an urgent one, or a **Meldung** on one already open. Open items sit at the top of
+  the Verlauf, dringend first then oldest, each carrying its own thread; a Meldung is written in
+  the ordinary composer, pre-linked, which is why it can be a Sprachnotiz or a photo without a
+  line of new code. «Wer» is read off the sentence rather than asked for – the composer already
+  marks known names, and a Trupp is titled by its Gruppenführer. On the Rapport the section prints
+  after the Verlauf it comes from, with «offen» where nobody ticked the item off: the one thing
+  somebody has to take away from the Einsatz. ⚠️ Tracking hangs off the lifecycle event, never off
+  `entryType: 'auftrag'` – keying it to the tag would have turned every Auftrag row already
+  written, live incidents and archive alike, into an eternally open Pendenz nobody can tick off.
+  Old rows stay plain text; there is no migration.
+
+- **A journal entry can say when it has to come back.** The composer used to ask first which KIND
+  of row you were writing – «Eintrag» or «Erinnerung» – and that answer took everything the
+  ordinary sheet has away from the reminder: Art, Foto, Sprachnotiz, the ring, the link to an open
+  Pendenz. «Auftrag erteilt» and «um 22:10 nachfassen» had to be two rows about one thing. A due
+  time is a **property** of an entry now, like the ring beside it: a clock in the meta row, preset
+  minutes and «Uhrzeit …» in one popup. The exact dialog carries a **day**, because «that time,
+  and if it has passed then tomorrow» was right most of the time and silent the rest – on the one
+  surface where a Wiedervorlage set for the wrong day is a check nobody makes; a moment already
+  gone by is refused rather than rolled forward. Clock and ring keep each other honest: a
+  Fälligkeit opens the ring (a banner nobody can tick off has no answer), and closing the ring
+  drops the time. A Meldung may carry one too, riding on the note rather than on a snooze row, so
+  the sentence stays in the item's thread. ⚠️ A **Pendenz** deliberately has no Fälligkeit – nobody
+  checks in at a set time on a Schadenplatz, so a due date would only alert the person who set it.
+  Both derive from the same events and share one list; only the dated one can alarm.
+
+- **A typo can be corrected, and the line says that it was.** A wrong Strassenname or a Trupp
+  number off by one had no way out: the journal is append-only, so the choices were a second line
+  saying «oben falsch» – which the Rapport prints as two contradictory rows – or leaving the error
+  standing on a signed document. Correction is offered on everything a **person** typed: composer
+  entries, Meldungen, Nachdokumentation written in the player. **Never on what the app wrote about
+  an action** – «Trupp 2 eingerückt» is the record of something that happened, and rewriting that
+  sentence would make the log state an action that never happened that way, the one thing this
+  journal exists to prevent. The correction is itself an appended row, both wordings stay in the
+  record and in the hash chain, and the line then reads «korrigiert HH:MM», because a corrected
+  line that looked untouched would quietly pass its new words off as the ones spoken at the time.
+
+- **A voice memo's words are its transcript, section by section.** Typing in the player wrote a
+  free-standing «Manuell» row that looked unrelated to the recording, while the memo itself kept
+  asking for its transcript. On a memo the composer is «Transkript ergänzen» now: each save
+  appends a **section** – offset into the recording plus the words – onto the memo's own row, and
+  confirmed STT segments land there too. **Tapping a section opens it for fixing** in place (the
+  small play circle still seeks); the fix replaces that section's words, with no «korrigiert» mark
+  and no new Verlauf line, because the recording is the original and stays. Clearing the words
+  removes the section. Imported recordings keep «Eintrag an dieser Stelle» – a Funk-Mitschnitt
+  genuinely has entries at moments. Recordings also **play at 0.5×**, which for a radio message
+  that came in fast or garbled is the one speed that makes transcription possible.
+
+- **The Atemschutz Journal prints as a chronology, Austritt and Wiedereinstieg included.** The
+  Austritt lived only in the sheet's header, so the pressure log simply stopped mid-Einsatz and
+  the reader had to look up to learn whether the crew ever came out. And a Fortsetzen after a
+  Rückzug was recorded as a plain «Kontakt» – true, the Trupp was reached, but the sheet then said
+  a Trupp withdrew and never went back. Both are their own kind now («Ausgerückt» /
+  «Wiedereinstieg»); the safety clock is untouched, a Wiedereinstieg resets it exactly as a
+  Kontakt does. Reverses the documented «a Fortsetzen stays a plain Kontakt».
+
+- **A Trupp in Rückzug is held to a lower Alarmdruck.** The Alarmdruck is the line at which a crew
+  has to turn round. A crew in Rückzug *has* turned round – the order is given and they are
+  walking out – and holding them to the same number meant the card warned for the whole way back.
+  A warning that runs for ten minutes straight is one nobody looks at any more, and it was running
+  beside the Trupps that still had to be watched. Below the Rückzug line it speaks up again, and
+  that says something worth hearing: this crew is taking too long to get out. `alarmBarRueckzug`
+  (default 50) per station; set it equal to `alarmBar` and nothing changes. ⚠️ This is **not** the
+  second line the 27.07. decision rejected – that one was a «Mindestdruck» under the Alarmdruck on
+  the way *in*, and it stays rejected: a crew still working has exactly one turn-back pressure.
+
+- **The name list says which Trupp somebody is in, and «EL» is the current one.** Two people
+  called Meier are one Einsatz, not an edge case, and the suggestion list offered both spellings of
+  the problem: two identical rows, one of them wrong. The chip now carries what the person is
+  doing right now – «Trupp 2», «Sicherungstrupp» – read off the Atemschutz board. That context is
+  shown and never inserted and never printed: it answers «which Meier» at the moment of typing and
+  stops being true ten minutes later, so it has no business in a record read six months on. The
+  role suffix beside it («EL») is the opposite – stable for this Einsatz – and keeps printing.
+  «EL» itself used to resolve to whoever the roster sort happened to put on top, so after a
+  handover the journal could name a person who handed over an hour ago, on the one post the whole
+  Schadenplatz is keyed to. The Bemerkung is stamped when written and the newest holder wins;
+  resolved at render time as before, so an Ablösung re-labels the older lines too.
+
+- **Beilagen herunterladen (ZIP), for the digital Ablage.** Photos and recordings left the app one
+  at a time and only through the viewer – there was no way to archive an Einsatz's media in
+  original quality. The output menu's last row fetches every stored Beilage byte-identical, named
+  `foto-01-…` / `audio-01-…` in Aufnahme order, plus a `manifest.json` with a SHA-256 per file so
+  an archive copy can be verified against the record years later. Full user session only,
+  deliberately **not** on the link-token allowlist: the QR poster contributes media, it does not
+  carry the whole Einsatz away. Disabled while uploads are still in flight.
+
+- **The printed Kroki carries a Massstab, and the fit follows the action.** The frame fit let a
+  circle's *radius* widen the extent – so the Absperrkreis, the biggest and least informative
+  object on the picture, dictated the scale and shrank every symbol, Trupp and Leitung to a fleck.
+  A circle now contributes only its centre; the ring may clip, its radius is in the legend either
+  way. This changes what the fit **offers** – the chosen WYSIWYG crop is untouched. And the sheet
+  gets a Massstabsbalken bottom-left (1/2/2.5/5 ladder, four alternating segments), so it answers
+  «wie weit ist das?» without a drawn circle happening to say so.
+
+- **One gesture removes a node, on every line and both surfaces.** Deleting a node was three
+  different things: a 500 ms press with no feedback at all on the map, the same press *or* a
+  double-tap on the plan, and a right-click on a desktop. Nothing on screen said a delete was
+  coming, so the only way to learn the press was to lose a node to it. It is one gesture
+  everywhere now – Lage-Zeichnung, Messung, laufender Entwurf, Plan-Zeichnung, Plan-Messung – with
+  250 ms of stillness before *anything* appears (a node being moved must never flash red), then
+  the app's own detach chip beside the node with a ring that fills to 900 ms. Let go early and
+  nothing happened; move past 10 px and it is a drag. ⚠️ The plan's double-tap delete is **gone**:
+  iOS does not deliver `dblclick` reliably, the map never had it, and on a dense line a stray
+  second tap removed a node with nothing to see it coming.
+
+- **A line can be extended, and «hier könnte einer sein» looks the same everywhere.** The Lage's
+  drawings had no midpoint handle at all – inserting meant hitting the line's invisible 18 px band
+  with nothing on screen saying that was possible, while Messung and Plan had a «+» for years. All
+  three carry it now, **dashed and hollow**: filled blue it read as a node that already exists, so
+  a five-segment line looked like an eleven-point one. Extending is new: until now a hose that
+  grew had to be drawn a second time and magnetically attached, which produces a second Leitung
+  with its own number and its own Trupp link. An arrow grip sits past each open end, pointing the
+  way the line runs; dragging it appends one point and the grip moves to the new end. Lines only –
+  a Fläche has no end to grow from.
+
+- **Visit and demo-feature counting, off unless `VISIT_STATS=true`.** The landing page produced no
+  logs at all and the demo's Railway edge logs are wiped on every deploy, so «does anybody look at
+  this, and at which parts» had no answer. Two aggregate tables – no per-hit rows, no cookies, no
+  localStorage, no geo, no third party. Uniques come from an HMAC over IP + User-Agent with a salt
+  that rotates at midnight and is never stored, so linking two days' records is not something this
+  *declines* to do, it is something it **cannot** do; the raw IP is never written or logged. Two
+  load-bearing gates: it is **off by default**, because stations run this same image and analytics
+  must never be silently on for somebody else's Wehr, and the landing beacon is accepted only from
+  the published site's origins. Read with `python -m app.admin_visits` or `GET /api/admin/visits`.
+  `PRIVACY.md` documents the whole mechanism.
+
+- **The landing page says «and is it ours», not just «is this for us».** A fire chief reading it
+  asks two questions in a row, and the page answered only the first. What happens to our data, and
+  what do we owe whom, was buried in the FAQ three sections down, phrased as «Open Source» rather
+  than as what that actually buys you. The «Für wen / Für was» band now carries both. Also on the
+  page: **Betriebsfeuerwehren** join the named audience – a Werkfeuerwehr runs the same Einsatz
+  under the same 3-am constraint – and a Dokumentation item that promised «Partnerorganisationen
+  mit eigenem Formular» now describes what the app actually has, namely the Partnerorganisationen
+  block on the printed rapport. All four languages.
+
+- **Anwesenheit is undoable.** Its own stack over the synced slice, driven by the same ↶ ↷ as the
+  map, with a correction row in the Verlauf naming who moved. On a phone the pair sits in the
+  Anwesenheits-Kopfzeile, because the top bar drops it as soon as an Atemschutz chip claims the
+  room. A Bemerkung now also survives a row cycled to «frei» and back.
+
+- **The composer knows the posts, the arrows and what this Einsatz has already said.** «EL» and
+  «Stv. EL» are vocabulary: written as the post they print the holder («EL (Widmer Céline)»),
+  written as the name they print the post – both directions of one fact, matched whole-word, or
+  two letters light up inside Melder, Keller and Schnellangriff. «→» and «←» are ordinary
+  suggestions, offered while the sentence ends on somebody. On an empty field the start chips are
+  «EL →» first, then the phrases this Einsatz has already used, then the station's list; they stay
+  until something is actually typed, so a second chip appends to the first. ⚠️ `stripUnprintable`
+  was deleting the arrow itself – it sits in the Unicode arrows block that guard strips because
+  the Rapport is Helvetica. The app keeps the character; the **paper** gets «->», mapped once
+  where the report payload is built.
+
+- **Help covers Anwesenheit, Mittel and Zeitplan.** Three of the seven surfaces had no main
+  section at all, including the tap cycle every AdF meets first. All four locales. Alongside it, a
+  device preference puts the **word under every rail glyph** for anybody who does not know the
+  sixteen icons yet (the expand chevron steps aside while it is on), undo toasts can be flicked or
+  ✕'d out of the way, and the Verlauf button carries the open Pendenzen as a colour rather than as
+  a badge the Atemschutz chip covered up.
+
+- **A crawler can find the page and read what it is.** `/robots.txt` and `/sitemap.xml` answered
+  404; both come out of the build now, from the same `config.json` as the pages, so a fifth
+  language shows up in the sitemap by being added once rather than twice. One structured-data
+  `@graph` with SoftwareApplication and Organization, assembled in `build.mjs` rather than written
+  into the template – `JSON.stringify` keeps it valid JSON where the template's substitution does
+  not escape, and one apostrophe in a description would have turned the block into something no
+  crawler reads. Deliberately no FAQPage. Six of eight meta descriptions ran past the ~160
+  characters a search result shows, the French one at 228; all eight now sit between 124 and 154.
+
 ### Changed
 
 - **All four locales are complete, and a half-translated one fails the build.** Every locale is a
@@ -126,6 +325,80 @@ so this file – not the log – is the record of what shipped up to that point.
   neither be read nor aimed at. The rail is now filled where work happened and broken where
   nothing did; what was written gets its own lane.
 
+- **The printed Lage reads like the one on screen.** Held side by side, the Kroki on paper was a
+  weaker copy of the live map in three separate ways. It was **soft**: placed about 180 mm wide and
+  rendered at 1600 px – 141 dpi, below what a laser printer resolves – so every glyph edge and
+  every marker number came out blurrier than the same picture on the tablet. Now ≈183 dpi, which
+  enlarges nothing, because `ref_width` scales the drawing rules with the render on purpose. The
+  **symbols were small**: the print multiplier eased down to 70 % of the on-screen band, meant to
+  stop a close-up crop merging four glyphs into one blob and taking far more than that away – the
+  floor is 85 % now, and the numbered markers, which *are* the labels on paper, grew with it. And
+  the **legend was far from the picture**: one column of «1 …» ran half the page down for a Lage
+  with eight labelled things, squeezing the picture itself and leaving number 8 a hand's width
+  from the disc it belongs to. Two columns, directly under the frame. ⚠️ `kroki_symbol_mul` stays
+  mirrored in `src/lib/krokiPayload.ts` – if the two drift, the framing modal stops showing what
+  the Rapport prints.
+
+- **A line the app repeats says so once, with a count.** An überfällige Kontaktuhr wrote «Trupp X –
+  Überfällig» every few seconds and an undo tapped six times wrote six identical rows, so the
+  Verlauf and the printed journal filled with the same sentence while nothing happened – which is
+  how an Überwacher learns to stop reading them. Two halves: the alarm is recorded once per
+  **Turnus** now, the next line owed only after a Funkkontakt has reset the clock; and repeats
+  already in the record collapse **for reading**, the first line standing with a «6×» marker on
+  screen and on paper. Nothing is hidden – every repeat stays in the append-only record and the
+  count is shown rather than swallowed – and hand-written rows are never collapsed: somebody who
+  typed it twice meant it twice.
+
+- **An audio row keeps one editor, and its transcript becomes the row.** Every voice memo offered
+  two stacked text editors – the transcript field and the wording-correction pen, each with its
+  own Abbrechen/Speichern, and neither closed the other. The pen is gone from audio rows: their
+  words live in the transcript, and the transcript icon is the one way to write them. Once a
+  transcript exists it shows as the row's text, linked names and all, instead of «Audionotiz (4s)»
+  plus the same words repeated below. The chip in front of the row now names the **Bereich the
+  printed rapport names** – Anwesenheit, Mittel, Atemschutz, Auftrag, Pendenz – instead of saying
+  «Lage» on everything the generic logger wrote; only the map surface keeps its on-screen name,
+  where the print says «Kroki».
+
+- **Several photos on one entry print side by side.** A journal row with four pictures stacked
+  them at the column's full width, so one entry pushed the next a page and a half down – on
+  exactly the entry the multi-photo row was built for, since one damage is rarely one picture. Two
+  per row up to four, three beyond that; a single picture keeps the full width, because one
+  picture is an illustration. The legend under «Aufträge / Pendenzen» is gone with it: it
+  explained four things the table already says out loud, and a caption that repeats its own table
+  teaches the reader to skip captions.
+
+- **Every inline editor opens with the caret at the end.** Transcript, wording correction, marker
+  fix, a rename in the Verwaltung, a Mittel note – all of them got the browser default, caret at
+  position 0, inviting typing in front of the words instead of after them.
+
+- **The Erinnern menu counts upward whichever way it opens.** The minute chips were listed 60 → 5
+  on the «bottom-up because the popup opens upward» convention, which reads as an unsorted list
+  the moment the positioner flips the popup. Ascending always.
+
+- **The landing page shows its hero instead of fading it in.** PageSpeed put the LCP of
+  kp-front.ch at ~3.6 s and blamed 3.0 s of that on «element render delay» – the gap between the
+  hero picture being downloaded and being painted. The picture was there the whole time; it was
+  invisible on purpose, running through a keyframe that starts at opacity 0. A browser does not
+  count an element it has not painted, so the whole animation went into the measurement one to
+  one. It moves with `transform` only now – same entrance, visible from the first frame. On the
+  same critical path: `fetchpriority="high"` on that image, both fonts preloaded (declared inside
+  `landing.css`, they were discovered only after it had loaded *and* parsed – a 770 ms chain for
+  the two faces the first screen needs), and screenshots in WebP with a second small copy of the
+  hero for 1× screens. All ten pictures together went from 1036 to 512 KiB. One JPEG survives
+  because it has to: `lage.jpg` is the `og:image`, and link previews still show no WebP.
+
+- **The Arbeitsmappe no longer promises an undo the Mannschaft never had.** Four places said
+  «Letzte Änderungen» could undo a workbook import. That is true for the lists and false for the
+  crew, which is the headline use case: personnel are rows in their own table, and `keep_previous`
+  runs only when a config section actually changed – so an import touching only the Mannschaft
+  sheet writes no history row at all. What the copy says instead is what actually limits the
+  damage: a person missing from the sheet is **deactivated and never deleted**, so undoing it is a
+  re-activation, and the export taken before an import is the file that puts the roster back. The
+  one genuinely irreversible edit is a rename of a person carrying a provider identity, which
+  drops the stored first/last split – the preview already warns when that would happen. Corrected
+  in the in-app Hilfe and the import confirmation (all four locales), `docs/API.md` and
+  `docs/CONFIGURATION.md` §9h.
+
 ### Removed
 
 - **«An aktueller Kartenmitte anheften» on a journal entry.** It stored the centre of whatever
@@ -136,6 +409,25 @@ so this file – not the log – is the record of what shipped up to that point.
   their coordinate and stay clickable.
 
 ### Fixed
+
+- **A dispatch system could open an Einsatz with a blank title.** `{"title": "   "}` satisfied
+  the minimum-length check on `POST /api/alarms`, so three spaces became a nameless incident on
+  the board while KP Rück refused the same body outright. Title, text, address, `source_id` and
+  `number` are now trimmed, and an all-whitespace value counts as absent — a dispatch system
+  sending one gets told, instead of the operator finding an unnamed Einsatz. Found by the shared
+  intake conformance corpus on its first run against this side, which is the entire argument for
+  having one.
+
+- **One dispatch payload now really does work against both KP Front and KP Rück.** The two apps
+  had converged the *shape* of `POST /api/alarms` and left the *limits* apart, with nothing
+  comparing them. `RESERVED_ALARM_SOURCES` claimed in a comment to be the union of both apps'
+  internal slugs and was missing `feld`, so a sender calling itself that was accepted here and
+  refused there. The portable subset is now pinned as cases in
+  `docs/alarm-intake-conformance.json`, byte-identical in kp-rueck, together with the payloads
+  the two legitimately answer differently so that list cannot grow unnoticed; kp-rueck's
+  `alarm-contract-drift` CI job compares the two copies. See
+  [`RUNNING-BOTH.md`](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md)
+  §3 – it lives in the kp-rueck repo, one copy – for the five rules that keep a body portable.
 
 - **The camera never opened from ＋ · Foto on a phone.** Safari opens a file chooser only for an
   input it actually renders, and all three file inputs were `hidden`, so `click()` was a silent
@@ -179,6 +471,130 @@ so this file – not the log – is the record of what shipped up to that point.
 - **`just ci` was missing the only step that parses CSS.** A stray brace in a stylesheet passed a
   fully green local run and would have turned main red – `tsc` and `eslint` never open a
   stylesheet. The landing page's drift check was absent for the same reason.
+
+- **Abschluss und Archivieren deleted the upload queue outright.** Offline at Einsatzende – the
+  normal case – that dropped the photos and voice memos the Rapport had just promised to send «bei
+  Verbindung». The workspace drains the queue before the handover, so uploads still patch their
+  Verlauf rows; what cannot go up is kept for the next open, and both the confirm and the toast
+  say so.
+
+- **«Wieder einrücken» replaced a Trupp's readings.** The first deployment's entry pressure and
+  every reading taken during it vanished from the Atemschutz page of the Rapport. It appends now;
+  `currentRunStart` marks where the running deployment begins, for the Eingangsdruck correction
+  and for the card's own log.
+
+- **Deleting a Trupp erased it.** It stamps `removedAt` instead: gone from the board, still on the
+  Rapport as «Von Tafel entfernt», and reachable again through «Entfernte Trupps» – so the
+  six-second toast is the fast door, not the only one. Trupps that came back keep their slot on
+  the board and read grey, and `editTrupp` got the same confirm-with-undo its siblings have.
+
+- **The Lage map re-fitted to the whole incident on every WebGL recovery**, overruling the framing
+  `resumeViewState` had just restored – once a minute under memory pressure, which reads as a map
+  that zooms itself out. One shot per incident now.
+
+- **An Anwesenheit undo was filed under Atemschutz.** «Anwesenheit zurückgenommen: …» printed
+  under the wrong Bereich because the row carried icon `undo`, which is also the
+  Atemschutz-Rückzug's, and the Bereich is derived from the icon. New rows carry `people`; the ones
+  already in the record are read off the copy template that wrote them, so old rapports classify
+  right too.
+
+- **The Atemschutz card's Leitung chip said «Ltg 1» beside a hose tagged «Ltg 3».** The Trupp
+  stores a copy of the Leitungsnummer stamped at link time, and renumbering the drawn hose patched
+  only the drawing. A renumber from the DrawEditor (Lage or Plan) now syncs the number onto the
+  Trupp anchored to that line – matched **by anchor only, never by number**, so «one Leitung = one
+  Trupp» holds – and the card reads the drawn hose at render time, so stale copies heal themselves
+  while a deleted hose falls back to the stored number. The renumber sync also skipped any Trupp
+  that was «raus», which is exactly the card whose chip is still on the board; only a soft-deleted
+  card stays untouched now.
+
+- **«Wie gesetzt» reordered itself when a Trupp ran überfällig.** The überfällig float ran before
+  the sort-mode branch, so the one mode whose promise is «rows stay where you put them» moved the
+  board the moment a Kontakt clock crossed interval + grace, and dropped the row back when the
+  Kontakt was booked. In «Wie gesetzt» the red card state does the alarming on its own; the float
+  stays in the derived sorts, where the order is recomputed anyway.
+
+- **«überfällig» re-logged itself on every reload.** The severity map lives in a ref, so it starts
+  empty on every mount, and a Trupp who was *already* überfällig read as a fresh crossing and got
+  another «Atemschutz-Alarm: … Überfällig» line – every reload, every resume from a killed PWA,
+  every HMR update, while nothing had happened. A crossing is now one this session actually
+  watched, per Trupp rather than one global first-pass flag, because the roster arrives
+  asynchronously with the workspace. The tone and the OS notification are deliberately **not**
+  gated on this: somebody overdue when the app comes back has to be heard at once. It is only the
+  Verlauf line that must not be written twice.
+
+- **Naming a Fläche left one Verlauf row per keystroke.** Typing «Sicherung» into a drawing's label
+  wrote eleven rows, eleven audit events and eleven undo steps, on both surfaces – and the Verlauf
+  is what the Einsatz is read back from, so a word typed into a text field pushed everything else
+  on the screen out of view. The field patches live while typing (silent, one undo checkpoint for
+  the whole edit) and writes its row on blur or Enter, saying what the label *is* rather than
+  narrating the way there.
+
+- **A Partnerorganisation's remark never reached the record.** An organisation added with its
+  remark logged only the arrival, while «avisiert, ETA 20 min» – the operational half – went into
+  the Rapport field and nowhere else, so it never reached the Verlauf or the printed journal.
+  Both lines are written now, and clearing a remark says so too: the old condition skipped an
+  empty new value, so deleting one was the single edit on that block that left no trace at all.
+
+- **A pressure is printed only where somebody measured one.** Kontakt and Rückzug rows carry the
+  last value anybody reported, not a reading taken at that moment – the board fills them in so the
+  card can show what is known. In the Rapport's pressure column that turned into «300 bar» beside
+  a Kontakt twenty minutes after the last real reading: a number that looks measured, on a
+  document that gets signed. The column stays empty for those rows now, on paper and on the card's
+  log. The value itself is not deleted anywhere.
+
+- **Corrections print their first wording, and a Pendenz says so.** The app promises «Der
+  ursprüngliche Wortlaut bleibt im Protokoll», but the PDF printed only the latest wording with no
+  mark; a corrected row now prints «korrigiert HH:MM · ursprünglich: ‹…›» as a muted sub-line.
+  A Pendenz raised by the ring fell through to «Manuell» in the Bereich column – the branch ran
+  before the `entryType` check, so even a typed Auftrag with Erinnerung lost its word – and the
+  Erinnerung time appeared nowhere on paper; the column says «Pendenz» now, an Auftrag stays
+  «Auftrag», and the Aufträge/Pendenzen section prints «fällig HH:MM» under «Was». And one rescued
+  person is «1 Person», not «1 Personen».
+
+- **The Stand slider lost its barcode.** Two decays at once: the moments were read from a
+  *replayed* workspace's timeline, which reconstructs as empty since the Verlauf moved out of the
+  blob into the row store, and the read happened once, when the panel became visible, capturing
+  the journal rows before they had loaded. The journal moments are derived reactively from the
+  live timeline now – the same rows the Verlauf's own strip ticks. The ticks also read like that
+  strip rather than like decoration: one 1.5 px tick per recorded moment at its exact position,
+  instead of half-percent quantisation over a hairline ruler.
+
+- **An audio row's text wrapped one character per line.** On a phone the entry line carries its
+  chips, its text and three trailing buttons, which left the text about 26 px – and with
+  `overflow-wrap: anywhere` its min-content width is one character, while `min-width: 0` removed
+  the automatic minimum that would have protected it. «Audionotiz (6s)» came out as fourteen lines
+  of one letter each. The row wraps now: the text drops under the chips and uses the full width
+  when it cannot sit beside them.
+
+- **The Pendenzen ring asked a different question depending on how the sheet was opened.** The ○
+  switch was hidden while writing a Meldung and the same choices lived on the header link instead,
+  so the control moved from the bottom of the sheet to the top and re-targeting a Meldung meant
+  reaching for the other end of the card. The ring stays in both modes now and carries that mode's
+  rows, including «Neue Pendenz» and «Dringende Pendenz» in the same places they sit everywhere
+  else – both of which unlink on the way, since a draft still carrying the link would have filed
+  the line as a Meldung and dropped the choice without saying so. The header line goes back to
+  being a label. Two pieces of polish with it: the menu's pinned rows keep the list's own 44 px
+  pitch instead of standing 4 px looser, and no separator is drawn above the topmost pinned row
+  when nothing precedes it.
+
+- **The audio player claimed to be offline in dev.** StrictMode's double-mount ran the sheet's
+  audio effect cleanup between the two mounts, and the cleanup set `a.src = ''`, which makes a
+  media element fire `error` while `onerror` was still attached – so the first, throwaway mount
+  latched errored and the healthy second mount could not clear it. Handlers are detached before
+  teardown now, and the flag resets per row. Production builds never double-mount, which is why
+  the iPad never showed this.
+
+- **`just dev` answered «Falsche PIN» for every PIN.** PINs are bcrypt over an HMAC peppered with
+  `SECRET_KEY`, and the recipe started uvicorn from `backend/` where no `.env` exists –
+  pydantic-settings found nothing and minted a throwaway key per boot. The recipe passes exactly
+  that one variable from the root `.env` into the server. Only that one: the rest of the file is
+  the docker deployment's config and has no business in a dev server. ⚠️ A `backend/.env` symlink
+  would fix logins too, but it silently feeds a key to every process started from `backend/`,
+  including the CLI tests that assert the no-key notice.
+
+- **The media archive endpoint blocked the event loop while it built.** An archive of hour-long
+  recordings must not stall every other request while it is written; the ZIP build moved into
+  `asyncio.to_thread`.
 
 ## [0.6.0] – 2026-08-12
 
