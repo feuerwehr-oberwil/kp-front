@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # --- Meta ---
     project_name: str = "kp-front API"
-    version: str = "0.6.0"
+    version: str = "0.7.0"
     api_prefix: str = "/api"
 
     # --- Build stamp: WHICH build is running ---
