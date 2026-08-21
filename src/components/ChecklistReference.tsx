@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import type { ContentBlock, RefEntry } from '../lib/checklists'
 import { checklistAssetUrl } from '../lib/checklists'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { Overlay } from '../lib/overlays'
 import s from './Checklists.module.css'
 
 // Reading view for one EL tactical entry. The list + search live in the rail now
@@ -38,6 +39,41 @@ function withPhoneLinks(text: string): ReactNode[] {
   return parts
 }
 
+/** A source-PDF diagram: inline preview that opens full-screen, because a Kommandoakten page
+ *  scaled into a 14px column is a picture of a diagram rather than a readable one. Full-screen
+ *  starts fit-to-window and toggles to 1:1 on tap; at 1:1 the frame scrolls and `touch-action`
+ *  hands pinch to the browser, so no gesture library is involved. */
+function DiagramFigure({ url, caption, alt }: { url: string; caption?: string; alt: string }) {
+  const CL = appConfig.copy.checklists
+  const [open, setOpen] = useState(false)
+  const [full, setFull] = useState(false)
+  return (
+    <>
+      <figure className={s['cl-ref-fig']}>
+        <button type="button" className={s['cl-ref-figbtn']} onClick={() => { setFull(false); setOpen(true) }} title={CL.diagramOpen}>
+          <img src={url} alt={alt} loading="lazy" />
+          <span className={s['cl-ref-zoomhint']} aria-hidden="true"><Icon id="search" /></span>
+        </button>
+        {caption && <figcaption>{caption}</figcaption>}
+      </figure>
+      {open && (
+        <Overlay open onClose={() => setOpen(false)} className={cx(s['cl-zoom'], 'ui-dialog')} ariaLabel={caption ?? alt}>
+          <div className={s['cl-zoom-head']}>
+            <span className={s['cl-zoom-cap']}>{caption ?? alt}</span>
+            <button type="button" className={s['cl-zoom-x']} onClick={() => setOpen(false)} aria-label={CL.diagramClose}>
+              <Icon id="close" />
+            </button>
+          </div>
+          <div className={cx(s['cl-zoom-body'], full && s['is-full'])} onClick={() => setFull((v) => !v)}>
+            <img src={url} alt={alt} />
+          </div>
+          <p className={s['cl-zoom-hint']}>{CL.diagramHint}</p>
+        </Overlay>
+      )}
+    </>
+  )
+}
+
 function ContentBlockView({ block, templateId }: { block: ContentBlock; templateId: string | null }) {
   const CL = appConfig.copy.checklists
   if (block.type === 'heading') return <h4 className={s['cl-ref-h']}>{block.text}</h4>
@@ -46,10 +82,11 @@ function ContentBlockView({ block, templateId }: { block: ContentBlock; template
     // an image block can only resolve when we know which template it belongs to
     if (!templateId) return null
     return (
-      <figure className={s['cl-ref-fig']}>
-        <img src={checklistAssetUrl(templateId, block.page)} alt={block.caption ?? fillTemplate(CL.diagramAlt, { page: block.page })} loading="lazy" />
-        {block.caption && <figcaption>{block.caption}</figcaption>}
-      </figure>
+      <DiagramFigure
+        url={checklistAssetUrl(templateId, block.page)}
+        caption={block.caption}
+        alt={block.caption ?? fillTemplate(CL.diagramAlt, { page: block.page })}
+      />
     )
   }
   if (block.type === 'table') {

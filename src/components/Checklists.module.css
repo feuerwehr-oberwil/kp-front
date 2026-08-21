@@ -161,20 +161,58 @@
 .cl-ref-note { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--ink-dim);
   background: var(--fill-soft); border-radius: var(--r-ctl); padding: 9px 12px; margin: 6px 0; line-height: 1.4; }
 .cl-ref-note :global(.i) { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--ink-faint); }
-/* inline diagram from the source EL PDF page */
+/* inline diagram from the source EL PDF page — a preview that opens full-screen (DiagramFigure).
+   A Kommandoakten page shrunk into a reading column is a picture OF a diagram, not a readable
+   one, so the inline copy only has to say «there is a diagram here, tap it». */
 .cl-ref-fig { margin: 12px 0; }
-.cl-ref-fig img { width: 100%; max-width: 560px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+.cl-ref-figbtn { display: block; position: relative; width: 100%; max-width: 560px; padding: 0;
+  border: 0; background: none; cursor: zoom-in; border-radius: var(--r-ctl); }
+.cl-ref-fig img { width: 100%; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   box-shadow: var(--shadow-sm); display: block; background: var(--surface); }
+.cl-ref-zoomhint { position: absolute; right: 8px; bottom: 8px; width: 30px; height: 30px;
+  display: grid; place-items: center; border-radius: 50%; background: var(--glass);
+  border: 1px solid var(--glass-edge); backdrop-filter: blur(8px); color: var(--ink-dim); }
+.cl-ref-zoomhint :global(.i) { width: 15px; height: 15px; }
+.cl-ref-figbtn:hover .cl-ref-zoomhint { color: var(--ink); }
 .cl-ref-fig figcaption { margin-top: 6px; font-size: 12px; color: var(--ink-faint); }
+
+/* full-screen diagram: fit-to-window by default, 1:1 on tap (then the frame scrolls and
+   `touch-action` hands pinch to the browser — no gesture code of our own). */
+.cl-zoom { width: min(96vw, 1200px); height: min(92dvh, 900px); display: flex; flex-direction: column;
+  background: var(--surface); border-radius: var(--r-surface); overflow: hidden; }
+.cl-zoom-head { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--line); flex: none; }
+.cl-zoom-cap { flex: 1; min-width: 0; font-size: 13px; color: var(--ink-dim); line-height: 1.35; }
+.cl-zoom-x { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
+  border: 0; background: none; color: var(--ink-dim); border-radius: var(--r-ctl); cursor: pointer; }
+.cl-zoom-x:hover { background: var(--fill-soft); color: var(--ink); }
+.cl-zoom-body { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center;
+  background: var(--fill-soft); touch-action: pinch-zoom; cursor: zoom-in; padding: 10px; }
+.cl-zoom-body img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.cl-zoom-body.is-full { place-items: start; cursor: zoom-out; }
+.cl-zoom-body.is-full img { max-width: none; max-height: none; width: auto; height: auto; }
+.cl-zoom-hint { flex: none; margin: 0; padding: 8px 16px 10px; font-size: 11.5px;
+  color: var(--ink-faint); border-top: 1px solid var(--line-soft); text-align: center; }
 
 /* tabular reference data (Gewichte/Flussraten, Aufgebotskonzept) */
 .cl-ref-tablewrap { margin: 8px 0; overflow-x: auto; }
-.cl-ref-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+/* ⚠️ `fixed`, not the default `auto`. The Telefonliste is TWELVE separate tables (one per
+   heading), and with auto layout each sized its own columns to its own longest row — so the
+   number column landed at a different x in every block and the eye had to re-find it while
+   scrolling. Fixed layout + one pinned value column puts every number on the same line down
+   the whole page. Unspecified columns share the rest equally, which is also right for the one
+   3-column table (Stichwort | Mittel | Personal). */
+.cl-ref-table { border-collapse: collapse; width: 100%; font-size: 12.5px; table-layout: fixed; }
+.cl-ref-table th:last-child, .cl-ref-table td:last-child { width: 34%; }
 .cl-ref-table th, .cl-ref-table td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--border-soft);
   vertical-align: top; }
 .cl-ref-table th { font-weight: 700; color: var(--ink); border-bottom-color: var(--line); white-space: nowrap; }
 .cl-ref-table td { color: var(--ink-dim); }
-.cl-ref-table td:not(:first-child) { font-family: var(--mono); white-space: nowrap; }
+/* ⚠️ NOT `white-space: nowrap` any more — under `table-layout: fixed` a nowrap cell overflows
+   its pinned column and gets clipped instead of scrolling, and some values are prose
+   («ZSOL über ELZ Gutsmatte»). A phone number still never breaks: `.cl-tel` carries its own
+   nowrap, so only the long non-phone values wrap. */
+.cl-ref-table td:not(:first-child) { font-family: var(--mono); overflow-wrap: break-word; }
 .cl-ref-tablewrap figcaption { margin-top: 6px; font-size: 12px; color: var(--ink-faint); }
 
 /* tappable phone numbers (tel:) in reference text + the Telefonliste page */
@@ -189,7 +227,15 @@
   .cl-ref-blocks { columns: 2; column-gap: 32px; }
   .cl-ref-blocks > * { break-inside: avoid; }
   .cl-ref-h { break-after: avoid; }
+  /* ⚠️ A diagram or a table is the one thing a HALF column ruins — a Kommandoakten page at
+     ~450px is unreadable, and a 9-column table would scroll inside a box narrower than two of
+     its columns. Both take the full width and interrupt the flow, like a figure in print. */
+  .cl-ref-fig, .cl-ref-tablewrap { column-span: all; }
 }
+/* the text is a flex item next to the dot: without this it keeps its min-content width and a
+   long line runs past the column edge instead of wrapping inside it. NOT `overflow-wrap:
+   anywhere` — that plus min-width:0 is what once wrapped a Verlauf row one letter per line. */
+.cl-ref-bullet > span { min-width: 0; overflow-wrap: break-word; }
 
 /* phone-only collapsed-rail toggle row — hidden on desktop, where the rail is permanent */
 .cl-rail-toggle { display: none; }

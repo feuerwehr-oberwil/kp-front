@@ -3490,6 +3490,9 @@ export const de = {
     // reference reader: hazard-colour badge labels
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,
     diagramAlt: 'Diagramm Seite {page}',
+    diagramOpen: 'Diagramm vergrössern',
+    diagramClose: 'Schliessen',
+    diagramHint: 'Tippen zum Zoomen · zwei Finger zum Vergrössern',
   },
 
   // ── Admin / Verwaltung surface (the /admin back-office) ───────────────────────

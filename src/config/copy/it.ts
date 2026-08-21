@@ -2311,6 +2311,9 @@ export const it: Localizable<Copy> = {
     actionLabels: { journal: 'Diario', plan: 'Piano', draw: 'Disegna' },
     hazardLabels: { red: 'Incendio', orange: 'Pericoli', green: 'Traffico', yellow: 'Tecnico', blue: 'Acqua' },
     diagramAlt: 'Diagramma pagina {page}',
+    diagramOpen: 'Ingrandisci lo schema',
+    diagramClose: 'Chiudi',
+    diagramHint: 'Tocca per ingrandire · pizzica per zoomare',
   },
 
   admin: {
