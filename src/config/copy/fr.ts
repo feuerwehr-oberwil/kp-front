@@ -2313,7 +2313,9 @@ export const fr: Localizable<Copy> = {
     diagramAlt: 'Diagramme page {page}',
     diagramOpen: 'Agrandir le schéma',
     diagramClose: 'Fermer',
-    diagramHint: 'Toucher pour zoomer · pincer pour agrandir',
+    diagramIn: 'Agrandir',
+    diagramOut: 'Réduire',
+    diagramHint: 'Toucher pour zoomer · glisser pour déplacer · pincer pour agrandir',
   },
 
   admin: {

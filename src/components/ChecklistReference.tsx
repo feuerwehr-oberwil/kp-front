@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import type { ContentBlock, RefEntry } from '../lib/checklists'
 import { checklistAssetUrl } from '../lib/checklists'
@@ -39,18 +39,108 @@ function withPhoneLinks(text: string): ReactNode[] {
   return parts
 }
 
-/** A source-PDF diagram: inline preview that opens full-screen, because a Kommandoakten page
- *  scaled into a 14px column is a picture of a diagram rather than a readable one. Full-screen
- *  starts fit-to-window and toggles to 1:1 on tap; at 1:1 the frame scrolls and `touch-action`
- *  hands pinch to the browser, so no gesture library is involved. */
+const ZOOM_MIN = 1
+const ZOOM_MAX = 6
+
+/** Pinch / drag / double-tap zoom over one image.
+ *
+ *  ⚠️ We own the gestures rather than handing pinch to the browser. The first attempt set
+ *  `touch-action: pinch-zoom` on a scrolling frame and relied on native zoom — inside a modal
+ *  dialog that does nothing: the scroll lock and the dialog's own layer mean the visual-viewport
+ *  gesture never reaches the picture, so the diagram opened and then refused to get bigger.
+ *  Pointer events + a transform work the same on a tablet, a phone and a trackpad. */
+function useImageZoom(reset: unknown) {
+  const [z, setZ] = useState({ s: 1, x: 0, y: 0 })
+  const frame = useRef<HTMLDivElement | null>(null)
+  const pts = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ dist: number; s: number } | null>(null)
+  const moved = useRef(false)
+
+  useEffect(() => { setZ({ s: 1, x: 0, y: 0 }); pts.current.clear(); pinch.current = null }, [reset])
+
+  /** Keep the picture overlapping its frame: at scale 1 it stays centred, beyond that it may be
+   *  panned only as far as its own overhang — so it can never be flicked off into the void. */
+  const clamp = (n: { s: number; x: number; y: number }) => {
+    const r = frame.current?.getBoundingClientRect()
+    const mx = r ? (r.width * (n.s - 1)) / 2 : 0
+    const my = r ? (r.height * (n.s - 1)) / 2 : 0
+    return { s: n.s, x: Math.min(mx, Math.max(-mx, n.x)), y: Math.min(my, Math.max(-my, n.y)) }
+  }
+
+  /** Zoom about a point in frame coordinates, so what is under the fingers stays under them. */
+  const zoomAt = (next: number, cx = 0, cy = 0) =>
+    setZ((p) => {
+      const s = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next))
+      const k = s / p.s
+      return clamp({ s, x: cx - (cx - p.x) * k, y: cy - (cy - p.y) * k })
+    })
+
+  const local = (e: { clientX: number; clientY: number }) => {
+    const r = frame.current?.getBoundingClientRect()
+    return r ? { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 } : { x: 0, y: 0 }
+  }
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    ;(e.target as Element).setPointerCapture?.(e.pointerId)
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    moved.current = false
+    if (pts.current.size === 2) {
+      const [a, b] = [...pts.current.values()]
+      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, s: z.s }
+    }
+  }
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const prev = pts.current.get(e.pointerId)
+    if (!prev) return
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pts.current.size === 2 && pinch.current) {
+      const [a, b] = [...pts.current.values()]
+      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1
+      const mid = local({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 })
+      moved.current = true
+      zoomAt(pinch.current.s * (d / pinch.current.dist), mid.x, mid.y)
+      return
+    }
+    if (pts.current.size === 1 && z.s > 1) {
+      const dx = e.clientX - prev.x
+      const dy = e.clientY - prev.y
+      if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true
+      setZ((p) => clamp({ ...p, x: p.x + dx, y: p.y + dy }))
+    }
+  }
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    pts.current.delete(e.pointerId)
+    if (pts.current.size < 2) pinch.current = null
+  }
+
+  /** Tap (not a drag) toggles between fit and a readable 2.5×, centred on where you tapped. */
+  const onClick = (e: React.MouseEvent) => {
+    if (moved.current) return
+    const p = local(e)
+    zoomAt(z.s > 1.05 ? 1 : 2.5, p.x, p.y)
+  }
+
+  const onWheel = (e: React.WheelEvent) => {
+    const p = local(e)
+    zoomAt(z.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15), p.x, p.y)
+  }
+
+  return { z, frame, zoomAt, setZ, handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp, onClick, onWheel } }
+}
+
+/** A source-PDF diagram: inline preview that opens full-screen and zoomable, because a
+ *  Kommandoakten page scaled into a reading column is a picture OF a diagram rather than a
+ *  readable one. */
 function DiagramFigure({ url, caption, alt }: { url: string; caption?: string; alt: string }) {
   const CL = appConfig.copy.checklists
   const [open, setOpen] = useState(false)
-  const [full, setFull] = useState(false)
+  const { z, frame, zoomAt, setZ, handlers } = useImageZoom(open)
   return (
     <>
       <figure className={s['cl-ref-fig']}>
-        <button type="button" className={s['cl-ref-figbtn']} onClick={() => { setFull(false); setOpen(true) }} title={CL.diagramOpen}>
+        <button type="button" className={s['cl-ref-figbtn']} onClick={() => setOpen(true)} title={CL.diagramOpen}>
           <img src={url} alt={alt} loading="lazy" />
           <span className={s['cl-ref-zoomhint']} aria-hidden="true"><Icon id="search" /></span>
         </button>
@@ -60,12 +150,23 @@ function DiagramFigure({ url, caption, alt }: { url: string; caption?: string; a
         <Overlay open onClose={() => setOpen(false)} className={cx(s['cl-zoom'], 'ui-dialog')} ariaLabel={caption ?? alt}>
           <div className={s['cl-zoom-head']}>
             <span className={s['cl-zoom-cap']}>{caption ?? alt}</span>
+            <div className={s['cl-zoom-tools']}>
+              <button type="button" onClick={() => zoomAt(z.s / 1.5)} disabled={z.s <= ZOOM_MIN} aria-label={CL.diagramOut}>
+                <Icon id="zoom-out" />
+              </button>
+              <button type="button" className={s['cl-zoom-pct']} onClick={() => setZ({ s: 1, x: 0, y: 0 })}>
+                {Math.round(z.s * 100)}%
+              </button>
+              <button type="button" onClick={() => zoomAt(z.s * 1.5)} disabled={z.s >= ZOOM_MAX} aria-label={CL.diagramIn}>
+                <Icon id="zoom-in" />
+              </button>
+            </div>
             <button type="button" className={s['cl-zoom-x']} onClick={() => setOpen(false)} aria-label={CL.diagramClose}>
               <Icon id="close" />
             </button>
           </div>
-          <div className={cx(s['cl-zoom-body'], full && s['is-full'])} onClick={() => setFull((v) => !v)}>
-            <img src={url} alt={alt} />
+          <div ref={frame} className={cx(s['cl-zoom-body'], z.s > 1.05 && s['is-zoomed'])} {...handlers}>
+            <img src={url} alt={alt} draggable={false} style={{ transform: `translate(${z.x}px, ${z.y}px) scale(${z.s})` }} />
           </div>
           <p className={s['cl-zoom-hint']}>{CL.diagramHint}</p>
         </Overlay>
@@ -108,8 +209,10 @@ function ContentBlockView({ block, templateId }: { block: ContentBlock; template
       </figure>
     )
   }
+  // depth drives the CSS, not an inline margin: a level-0 line is a STEP and a level-1 line is a
+  // detail of it, and they have to look different or the list reads as one flat wall
   return (
-    <div className={cx(s['cl-ref-bullet'], block.emphasis && s[`em-${block.emphasis}`])} style={{ marginLeft: (block.level ?? 0) * 16 }}>
+    <div className={cx(s['cl-ref-bullet'], block.emphasis && s[`em-${block.emphasis}`])} data-level={Math.min(block.level ?? 0, 2)}>
       <span className={s['cl-ref-dot']} />
       <span>{withPhoneLinks(block.text)}</span>
     </div>

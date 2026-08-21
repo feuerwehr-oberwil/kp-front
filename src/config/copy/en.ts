@@ -2494,7 +2494,9 @@ export const en: Localizable<Copy> = {
     diagramAlt: 'Diagram page {page}',
     diagramOpen: 'Enlarge diagram',
     diagramClose: 'Close',
-    diagramHint: 'Tap to zoom · pinch to enlarge',
+    diagramIn: 'Zoom in',
+    diagramOut: 'Zoom out',
+    diagramHint: 'Tap to zoom · drag to pan · pinch to scale',
   },
 
   admin: {

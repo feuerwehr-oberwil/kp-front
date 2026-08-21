@@ -3492,7 +3492,9 @@ export const de = {
     diagramAlt: 'Diagramm Seite {page}',
     diagramOpen: 'Diagramm vergrössern',
     diagramClose: 'Schliessen',
-    diagramHint: 'Tippen zum Zoomen · zwei Finger zum Vergrössern',
+    diagramIn: 'Vergrössern',
+    diagramOut: 'Verkleinern',
+    diagramHint: 'Tippen zum Zoomen · ziehen zum Verschieben · zwei Finger zum Vergrössern',
   },
 
   // ── Admin / Verwaltung surface (the /admin back-office) ───────────────────────

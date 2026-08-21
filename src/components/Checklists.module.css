@@ -152,11 +152,24 @@
 .cl-ref-badge.hz-blue { background: var(--blue); }
 .cl-ref-blocks { display: flex; flex-direction: column; gap: 7px; }
 .cl-ref-h { margin: 12px 0 2px; font-size: 14px; font-weight: 700; color: var(--ink); }
+/* Depth has to be readable, not just measurable. A level-0 line is a STEP the EL works through;
+   a level-1 line is a detail OF that step. Before this they differed by 16px of indent and
+   nothing else, so a screenful of them read as one flat wall and the eye could not find the
+   steps. Now the step keeps full ink and a solid dot, the detail is dimmer with a hollow one. */
 .cl-ref-bullet { display: flex; gap: 9px; font-size: 14px; color: var(--ink); line-height: 1.4; }
 .cl-ref-bullet .cl-ref-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint);
   margin-top: 8px; }
+.cl-ref-bullet[data-level='0'] { margin-top: 3px; }
+.cl-ref-bullet[data-level='0'] .cl-ref-dot { width: 6px; height: 6px; background: var(--ink-dim); margin-top: 7px; }
+.cl-ref-bullet[data-level='1'] { padding-left: 18px; color: var(--ink-dim); }
+.cl-ref-bullet[data-level='1'] .cl-ref-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
+.cl-ref-bullet[data-level='2'] { padding-left: 36px; color: var(--ink-dim); }
+.cl-ref-bullet[data-level='2'] .cl-ref-dot { width: 4px; height: 4px; background: none;
+  box-shadow: inset 0 0 0 1.5px var(--ink-faint); margin-top: 8px; }
+/* after the depth rules on purpose: an emphasised line keeps its red at ANY level, and the
+   `box-shadow: none` clears the hollow ring a nested dot would otherwise still carry */
 .cl-ref-bullet.em-red { color: var(--red); font-weight: 700; }
-.cl-ref-bullet.em-red .cl-ref-dot { background: var(--red); }
+.cl-ref-bullet.em-red .cl-ref-dot { background: var(--red); box-shadow: none; }
 .cl-ref-bullet.em-bold { font-weight: 700; }
 .cl-ref-note { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--ink-dim);
   background: var(--fill-soft); border-radius: var(--r-ctl); padding: 9px 12px; margin: 6px 0; line-height: 1.4; }
@@ -186,11 +199,25 @@
 .cl-zoom-x { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
   border: 0; background: none; color: var(--ink-dim); border-radius: var(--r-ctl); cursor: pointer; }
 .cl-zoom-x:hover { background: var(--fill-soft); color: var(--ink); }
-.cl-zoom-body { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center;
-  background: var(--fill-soft); touch-action: pinch-zoom; cursor: zoom-in; padding: 10px; }
-.cl-zoom-body img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
-.cl-zoom-body.is-full { place-items: start; cursor: zoom-out; }
-.cl-zoom-body.is-full img { max-width: none; max-height: none; width: auto; height: auto; }
+/* ⚠️ `touch-action: none` — the gestures are ours (useImageZoom). Leaving pinch to the browser
+   is what failed the first time: inside a modal dialog the visual-viewport gesture never reaches
+   the picture, so the diagram opened and then would not get bigger. */
+.cl-zoom-body { flex: 1; min-height: 0; overflow: hidden; display: grid; place-items: center;
+  background: var(--fill-soft); touch-action: none; cursor: zoom-in; padding: 10px;
+  overscroll-behavior: contain; }
+.cl-zoom-body img { max-width: 100%; max-height: 100%; object-fit: contain; display: block;
+  transform-origin: center center; will-change: transform; user-select: none; -webkit-user-drag: none; }
+.cl-zoom-body.is-zoomed { cursor: grab; }
+.cl-zoom-body.is-zoomed:active { cursor: grabbing; }
+
+.cl-zoom-tools { display: flex; align-items: center; gap: 2px; flex: none; }
+.cl-zoom-tools button { min-width: 34px; height: 34px; display: grid; place-items: center;
+  border: 0; background: none; color: var(--ink-dim); border-radius: var(--r-ctl); cursor: pointer;
+  font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; }
+.cl-zoom-tools button:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
+.cl-zoom-tools button:disabled { opacity: .35; cursor: default; }
+.cl-zoom-tools :global(.i) { width: 17px; height: 17px; }
+.cl-zoom-pct { min-width: 46px !important; color: var(--ink-faint); }
 .cl-zoom-hint { flex: none; margin: 0; padding: 8px 16px 10px; font-size: 11.5px;
   color: var(--ink-faint); border-top: 1px solid var(--line-soft); text-align: center; }
 
