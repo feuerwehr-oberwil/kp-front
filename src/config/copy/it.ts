@@ -2312,10 +2312,6 @@ export const it: Localizable<Copy> = {
     hazardLabels: { red: 'Incendio', orange: 'Pericoli', green: 'Traffico', yellow: 'Tecnico', blue: 'Acqua' },
     diagramAlt: 'Diagramma pagina {page}',
     diagramOpen: 'Ingrandisci lo schema',
-    diagramClose: 'Chiudi',
-    diagramIn: 'Ingrandisci',
-    diagramOut: 'Riduci',
-    diagramHint: 'Tocca per ingrandire · trascina per spostare · pizzica per scalare',
   },
 
   admin: {

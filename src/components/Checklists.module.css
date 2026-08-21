@@ -189,37 +189,6 @@
 .cl-ref-figbtn:hover .cl-ref-zoomhint { color: var(--ink); }
 .cl-ref-fig figcaption { margin-top: 6px; font-size: 12px; color: var(--ink-faint); }
 
-/* full-screen diagram: fit-to-window by default, 1:1 on tap (then the frame scrolls and
-   `touch-action` hands pinch to the browser — no gesture code of our own). */
-.cl-zoom { width: min(96vw, 1200px); height: min(92dvh, 900px); display: flex; flex-direction: column;
-  background: var(--surface); border-radius: var(--r-surface); overflow: hidden; }
-.cl-zoom-head { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px;
-  border-bottom: 1px solid var(--line); flex: none; }
-.cl-zoom-cap { flex: 1; min-width: 0; font-size: 13px; color: var(--ink-dim); line-height: 1.35; }
-.cl-zoom-x { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
-  border: 0; background: none; color: var(--ink-dim); border-radius: var(--r-ctl); cursor: pointer; }
-.cl-zoom-x:hover { background: var(--fill-soft); color: var(--ink); }
-/* ⚠️ `touch-action: none` — the gestures are ours (useImageZoom). Leaving pinch to the browser
-   is what failed the first time: inside a modal dialog the visual-viewport gesture never reaches
-   the picture, so the diagram opened and then would not get bigger. */
-.cl-zoom-body { flex: 1; min-height: 0; overflow: hidden; display: grid; place-items: center;
-  background: var(--fill-soft); touch-action: none; cursor: zoom-in; padding: 10px;
-  overscroll-behavior: contain; }
-.cl-zoom-body img { max-width: 100%; max-height: 100%; object-fit: contain; display: block;
-  transform-origin: center center; will-change: transform; user-select: none; -webkit-user-drag: none; }
-.cl-zoom-body.is-zoomed { cursor: grab; }
-.cl-zoom-body.is-zoomed:active { cursor: grabbing; }
-
-.cl-zoom-tools { display: flex; align-items: center; gap: 2px; flex: none; }
-.cl-zoom-tools button { min-width: 34px; height: 34px; display: grid; place-items: center;
-  border: 0; background: none; color: var(--ink-dim); border-radius: var(--r-ctl); cursor: pointer;
-  font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; }
-.cl-zoom-tools button:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
-.cl-zoom-tools button:disabled { opacity: .35; cursor: default; }
-.cl-zoom-tools :global(.i) { width: 17px; height: 17px; }
-.cl-zoom-pct { min-width: 46px !important; color: var(--ink-faint); }
-.cl-zoom-hint { flex: none; margin: 0; padding: 8px 16px 10px; font-size: 11.5px;
-  color: var(--ink-faint); border-top: 1px solid var(--line-soft); text-align: center; }
 
 /* tabular reference data (Gewichte/Flussraten, Aufgebotskonzept) */
 .cl-ref-tablewrap { margin: 8px 0; overflow-x: auto; }
