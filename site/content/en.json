@@ -267,7 +267,34 @@
     "eyebrow": "Related project",
     "h2": "KP Front commands at the front. KP Rück keeps the overview behind it.",
     "p": "<strong>KP Rück</strong> is the digital version of the magnetic board in the rear\n          command post: one board for personnel, vehicles and equipment. Its own app, the same\n          handwriting – the two can hand incidents over to each other, but neither needs the other.",
-    "cta": "Take a look at KP Rück"
+    "cta": "Take a look at KP Rück",
+    "setup": {
+      "h3": "Running both – without setting everything up twice",
+      "rows": [
+        {
+          "dt": "Dispatch",
+          "dd": "The same payload for both. Your dispatch integration is built once; each app only gets its own address."
+        },
+        {
+          "dt": "Divera access",
+          "dd": "One key for both – the same alarms, the same roster. <span class=\"opt\">optional</span>"
+        },
+        {
+          "dt": "Print agent",
+          "dd": "One service in the station serves both apps and both kinds of printer."
+        },
+        {
+          "dt": "Roster",
+          "dd": "The same source in the same file format – the same person on both sides."
+        },
+        {
+          "dt": "Keywords",
+          "dd": "The same alarm keyword list, so the same classification in both apps."
+        }
+      ],
+      "foot": "<strong>Database, updates and login stay separate.</strong> Neither one needs the other to run.",
+      "link": "Guide: both on one server"
+    }
   },
   "faq": {
     "eyebrow": "Questions &amp; answers",

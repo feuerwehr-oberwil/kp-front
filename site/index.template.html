@@ -244,13 +244,33 @@
     </div>
   </section>
 
+  <!--@template Die Karte rechts ist für die Feuerwehr, die BEIDE betreibt: sie beantwortet
+       «was müssen wir doppelt einrichten?» mit «das hier nicht». Die Anleitung dazu liegt
+       einmal, in kp-rueck – nicht kopieren, sonst läuft sie auseinander. Adressen stehen wie
+       die kp-rueck.ch-Adresse hier im Markup und nicht im Text. -->
   <section class="sibling">
     <div class="wrap">
-      <div class="sibling-txt">
-        <p class="eyebrow">{{sibling.eyebrow}}</p>
-        <h2>{{sibling.h2}}</h2>
-        <p>{{sibling.p}}</p>
-        <a class="btn btn-ghost" href="https://kp-rueck.ch">{{sibling.cta}}<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+      <div class="sibling-grid">
+        <div class="sibling-txt">
+          <p class="eyebrow">{{sibling.eyebrow}}</p>
+          <h2>{{sibling.h2}}</h2>
+          <p>{{sibling.p}}</p>
+          <a class="btn btn-ghost" href="https://kp-rueck.ch">{{sibling.cta}}<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+        </div>
+
+        <div class="setup-card">
+          <h3>{{sibling.setup.h3}}</h3>
+          <dl>
+            {{#sibling.setup.rows}}
+            <div class="setup-row">
+              <dt>{{dt}}</dt>
+              <dd>{{dd}}</dd>
+            </div>
+            {{/sibling.setup.rows}}
+          </dl>
+          <p class="setup-foot">{{sibling.setup.foot}}
+            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">{{sibling.setup.link}} →</a></p>
+        </div>
       </div>
     </div>
   </section>
@@ -366,7 +386,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }

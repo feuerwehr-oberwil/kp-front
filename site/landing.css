@@ -394,7 +394,10 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
   background: color-mix(in srgb, var(--red) 55%, transparent);
 }
 .flist strong { color: var(--ink); font-weight: 600; }
-.flist .opt {
+/* «optional» ist ein Abzeichen, kein Wort im Satz – und es steht in ZWEI Listen: der
+   Funktionsliste und der Setup-Karte weiter unten. Deshalb unscoped: an .flist gebunden
+   rutschte es in der Karte als gewöhnlicher Fliesstext durch, in allen vier Sprachen. */
+.opt {
   font-family: var(--mono); font-size: 10.5px; font-weight: 600;
   letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
   border: 1px solid var(--line); border-radius: 4px;
@@ -453,6 +456,40 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 }
 .sibling-txt p:not(.eyebrow) { color: var(--ink-dim); margin-top: 10px; max-width: 58ch; }
 .sibling-txt .btn { margin-top: 24px; }
+
+/* Wer beide betreibt, soll nicht raten müssen, was doppelt einzurichten ist und was nicht.
+   Die Karte steht neben dem Text, nicht darunter: sie ist die Antwort auf «und was heisst
+   das für unseren Betrieb?», und diese Frage stellt sich beim Lesen, nicht danach. */
+.sibling-grid { display: grid; grid-template-columns: 5fr 6fr; gap: 52px; align-items: start; }
+.setup-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-surface);
+  overflow: hidden;
+}
+.setup-card h3 {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .13em; text-transform: uppercase; color: var(--ink-faint);
+  background: var(--fill-soft);
+  padding: 13px 20px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.setup-card dl { margin: 0; }
+.setup-row {
+  display: grid; grid-template-columns: 128px 1fr; gap: 16px;
+  padding: 13px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: .93rem;
+}
+.setup-row dt { font-weight: 600; color: var(--ink); }
+.setup-row dd { margin: 0; color: var(--ink-dim); }
+.setup-foot {
+  padding: 14px 20px 16px;
+  font-size: .88rem; color: var(--ink-faint);
+  background: var(--fill-soft);
+}
+.setup-foot strong { color: var(--ink-dim); font-weight: 600; }
+.setup-foot a { color: var(--ink-dim); }
 
 /* ---------- contact ---------- */
 .contact-grid { margin-top: 40px; display: grid; grid-template-columns: 5fr 7fr; gap: 44px; align-items: start; }
@@ -631,6 +668,7 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .contact-grid { grid-template-columns: 1fr; gap: 28px; }
   .fit-split { grid-template-columns: 1fr; gap: 24px; }
   .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }
+  .sibling-grid { grid-template-columns: 1fr; gap: 34px; }
 }
 @media (max-width: 560px) {
   /* Funktionen/Kontakt are only scroll anchors – GitHub + Demo carry the header.
@@ -638,6 +676,8 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .top nav a:not(.cta):not(.icon-link):not(.lang) { display: none; }
   .top-in { gap: 12px; }
   .fit-row { grid-template-columns: 1fr; }
+  /* 128px Begriffsspalte plus Text passt auf dem Handy nicht – Begriff über die Erklärung */
+  .setup-row { grid-template-columns: 1fr; gap: 3px; }
   /* Zwei Spalten passen auf dem Handy nicht nebeneinander, und seitlich schieben
      will niemand: aus jeder Zeile wird eine Karte «vorher → nachher». */
   .change { min-width: 0; display: block; border: 0; background: none; border-radius: 0; }

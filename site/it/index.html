@@ -449,13 +449,43 @@
 
   <section class="sibling">
     <div class="wrap">
-      <div class="sibling-txt">
-        <p class="eyebrow">Progetto affine</p>
-        <h2>KP Front conduce davanti. KP Rück tiene la visione d’insieme dietro.</h2>
-        <p><strong>KP Rück</strong> riproduce in digitale la lavagna magnetica del posto di comando
+      <div class="sibling-grid">
+        <div class="sibling-txt">
+          <p class="eyebrow">Progetto affine</p>
+          <h2>KP Front conduce davanti. KP Rück tiene la visione d’insieme dietro.</h2>
+          <p><strong>KP Rück</strong> riproduce in digitale la lavagna magnetica del posto di comando
           arretrato: una tavola per personale, veicoli e materiale. App propria, stessa grafia –
           i due possono passarsi gli allarmi, ma non hanno bisogno l’uno dell’altro.</p>
-        <a class="btn btn-ghost" href="https://kp-rueck.ch">Guarda KP Rück<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+          <a class="btn btn-ghost" href="https://kp-rueck.ch">Guarda KP Rück<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+        </div>
+
+        <div class="setup-card">
+          <h3>Gestirli entrambi – senza configurare tutto due volte</h3>
+          <dl>
+            <div class="setup-row">
+              <dt>Allertamento</dt>
+              <dd>Lo stesso payload per entrambi. Il collegamento del vostro sistema di allertamento si fa una volta sola; ogni app riceve solo il proprio indirizzo.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Accesso Divera</dt>
+              <dd>Una sola chiave per entrambi – stessi allarmi, stesso personale. <span class="opt">facoltativo</span></dd>
+            </div>
+            <div class="setup-row">
+              <dt>Agente di stampa</dt>
+              <dd>Un solo servizio in rimessa serve entrambe le app e entrambi i tipi di stampante.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Elenco personale</dt>
+              <dd>La stessa fonte nello stesso formato di file – la stessa persona su entrambi i lati.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Parole chiave</dt>
+              <dd>La stessa lista di parole chiave d’allarme, quindi la stessa classificazione in entrambe le app.</dd>
+            </div>
+          </dl>
+          <p class="setup-foot"><strong>Banca dati, aggiornamenti e login restano separati.</strong> Nessuna delle due ha bisogno dell’altra per funzionare.
+            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Guida: entrambi su un solo server →</a></p>
+        </div>
       </div>
     </div>
   </section>
@@ -620,7 +650,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }

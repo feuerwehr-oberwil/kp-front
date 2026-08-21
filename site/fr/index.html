@@ -451,14 +451,44 @@
 
   <section class="sibling">
     <div class="wrap">
-      <div class="sibling-txt">
-        <p class="eyebrow">Projet apparenté</p>
-        <h2>KP Front conduit à l’avant. KP Rück garde la vue d’ensemble à l’arrière.</h2>
-        <p><strong>KP Rück</strong> reproduit sous forme numérique le tableau magnétique du poste de
+      <div class="sibling-grid">
+        <div class="sibling-txt">
+          <p class="eyebrow">Projet apparenté</p>
+          <h2>KP Front conduit à l’avant. KP Rück garde la vue d’ensemble à l’arrière.</h2>
+          <p><strong>KP Rück</strong> reproduit sous forme numérique le tableau magnétique du poste de
           commandement arrière : un tableau pour le personnel, les véhicules et le matériel.
           Application distincte, même écriture – les deux peuvent se transmettre des alarmes,
           mais n’ont pas besoin l’une de l’autre.</p>
-        <a class="btn btn-ghost" href="https://kp-rueck.ch">Découvrir KP Rück<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+          <a class="btn btn-ghost" href="https://kp-rueck.ch">Découvrir KP Rück<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+        </div>
+
+        <div class="setup-card">
+          <h3>Exploiter les deux – sans tout configurer deux fois</h3>
+          <dl>
+            <div class="setup-row">
+              <dt>Alarme</dt>
+              <dd>La même charge utile pour les deux. Le raccordement de votre système d’alarme se fait une fois ; chaque application ne reçoit que sa propre adresse.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Accès Divera</dt>
+              <dd>Une seule clé pour les deux – mêmes alarmes, même personnel. <span class="opt">facultatif</span></dd>
+            </div>
+            <div class="setup-row">
+              <dt>Agent d’impression</dt>
+              <dd>Un seul service au local dessert les deux applications et les deux types d’imprimante.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Liste du personnel</dt>
+              <dd>La même source dans le même format de fichier – la même personne des deux côtés.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Mots-clés</dt>
+              <dd>La même liste de mots-clés d’alarme, donc le même classement dans les deux applications.</dd>
+            </div>
+          </dl>
+          <p class="setup-foot"><strong>Base de données, mises à jour et connexion restent séparées.</strong> Aucune des deux n’a besoin de l’autre pour fonctionner.
+            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Guide : les deux sur un même serveur →</a></p>
+        </div>
       </div>
     </div>
   </section>
@@ -624,7 +654,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }

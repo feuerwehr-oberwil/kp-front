@@ -268,7 +268,34 @@
     "eyebrow": "Progetto affine",
     "h2": "KP Front conduce davanti. KP Rück tiene la visione d’insieme dietro.",
     "p": "<strong>KP Rück</strong> riproduce in digitale la lavagna magnetica del posto di comando\n          arretrato: una tavola per personale, veicoli e materiale. App propria, stessa grafia –\n          i due possono passarsi gli allarmi, ma non hanno bisogno l’uno dell’altro.",
-    "cta": "Guarda KP Rück"
+    "cta": "Guarda KP Rück",
+    "setup": {
+      "h3": "Gestirli entrambi – senza configurare tutto due volte",
+      "rows": [
+        {
+          "dt": "Allertamento",
+          "dd": "Lo stesso payload per entrambi. Il collegamento del vostro sistema di allertamento si fa una volta sola; ogni app riceve solo il proprio indirizzo."
+        },
+        {
+          "dt": "Accesso Divera",
+          "dd": "Una sola chiave per entrambi – stessi allarmi, stesso personale. <span class=\"opt\">facoltativo</span>"
+        },
+        {
+          "dt": "Agente di stampa",
+          "dd": "Un solo servizio in rimessa serve entrambe le app e entrambi i tipi di stampante."
+        },
+        {
+          "dt": "Elenco personale",
+          "dd": "La stessa fonte nello stesso formato di file – la stessa persona su entrambi i lati."
+        },
+        {
+          "dt": "Parole chiave",
+          "dd": "La stessa lista di parole chiave d’allarme, quindi la stessa classificazione in entrambe le app."
+        }
+      ],
+      "foot": "<strong>Banca dati, aggiornamenti e login restano separati.</strong> Nessuna delle due ha bisogno dell’altra per funzionare.",
+      "link": "Guida: entrambi su un solo server"
+    }
   },
   "faq": {
     "eyebrow": "Domande &amp; risposte",

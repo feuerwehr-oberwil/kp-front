@@ -445,13 +445,43 @@
 
   <section class="sibling">
     <div class="wrap">
-      <div class="sibling-txt">
-        <p class="eyebrow">Verwandtes Projekt</p>
-        <h2>KP Front führt vorne. KP Rück hält hinten den Überblick.</h2>
-        <p><strong>KP Rück</strong> bildet die Magnettafel im rückwärtigen Kommandoposten
+      <div class="sibling-grid">
+        <div class="sibling-txt">
+          <p class="eyebrow">Verwandtes Projekt</p>
+          <h2>KP Front führt vorne. KP Rück hält hinten den Überblick.</h2>
+          <p><strong>KP Rück</strong> bildet die Magnettafel im rückwärtigen Kommandoposten
           digital ab: ein Board für Personal, Fahrzeuge und Material. Eigene App, gleiche Handschrift –
           die beiden können sich Alarme übergeben, brauchen einander aber nicht.</p>
-        <a class="btn btn-ghost" href="https://kp-rueck.ch">KP Rück ansehen<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+          <a class="btn btn-ghost" href="https://kp-rueck.ch">KP Rück ansehen<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+        </div>
+
+        <div class="setup-card">
+          <h3>Beide betreiben – ohne alles doppelt einzurichten</h3>
+          <dl>
+            <div class="setup-row">
+              <dt>Alarmierung</dt>
+              <dd>Dieselbe Nutzlast für beide. Die Anbindung eures Dispositionssystems entsteht einmal; jede App bekommt nur ihre eigene Adresse.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Divera-Zugang</dt>
+              <dd>Ein Schlüssel für beide – dieselben Alarme, dieselbe Mannschaft. <span class="opt">optional</span></dd>
+            </div>
+            <div class="setup-row">
+              <dt>Druck-Agent</dt>
+              <dd>Ein Dienst im Magazin bedient beide Apps und beide Druckerarten.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Mannschaftsliste</dt>
+              <dd>Dieselbe Quelle im selben Dateiformat – dieselbe Person auf beiden Seiten.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Stichwörter</dt>
+              <dd>Dieselbe Alarm-Stichwortliste, also dieselbe Einstufung in beiden Apps.</dd>
+            </div>
+          </dl>
+          <p class="setup-foot"><strong>Getrennt bleiben Datenbank, Updates und Login.</strong> Keine der beiden braucht die andere, um zu laufen.
+            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Anleitung für beide auf einem Server →</a></p>
+        </div>
       </div>
     </div>
   </section>
@@ -616,7 +646,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }

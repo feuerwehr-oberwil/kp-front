@@ -268,7 +268,34 @@
     "eyebrow": "Projet apparenté",
     "h2": "KP Front conduit à l’avant. KP Rück garde la vue d’ensemble à l’arrière.",
     "p": "<strong>KP Rück</strong> reproduit sous forme numérique le tableau magnétique du poste de\n          commandement arrière : un tableau pour le personnel, les véhicules et le matériel.\n          Application distincte, même écriture – les deux peuvent se transmettre des alarmes,\n          mais n’ont pas besoin l’une de l’autre.",
-    "cta": "Découvrir KP Rück"
+    "cta": "Découvrir KP Rück",
+    "setup": {
+      "h3": "Exploiter les deux – sans tout configurer deux fois",
+      "rows": [
+        {
+          "dt": "Alarme",
+          "dd": "La même charge utile pour les deux. Le raccordement de votre système d’alarme se fait une fois ; chaque application ne reçoit que sa propre adresse."
+        },
+        {
+          "dt": "Accès Divera",
+          "dd": "Une seule clé pour les deux – mêmes alarmes, même personnel. <span class=\"opt\">facultatif</span>"
+        },
+        {
+          "dt": "Agent d’impression",
+          "dd": "Un seul service au local dessert les deux applications et les deux types d’imprimante."
+        },
+        {
+          "dt": "Liste du personnel",
+          "dd": "La même source dans le même format de fichier – la même personne des deux côtés."
+        },
+        {
+          "dt": "Mots-clés",
+          "dd": "La même liste de mots-clés d’alarme, donc le même classement dans les deux applications."
+        }
+      ],
+      "foot": "<strong>Base de données, mises à jour et connexion restent séparées.</strong> Aucune des deux n’a besoin de l’autre pour fonctionner.",
+      "link": "Guide : les deux sur un même serveur"
+    }
   },
   "faq": {
     "eyebrow": "Questions &amp; réponses",

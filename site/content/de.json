@@ -297,7 +297,34 @@
     "eyebrow": "Verwandtes Projekt",
     "h2": "KP Front führt vorne. KP Rück hält hinten den Überblick.",
     "p": "<strong>KP Rück</strong> bildet die Magnettafel im rückwärtigen Kommandoposten\n          digital ab: ein Board für Personal, Fahrzeuge und Material. Eigene App, gleiche Handschrift –\n          die beiden können sich Alarme übergeben, brauchen einander aber nicht.",
-    "cta": "KP Rück ansehen"
+    "cta": "KP Rück ansehen",
+    "setup": {
+      "h3": "Beide betreiben – ohne alles doppelt einzurichten",
+      "rows": [
+        {
+          "dt": "Alarmierung",
+          "dd": "Dieselbe Nutzlast für beide. Die Anbindung eures Dispositionssystems entsteht einmal; jede App bekommt nur ihre eigene Adresse."
+        },
+        {
+          "dt": "Divera-Zugang",
+          "dd": "Ein Schlüssel für beide – dieselben Alarme, dieselbe Mannschaft. <span class=\"opt\">optional</span>"
+        },
+        {
+          "dt": "Druck-Agent",
+          "dd": "Ein Dienst im Magazin bedient beide Apps und beide Druckerarten."
+        },
+        {
+          "dt": "Mannschaftsliste",
+          "dd": "Dieselbe Quelle im selben Dateiformat – dieselbe Person auf beiden Seiten."
+        },
+        {
+          "dt": "Stichwörter",
+          "dd": "Dieselbe Alarm-Stichwortliste, also dieselbe Einstufung in beiden Apps."
+        }
+      ],
+      "foot": "<strong>Getrennt bleiben Datenbank, Updates und Login.</strong> Keine der beiden braucht die andere, um zu laufen.",
+      "link": "Anleitung für beide auf einem Server"
+    }
   },
   "faq": {
     "eyebrow": "Fragen &amp; Antworten",
