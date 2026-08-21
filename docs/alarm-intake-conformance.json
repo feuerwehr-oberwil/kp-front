@@ -1,0 +1,178 @@
+{
+  "$comment": [
+    "The alarm-intake contract KP Front and KP Rück share, as cases rather than prose.",
+    "",
+    "Both products expose POST /api/alarms and both accept a payload of the same shape, so a",
+    "station running both wires its dispatch system ONCE. What was never true is that the two",
+    "validators agreed on the edges: the shape converged, the limits did not, and nothing",
+    "compared them. A relay built against one app then met a 422 from the other on its second",
+    "integration — the failure this file exists to make impossible.",
+    "",
+    "`cases` is the PORTABLE SUBSET: every entry must get the same verdict from both apps. Stay",
+    "inside it and one payload works against both. The limits here are deliberately the TIGHTER",
+    "of the two products throughout, because a corpus pinned to the looser one would certify",
+    "payloads that only work on one side.",
+    "",
+    "`divergent` is the honest remainder: payloads the two answer DIFFERENTLY, with the verdict",
+    "recorded per product. Each repository's test asserts its OWN column, so neither validator",
+    "can move without turning this file red, and the list cannot quietly grow. These are not",
+    "bugs to fix by fiat — narrowing either side breaks senders that work today — they are the",
+    "reason `cases` is drawn where it is.",
+    "",
+    "Byte-identical in both repositories, like docs/roster-snapshot.schema.json. The in-repo",
+    "tests cannot see the sibling; the alarm-contract-drift CI job is what compares them.",
+    "",
+    "`accept` means: the payload validates AND its `source` is not a reserved slug. Those are",
+    "the two gates POST /api/alarms applies before an alarm exists, and a sender cannot tell",
+    "them apart anyway — both come back 4xx with nothing created."
+  ],
+  "version": 1,
+  "reserved_sources": [
+    "divera",
+    "feld",
+    "intake",
+    "manual",
+    "migrated",
+    "operator",
+    "training"
+  ],
+  "cases": [
+    {
+      "name": "minimal",
+      "why": "Title alone is the whole required surface. Everything else is optional in both.",
+      "accept": true,
+      "payload": { "title": "Brandmeldeanlage ausgelöst" }
+    },
+    {
+      "name": "no source falls back to the default",
+      "why": "Both default to 'webhook', which is not reserved.",
+      "accept": true,
+      "payload": { "title": "Wasserwehr" }
+    },
+    {
+      "name": "full portable payload",
+      "why": "Every field both products read, at values both accept. This is the one to copy.",
+      "accept": true,
+      "payload": {
+        "source": "leitstelle",
+        "source_id": "A-2026-0142",
+        "title": "Brand Gebäude klein",
+        "text": "Rauch aus dem Dachstock, Personen gemeldet.",
+        "address": "Hauptstrasse 12, 4104 Oberwil BL",
+        "lat": 47.5148,
+        "lng": 7.5556,
+        "number": "E-142",
+        "type": "Brand",
+        "priority": "HIGH",
+        "started_at": "2026-08-19T14:02:11+02:00"
+      }
+    },
+    {
+      "name": "priority LOW",
+      "why": "HIGH and LOW are the only two values both accept — see divergent/priority-other.",
+      "accept": true,
+      "payload": { "title": "Ölspur", "priority": "LOW" }
+    },
+    {
+      "name": "source at the 16-character ceiling",
+      "why": "16 is KP Front's incidents.source column. KP Rück allowed 20 until 2026-08-19.",
+      "accept": true,
+      "payload": { "source": "abcdefghijklmnop", "title": "Test" }
+    },
+    {
+      "name": "source one character over",
+      "why": "17 chars: the exact width that used to pass KP Rück and 422 KP Front.",
+      "accept": false,
+      "payload": { "source": "abcdefghijklmnopq", "title": "Test" }
+    },
+    {
+      "name": "title missing",
+      "why": "Required in both.",
+      "accept": false,
+      "payload": { "source": "leitstelle" }
+    },
+    {
+      "name": "title empty",
+      "why": "KP Rück strips to None and fails the required field; KP Front fails min_length.",
+      "accept": false,
+      "payload": { "title": "   " }
+    },
+    {
+      "name": "source not lowercase",
+      "why": "Both require a lowercase slug.",
+      "accept": false,
+      "payload": { "source": "Leitstelle", "title": "Test" }
+    },
+    {
+      "name": "source starts with a separator",
+      "why": "Both require the first character to be a letter or digit.",
+      "accept": false,
+      "payload": { "source": "-leitstelle", "title": "Test" }
+    },
+    {
+      "name": "reserved source: divera",
+      "why": "The vendor adapter's own slug. Reserved in both.",
+      "accept": false,
+      "payload": { "source": "divera", "title": "Test" }
+    },
+    {
+      "name": "reserved source: feld",
+      "why": "KP Rück's field surface. Missing from KP Front's set until 2026-08-19, so this exact payload was accepted there and refused here.",
+      "accept": false,
+      "payload": { "source": "feld", "title": "Test" }
+    },
+    {
+      "name": "reserved source: training",
+      "why": "The exercise generator's slug. Reserved in both.",
+      "accept": false,
+      "payload": { "source": "training", "title": "Test" }
+    }
+  ],
+  "divergent": [
+    {
+      "name": "source_id longer than 128",
+      "note": "KP Rück allows 255, KP Front 128. A dispatch id that long is unusual; senders should stay under 128.",
+      "kp_rueck": "accept",
+      "kp_front": "reject",
+      "payload": {
+        "title": "Test",
+        "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "title longer than 255",
+      "note": "KP Rück caps at 255 so the value fits its column; KP Front does not cap and stores Text.",
+      "kp_rueck": "reject",
+      "kp_front": "accept",
+      "payload": { "title": "Sehr langer Alarmtext der über zweihundertfünfundfünfzig Zeichen hinausgeht und damit die Obergrenze von KP Rück überschreitet, während KP Front ihn ohne Weiteres annimmt, weil dort keine Länge festgelegt ist und die Spalte ein Textfeld ohne Begrenzung bleibt." }
+    },
+    {
+      "name": "priority other than HIGH or LOW",
+      "note": "KP Front pins the two values with a Literal. KP Rück takes any short string and treats an unknown one as a hint, falling back to keyword inference rather than dropping the alarm. Senders must use HIGH or LOW or omit it.",
+      "kp_rueck": "accept",
+      "kp_front": "reject",
+      "payload": { "title": "Test", "priority": "MEDIUM" }
+    },
+    {
+      "name": "lat without lng",
+      "note": "KP Rück requires the pair; KP Front accepts a lone coordinate and ignores it. Senders must send both or neither.",
+      "kp_rueck": "reject",
+      "kp_front": "accept",
+      "payload": { "title": "Test", "lat": 47.5148 }
+    },
+    {
+      "name": "latitude out of range",
+      "note": "KP Rück bounds lat/lng; KP Front does not validate the range. Senders must send real coordinates.",
+      "kp_rueck": "reject",
+      "kp_front": "accept",
+      "payload": { "title": "Test", "lat": 200.0, "lng": 7.5556 }
+    },
+    {
+      "name": "type longer than 50",
+      "note": "KP Rück caps type at 50; KP Front does not cap it. Both treat an unknown type as a hint.",
+      "kp_rueck": "reject",
+      "kp_front": "accept",
+      "payload": { "title": "Test", "type": "eine sehr lange Einsatzart die über fünfzig Zeichen geht" }
+    }
+  ]
+}
