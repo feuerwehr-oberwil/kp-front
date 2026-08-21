@@ -35,7 +35,8 @@ describe('reference diagrams', () => {
     fireEvent.click(screen.getByRole('button', { name: /Diagramm vergrössern: Variante 2/i }))
     expect(openPhoto).toHaveBeenCalledWith(
       '/api/reference/checklists:el-taktik:p14',
-      expect.objectContaining({ caption: 'Variante 2' }),
+      // download: false — a Kommandoakten diagram is reference, not incident media
+      expect.objectContaining({ caption: 'Variante 2', download: false }),
     )
   })
 

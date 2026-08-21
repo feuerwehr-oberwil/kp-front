@@ -36,7 +36,7 @@ interface ConfirmReq {
 }
 
 /** The picture currently being looked at full-size (see openPhoto). */
-interface PhotoReq { url: string; filename: string; caption?: string }
+interface PhotoReq { url: string; filename: string; caption?: string; download?: boolean }
 
 let toasts: Toast[] = []
 let confirmReq: ConfirmReq | null = null
@@ -129,8 +129,15 @@ export function caretToEnd(ev: { currentTarget: HTMLTextAreaElement | HTMLInputE
   try { el.setSelectionRange(n, n) } catch { /* input types without selection (number) — keep the default */ }
 }
 
-export function openPhoto(url: string, opts?: { filename?: string; caption?: string }) {
-  photoReq = { url, filename: opts?.filename || 'foto.jpg', caption: opts?.caption }
+export function openPhoto(
+  url: string,
+  /** `download: false` for pictures that are REFERENCE rather than incident media — a
+   *  Kommandoakten diagram belongs to the BGV and is one tap from the source anyway, so
+   *  offering «herunterladen» there only invites a stray copy that ages out of date. Incident
+   *  media (Verlauf, Beilagen, Objektfoto) keeps it: getting a photo out is the point. */
+  opts?: { filename?: string; caption?: string; download?: boolean },
+) {
+  photoReq = { url, filename: opts?.filename || 'foto.jpg', caption: opts?.caption, download: opts?.download !== false }
   emit()
 }
 
@@ -278,9 +285,11 @@ export function Overlays() {
           <div className="photo-view-head">
             <span className="photo-view-cap">{photo.caption || appConfig.copy.photoViewer.title}</span>
             {/* same-origin /api/media URL, so `download` really downloads instead of navigating */}
-            <a className="ip-btn" href={photo.url} download={photo.filename}>
-              <Icon id="download" />{appConfig.copy.photoViewer.download}
-            </a>
+            {photo.download && (
+              <a className="ip-btn" href={photo.url} download={photo.filename}>
+                <Icon id="download" />{appConfig.copy.photoViewer.download}
+              </a>
+            )}
             <button className="ctx-x" onClick={closePhoto} aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog}>
               <Icon id="close" />
             </button>

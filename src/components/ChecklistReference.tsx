@@ -58,7 +58,7 @@ function DiagramFigure({ url, caption, alt }: { url: string; caption?: string; a
       <button
         type="button"
         className={s['cl-ref-figbtn']}
-        onClick={() => openPhoto(url, { caption, filename: `${alt}.jpg` })}
+        onClick={() => openPhoto(url, { caption, download: false })}
         title={CL.diagramOpen}
         aria-label={caption ? `${CL.diagramOpen}: ${caption}` : CL.diagramOpen}
       >
