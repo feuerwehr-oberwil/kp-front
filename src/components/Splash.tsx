@@ -30,7 +30,7 @@ export function Splash({ sub, inApp }: { sub?: string; inApp?: boolean }) {
   }, [])
   const c = appConfig.copy.splash
   return (
-    <div className={inApp ? 'loading' : 'login splash'}>
+    <div className={inApp ? `loading${stuck ? ' stuck' : ''}` : 'login splash'}>
       <div className="loading-card">
         <div className="ping"><span /><span /><span className="core" /></div>
         <div className="loading-name">{deploymentName()}</div>

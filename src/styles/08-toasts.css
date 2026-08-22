@@ -157,7 +157,21 @@
 .btn.warn-solid:hover { background: var(--red-solid-hover); border-color: var(--red-solid-hover); }
 
 
-.loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 60; }
+/* ⚠️ The in-workspace splash stands in for the MAP, not for the app. It used to be a
+   transparent `position: fixed` sheet at `z-index: 60`, i.e. above everything: while the tiles
+   and the symbol pack loaded, the brand pulse and the station wordmark were painted straight
+   across the Rapport, the rails and the panels — which were all perfectly usable — with nothing
+   behind them to say what they belonged to. A working screen looked broken.
+   It sits where the map sits now: bottom of the stack, on the map's own backdrop, so the chrome
+   above stays live and the pulse reads as «die Karte kommt noch». */
+.loading { position: absolute; inset: 0; display: grid; place-items: center; z-index: 0;
+  background: var(--map-bg); }
+/* …until it admits it is wedged. Then it has an ACTION on it («Neu laden»), and an action that
+   sits behind an open dialog is not one — so the stuck state comes forward and brings a surface
+   with it, because at that point it is addressing the operator rather than filling a hole. */
+.loading.stuck { z-index: 60; background: color-mix(in srgb, var(--map-bg) 82%, transparent); }
+.loading.stuck .loading-card { padding: 26px 30px; border-radius: var(--r-surface);
+  background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); }
 .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: fade .3s var(--ease); }
 /* Static pre-React boot splash (markup in index.html). Held back briefly: a warm launch mounts
    React well inside this delay, so the ordinary case still goes straight to the login screen
