@@ -142,6 +142,39 @@
    two lines, the Name field was squeezed to nothing and «Jetzt» hung off the right edge of the
    card. Deleted there; one column here, like the Einsatzende it sits under. */
 .rz-rueck { display: grid; grid-template-columns: 1fr; gap: 12px; min-width: 0; }
+/* «Entfällt» — the third answer on Kontaktperson and Rückmeldung ELZ (see ReportPreflight and
+   lib/abschluss). The button sits at the END of the input's own line, so filling the field in and
+   saying it does not exist are the same distance away; `min-width: 0` lets the field shrink
+   beside it instead of pushing the button off the card. */
+.rz-none { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rz-none > .ci { flex: 1 1 auto; min-width: 0; }
+.rz-none > .ip-btn { flex: none; }
+/* ⚠️ One height and one radius across the whole row. `.ip-btn` is 38px at `--r-sm` and a
+   `.ip-field input` is 42px at `--r-ctl`, so «Entfällt» sat 4px short of the field it hangs off
+   and rounded tighter — visibly not on the same line. The answered `.rz-none-val` was already
+   at `--tap`, which made it a THIRD height between the two states. All three are `--tap` now:
+   it is what the rest of this surface is measured in (finger targets, 3am), and matching the
+   field's own radius is what makes the pair read as one control. Scoped to the rapport rows —
+   `.ip-btn` keeps its compact shape everywhere else. */
+.rz-none > .ip-btn, .pf-trail > .ip-btn, .report-meta-end > .ip-btn {
+  min-height: var(--tap); border-radius: var(--r-ctl); }
+.rz-none .ci-input { min-height: var(--tap); }
+/* «Entfällt» at the end of the NAME line, the way the Kontaktperson has it — PersonField draws
+   its own label, so the trailing button goes beside the combo INSIDE the field, never next to
+   the label block (which would centre it against both rows). */
+.pf-trail { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pf-trail > :first-child { flex: 1 1 auto; min-width: 0; }
+/* The Zeit row of a Rückmeldung answered «Entfällt»: the row STAYS (so nothing below it moves),
+   but its label steps back — the answer was given once, on the line above, and repeating it at
+   full strength would read as two separate answers. */
+.rz-dim > span { opacity: .55; }
+/* the dash IS the value — same weight as a name would have, so the row does not read as empty */
+.rz-none-dash { justify-content: flex-start; font: 600 17px var(--mono); color: var(--ink-faint); }
+/* The ANSWERED state: a filled line, but dashed — «gibt es nicht» read at a glance and never
+   mistaken for a field somebody forgot. A tick would say «ausgefüllt», which it is not. */
+.rz-none-val { flex: 1 1 auto; min-width: 0; display: flex; align-items: center;
+  min-height: var(--tap); padding: 8px 12px; border: 1px dashed var(--ink-faint);
+  border-radius: var(--r-ctl); color: var(--ink-dim); font: 600 13.5px var(--body); }
 /* Ende input takes the full row so it matches the Beginn field's width; "Jetzt" wraps below */
 /* min-width:0 on the flex CONTAINER too (not just the input) so it can shrink below the native
    datetime control's intrinsic width inside the grid column; input keeps flex-basis:100% so it

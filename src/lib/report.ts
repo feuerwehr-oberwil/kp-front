@@ -645,6 +645,9 @@ const META_FIELD_LABELS: Record<string, string> = {
   gerettete: 'Gerettete', rueckmeldungElz: 'Rückmeldung ELZ',
   partnerContacts: 'Partnerorganisationen', gruppen: 'Alarmzeiten', fahrzeuge: 'Fahrzeugzeiten',
   mittelConfirmedNone: 'Material «keine»', erfasser: 'Erfasser', krokiPrint: 'Kroki-Ausschnitt',
+  // the two «Entfällt» answers write their own sentences (see _structuredMetaLines) — a label is
+  // still needed, because that is what makes them a logged field rather than an internal key
+  kontaktpersonNone: 'Kontaktperson', rueckmeldungNone: 'Rückmeldung ELZ',
 }
 
 /** Fields whose change is bookkeeping ABOUT the rapport rather than a statement about the
@@ -745,6 +748,14 @@ function _structuredMetaLines(k: string, a: unknown, b: unknown): string[] | und
     return [value ? fillTemplate(P.metaGerettete, { value }) : `${META_FIELD_LABELS.gerettete} ${P.metaCleared}`]
   }
   if (k === 'mittelConfirmedNone') return [b ? P.metaMittelNoneOn : P.metaMittelNoneOff]
+  // «Entfällt» is a deliberate ANSWER, so it is recorded as one — a blank line in the record
+  // looks like something forgotten, which is the whole reason these two fields exist.
+  if (k === 'kontaktpersonNone') {
+    return [fillTemplate(b ? P.metaNoneOn : P.metaNoneOff, { label: META_FIELD_LABELS.kontaktpersonNone })]
+  }
+  if (k === 'rueckmeldungNone') {
+    return [fillTemplate(b ? P.metaNoneOn : P.metaNoneOff, { label: META_FIELD_LABELS.rueckmeldungNone })]
+  }
   if (k === 'partnerContacts') return _partnerLines((a ?? []) as PartnerContact[], (b ?? []) as PartnerContact[])
   if (k === 'gruppen') return _gruppenLines((a ?? []) as GruppeZeit[], (b ?? []) as GruppeZeit[])
   if (k === 'fahrzeuge') return _fahrzeugLines((a ?? []) as FahrzeugZeit[], (b ?? []) as FahrzeugZeit[])

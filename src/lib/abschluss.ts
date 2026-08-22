@@ -27,6 +27,12 @@ import type { ReportMeta } from './workspace'
 // dealt with (Hauswart, Betreiber, Anwohner) — and they sit in one grid, so a single chip
 // pointed at both and highlighted both. It is also a fact with a right answer, like the
 // Einsatzleiter and unlike the prose beside it.
+//
+// 'kontaktperson' and 'rueckmeldung' got an «Entfällt» on 2026-08-22, the escape 'mittel' had
+// had all along. Both are facts with a right answer AND with a legitimate «gibt es nicht» — a
+// Fehlalarm has no contact, an Ölspur is not reported back to the ELZ — so without one the
+// rapport of a routine Einsatz could never reach complete, and the «Angaben fehlen noch»
+// confirm stood in front of every print until it was being dismissed unread.
 export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'kontaktperson' | 'kurzbericht' | 'rueckmeldung'
 export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'kontaktperson', 'kurzbericht', 'rueckmeldung']
 
@@ -48,10 +54,14 @@ export function stepDone(step: AbschlussStep, f: AbschlussFacts): boolean {
     case 'einsatzleiter':
       return !!f.reportMeta.einsatzleiter?.trim()
     case 'kontaktperson':
-      return !!f.reportMeta.kontaktperson?.trim()
+      // …or «Entfällt», the same escape `mittel` has: a Fehlalarm has nobody to name, and a step
+      // that cannot be satisfied is a step that makes the «Angaben fehlen noch» dialog appear on
+      // every print until it is tapped away unread (see workspace · kontaktpersonNone).
+      return !!f.reportMeta.kontaktperson?.trim() || !!f.reportMeta.kontaktpersonNone
     case 'kurzbericht':
       return !!f.reportMeta.summary?.trim()
     case 'rueckmeldung': {
+      if (f.reportMeta.rueckmeldungNone) return true // «Entfällt» — see kontaktperson above
       // BOTH halves. A name with no time does not say when, and a time with nobody's name does
       // not say who reported — and the rapport prints the pair as one statement.
       const r = f.reportMeta.rueckmeldungElz

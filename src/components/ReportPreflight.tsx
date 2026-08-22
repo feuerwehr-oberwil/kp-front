@@ -1318,14 +1318,39 @@ export function ReportPreflight({
                 rankFirst officerFilter
               />
               </div>
-              <label className="ip-field" data-step="kontaktperson">
+              {/* ⚠️ A <div>, not a <label>: the row carries a BUTTON now, and a button inside a
+                  label steals its own tap for the input's focus. Same shape the Rückmeldung-Zeit
+                  row next to it already uses; the input keeps its name through `aria-label`. */}
+              <div className="ip-field" data-step="kontaktperson">
                 <span>{P.kontaktpersonLabel}</span>
-                {/* ✕: the Rapport is filled in after the fact and corrected as the picture
-                    settles — a name written down from a first guess is normal here. */}
-                <ClearableInput value={kontaktperson} placeholder={P.kontaktpersonPlaceholder}
-                  clearLabel={P.kontaktpersonClear}
-                  onChange={(raw) => { const v = stripUnprintable(raw); setKontaktperson(v); persist({ kontaktperson: v.trim() || undefined }) }} />
-              </label>
+                {/* «Entfällt» — the third answer. A Fehlalarm in an empty Altersheim has nobody
+                    to name, and «leer» and «gibt es nicht» are two different statements: without
+                    this the step stayed open for ever and the «Angaben fehlen noch» dialog stood
+                    in front of every print until it was being tapped away unread. It is a
+                    trailing affordance on the input line, not a checkbox somewhere else — the
+                    two answers are the same distance away. */}
+                {meta.kontaktpersonNone ? (
+                  <div className="rz-none">
+                    {/* dashed, never a tick: erledigt, but ANSWERED «nicht vorhanden» rather than
+                        filled in — one glance tells the two apart */}
+                    <span className="rz-none-val">{P.entfaellt}</span>
+                    <button type="button" className="ip-btn" onClick={() => persist({ kontaktpersonNone: undefined })}>{P.entfaelltUndo}</button>
+                  </div>
+                ) : (
+                  <div className="rz-none">
+                    {/* ✕: the Rapport is filled in after the fact and corrected as the picture
+                        settles — a name written down from a first guess is normal here. */}
+                    <ClearableInput value={kontaktperson} placeholder={P.kontaktpersonPlaceholder}
+                      aria-label={P.kontaktpersonLabel}
+                      clearLabel={P.kontaktpersonClear}
+                      onChange={(raw) => { const v = stripUnprintable(raw); setKontaktperson(v); persist({ kontaktperson: v.trim() || undefined }) }} />
+                    <button type="button" className="ip-btn"
+                      onClick={() => { setKontaktperson(''); persist({ kontaktperson: undefined, kontaktpersonNone: true }) }}>
+                      {P.entfaellt}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             {/* one Kontaktperson carries all contact/ownership details (2026-07-18 —
                 the kantonale Eigentümer/Ursache/Verursacher trio was retired: cause is
@@ -1485,41 +1510,82 @@ export function ReportPreflight({
                   name the fields that make it go away and no others. Both halves are inside,
                   because `stepDone` wants the name AND the time (lib/abschluss). */}
               <div className="rz-rueck" data-step="rueckmeldung">
-                {/* who reported back to the ELZ — a roster pick like Einsatzleiter, free text allowed */}
-                <PersonField
-                  label={P.rueckmeldungLabel} placeholder={P.rueckmeldungName}
-                  value={{ name: rueckName }} onChange={(slot) => {
-                    setRueckName(slot.name)
-                    persist(rueckOver(slot.name, rueckAt))
-                    // ⚠️ `presence`, NOT `el`. Whoever reported back to the ELZ was on scene to
-                    // have something to report — that is all this field says. Filed as `el` it
-                    // inherited the Einsatzleiter conflict check and warned «X ist Einsatzleiter
-                    // und zugleich im Trupp 2» about somebody who had just made a phone call.
-                    onRolePicked?.(slot.personId, 'presence')
-                  }}
-                  personnel={personnel} legacyRoster={[]} presentIds={presentIds}
-                  assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
-                  rolesById={rolesById}
-                  // `presence` here too (see onRolePicked above): whoever phoned the ELZ was on
-                  // scene, which is all this field says — it does not make them Einsatzleiter.
-                  onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'presence'))}
-                  rankFirst
-                />
-                <div className="ip-field">
-                  <span>{P.rueckmeldungZeit}</span>
-                  {/* Datum + Zeit, the same control the Einsatzende uses — with «Jetzt» beside it,
-                      because the ordinary case is that the call has just been made. */}
-                  <div className="report-meta-end dtrow">
-                    <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
-                      onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
-                    <button type="button" className="ip-btn"
-                      onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
+                {/* …and the same «Entfällt» the Kontaktperson has, for the Einsatz the ELZ was
+                    never told about because there was nothing to tell (an Ölspur, a Fehlalarm).
+                    It replaces BOTH halves, because the step wants the name AND the time and
+                    neither of them exists. */}
+                {meta.rueckmeldungNone ? (
+                  <>
+                  <div className="ip-field">
+                    <span>{P.rueckmeldungLabel}</span>
+                    <div className="rz-none">
+                      <span className="rz-none-val">{P.entfaellt}</span>
+                      <button type="button" className="ip-btn" onClick={() => persist({ rueckmeldungNone: undefined })}>{P.entfaelltUndo}</button>
+                    </div>
                   </div>
-                  {/* the same plausibility hint the Einsatzende carries — this field has a DATE
-                      wheel and is usually filled in from memory, so it is the likeliest of the
-                      four to land on the wrong day */}
-                  {zeitWarn('rueckmeldung')}
-                </div>
+                  {/* ⚠️ The Zeit row STAYS. «Entfällt» used to collapse three rows into one, and
+                      everything below the Rückmeldung jumped up half a card the moment it was
+                      pressed — on the screen where the operator is working DOWN a form. The row
+                      keeps its place and its label (damped), and its value is the same dash that
+                      goes on the paper. The word is not repeated: it was answered once, one line
+                      up, and saying it twice reads as two separate answers. */}
+                  <div className="ip-field rz-dim">
+                    <span>{P.rueckmeldungZeit}</span>
+                    {/* punctuation, not language — the accessible name carries the answer */}
+                    <span className="rz-none-val rz-none-dash" aria-label={P.entfaellt}>–</span>
+                  </div>
+                  </>
+                ) : (
+                  <>
+                  {/* who reported back to the ELZ — a roster pick like Einsatzleiter, free text allowed */}
+                  <PersonField
+                    label={P.rueckmeldungLabel} placeholder={P.rueckmeldungName}
+                    value={{ name: rueckName }} onChange={(slot) => {
+                      setRueckName(slot.name)
+                      persist(rueckOver(slot.name, rueckAt))
+                      // ⚠️ `presence`, NOT `el`. Whoever reported back to the ELZ was on scene to
+                      // have something to report — that is all this field says. Filed as `el` it
+                      // inherited the Einsatzleiter conflict check and warned «X ist Einsatzleiter
+                      // und zugleich im Trupp 2» about somebody who had just made a phone call.
+                      onRolePicked?.(slot.personId, 'presence')
+                    }}
+                    personnel={personnel} legacyRoster={[]} presentIds={presentIds}
+                    assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
+                    rolesById={rolesById}
+                    // `presence` here too (see onRolePicked above): whoever phoned the ELZ was on
+                    // scene, which is all this field says — it does not make them Einsatzleiter.
+                    onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'presence'))}
+                    rankFirst
+                    // «Entfällt» at the END of the name line — the same place the Kontaktperson
+                    // carries it, so the two fields that can be answered this way answer it in
+                    // one gesture instead of two shapes. It replaces BOTH halves (the step wants
+                    // the name AND the time, lib/abschluss), and it is only offered while the
+                    // pair is still EMPTY: once something is written down, «entfällt» would
+                    // contradict the line right above it.
+                    trailing={!rueckName.trim() && !rueckAt ? (
+                      <button type="button" className="ip-btn"
+                        onClick={() => persist({ rueckmeldungElz: undefined, rueckmeldungNone: true })}>
+                        {P.entfaellt}
+                      </button>
+                    ) : undefined}
+                  />
+                  <div className="ip-field">
+                    <span>{P.rueckmeldungZeit}</span>
+                    {/* Datum + Zeit, the same control the Einsatzende uses — with «Jetzt» beside it,
+                        because the ordinary case is that the call has just been made. */}
+                    <div className="report-meta-end dtrow">
+                      <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
+                        onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
+                      <button type="button" className="ip-btn"
+                        onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
+                    </div>
+                    {/* the same plausibility hint the Einsatzende carries — this field has a DATE
+                        wheel and is usually filled in from memory, so it is the likeliest of the
+                        four to land on the wrong day */}
+                    {zeitWarn('rueckmeldung')}
+                  </div>
+                  </>
+                )}
               </div>
             </div>
             {/* Partnerorganisationen: WHO was there, from whom, reachable how — and the remark,

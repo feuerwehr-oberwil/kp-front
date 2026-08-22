@@ -28,6 +28,15 @@ export interface ReportMeta {
   lehren?: string
   /** Kontaktperson on scene (owner / Melder / person in charge) */
   kontaktperson?: string
+  /** «Entfällt» — the Kontaktperson step ANSWERED rather than left blank.
+   *
+   *  A Fehlalarm in an empty Altersheim and an Ölspur on a Kantonsstrasse have nobody to name,
+   *  and without a way of saying so the step stayed open forever: the rapport could never reach
+   *  complete, and every single print opened with «Angaben fehlen noch» — the dialog that has to
+   *  mean something on the Einsatz where something really is missing. Same escape
+   *  `mittelConfirmedNone` has given the Mittel step all along; «nicht ausgefüllt» and «gibt es
+   *  nicht» are two different answers and only one of them was recordable. */
+  kontaktpersonNone?: boolean
   /** Einsatzleiter — picked from the Mannschaft roster (free text allowed) */
   einsatzleiter?: string
   /** Alarmierungszeit (prefilled from the Divera alarm / incident start) */
@@ -63,6 +72,9 @@ export interface ReportMeta {
   erfasser?: string
   /** Rückmeldung to the ELZ: who reported back, and when */
   rueckmeldungElz?: { name?: string; at?: string }
+  /** «Entfällt» for the Rückmeldung ELZ — the same deliberate answer as `kontaktpersonNone`,
+   *  for the Einsatz the ELZ was never told about because there was nothing to tell. */
+  rueckmeldungNone?: boolean
   /** Which of the station's Rapport-Links (config `report.links`, see lib/reportLinks) have
    *  been dealt with on THIS Einsatz — link id → the instant it was ticked.
    *

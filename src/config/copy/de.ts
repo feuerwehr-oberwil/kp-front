@@ -335,6 +335,7 @@ export const de = {
             'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** schickt den Rapport direkt dorthin (bei Unterbruch wird gespeichert und nachgeschickt).',
             'Hat die Wehr eigene Formulare hinterlegt (Verwaltung › Rapport), steht unter den Fotos **Formulare & Links** – eine Liste zum Abhaken. **Öffnen** ruft das Formular auf, mit Stichwort, Ort, Datum und Einsatzleiter bereits ausgefüllt, soweit der Link das vorsieht. Der Haken wird von Hand gesetzt: ob ein Formular abgeschickt wurde, sieht die App nicht.',
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
+            'Kontaktperson und Rückmeldung ELZ haben am Ende der Zeile ein **Entfällt** – für den Fehlalarm oder die Ölspur, wo es beides nicht gibt. Das ist eine Antwort, keine Übergehung: sie wird festgehalten und steht so im Rapport.',
             '**Einsatz abschliessen** schliesst den Einsatz ab und hält das Einsatzende fest. Fotos und Sprachnotizen, die noch nicht hochgeladen sind, werden vorher gesendet; geht das nicht (offline), **bleiben sie gespeichert** und gehen beim nächsten Öffnen raus – die Bestätigung sagt, wie viele.',
           ] },
           { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** – spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
@@ -2854,6 +2855,13 @@ export const de = {
     kontaktpersonLabel: 'Kontaktperson',
     kontaktpersonClear: 'Kontaktperson leeren',
     kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortlicher',
+    // Die dritte Antwort auf Kontaktperson und Rückmeldung ELZ. «Nicht ausgefüllt» und «gibt es
+    // nicht» sind zwei verschiedene Aussagen: ein Fehlalarm im leeren Altersheim hat niemanden zu
+    // nennen, und ohne diesen Ausweg blieb der Schritt für immer offen – vor jedem Druck stand
+    // «Angaben fehlen noch», also genau der Dialog, der auf einem echten Einsatz zählen soll.
+    // Bewusst nur das Wort, ohne erfundene Begründung: die Antwort lautet «gibt es nicht».
+    entfaellt: 'Entfällt',
+    entfaelltUndo: 'Ändern',
     incidentEndLabel: 'Ende Einsatz',
     // Plausibility of the Einsatzzeiten — a hint, not a block: printing always happens.
     zeitBeforeAlarm: 'Liegt vor der Alarmierung ({t})',
@@ -2947,6 +2955,10 @@ export const de = {
     // the two states read identically as «Material «keine»» — one of them says the opposite
     metaMittelNoneOn: 'Material: «keine verwendet» bestätigt',
     metaMittelNoneOff: 'Material: «keine verwendet» widerrufen',
+    // «Entfällt» ist eine bewusste Antwort und wird als solche festgehalten – eine leere Zeile
+    // im Record sieht aus wie etwas Vergessenes, und genau dafür gibt es die beiden Felder.
+    metaNoneOn: '{label}: entfällt',
+    metaNoneOff: '{label}: «entfällt» widerrufen',
     krokiOrientation: 'Ausrichtung',
     krokiPortrait: 'Hoch',
     krokiLandscape: 'Quer',

@@ -117,6 +117,30 @@ def test_the_einsatz_category_is_labelled_as_one():
     assert "Brand" in text
 
 
+def test_a_field_answered_entfaellt_says_so_on_the_paper():
+    """«Entfällt» is an ANSWER — a Fehlalarm has no Kontaktperson and no Rückmeldung ELZ. Both
+    rows used to print the same empty write-in rule as a field nobody had filled in, so the sheet
+    that gets signed could not tell «gibt es nicht» from «vergessen».
+
+    On paper the answer is a DASH, not the word: it stands in the value column, where form
+    language says «nichts einzutragen» with «–». What matters for the distinction is unchanged —
+    an unanswered field prints its write-in rule and carries no dash at all."""
+    base = {
+        "incident": {"title": "Fehlalarm Altersheim", "id": "i"},
+        "generatedAt": "22.08.2026 09:00",
+        "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+    }
+    blank = _text(compose_report_pdf(ReportPayload.model_validate(base), {}))
+    answered = _text(
+        compose_report_pdf(
+            ReportPayload.model_validate({**base, "meta": {"kontaktpersonNone": True, "rueckmeldungNone": True}}), {}
+        )
+    )
+    assert "entfällt" not in blank and "–" not in blank
+    assert "entfällt" not in answered  # the word belongs on the screen, not in a value column
+    assert answered.count("–") == 2  # Kontaktperson and Rückmeldung ELZ, one each
+
+
 def test_the_atemschutz_sheet_numbers_its_adf_the_way_the_form_does():
     """The Trupp form numbers its crew «AdF 1», «AdF 2»; the sheet printed one «AdF: A, B» line.
     Two names for the same three people, and a comma list gives nobody a position to point at

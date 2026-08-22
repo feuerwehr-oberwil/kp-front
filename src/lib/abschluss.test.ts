@@ -45,6 +45,31 @@ describe('stepDone', () => {
     }))).toBe(true)
   })
 
+  // «Nicht ausgefüllt» and «gibt es nicht» are two different answers, and until 2026-08-22 only
+  // `mittel` could say the second one. On a Fehlalarm or an Ölspur these two steps could never be
+  // satisfied, so the rapport stayed incomplete for ever and the «Angaben fehlen noch» confirm
+  // stood in front of every print — until it was being dismissed unread.
+  it('kontaktperson: a name OR the explicit «entfällt»', () => {
+    expect(stepDone('kontaktperson', facts())).toBe(false)
+    expect(stepDone('kontaktperson', facts({ reportMeta: { kontaktperson: '  ' } }))).toBe(false)
+    expect(stepDone('kontaktperson', facts({ reportMeta: { kontaktpersonNone: true } }))).toBe(true)
+  })
+
+  it('rueckmeldung: «entfällt» satisfies the step without either half', () => {
+    expect(stepDone('rueckmeldung', facts({ reportMeta: { rueckmeldungNone: true } }))).toBe(true)
+  })
+
+  // The Fehlalarm that could not be closed: nobody on site, nothing used, nothing to report back.
+  it('a Fehlalarm reaches complete on nothing but deliberate answers', () => {
+    expect(missingSteps(facts({
+      reportMeta: {
+        endedAt: '2026-07-08T05:00:00Z', summary: 'BMA, Fehlalarm.', einsatzleiter: 'Hptm Meier',
+        mittelConfirmedNone: true, kontaktpersonNone: true, rueckmeldungNone: true,
+      },
+      attendanceCount: 7,
+    }))).toEqual([])
+  })
+
   it('missingSteps lists everything open, in step order', () => {
     expect(missingSteps(facts())).toEqual(ABSCHLUSS_STEPS)
     const done = facts({

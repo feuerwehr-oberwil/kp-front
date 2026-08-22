@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -22,7 +22,7 @@ const MAX_MENU_H = 440
 // a person links the id; typing leaves it a manual snapshot. Replaces the old chip list.
 export function PersonField({
   label, placeholder, value, onChange, onRemove, removeLabel, personnel, legacyRoster, presentIds, assignedIds, usedIds, usedNames,
-  rolesById, rankFirst = false, officerFilter = false, onAddGuest,
+  rolesById, rankFirst = false, officerFilter = false, onAddGuest, trailing,
 }: {
   label: string
   placeholder: string
@@ -54,6 +54,10 @@ export function PersonField({
    *  here reaches the Anwesenheit like anybody picked from the list. Hands back that id; absent
    *  for a session that may not write, and the slot then keeps the bare name it always did. */
   onAddGuest?: (name: string) => string | undefined
+  /** A control that belongs to this field and sits at the END of its input line — «Entfällt» on
+   *  the Rückmeldung ELZ. It goes beside the COMBO, not beside the label block: a button next to
+   *  the whole field would centre itself against label + input and line up with neither. */
+  trailing?: ReactNode
 }) {
   const az = appConfig.copy.atemschutz
   const [open, setOpen] = useState(false)
@@ -178,6 +182,7 @@ export function PersonField({
       ) : (
         <span>{label}</span>
       )}
+      <MaybeRow trailing={trailing}>
       <div className={s.combo} ref={rootRef}>
         {typing ? (
           <input
@@ -273,6 +278,14 @@ export function PersonField({
           document.body,
         )}
       </div>
+      {trailing}
+      </MaybeRow>
     </div>
   )
+}
+
+/** The combo alone when there is no trailing control, combo + control on one line when there is —
+ *  so a field without one keeps exactly the markup (and the layout) it always had. */
+function MaybeRow({ trailing, children }: { trailing?: ReactNode; children: ReactNode }) {
+  return trailing ? <div className="pf-trail">{children}</div> : <>{children}</>
 }

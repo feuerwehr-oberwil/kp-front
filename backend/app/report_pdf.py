@@ -96,6 +96,11 @@ class ReportMetaIn(BaseModel):
     remarks: str | None = None
     lehren: str | None = None
     kontaktperson: str | None = None
+    #: «Entfällt» — the Kontaktperson was ANSWERED, not left open (src/lib/workspace.ts). The
+    #: Fehlalarm in an empty Altersheim and the Ölspur on a Kantonsstrasse have nobody to name,
+    #: and on a signed sheet that must not read like a field somebody forgot: the row then prints
+    #: the word instead of the empty write-in rule.
+    kontaktpersonNone: bool = False
     einsatzleiter: str | None = None
     kommandant: str | None = None  # station Kdt from the deployment config (identity.kommandant)
     alarmiertAt: str | None = None
@@ -103,6 +108,9 @@ class ReportMetaIn(BaseModel):
     partnerContacts: list[PartnerContact] = []
     gerettete: str | None = None  # pre-formatted, e.g. "2 Personen · 1 Tier"
     rueckmeldungElz: str | None = None  # pre-formatted, e.g. "Muster Hans · 17:15"
+    #: «Entfällt» for the Rückmeldung ELZ — the same deliberate answer as ``kontaktpersonNone``,
+    #: for the Einsatz the ELZ was never told about because there was nothing to tell.
+    rueckmeldungNone: bool = False
     # Alarmierungs-/Ausrückzeiten grid rows, pre-formatted [label, value] pairs — one row
     # per configured Gruppe/Fahrzeug, value empty where nothing was recorded (the composer
     # prints `__:__` there for the pen). See metaExtrasForPdf in src/lib/report.ts.
@@ -605,6 +613,13 @@ L = {
     "gerettete": "Gerettet",
     "alarmRef": "Einsatz-Nr",
     "rueckmeldungElz": "Rückmeldung ELZ",
+    # printed IN a details-box field that was answered «Entfällt».
+    # ⚠️ A DASH, not the word (22.08.). The word sat in the value column where a name belongs, so
+    # on a sheet that gets signed it read like something somebody had entered. «–» is the ordinary
+    # form-language for «hier ist nichts einzutragen» and stays clearly an ANSWER: a field nobody
+    # filled in still prints its empty write-in rule, which is the distinction this exists for.
+    # The app keeps the word on screen — there the dashed frame alone would not say why.
+    "entfaellt": "–",
     "zeiten": "Alarmierungs- / Ausrückzeiten",
     "erfasser": "Erfasst durch",
 }
@@ -1200,6 +1215,13 @@ def compose_report_pdf(
     # The Details box — same frame + dotted-leader fields as the Erfassungsblatt, with the
     # automatic facts and any recorded human facts printed ON the lines. Missing values stay
     # writable by hand; nothing blocks the print.
+    #
+    # ⚠️ The two fields that can be answered «Entfällt» print that word instead of an empty
+    # write-in rule. «Es gibt keine Kontaktperson» and «das hat niemand ausgefüllt» are two
+    # different statements on a sheet that gets signed, and a blank line only ever said the
+    # second one — which is exactly what the app's «Entfällt» exists to say (lib/workspace.ts).
+    kontaktperson = m.kontaktperson or (L["entfaellt"] if m.kontaktpersonNone else None)
+    rueckmeldung = m.rueckmeldungElz or (L["entfaellt"] if m.rueckmeldungNone else None)
     half = 0.5
     story.append(
         _FormRows(
@@ -1218,8 +1240,8 @@ def compose_report_pdf(
                     {"label": L["einsatzleiter"], "w": half, "value": m.einsatzleiter},
                     {"label": L["gerettete"], "w": half, "value": m.gerettete},
                 ],
-                [{"label": L["kontaktperson"], "w": 1.0, "value": m.kontaktperson}],
-                [{"label": L["rueckmeldungElz"], "w": 1.0, "value": m.rueckmeldungElz}],
+                [{"label": L["kontaktperson"], "w": 1.0, "value": kontaktperson}],
+                [{"label": L["rueckmeldungElz"], "w": 1.0, "value": rueckmeldung}],
             ],
             boxed=True,
         )
