@@ -131,6 +131,7 @@ import { ReportPreflight } from './components/ReportPreflight'
 import { TruppFinder } from './components/TruppFinder'
 import { placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { annotatedPlans, changedReportMetaFields } from './lib/report'
+import { missingSteps } from './lib/abschluss'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
 import { currentMengeFor, mittelLineCount, symbolCaptureConfigured } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
@@ -166,11 +167,13 @@ interface WorkspaceProps {
   onReviewDone: () => void
   onEditMeta: () => void
   onPatchMeta: (patch: Partial<IncidentMeta>) => void
-  /** Abschluss-Assistent finished (already confirmed): stamp report_done_at + archive */
-  onCompleteRapport: () => void
-  /** archive the active incident (confirm dialog included) — the switcher-menu shortcut */
-  onArchiveActive?: () => void
-  /** reactivate the ARCHIVED active incident (confirm dialog included) — the banner action */
+  /** The Abschluss was confirmed here (see `confirmAndComplete`): stamp report_done_at + close.
+   *  Resolves TRUE only when the close actually happened — App reports the outcome so a failed
+   *  handover (offline, server error) does not pretend to have archived anything.
+   *  ⚠️ There is deliberately no second «archive the active one» prop. Both doors — the Rapport
+   *  and the Einsatz-Menü row — go through the one confirm and end in this one callback. */
+  onCompleteRapport: () => Promise<boolean>
+  /** re-open the CLOSED active incident (confirm dialog included) — the banner action */
   onReactivateActive?: () => void
   /** leave the archived read-only view — back to the previously active incident, else the
    *  «Alle Einsätze» list it was entered from (everyone, not just editors) */
@@ -180,7 +183,7 @@ interface WorkspaceProps {
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
-  onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onArchiveActive, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
   needsReview, onReviewDone, onEditMeta, onPatchMeta,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
@@ -1027,6 +1030,50 @@ export function IncidentWorkspace({
     incidentId: incidentMeta.id, readOnly,
     onUploaded: swapRowMedia, onRestore: swapRowMedia,
   })
+
+  // --- ONE «Einsatz abschliessen» ------------------------------------------------------------
+  //
+  // Two doors lead here — the Rapport's button/band and the row in the Einsatz-Menü — and until
+  // 22.08. only ONE of them checked anything. The menu row archived plainly: no `report_done_at`,
+  // none of the seven ABSCHLUSS_STEPS, so an Einsatz put away that way stood in the Historie as
+  // «offen» for ever, while the identically-labelled path through the Rapport stamped and
+  // counted. Two doors into one room are fine; two doors with the same sign into different rooms
+  // are not. The confirm and the open-point count live HERE, above both of them.
+  const abschlussMissing = useMemo(
+    () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
+    [reportMeta, attendance, mittel],
+  )
+  /** Resolves TRUE when the Einsatz was actually handed over for closing — the Rapport uses that
+   *  to decide whether to forget its scroll position, and a cancelled confirm must not. */
+  const confirmAndComplete = useCallback(async (): Promise<boolean> => {
+    const A = appConfig.copy.abschluss
+    const P = appConfig.copy.preflight
+    // ⚠️ Pending media belongs in this list. The Abschluss closes the incident, and a Foto or a
+    // Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
+    // about to walk away, so that is part of what they are confirming.
+    const pendingItem = media.pendingCount > 0
+      ? [fillTemplate(P.pendingMediaConfirm, { n: media.pendingCount })]
+      : []
+    const ok = await confirmDialog({
+      title: A.confirmTitle,
+      message: abschlussMissing.length ? P.exportIncompleteLead : A.confirmMsg,
+      items: [...abschlussMissing.map((s) => A.steps[s]), ...pendingItem],
+      note: abschlussMissing.length ? A.confirmMsg : undefined,
+      // the button names what is actually about to happen — closing an Einsatz with open points
+      // is allowed, and the label is where that is said out loud
+      confirmLabel: abschlussMissing.length ? A.confirmAnyway : A.confirmBtn,
+    })
+    if (!ok) return false
+    // ⚠️ Drain the media queue FIRST, from here. The Abschluss closes the incident and App then
+    // drops what has already gone up (clearUploadedMedia) — and an upload also has to patch its
+    // Verlauf row's blob: URL to the server one (useMediaQueue · onUploaded), which needs this
+    // workspace and its journal store, both gone after the handover.
+    await media.flush().catch(() => {})
+    // …and the answer is the REAL outcome, not the firing of the request: App reports whether
+    // the close went through, so the Rapport's kept scroll position survives a failed Abschluss
+    // (offline, server error) instead of being forgotten for an Einsatz that is still open.
+    return onCompleteRapport()
+  }, [abschlussMissing, media, onCompleteRapport])
 
   // upload a captured photo/audio blob and swap the timeline row's session blob: URL for the
   // persistent server URL (so history keeps the media). On failure the blob is persisted to the
@@ -2799,7 +2846,11 @@ export function IncidentWorkspace({
             // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link
             // session — one generates a document with everyone's names, the other lists the
             // Einsätze this link has nothing to do with.
-            onArchive={canEditIncident && !readOnly ? onArchiveActive : undefined}
+            // ⚠️ The SAME confirm the Rapport runs, with the same count in front of it — this row
+            // used to archive plainly (see confirmAndComplete). The badge puts the check where it
+            // can be read before the row is pressed, not only after.
+            onArchive={canEditIncident && !readOnly && !incidentMeta.is_archived ? () => { void confirmAndComplete() } : undefined}
+            archiveOpenCount={abschlussMissing.length}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onOfflineReadiness={() => setOfflineReadyOpen(true)}
@@ -3711,15 +3762,9 @@ export function IncidentWorkspace({
           // (and on any refusal) `completeRapport` returns early with a toast — and the sheet
           // had already been shut, so the operator lost their place for an action that never
           // happened. The «Abschliessen» confirm closes itself; that is the only thing that should.
-          // ⚠️ Drain the media queue FIRST, from here. The Abschluss archives the incident and
-          // then drops its whole upload queue (App · clearIncidentMedia) — so a Foto or a
-          // Sprachnotiz still waiting for a connection was deleted at exactly the moment the
-          // Rapport had promised «wird bei Verbindung ergänzt». It has to happen on this side of
-          // the teardown, because an upload also has to patch its Verlauf row's blob: URL to the
-          // server one (useMediaQueue · onUploaded) — and after the handover this workspace, and
-          // the journal store with it, is gone. Offline it uploads nothing and the queue stays;
-          // App keeps it instead of clearing (nothing is thrown away, it waits for the next open).
-          onComplete={canEditIncident && !readOnly ? () => { void media.flush().finally(onCompleteRapport) } : undefined}
+          // ⚠️ The confirm (and the media flush that follows it) lives in `confirmAndComplete`
+          // above, shared with the Einsatz-Menü row — one action, one dialog, one wording.
+          onComplete={canEditIncident && !readOnly ? confirmAndComplete : undefined}
           onFixTranscripts={() => { setJournalOpen(true); setJournalFromRapport(true) }}
         />
       )}

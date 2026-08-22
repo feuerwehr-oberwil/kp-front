@@ -201,9 +201,11 @@ export function ReportPreflight({
    *  sheet and reveal the surface — same tools on every incident size */
   onOpenAnwesenheit?: () => void
   onOpenMittel?: () => void
-  /** «Rapport abschliessen» — confirm already happened here; stamps report_done_at +
-   *  archives. Omit for viewers / read-only. */
-  onComplete?: () => void
+  /** «Einsatz abschliessen» — runs the confirm (the shared one, see IncidentWorkspace ·
+   *  confirmAndComplete), stamps report_done_at and closes. Resolves TRUE only when the Einsatz
+   *  was actually handed over, so a cancelled confirm changes nothing here either. Omit for
+   *  viewers / read-only. */
+  onComplete?: () => Promise<boolean>
   /** jump to the Verlauf to fill the still-missing audio transcripts */
   onFixTranscripts?: () => void
 }) {
@@ -842,28 +844,14 @@ export function ReportPreflight({
   // «Einsatz abschliessen» is bookkeeping, not the artefact: it stamps report_done_at and
   // archives. The PDF is its own (primary) action — decoupled by decision 2026-07-08 after
   // auto-download-on-complete felt wrong in the field.
+  // ⚠️ The CONFIRM does not live here any more. Both doors into the Abschluss — this one and the
+  // row in the Einsatz-Menü — run the one in IncidentWorkspace (`confirmAndComplete`), which
+  // names the same open points and stamps the same `report_done_at`. The menu row used to archive
+  // plainly, so an Einsatz put away there stood in the Historie as «offen» for ever.
+  // What stays here is what only this surface knows: a completed rapport should re-open at the
+  // top, so the kept scroll position is forgotten — but only if the Abschluss actually happened.
   const complete = async () => {
-    if (!onComplete) return
-    // same shape as the export warning above — the open points are a list, and the question
-    // comes after them rather than at the end of a paragraph nobody reads that far into
-    // ⚠️ Pending media belongs in this list. The Abschluss archives the incident, and a Foto or a
-    // Sprachnotiz that never got a connection used to be deleted with it — silently, right after
-    // this screen had promised «wird bei Verbindung ergänzt». It is kept now (App ·
-    // clearUploadedMedia), but the operator is about to walk away from the Einsatz, so the fact
-    // that something is still on this device is part of what they are confirming.
-    const pendingItem = pendingMediaCount > 0
-      ? [fillTemplate(P.pendingMediaConfirm, { n: pendingMediaCount })]
-      : []
-    if (await confirmDialog({
-      title: A.confirmTitle,
-      message: missing.length ? P.exportIncompleteLead : A.confirmMsg,
-      items: [...missing.map((s) => A.steps[s]), ...pendingItem],
-      note: missing.length ? A.confirmMsg : undefined,
-      confirmLabel: A.confirmBtn,
-    })) {
-      savedScroll.current = null
-      onComplete()
-    }
+    if (await onComplete?.()) savedScroll.current = null
   }
 
   // The Abschluss-Band under the head (see the JSX): shown once a rapport has been produced and

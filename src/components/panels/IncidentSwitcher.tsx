@@ -37,7 +37,7 @@ function SyncGlyph({ done, label }: { done: boolean; label: string }) {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -56,11 +56,15 @@ export function IncidentSwitcher({
   onDatenquellen: () => void
   /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
    *  generate documents or reach the station printer */
-  /** archive the ACTIVE incident (behind the caller's «wirklich abschliessen?» confirm);
-   *  absent for viewers / read-only views / an already-archived incident */
   /** correct the dispatch facts (address, category, Stichwort) — omitted for a viewer */
   onEditMeta?: () => void
+  /** «Einsatz abschliessen» for the ACTIVE incident — the SAME confirm the Rapport runs
+   *  (IncidentWorkspace · confirmAndComplete); absent for viewers / read-only views / an
+   *  already-closed incident */
   onArchive?: () => void
+  /** how many Mindestangaben are still open, shown as a badge on that row. The check used to
+   *  happen only after the press, and only on the other door — see confirmAndComplete. */
+  archiveOpenCount?: number
   onHelp: () => void
   /** open the "Als App installieren" guide — App passes it only in a plain browser tab */
   onInstall?: () => void
@@ -196,9 +200,10 @@ export function IncidentSwitcher({
               they cost one line each. The head card needs no label — it names itself.
               The round-4 rule was "no destructive actions in this menu" (a stray per-row ✕
               closed old incidents in one tap); the «abschliessen» row is the sanctioned
-              exception (field request 2026-07-12): it goes through the same «wirklich
-              abschliessen?» confirm as «Alle Einsätze», and archiving stays reversible via
-              Reaktivieren. Closing OTHER incidents still lives only in «Alle Einsätze». */}
+              exception (field request 2026-07-12): it goes through the SAME confirm as the
+              Rapport — open points named, `report_done_at` stamped — and closing stays
+              reversible via «Wieder öffnen». Closing OTHER incidents lives only in «Alle
+              Einsätze». */}
           {active && (
             <>
               <div className="ip-menu-head">
@@ -248,7 +253,14 @@ export function IncidentSwitcher({
                    same reach; the rule only chopped the head card in half. The separation that
                    does the work is the rule UNDER it, which parts «dieser Einsatz» from the list
                    of other ones, and the confirm the action still runs. */
-                <button className="ip-menu-act" onClick={() => { setOpen(false); onArchive() }}><Icon id="archive" /> {cp.archive}</button>
+                <button className="ip-menu-act" onClick={() => { setOpen(false); onArchive() }}>
+                  <Icon id="archive" />
+                  <span className="ip-menu-actmain">{cp.archive}</span>
+                  {/* the counter BEFORE the press, not only in the dialog after it */}
+                  {archiveOpenCount > 0 && (
+                    <span className="ip-badge ip-badge-todo">{fillTemplate(cp.archiveOpen, { n: archiveOpenCount })}</span>
+                  )}
+                </button>
               )}
               <div className="ip-menu-sep" />
             </>

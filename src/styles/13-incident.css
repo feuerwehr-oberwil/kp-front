@@ -98,6 +98,9 @@
 }
 .ip-menu-act { flex-direction: row; align-items: center; gap: 10px; font-weight: 600; }
 .ip-menu-act svg { width: 16px; height: 16px; opacity: .65; }
+/* «Einsatz abschliessen» carries its open-point count on the right — the label takes the row so
+   the badge sits at the edge instead of hugging the word (see IncidentSwitcher) */
+.ip-menu-actmain { flex: 1; min-width: 0; }
 /* incident row — pure switch target (no destructive actions in this menu; closing an
    incident lives in «Alle Einsätze» / the Rapport) */
 .ip-menu-row { display: flex; align-items: stretch; gap: 2px; border-radius: var(--r-ctl); }
@@ -379,6 +382,9 @@
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
 /* Übung — amber so a training is never mistaken for a real Einsatz (switcher + lists) */
 .ip-badge-exercise { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+/* «2 offen» — the same amber, named after what it means rather than after the Übung it borrows
+   from: something is outstanding and the operator is about to act as if it were not. */
+.ip-badge-todo { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); text-transform: none; }
 .ip-menu-headtitle .ip-badge, .ip-menu-title .ip-badge { margin-left: 6px; vertical-align: 1px; }
 .ip-hist-sub, .ip-ds-sub { font: 500 12px var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* rapport lifecycle badges (derived, lib/rapportStatus) */

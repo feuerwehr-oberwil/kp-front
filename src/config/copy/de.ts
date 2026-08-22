@@ -319,7 +319,7 @@ export const de = {
             '**Einsatz wechseln** zwischen den offenen Einsätzen; **Neuer Einsatz** (Ort auf der Karte wählbar).',
             '**Alarm-Pool** – eingehende Alarme übernehmen (nur wo eine Alarmquelle angebunden ist).',
             '**Einsätze** – Archiv/frühere Einsätze öffnen.',
-            '**Aktuellen archivieren** schliesst den laufenden Einsatz ab.',
+            '**Einsatz abschliessen** schliesst den laufenden Einsatz ab – derselbe Dialog wie im Rapport, mit demselben Zähler dessen, was noch offen ist.',
           ] },
         ],
       },
@@ -335,7 +335,7 @@ export const de = {
             'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** schickt den Rapport direkt dorthin (bei Unterbruch wird gespeichert und nachgeschickt).',
             'Hat die Wehr eigene Formulare hinterlegt (Verwaltung › Rapport), steht unter den Fotos **Formulare & Links** – eine Liste zum Abhaken. **Öffnen** ruft das Formular auf, mit Stichwort, Ort, Datum und Einsatzleiter bereits ausgefüllt, soweit der Link das vorsieht. Der Haken wird von Hand gesetzt: ob ein Formular abgeschickt wurde, sieht die App nicht.',
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
-            '**Einsatz abschliessen** archiviert den Einsatz und hält das Einsatzende fest. Fotos und Sprachnotizen, die noch nicht hochgeladen sind, werden vorher gesendet; geht das nicht (offline), **bleiben sie gespeichert** und gehen beim nächsten Öffnen raus – die Bestätigung sagt, wie viele.',
+            '**Einsatz abschliessen** schliesst den Einsatz ab und hält das Einsatzende fest. Fotos und Sprachnotizen, die noch nicht hochgeladen sind, werden vorher gesendet; geht das nicht (offline), **bleiben sie gespeichert** und gehen beim nächsten Öffnen raus – die Bestätigung sagt, wie viele.',
           ] },
           { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** – spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
         ],
@@ -2516,37 +2516,43 @@ export const de = {
     // noticed long before anybody opens the Rapport.
     editMeta: 'Einsatzdaten bearbeiten',
     archive: 'Einsatz abschliessen',
+    // der Zähler schon im Menü, damit die Prüfung sichtbar ist, bevor jemand drückt
+    archiveOpen: '{n} offen',
     noOpenIncidents: 'Keine offenen Einsätze',
     logout: 'Abmelden',
     appVersion: 'App-Version (Build)',
   },
-  // persistent banner while an archived incident is open read-only (ArchivedBanner)
+  // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).
+  // ⚠️ EIN WORTPAAR für den ganzen Lebenslauf: abschliessen / wieder öffnen. «Archiviert» und
+  // «reaktivieren» waren zwei weitere Wörter für dieselbe Sache – drei Vokabeln für einen
+  // Zustandswechsel, den man im Einsatz nicht nachschlagen geht. «Archiv» bleibt frei für das,
+  // was es beschreibt: die Liste.
   archived: {
-    title: 'Einsatz archiviert',
-    hint: 'Nur ansehen – zum Bearbeiten reaktivieren.',
+    title: 'Einsatz abgeschlossen',
+    hint: 'Nur ansehen – zum Bearbeiten wieder öffnen.',
     back: 'Zurück',
-    reactivate: 'Reaktivieren',
+    reactivate: 'Wieder öffnen',
   },
   // Einsätze history list
   history: {
     title: 'Einsätze',
     empty: 'Noch keine Einsätze.',
-    emptySub: 'Eröffnete und archivierte Einsätze erscheinen hier.',
+    emptySub: 'Eröffnete und abgeschlossene Einsätze erscheinen hier.',
     noLocation: 'ohne Ort',
     searchPlaceholder: 'Einsatz suchen …',
     noMatches: 'Keine Treffer.',
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
-    reactivate: 'Reaktivieren',
-    reactivateConfirmTitle: 'Einsatz reaktivieren',
+    reactivate: 'Wieder öffnen',
+    reactivateConfirmTitle: 'Einsatz wieder öffnen',
     reactivateConfirmMsg: 'Der Einsatz wird wieder geöffnet und ist bearbeitbar. Spätere Änderungen erscheinen im Verlauf und Rapport als Nachträge.',
-    reactivateConfirmBtn: 'Reaktivieren',
-    statusArchived: 'Archiviert',
+    reactivateConfirmBtn: 'Wieder öffnen',
+    statusArchived: 'Abgeschlossen',
     statusOpen: 'Offen',
     statusInProgress: 'In Arbeit',
     archiveConfirmTitle: 'Einsatz abschliessen',
-    archiveConfirmMsg: 'Der Einsatz wird archiviert und das Einsatzende festgehalten. Spätere Ergänzungen erscheinen im Verlauf und Rapport als Nachträge.',
+    archiveConfirmMsg: 'Der Einsatz wird abgeschlossen und das Einsatzende festgehalten. Spätere Ergänzungen erscheinen im Verlauf und Rapport als Nachträge.',
     archiveConfirmBtn: 'Abschliessen',
     // hard delete — Übungen only (the backend rejects everything else); deliberately NOT
     // undoable, hence the danger confirm instead of confirm-with-undo
@@ -2582,9 +2588,12 @@ export const de = {
     complete: 'Einsatz abschliessen',
     backToRapport: 'Zurück zum Rapport',
     confirmTitle: 'Einsatz abschliessen',
-    confirmMsg: 'Der Rapport wird als abgeschlossen markiert und der Einsatz archiviert. Spätere Korrekturen bleiben möglich und erscheinen als Nachträge.',
+    confirmMsg: 'Der Rapport wird als abgeschlossen markiert und der Einsatz abgeschlossen. Spätere Korrekturen bleiben möglich und erscheinen als Nachträge.',
     confirmMissing: 'Noch offen: {steps}. Trotzdem abschliessen?',
     confirmBtn: 'Abschliessen',
+    // …und wenn noch etwas offen ist, sagt es der Knopf. Abschliessen ist erlaubt – das ist der
+    // Ort, an dem das ausgesprochen wird, statt hinter einem gleich beschrifteten Knopf.
+    confirmAnyway: 'Trotzdem abschliessen',
     done: 'Rapport abgeschlossen',
     doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',

@@ -291,7 +291,15 @@ export default function App() {
   // (the take made it active) — no activeId dep, so the toast's captured closure can't go stale.
   const undoTake = useCallback(async (id: string) => {
     if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
-    await archiveIncident(id).catch(() => {})
+    // ⚠️ SAY SO when the undo does not go through. A swallowed failure here left the incident on
+    // the server, refreshed the list, and dropped the operator back onto it with no explanation —
+    // an Einsatz that reappears by itself is how a tool stops being believed.
+    try {
+      await archiveIncident(id)
+    } catch (e) {
+      toast(e instanceof ApiError ? e.detail : appConfig.copy.abschluss.failed, { icon: 'warn', tone: 'warn' })
+      return
+    }
     // ⚠️ the hard clear, deliberately — «Rückgängig» on a one-tap take means this incident should
     // never have existed, so keeping its blobs would leave an orphan queue nothing ever drains.
     // Every other archive path keeps what is still pending (clearUploadedMedia).
@@ -368,75 +376,24 @@ export default function App() {
     }
   }, [activeId, reflectMeta])
 
-  // Archive ANY incident from the switcher list (per-incident, not just the active one).
-  // Archiving the active one flushes + tears down its live sync and re-opens the next
-  // incident; archiving a background one just removes it and leaves the current one open.
-  const archiveById = useCallback(async (id: string) => {
-    if (!id) return
-    // Demo: don't let a visitor close the one shared running incident (it would archive for
-    // everyone until the nightly reset). Editing it stays open; only closing/creating is blocked.
-    if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return }
-    const ok = await confirmDialog({
-      title: appConfig.copy.history.archiveConfirmTitle,
-      message: appConfig.copy.history.archiveConfirmMsg,
-      confirmLabel: appConfig.copy.history.archiveConfirmBtn,
-      cancelLabel: appConfig.copy.cancel,
-      danger: true,
-    })
-    if (!ok) return
-    if (id === activeId) {
-      if (syncRef.current) { await syncRef.current.flush().catch(() => {}); syncRef.current.dispose(); syncRef.current = null }
-      await archiveIncident(id).catch(() => {})
-      await clearUploadedMedia(id)
-      const list = await refreshList()
-      setActiveId(null); setActiveMeta(null)
-      if (list[0]) await selectIncident(list[0].id, { meta: list[0] })
-    } else {
-      await archiveIncident(id).catch(() => {})
-      await clearUploadedMedia(id)
-      await refreshList()
-    }
-  }, [activeId, refreshList, selectIncident])
-
-  // «Zurück» from an archived read-only view: return to the incident that was active before,
-  // else land on the launcher with «Alle Einsätze» open (the sheet the view was entered from).
-  const backFromArchive = useCallback(async () => {
-    const backId = archiveReturnRef.current
-    archiveReturnRef.current = null
-    if (backId && (await selectIncident(backId).then(() => true).catch(() => false))) return
-    // a read-only view holds no unsaved edits — dispose without flushing
-    if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
-    setActiveId(null); setActiveMeta(null); setForceReadOnly(false)
-    setOverlay('history')
-  }, [selectIncident])
-
-  // Reactivate an archived incident (the ArchivedBanner action) — as deliberate as archiving:
-  // the mirror confirm also teaches the consequences (Nachträge, «geändert nach Abschluss»).
-  // On confirm the same incident reopens EDITABLE (readOnly false ⇒ it rejoins the open list).
-  const reactivateById = useCallback(async (id: string) => {
-    const h = appConfig.copy.history
-    const ok = await confirmDialog({
-      title: h.reactivateConfirmTitle,
-      message: h.reactivateConfirmMsg,
-      confirmLabel: h.reactivateConfirmBtn,
-      cancelLabel: appConfig.copy.cancel,
-    })
-    if (!ok) return
-    await reactivateIncident(id).catch(() => {})
-    await refreshList()
-    await selectIncident(id, { readOnly: false }).catch(() => {})
-  }, [refreshList, selectIncident])
-
-  // Abschluss-Assistent finished (its own confirm covered the decision): flush the last
-  // workspace edits, stamp report_done_at, archive, and move on — one action, no second
-  // dialog. Late corrections stay possible (reactivate / Nachträge) and flip the derived
-  // chip to «geändert nach Abschluss».
-  const completeRapport = useCallback(async (id: string) => {
-    if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return }
+  // THE close, and the only one. Both doors on the ACTIVE Einsatz (the Rapport's button/band and
+  // the Einsatz-Menü row) run their counting confirm in IncidentWorkspace and land here; «Alle
+  // Einsätze» runs the plain confirm below and lands here too. Flush the last workspace edits,
+  // stamp report_done_at, close, and move on — one action, no second dialog. Late corrections
+  // stay possible (wieder öffnen / Nachträge) and flip the derived chip to «geändert nach
+  // Abschluss».
+  // Resolves TRUE only when the Einsatz was actually closed — the workspace's confirm passes
+  // the outcome on (a failed handover must not look like an Abschluss to anyone upstream).
+  const completeRapport = useCallback(async (id: string): Promise<boolean> => {
+    if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return false }
     try {
       if (id === activeId && syncRef.current) await syncRef.current.flush().catch(() => {})
       await patchIncident(id, { report_done_at: new Date().toISOString() })
-      await archiveIncident(id).catch(() => {})
+      // ⚠️ NOT `.catch(() => {})`. A swallowed failure here sat one line above a green «Rapport
+      // abgeschlossen» toast — and then the Einsatz reopened by itself on the next list refresh,
+      // because it had never been closed at all. The catch below reports it and the Einsatz stays
+      // where it is, which is the truth.
+      await archiveIncident(id)
       // …and say so when something could not go up: the operator is about to leave this incident,
       // and «kommt beim nächsten Öffnen» is only reassuring if it was said out loud.
       const stillQueued = await clearUploadedMedia(id)
@@ -451,10 +408,75 @@ export default function App() {
       } else {
         await refreshList()
       }
+      return true
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : appConfig.copy.abschluss.failed, { icon: 'warn', tone: 'warn' })
+      return false
     }
   }, [activeId, refreshList, selectIncident])
+
+  // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
+  // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
+  // from a list is not a second, weaker kind of ending. Until 22.08. this path archived plainly:
+  // no `report_done_at`, none of the seven ABSCHLUSS_STEPS checked, so the Einsatz stood in the
+  // Historie as «offen» for ever while the Rapport path stamped and counted. Two doors with the
+  // same label into two different rooms.
+  //
+  // The CONFIRM is the plain one here, and deliberately: this incident's workspace is not loaded,
+  // so there are no open points to name. The Einsatz being worked on goes through the counting
+  // confirm in IncidentWorkspace instead — both of ITS doors do.
+  const archiveById = useCallback(async (id: string) => {
+    if (!id) return
+    // Demo: don't let a visitor close the one shared running incident (it would archive for
+    // everyone until the nightly reset). Editing it stays open; only closing/creating is blocked.
+    if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return }
+    const ok = await confirmDialog({
+      title: appConfig.copy.history.archiveConfirmTitle,
+      message: appConfig.copy.history.archiveConfirmMsg,
+      confirmLabel: appConfig.copy.history.archiveConfirmBtn,
+      cancelLabel: appConfig.copy.cancel,
+      danger: true,
+    })
+    if (!ok) return
+    await completeRapport(id)
+  }, [completeRapport])
+
+  // «Zurück» from an archived read-only view: return to the incident that was active before,
+  // else land on the launcher with «Alle Einsätze» open (the sheet the view was entered from).
+  const backFromArchive = useCallback(async () => {
+    const backId = archiveReturnRef.current
+    archiveReturnRef.current = null
+    if (backId && (await selectIncident(backId).then(() => true).catch(() => false))) return
+    // a read-only view holds no unsaved edits — dispose without flushing
+    if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    setActiveId(null); setActiveMeta(null); setForceReadOnly(false)
+    setOverlay('history')
+  }, [selectIncident])
+
+  // «Wieder öffnen» — the mirror of abschliessen (the ArchivedBanner action), and as deliberate:
+  // the confirm also teaches the consequences (Nachträge, «geändert nach Abschluss»). On confirm
+  // the same incident reopens EDITABLE (readOnly false ⇒ it rejoins the open list).
+  const reactivateById = useCallback(async (id: string) => {
+    const h = appConfig.copy.history
+    const ok = await confirmDialog({
+      title: h.reactivateConfirmTitle,
+      message: h.reactivateConfirmMsg,
+      confirmLabel: h.reactivateConfirmBtn,
+      cancelLabel: appConfig.copy.cancel,
+    })
+    if (!ok) return
+    // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
+    // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
+    // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
+    try {
+      await reactivateIncident(id)
+    } catch (e) {
+      toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+      return
+    }
+    await refreshList()
+    await selectIncident(id, { readOnly: false }).catch(() => {})
+  }, [refreshList, selectIncident])
 
   // Incident list still loading after auth: keep the boot Splash up rather than a blank
   // colour flash, so the launch stays continuous from /me probe → list → workspace.
@@ -527,8 +549,11 @@ export default function App() {
           // the mid-incident banner, never via a separate pool screen.
           onOpenDivera={() => setOverlay('create')}
           onOpenDatenquellen={() => setOverlay('daten')}
-          onCompleteRapport={() => void completeRapport(activeMeta.id)}
-          onArchiveActive={isEditor && !activeMeta.is_archived ? () => void archiveById(activeMeta.id) : undefined}
+          // ⚠️ There is no separate «archive the active one» prop any more. The Einsatz-Menü row
+          // used to hang off `archiveById`, which archived plainly — no report_done_at, nothing
+          // checked — while the Rapport path stamped and counted. Both doors run the SAME confirm
+          // in IncidentWorkspace now and end here (mockup 06 · Fall 4).
+          onCompleteRapport={() => completeRapport(activeMeta.id)}
           onReactivateActive={isEditor && activeMeta.is_archived ? () => void reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
           needsReview={
