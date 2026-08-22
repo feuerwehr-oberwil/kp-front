@@ -442,16 +442,52 @@ def _teilstueck_fork(overlay: Image.Image, pts: list[tuple[float, float]], color
     overlay.alpha_composite(fork, (int(tip[0] - size / 2), int(tip[1] - size / 2)))
 
 
-def _end_tag(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], parts: list[str], color: str, fs: int) -> None:
-    """Boxed tag just before the tip (72 % along the last segment): «1 · S · +2»."""
+def _end_tag(
+    draw: ImageDraw.ImageDraw,
+    pts: list[tuple[float, float]],
+    parts: list[str],
+    color: str,
+    fs: int,
+    line_w: float = 0,
+    bounds: tuple[int, int] | None = None,
+) -> None:
+    """Boxed tag BESIDE the line near its tip (72 % along the last segment): «1 · S · +2».
+
+    ⚠️ It used to sit ON the line, and its box is opaque — so it covered the last quarter of the
+    very Leitung it names. On paper the line appeared to stop dead at the tag, and the Teilstück
+    fork beyond it read as a second, unattached mark; a reader could not tell which line the tag
+    belonged to where two ran close. It is pushed clear along the segment's normal now, far
+    enough that the stroke and the box never touch, so the geometry stays one continuous line
+    and the words sit next to it the way a hand-drawn Kroki labels a hose.
+
+    Which side: away from the polyline's own centre of mass, so a hose that loops back gets its
+    tag on the outside rather than inside its own bend. `bounds` (the overlay size) keeps a tag
+    near the sheet edge from being pushed half off it — a tag that is cut off says nothing.
+    """
     a, b = pts[-2], pts[-1]
     x, y = a[0] + (b[0] - a[0]) * 0.72, a[1] + (b[1] - a[1]) * 0.72
     text = " · ".join(parts)
     f = _font(fs)
     tw = draw.textlength(text, font=f)
     pad = fs * 0.4
+    half_w, half_h = tw / 2 + pad, fs * 0.8 + pad / 2
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    seg = math.hypot(dx, dy) or 1.0
+    nx, ny = -dy / seg, dx / seg
+    cx = sum(p[0] for p in pts) / len(pts)
+    cy = sum(p[1] for p in pts) / len(pts)
+    if nx * (x - cx) + ny * (y - cy) < 0:  # normal points back into the line — take the other one
+        nx, ny = -nx, -ny
+    # how far the BOX reaches in that direction (support function of an axis-aligned rectangle),
+    # plus half the stroke and a hair of air. Offsetting by half the height alone would leave a
+    # wide tag lying across a vertical line.
+    off = abs(nx) * half_w + abs(ny) * half_h + line_w / 2 + fs * 0.45
+    x, y = x + nx * off, y + ny * off
+    if bounds:
+        x = min(max(x, half_w + 2), bounds[0] - half_w - 2)
+        y = min(max(y, half_h + 2), bounds[1] - half_h - 2)
     draw.rounded_rectangle(
-        [x - tw / 2 - pad, y - fs * 0.8 - pad / 2, x + tw / 2 + pad, y + fs * 0.8 + pad / 2],
+        [x - half_w, y - half_h, x + half_w, y + half_h],
         radius=max(2, fs // 4),
         fill=(255, 255, 255, 240),
         outline=color,
@@ -878,7 +914,7 @@ def render_kroki(
     # went down before the —R—R— letters of their own line, so a Leitung running under its own
     # tag had the letters painted straight through «1 · W · Meier A.». The tag is the one thing
     # on a hose line that has to stay readable, and the screen puts it on top too (MapView).
-    end_tags: list[tuple[list[tuple[float, float]], list[str], str, int]] = []
+    end_tags: list[tuple[list[tuple[float, float]], list[str], str, int, float]] = []
     for d in scene.drawings:
         color = d.get("color") or "#1f6feb"
         kind = d.get("kind")
@@ -938,7 +974,7 @@ def render_kroki(
             if d.get("trupp"):
                 tag_parts.append(str(d["trupp"]))
             if tag_parts:
-                end_tags.append((pts, tag_parts, color, int(12 * u * ss)))
+                end_tags.append((pts, tag_parts, color, int(12 * u * ss), w))
             # label chip at the midpoint VERTEX (like the map): distance line + free label stack
             lines: list[str] = []
             if d.get("showDistance"):
@@ -1024,8 +1060,8 @@ def render_kroki(
     # marker letters over the lines, then the end tags over THOSE, label chips on top of all
     for xy, letter, fs, color in markers:
         _halo_text(draw, xy, letter, fs, color)
-    for tag_pts, tag_parts, tag_color, tag_fs in end_tags:
-        _end_tag(draw, tag_pts, tag_parts, tag_color, tag_fs)
+    for tag_pts, tag_parts, tag_color, tag_fs, tag_w in end_tags:
+        _end_tag(draw, tag_pts, tag_parts, tag_color, tag_fs, tag_w, overlay.size)
 
     # ── words last, and they go in the LEGEND, not on the picture ──
     #
