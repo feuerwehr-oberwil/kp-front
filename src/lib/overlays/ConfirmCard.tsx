@@ -39,7 +39,11 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
         <Dialog.Backdrop className="modal-backdrop confirm-backdrop" />
         <Dialog.Popup role="alertdialog" className="confirm-card ui-dialog" initialFocus={confirmRef} aria-label={title ?? message}>
           {title && <Dialog.Title className="confirm-title" render={<h3 />}>{title}</Dialog.Title>}
-          <p className="confirm-msg">{message}</p>
+          {/* An empty message renders NOTHING, not an empty paragraph with its own margin: some
+              confirms are a title and two buttons («Stationsdrucker offline» — the title already
+              is the whole statement, and the paragraph under it was an explanation nobody needed
+              to read twice). */}
+          {message && <p className="confirm-msg">{message}</p>}
           {/* the open points as a LIST, not as a comma-separated run-on — this is the part
               somebody has to act on, item by item, and a paragraph is read to the end by
               nobody at 3am */}

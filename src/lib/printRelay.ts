@@ -82,10 +82,17 @@ export interface PrintJobState {
   error?: string | null
 }
 
-/** One status read; null = unknown (offline / error) — the caller keeps its last known state. */
-export async function fetchJobStatus(t: PrintTransport, jobId: string): Promise<PrintJobState | null> {
+/** One status read. Three answers, and they mean different things:
+ *  - a state: the relay knows the job;
+ *  - `'gone'`: the relay answered 404 — the job no longer EXISTS (the backend sweeps old jobs
+ *    after 7 days, exactly the relay-was-down-a-week case), so its outcome is unknowable and
+ *    waiting longer can never resolve it;
+ *  - `null`: unreachable (offline / error) — says nothing about the job, the caller keeps its
+ *    last known state. Folding 404 into null used to keep a swept job «offen» for ever. */
+export async function fetchJobStatus(t: PrintTransport, jobId: string): Promise<PrintJobState | 'gone' | null> {
   try {
     const res = await fetch(t.jobUrl(jobId), { credentials: 'include', headers: t.headers })
+    if (res.status === 404) return 'gone'
     if (!res.ok) return null
     const body = await res.json()
     return { status: body.status, error: body.error }
@@ -110,6 +117,8 @@ export async function pollJobUntilDone(
   let last: PrintJobState | null = null
   while (Date.now() < deadline) {
     const s = await fetchJobStatus(t, jobId)
+    // the job stopped existing — nothing further can ever be observed about it
+    if (s === 'gone') return last
     if (s) {
       if (!last || s.status !== last.status) onState(s)
       last = s
@@ -136,12 +145,23 @@ export async function prewarmPrint(t: PrintTransport, incidentId: string, payloa
   }
 }
 
-/** Cancel while still queued (the undo toast). False = too late, the agent claimed it. */
-export async function cancelPrint(t: PrintTransport, jobId: string): Promise<boolean> {
-  const res = await fetch(t.cancelUrl(jobId), {
-    method: 'DELETE',
-    credentials: 'include',
-    headers: t.headers,
-  })
-  return res.ok
+/** What a cancel attempt actually achieved — four different sentences for the operator:
+ *  cancelled (removed from the queue) · late (the agent already claimed it, paper may be
+ *  moving) · gone (404 — the job no longer exists, see fetchJobStatus) · unreachable
+ *  (network failure, which says NOTHING about the job — it used to toast «zu spät»). */
+export type CancelOutcome = 'cancelled' | 'late' | 'gone' | 'unreachable'
+
+/** Cancel while still queued (the undo toast + the Rapport head's «Abbrechen»). */
+export async function cancelPrint(t: PrintTransport, jobId: string): Promise<CancelOutcome> {
+  try {
+    const res = await fetch(t.cancelUrl(jobId), {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: t.headers,
+    })
+    if (res.ok) return 'cancelled'
+    return res.status === 404 ? 'gone' : 'late'
+  } catch {
+    return 'unreachable'
+  }
 }

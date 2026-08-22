@@ -225,6 +225,26 @@ async def test_cancel_only_while_queued(client, editor, relay_secret):
     assert r.status_code == 409
 
 
+async def test_cancel_gated_by_role_or_ownership(client, editor, viewer, relay_secret):
+    """A viewer must not cancel an EDITOR's queued print — the UI disables the button, this is
+    the floor under it. Enqueue stays open to every authenticated user (printing is read-only
+    output), so the Rückgängig on a job the viewer queued THEMSELVES keeps working."""
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    editors_job = await _enqueue(client, inc)
+
+    await _login(client, viewer)
+    r = await client.delete(f"/api/print-jobs/{editors_job}")
+    assert r.status_code == 403
+    # …and the editor's job is untouched
+    assert (await client.get(f"/api/print-jobs/{editors_job}")).json()["status"] == "queued"
+
+    own_job = await _enqueue(client, inc)
+    r = await client.delete(f"/api/print-jobs/{own_job}")
+    assert r.status_code == 200
+    assert r.json()["status"] == "cancelled"
+
+
 # --- capture twins (poster token) -----------------------------------------------------
 
 

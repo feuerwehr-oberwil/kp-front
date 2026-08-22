@@ -60,12 +60,24 @@ export interface ReportMeta {
    *  shows, and the page shape. Remembered so a reprint (a correction, a second copy for the
    *  Gemeinde) comes out of the same window instead of being framed from scratch. */
   krokiPrint?: { view?: KrokiView; at?: string; landscape?: boolean }
-  /** When a rapport was last produced from this Einsatz (PDF downloaded or print job queued).
-   *  It is what lets the Rapport say «der Einsatz ist noch offen» at the one moment that is
-   *  actually true — the paper exists, everything is filled in, and only the bookkeeping is
-   *  left. In the blob rather than on the device because the Einsatz is worked on from several
-   *  of them: whoever opens the Rapport next should see that the paper has already been made. */
+  /** When a rapport was last PRODUCED from this Einsatz — a PDF downloaded, or a station print
+   *  job the relay has reported `done`. It is what lets the Rapport say «der Einsatz ist noch
+   *  offen» at the one moment that is actually true — the paper exists, everything is filled in,
+   *  and only the bookkeeping is left. In the blob rather than on the device because the Einsatz
+   *  is worked on from several of them: whoever opens the Rapport next should see that the paper
+   *  has already been made.
+   *
+   *  ⚠️ A QUEUED job does NOT stamp this (fixed 22.08.). It used to be set the instant the job
+   *  left the device — including straight after the confirm that said «Stationsdrucker offline» —
+   *  and this stamp alone drives the «Rapport erstellt. Der Einsatz ist noch offen –
+   *  abschliessen?» band. So the app offered to close an Einsatz whose rapport did not exist on
+   *  any sheet of paper anywhere. See `printJob` for the state in between. */
   reportMadeAt?: string
+  /** The station print job this rapport is waiting on: set when it is queued, cleared when the
+   *  relay reports a terminal status. «In der Warteschlange» is a state of its own, not a
+   *  weaker «gesendet» — so it lives on the blob (visible after a reload and on the next
+   *  device) rather than only inside the toast that announced it, which is gone in seconds. */
+  printJob?: { id: string; at: string }
   /** Gerettete: people / animals (counts; absent ≠ 0 — absent means not recorded) */
   gerettete?: { personen?: number; tiere?: number }
   /** who recorded via the Erfassung (/e/) — comma-separated, each person once */

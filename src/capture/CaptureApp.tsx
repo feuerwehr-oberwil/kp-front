@@ -751,7 +751,9 @@ export default function CaptureApp() {
       const t = capturePrintTransport(token)
       // stalled enqueue must clear printBusy into the failed-toast, never freeze the button
       const jobId = await withTimeout(enqueuePrint(t, incident.id, payload), 15_000)
-      trackPrintJob(t, jobId)
+      // the poster has no Rapport head to keep an outstanding job on — but the toast still says
+      // «in der Warteschlange», and why, instead of «gesendet»
+      trackPrintJob(t, jobId, undefined, { relayOffline: !printStatus?.online })
     } catch { toast(R.failed, { icon: 'warn', tone: 'warn' }) } finally { setPrintBusy(false) }
   }
 
@@ -1411,7 +1413,10 @@ export default function CaptureApp() {
             {/* the title + Ausdrucken button ARE the confirmation — no filler sentence;
                 only the offline store-and-forward warning earns a line */}
             {confirmOut === 'print' && !printStatus?.online && (
-              <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {R.offlineConfirmMsg}</p>
+              /* just the fact. The sentence that used to stand here promised that the job «wird
+                 gedruckt, sobald das Relay wieder erreichbar ist» — a claim about the future that
+                 made queuing sound like printing. */
+              <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {R.offline}</p>
             )}
             <div className="cv-modal-actions">
               <button className="cv-btn" onClick={() => setConfirmOut(null)}>{C.cancel}</button>

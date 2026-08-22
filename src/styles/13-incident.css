@@ -1069,6 +1069,10 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   padding: 11px 22px; border-bottom: 1px solid var(--glass-edge);
   background: color-mix(in srgb, var(--green) 9%, var(--surface)); }
 .rp-band-ok { width: 17px; height: 17px; flex: none; color: var(--green-strong); }
+/* The same band, amber, for the print job that has not come back (see ReportPreflight). Nothing
+   is wrong and nothing is finished — and the green above is reserved for the receipt. */
+.rp-band-open { background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
+.rp-band-wait { width: 17px; height: 17px; flex: none; color: var(--amber-strong); }
 /* takes the row and lets the buttons keep their size — below ~600px they wrap under the text
    rather than squeezing it to two words per line */
 .rp-band-txt { flex: 1 1 260px; min-width: 0; font-size: 13px; color: var(--ink); }
@@ -1076,6 +1080,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* shorter than the head's --tap controls: this is a suggestion sitting under the row that holds
    the real actions, and matching their height would make it read as a third pair of buttons */
 .rp-band .ip-btn { min-height: 38px; }
+/* the canEdit gate around the amber band's Prüfen/Abbrechen: the shared .report-fieldset is a
+   column (it wraps form sections) — inside the band it holds two buttons on the band's own row */
+.rp-band .report-fieldset { flex-direction: row; align-items: center; gap: 12px; }
 /* Content padding matches the head's 22px, so the cards line up with the title above them
    (`.ip-body`'s own 6px/20px is a dialog's, and left the first card glued to the head border).
    The bottom clears the FAB the way Anwesenheit, Mittel, Atemschutz, Checklists and Zeitplan all

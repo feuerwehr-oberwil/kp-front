@@ -332,7 +332,7 @@ export const de = {
             'Unter dem Titel steht, was erfasst ist – und als eigene Chips, was **noch offen** ist: Zeiten, Anwesenheit, Mittel, Einsatzleiter, Kurzbericht, Rückmeldung ELZ. Nichts davon blockiert je den Druck.',
             'Der **Kroki-Ausschnitt** liegt als Feld neben dem Formular: verschieben, zoomen, **Hoch/Quer** und der **Kroki-Stand** – welchen Zeitpunkt das Bild zeigt, mit Strichen dort, wo etwas passiert ist. Gedruckt wird genau das, was auf dem Schirm steht; es gibt keinen Bestätigungsschritt.',
             '**Einsatzrapport (PDF)** erzeugt den fertigen Rapport – serverseitig gerendert, ein Knopf. Das **▾** daneben öffnet **«Abschnitte»**: was aufs Papier kommt (Kroki, Pläne, Atemschutz, Anwesenheit, Material, Verlauf, Fotos, detaillierter Prüfnachweis). Das Menü bleibt beim Anhaken offen.',
-            'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** schickt den Rapport direkt dorthin (bei Unterbruch wird gespeichert und nachgeschickt).',
+            'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** reiht den Rapport dort ein. Eingereiht ist nicht gedruckt – solange der Auftrag hängt, steht er als **offener Druckauftrag** unter dem Rapportkopf, mit **Prüfen** und **Abbrechen**. Erst wenn der Drucker «gedruckt» meldet, gilt der Rapport als erstellt.',
             'Hat die Wehr eigene Formulare hinterlegt (Verwaltung › Rapport), steht unter den Fotos **Formulare & Links** – eine Liste zum Abhaken. **Öffnen** ruft das Formular auf, mit Stichwort, Ort, Datum und Einsatzleiter bereits ausgefüllt, soweit der Link das vorsieht. Der Haken wird von Hand gesetzt: ob ein Formular abgeschickt wurde, sieht die App nicht.',
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             'Kontaktperson und Rückmeldung ELZ haben am Ende der Zeile ein **Entfällt** – für den Fehlalarm oder die Ölspur, wo es beides nicht gibt. Das ist eine Antwort, keine Übergehung: sie wird festgehalten und steht so im Rapport.',
@@ -3040,15 +3040,31 @@ export const de = {
   printRelay: {
     send: 'Ausdrucken',
     sending: 'Wird gesendet …',
-    queued: 'An Stationsdrucker gesendet',
-    // live status toast follows the job: gesendet → wird gedruckt → gedruckt / fehlgeschlagen
+    // ⚠️ «In der Warteschlange», nicht «gesendet». Eingereiht ist nicht gedruckt: was die App
+    // weiss, ist dass der Auftrag in einer Warteschlange liegt. «Gesendet» klang nach erledigt –
+    // und war die erste Hälfte der Geschichte, die damit endete, den Einsatz abschliessen zu
+    // dürfen, obwohl kein Blatt existierte.
+    queued: 'In der Warteschlange',
+    // live status toast follows the job: Warteschlange → wird gedruckt → gedruckt / fehlgeschlagen
     printing: 'Wird gedruckt …',
     printed: 'Gedruckt',
     printFailed: 'Druck fehlgeschlagen – Drucker prüfen',
     // the same three stages as a chain INSIDE that toast — short, they stand next to each other
-    stepSent: 'Gesendet',
+    stepQueued: 'In der Warteschlange',
     stepPrinting: 'Wird gedruckt',
     stepPrinted: 'Gedruckt',
+    // Ein unerledigter Auftrag ist ein ZUSTAND und lebt am Rapportkopf, nicht im Toast: das
+    // Polling gibt nach 90 s auf, danach las den Auftrag niemand je wieder.
+    jobOpen: 'Druckauftrag offen',
+    jobOpenSince: 'Seit {t} in der Warteschlange',
+    jobCheck: 'Prüfen',
+    jobCancel: 'Abbrechen',
+    jobUnreachable: 'Druckauftrag nicht erreichbar – Verbindung prüfen',
+    // 404 vom Relay: der 7-Tage-Sweep des Backends hat den Auftrag weggeräumt – genau der Fall
+    // «Relay war eine Woche down». Ohne eigene Antwort blieb das Band für immer stehen, und
+    // «Prüfen» sagte «nicht erreichbar» über einen Host, der soeben geantwortet hatte. Kein
+    // «Rapport erstellt»-Stempel: ob je ein Blatt herauskam, weiss niemand – der Satz sagt das.
+    jobGone: 'Druckauftrag nicht mehr auffindbar – falls kein Ausdruck herauskam, erneut drucken.',
     // every print goes through a confirm modal — no accidental paper (2026-07-18)
     confirmTitle: 'Ausdrucken',
     confirmMsg: 'Einsatzrapport an den Stationsdrucker senden?',
@@ -3059,8 +3075,10 @@ export const de = {
     failed: 'Senden an Stationsdrucker fehlgeschlagen',
     online: 'Stationsdrucker erreichbar',
     offline: 'Stationsdrucker offline',
+    // ⚠️ Nur der Titel, kein Erklärtext. «Der Auftrag wird gedruckt, sobald das Relay wieder
+    // erreichbar ist» war der Satz, der Einreihen wie Drucken klingen liess – und danach stand
+    // «Rapport erstellt» auf dem Schirm. Der Titel ist die ganze Aussage.
     offlineConfirmTitle: 'Stationsdrucker offline',
-    offlineConfirmMsg: 'Das Druck-Relay meldet sich gerade nicht. Der Auftrag wird gedruckt, sobald es wieder erreichbar ist. Trotzdem senden?',
     offlineConfirmBtn: 'Trotzdem senden',
   },
   // Anwesenheit surface (AnwesenheitView)

@@ -6,10 +6,10 @@ import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { rowPhotos } from '../lib/verlauf'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
-import { editorPrintTransport, enqueuePrint, fetchPrintStatus, prewarmPrint, type PrintRelayStatus } from '../lib/printRelay'
+import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable } from '../lib/format'
+import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
@@ -547,6 +547,35 @@ export function ReportPreflight({
    *  — except `also`, the framing written by the same click (see startOutput). */
   const stampReportMade = (also: Partial<ReportMeta>) =>
     canEdit && onSaveMeta({ ...metaRef.current, ...also, reportMadeAt: new Date().toISOString() })
+  /** A job has been handed to the station relay and is not printed yet. Recorded on the blob,
+   *  not just in the toast: «in der Warteschlange» is a STATE and a toast is an event, and the
+   *  poll behind the toast gives up after 90 s. Whoever opens the Rapport next — after a reload,
+   *  on another device — has to see that a print is still outstanding. */
+  const holdPrintJob = (id: string, also: Partial<ReportMeta>) =>
+    canEdit && onSaveMeta({ ...metaRef.current, ...also, printJob: { id, at: new Date().toISOString() } })
+  /** Jobs already settled on THIS surface — the double-settle guard. The toast's `onSettled`
+   *  and this surface's own 15 s poll can both answer for the same job within one render, and
+   *  `metaRef` only catches up on the NEXT render — so without this, the second settler saw the
+   *  job still on the blob and wrote again, re-stamping `reportMadeAt` seconds later. A plain
+   *  synchronous Set: the first settle claims the id before any side effect, the second no-ops. */
+  const settledJobsRef = useRef(new Set<string>())
+  /** The job left the queue. `done` is the ONLY status that earns the «Rapport erstellt» stamp —
+   *  a failed or a cancelled job simply stops being outstanding, and `gone` (the relay no longer
+   *  knows the job — swept after 7 days) clears WITHOUT stamping: the outcome is unknown, and a
+   *  stamp would claim paper that may never have existed.
+   *  ⚠️ ONE write for both halves: `metaRef` only catches up on the next render, so stamping and
+   *  then clearing would merge the clear onto the blob as it was BEFORE the stamp.
+   *  ⚠️ Settles the NAMED job only: a settle that arrives late (the toast poll of a previous
+   *  job) must not clear a newer job that has since been queued. */
+  const settlePrintJob = (jobId: string, status: PrintJobStatus | 'gone') => {
+    if (!canEdit || metaRef.current.printJob?.id !== jobId || settledJobsRef.current.has(jobId)) return
+    settledJobsRef.current.add(jobId)
+    onSaveMeta({
+      ...metaRef.current,
+      ...(status === 'done' ? { reportMadeAt: new Date().toISOString() } : {}),
+      printJob: undefined,
+    })
+  }
   /** The one step left after the paper exists, offered beside the fact rather than demanded:
    *  the Einsatz is still open, and nobody archives one unless they know they have to.
    *  ⚠️ `undefined` while ANY Mindestangabe is missing — printing a half-filled sheet to finish
@@ -602,11 +631,14 @@ export function ReportPreflight({
   }, [printStatus?.available, options.kroki, mapContentCount])
   const R = appConfig.copy.printRelay
   const sendToPrinter = async (framing: Partial<ReportMeta> = {}) => {
-    // ALWAYS confirm — «Ausdrucken» must never produce accidental paper; when the relay
-    // is offline the modal doubles as the store-and-forward warning
+    // ALWAYS confirm — «Ausdrucken» must never produce accidental paper; when the relay is
+    // offline the modal doubles as the store-and-forward warning. That one is now the TITLE and
+    // nothing else: «Stationsdrucker offline» is the whole statement, and the paragraph under it
+    // explaining that the job would be printed later was the sentence that made queuing sound
+    // like printing.
     const ok = printStatus?.online
       ? await confirmDialog({ title: R.confirmTitle, message: R.confirmMsg, confirmLabel: R.confirmBtn })
-      : await confirmDialog({ title: R.offlineConfirmTitle, message: R.offlineConfirmMsg, confirmLabel: R.offlineConfirmBtn })
+      : await confirmDialog({ title: R.offlineConfirmTitle, message: '', confirmLabel: R.offlineConfirmBtn })
     if (!ok) return
     setPrintBusy(true)
     try {
@@ -616,17 +648,104 @@ export function ReportPreflight({
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
-      stampReportMade(framing)
-      // …on the END of the job's own status chain, not as a second toast beside it: the sticky
-      // «gesendet → wird gedruckt → gedruckt» is already on screen, and the Einsatz is worth
-      // closing once the paper is out of the printer, not once it is queued.
-      trackPrintJob(t, jobId, completeOffer())
+      // ⚠️ NOT `stampReportMade`. EINGEREIHT IST NICHT GEDRUCKT: the stamp is the sole condition
+      // for the band «Rapport erstellt. Der Einsatz ist noch offen – abschliessen?», and until
+      // 22.08. it was set the instant the job left this device — including straight after the
+      // dialog that had just said the printer was offline. So the app offered to close an Einsatz
+      // whose rapport existed on no sheet of paper anywhere. What is recorded here is the OPEN
+      // JOB; the stamp waits for the relay to say `done` (settlePrintJob).
+      holdPrintJob(jobId, framing)
+      // …and the Abschluss offer rides the END of the job's own status chain, not a second toast
+      // beside it: the Einsatz is worth closing once the paper is out of the printer.
+      trackPrintJob(t, jobId, completeOffer(), {
+        relayOffline: !printStatus?.online,
+        onSettled: (status) => settlePrintJob(jobId, status),
+      })
     } catch {
       toast(R.failed, { icon: 'warn', tone: 'warn' })
     } finally {
       setPrintBusy(false)
     }
   }
+
+  // --- The print job that has NOT come out yet ------------------------------------------------
+  //
+  // `pollJobUntilDone` gives up after 90 s and its toast is gone from the screen long before
+  // that, and nothing ever read the job again — so a Rapport could sit for an hour claiming to
+  // have been printed while the relay had never come back. An unresolved job is a STATE: it
+  // lives on the blob, it shows under the head, and it is re-read for as long as this surface is
+  // open, across a reload and a change of device.
+  const pendingJob = reportMeta.printJob
+  const [jobBusy, setJobBusy] = useState(false)
+  // «Seit X min» must move. Computed from a bare Date.now() at render it froze at whatever
+  // minute the band appeared in (and read the clock during render, which the purity lint
+  // rightly flags) — a minute tick while a job is outstanding keeps the line honest. The
+  // interval only exists while the band does; an Einsatz without an open job pays nothing.
+  // No synchronous re-read when a job appears (the lint objects to setState in an effect
+  // body, and it is not needed): a just-queued job's negative span is clamped to «Seit 0 min»
+  // where the band renders it, which is the right sentence until the first tick.
+  const [jobNowMs, setJobNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    if (!pendingJob) return
+    const iv = setInterval(() => setJobNowMs(Date.now()), 60_000)
+    return () => clearInterval(iv)
+  }, [pendingJob])
+  useEffect(() => {
+    const job = pendingJob
+    if (!job || !canEdit) return
+    let alive = true
+    const t = editorPrintTransport()
+    const read = async () => {
+      const s = await fetchJobStatus(t, job.id)
+      if (!alive) return
+      // 'gone' = the relay no longer knows the job (swept after 7 days — the relay-was-down-a-
+      // week case). Waiting longer can never resolve it, so stop showing it as open and say so
+      // honestly: the outcome is unknown, no «Rapport erstellt» stamp.
+      if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
+      // null = the relay is unreachable right now, which says nothing about the job — keep it.
+      if (!s || s.status === 'queued' || s.status === 'printing') return
+      settlePrintJob(job.id, s.status)
+    }
+    void read()
+    const iv = setInterval(() => void read(), 15_000)
+    return () => { alive = false; clearInterval(iv) }
+    // keyed on the JOB, not on the writer — `settlePrintJob` is re-created every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingJob?.id, canEdit])
+  /** «Prüfen»: ask the relay once, now, and say what came back — including «nothing», which is
+   *  its own answer and used to be indistinguishable from «still queued». */
+  const checkPrintJob = async () => {
+    const job = metaRef.current.printJob
+    if (!job) return
+    setJobBusy(true)
+    const s = await fetchJobStatus(editorPrintTransport(), job.id)
+    setJobBusy(false)
+    // «nicht mehr auffindbar» and «nicht erreichbar» are different answers: the first is about
+    // the JOB (it stopped existing — clear it, outcome unknown), the second about the network.
+    if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
+    if (!s) { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn' }); return }
+    if (s.status === 'done') { settlePrintJob(job.id, 'done'); toast(R.printed, { icon: 'check', tone: 'success' }); return }
+    if (s.status === 'failed') { settlePrintJob(job.id, 'failed'); toast(R.printFailed, { icon: 'warn', tone: 'warn' }); return }
+    if (s.status === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled); return }
+    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', tone: 'warn' })
+  }
+  /** Give up on a job that is still in the queue. Refused once the agent has claimed it — the
+   *  paper may already be moving, and the button says so rather than pretending. */
+  const dropPrintJob = async () => {
+    const job = metaRef.current.printJob
+    if (!job) return
+    setJobBusy(true)
+    const res = await cancelPrint(editorPrintTransport(), job.id)
+    setJobBusy(false)
+    if (res === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled); return }
+    // The three refusals mean three different things (see printRelay · CancelOutcome):
+    // «zu spät» only when the relay actually SAID the job is past cancelling — a network
+    // failure used to wear the same words, claiming knowledge nobody had.
+    if (res === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
+    if (res === 'unreachable') { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn' }); return }
+    toast(R.undoTooLate, { icon: 'warn', tone: 'warn' })
+  }
+
   const patchOpt = (patch: Partial<ReportOptions>) => setOptions((o) => ({ ...o, ...patch }))
   /** Is there anything to frame? A rapport-only Einsatz (nothing drawn, nothing placed) seeds
    *  the Kroki section OFF and must not show an empty map pretending to be a picture — and
@@ -1180,6 +1299,29 @@ export function ReportPreflight({
             <button type="button" className="ip-btn primary" onClick={() => void complete()}>
               <Icon id="archive" />{A.complete}
             </button>
+          </div>
+        )}
+        {/* …and its counterpart: a print that has been handed over and has not come back. It is
+            NOT dismissible — «Später» on the green band hides an offer, this one is an open
+            question about whether the rapport exists at all — and it stays until the relay says
+            done, failed or cancelled. Amber, because nothing is finished and nothing is wrong. */}
+        {pendingJob && (
+          <div className="rp-band rp-band-open">
+            <Icon id="printer" className="rp-band-wait" />
+            <span className="rp-band-txt">
+              <b>{R.jobOpen}</b>{' '}
+              {fillTemplate(R.jobOpenSince, { t: fmtSpanShort(Math.max(0, jobNowMs - Date.parse(pendingJob.at))) })}
+              {printStatus && !printStatus.online && ` · ${R.offline}`}
+            </span>
+            {/* The band stays VISIBLE for a viewer — an outstanding print is true information —
+                but the actions sit behind the same canEdit gate as every other control on this
+                surface (the disabled fieldsets above). A viewer's «Abbrechen» used to really
+                cancel the job at the relay while their own settlePrintJob no-oped: toast said
+                abgebrochen, the band stayed, and the editor's print was gone. */}
+            <fieldset className="report-fieldset" disabled={!canEdit}>
+              <button type="button" className="ip-btn" disabled={jobBusy} onClick={() => void checkPrintJob()}>{R.jobCheck}</button>
+              <button type="button" className="ip-btn ip-btn-danger" disabled={jobBusy} onClick={() => void dropPrintJob()}>{R.jobCancel}</button>
+            </fieldset>
           </div>
         )}
         {/* PHONE ONLY — `display: none` from 601px up, so tablet and desktop are byte-identical

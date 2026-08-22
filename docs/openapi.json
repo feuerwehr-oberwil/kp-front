@@ -8054,6 +8054,7 @@
           "print-relay"
         ],
         "summary": "Report Print Cancel",
+        "description": "Cancel a queued job. Enqueue and status stay open to every authenticated user\n(printing a rapport is read-only output, see api/report.py) — but cancelling destroys\nsomebody ELSE's queued paper, which is an edit. So: an editor may cancel any job, a\nviewer only one they queued themselves (the Rückgängig on their own toast). The UI\ndisables the buttons for viewers too; this is the floor under that.",
         "operationId": "report_print_cancel_api_print_jobs__job_id__delete",
         "parameters": [
           {

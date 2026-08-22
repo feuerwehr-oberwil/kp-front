@@ -66,11 +66,18 @@ describe('enqueuePrint / cancelPrint', () => {
     await expect(enqueuePrint(editorPrintTransport(''), 'inc-1', {})).rejects.toThrow('403')
   })
 
-  it('cancel resolves false once the job is no longer queued (409)', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, false, 409)))
-    expect(await cancelPrint(editorPrintTransport(''), 'j1')).toBe(false)
+  // Four outcomes, because they get four different sentences: «zu spät» is only true when the
+  // relay SAID so (409); a 404 means the job stopped existing; a network failure knows nothing
+  // about the job and used to be dressed up as «zu spät» anyway.
+  it('cancel distinguishes cancelled / late / gone / unreachable', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ status: 'cancelled' })))
-    expect(await cancelPrint(editorPrintTransport(''), 'j1')).toBe(true)
+    expect(await cancelPrint(editorPrintTransport(''), 'j1')).toBe('cancelled')
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, false, 409)))
+    expect(await cancelPrint(editorPrintTransport(''), 'j1')).toBe('late')
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, false, 404)))
+    expect(await cancelPrint(editorPrintTransport(''), 'j1')).toBe('gone')
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
+    expect(await cancelPrint(editorPrintTransport(''), 'j1')).toBe('unreachable')
   })
 })
 
@@ -79,8 +86,17 @@ describe('fetchJobStatus', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ status: 'printing', error: null })))
     expect(await fetchJobStatus(editorPrintTransport(''), 'j1')).toEqual({ status: 'printing', error: null })
   })
-  it('returns null on error (caller keeps last known state)', async () => {
+  // «gone» and «unreachable» are different answers: a 404 says the job stopped existing (the
+  // backend sweeps jobs after 7 days — waiting longer can never resolve it), any other failure
+  // says nothing about the job. Folding the 404 into null kept a swept job «offen» for ever.
+  it('returns gone on 404 (the job no longer exists)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, false, 404)))
+    expect(await fetchJobStatus(editorPrintTransport(''), 'j1')).toBe('gone')
+  })
+  it('returns null on other errors (caller keeps last known state)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, false, 502)))
+    expect(await fetchJobStatus(editorPrintTransport(''), 'j1')).toBeNull()
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
     expect(await fetchJobStatus(editorPrintTransport(''), 'j1')).toBeNull()
   })
 })

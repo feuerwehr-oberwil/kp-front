@@ -305,9 +305,20 @@ async def report_print_job(
 @router.delete("/print-jobs/{job_id}")
 async def report_print_cancel(
     job_id: uuid.UUID,
-    _user: CurrentUser,
+    user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    """Cancel a queued job. Enqueue and status stay open to every authenticated user
+    (printing a rapport is read-only output, see api/report.py) — but cancelling destroys
+    somebody ELSE's queued paper, which is an edit. So: an editor may cancel any job, a
+    viewer only one they queued themselves (the Rückgängig on their own toast). The UI
+    disables the buttons for viewers too; this is the floor under that."""
+    if user.role != "editor":
+        job = (await db.execute(select(PrintJob).where(PrintJob.id == job_id))).scalar_one_or_none()
+        if job is None:
+            raise HTTPException(status_code=404, detail="Druckauftrag nicht gefunden")
+        if job.requested_by != user.id:
+            raise HTTPException(status_code=403, detail="Nur eigene Druckaufträge können abgebrochen werden")
     return await cancel_print_job(db, job_id)
 
 
