@@ -29,6 +29,119 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **Eine Ausbreitung zeigt in vier Richtungen, und jede trägt ihre eigene Grenze.** A fire running
+  along a façade to *both* sides and stopped at only one Brandmauer could not be drawn: horizontally
+  the symbol knew `'E' | 'W'` – either/or – and a boundary belonged to the AXIS rather than to the
+  arrow, so one `vBounded` put a bar on both vertical arrows whether it was true or not. All four
+  directions are independent now and each carries its own bar, drawn across it the way the symbol
+  prints it. The boundary is never locked: tapping it on an arrow that is off means «dorthin, und
+  dort gestoppt» and switches the direction on, because the ordinary case must not cost two taps.
+  ⚠️ The old shape sits in every Einsatz that ever had an Entwicklung, running and archived, and
+  the workspace blob is **not** migrated – a rapport from 2025 still prints from it years later.
+  Nothing reads the fields raw; everything goes through `normalizeSpread`, and `kroki.py`'s
+  `_spread_dirs` mirrors it line for line so paper and screen cannot drift apart.
+
+- **«Entfällt» ist eine Antwort – auf dem Schirm und auf dem Papier.** A Fehlalarm has no
+  Kontaktperson and an Ölspur is never reported back to the ELZ, and neither step had a way of
+  saying so: the rapport of a routine Einsatz could not reach complete, so «Angaben fehlen noch»
+  stood in front of every print until it was being tapped away unread. Both fields now take the
+  same escape the Mittel step has had all along – a recorded «Entfällt» that satisfies the step and
+  is logged in the Verlauf as the deliberate answer it is. On paper it prints as **–** in the value
+  column, where a field nobody answered keeps its empty write-in rule: «gibt es nicht» and
+  «vergessen» stay two different statements on a sheet that gets signed.
+
+### Changed
+
+- **Jedes «Einsatz abschliessen» geht durch dieselbe Tür.** The Einsatz-Menü row and «Alle
+  Einsätze» archived plainly – no `report_done_at`, none of the seven steps checked – while the
+  identically labelled Rapport path stamped and counted. Both doors run the one counting confirm
+  now and end in `completeRapport`; the menu row shows the open-point badge *before* the press, the
+  confirm button says «Trotzdem abschliessen» when points are open, and a failed close or reopen is
+  reported instead of swallowed. One word pair for the lifecycle throughout: abschliessen / wieder
+  öffnen.
+
+- **Der Ziehgriff der Leisten geht mit den Wörtern, nicht mit dem Eingabegerät.** The decision was
+  already made and only half carried out: with «Beschriftung · Wörter» on, the expand chevron is not
+  rendered at all, because there is nothing left to expand once the word stands under the sign. The
+  drag handle was the remainder the same thought had missed. It is gone whenever the words are on,
+  on every device – and it stays everywhere when they are off, because then it is the only way to
+  see a label at all. ⚠️ The earlier condition was `pointer: coarse`, which was both too wide and
+  too narrow: it left the handle on the desktop and would have missed an iPad on a trackpad, which
+  reports `pointer: fine` and is exactly the device the rule was written for.
+
+### Fixed
+
+- **«Beschriftung · Wörter» erreichte die Leiste auf dem Plan nicht.** The setting promises the word
+  under every sign in *both* rails and kept that promise on the Lage only: the Whiteboard renders the
+  same `<ToolRail>` – its own comment says so – but never passed it `labels`. One setting, two rails,
+  and one of them was not listening. ⚠️ Threaded through as a prop rather than a second
+  `useDevicePrefs()` in the Whiteboard: that hook keeps its own state per call site, so a second call
+  would have made a copy that goes stale the moment the setting is switched.
+
+- **Die Fussknöpfe der Leisten schnitten ihre Wörter ab, die Werkzeuge darüber nicht** – same frame,
+  same font. The browser's own `padding: 1px 6px` on a `<button>`: `.vrail-tool` zeroes it,
+  `.vrail-nbtn` never did, so twelve pixels that stand in no rule of ours left a foot button 64 px
+  for a label where a tool had 76. That is why «Absperrkreis» (75 px) and «Vergrössern» (70 px) did
+  not fit. Measured in the built bundle, in Sora, against the real rail: all 23 labels of both rails
+  fit now, and it needed **no** shorter words – the established terms stay.
+
+- **Ein Druckauftrag in der Warteschlange ist kein gedruckter Rapport.** «Ausdrucken» stamped
+  `reportMadeAt` the instant the job left the device – including right after the dialog that had just
+  said the printer was offline – so the app offered to close an Einsatz whose rapport existed on no
+  sheet of paper anywhere. The open job lives on the workspace now and shows as an amber band under
+  the Rapport head, polled every 15 s, and the stamp waits for the relay to say *done*. A relay 404
+  is its own answer («swept after 7 days, outcome unknown» – cleared without stamping), and cancel
+  distinguishes cancelled / late / gone / unreachable instead of dressing a network failure up as
+  «zu spät».
+
+- **Die Glocke im Atemschutz verspricht nur, was sie halten kann.** Three honest states instead of an
+  action label, including a silent «Ton nicht freigegeben» whose tap retries the unlock: the tone
+  needs an AudioContext the browser only releases inside a gesture, and nothing guaranteed one. The
+  unlock now rides the first touch of every Einsatz rather than the Trupp form alone. The mute
+  finally covers **both** channels – the OS kept posting «Atemschutz überfällig» every 30 s past a
+  bell that said off – and it is scoped to one Einsatz per device, so a tablet muted at a drill in
+  February is armed again for the next real alarm.
+
+- **Der Kachel-Download zählte Versuche, nicht Treffer.** The progress bar reaches 100 % whatever
+  happens – it counts attempts finished, and must, or a dead host would hang it – so «fertig» said
+  nothing about «geklappt»: on dead WLAN in the Magazin it toasted a green «Karte offline verfügbar
+  (0 Kacheln)». The result buckets stored / notFound / failed now, a 404 counting as final (no
+  coverage at a layer's edge is not a miss that «Weiterladen» could ever fill), and four outcomes get
+  four messages – green only when everything fetchable arrived.
+
+- **Die Beschriftung einer Leitung stand auf der Leitung.** The boxed end tag («1 · S · +2 · Müller
+  H.») was drawn 72 % along the last segment, centred on the line, and its box is opaque – so on
+  paper it covered the last quarter of the very Leitung it names, the line appeared to stop dead at
+  the tag, and the Teilstück fork past it read as a second, unattached mark. It is pushed clear along
+  the segment's normal now, by the box's own reach in that direction plus half the stroke, on the
+  side away from the line's centre of mass – so a hose that loops back is labelled outside its bend –
+  and clamped inside the sheet, because a tag that is cut off says nothing.
+
+- **Der Kroki-Ausschnitt zeigt jetzt, was das Blatt zeigt.** Four ways the preview disagreed with the
+  paper it previews. The words rendered at plain screen size while the symbols beside them were
+  scaled, so in Hoch they came out about 1.7× too big; on top of that a **second** print reference
+  for Hoch inflated everything scaled by a further 1.6×, on the reasoning that the server sizes
+  symbols in absolute pixels on an orientation-dependent canvas – it does not, it scales every rule
+  by `width / 1050` for both shapes. The tag stacked onto two rows where `kroki.py` joins every part
+  onto one. And it was anchored at a hand-dragged `endLabelAt`, a field no payload the server sees
+  ever carries, so the crop was showing a position that cannot come out. ⚠️ Consequence worth
+  knowing: **a tag you drag on the Lage does not move on the paper** – making the sheet follow the
+  hand is a payload and server change, not a preview one. The Teilstück fork is scaled as a whole
+  instead of being handed a smaller width (`forkDims` floors the spine at 14 px, so a scaled-down
+  width simply hit the floor and left a full-size comb on a hairline), and its bearing stops reading
+  the raw last segment – a hose drawn with a finger routinely ends in a 3 px vertex that carries no
+  direction.
+
+- **Der Lade-Ping lag über der Arbeit.** The in-workspace splash stands in for the map, and it was a
+  transparent `position: fixed` sheet above everything: while the tiles and the symbol pack loaded,
+  the brand pulse and the station wordmark were painted straight across the Rapport, the rails and
+  the panels – all perfectly usable – with nothing behind them to say what they belonged to. A
+  working screen looked broken. It sits at the map's own layer now, and only the stalled state comes
+  forward, because at that point it carries a «Neu laden» button and an action behind an open dialog
+  is not an action.
+
 ## [0.7.0] – 2026-08-21
 
 ### Added
