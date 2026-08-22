@@ -116,6 +116,14 @@
 .kf-zoom-btn .i { width: 18px; height: 18px; }
 .kf-print-box { position: relative; }
 .kf-print-inner { position: absolute; top: 50%; left: 50%; transform-origin: center; }
+/* ⚠️ EVERYTHING on this preview is drawn at print scale, not just the glyphs. The end tag, the
+   drawing's label chip and the caption of a symbol-less marker used to render at their plain
+   screen size while the symbols beside them were scaled down by `printScale` — so in Hoch, where
+   the factor is ~0.58, the words came out about 1.7× too big and the one screen whose whole job
+   is «this is what comes out» showed a picture that never comes out. The server scales all of
+   them by the same `u` (kroki.py · _caption/_label_box/_end_tag). `transform-origin: center`
+   keeps the marker's own centring intact: the box stays put, only what is inside it shrinks. */
+.kf-print-scale { transform-origin: center; }
 .kf-glyph { line-height: 0; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .25)); }
 .kf-plain { display: block; padding: 4px 7px; border: 1px solid var(--glass-line); border-radius: var(--r-xs);
   background: var(--glass); color: var(--ink); font: 700 11px var(--body); white-space: nowrap; }

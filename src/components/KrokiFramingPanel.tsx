@@ -158,7 +158,10 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
       type: 'Feature' as const,
       properties: {
         color: d.color ?? appConfig.drawing.defaultColor, area: d.kind !== 'line',
-        dashed: !!d.dashed, width: (d.width ?? 4) * 0.62,
+        // the server draws `(width || 4) * u` — the same factor this preview calls printScale.
+        // It used to be a frozen 0.62, which happened to be about right for one page shape and
+        // was wrong for the other; a constant cannot follow a crop that changes size.
+        dashed: !!d.dashed, width: (d.width ?? 4) * printScale,
       },
       geometry: d.kind === 'circle' && d.radiusM
         ? { type: 'Polygon' as const, coordinates: circlePolygon(d.coords[0], d.radiusM) }
@@ -166,7 +169,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
           ? { type: 'Polygon' as const, coordinates: [[...d.coords, d.coords[0]]] }
           : { type: 'LineString' as const, coordinates: d.coords },
     })),
-  }), [scene.drawings, drawingsVisible])
+  }), [scene.drawings, drawingsVisible, printScale])
 
   /**
    * Everything the printed Kroki carries besides the bare geometry: the Teilstück fork, the end
@@ -333,22 +336,26 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             <Fragment key={`kd${ld.d.id}`}>
               {ld.d.teilstueck && (
                 <Marker longitude={ld.end[0]} latitude={ld.end[1]} anchor="center">
-                  <TeilstueckFork angleDeg={forkAngle(ld.d.coords)} color={ld.color} width={ld.width} />
+                  <TeilstueckFork angleDeg={forkAngle(ld.d.coords)} color={ld.color} width={ld.width * printScale} />
                 </Marker>
               )}
               {/* zIndex: above the line's own decorations — see MapView for why it has to sit on
                   the marker container, and the printed Kroki has to match the screen */}
               {ld.hasTag && (
-                <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" offset={[0, -14]} style={{ zIndex: 3 }}>
+                <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" offset={[0, -14 * printScale]} style={{ zIndex: 3 }}>
                   {/* no alarm tint here, exactly as on paper: a printed Kroki is the record of
                       an incident, not a live board (see krokiPayload · drawings) */}
-                  <EndTag lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
-                    trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone="idle" color={ld.color} />
+                  <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
+                    <EndTag lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
+                      trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone="idle" color={ld.color} />
+                  </div>
                 </Marker>
               )}
               {ld.lines.length > 0 && (
                 <Marker longitude={ld.mid[0]} latitude={ld.mid[1]} anchor="center">
-                  <span className="kf-plain kf-draw-label">{ld.lines.join('\n')}</span>
+                  <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
+                    <span className="kf-plain kf-draw-label">{ld.lines.join('\n')}</span>
+                  </div>
                 </Marker>
               )}
             </Fragment>
@@ -369,7 +376,11 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                   )
                 }
                 if (!printable.symbolSvg && !printable.symbol) {
-                  return printable.caption ? <span className={`kf-plain ${e.kind}`}>{printable.caption}</span> : null
+                  return printable.caption ? (
+                    <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
+                      <span className={`kf-plain ${e.kind}`}>{printable.caption}</span>
+                    </div>
+                  ) : null
                 }
                 const svg = printable.symbolSvg ?? scene.byName[printable.symbol ?? ''] ?? ''
                 const size = symPx(e.kind, e.coord[1], previewZoom, krokiSymbolMul(previewZoom))
