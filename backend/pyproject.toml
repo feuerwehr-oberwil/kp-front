@@ -1,6 +1,6 @@
 [project]
 name = "kp-front-backend"
-version = "0.7.0"
+version = "0.8.0"
 description = "Standalone FastAPI backend for the kp-front operational Lagekarte"
 license = "AGPL-3.0-or-later"
 authors = [{ name = "Bastian Eichenberger", email = "bastian@eichenbergers.ch" }]
