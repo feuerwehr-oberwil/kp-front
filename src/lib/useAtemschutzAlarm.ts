@@ -28,6 +28,10 @@ const ALARM_RENOTIFY_MS = 30_000
  * Drives the escalating tone (Alarm), records the überfällig crossing once, and posts an OS
  * notification (the reliable attention channel when the in-page tone is suspended) on the
  * crossing and on a cadence while still overdue. `active` is false during replay (read-only past).
+ *
+ * `muted` covers BOTH channels — tone and notification. The bell is one button and it says it
+ * silences the alarm, so it has to silence all of it (see useAtemschutzMute). The VISUAL state
+ * is never muted: the board, the count badge and the NavRail dot stay as loud as they were.
  */
 export function useAtemschutzAlarm({
   trupps, muted, active, logAlarm,
@@ -130,8 +134,12 @@ export function useAtemschutzAlarm({
         // in-page Web Audio tone has been suspended (screen off / app backgrounded). Fire on the
         // crossing, then re-fire on a cadence while still overdue (tag+renotify coalesce the tray
         // entry). NOTE: a fully KILLED app still can't fire this — that needs server Web Push.
+        // ⚠️ `muted` GATES THIS TOO. Until 22.08. it only reached the tone, so the one button
+        // labelled «Alarmton aus» left the tray posting «Atemschutz überfällig» every 30 s —
+        // the OS's own sound and vibration included. A control that silences half of what it
+        // claims to silence is worse than none: it is trusted, and it is wrong.
         const lastN = lastNotify.current.get(t.id) ?? 0
-        if (!demo && (justCrossed || now - lastN >= ALARM_RENOTIFY_MS)) {
+        if (!demo && !muted && (justCrossed || now - lastN >= ALARM_RENOTIFY_MS)) {
           lastNotify.current.set(t.id, now)
           void notify(az.alarmNotifyTitle, { body: az.alarmNotifyBody.replace('{name}', t.name), tag: `atemschutz-${t.id}`, target: 'atemschutz' })
         }

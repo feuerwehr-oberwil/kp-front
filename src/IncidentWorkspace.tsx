@@ -555,8 +555,11 @@ export function IncidentWorkspace({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.entities])
-  // alarm audibility — per-device, localStorage-backed, app-wide (see useAtemschutzMute).
-  const { muted: atemschutzMuted, toggle: toggleAtemschutzMuted } = useAtemschutzMute()
+  // What the bell actually controls: per-device, but scoped to THIS Einsatz — a tablet muted at a
+  // drill in February is armed again for the next one (see useAtemschutzMute). `audioBlocked` is
+  // the third honest state: the browser has not released audio, so only the OS notification can
+  // fire and the bell says so instead of claiming to be on.
+  const { muted: atemschutzMuted, toggle: toggleAtemschutzMuted, audioBlocked: atemschutzAudioBlocked, unlockAudio: unlockAtemschutzAudio } = useAtemschutzMute(incidentMeta.id)
   // how the Atemschutz board is arranged — a way of LOOKING at it, so per device. The hand-set
   // order it can show (Trupp.order) is synced, so «wie gesetzt» is the same board everywhere.
   const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'manuell')
@@ -3608,6 +3611,8 @@ export function IncidentWorkspace({
           removedTrupps={removedTrupps}
           muted={atemschutzMuted}
           onToggleMuted={toggleAtemschutzMuted}
+          audioBlocked={atemschutzAudioBlocked}
+          onUnlockAudio={unlockAtemschutzAudio}
           order={atemschutzOrder}
           onOrder={setAtemschutzOrder}
           onMove={canEditIncident && !readOnly ? moveTrupp : undefined}

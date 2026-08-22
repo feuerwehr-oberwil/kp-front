@@ -29,6 +29,7 @@ import {
   migrateLegacyWorkspace, takeDiveraAlarm, patchIncident, attachDiveraAlarm, discardWorkspaceCache,
   type DiveraAlarm, type IncidentFull, type IncidentMeta,
 } from './lib/incidents'
+import { unlockAlarm } from './lib/alarm'
 import { clearCrash } from './lib/crashLoop'
 import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
@@ -196,6 +197,14 @@ export default function App() {
   }, [])
 
   const selectIncident = useCallback(async (id: string, opts: { readOnly?: boolean; meta?: IncidentMeta } = {}) => {
+    // ⚠️ THE AUDIO UNLOCK LIVES HERE, before the first `await`, because this is the first touch of
+    // every Einsatz: the launch card, the switcher, «Einsatz eröffnen». A browser only releases
+    // audio inside a real gesture, and the only caller that ever did this was the Atemschutz
+    // Trupp-Formular — so anyone who synced the Trupps from a second device, or only ever tapped
+    // «Kontakt», had a bell showing «an» over an AudioContext that was still `suspended`. Called
+    // on a boot auto-open too, where it is a harmless no-op that leaves the context suspended and
+    // the bell honestly saying «Ton nicht freigegeben» (see useAtemschutzMute).
+    unlockAlarm()
     const my = ++selectReq.current // any newer call supersedes this one
     if (opts.readOnly) {
       if (!forceReadOnlyRef.current) archiveReturnRef.current = activeIdRef.current

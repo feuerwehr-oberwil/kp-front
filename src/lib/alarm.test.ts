@@ -48,6 +48,18 @@ describe('alarm utility', () => {
     expect(primeAudio()).toBe(true)
   })
 
+  // The bell is only allowed to claim «Alarm an» while the tone can actually be heard, so this
+  // read-out has to be honest about a context that does not exist yet — and it must never CREATE
+  // one, or a surface that merely renders would spawn AudioContexts.
+  it('audioUnlocked is false until something unlocks audio, and never creates a context', async () => {
+    vi.resetModules()
+    const fresh = await import('./alarm')
+    expect(fresh.audioUnlocked()).toBe(false)
+    expect(fresh.audioUnlocked()).toBe(false) // still nothing built by asking
+    fresh.primeAudio()
+    expect(fresh.audioUnlocked()).toBe(true)
+  })
+
   it('startAlarm builds + starts an oscillator and loops beats', () => {
     startAlarm('warn')
     expect(lastOsc.start).toHaveBeenCalledTimes(1)

@@ -219,7 +219,7 @@ export const de = {
             '**Verlauf** je Trupp (ausklappbar) zeigt jeden Kontakt mit Uhrzeit und Druck.',
             '**Bearbeiten** (Stift) passt Auftrag, Ziel/Stockwerk oder Trupp mitten im Einsatz an.',
             'Wer unter AS ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
-            'Überfällige Trupps rücken nach oben, oben erscheint ein Zähler; der **Alarmton** ist pro Gerät stummschaltbar (Glocke). Alles landet im Verlauf.',
+            'Überfällige Trupps rücken nach oben, oben erscheint ein Zähler. Die **Glocke** schaltet den Alarm pro Gerät stumm – Ton **und** Benachrichtigung, und nur bis zum Ende dieses Einsatzes. Zeigt sie rot, hat der Browser den Ton nicht freigegeben: antippen. Die Tafel selbst wird nie stumm. Alles landet im Verlauf.',
             'Jeder Trupp lässt sich auf dem Plan platzieren (Knopf „auf Plan zeigen").',
           ] },
         ],
@@ -1401,11 +1401,13 @@ export const de = {
     showOnMap: 'Auf der Lage zeigen',
     rosterLabel: 'Bereits erfasst',
     preEntryHint: 'Noch nicht eingerückt – «Eingerückt» drücken, sobald der Trupp unter AS geht.',
-    // alarm sound toggle (per-device, persisted locally)
-    alarmOn: 'Alarmton an',
-    alarmOff: 'Alarmton aus',
-    alarmTurnOn: 'Alarmton einschalten',
-    alarmTurnOff: 'Alarmton ausschalten',
+    // Die Glocke: ein Knopf, drei ehrliche Zustände (siehe useAtemschutzMute). Jeder sagt, was
+    // GERADE gilt, und nennt seine Reichweite – die Beschriftung war früher die Handlung
+    // («Alarmton ausschalten», also ist er an), ein Versprechen, das der Knopf nicht halten
+    // konnte: ohne freigegebenen Ton meldete er «an» über einem stummen AudioContext.
+    alarmArmed: 'Alarm an – Ton und Benachrichtigung · antippen schaltet stumm',
+    alarmMuted: 'Alarm stumm – Ton und Benachrichtigung, bis zum Ende dieses Einsatzes · antippen schaltet ein',
+    alarmBlocked: 'Ton nicht freigegeben – der Browser hat die Freigabe verweigert · antippen, sonst meldet nur die Benachrichtigung',
     restoreMenu: 'Entfernte Trupps',
     restoreItem: '{name} wiederherstellen',
     // OS notification when a Trupp goes überfällig while the app is backgrounded

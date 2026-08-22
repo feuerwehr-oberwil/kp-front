@@ -2,8 +2,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import { AtemschutzAlarmHost } from './useAtemschutzAlarm'
+import { notify } from './alarm'
 import type { AtemschutzAlarmState } from './atemschutz'
 import type { Trupp } from '../types'
+
+// Only `notify` is faked — the tone side (Alarm, chime) is real and inert in jsdom, where there
+// is no Web Audio at all.
+vi.mock('./alarm', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./alarm')>()),
+  notify: vi.fn(async () => {}),
+}))
 
 // The host exists so the 1 Hz contact-clock tick re-renders only itself — App must hear
 // about the alarm ONLY on real transitions (tier / Trupp), never on plain clock ticks
@@ -25,8 +33,35 @@ const host = (trupps: Trupp[], onState: (s: AtemschutzAlarmState) => void) => (
     intervalMin={5} graceSec={60} onState={onState} />
 )
 
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(T0) })
+beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(T0); vi.mocked(notify).mockClear() })
 afterEach(() => { cleanup(); vi.useRealTimers() })
+
+// ⚠️ THE BELL COVERS BOTH CHANNELS. Until 2026-08-22 `muted` only reached the tone, so the one
+// button labelled «Alarmton aus» left the OS tray posting «Atemschutz überfällig» every 30 s —
+// with the system's own sound and vibration. A control that silences half of what it claims to
+// silence is worse than none, because it is believed.
+describe('the mute reaches the OS notification, not only the tone', () => {
+  it('posts the überfällig notification while the alarm is on', () => {
+    render(
+      <AtemschutzAlarmHost trupps={[trupp()]} muted={false} active logAlarm={() => {}}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) })
+    expect(notify).toHaveBeenCalled()
+  })
+
+  it('stays silent on the same crossing while muted', () => {
+    render(
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={() => {}}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) })
+    expect(notify).not.toHaveBeenCalled()
+    // …and it keeps quiet through the 30 s re-notify cadence, not just at the crossing
+    act(() => { vi.advanceTimersByTime(5 * 60_000) })
+    expect(notify).not.toHaveBeenCalled()
+  })
+})
 
 describe('AtemschutzAlarmHost', () => {
   it('reports transitions only — clock ticks alone never reach onState', () => {

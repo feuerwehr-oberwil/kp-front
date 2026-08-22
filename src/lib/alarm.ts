@@ -4,8 +4,11 @@
 //
 // AUTOPLAY UNLOCK: browsers start an AudioContext "suspended" and refuse to make
 // sound until it is resumed inside a real user gesture (tap/click/keydown). So the
-// caller must invoke `primeAudio()` from such a gesture once (e.g. the "Einsatz
-// starten" button) — after that `startAlarm()` can fire later without interaction.
+// caller must invoke `primeAudio()` from such a gesture once — which is why App does
+// it on "Einsatz starten / öffnen" (the first touch of every Einsatz), not only when
+// somebody happens to open a Trupp-Formular. After that `startAlarm()` can fire later
+// without interaction. Whether it worked is readable via `audioUnlocked()`, so the
+// bell can say "Ton nicht freigegeben" instead of claiming to be armed.
 
 type AlarmLevel = 'warn' | 'critical'
 
@@ -47,6 +50,17 @@ export function primeAudio(): boolean {
   if (!c) return false
   if (c.state === 'suspended') void c.resume().catch(() => {})
   return c.state !== 'closed'
+}
+
+/**
+ * Can the tone actually be heard right now? True only once an AudioContext exists AND is
+ * running — i.e. the browser released audio inside a user gesture.
+ *
+ * ⚠️ Never CREATES a context: this is a read-out, and a read-out must not have a side effect.
+ * "No context yet" is honestly "not unlocked", which is exactly what the caller has to show.
+ */
+export function audioUnlocked(): boolean {
+  return ctx?.state === 'running'
 }
 
 /**

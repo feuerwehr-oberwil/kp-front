@@ -53,7 +53,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
+  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus,
@@ -71,10 +71,15 @@ export function AtemschutzView({
   /** Mannschaft roster + who is present — the create/edit form offers present people first */
   personnel: Person[]
   attendance: AttendanceState
-  /** alarm audibility (per-device, persisted in App) — drives the mute button only; the actual
-   *  alarm now runs app-wide in useAtemschutzAlarm so it fires even off this surface */
+  /** alarm audibility (per device, scoped to this Einsatz — see useAtemschutzMute). It covers
+   *  BOTH channels: the tone and the OS notification. The actual alarm runs app-wide in
+   *  useAtemschutzAlarm, so it fires even when this surface is not on screen. */
   muted: boolean
   onToggleMuted: () => void
+  /** the browser has not released audio, so the tone cannot play whatever the bell claims. The
+   *  bell shows this state instead of «an» and its tap retries the unlock. */
+  audioBlocked?: boolean
+  onUnlockAudio?: () => void
   /** how the board is arranged (device pref) — überfällig floats regardless, see sortTrupps */
   order?: TruppOrder
   onOrder?: (o: TruppOrder) => void
@@ -391,6 +396,11 @@ export function AtemschutzView({
     )
   ))
 
+  // What the bell says of itself. The order matters: «nicht freigegeben» only applies while the
+  // alarm claims to be on — a muted bell promises no tone anyway, so two warnings about the same
+  // silence would be one too many (useAtemschutzMute already folds that into `audioBlocked`).
+  const bellLabel = muted ? az.alarmMuted : audioBlocked ? az.alarmBlocked : az.alarmArmed
+
   return (
     <div className={s.surface}>
       <header className={s.head}>
@@ -472,12 +482,17 @@ export function AtemschutzView({
             ]}
           />
         )}
+        {/* ⚠️ ONE bell, THREE honest states — and every one of them says what is TRUE now, not
+            what the press would do. The label used to be the action («Alarmton ausschalten», so
+            the tone must be on), which was a claim the button could not keep: the alarm needs an
+            AudioContext the browser only releases inside a gesture, and nothing on this screen
+            guaranteed one. «Nicht freigegeben» outranks «an» because it is the state somebody has
+            to act on — and its tap retries the unlock instead of muting. See useAtemschutzMute. */}
         <button
-          className={cx(s.muteBtn, muted && s.muteOn)} onClick={onToggleMuted} aria-pressed={muted}
-          // ⚠️ The label is what the press DOES, not what is true now — «Alarmton aus» while muted
-          // reads as the effect of pressing, so somebody who wants sound leaves it alone and the
-          // überfällig alarm stays silent. Same direction as the trail toggles («Spuren einblenden»).
-          aria-label={muted ? az.alarmTurnOn : az.alarmTurnOff} title={muted ? az.alarmTurnOn : az.alarmTurnOff}
+          className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
+          onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
+          aria-pressed={muted}
+          aria-label={bellLabel} title={bellLabel}
         >
           <Icon id={muted ? 'bell-off' : 'bell'} />
         </button>
