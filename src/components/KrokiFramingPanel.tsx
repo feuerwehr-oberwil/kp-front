@@ -16,7 +16,7 @@ import { lerpPoint } from '../lib/lineStyle'
 import { fmtDistance, hoseLengthHint, pathLengthM } from '../lib/geo'
 import { Segmented } from './Segmented'
 import { krokiEntity, krokiSymbolMul } from '../lib/krokiPayload'
-import { shapePx, symPx } from '../lib/mapView'
+import { forkBearing, shapePx, symPx, worldPx } from '../lib/mapView'
 import type { CaptionMode, Drawing, Entity, LayerDef, LngLat, Trupp } from '../types'
 import { krokiStandLabel, type KrokiView } from '../lib/report'
 
@@ -39,27 +39,44 @@ const CARTO_FALLBACK = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/
 // backend/app/kroki.py renders print overlays against this reference viewport. Scaling the
 // complete decorated marker (not only its glyph) makes badges/spreads/shapes WYSIWYG here.
 //
-// ⚠️ ONE reference is not enough. report_pdf.py renders the Kroki at 1600×940 quer but 1000×1400
-// hoch, and kroki.py sizes a symbol in ABSOLUTE pixels on that canvas (sym_px clamps to 28..48).
-// The same 40px symbol is therefore 2.5% of a landscape sheet and 4% of a portrait one — so a
-// single reference drew the hoch preview's symbols 1.6× too small, which is not what gets
-// printed. The reference follows the orientation, in the same ratio as the two renders.
+// ⚠️ ONE reference, for BOTH page shapes. There used to be a second, narrower one for Hoch, on
+// the reasoning that the server sizes a symbol in absolute pixels on a canvas whose width
+// changes with the orientation. It does not: `render_kroki` is called without `ref_width` for
+// either shape (report_pdf.py), so it uses its own 1050 both times and every rule is scaled by
+// `u = width / 1050`. What the sheet fixes is therefore size ÷ canvas width — the same fraction
+// upright as across — and dividing by 656 here inflated every scaled thing in Hoch by 1.6×.
+// That is what made the portrait crop's tags and captions look wrong while the paper was right.
+// ⚠️ The canvases themselves moved on 18.08. (2080×1222 / 1300×1820); this number did not have
+// to follow, and that is the point of it — it is the reference the RULES are written against,
+// not the size of the picture.
 const PRINT_REF_WIDTH = 1050
-const PRINT_REF_WIDTH_PORTRAIT = Math.round((PRINT_REF_WIDTH * 1000) / 1600)
 
-/** Web-Mercator northing, for a screen angle without asking the map to project. */
-const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))
-
-/** Screen angle (deg) of a line's last segment, so the Teilstück fork pins to the tip the way
- *  it does on the Lage map. The crop map is north-up (rotation is disabled on it), so the angle
- *  follows from the geometry alone — no map instance, and nothing to recompute on a pan. */
-function forkAngle(coords: LngLat[]): number {
+/**
+ * Unit normal of the last segment in SCREEN direction, pointing away from the line's own body —
+ * the side kroki.py · _end_tag puts the tag on.
+ *
+ * ⚠️ The tag is opaque and used to sit ON the line here (72 % along the last segment, like the
+ * Lage map, which is a live surface where the same box can be dragged aside). On the sheet that
+ * hid the last quarter of the very Leitung it names, so the print pushes it clear — and a crop
+ * that shows the old placement is a crop of a picture that no longer comes out. Same rule on
+ * both sides now.
+ *
+ * Any zoom does for this: the normal is normalised and only its DIRECTION is used, and the
+ * projection is conformal, so the screen direction is the same at every scale.
+ */
+function tagNormal(coords: LngLat[]): [number, number] {
   const n = coords.length
-  const [x1, y1] = coords[n - 2]
-  const [x2, y2] = coords[n - 1]
-  const dx = ((x2 - x1) * Math.PI) / 180
-  const dy = mercY(y2) - mercY(y1) // grows NORTHWARD; screen y grows downward
-  return (Math.atan2(-dy, dx) * 180) / Math.PI
+  const [ax, ay] = worldPx(coords[n - 2], 17)
+  const [bx, by] = worldPx(coords[n - 1], 17)
+  const len = Math.hypot(bx - ax, by - ay) || 1
+  let [nx, ny] = [-(by - ay) / len, (bx - ax) / len]
+  // the anchor is 72 % along the last segment; push away from the centre of the whole line, so a
+  // hose that loops back is labelled on the outside of its bend rather than inside it
+  const cx = coords.reduce((acc, c) => acc + worldPx(c, 17)[0], 0) / n
+  const cy = coords.reduce((acc, c) => acc + worldPx(c, 17)[1], 0) / n
+  const px = ax + (bx - ax) * 0.72, py = ay + (by - ay) * 0.72
+  if (nx * (px - cx) + ny * (py - cy) < 0) [nx, ny] = [-nx, -ny]
+  return [nx, ny]
 }
 
 export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false, onAtChange, moments = [], startedAtMs = null, landscape = true, onLandscapeChange, trupps = [], captionMode = 'auto', onViewChange }: {
@@ -132,7 +149,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const [viewBounds, setViewBounds] = useState<[number, number, number, number] | null>(null)
   const [previewZoom, setPreviewZoom] = useState(initial?.zoom ?? 16)
   const [previewWidth, setPreviewWidth] = useState(720)
-  const printScale = previewWidth / (landscape ? PRINT_REF_WIDTH : PRINT_REF_WIDTH_PORTRAIT)
+  const printScale = previewWidth / PRINT_REF_WIDTH
 
   // same base-layer pick as buildKrokiPayload, so the preview shows the printed basemap
   const base = scene.layers.find((l) => l.base && l.visible && l.tiles?.length) ?? scene.layers.find((l) => l.base && l.tiles?.length)
@@ -185,7 +202,12 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
     .map((d) => {
       const n = d.coords.length
       const end = d.coords[n - 1] as LngLat
-      const tagAt = (d.endLabelAt ?? lerpPoint(d.coords[n - 2], end, 0.72)) as LngLat
+      // ⚠️ NOT `d.endLabelAt`. A tag dragged by hand moves on the Lage map, but the print does
+      // not know about it — `endLabelAt` is in no payload kroki.py ever sees, so the sheet always
+      // puts the tag 72 % along the last segment. A crop that honoured the hand placement was
+      // therefore showing a position that cannot come out. Same anchor as the paper here; making
+      // the paper follow the hand instead is a payload + server change, not a preview one.
+      const tagAt = lerpPoint(d.coords[n - 2], end, 0.72) as LngLat
       const trupp = truppForLine(d, trupps)
       const lines: string[] = []
       if (d.showDistance) {
@@ -194,7 +216,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
       }
       if (d.label) lines.push(d.label)
       return {
-        d, end, tagAt, trupp, lines,
+        d, end, tagAt, trupp, lines, tagN: tagNormal(d.coords as LngLat[]),
         mid: d.coords[(n - 1) >> 1] as LngLat,
         color: d.color || appConfig.drawing.defaultColor,
         width: d.width || 4,
@@ -336,18 +358,32 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             <Fragment key={`kd${ld.d.id}`}>
               {ld.d.teilstueck && (
                 <Marker longitude={ld.end[0]} latitude={ld.end[1]} anchor="center">
-                  <TeilstueckFork angleDeg={forkAngle(ld.d.coords)} color={ld.color} width={ld.width * printScale} />
+                  {/* ⚠️ Scaled as a WHOLE, never by handing it a smaller width. `forkDims` floors
+                      the spine at 14 screen px — a deliberate finger/legibility floor on the Lage
+                      map — so a scaled-down width simply hits the floor and the fork keeps full
+                      size while the line beside it shrinks: a giant comb on a hairline. Passing
+                      the real width and scaling the rendered glyph keeps fork and line in the
+                      proportion the sheet prints them in. */}
+                  <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
+                    <TeilstueckFork angleDeg={forkBearing(ld.d.coords, previewZoom, Math.max(10, ld.width * 2.5))} color={ld.color} width={ld.width} />
+                  </div>
                 </Marker>
               )}
               {/* zIndex: above the line's own decorations — see MapView for why it has to sit on
                   the marker container, and the printed Kroki has to match the screen */}
               {ld.hasTag && (
-                <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" offset={[0, -14 * printScale]} style={{ zIndex: 3 }}>
+                <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" style={{ zIndex: 3 }}>
                   {/* no alarm tint here, exactly as on paper: a printed Kroki is the record of
                       an incident, not a live board (see krokiPayload · drawings) */}
-                  <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
+                  {/* ⚠️ `translate` in PERCENT, and it has to come after the scale: a percentage
+                      resolves against the element's OWN box, so `50%` is exactly «half the tag in
+                      this direction» — the support function kroki.py computes by hand from the
+                      text width. No measuring, and it stays right when the tag grows a Trupp
+                      name. The px term is half the stroke plus a hair of air; it rides inside
+                      the scale, so it shrinks with everything else. */}
+                  <div className="kf-print-scale" style={{ transform: `scale(${printScale}) translate(calc(${(ld.tagN[0] * 50).toFixed(2)}% + ${(ld.tagN[0] * (ld.width / 2 + 7)).toFixed(2)}px), calc(${(ld.tagN[1] * 50).toFixed(2)}% + ${(ld.tagN[1] * (ld.width / 2 + 7)).toFixed(2)}px))` }}>
                     <EndTag lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
-                      trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone="idle" color={ld.color} />
+                      trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone="idle" color={ld.color} oneLine />
                   </div>
                 </Marker>
               )}

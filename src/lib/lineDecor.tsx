@@ -55,7 +55,7 @@ export function TeilstueckFork({ angleDeg, color, width = 5 }: { angleDeg: numbe
  *  `tone` colours the BOX, never the line: 'warn'/'crit' mirror the Atemschutz contact clock,
  *  'muted' is the record left behind by a Trupp that is out. The tone owns the box colour when
  *  set, so the alarm reads even on a line drawn in some arbitrary colour. */
-export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color }: {
+export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color, oneLine }: {
   lineNo?: number
   content?: string
   floorTag?: number
@@ -63,6 +63,11 @@ export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color 
   trupp?: string
   tone?: LineTone
   color: string
+  /** Lay the tag out as ONE strip instead of stacking the Trupp under the Leitung's own facts.
+   *  `inline-grid` makes each text run its own row, which is the compact tag the map wants over
+   *  a live hose — but `kroki.py` joins every part with « · » on a single line, so the print
+   *  preview has to say the same thing in the same shape. */
+  oneLine?: boolean
 }) {
   const parts: string[] = []
   if (lineNo != null) parts.push(String(lineNo))
@@ -76,7 +81,7 @@ export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color 
   // carries the dim + strike its map marker already wears (.team-dot.raus), instead of the whole
   // tag going quiet and taking the Leitung number with it.
   return (
-    <span className={`line-end-tag tone-${tone}`} style={{ color: ink, borderColor: ink }}>
+    <span className={`line-end-tag tone-${tone}${oneLine ? ' one-line' : ''}`} style={{ color: ink, borderColor: ink }}>
       {parts.join(' · ')}
       {trupp && <>{parts.length ? ' · ' : ''}<span className="line-end-trupp">{trupp}</span></>}
     </span>

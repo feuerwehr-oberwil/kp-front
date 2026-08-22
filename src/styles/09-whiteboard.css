@@ -480,6 +480,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .line-fork { display: block; }
 .line-end-tag { display: inline-grid; place-items: center; padding: 2px 6px; border: 1.5px solid currentColor;
   border-radius: 4px; background: var(--surface); font: 800 11.5px/1 var(--body); white-space: nowrap; }
+/* ⚠️ `inline-grid` gives every text run its own ROW, so «1 · +2 ·» and the Trupp name stack —
+   compact over a live hose, and not what the sheet does: kroki.py joins every part with « · »
+   on one line. The print crop asks for the paper's shape. */
+.line-end-tag.one-line { display: inline-flex; }
 /* An Atemschutz-Trupp is on this Leitung and its contact clock has run out: the tag is tinted and
    the box filled a little, so the state reads without decoding the colour of a thin line. NO
    animation — a pulsing hose was tried and rejected: the Atemschutz board is the surface that

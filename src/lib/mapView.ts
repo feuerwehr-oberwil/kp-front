@@ -3,6 +3,7 @@
 import type { Entity, LayerId, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { ROTATABLE, VEHICLE_SYMBOLS } from '../lib/symbols'
+import { lookbackPoint } from './lineStyle'
 
 export const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] }
 
@@ -77,3 +78,31 @@ export type FC = { type: 'FeatureCollection'; features: any[] }
 export const fc = (features: any[]): FC => ({ type: 'FeatureCollection', features })
 export const lineFeat = (coords: LngLat[], props: any = {}) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: props })
 export const polyFeat = (coords: LngLat[], props: any = {}) => ({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]]] }, properties: props })
+
+/** Web-Mercator northing — the y half of the projection, without a map instance. */
+const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))
+
+/** Web-Mercator world pixel at a zoom. On a NORTH-UP map these are screen pixels up to a pan,
+ *  so a distance measured here is a distance on screen — which is what the decorations below
+ *  need and what saves them from asking the map to project every vertex on every render. */
+export function worldPx(c: LngLat, z: number): [number, number] {
+  const s = 256 * Math.pow(2, z)
+  return [((c[0] + 180) / 360) * s, (0.5 - mercY(c[1]) / (2 * Math.PI)) * s]
+}
+
+/**
+ * Bearing (deg, screen) the Teilstück fork caps a hose line with.
+ *
+ * ⚠️ NOT the raw last segment. A hose is drawn with a finger or a mouse and its final vertex is
+ * routinely a few pixels from the one before it — at that length the segment carries almost no
+ * direction, so a fork aimed by it stands ACROSS the line instead of capping it. The printed
+ * Kroki never had this because kroki.py looks a fixed distance back from the tip for its
+ * reference point (`_lookback`), and `lineStyle · lookbackPoint` is the same walk for the same
+ * reason on the arrowheads. `minPx` mirrors the server's `max(10, width · 2.5)`.
+ */
+export function forkBearing(coords: LngLat[], zoom: number, minPx: number): number {
+  const px = coords.map((c) => worldPx(c, zoom))
+  const tip = px[px.length - 1]
+  const ref = lookbackPoint(px, minPx)
+  return (Math.atan2(tip[1] - ref[1], tip[0] - ref[0]) * 180) / Math.PI
+}
