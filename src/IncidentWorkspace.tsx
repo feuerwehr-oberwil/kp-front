@@ -665,16 +665,42 @@ export function IncidentWorkspace({
           if (pct !== lastPct) { lastPct = pct; setOfflineProgress({ done, total }) }
         },
       })
-      toast(
-        fillTemplate(res.capped ? appConfig.copy.offline.dlDoneCapped : appConfig.copy.offline.dlDone, { n: res.fetched }),
-        { icon: 'map', tone: 'success' },
-      )
+      // ⚠️ FOUR OUTCOMES, FOUR MESSAGES — not one message with different numbers. The bar
+      // reaches 100 % whatever happens (it counts attempts finished, and it has to, or a dead
+      // host would hang it for ever), so «fertig» said nothing about «geklappt»: tapped in the
+      // Magazin on dead WLAN this toasted a green «Karte offline verfügbar (0 Kacheln)», and the
+      // one figure that contradicted it stood in a bracket nobody reads at 03:10. Green is now
+      // earned: it needs every FETCHABLE tile AND every plan/Ebene to have come back — a 404 is
+      // not a miss (the tile does not exist at a layer's edge; «Weiterladen» could never fill
+      // it, so counting it kept «Teilweise geladen» on screen for ever). Only retryable
+      // failures (network/5xx) make the download partial. And all-404 with zero hits is its own
+      // sentence: the source has no coverage here (or the Kachel-URL is wrong) — «kein Netz»
+      // would mis-describe a host that answered every single request.
+      const co = appConfig.copy.offline
+      const got = res.fetched + res.warmFetched
+      const retry = { label: co.dlRetry, onClick: () => { void downloadOfflineRef.current() } }
+      if (got === 0 && res.failed > 0) {
+        toast(co.dlNone, { icon: 'map', tone: 'warn', action: retry })
+      } else if (got === 0 && res.notFound > 0) {
+        // no retry offer: every request was answered, retrying returns the same 404s
+        toast(co.dlNoCoverage, { icon: 'map', tone: 'warn' })
+      } else if (res.failed > 0) {
+        // capped AND partial: keep saying «Ausschnitt begrenzt», or «Weiterladen» promises
+        // tiles the cap will exclude again
+        toast(fillTemplate(res.capped ? co.dlPartialCapped : co.dlPartial, { n: got, total: got + res.failed }), { icon: 'map', tone: 'warn', action: { ...retry, label: co.dlContinue } })
+      } else {
+        toast(fillTemplate(res.capped ? co.dlDoneCapped : co.dlDone, { n: res.fetched }), { icon: 'map', tone: 'success' })
+      }
     } catch {
       toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
     } finally {
       setOfflineProgress(null)
     }
   }, [layers, backendPlans, incidentBounds, withGeoBbox])
+  // «Weiterladen» / «Nochmals» re-runs the same download. Through a ref because the action rides
+  // on a toast that outlives the render it was made in, and the callback cannot name itself.
+  const downloadOfflineRef = useRef(downloadOffline)
+  useEffect(() => { downloadOfflineRef.current = downloadOffline }, [downloadOffline])
   // the Gebäude (floor-stack) document only exists once a building is picked; it sits
   // directly under "Umgebung" (the OSM outline you pick the building from)
   // during replay the floor-stack tab follows the RECONSTRUCTED building, so the past

@@ -36,9 +36,34 @@ function fillTemplate(tpl: string, z: number, x: number, y: number): string {
   return tpl.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
 }
 
+/**
+ * What the download actually achieved — attempts AND hits, separately.
+ *
+ * ⚠️ Every `fetch` failure in here is swallowed on purpose (offline, no CORS, a blocked host):
+ * one dead tile must not abort the other 1200. That is fine as long as the OUTCOME is honest,
+ * and until 22.08. it was not: the caller only ever saw a progress bar that reached 100 % either
+ * way and toasted «Karte offline verfügbar (0 Kacheln)» in green at somebody standing on dead
+ * WLAN in the Magazin. Both halves are counted so the caller can tell vollständig / teilweise /
+ * nichts / keine Abdeckung apart — four different messages, not one message with different
+ * numbers (see the notFound/failed split below for why a 404 is not a miss).
+ */
 export interface PredownloadResult {
+  /** tiles that actually came back */
   fetched: number
+  /** tiles attempted (after the cap) */
   total: number
+  /** warm resources (plan PDFs, symbol library, GeoJSON overlays) that actually came back */
+  warmFetched: number
+  /** warm resources attempted */
+  warmTotal: number
+  /** Requests (tiles + warm) answered 404 — the resource genuinely does not exist: a tile
+   *  outside the provider's coverage at that zoom, a layer edge. DONE, not retryable — a
+   *  «Weiterladen» can never fill these, so counting them as misses made «Teilweise geladen»
+   *  a state some areas could never leave. */
+  notFound: number
+  /** requests (tiles + warm) that failed retryably — a network error or a 5xx. These are the
+   *  only ones «Weiterladen» can still fetch. */
+  failed: number
   capped: boolean
 }
 
@@ -74,6 +99,9 @@ export async function predownloadArea(opts: PredownloadOpts): Promise<Predownloa
   const total = tileUrls.length + warm.length * warmW
   let progressed = 0
   let tilesFetched = 0
+  let warmFetched = 0
+  let notFound = 0
+  let failed = 0
 
   const fetchOne = async (url: string, weight: number, isTile: boolean) => {
     try {
@@ -82,10 +110,22 @@ export async function predownloadArea(opts: PredownloadOpts): Promise<Predownloa
       // We never fall back to no-cors — a tile that lacks CORS is simply skipped (it still
       // loads online). Carto/swisstopo/OSM/Esri all send CORS headers. Don't read the body:
       // the SW caches it independently; reading would pull big GeoJSON/PDFs into page memory.
-      await fetch(url, { mode: 'cors' })
-      if (isTile) tilesFetched++
+      const res = await fetch(url, { mode: 'cors' })
+      // ⚠️ `fetch` resolving is not «the tile is cached». A 404 or a 502 resolves perfectly
+      // happily, and counting it as a hit is how «1240 Kacheln» came to mean «1240 attempts».
+      // Opaque responses (status 0) are never produced here — the request is cors-only.
+      // A 404 is its own bucket: the tile does not EXIST (out of coverage at a layer's edge),
+      // which is final — filing it under «failed» kept «Teilweise geladen» on screen for ever
+      // over an area that was as complete as it can get.
+      if (res.ok) {
+        if (isTile) tilesFetched++
+        else warmFetched++
+      } else if (res.status === 404) notFound++
+      else failed++
     } catch {
-      /* offline / no CORS / blocked — skip; SW caches whatever succeeds */
+      /* offline / no CORS / blocked — skip; SW caches whatever succeeds. The MISS is reported
+         through the result counts, so the caller can say what did and did not arrive. */
+      failed++
     } finally {
       progressed += weight
       opts.onProgress?.(progressed, total)
@@ -117,5 +157,5 @@ export async function predownloadArea(opts: PredownloadOpts): Promise<Predownloa
   await runPool(tileUrls, opts.concurrency ?? 3, 1, true)
   await runPool(warm, 1, warmW, false, 150)
 
-  return { fetched: tilesFetched, total: tileUrls.length + warm.length, capped }
+  return { fetched: tilesFetched, total: tileUrls.length, warmFetched, warmTotal: warm.length, notFound, failed, capped }
 }

@@ -2250,8 +2250,21 @@ export const de = {
     layerGroup: 'Offline',
     loadMap: 'Karte offline laden',
     loadingShort: 'Lädt … {done}/{total}',
-    dlDone: 'Karte offline verfügbar ({n} Kacheln)',
-    dlDoneCapped: 'Karte offline verfügbar (Ausschnitt begrenzt, {n} Kacheln)',
+    // Drei Ergebnisse, drei Nachrichten – nicht eine Nachricht mit unterschiedlichen Zahlen.
+    // «Karte offline verfügbar (0 Kacheln)» war grün, mit Haken, für einen Download, der nichts
+    // geladen hatte; die Zahl in der Klammer, die alles widerlegte, liest um 03:10 niemand.
+    dlDone: 'Karte offline bereit – {n} Kacheln',
+    dlDoneCapped: 'Karte offline bereit – Ausschnitt begrenzt, {n} Kacheln',
+    dlPartial: 'Teilweise geladen – {n} von {total}. Am Rand des Ausschnitts fehlt die Karte.',
+    // begrenzt UND unvollständig: ohne den Zusatz versprach «Weiterladen» Kacheln, die der
+    // Speicher-Deckel gleich wieder ausschliesst
+    dlPartialCapped: 'Teilweise geladen – {n} von {total}, Ausschnitt begrenzt. Am Rand fehlt die Karte.',
+    dlNone: 'Nichts geladen – kein Netz. Die Karte ist am Einsatzort nicht verfügbar.',
+    // alles 404, nichts angekommen: die Quelle HAT geantwortet – «kein Netz» wäre die falsche
+    // Diagnose. Bewusst ohne «Nochmals»: dieselben 404 kämen wieder.
+    dlNoCoverage: 'Nichts geladen – die Kartenquelle kennt dieses Gebiet nicht. Kartenebene bzw. Kachel-URL prüfen.',
+    dlContinue: 'Weiterladen',
+    dlRetry: 'Nochmals',
     dlFailed: 'Offline-Download fehlgeschlagen',
   },
   // App empty state — shown when no incident is open (viewer vs. editor variants)

@@ -1,0 +1,60 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { predownloadArea, tilesForBounds } from './offlineTiles'
+
+// A one-tile box at the coarsest zoom, so a run is three fetches and not twelve hundred.
+const BOX = { west: 7.5, south: 47.5, east: 7.5001, north: 47.5001 }
+const opts = { templates: ['https://tiles.test/{z}/{x}/{y}.png'], bounds: BOX, minZoom: 14, maxZoom: 14 }
+
+afterEach(() => { vi.unstubAllGlobals() })
+
+/** A `fetch` that answers each URL according to `answer` — `ok`, a 404, a 5xx, or a thrown
+ *  network error, which is what an offline device produces. */
+function stubFetch(answer: (url: string) => 'ok' | 'notfound' | 'servererror' | 'offline') {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const a = answer(url)
+    if (a === 'offline') throw new TypeError('Failed to fetch')
+    return { ok: a === 'ok', status: a === 'ok' ? 200 : a === 'notfound' ? 404 : 502 } as Response
+  }))
+}
+
+describe('predownloadArea reports HITS, not attempts', () => {
+  it('counts tiles and warm resources separately when everything arrives', async () => {
+    stubFetch(() => 'ok')
+    const res = await predownloadArea({ ...opts, warmUrls: ['/plan.pdf', '/hydranten.geojson'] })
+    expect(res).toMatchObject({ fetched: res.total, warmFetched: 2, warmTotal: 2, notFound: 0, failed: 0, capped: false })
+    expect(res.total).toBe(tilesForBounds(BOX, 14, 14).length)
+  })
+
+  // The reported bug, in one assertion: a device on dead WLAN used to reach 100 % and toast a
+  // green «Karte offline verfügbar (0 Kacheln)». Nothing arrived, and the result has to say so.
+  it('reports nothing fetched when every request fails', async () => {
+    stubFetch(() => 'offline')
+    const res = await predownloadArea({ ...opts, warmUrls: ['/plan.pdf'] })
+    expect(res.fetched).toBe(0)
+    expect(res.warmFetched).toBe(0)
+    expect(res.failed).toBe(res.total + res.warmTotal)
+    expect(res.total + res.warmTotal).toBeGreaterThan(0)
+  })
+
+  // ⚠️ A resolved `fetch` is not a cached tile. A 404 or a 502 resolves perfectly happily, which
+  // is how «1240 Kacheln» came to mean «1240 attempts». But the two are DIFFERENT misses: a 404
+  // means the tile does not exist (out of coverage at a layer's edge) and is done for good, a
+  // 5xx/network failure is retryable. Filing 404s under «failed» kept «Teilweise geladen …
+  // Weiterladen» on screen for ever over an area that was as complete as it can get.
+  it('files a 404 under notFound (done), not under failed (retryable)', async () => {
+    stubFetch((url) => (url.endsWith('.pdf') ? 'ok' : 'notfound'))
+    const res = await predownloadArea({ ...opts, warmUrls: ['/plan.pdf'] })
+    expect(res.fetched).toBe(0)
+    expect(res.warmFetched).toBe(1)
+    expect(res.notFound).toBe(res.total)
+    expect(res.failed).toBe(0)
+  })
+
+  it('files a 5xx under failed — a «Weiterladen» can still fetch it', async () => {
+    stubFetch((url) => (url.endsWith('.pdf') ? 'ok' : 'servererror'))
+    const res = await predownloadArea({ ...opts, warmUrls: ['/plan.pdf'] })
+    expect(res.fetched).toBe(0)
+    expect(res.failed).toBe(res.total)
+    expect(res.notFound).toBe(0)
+  })
+})
