@@ -70,11 +70,9 @@ describe('Journal · alongside a Wiedergabe', () => {
 })
 
 // ── Pendenzen ───────────────────────────────────────────────────────────────────────────────
-// jsdom has no layout and no ResizeObserver; the block measures itself to decide whether
-// «Aufklappen» is needed, which is a question only a real browser can answer. The stub keeps the
-// ref callback from throwing — everything asserted below is about content and actions, not size.
-class RO { observe() {} unobserve() {} disconnect() {} }
-;(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver ??= RO
+// The box no longer measures itself — it is its own scroll container, so «does this fit» stopped
+// being a question the component has to answer. jsdom has no layout, so what is asserted here is
+// structure, content and actions; the heights are a browser's business.
 
 const pendenz = (id: string, text: string, over: Partial<OpenReminder> = {}): OpenReminder => ({
   id, rowId: `row-${id}`, text, createdAt: new Date(1_000_000).toISOString(), notes: [], ...over,
@@ -99,6 +97,35 @@ describe('Journal · the Pendenzen block', () => {
     expect(screen.getByText('Polizei aufgeboten')).toBeTruthy()
     expect(screen.getByText('Verkehrsdienst eingerichtet')).toBeTruthy()
     expect(screen.getByText('Umleitung signalisiert')).toBeTruthy()
+  })
+
+  // ⚠️ TWO scroll areas, stacked — the box ENTIRELY above the log, never inside it. Nested, the
+  // block was sticky and opaque over the list it belonged to: log rows ran behind it and were
+  // sliced through their letters at its lower edge. This is the invariant that makes that
+  // impossible, and it is the one thing about the arrangement jsdom can actually check.
+  it('puts the Pendenzen box beside the log, not inside it', () => {
+    setup({ openReminders: open })
+    const box = document.querySelector('.jr-pinned')!
+    const log = document.querySelector('.history-list')!
+    expect(log.contains(box)).toBe(false)
+    expect(box.compareDocumentPosition(log) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // …and every row the landing/jump machinery can reach lives in the log's scrollport
+    expect(box.querySelector('[data-ev]')).toBeNull()
+  })
+
+  // Nothing open ⇒ no box, and the log has the whole drawer. That is the state most of an
+  // Einsatz is in, and an empty amber frame standing over it would cost height for no content.
+  it('draws no box at all when nothing is open', () => {
+    setup({ openReminders: [] })
+    expect(document.querySelector('.jr-pinned')).toBeNull()
+  })
+
+  // ⚠️ «Aufklappen» is GONE. It was the way past a cap on a block that could not scroll itself;
+  // the box scrolls now, so a second way to see the same rows would be exactly that.
+  it('offers no expand/collapse control — the box scrolls', () => {
+    setup({ openReminders: open })
+    expect(document.querySelector('.jr-pinned-more')).toBeNull()
+    expect(screen.queryByText('Aufklappen')).toBeNull()
   })
 
   it('tapping an item writes a Meldung on it; the ring ticks it off', () => {

@@ -352,18 +352,18 @@
   border: 1px solid var(--glass-line); border-radius: var(--r-surface); padding: 8px; z-index: 29; box-shadow: var(--shadow); }
 /* overflow-x hidden: with overflow-y:auto the x-axis otherwise computes to `auto` and the
    Verlauf scrolls sideways on a tablet — rows must line-wrap, never scroll horizontally */
-/* ⚠️ `overscroll-behavior: none` and NO padding at the top — both for the sticky Pendenzen block.
-   A rubber-band overscroll drags the sticky element down with the content, so rows that had
-   scrolled behind it reappeared ABOVE it for the length of the bounce: log lines floating over
-   the block's rounded top edge, which reads as a rendering fault. `none` removes the bounce on
-   this list (`contain` only stops the chaining, not the affordance), and dropping the top padding
-   lets the block sit flush at the list's edge so nothing shows through in the 2px above it. */
-/* ⚠️ THE drawer's one scrolling box — the Pendenzen block and the log both live in it. There was
-   a second scrollbar inside the block and a `.jr-locked` rule that froze this one whenever the
-   block was open; two scrollbars stacked on one list is two guesses about which one a flick will
-   move, and the lock made the answer «neither». */
+/* THE LOG — the lower of the drawer's two scroll areas, and now nothing but the chronology.
+   The Pendenzen box is its SIBLING above (`.jr-pinned`), no longer a sticky element inside this
+   list, so the two notes that used to stand here are gone with the thing they described: a
+   rubber-band bounce can no longer drag a pinned block over the rows behind it, and no row can
+   be sliced by an opaque edge floating in this box, because there is nothing floating in it.
+   ⚠️ `overscroll-behavior: contain`. With two scrollports stacked, a flick that runs off the end
+   of one must not hand the rest of its momentum to the other or to the page behind the drawer.
+   ⚠️ No padding at the top: the first row sits flush at the box's own edge, which is what says
+   this box begins here. `overflow-x: hidden` because an `auto` y-axis computes the x-axis to
+   `auto` as well, and the Verlauf must line-wrap, never scroll sideways. */
 .history-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  overscroll-behavior: none; padding: 0 2px 2px; }
+  overscroll-behavior: contain; padding: 0 2px 2px; }
 /* ⚠️ A GRID, not a wrapping flex (23.08.). Four tracks: time · disc · the sentence · everything
    else. The point is the third one — every row's text starts at the same x (10 + 38 + 10 + 26 +
    10 = 94px from the row's border box), and the sub-lines below are placed on that same axis, so
@@ -463,40 +463,47 @@
 .jr-rem.done .jr-rem-box { background: var(--green); border-color: var(--green); color: var(--on-fill); }
 .jr-rem.done .jr-rem-box .i { opacity: 1; }
 
-/* OFFENE ERINNERUNGEN, held at the top of the Verlauf (see Journal.tsx). Sticky, because the
-   point is that they cannot be scrolled past — a Wiedervorlage is the one row in an append-only
-   record that is about the future, and on a busy Einsatz it was thirty rows up in ten minutes. */
-.jr-pinned { position: sticky; top: 0; z-index: 2; display: flex; flex-direction: column; gap: 4px;
+/* OFFENE ERINNERUNGEN — the UPPER of the drawer's two scroll areas, a sibling of `.history-list`
+   and entirely above it (see Journal.tsx). A Wiedervorlage is the one entry in an append-only
+   record that is about the future, and on a busy Einsatz it was thirty rows up within ten
+   minutes; a box of its own is how it stays reachable without standing in front of the log.
+   ⚠️ THE OLD ARGUMENT, and why it no longer applies. This block used to be `position: sticky`
+   INSIDE the log with a hard cap and an «Aufklappen» button, on the reasoning that two scrollbars
+   are two guesses about which one a flick will move. That was true of the arrangement it
+   described — an opaque block floating over the list it belonged to, with the log's rows running
+   behind it and getting sliced through their letters at its lower edge, and (earlier still) a
+   `.jr-locked` rule that froze the log outright whenever the block was open. Two boxes STACKED
+   with a border and a gap between them is a different question: the finger is in one box or the
+   other, and neither ever covers the other's rows. */
+.jr-pinned { display: flex; flex-direction: column; gap: 4px;
   /* ⚠️ `--r-ctl`, not a `--r-md` — there is no md tier in the radius scale (ctl/btn/surface/hero
      plus the xs/sm/pill tier below it). This rule asked for one, which is invalid at
      computed-value time, so the block sat in the Verlauf with hard 0px corners. */
-  margin: 0 0 10px; padding: 8px 0; border-radius: var(--r-ctl);
+  /* the 2px matches `.history-list`'s own side padding, so the box's border and the log's rows
+     stand on one edge — and the 9px on a row plus this 1px border makes the 10px `.hist-ev` uses,
+     which is what keeps the item text on the same x as every line in the log. */
+  margin: 0 2px 10px; padding: 8px 0; border-radius: var(--r-ctl);
   border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--glass-edge));
   --jr-pinned-bg: color-mix(in srgb, var(--amber) 7%, var(--surface));
   background: var(--jr-pinned-bg);
-  /* ⚠️ CAPPED AND CLIPPED — never scrollable. Every open item is rendered; collapsed, the cap is
-     what keeps the block short, because it is sticky and a block that took the whole drawer by
-     itself would leave no Verlauf behind it. What is past the cap is reached with «Aufklappen»
-     (.jr-pinned-more, sticky at the block's foot, with the fade above it saying there is more) —
-     NOT with a second scrollbar. Two scrollbars stacked on one list is two guesses about which
-     one a flick will move, and the answer used to be «neither»: expanding the block locked the
-     Verlauf's scroll outright.
-     ⚠️ A sticky element taller than its scrollport is a trap — it pins at the top and its lower
-     rows can never be reached, because the scroll moves the content behind it rather than the
-     block. Collapsed, this cap is what prevents that; expanded, `.is-open` gives up `sticky`
-     instead, which is the same trap solved the other way round.
-     ⚠️ `overflow: hidden` on BOTH axes, deliberately. The x-axis had to be clipped anyway (the
-     same trap `.ctx-body` and `.history-list` each carry a note about: an `auto` y-axis computes
-     the x-axis to `auto` too, and the block once scrolled SIDEWAYS and cut the item text off
-     mid-word) — and a clipped box still answers `scrollHeight > clientHeight`, which is how
-     Journal.tsx knows whether «Aufklappen» has anything to show.
-     ⚠️ PERCENTAGES of `.history-list`, whose height is definite. A fixed pixel cap fitted four
-     ordinary rows and then broke the moment one of them carried Meldungen — how much fits is a
-     question about heights, and rows here are not one height. */
-  max-height: 50%; overflow: hidden; }
-/* …and the heading stays put while they scroll: it carries the count, which is the one thing you
-   need while looking for the row you want. `--jr-pinned-bg` rather than `inherit` — a sticky child
-   paints over its siblings and needs a real fill of its own. */
+  /* ⚠️ `flex: none`, and that IS the height policy. Content-sized, so one open item is one row
+     tall — a fixed height would make a two-row letterbox of it — and clamped by `max-height` so
+     fourteen open items cannot eat the drawer. Allowed to shrink (`flex: 0 1 auto`) it did the
+     opposite of what it looks like: a long log outweighs a short block in the shrink
+     distribution, so two Pendenzen were squeezed to a sliver while 200 log rows kept their space.
+     ⚠️ PERCENTAGE, not pixels, and of `.journal-drawer`, whose height is definite. A fixed pixel
+     cap fitted four ordinary rows and broke the moment one carried Meldungen — how much fits is a
+     question about heights, and rows here are not one height. (A phone drawer is `height: auto`,
+     against which a percentage computes to `none`; 15-mobile.css supplies a `dvh` cap there.)
+     ⚠️ `overflow-x: hidden` alongside the `auto` y-axis, or the x-axis computes to `auto` too and
+     the box scrolls SIDEWAYS, cutting the item text off mid-word. `overscroll-behavior: contain`
+     so a flick that reaches this box's end stops there instead of carrying on into the log. */
+  flex: none; max-height: 45%;
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; }
+/* …and the heading stays put while the items scroll UNDER IT, inside this box: sticky is bounded
+   by its own scrollport, so it rides the box and never reaches the log below. It carries the
+   count, which is the one thing you need while looking for the row you want. `--jr-pinned-bg`
+   rather than `inherit` — a sticky child paints over its siblings and needs a real fill. */
 /* ⚠️ Full-width and opaque. It spans the block edge to edge — the rows carry the padding now — or
    rows scrolling underneath show past it on both sides, which is the one thing a header is there
    to prevent. `top: -8px` + the matching negative margin cancel the block's top padding, so the
@@ -526,7 +533,7 @@
    once its rows overflowed, the default `flex-shrink: 1` squeezed every one of them down to its
    own `min-height` of 44px: a row carrying three Meldungen still measured 44, and its Meldungen
    painted straight over the row below it. It read as a rendering fault and was one. A row is
-   never allowed to be shorter than its contents — the BLOCK scrolls instead, which is what its
+   never allowed to be shorter than its contents — the BOX scrolls instead, which is what its
    `overflow-y` is for. */
 .jr-pinned-row { flex: none; position: relative; display: flex; align-items: flex-start; gap: 10px;
   min-height: var(--tap); padding: 6px 9px; border-radius: var(--r-sm); }
@@ -601,29 +608,9 @@
   display: inline-flex; align-items: center; gap: 4px; color: var(--amber-strong);
   font: 700 11.5px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .jr-pinned-alarm .i { width: 13px; height: 13px; }
-/* ── Aufgeklappt: the block stops being a pinned header and becomes the top of the list ──
-   ⚠️ `position: static`, and that is the whole point of the expansion. Sticky, it could never be
-   taller than the drawer without trapping its own lower rows, which is why it used to carry a
-   scrollbar of its own — and then the Verlauf behind it had to be frozen (`.jr-locked`) so a flick
-   could not move the wrong one. Static, it is simply the first thing in `.history-list`: one
-   scrollbar carries you through every Pendenz and straight on into the log.
-   ⚠️ `overflow: visible`, not `overflow-y: visible` — the x-axis would compute back to `auto` and
-   put the sideways scroller back. Nothing in the block is wider than it any more (the padding
-   sits on the rows), so there is nothing left to clip.
-   The head and «Zuklappen» stay sticky INSIDE it: sticky is bounded by its own parent's box, so
-   they ride along the block and are released when it scrolls out — the count stays readable while
-   you work down twelve items, and the way back to collapsed never scrolls out of reach. */
-.jr-pinned.is-open { position: static; max-height: none; overflow: visible; }
-.jr-pinned-more { flex: none; position: sticky; bottom: -8px; z-index: 3; margin-bottom: -8px;
-  border: 0; background: var(--jr-pinned-bg); padding: 8px 9px 9px; cursor: pointer; width: 100%;
-  display: flex; align-items: center; gap: 6px; font: 700 12px var(--body); color: var(--blue-strong); }
-/* …and the line it is scrolling over fades into it instead of being sliced in half. A row cut
-   through the middle of its letters reads as a rendering fault; a row fading out reads as «there
-   is more below», which is what it is. */
-.jr-pinned-more::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 14px;
-  pointer-events: none;
-  background: linear-gradient(to top, var(--jr-pinned-bg), color-mix(in srgb, var(--jr-pinned-bg) 0%, transparent)); }
-.jr-pinned-more .i { width: 13px; height: 13px; }
+/* ⚠️ There is no «Aufklappen» / «Zuklappen» here any more, and no `.is-open` state. They were
+   the way past a cap on a block that could not scroll itself; the box scrolls now, so a second
+   way to see the same rows would be exactly that — a second way to see the same rows. */
 
 /* the job printed after a linked name («Widmer Céline (EL)»). Normal weight inside the bold
    name: it explains the name, it is not part of it — and every second row of a busy Verlauf

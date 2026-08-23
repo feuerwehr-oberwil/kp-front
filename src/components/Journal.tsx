@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
@@ -211,20 +211,12 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     events.filter((e) => e.reminder?.op === 'created').map((e) => [e.reminder!.id, e.id] as const),
   ), [events])
   const [now] = useState(() => Date.now())
-  // the Pendenzen block: how many rows it may take, and whether the time column shows the clock
-  // or the age. The toggle is per-opening (the drawer remounts each time) — it is a reading
-  // preference for the minute you are in, not a setting worth persisting.
-  // ⚠️ EVERY open item is rendered — no count cap. A cap of four meant «12 offen» in the heading
-  // over a list showing three, and the way to the rest was a control that had to be found. What
-  // the toggle changes is the block's HEIGHT and how it sits: collapsed it is sticky and clipped
-  // to half the drawer, with «Aufklappen» standing at its foot as the way to the rest; expanded
-  // it stops being sticky and becomes the top of the drawer's one scrolling list.
-  const [expanded, setExpanded] = useState(false)
-  // …and the toggle appears only when the collapsed block cannot show everything. Measured, not
-  // counted: one item carrying four Meldungen is taller than four bare ones, so a row count
-  // cannot answer «does this fit».
-  const pinnedRef = useRef<HTMLDivElement | null>(null)
-  const [pinnedOverflows, setPinnedOverflows] = useState(false)
+  // Whether the Pendenzen box's time column shows the clock or the age. Per-opening (the drawer
+  // remounts on each open) — a reading preference for the minute you are in, not a setting.
+  // ⚠️ EVERY open item is rendered, and nothing measures whether they fit any more. The box is a
+  // scroll container of its own (see `.jr-pinned`), so the eleventh item is reached by the same
+  // flick as the second. The cap-and-«Aufklappen» pair this replaces existed only because the
+  // block used to be sticky INSIDE the log, where it could not scroll itself.
   const [showAge, setShowAge] = useState(false)
   // the icon legend. Per-opening like `showAge`, and closed to begin with — see the button.
   const [showLegend, setShowLegend] = useState(false)
@@ -300,8 +292,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     return (er.top - lr.top) - (lr.height - er.height) / 2
   }
   /**
-   * Scroll to one row by id and flash it — the strip, the pinned Erinnerungen and the
+   * Scroll to one row by id and flash it — the strip, the reference on a Meldung row and the
    * Wiedergabe's «im Verlauf» all share it. Returns whether the row was there to scroll to.
+   *
+   * ⚠️ It scrolls `.history-list`, which is the LOG's scrollport and only the log's: every row it
+   * can land on carries `data-ev` and lives there. The Pendenzen box above is a second scrollport
+   * with no landing targets of its own — a Meldung's reference points at the log row that raised
+   * the item, not at the box's copy of it — so the two never fight over one scroll.
    *
    * ⚠️ The list is scrolled by a MEASURED delta first, and `scrollIntoView` is only the fallback.
    * That call walks up to whatever it decides is the scroll parent and animates it, and here it
@@ -423,45 +420,6 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // screen and the list on paper start disagreeing about what is most urgent.
   const pinnedReminders = openReminders ?? []
 
-  /**
-   * Does the collapsed block hold more than it can show? The answer decides whether «Aufklappen»
-   * exists at all, so getting it wrong makes a capped list one with no way out.
-   *
-   * ⚠️ A REF CALLBACK, not an effect reading `pinnedRef.current`. That was tried twice and never
-   * ran once: this drawer is an `<Overlay>`, and the overlay mounts its children in a LATER commit
-   * than the component's own layout effect — so `pinnedRef.current` was null, the effect took its
-   * `if (!el)` exit, and because `openReminders` does not change identity afterwards it was never
-   * asked again. React calls a ref callback exactly when the node attaches, whatever the commit
-   * order, which is the one hook that cannot be early.
-   *
-   * Then it keeps watching, because «fits» has several answers over time: the next frame (fonts
-   * swap and a wrapped item is a different height) and any resize of the block or its rows.
-   *
-   * ⚠️ No `scroll` listener any more. The block does not scroll — it is CLIPPED to its cap and
-   * «Aufklappen» is the only way past it, so that there is one scrollbar in the drawer and not
-   * two. `scrollHeight > clientHeight` measures a clipped box exactly as it measured a scrolling
-   * one, which is why the collapsed cap can change from `auto` to `hidden` without this moving.
-   */
-  const detachPinned = useRef<(() => void) | null>(null)
-  const attachPinned = useCallback((el: HTMLDivElement | null) => {
-    detachPinned.current?.()
-    detachPinned.current = null
-    pinnedRef.current = el
-    if (!el) { setPinnedOverflows(false); return }
-    const measure = () => setPinnedOverflows(el.scrollHeight > el.clientHeight + 1)
-    measure()
-    const raf = requestAnimationFrame(measure)
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    for (const child of Array.from(el.children)) ro.observe(child)
-    detachPinned.current = () => { cancelAnimationFrame(raf); ro.disconnect() }
-  }, [])
-  // …and once more when the open set or the expansion changes: rows come and go without the block
-  // itself resizing (it is capped), so the ResizeObserver alone would not notice.
-  useEffect(() => {
-    const el = pinnedRef.current
-    if (el) setPinnedOverflows(el.scrollHeight > el.clientHeight + 1)
-  }, [openReminders, expanded])
 
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false}>
@@ -530,103 +488,90 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             </div>
           </div>
         )}
-        {/* ONE scrolling box for the whole drawer — the Pendenzen block above, the log below it,
-            two rows and a single gesture through both. There used to be two scrollbars: the block
-            scrolled inside itself while the log scrolled behind it, and expanding the block locked
-            the log's scroll outright (`.jr-locked`) so the list you were working through simply
-            stopped moving. Both are gone. Collapsed, the block is sticky and clipped to half the
-            drawer, and «Aufklappen» is the way to the rest; expanded, it stops being sticky and
-            becomes the top of this one list. See `.jr-pinned` in 06-contextpanel.css. */}
+        {/* ── OFFENE ERINNERUNGEN · the upper of the drawer's TWO stacked scroll areas ──
+            The one part of the drawer that is not the chronology. A Wiedervorlage is about what
+            still has to be done, and on an Einsatz that writes a row a minute it was thirty rows
+            up within ten — so it is held out of the stream in a box of its own, with the log
+            ENTIRELY below it in a second box. Each scrolls itself; neither covers the other.
+            ⚠️ This reverses «one scrollbar for the whole drawer». That argument — two scrollbars
+            are two guesses about which one a flick will move — was about two that OVERLAPPED: the
+            block was sticky and opaque INSIDE the log, so the rows ran behind it and one crossing
+            its lower edge was sliced through its letters. Stacked, with the box's border and the
+            gap below it as the seam, the finger is in one box or the other.
+            ⚠️ No box at all when nothing is open — the log then has the whole drawer, which is
+            the state most of an Einsatz is in. See `.jr-pinned` in 06-contextpanel.css. */}
+        {pinnedReminders.length > 0 && (
+          <div className="jr-pinned">
+            <div className="jr-pinned-head">
+              <Icon id="checklist" /><span>{C.openRemindersHead}</span>
+              <b>{C.openCount.replace('{n}', String(pinnedReminders.length))}</b>
+            </div>
+            {pinnedReminders.map((r) => {
+              // ⚠️ The time column says WHEN IT WAS RAISED, for every row, always. It used to
+              // say «fällig 22:10 / überfällig», which only a timed Erinnerung can answer — an
+              // Auftrag has no Fälligkeit, because nobody checks in on a Schadenplatz. What is
+              // actually being asked here is «seit wann läuft das», and the sort order (oldest
+              // first) already answers it positionally; tapping swaps the column to the age for
+              // the times the clock stops answering it. Überfällig stays the banner's business.
+              const dueLater = r.dueAt && Date.parse(r.dueAt) > now
+              return (
+                <div key={r.id} className={`jr-pinned-row ${r.urgent ? 'urgent' : ''}`}>
+                  <button
+                    type="button" className="jr-when"
+                    title={C.ageToggle} aria-label={C.ageToggle}
+                    onClick={() => setShowAge((v) => !v)}
+                  >{showAge ? ageLabel(r.createdAt, now, C) : rowClock(r.createdAt)}</button>
+                  {/* ⚠️ The ring sits in the VERLAUF'S ICON SLOT, before the text, not out at the
+                      right margin. Two things come of it: the item's text starts on exactly the
+                      same axis as every line in the log below, so the block reads as the same
+                      list filtered rather than as a separate component — and the ring IS this
+                      row's icon, which is what a checklist circle has always been. */}
+                  <button
+                    type="button" className="jr-rem"
+                    disabled={!onReminderDone}
+                    title={C.markDoneTitle} aria-label={C.markDoneTitle}
+                    onClick={() => onReminderDone?.(r)}
+                  ><span className="jr-rem-box"><Icon id="check" /></span></button>
+                  {/* ⚠️ The Meldungen are SIBLINGS of the button, not children of it. Inside it
+                      they rendered outside its box: a <button> is a replaced-ish element whose
+                      height does not follow block children the way a div's does, so a row with
+                      three Meldungen kept the height of one and the next row was drawn straight
+                      over them. The button stays a button — one line, one action — and the
+                      thread hangs under it in an ordinary div. */}
+                  <div className="jr-pinned-body">
+                    <button
+                      type="button" className="jr-pinned-text"
+                      title={C.noteOpen} aria-label={C.noteOpen}
+                      disabled={!onReminderNote}
+                      onClick={() => onReminderNote?.(r)}
+                    >{r.text}</button>
+                    {/* ⚠️ EVERY Meldung, not the latest one. They stand scattered through the
+                        Verlauf where they happened, so this is the only place the thread reads
+                        as a thread — and showing one of three looked like the whole story. */}
+                    {r.notes.map((n) => (
+                      <span className="jr-pinned-note" key={n.rowId}>
+                        <b>{rowClock(n.at)}</b>{n.text}
+                      </span>
+                    ))}
+                  </div>
+                  {/* ⚠️ …and it says WHEN, not just that there is a when. The bare clock glyph
+                      answered «meldet sich selbst» and left the one thing to act on — «um wie
+                      viel Uhr?» — inside a tooltip nobody on a tablet can open. The row's own
+                      time column says when the item was RAISED, so the two are never the same
+                      number. `dueClock` adds «· morgen» where the Fälligkeit fell to the next
+                      day, which is exactly the case a bare «06:30» reads as long overdue. */}
+                  {dueLater && (
+                    <span className="jr-pinned-alarm" title={C.dueAtLabel.replace('{t}', dueClock(r.dueAt!))}>
+                      <Icon id="clock" /><b>{dueClock(r.dueAt!)}</b>
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
         <div className="history-list" ref={listRef}>
           {events.length === 0 && <EmptyState icon="history" title={C.empty} />}
-          {/* OFFENE ERINNERUNGEN, held at the top. The only rows in this list that are not where
-              they happened — deliberately: a Wiedervorlage is about what still has to be done,
-              and on an Einsatz that writes a row a minute it was scrolled past within ten. Each
-              one jumps to its own place in the chronology, which is where the record keeps it. */}
-          {pinnedReminders.length > 0 && (
-            <div ref={attachPinned} className={`jr-pinned${expanded ? ' is-open' : ''}`}>
-              <div className="jr-pinned-head">
-                <Icon id="checklist" /><span>{C.openRemindersHead}</span>
-                <b>{C.openCount.replace('{n}', String(pinnedReminders.length))}</b>
-              </div>
-              {pinnedReminders.map((r) => {
-                // ⚠️ The time column says WHEN IT WAS RAISED, for every row, always. It used to
-                // say «fällig 22:10 / überfällig», which only a timed Erinnerung can answer — an
-                // Auftrag has no Fälligkeit, because nobody checks in on a Schadenplatz. What is
-                // actually being asked here is «seit wann läuft das», and the sort order (oldest
-                // first) already answers it positionally; tapping swaps the column to the age for
-                // the times the clock stops answering it. Überfällig stays the banner's business.
-                const dueLater = r.dueAt && Date.parse(r.dueAt) > now
-                return (
-                  <div key={r.id} className={`jr-pinned-row ${r.urgent ? 'urgent' : ''}`}>
-                    <button
-                      type="button" className="jr-when"
-                      title={C.ageToggle} aria-label={C.ageToggle}
-                      onClick={() => setShowAge((v) => !v)}
-                    >{showAge ? ageLabel(r.createdAt, now, C) : rowClock(r.createdAt)}</button>
-                    {/* ⚠️ The ring sits in the VERLAUF'S ICON SLOT, before the text, not out at the
-                        right margin. Two things come of it: the item's text starts on exactly the
-                        same axis as every line in the log below, so the block reads as the same
-                        list filtered rather than as a separate component — and the ring IS this
-                        row's icon, which is what a checklist circle has always been. */}
-                    <button
-                      type="button" className="jr-rem"
-                      disabled={!onReminderDone}
-                      title={C.markDoneTitle} aria-label={C.markDoneTitle}
-                      onClick={() => onReminderDone?.(r)}
-                    ><span className="jr-rem-box"><Icon id="check" /></span></button>
-                    {/* ⚠️ The Meldungen are SIBLINGS of the button, not children of it. Inside it
-                        they rendered outside its box: a <button> is a replaced-ish element whose
-                        height does not follow block children the way a div's does, so a row with
-                        three Meldungen kept the height of one and the next row was drawn straight
-                        over them. The button stays a button — one line, one action — and the
-                        thread hangs under it in an ordinary div. */}
-                    <div className="jr-pinned-body">
-                      <button
-                        type="button" className="jr-pinned-text"
-                        title={C.noteOpen} aria-label={C.noteOpen}
-                        disabled={!onReminderNote}
-                        onClick={() => onReminderNote?.(r)}
-                      >{r.text}</button>
-                      {/* ⚠️ EVERY Meldung, not the latest one. They stand scattered through the
-                          Verlauf where they happened, so this is the only place the thread reads
-                          as a thread — and showing one of three looked like the whole story. */}
-                      {r.notes.map((n) => (
-                        <span className="jr-pinned-note" key={n.rowId}>
-                          <b>{rowClock(n.at)}</b>{n.text}
-                        </span>
-                      ))}
-                    </div>
-                    {/* ⚠️ …and it says WHEN, not just that there is a when. The bare clock glyph
-                        answered «meldet sich selbst» and left the one thing to act on — «um wie
-                        viel Uhr?» — inside a tooltip nobody on a tablet can open. The row's own
-                        time column says when the item was RAISED, so the two are never the same
-                        number. `dueClock` adds «· morgen» where the Fälligkeit fell to the next
-                        day, which is exactly the case a bare «06:30» reads as long overdue. */}
-                    {dueLater && (
-                      <span className="jr-pinned-alarm" title={C.dueAtLabel.replace('{t}', dueClock(r.dueAt!))}>
-                        <Icon id="clock" /><b>{dueClock(r.dueAt!)}</b>
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-              {/* ⚠️ CAPPED while collapsed. The block is sticky then, so it cannot be scrolled
-                  past — right for the two Erinnerungen it used to hold, ruinous for the ten
-                  Pendenzen a Lagerapport produces, which would leave no Verlauf at all. The sort
-                  decides what shows above the cap, so dringend and oldest are always among them,
-                  and THIS button is the way to the rest. */}
-              {/* ⚠️ Sticky at the FOOT of the block, both states. Expanded the block is taller than
-                  the drawer, so a «Zuklappen» sitting after the last row is one nobody can reach
-                  without scrolling to the end of the very list they want to collapse. */}
-              {(expanded || pinnedOverflows) && (
-                <button type="button" className="jr-pinned-more" onClick={() => setExpanded((v) => !v)}>
-                  <Icon id={expanded ? 'chevron-up' : 'chevron-down'} />
-                  {expanded ? C.collapse : C.expand}
-                </button>
-              )}
-            </div>
-          )}
           {groupByDay(events).map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>
               {g.label && <div className="jr-day-sep" role="separator">{g.label}</div>}

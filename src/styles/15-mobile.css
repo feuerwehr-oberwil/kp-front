@@ -373,16 +373,14 @@
     bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-width: none;
     max-height: calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     border-radius: var(--r-hero) var(--r-hero) var(--r-surface) var(--r-surface); }
-  /* ⚠️ The Pendenzen block needs a cap this side of a PERCENTAGE. Its `max-height: 50%` resolves
-     against `.history-list`, and on a phone this drawer is `height: auto` (bottom-anchored, capped
-     by max-height) — an indefinite height, against which a percentage max-height computes to
-     `none`. So with a dozen open items the block simply grew to all of them, and because it is
-     `position: sticky` and then taller than its own scrollport, the lower half could not be
-     reached by any gesture: scrolling moved the Verlauf BEHIND it. That is the exact trap the cap
-     in 06-contextpanel.css is written against; on a phone it needs a unit that is always definite.
-     40dvh collapsed / 62dvh expanded ≈ the same share of the drawer the percentages give a tablet. */
+  /* ⚠️ The Pendenzen box needs a cap this side of a PERCENTAGE. Its `max-height: 45%` resolves
+     against `.journal-drawer`, and on a phone this drawer is `height: auto` (bottom-anchored,
+     capped by max-height) — an indefinite height, against which a percentage max-height computes
+     to `none`, so a dozen open items would take the whole sheet and leave no Verlauf behind them.
+     40dvh ≈ the share the percentage gives a tablet. (The box is its OWN scrollport since 23.08.
+     — it no longer sits sticky over the log, so the old «taller than its scrollport» trap this
+     comment used to describe is gone with it.) */
   .jr-pinned { max-height: 40dvh; }
-  .jr-pinned.is-open { max-height: 62dvh; }
 
   /* The suggestion row keeps its space even when it has nothing to suggest. The composer is
      bottom-anchored here, so a row that comes and goes between the field and the chips moves
