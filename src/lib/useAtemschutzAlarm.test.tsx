@@ -63,6 +63,23 @@ describe('the mute reaches the OS notification, not only the tone', () => {
   })
 })
 
+// ⚠️ TWO emergencies reach tier 2, and until 23.08. the tray was told only one of them: a Trupp
+// at its Alarmdruck was announced as «überfällig – Kontakt herstellen». That is the one
+// instruction that does not help, because air does not come back on the radio.
+describe('the notification names the emergency it is about', () => {
+  it('does not call a Trupp at its Alarmdruck «überfällig»', () => {
+    render(
+      <AtemschutzAlarmHost trupps={[trupp({ lastPressureBar: 90 })]} muted={false} active logAlarm={() => {}}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(1000) })
+    const [title, opts] = vi.mocked(notify).mock.calls[0]
+    expect(`${title} ${opts?.body ?? ''}`).not.toMatch(/überfällig/i)
+    expect(title).toMatch(/Alarmdruck/)
+    expect(opts?.body).toContain('90 bar')
+  })
+})
+
 describe('AtemschutzAlarmHost', () => {
   it('reports transitions only — clock ticks alone never reach onState', () => {
     const onState = vi.fn()

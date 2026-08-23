@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { anyTruppInField, type AtemschutzAlarmState, deriveTruppLive, peakAtemschutzAlarm, truppAlarm } from './atemschutz'
 import { Alarm, chime, notify } from './alarm'
+import { fillTemplate } from './format'
 import { atemschutzDoctrine, isDemoMode } from './deploymentConfig'
 import type { Trupp } from '../types'
 
@@ -103,7 +104,7 @@ export function useAtemschutzAlarm({
       // nowhere else, so it reached nobody who was not already looking at the Atemschutz board.
       // It is tier 2 outright: the Alarmdruck IS the deadline, it has no amber lead-up.
       // ONE computation, shared with the fold below and with the board itself (lib · truppAlarm).
-      const { sev, reason } = truppAlarm(t, l, intervalMin, graceSec, { alarmBar, alarmBarRueckzug })
+      const { sev, reason, line } = truppAlarm(t, l, intervalMin, graceSec, { alarmBar, alarmBarRueckzug })
       const lowPressure = reason === 'pressure'
       // ⚠️ A CROSSING THIS APP ACTUALLY SAW — hence «have we met this Trupp before», not «is the
       // tier below 2». `prevSeverity` starts empty on every mount, so a Trupp that was ALREADY
@@ -142,7 +143,22 @@ export function useAtemschutzAlarm({
         const lastN = lastNotify.current.get(t.id) ?? 0
         if (!demo && !muted && (justCrossed || now - lastN >= ALARM_RENOTIFY_MS)) {
           lastNotify.current.set(t.id, now)
-          void notify(az.alarmNotifyTitle, { body: az.alarmNotifyBody.replace('{name}', t.name), tag: `atemschutz-${t.id}`, target: 'atemschutz' })
+          // ⚠️ TWO reasons reach tier 2, and until 23.08. the tray was told only one of them:
+          // a Trupp at its Alarmdruck was announced as «überfällig – Kontakt herstellen», which
+          // is the one instruction that does not help — air does not come back on the radio. The
+          // wording now follows the reason, and it is the SAME wording the Meldeleiste row uses
+          // (AtemschutzAlarmMeldung), so the tray and the screen never say different things.
+          const name = t.name || az.truppFallbackName
+          void notify(
+            lowPressure ? fillTemplate(az.alarmRowPressure, { name }) : az.alarmNotifyTitle,
+            {
+              body: lowPressure
+                ? fillTemplate(az.alarmRowPressureSub, { bar: l.currentBar, line: line ?? '' })
+                : fillTemplate(az.alarmNotifyBody, { name }),
+              tag: `atemschutz-${t.id}`,
+              target: 'atemschutz',
+            },
+          )
         }
       } else {
         lastNotify.current.delete(t.id)
