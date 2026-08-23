@@ -32,7 +32,7 @@ export function UpdateBanner() {
     icon: 'info',
     title: C.available,
     sub: C.hint,
-    actions: [{ label: C.dismiss, onClick: () => setDismissed(true) }],
+    dismiss: { label: C.dismiss, onClick: () => setDismissed(true) },
   })
   return null
 }

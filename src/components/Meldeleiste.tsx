@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { rankMeldungen, type Meldung } from '../lib/meldungen'
+import { meldungTap, rankMeldungen, type Meldung } from '../lib/meldungen'
 import { getMeldungen, subscribeMeldungen } from '../lib/useMeldung'
 
 // ══ Die Meldeleiste ══════════════════════════════════════════════════════════════════════
@@ -16,9 +16,11 @@ import { getMeldungen, subscribeMeldungen } from '../lib/useMeldung'
 //    costs height on a quiet Einsatz is a bad trade, and that is the property that won it the
 //    argument against a badge on the nav rail (0px always, but a digit where the 3am rule wants
 //    a sentence).
-//  · the +n pill does not PAGE. Paging hides the message you are reading and turns «what else is
-//    waiting» into counting; the list answers it in one glance. Tapping a queued row pulls it
-//    onto the strip instead (rankMeldungen · pinnedId).
+//  · the queue does not PAGE, and it does not PROMOTE. Paging hides the message you are reading;
+//    promotion (what tapping a queued row did until 23.08.) made every waiting message a
+//    second-class citizen — it had to reach the strip before it could be erledigt. A queued row
+//    is now literally the same row: same text, same buttons, same ✕, rendered by the same three
+//    components below. Its body tap runs the message's own move (lib/meldungen · meldungTap).
 //
 // A message that has a PLACE stays out of here: ShiftConflictNotice sits inside the Zeitplan it
 // is about, CaptureUsageChip inside the capture surface. Both are uncoverable by construction —
@@ -28,12 +30,10 @@ import { getMeldungen, subscribeMeldungen } from '../lib/useMeldung'
 export function Meldeleiste() {
   const items = useSyncExternalStore(subscribeMeldungen, getMeldungen, getMeldungen)
   const [wantOpen, setOpen] = useState(false)
-  // the operator pulled a queued row onto the strip; forgotten as soon as that message is handled
-  const [pinned, setPinned] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const C = appConfig.copy.meldeleiste
 
-  const { lead, queue, pillTone } = useMemo(() => rankMeldungen(items, pinned), [items, pinned])
+  const { lead, queue, pillTone } = useMemo(() => rankMeldungen(items), [items])
 
   // DERIVED, never synced: with nothing queued there is no drawer, so the last message being
   // handled closes it by arithmetic. An effect calling setOpen(false) here would cascade a second
@@ -60,52 +60,39 @@ export function Meldeleiste() {
     <div className={`ml t-${lead.tone}`} ref={ref} role="status" aria-live="polite" aria-label={C.region}>
       <div className="ml-row">
         <Icon id={lead.icon} className="ml-ic" />
-        {/* the row IS the message's third action where it has one (the Wiedervorlage's «In
-            Verlauf öffnen»); without one it is plain text, not a dead button */}
-        {lead.onOpen
-          ? <button type="button" className="ml-txt" onClick={lead.onOpen}><MeldungText m={lead} /></button>
-          : <span className="ml-txt"><MeldungText m={lead} /></span>}
-        <span className="ml-act">
-          {(lead.actions ?? []).map((a) => (
-            <button
-              key={a.label}
-              type="button"
-              className={`ml-btn${a.primary ? ' prim' : ''}`}
-              disabled={a.disabled}
-              onClick={a.onClick}
-            >
-              {a.icon && <Icon id={a.icon} className={a.busy ? 'spin' : undefined} />}{a.label}
-            </button>
-          ))}
-        </span>
+        <MeldungBody m={lead} />
+        <MeldungActions m={lead} />
         {queue.length > 0 && (
-          // the pill wears the tone of the best WAITING message, so a due Wiedervorlage behind an
-          // alarm is announced rather than merely counted. Outside .ml-act on purpose: on a phone
-          // the actions drop to a second line and the counter must stay beside the text.
+          // A DISCLOSURE, not a counter: the chevron leads, points at the list it opens and turns
+          // over once it is open — «there is more below» has to be readable without counting.
+          // The number rides along because how many are waiting is real information, and the tone
+          // does too, so a due Wiedervorlage behind an alarm is announced by the very control
+          // that hides it. Outside .ml-act on purpose: on a phone the actions drop to a second
+          // line and this must stay beside the text.
           <button
             type="button"
-            className={`ml-more${pillTone === 'alarm' || pillTone === 'warn' ? ' has-crit' : ''}`}
+            className={`ml-more${pillTone === 'alarm' || pillTone === 'warn' ? ` t-${pillTone}` : ''}`}
             aria-expanded={open}
             aria-label={open ? C.less : fillTemplate(C.more, { n: queue.length })}
             onClick={() => setOpen((v) => !v)}
           >
-            +{queue.length}<Icon id={open ? 'chevron-up' : 'chevron-down'} />
+            <Icon id="chevron-down" />{queue.length}
           </button>
         )}
-        {lead.dismiss && (
-          <button type="button" className="ml-x" aria-label={lead.dismiss.label} onClick={lead.dismiss.onClick}>
-            <Icon id="close" />
-          </button>
-        )}
+        <MeldungDismiss m={lead} />
       </div>
       {open && (
         <div className="ml-list">
           {queue.map((m) => (
-            <button key={m.id} type="button" className={`ml-li t-${m.tone}`} onClick={() => { setPinned(m.id); setOpen(false) }}>
+            <div key={m.id} className={`ml-li t-${m.tone}`}>
               <Icon id={m.icon} className="ml-ic" />
-              <span className="ml-li-t">{m.title}{m.sub && <small>{m.sub}</small>}</span>
-              <Icon id="chevron" className="ml-li-go" />
-            </button>
+              {/* the body tap navigates — get the list out of the way of what it just opened.
+                  The buttons do not close it: handling one of four queued messages should leave
+                  the other three where the operator is reading them. */}
+              <MeldungBody m={m} onNavigate={() => setOpen(false)} />
+              <MeldungActions m={m} />
+              <MeldungDismiss m={m} />
+            </div>
           ))}
         </div>
       )}
@@ -113,11 +100,50 @@ export function Meldeleiste() {
   )
 }
 
-function MeldungText({ m }: { m: Meldung }) {
-  return (
+/** The message as a sentence, and the row's own tap where it has one — a plain text column
+ *  where it has none, never a dead button. */
+function MeldungBody({ m, onNavigate }: { m: Meldung; onNavigate?: () => void }) {
+  const tap = meldungTap(m)
+  const text = (
     <>
       <span className="ml-title">{m.title}</span>
       {m.sub && <span className="ml-sub">{m.sub}</span>}
     </>
+  )
+  if (!tap) return <span className="ml-txt">{text}</span>
+  return (
+    <button type="button" className="ml-txt" onClick={() => { tap(); onNavigate?.() }}>{text}</button>
+  )
+}
+
+/** The message's own buttons, at most two. Rendered for the lead row and every queued row from
+ *  the same code — «whatever the lead row can do, its queued twin can do» is not a rule anybody
+ *  has to remember here, it is the absence of a second code path. */
+function MeldungActions({ m }: { m: Meldung }) {
+  if (!m.actions?.length) return null
+  return (
+    <span className="ml-act">
+      {m.actions.map((a) => (
+        <button
+          key={a.label}
+          type="button"
+          className={`ml-btn${a.primary ? ' prim' : ''}`}
+          disabled={a.disabled}
+          onClick={a.onClick}
+        >
+          {a.icon && <Icon id={a.icon} className={a.busy ? 'spin' : undefined} />}{a.label}
+        </button>
+      ))}
+    </span>
+  )
+}
+
+/** The ✕, where waving the message away is legitimate at all (lib/meldungen · dismiss). */
+function MeldungDismiss({ m }: { m: Meldung }) {
+  if (!m.dismiss) return null
+  return (
+    <button type="button" className="ml-x" aria-label={m.dismiss.label} onClick={m.dismiss.onClick}>
+      <Icon id="close" />
+    </button>
   )
 }

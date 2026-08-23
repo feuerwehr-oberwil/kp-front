@@ -52,7 +52,8 @@
 
 /* ── Die Meldeleiste ──────────────────────────────────────────────────────────────────────
    ONE ranked strip under the top bar for every message with no place of its own: highest-ranked
-   message readable as a sentence, the rest behind a +n pill that opens a list (never a pager).
+   message readable as a sentence, the rest behind a chevron that opens the list (never a pager),
+   each of them a full row with its own buttons rather than a headline waiting to be promoted.
    Ranking, tone and queue live in src/lib/meldungen.ts — this file only paints them.
 
    Geometry: spanned BETWEEN the two rails and set clear of the top bar, so it reads as floating
@@ -102,42 +103,56 @@ button.ml-txt:hover .ml-title { text-decoration: underline; text-underline-offse
 .ml-btn.prim { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: 800; }
 .ml-btn.prim:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--on-btn-primary); }
 .ml-btn .i { width: 15px; height: 15px; flex: none; }
-/* the counter, not a pager: it OPENS the queue. Amber the moment something due is waiting behind
-   the row, so a queued warning is announced rather than merely counted. */
-.ml-more { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 11px;
+/* A DISCLOSURE, not a counter: the chevron LEADS, is the biggest glyph in the control, points at
+   the list that opens directly beneath it and turns over once it is open — «there is more below»
+   has to be readable without first reading a number. The count rides behind it because how many
+   are waiting is real information, and the tone rides along too, so the one control that hides a
+   due Wiedervorlage behind an alarm is also the one that announces it.
+   ⚠️ It wore a «+n» until 23.08.; a plus reads as «add», which is the one thing it never does. */
+.ml-more { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 11px 0 8px;
   border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--fill-soft);
-  color: var(--ink-dim); font: 700 12.5px var(--mono); cursor: pointer; }
-.ml-more:hover { color: var(--ink); }
-.ml-more .i { width: 14px; height: 14px; }
-.ml-more.has-crit { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
+  color: var(--ink-dim); font: 700 13px var(--mono); cursor: pointer; }
+.ml-more:hover { color: var(--ink); background: var(--surface-2); }
+.ml-more .i { width: 18px; height: 18px; transition: transform .16s var(--ease); }
+.ml-more[aria-expanded="true"] .i { transform: rotate(180deg); }
+.ml-more.t-warn { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
   border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.ml-more.t-alarm { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent);
+  border-color: color-mix(in srgb, var(--red) 45%, transparent); }
 .ml-x { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: none; background: none;
   color: var(--ink-faint); border-radius: var(--r-sm); cursor: pointer; }
 .ml-x:hover { background: var(--hover-strong); color: var(--ink); }
-/* the open queue — every waiting message on its own line, nothing paged past. Tapping a line
-   pulls it onto the strip (it becomes the row, with its actions); it does not run the action. */
-.ml-list { border-top: 1px solid var(--border-soft); padding: 4px; display: flex; flex-direction: column; }
-.ml-li { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 8px;
-  border: none; border-radius: var(--r-sm); background: none; text-align: left; cursor: pointer; font-family: var(--body); }
+/* the open queue — every waiting message on its own line, nothing paged past. A queued row is
+   the SAME row as the one on the strip: same text column, same .ml-btn actions, same ✕, and its
+   own tone on the left edge. It is not a button itself any more (it contains buttons); the text
+   column is the tap that runs the message's move. Until 23.08. a tap here only PROMOTED the row
+   onto the strip, which made every waiting message wait a tap longer to be acted on. */
+.ml-list { border-top: 1px solid var(--border-soft); padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+.ml-li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 48px;
+  padding: 2px 4px 2px 9px; border-radius: var(--r-ctl); border-left: 3px solid transparent; }
 .ml-li:hover { background: var(--hover-strong); }
-.ml-li + .ml-li { border-top: 1px solid var(--border-soft); border-radius: 0; }
+.ml-li.t-alarm { border-left-color: var(--red); }
+.ml-li.t-warn { border-left-color: var(--amber); }
+.ml-li.t-info { border-left-color: var(--blue); }
+.ml-li.t-calm { border-left-color: var(--ink-faint); }
+.ml-li .ml-ic { width: 16px; height: 16px; }
 .ml-li.t-alarm .ml-ic { color: var(--red); }
 .ml-li.t-warn .ml-ic { color: var(--amber-strong); }
 .ml-li.t-info .ml-ic { color: var(--blue); }
-.ml-li-t { flex: 1; min-width: 0; font: 700 12.5px var(--body); color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ml-li-t small { display: block; font: 500 12px var(--body); color: var(--ink-dim);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ml-li-go { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
+/* one step quieter than the strip's own row — same words, same widget, less shout. The sub line
+   does NOT shrink with it: 12.5px is the floor for text you can tap (AGENTS button spec). */
+.ml-li .ml-title { font-size: 12.5px; }
 @media (max-width: 600px) {
   /* the rails are gone from the sides here (the nav rail is the bottom bar), so the strip takes
-     the full width — and the actions wrap onto a second row while the counter never does: it is
-     the only place the NUMBER of waiting messages is written. */
+     the full width — and the actions wrap onto a second row (in the queue too, where a row now
+     carries the same two buttons) while the disclosure never does: it is the only place the
+     NUMBER of waiting messages is written. */
   .ml { top: calc(72px + env(safe-area-inset-top));
     left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); }
   .ml-row { flex-wrap: wrap; padding-bottom: 8px; }
   .ml-act { order: 1; flex: 1 1 100%; justify-content: flex-end; }
   .ml-act .ml-btn { flex: 1 1 auto; }
+  .ml-li { padding-bottom: 6px; }
 }
 
 /* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the
