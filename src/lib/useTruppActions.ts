@@ -466,15 +466,25 @@ export function useTruppActions(deps: Deps) {
       : status === 'rueckzug' ? az.logRueckzug
       : status === 'raus' ? (neverDeployed ? az.logNotDeployed : az.logExit) : null
     const icon = status === 'raus' ? 'logout' : status === 'rueckzug' ? 'undo' : 'flag'
-    if (tpl) log(icon, fillTemplate(tpl, { name: tr?.name ?? '' }), 'team')
+    const line = tpl ? fillTemplate(tpl, { name: tr?.name ?? '' }) : null
+    if (line) log(icon, line, 'team')
     emit('atemschutz.status', { id, status })
-    // «raus» is terminal — it ends monitoring and stamps exitTime. Without undo a mis-tap is a
-    // dead-end that only a full re-deployment (which resets the clocks) can reverse. Offer a
-    // Rückgängig toast restoring the pre-raus Trupp (status + entry/contact clocks + exitTime).
-    if (status === 'raus' && tr) {
+    /* ⚠️ EVERY transition is undoable, not only «Raus» (23.08.). Three of the four touch the
+     * SAFETY CLOCK: «Eingerückt» stamps entryTime and starts it, «Rückzug» and «Fortsetzen»
+     * reset it (see the note at the top of this function). So a mis-tap on the wrong card —
+     * exactly what the board's 2 s sort freeze and recordContact's undo exist for — silenced
+     * that Trupp's amber/red clock and wrote a false line into an append-only record with no
+     * way back. «Raus» is terminal on top of that: only a full re-deployment reversed it, and
+     * that resets the clocks.
+     * Append-only doctrine: the Verlauf keeps its line, because the tap did happen. The undo
+     * restores the Trupp's derived state — status, entry/contact clocks, exitTime, readings —
+     * which is the same contract Kontakt, Druck and Bearbeiten already offer. The toast repeats
+     * the line the record got and names the Trupp, because meaning a different one IS the
+     * failure mode. */
+    if (line && tr) {
       const snapshot = tr
-      toast(fillTemplate(neverDeployed ? az.logNotDeployed : az.logExit, { name: tr.name }), {
-        icon: 'undo',
+      toast(line, {
+        icon,
         action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
       })
     }

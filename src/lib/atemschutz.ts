@@ -2,8 +2,11 @@
 //
 // Doctrine: Swiss FKS/CSSP. The Atemschutzüberwacher's job is to track the time since the
 // Trupp's last contact (Funkkontakt) and raise the alarm when it runs past the interval —
-// NOT to predict air consumption. Air is the wearer's own responsibility. Pressure is logged
-// for the record (and counts as a contact) but never drives the alarm.
+// NOT to predict air consumption. Air is the wearer's own responsibility, so nothing here
+// PREDICTS it: the expected-pressure Schätzung stays a Planungshilfe and never alarms.
+// The one measured pressure that does is the Alarmdruck (10.08.): a Trupp at or below its
+// turn-back line has to turn round NOW, exactly like one out of contact, so it is tier 2 —
+// see `truppAlarm`, the one place the tier is decided for tone, chip, card, row and sort.
 //
 // This module is framework-free so the clock/threshold logic is unit-testable in isolation.
 // The view layer (AtemschutzView) feeds it a Trupp + the current wall-clock time and renders
@@ -151,10 +154,10 @@ export function contactSeverity(sinceContactSec: number | null, contactIntervalM
  * pressure it is already on the way out, so a second colour further down says nothing new
  * and only teaches the Überwacher that the first one was survivable.
  *
- * DELIBERATELY separate from `contactSeverity` and never folded into `peakAtemschutzAlarm`: the
- * contact clock stays the only thing that raises the AUDIBLE alarm (air is the wearer's own
- * responsibility – see the module header). This is the visual reminder on the card, applied to
- * the logged Druck and to the expected-pressure Schätzung alike.
+ * Applied to the logged Druck and to the expected-pressure Schätzung alike, but only the LOGGED
+ * one raises the alarm — `truppAlarm` folds it in as tier 2, the Schätzung stays a Planungshilfe
+ * that tints its own row and nothing else (air is the wearer's own responsibility, so a
+ * projection must never be the thing that screams — see the module header).
  *
  * A configured 0 switches the threshold off without the caller needing a special case.
  */
@@ -184,9 +187,51 @@ export function alarmBarFor(
   return t.status === 'rueckzug' ? doctrine.alarmBarRueckzug ?? doctrine.alarmBar : doctrine.alarmBar
 }
 
+/** One Trupp's alarm state — the tier plus WHY, because the two emergencies read differently. */
+export interface TruppAlarm {
+  /** 0 silent · 1 «Kontakt fällig» · 2 alarm (überfällig OR at the Alarmdruck) */
+  sev: 0 | 1 | 2
+  /** what the tier is ABOUT — null while silent. The card shows a clock for `contact` and the
+   *  bar it dropped to for `pressure`; the word must never say «überfällig» for a pressure
+   *  alarm, because the Verlauf and the Rapport record two different events. */
+  reason: 'contact' | 'pressure' | null
+  /** the Alarmdruck line THIS Trupp is held to (see alarmBarFor); null when none is configured */
+  line: number | null
+}
+
+/**
+ * THE tier — the single computation behind the tone, the NavRail dot, the TopBar chip, the
+ * Atemschutz card, its compact row, the header badge and the «Dringlichkeit» sort.
+ *
+ * ⚠️ It exists because they disagreed. From 10.08. the app alarmed on the Alarmdruck while the
+ * board itself still read the contact clock alone, so a Trupp at 40 bar with a fresh Funkkontakt
+ * had the whole app screaming beside a green, unbadged, unsorted card — the one failure this
+ * surface exists to prevent. Everything that draws a tier calls this now.
+ *
+ * Low pressure is tier 2 outright: there is no «fällig» half-step for it, because the Alarmdruck
+ * IS the deadline rather than a lead-up to one. It also OUTRANKS the contact clock as the reason,
+ * so a Trupp that is both overdue and out of air is shown as the emergency you cannot fix with a
+ * radio check. Silent (`sev 0`) whenever the Trupp is not in the field — `sinceContactSec` is
+ * null there, so no clock and no cylinder are being watched.
+ */
+export function truppAlarm(
+  t: Pick<Trupp, 'status'>,
+  live: Pick<TruppLive, 'sinceContactSec' | 'currentBar'>,
+  contactIntervalMin: number, contactGraceSec: number,
+  doctrine: { alarmBar?: number; alarmBarRueckzug?: number },
+): TruppAlarm {
+  if (live.sinceContactSec == null) return { sev: 0, reason: null, line: null }
+  const line = doctrine.alarmBar == null ? null
+    : alarmBarFor(t, { alarmBar: doctrine.alarmBar, alarmBarRueckzug: doctrine.alarmBarRueckzug })
+  if (line != null && pressureAlarm(live.currentBar, line)) return { sev: 2, reason: 'pressure', line }
+  const sev = contactSeverity(live.sinceContactSec, contactIntervalMin, contactGraceSec)
+  return { sev, reason: sev > 0 ? 'contact' : null, line }
+}
+
 /** The most-urgent Trupp for the cross-surface badge/chip, plus the loudest tier overall. */
 export interface AtemschutzAlarmState {
-  /** loudest contact-clock tier across all in-field Trupps: 0 silent · 1 fällig · 2 überfällig */
+  /** loudest tier across all in-field Trupps (truppAlarm): 0 silent · 1 fällig · 2 alarm —
+   *  which since 10.08. is überfällig OR at the Alarmdruck, not the contact clock alone */
   peak: 0 | 1 | 2
   /** the Trupp driving the alarm (highest tier, then longest since contact) — null when silent.
    *  `contactAt` (ms epoch of the last contact) lets the chip tick its own clock, so this state
@@ -227,20 +272,16 @@ export function peakAtemschutzAlarm(
   for (const t of trupps) {
     const { sinceContactSec, currentBar } = deriveTruppLive(t, now, contactIntervalMin, contactGraceSec)
     if (sinceContactSec == null) continue // not in the field → no contact clock, no PA
-    const contactSev = contactSeverity(sinceContactSec, contactIntervalMin, contactGraceSec)
-    // ⚠️ Low pressure is tier 2 outright — there is no «fällig» half-step for it. The Alarmdruck
-    // is the point at which the Trupp turns round; it is already the deadline, not a lead-up.
-    // …against THIS Trupp's line: a crew in Rückzug is already on its way out (see alarmBarFor)
-    const line = alarmBar == null ? null : alarmBarFor(t, { alarmBar, alarmBarRueckzug })
-    const lowPressure = line != null && currentBar != null && currentBar <= line
-    const sev: 0 | 1 | 2 = lowPressure ? 2 : contactSev
+    // the shared tier — the same one the board's cards, rows, badge and sort read (truppAlarm)
+    const { sev, reason, line } = truppAlarm(t, { sinceContactSec, currentBar }, contactIntervalMin, contactGraceSec, { alarmBar, alarmBarRueckzug })
     if (sev > peak) peak = sev
     if (sev === 0) continue // narrows sev to 1 | 2 for the urgent record below
     severities[t.id] = sev
     // Rank by tier, then by how far past the line. A low-pressure Trupp ranks by how far BELOW
     // the Alarmdruck it is (in bar, scaled so it sorts against the seconds of a contact clock),
     // so the one with the least air left is the one the chip points at.
-    const overBy = lowPressure ? (line! - currentBar!) * 60 : sinceContactSec
+    const lowPressure = reason === 'pressure'
+    const overBy = lowPressure ? (line! - currentBar) * 60 : sinceContactSec
     const rank = sev * 1_000_000 + overBy
     if (rank > bestRank) {
       bestRank = rank

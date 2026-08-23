@@ -804,7 +804,11 @@ export function AnwesenheitView({
                 { kind: 'sep' as const },
                 {
                   kind: 'check' as const,
-                  label: <span className={cx(s.markRow, s.statusNote)}><i />{A.noteOnly}</span>,
+                  // ⚠️ `.markNote`, not `.statusNote` — the latter is the COPY key beside it
+                  // (`A.statusNote`), and there is no such CSS class. CSS Modules resolved it to
+                  // undefined and cx dropped it, so this was the one row of the menu whose mark
+                  // was an empty 9px hole while every other row carried its own.
+                  label: <span className={cx(s.markRow, s.markNote)}><i />{A.noteOnly}</span>,
                   checked: noteOnly,
                   onChange: setNoteOnly,
                 },

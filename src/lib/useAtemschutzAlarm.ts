@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { alarmBarFor, anyTruppInField, type AtemschutzAlarmState, contactSeverity, deriveTruppLive, peakAtemschutzAlarm, pressureAlarm } from './atemschutz'
+import { anyTruppInField, type AtemschutzAlarmState, deriveTruppLive, peakAtemschutzAlarm, truppAlarm } from './atemschutz'
 import { Alarm, chime, notify } from './alarm'
 import { atemschutzDoctrine, isDemoMode } from './deploymentConfig'
 import type { Trupp } from '../types'
@@ -102,8 +102,9 @@ export function useAtemschutzAlarm({
       // exactly like one out of contact — and until 10.08. that fact lived on its card and
       // nowhere else, so it reached nobody who was not already looking at the Atemschutz board.
       // It is tier 2 outright: the Alarmdruck IS the deadline, it has no amber lead-up.
-      const lowPressure = pressureAlarm(l.currentBar ?? null, alarmBarFor(t, { alarmBar, alarmBarRueckzug }))
-      const sev = lowPressure ? 2 : contactSeverity(l.sinceContactSec, intervalMin, graceSec)
+      // ONE computation, shared with the fold below and with the board itself (lib · truppAlarm).
+      const { sev, reason } = truppAlarm(t, l, intervalMin, graceSec, { alarmBar, alarmBarRueckzug })
+      const lowPressure = reason === 'pressure'
       // ⚠️ A CROSSING THIS APP ACTUALLY SAW — hence «have we met this Trupp before», not «is the
       // tier below 2». `prevSeverity` starts empty on every mount, so a Trupp that was ALREADY
       // überfällig read as 0 → 2 on the first evaluation and wrote another «Überfällig» line: on

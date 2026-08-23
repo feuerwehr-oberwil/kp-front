@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Dispatch, SetStateAction } from 'react'
 import { useTruppActions, truppEditChanges, LAGE_TARGET } from './useTruppActions'
 import type { BoardDoc, Drawing, Entity, Trupp, TruppFields } from '../types'
@@ -6,6 +6,18 @@ import { appConfig } from '../config/appConfig'
 import { anyTruppInField, truppNeverDeployed } from './atemschutz'
 import { fillTemplate } from './format'
 import type { Doc } from './workspace'
+
+// Capture the confirm-with-undo toasts, so the undo the operator would tap can be tapped here.
+// `vi.hoisted` because vi.mock's factory is hoisted above the imports and would otherwise read
+// the array in its temporal dead zone.
+const ui = vi.hoisted(() => ({ toasts: [] as { text: string; undo?: () => void }[] }))
+vi.mock('./ui', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./ui')>(),
+  toast: (text: string, opts?: { action?: { onClick: () => void } }) => {
+    ui.toasts.push({ text, undo: opts?.action?.onClick })
+    return 0
+  },
+}))
 
 // useTruppActions has no React hooks inside — it's a closure factory over injected setters,
 // so the one-place invariant (map XOR plan) is testable without renderHook.
@@ -282,6 +294,61 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     actions.setTruppStatus('T1', 'raus')
     expect(truppNeverDeployed(state.trupps[0])).toBe(false)
     expect(lines).toEqual([`Trupp ${state.trupps[0].name} draussen`])
+  })
+})
+
+/* The three lifecycle taps that touch the SAFETY CLOCK — «Eingerückt» starts it, «Rückzug» and
+ * «Fortsetzen» reset it. A mis-tap on the wrong card therefore silences that Trupp's alarm and
+ * writes a false line into an append-only record, so each one owes the same confirm-with-undo
+ * «Raus» has always had. The Verlauf line stays either way (append-only); the undo restores the
+ * Trupp. */
+describe('useTruppActions — every status transition is undoable', () => {
+  const stale = { lastContactTime: '2026-07-06T10:00:00Z', readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' as const }] }
+  const undoLast = () => {
+    const undo = ui.toasts[ui.toasts.length - 1]?.undo
+    expect(undo).toBeTypeOf('function')
+    undo?.()
+  }
+
+  it('Rückzug: the undo brings back the status AND the contact clock it reset', () => {
+    ui.toasts.length = 0
+    const before = baseTrupp({ status: 'aktiv', lastPressureBar: 140, ...stale })
+    const { actions, state } = harness(before)
+    actions.setTruppStatus('T1', 'rueckzug')
+    expect(state.trupps[0].lastContactTime).not.toBe(stale.lastContactTime)
+    undoLast()
+    expect(state.trupps[0]).toEqual(before)
+  })
+
+  it('Fortsetzen: same clock, same way back', () => {
+    ui.toasts.length = 0
+    const before = baseTrupp({ status: 'rueckzug', ...stale })
+    const { actions, state } = harness(before)
+    actions.setTruppStatus('T1', 'aktiv')
+    const readings = state.trupps[0].readings ?? []
+    expect(readings[readings.length - 1]).toMatchObject({ kind: 'resume' })
+    undoLast()
+    expect(state.trupps[0]).toEqual(before)
+  })
+
+  it('Eingerückt: the undo un-stamps entryTime, so the clock is not left running on a crew that never went in', () => {
+    ui.toasts.length = 0
+    const before = baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] })
+    const { actions, state } = harness(before)
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(state.trupps[0].entryTime).toBeTruthy()
+    undoLast()
+    expect(state.trupps[0]).toEqual(before)
+  })
+
+  it('Raus keeps its own undo (unchanged)', () => {
+    ui.toasts.length = 0
+    const before = baseTrupp({ status: 'aktiv', ...stale })
+    const { actions, state } = harness(before)
+    actions.setTruppStatus('T1', 'raus')
+    expect(state.trupps[0].exitTime).toBeTruthy()
+    undoLast()
+    expect(state.trupps[0]).toEqual(before)
   })
 })
 

@@ -999,6 +999,10 @@ export const de = {
     audioTooLarge: 'Audiodatei ist zu gross. Maximum: {max} MB.',
     audioUnsupported: 'Dieses Audioformat wird nicht unterstützt.',
     audioUploadFailed: 'Upload fehlgeschlagen. Verbindung prüfen und erneut versuchen.',
+    // ⚠️ Said out loud when the composer closes with an unsaved imported memo on it. Everything
+    // else on the sheet is handed back on the next open (lib/draftKeep); this one cannot be —
+    // its preview URL is released on close and the file itself is up to 100 MB.
+    audioImportDropped: 'Externe Audioaufnahme «{name}» verworfen – bitte neu auswählen.',
     // audio player (Durchhören)
     playerOpen: 'Durchhören',
     editEntry: 'Text bearbeiten',
@@ -1364,10 +1368,18 @@ export const de = {
     clockOk: 'Kontakt ok',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
-    // header overdue badge ({n} = number of überfällige Trupps) — a BUTTON: it jumps to the
-    // Trupp that has been out of contact longest, the way the TopBar chip jumps to this board
-    overdueBadge: '{n} überfällig',
-    overdueBadgeGo: 'Zu Trupp {name} – am längsten ohne Kontakt',
+    // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
+    // Trupp dropped to, not a clock. The word must never read «Überfällig» there – the Verlauf
+    // and the Rapport record two different events, and a radio check does not fix this one.
+    clockAlarmPressure: 'Alarmdruck',
+    clockAlarmLimit: 'Grenze {bar} bar',
+    // header alarm badge ({n} = number of Trupps at tier 2) — a BUTTON: it jumps to the most
+    // urgent one, the way the TopBar chip jumps to this board. ⚠️ «Alarm», not «überfällig»:
+    // since 10.08. the Alarmdruck counts too, and the badge must not name only half of what it
+    // counts. The key name stays `overdueBadge` – it is read from four locales and a rename buys
+    // nothing; en/fr/it were re-worded with it («in alarm» / «en alarme» / «in allarme»).
+    overdueBadge: '{n} Alarm',
+    overdueBadgeGo: 'Zu Trupp {name} – dringendster Alarm',
     // cross-surface TopBar chip (shown on any surface while a Trupp is fällig/überfällig)
     chipHint: 'Atemschutz – antippen zur Überwachung',
     // back from an opened card to the compact row it was opened from (only shown in that mode —

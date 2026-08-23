@@ -20,11 +20,14 @@
    bug, not a graceful degradation. Font and spacing are the shared spec; wrapping is not. */
 .headTitles h2 { margin: 0; font: var(--head-title); color: var(--ink); }
 .headTitles p { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); color: var(--ink-dim); }
+/* ⚠️ `--btn-primary`, never `--ink-fill` (AGENTS.md · button spec). At night `--btn-primary`
+   INVERTS to a light pill with dark ink while `--ink-fill` stays dark — so this was the one
+   primary action in the app that read dark-on-white beside a screen full of light-on-dark. */
 .newBtn { display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer;
-  background: var(--ink-fill); color: var(--on-accent-ink); font-family: var(--body); font-size: 14px; font-weight: 700;
+  background: var(--btn-primary); color: var(--on-btn-primary); font-family: var(--body); font-size: 14px; font-weight: 700;
   padding: 11px 16px; border-radius: var(--r-sm); }
 .newBtn :global(.i) { width: 16px; height: 16px; }
-.newBtn:hover { filter: brightness(1.12); }
+.newBtn:hover { background: var(--btn-primary-hover); }
 /* per-device alarm-sound toggle (visual alarm + wake-lock stay on either way) */
 .muteBtn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer;
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
@@ -179,11 +182,12 @@
    !important when the Schätzung itself has crossed the threshold. */
 .metaEst.metaAlarm { font-weight: 700 !important; }
 
-/* The turn-back banner, directly under the contact clock: the Trupp is at or past its Alarmdruck.
-   ONE tier, and it is the loud one – there is no lower second threshold to escalate to, so an
-   amber first stage would only teach that this one is survivable. Colour is never the only
-   signal: the row spells out the limit and whether it came from a reading or the Schätzung, so
-   it survives night mode and colourblindness. */
+/* The Schätzung's turn-back note, directly under the contact clock: the PROJECTION has reached
+   the Alarmdruck while the last logged Druck has not. The measured crossing is no longer here —
+   it is the alarm, and it took over the clock block above (AtemschutzView · clockState), which is
+   the card's loudest element. What is left is the Planungshilfe, which must never raise the tier
+   or read as a logged reading. Colour is never the only signal: the row spells out the limit and
+   names the Schätzung as the source, so it survives night mode and colourblindness. */
 .airNote { display: flex; align-items: center; gap: 8px; margin: 10px 14px 0; padding: 9px 11px;
   border-radius: var(--r-sm); font-size: 12.5px; font-weight: 700; color: var(--red-strong);
   background: color-mix(in srgb, var(--red) 13%, transparent);
@@ -781,9 +785,14 @@ button.stepVal:hover { border-color: var(--blue); }
    height doing it — taller than a phone's entire 575px scroll port, so a Trupp's clock and its
    Rückzug/Raus row can never be seen at once. These rows are the phone's answer to that.
 
-   Only phones use them (AtemschutzView · `compact`). The wider track sets below are still live —
-   a phone in LANDSCAPE is 852px wide, and the intermediate steps are what keep the row readable
-   between there and 600px.
+   ⚠️ Only phones use them (AtemschutzView · `compact` = useIsPhone = `max-width: 600px`), so a
+   row is NEVER rendered above 600px — both media steps below always apply and the 760px one
+   always wins. The base tracks and the 1023px set are therefore unreachable as final values;
+   they are kept as the readable derivation of the narrow one, not as live breakpoints. (An
+   earlier note here claimed landscape phones at 852px used them; at 852px `useIsPhone()` is
+   false and the board renders CARDS.) Consequence worth knowing: `.trowPress` is always hidden,
+   so the row's pressure lives on the phone-only second line under the name (see `.trowEst` and
+   AtemschutzView · TruppRow, which puts the MEASURED bar there on a pressure alarm).
 
    ⚠️ GRID, not flex. The first version laid each row out with flex, which meant every row sized
    its own columns from its own content: a Trupp with no Kontakt button (angemeldet) let its

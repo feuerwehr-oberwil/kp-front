@@ -7,7 +7,7 @@ import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
-import { alarmBarFor, contactSeverity, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, truppAlarm, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { readingBarIsMeasured, truppStatusLabel } from '../lib/report'
@@ -155,20 +155,45 @@ export function AtemschutzView({
     return () => clearInterval(t)
   }, [])
 
+  // the station's Alarmdruck lines — read as scalars, because atemschutzDoctrine() builds a
+  // fresh object on every call and a memo keyed on it would recompute on every render
+  const { alarmBar, alarmBarRueckzug } = atemschutzDoctrine()
+
   // derive every Trupp's live numbers once per tick
   const live = useMemo(
     () => new Map(trupps.map((t) => [t.id, deriveTruppLive(t, now, intervalMin, graceSec)] as const)),
     [trupps, now, intervalMin, graceSec],
   )
 
-  // überfällige Trupps float to the top of the board so an overdue one can't hide off-screen,
-  // and the header carries a count badge (the alarm may be muted — the visual must not be).
-  const overdueTrupps = trupps.filter((t) => live.get(t.id)?.status === 'ueberfaellig')
-  const overdueCount = overdueTrupps.length
-  // the one the badge jumps to: longest out of contact, which is the same card the board's own
-  // sort puts at the top — so the jump lands where the eye was already being sent
-  const mostOverdue = [...overdueTrupps]
-    .sort((a, b) => (live.get(b.id)?.sinceContactSec ?? 0) - (live.get(a.id)?.sinceContactSec ?? 0))[0]
+  /* …and its TIER, once, from the same fold the tone and the TopBar chip use (lib · truppAlarm).
+   * ⚠️ The card, the row, the header badge and the sort all read THIS — not the contact clock.
+   * They used to read the clock alone, so a Trupp at the Alarmdruck with a fresh Funkkontakt had
+   * the whole app alarming beside a green, unbadged, unsorted card. One number, one board. */
+  const alarms = useMemo(
+    () => new Map(trupps.map((t) => [t.id, truppAlarm(t, live.get(t.id)!, intervalMin, graceSec, { alarmBar, alarmBarRueckzug })] as const)),
+    [trupps, live, intervalMin, graceSec, alarmBar, alarmBarRueckzug],
+  )
+  const sevOf = (id: string): 0 | 1 | 2 => alarms.get(id)?.sev ?? 0
+
+  /* How far past its own line a Trupp is, as one comparable number — the ranking
+   * `peakAtemschutzAlarm` uses for the TopBar chip, mirrored here so the header badge jumps to
+   * the card the chip points at. Pressure ranks by bar below the line (×60, so it sorts against
+   * the seconds of a contact clock); contact ranks by seconds. */
+  const urgency = (t: Trupp) => {
+    const a = alarms.get(t.id)
+    const l = live.get(t.id)
+    if (!a || !l) return -1
+    return a.reason === 'pressure' ? ((a.line ?? 0) - l.currentBar) * 60 : l.sinceContactSec ?? 0
+  }
+
+  // Trupps in alarm float to the top of the board so one can't hide off-screen, and the header
+  // carries a count badge (the alarm may be muted — the visual must not be).
+  const alarmTrupps = trupps.filter((t) => sevOf(t.id) >= 2)
+  const overdueCount = alarmTrupps.length
+  // the one the badge jumps to: the same ranking peakAtemschutzAlarm gives the TopBar chip —
+  // a pressure alarm by how far below its line, a contact alarm by how long out of contact —
+  // so the badge, the chip and the board's own sort all point at the same card
+  const mostOverdue = [...alarmTrupps].sort((a, b) => urgency(b) - urgency(a))[0]
   /**
    * How the board is arranged:
    *   · «wie gesetzt»  — the DEFAULT: the hand-set order (Trupp.order, synced), so a card keeps
@@ -179,24 +204,29 @@ export function AtemschutzView({
    *                      the failure mode this mode exists to prevent.
    *   · «Dringlichkeit» — longest since Funkkontakt first (what the board did before)
    *   · «Auftrag» / «Name» — for a board big enough to look things up in
-   * In the DERIVED sorts überfällig still floats to the top before the mode's own key: those
-   * orders are recomputed anyway, so the float costs no stability and keeps an overdue card
-   * from hiding off-screen.
+   * In the DERIVED sorts a Trupp in ALARM still floats to the top before the mode's own key:
+   * those orders are recomputed anyway, so the float costs no stability and keeps an alarming
+   * card from hiding off-screen. Alarm = the shared tier (`alarms`), so a Trupp at the
+   * Alarmdruck floats exactly like one out of contact.
    * The MODE is per-device (a way of looking); the hand-set order is synced (it is data).
    */
   const orderKey = (t: Trupp) => trupps.findIndex((x) => x.id === t.id)
   const baseSort = (list: Trupp[]) => [...list].sort((a, b) => {
     if (order !== 'manuell') {
-      const overdue = Number(live.get(b.id)?.status === 'ueberfaellig') - Number(live.get(a.id)?.status === 'ueberfaellig')
-      if (overdue) return overdue
+      const alarm = Number(sevOf(b.id) >= 2) - Number(sevOf(a.id) >= 2)
+      if (alarm) return alarm
     }
     if (order === 'name') return a.name.localeCompare(b.name, 'de') || orderKey(a) - orderKey(b)
     if (order === 'auftrag') {
       return (auftragTypeLabel(a) ?? '￿').localeCompare(auftragTypeLabel(b) ?? '￿', 'de') || orderKey(a) - orderKey(b)
     }
     if (order === 'dringlichkeit') {
-      const sev = (live.get(b.id)?.sinceContactSec ?? -1) - (live.get(a.id)?.sinceContactSec ?? -1)
-      if (sev) return sev
+      // the tier first, then how far past its own line — the ranking the badge and the TopBar
+      // chip use, so «Dringlichkeit» means the same thing everywhere it is spoken
+      const tier = sevOf(b.id) - sevOf(a.id)
+      if (tier) return tier
+      const by = urgency(b) - urgency(a)
+      if (by) return by
     }
     return (a.order ?? orderKey(a)) - (b.order ?? orderKey(b))
   })
@@ -366,8 +396,7 @@ export function AtemschutzView({
   const cards = (list: Trupp[]) => list.map((t) => (
     compact && openRow !== t.id ? (
       <TruppRow
-        key={t.id} t={t} live={live.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
-        intervalMin={intervalMin} graceSec={graceSec}
+        key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
         flash={activeFocus?.id === t.id}
         onContact={(id) => { freezeOrder(); recordContact(id) }}
         onOpen={() => setOpenRow(t.id)}
@@ -381,7 +410,7 @@ export function AtemschutzView({
     // The ‹ › pair is the right one to drop: in row mode the card is a detail view, not a board
     // slot (and those arrows are separately known to move the wrong card).
     <TruppCard
-      key={t.id} t={t} live={live.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit} intervalMin={intervalMin} graceSec={graceSec}
+      key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
       flash={activeFocus?.id === t.id}
       onContact={(id) => { freezeOrder(); recordContact(id) }}
       onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
@@ -667,10 +696,11 @@ function PressureInline({ value, onCommit, alarmBar }: {
  *  leads to. Everything else (Druck, Rückzug, Raus, Leitung, Bearbeiten, Entfernen) stays in the
  *  card, one tap deeper — including delete, which is a good place for it to be. */
 function TruppRow({
-  t, live, now, color, canEdit, intervalMin, graceSec, onContact, onOpen, flash,
+  t, live, alarm, now, color, canEdit, onContact, onOpen, flash,
 }: {
   t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
-  intervalMin: number; graceSec: number
+  /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the card use */
+  alarm: TruppAlarm
   onContact: (id: string) => void
   onOpen: () => void
   flash?: boolean
@@ -679,7 +709,7 @@ function TruppRow({
   const status = live.status
   // the same derivations the card makes, so a row and its card never disagree about state
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
-  const sev = contactSeverity(live.sinceContactSec, intervalMin, graceSec)
+  const sev = alarm.sev
   // The Planungshilfe — «how much air do they have RIGHT NOW», which is the other half of «who is
   // closest to their limit» and the reason the clock alone is not enough. Marked «≈» and tinted
   // when it crosses the Alarmdruck; it is a projection, never a measurement, so it must not look
@@ -706,9 +736,15 @@ function TruppRow({
           <span className={s.trowNameTxt}>{t.name}</span>
         </span>
         {team && <span className={s.trowTeam}>{team}</span>}
-        {/* phone-only second line: the crew line is hidden there, so this costs no width at all —
-            which is what let the name keep its column instead of paying for the extra fact */}
-        {estimate && (
+        {/* Phone-only second line: the crew line is hidden there, so this costs no width at all —
+            which is what let the name keep its column instead of paying for the extra fact.
+            ⚠️ On a PRESSURE alarm it carries the MEASURED bar, not the Schätzung. The `.trowPress`
+            column that would otherwise show it is hidden at every width a row is ever rendered at
+            (rows are phone-only, ≤600px), so without this the one row whose alarm is about a
+            number showed a projection instead of the reading that raised it. */}
+        {alarm.reason === 'pressure' ? (
+          <span className={cx(s.trowEst, s.trowEstLow)}>{live.currentBar} bar</span>
+        ) : estimate && (
           <span className={cx(s.trowEst, estimateLow && s.trowEstLow)}>
             ≈ {estimate.bar} bar
           </span>
@@ -742,13 +778,14 @@ function TruppRow({
 }
 
 function TruppCard({
-  t, live, now, color, canEdit, intervalMin, graceSec, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse,
+  t, live, alarm, now, color, canEdit, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
+  /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
+  alarm: TruppAlarm
   /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors) — set for
    *  every Trupp, automatic ones included */
   color?: string
-  intervalMin: number; graceSec: number
   onContact: (id: string) => void
   onPressure: (id: string, bar: number) => void
   onStatus: (id: string, status: Trupp['status']) => void
@@ -791,10 +828,7 @@ function TruppCard({
   }, [flash])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = auftragTypeLabel(t)
-  const sev = contactSeverity(live.sinceContactSec, intervalMin, graceSec)
-  // the clock's OWN state as a word — so green-number-on-amber-card parses instantly and the
-  // signal survives colourblindness / a muted alarm (not colour alone)
-  const clockState = sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
+  const sev = alarm.sev
   const dz = atemschutzDoctrine()
   // Planungshilfe: measured consumption history wins; the configured assumption is used only
   // until enough confirmed Druck values exist. It never replaces a reading or drives an alarm.
@@ -808,11 +842,23 @@ function TruppCard({
   const line = alarmBarFor(t, dz)
   const pressureLow = pressureAlarm(live.currentBar, line)
   const estimateLow = pressureAlarm(estimate?.bar ?? null, line)
-  const airLow = inField && (pressureLow || estimateLow)
-  // name the source when ONLY the projection has crossed – an estimate must never read as a
-  // logged measurement (same rule the Schätzung row itself follows)
-  const airNote = !airLow ? null
-    : fillTemplate(pressureLow ? az.alarmNote : az.alarmNoteEst, { bar: line })
+  /* The MEASURED crossing is the alarm and it lives in the clock block below (`alarm.reason`),
+   * where the card's loudest element is. This strip is what is left: the case where only the
+   * PROJECTION has crossed — a Planungshilfe, which must never look like a logged reading and
+   * must never raise the tier (lib/atemschutz · truppAlarm). */
+  const airNote = inField && estimateLow && !pressureLow
+    ? fillTemplate(az.alarmNoteEst, { bar: line })
+    : null
+
+  /* The clock block is the ALARM block: same three lines, same height, same typography — the
+   * word and the number swap for a pressure alarm, because a radio check does not fix that one
+   * and the word must never say «überfällig» for it (the Verlauf records two different events).
+   * The state word carries the tier as TEXT, so it survives colourblindness and a muted alarm. */
+  const pressureCrit = alarm.reason === 'pressure'
+  const clockState = pressureCrit ? az.clockAlarmPressure
+    : sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
+  const clockValue = pressureCrit ? `${live.currentBar} bar` : fmtClock(live.sinceContactSec)
+  const clockLabel = pressureCrit ? fillTemplate(az.clockAlarmLimit, { bar: line }) : az.sinceContact
 
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
   // as typed either way — an incident is a legal record, so nothing rewrites what was entered.
@@ -839,7 +885,11 @@ function TruppCard({
   }
 
   return (
-    <div ref={cardRef} data-az-open={onCollapse ? "" : undefined} className={cx(s.card, s[`st-${status}`], flash && s.cardFlash)}>
+    /* ⚠️ The border/banner colour follows the TIER, not the lifecycle status: a Trupp at its
+       Alarmdruck is red even while it is «Im Einsatz». The WORD stays the lifecycle state —
+       what kind of alarm it is belongs to the clock block, which says so in full. */
+    <div ref={cardRef} data-az-open={onCollapse ? "" : undefined}
+      className={cx(s.card, s[`st-${sev >= 2 ? 'ueberfaellig' : status}`], flash && s.cardFlash)}>
       <div className={s.cardBanner}>
         {/* ⚠️ NO dot in front of the status. A card already carries one coloured disc — the
             Truppfarbe beside the name, which is the Trupp's identity on the Lage and the plan.
@@ -948,11 +998,11 @@ function TruppCard({
           <div
             className={cx(s.contactClock, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
             role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
-            aria-label={`${clockState} — ${fmtClock(live.sinceContactSec)} ${az.sinceContact}`}
+            aria-label={`${clockState} — ${clockValue} ${clockLabel}`}
           >
             <div className={s.contactState}>{clockState}</div>
-            <div className={s.contactVal}>{fmtClock(live.sinceContactSec)}</div>
-            <div className={s.contactLbl}>{az.sinceContact}</div>
+            <div className={s.contactVal}>{clockValue}</div>
+            <div className={s.contactLbl}>{clockLabel}</div>
           </div>
           {canEdit && inField && (
             <button className={cx(s.kontaktBtn, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)} onClick={() => onContact(t.id)}>

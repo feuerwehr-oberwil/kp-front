@@ -219,19 +219,28 @@
    height of the row, around a bar that is visibly shorter than that */
 .dragging { cursor: grabbing; opacity: .9; }
 .dragging::before { box-shadow: 0 0 0 2px color-mix(in srgb, var(--st-planned) 45%, transparent); }
-/* End handles: an invisible grab zone over a thin visible grip, so a fat finger gets the edge
-   instead of moving the whole bar. Full lane height now (the bar is), which roughly doubles the
-   target without touching its width.
+/* End handles: a grab zone over a thin visible grip, so a fat finger gets the edge instead of
+   moving the whole bar. Full lane height (the bar is), which roughly doubles the target without
+   touching its width.
    24px WIDE, not the 44px a tap target normally wants: two shifts that hand over (14–18, 18–22)
    share one boundary, so the «to» handle of the first and the «from» handle of the second sit on
    the same spot. At 44 they overlap by 44px and which one you grabbed is a coin toss; at 24 they
-   overlap by 24 and each still clears the 24px WCAG floor. Height is where the room was. */
+   overlap by 24 and each still clears the 24px WCAG floor. Height is where the room was.
+   ⚠️ …but 24px FIXED, straddling the edge, meant 12px of each handle fell INSIDE the bar — and
+   the smallest shift the app can create (SLOT_MIN = 30 min, i.e. 23px at 46px/h) is narrower than
+   the 24px those two bites need. The two handles covered the whole bar, overlapped each other,
+   and there was no move zone at all: aiming at the middle of a short bar resized it instead of
+   moving it, silently, and which end you got was arbitrary. The grip therefore SHRINKS WITH THE
+   BAR — capped at 24px, which is what every bar of 60px or more still gets (unchanged), and 40%
+   of the bar below that, so a move strip always survives in the middle and the two ends never
+   meet. A 1 h bar gains move zone too: 27.6px where it had 22. */
 .handle {
-  position: absolute; top: 0; bottom: 0; width: 24px; cursor: ew-resize; touch-action: none;
+  --grip: min(24px, 40%);
+  position: absolute; top: 0; bottom: 0; width: var(--grip); cursor: ew-resize; touch-action: none;
   display: grid; place-items: center; z-index: 2;
 }
-.handleFrom { left: -12px; }
-.handleTo { right: -12px; }
+.handleFrom { left: calc(var(--grip) * -0.5); }
+.handleTo { right: calc(var(--grip) * -0.5); }
 /* The grip is INVISIBLE at rest. It used to be a small blue pill centred on the bar's edge, which
    means it sat half inside and half outside the outline — at a glance that is not a grip, it is a
    bar that failed to render. The grab zone is unchanged and does not need to be seen: on a desktop
@@ -244,6 +253,12 @@
 }
 .plannedBar:hover .handle::after { opacity: 1; }
 .handle:hover::after { opacity: 1; background: var(--ink); }
+/* ⚠️ …and on the iPad, which is the primary field device, there IS no hover and no resize
+   cursor — so «it fades in on hover, where it can still teach» taught nobody: the ends were
+   invisible at rest and stayed that way. Where there is no hover, the grips are simply on. */
+@media (hover: none) {
+  .handle::after { opacity: 1; }
+}
 /* Three states, three LAYERS, in the order a shift lives through them — nested, not stacked, so
    the everyday pair «verfügbar 17:30–21:00, eingeteilt 18:30–20:00» reads as one sentence:
      verfügbar — dashed GREY band over the whole lane: offered, nothing committed

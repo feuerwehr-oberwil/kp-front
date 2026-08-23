@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, pressureAlarm, truppInField, truppNeverDeployed } from './atemschutz'
+import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -238,6 +238,45 @@ describe('fmtClock', () => {
     expect(fmtClock(65)).toBe('1:05')
     expect(fmtClock(600)).toBe('10:00')
     expect(fmtClock(null)).toBe('–:––')
+  })
+})
+
+/* The ONE tier. It exists because the board and the app-wide alarm disagreed: from 10.08. the
+ * Alarmdruck sounded the tone and reddened the TopBar chip while the Atemschutz card, its row,
+ * the header badge and the «Dringlichkeit» sort still read the contact clock alone — so a Trupp
+ * at 40 bar with a fresh Funkkontakt had the whole app screaming beside a green, unbadged card. */
+describe('truppAlarm — one tier for tone, chip, card, row, badge and sort', () => {
+  const live = (sinceContactSec: number | null, currentBar: number) => ({ sinceContactSec, currentBar })
+  const doctrine = { alarmBar: 50, alarmBarRueckzug: 30 }
+
+  it('is tier 2 with reason «pressure» at the Alarmdruck, whatever the contact clock says', () => {
+    expect(truppAlarm({ status: 'aktiv' }, live(30, 40), 5, 60, doctrine))
+      .toEqual({ sev: 2, reason: 'pressure', line: 50 })
+  })
+
+  it('pressure OUTRANKS an overdue contact — a radio check does not fix an empty cylinder', () => {
+    const a = truppAlarm({ status: 'aktiv' }, live(9999, 40), 5, 60, doctrine)
+    expect(a.sev).toBe(2)
+    expect(a.reason).toBe('pressure')
+  })
+
+  it('holds a Trupp in Rückzug to the lower line (alarmBarFor)', () => {
+    expect(truppAlarm({ status: 'rueckzug' }, live(30, 40), 5, 60, doctrine).reason).toBeNull()
+    expect(truppAlarm({ status: 'rueckzug' }, live(30, 25), 5, 60, doctrine).reason).toBe('pressure')
+  })
+
+  it('has no amber half-step for pressure, but keeps the contact clock\'s', () => {
+    expect(truppAlarm({ status: 'aktiv' }, live(5 * 60, 300), 5, 60, doctrine))
+      .toEqual({ sev: 1, reason: 'contact', line: 50 })
+  })
+
+  it('is silent for a Trupp that is not in the field — no clock, no cylinder watched', () => {
+    expect(truppAlarm({ status: 'raus' }, live(null, 10), 5, 60, doctrine))
+      .toEqual({ sev: 0, reason: null, line: null })
+  })
+
+  it('a configured 0 switches the pressure line off without a special case', () => {
+    expect(truppAlarm({ status: 'aktiv' }, live(30, 0), 5, 60, { alarmBar: 0 }).sev).toBe(0)
   })
 })
 
