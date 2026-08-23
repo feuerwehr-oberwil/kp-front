@@ -53,6 +53,9 @@ export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string 
   }
   const m = /^modul(\d+)/i.exec(doc.id)
   if (m) return { mono: m[1] }
+  // The merged «Gebäude» tile (outline picker ⇄ floor stack) carries its glyph as DATA — the
+  // storey icon once a stack exists, the footprint while it does not, which is how the rail says
+  // whether there is a stack without being opened. See lib/useObjectPlans · railPlanTiles.
   if (doc.floorStack) return { icon: doc.icon ?? 'floors' } // Gebäude floor-stack: stacked-floors icon, not a bare "G"
   if (doc.id === 'tafel') return { icon: doc.icon ?? 'pen' }
   return { icon: doc.icon ?? 'doc' }
@@ -60,7 +63,7 @@ export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string 
 
 /** the digit(s) that address this plan doc from the keyboard — the numbers in its rail glyph.
  *  A single module ("2") → [2]; a combined sheet ("2/3") → [2, 3] (either digit opens it); a
- *  sub-slot ("PV"), the Umgebung and the Gebäude floor-stack carry no number → [] (reach them by
+ *  sub-slot ("PV"), the Tafel and the merged Gebäude tile carry no number → [] (reach them by
  *  stepping the nav with Cmd+[ / Cmd+]). Keeps the digit→module map in lockstep with planGlyph. */
 export function moduleNumbers(doc: PlanDocument): number[] {
   const g = planGlyph(doc)

@@ -23,11 +23,22 @@
 .wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 12px;
   max-width: calc(100% - var(--rail-w) - 44px);
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-/* the chips position themselves through the row now, not against the stage */
-.wb-botleft > .wb-scale-chip { position: static; }
+/* the chips position themselves through the row now, not against the stage — `relative` is the
+   containing block for their touch pad below, nothing more */
+.wb-botleft > .wb-scale-chip { position: relative; }
+/* ⚠️ The pills are 12px type in 6px of padding — ~30px tall, well under the 44px touch floor, and
+   gloved fingers are the whole point of this app. A transparent pad restores the target without
+   touching the row's look or its geometry, and it grows ONLY vertically, so two pills 8px apart
+   can never steal each other's taps. */
+.wb-botleft > .wb-scale-chip::after { content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  height: 44px; transform: translateY(-50%); }
 /* the object's ADDRESS may take the room the Maßstab does not — it is the longer of the two,
    and the Maßstab is a handful of characters */
 .wb-object { min-width: 0; max-width: 100%; }
+/* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). It never
+   truncates: it is a verb, and half a verb is not an instruction — the object read-out beside it
+   is the one that gives way when the row runs out of room. */
+.wb-building { flex: none; }
 /* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
    — it is still the answer to «which building am I looking at», it simply cannot be tapped */
 .wb-object:disabled { cursor: default; opacity: 1; }

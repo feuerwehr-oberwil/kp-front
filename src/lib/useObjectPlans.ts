@@ -8,6 +8,62 @@ import { modulesFromConfig, moduleViewer } from './deploymentConfig'
 import { moduleTileLabel } from './navRail'
 import type { LngLat, PlanDocument } from '../types'
 
+/**
+ * Is this plan surface a SELECTION surface rather than a drawing surface?
+ *
+ * «Umrisse» (the live OSM outline sheet) exists for exactly one act: pick the building that
+ * becomes the Gebäude floor-stack. Everything drawn there would be an annotation on a backdrop
+ * nobody works on, so the surface carries no drawing apparatus at all — no tool rail, no armable
+ * tool, no dock (Whiteboard · selectOnly).
+ *
+ * Keyed on `osm`, the catalog property that says what the surface IS. A check on the tile's
+ * name or id would rot the first time a station renames it.
+ */
+export const isSelectOnlySurface = (p: Pick<PlanDocument, 'osm'> | undefined) => !!p?.osm
+
+/** the plan id of the live OSM outline picker — one of the two faces of the Gebäude rail tile */
+export const BUILDING_PICK_ID = 'osm'
+
+/**
+ * The RAIL's version of the plan list: the OSM outline picker and the Gebäude floor-stack are ONE
+ * tile that morphs, so the rail lists one entry where the catalog holds two documents.
+ *
+ * ⚠️ Only the rail collapses — never the catalog. `planId` is a foreign key: Verlauf rows,
+ * `Trupp.planId`, `planScale`, the `board` keys and the audit trail all name it, so a row that
+ * says `osm` has to keep resolving to a document (and to a name on paper) long after a Gebäude
+ * exists. Hand the FULL list to everything that looks a plan up by id, and this one to the rail.
+ *
+ * The tile states which face it wears, and it states it in both the glyph and the word:
+ *   • no floor-stack yet → the footprint glyph + «Kein Gebäude» — tapping opens the picker;
+ *   • a floor-stack exists → the storey glyph + «Gebäude».
+ * That is the point of naming the tile after the goal instead of the mechanism: whoever is handed
+ * the tablet mid-incident has to see from the rail whether a stack exists, without opening it.
+ *
+ * Which DOCUMENT the tile addresses follows the active plan, so the rail highlights it either way:
+ * the stack, unless there is none yet or the operator deliberately stepped back onto the picker
+ * (the «Anderes Gebäude wählen» chip, or an older Verlauf row jumping to `osm`).
+ */
+export function railPlanTiles(docs: PlanDocument[], activePlanId: string): PlanDocument[] {
+  const pick = docs.find((p) => p.id === BUILDING_PICK_ID)
+  const stack = docs.find((p) => p.floorStack)
+  const base = stack && !(pick && activePlanId === BUILDING_PICK_ID) ? stack : pick
+  if (!base) return docs
+  const wb = appConfig.copy.whiteboard
+  const tile: PlanDocument = {
+    ...base,
+    code: stack ? wb.railBuilding : wb.railBuildingNone,
+    icon: (stack ? stack.icon : pick?.icon) ?? base.icon,
+  }
+  // the merged tile keeps the picker's slot — the floor-stack was always inserted right after it
+  const out: PlanDocument[] = []
+  let placed = false
+  for (const d of docs) {
+    if (d.id !== BUILDING_PICK_ID && !d.floorStack) { out.push(d); continue }
+    if (!placed) { out.push(tile); placed = true }
+  }
+  return out
+}
+
 // The station's plan catalog, split so ordering stays MAP → modules → Umrisse/Tafel:
 //  - `modules` = configured module tiles (types/labels/order from deployment config) when present,
 //    else the bundled module entries;

@@ -80,6 +80,7 @@ import { composeJournalText } from './lib/journalEntry'
 import { journalVocabulary } from './lib/journalLinks'
 import { AudioPlayerSheet } from './components/AudioPlayerSheet'
 import { ReminderBanner } from './components/ReminderBanner'
+import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
 import { UpdateBanner } from './components/UpdateBanner'
 import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
@@ -100,6 +101,7 @@ import { FabEntry } from './components/FabEntry'
 import { prewarmPlans } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
+import { amendBuilding } from './lib/buildingTransfer'
 import { useAuth } from './lib/auth'
 import {
   WorkspaceSync, uploadMedia,
@@ -113,7 +115,7 @@ import { applyRouting, moveLineBody, resolveMapDrawings, resolvePlanAnnos } from
 import { leitungOptions, truppForLine, truppIsOut } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
-import { useObjectPlans } from './lib/useObjectPlans'
+import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } from './lib/useObjectPlans'
 import { PlanPicker } from './components/PlanPicker'
 import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet } from './components/panels'
 import { HelpOverlay } from './components/HelpOverlay'
@@ -709,7 +711,8 @@ export function IncidentWorkspace({
   const downloadOfflineRef = useRef(downloadOffline)
   useEffect(() => { downloadOfflineRef.current = downloadOffline }, [downloadOffline])
   // the Gebäude (floor-stack) document only exists once a building is picked; it sits
-  // directly under "Umgebung" (the OSM outline you pick the building from)
+  // directly after «Umrisse» (the OSM outline you pick the building from) in the CATALOG —
+  // the rail shows the two as one morphing tile (railPlanDocs below).
   // during replay the floor-stack tab follows the RECONSTRUCTED building, so the past
   // plan list matches the past state (Gebäude appears iff a building existed back then)
   const effBuilding = replayActive ? replayBuilding : building
@@ -724,13 +727,21 @@ export function IncidentWorkspace({
   const effBands = replayActive ? (replayWs?.bands ?? []) : bands
   // during replay the Mittel log is reconstructed from the scrubbed-instant workspace blob
   const effMittel = replayActive ? ((replayWs?.mittel as MittelEntry[] | undefined) ?? []) : mittel
+  // The plan CATALOG — every document this incident can address by id. Everything that looks a
+  // plan up (the board, the Verlauf's row labels, the Rapport's page list, placedTrupps, the
+  // Whiteboard itself) reads this one, so `osm` keeps resolving even once a Gebäude exists.
   const planDocs = useMemo(() => {
     if (!effBuilding) return resolvedPlanDocs
     const out = [...resolvedPlanDocs]
-    const osmIdx = out.findIndex((p) => p.id === 'osm')
+    const osmIdx = out.findIndex((p) => p.id === BUILDING_PICK_ID)
     out.splice(osmIdx >= 0 ? osmIdx + 1 : out.length, 0, gebaeudeDoc)
     return out
   }, [effBuilding, resolvedPlanDocs])
+  // …and the LEISTE's version of it, where «Umrisse» and «Gebäude» are one tile that morphs
+  // (23.08.). Two tiles for one building was the mechanism showing through: you picked on the
+  // first and worked on the second, and the first stayed in the rail forever afterwards doing
+  // nothing. See lib/useObjectPlans · railPlanTiles for why the two ids survive the merge.
+  const railPlanDocs = useMemo(() => railPlanTiles(planDocs, activePlanId), [planDocs, activePlanId])
 
   // both bars are stacked on the two drawing surfaces (tool bar above the surface bar) — this drives
   // the extra bottom clearances for FAB / docks / stage / whiteboard on phones. A viewer-only plan
@@ -740,10 +751,15 @@ export function IncidentWorkspace({
   // incidents drops every kept draft, so the next one can never be handed the previous one's
   // entry — see lib/draftKeep.
   useEffect(() => { clearAllDrafts() }, [incidentMeta.id])
-  const activePlanViewer = mode === 'plans' && planDocs.find((p) => p.id === activePlanId)?.viewer === true
+  // A plan surface that shows no tool bar at all: an admin-configured module viewer, or the
+  // select-only Umrisse (23.08.) — different reasons, same consequence for the phone's lanes.
+  const activePlanNoTools = mode === 'plans' && (() => {
+    const d = planDocs.find((p) => p.id === activePlanId)
+    return d?.viewer === true || isSelectOnlySurface(d)
+  })()
   // a LOCKED surface now carries a bar too (the slim Auswahl · Messen rail), so it reserves the
   // same two lanes as an editor's — only replay, which renders no rail at all, gets one.
-  const phoneTools = isPhone && !replayActive && (mode === 'map' || (mode === 'plans' && !activePlanViewer))
+  const phoneTools = isPhone && !replayActive && (mode === 'map' || (mode === 'plans' && !activePlanNoTools))
   // the floating top-right map-utility cluster (zoom · compass · Ebenen), which stands in for the
   // tool rail during replay. It is the ONLY thing the TopBar has to keep clear of on a wide
   // screen — `.map-util` lets the CSS reserve that width exactly when the cluster is there.
@@ -758,17 +774,20 @@ export function IncidentWorkspace({
     return () => document.documentElement.classList.remove('slim-tools')
   }, [slimRail])
 
-  // the flat nav order (matches NavRail) — map, EACH plan doc, then the four sections. The `nav`
+  // the flat nav order (matches NavRail) — map, EACH rail tile, then the four sections. The `nav`
   // hotkey steps one destination at a time, so it walks through the modules individually instead
   // of collapsing to whatever plan was last open (the Gebäude).
+  // ⚠️ The RAIL list, not the catalog: ⌘[ / ⌘] steps what the rail shows, so the merged Gebäude
+  // tile is one stop, not two. Stepping onto an «Umrisse» stop that has no tile to land on is
+  // exactly the chevron-lands-nowhere bug the merge exists to remove.
   const navList = useMemo(() => [
     { mode: 'map' as const },
-    ...planDocs.map((d) => ({ mode: 'plans' as const, planId: d.id })),
+    ...railPlanDocs.map((d) => ({ mode: 'plans' as const, planId: d.id })),
     { mode: 'checklists' as const },
     { mode: 'atemschutz' as const },
     { mode: 'anwesenheit' as const },
     { mode: 'mittel' as const },
-  ], [planDocs])
+  ], [railPlanDocs])
   const goToNav = (dir: -1 | 1) => {
     const cur = navList.findIndex((n) => n.mode === mode && (n.mode !== 'plans' || n.planId === activePlanId))
     const next = cur >= 0 ? navList[cur + dir] : undefined
@@ -2917,7 +2936,25 @@ export function IncidentWorkspace({
         due={reminders.due}
         onDone={reminders.markDone}
         onSnooze={(r) => reminders.snooze(r, 10)}
-        onOpen={() => setJournalOpen(true)}
+        // …and the way in, on the row's TITLE (Meldeleiste · MeldungTitle) rather than a third
+        // button: open the Verlauf ON the row that raised this item, not at the top
+        onOpen={(r) => { setJournalOpen(true); setJournalLandOn({ id: r.rowId, nonce: Date.now() }) }}
+      />
+
+      {/* One row per Trupp in Alarm — the tone's own message. Fed from the SAME fold that drives
+          the tone (azAlarm.severities), so the strip cannot be silent while the app is not; and
+          empty during replay, where the fold is silent too. «Zum Trupp» points at the card the
+          Funkkontakt / die Druckmeldung is entered on — the same gesture the Anwesenheit's locked
+          rows already use (onJumpToTrupp below). */}
+      <AtemschutzAlarmMeldungen
+        trupps={trupps}
+        severities={azAlarm.severities}
+        intervalMin={azIntervalMin}
+        graceSec={azGraceSec}
+        onGoToTrupp={(id) => {
+          setMode('atemschutz'); setPanel(null)
+          setTruppFocus({ id, nonce: Date.now() })
+        }}
       />
 
       {/* one row per paused GPS attachment — they queue behind each other instead of stacking */}
@@ -2981,7 +3018,9 @@ export function IncidentWorkspace({
         // state was merely hidden and restored verbatim — you came back to an armed tool, a
         // half-drawn line and a re-opening symbol palette from minutes ago.
         onMode={(m) => { if (m !== mode) clearMapUi(); setMode(m) }}
-        planDocs={planDocs}
+        // the RAIL list: «Umrisse» + «Gebäude» are one morphing tile here, two documents everywhere
+        // else (see railPlanDocs)
+        planDocs={railPlanDocs}
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
@@ -3509,36 +3548,66 @@ export function IncidentWorkspace({
           annos={(replayActive ? replayBoard : board)?.[activePlanId] ?? []}
           onChange={(next) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next })) }}
           building={replayActive ? replayBuilding : building}
-          onSelectBuilding={async (src, orientDeg) => {
-            // picking new footprint(s) replaces the floor-stack; if the current
-            // Gebäude already carries work (sketches or extra storeys), confirm
-            // before discarding it
+          onSelectBuilding={async (src, orientDeg, geo) => {
+            // Picking new footprint(s) changes the building under the floor-stack — usually an
+            // AMENDMENT (a Nebengebäude added, a wrong footprint dropped), not a fresh start.
+            //
+            // The markings come along, because they are carried THROUGH THE GROUND: each one
+            // goes old tile frame → world position → new tile frame (lib/buildingTransfer ·
+            // amendBuilding), so a Brandherd keeps the spot it marks on the earth rather than
+            // the spot it occupied in the old rectangle. The storeys come along too — otherwise
+            // everything above the ground floor is homeless the moment the new stack starts
+            // at [0]. What lands off the new sheet is DROPPED and counted, never clamped: a
+            // Trupp pinned to a wall it is not at reads as knowledge, not as a guess.
+            //
+            // ⚠️ A building picked before `BuildingDoc.geo` existed carries no ground position,
+            // so nothing can be anchored and the old rule still holds for it: the markings go,
+            // counted and named. Never guessed, never quietly — and the undo is one tap away
+            // either way.
             if (!src.length) return
-            const hasWork = !!building && ((board.gebaeude?.length ?? 0) > 0 || building.floors.length > 1)
+            const markCount = board.gebaeude?.length ?? 0
+            const prevBuilding = building
+            const prevGebaeude = board.gebaeude ?? []
+            const amend = amendBuilding(prevBuilding, { src, orientDeg, geo }, prevGebaeude)
+            const hasWork = !!building && (markCount > 0 || building.floors.length > 1)
+            const wb = appConfig.copy.whiteboard
             if (hasWork) {
+              const message = amend.legacy
+                ? (markCount > 0 ? fillTemplate(wb.replaceBuildingConfirmMarks, { n: markCount }) : wb.replaceBuildingConfirm)
+                : amend.dropped > 0 ? fillTemplate(wb.replaceBuildingConfirmCarryDrop, { n: amend.carried, d: amend.dropped })
+                : markCount > 0 ? fillTemplate(wb.replaceBuildingConfirmCarry, { n: amend.carried })
+                : wb.replaceBuildingConfirmKeep
               const ok = await confirmDialog({
-                title: appConfig.copy.whiteboard.replaceBuilding,
-                message: appConfig.copy.whiteboard.replaceBuildingConfirm,
-                confirmLabel: appConfig.copy.whiteboard.replaceBuilding, cancelLabel: appConfig.copy.cancel, danger: true,
+                title: wb.replaceBuilding, message,
+                confirmLabel: wb.replaceBuilding, cancelLabel: appConfig.copy.cancel,
+                // only a loss is a red button — an amendment that carries everything is not one
+                danger: amend.legacy ? markCount > 0 : amend.dropped > 0,
               })
               if (!ok) return
             }
             // auto-orient to longest-axis-horizontal by default; rings/ring/ringAspect
             // mirror the active (oriented) view for back-compat renderers + the north arrow
             const view = buildView(src, orientDeg)
-            const prevBuilding = building
-            const prevGebaeude = board.gebaeude ?? []
-            setBuilding({ src, orientDeg, northUp: false, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect, floors: [0] })
-            setBoard((b) => ({ ...b, gebaeude: [] })) // fresh stack for the new building
-            setActivePlanId('gebaeude') // auto-jump to the new floor-stack
+            setBuilding({ src, orientDeg, geo, northUp: false, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect, floors: amend.floors })
+            setBoard((b) => ({ ...b, gebaeude: amend.annos }))
+            setActivePlanId('gebaeude') // auto-jump to the floor-stack
             if (hasWork) {
-              // confirm-with-undo: the replaced stack (floors + sketches) is restorable in place
-              toast(appConfig.copy.whiteboard.buildingReplaced, {
+              // confirm-with-undo: the previous stack (floors + markings) is restorable in place,
+              // and the toast repeats the counts — «Gebäude ersetzt» alone never said what happened.
+              toast(amend.legacy
+                ? (markCount > 0 ? fillTemplate(wb.buildingReplacedMarks, { n: markCount }) : wb.buildingReplaced)
+                : amend.dropped > 0 ? fillTemplate(wb.buildingReplacedCarriedDropped, { n: amend.carried, d: amend.dropped })
+                : markCount > 0 ? fillTemplate(wb.buildingReplacedCarried, { n: amend.carried })
+                : wb.buildingReplacedKept, {
                 icon: 'undo',
                 action: { label: appConfig.copy.undo, onClick: () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) } },
               })
             }
           }}
+          // the two faces of the ONE «Gebäude» rail tile. Both plan ids stay real documents —
+          // this only moves the active one, which is what makes the merged tile navigable at all
+          // (railPlanTiles reads activePlanId to decide which face the tile wears).
+          onBuildingFace={(face) => setActivePlanId(face === 'pick' ? BUILDING_PICK_ID : gebaeudeDoc.id)}
           onReorient={(next) => setBuilding(next)}
           onAddFloor={(dir) => {
             if (!building) return

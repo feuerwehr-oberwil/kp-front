@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NodeDeleteChip } from './NodeDeleteChip'
-import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, NoteSize, PlanDocument, ShapeKind, Trupp } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
@@ -32,6 +32,7 @@ import { advanceDwell, applyRouting, attachInsetPx, boundaryPoint, EMPTY_DWELL, 
 import { pathMetres, type PlanScale } from '../lib/planScale'
 import { MeasurePanel } from './MeasurePanel'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
+import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
@@ -85,7 +86,16 @@ interface Props {
   captionMode?: CaptionMode
   onChange: (next: BoardAnno[]) => void
   building: BuildingDoc | null
-  onSelectBuilding: (src: [number, number][][], orientDeg: number) => void
+  /** the picked footprints, their auto-orientation angle, and WHERE that footprint box sits on
+   *  the ground — the third is what lets the workspace carry the floor stack across the change
+   *  instead of clearing it (lib/buildingTransfer · amendBuilding). */
+  onSelectBuilding: (src: [number, number][][], orientDeg: number, geo: SrcGeoref) => void
+  /** Step between the two faces of the ONE «Gebäude» rail tile: the live OSM outline picker
+   *  (`'pick'`) and the floor stack (`'stack'`). Changing the building is a chip down in the
+   *  bottom-left row, beside «Kein Objekt» and «Ref. N m» — not a second rail tile and not a
+   *  hidden gesture, because it is a once-an-Einsatz act on a surface whose width IS the plan.
+   *  Omitted ⇒ the chip is hidden (nothing to step to). */
+  onBuildingFace?: (face: 'pick' | 'stack') => void
   onAddFloor: (dir: 1 | -1) => void
   onRemoveFloor: (floor: number) => void
   /** flip the Gebäudeview between oriented + "Norden oben": persists the re-oriented
@@ -189,18 +199,35 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
+  // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
+  // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
+  // (lib/useObjectPlans · railPlanTiles). So it carries no drawing apparatus at all —
+  // no tool rail, no armable tool, no dock, no draw-on-tap; the footprint tap is the one thing
+  // that happens here. See lib/useObjectPlans · isSelectOnlySurface for why it is keyed on the
+  // catalog's `osm` property rather than on the tile's name.
+  // ⚠️ A DELIBERATE exception to Lage↔Plan tool parity, not drift: a surface that cannot be drawn
+  // on must not offer tools that quietly do nothing. Don't "fix" the rail back in.
+  // Anything already drawn here before this rule still RENDERS (read-only, no handles) — the
+  // board is a synced document and nothing may silently disappear from it.
+  const selectOnly = isSelectOnlySurface(active)
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
-  const readOnly = readOnlyProp || active?.viewer === true
-  // The slim read-only rail (Auswahl · Messen) — never on a viewer-only document, which has no
-  // tool rail for ANYONE, so a locked editor and a viewer keep seeing the same surface.
-  const slimRail = readOnly && slimToolsProp && active?.viewer !== true
+  const readOnly = readOnlyProp || active?.viewer === true || selectOnly
+  // The slim read-only rail (Auswahl · Messen) — never on a viewer-only or selection-only
+  // document, which has no tool rail for ANYONE, so a locked editor and a viewer keep seeing the
+  // same surface.
+  const slimRail = readOnly && slimToolsProp && active?.viewer !== true && !selectOnly
   const slimPlanTools = useMemo(() => slimTools(appConfig.copy.planTools, PLAN_READONLY_TOOLS), [])
   const isPhone = useIsPhone()
 
-  const [tool, setTool] = useState<BoardTool>('pan')
+  // ⚠️ `tool` is DERIVED, not raw state. The armed tool survives a plan switch (this component
+  // does not remount between documents), so a Linie armed on the Tafel would arrive still armed
+  // on the selection-only Umrisse sheet — with no rail left to disarm it. Forcing the rest tool
+  // there closes every create path at once (they all gate on `tool`) instead of gating each.
+  const [armedTool, setTool] = useState<BoardTool>('pan')
+  const tool: BoardTool = selectOnly ? 'pan' : armedTool
   const [pending, setPending] = useState<string | null>(null)
   // a generic shape (Pfeil / Rauch / Rechteck) armed from the palette — mirror of the map's pendingShape
   const [pendingShape, setPendingShape] = useState<ShapeKind | null>(null)
@@ -332,6 +359,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   useEffect(() => {
     setDraft(null); lastTap.current = null
   }, [tool])
+  // Arriving on the selection-only sheet also DISARMS what was carried over: its dock went with
+  // the rail, so a still-pending symbol would be an invisible armed state that fires on the next
+  // document opened.
+  useEffect(() => {
+    if (!selectOnly) return
+    setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null)
+  }, [selectOnly])
   // Esc cancels an in-progress node shape, else clears the selection
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -454,6 +488,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const MAP: Record<string, BoardTool> = { select: 'pan', lasso: 'lasso', line: 'line', area: 'area', note: 'text', team: 'resource', measure: 'measure' }
     keysRef.current = {
       pickTool: (cmd) => {
+        if (selectOnly) return // the Umrisse sheet arms nothing — by keyboard either (see selectOnly)
         if (cmd === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
         const id = MAP[cmd]; if (!id) return // e.g. 'circle' has no Plan equivalent
         setTool(tool === id ? 'pan' : id); setPending(null)
@@ -1538,6 +1573,29 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     </button>
   )
 
+  // ── The way between the two faces of the ONE «Gebäude» tile ────────────────────────────────
+  // The rail lists one entry for the outline picker and the floor stack (lib/useObjectPlans ·
+  // railPlanTiles), so «ich will ein anderes Gebäude» needs a door — and it belongs HERE, in the
+  // row that already answers «was schaue ich an» (Objekt · Maßstab), not as a second rail tile
+  // that would put the mechanism back in the navigation it was just taken out of.
+  // Only ever shown on the two surfaces it is about, and only once there is somewhere to go:
+  // on the stack it opens the picker, on the picker (with a stack behind it) it goes back.
+  // ⚠️ Pure navigation, so a viewer/locked session gets it too — it changes nothing. Replacing
+  // the building is still the picker's own act, with its confirm-and-undo (IncidentWorkspace ·
+  // onSelectBuilding); this chip only walks there.
+  const buildingChip = onBuildingFace && (stack || (osm && building)) ? (
+    <button
+      type="button"
+      className="wb-scale-chip wb-building"
+      aria-label={stack ? appConfig.copy.whiteboard.replaceBuilding : appConfig.copy.whiteboard.backToBuilding}
+      title={stack ? appConfig.copy.whiteboard.replaceBuilding : appConfig.copy.whiteboard.backToBuilding}
+      onClick={() => onBuildingFace(stack ? 'pick' : 'stack')}
+    >
+      <Icon id={stack ? 'footprint' : 'floors'} />
+      <span>{stack ? appConfig.copy.whiteboard.replaceBuilding : appConfig.copy.whiteboard.backToBuilding}</span>
+    </button>
+  ) : null
+
   // Viewer-only plan (e.g. PV / documentation PDF): bypass the annotation board entirely and
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
   if (active?.viewer && active.imageUrl) {
@@ -1616,8 +1674,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 </div>
               ))
             ) : osm ? (
+              /* the ONE interaction this surface has. Gated on the ROLE's read-only (viewer / EL /
+                 locked / replay) — NOT on `readOnly`, which is true here for everybody by design
+                 (see selectOnly above); picking a building is the whole point of the sheet. */
+              // the building already in the stack is handed down so the picker can find it among the
+              // live footprints and start it SELECTED — «Anderes Gebäude wählen» is almost always
+              // «ergänzen». A building saved without a georeference has nothing to match on and
+              // still starts empty, which `replacing` then says out loud.
               <OsmOutline key={active.id} center={osm.center} radiusM={osm.radiusM} onAspect={setAspect}
-                interactive={tool === 'pan' && !readOnly} onPick={onSelectBuilding} />
+                interactive={!readOnlyProp} replacing={!!building}
+                preselectSrc={building?.geo ? building.src : undefined} preselectGeo={building?.geo}
+                onPick={onSelectBuilding} />
             ) : blank ? (
               annos.length === 0 && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
             ) : (
@@ -2208,7 +2275,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
       {/* tool rail — the SAME shared <ToolRail> the Lage map renders, and the same rule: a
           locked surface keeps the rail with the slim tool set instead of losing it. Undo/redo
-          and Leeren are gone: history is global (TopBar), bulk-remove is Mehrfach + delete. */}
+          and Leeren are gone: history is global (TopBar), bulk-remove is Mehrfach + delete.
+          The one surface with NO rail at all is the selection-only Umrisse sheet (and a
+          viewer-only PDF): there is nothing there a tool could do. */}
       {(!readOnly || slimRail) && (
         <ToolRail
           className="wb-tools"
@@ -2475,12 +2544,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onCommit={commitCalibration} onClose={closeCalPrompt} />
       )}
 
-      {/* The two facts about a plan that no page of it states — WHICH object, and at what scale —
-          in one row in the stage's quiet corner. They were a bespoke glass chip in the top-left
-          and this pill down here; two recipes for one job, with the louder of the two sitting on
-          the corner of the plan that is actually looked at. One family now, one corner. */}
+      {/* The facts about a plan that no page of it states — WHICH object, at what scale, and (on
+          the Gebäude) which building — in one row in the stage's quiet corner. Objekt and Maßstab
+          were a bespoke glass chip in the top-left and this pill down here; two recipes for one
+          job, with the louder of the two sitting on the corner of the plan that is actually looked
+          at. One family now, one corner — and the building switch joined it rather than earning a
+          rail tile of its own. */}
       <div className="wb-botleft">
       {objectChip}
+      {buildingChip}
       {/* Maßstab — trust chip: shows whether the active plan is calibrated; tap to (re)calibrate.
           Never a hidden assumption — a plan with no scale says so. Hidden for the OSM live outline /
           blank sheet (no printed reference to measure against). A locked surface keeps the chip

@@ -192,7 +192,7 @@ export const de = {
             '**Trupps** als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Trupp-Chips, deren Trupp „raus" ist, werden ausgegraut/durchgestrichen.',
             '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien mit «Länge» und das **Messen** echte Meter.',
           ] },
-          { kind: 'note', text: 'Die **Gebäudeumrisse** kommen live von OpenStreetMap. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
+          { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist («Kein Gebäude»), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Stockwerkstapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
         ],
       },
       {
@@ -719,7 +719,6 @@ export const de = {
     youHere: 'Mein Standort',
     // the 6px ink dot on a glyph whose name did not fit: it says a name EXISTS here, and
     // selecting the symbol always brings it back (the selection is exempt from suppression)
-    labelHidden: 'Beschriftung verdeckt – antippen',
     // WebGL context loss (iPad reclaims the GPU in the background) — the map goes blank while
     // everything around it still works, so it needs naming and a way out.
     glLost: 'Kartenansicht unterbrochen',
@@ -1116,7 +1115,6 @@ export const de = {
     // due banner + actions
     dueTitle: 'Erinnerung fällig',
     dueOne: 'Erinnerung fällig',
-    dueMany: '{n} Erinnerungen fällig',
     dueDone: 'Erledigt',
     dueSnooze: '+10 min',
     dueOpen: 'In Verlauf öffnen',
@@ -1179,8 +1177,6 @@ export const de = {
     ageLabelHours: '{n} h',
     ageToggle: 'Zeit / Alter umschalten',
     openState: 'offen',
-    expand: 'Aufklappen',
-    collapse: 'Zuklappen',
   },
   errors: {
     noMicrophone: 'Kein Mikrofonzugriff. Audionotiz als Platzhalter vermerkt.',
@@ -1398,6 +1394,17 @@ export const de = {
     overdueBadgeGo: 'Zu Trupp {name} – dringendster Alarm',
     // cross-surface TopBar chip (shown on any surface while a Trupp is fällig/überfällig)
     chipHint: 'Atemschutz – antippen zur Überwachung',
+    // ⚠️ Die Zeile in der Meldeleiste, die den Alarmton benennt – und dieselben Worte in der
+    // OS-Benachrichtigung. Bis 23.08. hörte man auf jeder anderen Seite einen Ton und sah dazu
+    // einen Chip und einen Punkt; WOFÜR er schlug, stand nirgends. Zwei Gründe, zwei Wortlaute:
+    // ein überfälliger Trupp wird angefunkt, ein Trupp am Alarmdruck wird zurückgezogen – ein
+    // Funkspruch behebt den zweiten Fall nicht.
+    alarmRowOverdue: 'Atemschutz überfällig – {name}',
+    alarmRowOverdueSub: 'Kein Funkkontakt – sofort Kontakt herstellen.',
+    alarmRowPressure: 'Alarmdruck erreicht – {name}',
+    alarmRowPressureSub: '{bar} bar, Grenze {line} bar – Rückzug anordnen.',
+    // Die einzige Taste der Zeile. Keine ✕: ein überfälliger Trupp lässt sich nicht wegwischen.
+    alarmRowGo: 'Zum Trupp',
     // back from an opened card to the compact row it was opened from (only shown in that mode —
     // «Übersicht» rather than «Einklappen», because what you go back to is the comparison)
     collapse: 'Zur Übersicht',
@@ -1424,7 +1431,7 @@ export const de = {
     removedToast: 'Trupp {name} entfernt',
     place: 'Platzieren',
     placeWhere: 'Wohin platzieren?',
-    placeNoTarget: 'Kein Plan vorhanden – erst ein Gebäude aus den Umrissen anlegen.',
+    placeNoTarget: 'Kein Plan vorhanden – zuerst über «Gebäude» in der Leiste ein Gebäude wählen.',
     showOnPlan: 'Auf Plan zeigen',
     showOnMap: 'Auf der Lage zeigen',
     rosterLabel: 'Bereits erfasst',
@@ -1625,6 +1632,17 @@ export const de = {
     osmEmpty: 'Keine Gebäude in diesem Bereich',
     osmRetry: 'Erneut laden',
     osmPickHint: 'Gebäude antippen, dann übernehmen',
+    // ⚠️ Nur noch für ein Gebäude OHNE Georeferenz (vor 23.08. gewählt): dessen Umriss lässt
+    // sich nicht wiederfinden, die Auswahl fängt also wirklich bei null an. Mit Georeferenz ist
+    // der bestehende Umriss vorgewählt – siehe osmPickHintAmend.
+    osmPickHintReplace: 'Gebäude antippen, dann übernehmen – ersetzt das bestehende Gebäude',
+    // Steht über der Leiste, sobald das bestehende Gebäude wiedergefunden und vorgewählt ist:
+    // «Anderes Gebäude wählen» heisst fast immer ergänzen, nicht von vorn anfangen.
+    osmPickHintAmend: 'Das bestehende Gebäude ist markiert – weitere antippen zum Ergänzen, dann übernehmen',
+    // ⚠️ Zahl in Klammern, damit ein Umriss wie mehrere passt. Das ist ein Verlust, kein Hinweis:
+    // was hier fehlt (offline, Kartenausschnitt verschoben, in OSM geändert), fällt beim
+    // Übernehmen weg – lieber laut gesagt als stillschweigend aus der Auswahl genommen.
+    osmPickMissing: 'Umrisse des bestehenden Gebäudes fehlen hier ({n}) – sie fallen beim Übernehmen weg.',
     osmTransfer: 'Übernehmen ({n})',
     osmClear: 'Auswahl löschen',
     addFloorUp: 'Obergeschoss hinzufügen',
@@ -1634,8 +1652,34 @@ export const de = {
     floorRemoved: 'Geschoss entfernt',
     floorAdded: 'Geschoss hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
+    buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',
+    buildingReplacedKept: 'Gebäude gewechselt – Geschosse behalten',
+    buildingReplacedCarried: 'Gebäude gewechselt – {n} Markierungen übertragen',
+    buildingReplacedCarriedDropped: 'Gebäude gewechselt – {n} übertragen, {d} weggefallen',
     replaceBuilding: 'Anderes Gebäude wählen',
-    replaceBuildingConfirm: 'Es bestehen Skizzen auf den Geschossen. Anderes Gebäude wählen und die bisherigen Geschosse verwerfen?',
+    replaceBuildingConfirm: 'Der bisherige Stockwerkstapel wird verworfen und durch den neuen Umriss ersetzt.',
+    // ⚠️ Der LEGACY-Fall: ein Gebäude ohne Georeferenz lässt sich nicht auf dem Boden verorten,
+    // also gibt es nichts, woran die Markierungen hängen könnten. Sie liegen im Koordinaten-
+    // system des ALTEN Umrisses und würden auf einem anderen stillschweigend woanders bedeuten.
+    // Sie gehen weg – aber nie ungefragt und nie ohne Rückweg.
+    replaceBuildingConfirmMarks: 'Auf den Geschossen stehen {n} Markierungen. Sie hängen am bisherigen Umriss und lassen sich nicht auf einen anderen übertragen – sie werden entfernt. «Rückgängig» im Hinweis holt sie zurück.',
+    // Trägt das bestehende Gebäude eine Georeferenz, wird umgerechnet statt verworfen: jede
+    // Markierung geht über den BODEN in den neuen Umriss, behält also den Ort, den sie meint,
+    // statt den Platz, den sie im alten Rechteck hatte. Die Geschosse kommen mit.
+    replaceBuildingConfirmKeep: 'Der neue Umriss tritt an die Stelle des bisherigen. Die Geschosse bleiben erhalten.',
+    replaceBuildingConfirmCarry: 'Der neue Umriss tritt an die Stelle des bisherigen. Die Geschosse bleiben, und {n} Markierungen werden mit übertragen – sie behalten ihren Ort am Boden.',
+    // ⚠️ Was nicht mehr auf dem neuen Umriss liegt, wird weggelassen und nicht an den Rand
+    // geschoben: eine an eine falsche Wand geheftete Markierung liest sich wie Wissen.
+    replaceBuildingConfirmCarryDrop: '{n} Markierungen werden auf den neuen Umriss übertragen und behalten ihren Ort am Boden. {d} liegen nicht mehr darauf und fallen weg. «Rückgängig» im Hinweis holt alles zurück.',
+    // ⚠️ Der Weg zurück zur Auswahl. «Umrisse» und «Gebäude» sind EINE Kachel in der Leiste
+    // (23.08.) – wer ein anderes Gebäude will, tippt hier, nicht auf eine zweite Kachel.
+    backToBuilding: 'Zurück zum Gebäude',
+    // Beschriftung dieser einen Kachel. Sie nennt das Ziel («Gebäude»), nicht das Mittel
+    // («Umrisse») – und sie sagt im Wort, ob ein Stockwerkstapel existiert. Das ist der ganze
+    // Punkt: wer das Tablet mitten im Einsatz in die Hand gedrückt bekommt, muss das an der
+    // Leiste sehen, ohne sie zu öffnen.
+    railBuilding: 'Gebäude',
+    railBuildingNone: 'Kein Gebäude',
     otherObject: 'Anderes Objekt',
     // The object decides which plans are loaded – that is why it sits on the plan surface, above
     // the plans it determines. The label names the thing first («Objekt»), then the name: what
@@ -2038,8 +2082,6 @@ export const de = {
   // Wörter sind für Screenreader und Tooltips da, nicht für die Zeile selbst.
   meldeleiste: {
     region: 'Meldungen',
-    more: '{n} weitere Meldungen',
-    less: 'Weitere Meldungen schliessen',
   },
   // single-editor tab lock: a second browser tab on the SAME incident is read-only
   tabLock: {

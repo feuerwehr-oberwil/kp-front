@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { cx } from '../lib/cx'
 import { principalAngleDeg } from '../lib/footprint'
 import { idbGet, idbSet } from '../lib/idb'
 import { apiPost } from '../lib/api'
+import { georefFromPick, M_PER_LAT, matchStoredRings, mPerLon } from '../lib/buildingTransfer'
+import type { LngLat, SrcGeoref } from '../types'
 import s from './OsmOutline.module.css'
 
 // A building footprint as a normalized 0..1 ring in board space (north-up).
 type Ring = [number, number][]
 
-const M_PER_LAT = 110540
 const cache = new Map<string, Promise<Ring[]>>()
 // Resolved outlines by key — lets the component seed its state SYNCHRONOUSLY. The `cache` Map
 // only holds the Promise, so even a warm reload flashed "…werden geladen" for one async tick
@@ -22,9 +22,8 @@ const resolved = new Map<string, Ring[]>()
 // The persistent-cache key (rounded bbox) + its bounds — pulled out so the component can compute
 // the key up front and check `resolved` before its first paint.
 function bboxKey(center: LngLat, radiusM: number) {
-  const mPerLon = 111320 * Math.cos((center[1] * Math.PI) / 180)
   const dLat = radiusM / M_PER_LAT
-  const dLon = radiusM / mPerLon
+  const dLon = radiusM / mPerLon(center[1])
   const south = center[1] - dLat, north = center[1] + dLat
   const west = center[0] - dLon, east = center[0] + dLon
   return { key: `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`, south, west, north, east }
@@ -115,22 +114,40 @@ interface Props {
   onAspect: (a: number) => void
   /** when true, footprints are tappable to select buildings for transfer */
   interactive?: boolean
+  /** a Gebäude already exists, so a pick changes it rather than creating the first one.
+   *  Only still says «ersetzt» for a LEGACY building — one without a georeference, which cannot
+   *  be pre-selected below and therefore genuinely starts the selection empty. */
+  replacing?: boolean
+  /** the footprints of the Gebäude that already exists, in its own `src` space, plus where that
+   *  space sits on the ground. Given both, the picker lays the saved rings back over the live
+   *  Overpass footprints and PRE-SELECTS them — «Anderes Gebäude wählen» is almost always
+   *  «ergänzen», and starting from an empty selection made amending look like starting over.
+   *  Absent (no building, or one saved before `geo` existed) → the selection starts empty. */
+  preselectSrc?: [number, number][][]
+  preselectGeo?: SrcGeoref
   /** called with all selected footprints in ISOTROPIC 0..1 board space (true
-   *  proportions, normalized to their COMBINED bbox) plus the auto-orientation angle
-   *  (deg, longest-axis-horizontal). The floor-stack derives its rendered views from
-   *  these — see lib/footprint + BuildingDoc. */
-  onPick?: (src: [number, number][][], orientDeg: number) => void
+   *  proportions, normalized to their COMBINED bbox), the auto-orientation angle
+   *  (deg, longest-axis-horizontal) and the ground position of that box. The floor-stack derives
+   *  its rendered views from the first two and re-anchors its annotations with the third —
+   *  see lib/footprint + lib/buildingTransfer + BuildingDoc. */
+  onPick?: (src: [number, number][][], orientDeg: number, geo: SrcGeoref) => void
 }
 
 // Live OSM building-outline backdrop for the whiteboard — a traceable base, and
 // the surface where the affected building(s) are picked into the floor-stack.
 // Tapping footprints toggles a selection; "Übernehmen" transfers them all at once.
-export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: Props) {
+export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, preselectSrc, preselectGeo, onPick }: Props) {
   // Seed from the resolved cache so a warm hit (prefetched at boot, or a prior open) paints the
   // outlines immediately instead of flashing the loader while the async IDB read settles.
   const [rings, setRings] = useState<Ring[] | null>(() => resolved.get(bboxKey(center, radiusM).key) ?? null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  // saved footprints the current fetch does NOT contain (offline fallback, a moved bbox, an OSM
+  // edit). Named rather than quietly left out of the selection — applying would lose them.
+  const [missing, setMissing] = useState(0)
+  // has the operator changed the pre-selection since it was laid down? Only until then does the
+  // note about it tell the truth.
+  const [touched, setTouched] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [slow, setSlow] = useState(false)
 
@@ -152,12 +169,14 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: P
     setAttempt((a) => a + 1)
   }
 
-  const toggle = (i: number) =>
+  const toggle = (i: number) => {
+    setTouched(true)
     setSelected((prev) => {
       const next = new Set(prev)
       next.has(i) ? next.delete(i) : next.add(i)
       return next
     })
+  }
 
   // Transfer every selected footprint in ISOTROPIC board space, normalized to their
   // shared (combined) bbox by the LARGER side so true proportions are preserved (the
@@ -172,7 +191,9 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: P
     }
     const span = Math.max(maxX - minX, maxY - minY) || 1
     const src = picked.map((ring) => ring.map(([x, y]): [number, number] => [(x - minX) / span, (y - minY) / span]))
-    onPick?.(src, principalAngleDeg(src))
+    // …and WHERE that box is: without it the saved building is a rectangle with no address, and
+    // neither this pre-selection nor carrying the floor stack across a change is possible.
+    onPick?.(src, principalAngleDeg(src), georefFromPick(center, radiusM, picked))
   }
 
   useEffect(() => {
@@ -180,14 +201,25 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: P
     onAspect(1) // square metre-bbox
     // Only blank to the loader on a COLD key — a warm key keeps the already-painted outlines.
     const warm = resolved.get(bboxKey(center, radiusM).key) ?? null
-    setRings(warm); setError(null); setSelected(new Set())
+    setRings(warm); setError(null)
     loadBuildings(center, radiusM)
       .then((r) => { if (alive) setRings(r) })
       .catch((e) => { if (alive) setError(e instanceof Error ? e.message : 'OSM nicht erreichbar') })
     return () => { alive = false }
   }, [center, radiusM, onAspect, attempt])
 
-  // a fresh fetch clears stale selections; also drop selections if interactivity is lost
+  // The building that already exists starts SELECTED. Its saved rings are laid back over the live
+  // footprints by WORLD POSITION (lib/buildingTransfer · matchStoredRings) — shape alone is
+  // scale-ambiguous, and no OSM ids are kept anywhere. Re-runs on every fetch, so a fresh load
+  // also clears whatever the previous bbox had selected.
+  useEffect(() => {
+    setTouched(false)
+    if (!rings || !preselectSrc?.length || !preselectGeo) { setSelected(new Set()); setMissing(0); return }
+    const m = matchStoredRings(preselectSrc, preselectGeo, center, radiusM, rings)
+    setSelected(new Set(m.indices)); setMissing(m.missing)
+  }, [rings, preselectSrc, preselectGeo, center, radiusM])
+
+  // drop selections if interactivity is lost
   useEffect(() => { if (!interactive) setSelected(new Set()) }, [interactive])
 
   const copy = appConfig.copy.whiteboard
@@ -207,6 +239,8 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: P
   if (rings.length === 0) return <div className={s['wb-osm-hint']}>{copy.osmEmpty}</div>
 
   const n = selected.size
+  // the existing building was found and is highlighted — say once that tapping ADDS to it
+  const preselected = !touched && !!preselectGeo && !!preselectSrc?.length && n > 0
 
   return (
     <>
@@ -224,15 +258,22 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: P
       {/* the bar is portaled to <body> so the transformed/panned plan board doesn't
           drag it around — it stays put at the bottom of the plan viewport */}
       {interactive && createPortal(
-        <div className={s['wb-osm-bar']} onPointerDown={(e) => e.stopPropagation()}>
-          {n === 0 ? (
-            <span className={s['wb-osm-barhint']}>{copy.osmPickHint}</span>
-          ) : (
-            <>
-              <button className={s['wb-osm-clear']} onClick={() => setSelected(new Set())}>{copy.osmClear}</button>
-              <button className={s['wb-osm-take']} onClick={transfer}>{fillTemplate(copy.osmTransfer, { n })}</button>
-            </>
-          )}
+        <div className={s['wb-osm-barwrap']} onPointerDown={(e) => e.stopPropagation()}>
+          {/* ONE line of context above the buttons, and the loss always wins it: a saved outline
+              that is not in this fetch would otherwise vanish from the selection unannounced. */}
+          {missing > 0
+            ? <div className={s['wb-osm-warn']}>{fillTemplate(copy.osmPickMissing, { n: missing })}</div>
+            : preselected && <div className={s['wb-osm-note']}>{copy.osmPickHintAmend}</div>}
+          <div className={s['wb-osm-bar']}>
+            {n === 0 ? (
+              <span className={s['wb-osm-barhint']}>{replacing ? copy.osmPickHintReplace : copy.osmPickHint}</span>
+            ) : (
+              <>
+                <button className={s['wb-osm-clear']} onClick={() => { setTouched(true); setSelected(new Set()) }}>{copy.osmClear}</button>
+                <button className={s['wb-osm-take']} onClick={transfer}>{fillTemplate(copy.osmTransfer, { n })}</button>
+              </>
+            )}
+          </div>
         </div>,
         document.body,
       )}

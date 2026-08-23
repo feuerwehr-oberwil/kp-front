@@ -497,6 +497,19 @@ export interface PlanDocument {
  *  `ring` mirrors `rings[0]` and `ringAspect` = combined height/width — both kept
  *  for backward compatibility with single-building workspaces saved before
  *  multi-select existed. Renderers prefer `rings`, falling back to `[ring]`. */
+/** Where a building's isotropic `src` box sits on the ground: the WGS84 position of its (0,0)
+ *  corner — north-west, since `src` y runs down/south — and the ground length of one `src` unit.
+ *
+ *  This is what makes a saved footprint PLACEABLE. Without it a `BuildingDoc` is a rectangle with
+ *  no address: the picker cannot show you which outlines you already have, and
+ *  `lib/buildingTransfer` has nothing to anchor the old tile frame to when the building changes. */
+export interface SrcGeoref {
+  /** WGS84 [lng, lat] of the src box's (0,0) corner */
+  origin: LngLat
+  /** ground metres spanned by one src unit */
+  spanM: number
+}
+
 export interface BuildingDoc {
   ring: [number, number][]
   ringAspect: number
@@ -512,6 +525,15 @@ export interface BuildingDoc {
   /** active view: true = "Norden oben" (unrotated), false/absent = oriented (default).
    *  `rings`/`ring`/`ringAspect` always mirror the ACTIVE view for back-compat renderers. */
   northUp?: boolean
+  /** where this footprint sits on the ground, recorded at pick time from the picker's own square
+   *  metre-bbox (lib/buildingTransfer · georefFromPick).
+   *
+   *  ⚠️ OPTIONAL ON PURPOSE and permanently so: every building picked before this field existed
+   *  carries none, and the workspace blob is synced and never rewritten wholesale. Nothing may
+   *  throw or misrender without it — it only ENABLES the two things that need a ground position
+   *  (pre-selecting the current outlines in the picker, and carrying floor-stack annotations
+   *  across a building change). Without it both fall back to the old behaviour, which says so. */
+  geo?: SrcGeoref
 }
 
 export type PreparedMapOverlay =
