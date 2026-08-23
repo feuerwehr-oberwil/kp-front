@@ -74,6 +74,36 @@ describe('Messung on an already drawn line', () => {
 
 // The Einsatzleiter must be able to ask how long the Leitung is without being able to move it:
 // read-only keeps every number and drops every control.
+// The presets are the ONE way to reach Rettungsachse/Pfeil on either surface: both tool docks
+// deleted their own picker on the stated promise that the style is chosen in this editor, and
+// `onPreset` was then declared, passed by both callers — and never rendered.
+describe('line presets', () => {
+  const P = appConfig.drawing.linePresets
+  const rettung = P.find((p) => p.id === 'rettungsachse')!
+
+  it('offers every preset on a line and applies the tapped one', () => {
+    const onPreset = vi.fn()
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onPreset={onPreset} />)
+    expect(screen.getByText(appConfig.copy.drawingEditor.preset)).toBeTruthy()
+    for (const p of P) expect(screen.getByRole('button', { name: p.label })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: rettung.label }))
+    expect(onPreset).toHaveBeenCalledWith(rettung.id)
+  })
+
+  it('lights the preset the line already wears — and none once it was hand-tuned', () => {
+    const { container } = render(<DrawEditor {...base} drawing={{ kind: 'line', arrow: true, marker: 'R' }} />)
+    expect(container.querySelector('.de-preset.on')?.textContent).toBe(rettung.label)
+    cleanup()
+    const tuned = render(<DrawEditor {...base} drawing={{ kind: 'line', arrow: false, marker: 'X' }} />)
+    expect(tuned.container.querySelector('.de-preset.on')).toBeNull()
+  })
+
+  it('is a LINE control — an Absperrkreis has no preset row', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'circle', radiusM: 100 }} />)
+    expect(screen.queryByText(appConfig.copy.drawingEditor.preset)).toBeNull()
+  })
+})
+
 describe('read-only (viewer / Führungsansicht)', () => {
   const D = appConfig.copy.drawingEditor
 

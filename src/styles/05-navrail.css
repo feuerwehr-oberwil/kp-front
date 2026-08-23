@@ -195,14 +195,15 @@
   content: ''; position: fixed; inset: 0; z-index: 18; background: var(--app-bg);
 }
 
-/* ── map-only view-control launcher (Ebenen) — tracks the rail width ── */
-.mapctl { position: absolute; left: calc(var(--rail-w) + 28px); top: 104px; z-index: 33; display: flex; flex-direction: column; gap: 8px;
-  transition: left .18s var(--ease); }
 /* during an active grip-drag, every rail-tracking overlay drops its easing so it stays
-   locked to the rail edge instead of rubber-banding ~180ms behind it */
-html.rail-dragging .mapctl, html.rail-dragging .layers-card,
-.mapctl .rbtn { width: 46px; height: 46px; }
-.mapctl .rbtn .i { width: 20px; height: 20px; }
+   locked to the rail edge instead of rubber-banding ~180ms behind it.
+   ⚠️ The `{ transition: none }` block used to be MISSING here, so this selector list ran on into
+   the next rule and `html.rail-dragging .layers-card` (0,2,1) inherited `width/height: 46px`,
+   beating `.layers-card { width: 264px }` (0,1,0): dragging the left rail's grip with Ebenen
+   open collapsed the panel to a 46px square. */
+html.rail-dragging .layers-card { transition: none; }
+/* tap-outside catcher behind the phone's Ebenen sheet (the `.mapctl` launcher it was named for
+   is long gone — the Ebenen button lives in the tool rail's footer now) */
 .mapctl-backdrop { position: fixed; inset: 0; z-index: 28; }
 
 /* layers card — wears the same dark "dock" chrome as the measure/draw ToolDock and the

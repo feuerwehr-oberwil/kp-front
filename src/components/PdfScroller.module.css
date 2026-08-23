@@ -30,9 +30,18 @@
       calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)) 10px;
   }
 }
+/* ⚠️ No `background` here, and deliberately not a themed one either. This element IS the sheet
+   of paper: pdf.js fills the whole canvas #ffffff before it draws a single glyph
+   (`beginDrawing` → `fillStyle = background || "#ffffff"`), and the canvas is only put into the
+   DOM once that render has finished — so the old frozen `background: #fff` painted nothing that
+   was ever visible. Making it follow [data-theme="night"] would be worse than useless: it would
+   either stay hidden under the opaque canvas, or, where it did show, put a scanned Objektplan's
+   black ink on a dark ground. A scan is black-on-white and stays black-on-white — the same call
+   the annotation board already makes (.wb-pdf-base declares no background either; only a BLANK
+   board goes dark via --board-bg). What follows the theme is the SURROUND: this scroller sits on
+   `.whiteboard`, which is `var(--app-bg)`. */
 .page {
   display: block;
-  background: #fff;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
   border-radius: 2px;
   max-width: 100%;

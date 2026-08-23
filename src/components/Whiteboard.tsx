@@ -15,6 +15,7 @@ import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDeco
 import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
+import { Overlay } from '../lib/overlays'
 import { panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -37,7 +38,7 @@ import { buildView, remapPoint, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
 import { MAX_SCALE, MIN_SCALE, useBoardView } from './useBoardView'
-import { useBoardDoc } from './useBoardDoc'
+import { useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbInkLayer, WbVertexHandles } from './WbControls'
 import { ToolDock } from './ToolDock'
@@ -117,6 +118,11 @@ interface Props {
   historyRef?: React.MutableRefObject<{ undo: () => void; redo: () => void } | null>
   /** report this plan's can-undo/redo flags up so the TopBar buttons enable correctly. */
   onHistoryState?: (s: { canUndo: boolean; canRedo: boolean }) => void
+  /** ⚠️ The plan undo/redo STACKS, held by the caller: this component unmounts on every surface
+   *  switch, so history kept in its own state was thrown away the moment you glanced at the
+   *  Verlauf. Keyed by plan id, so it stays per-plan-document. See useBoardDoc · BoardHistory. */
+  hist: BoardHistory
+  setHist: React.Dispatch<React.SetStateAction<BoardHistory>>
   /** expose fit-to-view so the phone top bar can offer Fit instead of a floating cluster. */
   fitRef?: React.MutableRefObject<(() => void) | null>
   /** expose tool-pick + zoom so the global keyboard-shortcut layer (App) can drive the Plan
@@ -172,7 +178,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
@@ -325,6 +331,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // by the time this bubbles up, so activeElement is <body> and the guard would miss.
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // …and a MODAL on top of the board owns Escape outright: it closes, the board does not
+      // also drop the draft/selection behind it. Focus is trapped inside the dialog, so the
+      // target is enough to tell (covers the Trupp picker, the Maßstab entry, every overlay).
+      if (el?.closest('[role="dialog"]')) return
       if (draft) { setDraft(null); lastTap.current = null }
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
       else if (notePanelId) setNotePanelId(null)
@@ -414,13 +424,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     setAspect(active.orientation === 'portrait' ? 1.414 : 1 / 1.414)
   }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Annotation document + per-plan undo/redo (the keyed history map, the set/commit mutation
-  // funnel, audit-emitting CRUD, and the global-TopBar history wiring) live in useBoardDoc; the
-  // gesture handlers and render below call the returned mutators exactly as before.
+  // Annotation document + per-plan undo/redo (the set/commit mutation funnel, audit-emitting CRUD,
+  // and the global-TopBar history wiring) live in useBoardDoc; the gesture handlers and render
+  // below call the returned mutators exactly as before. The keyed history MAP itself is passed
+  // through from the caller — it has to outlive this component's unmount (see Props · hist).
   // which drawing's label is being typed right now (one undo step per edit, not per keystroke)
   const labelLive = useRef<string | null>(null)
   const { pushPast, set, commit, add, patch, patchCommit, removeAnno } = useBoardDoc({
-    annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState,
+    annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist,
   })
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
   useEffect(() => { if (fitRef) fitRef.current = () => applyView(1, { x: 0, y: 0 }); return () => { if (fitRef) fitRef.current = null } })
@@ -2396,31 +2407,32 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       )}
 
       {truppPick && (
-        <div className="wb-trupp-scrim" onPointerDown={() => setTruppPick(null)}>
-          <div className="wb-trupp-pick" onPointerDown={(e) => e.stopPropagation()}>
-            <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
-            {/* twin of the Lage picker (IncidentWorkspace): a Trupp already on THIS plan is
-                greyed out, because picking it would move its chip rather than add one. One on
-                the map or another plan stays selectable — that is a real move. */}
-            {trupps.filter((t) => t.status !== 'raus').map((t) => {
-              const here = !!t.annoId && t.planId === activeId
-              return (
-                <button
-                  key={t.id} className={`wb-trupp-opt${here ? ' placed' : ''}`} disabled={here}
-                  onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor, t); setTruppPick(null) }}
-                >
-                  <span className="wb-trupp-cap" /><b>{t.name}</b>
-                  {here
-                    ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
-                    : (t.lineNo != null || t.lineNumber) ? <i>Ltg {t.lineNo ?? t.lineNumber}</i> : null}
-                </button>
-              )
-            })}
-            <button className="wb-trupp-opt wb-trupp-generic" onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor); setTruppPick(null) }}>
-              <Icon id="plus" />{appConfig.copy.whiteboard.newTeam}
-            </button>
-          </div>
-        </div>
+        /* ⚠️ Modal → lib/overlays (focus trap + restore, scroll-lock, Esc, backdrop dismissal).
+           The hand-rolled scrim it replaces had none of those, and the board's own Escape handler
+           fired underneath it. The AGENTS.md carve-out is for the NON-modal tool docks. */
+        <Overlay open onClose={() => setTruppPick(null)} className="wb-trupp-pick ui-dialog" ariaLabel={appConfig.copy.whiteboard.selectTrupp}>
+          <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
+          {/* twin of the Lage picker (IncidentWorkspace): a Trupp already on THIS plan is
+              greyed out, because picking it would move its chip rather than add one. One on
+              the map or another plan stays selectable — that is a real move. */}
+          {trupps.filter((t) => t.status !== 'raus').map((t) => {
+            const here = !!t.annoId && t.planId === activeId
+            return (
+              <button
+                key={t.id} className={`wb-trupp-opt${here ? ' placed' : ''}`} disabled={here}
+                onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor, t); setTruppPick(null) }}
+              >
+                <span className="wb-trupp-cap" /><b>{t.name}</b>
+                {here
+                  ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
+                  : (t.lineNo != null || t.lineNumber) ? <i>Ltg {t.lineNo ?? t.lineNumber}</i> : null}
+              </button>
+            )
+          })}
+          <button className="wb-trupp-opt wb-trupp-generic" onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor); setTruppPick(null) }}>
+            <Icon id="plus" />{appConfig.copy.whiteboard.newTeam}
+          </button>
+        </Overlay>
       )}
 
       {/* Messen — the SAME panel the Lage map uses (bottom-centred); metrics come from the plan

@@ -1,5 +1,7 @@
+import { useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
+import { Overlay } from '../lib/overlays'
 import { toast } from '../lib/ui'
 import { saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
 import type { PlanScale } from '../lib/planScale'
@@ -20,32 +22,38 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
   const step = appConfig.drawing.planScaleStepM
   const val = parseFloat(refMInput) || 0
   const bump = (d: number) => setRefMInput(String(Math.max(0, Math.round((val + d) * 100) / 100)))
+  // the metre field is what this dialog is FOR — focus lands there, not on the first quick-pick
+  // chip (which is where Base UI's default first-focusable rule would have put it)
+  const inputRef = useRef<HTMLInputElement>(null)
   return (
-    <div className="wb-trupp-scrim" onPointerDown={onClose}>
-      <div className="wb-cal-pop" onPointerDown={(e) => e.stopPropagation()}>
-        <div className="wb-cal-title">{appConfig.copy.whiteboard.scale.promptTitle}</div>
-        <div className="wb-cal-body">{appConfig.copy.whiteboard.scale.promptBody}</div>
-        <div className="wb-cal-chips">
-          {appConfig.drawing.planScaleDefaultsM.map((m) => (
-            <button key={m} className={`wb-cal-chip ${val === m ? 'on' : ''}`} onClick={() => setRefMInput(String(m))}>{m} m</button>
-          ))}
-        </div>
-        <div className="wb-cal-stepper">
-          <button className="wb-cal-step" aria-label="−" disabled={val <= 0} onClick={() => bump(-step)}>−</button>
-          <div className="wb-cal-num">
-            <input className="wb-cal-input" type="number" inputMode="decimal" min={0} step="any" autoFocus value={refMInput}
-              onChange={(e) => setRefMInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onCommit(val) }} />
-            <span className="wb-cal-unit">{appConfig.copy.whiteboard.scale.unit}</span>
-          </div>
-          <button className="wb-cal-step" aria-label="+" onClick={() => bump(step)}>+</button>
-        </div>
-        <div className="wb-cal-actions">
-          <button className="ip-btn ghost" onClick={onClose}>{appConfig.copy.whiteboard.scale.cancel}</button>
-          <button className="btn primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{appConfig.copy.whiteboard.scale.confirm}</button>
-        </div>
+    // ⚠️ Modal, so it goes through lib/overlays like every other modal surface — focus trap +
+    // restore, scroll-lock, Esc and backdrop dismissal live there. The old hand-rolled
+    // scrim + card had none of them, and the board's own Escape handler fired UNDERNEATH it,
+    // clearing the selection behind a dialog that stayed open. (The AGENTS.md carve-out for
+    // hand-rolled overlays covers the NON-modal tool docks, not this.)
+    <Overlay open onClose={onClose} className="wb-cal-pop ui-dialog" ariaLabel={appConfig.copy.whiteboard.scale.promptTitle} initialFocus={inputRef}>
+      <div className="wb-cal-title">{appConfig.copy.whiteboard.scale.promptTitle}</div>
+      <div className="wb-cal-body">{appConfig.copy.whiteboard.scale.promptBody}</div>
+      <div className="wb-cal-chips">
+        {appConfig.drawing.planScaleDefaultsM.map((m) => (
+          <button key={m} className={`wb-cal-chip ${val === m ? 'on' : ''}`} onClick={() => setRefMInput(String(m))}>{m} m</button>
+        ))}
       </div>
-    </div>
+      <div className="wb-cal-stepper">
+        <button className="wb-cal-step" aria-label="−" disabled={val <= 0} onClick={() => bump(-step)}>−</button>
+        <div className="wb-cal-num">
+          <input ref={inputRef} className="wb-cal-input" type="number" inputMode="decimal" min={0} step="any" value={refMInput}
+            onChange={(e) => setRefMInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') onCommit(val) }} />
+          <span className="wb-cal-unit">{appConfig.copy.whiteboard.scale.unit}</span>
+        </div>
+        <button className="wb-cal-step" aria-label="+" onClick={() => bump(step)}>+</button>
+      </div>
+      <div className="wb-cal-actions">
+        <button className="ip-btn ghost" onClick={onClose}>{appConfig.copy.whiteboard.scale.cancel}</button>
+        <button className="btn primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{appConfig.copy.whiteboard.scale.confirm}</button>
+      </div>
+    </Overlay>
   )
 }
 

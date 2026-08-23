@@ -41,6 +41,7 @@ import { useUndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog } from './lib/ui'
+import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
 import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
@@ -93,6 +94,7 @@ import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import type { AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { Whiteboard } from './components/Whiteboard'
+import type { BoardHistory } from './components/useBoardDoc'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
 import { prewarmPlans } from './components/PdfViewport'
@@ -400,6 +402,12 @@ export function IncidentWorkspace({
   // surface is showing — one control, both surfaces, no rail-level duplication.
   const planHist = useRef<{ undo: () => void; redo: () => void } | null>(null)
   const [planCan, setPlanCan] = useState({ canUndo: false, canRedo: false })
+  // ⚠️ …and the STACKS live here rather than inside the Whiteboard, because the Whiteboard is
+  // mounted only while `mode === 'plans'`: as component state the plan's history was thrown away
+  // every time somebody glanced at the Verlauf or the Karte and came back — «nichts, was sich
+  // nicht rückgängig machen lässt» broken by a tab switch. Keyed by plan id (see BoardHistory),
+  // so surviving the unmount never leaks one plan's undo into another plan's.
+  const [planHistory, setPlanHistory] = useState<BoardHistory>({})
   // the Plan exposes its fit-to-view here so the phone top bar can offer Fit (the plan's
   // equivalent of the map's locate) instead of a floating zoom cluster on a small screen.
   const planFit = useRef<(() => void) | null>(null)
@@ -922,8 +930,9 @@ export function IncidentWorkspace({
     setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId)
     // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
     // list that no longer exists, and stepping into one would write this device's rows back over
-    // what another device just merged in.
-    attHistClear.current?.()
+    // what another device just merged in. The Plan's stacks go too — they now outlive the board's
+    // unmount (see `planHistory`), so nothing else drops them any more.
+    attHistClear.current?.(); setPlanHistory({})
     // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
@@ -1211,6 +1220,11 @@ export function IncidentWorkspace({
       // the field's own handler has already blurred by the time this bubbles up.
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // …and a MODAL on top of the map owns Escape outright — it closes, and the map does NOT also
+      // peel a layer behind it. That is what the note above always claimed; it was never enforced,
+      // so Esc in the «Welcher Trupp?» picker closed the picker AND disarmed the Team tool. Focus
+      // is trapped inside the dialog, so the event target is enough to tell.
+      if (el?.closest('[role="dialog"]')) return
       if (pending || pendingShape) { setPending(null); setPendingShape(null); setTool('select') }
       else if (panel || viewsOpen) { setPanel(null); setViewsOpen(false) }
       // …then the active TOOL and the dock that belongs to it. Escape used to bail out of an
@@ -3392,7 +3406,13 @@ export function IncidentWorkspace({
           className="tool-rail"
           primary={appConfig.copy.primarySymbol}
           tools={tacticalLocked ? slimMapTools : appConfig.copy.mapTools}
-          active={voice.recording ? 'audio' : tool}
+          /* ⚠️ the armed tool, and nothing else. This used to read
+             `voice.recording ? 'audio' : tool`, but there is no 'audio' entry in `mapTools` — so
+             starting a Sprachnotiz matched nothing and the armed tool went DARK mid-recording, on
+             the surface where «was macht mein nächster Tipp» is the whole question. Recording is
+             already stated where it is started: the TopBar +Eintrag button, and the FabEntry on a
+             phone. */
+          active={tool}
           onPick={pick}
           footer={(() => {
             const c = appConfig.copy.nav
@@ -3432,33 +3452,39 @@ export function IncidentWorkspace({
           routes through placeTruppOnMap (one-place rule); «Neues Team» drops an untracked
           marker. One-shot: after placing, drop back to Auswahl with the marker selected. */}
       {mapUI && teamPick && (
-        <div className="wb-trupp-scrim" onPointerDown={() => { setTeamPick(null); setTool('select') }}>
-          <div className="wb-trupp-pick" onPointerDown={(e) => e.stopPropagation()}>
-            <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
-            {/* A Trupp lives at exactly ONE place, so picking one that is already on the map
-                does not add a second marker — it MOVES the existing one, silently, and the
-                operator who wanted a second Trupp has just relocated the first. Placed ones
-                are greyed out and say where they are instead. A Trupp on a PLAN stays
-                selectable: moving it to the map is a real thing to want. */}
-            {trupps.filter((t) => t.status !== 'raus').map((t) => {
-              const here = !!t.entityId
-              return (
-                <button
-                  key={t.id} className={`wb-trupp-opt${here ? ' placed' : ''}`} disabled={here}
-                  onClick={() => { placeTruppOnMap(t.id, teamPick); setTeamPick(null); setTool('select') }}
-                >
-                  <span className="wb-trupp-cap" /><b>{t.name}</b>
-                  {here
-                    ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
-                    : t.lineNumber ? <i>Ltg {t.lineNumber}</i> : null}
-                </button>
-              )
-            })}
-            <button className="wb-trupp-opt wb-trupp-generic" onClick={() => { placeGenericTeam(teamPick); setTeamPick(null); setTool('select') }}>
-              <Icon id="plus" />{appConfig.copy.whiteboard.newTeam}
-            </button>
-          </div>
-        </div>
+        /* ⚠️ Modal → lib/overlays, in lockstep with the plan's twin: focus trap + restore,
+           scroll-lock, Esc and backdrop dismissal. The hand-rolled scrim both used to share had
+           none of them. (AGENTS.md's hand-rolled carve-out is the NON-modal tool docks.) */
+        <Overlay
+          open
+          onClose={() => { setTeamPick(null); setTool('select') }}
+          className="wb-trupp-pick ui-dialog"
+          ariaLabel={appConfig.copy.whiteboard.selectTrupp}
+        >
+          <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
+          {/* A Trupp lives at exactly ONE place, so picking one that is already on the map
+              does not add a second marker — it MOVES the existing one, silently, and the
+              operator who wanted a second Trupp has just relocated the first. Placed ones
+              are greyed out and say where they are instead. A Trupp on a PLAN stays
+              selectable: moving it to the map is a real thing to want. */}
+          {trupps.filter((t) => t.status !== 'raus').map((t) => {
+            const here = !!t.entityId
+            return (
+              <button
+                key={t.id} className={`wb-trupp-opt${here ? ' placed' : ''}`} disabled={here}
+                onClick={() => { placeTruppOnMap(t.id, teamPick); setTeamPick(null); setTool('select') }}
+              >
+                <span className="wb-trupp-cap" /><b>{t.name}</b>
+                {here
+                  ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
+                  : t.lineNumber ? <i>Ltg {t.lineNumber}</i> : null}
+              </button>
+            )
+          })}
+          <button className="wb-trupp-opt wb-trupp-generic" onClick={() => { placeGenericTeam(teamPick); setTeamPick(null); setTool('select') }}>
+            <Icon id="plus" />{appConfig.copy.whiteboard.newTeam}
+          </button>
+        </Overlay>
       )}
 
       {mode === 'plans' && sym.ready && (
@@ -3570,6 +3596,8 @@ export function IncidentWorkspace({
           emit={emit}
           historyRef={planHist}
           onHistoryState={setPlanCan}
+          hist={planHistory}
+          setHist={setPlanHistory}
           fitRef={planFit}
           keysRef={planKeys}
           focus={planFocus}
