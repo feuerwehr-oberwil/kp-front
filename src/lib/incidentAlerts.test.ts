@@ -30,23 +30,50 @@ const inc = (over: Partial<IncidentMeta>): IncidentMeta => ({
 })
 
 describe('pickBootIncident', () => {
+  // the fixtures live on 2026-07-08; «now» sits just after them, inside the 3h window
+  const NOW = Date.parse('2026-07-08T12:00:00Z')
+
   it('prefers the remembered incident when nothing newer arrived', () => {
     const saved = inc({ id: 'a', source: 'manual', started_at: '2026-07-08T10:00:00Z' })
     const olderAlarm = inc({ id: 'b', source: 'divera', started_at: '2026-07-08T09:00:00Z' })
-    expect(pickBootIncident([saved, olderAlarm], 'a')?.id).toBe('a')
+    expect(pickBootIncident([saved, olderAlarm], 'a', { now: NOW })?.id).toBe('a')
   })
 
   it('a NEWER alarm-created incident overrides the remembered one (killed-app reopen)', () => {
     const saved = inc({ id: 'a', started_at: '2026-07-08T09:00:00Z' })
     const alarm = inc({ id: 'b', source: 'divera', auto_opened: true, started_at: '2026-07-08T11:30:00Z' })
-    expect(pickBootIncident([alarm, saved], 'a')?.id).toBe('b')
+    expect(pickBootIncident([alarm, saved], 'a', { now: NOW })?.id).toBe('b')
+  })
+
+  // ⚠️ Both bounds below were missing until 23.08., and together they made a remembered Einsatz
+  // permanently unreachable: an open alarm Einsatz won every reload for as long as it existed,
+  // and the boot then stamped ITS id over the operator's choice.
+  it('a STALE alarm no longer overrides — the window is the pool banner\'s', () => {
+    const saved = inc({ id: 'a', started_at: '2026-07-08T09:00:00Z' })
+    const alarm = inc({ id: 'b', source: 'divera', started_at: '2026-07-08T11:30:00Z' })
+    const wellAfter = Date.parse('2026-07-09T12:00:00Z')
+    expect(pickBootIncident([alarm, saved], 'a', { now: wellAfter })?.id).toBe('a')
+  })
+
+  it('an alarm that already existed when the operator chose does not drag them back', () => {
+    const saved = inc({ id: 'a', started_at: '2026-07-08T09:00:00Z' })
+    const alarm = inc({ id: 'b', source: 'divera', started_at: '2026-07-08T11:30:00Z' })
+    const chosenAt = Date.parse('2026-07-08T11:45:00Z') // opened BY HAND after that alarm landed
+    expect(pickBootIncident([alarm, saved], 'a', { now: NOW, chosenAt })?.id).toBe('a')
+  })
+
+  it('…but a genuinely new alarm still wins, which is what the rule is for', () => {
+    const saved = inc({ id: 'a', started_at: '2026-07-08T09:00:00Z' })
+    const alarm = inc({ id: 'b', source: 'divera', started_at: '2026-07-08T11:30:00Z' })
+    const chosenAt = Date.parse('2026-07-08T10:00:00Z') // chosen BEFORE the alarm landed
+    expect(pickBootIncident([alarm, saved], 'a', { now: NOW, chosenAt })?.id).toBe('b')
   })
 
   it('generic-intake sources count as alarm-created, manual does not', () => {
     const saved = inc({ id: 'a', started_at: '2026-07-08T09:00:00Z' })
     const webhook = inc({ id: 'b', source: 'leitstelle', started_at: '2026-07-08T11:30:00Z' })
     const manualNewer = inc({ id: 'c', source: 'manual', started_at: '2026-07-08T11:45:00Z' })
-    expect(pickBootIncident([manualNewer, webhook, saved], 'a')?.id).toBe('b')
+    expect(pickBootIncident([manualNewer, webhook, saved], 'a', { now: NOW })?.id).toBe('b')
   })
 
   it('never picks archived incidents — all archived boots to the clean landing', () => {

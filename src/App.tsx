@@ -197,7 +197,7 @@ export default function App() {
     return list
   }, [])
 
-  const selectIncident = useCallback(async (id: string, opts: { readOnly?: boolean; meta?: IncidentMeta } = {}) => {
+  const selectIncident = useCallback(async (id: string, opts: { readOnly?: boolean; meta?: IncidentMeta; boot?: boolean } = {}) => {
     // ⚠️ THE AUDIO UNLOCK LIVES HERE, before the first `await`, because this is the first touch of
     // every Einsatz: the launch card, the switcher, «Einsatz eröffnen». A browser only releases
     // audio inside a real gesture, and the only caller that ever did this was the Atemschutz
@@ -247,7 +247,11 @@ export default function App() {
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)
     setRemount((n) => n + 1)
-    savePrefs({ ...loadPrefs(), incidentId: id })
+    // ⚠️ `incidentChosenAt` is stamped only when a HUMAN opened this — never on the boot
+    // auto-open, which would otherwise record the app's own choice as the operator's and let a
+    // stale alarm keep re-confirming itself on every reload (lib/incidentAlerts · pickBootIncident).
+    const prev = loadPrefs()
+    savePrefs({ ...prev, incidentId: id, incidentChosenAt: opts.boot ? prev.incidentChosenAt : Date.now() })
   }, [])
 
   // boot: list → migrate legacy localStorage if empty → open remembered/first incident.
@@ -273,8 +277,9 @@ export default function App() {
       setIncidents(list)
       // Remembered incident normally wins, but a NEWER alarm-created incident takes
       // precedence: a killed app reopens onto the live alarm, not yesterday's Einsatz.
-      const pick = pickBootIncident(list, loadPrefs().incidentId)
-      if (pick) await selectIncident(pick.id, { meta: pick }).catch(() => {})
+      const bootPrefs = loadPrefs()
+      const pick = pickBootIncident(list, bootPrefs.incidentId, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })
+      if (pick) await selectIncident(pick.id, { meta: pick, boot: true }).catch(() => {})
     })()
   }, [selectIncident, linkIncidentId])
 

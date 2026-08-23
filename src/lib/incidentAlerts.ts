@@ -22,14 +22,33 @@ const ts = (iso: string): number => {
  * alarm-created incident takes precedence — a killed app reopens onto the live alarm,
  * not onto yesterday's Einsatz. Archived incidents are never picked (an all-archived
  * deployment boots to the clean landing screen).
+ *
+ * ⚠️ That override is BOUNDED, twice, and both bounds were missing until 23.08. — where the
+ * other two rules in this file each carry a freshness window AND a per-device «I have seen
+ * this» memory, this one had neither, so:
+ *   - `now`: an alarm older than the window has stopped being the reason you picked up the
+ *     tablet. Without this the comparison was against a fixed `started_at`, so an open alarm
+ *     Einsatz kept winning next week, not just tonight.
+ *   - `chosenAt`: an alarm that already existed when the operator DELIBERATELY opened something
+ *     else does not get to drag them back on every reload. It is the same signal a dismissed
+ *     banner carries, read from the cookie rather than a set (lib/prefs · incidentChosenAt).
+ * A genuinely new alarm still wins, which is the case the rule exists for.
  */
-export function pickBootIncident(list: IncidentMeta[], savedId: string | null | undefined): IncidentMeta | undefined {
+export function pickBootIncident(
+  list: IncidentMeta[],
+  savedId: string | null | undefined,
+  opts: { now: number; chosenAt?: number } = { now: Date.now() },
+): IncidentMeta | undefined {
   const open = list.filter((i) => !i.is_archived)
   const saved = savedId ? open.find((i) => i.id === savedId) : undefined
   const newestAlarm = open
     .filter(isAlarmCreated)
     .reduce<IncidentMeta | undefined>((best, i) => (!best || ts(i.started_at) > ts(best.started_at) ? i : best), undefined)
-  if (newestAlarm && (!saved || ts(newestAlarm.started_at) > ts(saved.started_at))) return newestAlarm
+  const overrides = newestAlarm != null
+    && opts.now - ts(newestAlarm.started_at) < INCIDENT_ALERT_MAX_AGE_MS
+    && (opts.chosenAt == null || ts(newestAlarm.started_at) > opts.chosenAt)
+    && (!saved || ts(newestAlarm.started_at) > ts(saved.started_at))
+  if (overrides) return newestAlarm
   return saved ?? open[0]
 }
 

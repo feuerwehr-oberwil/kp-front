@@ -26,6 +26,11 @@ export interface Prefs {
   activePlanId?: string
   /** last active incident id, so a reload reopens it */
   incidentId?: string
+  /** when `incidentId` was chosen BY HAND (epoch ms). A boot auto-open does not stamp it, so it
+   *  answers exactly one question: had the operator already decided, at the time this alarm
+   *  arrived? An alarm older than that decision must not override it (lib/incidentAlerts ·
+   *  pickBootIncident). */
+  incidentChosenAt?: number
   /** LEGACY: the manually-picked Einsatzobjekt now lives in the synced workspace blob
    *  (Saved.pickedObjectId), per incident + shared across devices. Kept only so deriveInitial
    *  can one-time import an in-flight cookie pick on upgrade; cleared at boot afterwards. */
