@@ -51,48 +51,88 @@
   border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); }
 
 /* ── Die Meldeleiste ──────────────────────────────────────────────────────────────────────
-   ONE ranked strip under the top bar for every message with no place of its own: highest-ranked
-   message readable as a sentence, the rest behind a chevron that opens the list (never a pager),
-   each of them a full row with its own buttons rather than a headline waiting to be promoted.
-   Ranking, tone and queue live in src/lib/meldungen.ts — this file only paints them.
+   ONE strip under the top bar for every message with no place of its own. Since 23.08. EVERY
+   pending message is a row of the same kind, all of them open, in rank order — no head, no
+   queue, no chevron, no counter. Ranking and tone live in src/lib/meldungen.ts; this file only
+   paints them.
 
    Geometry: spanned BETWEEN the two rails and set clear of the top bar, so it reads as floating
-   in the free middle band rather than welded to the chrome. One z-index (58: over the top bar at
-   56 and the rails at 35, under every overlay at 80+) replaces the old 60/57/46/45/40.
+   in the free middle band rather than welded to the chrome. One z-index replaces the old
+   60/57/46/45/40 — and it sits at 54, i.e. UNDER the top bar (56), not over it.
+   ⚠️ Under, deliberately, and this is a stacking-CONTEXT problem rather than a number problem:
+   the Einsatz-Menü (`.ip-menu`, z 62) lives inside the top bar, so its 62 is spent within the
+   bar's own context at 56 and can never climb past a root-level element above it. At 58 the strip
+   therefore painted straight over an open Einsatz-Menü. There is nothing to buy by being over the
+   bar — the strip hangs 92px below it and never overlaps it — so it goes under, and everything
+   the bar opens drops over the strip as it should. Above the rails (35/36) and the Replay bar
+   (50), below the Verlauf's scrim and drawer (60/61) and every overlay at 80+.
    ⚠️ There is no rule for the empty case, because there is no empty case: with nothing pending
-   the component returns null and the map runs up under the top bar exactly as before. */
-.ml { position: fixed; z-index: 58;
+   the component returns null and the map runs up under the top bar exactly as before.
+   ⚠️ No max-height and no scroll: four messages at once make a tall strip for a moment, and
+   that is the accepted cost of «everything is one tap away». A cap would bring back the very
+   disclosure this deleted — add one only if the field proves it necessary. */
+.ml { position: fixed; z-index: 54; overflow: hidden;
   top: calc(92px + env(safe-area-inset-top));
   left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
   right: calc(max(16px, env(safe-area-inset-right)) + var(--rail-w) + 24px);
   max-width: 860px; margin-inline: auto;
-  background: var(--surface); border: 1px solid var(--glass-line);
-  border-left: 3px solid var(--ink-faint); border-radius: var(--r-sm);
+  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-sm);
   box-shadow: var(--shadow); animation: ml-in .16s var(--ease); }
 @keyframes ml-in { from { opacity: 0; transform: translateY(-8px); } }
-/* tone = the message's class, never its rank: the left edge and the glyph say how loud it is */
-.ml.t-alarm { border-left-color: var(--red); }
-.ml.t-warn { border-left-color: var(--amber); }
-.ml.t-info { border-left-color: var(--blue); }
-.ml.t-calm { border-left-color: var(--ink-faint); }
-.ml-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 8px 4px 12px; }
+/* The tone edge sits on the ROW, not on the strip: with every message visible at once, one edge
+   for the whole box would speak for messages of three different classes. `overflow: hidden`
+   above is what keeps those edges inside the rounded corners. */
+.ml-row { display: flex; align-items: center; gap: 10px; min-height: 52px;
+  padding: 4px 8px 4px 13px; border-left: 3px solid transparent; }
+.ml-row + .ml-row { border-top: 1px solid var(--border-soft); }
+.ml-row.t-alarm { border-left-color: var(--red); }
+.ml-row.t-warn { border-left-color: var(--amber); }
+.ml-row.t-info { border-left-color: var(--blue); }
+.ml-row.t-calm { border-left-color: var(--ink-faint); }
 .ml-ic { flex: none; width: 18px; height: 18px; color: var(--ink-faint); }
-.ml.t-alarm > .ml-row > .ml-ic { color: var(--red); }
-.ml.t-warn > .ml-row > .ml-ic { color: var(--amber-strong); }
-.ml.t-info > .ml-row > .ml-ic { color: var(--blue); }
-/* the text column is a <button> whenever the message has a row gesture of its own (the
-   Wiedervorlage's «In Verlauf öffnen»), so it needs the button reset and the 44px floor */
+.ml-row.t-alarm .ml-ic { color: var(--red); }
+.ml-row.t-warn .ml-ic { color: var(--amber-strong); }
+.ml-row.t-info .ml-ic { color: var(--blue); }
+/* the text column is INERT except for the TITLE of a message that has somewhere to go (.ml-open
+   below). Until 23.08. the whole column ran the message's own move, which meant a stray tap
+   anywhere on the strip could take an alarm or confirm unread dispatch data. The sub-line, the
+   glyph and the space beside them do nothing, and that narrowness is the point. */
 .ml-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px;
-  align-self: stretch; min-height: 44px; text-align: left; padding: 0; border: none; background: none;
-  color: inherit; font-family: var(--body); }
-button.ml-txt { cursor: pointer; border-radius: var(--r-xs); }
-button.ml-txt:hover .ml-title { text-decoration: underline; text-underline-offset: 2px; }
+  align-self: center; text-align: left; }
 .ml-title { font: 700 13.5px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ml-sub { font: 500 12.5px var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* the message's OWN actions, at most two — the third action of any message is the row itself.
-   The +n pill and the ✕ are siblings of this, not members: on a phone the actions drop to a
-   second line and those two must not go with them. */
-.ml-act { flex: none; display: flex; align-items: center; gap: 8px; }
+/* the title as the row's way in: a LINK, not a button. No border, no fill, the same type as an
+   inert title — a title first and a destination second, which is what «In Verlauf öffnen» stopped
+   being the moment it was a third button beside Erledigt and +10 min.
+   The underline is the whole signal, and it is PERMANENT: this runs on an iPad where hover does
+   not exist, so a hover-only affordance is no affordance. Hover and keyboard focus only firm it
+   up. No trailing chevron — one at the row's end was rejected because it read as «this row will
+   be promoted», and attached to the words it says nothing the underline does not.
+   ⚠️ It does NOT reserve a 44px box of its own. It did until 23.08., and that box is what threw
+   the row out of alignment: 44px with the words pinned to its bottom edge left a void above the
+   title, stood the row at ~68px instead of 52px, and dropped the glyph — centred on the row —
+   onto the seam between title and sub instead of onto the pair it belongs to.
+   The reach is a `::after` pad instead, which is hit area without being layout. It grows UPWARD
+   only, into the row's own padding: downward it would cover `.ml-sub`, and that line has to stay
+   dead — a sub-line that acts when tapped is the whole thing this rework removed. Bounded at the
+   row's top edge for the same reason in the other direction: a pad that overshot would sit on
+   the row above and steal ITS taps.
+   ⚠️ So the title's target is ~38px, not 44 — a deliberate, bounded miss of the floor, of the
+   same kind the spec already carves out for `.pin-key`. The words are ~300px wide and the row's
+   own buttons carry the actions; there is nowhere for a near-miss on this control to do harm. */
+.ml-open { position: relative; align-self: flex-start; max-width: 100%; display: block;
+  padding: 0; border: none; background: none; cursor: pointer;
+  border-radius: var(--r-xs); text-align: left; }
+.ml-open::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; top: -19px; }
+.ml-open > .ml-title { min-width: 0; text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--ink) 32%, transparent); }
+.ml-open:hover > .ml-title, .ml-open:focus-visible > .ml-title { text-decoration-color: currentColor; }
+/* the message's OWN actions, at most two. `min-width` is not cosmetic: with every row visible
+   the buttons form a column, and «Erledigt» beside «Übernehmen» used to leave a ragged right
+   edge that made the shorter row look unfinished. */
+.ml-act { flex: none; display: flex; align-items: center; gap: 6px; }
+.ml-act .ml-btn { min-width: 116px; }
 /* ONE button class for the whole layer. The two 44px misses it retires came from having four:
    .rb-btn sat at 42px — the due Wiedervorlage's own Erledigt / +10 min — and .dv-banner-x at 30. */
 .ml-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px;
@@ -103,56 +143,21 @@ button.ml-txt:hover .ml-title { text-decoration: underline; text-underline-offse
 .ml-btn.prim { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: 800; }
 .ml-btn.prim:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--on-btn-primary); }
 .ml-btn .i { width: 15px; height: 15px; flex: none; }
-/* A DISCLOSURE, not a counter: the chevron LEADS, is the biggest glyph in the control, points at
-   the list that opens directly beneath it and turns over once it is open — «there is more below»
-   has to be readable without first reading a number. The count rides behind it because how many
-   are waiting is real information, and the tone rides along too, so the one control that hides a
-   due Wiedervorlage behind an alarm is also the one that announces it.
-   ⚠️ It wore a «+n» until 23.08.; a plus reads as «add», which is the one thing it never does. */
-.ml-more { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 11px 0 8px;
-  border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--fill-soft);
-  color: var(--ink-dim); font: 700 13px var(--mono); cursor: pointer; }
-.ml-more:hover { color: var(--ink); background: var(--surface-2); }
-.ml-more .i { width: 18px; height: 18px; transition: transform .16s var(--ease); }
-.ml-more[aria-expanded="true"] .i { transform: rotate(180deg); }
-.ml-more.t-warn { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
-  border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
-.ml-more.t-alarm { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent);
-  border-color: color-mix(in srgb, var(--red) 45%, transparent); }
+/* the ✕ — and, on a row that may not be waved away (a due Wiedervorlage), an invisible stand-in
+   holding the same 44px column open, so the buttons of all rows end on one vertical line. */
 .ml-x { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: none; background: none;
   color: var(--ink-faint); border-radius: var(--r-sm); cursor: pointer; }
 .ml-x:hover { background: var(--hover-strong); color: var(--ink); }
-/* the open queue — every waiting message on its own line, nothing paged past. A queued row is
-   the SAME row as the one on the strip: same text column, same .ml-btn actions, same ✕, and its
-   own tone on the left edge. It is not a button itself any more (it contains buttons); the text
-   column is the tap that runs the message's move. Until 23.08. a tap here only PROMOTED the row
-   onto the strip, which made every waiting message wait a tap longer to be acted on. */
-.ml-list { border-top: 1px solid var(--border-soft); padding: 4px; display: flex; flex-direction: column; gap: 2px; }
-.ml-li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 48px;
-  padding: 2px 4px 2px 9px; border-radius: var(--r-ctl); border-left: 3px solid transparent; }
-.ml-li:hover { background: var(--hover-strong); }
-.ml-li.t-alarm { border-left-color: var(--red); }
-.ml-li.t-warn { border-left-color: var(--amber); }
-.ml-li.t-info { border-left-color: var(--blue); }
-.ml-li.t-calm { border-left-color: var(--ink-faint); }
-.ml-li .ml-ic { width: 16px; height: 16px; }
-.ml-li.t-alarm .ml-ic { color: var(--red); }
-.ml-li.t-warn .ml-ic { color: var(--amber-strong); }
-.ml-li.t-info .ml-ic { color: var(--blue); }
-/* one step quieter than the strip's own row — same words, same widget, less shout. The sub line
-   does NOT shrink with it: 12.5px is the floor for text you can tap (AGENTS button spec). */
-.ml-li .ml-title { font-size: 12.5px; }
+.ml-x.ghost { visibility: hidden; pointer-events: none; }
 @media (max-width: 600px) {
   /* the rails are gone from the sides here (the nav rail is the bottom bar), so the strip takes
-     the full width — and the actions wrap onto a second row (in the queue too, where a row now
-     carries the same two buttons) while the disclosure never does: it is the only place the
-     NUMBER of waiting messages is written. */
+     the full width — and the actions drop onto a second line per row, where they may shrink
+     below the 116px that straightens the edge on a wide screen. */
   .ml { top: calc(72px + env(safe-area-inset-top));
     left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); }
   .ml-row { flex-wrap: wrap; padding-bottom: 8px; }
   .ml-act { order: 1; flex: 1 1 100%; justify-content: flex-end; }
-  .ml-act .ml-btn { flex: 1 1 auto; }
-  .ml-li { padding-bottom: 6px; }
+  .ml-act .ml-btn { flex: 1 1 auto; min-width: 0; }
 }
 
 /* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the

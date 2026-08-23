@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { dismissAlarm, loadDismissedAlarms } from '../../lib/diveraDismiss'
-import { useMeldung } from '../../lib/useMeldung'
+import { useMeldung, useMeldungKindPending } from '../../lib/useMeldung'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
@@ -103,7 +103,12 @@ export function ReviewBanner({ meta, onEdit, onDone }: {
 }) {
   const ix = appConfig.copy.intake
   const hasLoc = realCoord(meta.lng, meta.lat) != null
-  useMeldung({
+  // ⚠️ Yields to a pending alarm (23.08.). «Passt» confirms the dispatch's guesses for the Einsatz
+  // you are IN — asking that while an unopened alarm is still on the strip invites confirming one
+  // Einsatz's data while looking at another's. The alarm owns the moment; this comes back the
+  // instant the alarm is taken or waved away. Same rule NewIncidentBanner already follows.
+  const alarmPending = useMeldungKindPending('alarm')
+  useMeldung(alarmPending ? null : {
     id: `review:${meta.id}`,
     kind: 'review',
     tone: hasLoc ? 'info' : 'warn',

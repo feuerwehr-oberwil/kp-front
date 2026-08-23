@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import type { Meldung } from './meldungen'
 
 // The Meldeleiste's register.
@@ -25,16 +25,33 @@ export const getMeldungen = () => snapshot
 /** Everything about a Meldung that can be READ. Handlers close over live state and are rebuilt on
  *  every render of their publisher; the strip only has to repaint when one of these changes. */
 const face = (m: Meldung): string => [
-  m.kind, m.tone, m.icon, m.title, m.sub ?? '',
-  m.onOpen ? 'o' : '', m.dismiss?.label ?? '',
+  m.kind, m.tone, m.icon, m.title, m.sub ?? '', m.dismiss?.label ?? '',
+  // whether the title is a way in at all is READ from the row (underlined words vs plain text),
+  // so a message that gains or loses its `onOpen` has to repaint
+  m.onOpen ? `open·${m.onOpen.label}` : '',
   ...(m.actions ?? []).map((a) => `${a.label}·${a.icon ?? ''}·${a.primary ? 1 : 0}·${a.disabled ? 1 : 0}·${a.busy ? 1 : 0}`),
 ].join('')
 
 /**
  * Publish one message into the Meldeleiste for as long as the caller is mounted; pass `null` and
  * it is withdrawn. The caller keeps its own state and decides IF there is something to say — the
- * strip decides whether it is the thing that gets read.
+ * strip decides where it stands among the others.
  */
+/**
+ * Is a message of this kind currently standing in the strip? For the one case where a publisher
+ * must yield rather than queue: «Einsatzdaten prüfen» asks the EL to confirm a dispatch's guesses,
+ * which is a nonsense question while an alarm is still waiting to be opened — the data being
+ * reviewed may not even be the Einsatz they are about to take. Ranking decides ORDER; this decides
+ * whether there is anything to say at all.
+ */
+export function useMeldungKindPending(kind: Meldung['kind']): boolean {
+  return useSyncExternalStore(
+    subscribeMeldungen,
+    () => snapshot.some((m) => m.kind === kind),
+    () => false,
+  )
+}
+
 export function useMeldung(m: Meldung | null) {
   const id = m?.id
   // No dependency array on purpose: the record is rebuilt every render and its handlers close

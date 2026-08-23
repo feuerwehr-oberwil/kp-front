@@ -8,10 +8,9 @@ import { useMeldung } from '../lib/useMeldung'
 // what it reports is that the vehicle has driven off, so its anchor is precisely the thing that
 // is no longer on screen. A label pinned to it would be off-canvas by the time it mattered.
 //
-// It is the one message with no surface to open — the thing it is about is off-screen by
-// definition — so tapping the row runs «Weiter folgen» (lib/meldungen · meldungTap takes the
-// first action). That is the recoverable half of the decision: a line that kept following can
-// still be cut loose later, while one already detached does not re-attach itself.
+// Both moves are labelled buttons and nothing else in the row acts — «Weiter folgen» leads
+// because it is the recoverable half of the decision: a line that kept following can still be
+// cut loose later, while one already detached does not re-attach itself.
 export function GpsFollowMeldung({ id, label, onContinue, onDetach }: {
   /** stable per drawing+endpoint, so several paused attachments queue side by side */
   id: string
