@@ -337,7 +337,7 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
    ⚠️ Only the row that RAISED the item and the row that CLOSED it. A Meldung and a snooze are
    log lines about the item, and they keep their own glyph. */
 .hist-ev .ic.jr-ic-ring { background: none; border-color: transparent; }
-.jr-ring { width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor;
+.jr-ring { position: relative; width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor;
   display: grid; place-items: center; }
 /* ⚠️ The open states are a THICK BORDER over a transparent centre, not the composer's filled
    donut. The composer's ring sits on a `--surface` card and punches its hole with an inset ring
@@ -360,6 +360,25 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 /* erledigt — green and filled, the same tick the block leaves behind */
 .jr-ring-done { color: var(--green); background: currentColor; border-color: currentColor; }
 .jr-ring-done .i { width: 12px; height: 12px; color: var(--on-fill); }
+/* ── …and on a STILL-OPEN item the ring is the tick-off, in the log as well as in the block ──
+   One vocabulary, one gesture, one call (Journal · Disc · onTick → onReminderDone). It was in the
+   block only, on the argument that the row scrolls away while the block cannot — but a Pendenz is
+   met in the log too (a Meldung about it, a search, the row it was raised on), and «scroll back up
+   and find it again» is not how an Auftrag gets closed at 3am. */
+.hist-ev button.ic.jr-ic-tick { padding: 0; font: inherit; -webkit-appearance: none; appearance: none;
+  cursor: pointer; }
+/* ⚠️ The button STAYS 26 × 26. The disc is the anchor for the timeline connector drawn above and
+   below it (`.hist-ev .ic::before/::after` in 06-contextpanel.css), so growing the element for a
+   gloved finger would tear a gap in the line. The TARGET grows instead, on a pseudo-element that
+   is out of the ring's grid flow: ~36 × 42, which is the row, and a miss lands on the row itself.
+   The same trade the pinned block's ring makes, and for the same reason. */
+.jr-ic-tick .jr-ring::before { content: ""; position: absolute; inset: -11px -5px; border-radius: var(--r-sm); }
+/* ⚠️ No fill on hover — `--hover` is a neutral wash and the row already takes it. The RING
+   answers: it greens and ghosts its check in, which is what the tap is about to make true, and
+   which is exactly what `.jr-pinned-row .jr-rem` does in the block. */
+.jr-ic-tick .jr-ring .i { width: 12px; height: 12px; opacity: 0; transition: opacity .12s var(--ease); }
+.jr-ic-tick:hover .jr-ring, .jr-ic-tick:focus-visible .jr-ring { color: var(--green); border-color: var(--green); }
+.jr-ic-tick:hover .jr-ring .i, .jr-ic-tick:focus-visible .jr-ring .i { opacity: var(--disabled); }
 /* ── the footnotes, behind the sentence ──
    «Nachtrag» · «korrigiert HH:MM» · «6×». Facts ABOUT the row, in the register of a footnote:
    they were chips in front of the text, where they pushed it off its axis and read as warnings.

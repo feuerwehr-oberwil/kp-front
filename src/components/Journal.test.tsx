@@ -123,17 +123,36 @@ describe('Journal · the Pendenzen block', () => {
     expect(times()).toHaveLength(open.length)
   })
 
-  // ⚠️ There were TWO tick-off controls for one item — one here, one on the row that raised it —
-  // and the row's scrolled away while this one cannot.
-  it('is the only place an item is ticked off', () => {
+  // ⚠️ The ring ticks off in BOTH places, and it is the same call in both — one appended `done`
+  // row, never a mutation of the row that raised the item. The row's ring was taken away once on
+  // the argument that two controls did the same thing; what was actually wrong was that they were
+  // two different SHAPES. Same ring, same gesture, same handler.
+  it('ticks the same item off from the log row as from the block', () => {
+    const onReminderDone = vi.fn()
     setup({
       events: [{ id: 'e1', t: '', at: new Date(1_000_000).toISOString(), text: 'Absperrmaterial Kreuzung',
         icon: 'type', kind: 'journal', reminder: { op: 'created', id: 'p1', text: 'Absperrmaterial Kreuzung' } }],
       openReminders: [pendenz('p1', 'Absperrmaterial Kreuzung')],
+      onReminderDone,
+    })
+    fireEvent.click(document.querySelector('.hist-ev .jr-ic-tick')!)
+    expect(onReminderDone).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+    fireEvent.click(document.querySelector('.jr-pinned-row .jr-rem')!)
+    expect(onReminderDone).toHaveBeenCalledTimes(2)
+    expect(onReminderDone).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'p1' }))
+  })
+
+  // …and a row that is already closed is a FACT, not a switch: its green ring says what happened,
+  // and there is nothing left to tick.
+  it('a closed item’s ring is not a control', () => {
+    setup({
+      events: [{ id: 'e1', t: '', at: new Date(1_000_000).toISOString(), text: 'Absperrmaterial Kreuzung',
+        icon: 'type', kind: 'journal', reminder: { op: 'created', id: 'p1', text: 'Absperrmaterial Kreuzung' } }],
+      openReminders: [],
       onReminderDone: vi.fn(),
     })
-    expect(document.querySelectorAll('.jr-rem')).toHaveLength(1)
-    expect(document.querySelectorAll('.jr-pinned-row .jr-rem')).toHaveLength(1)
+    expect(document.querySelector('.jr-ring-done')).toBeTruthy()
+    expect(document.querySelector('.jr-ic-tick')).toBeNull()
   })
 
   // ⚠️ A Meldung stands where it happened, among everything else — so it has to name the item it
@@ -265,5 +284,50 @@ describe('Journal · correcting a line (append-only)', () => {
     const at = new Date(1_060_000).toISOString()
     setup({ events: [{ ...events[0], correctedAt: at }, ...events.slice(1)] })
     expect(screen.getByText(/^korrigiert \d{1,2}:\d{2}$/)).toBeTruthy()
+  })
+})
+
+// ── the jump back from a Plan row ───────────────────────────────────────────────────────────
+// The Lage's rows have always carried an `entityId` and flown to it. The Plan's carried the plan
+// document and nothing else, so «Symbol "Löschleitung" auf Plan gesetzt» opened the Gebäude at
+// whatever floor was showing and selected nothing. Placements record annoId + px/py + floor now
+// (Whiteboard · PlanLogExtra); the record is append-only, so the rows written before that will
+// never have them and must still land on their plan.
+describe('Journal · a Plan row jumps back', () => {
+  const planRow = (over: Partial<TimelineEvent>): TimelineEvent => ({
+    id: 'p1', t: '', at: new Date(1_050_000).toISOString(), text: 'Symbol "Löschleitung" auf Plan gesetzt',
+    icon: 'hex', kind: 'symbol', surface: 'plan', planId: 'geb', ...over,
+  })
+
+  it('carries the placed object and its spot', () => {
+    const onSelect = vi.fn()
+    setup({ events: [planRow({ annoId: 's7', px: 0.4, py: 0.6, floor: 2 })], onSelect })
+    fireEvent.click(screen.getByText(/Löschleitung/))
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
+      planId: 'geb', annoId: 's7', px: 0.4, py: 0.6, floor: 2,
+    }))
+  })
+
+  it('⚠️ an old row without them still opens its plan rather than nothing', () => {
+    const onSelect = vi.fn()
+    setup({ events: [planRow({})], onSelect })
+    fireEvent.click(screen.getByText(/Löschleitung/))
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ planId: 'geb' }))
+  })
+
+  // undo/redo, and a Pendenz that happened to be ticked off while the Plan was open, are lines
+  // ABOUT the surface rather than places on it — the journal is a record, not a UI
+  it('leaves lines that are not about a place inert', () => {
+    const onSelect = vi.fn()
+    setup({
+      events: [
+        planRow({ id: 'h1', text: 'Rückgängig', icon: 'undo', kind: 'history' }),
+        planRow({ id: 'd1', text: 'Pendenz erledigt: Absperrmaterial', icon: 'check', kind: 'reminder' }),
+      ],
+      onSelect,
+    })
+    fireEvent.click(screen.getByText('Rückgängig'))
+    fireEvent.click(screen.getByText('Pendenz erledigt: Absperrmaterial'))
+    expect(onSelect).not.toHaveBeenCalled()
   })
 })

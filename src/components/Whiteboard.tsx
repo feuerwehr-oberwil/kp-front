@@ -173,7 +173,16 @@ interface Props {
   onCalibrate?: (planId: string, scale: PlanScale | null) => void
 }
 
-/** extra context a Whiteboard action attaches to its journal line. */
+/**
+ * Extra context a Whiteboard action attaches to its journal line — and the ONLY thing that makes
+ * the row's chevron able to jump back.
+ *
+ * ⚠️ Every placement passes `annoId` + `x`/`y` + `floor`. Without them the row carried nothing but
+ * the plan document, so «Symbol "Löschleitung" auf Plan gesetzt» opened the Gebäude at whatever
+ * floor happened to be showing and selected nothing — the Lage's equivalents have always carried
+ * their `entityId` and flown to it, and the Plan's simply did not. Rows written before 23.08. have
+ * none of this and degrade to exactly that older behaviour (see IncidentWorkspace · focusEvent).
+ */
 export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: string; x?: number; y?: number; floor?: number }
 
 // Whiteboard / Tafel — pick a plan document as the background, then
@@ -633,7 +642,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const color = TEAM_COLORS[teams % TEAM_COLORS.length]
     add({ id, kind: 'resource', x, y, floor, text: name, t: formatTime(new Date()), color, trail: [], truppId: trupp?.id })
     if (trupp) onLinkTrupp?.(id, trupp.id)
-    setSelId(id); log('flag', fillTemplate(appConfig.copy.whiteboard.placeTeam, { name }))
+    setSelId(id); log('flag', fillTemplate(appConfig.copy.whiteboard.placeTeam, { name }), { annoId: id, x, y, floor })
   }
   // deferred placement for the node tools: run on a genuine tap (pointer-up without a pan). Mirrors
   // the bodies the Lage map runs on click — Maßstab/Messen nodes, node-draw vertices, Text, Symbol,
@@ -695,7 +704,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         color: noteDefaults.color || undefined,
       })
       // straight into typing on the surface; the detail panel waits for the ⚙
-      setSelId(id); setEditId(id); setTool('pan'); log('type', appConfig.copy.whiteboard.placeText)
+      setSelId(id); setEditId(id); setTool('pan'); log('type', appConfig.copy.whiteboard.placeText, { annoId: id, x, y, floor })
       return
     }
     if (tool === 'symbol') {
@@ -704,7 +713,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // shared seeding (label / subtitle / fields) — identical to the Lage placement
       // path, so a plan symbol now carries the same editable structure as a map one
       add({ id, kind: 'symbol', x, y, floor, ...seedSymbolProps(s, sym.symbols) })
-      onRecent(s); log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name: formatSymbolName(s) }))
+      onRecent(s); log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name: formatSymbolName(s) }), { annoId: id, x, y, floor })
       // unlocked: place once, then drop to pan with the new symbol selected so its
       // editor + rotor are immediately usable. locked: stay armed (no selection) to
       // drop several in a row. Same one-at-a-time / lock model as the Lage map.
@@ -719,7 +728,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const name = appConfig.copy.shapes.names[k] ?? appConfig.copy.shapes.kindLabel
       // same defaults + naming as the Lage placement path; size is normalized to the plan width
       add({ id, kind: 'shape', x, y, floor, shape: k, color: def.defaultColor, sizeN: def.defaultSizeN, rotation: 0, label: name })
-      log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name }))
+      log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name }), { annoId: id, x, y, floor })
       // unlocked: place once → pan with the shape selected (rotor/resize usable); locked: keep placing
       if (placeLock) setSelId(null)
       else { setPendingShape(null); setTool('pan'); setSelId(id) }
@@ -790,9 +799,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // opens right away. Mirrors the Lage map's createLine, so both surfaces behave identically.
   const addLine = (pts: BoardPoint[]) => {
     const id = `l${Date.now()}`
-    add({ id, kind: 'draw', pts, floor: pts[0]?.[2] ?? draftFloor.current, color, width, ...draftAttachments.current,
+    const floor = pts[0]?.[2] ?? draftFloor.current
+    add({ id, kind: 'draw', pts, floor, color, width, ...draftAttachments.current,
       ...resolveLinePreset(linePreset, dashed) }) // SAME preset bundle the Lage map bakes (lib/lineStyle)
-    log('pen', appConfig.copy.whiteboard.placeLine)
+    // the jump-back aims at the line's FIRST node: a Leitung can run across two floors, and the
+    // end it was started from is the end the operator was standing at when the row was written
+    log('pen', appConfig.copy.whiteboard.placeLine, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
     draftAttachments.current = {}; setSelId(id); setTool('pan')
   }
   // commit the in-progress node shape: a Linie (≥2 pts) or a Fläche (≥3 pts, closed + filled).
@@ -807,7 +819,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (tool === 'area' && d && d.length >= 3) {
       const id = `a${Date.now()}`
       add({ id, kind: 'area', pts: d, floor: draftFloor.current, color, width, dashed })
-      log('area', appConfig.copy.whiteboard.placeArea)
+      log('area', appConfig.copy.whiteboard.placeArea, { annoId: id, x: d[0]?.[0], y: d[0]?.[1], floor: draftFloor.current })
       // select the new area + drop to pan so its draggable vertex handles are immediately usable
       // (matches the Lage map, where a finished area auto-selects for reshaping)
       setDraft(null); lastTap.current = null; setSelId(id); setTool('pan')

@@ -358,10 +358,12 @@
    the block's rounded top edge, which reads as a rendering fault. `none` removes the bounce on
    this list (`contain` only stops the chaining, not the affordance), and dropping the top padding
    lets the block sit flush at the list's edge so nothing shows through in the 2px above it. */
+/* ⚠️ THE drawer's one scrolling box — the Pendenzen block and the log both live in it. There was
+   a second scrollbar inside the block and a `.jr-locked` rule that froze this one whenever the
+   block was open; two scrollbars stacked on one list is two guesses about which one a flick will
+   move, and the lock made the answer «neither». */
 .history-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
   overscroll-behavior: none; padding: 0 2px 2px; }
-/* the Pendenzen block is open and fills it — see Journal.tsx */
-.history-list.jr-locked { overflow-y: hidden; }
 /* ⚠️ A GRID, not a wrapping flex (23.08.). Four tracks: time · disc · the sentence · everything
    else. The point is the third one — every row's text starts at the same x (10 + 38 + 10 + 26 +
    10 = 94px from the row's border box), and the sub-lines below are placed on that same axis, so
@@ -472,25 +474,26 @@
   border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--glass-edge));
   --jr-pinned-bg: color-mix(in srgb, var(--amber) 7%, var(--surface));
   background: var(--jr-pinned-bg);
-  /* ⚠️ overflow-x: hidden is NOT redundant — the same trap `.ctx-body` and `.history-list` each
-     carry a note about. `overflow-y: auto` computes the x-axis to `auto` too, and the rows used to
-     be drawn 9px wider than this box on each side (a negative margin, so a dringend row's tint
-     could reach the block's edges). The block scrolled SIDEWAYS and cut the item text off
-     mid-word. The horizontal padding sits on the rows now: the tint still reaches the edges, and
-     nothing is wider than the box. */
-  overflow-x: hidden;
-  /* ⚠️ CAPPED AND SCROLLABLE, and the cap is the ONLY thing that keeps it short — every open item
-     is rendered. It is sticky, so it cannot be scrolled past; a block that took the whole drawer
-     by itself would leave no Verlauf behind it. Half the list collapsed, all of it («Aufklappen»,
-     .is-open), and its own scrollbar either way.
+  /* ⚠️ CAPPED AND CLIPPED — never scrollable. Every open item is rendered; collapsed, the cap is
+     what keeps the block short, because it is sticky and a block that took the whole drawer by
+     itself would leave no Verlauf behind it. What is past the cap is reached with «Aufklappen»
+     (.jr-pinned-more, sticky at the block's foot, with the fade above it saying there is more) —
+     NOT with a second scrollbar. Two scrollbars stacked on one list is two guesses about which
+     one a flick will move, and the answer used to be «neither»: expanding the block locked the
+     Verlauf's scroll outright.
      ⚠️ A sticky element taller than its scrollport is a trap — it pins at the top and its lower
      rows can never be reached, because the scroll moves the content behind it rather than the
-     block. That is what this cap plus `overflow-y` exist to prevent, and `contain` keeps the
-     block's own scroll from chaining out into the Verlauf underneath it.
+     block. Collapsed, this cap is what prevents that; expanded, `.is-open` gives up `sticky`
+     instead, which is the same trap solved the other way round.
+     ⚠️ `overflow: hidden` on BOTH axes, deliberately. The x-axis had to be clipped anyway (the
+     same trap `.ctx-body` and `.history-list` each carry a note about: an `auto` y-axis computes
+     the x-axis to `auto` too, and the block once scrolled SIDEWAYS and cut the item text off
+     mid-word) — and a clipped box still answers `scrollHeight > clientHeight`, which is how
+     Journal.tsx knows whether «Aufklappen» has anything to show.
      ⚠️ PERCENTAGES of `.history-list`, whose height is definite. A fixed pixel cap fitted four
-     ordinary rows and then scrolled the moment one of them carried Meldungen — how much fits is a
+     ordinary rows and then broke the moment one of them carried Meldungen — how much fits is a
      question about heights, and rows here are not one height. */
-  max-height: 50%; overflow-y: auto; overscroll-behavior: contain; }
+  max-height: 50%; overflow: hidden; }
 /* …and the heading stays put while they scroll: it carries the count, which is the one thing you
    need while looking for the row you want. `--jr-pinned-bg` rather than `inherit` — a sticky child
    paints over its siblings and needs a real fill of its own. */
@@ -598,7 +601,19 @@
   display: inline-flex; align-items: center; gap: 4px; color: var(--amber-strong);
   font: 700 11.5px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .jr-pinned-alarm .i { width: 13px; height: 13px; }
-.jr-pinned.is-open { max-height: calc(100% - 10px); }
+/* ── Aufgeklappt: the block stops being a pinned header and becomes the top of the list ──
+   ⚠️ `position: static`, and that is the whole point of the expansion. Sticky, it could never be
+   taller than the drawer without trapping its own lower rows, which is why it used to carry a
+   scrollbar of its own — and then the Verlauf behind it had to be frozen (`.jr-locked`) so a flick
+   could not move the wrong one. Static, it is simply the first thing in `.history-list`: one
+   scrollbar carries you through every Pendenz and straight on into the log.
+   ⚠️ `overflow: visible`, not `overflow-y: visible` — the x-axis would compute back to `auto` and
+   put the sideways scroller back. Nothing in the block is wider than it any more (the padding
+   sits on the rows), so there is nothing left to clip.
+   The head and «Zuklappen» stay sticky INSIDE it: sticky is bounded by its own parent's box, so
+   they ride along the block and are released when it scrolls out — the count stays readable while
+   you work down twelve items, and the way back to collapsed never scrolls out of reach. */
+.jr-pinned.is-open { position: static; max-height: none; overflow: visible; }
 .jr-pinned-more { flex: none; position: sticky; bottom: -8px; z-index: 3; margin-bottom: -8px;
   border: 0; background: var(--jr-pinned-bg); padding: 8px 9px 9px; cursor: pointer; width: 100%;
   display: flex; align-items: center; gap: 6px; font: 700 12px var(--body); color: var(--blue-strong); }

@@ -50,12 +50,25 @@ function useAudioPlayer() {
 const STRIP_INSET = 10
 
 // A row is clickable only when it carries a real jump target: a map entity, a
-// pinned map point, or a plan point. Plain log lines (undo/redo, deletions,
+// pinned map point, or something ON a plan. Plain log lines (undo/redo, deletions,
 // surface-only journal notes) are read-only — the journal is a record, not a UI.
+//
+// ⚠️ A plan row is a target when it is about a THING on the plan: it names the annotation
+// (`annoId`) or its spot (`px`), or — for the rows written before either was recorded — it is one
+// of the kinds only a placement writes (`symbol` · `team`; a Pendenz or a typed note on a plan is
+// about neither, and an undo is `history`).
+//
+// How well it lands is the second question. A placement logged since 23.08. carries annoId · px/py
+// · floor, and the jump selects the object and brings it into view, the way the Lage's `entityId`
+// jump always has (IncidentWorkspace · focusEvent). One logged before that carries the plan
+// document alone and lands on it — which is all any plan row ever did. The record is append-only,
+// so those rows are never going to grow coordinates; landing them on the right plan with nothing
+// selected is the graceful floor, not a bug to guard against.
 const targetOf = (e: TimelineEvent): 'map-entity' | 'map-pin' | 'plan' | null => {
   if (e.entityId) return 'map-entity'
   if (e.coord) return 'map-pin'
-  if (e.surface === 'plan' && e.planId && e.px != null && e.py != null) return 'plan'
+  const placedOnPlan = e.annoId != null || e.px != null || e.kind === 'symbol' || e.kind === 'team'
+  if (e.surface === 'plan' && e.planId && placedOnPlan) return 'plan'
   return null
 }
 
@@ -67,22 +80,40 @@ type RingState = 'open' | 'urgent' | 'overdue' | 'done'
 
 /** The 26px classification disc: the row's glyph in its Bereich tint, or the Pendenz ring.
  *  The ring is the composer's own ring (18-audio · .jc-ring) at row size — which is what
- *  JournalComposer's «the same ring that appears on the Verlauf row» has claimed all along. */
-function Disc({ icon, surface, ring, title }: {
+ *  JournalComposer's «the same ring that appears on the Verlauf row» has claimed all along.
+ *
+ *  ⚠️ With `onTick` the ring becomes the TICK-OFF control, identical to the one in the pinned
+ *  Pendenzen block (.jr-pinned-row .jr-rem) — same ring, same call, same appended `done` row.
+ *  It is offered on exactly the rows that are still open; a closed one is a fact, not a switch. */
+function Disc({ icon, surface, ring, title, onTick, tickTitle }: {
   icon?: string
   surface?: 'map' | 'plan' | null
   ring?: RingState | null
   title?: string
+  /** tick this row's Pendenz off in place — appends, never mutates (see onReminderDone) */
+  onTick?: () => void
+  tickTitle?: string
 }) {
   if (ring) {
-    return (
-      <span className="ic jr-ic-ring" title={title}>
-        <span className={`jr-ring jr-ring-${ring}`}>
-          {ring === 'done' && <Icon id="check" />}
-          {ring === 'urgent' && <i className="jr-bang" />}
-        </span>
+    const inner = (
+      <span className={`jr-ring jr-ring-${ring}`}>
+        {/* the ghost check a tickable ring shows under the finger — the pinned block's ring does
+            exactly this. Not on `urgent`: that ring is a filled disc with the drawn bang in it,
+            and a second glyph in the same 20px would be two marks fighting for one centre. */}
+        {(ring === 'done' || (!!onTick && ring !== 'urgent')) && <Icon id="check" />}
+        {ring === 'urgent' && <i className="jr-bang" />}
       </span>
     )
+    if (onTick) {
+      return (
+        <button
+          type="button" className="ic jr-ic-ring jr-ic-tick"
+          title={tickTitle} aria-label={tickTitle}
+          onClick={(ev) => { ev.stopPropagation(); onTick() }}
+        >{inner}</button>
+      )
+    }
+    return <span className="ic jr-ic-ring" title={title}>{inner}</span>
   }
   return (
     <span className={`ic${surface ? ` jr-ic-${surface}` : ''}`} title={title}>
@@ -183,10 +214,11 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // the Pendenzen block: how many rows it may take, and whether the time column shows the clock
   // or the age. The toggle is per-opening (the drawer remounts each time) — it is a reading
   // preference for the minute you are in, not a setting worth persisting.
-  // ⚠️ EVERY open item is rendered — the block scrolls instead of hiding rows behind a count.
-  // A cap of four meant «12 offen» in the heading over a list showing three, and the way to the
-  // rest was a control that had to be found. What the toggle changes now is only the block's
-  // HEIGHT: half the drawer, or all of it.
+  // ⚠️ EVERY open item is rendered — no count cap. A cap of four meant «12 offen» in the heading
+  // over a list showing three, and the way to the rest was a control that had to be found. What
+  // the toggle changes is the block's HEIGHT and how it sits: collapsed it is sticky and clipped
+  // to half the drawer, with «Aufklappen» standing at its foot as the way to the rest; expanded
+  // it stops being sticky and becomes the top of the drawer's one scrolling list.
   const [expanded, setExpanded] = useState(false)
   // …and the toggle appears only when the collapsed block cannot show everything. Measured, not
   // counted: one item carrying four Meldungen is taller than four bare ones, so a row count
@@ -403,8 +435,12 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    * order, which is the one hook that cannot be early.
    *
    * Then it keeps watching, because «fits» has several answers over time: the next frame (fonts
-   * swap and a wrapped item is a different height), any resize of the block or its rows, and the
-   * scroll event — anything that scrolls has overflowed, by definition.
+   * swap and a wrapped item is a different height) and any resize of the block or its rows.
+   *
+   * ⚠️ No `scroll` listener any more. The block does not scroll — it is CLIPPED to its cap and
+   * «Aufklappen» is the only way past it, so that there is one scrollbar in the drawer and not
+   * two. `scrollHeight > clientHeight` measures a clipped box exactly as it measured a scrolling
+   * one, which is why the collapsed cap can change from `auto` to `hidden` without this moving.
    */
   const detachPinned = useRef<(() => void) | null>(null)
   const attachPinned = useCallback((el: HTMLDivElement | null) => {
@@ -418,8 +454,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     for (const child of Array.from(el.children)) ro.observe(child)
-    el.addEventListener('scroll', measure, { passive: true })
-    detachPinned.current = () => { cancelAnimationFrame(raf); ro.disconnect(); el.removeEventListener('scroll', measure) }
+    detachPinned.current = () => { cancelAnimationFrame(raf); ro.disconnect() }
   }, [])
   // …and once more when the open set or the expansion changes: rows come and go without the block
   // itself resizing (it is capped), so the ResizeObserver alone would not notice.
@@ -495,12 +530,14 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             </div>
           </div>
         )}
-        {/* ⚠️ `jr-locked`: expanded AND at its cap, the Pendenzen block covers the whole list, so
-            scrolling the Verlauf underneath moves something nobody can see — and a gesture that
-            starts on the block but chains out of it is exactly how you lose your place in a list
-            you are working through. The lock is on both conditions: expanded but SHORT (a handful
-            of items) leaves the Verlauf visible below, and then it must still scroll. */}
-        <div className={`history-list${expanded && pinnedOverflows ? ' jr-locked' : ''}`} ref={listRef}>
+        {/* ONE scrolling box for the whole drawer — the Pendenzen block above, the log below it,
+            two rows and a single gesture through both. There used to be two scrollbars: the block
+            scrolled inside itself while the log scrolled behind it, and expanding the block locked
+            the log's scroll outright (`.jr-locked`) so the list you were working through simply
+            stopped moving. Both are gone. Collapsed, the block is sticky and clipped to half the
+            drawer, and «Aufklappen» is the way to the rest; expanded, it stops being sticky and
+            becomes the top of this one list. See `.jr-pinned` in 06-contextpanel.css. */}
+        <div className="history-list" ref={listRef}>
           {events.length === 0 && <EmptyState icon="history" title={C.empty} />}
           {/* OFFENE ERINNERUNGEN, held at the top. The only rows in this list that are not where
               they happened — deliberately: a Wiedervorlage is about what still has to be done,
@@ -574,13 +611,14 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   </div>
                 )
               })}
-              {/* ⚠️ CAPPED. The block is sticky so it cannot be scrolled past — right for the two
-                  Erinnerungen it used to hold, ruinous for the ten Pendenzen a Lagerapport
-                  produces, which would leave no Verlauf at all. The sort decides what survives
-                  the cap, so dringend and oldest are always among them. */}
-              {/* ⚠️ Sticky at the FOOT of the block. Expanded it fills the drawer and scrolls, so a
-                  «Zuklappen» sitting after the last row is one nobody can reach without scrolling
-                  to the end of the very list they want to collapse. */}
+              {/* ⚠️ CAPPED while collapsed. The block is sticky then, so it cannot be scrolled
+                  past — right for the two Erinnerungen it used to hold, ruinous for the ten
+                  Pendenzen a Lagerapport produces, which would leave no Verlauf at all. The sort
+                  decides what shows above the cap, so dringend and oldest are always among them,
+                  and THIS button is the way to the rest. */}
+              {/* ⚠️ Sticky at the FOOT of the block, both states. Expanded the block is taller than
+                  the drawer, so a «Zuklappen» sitting after the last row is one nobody can reach
+                  without scrolling to the end of the very list they want to collapse. */}
               {(expanded || pinnedOverflows) && (
                 <button type="button" className="jr-pinned-more" onClick={() => setExpanded((v) => !v)}>
                   <Icon id={expanded ? 'chevron-up' : 'chevron-down'} />
@@ -645,7 +683,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 onKeyDown={onRow ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onRow() } } : undefined}
               >
                 <span className="t">{rowTime(e)}</span>
-                <Disc icon={e.icon} surface={disc.surface} ring={ring} title={disc.label} />
+                {/* ⚠️ The ring is the tick-off, HERE as well as in the pinned block. It was taken
+                    off the row on the grounds that two controls did the same thing and this one
+                    scrolls away — but a Pendenz is met in the log at least as often as in the
+                    block (a Meldung on it, a search, the row it was raised on), and «scroll back
+                    up and find it again» is not a way to close an Auftrag at 3am. The ring is the
+                    one vocabulary both places share, so it means the same thing in both: one tap
+                    appends a `done` row (onReminderDone → useReminders · markDone). It is not a
+                    second path to the state — it is the same call. */}
+                <Disc
+                  icon={e.icon} surface={disc.surface} ring={ring} title={disc.label}
+                  onTick={openRem && onReminderDone ? () => onReminderDone(openRem) : undefined}
+                  tickTitle={C.markDoneTitle}
+                />
                 {/* ⚠️ THE SENTENCE, and nothing before it. Every row's text starts on one x —
                     the same axis the sub-lines below it use — so reading 200 rows in the dark is
                     riding one edge instead of scanning a ragged column. Six decorations used to
@@ -690,12 +740,11 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       disabled={!pendenzRowIds.has(e.reminder.id)}
                     ><i>{pendenzTitles.get(e.reminder.id)}</i></button>
                   )}
-                  {/* ⚠️ NO tick-off control here any more. There were two: one on the row where the
-                      item was raised and one in the pinned block above, doing the same thing to the
-                      same item — and the row's was the worse of the two, because it scrolls away
-                      while the block cannot. This row is the RECORD; the block is where you work.
-                      A timed Erinnerung shows its Fälligkeit, since that is a fact about the entry
-                      rather than a control. */}
+                  {/* ⚠️ No CONTROL out here — the tick lives on the ring in the icon slot (see the
+                      Disc above), where it is the same shape and the same gesture as in the pinned
+                      block. What stays at this end is the FACT: a timed Erinnerung's Fälligkeit.
+                      The old pill-shaped «erledigt» button that stood here was the thing worth
+                      removing — a second, differently-shaped control for the same state. */}
                   {isReminder && openRem?.dueAt && (
                     <span className={`jr-remstate ${remOverdue ? 'overdue' : ''}`}>
                       {remOverdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(openRem.dueAt))}
