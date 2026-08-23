@@ -72,6 +72,24 @@
 .tb-gps .i { width: 15px; height: 15px; flex: none; }
 .tb-gps-age { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 @keyframes tb-az-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .68; } }
+
+/* Modus-Chip beside the Einsatzname: «Einsatz abgeschlossen». It moved here out of the bottom
+   banner layer (23.08.) — read-only is a property of the INCIDENT, and the incident is named in
+   the head. Amber for the same reason .tb-gps is: a state to be aware of, not an alarm. Tapping
+   it offers the two exits the banner used to carry (Zurück / Wieder öffnen), so nothing was lost
+   with the banner; on a link session there are no exits and it is a plain, inert chip. */
+.tb-mode { display: inline-flex; align-items: center; gap: 6px; flex: none; border: none; border-radius: var(--r-pill);
+  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; white-space: nowrap;
+  background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber-strong); }
+.tb-mode .i { width: 14px; height: 14px; flex: none; }
+button.tb-mode { cursor: pointer; }
+button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transparent); }
+@media (max-width: 600px) {
+  /* the phone bar has room for the glyph, not the word — the state stays visible, the sentence
+     is one tap away in the chip's own menu */
+  .tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }
+  .tb-mode .i { width: 16px; height: 16px; }
+}
 /* compact wind readout folded into the bar on a phone — downwind arrow + speed, no temp */
 .tb-wind { display: inline-flex; align-items: center; gap: 4px; border: none; cursor: pointer; background: transparent;
   color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 6px; min-height: 42px; font-family: inherit;
@@ -256,38 +274,110 @@
 .journal-x:hover { background: var(--hover-strong); color: var(--ink); }
 .journal-x .i { width: 14px; height: 14px; }
 
-/* Verlauf row layout — surface chip + event text (reuses .history-list / .hist-ev) */
-/* ⚠️ `flex-wrap: wrap`. The chips and the entry text share this line, and on a phone an audio row
-   also carries three trailing buttons — so `.tx` was left about 26px for the text. With
-   `overflow-wrap: anywhere` on it (below) and `min-width: 0` removing the automatic minimum,
-   flexbox happily shrank the text to ONE PIXEL: «Audionotiz (6s)» came out as fourteen lines of
-   one character. Wrapping lets the text drop under the chips and use the row's whole width; it
-   still sits beside them whenever it fits. */
-.hist-ev .tx { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 7px; flex: 1; min-width: 0; }
-.jr-chip { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
-  padding: 2px 6px; border-radius: var(--r-xs); line-height: 1.3; }
-/* The Bereich chip. Deliberately UNTINTED: the blue/green surface tints it used to carry
-   disagreed with the word beside them (see Journal.tsx) — the text says the Bereich, so the
-   colour has nothing left to add. */
-.jr-chip-area { background: var(--fill-soft); color: var(--ink-dim); }
-/* row appended after the Einsatzende (archive → reopen correction) */
-.jr-chip-nachtrag { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
-/* a line somebody corrected afterwards (append-only patch — both wordings stay in the record).
-   Quiet on purpose: it is a footnote on the row, not a warning about it. */
-.jr-chip-korr { background: var(--fill-soft); color: var(--ink-dim); text-transform: none; font-weight: 600; }
-/* «6×» — how often the app repeated this line. Same quiet register as «korrigiert»: it is a
-   fact about the row, not a state of the Einsatz. */
-.jr-chip-rep { background: var(--fill-soft); color: var(--ink-dim); text-transform: none; font-weight: 700; font-variant-numeric: tabular-nums; }
-/* a Pendenz, and every Meldung on it. The rows are ordinary in every other respect and stand
-   where they happened — this chip is what says they belong to something that had to come back. */
-.jr-chip-pendenz { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
-.jr-chip-pendenz.done { background: var(--fill-soft); color: var(--ink-faint); }
+/* ── the icon legend ──
+   The disc carries the Bereich, and a glyph has to be learned. This is the answer to that, and
+   deliberately a small one: a tap opens it, a tap closes it, nothing remembers it and nothing
+   opens it by itself. There is no hover on the primary device, so a tooltip alone would not do.
+   The button sits beside the title rather than out at the margin — it belongs to what is being
+   read, not to the drawer's controls. */
+.journal-legend-btn { flex: none; position: relative; width: 28px; height: 28px; border-radius: var(--r-sm);
+  border: none; cursor: pointer; background: var(--surface-2); color: var(--ink-faint);
+  display: grid; place-items: center; }
+/* finger-sized target under a 28px chip, the same trick .journal-replay uses */
+.journal-legend-btn::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.journal-legend-btn:hover { background: var(--hover-strong); color: var(--ink-dim); }
+.journal-legend-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.journal-legend-btn .i { width: 15px; height: 15px; }
+.jr-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px;
+  margin: 0 2px 8px; padding: 10px; border-radius: var(--r-ctl); background: var(--fill-soft); }
+.jr-legend-item { display: flex; align-items: center; gap: 8px; min-width: 0;
+  font: 600 12.5px var(--body); color: var(--ink-dim); }
+/* the discs here are the row's discs, at the row's size — a legend drawn smaller than the thing
+   it explains is a second shape to recognise */
+.jr-legend .ic { width: 26px; height: 26px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; background: var(--surface-2);
+  border: 1px solid var(--border-soft); color: var(--ink-dim); }
+.jr-legend .ic .i { width: 14px; height: 14px; }
+.jr-legend .ic.jr-ic-map { background: color-mix(in srgb, var(--blue) 13%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 24%, transparent); color: var(--blue-strong); }
+.jr-legend .ic.jr-ic-plan { background: color-mix(in srgb, var(--green) 14%, transparent);
+  border-color: color-mix(in srgb, var(--green) 26%, transparent); color: var(--green-strong); }
+.jr-legend .ic.jr-ic-ring { background: none; border-color: transparent; }
+/* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
+   that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
+   above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
+@media (max-width: 600px) {
+  .journal-replay span { display: none; }
+  .journal-replay { padding: 0 8px; }
+  /* …and the trailing group closes up, so the sentence keeps its share on the one row that can
+     still crowd it: an audio row whose clip has not uploaded yet carries four controls and a
+     «Wird geladen» chip. */
+  .jr-trail { gap: 7px; }
+}
+
+/* ── Verlauf row: the classification column ────────────────────────────────────────────────
+   The 26px disc IS the Bereich (`.hist-ev .ic` sizes it in 06-contextpanel.css; the grid that
+   places it is there too). There used to be a chip printing the same word in front of the
+   sentence — and on a Pendenz a second chip printing «Pendenz» beside a text that already read
+   «Pendenz erledigt: …». Both are gone, together with the Nachtrag/korrigiert/«6×» chips, which
+   moved behind the sentence where a footnote belongs (`.jr-foot`). The word survives as the
+   disc's `title` and in the legend in the drawer head. */
+/* The two DRAWING surfaces get a tint, because the glyph alone cannot separate a Lage row from
+   a Plan row. ⚠️ Derived from the resolved Bereich, NEVER from `e.surface` (lib/report ·
+   journalDisc): the old chip took the tint from the surface and the word from `journalArea`, so
+   an Atemschutz row drawn on the map came out Lage-blue with «ATEMSCHUTZ» written on it. */
+.hist-ev .ic.jr-ic-map { background: color-mix(in srgb, var(--blue) 13%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 24%, transparent); color: var(--blue-strong); }
+.hist-ev .ic.jr-ic-plan { background: color-mix(in srgb, var(--green) 14%, transparent);
+  border-color: color-mix(in srgb, var(--green) 26%, transparent); color: var(--green-strong); }
+/* ── …and on a Pendenz the disc becomes the ring ──
+   The same ring the composer's «bleibt offen» switch sets and the Pendenzen block ticks off
+   (18-audio · .jc-ring, 06-contextpanel · .jr-rem-box) — which is what JournalComposer's own
+   comment has claimed about the Verlauf row all along, and until 23.08. was not true.
+   ⚠️ Only the row that RAISED the item and the row that CLOSED it. A Meldung and a snooze are
+   log lines about the item, and they keep their own glyph. */
+.hist-ev .ic.jr-ic-ring { background: none; border-color: transparent; }
+.jr-ring { width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor;
+  display: grid; place-items: center; }
+/* ⚠️ The open states are a THICK BORDER over a transparent centre, not the composer's filled
+   donut. The composer's ring sits on a `--surface` card and punches its hole with an inset ring
+   of that colour; a row sits on the drawer's `--glass`, and on a hovered row on `--hover` over
+   that — a hard-coded hole would be a white disc floating in the ring exactly when the finger
+   is on it. Same shape, one less assumption. */
+/* offen — amber, the ink the Pendenzen block is tinted with, so the row and the list it feeds
+   are visibly the same thing */
+.jr-ring-open { border-width: 3px; border-color: var(--amber-strong); }
+/* überfällig — red, one step past «offen» (the words beside it say so too, see .jr-remstate).
+   Not pulsing: the pulsing red in this app belongs to the überfällige Trupp, and a Wiedervorlage
+   is not a life-safety alarm. */
+.jr-ring-overdue { border-width: 3px; border-color: var(--red-strong); }
+/* dringend — the solid red disc with the drawn bang, exactly the composer's state 2 */
+.jr-ring-urgent { color: var(--red); background: currentColor; border-color: currentColor; }
+.jr-bang { width: 2.5px; height: 7px; border-radius: 1.5px; background: var(--surface);
+  position: relative; transform: translateY(-1.5px); }
+.jr-bang::after { content: ""; position: absolute; left: 0; bottom: -4.5px;
+  width: 2.5px; height: 2.5px; border-radius: 50%; background: var(--surface); }
+/* erledigt — green and filled, the same tick the block leaves behind */
+.jr-ring-done { color: var(--green); background: currentColor; border-color: currentColor; }
+.jr-ring-done .i { width: 12px; height: 12px; color: var(--on-fill); }
+/* ── the footnotes, behind the sentence ──
+   «Nachtrag» · «korrigiert HH:MM» · «6×». Facts ABOUT the row, in the register of a footnote:
+   they were chips in front of the text, where they pushed it off its axis and read as warnings.
+   Only «Nachtrag» keeps a colour — a line appended after the Einsatzende is the one of the three
+   with legal weight. */
+.jr-foot { flex: none; display: inline-flex; align-items: baseline; gap: 9px;
+  font: 700 10px/1.3 var(--body); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--ink-faint); white-space: nowrap; }
+.jr-foot-nachtrag { color: var(--red); font-weight: 700; }
+.jr-foot-rep { font-variant-numeric: tabular-nums; }
 /* ⚠️ WHICH item a Meldung answers. Without it three «PENDENZ» rows in a row are three unrelated
    sentences: the Verlauf is chronological, so each link has to carry its own anchor. Quiet and
    truncated — it is a reference, not the content of the row. */
 /* ⚠️ 12.5px, the interactive floor (AGENTS · the 3am tenet) — it is a real jump-link, not a
    caption. It sat at 11.5px until 23.08. */
-.jr-note-on { flex: none; max-width: 40%; min-width: 0; display: inline-flex; align-items: baseline; gap: 5px;
+/* ⚠️ The cap is in px, not the 40% it was: in the trailing group a percentage resolves against a
+   box whose width the anchor itself is deciding, which sizes to whatever the item was called. */
+.jr-note-on { flex: 0 1 auto; max-width: 150px; min-width: 0; display: inline-flex; align-items: baseline; gap: 5px;
   border: 0; background: none; padding: 0; cursor: pointer; text-align: left;
   font: 600 12.5px var(--body); color: var(--amber-strong); }
 .jr-note-on:hover:not(:disabled) i { text-decoration: underline; }
@@ -297,11 +387,10 @@
    with nothing between them. */
 .jr-note-on i { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; }
 .jr-note-on::after { content: "›"; flex: none; color: var(--ink-faint); font-weight: 400; }
-/* ⚠️ `flex: 1 1 auto` — it TAKES the space left on its line rather than being handed its content
-   width and then shrunk out of existence. `overflow-wrap: anywhere` stays: an unbroken 40-letter
-   street name has to break somewhere, and that is what it is for — but it also drops the text's
-   min-content width to one character, which is why the two rules belong together. */
-.jr-text { flex: 1 1 auto; min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
+/* The sentence. It owns grid track 3 (06-contextpanel · .hist-ev), so there is nothing left to
+   take space from it and no `flex` left to defend. `overflow-wrap: anywhere` stays: an unbroken
+   40-letter street name has to break somewhere, and that is what it is for. */
+.jr-text { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
 /* calendar-day separator: the Verlauf can span days (Hochwasser) or weeks (Nachträge) */
 .jr-day-sep { display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px; font-size: 11px;
   font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
@@ -519,107 +608,18 @@
   border-radius: var(--r-sm); background: var(--amber); color: var(--on-fill); line-height: 17px; text-align: center;
   font-size: 11px; font-weight: 800; letter-spacing: -.2px; }
 
-/* due-reminder banner — persistent until handled */
-.reminder-banner { position: absolute; top: calc(80px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 45; width: min(440px, calc(100vw - 32px));
-  background: var(--surface); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-left: 3px solid var(--amber); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 13px 15px 14px;
-  display: flex; flex-direction: column; gap: 11px; animation: panelIn .16s var(--ease); }
-.rb-head { display: flex; align-items: center; gap: 7px; color: var(--amber-strong); }
-.rb-head .i { width: 15px; height: 15px; flex: none; }
-.rb-title { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.rb-due { margin-left: auto; font-size: 12px; font-weight: 700; font-family: var(--mono); color: var(--ink-dim); }
-.rb-text { font-size: 15px; font-weight: 650; color: var(--ink); line-height: 1.3; }
-.rb-more { color: var(--ink-dim); font-weight: 700; }
-.rb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.rb-btn { flex: 1 1 auto; min-width: 100px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 9px 10px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit;
-  min-height: 42px; white-space: nowrap; }
-.rb-btn .i { width: 15px; height: 15px; flex: none; }
-.rb-btn:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); background: var(--surface); }
-.rb-done { flex: 1.25; background: var(--green); border-color: var(--green); color: var(--on-fill); }
-.rb-done:hover { color: var(--on-fill); border-color: var(--green); background: var(--green); filter: brightness(1.06); }
+/* ⚠️ TOMBSTONE, 23.08. — the whole banner layer that stood here is gone.
+   Removed: `.reminder-banner` + 9 `rb-*` rules (the due Wiedervorlage, a 440px card at z-45 that
+   the 700px intake card at z-57 covered whole), `.update-banner` + `ub-*` + `.ub-compact` +
+   `.archived-banner` + the `--ub-slot` sibling stack (four components sharing one class on one
+   bottom coordinate, stacked by a chain of `~` selectors), and the phone rules that kept all of
+   it off the bottom nav bar. What replaced them is ONE ranked strip — `.ml` in `08-toasts.css`,
+   model in `src/lib/meldungen.ts`. Five z-indexes became one, four live regions became one, and
+   `.rb-btn`'s 42px tap target became the strip's single 44px button class.
+   «Einsatz abgeschlossen» left the layer entirely: it is `.tb-mode` above, beside the Einsatz
+   name, because read-only is a property of the incident and not a message about it. */
 
-/* PWA update prompt (UpdateBanner) — low-urgency, so it sits at the BOTTOM and below the
-   safety banners' z-index, never competing with a due-reminder alert at the top. Calm accent
-   (the themeable --accent token, not the amber alert colour). */
-/* ⚠️ FOUR components share this class — Update, Install, TabLock, Archived — and all four can be
-   on screen at once (open an archived Einsatz to check a Rapport while a second tab holds the
-   lock and a deploy lands). Until 23.08. the ONLY stacking rule matched `.install-banner`, so
-   Update + TabLock + Archived painted on exactly the same 16px: whichever came last in DOM order
-   was visible, and the other two sat in the accessibility tree being read to nobody.
-   `--ub-slot` is how many of them stand BEFORE this one. The chained sibling selectors below each
-   add a level of specificity, so the last one that still matches wins and the count is exact —
-   no JS, no manager, deterministic at every width. `--ub-step` is one card plus its gap; the
-   phone block raises it, because a phone card wraps its actions onto a second row. Slot 0 is the
-   LOWEST card and the group grows upward, in the DOM order IncidentWorkspace owns. */
-.update-banner { --ub-slot: 0; --ub-step: 72px;
-  position: absolute; bottom: calc(16px + var(--ub-slot) * var(--ub-step) + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 40;
-  width: min(400px, calc(100vw - 32px)); display: flex; align-items: center; gap: 10px;
-  background: var(--surface); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-left: 3px solid var(--accent); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 9px 12px;
-  animation: panelIn .16s var(--ease); }
-.update-banner > .i { width: 16px; height: 16px; flex: none; color: var(--accent); }
-.ub-text { display: flex; flex-direction: column; gap: 1px; margin-right: auto; min-width: 0; }
-.ub-title { font-size: 13px; font-weight: 750; color: var(--ink); }
-.ub-hint { font-size: 12px; color: var(--ink-dim); }
-.ub-btn { flex: none; min-height: 44px; border-radius: var(--r-sm); padding: 9px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer;
-  font-family: inherit; border: 1px solid var(--glass-edge); background: var(--surface-2); color: var(--ink-dim); white-space: nowrap; }
-.ub-btn:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); background: var(--surface); }
-/* primary (accent) banner action — used by the install nudge + tab-lock banner; the update
-   banner itself is announce-only since 2026-07-09 (a restart applies the waiting build) */
-.ub-reload { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
-.ub-reload:hover { color: var(--on-btn-primary); border-color: var(--btn-primary-hover); background: var(--btn-primary-hover); }
-.ub-reload:disabled { opacity: var(--disabled); cursor: default; }
 
-/* …and the count itself — one rule per level, each one more specific than the last. */
-.update-banner ~ .update-banner { --ub-slot: 1; }
-.update-banner ~ .update-banner ~ .update-banner { --ub-slot: 2; }
-.update-banner ~ .update-banner ~ .update-banner ~ .update-banner { --ub-slot: 3; }
-/* `.install-banner` has no rules of its own any more (tombstone, 23.08.): the "Als App
-   installieren" nudge is the same glass card as the update banner, and the one sibling rule it
-   used to carry — `.update-banner ~ .install-banner` — was the group's ONLY stacking and knew
-   about that one pair and nothing else. The class stays on the element as its name. */
-/* persistent «Einsatz archiviert — nur ansehen» state banner (ArchivedBanner): the update
-   banner's chrome with an amber accent; it stays up for the whole read-only visit */
-.archived-banner { border-left-color: var(--amber-strong); }
-.archived-banner > .i { color: var(--amber-strong); }
-@media (max-width: 600px) {
-  /* Every bottom banner (Update/Install/TabLock/Archived all share .update-banner) must clear the
-     phone bottom nav bar — previously only .archived-banner did, so Update/Install/TabLock sat ON
-     the nav row and covered its centre items (the banner is z-40, the nav bar z-35). The drawing
-     surfaces (map/plan) carry a SECOND (tool) bar, so clear both there; the --ub-slot stack above
-     keeps each banner clear of the one below it. */
-  /* phone: left-align + cap width so the banner never sits under the bottom-right Eintrag FAB
-     (it used to be centred and full-width, so the FAB covered its action). Slightly tighter type. */
-  /* ⚠️ A TALLER step here: the action cluster wraps onto its own row below (see the flex-wrap
-     rule further down), so a phone card is a text row plus a 44px button row plus the padding —
-     the 72px of a one-row desktop card would let the next banner sit on its buttons. */
-  .update-banner { --ub-step: 104px;
-    bottom: calc(var(--rail-h) + 24px + var(--ub-slot) * var(--ub-step) + env(safe-area-inset-bottom));
-    left: 12px; transform: none; width: min(340px, calc(100vw - 96px)); }
-  .update-banner .ub-title { font-size: 12.5px; }
-  .update-banner .ub-hint { font-size: 11.5px; }
-  .phone-tools .update-banner { bottom: calc(var(--rail-h) * 2 + 24px + var(--ub-slot) * var(--ub-step) + env(safe-area-inset-bottom)); }
-  /* narrow phones: an action cluster that can't fit beside the text WRAPS onto its own
-     line instead of spilling out of the fixed banner — spilled fixed content silently
-     widens the iOS layout viewport, and the whole app renders shifted off-screen
-     (landing screen, 2026-07-15). Applies to every .update-banner-chrome banner
-     (Update/Install/TabLock/Archived) — the alarm .dv-banner gets the same below. */
-  .update-banner { flex-wrap: wrap; justify-content: flex-end; }
-  .update-banner .ub-text { flex: 1 1 auto; }
-  /* …except the announce-only update banner, which opts out via .ub-compact. It is the least
-     urgent thing on screen and the only one of these with a single short action, so on a phone
-     it stays ONE row: tighter box, and OK beside the text instead of below it.
-     The zero flex-basis is what stops the wrap — a flex line breaks on base sizes, so a
-     content-wide text column pushes the button onto its own row before it ever shrinks. It can
-     still shrink and wrap its own text, so nothing spills out of the fixed banner (which is what
-     the rule above exists to prevent). The 44px tap target is untouched. */
-  .update-banner.ub-compact { width: min(300px, calc(100vw - 96px)); gap: 8px; padding: 7px 9px; flex-wrap: nowrap; }
-  .update-banner.ub-compact .ub-text { flex: 1 1 0; }
-  .update-banner.ub-compact .ub-title { font-size: 12px; }
-  .update-banner.ub-compact .ub-hint { font-size: 11px; line-height: 1.35; }
-  .update-banner.ub-compact .ub-btn { padding: 7px 10px; font-size: 12.5px; }
-}
 /* install guide (InstallGuide) — platform-detected steps in the standard ip-sheet */
 .ig-why { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
 .ig-install { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px;

@@ -533,19 +533,9 @@
 .un-erg-n { display: block; font-size: 11px; font-weight: 700; color: var(--ink-dim); margin-bottom: 2px; }
 .un-erg-src { margin: 6px 0 0; font-size: 11px; color: var(--ink-dim); }
 
-/* Guarded live-GPS attachment: persistent but compact, so the safety choice stays available
-   without obscuring the map or implying the known Traccar position itself is an alarm. */
-.gps-follow-prompts { position: fixed; z-index: 46; top: calc(76px + env(safe-area-inset-top)); left: 50%;
-  transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; width: min(540px, calc(100vw - 32px)); pointer-events: none; }
-.gps-follow-prompt { pointer-events: auto; display: flex; align-items: center; gap: 9px; padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--amber) 38%, var(--glass-edge)); border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--amber) 8%, var(--surface)); box-shadow: var(--shadow-pop); color: var(--ink); }
-.gps-follow-prompt > .i { width: 17px; height: 17px; color: var(--amber-strong); flex: none; }
-.gps-follow-prompt > span { min-width: 0; flex: 1; display: flex; flex-direction: column; font-size: 12.5px; }
-.gps-follow-prompt small { color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gps-follow-prompt button { min-height: 44px; padding: 7px 11px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none; }
-@media (max-width: 620px) {
-  .gps-follow-prompt { flex-wrap: wrap; }
-  .gps-follow-prompt > span { flex-basis: calc(100% - 30px); }
-}
+/* ⚠️ TOMBSTONE, 23.08. — `.gps-follow-prompts` / `.gps-follow-prompt` are gone. The guarded
+   live-GPS attachment («Fahrzeug bewegt sich weg») was a fourth fixed card at z-46 on the same
+   top axis as three others, and it lost that contest to two of them. It is a Meldeleiste row now
+   (GpsFollowMeldung, rank 3) — one row per paused attachment, queued rather than stacked. It
+   belongs in the strip and not on the map even though it is ABOUT a map object: what it reports
+   is that the vehicle has driven off, so its anchor is the thing that is no longer on screen. */

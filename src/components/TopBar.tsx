@@ -74,12 +74,20 @@ interface Props {
    *  say so on the screen they are already looking at, and it is the only such control a
    *  link-scoped session gets (Einstellungen is hidden for those). */
   shareSlot?: React.ReactNode
+  /** The Einsatz is closed and open read-only. It rides HERE, beside its name, rather than as a
+   *  banner in the message layer: «Nur ansehen» is a property of the incident, and the incident
+   *  lives in the head (23.08.). The chip carries the two deliberate exits with it. */
+  archived?: boolean
+  /** leave the read-only view — back to the previously active Einsatz / «Alle Einsätze» */
+  onBackFromArchive?: () => void
+  /** editors only: re-open the closed Einsatz (its own confirm lives upstream) */
+  onReactivate?: () => void
 }
 
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -128,6 +136,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           <span className="eaddr">{incident.address}</span>
         </>
       )}
+      {archived && <ArchivedChip onBack={onBackFromArchive} onReactivate={onReactivate} />}
       <div className="vr" />
       {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time,
           and the Einsatzuhr below can be cycled to the wall clock when needed. */}
@@ -260,6 +269,34 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         })()}
       </div>
     </div>
+  )
+}
+
+/** «Einsatz abgeschlossen» as a mode chip beside the Einsatzname — the state of the incident,
+ *  where the incident is named. It replaces the bottom banner that used to say the same thing on
+ *  the same 16px as three other cards (and, being painted last, was the only one of the four you
+ *  could read). The exits come along: tapping the chip offers «Zurück» and, for editors, «Wieder
+ *  öffnen» — so nothing the banner could do got lost with it.
+ *  With no exits to offer (a link session) it is a plain, non-interactive chip. */
+function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactivate?: () => void }) {
+  const C = appConfig.copy.archived
+  const label = <><Icon id="lock" />{C.title}</>
+  if (!onBack && !onReactivate) return <span className="tb-mode" title={C.hint}>{label}</span>
+  return (
+    <Popover side="bottom" align="start" popupClassName="tb-uhr-menu" ariaLabel={C.title}
+      trigger={<button type="button" className="tb-mode" title={C.hint} aria-label={`${C.title} – ${C.hint}`}>{label}</button>}
+    >
+      {onBack && (
+        <PopoverClose className="tb-uhr-row" onClick={onBack}>
+          <Icon id="undo" /><span className="tb-uhr-lbl">{C.back}</span>
+        </PopoverClose>
+      )}
+      {onReactivate && (
+        <PopoverClose className="tb-uhr-row" onClick={onReactivate}>
+          <Icon id="pen" /><span className="tb-uhr-lbl">{C.reactivate}</span>
+        </PopoverClose>
+      )}
+    </Popover>
   )
 }
 

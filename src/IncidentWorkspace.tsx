@@ -87,7 +87,7 @@ import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
-import { ArchivedBanner } from './components/ArchivedBanner'
+import { GpsFollowMeldung } from './components/GpsFollowMeldung'
 import { useReminders } from './lib/useReminders'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
@@ -168,7 +168,6 @@ interface WorkspaceProps {
   needsReview: boolean
   onReviewDone: () => void
   onEditMeta: () => void
-  onPatchMeta: (patch: Partial<IncidentMeta>) => void
   /** The Abschluss was confirmed here (see `confirmAndComplete`): stamp report_done_at + close.
    *  Resolves TRUE only when the close actually happened — App reports the outcome so a failed
    *  handover (offline, server error) does not pretend to have archived anything.
@@ -186,7 +185,7 @@ interface WorkspaceProps {
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, onEditMeta, onPatchMeta,
+  needsReview, onReviewDone, onEditMeta,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -1631,7 +1630,10 @@ export function IncidentWorkspace({
         : d.noteFor ? C.noteSaved
           : d.pendenz ? (d.pendenz.urgent ? C.pendenzUrgentSaved : C.pendenzSaved)
             : C.saved,
-      { icon: d.dueAt ? 'clock' : d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success' },
+      // 'bell' for the timed one, the glyph the Erinnerung wears everywhere else it is met (the
+      // banner, and the snooze row in the Verlauf). It was 'clock' until 23.08.; on the Verlauf
+      // that glyph now means an Anwesenheits-Zeitenzeile and nothing else (lib/report · journalArea).
+      { icon: d.dueAt ? 'bell' : d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success' },
     )
   }
 
@@ -2865,6 +2867,11 @@ export function IncidentWorkspace({
         // On EVERY surface, unlike the GPS caveat above: this says what the device in your hand
         // is doing, which does not stop being true because you switched to the Plan.
         shareSlot={<SharePositionPill share={share} onChangeName={() => setSharePick('pick')} />}
+        // «Einsatz abgeschlossen»: a mode of the incident, so it stands beside the Einsatzname
+        // instead of floating as a fifth banner. Its two exits ride in the chip's menu.
+        archived={incidentMeta.is_archived}
+        onBackFromArchive={onBackFromArchive}
+        onReactivate={onReactivateActive}
         // On the phone map surface the floating compass cluster already carries Einpassen
         // (== centerIncident) + Mein Standort, so a top-bar center button here would just
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
@@ -2905,6 +2912,7 @@ export function IncidentWorkspace({
         }
       />
 
+
       <ReminderBanner
         due={reminders.due}
         onDone={reminders.markDone}
@@ -2912,18 +2920,16 @@ export function IncidentWorkspace({
         onOpen={() => setJournalOpen(true)}
       />
 
-      {mapUI && !tacticalLocked && pausedGpsConnections.length > 0 && (
-        <div className="gps-follow-prompts" role="status">
-          {pausedGpsConnections.map(({ drawing, endpoint, attachment }) => (
-            <div className="gps-follow-prompt" key={`${drawing.id}:${endpoint}`}>
-              <Icon id="warn" />
-              <span><b>{appConfig.copy.drawingEditor.gpsMovingAway}</b><small>{entities.find((e) => e.id === attachment.target.id)?.label ?? drawing.label ?? appConfig.copy.drawingEditor.drawing}</small></span>
-              <button onClick={() => setGpsRouting(drawing, endpoint, 'trace')}>{appConfig.copy.drawingEditor.gpsContinue}</button>
-              <button onClick={() => detachGpsHere(drawing, endpoint)}>{appConfig.copy.drawingEditor.gpsDetachHere}</button>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* one row per paused GPS attachment — they queue behind each other instead of stacking */}
+      {mapUI && !tacticalLocked && pausedGpsConnections.map(({ drawing, endpoint, attachment }) => (
+        <GpsFollowMeldung
+          key={`${drawing.id}:${endpoint}`}
+          id={`${drawing.id}:${endpoint}`}
+          label={entities.find((e) => e.id === attachment.target.id)?.label ?? drawing.label ?? appConfig.copy.drawingEditor.drawing}
+          onContinue={() => setGpsRouting(drawing, endpoint, 'trace')}
+          onDetach={() => detachGpsHere(drawing, endpoint)}
+        />
+      ))}
 
       {/* one-tap way back after a Rapport checklist row navigated here — without it, the
           round trip went through the incident menu every time (feedback 2026-07-08) */}
@@ -2941,8 +2947,7 @@ export function IncidentWorkspace({
       <UpdateBanner />
 
       {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
-          on this device (the menu keeps the permanent entry); must stay ADJACENT to
-          UpdateBanner: a CSS sibling rule stacks the two when both are visible.
+          on this device (the menu keeps the permanent entry).
           Hidden on the demo: a visitor isn't installing the demo as their command app. */}
       {!isDemoMode() && <InstallBanner onOpenGuide={() => setInstallGuideOpen(true)} />}
 
@@ -2955,22 +2960,16 @@ export function IncidentWorkspace({
           moves editing here (only meaningful for editors — viewers are read-only anyway) */}
       {tabLockLost && user?.role === 'editor' && <TabLockBanner onTakeOver={onTakeOverTab} />}
 
-      {/* archived incident open read-only (via «Alle Einsätze») → name the state so the
-          missing tools read as policy, not breakage; editors get the deliberate exit */}
-      {incidentMeta.is_archived && <ArchivedBanner onBack={onBackFromArchive} onReactivate={onReactivateActive} />}
+      {/* ⚠️ «Einsatz abgeschlossen» is NOT published here (23.08.). Read-only is a property of the
+          incident, not a message about it, so it rides beside the Einsatzname as a mode chip in
+          the top bar — where the incident lives — and carries its two exits there. */}
 
       {/* correct-in-place: an alarm opens its Einsatz by itself, so the EL lands here
-          operational immediately and with the dispatch's guesses unchecked. The banner fixes
-          the category inline and opens the edit panel for Stichwort/Priorität/Ort — no wizard
-          between the crew and the Lage, which is the whole point (2026-08-02). */}
+          operational immediately and with the dispatch's guesses unchecked. «Passt» confirms
+          them, «Bearbeiten» opens the panel that holds Stichwort/Priorität/Ort/Einsatzart — no
+          wizard between the crew and the Lage, which is the whole point (2026-08-02). */}
       {needsReview && !readOnly && (
-        <ReviewBanner
-          meta={incidentMeta}
-          categories={appConfig.copy.intake.kategorien}
-          onPatchType={(k) => onPatchMeta({ type: k })}
-          onEdit={onEditMeta}
-          onDone={onReviewDone}
-        />
+        <ReviewBanner meta={incidentMeta} onEdit={onEditMeta} onDone={onReviewDone} />
       )}
 
       {/* single left navigation rail — all surfaces; switches Karte / object Pläne / Checkliste */}

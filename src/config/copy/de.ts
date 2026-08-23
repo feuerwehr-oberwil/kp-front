@@ -717,6 +717,9 @@ export const de = {
   map: {
     incidentHere: 'Einsatzort',
     youHere: 'Mein Standort',
+    // the 6px ink dot on a glyph whose name did not fit: it says a name EXISTS here, and
+    // selecting the symbol always brings it back (the selection is exempt from suppression)
+    labelHidden: 'Beschriftung verdeckt – antippen',
     // WebGL context loss (iPad reclaims the GPU in the background) — the map goes blank while
     // everything around it still works, so it needs naming and a way out.
     glLost: 'Kartenansicht unterbrochen',
@@ -804,6 +807,10 @@ export const de = {
     newDiveraAlarm: 'Neuer Alarm',
     hide: 'Ausblenden',
     fromDivera: 'Aus der Alarmquelle übernommen',
+    // Zeilentitel in der Meldeleiste; fromDivera darunter ist der Untertitel. Die Zeile
+    // ERSETZT die 700px-Karte mit Meldung und Kategorie-Combo — geprüft wird beim
+    // Bearbeiten, bestätigt wird mit «Passt».
+    reviewTitle: 'Einsatzdaten prüfen',
     locationSet: 'Standort gesetzt',
     noLocationOnMap: 'Kein Standort – auf Karte setzen',
     ok: 'Passt',
@@ -1128,6 +1135,15 @@ export const de = {
     overdueLabel: 'überfällig',
     doneState: 'erledigt',
     markDoneTitle: 'Als erledigt markieren',
+    // ── Legende ───────────────────────────────────────────────────────────────────────────
+    // The Verlauf row's 26px disc carries the Bereich (it replaced a chip that printed the same
+    // word the sentence already carried). A glyph has to be LEARNED, so the drawer's head keeps
+    // a legend that names them — opened by a tap, never by itself, and never remembered: it
+    // answers one question once, for somebody who reads words rather than shapes.
+    legend: 'Legende',
+    legendPendenzOpen: 'Pendenz offen',
+    legendPendenzUrgent: 'Pendenz dringend',
+    legendPendenzDone: 'Pendenz erledigt',
     // ── Pendenzen ─────────────────────────────────────────────────────────────────────────
     // The ○ switch beside the Art chips. THREE states on one control; the accessible name says
     // what a tap will leave behind, because the ring alone cannot.
@@ -2016,6 +2032,14 @@ export const de = {
       note: '',
     },
     unsupported: 'Dieser Browser unterstützt die Installation nicht. Am besten die Seite in Chrome, Edge oder Safari öffnen und dort installieren.',
+  },
+  // Die Meldeleiste — der eine Streifen unter der Kopfleiste. Er rangiert, was ansteht (Klasse
+  // vor Zeit) und zeigt die oberste Meldung; sichtbar steht dort sonst nur «+n». Diese drei
+  // Wörter sind für Screenreader und Tooltips da, nicht für die Zeile selbst.
+  meldeleiste: {
+    region: 'Meldungen',
+    more: '{n} weitere Meldungen',
+    less: 'Weitere Meldungen schliessen',
   },
   // single-editor tab lock: a second browser tab on the SAME incident is read-only
   tabLock: {
@@ -3044,6 +3068,15 @@ export const de = {
     // An arrow instead of zooming out: what lies outside is usually a Hydrant two streets away,
     // and shrinking half the picture for that costs more than it gains.
     framingOutside: '{n} ausserhalb – antippen zum Anpassen',
+    // Die Legende der Vorschau ist die Legende des Blattes: der Server ersetzt jede Zeichnungs-
+    // Beschriftung und jede Symbol-Caption durch eine nummerierte Scheibe und druckt die Worte
+    // darunter. Eine Scheibe, die nicht ganz in den Rahmen passt, wird weggeschnitten – die
+    // Zeile fehlt dann auf dem Blatt, und das ist die folgenreichste Wirkung des Verschiebens.
+    framingLegend: 'Legende',
+    framingLegendEmpty: 'nichts Beschriftetes im Ausschnitt',
+    framingLegendMissing: '{n} ohne Nummer – die Scheibe passt nicht ganz aufs Blatt.',
+    framingLegendPending: 'wird beim Loslassen nachgeführt …',
+    framingDiscOut: 'Kommt nicht in die Legende – die Scheibe passt nicht ganz aufs Blatt.',
     // Kontrolle section
     controlHead: 'Kontrolle',
     // the state chip counts what is open instead of just saying «Kontrolle»

@@ -1,6 +1,13 @@
 /* ============================================================
-   Toasts + confirm dialog (replace native alert/confirm)
+   The message layer: die Meldeleiste (persistent) + toasts (transient)
    ============================================================ */
+/* Both halves live in ONE file on purpose. What used to be here was a pile — five banners
+   anchored 4px apart at the top on five z-indexes, four cards sharing one bottom coordinate —
+   because every message brought its own geometry and nobody could see the others' rules. There
+   are now exactly two stacking decisions in the app and they are 300 lines apart in one file:
+   the strip owns everything that STAYS until somebody acts, the toaster everything that goes
+   away by itself. A third one does not get added here; it goes into the surface it is about
+   (see ShiftConflictNotice). */
 /* Demo deployments: a fixed diagonal "DEMO" ribbon across the top-left corner. Non-interactive
    (taps pass through), so it never blocks a control; amber to read as "not a real incident". */
 .demo-ribbon { position: fixed; top: calc(15px + env(safe-area-inset-top)); left: -36px; width: 132px; z-index: 150; pointer-events: none;
@@ -42,6 +49,96 @@
   background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--ink-dim);
   font-size: 12.5px; font-weight: 600; line-height: 1.45; text-align: center;
   border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); }
+
+/* ── Die Meldeleiste ──────────────────────────────────────────────────────────────────────
+   ONE ranked strip under the top bar for every message with no place of its own: highest-ranked
+   message readable as a sentence, the rest behind a +n pill that opens a list (never a pager).
+   Ranking, tone and queue live in src/lib/meldungen.ts — this file only paints them.
+
+   Geometry: spanned BETWEEN the two rails and set clear of the top bar, so it reads as floating
+   in the free middle band rather than welded to the chrome. One z-index (58: over the top bar at
+   56 and the rails at 35, under every overlay at 80+) replaces the old 60/57/46/45/40.
+   ⚠️ There is no rule for the empty case, because there is no empty case: with nothing pending
+   the component returns null and the map runs up under the top bar exactly as before. */
+.ml { position: fixed; z-index: 58;
+  top: calc(92px + env(safe-area-inset-top));
+  left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
+  right: calc(max(16px, env(safe-area-inset-right)) + var(--rail-w) + 24px);
+  max-width: 860px; margin-inline: auto;
+  background: var(--surface); border: 1px solid var(--glass-line);
+  border-left: 3px solid var(--ink-faint); border-radius: var(--r-sm);
+  box-shadow: var(--shadow); animation: ml-in .16s var(--ease); }
+@keyframes ml-in { from { opacity: 0; transform: translateY(-8px); } }
+/* tone = the message's class, never its rank: the left edge and the glyph say how loud it is */
+.ml.t-alarm { border-left-color: var(--red); }
+.ml.t-warn { border-left-color: var(--amber); }
+.ml.t-info { border-left-color: var(--blue); }
+.ml.t-calm { border-left-color: var(--ink-faint); }
+.ml-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 8px 4px 12px; }
+.ml-ic { flex: none; width: 18px; height: 18px; color: var(--ink-faint); }
+.ml.t-alarm > .ml-row > .ml-ic { color: var(--red); }
+.ml.t-warn > .ml-row > .ml-ic { color: var(--amber-strong); }
+.ml.t-info > .ml-row > .ml-ic { color: var(--blue); }
+/* the text column is a <button> whenever the message has a row gesture of its own (the
+   Wiedervorlage's «In Verlauf öffnen»), so it needs the button reset and the 44px floor */
+.ml-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  align-self: stretch; min-height: 44px; text-align: left; padding: 0; border: none; background: none;
+  color: inherit; font-family: var(--body); }
+button.ml-txt { cursor: pointer; border-radius: var(--r-xs); }
+button.ml-txt:hover .ml-title { text-decoration: underline; text-underline-offset: 2px; }
+.ml-title { font: 700 13.5px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ml-sub { font: 500 12.5px var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the message's OWN actions, at most two — the third action of any message is the row itself.
+   The +n pill and the ✕ are siblings of this, not members: on a phone the actions drop to a
+   second line and those two must not go with them. */
+.ml-act { flex: none; display: flex; align-items: center; gap: 8px; }
+/* ONE button class for the whole layer. The two 44px misses it retires came from having four:
+   .rb-btn sat at 42px — the due Wiedervorlage's own Erledigt / +10 min — and .dv-banner-x at 30. */
+.ml-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px;
+  padding: 0 13px; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink-dim); font: 700 12.5px var(--body); white-space: nowrap; cursor: pointer; }
+.ml-btn:hover { color: var(--ink); background: var(--surface); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); }
+.ml-btn:disabled { opacity: var(--disabled); cursor: default; }
+.ml-btn.prim { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: 800; }
+.ml-btn.prim:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--on-btn-primary); }
+.ml-btn .i { width: 15px; height: 15px; flex: none; }
+/* the counter, not a pager: it OPENS the queue. Amber the moment something due is waiting behind
+   the row, so a queued warning is announced rather than merely counted. */
+.ml-more { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 11px;
+  border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--fill-soft);
+  color: var(--ink-dim); font: 700 12.5px var(--mono); cursor: pointer; }
+.ml-more:hover { color: var(--ink); }
+.ml-more .i { width: 14px; height: 14px; }
+.ml-more.has-crit { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.ml-x { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: none; background: none;
+  color: var(--ink-faint); border-radius: var(--r-sm); cursor: pointer; }
+.ml-x:hover { background: var(--hover-strong); color: var(--ink); }
+/* the open queue — every waiting message on its own line, nothing paged past. Tapping a line
+   pulls it onto the strip (it becomes the row, with its actions); it does not run the action. */
+.ml-list { border-top: 1px solid var(--border-soft); padding: 4px; display: flex; flex-direction: column; }
+.ml-li { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 8px;
+  border: none; border-radius: var(--r-sm); background: none; text-align: left; cursor: pointer; font-family: var(--body); }
+.ml-li:hover { background: var(--hover-strong); }
+.ml-li + .ml-li { border-top: 1px solid var(--border-soft); border-radius: 0; }
+.ml-li.t-alarm .ml-ic { color: var(--red); }
+.ml-li.t-warn .ml-ic { color: var(--amber-strong); }
+.ml-li.t-info .ml-ic { color: var(--blue); }
+.ml-li-t { flex: 1; min-width: 0; font: 700 12.5px var(--body); color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ml-li-t small { display: block; font: 500 12px var(--body); color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ml-li-go { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
+@media (max-width: 600px) {
+  /* the rails are gone from the sides here (the nav rail is the bottom bar), so the strip takes
+     the full width — and the actions wrap onto a second row while the counter never does: it is
+     the only place the NUMBER of waiting messages is written. */
+  .ml { top: calc(72px + env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); }
+  .ml-row { flex-wrap: wrap; padding-bottom: 8px; }
+  .ml-act { order: 1; flex: 1 1 100%; justify-content: flex-end; }
+  .ml-act .ml-btn { flex: 1 1 auto; }
+}
 
 /* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the
    space right of the 50% mark as shrink-to-fit width, so long undo toasts collapsed to a

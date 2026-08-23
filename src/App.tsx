@@ -37,6 +37,7 @@ import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, pickBootIncident, sameIncidentList, saveReviewedIncident } from './lib/incidentAlerts'
 import { EinsatzWizard, DatenquellenPanel, FeedbackPrompt, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
+import { Meldeleiste } from './components/Meldeleiste'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
 import { HelpOverlay } from './components/HelpOverlay'
@@ -366,24 +367,14 @@ export default function App() {
     }
   }, [activeMeta, refreshPool])
 
-  // In-place metadata correction from the review banner (category) — patch + reflect in the
-  // active meta and list without remounting the workspace (no location/center change).
   /** Show an already-saved incident's new facts without remounting anything — the active meta
-   *  and its row in the list. Shared by `patchActiveMeta` and the Einsatzdaten correction, so
-   *  «reflect» means one thing. */
+   *  and its row in the list, no location/center change. Used by the Einsatzdaten correction.
+   *  (It was also shared with an inline patch from the review banner until 23.08., when that
+   *  banner became a Meldeleiste row and its Kategorie dropdown moved into the edit panel.) */
   const reflectMeta = useCallback((updated: IncidentMeta) => {
     setActiveMeta(updated)
     setIncidents((list) => (list ?? []).map((i) => (i.id === updated.id ? updated : i)))
   }, [])
-  const patchActiveMeta = useCallback(async (patch: Partial<IncidentMeta>) => {
-    if (!activeId) return
-    try {
-      const updated = await patchIncident(activeId, patch)
-      reflectMeta(updated as IncidentMeta)
-    } catch (e) {
-      toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
-    }
-  }, [activeId, reflectMeta])
 
   // THE close, and the only one. Both doors on the ACTIVE Einsatz (the Rapport's button/band and
   // the Einsatz-Menü row) run their counting confirm in IncidentWorkspace and land here; «Alle
@@ -531,6 +522,18 @@ export default function App() {
   return (
     <>
       {showWelcome && <DemoWelcome onClose={() => { markDemoWelcomeSeen(); setShowWelcome(false) }} />}
+      {/* ── Die Meldeleiste ────────────────────────────────────────────────────────────────
+          ONE ranked strip for every message that has no place of its own and stays until
+          somebody acts. The publishers paint nothing: each hands the strip a record, and the
+          strip shows the highest-ranked one plus a +n pill for the rest (class before time —
+          src/lib/meldungen.ts). It is not in the DOM at all while nothing is pending.
+          ⚠️ Mounted at APP root, not in IncidentWorkspace: `NewIncidentBanner` publishes when a
+          colleague takes an Einsatz or one auto-opens, and that can happen with NO incident open
+          — inside the workspace the strip would not be mounted and the message would vanish.
+          ⚠️ It replaced five top banners on one axis and four bottom cards on one coordinate.
+          Do not add a sixth floating card: either the message has a PLACE — then it belongs in
+          that surface, the way ShiftConflictNotice does — or it belongs in this strip. */}
+      <Meldeleiste />
       {activeId && activeMeta && syncRef.current ? (
         <ErrorBoundary
           /* Keyed on activeId ONLY (not `remount`): a background remount — the live-follow
@@ -571,7 +574,6 @@ export default function App() {
           }
           onReviewDone={() => markReviewed(activeMeta.id)}
           onEditMeta={() => setEditMeta(activeMeta)}
-          onPatchMeta={(patch) => void patchActiveMeta(patch)}
         />
         </ErrorBoundary>
       ) : (
@@ -729,8 +731,7 @@ export default function App() {
           // right when an Einsatz is opened and wrong when one is corrected: it threw the
           // operator out of whatever surface they were on (the Rapport, usually — that is where
           // the «Bearbeiten» link lives) and reset the print section toggles and the Kroki
-          // reconstruction with it. Reflecting the patch in place is what `patchActiveMeta`
-          // already does for the review banner's Kategorie dropdown.
+          // reconstruction with it. `reflectMeta` is what reflects a patch in place instead.
           onCreated={(inc) => {
             const wasEdit = !!editMeta
             setEditMeta(null)
