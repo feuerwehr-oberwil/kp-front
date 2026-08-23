@@ -881,9 +881,9 @@ def render_kroki(
     view's map container). Symbol sizes, line widths and label fonts scale by
     width/ref_width so the printed proportions match the app regardless of render DPI.
 
-    `legend_out`: filled with «1 · 2 · 3 …» in picture order WHEN the labels could not all be
-    printed as words and the picture fell back to numbers (see the collision pass below). Left
-    empty otherwise. An out-parameter rather than a second return value so every existing
+    `legend_out`: filled with «1 · 2 · 3 …» in picture order. Drawing labels and symbol captions
+    are ALWAYS numbered, not only on collision — the fallback this once described was dropped
+    09.08. (end tags, Trupp chips and Notizzettel still print inline and never enter the legend). An out-parameter rather than a second return value so every existing
     caller — and the tile warmer — stays exactly as it was."""
     legend = legend_out if legend_out is not None else []
     ss = supersample

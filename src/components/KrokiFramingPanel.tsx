@@ -13,17 +13,24 @@ import { ShapeGlyph } from '../lib/shapes'
 import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
 import { truppForLine, truppTagText } from '../lib/truppLines'
 import { lerpPoint } from '../lib/lineStyle'
-import { fmtDistance, hoseLengthHint, pathLengthM } from '../lib/geo'
 import { Segmented } from './Segmented'
 import { krokiEntity, krokiSymbolMul } from '../lib/krokiPayload'
-import { forkBearing, shapePx, symPx, worldPx } from '../lib/mapView'
+import { forkBearing, pxPerM, shapePx, symPx, worldPx } from '../lib/mapView'
+import {
+  KROKI_DISC_MIN_PX, KROKI_DISC_R, discOffsetPx, krokiLabels, krokiScaleBar, numberKrokiLabels,
+  placeKrokiLabels, type KrokiLegend,
+} from '../lib/krokiLegend'
 import type { CaptionMode, Drawing, Entity, LayerDef, LngLat, Trupp } from '../types'
 import { krokiStandLabel, type KrokiView } from '../lib/report'
 
 // WYSIWYG framing of the printed Kroki: the auto-fit (or the last chosen crop) is just the
 // STARTING point — the operator pans/zooms and exactly this crop becomes the printed Kroki.
-// Preview-grade rendering: real glyphs at a fixed small size + plain drawing geometry; the
-// server render stays the source of truth for the final look.
+// The preview draws THE SHEET: the numbered discs and the legend the server prints, plus the
+// three opaque plates it pastes on last (Massstabsbalken, Nordpfeil, Quellenangabe). It used to
+// draw the words themselves, on a picture that has carried numbers since 09.08. — so the one
+// screen whose job is «this is what comes out» showed a picture that never comes out, and hid
+// the most consequential effect of a pan: a label whose disc leaves the frame drops off the
+// sheet entirely. Preview-grade only in the glyphs; the server render stays the source of truth.
 //
 // A PANEL on the Rapport surface, not the modal it was until 2026-08-07. As a modal it opened
 // on the press of PDF / Ausdrucken, which meant the crop was chosen blind right up to the
@@ -36,6 +43,8 @@ const FIT_MAX_ZOOM = 20 // mirror of the server's fit_view max_z
  *  an A4 sheet — enough street to orient by is a good thing, that much of it is not. */
 const FIT_PAD = 28
 const CARTO_FALLBACK = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+// the same default `buildKrokiPayload` sends, so the plate on the preview is the plate on paper
+const DEFAULT_ATTRIBUTION = '© CARTO, © OpenStreetMap-Mitwirkende'
 // backend/app/kroki.py renders print overlays against this reference viewport. Scaling the
 // complete decorated marker (not only its glyph) makes badges/spreads/shapes WYSIWYG here.
 //
@@ -150,6 +159,14 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const [previewZoom, setPreviewZoom] = useState(initial?.zoom ?? 16)
   const [previewWidth, setPreviewWidth] = useState(720)
   const printScale = previewWidth / PRINT_REF_WIDTH
+  /** the map exists and can be projected against — the live fit test hangs off this */
+  const [mapReady, setMapReady] = useState(false)
+  /** the numbers and the legend, as they stood when the last movement SETTLED */
+  const [legend, setLegend] = useState<KrokiLegend>({ numbers: {}, lines: [], unnumbered: 0 })
+  /** the discs that do not fit the frame RIGHT NOW — the one thing recomputed mid-pan */
+  const [outKeys, setOutKeys] = useState<readonly string[]>([])
+  /** a hand (or an animation) is moving the crop: the legend below is a moment behind */
+  const [panning, setPanning] = useState(false)
 
   // same base-layer pick as buildKrokiPayload, so the preview shows the printed basemap
   const base = scene.layers.find((l) => l.base && l.visible && l.tiles?.length) ?? scene.layers.find((l) => l.base && l.tiles?.length)
@@ -189,13 +206,16 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   }), [scene.drawings, drawingsVisible, printScale])
 
   /**
-   * Everything the printed Kroki carries besides the bare geometry: the Teilstück fork, the end
-   * tag («Leitungsnummer · Inhalt · Stockwerk · Trupp») and the distance/label chip.
+   * What the printed Kroki draws INLINE along a line besides the bare geometry: the Teilstück
+   * fork and the end tag («Leitungsnummer · Inhalt · Stockwerk · Trupp»).
    *
    * The preview drew plain lines, so the one screen whose whole job is «this is what comes out»
    * showed less than what came out — you could not see the «-E» you were framing around. Built
    * from the same fields `buildKrokiPayload` sends and rendered with the same components the
    * Lage map uses, so preview, screen and paper cannot drift into three different pictures.
+   *
+   * The distance/label chip is NOT here: on the sheet it is a numbered disc and its words are in
+   * the legend (lib/krokiLegend). The end tag stays because kroki.py keeps printing THAT inline.
    */
   const decor = useMemo(() => (drawingsVisible ? scene.drawings : [])
     .filter((d) => d.kind === 'line' && Array.isArray(d.coords) && d.coords.length >= 2)
@@ -209,20 +229,79 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
       // the paper follow the hand instead is a payload + server change, not a preview one.
       const tagAt = lerpPoint(d.coords[n - 2], end, 0.72) as LngLat
       const trupp = truppForLine(d, trupps)
-      const lines: string[] = []
-      if (d.showDistance) {
-        const m = pathLengthM(d.coords)
-        lines.push(`${fmtDistance(m)} · ${hoseLengthHint(m)}`)
-      }
-      if (d.label) lines.push(d.label)
       return {
-        d, end, tagAt, trupp, lines, tagN: tagNormal(d.coords as LngLat[]),
-        mid: d.coords[(n - 1) >> 1] as LngLat,
+        d, end, tagAt, trupp, tagN: tagNormal(d.coords as LngLat[]),
         color: d.color || appConfig.drawing.defaultColor,
         width: d.width || 4,
         hasTag: hasLineDecor(d) || !!trupp,
       }
     }), [scene.drawings, drawingsVisible, trupps])
+
+  /**
+   * Everything the sheet turns into a numbered disc, in the server's own order (lib/krokiLegend).
+   * Drawing labels and symbol captions only — the end tag above, the Trupp chip and the
+   * Notizzettel print inline and keep their words.
+   */
+  const labels = useMemo(() => krokiLabels({
+    drawings: drawingsVisible ? scene.drawings : [],
+    entities: shown,
+    byName: scene.byName,
+    captionMode,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `shown` is a filter over the same scene
+  }), [scene, drawingsVisible, captionMode])
+  /** identity that actually changed, for the effects below: `scene` is rebuilt every render */
+  const labelsKey = labels.map((l) => `${l.key} | ${l.text}`).join('~')
+  const labelsRef = useRef(labels)
+  useEffect(() => { labelsRef.current = labels })
+
+  /** Project every label against the crop as it stands. Cheap — a handful of points. */
+  const placeAll = (m: MapLibreMap) => {
+    const el = m.getContainer()
+    return placeKrokiLabels(labelsRef.current, (c) => m.project(c), {
+      width: el.clientWidth, height: el.clientHeight, zoom: m.getZoom(), printScale: el.clientWidth / PRINT_REF_WIDTH,
+    })
+  }
+  /** Renumber and rewrite the legend. Runs when a movement SETTLES, not per frame: at preview
+   *  size the figures are ~5px tall and nobody reads them mid-pan, while the projection they
+   *  depend on is the same one the live fit test already does. */
+  const settleLegend = (m: MapLibreMap) => {
+    const placed = placeAll(m)
+    setLegend(numberKrokiLabels(labelsRef.current, placed))
+    setOutKeys(placed.filter((p) => !p.fits).map((p) => p.key))
+  }
+
+  /**
+   * Membership LIVE, numbers on settle.
+   *
+   * A disc going hollow the instant its anchor leaves the crop is the fact worth seeing while
+   * the hand is still moving — «this Hydrant's name will not be on the sheet at all» is the most
+   * consequential thing a pan does, and it used to be invisible on the very screen where the pan
+   * happens. The figures and the legend wait for `moveend`, on the `reportView` channel the panel
+   * already had. The only per-frame work is this projection, and the state is written ONLY when
+   * the answer actually changes — a few times per pan, not a few hundred.
+   */
+  useEffect(() => {
+    const m = mapRef.current?.getMap()
+    if (!m) return
+    const tick = () => {
+      const out = placeAll(m).filter((p) => !p.fits).map((p) => p.key)
+      setOutKeys((prev) => (prev.length === out.length && prev.every((k, i) => k === out[i]) ? prev : out))
+    }
+    const start = () => setPanning(true)
+    const end = () => setPanning(false)
+    m.on('move', tick)
+    m.on('movestart', start)
+    m.on('moveend', end)
+    return () => { m.off('move', tick); m.off('movestart', start); m.off('moveend', end) }
+    // subscribes once the map exists; the labels themselves are read through a ref
+  }, [mapReady])
+
+  /** …and the Lage itself can change under a still crop (a new symbol, another Kroki-Stand) */
+  useEffect(() => {
+    const m = mapRef.current?.getMap()
+    if (m) settleLegend(m)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- labelsKey IS the labels, stably
+  }, [mapReady, labelsKey, landscape])
 
   const fit = () => mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM })
   /** …and go back to following, because «alles zeigen» is a request for exactly that */
@@ -282,12 +361,28 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
     const c = m.getCenter()
     const b = m.getBounds()
     setViewBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
+    // the sheet's numbering settles with the crop — same channel, same moment
+    settleLegend(m)
     onViewChange?.({
       center: [c.lng, c.lat],
       zoom: m.getZoom(),
       bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
     })
   }
+
+  /** The disc, in the server's own units: tested at the TRUE radius, drawn at a legibility
+   *  floor (see KROKI_DISC_MIN_PX — the two radii are the point, not an inconsistency). */
+  const discPx = Math.max(KROKI_DISC_MIN_PX, 2 * KROKI_DISC_R * printScale)
+  // The three plates the compositor pastes on LAST, in its own fractions of the render width
+  // (`u = width / 1050`). Opaque, and exactly where the sheet puts them: until now the operator
+  // could centre a Trupp symbol precisely where the Massstabsbalken was going to land on it.
+  const u = printScale
+  const centerLat = viewBounds ? (viewBounds[1] + viewBounds[3]) / 2 : scene.center[1]
+  // ⚠️ `previewZoom + 1`. MapLibre's camera zoom is defined against a 512px world; the server
+  // measures against 256px tiles and adds the same log2(512/256) in `center_view`. Without it
+  // the bar would claim twice the ground it covers.
+  const scaleBar = krokiScaleBar(pxPerM(centerLat, previewZoom + 1), previewWidth, u)
+  const attribution = base?.attribution ?? DEFAULT_ATTRIBUTION
 
   return (
     <div className="kf-panel">
@@ -309,138 +404,224 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
           ]}
         />
       </div>
-      <div className={cx('kf-map', !landscape && 'portrait')}>
-        {/* Something is placed outside this crop. An ARROW, not a forced zoom-out: what is
-            outside is usually one Hydrant two streets away, and widening the frame to reach it
-            shrinks the part of the picture the sheet is about. It offers the fit; it never
-            takes it. */}
-        {offscreen && !follow && (
-          <button
-            type="button" className="kf-off"
-            style={{ left: `${offscreen.left}%`, top: `${offscreen.top}%` }}
-            title={fillTemplate(P.framingOutside, { n: offscreen.count })}
-            aria-label={fillTemplate(P.framingOutside, { n: offscreen.count })}
-            onClick={fitAndFollow}
+      {/* ── THE PAPER ──
+          The crop and its legend are ONE white plate, because on the sheet they are one thing:
+          the legend carries the words the picture no longer does, and drawing it as app chrome
+          beside a light picture would have made the half people actually read the half that is
+          not a preview. The plate stays light at night (the sheet always is — `buildKrokiPayload`
+          sends `base.tiles[0]`, never the night tiles); the CSS dims it to 80 % in the dark and
+          gives it full brightness back under the hand. Everything that only helps with FRAMING —
+          the hint line, Hoch/Quer, ±, «Auf Einsatz zoomen» — stays outside it. */}
+      <div className={cx('kf-paper', !landscape && 'portrait')}>
+        <div className={cx('kf-map', !landscape && 'portrait')}>
+          {/* Something is placed outside this crop. An ARROW, not a forced zoom-out: what is
+              outside is usually one Hydrant two streets away, and widening the frame to reach it
+              shrinks the part of the picture the sheet is about. It offers the fit; it never
+              takes it. */}
+          {offscreen && !follow && (
+            <button
+              type="button" className="kf-off"
+              style={{ left: `${offscreen.left}%`, top: `${offscreen.top}%` }}
+              title={fillTemplate(P.framingOutside, { n: offscreen.count })}
+              aria-label={fillTemplate(P.framingOutside, { n: offscreen.count })}
+              onClick={fitAndFollow}
+            >
+              <span className="kf-off-arrow" style={{ transform: `rotate(${-offscreen.deg}deg)` }} aria-hidden>
+                <Icon id="chevron" />
+              </span>
+              <span>{offscreen.count}</span>
+            </button>
+          )}
+          <Map
+            ref={mapRef}
+            initialViewState={initial
+              ? { longitude: initial.center[0], latitude: initial.center[1], zoom: initial.zoom }
+              : { bounds, fitBoundsOptions: { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM } }}
+            mapStyle={style}
+            dragRotate={false}
+            pitchWithRotate={false}
+            touchPitch={false}
+            attributionControl={false}
+            onLoad={(e) => { e.target.touchZoomRotate.disableRotation(); syncView(e.target); reportView(e.target); setMapReady(true) }}
+            onMove={(e) => { setPreviewZoom(e.viewState.zoom) }}
+            // `originalEvent` is present only when a HAND moved the map — the programmatic
+            // fitBounds below must not switch its own mode off
+            onMoveEnd={(e) => { if (e.originalEvent) setFollow(false); reportView(e.target) }}
+            onResize={(e) => { syncView(e.target); reportView(e.target) }}
           >
-            <span className="kf-off-arrow" style={{ transform: `rotate(${-offscreen.deg}deg)` }} aria-hidden>
-              <Icon id="chevron" />
-            </span>
-            <span>{offscreen.count}</span>
-          </button>
-        )}
-        <Map
-          ref={mapRef}
-          initialViewState={initial
-            ? { longitude: initial.center[0], latitude: initial.center[1], zoom: initial.zoom }
-            : { bounds, fitBoundsOptions: { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM } }}
-          mapStyle={style}
-          dragRotate={false}
-          pitchWithRotate={false}
-          touchPitch={false}
-          attributionControl={false}
-          onLoad={(e) => { e.target.touchZoomRotate.disableRotation(); syncView(e.target); reportView(e.target) }}
-          onMove={(e) => { setPreviewZoom(e.viewState.zoom) }}
-          // `originalEvent` is present only when a HAND moved the map — the programmatic
-          // fitBounds below must not switch its own mode off
-          onMoveEnd={(e) => { if (e.originalEvent) setFollow(false); reportView(e.target) }}
-          onResize={(e) => { syncView(e.target); reportView(e.target) }}
-        >
-          <Source id="draws" type="geojson" data={geojson}>
-            <Layer id="draw-fill" type="fill" filter={['==', ['get', 'area'], true]} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': 0.14 }} />
-            {/* solid and dashed are separate layers: line-dasharray is not data-driven in
-                MapLibre, and a Druckleitung drawn dashed printed solid in the preview */}
-            <Layer id="draw-line" type="line" filter={['!=', ['get', 'dashed'], true]}
-              paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] }} />
-            <Layer id="draw-line-dash" type="line" filter={['==', ['get', 'dashed'], true]}
-              paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-dasharray': [2.2, 1.6] }} />
-          </Source>
-          {decor.map((ld) => (
-            <Fragment key={`kd${ld.d.id}`}>
-              {ld.d.teilstueck && (
-                <Marker longitude={ld.end[0]} latitude={ld.end[1]} anchor="center">
-                  {/* ⚠️ Scaled as a WHOLE, never by handing it a smaller width. `forkDims` floors
-                      the spine at 14 screen px — a deliberate finger/legibility floor on the Lage
-                      map — so a scaled-down width simply hits the floor and the fork keeps full
-                      size while the line beside it shrinks: a giant comb on a hairline. Passing
-                      the real width and scaling the rendered glyph keeps fork and line in the
-                      proportion the sheet prints them in. */}
-                  <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
-                    <TeilstueckFork angleDeg={forkBearing(ld.d.coords, previewZoom, Math.max(10, ld.width * 2.5))} color={ld.color} width={ld.width} />
-                  </div>
-                </Marker>
-              )}
-              {/* zIndex: above the line's own decorations — see MapView for why it has to sit on
-                  the marker container, and the printed Kroki has to match the screen */}
-              {ld.hasTag && (
-                <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" style={{ zIndex: 3 }}>
-                  {/* no alarm tint here, exactly as on paper: a printed Kroki is the record of
-                      an incident, not a live board (see krokiPayload · drawings) */}
-                  {/* ⚠️ `translate` in PERCENT, and it has to come after the scale: a percentage
-                      resolves against the element's OWN box, so `50%` is exactly «half the tag in
-                      this direction» — the support function kroki.py computes by hand from the
-                      text width. No measuring, and it stays right when the tag grows a Trupp
-                      name. The px term is half the stroke plus a hair of air; it rides inside
-                      the scale, so it shrinks with everything else. */}
-                  <div className="kf-print-scale" style={{ transform: `scale(${printScale}) translate(calc(${(ld.tagN[0] * 50).toFixed(2)}% + ${(ld.tagN[0] * (ld.width / 2 + 7)).toFixed(2)}px), calc(${(ld.tagN[1] * 50).toFixed(2)}% + ${(ld.tagN[1] * (ld.width / 2 + 7)).toFixed(2)}px))` }}>
-                    <EndTag lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
-                      trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone="idle" color={ld.color} oneLine />
-                  </div>
-                </Marker>
-              )}
-              {ld.lines.length > 0 && (
-                <Marker longitude={ld.mid[0]} latitude={ld.mid[1]} anchor="center">
-                  <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
-                    <span className="kf-plain kf-draw-label">{ld.lines.join('\n')}</span>
-                  </div>
-                </Marker>
-              )}
-            </Fragment>
-          ))}
-          {shown.map((e) => (
-            <Marker key={e.id} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center">
-              {(() => {
-                const printable = krokiEntity(e, scene.byName, captionMode)
-                if (!printable) return null
-                if (e.kind === 'shape') {
-                  const size = shapePx(e.sizeM, e.coord[1], previewZoom)
+            <Source id="draws" type="geojson" data={geojson}>
+              <Layer id="draw-fill" type="fill" filter={['==', ['get', 'area'], true]} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': 0.14 }} />
+              {/* solid and dashed are separate layers: line-dasharray is not data-driven in
+                  MapLibre, and a Druckleitung drawn dashed printed solid in the preview */}
+              <Layer id="draw-line" type="line" filter={['!=', ['get', 'dashed'], true]}
+                paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] }} />
+              <Layer id="draw-line-dash" type="line" filter={['==', ['get', 'dashed'], true]}
+                paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-dasharray': [2.2, 1.6] }} />
+            </Source>
+            {decor.map((ld) => (
+              <Fragment key={`kd${ld.d.id}`}>
+                {ld.d.teilstueck && (
+                  <Marker longitude={ld.end[0]} latitude={ld.end[1]} anchor="center">
+                    {/* ⚠️ Scaled as a WHOLE, never by handing it a smaller width. `forkDims` floors
+                        the spine at 14 screen px — a deliberate finger/legibility floor on the Lage
+                        map — so a scaled-down width simply hits the floor and the fork keeps full
+                        size while the line beside it shrinks: a giant comb on a hairline. Passing
+                        the real width and scaling the rendered glyph keeps fork and line in the
+                        proportion the sheet prints them in. */}
+                    <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
+                      <TeilstueckFork angleDeg={forkBearing(ld.d.coords, previewZoom, Math.max(10, ld.width * 2.5))} color={ld.color} width={ld.width} />
+                    </div>
+                  </Marker>
+                )}
+                {/* zIndex: above the line's own decorations — see MapView for why it has to sit on
+                    the marker container, and the printed Kroki has to match the screen */}
+                {ld.hasTag && (
+                  <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" style={{ zIndex: 3 }}>
+                    {/* no alarm tint here, exactly as on paper: a printed Kroki is the record of
+                        an incident, not a live board (see krokiPayload · drawings) */}
+                    {/* ⚠️ `translate` in PERCENT, and it has to come after the scale: a percentage
+                        resolves against the element's OWN box, so `50%` is exactly «half the tag in
+                        this direction» — the support function kroki.py computes by hand from the
+                        text width. No measuring, and it stays right when the tag grows a Trupp
+                        name. The px term is half the stroke plus a hair of air; it rides inside
+                        the scale, so it shrinks with everything else. */}
+                    <div className="kf-print-scale" style={{ transform: `scale(${printScale}) translate(calc(${(ld.tagN[0] * 50).toFixed(2)}% + ${(ld.tagN[0] * (ld.width / 2 + 7)).toFixed(2)}px), calc(${(ld.tagN[1] * 50).toFixed(2)}% + ${(ld.tagN[1] * (ld.width / 2 + 7)).toFixed(2)}px))` }}>
+                      <EndTag lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
+                        trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone="idle" color={ld.color} oneLine />
+                    </div>
+                  </Marker>
+                )}
+                {/* the distance/label chip is NOT drawn here any more — on the sheet it is a
+                    numbered disc and its words are in the legend below (see the disc markers) */}
+              </Fragment>
+            ))}
+            {shown.map((e) => (
+              <Marker key={e.id} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center">
+                {(() => {
+                  const printable = krokiEntity(e, scene.byName, captionMode)
+                  if (!printable) return null
+                  if (e.kind === 'shape') {
+                    const size = shapePx(e.sizeM, e.coord[1], previewZoom)
+                    return (
+                      <div className="kf-print-box" style={{ width: size * printScale, height: size * printScale }}>
+                        <div className="kf-print-inner kf-glyph" style={{ width: size, height: size, transform: `translate(-50%, -50%) scale(${printScale}) rotate(${e.rotation ?? 0}deg)` }}>
+                          <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} />
+                        </div>
+                      </div>
+                    )
+                  }
+                  // Glyph-less markers. The server has exactly TWO of these (kroki.py, the
+                  // `if not svg` branch): the Trupp dot and the Notizzettel, whose text it prints
+                  // INLINE and never numbers. Everything else glyph-less it skips entirely — the
+                  // preview used to draw a chip for those too, inventing a label the sheet has no
+                  // way to produce.
+                  if (!printable.symbolSvg && !printable.symbol) {
+                    return printable.caption && (e.kind === 'team' || e.kind === 'note') ? (
+                      <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
+                        <span className={`kf-plain ${e.kind}`}>{printable.caption}</span>
+                      </div>
+                    ) : null
+                  }
+                  const svg = printable.symbolSvg ?? scene.byName[printable.symbol ?? ''] ?? ''
+                  const size = symPx(e.kind, e.coord[1], previewZoom, krokiSymbolMul(previewZoom))
                   return (
                     <div className="kf-print-box" style={{ width: size * printScale, height: size * printScale }}>
-                      <div className="kf-print-inner kf-glyph" style={{ width: size, height: size, transform: `translate(-50%, -50%) scale(${printScale}) rotate(${e.rotation ?? 0}deg)` }}>
-                        <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} />
+                      <div className="kf-print-inner" style={{ transform: `translate(-50%, -50%) scale(${printScale})` }}>
+                        <TacticalSymbol
+                          svg={svg}
+                          sizePx={size}
+                          rotation={printable.rotation ?? 0}
+                          floor={printable.floor}
+                          floorFrom={printable.floorFrom}
+                          floorTo={printable.floorTo}
+                          spread={printable.spread}
+                          count={printable.count}
+                          // no `caption` — on the sheet the words are a numbered disc plus a
+                          // legend line (kroki.py, the collision pass). Drawing them here made
+                          // the preview a picture that never comes out, and hid the fact that a
+                          // caption whose disc leaves the frame is dropped from the sheet.
+                        />
                       </div>
                     </div>
                   )
-                }
-                if (!printable.symbolSvg && !printable.symbol) {
-                  return printable.caption ? (
-                    <div className="kf-print-scale" style={{ transform: `scale(${printScale})` }}>
-                      <span className={`kf-plain ${e.kind}`}>{printable.caption}</span>
-                    </div>
-                  ) : null
-                }
-                const svg = printable.symbolSvg ?? scene.byName[printable.symbol ?? ''] ?? ''
-                const size = symPx(e.kind, e.coord[1], previewZoom, krokiSymbolMul(previewZoom))
-                return (
-                  <div className="kf-print-box" style={{ width: size * printScale, height: size * printScale }}>
-                    <div className="kf-print-inner" style={{ transform: `translate(-50%, -50%) scale(${printScale})` }}>
-                      <TacticalSymbol
-                        svg={svg}
-                        sizePx={size}
-                        rotation={printable.rotation ?? 0}
-                        floor={printable.floor}
-                        floorFrom={printable.floorFrom}
-                        floorTo={printable.floorTo}
-                        spread={printable.spread}
-                        count={printable.count}
-                        caption={printable.caption}
-                      />
-                    </div>
-                  </div>
-                )
-              })()}
-            </Marker>
-          ))}
-        </Map>
+                })()}
+              </Marker>
+            ))}
+            {/* ── the words, as the sheet carries them ──
+                A filled disc with its figure while it fits; a hollow amber ring the moment it does
+                not, because then the server clips it and its line never reaches the legend. The
+                ring sits at its real place and is cut in half by the frame edge — exactly what
+                happens to the disc on paper. */}
+            {labels.map((l) => {
+              const out = outKeys.includes(l.key)
+              const n = legend.numbers[l.key]
+              return (
+                <Marker key={`kn${l.key}`} longitude={l.at[0]} latitude={l.at[1]} anchor="center" style={{ zIndex: 4 }}>
+                  <span
+                    className={cx('kf-disc', out && 'kf-disc-out')}
+                    style={{
+                      width: discPx, height: discPx, fontSize: discPx * 0.625,
+                      transform: `translateY(${discOffsetPx(l, previewZoom, printScale)}px)`,
+                    }}
+                    title={out ? P.framingDiscOut : l.text}
+                  >{out ? '' : (n ?? '')}</span>
+                </Marker>
+              )
+            })}
+          </Map>
+          {/* The three plates the compositor pastes on LAST, non-interactive and in the server's
+              own fractions (kroki.py · _north_arrow / _scale_bar / the attribution rect). They are
+              tiny here — the scale label is ~5px — and that is the honest size: they are opaque,
+              and what they cost is the corner of the picture they cover. */}
+          <span className="kf-furniture kf-north" aria-hidden
+            style={{ right: 14 * u, top: 14 * u, width: 34 * u, height: 34 * u }}>
+            {/* the same dial as kroki.py · north_dial_svg — the N INSIDE the ring, and a dart
+                rather than a needle, because at print size a needle turns to mush */}
+            <svg viewBox="-25 -25 50 50" aria-hidden>
+              <circle r="24" fill="#ffffff" fillOpacity="0.9" stroke="#5b6573" strokeWidth="1.5" />
+              <text y="-13" textAnchor="middle" fontSize="13" fontWeight="700" fill="#1c1c1c">N</text>
+              <path d="M0 -8 L10 16 L0 7 L-10 16 Z" fill="#1c1c1c" />
+            </svg>
+          </span>
+          {scaleBar && (
+            <span className="kf-furniture kf-scale" aria-hidden
+              style={{ left: 9 * u, bottom: 6 * u, width: scaleBar.platePx, height: 29 * u }}>
+              <span className="kf-scale-nums" style={{ left: 5 * u, top: 5 * u, width: scaleBar.barPx, fontSize: 11 * u }}>
+                <i>0</i><i>{scaleBar.metres} m</i>
+              </span>
+              <span className="kf-scale-bar" style={{ left: 5 * u, top: 19 * u, width: scaleBar.barPx, height: 5 * u }}>
+                <i /><i /><i /><i />
+              </span>
+            </span>
+          )}
+          <span className="kf-furniture kf-attrib" aria-hidden
+            style={{ right: 0, bottom: 0, height: 18 * u, paddingInline: 6 * u, fontSize: 11 * u }}>{attribution}</span>
+        </div>
+        {/* «Legende» — the words the picture no longer carries. Two columns, filled down the first
+            and then the second, which is the order report_pdf.py lays them out in; below the
+            two-column breakpoint one column, where the sheet's own halving would only shorten
+            lines that are already short. */}
+        {/* nothing labelled in the whole Lage → no legend at all, exactly as the sheet prints
+            it. «nichts im Ausschnitt» is a different statement and stays: it means the pan has
+            pushed every name off the paper. */}
+        {labels.length > 0 && (
+          <div className={cx('kf-legend', panning && 'pending')}>
+            <span className="kf-legend-head">{P.framingLegend}</span>
+            {legend.lines.length > 0 ? (
+              <ol className="kf-legend-list">
+                {legend.lines.map((t, i) => (
+                  <li key={i}><b>{i + 1}</b><span>{t}</span></li>
+                ))}
+              </ol>
+            ) : (
+              <p className="kf-legend-wait">{P.framingLegendEmpty}</p>
+            )}
+            {legend.unnumbered > 0 && (
+              <p className="kf-legend-miss">{fillTemplate(P.framingLegendMissing, { n: legend.unnumbered })}</p>
+            )}
+            {panning && <p className="kf-legend-wait">{P.framingLegendPending}</p>}
+          </div>
+        )}
       </div>
       {/* The controls belong to the PANEL, not to the picture. Floating on the map they
           covered the very crop they were there to adjust — the ± column sat on the Stand

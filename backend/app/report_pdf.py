@@ -1628,9 +1628,9 @@ def compose_report_pdf(
         if img:
             story.append(Spacer(1, 4))
             story.append(img)
-        # ⚠️ Numbers on the picture are useless without this. The renderer only falls back to
-        # them when the words could not all be printed where they belong (kroki · the collision
-        # pass), and the legend is where they go — with room for the FULL text, which is the
+        # ⚠️ Numbers on the picture are useless without this. The renderer numbers every drawing
+        # label and symbol caption (kroki · not a collision fallback, that was dropped 09.08.),
+        # and the legend is where the words go — with room for the FULL text, which is the
         # other reason it is the better fallback than a shortened chip.
         if kroki_legend:
             story.append(Spacer(1, 4))

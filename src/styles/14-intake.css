@@ -94,17 +94,21 @@
 
 /* Something is placed outside the crop. A pill parked at the frame edge in the direction the
    content lies — it says «there is more, that way» and offers the fit rather than taking it
-   (zooming out to reach one far Hydrant shrinks the half of the picture that matters). */
+   (zooming out to reach one far Hydrant shrinks the half of the picture that matters).
+   ⚠️ It is an ACTION — it pans the crop — so it wears the ordinary primary skin, NOT amber.
+   Amber on this surface means exactly one thing: «this will not be on the sheet» (the hollow
+   disc and the «ohne Nummer» legend line). It also has to clear the sheet furniture it may
+   sit over, hence the z-index. */
 .kf-off {
-  position: absolute; z-index: 3; transform: translate(-50%, -50%);
+  position: absolute; z-index: 6; transform: translate(-50%, -50%);
   display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px;
   border-radius: 999px; cursor: pointer; -webkit-tap-highlight-color: transparent;
-  border: 1px solid color-mix(in srgb, var(--amber) 55%, transparent);
-  background: color-mix(in srgb, var(--amber) 88%, var(--surface));
-  color: #241a05; font: 800 12px var(--body);
+  border: 1px solid transparent;
+  background: var(--btn-primary); color: var(--on-btn-primary);
+  font: 800 12px var(--body);
   box-shadow: 0 2px 10px rgba(0, 0, 0, .28);
 }
-.kf-off:hover { background: var(--amber); }
+.kf-off:hover { background: var(--btn-primary-hover); }
 /* the glyph is rotated by the caller to point at the off-screen content; the chevron's own
    art points RIGHT, which is 0° */
 .kf-off-arrow { display: grid; place-items: center; }
@@ -128,9 +132,6 @@
 .kf-plain { display: block; padding: 4px 7px; border: 1px solid var(--glass-line); border-radius: var(--r-xs);
   background: var(--glass); color: var(--ink); font: 700 11px var(--body); white-space: nowrap; }
 .kf-plain.team { padding: 3px 6px; border-radius: var(--r-pill); }
-/* the drawing label chip stacks «Distanz · Schlauchhinweis» over the free label, like the print
-   composes it — `nowrap` above would otherwise run both onto one line */
-.kf-draw-label { white-space: pre-line; text-align: center; }
 /* Phone: the crop gives up height. It is opened deliberately here (the fold starts closed below
    the two-column breakpoint), and what it is opened FOR is to check the framing — a picture that
    fills the screen would leave nothing of the rapport it belongs to visible around it. */
@@ -138,61 +139,16 @@
   .kf-panel { --kf-map-h: min(38vh, 300px); }
 }
 
-@keyframes dv-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* ⚠️ TOMBSTONE, 23.08. — `.dv-banner` (+ pulse/kicker/main/sub/act/x, the `dv-in` and `dv-ring`
+   keyframes) and `.rv-banner` (+ 12 `rv-*` rules) are gone. Both were fixed, centred cards on the
+   same axis as three other banners, at z-60 and z-57, and the wider of the two covered the due
+   Wiedervorlage completely. They are rows in the Meldeleiste now (`.ml` in `08-toasts.css`).
+   ⚠️ The review card was a FORM, not a banner: 700px, a 4-line clamped Meldung and a Combo for
+   the Einsatzart. That is why it could not become a row unchanged — the Einsatzart picker went
+   back to the edit panel, which has always carried the same Combo (`.ip-field` · categoryLabel
+   in EinsatzWizard). The row keeps «Passt» and «Bearbeiten», and still turns amber and says so
+   when no coordinate could be resolved. */
 
-.dv-banner { position: fixed; top: calc(72px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 60;
-  display: flex; align-items: center; gap: 13px; width: min(560px, calc(100vw - 28px)); padding: 12px 14px;
-  border-radius: var(--r-btn); background: var(--glass);
-  border: 1px solid color-mix(in srgb, var(--red) 50%, var(--glass-line));
-  box-shadow: 0 12px 34px rgba(0, 0, 0, .28), 0 0 0 1px color-mix(in srgb, var(--red) 22%, transparent);
-  backdrop-filter: blur(12px); animation: dv-in .22s var(--ease); }
-.dv-banner-pulse { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
-  background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
-.dv-banner-pulse svg { width: 19px; height: 19px; animation: dv-ring 1.6s var(--ease) infinite; transform-origin: 50% 20%; }
-@keyframes dv-ring { 0%, 68%, 100% { transform: rotate(0); } 74% { transform: rotate(-13deg); } 82% { transform: rotate(11deg); } 90% { transform: rotate(-6deg); } }
-.dv-banner-main { flex: 1; min-width: 0; }
-.dv-banner-kicker { font: 800 10.5px var(--body); letter-spacing: .07em; text-transform: uppercase; color: var(--red); }
-.dv-banner-title { font: 700 15px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dv-banner-sub { font: 500 12px var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dv-banner-act { flex: none; display: flex; align-items: center; gap: 8px; }
-.dv-banner-x { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border: none; background: none; cursor: pointer; border-radius: var(--r-sm); color: var(--ink-faint); }
-@media (max-width: 600px) {
-  /* Öffnen + Anhängen + «n weitere» + ✕ never fit beside the alarm text on a phone —
-     wrap the whole action row under it (see the .update-banner note: spilled fixed
-     content widens the iOS layout viewport and shifts the entire app) */
-  .dv-banner { flex-wrap: wrap; }
-  .dv-banner-main { flex: 1 1 auto; }
-  .dv-banner-act { flex: 1 1 100%; justify-content: flex-end; }
-}
-.dv-banner-x:hover { background: var(--hover-strong); color: var(--ink); }
-.dv-banner-x svg { width: 16px; height: 16px; }
-
-.rv-banner { position: fixed; top: calc(84px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 57;
-  display: flex; flex-direction: column; gap: 8px; width: min(700px, calc(100vw - 28px)); padding: 11px 14px 12px;
-  border-radius: var(--r-ctl); background: var(--glass); border: 1px solid var(--glass-line);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, .24); backdrop-filter: blur(12px); animation: dv-in .22s var(--ease); }
-.rv-banner.rv-warn { border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-line)); }
-.rv-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.rv-head svg { flex: none; width: 15px; height: 15px; color: var(--blue); }
-.rv-warn .rv-head svg { color: var(--amber); }
-.rv-kicker { font: 800 10px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
-/* the pager block: Stichwort, Adresse, Meldung stacked tight (negative margins pull them
-   together against the banner's 8px column gap) — read top-down, verify, «Passt» */
-.rv-title { margin-top: -4px; font: 700 15px var(--body); color: var(--ink); overflow-wrap: anywhere; }
-.rv-addr { margin-top: -6px; font: 600 13.5px var(--body); color: var(--ink); overflow-wrap: anywhere; }
-.rv-warn .rv-addr { color: var(--amber); }
-.rv-msg { margin-top: -4px; font: 500 12.5px/1.45 var(--body); color: var(--ink-dim);
-  white-space: pre-wrap; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-/* Einsatzart + actions share a row; the actions wrap to their own right-aligned line when
-   the Combo leaves too little room (phones) — no breakpoint needed */
-.rv-body { display: flex; align-items: center; column-gap: 10px; row-gap: 8px; flex-wrap: wrap; }
-.rv-type { display: flex; flex: 1 1 180px; max-width: 250px; min-width: 0; }
-.rv-act { flex: none; margin-left: auto; display: flex; align-items: center; gap: 8px; }
-@media (max-width: 600px) {
-  .rv-type { max-width: none; }
-  .rv-act { margin-left: 0; flex: 1 1 auto; justify-content: flex-end; }
-}
 
 /* PWA: offline map pre-download control in the Ebenen panel (dock chrome — white on
    --ink-fill like the other panel rows) */
