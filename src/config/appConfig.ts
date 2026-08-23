@@ -413,9 +413,6 @@ const base = {
      *  shows each symbol's one discriminating value so an operator reads it without opening
      *  the dashboard — the 3am "recognition over recall" rule. */
     captionDefault: 'auto',
-    /** below this map zoom, captions are hidden so a wide view doesn't turn to soup (the
-     *  glyphs are tiny there anyway). The Plan has no zoom, so it always shows them. */
-    captionMinZoom: 16,
   },
   drawing: {
     colors: ['#1f6feb', '#e8392b', '#1f9d57', '#e2920a', '#1b2330', '#ffffff'],

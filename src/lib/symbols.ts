@@ -132,7 +132,9 @@ export function symbolFieldOptions(name: string | undefined, cat: string | undef
 // Mirrors the line-label idea (a Drawing's `label` at its midpoint) for symbols: instead of
 // free text, the caption is DERIVED from the symbol's own detail fields, so an operator reads
 // "CO₂" under a Kleinlöscher without opening its dashboard (recognition over recall). Shown on
-// BOTH surfaces via TacticalSymbol; the Lage map additionally zoom-gates it (captionMinZoom).
+// BOTH surfaces via TacticalSymbol. The Lage map no longer zoom-gates captions — one label
+// pass (lib/labelPass) arbitrates them against every other label instead, so a caption is
+// shown whole or degrades to a dot rather than the whole class switching off below z16.
 
 /** The detail field that identifies a symbol at a glance — the preset's declared `caption`,
  *  else its first field. Undefined for a fields-less symbol (then only a custom label captions). */

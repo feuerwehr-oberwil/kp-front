@@ -21,6 +21,7 @@ import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHu
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, symbolCaptionText, ROTATABLE } from '../lib/symbols'
+import { softHyphenateText } from '../lib/symbolWrap'
 import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
@@ -79,7 +80,8 @@ interface Props {
   /** global S/M/L symbol-size multiplier (lib/prefs · symbolMul) — scales the plan symbol base */
   symMul?: number
   /** device default for on-canvas symbol captions (lib/prefs · symbolCaptions). The Plan has no
-   *  zoom, so captions show whenever the mode is on (no zoom gate, unlike the Lage map). */
+   *  zoom, so captions show whenever the mode is on; the Lage map runs them through its label
+   *  pass instead (neither surface zoom-gates them any more). */
   captionMode?: CaptionMode
   onChange: (next: BoardAnno[]) => void
   building: BuildingDoc | null
@@ -1870,7 +1872,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         count={a.count}
                         // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
                         // keeps the rest (Fahrer, eigene Felder, Notizen), which only 'Alle' prints
-                        caption={symbolCaptionText(a, captionMode)}
+                        // …and the seams come with it: .sym-caption wraps on both surfaces now,
+                        // and German breaks by syllable unless the curated table is asked first.
+                        caption={(() => { const c = symbolCaptionText(a, captionMode); return c ? softHyphenateText(c) : c })()}
                         className="ts-plan"
                       />
                       {/* boom AFTER the body → paints on top (mounted on the turntable / roof) */}

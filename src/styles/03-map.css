@@ -28,9 +28,13 @@
 /* Fat-finger touch slop: an invisible hit pad a little larger than the glyph, so a tap that
    lands just shy of the symbol still selects it. Because markers are DOM nodes ABOVE the map
    canvas, this pad also wins over any area/Absperrkreis drawn underneath (those live on the
-   canvas). Kept modest (~10px) so two symbols sitting close together don't swallow each other's
-   targets — where pads do overlap, the upper (later-drawn / hovered, z-index 5) marker wins.
-   Not on notes: they're already a wide pill and own inline-text editing. */
+   canvas). Not on notes: they're already a wide pill and own inline-text editing.
+   ⚠️ Where two pads OVERLAP the CSS no longer decides. It used to: equal z-index falls back to
+   DOM order = placement order = the alarm's history, so a tap between the Wasserbezugsort and
+   the Kleinlöscher you set after it always gave you the Kleinlöscher. The winner is now picked
+   in JS by NEAREST CENTRE, and a tap that covers more than one fans the pile out
+   (MapMarkers · pileAt / fanOffsets). Keep the pad modest all the same — it is what the hit
+   test measures against. */
 .marker:not(.marker-note)::before {
   content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 0;
   width: max(calc(var(--gpx) + 20px), 44px); height: max(calc(var(--gpx) + 20px), 44px);
@@ -92,13 +96,39 @@
 /* metadata caption — a symbol's discriminating value(s) printed just under its glyph (e.g.
    "CO₂" under a Kleinlöscher), so an operator reads it without opening the dashboard. Same
    chrome as the line label (.measure-label.draw-label / .wb-line-label) for Lage↔Plan parity;
-   a sibling of the glyph so it never rotates. Centred below, may stack lines (the 'all' mode). */
+   a sibling of the glyph so it never rotates. Centred below, may stack lines (the 'all' mode).
+   ⚠️ It WRAPS, and it no longer truncates. `text-overflow: ellipsis` used to be the whole
+   collision strategy on this map — «Salpetersäure, rau…» — which hid the one word that
+   discriminates the symbol while still costing the full 132px of ink. Collisions are decided
+   by the label pass now (lib/labelPass · placeLabels): a caption is either shown WHOLE or
+   replaced by a 6px dot on its glyph. What is left here is the wrap, and it must break at the
+   compound seams U+00AD from lib/symbolWrap — hence `hyphens: manual`. NEVER `hyphens: auto`:
+   the browser's German dictionary breaks by syllable («Kontrollpos-ten»). `overflow-wrap` is
+   the last resort for a single word longer than the box, nothing more. */
 .sym-caption { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 3px; z-index: 6;
   display: flex; flex-direction: column; align-items: center; gap: 1px; max-width: 132px;
   padding: 1px 6px; border-radius: var(--r-xs); background: var(--surface); color: var(--ink);
-  font-size: 11.5px; font-weight: 700; line-height: 1.25; text-align: center; white-space: nowrap;
+  font-size: 11.5px; font-weight: 700; line-height: 1.25; text-align: center;
+  hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word;
   box-shadow: 0 1px 4px rgba(0, 0, 0, .25); pointer-events: none; }
-.sym-caption > span { overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.sym-caption > span { max-width: 120px; }
+/* ── the suppressed name: ONE dot, everywhere the same ──
+   A label the pass could not fit is not drawn at all — but its absence has to be legible, or
+   the operator cannot tell "nothing to say" from "something is hidden here". So the glyph wears
+   a 6px ink dot at its lower-right: one learnable mark instead of seven truncation patterns,
+   and selecting the symbol always brings the real label back (the selection is exempt from
+   suppression). Ink fill on a surface-coloured rim, so it reads dark-on-light by day and
+   light-rimmed-on-dark at night — no frozen white. */
+.ink-dot { width: 6px; height: 6px; border-radius: 50%; box-sizing: content-box;
+  background: var(--ink-fill); border: 1.5px solid var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 22, 34, .4); pointer-events: none; }
+/* on a glyph it hangs off the symbol's lower-right corner; standing alone in its own Marker
+   (a line readout / radius, which has no glyph) it just centres on the label's anchor */
+.marker > .ink-dot { position: absolute; z-index: 7;
+  left: calc(50% + var(--gpx) / 2 - 1px); top: calc(50% + var(--gpx) / 2 - 1px); transform: translate(-50%, -50%); }
+/* a Trupp's marker is the 13px coloured dot, not the 56px --gpx box its handles are sized from,
+   so its ink dot hangs off THAT instead of floating half a symbol away */
+.team-dot + .ink-dot { left: calc(50% + 5px); top: calc(50% + 5px); }
 /* inner wrapper carries the symbol's own rotation (chip + glyph rotate together),
    so selection scale / hover stay on the outer .ts and don't fight the rotation */
 .ts-rot { width: 100%; height: 100%; line-height: 0; border-radius: var(--r-xs); }
@@ -124,6 +154,18 @@
    glyph still fits inside its halo (sized to the true glyph px, with ~10px of slack each side) */
 .marker.sel .ts { transform: scale(1.22); animation: selpop .24s var(--ease); }
 @keyframes selpop { 0% { transform: scale(1); } 55% { transform: scale(1.36); } 100% { transform: scale(1.22); } }
+
+/* ── the pile, fanned ──
+   A tap that lands inside more than one hit pad does not guess. The candidates slide onto short
+   spokes around their own centre of gravity, each keeping a hairline back to where it really is,
+   and the next tap picks one. Transient and tap-only: this hairline is the ONLY leader line in
+   the whole map design — nothing here is standing furniture, and no symbol is ever LEFT away
+   from its true position. A tap anywhere else (or Esc) closes it. */
+.marker.fanned { transform: translate(var(--fan-dx, 0), var(--fan-dy, 0)); transition: transform .14s var(--ease); }
+.fan-spoke { position: absolute; left: 50%; top: 50%; width: 0; height: 0; overflow: visible;
+  pointer-events: none; z-index: 0; }
+.fan-spoke line { stroke: var(--ink-faint); stroke-width: 1; }
+.fan-spoke circle { fill: var(--ink-faint); }
 .ts.photo { width: 58px; height: 44px; }
 
 /* editable shapes (arrow / cloud / square) — sized in metres, rotated in place.

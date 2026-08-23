@@ -10,6 +10,8 @@ import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
+import { softHyphenateText } from '../lib/symbolWrap'
+import { fanOffsets, pileAt } from '../lib/labelPass'
 import { noteScale, noteWPx, clampNoteWPx } from '../lib/notes'
 import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer } from '../lib/mapView'
 
@@ -64,6 +66,9 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd }: {
 // actually starts following — so a tremble while holding (or holding a beat too long) can't nudge it
 const DRAG_DEADZONE_PX = 6
 
+/** Kinds the nearest-centre hit test arbitrates: compact glyphs, centred on their coordinate. */
+const PILE_KINDS: Entity['kind'][] = ['symbol', 'vehicle', 'person']
+
 /** Park the caret AFTER the existing text instead of selecting all of it. Re-opening a note is
  *  almost always "add a line", and a full selection means the next keystroke silently wipes
  *  what was already written — the worst possible default with gloves on. */
@@ -105,8 +110,12 @@ interface Props {
   /** global S/M/L symbol-size multiplier (lib/prefs · symbolMul) — scales the symPx band */
   symMul?: number
   /** device default for on-canvas symbol captions; a symbol's own `caption` overrides it.
-   *  Captions are additionally hidden below appConfig.symbols.captionMinZoom (declutter). */
+   *  Whether a caption actually FITS is decided once for the whole map — see suppressedLabels. */
   captionMode?: CaptionMode
+  /** Keys the one label pass (MapView · lib/labelPass) decided cannot be drawn without covering
+   *  something that outranks them: `cap:<id>` for a symbol caption, `team:<id>` for a Trupp's
+   *  name. Their owners paint the 6px ink dot instead. The SELECTED entity is never in here. */
+  suppressedLabels?: ReadonlySet<string>
   /** tactical editing is locked (viewer / Führungsansicht / replay): a tap still selects
    *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView). */
   readOnly?: boolean
@@ -165,9 +174,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
-  // captions declutter out below a zoom threshold (glyphs are tiny there); the Plan has no zoom
-  const captionsVisible = zoom >= appConfig.symbols.captionMinZoom
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)
@@ -228,6 +235,52 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // (dropped on drop). Set only once the drag clears the deadzone, so a hold that never moves
   // shows nothing.
   const [draggingId, setDraggingId] = useState<string | null>(null)
+
+  // ── the pile ────────────────────────────────────────────────────────────────────────────
+  // Screen-px offsets for the markers of a fanned pile, keyed by entity id. Computed ONCE, at
+  // the tap: they are a transient answer to "which of these did you mean", not a layout — so
+  // they ride along with a pan (the pile moves as one) and the next tap ends them either way.
+  // The view they were computed for is stored with them: a zoom or a rotation re-lays the whole
+  // map out under the spokes, so the answer expires by DERIVATION rather than by an effect that
+  // would have to race the re-render.
+  const [fanState, setFan] = useState<{ view: string; offsets: Record<string, { dx: number; dy: number }> } | null>(null)
+  const view = `${zoom}|${bearing}`
+  const fan = fanState?.view === view ? fanState.offsets : null
+  const openFan = (offsets: Record<string, { dx: number; dy: number }>) => setFan({ view, offsets })
+  // A tap anywhere that is not a fanned glyph closes the fan — including a tap on the map, which
+  // this component never sees otherwise. Capture phase, and bound only while a fan is open.
+  useEffect(() => {
+    if (!fan) return
+    const away = (ev: PointerEvent) => {
+      if ((ev.target as Element | null)?.closest?.('.marker.fanned')) return
+      setFan(null)
+    }
+    const esc = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setFan(null) }
+    document.addEventListener('pointerdown', away, true)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc) }
+  }, [fan])
+
+  /**
+   * Every marker whose fat-finger pad this tap landed in, nearest centre first.
+   *
+   * Compact, centre-anchored glyphs only. A note is a wide pill and a shape is metres across,
+   * so "distance to my centre" says nothing useful about either — those keep the browser's own
+   * hit test, which for a big box is the right answer anyway.
+   */
+  const pileUnder = (el: EventTarget & Element, clientX: number, clientY: number, self: Entity) => {
+    if (!PILE_KINDS.includes(self.kind)) return []
+    const r = el.closest('.maplibregl-map')?.getBoundingClientRect()
+    if (!r) return []
+    const tap = { x: clientX - r.left, y: clientY - r.top }
+    return pileAt(tap, entities.flatMap((x) => {
+      if (!PILE_KINDS.includes(x.kind) || !Array.isArray(x.coord) || !isVisible(effectiveLayer(x))) return []
+      const p = project(x.coord as LngLat)
+      // pad diameter mirrors .marker::before in 03-map.css — the hit test has to measure the
+      // same slop the operator can see the effect of
+      return p ? [{ id: x.id, x: p.x, y: p.y, pad: Math.max(symPx(x.kind, x.coord[1], zoom, symMul) + 20, 44) }] : []
+    }))
+  }
 
   // rotate a marker by dragging its handle: angle from the glyph centre to the pointer becomes the
   // glyph rotation (0° = pointing right). NOTE: these run from TransformHandle's NATIVE listeners
@@ -332,13 +385,16 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           : e.kind === 'note' || e.kind === 'photo' ? 4
           : e.kind === 'shape' ? 5
           : 6
+        // this marker's offset while its pile is fanned open — and the hairline back to where
+        // it actually is, which is why nothing here is a lie the operator has to remember
+        const spoke = fan?.[e.id]
         return (
         <Marker
           key={e.id}
           longitude={e.coord[0]}
           latitude={e.coord[1]}
           anchor="center"
-          style={{ zIndex: zTac }}
+          style={{ zIndex: spoke ? 12 : zTac }}
           draggable={false}
           // swallow the synthetic click so it can't reach the map (deselect / placement); selection
           // itself is reported by the hold gesture's onTap, which fires even on a slightly-moved touch
@@ -347,42 +403,57 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           <div
             // `dragging` is its own class, not folded into `sel`: the two look the same but mean
             // different things, and only the drag should change the cursor (see .marker.dragging).
-            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''}${draggingId === e.id ? ' dragging' : ''} ${selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id ? 'sel' : ''}`}
-            style={{ ['--gpx' as string]: `${gpx}px` }}
+            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''}${draggingId === e.id ? ' dragging' : ''}${spoke ? ' fanned' : ''} ${selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id ? 'sel' : ''}`}
+            style={{ ['--gpx' as string]: `${gpx}px`, ...(spoke ? { ['--fan-dx' as string]: `${spoke.dx}px`, ['--fan-dy' as string]: `${spoke.dy}px` } : null) }}
             // Tap selects; press-and-hold (touch) / press-and-drag (mouse) moves. A quick flick stays
             // a map pan/zoom. Not while editing a note's text (the input owns the pointer).
             // canDrag gates the MOVE only — tap-to-select still works in every tool. See useHoldToDrag.
             onPointerDown={!(e.kind === 'note' && editNoteId === e.id)
               ? (ev) => {
                   const cx = ev.clientX, cy = ev.clientY
+                  // Which marker did the finger MEAN? Not "whichever DOM node happened to be on
+                  // top" — that is placement order, and it is how a tap on the Wasserbezugsort
+                  // handed you the Kleinlöscher. Resolve the whole pile under the pad by nearest
+                  // centre; the gesture (tap AND hold-drag) then targets that one, so what you
+                  // select and what you move can never be two different symbols.
+                  const pile = pileUnder(ev.currentTarget, cx, cy, e)
+                  const near = (pile.length ? entities.find((x) => x.id === pile[0].id) : undefined) ?? e
+                  const fanned = !!fan
                   hold.begin({ clientX: cx, clientY: cy }, {
-                    onTap: () => onSelect(e),
+                    onTap: () => {
+                      // already fanned: the spokes ARE the choice, so this tap is the answer
+                      if (fanned) { setFan(null); onSelect(e); return }
+                      // more than one candidate under the finger → fan them out instead of
+                      // guessing. One candidate → select it straight away, exactly as before.
+                      if (pile.length > 1) { openFan(fanOffsets(pile)); return }
+                      onSelect(near)
+                    },
                     onHoldStart: () => {
                       // a rotor / shape-transform gesture owns the pointer — never also translate
                       if (rotateRef.current || shapeRef.current) { hold.cancel(); return }
-                      const p = project(e.coord as LngLat)
-                      entDrag.current = { id: e.id, sx: p?.x ?? 0, sy: p?.y ?? 0, cx, cy, moved: false, last: null }
+                      const p = project(near.coord as LngLat)
+                      entDrag.current = { id: near.id, sx: p?.x ?? 0, sy: p?.y ?? 0, cx, cy, moved: false, last: null }
                       // don't select here: a quick hold-drag to reposition shouldn't open the
                       // ContextPanel. The move targets the symbol by id regardless of selection;
                       // selection (→ panel) is deferred to onDragEnd and only if it never moved.
                       setDragPan(false) // stop the map panning under the held symbol
                     },
                     onDragMove: (mx, my) => {
-                      const st = entDrag.current; if (!st || st.id !== e.id) return
+                      const st = entDrag.current; if (!st || st.id !== near.id) return
                       // deadzone: don't move until the finger clears DRAG_DEADZONE_PX from the grab point
                       if (!st.moved && Math.hypot(mx - st.cx, my - st.cy) < DRAG_DEADZONE_PX) return
                       const nc = unproject({ x: st.sx + (mx - st.cx), y: st.sy + (my - st.cy) })
                       if (!nc) return
-                      if (!st.moved) { st.moved = true; onMarkerDragStart(e.id); setDraggingId(e.id) } // snapshot for undo + show the selection halo on first real move
+                      if (!st.moved) { st.moved = true; onMarkerDragStart(near.id); setDraggingId(near.id) } // snapshot for undo + show the selection halo on first real move
                       st.last = nc
-                      onMarkerMove(e.id, nc)
+                      onMarkerMove(near.id, nc)
                     },
                     onDragEnd: () => {
                       const st = entDrag.current; entDrag.current = null
                       setDragPan(true)
                       setDraggingId(null) // drop the halo once it stops moving
-                      if (st?.moved && st.last) onMarkerDragEnd(e.id, st.last)
-                      else if (selectedId !== e.id) onSelect(e) // held but never dragged → treat as a select (open the panel)
+                      if (st?.moved && st.last) onMarkerDragEnd(near.id, st.last)
+                      else if (selectedId !== near.id) onSelect(near) // held but never dragged → treat as a select (open the panel)
                     },
                     // An already-selected symbol (panel open) drags INSTANTLY like a mouse — move
                     // on the first travel, no hold delay. Unselected touch still needs the deliberate
@@ -391,10 +462,21 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     // VEHICLE can be nudged — that override is a deliberate feature — but moving
                     // a person's dot would have the operator assert where somebody is, which is
                     // a different and unbacked claim from the one the dot makes.
-                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && e.kind !== 'person' })
+                    // While a pile is fanned nothing drags: the glyphs are standing off their
+                    // real positions, so a drag would write back a coordinate nobody chose.
+                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && near.kind !== 'person' && !fanned })
                 }
               : undefined}
           >
+            {/* the hairline home. Drawn INSIDE the (already offset) marker, so it runs from the
+                fanned glyph back to −offset = the true position, with a dot marking it. Purely
+                decorative — pointer-events stay off it, or it would eat the tap it exists for. */}
+            {spoke && (
+              <svg className="fan-spoke" aria-hidden>
+                <line x1="0" y1="0" x2={-spoke.dx} y2={-spoke.dy} />
+                <circle cx={-spoke.dx} cy={-spoke.dy} r="2.5" />
+              </svg>
+            )}
             {(selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id) && e.kind !== 'note' && e.kind !== 'team' && <div className="sel-halo" />}
             {networkEntityIds.includes(e.id) && selectedId !== e.id && <div className="network-halo" />}
             {e.kind === 'team' ? (() => {
@@ -404,10 +486,18 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               const isRaus = !!e.truppId && !!trupps?.some((t) => t.id === e.truppId && t.status === 'raus')
               const teamCol = e.color || appConfig.drawing.teamColors[0]
               if (selectedId !== e.id) {
+                // the pass could not fit the name without covering something that outranks it:
+                // the coloured dot stays (a Trupp is always visible AS a Trupp), and the ink dot
+                // says a name is there. One tap on the marker brings it back — a selected object
+                // is exempt from suppression.
+                const nameHidden = !!e.label && !!suppressedLabels?.has(`team:${e.id}`)
                 return (
-                  <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
-                    <i /><b>{e.label}</b>
-                  </span>
+                  <>
+                    <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
+                      <i />{!nameHidden && <b>{e.label}</b>}
+                    </span>
+                    {nameHidden && <span className="ink-dot" title={appConfig.copy.map.labelHidden} />}
+                  </>
                 )
               }
               return (
@@ -522,6 +612,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // Hubretter boom: a variable-reach articulated arm drawn behind the body, ground-scaled in
               // metres (reachM) and aimed by rotation2 (−bearing). The cage tip carries the drag handle.
               const boomPx = hub ? Math.max(24, Math.min(900, (e.reachM ?? 18) * pxPerM(e.coord[1], zoom))) : 0
+              // The caption is decided by the ONE label pass, not by a zoom threshold: it is
+              // printed whole where it fits and replaced by a dot where it does not. Routed
+              // through softHyphenateText because a caption is a FIELD VALUE, not a symbol name
+              // — «Salpetersäure, rauchend» has to break at the compound seam, not by syllable.
+              const capText = symbolCaptionText(e, captionMode)
+              const capHidden = !!capText && !!suppressedLabels?.has(`cap:${e.id}`)
               // the vehicle glyph rotates its body internally, so the chip must NOT also rotate;
               // every other symbol (incl. a composite body) applies its stored rotation to the chip.
               return (
@@ -538,10 +634,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     count={e.count}
                     // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
                     // keeps the rest (Fahrer, eigene Felder, Notizen), which only 'Alle' prints
-                    caption={captionsVisible ? symbolCaptionText(e, captionMode) : null}
+                    caption={capHidden || !capText ? null : softHyphenateText(capText)}
                   />
                   {/* boom AFTER the body → paints on top (mounted on the turntable / roof) */}
                   {hub && <HubretterBoom lengthPx={boomPx} deg={(e.rotation2 ?? 0) - bearing} />}
+                  {capHidden && <span className="ink-dot" title={appConfig.copy.map.labelHidden} />}
                 </>
               )
             })()}

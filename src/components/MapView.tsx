@@ -9,8 +9,13 @@ import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
+import { floorBadge } from '../lib/symbolRender'
+import { symbolCaptionText } from '../lib/symbols'
+import { softHyphenateText } from '../lib/symbolWrap'
+import { cachedLabelSize, LABEL_RANK, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon } from '../lib/geo'
+import { noteWPx } from '../lib/notes'
 import { useVehicleTrails } from '../lib/useVehicleTrails'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
 import { MapMarkers } from './MapMarkers'
@@ -24,6 +29,44 @@ import { useNightTheme } from '../lib/useNightTheme'
 import { reportClientError } from '../lib/reportError'
 import { QuietAttributionControl } from './MapAttribution'
 import { advanceDwell, attachInsetPx, boundaryPoint, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+
+// ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
+// The pass measures a label before it exists in the DOM, so the chrome around its text has to
+// be mirrored here. When a label's CSS changes, these change with it — each is named for the
+// rule it comes from.
+const NO_LABELS: ReadonlySet<string> = new Set()
+/** `.team-dot i` and its `gap` (09-whiteboard.css) */
+const TEAM_DOT_PX = 13
+const TEAM_DOT_GAP = 6
+/** `.sym-caption { margin-top }` (03-map.css) */
+const CAPTION_GAP = 3
+/** the end tag's Marker `offset={[0, -14]}` (below) */
+const END_TAG_LIFT = 14
+/** the line-readout / radius Markers' `anchor="bottom"` offsets (below) */
+const READOUT_LIFT = 10
+const RADIUS_LIFT = 4
+const LABEL_STYLE = {
+  /** `.sym-caption` — wraps at compound seams inside 120px; 1px/6px padding, line-height 1.25 */
+  caption: { font: '700 11.5px Sora, system-ui, sans-serif', maxTextW: 120, chromeW: 12, chromeH: 2, lineH: 14.4 },
+  /** `.team-dot b` — never wraps */
+  team: { font: '700 11.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 12, chromeH: 2, lineH: 15 },
+  /** `.measure-label.draw-label` — mono, never wraps, 2px/7px padding */
+  readout: { font: '700 11px "Spline Sans Mono", ui-monospace, monospace', maxTextW: Infinity, chromeW: 14, chromeH: 4, lineH: 13.8 },
+  /** `.line-end-tag` — 2px/6px padding plus a 1.5px border; `inline-grid` stacks the Trupp row */
+  endTag: { font: '800 11.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 15, chromeH: 7, lineH: 11.5 },
+} satisfies Record<string, LabelStyle>
+
+/** The end tag's text laid out the way `EndTag` lays it out: the Leitung's own facts on one
+ *  row, the Trupp on its own (`inline-grid` gives each text run a row of its own). */
+function endTagText(d: Drawing, trupp?: Trupp): string {
+  const parts: string[] = []
+  if (d.lineNo != null) parts.push(String(d.lineNo))
+  if (d.content) parts.push(d.content)
+  if (d.floorTag != null) parts.push(floorBadge(d.floorTag))
+  const name = trupp ? truppTagText(trupp) : ''
+  if (!parts.length && !name) return ''
+  return [parts.join(' · '), name].filter(Boolean).join('\n')
+}
 
 // Lock chip on a locked drawing: a SHORT HOLD (not a tap) unlocks it, with a filling ring as
 // the progress indicator (Miro-style) so a stray tap never unlocks instantly.
@@ -263,6 +306,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // deleted node reappeared and the hold looked broken (19.08.).
   const deletePointKeepTool = (fn?: (i: number) => void) => (i: number) => { suppressClick.current = true; fn?.(i) }
   const [mapReady, setMapReady] = useState(false)
+  // A pure PAN changes no other state in this component, but it moves every label on screen, so
+  // the label pass has to run again. One counter bumped on moveend is the whole trigger — pan,
+  // zoom and rotate all end there. Deliberately NOT per frame: labels appearing and disappearing
+  // under a moving finger read as flicker, so the decision is taken once the map comes to rest.
+  const [, bumpLabelFrame] = useState(0)
   // MapLibre paint specs can't read CSS vars, so the two TRANSIENT overlays drawn in the UI blue —
   // the draft shape and the measure path — pick their literal here instead of freezing the day
   // value into the paint spec, where they stayed dark-on-dark over a night basemap. These mirror
@@ -756,6 +804,97 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const tone = trupp ? truppLineTone(trupp, truppSeverities?.[trupp.id] ?? 0) : 'idle'
       return { d, end, anchor, angleDeg, color: d.color || '#1f6feb', width: d.width || 4, trupp, tone }
     })
+  // ── ONE label pass for the whole map ─────────────────────────────────────────────────────
+  // Every family above (symbol captions, Trupp names, Leitung end tags, line readouts, radius
+  // readouts) used to place its label wherever its own geometry pointed, blind to the others,
+  // decluttered only by a global zoom switch and truncated by an ellipsis. Now they all go
+  // through lib/labelPass: one rank order, one AABB test, nothing moves, and what does not fit
+  // is not drawn — its owner paints a 6px ink dot instead. See labelPass.ts for the why.
+  function labelDecisions(): ReadonlySet<string> {
+    const m = mapInst.current
+    if (!m) return NO_LABELS
+    const px = (c: LngLat) => m.project(c as [number, number])
+    // ties inside a rank go to whatever is nearer the incident — never to placement order
+    const hub = px(initialCenter)
+    const near = (p: { x: number; y: number }) => Math.hypot(p.x - hub.x, p.y - hub.y)
+    const occupied: LabelBox[] = []
+    const cands: LabelCandidate[] = []
+
+    // Seed: every visible glyph. A label may cover empty ground, never another symbol.
+    for (const e of entities) {
+      if (!Array.isArray(e.coord) || !isVisible(effectiveLayer(e))) continue
+      const p = px(e.coord)
+      const g = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom)
+        : e.kind === 'photo' ? 56
+        : e.kind === 'note' ? noteWPx(e.noteW)
+        : e.kind === 'team' ? TEAM_DOT_PX
+        : symPx(e.kind, e.coord[1], zoom, symMul)
+      const isSel = e.id === selectedId || selectedEntityIds.includes(e.id)
+      if (e.kind === 'team') {
+        // a resting Trupp marker is `[dot][gap][name]` centred on the coord, so the dot is NOT
+        // at the coordinate — the two boxes have to be derived from the whole strip's width
+        const label = e.label ?? ''
+        const s = cachedLabelSize(label, LABEL_STYLE.team)
+        const strip = TEAM_DOT_PX + TEAM_DOT_GAP + (label ? s.w : 0)
+        const left = p.x - strip / 2
+        occupied.push({ x: left, y: p.y - TEAM_DOT_PX / 2, w: TEAM_DOT_PX, h: TEAM_DOT_PX })
+        // the selected Trupp shows its full pill instead of the bare name — not a candidate,
+        // but its footprint still has to push everything else away
+        if (label && !isSel) {
+          cands.push({ key: `team:${e.id}`, rank: LABEL_RANK.team, dist: near(p),
+            box: { x: left + TEAM_DOT_PX + TEAM_DOT_GAP, y: p.y - s.h / 2, w: s.w, h: s.h } })
+        }
+        continue
+      }
+      occupied.push({ x: p.x - g / 2, y: p.y - g / 2, w: g, h: g })
+      // only the glyph branch prints a caption (MapMarkers) — a note's own text is its body,
+      // not a caption, and asking symbolCaptionText for one would invent a phantom box
+      if (e.kind === 'shape' || e.kind === 'note' || e.kind === 'photo') continue
+      const cap = symbolCaptionText(e, captionMode)
+      if (!cap) continue
+      const s = cachedLabelSize(softHyphenateText(cap), LABEL_STYLE.caption)
+      cands.push({ key: `cap:${e.id}`, rank: isSel ? LABEL_RANK.selected : LABEL_RANK.caption, dist: near(p),
+        box: { x: p.x - s.w / 2, y: p.y + g / 2 + CAPTION_GAP, w: s.w, h: s.h } })
+    }
+
+    if (drawingsVisible) {
+      // Leitung end tags. A tag whose Atemschutz-Trupp is due or overdue outranks everything
+      // except the selection — that is the one label on the map somebody's air depends on.
+      for (const ld of lineDecor) {
+        const text = endTagText(ld.d, ld.trupp)
+        if (!text) continue
+        const p = px(ld.d.endLabelAt ?? ld.anchor)
+        const s = cachedLabelSize(text, LABEL_STYLE.endTag)
+        cands.push({
+          key: `tag:${ld.d.id}`,
+          rank: ld.d.id === selectedDrawingId ? LABEL_RANK.selected
+            : ld.tone === 'crit' || ld.tone === 'warn' ? LABEL_RANK.criticalTag : LABEL_RANK.tag,
+          pinned: !!ld.d.endLabelAt,
+          dist: near(p),
+          box: { x: p.x - s.w / 2, y: p.y - END_TAG_LIFT - s.h / 2, w: s.w, h: s.h },
+        })
+      }
+      for (const l of drawLabels) {
+        const p = px(l.coord)
+        const s = cachedLabelSize(l.lines.join('\n'), LABEL_STYLE.readout)
+        cands.push({ key: `dl:${l.id}`, rank: l.id === selectedDrawingId ? LABEL_RANK.selected : LABEL_RANK.readout,
+          pinned: storedDrawings.some((d) => d.id === l.id && !!d.labelAt), dist: near(p),
+          box: { x: p.x - s.w / 2, y: p.y - READOUT_LIFT - s.h, w: s.w, h: s.h } })
+      }
+      for (const c of circleLabels) {
+        const p = px(c.coord)
+        const s = cachedLabelSize(c.text, LABEL_STYLE.readout)
+        cands.push({ key: `cl:${c.id}`, rank: c.id === selectedDrawingId ? LABEL_RANK.selected : LABEL_RANK.radius, dist: near(p),
+          box: { x: p.x - s.w / 2, y: p.y - RADIUS_LIFT - s.h, w: s.w, h: s.h } })
+      }
+    }
+    // The live Messen readouts deliberately stay OUT of the pass: they belong to a tool the
+    // operator is holding right now, they change on every vertex drag, and a measurement that
+    // blinks out because a caption got there first would be unusable.
+    return placeLabels(cands, occupied)
+  }
+  const suppressedLabels = labelDecisions()
+
   // the draft outline/fill; its vertices render as draggable Markers (not circles) below
   const draftFC = fc(draft.length >= 2 ? [draftKind === 'area' && draft.length >= 3 ? polyFeat(draft) : lineFeat(draft)] : [])
   // measure path: line / polygon only — the vertices are draggable Markers, not circles
@@ -978,7 +1117,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         setTimeout(() => { try { m.resize() } catch { /* map gone */ } }, 400)
       }}
       onMoveEnd={(e) => {
-        setZoom(e.viewState.zoom); setBearing(e.viewState.bearing)
+        setZoom(e.viewState.zoom); setBearing(e.viewState.bearing); bumpLabelFrame((n) => n + 1)
         viewRef.current = { center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom, bearing: e.viewState.bearing }
         onView({ bearing: e.viewState.bearing, center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom })
       }}
@@ -1212,7 +1351,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           pinned to each line's midpoint — reuses the measure-label chrome */}
       {drawingsVisible && drawLabels.map((l) => (
         <Marker key={`dl${l.id}`} longitude={l.coord[0]} latitude={l.coord[1]} anchor="bottom" offset={[0, -10]}>
-          {/* draggable: dragging pins the label to a georeferenced anchor (stays put on zoom/rotate) */}
+          {/* The pass could not fit it: a dot marks that this line has something to say, and
+              selecting the line brings the readout back (a selection is exempt). */}
+          {suppressedLabels.has(`dl:${l.id}`) ? <span className="ink-dot" title={appConfig.copy.map.labelHidden} /> : (
+          /* draggable: dragging pins the label to a georeferenced anchor (stays put on zoom/rotate) */
           <div
             className={`measure-label draw-label draggable${l.id === selectedDrawingId ? ' sel' : ''}`}
             style={{ cursor: onLabelMove ? 'move' : undefined }}
@@ -1223,13 +1365,16 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           >
             {l.lines.map((t, j) => <div key={j}>{t}</div>)}
           </div>
+          )}
         </Marker>
       ))}
 
       {/* committed Absperrkreis radius readout, pinned just above the circle's top edge */}
       {drawingsVisible && circleLabels.map((c) => (
         <Marker key={`cl${c.id}`} longitude={c.coord[0]} latitude={c.coord[1]} anchor="bottom" offset={[0, -4]}>
-          <div className={`measure-label draw-label${c.id === selectedDrawingId ? ' sel' : ''}`}>{c.text}</div>
+          {suppressedLabels.has(`cl:${c.id}`)
+            ? <span className="ink-dot" title={appConfig.copy.map.labelHidden} />
+            : <div className={`measure-label draw-label${c.id === selectedDrawingId ? ' sel' : ''}`}>{c.text}</div>}
         </Marker>
       ))}
 
@@ -1263,7 +1408,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               // its handle has to be the thing on top, or it cannot be grabbed where it matters:
               // right at the incident point, which is exactly where lines and symbols pile up.
               style={{ zIndex: ld.d.id === selectedDrawingId ? 9 : 3 }}>
-              {/* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */}
+              {suppressedLabels.has(`tag:${ld.d.id}`) ? <span className="ink-dot" title={appConfig.copy.map.labelHidden} /> : (
+              /* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */
               <div className={`line-end-tag-wrap draggable${ld.d.id === selectedDrawingId ? ' sel' : ''}`}
                 style={{ cursor: onLabelMove ? 'move' : undefined }}
                 onPointerDown={onLabelMove ? (e) => labelDown(e, ld.d.id, ld.d.endLabelAt ?? ld.anchor, 'end') : undefined}
@@ -1276,6 +1422,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
                   color={ld.color}
                 />
               </div>
+              )}
             </Marker>
           )}
         </Fragment>
@@ -1502,6 +1649,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         bearing={bearing}
         symMul={symMul}
         captionMode={captionMode}
+        suppressedLabels={suppressedLabels}
         readOnly={readOnly}
         draggable={draggable}
         project={(c) => mapInst.current?.project(c as [number, number])}
