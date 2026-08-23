@@ -20,7 +20,7 @@ import { acceptName, suggestLinks } from '../lib/journalEntry'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
 import { startChips } from '../lib/startChips'
-import { clearDraft, useKeptState } from '../lib/draftKeep'
+import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
@@ -67,6 +67,18 @@ export interface JournalDraft {
 // Wiedervorlage set for the wrong day is a check nobody makes. An Einsatz also runs over midnight
 // and over a second day often enough that «morgen» is a real answer, not an edge case.
 type DueSel = { kind: 'in'; mins: number } | { kind: 'at'; day: string; hhmm: string } | null
+
+/** Everything the sheet holds that is NOT the sentence, kept across an unmount beside it — see
+ *  the `restKey` note in the composer for why each of these is safe to hand back as it stands,
+ *  and why the imported memo is the one thing that is not in here. */
+type KeptRest = {
+  dueSel: DueSel
+  openState: 0 | 1 | 2
+  entryType: JournalEntryType | null
+  clip: { url: string; secs: number; startedAt: string } | null
+  photos: string[]
+}
+const EMPTY_REST: KeptRest = { dueSel: null, openState: 0, entryType: null, clip: null, photos: [] }
 
 /** local YYYY-MM-DD — never `toISOString().slice(0,10)`, which is UTC and jumps a day every
  *  evening west of Greenwich (and every morning east of it). */
@@ -186,17 +198,36 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const quickPhrases = getDeploymentConfig().journal?.quickPhrases?.length
     ? getDeploymentConfig().journal!.quickPhrases!
     : appConfig.journal.quickPhrases
-  // ⚠️ The typed sentence outlives the sheet. This overlay closes on a backdrop press, and a
-  // sheet this size on a tablet is mostly backdrop — one stray touch beside it threw away a
-  // half-written entry with nothing said. The draft is per-session and per-incident (draftKeep
-  // clears on incident change) and is cleared on send and on the ✕, so «✕» keeps meaning
-  // «discard this» while closing any other way means «not now». A Meldung keeps its OWN draft
-  // per item, or two items would hand each other's half-typed text back.
+  // ⚠️ The draft outlives the sheet. This overlay closes on a backdrop press, and a sheet this
+  // size on a tablet is mostly backdrop — one stray touch beside it threw away a half-written
+  // entry with nothing said. The draft is per-session and per-incident (draftKeep clears on
+  // incident change) and is cleared when the row is FILED, and at no other moment.
+  // ⚠️ The ✕ used to clear it as well, so «✕» meant «discard this»: the one ✕ in this app that
+  // destroyed what had just been typed, with no confirm, no undo, and wearing the same glyph as
+  // every other ✕ on every other surface. Against «nothing that can't be undone», and not
+  // tellable apart from a plain close at 3am — so it closes now, like all of them. Nothing is
+  // lost by that: every attachment already carries its own ✕ (discardClip / discardImport /
+  // discardPhoto), and the sentence is right there with the caret at its end when the sheet
+  // reopens, so «I don't want this after all» is select-all and delete.
+  // A Meldung keeps its OWN draft per item, or two items would hand each other's half-typed
+  // text back.
   // ⚠️ Captured ONCE, from how the sheet opened. It cannot follow `noteOn`, because attaching a
   // Pendenz from inside the composer changes that — and the key changing mid-composition would
   // swap the kept draft under the operator and blank the sentence they were half-way through.
   const [draftKey] = useState(() => (noteOn ? `journal-note:${noteOn.id}` : 'journal-entry'))
   const [text, setText] = useKeptState(draftKey, '')
+  // ⚠️ …and the REST of the sheet, under its own key. Only `text` was kept until 23.08., so
+  // setting «Dringende Pendenz», picking «in 15 min» and attaching two photos and then brushing
+  // the backdrop handed the sentence back and dropped all of it — silently, and the sheet came
+  // back looking like an ordinary entry. Everything in here is either plain data or a `blob:`
+  // URL this app already lets outlive the composer (they are the very URLs `submit` hands to the
+  // journal row), so nothing has to be re-derived.
+  // ⚠️ The IMPORTED memo is deliberately NOT in here. Its preview URL is revoked on unmount and
+  // its File is up to 100 MB, which a module-level store would pin for the whole session. So it
+  // is dropped — and said out loud on the way out (see the unmount effect below), because a
+  // silent drop is precisely the failure this guard exists to end.
+  const restKey = `${draftKey}:rest`
+  const [rest0] = useState(() => readDraft<KeptRest>(restKey, EMPTY_REST))
   const suggestions = useMemo(() => suggestPhrases(text, quickPhrases), [text, quickPhrases])
   // ⚠️ NAMES come before the Textbausteine, and only from the word being typed (not the whole
   // fragment): you write the sentence you were going to write anyway and the SPELLING of the
@@ -296,7 +327,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // property of the entry, exactly as the open ring already is.
   // ⚠️ Resolved PER RENDER, not when the chip is picked: «+10 min» means ten minutes from the moment
   // it is saved, and the sheet can stand open for a while (unchanged behaviour).
-  const [dueSel, setDueSel] = useState<DueSel>(null)
+  const [dueSel, setDueSel] = useState<DueSel>(rest0.dueSel)
   const dueAt = resolveDueAt(dueSel) ?? undefined
   // the exact due dialog (day + time), opened from the clock menu's «Uhrzeit …» row
   const [exact, setExact] = useState<{ day: string; hhmm: string } | null>(null)
@@ -315,7 +346,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // the PENDENZ — so a control sitting on one Meldung silently re-ranked the whole item, and the
   // switch beside it said «offen» about something that was open before this sheet existed. A
   // Meldung reports on an item; it does not re-decide it.
-  const [openState, setOpenState] = useState<0 | 1 | 2>(0)
+  const [openState, setOpenState] = useState<0 | 1 | 2>(rest0.openState)
   // ⚠️ A due time and an open ring are ONE fact, so the two controls keep each other honest: a
   // Fälligkeit on a line nobody can tick off would fire a banner with no way to answer it, and a
   // line taken off the Pendenzen would keep an alarm nothing owns. Setting a time therefore opens
@@ -358,13 +389,17 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // Who said it, and what kind of statement it is. Both OPTIONAL and both empty by
   // default: the composer's job is still to take a sentence, and a form that asks two
   // questions before it accepts one is a form nobody opens at 3am.
-  const [entryType, setEntryType] = useState<JournalEntryType | null>(null)
+  const [entryType, setEntryType] = useState<JournalEntryType | null>(rest0.entryType)
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
-  const [clip, setClip] = useState<{ url: string; secs: number; startedAt: string } | null>(null)
+  const [clip, setClip] = useState<{ url: string; secs: number; startedAt: string } | null>(rest0.clip)
   // SEVERAL photos per entry: one damage is rarely one picture, and the picker used to REPLACE
   // what was already attached — the second pick silently threw the first away.
-  const [photos, setPhotos] = useState<string[]>([])
+  const [photos, setPhotos] = useState<string[]>(rest0.photos)
+  // …and one write per change. Cheap enough (draftKeep), and it is the only thing that has to
+  // stay in step with the five states above.
+  useEffect(() => { keepDraft<KeptRest>(restKey, { dueSel, openState, entryType, clip, photos }) },
+    [restKey, dueSel, openState, entryType, clip, photos])
   // imported external voice memo (Voice Memos → Files → picker); mutually exclusive with `clip`
   const [imported, setImported] = useState<{
     file: File; url: string; name: string; durationSec: number | null; contentType: string
@@ -397,11 +432,24 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // orphaned blob is harmless) but no journal row is created after unmount. The unmount also
   // revokes the imported preview URL — saves/closes must not pin up to 100 MB per import.
   const alive = useRef(true)
-  const importedUrlRef = useRef<string | null>(null)
-  importedUrlRef.current = imported?.url ?? null
+  // ⚠️ The url AND the name, on one ref: the cleanup below needs both, and this is the only
+  // assignment the component makes during render — one is a documented exception, two is a habit.
+  const importedRef = useRef<{ url: string; name: string } | null>(null)
+  importedRef.current = imported ? { url: imported.url, name: imported.name } : null
+  // …and whether the row was actually filed. The memo is the one piece of the draft that cannot
+  // be kept (see restKey), so closing with one staged loses it — and a loss nobody is told about
+  // is exactly the failure the draft guard exists to end. Not after a save, and not after a
+  // failed upload either: there the sheet stays open with the memo still on it.
+  const filedRef = useRef(false)
   useEffect(() => () => {
     alive.current = false
-    if (importedUrlRef.current) URL.revokeObjectURL(importedUrlRef.current)
+    const pending = importedRef.current
+    if (pending) URL.revokeObjectURL(pending.url)
+    if (pending && !filedRef.current) {
+      // read here rather than off the render closure, so the resolved locale applies (config/copy)
+      const dropped = appConfig.copy.journal.audioImportDropped
+      toast(fillTemplate(dropped, { name: pending.name }), { icon: 'warn', tone: 'warn' })
+    }
   }, [])
 
   // In-app voice-to-text dictation was removed — use the native OS keyboard dictation
@@ -510,6 +558,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         : new File([imported.file], imported.name, { type: imported.contentType })
       const { url } = await uploadAudio(blob, imported.name)
       if (!alive.current) return // closed mid-upload — cancelled, no row
+      // ⚠️ HERE, not in `submit`. The draft used to be dropped before the upload was even
+      // attempted, so a failed one left the sheet standing over an already-emptied store and the
+      // next stray backdrop touch took the sentence with it.
+      filedRef.current = true
+      clearDraft(draftKey); clearDraft(restKey) // filed — the next open starts empty
       onSubmit({
         text: text.trim(), photoUrls: photos.length ? photos : undefined,
         entryType: entryType ?? undefined,
@@ -550,8 +603,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     : text.trim().length > 0 || clip != null || photos.length > 0
   const submit = () => {
     if (!canSend || uploading) return
-    clearDraft(draftKey) // sent — the next open starts empty
-    if (imported) { void submitImported(); return }
+    if (imported) { void submitImported(); return } // …which clears the draft once the upload lands
+    clearDraft(draftKey); clearDraft(restKey) // filed — the next open starts empty
     onSubmit({
       text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined,
       entryType: entryType ?? undefined,
@@ -611,8 +664,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             // the word alone: the «T» beside it said «text» about the one surface that could not be
             // anything else, next to a sheet full of controls that all mean something
             : <span className="jc-mode-title"><b>{C.composerTitle}</b></span>}
+          {/* ⚠️ It CLOSES — see the draftKey note above. It used to discard the draft as well,
+              which made it the one ✕ in the app that destroyed work. */}
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}
-            onClick={() => { clearDraft(draftKey); onClose() }}><Icon id="close" /></button>
+            onClick={onClose}><Icon id="close" /></button>
         </div>
 
         {/* The backdrop that marks known names. A <textarea> cannot style part of its own

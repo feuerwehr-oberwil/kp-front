@@ -151,9 +151,12 @@
 .replay-caption-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; color: var(--ink); font-weight: 600; }
 .replay-caption-none { color: var(--ink-faint); font-weight: 600; }
+/* ⚠️ 12.5px, the interactive floor (AGENTS · the 3am tenet) — it was 11.5px until 23.08. The
+   caption's fixed 50px still holds it: 12.5px of text inside a 32px floor, with 9px of padding
+   either side, is 50px exactly. */
 .replay-caption-go { flex: none; border: 1px solid var(--border); background: var(--surface);
   color: var(--ink-dim); border-radius: var(--r-xs); padding: 5px 10px; min-height: 32px;
-  font: 700 11.5px var(--body); cursor: pointer; }
+  font: 700 12.5px var(--body); cursor: pointer; }
 .replay-caption-go:hover { color: var(--ink); background: var(--hover-strong); }
 /* …and the same on a touch screen, where the button grows to the gloved floor and takes the
    row with it */

@@ -569,7 +569,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 <span className="t">{rowTime(e)}</span>
                 <span className="ic"><Icon id={e.icon || 'doc'} /></span>
                 <span className="tx">
-                  <span className={`jr-chip jr-chip-${e.surface ?? 'map'}`}>{chip(e, plans)}</span>
+                  {/* ⚠️ Neutral on purpose. The class used to be `jr-chip-${e.surface}` — blue for map,
+                      green for plan — while the WORD comes from `journalArea`, which classifies by
+                      entry type and icon. So an Atemschutz row drawn on the map surface rendered a
+                      Lage-blue chip reading «ATEMSCHUTZ»: the colour claimed one Bereich and the
+                      text said another. The word is the truthful carrier, so the tint is gone
+                      rather than re-derived — one meaning per colour. */}
+                  <span className="jr-chip jr-chip-area">{chip(e, plans)}</span>
                   {isNachtrag(e, closedAt) && <span className="jr-chip jr-chip-nachtrag">{C.nachtrag}</span>}
                   {/* a corrected line says so, with the time of the correction — see the pen below */}
                   {/* «und dann noch 5 Mal dasselbe» — the repeats are in the record, the row

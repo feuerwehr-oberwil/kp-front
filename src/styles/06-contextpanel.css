@@ -558,12 +558,16 @@
    timed Erinnerung has; an Auftrag has none, because nobody checks in on a Schadenplatz. Tapping
    swaps the whole column to the age — never one row at a time, a half-clock/half-age column is
    unreadable. */
-/* 38px + 11px type: the Verlauf's own time column, to the pixel (.hist-ev .t).
+/* 38px wide: the Verlauf's own time column, to the pixel (.hist-ev .t).
+   ⚠️ The TYPE is a hair bigger than that column's, and deliberately so: this one is a `<button>`,
+   so it is bound by the 12.5px interactive floor (AGENTS · the 3am tenet) while the log's plain
+   `.hist-ev .t` span is not. 12.5px still fits «HH:MM» in 38px — five mono glyphs at 0.6em is
+   37.5px — so the column does not move and the two stay aligned.
    ⚠️ `nowrap`. Both readings have to fit this width on ONE line — the age used to read «vor 32
    min» and wrapped to three, which made the row three times as tall for a number. The label is
    bare now (copy · ageLabel), and this is the guard that says so. */
 .jr-when { flex: none; width: 38px; padding: 6px 0 0; border: 0; background: none; cursor: pointer;
-  text-align: left; white-space: nowrap; font: 400 11px var(--mono); color: var(--ink-faint);
+  text-align: left; white-space: nowrap; font: 400 12.5px var(--mono); color: var(--ink-faint);
   font-variant-numeric: tabular-nums; }
 .jr-when:hover { color: var(--ink); }
 /* «meldet sich selbst» — the only mark a timed Erinnerung needs in this list. At the right end,

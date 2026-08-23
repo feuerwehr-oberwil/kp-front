@@ -28,6 +28,11 @@ export function IconSprite() {
       <symbol id="sat" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18" /></symbol>
       <symbol id="map" viewBox="0 0 24 24"><path d="M9 4 3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5z" /><path d="M9 4v14M15 6.5v14" /></symbol>
       <symbol id="doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4M9 12.5h6M9 16h6" /></symbol>
+      {/* Rapportangaben: the Erfassungsblatt on its board. `journalArea` classifies a row as
+          Bereich «Rapport» by this icon (lib/report.ts), and both writers — the preflight and
+          the QR poster (lib/captureClient) — emit it, so the symbol has to exist or the row
+          draws an empty disc. Line positions match #doc so the two read as siblings. */}
+      <symbol id="clipboard" viewBox="0 0 24 24"><path d="M9 4.5H7a1 1 0 0 0-1 1V20a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5.5a1 1 0 0 0-1-1h-2" /><rect x="9" y="3" width="6" height="3.5" rx="1" /><path d="M9 12.5h6M9 16h6" /></symbol>
       {/* «An Stationsdrucker»: paper going in at the top, paper coming out at the bottom. The
           relay buttons carried a bare status dot and no glyph at all, so they read as a stray
           label beside every sibling action that HAS one. The dot stays — it says whether the

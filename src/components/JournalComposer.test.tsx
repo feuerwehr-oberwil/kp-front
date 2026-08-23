@@ -308,20 +308,48 @@ describe('JournalComposer · writing a Meldung', () => {
   })
 })
 
-describe('JournalComposer · the half-written sentence', () => {
+describe('JournalComposer · the half-written draft', () => {
+  const closeX = () => screen.getByRole('button', { name: /schliessen|close/i })
+
   // ⚠️ This overlay closes on a backdrop press, and on a tablet the sheet is mostly backdrop.
-  // Only the ✕ may throw the text away.
-  it('survives a close that was not the ✕, and the ✕ discards it', () => {
+  // ⚠️ …and the WHOLE draft survives, not only the sentence. Keeping `text` alone meant the ring,
+  // the Art and the attachments were dropped with nothing said, and the sheet came back looking
+  // like an ordinary entry.
+  it('hands back the sentence, the Art and the ring after any close', async () => {
     setup()
     type('Halb geschriebener Satz')
+    fireEvent.click(screen.getByRole('button', { name: 'Auftrag' }))
+    fireEvent.click(await menuRow(/Dringende Pendenz/))
+    await waitFor(() => expect(ring().dataset.state).toBe('2'))
+    cleanup()
+
+    const { onSubmit } = setup()
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Halb geschriebener Satz')
+    expect(ring().dataset.state).toBe('2')
+    send()
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ entryType: 'auftrag', pendenz: { urgent: true } })
+  })
+
+  // ⚠️ The ✕ CLOSES. It used to discard the draft — the one ✕ in the app that destroyed what had
+  // been typed, with no confirm and no undo, wearing the same glyph as every other close.
+  it('the ✕ closes without throwing the draft away', () => {
+    setup()
+    type('Halb geschriebener Satz')
+    fireEvent.click(closeX())
     cleanup()
     setup()
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Halb geschriebener Satz')
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: /schliessen|close/i }))
+  // …and filing the row is what empties it, so the next entry starts on a blank sheet
+  it('a sent entry leaves nothing behind', () => {
+    setup()
+    type('Lüfter im EG gestellt')
+    send()
     cleanup()
     setup()
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('')
+    expect(ring().dataset.state).toBe('0')
   })
 })
 
