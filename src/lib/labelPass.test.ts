@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fanOffsets, LABEL_RANK, labelSize, pileAt, placeLabels, wrapLine, type LabelBox, type LabelCandidate } from './labelPass'
+import { fanOffsets, LABEL_RANK, labelSize, MARKER_Z, markerZ, pileAt, placeLabels, wrapLine, type LabelBox, type LabelCandidate } from './labelPass'
 
 /** A candidate at (x, y), 40×14 unless told otherwise — the size of a short caption. */
 const at = (key: string, rank: LabelCandidate['rank'], x: number, y: number, extra: Partial<LabelCandidate> = {}): LabelCandidate =>
@@ -143,5 +143,30 @@ describe('fanOffsets', () => {
       const r = Math.hypot(p.x + out[p.id].dx - cx, p.y + out[p.id].dy - cy)
       expect(r).toBeCloseTo(34, 0) // max(34, n × 11)
     }
+  })
+})
+
+describe('markerZ — the tapped marker comes forward', () => {
+  const resting = ['note', 'photo', 'shape', 'symbol', 'vehicle', 'hydrant', 'team']
+
+  it('lifts the selected marker above every resting neighbour', () => {
+    // the reported defect: a symbol under a Trupp (the highest resting level) stayed under it
+    // when tapped, so the panel opened for something the operator could not see
+    for (const kind of resting) expect(markerZ('symbol', { selected: true })).toBeGreaterThan(markerZ(kind))
+  })
+
+  it('clears the end tag of a selected Leitung too — only one thing is ever the selection', () => {
+    expect(markerZ('symbol', { selected: true })).toBeGreaterThan(MARKER_Z.tagSelected)
+  })
+
+  it('drops straight back when the selection ends', () => {
+    expect(markerZ('symbol')).toBe(MARKER_Z.symbol)
+    expect(markerZ('team')).toBe(MARKER_Z.team)
+  })
+
+  it('never fights the fan: a fanned glyph outranks the selection', () => {
+    // its spokes stand off the true position — one hidden behind a neighbour is worse than none
+    expect(markerZ('team', { selected: true, fanned: true })).toBe(MARKER_Z.fanned)
+    expect(MARKER_Z.fanned).toBeGreaterThan(MARKER_Z.selected)
   })
 })

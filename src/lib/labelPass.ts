@@ -10,8 +10,9 @@
  *
  * The replacement is variant A · **Verdrängen**: one fixed rank order, one AABB test per
  * candidate, and **nothing ever moves**. A label either stands exactly where it belongs or it
- * is not drawn at all — and where it is not drawn, its glyph carries a 6px ink dot so the
- * operator can see that a name exists there. No spiral search, no displacement, no leader lines.
+ * is not drawn at all — and where it is not drawn, a 6px ink dot stands in its place, on the side
+ * the label itself would have taken (03-map.css · .ink-dot): the operator sees that a name exists
+ * there, and which of two neighbours it belongs to. No spiral search, no displacement, no leaders.
  *
  * What makes that safe is the exemption: **the current selection is never suppressed**, and
  * everything else yields to it. Any hidden name is one tap from readable, and the label that
@@ -252,4 +253,56 @@ export function fanOffsets(points: readonly PilePoint[]): Record<string, { dx: n
     out[p.id] = { dx: Math.round(cx + Math.cos(a) * r - p.x), dy: Math.round(cy + Math.sin(a) * r - p.y) }
   })
   return out
+}
+
+// ─── who paints on top ─────────────────────────────────────────────────────────────────────
+
+/**
+ * The map's marker stacking order, in ONE place.
+ *
+ * Every MapLibre marker is its own stacking context (it carries a transform), so what is on top
+ * is decided on the marker CONTAINER — a z-index inside a marker cannot lift it past a sibling.
+ * That made the order easy to set in five different files and impossible to reason about, so it
+ * lives here, next to the other overlap arbitration.
+ *
+ * The resting order is doctrine: a crew is the thing you must be able to see and hit, a label
+ * about a hose is not — measured, the tag «1 · +2 · Müller H.» covered the Rettungstrupp, the
+ * Einsatzort ring and two more symbols, and (being a drag handle) took their taps too.
+ */
+export const MARKER_Z = {
+  /** a Leitung's end tag at rest — under everything tactical, and under its own line's decor */
+  tag: 3,
+  /** notes and photos: paper, not position */
+  note: 4,
+  /** shapes are metres across — they are the ground other things stand on */
+  shape: 5,
+  /** every placed symbol / vehicle / hydrant */
+  symbol: 6,
+  /** a Trupp: people outrank furniture */
+  team: 8,
+  /** the end tag of the SELECTED Leitung — then it is the handle you are working with */
+  tagSelected: 9,
+  /** whatever the operator just tapped or is dragging (see markerZ) */
+  selected: 10,
+  /** a fanned pile — transient, and it has to clear even the selection to be readable */
+  fanned: 12,
+} as const
+
+/**
+ * Where a marker paints, given what it is and what the operator is doing to it.
+ *
+ * **Selection lifts.** Resting order is placement-blind but static, so a symbol drawn under
+ * another one stayed under it when tapped — the panel opened for something the operator could
+ * not see. Selecting already exempts a label from suppression; it now also raises the marker
+ * itself, for exactly as long as the selection lasts. A fanned pile still wins: its glyphs are
+ * standing off their true positions on hairlines, and a spoke hidden behind a neighbour is
+ * worse than useless.
+ */
+export function markerZ(kind: string, state: { selected?: boolean; fanned?: boolean } = {}): number {
+  if (state.fanned) return MARKER_Z.fanned
+  if (state.selected) return MARKER_Z.selected
+  return kind === 'team' ? MARKER_Z.team
+    : kind === 'note' || kind === 'photo' ? MARKER_Z.note
+    : kind === 'shape' ? MARKER_Z.shape
+    : MARKER_Z.symbol
 }

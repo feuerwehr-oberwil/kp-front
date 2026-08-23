@@ -11,7 +11,7 @@ import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
-import { fanOffsets, pileAt } from '../lib/labelPass'
+import { fanOffsets, markerZ, pileAt } from '../lib/labelPass'
 import { noteScale, noteWPx, clampNoteWPx } from '../lib/notes'
 import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer } from '../lib/mapView'
 
@@ -371,30 +371,24 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         const gpx = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom)
           : e.kind === 'note' || e.kind === 'photo' || e.kind === 'team' ? 56
           : symPx(e.kind, e.coord[1], zoom, symMul)
-        // Tactical stacking. Every MapLibre marker is its own stacking context (it carries a
-        // transform), so what is on top is decided HERE, on the container — a z-index inside the
-        // marker cannot lift it past a sibling.
-        //
-        // ⚠️ The hose line-end tag sits at zIndex 3 (MapView, deliberately, so a Leitung running
-        // under its own tag does not paint through the text). Everything tactical has to clear
-        // that: measured, the tag «1 · +2 · Müller H.» covered the Rettungstrupp, the Einsatzort
-        // ring and two more symbols, and — being pointer-events:auto as a drag handle — it took
-        // their taps too. A crew is the thing you must be able to see and hit; a label about a
-        // hose is not.
-        const zTac = e.kind === 'team' ? 8
-          : e.kind === 'note' || e.kind === 'photo' ? 4
-          : e.kind === 'shape' ? 5
-          : 6
         // this marker's offset while its pile is fanned open — and the hairline back to where
         // it actually is, which is why nothing here is a lie the operator has to remember
         const spoke = fan?.[e.id]
+        // Selected, multi-selected or mid-drag — the three states that mean «this one, now».
+        // They share the halo AND the raised stacking: tapping a symbol that sits under another
+        // one has to bring it out, or the panel opens for something the operator cannot see.
+        const raised = selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id
+        // Tactical stacking, decided in ONE place (lib/labelPass · MARKER_Z / markerZ). It has to
+        // be set HERE, on the marker container: every MapLibre marker is its own stacking context
+        // (it carries a transform), so a z-index inside the marker cannot lift it past a sibling.
+        const z = markerZ(e.kind, { selected: raised, fanned: !!spoke })
         return (
         <Marker
           key={e.id}
           longitude={e.coord[0]}
           latitude={e.coord[1]}
           anchor="center"
-          style={{ zIndex: spoke ? 12 : zTac }}
+          style={{ zIndex: z }}
           draggable={false}
           // swallow the synthetic click so it can't reach the map (deselect / placement); selection
           // itself is reported by the hold gesture's onTap, which fires even on a slightly-moved touch
@@ -403,7 +397,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           <div
             // `dragging` is its own class, not folded into `sel`: the two look the same but mean
             // different things, and only the drag should change the cursor (see .marker.dragging).
-            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''}${draggingId === e.id ? ' dragging' : ''}${spoke ? ' fanned' : ''} ${selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id ? 'sel' : ''}`}
+            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''}${draggingId === e.id ? ' dragging' : ''}${spoke ? ' fanned' : ''} ${raised ? 'sel' : ''}`}
             style={{ ['--gpx' as string]: `${gpx}px`, ...(spoke ? { ['--fan-dx' as string]: `${spoke.dx}px`, ['--fan-dy' as string]: `${spoke.dy}px` } : null) }}
             // Tap selects; press-and-hold (touch) / press-and-drag (mouse) moves. A quick flick stays
             // a map pan/zoom. Not while editing a note's text (the input owns the pointer).
@@ -477,7 +471,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 <circle cx={-spoke.dx} cy={-spoke.dy} r="2.5" />
               </svg>
             )}
-            {(selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id) && e.kind !== 'note' && e.kind !== 'team' && <div className="sel-halo" />}
+            {raised && e.kind !== 'note' && e.kind !== 'team' && <div className="sel-halo" />}
             {networkEntityIds.includes(e.id) && selectedId !== e.id && <div className="network-halo" />}
             {e.kind === 'team' ? (() => {
               // resting: a compact team-coloured dot + name (low map clutter); selected: the

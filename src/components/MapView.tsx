@@ -12,7 +12,7 @@ import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
-import { cachedLabelSize, LABEL_RANK, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
+import { cachedLabelSize, LABEL_RANK, MARKER_Z, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon } from '../lib/geo'
 import { noteWPx } from '../lib/notes'
@@ -1399,15 +1399,18 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               stacking context (it carries a transform), so a z-index inside the tag cannot
               lift it past a SIBLING marker — it has to sit on the marker container. Without
               it the decorations of a line that runs under its own tag paint straight through
-              the text, and the tag is the one thing on a Leitung that has to stay readable. */}
+              the text, and the tag is the one thing on a Leitung that has to stay readable.
+              Both levels come from the one stacking table (lib/labelPass · MARKER_Z). */}
           {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null || ld.trupp) && (
             <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]}
-              // …and ABOVE the tactical symbols (MapMarkers · zTac, 4–8) once its own line is
-              // selected. At rest the tag stays at 3, under the symbols, so it can neither cover
+              // …and ABOVE the resting tactical symbols (MARKER_Z.note…team, 4–8) once its own
+              // line is selected. At rest the tag stays under the symbols, so it can neither cover
               // nor steal the tap of a Trupp. Selected means «I am working on this Leitung» — then
               // its handle has to be the thing on top, or it cannot be grabbed where it matters:
               // right at the incident point, which is exactly where lines and symbols pile up.
-              style={{ zIndex: ld.d.id === selectedDrawingId ? 9 : 3 }}>
+              // A SELECTED symbol still clears it (MARKER_Z.selected) — only one of the two can
+              // be the current selection, and the tapped object is the one that must be visible.
+              style={{ zIndex: ld.d.id === selectedDrawingId ? MARKER_Z.tagSelected : MARKER_Z.tag }}>
               {suppressedLabels.has(`tag:${ld.d.id}`) ? <span className="ink-dot" title={appConfig.copy.map.labelHidden} /> : (
               /* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */
               <div className={`line-end-tag-wrap draggable${ld.d.id === selectedDrawingId ? ' sel' : ''}`}

@@ -17,8 +17,11 @@
 .maptool-lasso #map, .maptool-lasso .maplibregl-canvas,
 .maptool-scale #map, .maptool-scale .maplibregl-canvas { cursor: crosshair !important; }
 
-/* markers — bare tactical symbol, real-world scaled. White fill only for outline-with-text. */
-.marker { position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; --gpx: 44px; }
+/* markers — bare tactical symbol, real-world scaled. White fill only for outline-with-text.
+   --gpx = the glyph's on-screen size; --badge-out = how far the corner badges (.sym-floor,
+   .sym-count) hang past the glyph's top/bottom edge. Both are read by everything that has to
+   sit CLEAR of the symbol — see .ink-dot — so neither may be re-typed as a literal. */
+.marker { position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; --gpx: 44px; --badge-out: 7px; }
 /* Mid-move the pointer says so, the way the plan canvas already does for an annotation
    (.wb-canvas.tool-pan .wb-anno:active). At REST the marker keeps `pointer`, deliberately: a
    symbol is tap-to-select and hold-to-drag, so a resting `grab` would promise a drag that a
@@ -85,12 +88,12 @@
 /* storey badge — signed floor (+2, -1) at the icon's top-right corner. Ink on the surface
    colour, so it reads on any glyph and in both themes: tinting it with the symbol's own colour
    (the white chip was meant to carry that) made a yellow symbol's storey yellow on white. */
-.sym-floor { position: absolute; top: -7px; right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+.sym-floor { position: absolute; top: calc(var(--badge-out, 7px) * -1); right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
   box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
 /* quantity badge — bottom-right counterpart to the floor badge; an ink chip so it
    reads as a count distinct from the (white, symbol-coloured) floor badge */
-.sym-count { position: absolute; bottom: -7px; right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+.sym-count { position: absolute; bottom: calc(var(--badge-out, 7px) * -1); right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-sm); background: var(--ink-fill); color: var(--on-accent-ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
   box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
 /* metadata caption — a symbol's discriminating value(s) printed just under its glyph (e.g.
@@ -101,8 +104,9 @@
    collision strategy on this map — «Salpetersäure, rau…» — which hid the one word that
    discriminates the symbol while still costing the full 132px of ink. Collisions are decided
    by the label pass now (lib/labelPass · placeLabels): a caption is either shown WHOLE or
-   replaced by a 6px dot on its glyph. What is left here is the wrap, and it must break at the
-   compound seams U+00AD from lib/symbolWrap — hence `hyphens: manual`. NEVER `hyphens: auto`:
+   replaced by a 6px dot standing in the same lane below the glyph (.ink-dot). What is left
+   here is the wrap, and it must break at the compound seams U+00AD from lib/symbolWrap —
+   hence `hyphens: manual`. NEVER `hyphens: auto`:
    the browser's German dictionary breaks by syllable («Kontrollpos-ten»). `overflow-wrap` is
    the last resort for a single word longer than the box, nothing more. */
 .sym-caption { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 3px; z-index: 6;
@@ -114,21 +118,30 @@
 .sym-caption > span { max-width: 120px; }
 /* ── the suppressed name: ONE dot, everywhere the same ──
    A label the pass could not fit is not drawn at all — but its absence has to be legible, or
-   the operator cannot tell "nothing to say" from "something is hidden here". So the glyph wears
-   a 6px ink dot at its lower-right: one learnable mark instead of seven truncation patterns,
-   and selecting the symbol always brings the real label back (the selection is exempt from
-   suppression). Ink fill on a surface-coloured rim, so it reads dark-on-light by day and
-   light-rimmed-on-dark at night — no frozen white. */
-.ink-dot { width: 6px; height: 6px; border-radius: 50%; box-sizing: content-box;
+   the operator cannot tell "nothing to say" from "something is hidden here". So the owner wears
+   a 6px ink dot instead: one learnable mark instead of seven truncation patterns, and selecting
+   it always brings the real label back (the selection is exempt from suppression). Ink fill on a
+   surface-coloured rim, so it reads dark-on-light by day and light-rimmed-on-dark at night — no
+   frozen white. `display` matters: standing alone in its own Marker (a line readout, a radius)
+   the dot is an inline <span>, and an inline box ignores width/height — it drew as a 3px sliver. */
+.ink-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; box-sizing: content-box;
   background: var(--ink-fill); border: 1.5px solid var(--surface);
   box-shadow: 0 1px 2px rgba(15, 22, 34, .4); pointer-events: none; }
-/* on a glyph it hangs off the symbol's lower-right corner; standing alone in its own Marker
-   (a line readout / radius, which has no glyph) it just centres on the label's anchor */
+/* WHERE the dot goes: on the side the missing label would have stood — never on a corner.
+   ⚠️ It started on the glyph's lower-right corner and that corner is taken: .sym-count owns it,
+   .sym-floor owns the top-right, and one symbol can carry a storey AND a count AND a suppressed
+   caption at once — the three landed on each other and none of them could be read.
+   A caption stands centred BELOW the glyph (.sym-caption), so that is where its dot stands too,
+   in a lane the badges cannot reach: glyph edge + the badges' own overhang + 2px of air + half
+   the dot. Every term is measured from the glyph's edge, so the clearance holds at every symbol
+   size (--gpx runs 28→62px across the zoom band and the S/M/L multiplier) instead of only at the
+   size it was eyeballed at. Standing on the label's side also says WHICH name is missing when two
+   symbols sit shoulder to shoulder. */
 .marker > .ink-dot { position: absolute; z-index: 7;
-  left: calc(50% + var(--gpx) / 2 - 1px); top: calc(50% + var(--gpx) / 2 - 1px); transform: translate(-50%, -50%); }
-/* a Trupp's marker is the 13px coloured dot, not the 56px --gpx box its handles are sized from,
-   so its ink dot hangs off THAT instead of floating half a symbol away */
-.team-dot + .ink-dot { left: calc(50% + 5px); top: calc(50% + 5px); }
+  left: 50%; top: calc(50% + var(--gpx) / 2 + var(--badge-out) + 2px + 4.5px); transform: translate(-50%, -50%); }
+/* a Trupp is `[13px dot][6px gap][name]`, so its name's side is to the RIGHT of the coloured dot
+   — not under a 56px --gpx box, which is the handle ring's size and half a symbol wide */
+.team-dot + .ink-dot { left: calc(50% + 6.5px + 6px + 4.5px); top: 50%; }
 /* inner wrapper carries the symbol's own rotation (chip + glyph rotate together),
    so selection scale / hover stay on the outer .ts and don't fight the rotation */
 .ts-rot { width: 100%; height: 100%; line-height: 0; border-radius: var(--r-xs); }
@@ -144,11 +157,14 @@
    keeps coloured arrows legible over any base map. */
 .ts svg.sym-spread { position: absolute; top: -75%; left: -75%; width: 250%; height: 250%; overflow: visible;
   pointer-events: none; z-index: 5; filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, .9)); }
-.marker:hover { z-index: 5; }
 .marker:hover .ts { transform: scale(1.07); }
 /* selection: no outline — a selected item just pops up larger (and the ContextPanel
-   opens / shapes show their edit handles), so nothing covers the symbol itself. */
-.marker.sel { z-index: 6; }
+   opens / shapes show their edit handles), so nothing covers the symbol itself. It also comes
+   FORWARD, above its neighbours, for as long as it stays selected.
+   ⚠️ That lift is not here and cannot be: `.marker` sits inside a MapLibre marker div whose
+   transform makes it a stacking context of its own, so a z-index on `.marker` orders it against
+   nothing. Both the hover and the selected z-index that used to stand here were inert. The one
+   place the order is decided is the marker CONTAINER — lib/labelPass · markerZ. */
 /* a brief bounce confirms the tap, then settles a touch LARGER (and stays there) so the
    selection reads at a glance — kept modest so the footprint stays roughly honest and the
    glyph still fits inside its halo (sized to the true glyph px, with ~10px of slack each side) */
