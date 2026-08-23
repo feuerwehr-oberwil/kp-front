@@ -362,8 +362,21 @@
   overscroll-behavior: none; padding: 0 2px 2px; }
 /* the Pendenzen block is open and fills it — see Journal.tsx */
 .history-list.jr-locked { overflow-y: hidden; }
-/* overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row */
-.hist-ev { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-ctl); font-size: 13px; font-weight: 500; overflow: hidden; }
+/* ⚠️ A GRID, not a wrapping flex (23.08.). Four tracks: time · disc · the sentence · everything
+   else. The point is the third one — every row's text starts at the same x (10 + 38 + 10 + 26 +
+   10 = 94px from the row's border box), and the sub-lines below are placed on that same axis, so
+   reading a long Verlauf is riding one edge down the page. As a flex row this could not hold:
+   six decorations were allowed in front of the sentence, all `flex: none` against the one
+   shrinkable child, so the text was pushed out of the way by whatever the row happened to carry.
+   Now nothing precedes it and nothing can shrink it.
+   overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row. */
+.hist-ev { display: grid; grid-template-columns: 38px 26px minmax(0, 1fr) auto;
+  column-gap: 10px; row-gap: 2px; align-items: center;
+  padding: 8px 10px; border-radius: var(--r-ctl); font-size: 13px; font-weight: 500; overflow: hidden; }
+/* the sub-lines (transcript, its editor, the row's own correction box) take the sentence's
+   column and run to the row's right edge — ONE axis with the text above them, which they missed
+   by 10px for as long as they were flex children with a hand-set margin. */
+.hist-ev > .jr-subs, .hist-ev > .jr-transcript { grid-column: 3 / -1; margin-left: 0; }
 .hist-ev.clickable { cursor: pointer; }
 /* ⚠️ Rows the replay playhead has not reached yet. Dimmed, never hidden: the Verlauf stays whole
    and searchable while you scrub — but nothing on screen may look like part of the moment being
@@ -372,12 +385,16 @@
 .hist-ev.jr-future { opacity: .4; }
 .hist-ev.jr-future.clickable:hover { opacity: .75; }
 .hist-ev.clickable:hover { background: var(--hover); }
+/* ── the trailing group: footnotes, the Meldung anchor, the row's controls, the chevron ──
+   Everything that is not the sentence, on one line at the right margin, in the order it is read:
+   what the record says ABOUT the row, then what you can do with it. It is the fourth grid track,
+   so it can never push the sentence off its axis — it can only take the width it needs. */
+.jr-trail { grid-column: 4; display: flex; align-items: center; gap: 9px; justify-self: end; min-width: 0; }
 /* persistent affordance so touch users can tell a row navigates without hovering */
-.hist-go { margin-left: auto; color: var(--ink-faint); display: grid; place-items: center; flex: none; opacity: .55; transition: transform .14s var(--ease), opacity .14s var(--ease); }
+.hist-go { color: var(--ink-faint); display: grid; place-items: center; flex: none; opacity: .55; transition: transform .14s var(--ease), opacity .14s var(--ease); }
 .hist-go .i { width: 15px; height: 15px; }
 .hist-ev.clickable:hover .hist-go { opacity: 1; transform: translateX(2px); }
-.hist-ev .tl-play + .hist-go { margin-left: 0; }
-.hist-ev .t { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex: none; width: 38px; }
+.hist-ev .t { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); width: 38px; }
 /* timeline node + connector */
 .hist-ev .ic { position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2);
   border: 1px solid var(--border-soft); color: var(--ink-dim); font-size: 13px; display: grid; place-items: center; flex: none; }
@@ -397,7 +414,6 @@
 .hist-ev .ic::after { top: calc(100% + 1px); }
 .hist-ev + .hist-ev .ic::before { display: block; }
 .hist-ev:has(+ .hist-ev) .ic::after { display: block; }
-.hist-ev .tx { flex: 1; }
 
 /* reminder (Erinnerung) row: due label + checklist-style done toggle */
 .jr-text.jr-rem-struck { text-decoration: line-through; color: var(--ink-faint); }
@@ -428,9 +444,12 @@
 .jr-pinned-row .jr-rem-box { width: 21px; height: 21px; }
 .jr-pinned-row .jr-rem-box .i { width: 14px; }
 /* …and the Verlauf row keeps only the FACT, unstyled as a control: a timed Erinnerung's
-   Fälligkeit. An undatierte Pendenz has none, and its chip already says what the row is. */
+   Fälligkeit. An undatierte Pendenz has none — its ring already says what the row is. */
 .jr-remstate { flex: none; font: 700 11.5px var(--body); color: var(--ink-faint); white-space: nowrap; }
-.jr-remstate.overdue { color: var(--amber-strong); }
+/* ⚠️ RED, not amber (23.08.), and the ring beside it is red for the same reason: amber on this
+   surface means «steht noch offen», and überfällig is a step past that, not another word for it.
+   Two states painted the same colour is a colour that says nothing. */
+.jr-remstate.overdue { color: var(--red-strong); }
 .jr-rem:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge)); }
 .jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
 .jr-rem:disabled { cursor: default; }

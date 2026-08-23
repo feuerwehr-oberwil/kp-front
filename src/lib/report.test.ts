@@ -19,6 +19,8 @@ import {
   einsatzleiterFromScene,
   eventIso,
   hasVisiblePlanAnnotation,
+  journalArea,
+  journalDisc,
   journalRows,
   pendenzRows,
   metaExtrasForPdf,
@@ -296,6 +298,58 @@ describe('report journal rows', () => {
     const row = journalRows([e], plans)[0]
     expect(row.transcriptLines).toEqual(['0:01  Trupp 2 meldet Wasser halt', '1:05  Rückzug eingeleitet'])
     expect(row.transcript).toBe('Trupp 2 meldet Wasser halt · Rückzug eingeleitet')
+  })
+})
+
+// ⚠️ The Verlauf's 26px disc is now the whole classification on screen (23.08.), so no glyph may
+// mean two Bereiche any more — and the record is APPEND-ONLY, so the glyphs written before that
+// have to keep classifying exactly as they did. Both halves are pinned here.
+describe('journalArea · one glyph, one Bereich — without breaking the record', () => {
+  const at = '2026-08-23T20:00:00.000Z'
+  const ev = (over: Partial<TimelineEvent>): TimelineEvent =>
+    ({ id: 'x', t: '22:00', at, icon: 'type', text: 'Zeile', ...over })
+
+  it('reads the poster’s Beilage rows under both glyphs — the new one and the one in the record', () => {
+    expect(journalArea(ev({ icon: 'attach', text: 'Beilage hinzugefügt' }), plans)).toBe('Rapport')
+    expect(journalArea(ev({ icon: 'photo', text: 'Beilage hinzugefügt' }), plans)).toBe('Rapport')
+  })
+
+  // the collision the split removes: same glyph, two Bereiche, and on screen nothing else to
+  // tell them apart. The composer's photo entry is «Manuell» and must stay so.
+  it('keeps a composer photo entry «Manuell» — that is why the Beilage got its own glyph', () => {
+    expect(journalArea(ev({ icon: 'photo', kind: 'photo', text: 'Foto' }), plans)).toBe('Manuell')
+  })
+
+  it('reads a snooze row as Pendenz under both glyphs, and a Zeiten row as Anwesenheit', () => {
+    const snoozed = { op: 'snoozed', id: 'p1', dueAt: at } as const
+    expect(journalArea(ev({ icon: 'bell', kind: 'reminder', reminder: snoozed }), plans)).toBe('Pendenz')
+    // written before 23.08. — the `reminder` answers long before the icon rules are reached
+    expect(journalArea(ev({ icon: 'clock', kind: 'reminder', reminder: snoozed }), plans)).toBe('Pendenz')
+    // …and that is what leaves 'clock' free to mean only this, on the poster's Zeiten row
+    expect(journalArea(ev({ icon: 'clock', text: 'Zeiten erfasst: Meier Anna' }), plans)).toBe('Anwesenheit')
+  })
+})
+
+describe('journalDisc · what the Verlauf’s disc says a row is', () => {
+  const at = '2026-08-23T20:00:00.000Z'
+
+  // screen and paper disagree on ONE word, deliberately: the export is searched for «Kroki».
+  it('names the map surface the way the screen names it', () => {
+    const e: TimelineEvent = { id: 'l', t: '22:00', at, icon: 'hex', text: 'Symbol gesetzt', kind: 'symbol' }
+    expect(journalArea(e, plans)).toBe('Kroki')
+    expect(journalDisc(e, plans)).toEqual({ label: 'Lage', surface: 'map' })
+  })
+
+  it('tints a plan row green and leaves everything that is not a surface untinted', () => {
+    const onPlan: TimelineEvent = { id: 'p', t: '22:01', at, icon: 'hex', text: 'Symbol gesetzt', kind: 'symbol', surface: 'plan', planId: 'm1' }
+    expect(journalDisc(onPlan, plans)).toEqual({ label: 'Modul 1', surface: 'plan' })
+    // ⚠️ THE bug the chip's tint had: an Atemschutz row is drawn on the map surface, and the
+    // tint may not claim «Lage» while the word says «Atemschutz».
+    const az: TimelineEvent = { id: 'a', t: '22:02', at, icon: 'radio', text: 'Funkkontakt Trupp 1', kind: 'team', surface: 'map' }
+    expect(journalDisc(az, plans)).toEqual({ label: 'Atemschutz', surface: null })
+    // …and a Pendenz written on the Plan is a Pendenz, not a Plan row
+    const pnd: TimelineEvent = { id: 'r', t: '22:03', at, icon: 'type', text: 'Lüfter prüfen', kind: 'journal', surface: 'plan', planId: 'm1', reminder: { op: 'created', id: 'p1' } }
+    expect(journalDisc(pnd, plans)).toEqual({ label: 'Pendenz', surface: null })
   })
 })
 

@@ -273,6 +273,104 @@
 }
 .kf-at-val { flex: none; min-width: 8.5em; font: 800 13px var(--mono); color: var(--ink); }
 
+/* ============================================================
+   Kroki-Ausschnitt — THE PAPER. The crop, the legend under it and the three plates the server
+   pastes on last. Everything in here is a facsimile of what `backend/app/kroki.py` prints; the
+   framing controls around it (hint line, Hoch·Quer, ±, «Auf Einsatz zoomen») are chrome and
+   live in 14-intake.css with the rest of the panel shell.
+   ============================================================ */
+
+/* The PAPER scope. `buildKrokiPayload` always sends `base.tiles[0]` and never the night tiles,
+   so the sheet is a light picture even at 03:00 — and a preview whose chips, tags and legend
+   flipped dark was not a preview of it but a second view of the same data. The day values are
+   pinned locally; the night rule below dims the whole plate instead.
+   ⚠️ `--accent` is deliberately NOT pinned: a station sets it on `:root` at boot and it is a
+   brand colour, not a paper one. */
+.kf-paper {
+  --ink: #1b2330; --ink-dim: #4d586a; --ink-faint: #6c7686;
+  --surface: #fff; --surface-2: rgba(255, 255, 255, .6);
+  --border: rgba(0, 0, 0, .1); --border-soft: rgba(0, 0, 0, .06); --fill-soft: rgba(0, 0, 0, .045);
+  --glass: rgba(255, 255, 255, .9); --glass-line: rgba(255, 255, 255, .7); --glass-edge: rgba(30, 45, 70, .1);
+  --label-bg: rgba(255, 255, 255, .92); --label-soft: rgba(255, 255, 255, .82);
+  --blue: #1f6feb; --red: #e8392b; --green: #178a4a; --amber: #e2920a;
+  --blue-strong: #1a5fd0; --green-strong: #137a40; --amber-strong: #b4690a; --red-strong: #c43122;
+  --note-bg: #fff8d6; --note-border: #e8d68a; --note-ink: #5a4b12;
+  --ink-fill: #1b2330; --ink-fill-hover: #0f1722; --on-accent-ink: #fff; --on-fill: #fff;
+  --btn-primary: var(--ink-fill); --btn-primary-hover: var(--ink-fill-hover); --on-btn-primary: var(--on-accent-ink);
+  color: var(--ink);
+  /* one plate around the picture AND the legend: that is where the paper really ends, because
+     the legend carries the words the picture stopped carrying. Sized off the crop, so the
+     legend column is exactly as wide as the sheet it belongs to. */
+  position: relative; width: 100%; margin-inline: auto; padding: 8px 8px 6px;
+  max-width: calc(var(--kf-map-h) * 1600 / 940 + 16px);
+  border-radius: var(--r-ctl); background: var(--surface); box-shadow: var(--shadow-sm);
+}
+.kf-paper.portrait { max-width: calc(var(--kf-map-h) * 1000 / 1400 + 16px); }
+/* The plate carries the centring and the width cap the crop used to carry alone.
+   ⚠️ `max-height: none` too: with the cap still on, a rounding hair over `--kf-map-h` would
+   clamp the height and leave `aspect-ratio` to give way — a letterboxed crop is a crop of a
+   sheet with a different shape, which is the one thing this preview may not do. */
+.kf-paper > .kf-map { max-width: none; max-height: none; margin-inline: 0; }
+/* Night: a sheet of white in a dark KP dazzles. Dimmed at rest, full brightness the moment a
+   hand is on it. A translucent black veil rather than `filter: brightness()` — identical
+   arithmetic on opaque content, and it does not put a filter over a moving WebGL canvas. */
+[data-theme="night"] .kf-paper::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: rgba(0, 0, 0, .2); transition: opacity .18s var(--ease);
+}
+[data-theme="night"] .kf-paper:hover::after,
+[data-theme="night"] .kf-paper:active::after,
+[data-theme="night"] .kf-paper:focus-within::after { opacity: 0; }
+
+/* The numbered disc the sheet draws where a label used to be (kroki.py · _numbered_marker):
+   ink fill, white ring, the figure in the mono face the legend numbers share.
+   ⚠️ TWO RADII, on purpose. The disc is TESTED at its true printed radius (9.5·u — 4.2px in
+   Quer, 2.3px in Hoch) and DRAWN at a 15px floor, or no digit would be visible at preview
+   size. Testing at the drawn radius would make the preview drop things the sheet prints. */
+.kf-disc { display: grid; place-items: center; border-radius: 50%; background: #12161c; color: #fff;
+  font-family: var(--mono); font-weight: 800; line-height: 1; box-shadow: 0 0 0 1.5px #fff; }
+/* …and the one that will NOT be on the sheet: its disc does not fit wholly inside the frame, so
+   the server clips it and its words never reach the legend. Hollow, and the same amber the
+   «{n} ohne Nummer» line below carries — one colour for one statement. It sits at its real
+   place and is cut by the frame edge, which is precisely what happens on paper. */
+.kf-disc-out { background: transparent; color: transparent; border: 2px solid var(--amber);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .9); }
+
+/* «Legende» — two columns filled down the first and then the second, the order report_pdf.py
+   lays them out in (:1642). One column below the two-column breakpoint. */
+.kf-legend { padding: 7px 2px 0; }
+.kf-legend-head { display: block; font: 800 10px var(--body); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-faint); padding-bottom: 3px; }
+.kf-legend-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 14px;
+  font: 500 12px/1.4 var(--body); color: var(--ink); }
+.kf-legend-list li { display: flex; gap: 7px; break-inside: avoid; }
+.kf-legend-list b { flex: none; min-width: 1.3em; text-align: right; font: 800 12px var(--mono); }
+.kf-legend-list span { min-width: 0; overflow-wrap: anywhere; }
+/* while the hand is still moving the figures are a moment behind — the membership beside them
+   is not, which is the half worth watching (see KrokiFramingPanel · the live fit test) */
+.kf-legend.pending .kf-legend-list { opacity: .5; }
+.kf-legend-miss { margin: 4px 0 0; font: 600 11.5px/1.4 var(--body); color: var(--amber-strong); }
+.kf-legend-wait { margin: 3px 0 0; font: 600 11.5px/1.4 var(--body); color: var(--ink-faint); }
+@media (max-width: 600px) { .kf-legend-list { columns: 1; } }
+
+/* The three plates, in the server's own fractions of the render width (u = Breite/1050). Tiny
+   here — the Massstab label is ~5px — and that is the honest size: they are OPAQUE, and what
+   they cost is the corner of the picture they cover. Above the markers, because the compositor
+   pastes them onto the flattened image; below the «{n} ausserhalb» pill, which is chrome. */
+.kf-furniture { position: absolute; z-index: 5; pointer-events: none; }
+.kf-north { display: grid; place-items: center; }
+.kf-north svg { width: 100%; height: 100%; }
+.kf-scale { background: rgba(255, 255, 255, .86); }
+.kf-scale-nums { position: absolute; display: flex; justify-content: space-between;
+  color: #1c1c1c; font-family: var(--body); line-height: 1; }
+.kf-scale-nums i { font-style: normal; }
+.kf-scale-bar { position: absolute; display: flex; outline: .5px solid #1c1c1c; }
+.kf-scale-bar i { flex: 1; }
+.kf-scale-bar i:nth-child(odd) { background: #1c1c1c; }
+.kf-attrib { display: flex; align-items: center; justify-content: flex-end; white-space: nowrap;
+  overflow: hidden; background: rgba(255, 255, 255, .78); color: #5b6573;
+  font-family: var(--body); line-height: 1; }
+
 /* the Rapportangaben + Beilagen live in a <fieldset> so one `disabled` covers every control in
    them (viewer / archived Einsatz). Reset the UA fieldset chrome — it is a gate, not a box. */
 /* 12px, the gap `.rp-col` uses. The form column stacked its cards 10px apart and the checklist
@@ -431,14 +529,16 @@
    ⚠️ Only the text lives here. «Durchhören» and «Transkript ergänzen» used to be two labelled
    buttons on this line; they are icon buttons IN the row since 2026-08-14, because on a phone
    they never fitted side by side and made every voice memo a three-line block (see Journal). */
-.hist-ev:has(.jr-transcript), .hist-ev:has(.jr-subs) { flex-wrap: wrap; }
-/* basis must leave room for the 74px indent — 100% + margin overflowed the drawer */
-.jr-transcript { flex: 0 0 calc(100% - 74px); min-width: 0; margin: 2px 0 2px 74px; display: flex; flex-direction: column; gap: 6px; }
+/* ⚠️ No wrap trigger and no basis/indent any more: `.hist-ev` is a 4-track GRID since the
+   classification column landed, and these sit on the sentence track by `grid-column` (see
+   06-contextpanel.css). A flex basis here fought the grid; the 74px margin was simply the
+   wrong axis — the sentence starts at 94px. */
+.jr-transcript { min-width: 0; margin: 2px 0; display: flex; flex-direction: column; gap: 6px; }
 .jr-transcript p { margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.45; white-space: pre-wrap; }
 /* the words as SUBTITLE lines under an audio row — the korrektur sub-line's quiet register:
    muted, small, indented to the text column. A timed section leads with its offset into the
    recording; the plain transcript (one text, no offset) prints without one. */
-.jr-subs { flex: 0 0 calc(100% - 74px); min-width: 0; margin: 0 0 2px 74px; display: flex; flex-direction: column; gap: 2px; }
+.jr-subs { min-width: 0; margin: 0 0 2px; display: flex; flex-direction: column; gap: 2px; }
 .jr-subs p { margin: 0; display: flex; gap: 8px; color: var(--ink-dim); font-size: 12px; line-height: 1.45; }
 .jr-subs p > i { flex: none; font-style: normal; font-variant-numeric: tabular-nums; color: var(--ink-faint); }
 .jr-subs p > span { min-width: 0; white-space: pre-wrap; }

@@ -8,7 +8,7 @@ import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, formatTime } from '../lib/format'
 import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowTime } from '../lib/verlauf'
-import { journalArea } from '../lib/report'
+import { journalDisc } from '../lib/report'
 import { formatElapsed } from '../lib/audioPlayer'
 import type { OpenReminder } from '../lib/reminders'
 
@@ -59,20 +59,58 @@ const targetOf = (e: TimelineEvent): 'map-entity' | 'map-pin' | 'plan' | null =>
   return null
 }
 
-// Short chip: WHERE in the app the entry came from — the same classification the printed
-// rapport's «Bereich» column uses (lib/report · journalArea), so screen and paper agree.
-// It used to read the `surface` alone, which the generic logger stamps as 'map' on
-// everything — Anwesenheit, Mittel, Atemschutz all said «Lage». One exception: the print
-// calls the map surface «Kroki» (the word people search the export for); on screen the
-// tab is called Lage, so the chip keeps that name.
-const chip = (e: TimelineEvent, plans: PlanDocument[]): string => {
-  const C = appConfig.copy.journal // read at call time so the resolved locale applies
-  const area = journalArea(e, plans)
-  if (area === appConfig.copy.report.areaLage) return C.surfaceMap
-  // a type name breaks on its SET Trennstellen (entryTypesWrap), like the composer's chips —
-  // «Sofortmassnahme» unhyphenated blows the chip open on a phone
-  const typed = Object.entries(C.entryTypes).find(([, label]) => label === area)
-  return typed ? (C.entryTypesWrap[typed[0]] ?? area) : area
+/** What the disc draws for a Pendenz, or null on every other row.
+ *  ⚠️ Only the row that RAISED an item, and the row that closed it, wear the ring. A Meldung and
+ *  a snooze are log lines ABOUT the item — they keep their own glyph and, in the Meldung's case,
+ *  the anchor that names which item they answer. */
+type RingState = 'open' | 'urgent' | 'overdue' | 'done'
+
+/** The 26px classification disc: the row's glyph in its Bereich tint, or the Pendenz ring.
+ *  The ring is the composer's own ring (18-audio · .jc-ring) at row size — which is what
+ *  JournalComposer's «the same ring that appears on the Verlauf row» has claimed all along. */
+function Disc({ icon, surface, ring, title }: {
+  icon?: string
+  surface?: 'map' | 'plan' | null
+  ring?: RingState | null
+  title?: string
+}) {
+  if (ring) {
+    return (
+      <span className="ic jr-ic-ring" title={title}>
+        <span className={`jr-ring jr-ring-${ring}`}>
+          {ring === 'done' && <Icon id="check" />}
+          {ring === 'urgent' && <i className="jr-bang" />}
+        </span>
+      </span>
+    )
+  }
+  return (
+    <span className={`ic${surface ? ` jr-ic-${surface}` : ''}`} title={title}>
+      <Icon id={icon || 'doc'} />
+    </span>
+  )
+}
+
+/** The Verlauf's icon legend, opened from the drawer head. Read at call time so the resolved
+ *  locale applies. Deliberately NOT exhaustive: it names the Bereiche a reader meets, not every
+ *  glyph the app can stamp on a row — a complete table would be a page, and the question it
+ *  answers is «what is that circle beside the sentence». */
+function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'plan'; ring?: RingState }[] {
+  const C = appConfig.copy.journal
+  const R = appConfig.copy.report
+  return [
+    { icon: 'circle', surface: 'map', label: C.surfaceMap },
+    { icon: 'flag', surface: 'plan', label: C.surfacePlan },
+    { icon: 'people', label: R.areaAnwesenheit },
+    { icon: 'gauge', label: R.areaAtemschutz },
+    { icon: 'box', label: R.areaMittel },
+    { icon: 'clipboard', label: R.areaRapport },
+    { icon: 'check', label: R.areaChecklist },
+    { icon: 'type', label: R.areaManual },
+    { ring: 'open', label: C.legendPendenzOpen },
+    { ring: 'urgent', label: C.legendPendenzUrgent },
+    { ring: 'done', label: C.legendPendenzDone },
+  ]
 }
 
 // The unified Verlauf — the single, append-only stream of everything that
@@ -156,6 +194,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   const pinnedRef = useRef<HTMLDivElement | null>(null)
   const [pinnedOverflows, setPinnedOverflows] = useState(false)
   const [showAge, setShowAge] = useState(false)
+  // the icon legend. Per-opening like `showAge`, and closed to begin with — see the button.
+  const [showLegend, setShowLegend] = useState(false)
   const [editTx, setEditTx] = useState<{ id: string; value: string } | null>(null)
   const saveTranscript = () => {
     if (!editTx) return
@@ -392,13 +432,34 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false}>
         <div className="journal-head">
           <span className="journal-title"><Icon id="history" />{C.title} · {events.length}</span>
+          {/* ⚠️ ON A TAP, never by itself. The disc carries the Bereich now, and a glyph has to be
+              learned — but a panel that opens on its own, or one the app remembers having opened,
+              is a thing to dismiss on the way to the record. This one is a question somebody asks
+              once. No hover either: the primary device has none. */}
+          <button
+            type="button" className={`journal-legend-btn${showLegend ? ' on' : ''}`}
+            title={C.legend} aria-label={C.legend} aria-expanded={showLegend}
+            onClick={() => setShowLegend((v) => !v)}
+          ><Icon id="info" /></button>
+          {/* ⚠️ `aria-label`, because the word inside it is hidden on a phone (10-journal.css) —
+              the head is one item wider since the legend button joined it, and this is the label
+              that can most afford to go. */}
           {onReplay && (
-            <button className="journal-replay" onClick={onReplay} title={C.replayHint}>
+            <button className="journal-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay}>
               <Icon id="play" /><span>{C.replay}</span>
             </button>
           )}
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
         </div>
+        {showLegend && (
+          <div className="jr-legend">
+            {legendEntries().map((l) => (
+              <span className="jr-legend-item" key={l.label}>
+                <Disc icon={l.icon} surface={l.surface} ring={l.ring} />{l.label}
+              </span>
+            ))}
+          </div>
+        )}
         {/* WHEN the Einsatz has substance, as one strip. A long Verlauf is a wall of rows in
             which «was war um halb zehn» means scrolling and reading — the strip answers it by
             position instead, and a tap on it lands on the nearest row. Ticks are not targets
@@ -556,6 +617,23 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             const openRem = isReminder && e.reminder ? openMap.get(e.reminder.id) : undefined
             const remDone = isReminder && !openRem
             const remOverdue = !!openRem?.dueAt && Date.parse(openRem.dueAt) <= now
+            // ── the disc ──
+            // ONE classification column, and the row's only one. A Pendenz shows the ring (the
+            // composer's own, which is what it has always promised); every other row shows its
+            // glyph, tinted where the Bereich is one of the two drawing surfaces. The WORD used
+            // to sit in a chip before the sentence — beside a sentence that already carried it
+            // («Auftrag · …») and, on a Pendenz, beside a second chip saying «Pendenz» again.
+            // The word now lives in the disc's title and in the legend in the head.
+            const ring: RingState | null = isReminder
+              ? (remDone ? 'done' : openRem?.urgent ? 'urgent' : remOverdue ? 'overdue' : 'open')
+              // …and the row that CLOSED the item wears the closed ring. `snoozed` and `note` do
+              // not: they are log lines about the item, not the item.
+              : e.reminder?.op === 'done' ? 'done' : null
+            const disc = journalDisc(e, plans)
+            // the footnotes on the row — appended facts about it, so they read AFTER the sentence
+            const repeated = repeats.counts.get(e.id) ?? 1
+            const nachtrag = isNachtrag(e, closedAt)
+            const hasFootnotes = nachtrag || !!e.correctedAt || repeated > 1
             return (
               <div
                 className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''}`}
@@ -567,40 +645,40 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 onKeyDown={onRow ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onRow() } } : undefined}
               >
                 <span className="t">{rowTime(e)}</span>
-                <span className="ic"><Icon id={e.icon || 'doc'} /></span>
-                <span className="tx">
-                  {/* ⚠️ Neutral on purpose. The class used to be `jr-chip-${e.surface}` — blue for map,
-                      green for plan — while the WORD comes from `journalArea`, which classifies by
-                      entry type and icon. So an Atemschutz row drawn on the map surface rendered a
-                      Lage-blue chip reading «ATEMSCHUTZ»: the colour claimed one Bereich and the
-                      text said another. The word is the truthful carrier, so the tint is gone
-                      rather than re-derived — one meaning per colour. */}
-                  <span className="jr-chip jr-chip-area">{chip(e, plans)}</span>
-                  {isNachtrag(e, closedAt) && <span className="jr-chip jr-chip-nachtrag">{C.nachtrag}</span>}
-                  {/* a corrected line says so, with the time of the correction — see the pen below */}
-                  {/* «und dann noch 5 Mal dasselbe» — the repeats are in the record, the row
-                      says how often rather than being printed again (lib/verlauf · repeatRuns) */}
-                  {(repeats.counts.get(e.id) ?? 1) > 1 && (
-                    <span className="jr-chip jr-chip-rep" title={C.repeatedTitle}>
-                      {fillTemplate(C.repeated, { n: String(repeats.counts.get(e.id)) })}
+                <Disc icon={e.icon} surface={disc.surface} ring={ring} title={disc.label} />
+                {/* ⚠️ THE SENTENCE, and nothing before it. Every row's text starts on one x —
+                    the same axis the sub-lines below it use — so reading 200 rows in the dark is
+                    riding one edge instead of scanning a ragged column. Six decorations used to
+                    stand in front of it, all of them `flex: none` against the one shrinkable
+                    child, which is how «Audionotiz (6s)» once came out as fourteen lines of one
+                    character on a phone. In a grid there is nothing left to shrink.
+                    The names in it are marked with the same vocabulary the composer marked them
+                    with while they were being typed — and the job after a name on its first
+                    mention («Widmer Céline (EL)»), because a Verlauf full of surnames tells a
+                    reader who was talking only if they already know the Wehr. */}
+                <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(e.text)}</span>
+                <span className="jr-trail">
+                  {/* Footnotes ABOUT the row — «Nachtrag», «korrigiert HH:MM», «6×». They say
+                      that the append-only record holds more than the row shows, which is worth
+                      keeping and worth reading last: a footnote belongs after the thing it
+                      annotates, not in front of it. */}
+                  {hasFootnotes && (
+                    <span className="jr-foot">
+                      {nachtrag && <b className="jr-foot-nachtrag">{C.nachtrag}</b>}
+                      {e.correctedAt && (
+                        <span title={C.correctHint}>{fillTemplate(C.corrected, { t: formatTime(new Date(e.correctedAt)) })}</span>
+                      )}
+                      {repeated > 1 && (
+                        <span className="jr-foot-rep" title={C.repeatedTitle}>{fillTemplate(C.repeated, { n: String(repeated) })}</span>
+                      )}
                     </span>
                   )}
-                  {e.correctedAt && (
-                    <span className="jr-chip jr-chip-korr" title={C.correctHint}>
-                      {fillTemplate(C.corrected, { t: formatTime(new Date(e.correctedAt)) })}
-                    </span>
-                  )}
-                  {/* The row that RAISED an item carries the chip — that is what marks it in the
-                      record as something that had to come back. */}
-                  {isReminder && (
-                    <span className={`jr-chip jr-chip-pendenz${remDone ? ' done' : ''}`}>{C.noteChip}</span>
-                  )}
-                  {/* ⚠️ A MELDUNG names the ITEM instead. The word «PENDENZ» on all of them said
+                  {/* ⚠️ A MELDUNG names the ITEM it answers. The word «PENDENZ» on all of them said
                       only what one could already see; what was missing is WHICH one, and three
                       «PENDENZ» rows in a row were three unrelated sentences. The Verlauf is
                       chronological, so each link has to carry its own anchor — and the anchor is
-                      the item's own opening words, not a label. */}
-                  {/* …and it is a WAY BACK, not a caption. The reference has to be truncated to
+                      the item's own opening words, not a label.
+                      …and it is a WAY BACK, not a caption. The reference has to be truncated to
                       fit, so the words alone often cannot identify the item — tapping it scrolls
                       to the row that raised it and flashes it, which answers «which one» in full
                       and in its own context. */}
@@ -612,122 +690,113 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       disabled={!pendenzRowIds.has(e.reminder.id)}
                     ><i>{pendenzTitles.get(e.reminder.id)}</i></button>
                   )}
-                  {/* the names in the sentence, marked — the same vocabulary and the same
-                      marking the composer used while it was being typed */}
-                  <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>
-                    {/* the job after the name, on its first mention — «Widmer Céline (EL)».
-                        A Verlauf full of surnames tells a reader who was talking only if they
-                        already know the Wehr; six months later, or on a Nachbarwehr's copy,
-                        nobody does. Quiet weight: it is context for the name, not a second one. */}
-                    {marked(e.text)}
-                  </span>
-                </span>
-                {/* ⚠️ NO tick-off control here any more. There were two: one on the row where the
-                    item was raised and one in the pinned block above, doing the same thing to the
-                    same item — and the row's was the worse of the two, because it scrolls away
-                    while the block cannot. This row is the RECORD; the block is where you work.
-                    A timed Erinnerung shows its Fälligkeit, since that is a fact about the entry
-                    rather than a control. */}
-                {isReminder && openRem?.dueAt && (
-                  <span className={`jr-remstate ${remOverdue ? 'overdue' : ''}`}>
-                    {remOverdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(openRem.dueAt))}
-                  </span>
-                )}
-                {/* opens IN the app (lib/ui · openPhoto): `target="_blank"` handed the picture to
-                    Safari on an installed iPad, which means leaving a running Einsatz to look at
-                    a photo of it. The viewer keeps the one thing the new tab was good for — a
-                    download. */}
-                {rowPhotos(e).map((url, i) => (
-                  <button
-                    key={url} type="button" className="jr-thumb" title={C.photoOpen} aria-label={C.photoOpen}
-                    onClick={(ev) => { ev.stopPropagation(); openPhoto(url, { caption: e.text, filename: `foto-${e.id}-${i + 1}.jpg` }) }}
-                  >
-                    <img src={url} alt="" />
-                  </button>
-                ))}
-                {/* ── Der Stift ──
-                    On everything a HUMAN typed, and on nothing else (lib/verlauf · isHandWritten).
-                    A wrong Strassenname or a Trupp number off by one used to be uncorrectable:
-                    the log is append-only, so the only ways out were a second line saying «oben
-                    falsch» or leaving the error standing on the Rapport. The correction is itself
-                    an appended row (a `textEdit` patch) — the original wording and the corrected
-                    one both stay in the record and in the hash chain, and the line says «korrigiert
-                    HH:MM» so nobody reads the new words as the ones spoken at the time.
-                    ⚠️ NEVER on system rows. «Trupp 2 eingerückt» is the app reporting an action;
-                    rewriting that sentence would make the record state something that did not
-                    happen, which is the one thing this journal exists to prevent.
-                    ⚠️ NOT on audio rows either. Their words live in the transcript, and the
-                    transcript icon beside the play circle is the one way to write them — a
-                    second editor for the row's own «Audionotiz (4s)» label stacked under the
-                    transcript field and read as two competing text boxes for the same entry. */}
-                {onEditText && isHandWritten(e) && !e.audioUrl && editRow?.id !== e.id && (
-                  <button
-                    className="jr-jump"
-                    title={C.editEntry}
-                    aria-label={C.editEntry}
-                    onClick={(ev) => { ev.stopPropagation(); setEditRow({ id: e.id, value: e.text }) }}
-                  ><Icon id="pen" /></button>
-                )}
-                {!e.audioUrl && e.at && onOpenPlayer && (() => {
-                  // annotation of a recording → jump into the player at this moment
-                  const t = Date.parse(e.at)
-                  const w = audioWindows.find((x) => t >= x.start && t <= x.end)
-                  if (!w) return null
-                  return (
+                  {/* ⚠️ NO tick-off control here any more. There were two: one on the row where the
+                      item was raised and one in the pinned block above, doing the same thing to the
+                      same item — and the row's was the worse of the two, because it scrolls away
+                      while the block cannot. This row is the RECORD; the block is where you work.
+                      A timed Erinnerung shows its Fälligkeit, since that is a fact about the entry
+                      rather than a control. */}
+                  {isReminder && openRem?.dueAt && (
+                    <span className={`jr-remstate ${remOverdue ? 'overdue' : ''}`}>
+                      {remOverdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(openRem.dueAt))}
+                    </span>
+                  )}
+                  {/* opens IN the app (lib/ui · openPhoto): `target="_blank"` handed the picture to
+                      Safari on an installed iPad, which means leaving a running Einsatz to look at
+                      a photo of it. The viewer keeps the one thing the new tab was good for — a
+                      download. */}
+                  {rowPhotos(e).map((url, i) => (
+                    <button
+                      key={url} type="button" className="jr-thumb" title={C.photoOpen} aria-label={C.photoOpen}
+                      onClick={(ev) => { ev.stopPropagation(); openPhoto(url, { caption: e.text, filename: `foto-${e.id}-${i + 1}.jpg` }) }}
+                    >
+                      <img src={url} alt="" />
+                    </button>
+                  ))}
+                  {/* ── Der Stift ──
+                      On everything a HUMAN typed, and on nothing else (lib/verlauf · isHandWritten).
+                      A wrong Strassenname or a Trupp number off by one used to be uncorrectable:
+                      the log is append-only, so the only ways out were a second line saying «oben
+                      falsch» or leaving the error standing on the Rapport. The correction is itself
+                      an appended row (a `textEdit` patch) — the original wording and the corrected
+                      one both stay in the record and in the hash chain, and the line says «korrigiert
+                      HH:MM» so nobody reads the new words as the ones spoken at the time.
+                      ⚠️ NEVER on system rows. «Trupp 2 eingerückt» is the app reporting an action;
+                      rewriting that sentence would make the record state something that did not
+                      happen, which is the one thing this journal exists to prevent.
+                      ⚠️ NOT on audio rows either. Their words live in the transcript, and the
+                      transcript icon beside the play circle is the one way to write them — a
+                      second editor for the row's own «Audionotiz (4s)» label stacked under the
+                      transcript field and read as two competing text boxes for the same entry. */}
+                  {onEditText && isHandWritten(e) && !e.audioUrl && editRow?.id !== e.id && (
+                    <button
+                      className="jr-jump"
+                      title={C.editEntry}
+                      aria-label={C.editEntry}
+                      onClick={(ev) => { ev.stopPropagation(); setEditRow({ id: e.id, value: e.text }) }}
+                    ><Icon id="pen" /></button>
+                  )}
+                  {!e.audioUrl && e.at && onOpenPlayer && (() => {
+                    // annotation of a recording → jump into the player at this moment
+                    const t = Date.parse(e.at)
+                    const w = audioWindows.find((x) => t >= x.start && t <= x.end)
+                    if (!w) return null
+                    return (
+                      <button
+                        className="jr-jump"
+                        title={C.playerOpen}
+                        aria-label={C.playerOpen}
+                        onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(w.row, (t - w.start) / 1000) }}
+                      ><Icon id="wave" /></button>
+                    )
+                  })()}
+                  {/* ── Durchhören + Transkript, IN der Zeile ──
+                      These were two full-width labelled buttons on a line of their own below the
+                      row. On a phone they never fitted side by side, so every voice memo was a
+                      three-line block and the amber «Transkript ergänzen» shouted louder than the
+                      entry it belonged to — two memos in a row and half the Verlauf was button.
+                      As icons beside the play circle an audio row is one row again, like every
+                      other row. The missing-transcript state keeps its amber, on the icon's frame
+                      rather than as a filled block; the transcript TEXT still gets its own line
+                      below (see .jr-transcript) — that is content, not a control. */}
+                  {e.audioUrl && e.audioMeta && onOpenPlayer && (
                     <button
                       className="jr-jump"
                       title={C.playerOpen}
                       aria-label={C.playerOpen}
-                      onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(w.row, (t - w.start) / 1000) }}
+                      onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(e) }}
                     ><Icon id="wave" /></button>
-                  )
-                })()}
-                {/* ── Durchhören + Transkript, IN der Zeile ──
-                    These were two full-width labelled buttons on a line of their own below the
-                    row. On a phone they never fitted side by side, so every voice memo was a
-                    three-line block and the amber «Transkript ergänzen» shouted louder than the
-                    entry it belonged to — two memos in a row and half the Verlauf was button.
-                    As icons beside the play circle an audio row is one row again, like every
-                    other row. The missing-transcript state keeps its amber, on the icon's frame
-                    rather than as a filled block; the transcript TEXT still gets its own line
-                    below (see .jr-transcript) — that is content, not a control. */}
-                {e.audioUrl && e.audioMeta && onOpenPlayer && (
-                  <button
-                    className="jr-jump"
-                    title={C.playerOpen}
-                    aria-label={C.playerOpen}
-                    onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(e) }}
-                  ><Icon id="wave" /></button>
-                )}
-                {e.audioUrl && onTranscript && (() => {
-                  // sections written in the player count as transcription too — the amber asks
-                  // for words that are missing, not for a particular field to be filled
-                  const hasTx = !!e.transcript || !!e.transcriptSections?.length
-                  return (
+                  )}
+                  {e.audioUrl && onTranscript && (() => {
+                    // sections written in the player count as transcription too — the amber asks
+                    // for words that are missing, not for a particular field to be filled
+                    const hasTx = !!e.transcript || !!e.transcriptSections?.length
+                    return (
+                      <button
+                        className={`jr-jump ${hasTx ? '' : 'jr-jump-miss'}`}
+                        title={hasTx ? C.transcriptEdit : C.transcriptAdd}
+                        aria-label={hasTx ? C.transcriptEdit : C.transcriptAdd}
+                        onClick={(ev) => { ev.stopPropagation(); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}
+                      ><Icon id={hasTx ? 'type' : 'warn'} /></button>
+                    )
+                  })()}
+                  {e.audioUrl && (
                     <button
-                      className={`jr-jump ${hasTx ? '' : 'jr-jump-miss'}`}
-                      title={hasTx ? C.transcriptEdit : C.transcriptAdd}
-                      aria-label={hasTx ? C.transcriptEdit : C.transcriptAdd}
-                      onClick={(ev) => { ev.stopPropagation(); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}
-                    ><Icon id={hasTx ? 'type' : 'warn'} /></button>
-                  )
-                })()}
-                {e.audioUrl && (
-                  <button
-                    className={`tl-play ${audio.playing === e.id ? 'playing' : ''}`}
-                    title={audio.playing === e.id ? appConfig.copy.journal.recordStop : appConfig.copy.play}
-                    aria-label={audio.playing === e.id ? appConfig.copy.journal.recordStop : appConfig.copy.play}
-                    onClick={(ev) => { ev.stopPropagation(); audio.toggle(e.id, e.audioUrl!) }}
-                  ><Icon id={audio.playing === e.id ? 'pause' : 'play'} /></button>
-                )}
-                {(rowPhotos(e).length > 0 || e.audioUrl) && mediaStatusOf?.(e.id) && (
-                  <span className={`jr-media-state ${mediaStatusOf(e.id) === 'failed' ? 'failed' : 'pending'}`}
-                    title={mediaStatusOf(e.id) === 'failed' ? C.mediaFailed : C.mediaPending}>
-                    <Icon id={mediaStatusOf(e.id) === 'failed' ? 'warn' : 'rotate'} />
-                    <span>{mediaStatusOf(e.id) === 'failed' ? C.mediaFailed : C.mediaPending}</span>
-                  </span>
-                )}
-                {clickable && <span className="hist-go" aria-hidden><Icon id={e.pinned ? 'coords' : 'chevron'} /></span>}
+                      className={`tl-play ${audio.playing === e.id ? 'playing' : ''}`}
+                      title={audio.playing === e.id ? appConfig.copy.journal.recordStop : appConfig.copy.play}
+                      aria-label={audio.playing === e.id ? appConfig.copy.journal.recordStop : appConfig.copy.play}
+                      onClick={(ev) => { ev.stopPropagation(); audio.toggle(e.id, e.audioUrl!) }}
+                    ><Icon id={audio.playing === e.id ? 'pause' : 'play'} /></button>
+                  )}
+                  {(rowPhotos(e).length > 0 || e.audioUrl) && mediaStatusOf?.(e.id) && (
+                    <span className={`jr-media-state ${mediaStatusOf(e.id) === 'failed' ? 'failed' : 'pending'}`}
+                      title={mediaStatusOf(e.id) === 'failed' ? C.mediaFailed : C.mediaPending}>
+                      <Icon id={mediaStatusOf(e.id) === 'failed' ? 'warn' : 'rotate'} />
+                      <span>{mediaStatusOf(e.id) === 'failed' ? C.mediaFailed : C.mediaPending}</span>
+                    </span>
+                  )}
+                  {clickable && <span className="hist-go" aria-hidden><Icon id={e.pinned ? 'coords' : 'chevron'} /></span>}
+                </span>
                 {/* the words, as SUBTITLE lines under the row — the plain transcript first (the
                     memo's words as one text, no offset), then the player's timed sections with
                     their offset into the recording. The row's own text stays «Audionotiz (8s)»:

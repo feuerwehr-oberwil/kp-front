@@ -33,6 +33,12 @@ export function IconSprite() {
           the QR poster (lib/captureClient) — emit it, so the symbol has to exist or the row
           draws an empty disc. Line positions match #doc so the two read as siblings. */}
       <symbol id="clipboard" viewBox="0 0 24 24"><path d="M9 4.5H7a1 1 0 0 0-1 1V20a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5.5a1 1 0 0 0-1-1h-2" /><rect x="9" y="3" width="6" height="3.5" rx="1" /><path d="M9 12.5h6M9 16h6" /></symbol>
+      {/* Beilage am Rapport — a paperclip, and its own glyph on purpose. The QR poster's
+          «Beilage hinzugefügt» rows used to wear #photo, the same glyph a composer photo entry
+          wears; on the Verlauf the disc is now the whole classification, so one glyph meaning
+          both «Rapport» and «Manuell» is a disc that cannot be read. `journalArea` still reads
+          the old #photo rows as Rapport — the record is append-only (lib/report.ts). */}
+      <symbol id="attach" viewBox="0 0 24 24"><path d="M20.6 11.4 12 20a5.6 5.6 0 0 1-7.9-7.9l8.6-8.6a3.7 3.7 0 0 1 5.3 5.3l-8.6 8.6a1.9 1.9 0 0 1-2.6-2.6l7.9-7.9" /></symbol>
       {/* «An Stationsdrucker»: paper going in at the top, paper coming out at the bottom. The
           relay buttons carried a bare status dot and no glyph at all, so they read as a stray
           label beside every sibling action that HAS one. The dot stays — it says whether the

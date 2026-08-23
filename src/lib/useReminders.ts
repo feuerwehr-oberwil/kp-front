@@ -91,10 +91,16 @@ export function useReminders(
     onEvent({ icon: 'check', text: tpl.replace('{text}', r.text), reminder: { op: 'done', id: r.id } })
   }, [onEvent, copy.doneLog, copy.pendenzDoneLog])
 
+  // ⚠️ 'bell', not 'clock' (23.08.). On the Verlauf the 26px disc IS the Bereich now, and 'clock'
+  // was also the glyph the QR poster writes on an Anwesenheits-Zeitenzeile — one glyph, two
+  // Bereiche, unreadable as a classification. The bell is the glyph the Erinnerung already wears
+  // where the operator meets it (ReminderBanner), so nothing new has to be learned. Rows written
+  // before the change keep 'clock' and still classify as Pendenz: they carry a `reminder`, which
+  // `journalArea` answers long before it looks at the icon.
   const snooze = useCallback((r: OpenReminder, mins: number) => {
     const dueAt = new Date(Date.now() + mins * 60_000).toISOString()
     onEvent({
-      icon: 'clock',
+      icon: 'bell',
       text: copy.snoozeLog.replace('{mins}', String(mins)).replace('{text}', r.text),
       reminder: { op: 'snoozed', id: r.id, dueAt },
     })

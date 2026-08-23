@@ -155,6 +155,72 @@ describe('Journal · the Pendenzen block', () => {
   })
 })
 
+// ⚠️ The row's text is the ONE string the Verlauf, the Rapport and the hash chain all read
+// (lib/journalEntry). The classification column changed what is DRAWN around it, and this pins
+// that it changed nothing about the string itself.
+describe('Journal · the classification column', () => {
+  const auftrag: TimelineEvent = {
+    id: 'a1', t: '', at: new Date(1_000_000).toISOString(), icon: 'type', kind: 'journal',
+    entryType: 'auftrag', text: 'Auftrag · Trupp 1 Innenangriff über das Treppenhaus',
+    reminder: { op: 'created', id: 'p1', text: 'Trupp 1 Innenangriff über das Treppenhaus' },
+  }
+  const textOf = (id: string) => document.querySelector(`[data-ev="${id}"] .jr-text`)?.textContent ?? ''
+
+  // The PRINT drops the «Auftrag · » prefix because its Bereich column says the word (report ·
+  // withoutAreaPrefix). The screen has no such column, so the sentence stays exactly as written.
+  it('draws the record’s own string, prefix and all', () => {
+    setup({ events: [auftrag], openReminders: [pendenz('p1', 'Trupp 1 Innenangriff über das Treppenhaus')] })
+    expect(textOf('a1')).toBe(auftrag.text)
+  })
+
+  // ⚠️ It read «AUFTRAG  PENDENZ  Auftrag · Trupp 1 …» — the word twice in a chip and once more
+  // in the sentence it was composed into.
+  it('says each word once: no Bereich chip, no Pendenz chip', () => {
+    setup({ events: [auftrag], openReminders: [pendenz('p1', 'Trupp 1 Innenangriff über das Treppenhaus')] })
+    expect(document.querySelectorAll('.jr-chip')).toHaveLength(0)
+    expect(document.querySelector('[data-ev="a1"]')!.textContent).not.toContain('Pendenz')
+  })
+
+  it('gives the row that raised an item the ring, and the closed one the closed ring', () => {
+    setup({
+      events: [
+        { id: 'd1', t: '', at: new Date(1_030_000).toISOString(), icon: 'check', kind: 'reminder',
+          text: 'Pendenz erledigt: Lüfter prüfen', reminder: { op: 'done', id: 'p2' } },
+        { id: 'u1', t: '', at: new Date(1_020_000).toISOString(), icon: 'type', kind: 'journal',
+          text: 'Lüftungsanlage prüfen', reminder: { op: 'created', id: 'p3' } },
+        auftrag,
+      ],
+      openReminders: [pendenz('p3', 'Lüftungsanlage prüfen', { urgent: true })],
+    })
+    // p3 is still open and dringend; p1 is gone from the open set, so its row is erledigt
+    expect(document.querySelector('[data-ev="u1"] .jr-ring-urgent')).toBeTruthy()
+    expect(document.querySelector('[data-ev="a1"] .jr-ring-done')).toBeTruthy()
+    expect(document.querySelector('[data-ev="d1"] .jr-ring-done')).toBeTruthy()
+  })
+
+  // a Meldung and a snooze are log lines ABOUT the item — they keep their glyph and, for the
+  // Meldung, the anchor that names which item it answers
+  it('leaves a Meldung row its own glyph', () => {
+    setup({
+      events: [{ id: 'n1', t: '', at: new Date(1_020_000).toISOString(), icon: 'type', kind: 'journal',
+        text: 'Lüfter läuft', reminder: { op: 'note', id: 'p1' } }],
+    })
+    expect(document.querySelector('[data-ev="n1"] .jr-ring')).toBeNull()
+    expect(document.querySelector('[data-ev="n1"] .ic use')?.getAttribute('href')).toBe('#type')
+  })
+
+  // «Nachtrag» / «korrigiert HH:MM» / «6×» are footnotes on the row: they belong after the
+  // sentence, not in front of it where they pushed the text off its axis.
+  it('puts the footnotes behind the sentence', () => {
+    const at = new Date(1_060_000).toISOString()
+    setup({ events: [{ ...events[0], correctedAt: at }, ...events.slice(1)] })
+    const row = document.querySelector('[data-ev="r3"]')!
+    const foot = row.querySelector('.jr-foot')!
+    expect(foot.textContent).toMatch(/^korrigiert \d{1,2}:\d{2}$/)
+    expect(row.querySelector('.jr-text')!.compareDocumentPosition(foot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
 describe('Journal · correcting a line (append-only)', () => {
   const sysRow: TimelineEvent = {
     id: 's1', t: '', at: new Date(1_050_000).toISOString(),

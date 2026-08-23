@@ -214,13 +214,43 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   if (startsWithTemplate(e.text, appConfig.copy.anwesenheit.undone)
     || startsWithTemplate(e.text, appConfig.copy.anwesenheit.redone)) return r.areaAnwesenheit
   if (e.icon === 'clipboard') return r.areaRapport
-  if (e.icon === 'photo') return r.areaRapport // Beilage added/removed at the poster
+  // Beilage added/removed at the poster. TWO glyphs, one Bereich: 'attach' is what
+  // `captureClient` writes since 23.08., 'photo' is what it wrote before — and the record is
+  // append-only, so the old rows have to keep classifying as they always did. Same problem, and
+  // the same answer, as `startsWithTemplate` below. The split exists for the SCREEN: the Verlauf
+  // row's disc is now the whole classification (Journal · journalDisc), and #photo was also the
+  // glyph of a composer photo entry, which is «Manuell» two branches further up.
+  if (e.icon === 'attach' || e.icon === 'photo') return r.areaRapport
+  // ⚠️ 'clock' means Anwesenheit here and nothing else: the poster's Zeiten rows carry it. Snooze
+  // rows carried it too until 23.08., but every one of them has a `reminder` and is answered as
+  // «Pendenz» above, so they never reach this line — new ones carry 'bell' (lib/useReminders).
   if (e.icon === 'people' || e.icon === 'user' || e.icon === 'clock') return r.areaAnwesenheit
   if (e.icon === 'box') return r.areaMittel
   // everything else the Atemschutz board writes: Kontakt, Druck, Leitung, Alarm, Sicherheitswerte
   if (e.kind === 'team') return r.areaAtemschutz
   if (e.surface === 'plan') return planLabel(plans.find((p) => p.id === e.planId), e.floor)
   return r.areaLage
+}
+
+/**
+ * The Verlauf's icon disc, in words: the Bereich as the SCREEN names it, plus which of the two
+ * drawing surfaces it is — the disc's tint — or null for everything that is neither.
+ *
+ * This is what the Bereich chip used to be. The chip printed the word on every row, beside a
+ * sentence that already carried it («Auftrag · …») and beside a second chip saying «Pendenz»;
+ * the disc says it once, in the one slot every row already has. The word survives here for the
+ * disc's title and for the Verlauf's legend.
+ *
+ * ⚠️ The tint is derived from the RESOLVED Bereich, never from `e.surface`: the generic logger
+ * stamps 'map' on everything, which is how a Lage-blue chip once sat under the word «Atemschutz».
+ * ⚠️ One name differs between screen and paper on purpose — the print says «Kroki» (the word
+ * people search the export for), the tab on screen is called «Lage». See copy · report.areaLage.
+ */
+export function journalDisc(e: TimelineEvent, plans: PlanDocument[]): { label: string; surface: 'map' | 'plan' | null } {
+  const area = journalArea(e, plans)
+  if (area === appConfig.copy.report.areaLage) return { label: appConfig.copy.journal.surfaceMap, surface: 'map' }
+  const onPlan = e.surface === 'plan' && area === planLabel(plans.find((p) => p.id === e.planId), e.floor)
+  return { label: area, surface: onPlan ? 'plan' : null }
 }
 
 /** Does this row's text begin with what a copy template writes before its first placeholder?
@@ -548,7 +578,6 @@ export function metaExtrasForPdf(meta: ReportMeta, bounds?: IncidentBounds): {
   zeiten: [string, string][]
   erfasser?: string
 } {
-  const R = appConfig.copy.report
   // Same midnight rule as the Personalblatt directly above this grid on the sheet — it dated its
   // clocks and this one did not, on the same page. «23:50 → 00:15» is 25 minutes or 23 hours
   // depending on a date that was nowhere on the paper.
