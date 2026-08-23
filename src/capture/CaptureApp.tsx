@@ -24,6 +24,7 @@ import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd, missin
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { Overlays, toast } from '../lib/ui'
+import { Overlay } from '../lib/overlays'
 import { prepareUploadImage } from '../lib/imagePrep'
 import { capturePrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
@@ -711,15 +712,15 @@ export default function CaptureApp() {
   // printed on the rapport as a fact. What is worth saying at this moment is where the real
   // rapport comes from, so that is what the modal says. It stays a modal because it also makes
   // every print an explicit two-step: no stray tap reaches the station printer.
+  // ⚠️ It goes through `src/lib/overlays` like every other modal in the app (AGENTS.md), so the
+  // focus trap, Esc, the backdrop dismissal, the ARIA and the scroll-lock are the ONE
+  // implementation rather than this file's own. It used to be a hand-rolled `.cv-modal-ovl` with
+  // a hand-rolled body-overflow freeze: no focus trap (Tab walked the page behind it), no Esc,
+  // and a scrollbar-width compensation that only guessed at what the platform does. `modal` (not
+  // the default 'trap-focus') because this page IS a scrolling document — unlike the kiosk, it
+  // has no `body { overflow: hidden }` to make the lock redundant — and nothing inside the modal
+  // portals a menu to <body> that full modality would mark inert.
   const [confirmOut, setConfirmOut] = useState<null | 'pdf' | 'print'>(null)
-  // the page is a scrolling document (mount effect above) — freeze it behind the modal,
-  // compensating the vanished scrollbar's width so the layout doesn't shift (desktop)
-  useEffect(() => {
-    const sw = window.innerWidth - document.documentElement.clientWidth
-    document.body.style.overflowY = confirmOut ? 'hidden' : 'auto'
-    document.body.style.paddingRight = confirmOut && sw > 0 ? `${sw}px` : ''
-    return () => { document.body.style.overflowY = 'auto'; document.body.style.paddingRight = '' }
-  }, [confirmOut])
   const confirmOutput = () => {
     const what = confirmOut
     if (!what) return
@@ -1394,40 +1395,40 @@ export default function CaptureApp() {
           station printer. It carries the one thing worth reading at this moment: where the real
           rapport normally comes from — the KP tablet, with the Lageskizze this page cannot draw. */}
       {confirmOut && (
-        <div className="cv-modal-ovl" onClick={() => setConfirmOut(null)}>
-          <div className="cv-card cv-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <h2>{confirmOut === 'print' ? R.confirmTitle : C.rapportPdf}</h2>
-            {/* the KP-aktiv notice lives HERE, at the print/PDF decision — not in the bar. With
-                the tablet actually on the incident it is a live fact (green dot); otherwise it is
-                the standing one, that this is the exception and not the usual route to paper. */}
-            {kpActive ? (
-              <p className="cv-modal-kp"><span className="cv-kp-dot" aria-hidden /> {C.kpActiveHint}</p>
-            ) : (
-              <p className="cv-hint">{C.kpNormallyHint}</p>
-            )}
-            {/* an Übung produces a Rapport that looks exactly like a real one on paper — say
-                so at the one moment it can still be stopped, right before it is printed */}
-            {incident.is_exercise && (
-              <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {C.exerciseHint}</p>
-            )}
-            {/* the title + Ausdrucken button ARE the confirmation — no filler sentence;
-                only the offline store-and-forward warning earns a line */}
-            {confirmOut === 'print' && !printStatus?.online && (
-              /* just the fact. The sentence that used to stand here promised that the job «wird
-                 gedruckt, sobald das Relay wieder erreichbar ist» — a claim about the future that
-                 made queuing sound like printing. */
-              <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {R.offline}</p>
-            )}
-            <div className="cv-modal-actions">
-              <button className="cv-btn" onClick={() => setConfirmOut(null)}>{C.cancel}</button>
-              <button className="cv-btn cv-primary" onClick={confirmOutput}>
-                {confirmOut === 'print'
-                  ? (printStatus?.online ? R.confirmBtn : R.offlineConfirmBtn)
-                  : C.rapportPdf}
-              </button>
-            </div>
+        <Overlay open modal onClose={() => setConfirmOut(null)}
+          className="cv-card cv-modal ui-dialog"
+          ariaLabel={confirmOut === 'print' ? R.confirmTitle : C.rapportPdf}>
+          <h2>{confirmOut === 'print' ? R.confirmTitle : C.rapportPdf}</h2>
+          {/* the KP-aktiv notice lives HERE, at the print/PDF decision — not in the bar. With
+              the tablet actually on the incident it is a live fact (green dot); otherwise it is
+              the standing one, that this is the exception and not the usual route to paper. */}
+          {kpActive ? (
+            <p className="cv-modal-kp"><span className="cv-kp-dot" aria-hidden /> {C.kpActiveHint}</p>
+          ) : (
+            <p className="cv-hint">{C.kpNormallyHint}</p>
+          )}
+          {/* an Übung produces a Rapport that looks exactly like a real one on paper — say
+              so at the one moment it can still be stopped, right before it is printed */}
+          {incident.is_exercise && (
+            <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {C.exerciseHint}</p>
+          )}
+          {/* the title + Ausdrucken button ARE the confirmation — no filler sentence;
+              only the offline store-and-forward warning earns a line */}
+          {confirmOut === 'print' && !printStatus?.online && (
+            /* just the fact. The sentence that used to stand here promised that the job «wird
+               gedruckt, sobald das Relay wieder erreichbar ist» — a claim about the future that
+               made queuing sound like printing. */
+            <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {R.offline}</p>
+          )}
+          <div className="cv-modal-actions">
+            <button className="cv-btn" onClick={() => setConfirmOut(null)}>{C.cancel}</button>
+            <button className="cv-btn cv-primary" onClick={confirmOutput}>
+              {confirmOut === 'print'
+                ? (printStatus?.online ? R.confirmBtn : R.offlineConfirmBtn)
+                : C.rapportPdf}
+            </button>
           </div>
-        </div>
+        </Overlay>
       )}
 
     </div>

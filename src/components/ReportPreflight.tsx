@@ -112,9 +112,23 @@ const STEP_TAB: Record<AbschlussStep, PhoneTab> = {
 // Wer & Was → hop to Anwesenheit to correct → back», and a return that landed on «Bericht»
 // would cost a tap on every single round trip. A genuinely fresh open — another Einsatz, or
 // after Abschliessen — still starts on «Bericht».
+// ⚠️ …and so does WHAT WILL PRINT: the print-section toggles (incl. the Kroki's Quer/Hoch and
+// its framing) plus the chosen Kroki-Stand. Switching «Einsatzjournal» off, hopping to
+// Anwesenheit to fix a name and coming back put every section silently back on — on the one
+// surface that decides what leaves the building, and with the choice buried in the ▾ menu where
+// nobody would notice it had been undone.
+// Only the operator's OWN changes are kept (`optionOverrides`, a patch — see patchOpt), never
+// the whole options object: the seeds `kroki` / `annotatedPlans` / `atemschutz` follow the LIVE
+// data, and a remembered `kroki: false` from a Rapport opened before anything was drawn would
+// have dropped the Lageskizze from the sheet for the rest of the Einsatz.
 // (a mutated `.current` box, not a reassigned binding — the react-compiler lint forbids
 // reassigning module variables inside the component)
-const savedScroll: { current: { incidentId: string; top: number; tab: PhoneTab } | null } = { current: null }
+const savedScroll: {
+  current: { incidentId: string; top: number; tab: PhoneTab; optionOverrides: Partial<ReportOptions>; krokiAt: number | null } | null
+} = { current: null }
+
+/** What the box holds for THIS Einsatz, or null — another incident always starts fresh. */
+const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === incidentId ? savedScroll.current : null)
 
 // «Später» on the Abschluss-Band, per incident. Same kind of box as savedScroll and for the same
 // reason — the surface unmounts on every hop to Anwesenheit/Mittel/Verlauf, and a dismissal that
@@ -222,7 +236,7 @@ export function ReportPreflight({
   // and for the rest of the Einsatz. The payload carries an empty list when there are none, so
   // «always on» costs nothing: the section prints if and only if there is something to print.
   const pendenzCount = useMemo(() => pendenzRows(events).length, [events])
-  const [options, setOptions] = useState<ReportOptions>({
+  const [options, setOptions] = useState<ReportOptions>(() => ({
     ...defaultReportOptions,
     kroki: mapContentCount > 0,
     annotatedPlans: annotatedPlanCount > 0,
@@ -238,7 +252,14 @@ export function ReportPreflight({
     // orientation changed between two prints of the SAME Einsatz as symbols were added. A
     // remembered choice still wins — this is only what an unframed rapport starts from.
     krokiLandscape: reportMeta.krokiPrint?.landscape ?? false,
-  })
+    // …and LAST, so the operator's own picks beat every seed above them: what was chosen before
+    // the hop to Anwesenheit/Mittel is what this Einsatz still prints (see savedScroll).
+    ...(keptFor(incident.id)?.optionOverrides ?? {}),
+  }))
+  // The deviations from those seeds — the patch, not the result. Kept across the unmount so a
+  // remount re-reads the live data (a Lage drawn in the meantime turns `kroki` back on) and then
+  // re-applies what the operator actually decided.
+  const optionOverrides = useRef<Partial<ReportOptions>>(keptFor(incident.id)?.optionOverrides ?? {})
   // Partnerorganisationen. The field existed in the model and PRINTED for months, but nothing
   // ever wrote it — so every rapport fell back to the config's tick-off row and «Polizei war da»
   // was all the paper ever said. The remark is the point of the block: which patrol, whose
@@ -261,9 +282,13 @@ export function ReportPreflight({
   // instant is what makes a rapport able to show the Rettung that has since left, or the moment
   // the Lage was at its worst. Reconstructed locally from the event journal (lib/replay), the
   // same fold the Wiedergabe uses — so the paper and the replay can never disagree.
-  const [krokiAt, setKrokiAt] = useState<number | null>(
-    () => (reportMeta.krokiPrint?.at ? Date.parse(reportMeta.krokiPrint.at) || null : null),
-  )
+  // …and it survives the round trip to Anwesenheit/Mittel with the print options (savedScroll):
+  // a Stand picked by hand is a choice about the sheet, exactly like the sections are.
+  const [krokiAt, setKrokiAt] = useState<number | null>(() => {
+    const kept = keptFor(incident.id)
+    if (kept) return kept.krokiAt
+    return reportMeta.krokiPrint?.at ? Date.parse(reportMeta.krokiPrint.at) || null : null
+  })
   const [pastScene, setPastScene] = useState<{ entities: Entity[]; drawings: Drawing[] } | null>(null)
   const [krokiAtBusy, setKrokiAtBusy] = useState(false)
   // WHEN anything happened, for the Stand slider's tick marks. Derived from the SAME source the
@@ -746,7 +771,13 @@ export function ReportPreflight({
     toast(R.undoTooLate, { icon: 'warn', tone: 'warn' })
   }
 
-  const patchOpt = (patch: Partial<ReportOptions>) => setOptions((o) => ({ ...o, ...patch }))
+  /** The ONE way an option changes — it also records the deviation, which is what outlives the
+   *  hop to Anwesenheit/Mittel (see savedScroll). Set an option any other way and it is back to
+   *  its seed the moment the operator steps off this surface. */
+  const patchOpt = (patch: Partial<ReportOptions>) => {
+    optionOverrides.current = { ...optionOverrides.current, ...patch }
+    setOptions((o) => ({ ...o, ...patch }))
+  }
   /** Is there anything to frame? A rapport-only Einsatz (nothing drawn, nothing placed) seeds
    *  the Kroki section OFF and must not show an empty map pretending to be a picture — and
    *  switching the section off by hand means the same thing: nothing is going on the paper. */
@@ -928,9 +959,7 @@ export function ReportPreflight({
   // The phone's three tabs (see PhoneTab). Seeded from the box that also carries the scroll
   // position, so a hop to Anwesenheit and back returns to the tab it left from; a fresh Einsatz
   // opens on «Bericht», which is the first section of the printed rapport.
-  const [phoneTab, setPhoneTab] = useState<PhoneTab>(
-    () => (savedScroll.current?.incidentId === incident.id ? savedScroll.current.tab : 'bericht'),
-  )
+  const [phoneTab, setPhoneTab] = useState<PhoneTab>(() => keptFor(incident.id)?.tab ?? 'bericht')
   /** Picked by hand — each tab starts at ITS top, never at the scroll offset of the one before
    *  (which is a different page of different length). The «noch offen» chips do NOT go through
    *  here: they scroll to their own field instead. */
@@ -968,7 +997,8 @@ export function ReportPreflight({
   // names the same open points and stamps the same `report_done_at`. The menu row used to archive
   // plainly, so an Einsatz put away there stood in the Historie as «offen» for ever.
   // What stays here is what only this surface knows: a completed rapport should re-open at the
-  // top, so the kept scroll position is forgotten — but only if the Abschluss actually happened.
+  // top and from its seeds, so the whole kept box — scroll position, tab, print sections, Kroki
+  // Stand — is forgotten. But only if the Abschluss actually happened.
   const complete = async () => {
     if (await onComplete?.()) savedScroll.current = null
   }
@@ -1032,15 +1062,23 @@ export function ReportPreflight({
   }
 
   const bodyRef = useRef<HTMLDivElement>(null)
-  // …and the tab rides with it (see savedScroll). Read through a ref in the cleanup because the
-  // effect below is mount-only and would otherwise capture the tab this surface OPENED on.
+  // …and the tab + the Kroki-Stand ride with it (see savedScroll). Read through refs in the
+  // cleanup because the effect below is mount-only and would otherwise capture the values this
+  // surface OPENED on. (`optionOverrides` is already a ref, so it needs no mirror.)
   const phoneTabRef = useRef(phoneTab)
-  useEffect(() => { phoneTabRef.current = phoneTab })
+  const krokiAtRef = useRef(krokiAt)
+  useEffect(() => { phoneTabRef.current = phoneTab; krokiAtRef.current = krokiAt })
   useLayoutEffect(() => {
     const el = bodyRef.current
-    if (el && savedScroll.current?.incidentId === incident.id) el.scrollTop = savedScroll.current.top
+    const kept = keptFor(incident.id)
+    if (el && kept) el.scrollTop = kept.top
     return () => {
-      if (el) savedScroll.current = { incidentId: incident.id, top: el.scrollTop, tab: phoneTabRef.current }
+      if (el) {
+        savedScroll.current = {
+          incidentId: incident.id, top: el.scrollTop, tab: phoneTabRef.current,
+          optionOverrides: optionOverrides.current, krokiAt: krokiAtRef.current,
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -1582,7 +1620,13 @@ export function ReportPreflight({
                         {gRows.map(({ config: c, value: v }) => (
                           <label key={c.id} className="rz-row">
                             <span className="rz-name">{c.label}{c.color ? ` (${c.color})` : ''}</span>
+                            {/* ⚠️ `valueDay` is not optional here: the day wheel hands a day back
+                                on EVERY commit once the incident spans more than one, and without
+                                it the picker opens on TODAY — so correcting a Monday Ausrückzeit
+                                on Wednesday filed it as Wednesday, on the sheet that becomes the
+                                printed Rapport (see TimeField · valueDay). */}
                             <TimeField ariaLabel={c.label} value={clockOf(v?.alarmedAt)} days={zeitDays}
+                              valueDay={v?.alarmedAt ? new Date(v.alarmedAt) : undefined}
                               onCommit={(hhmm, day) => onGruppe(c.id, hhmm ?? '', day)} />
                           </label>
                         ))}
@@ -1604,7 +1648,9 @@ export function ReportPreflight({
                                 </span>
                               )}
                             </span>
+                            {/* …and the same day for the Ausrückzeit — see the Gruppen row above */}
                             <TimeField ariaLabel={c.label} value={clockOf(v?.ausgerueckt)} days={zeitDays}
+                              valueDay={v?.ausgerueckt ? new Date(v.ausgerueckt) : undefined}
                               onCommit={(hhmm, day) => onFahrzeug(c.id, hhmm ?? '', day)} />
                           </label>
                         ))}

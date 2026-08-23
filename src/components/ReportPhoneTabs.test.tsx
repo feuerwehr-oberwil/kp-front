@@ -48,6 +48,8 @@ function setup() {
 const tabOf = (step: string) =>
   document.querySelector(`[data-step="${step}"]`)?.closest('[data-tab]')?.getAttribute('data-tab')
 
+const isChecked = (el: HTMLElement) => el.getAttribute('aria-checked') === 'true'
+
 describe('Einsatzrapport · phone tabs', () => {
   it('opens on «Bericht»', () => {
     const { body } = setup()
@@ -80,5 +82,39 @@ describe('Einsatzrapport · phone tabs', () => {
     const { body } = setup()
     fireEvent.click(screen.getByRole('button', { name: /Zu «Anwesenheit» springen/ }))
     await waitFor(() => expect(body().dataset.phoneTab).toBe('werwas'))
+  })
+
+  // ⚠️ The same box carries WHAT WILL PRINT. The surface unmounts on every hop to
+  // Anwesenheit/Mittel/Verlauf — the documented working loop — and the print-section toggles
+  // used to be plain state: switch «Einsatzjournal» off, step away to fix a name, come back and
+  // the journal is silently back in the PDF, with the answer buried in the ▾ menu.
+  // Its own incident id, so the box this writes cannot seed the tests above.
+  it('keeps a print section switched off across the hop to another surface', () => {
+    const incident = { ...(INCIDENT as object), id: 'i-print' } as typeof INCIDENT
+    const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Weitere Druckoptionen' }))
+    const journal = () => screen.getByRole('menuitemcheckbox', { name: 'Einsatzjournal' })
+
+    const first = render(
+      <ReportPreflight
+        incident={incident} reportMeta={{ alarmiertAt: START.toISOString() }} events={[]}
+        annotatedPlanCount={0} truppCount={0} attendanceCount={0} mittelCount={0}
+        mapContentCount={0} onSaveMeta={vi.fn()}
+      />,
+    )
+    openMenu()
+    expect(isChecked(journal())).toBe(true)
+    fireEvent.click(journal())
+    expect(isChecked(journal())).toBe(false)
+    first.unmount()
+
+    render(
+      <ReportPreflight
+        incident={incident} reportMeta={{ alarmiertAt: START.toISOString() }} events={[]}
+        annotatedPlanCount={0} truppCount={0} attendanceCount={0} mittelCount={0}
+        mapContentCount={0} onSaveMeta={vi.fn()}
+      />,
+    )
+    openMenu()
+    expect(isChecked(journal())).toBe(false)
   })
 })

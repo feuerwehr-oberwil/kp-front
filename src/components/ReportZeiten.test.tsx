@@ -90,3 +90,48 @@ describe('Zeiten · «Jetzt» never warns about the time it just wrote', () => {
     expect(futureWarnings().length).toBeGreaterThan(0)
   })
 })
+
+// ⚠️ WHICH DAY a correction in the Alarmierungs-/Ausrückzeiten grid lands on. The picker hands a
+// day back on EVERY commit once the incident spans more than one (TimeField · valueDay), so a
+// field that does not say which day its value is already on opens the wheel on TODAY and writes
+// TODAY back. On this grid that reaches the printed Rapport: correcting a Monday-night
+// Ausrückzeit on Wednesday morning filed it as Wednesday, silently.
+describe('Zeiten · a correction stays on the day the stamp is already on', () => {
+  const MON = new Date(2026, 7, 10, 22, 0) // alarmiert Monday night…
+  const WED = new Date(2026, 7, 12, 9, 0) // …rapport written Wednesday morning
+
+  beforeEach(() => {
+    Element.prototype.scrollTo = Element.prototype.scrollTo ?? (() => {})
+    vi.useFakeTimers()
+    vi.setSystemTime(WED)
+  })
+
+  /** the day the freshest onSaveMeta call put the group's Alarmierungszeit on */
+  const savedGroupDay = (onSaveMeta: ReturnType<typeof vi.fn>) => {
+    const calls = onSaveMeta.mock.calls
+    const meta = calls[calls.length - 1][0] as { gruppen?: { alarmedAt?: string }[] }
+    const iso = meta.gruppen?.[0]?.alarmedAt
+    return iso ? new Date(iso).toDateString() : undefined
+  }
+
+  it('re-committing an Ausrückzeit does not move it to today', () => {
+    const onSaveMeta = vi.fn()
+    const alarmedAt = new Date(2026, 7, 10, 22, 5).toISOString()
+    render(
+      <ReportPreflight
+        incident={{ ...INCIDENT, started_at: MON.toISOString() }}
+        // an unconfigured group still gets a row (gruppenRows · orphans), so the grid is on
+        // screen without a deployment config
+        reportMeta={{ alarmiertAt: MON.toISOString(), gruppen: [{ id: 'gruppe-1', alarmedAt, manual: true }] }}
+        events={[]}
+        annotatedPlanCount={0} truppCount={0} attendanceCount={0} mittelCount={0}
+        mapContentCount={0}
+        onSaveMeta={onSaveMeta}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Gruppe 1' }))
+    // committed without touching the day — the correction is to the CLOCK, not to the day
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    expect(savedGroupDay(onSaveMeta)).toBe(new Date(2026, 7, 10).toDateString())
+  })
+})

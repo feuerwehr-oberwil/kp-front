@@ -641,16 +641,21 @@
 .cv-beilagen-add input { display: none; }
 .cv-beilagen-add.busy { opacity: .6; pointer-events: none; }
 
+/* The poster's button, on the app's ONE button spec (AGENTS.md · Buttons): neutral secondary by
+   default, `--btn-primary` for the single action a screen is about (.cv-pdf / .cv-primary below).
+   It used to be filled with `color-mix(--accent 16%)`, and --accent IS this deployment's brand
+   RED — which the spec reserves for danger/delete. The ⚠️ that stood here excused the tint as
+   «right for the one action a screen is about»; it is not (red never fills an action), and it sat
+   on the wrong selector anyway — `.cv-btn` is the BASE worn by Abbrechen, «Erneut versuchen» and
+   both output buttons, so the carve-out for one action tinted four. */
 .cv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 8px 14px;
-  border: none; border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   color: var(--ink); font: 700 14px var(--body); cursor: pointer; white-space: nowrap; }
-.cv-btn:disabled { opacity: var(--disabled); }
-/* ⚠️ `.cv-btn` is tinted with --accent, which IS this deployment's brand RED — right for the one
-   action a screen is about, wrong for «hinzufügen» rows, which came out looking like a warning.
-   Those use the neutral variant: a dashed outline that reads as «there is room for one more». */
+.cv-btn:disabled { opacity: var(--disabled); cursor: default; }
+/* «hinzufügen» rows: a dashed outline that reads as «there is room for one more». */
 .cv-btn-add { background: none; border: 1px dashed var(--glass-edge); color: var(--ink); }
 .cv-btn-add:hover:not(:disabled) { border-color: var(--ink-faint); }
-.cv-btn-ghost { min-height: 40px; padding: 0 10px; background: none; color: var(--ink-faint); }
+.cv-btn-ghost { min-height: 40px; padding: 0 10px; background: none; border-color: transparent; color: var(--ink-faint); }
 .cv-btn-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 .cv-btn svg { width: 15px; height: 15px; }
 .cv-linkbtn { border: none; background: none; color: var(--accent); font: 700 12.5px var(--body); cursor: pointer; padding: 0; }
@@ -709,7 +714,10 @@
   flex-wrap: wrap; }
 .cv-error svg { width: 16px; height: 16px; flex: none; }
 .cv-error-text { flex: 1; min-width: 0; }
-.cv-retry { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); }
+/* the retry INSIDE the red error banner — the one place red is right on an action here
+   («broken, act now»), and now the only red button on the page rather than the default skin */
+.cv-retry { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 30%, transparent); }
 .cv-row { display: grid; grid-template-columns: minmax(112px, 148px) 1fr; align-items: center;
   gap: 8px 12px; font: 600 13.5px var(--body); color: var(--ink); }
 .cv-row > span:first-child { min-width: 0; }
@@ -799,18 +807,21 @@
 .cv-zgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; width: 100%; min-width: 0; }
 .cv-zrow { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
 .cv-zname { font: 600 12.5px var(--body); color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cv-pdf { align-self: flex-start; margin-top: 4px; }
+/* THE one action this page is about — so it carries the app's primary fill, never the brand red
+   (AGENTS.md · Buttons). `.cv-quiet` still outranks it while the KP tablet is on the incident. */
+.cv-pdf { align-self: flex-start; margin-top: 4px; background: var(--btn-primary);
+  border-color: var(--btn-primary); color: var(--on-btn-primary); }
 /* cross-visibility QR ↔ KP: subtle live-dot line in the header (reassurance, not an alarm),
    and the quiet secondary styling the output buttons take while the KP tablet is active */
 .cv-kp-live { display: flex; align-items: center; gap: 6px; margin: 3px 0 0;
   font: 600 12.5px var(--body); color: var(--green-strong); }
 .cv-kp-dot { width: 8px; height: 8px; border-radius: 50%; flex: none;
   background: var(--green); animation: p 2.4s infinite; }
-.cv-btn.cv-quiet { background: var(--surface-veil); color: var(--ink-dim); font-weight: 600; }
+.cv-btn.cv-quiet { background: var(--surface-veil); border-color: var(--glass-edge); color: var(--ink-dim); font-weight: 600; }
 /* modal confirm (Ausdrucken / Rapport-PDF): solid + taller than Abbrechen — the decision
    button carries the visual weight */
 .cv-btn.cv-primary { min-height: 52px; padding: 8px 20px; background: var(--btn-primary);
-  color: var(--on-btn-primary); font-weight: 700; }
+  border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: 700; }
 /* KP-aktiv notice at the print/PDF decision: green live-tint box, clearer than a faint hint */
 .cv-modal-kp { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px;
   border-radius: var(--r-ctl); font: 600 13.5px var(--body); color: var(--ink);
@@ -867,10 +878,13 @@
 /* …and it butts straight against the head. The band and the head are the same surface, so the
    body's top padding drew a stripe of page between two things that belong to one card. */
 .cv-acc-body:has(> .cv-sticky-search:first-child) { padding-top: 0; }
-/* «Wer erfasst?» + confirm modal — fronts Rapport-PDF and Ausdrucken (no accidental paper) */
-.cv-modal-ovl { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px;
-  background: color-mix(in srgb, var(--ink) 28%, transparent); }
-.cv-modal { width: min(420px, 100%); gap: 12px; background: var(--surface); box-shadow: var(--shadow);
+/* Confirm modal — fronts Rapport-PDF and Ausdrucken (no accidental paper). It goes through
+   `src/lib/overlays` · Overlay now, so the scrim is the shared `.ui-backdrop` and its own
+   `.cv-modal-ovl` grid parent is gone: Base UI portals Backdrop and Popup as SIBLINGS, which
+   puts the centering on the popup itself (same shape as `.ip-sheet.ui-dialog` above). The 18px
+   the grid used to pad with survives as the width's viewport margin. */
+.cv-modal.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81; }
+.cv-modal { width: min(420px, calc(100vw - 36px)); gap: 12px; background: var(--surface); box-shadow: var(--shadow);
   max-height: 90dvh; overflow-y: auto; }
 .cv-modal-who { display: flex; align-items: center; gap: 10px; }
 .cv-modal-who > span { flex: none; font: 700 13.5px var(--body); color: var(--ink); }
