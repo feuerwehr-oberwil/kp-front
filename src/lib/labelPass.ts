@@ -9,10 +9,12 @@
  * the collision strategy. Both are gone.
  *
  * The replacement is variant A · **Verdrängen**: one fixed rank order, one AABB test per
- * candidate, and **nothing ever moves**. A label either stands exactly where it belongs or it
- * is not drawn at all — and where it is not drawn, a 6px ink dot stands in its place, on the side
- * the label itself would have taken (03-map.css · .ink-dot): the operator sees that a name exists
- * there, and which of two neighbours it belongs to. No spiral search, no displacement, no leaders.
+ * candidate, and **nothing ever moves**. A label either stands exactly where it belongs or it is
+ * not drawn at all — and not drawn means NOTHING drawn. No spiral search, no displacement, no
+ * leader lines, and (since 23.08.) no stand-in mark either: a 6px dot was tried for half a day
+ * and dropped, because its whole message was «something is hidden here», which zooming in already
+ * answers — this pass decides by collision in SCREEN pixels, so symbols spread apart as the
+ * operator goes in and the names come back by themselves.
  *
  * What makes that safe is the exemption: **the current selection is never suppressed**, and
  * everything else yields to it. Any hidden name is one tap from readable, and the label that

@@ -1351,9 +1351,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           pinned to each line's midpoint — reuses the measure-label chrome */}
       {drawingsVisible && drawLabels.map((l) => (
         <Marker key={`dl${l.id}`} longitude={l.coord[0]} latitude={l.coord[1]} anchor="bottom" offset={[0, -10]}>
-          {/* The pass could not fit it: a dot marks that this line has something to say, and
-              selecting the line brings the readout back (a selection is exempt). */}
-          {suppressedLabels.has(`dl:${l.id}`) ? <span className="ink-dot" title={appConfig.copy.map.labelHidden} /> : (
+          {/* The pass could not fit it, so it is simply not drawn — selecting the line brings the
+              readout back (a selection is exempt), and so does zooming in, which is what spreads
+              the labels apart in the first place. */}
+          {suppressedLabels.has(`dl:${l.id}`) ? null : (
           /* draggable: dragging pins the label to a georeferenced anchor (stays put on zoom/rotate) */
           <div
             className={`measure-label draw-label draggable${l.id === selectedDrawingId ? ' sel' : ''}`}
@@ -1373,7 +1374,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {drawingsVisible && circleLabels.map((c) => (
         <Marker key={`cl${c.id}`} longitude={c.coord[0]} latitude={c.coord[1]} anchor="bottom" offset={[0, -4]}>
           {suppressedLabels.has(`cl:${c.id}`)
-            ? <span className="ink-dot" title={appConfig.copy.map.labelHidden} />
+            ? null
             : <div className={`measure-label draw-label${c.id === selectedDrawingId ? ' sel' : ''}`}>{c.text}</div>}
         </Marker>
       ))}
@@ -1411,7 +1412,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               // A SELECTED symbol still clears it (MARKER_Z.selected) — only one of the two can
               // be the current selection, and the tapped object is the one that must be visible.
               style={{ zIndex: ld.d.id === selectedDrawingId ? MARKER_Z.tagSelected : MARKER_Z.tag }}>
-              {suppressedLabels.has(`tag:${ld.d.id}`) ? <span className="ink-dot" title={appConfig.copy.map.labelHidden} /> : (
+              {suppressedLabels.has(`tag:${ld.d.id}`) ? null : (
               /* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */
               <div className={`line-end-tag-wrap draggable${ld.d.id === selectedDrawingId ? ' sel' : ''}`}
                 style={{ cursor: onLabelMove ? 'move' : undefined }}

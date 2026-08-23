@@ -490,7 +490,6 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
                       <i />{!nameHidden && <b>{e.label}</b>}
                     </span>
-                    {nameHidden && <span className="ink-dot" title={appConfig.copy.map.labelHidden} />}
                   </>
                 )
               }
@@ -632,7 +631,6 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   />
                   {/* boom AFTER the body → paints on top (mounted on the turntable / roof) */}
                   {hub && <HubretterBoom lengthPx={boomPx} deg={(e.rotation2 ?? 0) - bearing} />}
-                  {capHidden && <span className="ink-dot" title={appConfig.copy.map.labelHidden} />}
                 </>
               )
             })()}
