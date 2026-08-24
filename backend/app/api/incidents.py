@@ -388,5 +388,3 @@ async def delete_incident(
         storage.delete(key + ".peaks.json")  # cached waveform peaks ride next to the blob
     await db.delete(inc)
     await db.flush()
-
-
