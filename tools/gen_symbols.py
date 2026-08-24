@@ -3,8 +3,9 @@
 
 Own artwork following the Swiss FKS Faltkarte sign conventions — geometric primitives
 (circles, polylines, letters), NOT the FireGIS path data (their circles are 48-segment
-arc chains; ours are real <circle> elements). Names/categories stay verbatim so the pack
-is a drop-in for public/firegis-symbols.json.
+arc chains; ours are real <circle> elements). Names/categories stay verbatim from the
+FireGIS pack this replaced; the shipped output is public/tactical-symbols.json (the old
+public/firegis-symbols.json no longer exists in the repo).
 
 Contract: origin-centered viewBox, unit radius ≈ 1, no width/height,
 colors baked (#000000 = glyph, first non-black = accent for symColor()), outline-only

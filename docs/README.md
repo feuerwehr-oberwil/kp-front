@@ -40,7 +40,8 @@ Printable/manual verification material for internal release checks and training-
 ## Historical
 
 - [`../mockups/`](../mockups/) – early look-and-feel explorations (HTML mockups). Kept for
-  reference; the chosen direction was "Karte Minimal". Not maintained.
+  reference; the chosen direction was "Karte Minimal". Not maintained. Only `app-lage.html` and
+  `nav-concepts.html` are tracked – the rest of the folder is deliberately local (`.gitignore`).
 
 ## Not in this repository
 

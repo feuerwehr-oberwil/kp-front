@@ -236,4 +236,6 @@ to prod.
 
 - [`docs/`](docs/) – concept, configuration, deployment, and architecture docs, indexed
   with status in [`docs/README.md`](docs/README.md).
-- `docs/design-concepts/`, `mockups/` – historical look-and-feel explorations (not maintained).
+- `mockups/` – historical look-and-feel explorations (not maintained; only `app-lage.html` and
+  `nav-concepts.html` are tracked, the rest stays local by `.gitignore`). The former
+  `docs/design-concepts/` directory is gone – superseded by the React app itself.

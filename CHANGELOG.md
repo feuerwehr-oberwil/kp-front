@@ -29,6 +29,128 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **Die Meldeleiste – ein Streifen, eine Rangfolge, alles sichtbar.** Nine banners used to compete
+  for the same screen edges with nothing but z-index deciding who could be read: the worst realistic
+  stack on an iPad in landscape covered the due Wiedervorlage – the one message whose whole doctrine
+  is «stays up until handled» – with the one that could have waited. They are one strip under the top
+  bar now. Every pending message is a row, ranked by class before time (Atemschutz-Alarm → Alarm →
+  Wiedervorlage → GPS → Prüfen → Tab-Sperre → Update → Installieren), and with nothing pending the
+  strip is not in the DOM at all. A first cut kept the rest behind a +n disclosure; measured against
+  real use the strip holds zero or one message almost always, so the queue went the same week –
+  alles offen, nothing privileged, no «which one did I just act on». Row bodies are inert – only
+  labelled buttons act, plus the permanently underlined title of a message that has somewhere to go
+  (permanent, not hover-only: this runs on an iPad). «Nur ansehen» left the layer to become a mode
+  chip beside the Einsatzname, and the intake review shrank to a «Passt / Bearbeiten» row – one that
+  yields while an alarm is pending, because confirming one Einsatz's data while looking at another's
+  is a nonsense question.
+
+- **Ein Atemschutz-Alarm, der tönt, sagt jetzt, wofür.** The escalating tone, the wake lock and the
+  OS notification always fired app-wide, but away from the board their cause was a small chip and a
+  dot – a noise the operator had to investigate rather than act on, and since low pressure joined
+  the tier, genuinely ambiguous. Each Trupp in alarm now has its own Meldeleiste row at rank 1 –
+  above the dispatch, because a fresh alarm can wait twenty seconds and a Trupp out of air cannot –
+  naming which Trupp and why: «Atemschutz überfällig» or «Alarmdruck erreicht», with bar and limit.
+  The tier is read from the same fold that plays the tone, so «tone implies row» holds by
+  construction. No ✕ (an overdue Trupp is ended by a Funkkontakt or a Druckmeldung, not a tap), and
+  deliberately not muted by the bell – this row is exactly what must stay readable after the bell is
+  pressed. ⚠️ Found on the way: a pressure alarm posted «Kontakt herstellen» as its OS notification.
+  Air does not come back on the radio; title and body follow the reason now.
+
+- **Ein Beschriftungs-Durchgang entscheidet auf der Lage, statt sechs, die es nicht tun.** Captions,
+  Trupp names, end tags, readouts and radii were placed by six independent loops with no collision
+  test between any of them – at the exact zoom where captions appeared, every one overlapped every
+  other on a Zimmerbrand. `lib/labelPass.ts` is the one arbiter now: fixed rank, exempt set first,
+  one collision test per candidate, computed in screen pixels. Nothing moves – no spiral, no leader
+  lines, because a name drawn 88px from its symbol is a small untruth and on a Lagekarte position is
+  the whole point. A label that does not fit is suppressed and comes back by itself on zoom-in; the
+  current selection is never suppressed, a tapped marker rises above the pile, and hand-placed
+  labels are pinned. (The interim 6px «a name is hidden here» ink dot lasted half a day and is gone
+  – zooming in already answers what it said.) German captions break at compound seams, on the Plan
+  too.
+
+- **Zeichnungen überleben einen Gebäudewechsel – und die Leiste hat eine Gebäude-Kachel statt
+  zwei.** «Umrisse» and «Gebäude» were two rail entries for one goal; they are one tile now, showing
+  the OSM picker while no building exists and the floor stack once one does – the way back to the
+  picker is a chip, not a second rail entry. And changing the footprint no longer silently re-points
+  every mark at different ground: each annotation is carried old frame → ground → new frame, floors
+  are inherited, and anything landing off the new sheet is dropped and counted, never clamped – a
+  clamped mark asserts a position that is false. ⚠️ The tiles merge, the plan IDs do not: older
+  Verlauf rows, Trupp chips and annotated Rapport pages keep resolving.
+
+### Changed
+
+- **Die Verlaufszeile trägt eine Einordnungs-Spalte statt zwölf Dekorationen.** The row is a
+  four-track grid now – time · disc · sentence · trailing footnotes. The 26px disc carries the
+  Bereich and becomes the ring for a Pendenz; footnotes (Nachtrag · korrigiert · 6×) trail the
+  sentence instead of preceding it, so every sentence starts at one x and a done item no longer
+  reads «PENDENZ Pendenz erledigt: …» – the word printed twice. ⚠️ The record is append-only: old
+  rows keep classifying exactly as before, and what is written, printed and hashed did not change –
+  the row renders `e.text` byte for byte, both pinned by tests.
+
+- **Die Kroki-Vorschau zeichnet das Blatt, nicht ein zweites Bild.** The server turns every label
+  into a numbered disc with a legend and decides membership by whether the disc fits inside the
+  crop; the framing preview drew full captions and no legend, scale bar, north dial or attribution
+  plate – so the single most consequential effect of the pan was invisible exactly where the pan
+  happens. The preview is the sheet now: numbered discs, the legend under the crop, the furniture in
+  the server's own fractions. The fit test uses the true printed radius while the drawing keeps a
+  15px floor, and amber means exactly one thing on this surface – «this will not be on the sheet».
+
+- **Pendenzen und Log sind zwei gestapelte Rollbereiche, statt einer mit Deckel.** The Pendenzen
+  block was sticky inside the log – capped, clipped, «Aufklappen» to see past it, the log frozen
+  while it was open, and rows sliced in half behind its opaque edge. It is a sibling above the log
+  now, its own scrollbar, `max-height: 45%` with content height as the floor. The slicing is not
+  fixed so much as made impossible: nothing is positioned over anything. ⚠️ Reverses a documented
+  decision – the «two scrollbars» objection was about two overlapping ones, which these are not.
+
+### Fixed
+
+- **Eine bewusste Einsatzwahl überlebt den Reload.** Boot preferred the newest alarm-created
+  Einsatz unconditionally – no freshness window, no memory that the operator had already decided
+  otherwise – and then stamped its own pick into the cookie, so a stale alarm re-confirmed itself on
+  every reload and could make another Einsatz unreachable for as long as it stayed open. The alarm
+  must now be inside the same freshness window the pool banner uses *and* have appeared after the
+  operator last opened something by hand; a genuinely new alarm still wins, which is the case the
+  rule exists for.
+
+- **Eine Pendenz lässt sich abhaken, wo man sie sieht – und der Plan-Sprung landet beim Symbol.**
+  Down in the log the same item showed ring, «fällig» and pen but no way to mark it done; the row's
+  ring now calls the same handler as the pinned tick – one path to one state. And plan placement
+  rows carry the annotation, the point and the floor, so «Symbol auf Plan gesetzt» selects it
+  instead of merely opening the Gebäude. ⚠️ Rows written before can never grow coordinates (the
+  record is append-only) and degrade to exactly the old behaviour.
+
+- **Das Atemschutz-Board sagt, was der Alarm längst weiss.** Low pressure has been a tier-2 alarm
+  app-wide since 10.08. – tone, OS notification, NavRail dot, TopBar chip – but card, row, badge and
+  sort read the contact clock alone: a Trupp at 40 bar with a fresh Kontakt had the whole app
+  screaming while its card stayed green. `truppAlarm()` is now the one place a tier is decided, so
+  board and alarm cannot drift apart again; the status word stays the lifecycle state, because a
+  pressure alarm must never print «Überfällig». Same pass: Undo on Eingerückt / Rückzug /
+  Fortsetzen – a mis-tap silenced an overdue Trupp and wrote a false line into an append-only
+  record – and a standby Trupp with a low bottle no longer sounds a tone its chip denied.
+
+- **Plan-Undo überlebt den Oberflächenwechsel.** Plan history lived in the Whiteboard, which
+  unmounts on every surface switch – drawing on a plan, hopping to the Verlauf and coming back left
+  nothing to undo, while the Lage always survived this. The stacks live on the owning surface now,
+  still keyed per plan document. Same pass: the line presets (Rettungsachse, Pfeil) were declared
+  but never rendered on either surface and exist now, from one component on both; the Plan's
+  hand-rolled modals go through `lib/overlays` and own Escape outright; starting a Sprachnotiz no
+  longer un-lights the armed map tool.
+
+- **Eine korrigierte Zeit behält ihren Tag.** The Rapport's Gruppen and Fahrzeuge rows seeded the
+  day picker from today, so correcting a Monday Ausrückzeit on Wednesday filed it as Wednesday –
+  silently, on the sheet that becomes the printed record. Those were the last two call sites
+  carrying the trap. The print-section toggles also survive ordinary navigation now, and Capture's
+  base button no longer fills four buttons – including a Cancel – with the brand red reserved for
+  the one primary.
+
+- **Das ✕ des Eintrag-Composers schliesst, statt zu löschen.** It looked like every other ✕ in the
+  app, all of which merely close, and it destroyed the typed draft with no confirm and no undo – one
+  glyph with two meanings is unlearnable at 3am. The draft guard now keeps Type, Fälligkeit, clip
+  and photos too (only an imported audio file is let go, and that loss is spoken out loud), and a
+  failed audio upload no longer leaves the sheet standing over an emptied store.
+
 ## [0.8.0] – 2026-08-22
 
 ### Added

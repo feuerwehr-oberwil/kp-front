@@ -5,7 +5,7 @@ Bedienhandlung, und das ist Absicht: ein Journal, in dem jedes Verschieben eines
 ist eines, in dem man den Funkspruch nicht mehr findet.
 
 Diese Seite hält fest, **welche Handlung wo landet**, damit sich niemand darauf verlässt, dass
-etwas im Verlauf steht, das dort nie hingeschrieben wurde. Stand: 2026-08-21.
+etwas im Verlauf steht, das dort nie hingeschrieben wurde. Stand: 2026-08-24.
 
 ## Es sind zwei Aufzeichnungen, nicht eine
 
@@ -60,6 +60,46 @@ fällig, der die Uhr zurückgesetzt hat. Ton und Systemmeldung hängen bewusst *
 Die Doktrin dazu steht in der AdFU-Ablaufbeschreibung: *«Der Verlauf ist keine automatische
 Einsatzchronik … Der AdFU sollte nicht jede Bedienhandlung protokollieren.»*
 
+## Die Meldeleiste (23.08.) schreibt nichts Eigenes
+
+Die Meldeleiste – der eine Meldungsstreifen unter der Top-Bar, der die neun Banner ersetzt hat –
+ist eine **Anzeige, keine Aufzeichnung**: dass eine Meldung erschien oder weggewischt wurde, steht
+nirgends. Was auf ihr *getan* wird, läuft durch dieselben Handler wie überall sonst und schreibt
+deshalb dieselben Zeilen:
+
+- **«Erledigt»** auf einer fälligen Wiedervorlage hängt die Erledigt-Zeile an
+  (`useReminders.ts` · `doneLog`), **«+10 min»** die Verschiebe-Zeile – exakt die Zeilen, die der
+  Abhak-Ring im Verlauf schreibt. Eine Pflicht pro Zeile: seit dem 23.08. hat **jede** fällige
+  Wiedervorlage ihre eigene Zeile auf dem Streifen («2 Erinnerungen fällig» nannte zwei und
+  erledigte eine).
+- Die **Atemschutz-Alarmzeile** liest denselben Fold, der den Ton spielt, und schreibt nichts
+  Neues – die Verlaufszeile des Alarms entsteht wie bisher einmal pro Turnus (siehe oben).
+- **Wegwischen (✕), Übernehmen-Navigation, «Zum Trupp»** schreiben nichts – Ansicht, nicht
+  Inhalt. Das Übernehmen eines Alarms selbst schreibt über seinen bestehenden Pfad.
+
+## Zeichnungen: Erstellen, Benennen und Löschen stehen drin – Arrangieren nicht
+
+Die Durchsicht vom 21.08. hielt fest, dass das Wort **«Fläche»** auf dieser Seite nicht vorkam.
+Der Befund war eine Lücke der *Doku*, nicht des Verlaufs – so sieht die Wahrheit aus
+(`src/lib/useMapDrawing.ts`, Copy-Schlüssel in `config/copy/de.ts` · `log`):
+
+- **Erstellen schreibt:** «Fläche gezeichnet» (`areaDrawn`), «Zeichnung erstellt»
+  (`drawingCreated`, Linien/Freihand), Absperrkreis (`circleDrawn`). Auf dem Plan: «Fläche auf
+  Plan gezeichnet» / «Linie auf Plan gezeichnet» (`Whiteboard.tsx`) – **seit dem 23.08. mit
+  Annotation, Punkt und Stockwerk**, damit der Sprung aus der Zeile das Objekt selektiert statt
+  nur das Gebäude zu öffnen. Ältere Zeilen bleiben ohne Koordinaten (append-only) und öffnen wie
+  bisher nur den Plan.
+- **Benennen schreibt eine Zeile** – «Fläche «Sammelplatz»» (`drawingLabelSet` /
+  `drawingLabelCleared`), beim Verlassen des Felds, nicht je Tastendruck: der Name ist die eine
+  Bearbeitung, die sagt, was die Form *ist*, und erreichte das Dokument früher stumm.
+- **Löschen schreibt** «Zeichnung entfernt» / «{n} Objekte entfernt».
+- **Arrangieren schreibt nicht:** Farbe, Stil, Geometrie, Eckpunkte sind Bedienhandlung und
+  landen nur im Audit-Strom (`draw.edit`) – das ist die bewusste Stille aus der Tabelle oben,
+  und sie gilt für die Fläche wie für jede andere Zeichnung.
+
+Warum in einem echten Log trotzdem 0 «Fläche»-Treffer stehen können: gezeichnet wird auf der
+Lage vor allem mit Linien und Symbolen – die Zeile entsteht, sobald jemand eine Fläche zieht.
+
 ## Was eine Verlaufszeile seit dem 17.08. tragen kann
 
 Die Zeile ist nicht mehr nur Text und Zeitpunkt. Vier Eigenschaften sind dazugekommen, und alle
@@ -88,10 +128,14 @@ offenen Pendenz geworden, die niemand abhaken kann.
 append-only-Datensatz. **Von Hand geschriebene Zeilen werden nie zusammengefasst** – wer zweimal
 dasselbe tippt, meinte es zweimal.
 
-Der Chip vor der Zeile nennt seit dem 19.08. den **Bereich, den der gedruckte Rapport nennt**
-(Anwesenheit, Mittel, Atemschutz, Auftrag, Pendenz …) statt «Lage» auf allem, was der generische
-Logger geschrieben hat. Nur die Kartenoberfläche behält ihren Bildschirmnamen, wo der Druck
-«Kroki» sagt.
+**Seit dem 23.08. gibt es den Chip vor der Zeile nicht mehr** – die Zeile ist ein Raster aus
+Zeit · Scheibe · Satz · nachgestellten Fussnoten. Die 26px-Scheibe trägt den **Bereich, den der
+gedruckte Rapport nennt** (Anwesenheit, Mittel, Atemschutz, Auftrag …; die Zuordnung selbst kam
+am 19.08.), und wird bei einer Pendenz zum Abhak-Ring; Nachtrag, «korrigiert» und «6×» stehen als
+Fussnoten hinter dem Satz statt davor. ⚠️ **Geändert ist nur, was gezeichnet wird** – was
+geschrieben, gedruckt und gehasht wird, nicht: die Zeile rendert `e.text` byteweise, und alte
+Zeilen mit alten Icons werden von den bisherigen Regeln weiter genau gleich eingeordnet (beides
+durch Tests festgenagelt, `Journal.test.tsx`).
 
 ## Geschlossen (2026-08-07)
 
