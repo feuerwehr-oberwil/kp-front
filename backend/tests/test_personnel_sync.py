@@ -23,7 +23,7 @@ RANKS = [
 
 @dataclass
 class FakePerson:
-    divera_id: int | None
+    external_id: str | None
     display_name: str
     is_active: bool = True
     rank: str | None = None
@@ -83,20 +83,20 @@ def test_split_name_fills_both_halves_from_stdformat():
 
 
 def test_person_display_name_reorders_when_the_split_is_there():
-    p = FakePerson(divera_id=1, display_name="Müller Hans", first_name="Hans", last_name="Müller")
+    p = FakePerson(external_id="1", display_name="Müller Hans", first_name="Hans", last_name="Müller")
     assert person_display_name(p, "last-first") == "Müller Hans"
     assert person_display_name(p, "first-last") == "Hans Müller"
 
 
 def test_person_display_name_keeps_the_stored_string_without_a_split():
     # Hand-entered crew: no first/last, so «Von Arx Beat» must survive verbatim in either order.
-    p = FakePerson(divera_id=None, display_name="Von Arx Beat")
+    p = FakePerson(external_id=None, display_name="Von Arx Beat")
     assert person_display_name(p, "last-first") == "Von Arx Beat"
     assert person_display_name(p, "first-last") == "Von Arx Beat"
 
 
 def test_person_display_name_keeps_the_stored_string_with_half_a_split():
-    p = FakePerson(divera_id=None, display_name="Müller", last_name="Müller")
+    p = FakePerson(external_id=None, display_name="Müller", last_name="Müller")
     assert person_display_name(p, "first-last") == "Müller"
 
 
@@ -153,14 +153,14 @@ def test_diff_new_member():
 
 
 def test_diff_unchanged_member():
-    existing = [FakePerson(divera_id=1, display_name="Müller Hans")]
+    existing = [FakePerson(external_id="1", display_name="Müller Hans")]
     d = diff_members([member(1, "Müller Hans")], existing)
     assert len(d["unchanged"]) == 1
     assert d["new"] == [] and d["updated"] == []
 
 
 def test_diff_renamed_member_is_updated():
-    existing = [FakePerson(divera_id=1, display_name="Müller H")]
+    existing = [FakePerson(external_id="1", display_name="Müller H")]
     d = diff_members([member(1, "Müller Hans")], existing)
     assert len(d["updated"]) == 1
     assert d["updated"][0]["name"] == "Müller Hans"
@@ -168,20 +168,20 @@ def test_diff_renamed_member_is_updated():
 
 
 def test_diff_inactive_match_is_updated_and_flagged():
-    existing = [FakePerson(divera_id=1, display_name="Müller Hans", is_active=False)]
+    existing = [FakePerson(external_id="1", display_name="Müller Hans", is_active=False)]
     d = diff_members([member(1, "Müller Hans")], existing)
     assert len(d["updated"]) == 1
     assert d["updated"][0]["was_inactive"] is True
 
 
 def test_diff_stale_member():
-    existing = [FakePerson(divera_id=9, display_name="Weg Walter")]
+    existing = [FakePerson(external_id="9", display_name="Weg Walter")]
     d = diff_members([], existing)
     assert [x["name"] for x in d["stale"]] == ["Weg Walter"]
 
 
 def test_diff_manual_person_never_stale():
-    existing = [FakePerson(divera_id=None, display_name="Gast Mutual Aid")]
+    existing = [FakePerson(external_id=None, display_name="Gast Mutual Aid")]
     d = diff_members([], existing)
     assert d["stale"] == []
 
@@ -191,14 +191,14 @@ def member_r(divera_id: int, name: str, rank: str | None) -> dict:
 
 
 def test_diff_rank_change_is_updated_when_rank_known():
-    existing = [FakePerson(divera_id=1, display_name="Müller Hans", rank="fwm")]
+    existing = [FakePerson(external_id="1", display_name="Müller Hans", rank="fwm")]
     d = diff_members([member_r(1, "Müller Hans", "lt")], existing)
     assert len(d["updated"]) == 1
     assert d["updated"][0]["rank"] == "lt"
 
 
 def test_diff_same_rank_is_unchanged():
-    existing = [FakePerson(divera_id=1, display_name="Müller Hans", rank="lt")]
+    existing = [FakePerson(external_id="1", display_name="Müller Hans", rank="lt")]
     d = diff_members([member_r(1, "Müller Hans", "lt")], existing)
     assert len(d["unchanged"]) == 1 and d["updated"] == []
 
@@ -206,13 +206,13 @@ def test_diff_same_rank_is_unchanged():
 def test_diff_without_rank_key_never_touches_rank():
     # feed couldn't see qualifications → member dict has no "rank" key → rank not compared,
     # so a CSV/admin-set rank isn't flagged as changed (and won't be overwritten downstream)
-    existing = [FakePerson(divera_id=1, display_name="Müller Hans", rank="lt")]
+    existing = [FakePerson(external_id="1", display_name="Müller Hans", rank="lt")]
     d = diff_members([member(1, "Müller Hans")], existing)
     assert len(d["unchanged"]) == 1 and d["updated"] == []
 
 
 def test_diff_inactive_stale_not_reported():
     # an already-deactivated stale member is not surfaced again
-    existing = [FakePerson(divera_id=9, display_name="Weg Walter", is_active=False)]
+    existing = [FakePerson(external_id="9", display_name="Weg Walter", is_active=False)]
     d = diff_members([], existing)
     assert d["stale"] == []

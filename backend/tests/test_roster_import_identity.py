@@ -18,7 +18,13 @@ import pytest
 from sqlalchemy import func, select
 
 from app.models import Personnel
-from app.personnel import RosterCsvRow, RosterIndex, plan_roster_rows
+from app.personnel import (
+    RosterCsvRow,
+    RosterIndex,
+    attach_external_identity,
+    plan_roster_rows,
+    provider_people,
+)
 
 # asyncio_mode = "auto" (pyproject) runs the async tests below; the pure ones stay plain.
 
@@ -171,3 +177,23 @@ async def test_a_file_that_names_one_person_twice_says_so_before_importing(clien
     body = (await client.post("/api/personnel/import-csv/preview", files=_file(text))).json()
     assert (body["total"], body["creates"]) == (2, 1)
     assert body["errors"] == ["«Meier Hans» steht mehrfach in der Datei – wird als eine Person importiert."]
+
+
+async def test_provider_people_keeps_a_non_numeric_external_id(db_session):
+    """An opaque provider ID must survive the read path.
+
+    ``provider_people`` used to coerce the stored identity with ``int()``. Divera's IDs are
+    numeric so nobody noticed, but blaulichtSMS issues hex — every one of those people would
+    read back with no identity at all, look unmatched to :func:`diff_members`, and be created
+    again on the next sync.
+    """
+    person = Personnel(display_name="Müller Hans", is_active=True)
+    db_session.add(person)
+    await db_session.flush()
+    await attach_external_identity(
+        db_session, person=person, provider="blaulichtsms", external_id="2342343242342abcde32423423"
+    )
+    await db_session.flush()
+
+    match = next(p for p in await provider_people(db_session, "blaulichtsms") if p.id == person.id)
+    assert match.external_id == "2342343242342abcde32423423"

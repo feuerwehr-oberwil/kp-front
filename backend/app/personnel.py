@@ -61,7 +61,7 @@ class _SplitNamePerson(Protocol):
 
 class _ExistingPerson(Protocol):
     id: object
-    divera_id: int | None
+    external_id: str | None
     display_name: str
     rank: str | None
     is_active: bool
@@ -69,10 +69,16 @@ class _ExistingPerson(Protocol):
 
 @dataclass
 class ProviderPerson:
-    """Canonical person plus the provider identity used by one adapter sync."""
+    """Canonical person plus the provider identity used by one adapter sync.
+
+    ``external_id`` stays the opaque string the provider issued. Divera's happen to be
+    numeric; blaulichtSMS hands out hex (``2342343242342abcde32423423``). This field was
+    typed ``int`` and coerced on read, which silently dropped the identity of every person
+    whose provider ID wasn't a number — so a second provider could never have worked.
+    """
 
     id: object
-    divera_id: int | None
+    external_id: str | None
     display_name: str
     rank: str | None
     is_active: bool
@@ -92,13 +98,10 @@ async def provider_people(db: AsyncSession, provider: str) -> list[ProviderPerso
     external_by_person = {identity.personnel_id: identity.external_id for identity in identities}
     out: list[ProviderPerson] = []
     for person in people:
-        raw = external_by_person.get(person.id)
-        legacy = person.divera_id if provider == "divera" else None
-        try:
-            provider_id = int(raw) if raw is not None else legacy
-        except (TypeError, ValueError):
-            provider_id = None
-        out.append(ProviderPerson(person.id, provider_id, person.display_name, person.rank, person.is_active))
+        external_id = external_by_person.get(person.id)
+        if external_id is None and provider == "divera" and person.divera_id is not None:
+            external_id = str(person.divera_id)
+        out.append(ProviderPerson(person.id, external_id, person.display_name, person.rank, person.is_active))
     return out
 
 
@@ -691,26 +694,32 @@ async def fetch_divera_members(order: NameOrder = DEFAULT_NAME_ORDER) -> list[di
 
 
 def diff_members(members: list[dict], existing: Sequence[_ExistingPerson]) -> dict:
-    """Reconcile freshly-fetched Divera members against existing personnel by divera_id.
+    """Reconcile freshly-fetched Divera members against existing personnel by external identity.
+
+    Matching runs on ``ProviderPerson.external_id`` (an opaque string), so the same diff works
+    for a provider whose IDs are not numeric. The emitted ``divera_id`` keys are the Divera
+    sync's wire contract with ``execute_sync`` and the admin preview — renaming those is a
+    separate, larger change.
 
     Returns serializable categories: ``new`` (insert), ``updated`` (name/rank changed or
     currently inactive → reactivate), ``unchanged``, and ``stale`` (an active row whose
-    divera_id is gone from Divera). Manually-added crew (divera_id is None) are never stale.
+    identity is gone from Divera). Manually-added crew (no identity) are never stale.
 
     Rank is compared ONLY for members carrying a ``"rank"`` key (set upstream when the feed
     could see qualifications). When the key is absent (restricted access → no qualifications),
     rank is left out of the diff entirely, so a sync never wipes a CSV/admin-set rank.
     """
-    by_divera: dict[int, _ExistingPerson] = {p.divera_id: p for p in existing if p.divera_id is not None}
-    seen_divera: set[int] = set()
+    by_external: dict[str, _ExistingPerson] = {p.external_id: p for p in existing if p.external_id is not None}
+    seen_external: set[str] = set()
     new, updated, unchanged = [], [], []
 
     for m in members:
         did = m["divera_id"]
-        seen_divera.add(did)
+        external_id = str(did)
+        seen_external.add(external_id)
         rank_known = "rank" in m
         rank = m.get("rank")
-        person = by_divera.get(did)
+        person = by_external.get(external_id)
         if person is None:
             new.append({"divera_id": did, "name": m["name"], **({"rank": rank} if rank_known else {})})
         elif (
@@ -733,7 +742,7 @@ def diff_members(members: list[dict], existing: Sequence[_ExistingPerson]) -> di
     stale = [
         {"id": str(p.id), "name": p.display_name}
         for p in existing
-        if p.divera_id is not None and p.divera_id not in seen_divera and p.is_active
+        if p.external_id is not None and p.external_id not in seen_external and p.is_active
     ]
     return {"new": new, "updated": updated, "unchanged": unchanged, "stale": stale}
 
