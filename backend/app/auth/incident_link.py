@@ -166,8 +166,6 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         # the incident itself
         ("GET", "/api/incidents/{incident_id}"),
         ("GET", "/api/incidents/{incident_id}/workspace"),
-        ("GET", "/api/incidents/{incident_id}/people"),
-        ("GET", "/api/incidents/{incident_id}/notes"),
         ("GET", "/api/incidents/{incident_id}/journal"),
         ("GET", "/api/incidents/{incident_id}/events"),
         ("GET", "/api/incidents/{incident_id}/snapshot"),

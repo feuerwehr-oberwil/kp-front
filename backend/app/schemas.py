@@ -166,37 +166,6 @@ class WorkspacePut(BaseModel):
     base_rev: int
 
 
-class DetailsPatch(BaseModel):
-    details_json: dict[str, Any]
-
-
-# --- People / notes -----------------------------------------------------------------
-class PersonIn(BaseModel):
-    role: str | None = None
-    name: str | None = None
-    contact: str | None = None
-    note: str | None = None
-    position: int = 0
-
-
-class PersonOut(PersonIn):
-    model_config = ConfigDict(from_attributes=True)
-    id: uuid.UUID
-
-
-class NoteIn(BaseModel):
-    text: str
-    occurred_at: datetime | None = None
-
-
-class NoteOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: uuid.UUID
-    author_id: uuid.UUID | None = None
-    occurred_at: datetime
-    text: str | None = None
-
-
 # --- Audit events -------------------------------------------------------------------
 class EventIn(BaseModel):
     op_type: str

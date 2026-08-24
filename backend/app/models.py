@@ -207,6 +207,9 @@ Index(
 )
 
 
+# Legacy sub-API: the /incidents/{id}/people and /notes routes (and their schemas) were
+# removed 2026-08-24 — nothing called them any more. The two tables below are RETAINED
+# pending an archive-vs-drop decision: incident data is a legal record.
 class IncidentPerson(Base):
     __tablename__ = "incident_people"
 

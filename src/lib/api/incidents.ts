@@ -53,7 +53,6 @@ export interface IncidentMeta {
 }
 export interface IncidentFull extends IncidentMeta {
   text: string | null
-  details_json: Record<string, unknown> | null
   map_workspace_json: Record<string, unknown> | null
 }
 export interface IncidentCreate {
@@ -67,7 +66,6 @@ export interface IncidentCreate {
   /** Alarmierungszeit — backdatable so an analog incident can be nachgetragen later */
   started_at?: string | null
   is_exercise?: boolean
-  details_json?: Record<string, unknown> | null
 }
 
 // --- Incidents ----------------------------------------------------------------------

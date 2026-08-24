@@ -1,4 +1,4 @@
-"""Incidents: CRUD, workspace save (optimistic concurrency + snapshots), people, notes."""
+"""Incidents: CRUD and workspace save (optimistic concurrency + snapshots)."""
 
 import logging
 import uuid
@@ -14,17 +14,12 @@ from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, CurrentUser, UserOrAdmin, _admin_session_valid
 from ..database import execute_dml, get_db
 from ..geocode import geocode
-from ..models import Incident, IncidentNote, IncidentPerson
+from ..models import Incident
 from ..schemas import (
-    DetailsPatch,
     IncidentCreate,
     IncidentFull,
     IncidentMeta,
     IncidentPatch,
-    NoteIn,
-    NoteOut,
-    PersonIn,
-    PersonOut,
     WorkspaceOut,
     WorkspacePut,
 )
@@ -395,84 +390,3 @@ async def delete_incident(
     await db.flush()
 
 
-@router.patch("/{incident_id}/details", response_model=IncidentFull)
-async def patch_details(
-    incident_id: uuid.UUID, body: DetailsPatch, user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> Incident:
-    inc = await _get(db, incident_id)
-    inc.details_json = body.details_json
-    await audit.append_event(
-        db,
-        incident_id=inc.id,
-        op_type="meta.change",
-        source="status",
-        user_id=user.id,
-        payload={"keys": sorted(body.details_json.keys())},
-    )
-    await db.flush()
-    await db.refresh(inc)
-    return inc
-
-
-# --- People -------------------------------------------------------------------------
-@router.get("/{incident_id}/people", response_model=list[PersonOut])
-async def list_people(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)):
-    await _get(db, incident_id)
-    rows = (
-        await db.execute(
-            select(IncidentPerson).where(IncidentPerson.incident_id == incident_id).order_by(IncidentPerson.position)
-        )
-    ).scalars()
-    return list(rows)
-
-
-@router.put("/{incident_id}/people", response_model=list[PersonOut])
-async def replace_people(
-    incident_id: uuid.UUID, people: list[PersonIn], user: CurrentEditor, db: AsyncSession = Depends(get_db)
-):
-    await _get(db, incident_id)
-    await db.execute(delete(IncidentPerson).where(IncidentPerson.incident_id == incident_id))
-    for i, p in enumerate(people):
-        db.add(
-            IncidentPerson(
-                incident_id=incident_id,
-                role=p.role,
-                name=p.name,
-                contact=p.contact,
-                note=p.note,
-                position=p.position if p.position else i,
-            )
-        )
-    await db.flush()
-    rows = (
-        await db.execute(
-            select(IncidentPerson).where(IncidentPerson.incident_id == incident_id).order_by(IncidentPerson.position)
-        )
-    ).scalars()
-    return list(rows)
-
-
-# --- Notes --------------------------------------------------------------------------
-@router.get("/{incident_id}/notes", response_model=list[NoteOut])
-async def list_notes(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)):
-    await _get(db, incident_id)
-    rows = (
-        await db.execute(
-            select(IncidentNote).where(IncidentNote.incident_id == incident_id).order_by(IncidentNote.occurred_at)
-        )
-    ).scalars()
-    return list(rows)
-
-
-@router.post("/{incident_id}/notes", response_model=NoteOut, status_code=201)
-async def add_note(
-    incident_id: uuid.UUID, body: NoteIn, user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> IncidentNote:
-    await _get(db, incident_id)
-    note = IncidentNote(incident_id=incident_id, author_id=user.id, text=body.text)
-    if body.occurred_at:
-        note.occurred_at = body.occurred_at
-    db.add(note)
-    await db.flush()
-    await db.refresh(note)
-    return note
