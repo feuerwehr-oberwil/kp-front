@@ -132,16 +132,6 @@ export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: s
     || a.id.localeCompare(b.id))
 }
 
-/** Every Meldung on one item, oldest first — for the Rapport's indented sub-lines. */
-export function notesFor(timeline: readonly TimelineEvent[], id: string): PendenzNote[] {
-  const out: PendenzNote[] = []
-  for (let i = timeline.length - 1; i >= 0; i--) {
-    const e = timeline[i]
-    if (e.reminder?.op === 'note' && e.reminder.id === id) out.push({ rowId: e.id, text: e.text, at: e.at ?? '' })
-  }
-  return out
-}
-
 /**
  * The bare item text of a `created` row.
  *

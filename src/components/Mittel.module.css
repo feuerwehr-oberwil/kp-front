@@ -112,26 +112,9 @@
 /* (the whole search line — .controls/.search, the filter buttons, the + and the dropdown —
    lives in SurfaceControls.module.css, shared with the Anwesenheit) */
 
-/* equipment rows stack the main line over the Retablierung chips */
-.rowTall { flex-direction: column; align-items: stretch; gap: 4px; }
 .rowMain { flex: 1 1 auto; display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 36px; }
 /* Retablierung chips: outline-only at rest so three pills per row don't shout — only the
    selected state gets a (status-coloured) fill */
-.statusChips { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 4px; }
-.statusChip { min-height: 40px; padding: 0 14px; cursor: pointer; border-radius: 999px;
-  border: 1px solid var(--glass-edge); background: none;
-  font: 650 12.5px var(--body); color: var(--ink-faint); }
-/* gloved field use: the three Retablierung pills are a dense picker — enlarge directly */
-@media (pointer: coarse) { .statusChip { min-height: 44px; } }
-.statusChip:hover:not(:disabled) { color: var(--ink-dim); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); }
-/* dim as well as inert — it read as tappable while doing nothing */
-.statusChip:disabled { cursor: default; opacity: var(--disabled); }
-.statusOn { border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge));
-  background: color-mix(in srgb, var(--green) 14%, var(--surface)); color: var(--ink); }
-.statusOn.statusVorOrt { border-color: color-mix(in srgb, var(--amber-strong) 55%, var(--glass-edge));
-  background: color-mix(in srgb, var(--amber-strong) 14%, var(--surface)); }
-.statusOn.statusDefekt { border-color: color-mix(in srgb, var(--red-strong) 55%, var(--glass-edge));
-  background: color-mix(in srgb, var(--red-strong) 14%, var(--surface)); }
 
 
 @media (max-width: 600px) {

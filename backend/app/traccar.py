@@ -12,32 +12,6 @@ import httpx
 from pydantic import BaseModel
 
 
-class TraccarDevice(BaseModel):
-    id: int
-    name: str
-    uniqueId: str
-    status: str
-    lastUpdate: datetime | None = None
-    positionId: int | None = None
-    category: str | None = None
-
-
-class TraccarPosition(BaseModel):
-    id: int
-    deviceId: int
-    latitude: float
-    longitude: float
-    altitude: float | None = None
-    speed: float | None = None  # knots
-    course: float | None = None
-    accuracy: float | None = None
-    deviceTime: datetime
-    serverTime: datetime | None = None
-    fixTime: datetime | None = None
-    address: str | None = None
-    attributes: dict | None = None
-
-
 class VehiclePosition(BaseModel):
     device_id: int
     device_name: str

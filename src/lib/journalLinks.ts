@@ -214,8 +214,3 @@ export function linkMarkup(text: string, vocab: JournalLink[], esc: (s: string) 
     })
     .join('')
 }
-
-/** How a linked term is announced — «Person», «Material», «Partner», «Fahrzeug», «Gruppe». */
-export function linkKindLabel(kind: LinkKind): string {
-  return appConfig.copy.journal.linkKinds[kind] ?? kind
-}

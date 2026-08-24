@@ -193,7 +193,6 @@
 /* ink, not red — the same dart the printed Kroki and the Gebäude page carry */
 .wb-north-needle { fill: var(--ink); }
 .wb-north-n { fill: var(--ink); font: 700 13px var(--body); text-anchor: middle; }
-.wb-floors-ctl small { font-size: 10px; font-weight: 700; line-height: 1; }
 /* blank writable sheet */
 .wb-board-blank { box-shadow: 0 6px 24px rgba(30, 45, 70, .18), inset 0 0 0 1px var(--border-soft); }
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
@@ -292,8 +291,6 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-pa-del:hover { background: var(--red); filter: brightness(1.06); }
 .wb-pa-show { background: var(--green); }
 .wb-pa-show:hover { background: var(--green); filter: brightness(1.08); }
-.wb-pa-clear { background: var(--ink-soft); }
-.wb-pa-clear:hover:not(:disabled) { background: var(--ink-soft); filter: brightness(1.08); }
 /* Delete is blocked because the team carries a recorded trail. It stays the SAME trash glyph in
    the same slot, greyed out — a padlock only said "locked" without saying locked out of WHAT.
    Still clickable: it offers the confirmed trail clear, which is the way back to a normal delete. */
@@ -360,11 +357,6 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    gloved-finger sized on a plan */
 .wb-del::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-del .i { width: 12px; height: 12px; stroke-width: 2.4; }
-/* mark-position — mirrors .wb-del at the top-left; blue (a log action, not destructive) */
-.wb-mark { position: absolute; top: -11px; left: -11px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff;
-  background: var(--blue); color: var(--on-fill); display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .3); padding: 0; }
-.wb-mark::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
-.wb-mark .i { width: 14px; height: 14px; stroke-width: 2.2; }
 /* (the selected note's pencil / gear / delete now sit in one row above it — see .note-grips) */
 
 /* draw style picker (floats over canvas bottom) */
@@ -444,13 +436,6 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-dock-go, .wb-dock-tog { width: 44px; height: 40px; }
 }
 
-/* team action bar — reuses the .wb-style floating-bar look; recolour + trail ops */
-.wb-team-act { width: 34px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12);
-  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--on-accent-ink); }
-@media (pointer: coarse) { .wb-team-act { width: 40px; height: 40px; } }
-.wb-team-act:hover { background: rgba(255, 255, 255, .24); }
-.wb-team-act:disabled { opacity: var(--disabled); cursor: default; }
-.wb-team-act .i { width: 17px; height: 17px; }
 /* recolour swatches in a 2-wide grid so the larger team palette stays compact in
    the vertical dock instead of growing into a tall single column */
 .wb-sw-grid { display: grid; grid-template-columns: repeat(2, auto); gap: 7px; }

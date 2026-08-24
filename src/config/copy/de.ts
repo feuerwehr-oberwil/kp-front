@@ -668,8 +668,6 @@ export const de = {
     coords: 'Koordinaten abgreifen',
     coordsHint: 'Auf Karte klicken zum Festhalten',
     coordsLocked: 'Festgehalten – Knopf für neuen Punkt',
-    // colour-scheme control (cycles in the incident menu); 'auto' tracks daylight
-    themeLabel: 'Darstellung',
     autoMode: 'Automatisch',
     dayMode: 'Tag',
     nightMode: 'Nacht',
@@ -690,16 +688,12 @@ export const de = {
     deleteMsg: '«{name}» löschen?',
   },
   toast: {
-    recordingStarted: 'Audioaufnahme läuft …',
     audioSaved: 'Audionotiz gespeichert ({secs}s)',
     micDenied: 'Kein Mikrofonzugriff – als Platzhalter vermerkt',
     merged: 'Änderungen zusammengeführt',
   },
   mapHints: {
     placeSymbol: 'Tippe auf die Karte, um "{name}" zu platzieren',
-    areaDraft: 'Flächen-Eckpunkte auf die Karte tippen',
-    placeNote: 'Tippe auf die Karte, um eine Notiz zu setzen',
-    placeShape: 'Tippe auf die Karte, um {name} zu platzieren',
   },
   // help shown by the info (ℹ) button on each tool dock — the instructions
   // that used to sit in the bottom hint bar
@@ -914,7 +908,6 @@ export const de = {
     names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck' } as Record<string, string>,
   },
   log: {
-    noMicrophone: 'Audionotiz (kein Mikrofonzugriff)',
     audioNote: 'Audionotiz',
     symbolPlaced: 'Symbol "{name}" gesetzt',
     shapePlaced: '{name} platziert',
@@ -1055,14 +1048,6 @@ export const de = {
     // last-writer-wins stays, but the divergence is said, not silent (append-only record)
     attendanceConflict: 'Anwesenheit von {name}: abweichende Angaben aus QR-Erfassung und KP wurden zusammengeführt – bitte prüfen.',
     quickPhrasesAria: 'Textbausteine',
-    // ── Who said it, and what kind of statement is it ──
-    // Both end up in the row's TEXT (lib/journalEntry · composeJournalText); the structured
-    // fields exist for filtering, not for display.
-    // ⚠️ NO «Von» field any more (09.08.). It asked what the sentence already answers — whoever
-    // writes «Meier meldet Kellerbrand bestätigt» has said who reported it — and a second field
-    // for the same statement is a second field to fill in. What was actually wanted is that the
-    // NAMES are real: spelled correctly and visible as a link (lib/journalLinks).
-    linkKinds: { person: 'Person', material: 'Material', partner: 'Partner', vehicle: 'Fahrzeug', group: 'Gruppe' } as Record<string, string>,
     typeLabel: 'Art',
     // «Info» is the normal case and prints NO badge — a badge on every row is wallpaper. The
     // words come from the Führungsrhythmus (BGV Behelf Schadenplatz).
@@ -1131,7 +1116,6 @@ export const de = {
     // Verlauf reminder row: due label + done toggle (checklist-style)
     dueAtLabel: 'fällig {t}',
     overdueLabel: 'überfällig',
-    doneState: 'erledigt',
     markDoneTitle: 'Als erledigt markieren',
     // ── Legende ───────────────────────────────────────────────────────────────────────────
     // The Verlauf row's 26px disc carries the Bereich (it replaced a chip that printed the same
@@ -1179,7 +1163,6 @@ export const de = {
     openState: 'offen',
   },
   errors: {
-    noMicrophone: 'Kein Mikrofonzugriff. Audionotiz als Platzhalter vermerkt.',
     updateFailed: 'Aktualisierung fehlgeschlagen',
     // network failures, both with ApiError status 0 — the app falls back to its offline caches
     // either way; the wording only tells the operator WHICH kind of dead line they have.
@@ -1223,7 +1206,6 @@ export const de = {
     formCreateTitle: 'Trupp anlegen',
     formEditTitle: 'Trupp bearbeiten',
     formRedeployTitle: 'Wieder einrücken',
-    sectionAuftrag: 'Auftrag',
     sectionTeam: 'Trupp',
     auftragLabel: 'Art',
     auftragOpen: 'Auftrag offen',
@@ -1252,14 +1234,11 @@ export const de = {
     moveBack: 'Karte nach vorne schieben',
     moveForward: 'Karte nach hinten schieben',
     leaderLabel: 'Gruppenführer',
-    leaderPlaceholder: 'Name Gruppenführer',
     memberLabel: 'AdF',
     // ⚠️ NOT «(optional)». This is the row you opened in order to enter a Gast — the + beside
     // it is disabled until it says something, so «optional» described the field before it
     // existed rather than the one in front of you.
     guestNamePlaceholder: 'Name',
-    addMember: 'AdF hinzufügen',
-    removeMember: 'AdF {n} entfernen',
     // Trupp selection (TruppTeam) — a list to tap instead of three fixed fields. The three
     // fields could name a Trupp but not rearrange it: whoever was typed first was Gruppenführer
     // forever. The star is the correction, and it costs one tap.
@@ -1301,7 +1280,6 @@ export const de = {
     linePick: 'Leitung wählen',
     linePickHint: 'Leitung auf der Lage oder im Plan antippen',
     linePickCancel: 'Auswahl abbrechen',
-    lineUnlink: 'Leitung lösen',
     lineLinkedToast: 'Leitung {n} mit {name} verknüpft',
     logLineLinked: 'Trupp {name} auf Leitung {n}',
     logLineUnlinked: 'Trupp {name}: Leitung gelöst',
@@ -1424,8 +1402,6 @@ export const de = {
     statusNotDeployed: 'Nicht eingesetzt',
     statusRemoved: 'Von Tafel entfernt',
     logNotDeployed: 'Trupp {name} nicht eingesetzt',
-    exitConfirmTitle: 'Trupp draussen?',
-    exitConfirmMsg: 'Den Trupp als draussen markieren und die Überwachung beenden?',
     remove: 'Entfernen',
     // removal happens immediately with an undo toast (no confirmation dialog)
     removedToast: 'Trupp {name} entfernt',
@@ -1434,7 +1410,6 @@ export const de = {
     placeNoTarget: 'Kein Plan vorhanden – zuerst über «Gebäude» in der Leiste ein Gebäude wählen.',
     showOnPlan: 'Auf Plan zeigen',
     showOnMap: 'Auf der Lage zeigen',
-    rosterLabel: 'Bereits erfasst',
     preEntryHint: 'Noch nicht eingerückt – «Eingerückt» drücken, sobald der Trupp unter AS geht.',
     // Die Glocke: ein Knopf, drei ehrliche Zustände (siehe useAtemschutzMute). Jeder sagt, was
     // GERADE gilt, und nennt seine Reichweite – die Beschriftung war früher die Handlung
@@ -1520,8 +1495,6 @@ export const de = {
     geojsonNotWgs84: 'Koordinaten wirken wie LV95, nicht WGS84 [lng, lat]. Vorher nach EPSG:4326 umprojizieren.',
   },
   entities: {
-    photoLabel: 'Foto',
-    photoSubtitle: 'Foto-Pin',
     noteSubtitle: 'Notiz',
     fallbackObjectName: 'Objekt',
   },
@@ -1545,7 +1518,6 @@ export const de = {
     done: 'Fertig',
   },
   whiteboard: {
-    documentListTitle: 'Planunterlagen',
     fit: 'Fit',
     pan: 'Auswahl',
     team: 'Trupp',
@@ -1607,9 +1579,6 @@ export const de = {
     // A Trupp stands in exactly ONE place. Tapping it again in this list MOVES it — what was
     // meant was almost always a second Trupp. Hence greyed out instead of selectable.
     truppPlacedHere: 'schon hier',
-    truppPlacedElsewhere: 'auf {where}',
-    truppOnMap: 'der Karte',
-    truppOnPlan: 'einem Plan',
     showTrupp: 'Im Atemschutz zeigen',
     markPosition: 'Position markieren',
     positionMarked: '{name}: Position markiert',
@@ -1621,10 +1590,6 @@ export const de = {
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
     deleteLocked: 'Trupp mit erfasstem Verlauf – zuerst Spur löschen',
-    drawCreated: 'Zeichnung auf Plan erstellt',
-    placeSymbolHint: 'Auf den Plan tippen, um "{name}" zu setzen',
-    textHint: 'Auf den Plan tippen, um Text zu setzen',
-    teamHint: 'Auf den Plan tippen, um einen Trupp zu setzen',
     textPlaceholder: 'Notiz ...',
     blankHint: 'Leeres Blatt – mit Zeichnen, Text, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',
@@ -1708,7 +1673,6 @@ export const de = {
   },
   contextPanel: {
     titlePlaceholder: 'Bezeichnung ...',
-    titleTypePick: 'Typ wählen …',
     // ⚠️ The generic Fahrzeug is the ONE symbol whose label is its identity («TLF», nicht
     // «Fahrzeug»), so it keeps an editable name — as a field down here rather than as the panel
     // header. Every other symbol's header says which symbol it is and is read-only; was etwas
@@ -1719,7 +1683,6 @@ export const de = {
     floorFrom: 'Von Geschoss',
     floorTo: 'Bis Geschoss',
     floorNone: '–',
-    floorClear: 'Zurücksetzen',
     // FKS Entwicklung (spread) section
     spread: 'Entwicklung',
     spreadH: 'Horizontal',
@@ -1906,15 +1869,12 @@ export const de = {
     route: 'Verlauf',
     routeDirect: 'Direkt',
     routeTrace: 'Spur',
-    showConnection: 'Anzeigen',
     detachConnection: 'Verbindung lösen',
     gpsFollowing: 'GPS folgt aktiv',
     gpsMovingAway: 'Fahrzeug bewegt sich weg',
     gpsContinue: 'Weiter folgen',
     gpsDetachHere: 'Hier lösen',
     gpsPause: 'Folgen pausieren',
-    gpsMissing: 'GPS-Stand unverändert',
-    cycleBlocked: 'Kreisverbindung nicht möglich',
     hiddenTarget: 'Ziel ausgeblendet',
     revealTarget: 'Ebene einblenden',
     removeConnectedTitle: '{name} löschen?',
@@ -2102,7 +2062,6 @@ export const de = {
     modeElapsed: 'Einsatzdauer',
     modeNow: 'Uhrzeit',
     modeStart: 'Einsatzbeginn',
-    cycleHint: 'Tippen: Dauer / Uhrzeit / Beginn',
   },
   // self-contained location picker for the intake wizard (MapPicker)
   mapPicker: {
@@ -2273,7 +2232,6 @@ export const de = {
     // leads to the install – or says that there is none here.
     browserTitle: 'Offline erst als installierte App',
     browserBody: 'Im Browser-Tab ist nichts verlässlich gespeichert: Karten, Pläne und Leitungen können jederzeit gelöscht werden, und der Tab muss beim nächsten Einsatz noch offen sein. Installiert läuft KP Front auch offline.',
-    browserInstall: 'Als App installieren',
     // Platforms with no install path (desktop Firefox …) — say honestly that there is nothing to
     // install here, instead of pointing at instructions that don't exist.
     browserNoInstall: 'Dieses Gerät bietet keine Installation an. Für den Einsatz offline KP Front auf dem Tablet oder Handy installieren.',
@@ -2326,8 +2284,6 @@ export const de = {
     wsNewer: 'Einsatzdaten stammen von einer neueren App-Version – bitte App aktualisieren.',
     // LayerPanel offline-download button + the App map-download toasts
     layerGroup: 'Offline',
-    loadMap: 'Karte offline laden',
-    loadingShort: 'Lädt … {done}/{total}',
     // Drei Ergebnisse, drei Nachrichten – nicht eine Nachricht mit unterschiedlichen Zahlen.
     // «Karte offline verfügbar (0 Kacheln)» war grün, mit Haken, für einen Download, der nichts
     // geladen hatte; die Zahl in der Klammer, die alles widerlegte, liest um 03:10 niemand.
@@ -2349,8 +2305,6 @@ export const de = {
   emptyApp: {
     title: 'Kein offener Einsatz',
     bodyViewer: 'Zurzeit ist kein Einsatz aktiv.',
-    bodyPoolOne: '1 Alarm im Pool – eröffnen und auf der Karte prüfen.',
-    bodyPoolMany: '{n} Alarme im Pool – eröffnen und auf der Karte prüfen.',
     // ⚠️ The NEUTRAL sentence is the default; the one naming the Alarmquelle is the exception.
     // «übernimm einen Divera-Alarm» was shown to every station — including the ones running on
     // another source, and the ones entering every Einsatz by hand, who were being pointed at a
@@ -2402,8 +2356,6 @@ export const de = {
     removedEntry: '{name} entfernt (inkl. Zeiten)',
     mittelSet: '{label}: neu {n} {unit}',
     mittelRemoved: '{label} entfernt',
-    stepLess: 'Eins weniger',
-    stepMore: 'Eins mehr',
     mittelExtra: 'Weitere erfasste Positionen',
     gerettete: 'Gerettete',
     gerettetePersonen: 'Personen',
@@ -2431,12 +2383,9 @@ export const de = {
     beilagenCount: '{n} Foto(s)',
     beilagenNone: 'keine',
     kurzberichtPlaceholder: 'Was ist passiert, was wurde gemacht?',
-    zeitenHead: 'Zeiten',
     gruppenHead: 'Alarmierung Gruppen',
     fahrzeugeHead: 'Ausrückzeiten Fahrzeuge',
-    angabenHead: 'Angaben',
     einsatzleiter: 'Einsatzleiter',
-    rueckName2: 'Name',
     rapportPdf: 'Rapport-PDF',
     pdfFailed: 'PDF fehlgeschlagen – nochmals versuchen.',
     sectionZeiten: 'Zeiten',
@@ -2458,15 +2407,12 @@ export const de = {
     presentCount: '{n} anwesend',
     tapHint: 'Antippen: nicht anwesend → Magazin → Vor Ort → gegangen. Zeit daneben: von = Ankunft, nach Weggang bis = Weggang.',
     tapHelp: 'Hilfe zur Bedienung',
-    statePresent: 'anwesend',
     stateLeft: 'gegangen',
     sectionMaterial: 'Material',
-    sectionAllgemein: 'Allgemein',
     cancel: 'Abbrechen',
     mittelCount: '{n} Positionen',
     pickMaterial: 'Material wählen …',
     add: 'Hinzufügen',
-    sectionNotizen: 'Notizen',
     notePlaceholder: 'Notiz für den Verlauf …',
     footNote: 'Alles wird laufend gespeichert.',
     loadFailedOffline: 'Kein Empfang – bitte nochmals versuchen.',
@@ -2673,7 +2619,6 @@ export const de = {
     ausgerueckt: 'Ausgerückt',
     ende: 'Einsatzende',
     personen: '{n} erfasst',
-    stunden: 'Stunden',
     von: 'von',
     bis: 'bis',
     mittelCount: '{n} Positionen',
@@ -2683,7 +2628,6 @@ export const de = {
     backToRapport: 'Zurück zum Rapport',
     confirmTitle: 'Einsatz abschliessen',
     confirmMsg: 'Der Rapport wird als abgeschlossen markiert und der Einsatz abgeschlossen. Spätere Korrekturen bleiben möglich und erscheinen als Nachträge.',
-    confirmMissing: 'Noch offen: {steps}. Trotzdem abschliessen?',
     confirmBtn: 'Abschliessen',
     // …und wenn noch etwas offen ist, sagt es der Knopf. Abschliessen ist erlaubt – das ist der
     // Ort, an dem das ausgesprochen wird, statt hinter einem gleich beschrifteten Knopf.
@@ -2799,11 +2743,8 @@ export const de = {
     pdf: 'PDF herunterladen',
     pdfBusy: 'PDF wird erstellt …',
     pdfFailed: 'PDF konnte nicht erstellt werden',
-    coverEyebrow: 'Einsatzrapport',
-    blankPlan: 'Leerer Plan',
     // Haupt-Rapport form rows (value or write-in line)
     keyword: 'Stichwort',
-    addressObject: 'Adresse / Objekt',
     einsatzleiter: 'Einsatzleiter',
     kontaktperson: 'Kontaktperson',
     gerettete: 'Gerettete (Personen / Tiere)',
@@ -2814,48 +2755,22 @@ export const de = {
     geretteteTier: 'Tier',
     alarmierung: 'Alarmierung',
     ausgerueckt: 'Ausgerückt',
-    incidentEnd: 'Einsatzende',
     rueckmeldungElz: 'Rückmeldung ELZ',
     incidentId: 'Einsatz-ID',
-    zeitenHead: 'Alarmierungs- / Ausrückzeiten',
     // text blocks
     alarmMessage: 'Alarmmeldung',
-    summaryHead: 'Kurzbericht / durchgeführte Arbeiten',
     partnerOrgs: 'Partnerorganisationen',
     remarks: 'Bemerkungen',
     lehren: 'Lehren / Sicherheit',
-    // sign-off block closing the Haupt-Rapport (page 1)
-    signoffHead: 'Unterschriften',
-    sigOrtDatum: 'Ort, Datum',
-    sigEinsatzleiter: 'Einsatzleiter',
-    sigKommandant: 'Kommandant',
-    // Personal-/Soldblatt (page 2) — full-roster tick-off; Stunden berechnet WinFAP
-    personalHead: 'Personal / Anwesenheit',
-    personalHint: 'Abhaken, ggf. von–bis ergänzen',
-    partnerOther: 'Weitere',
     // section headers + tables
     kroki: 'Kroki',
     krokiState: '{title} · Stand {at}',
     atemschutz: 'Atemschutzüberwachung',
-    truppMembers: 'Mitglieder',
-    truppAuftrag: 'Auftrag / Ziel',
-    truppLine: 'Leitung',
     truppEntry: 'Eintritt',
-    truppExit: 'Austritt',
-    colTime: 'Zeit',
-    colKind: 'Art',
-    colPressure: 'Druck bar',
-    noPressureLog: 'Kein Druckverlauf erfasst.',
     mittel: 'Material (Menge eintragen)',
     journal: 'Einsatzjournal',
-    colArea: 'Bereich',
-    colEntry: 'Eintrag',
-    audioPresent: 'Audio vorhanden',
-    audioNotTranscribed: ', nicht transkribiert',
     photo: 'Foto',
     transcript: 'Transkript',
-    noEntries: 'Keine Einträge.',
-    nachtraege: 'Nachträge nach Einsatzende',
     // fallback plan name when a plan-doc has no code/title
     planFallback: 'Plan',
     // proofLabel (Prüfnachweis-Status, printed + preflight)
@@ -2917,11 +2832,6 @@ export const de = {
     tabs: { bericht: 'Bericht', werwas: 'Wer & Was', beilagen: 'Beilagen' },
     // a «noch offen» chip is a button: it scrolls to the thing it names and flashes it
     headOpenGo: 'Zu «{step}» springen',
-    // Rapportangaben section
-    // «Rapportangaben» stood as one heading over everything – one and a half screens in which
-    // nothing could be found by looking. Four sections, each named after the question it
-    // answers; the order stays that of the printed Rapport.
-    rapportHead: 'Aus der Alarmierung',
     sectionBericht: 'Bericht & Beteiligte',
     sectionZeiten: 'Zeiten',
     sectionNachbearbeitung: 'Nachbearbeitung',
@@ -2929,13 +2839,6 @@ export const de = {
     // text is the only part of it a human wrote.
     vehicleOrder: 'Ausrückeordnung',
     einsatzplan: 'Einsatzplan',
-    // short names for the summary on the collapsed «Inhalt» row
-    summaryAtemschutz: 'Atemschutz',
-    summaryAttendance: 'Personal',
-    summaryMittel: 'Material',
-    summaryJournal: 'Verlauf',
-    summaryAttachments: 'Fotos',
-    allReady: 'Alles bereit',
     fromDispatch: 'Aus den Einsatzdaten',
     edit: 'Bearbeiten',
     alarmMessage: 'Alarmmeldung',
@@ -2997,7 +2900,6 @@ export const de = {
     sectionsHead: 'Abschnitte',
     printMenu: 'Weitere Druckoptionen',
     toggleKroki: 'Kroki',
-    plansLabel: 'Pläne',
     plansAnnotated: 'Mit Anmerkungen ({n})',
     plansAll: 'Alle',
     toggleAtemschutz: 'Atemschutzüberwachung ({n})',
@@ -3089,8 +2991,6 @@ export const de = {
     linksOpened: '{title} geöffnet.',
     linksOpenedAction: 'Erledigt',
     linksOpenFailed: '{title} konnte nicht geöffnet werden – der Browser hat das Fenster blockiert.',
-    // The Rapport is a surface, not a dialog box – it is closed by going back to the Lage.
-    backToMap: 'Zurück zur Lage',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
     // «Detaillierter Prüfnachweis» doesn't say what is being ticked – nobody ticks what they
     // don't understand. It is about the bookkeeping rows in the printed Verlauf (who changed
@@ -3098,8 +2998,6 @@ export const de = {
     // Kroki-Ausschnitt: a field on the Rapport surface (WYSIWYG), no dialog before printing any
     // more – which is also why there is nothing left to «übernehmen».
     krokiHead: 'Kroki-Ausschnitt',
-    // what the collapsed section has to say for collapsing to be permissible at all
-    krokiSummary: '{shape} · Stand {at}',
     framingHint: 'Karte verschieben und zoomen – gedruckt wird genau dieser Ausschnitt.',
     framingFit: 'Auf Einsatz zoomen',
     // Until 09.08. the crop did not follow along: picked once at 22:20, printed unchanged at
@@ -3123,7 +3021,6 @@ export const de = {
     controlHead: 'Kontrolle',
     // the state chip counts what is open instead of just saying «Kontrolle»
     controlOpen: '{n} Hinweis(e)',
-    proofChecking: 'Prüfnachweis wird geprüft …',
     annotatedDefault: '{n} annotierte Pläne werden standardmässig gedruckt.',
     missingTranscripts: '{n} Audioeintrag/-einträge ohne Transkript – fürs Protokoll nachtragen.',
     fixTranscripts: 'Im Verlauf ergänzen',
@@ -3134,9 +3031,6 @@ export const de = {
     pendingMedia: '{n} Foto/Audio noch nicht hochgeladen – wird bei Verbindung ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
     pendingMediaConfirm: '{n} Foto/Audio noch nicht hochgeladen – bleiben auf diesem Gerät gespeichert',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
-    // actions — no «Abbrechen»: a surface is left via the rail or the ✕ in the header, and there
-    // would be nothing to cancel anyway (every field writes through as you type).
-    openPrint: 'Druckansicht öffnen',
   },
   // Station print relay — «Ausdrucken» (preflight + capture)
   printRelay: {
@@ -3218,7 +3112,6 @@ export const de = {
     addGuestHint: 'Für jemanden, der nicht auf der Mannschaftsliste steht – Gast, Nachbarwehr, noch nicht synchronisiert. Wird nur für diesen Einsatz erfasst.',
     addGuestName: 'Name',
     addGuestPlaceholder: 'z. B. Muster Felix (Nachbarwehr)',
-    guestGroup: 'Weitere',
     guestBadge: 'Gast',
     removeGuest: 'Person entfernen',
     // Whoever takes on a role is present too – the remark is set automatically along with it, but
@@ -3250,7 +3143,6 @@ export const de = {
     // at the Magazin. Short, because it shares a narrow column with «Fahrer TLF».
     roleAtemschutz: 'AS',
     roleOffizierPlain: 'Offizier',
-    roleRueckmeldung: 'Rückmeldung ELZ',
     // Soft warning in the person picker (Atemschutz): whoever already has a role is probably
     // already committed – they can still be picked, always.
     // ⚠️ The ROLE, nothing in front of it. «schon:» read as a refusal on a row that refuses
@@ -3302,8 +3194,6 @@ export const de = {
     notInDivera: 'Nicht mehr auf der Mannschaftsliste',
     notInSource: 'Nicht mehr in {provider}',
     weg: 'weg',
-    // time chip on anwesend/gegangen rows — tap to correct a wrong auto-stamped time
-    editTime: 'Zeit anpassen',
     // Zeitplan + Schichten: planning happens with whoever is here — the whole Mannschaft on the
     // axis buries the handful of present people under empty tracks. Switchable, because somebody
     // arriving in two hours must still be plannable.
@@ -3314,8 +3204,6 @@ export const de = {
     // Return: the third tap deletes (clears), so returning gets a button of its own. It opens a
     // NEW Anwesenheit block; the first one keeps its von–bis.
     backAgain: 'Wieder da',
-    backAgainHint: '{name} ist zurück – neue Zeit ab jetzt',
-    blockCount: '{n} Zeiten',
     // «Block» was workshop language – nobody on the ground thinks in blocks. They are Zeiten.
     // Anwesenheit sheets: the same shape as the Schichten view, so both read the same way
     von: 'von',
@@ -3356,7 +3244,6 @@ export const de = {
     summary: '{planned} eingeplant · {present} jetzt da',
     summaryEmpty: 'Noch nichts geplant',
     add: 'Schicht',
-    addFor: 'Schicht für {name} planen',
     from: 'von',
     to: 'bis',
     remove: 'Schicht löschen',
@@ -3383,7 +3270,6 @@ export const de = {
     // place, so the row doesn't stay silent.
     brokenShift: 'Diese Schicht endet vor ihrem Anfang – zum Korrigieren antippen',
     now: 'jetzt',
-    coveragePeak: ' · max {n}',
     coverage: 'Deckung',
     coverageHint: 'Drei Linien: grau verfügbar, blau geplant, grün tatsächlich anwesend – wo die grüne Linie einbricht, ist die Lücke.',
     // The coverage row expands: the curve says WHERE the gap is, the numbers say HOW MANY.
@@ -3415,9 +3301,6 @@ export const de = {
     printFailed: 'Zeitplan konnte nicht gedruckt werden.',
     // head of the name column – as on the printed form
     who: 'Wer',
-    // from the second Schicht on, a collective button replaces the chips (the row becomes
-    // unreadable otherwise)
-    shiftCount: '{n} Schichten',
     editTitle: 'Schichten – {name}',
     plannedSection: 'Verfügbarkeit & Einteilung',
     actualSection: 'Tatsächlich anwesend',
@@ -3435,7 +3318,6 @@ export const de = {
     done: 'Fertig',
     // direct operation on the grid – like the paper form you fill in
     fromStart: 'ab Beginn',
-    fromStartHint: 'Setzt den Beginn auf die Alarmzeit des Einsatzes.',
     sheetHint: 'Zeiten hier anpassen · Zustand rechts umschalten · gelöscht wird nur hier.',
     laneHint: 'Ziehen trägt Verfügbarkeit ein · Balken tippen macht daraus einen Plan · ziehen verschiebt · gedrückt halten öffnet die Schichten',
     // Three states of a row: what somebody OFFERS, what was ASSIGNED out of it, and what actually
@@ -3443,7 +3325,6 @@ export const de = {
     // never written here.
     available: 'verfügbar',
     confirmed: 'geplant',
-    tentative: 'verfügbar',
     toggleHint: 'Tippen macht daraus «{state}»',
     zoomIn: 'Zeitraum enger',
     zoomOut: 'Zeitraum weiter',
@@ -3451,7 +3332,6 @@ export const de = {
     horizon: 'Zeitraum',
     openFor: 'Schichten von {name} öffnen',
     planAt: 'Schicht für {name} planen',
-    dragMove: 'Verschieben',
     dragFrom: 'Beginn ziehen',
     // right-click menu on a bar: name the states instead of cycling through them
     editEntry: 'Bearbeiten …',
@@ -3569,7 +3449,6 @@ export const de = {
     materialLabel: 'Mittel',
     materialPlaceholder: 'Mittel wählen',
     customMaterial: 'Anderes Mittel',
-    customMaterialPlaceholder: 'Bezeichnung',
     unitLabel: 'Einheit',
     unitPlaceholder: 'Einheit',
     sourceLabel: 'Quelle',
@@ -3615,7 +3494,6 @@ export const de = {
     railLabel: 'Checklisten',
     showList: 'Liste anzeigen',
     groupTasks: 'Aufgaben',
-    groupTactics: 'Taktik · Stichworte',
     searchPlaceholder: 'Stichwort suchen ...',
     searchAria: 'Stichwort suchen',
     matching: 'Passend: {title}',
@@ -3747,18 +3625,6 @@ export const de = {
         title: 'Stationsdaten als Arbeitsmappe',
         lede: 'Mannschaft, Dienstgrade, Fahrzeuge, Mittel und Partnerorganisationen als eine Excel-Datei herunterladen, bearbeiten und wieder einspielen.',
         tip: 'Vor dem Schreiben zeigt die Vorschau je Blatt, was neu ist, was sich ändert und was wegfällt – benannt, nicht gezählt. Erst «Jetzt übernehmen» schreibt.',
-      },
-      objekte: {
-        label: 'Objekte & Pläne',
-        title: 'Objekte & Pläne',
-        lede: 'Hinterlegte Objekte und ihre Pläne (Modul, Version, Stand). Nur zur Ansicht.',
-        tip: 'Pläne sind PDF-Sheets je Objekt, nach FKS-Modul geordnet: Modul 1 Übersicht, 2 Zugang, 3 Innen, 2-3 kombiniert, 6 Gebäudepläne.',
-      },
-      geodaten: {
-        label: 'Geodaten',
-        title: 'Geodaten & Symbole',
-        lede: 'Eingespielte Referenzdaten: GeoJSON-Layer, Symbolsätze und PDFs. Nur zur Ansicht.',
-        tip: 'Station-eigene Referenzdaten (Hydranten, Leitungen …). «Datensatz» = ein Layer, «Features» = enthaltene Objekte, «Quelle» = woher er stammt.',
       },
       system: { label: 'System & Wartung', title: 'System & Wartung', lede: 'Status & Wartung: Version, Datenbank, Bestand, Speicher und der Offline-Cache dieses Geräts.' },
       sicherung: { label: 'Sicherung', title: 'Sicherung', lede: 'Konfiguration als Datei sichern oder eine gesicherte Datei einspielen.' },
@@ -4433,11 +4299,7 @@ export const de = {
       deactivate: 'Deaktivieren',
       reactivate: 'Reaktivieren',
       resetPin: 'PIN zurücksetzen',
-      guardSelf: 'Du kannst dein eigenes Konto nicht ändern oder deaktivieren.',
-      guardLastCmd: 'Das letzte aktive Bearbeiter-Konto kann nicht deaktiviert oder herabgestuft werden.',
-      guardSelfRole: 'Du kannst deine eigene Rolle nicht ändern.',
       guardLastCmdRole: 'Das letzte aktive Bearbeiter-Konto kann nicht herabgestuft werden.',
-      guardSelfDeactivate: 'Du kannst dein eigenes Konto nicht deaktivieren.',
       guardLastCmdDeactivate: 'Das letzte aktive Bearbeiter-Konto kann nicht deaktiviert werden.',
       guardLabel: 'Geschützte Aktionen für {name}',
       // Rolle als bewusste Wahl (keine Vorauswahl) — die Karten benennen die Folge im
@@ -4482,8 +4344,6 @@ export const de = {
       importing: 'Importiere…',
       imported: '{n} importiert',
       skipped: '{n} übersprungen',
-      syncDivera: 'Mannschaft mit Divera synchronisieren',
-      diveraNotConfigured: 'Divera nicht konfiguriert',
       syncProvider: 'Mit {provider} synchronisieren',
       providerNotConfigured: 'Keine Personalquelle konfiguriert · CSV und Handeingabe verfügbar',
       title: 'Erfasste Personen',
@@ -4497,7 +4357,6 @@ export const de = {
       colStatus: 'Status',
       colActions: 'Aktionen',
       rankNone: '–',
-      sourceDivera: 'Divera',
       sourceManual: 'manuell',
       active: 'Aktiv',
       inactive: 'Inaktiv',

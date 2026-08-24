@@ -259,37 +259,12 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
 
 /* per-person presence sheet — same shape as the Zeitplan's Schichten sheet so both read alike */
 .sheet { max-width: 480px; }
-.sheetGroup { padding: 4px 0 8px; }
-.sheetTitle {
-  margin: 0 0 8px; font: 700 11px var(--mono); color: var(--ink-dim);
-  letter-spacing: .08em; text-transform: uppercase;
-}
 /* one recorded block per framed row, each field SAID (von / bis) — two bare clocks side by side
    never told you which was the arrival */
-.sheetBlock {
-  display: flex; align-items: flex-end; gap: 12px; padding: 10px 12px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
-}
-.sheetBlock + .sheetBlock { margin-top: 6px; }
-.sheetIndex {
-  align-self: center; flex: none; min-width: 20px; height: 20px; display: grid; place-items: center;
-  border-radius: 50%; background: color-mix(in srgb, var(--ink) 10%, transparent);
-  font: 700 10.5px var(--mono); color: var(--ink-dim);
-}
-.sheetField { display: flex; flex-direction: column; gap: 3px; }
 /* ⚠️ Sora, not --mono. --mono is for FIGURES — a clock, a duration, a pressure — where the
    tabular widths do the work. A micro-LABEL in mono just reads as a second typeface: open a
    person's Zeiten sheet and every label was Spline Sans Mono, open «Weitere Person erfassen»
    and the same kind of label was Sora. One label voice; the numbers below them stay mono. */
-.sheetLabel { font: 700 11px var(--body); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
-.sheetTime { flex: none; }
-.sheetOpen {
-  align-self: flex-start; padding: 0 10px; min-height: var(--tap); display: inline-flex; align-items: center;
-  border-radius: var(--r-ctl); background: color-mix(in srgb, var(--green) 16%, transparent);
-  font: 700 12px var(--body); font-style: normal; color: var(--green);
-}
-.sheetAdd { margin-top: 10px; gap: 6px; }
-.sheetNote { margin: 10px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
 
 /* The paper actions are ONE menu trigger now, so the old trick of keeping two buttons mounted
    but invisible in the list view — purely to stop the view toggle sliding sideways — is gone with

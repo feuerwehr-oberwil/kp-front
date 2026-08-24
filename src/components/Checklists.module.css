@@ -27,10 +27,7 @@
   background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red-strong); font-family: var(--body); font-size: 12px; font-weight: 600;
   padding: 8px 10px; border-radius: var(--r-ctl); margin-top: 2px; }
 .cl-rail-hint :global(.i) { width: 14px; height: 14px; flex: none; }
-/* Taktik Stichworte listed directly in the rail (no separate tab) */
-.cl-rail-grow { flex: 1 1 auto; min-height: 0; }
 .cl-rail-search { margin: 2px 0 4px; padding: 7px 10px; }
-.cl-rail-entries { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
 /* all groups (Aufgaben + each reference template) are peers under the search bar */
 .cl-rail-groups { display: flex; flex-direction: column; gap: 14px; }
 .cl-rail-entry { display: flex; align-items: center; gap: 9px; border: none; background: transparent; cursor: pointer;
@@ -107,33 +104,18 @@
 
 /* --- reference playbook --- */
 .cl-ref { display: flex; gap: 20px; height: 100%; max-width: 1000px; margin: 0 auto; }
-.cl-ref-list { flex: 0 0 260px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .cl-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--r-ctl);
   padding: 9px 12px; box-shadow: 0 0 0 1px var(--border-soft); }
 .cl-search :global(.i) { width: 15px; height: 15px; color: var(--ink-faint); flex: none; }
 .cl-search input { border: none; outline: none; background: transparent; font-family: var(--body);
   font-size: 13.5px; color: var(--ink); width: 100%; }
-.cl-automatch { display: flex; align-items: center; gap: 9px; border: none; cursor: pointer; text-align: left;
-  background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red-strong); border-radius: var(--r-sm); padding: 10px 12px; }
-.cl-automatch :global(.i) { width: 15px; height: 15px; flex: none; }
-.cl-automatch > div { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
-.cl-automatch-lbl { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; opacity: .8; }
-.cl-automatch-title { font-size: 13.5px; font-weight: 700; }
-.cl-ref-entries { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; min-height: 0; }
-.cl-ref-entry { display: flex; align-items: center; gap: 10px; border: none; background: transparent; cursor: pointer;
-  text-align: left; font-family: var(--body); font-size: 13.5px; font-weight: 600; color: var(--ink-dim);
-  padding: 9px 11px; border-radius: var(--r-ctl); }
-.cl-ref-entry:hover { background: var(--fill-soft); color: var(--ink); }
-.cl-ref-entry.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .cl-ref-chip { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); }
-.cl-ref-entry-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hz-red .cl-ref-chip { background: var(--red); }
 .hz-orange .cl-ref-chip { background: var(--amber); }
 .hz-green .cl-ref-chip { background: var(--green); }
 .hz-yellow .cl-ref-chip { background: var(--hazard-yellow); }
 .hz-blue .cl-ref-chip { background: var(--blue); }
 
-.cl-ref-reader { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; }
 .cl-ref-doc { max-width: 640px; background: var(--surface); border-radius: var(--r-surface); padding: 24px 28px;
   box-shadow: 0 0 0 1px var(--border-soft); border-top: 4px solid var(--ink-faint); }
 .cl-ref-doc.hz-red { border-top-color: var(--red); }
@@ -286,8 +268,6 @@
   .cl-overall-num { font-size: 19px; }
   /* the playbook reader's doc shouldn't force horizontal scroll on a narrow screen */
   .cl-ref { flex-direction: column; }
-  .cl-ref-list { flex: none; }
-  .cl-ref-entries { max-height: 200px; }
   .cl-ref-doc { padding: 18px 16px; }
   /* runner head stacks so the big progress number doesn't crowd the title */
   .cl-overall { flex-basis: auto; }

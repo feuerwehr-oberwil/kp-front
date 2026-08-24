@@ -259,7 +259,6 @@
 .jc-chip.on { color: var(--blue-strong); font-weight: 700;
   background: color-mix(in srgb, var(--blue) 16%, transparent);
   border-color: color-mix(in srgb, var(--blue) 42%, transparent); }
-.jc-chip-ghost { border-style: dashed; color: var(--ink-faint); }
 /* the three Arten carry their own ink ONCE CHOSEN — an unchosen row stays uniform, so nothing
    on it competes with the text field above it */
 .jc-chip.jc-type-auftrag.on { color: var(--amber-strong);

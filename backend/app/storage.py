@@ -9,7 +9,7 @@ import contextlib
 import os
 import shutil
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 
 import anyio
 
@@ -42,17 +42,6 @@ def put_bytes(key: str, data: bytes) -> str:
     with open(path, "wb") as fh:
         fh.write(data)
     return key
-
-
-def put_stream(key: str, src: Iterator[bytes]) -> int:
-    path = _full(key)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    total = 0
-    with open(path, "wb") as fh:
-        for chunk in src:
-            fh.write(chunk)
-            total += len(chunk)
-    return total
 
 
 async def put_astream(key: str, chunks: AsyncIterator[bytes], max_bytes: int | None = None) -> int:

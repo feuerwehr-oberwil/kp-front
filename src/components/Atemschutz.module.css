@@ -344,8 +344,6 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* The two ± steppers (Funkkanal · Eingangsdruck). Spans the modal, then splits itself: two
    columns where they fit, one where they don't — and a single child fills the row rather than
    sitting beside a gap. */
-.stepperPair { grid-column: 1 / -1; display: grid; gap: 12px 16px;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 @media (max-width: 560px) { .modalBody { grid-template-columns: 1fr; } }
 
 
@@ -383,10 +381,6 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .formWarn { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--red-strong);
   background: color-mix(in srgb, var(--red) 9%, transparent); border-radius: var(--r-ctl); padding: 10px 12px; }
 .formWarn :global(.i) { width: 16px; height: 16px; flex: none; }
-/* section header inside the single-screen form (Auftrag · Trupp · Druck) */
-.formSection { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--ink-faint); padding-top: 4px; border-top: 1px solid var(--glass-edge); margin-top: 2px; }
-.formSection:first-child { border-top: none; padding-top: 0; margin-top: 0; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 /* a labelled field that CONTAINS the flexing Trupp block passes the room through */
 .formCol > .field:has(> .team) { flex: 1 1 0; min-height: 0; }
@@ -474,19 +468,8 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 
 .modalFoot { flex: none; display: flex; gap: 10px; justify-content: flex-end; padding: 10px 20px;
   border-top: 1px solid var(--glass-edge); background: var(--glass); }
-.ghostBtn { border: none; cursor: pointer; background: transparent; color: var(--ink-dim);
-  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 11px 16px; border-radius: var(--r-sm); }
-.ghostBtn:hover { background: var(--fill-soft); color: var(--ink); }
-.primaryBtn { border: none; cursor: pointer; background: var(--btn-primary); color: var(--on-btn-primary);
-  font-family: var(--body); font-size: 14px; font-weight: 800; padding: 11px 20px; border-radius: var(--r-sm); }
-.primaryBtn:hover:not(:disabled) { background: var(--btn-primary-hover); }
-.primaryBtn:disabled { opacity: var(--disabled); cursor: default; }
 /* second, equally valid submit (Wieder einrücken → «Bereitstellen»): outlined rather than ghost,
    because it commits the form just like the primary does – a ghost would read as «abbrechen». */
-.secondaryBtn { border: 1.5px solid var(--glass-edge); cursor: pointer; background: var(--surface); color: var(--ink);
-  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 10px 18px; border-radius: var(--r-sm); }
-.secondaryBtn:hover:not(:disabled) { border-color: var(--ink-faint); background: var(--fill-soft); }
-.secondaryBtn:disabled { opacity: var(--disabled); cursor: default; }
 
 /* angemeldet (registered, not yet entered): neutral blue banner, no alarm */
 .st-angemeldet { border-top-color: var(--blue); }
@@ -557,17 +540,10 @@ button.stepVal:hover { border-color: var(--blue); }
 
 /* roster quick-select chips (previously-entered people) in the form */
 .roster { display: flex; flex-wrap: wrap; gap: 7px; }
-.rosterChip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--glass-edge);
-  background: var(--fill-soft, rgba(0, 0, 0, .03)); border-radius: var(--r-pill); cursor: pointer;
-  padding: 7px 12px 7px 9px; font: 600 13px var(--body); color: var(--ink-dim); min-height: 38px; }
-.rosterChip:hover { border-color: var(--blue); color: var(--blue); }
-.rosterChip :global(.i) { width: 14px; height: 14px; }
 
 /* leader/AdF combobox — type freely or pick from the dropdown (present crew first) */
 .combo { position: relative; display: flex; flex-direction: column; }
 .combo input { width: 100%; box-sizing: border-box; }
-.comboLinked { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; color: var(--green); pointer-events: none; }
-.comboLinked :global(.i) { width: 16px; height: 16px; }
 /* clear / change the chosen name (item: no way to clear once entered) */
 .combo input { padding-right: 40px; }
 .comboClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
@@ -611,7 +587,6 @@ button.stepVal:hover { border-color: var(--blue); }
 .comboDotPresent { background: var(--green); }
 .comboDotOff { background: var(--ink-faint); opacity: .4; }
 .comboName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.comboBadge { flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: var(--amber-strong); }
 /* «Gast» on a roster option — somebody recorded on this Einsatz who is not on the
    Mannschaftsliste (lib/guests). ⚠️ The SAME blue mark the Anwesenheit screen gives them
    (.guestBadge in Anwesenheit.module.css): one thing, one look for it, on every screen. It
@@ -692,8 +667,6 @@ button.stepVal:hover { border-color: var(--blue); }
   background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
 .teamName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 700 14px var(--body); color: var(--ink); }
-.teamBadge { flex: none; font: 800 10px var(--body); letter-spacing: .05em; color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 18%, transparent); border-radius: 5px; padding: 2px 6px; }
 
 .teamSearch { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }

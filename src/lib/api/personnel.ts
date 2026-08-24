@@ -16,7 +16,6 @@ interface PersonnelWire {
 const toPerson = (p: PersonnelWire): Person => ({
   id: p.id,
   externalIdentities: (p.external_identities ?? []).map((i) => ({ provider: i.provider, externalId: i.external_id, syncedAt: i.synced_at })),
-  diveraId: p.divera_id ?? undefined,
   displayName: p.display_name,
   firstName: p.first_name ?? undefined,
   lastName: p.last_name ?? undefined,

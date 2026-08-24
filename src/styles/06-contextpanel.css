@@ -253,7 +253,6 @@
 .combo-group-head { padding: 7px 10px 3px; font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
   text-transform: uppercase; color: var(--ink-faint); }
 .combo-group + .combo-group .combo-group-head { border-top: 1px solid var(--border-soft); margin-top: 2px; }
-.ctx-title-pick { margin-top: 6px; display: flex; }
 
 /* read-only ADR hazard readout (UN-Nr → substance/hazard data on the Gefahrentafel) */
 .un-haz { background: var(--fill-soft); border-radius: var(--r-sm); padding: 12px 12px 10px; }
@@ -346,10 +345,6 @@
 .btn.warn { color: var(--red); }
 .btn.warn:hover { background: color-mix(in srgb, var(--red) 8%, transparent); border-color: color-mix(in srgb, var(--red) 32%, transparent); }
 
-/* history (Verlauf) — left panel */
-.history-card { position: absolute; left: 84px; top: 88px; width: 300px; max-height: calc(100dvh - 104px);
-  display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-surface); padding: 8px; z-index: 29; box-shadow: var(--shadow); }
 /* overflow-x hidden: with overflow-y:auto the x-axis otherwise computes to `auto` and the
    Verlauf scrolls sideways on a tablet — rows must line-wrap, never scroll horizontally */
 /* THE LOG — the lower of the drawer's two scroll areas, and now nothing but the chronology.
@@ -457,7 +452,6 @@
 .jr-rem:disabled { cursor: default; }
 .jr-rem-box { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; flex: none; }
 .jr-rem-box .i { width: 13px; height: 13px; opacity: 0; }
-.jr-rem-due { white-space: nowrap; }
 .jr-rem.overdue { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
 .jr-rem.done { color: var(--ink-faint); border-color: var(--border-soft); }
 .jr-rem.done .jr-rem-box { background: var(--green); border-color: var(--green); color: var(--on-fill); }

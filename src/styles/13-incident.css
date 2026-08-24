@@ -75,8 +75,6 @@
 .sync-glyph.on .sync-ring { animation: none; stroke-dasharray: 57 57; stroke-dashoffset: 0;
   transition: stroke-dasharray .26s var(--ease); }
 .sync-glyph.on .sync-tick { stroke-dashoffset: 0; transition: stroke-dashoffset .3s var(--ease) .14s; }
-.ip-menu-resync.sync-done { border-color: color-mix(in srgb, var(--green) 45%, var(--border));
-  background: color-mix(in srgb, var(--green) 10%, var(--surface)); }
 /* reduced motion: keep the STATES (arc → closed ring + tick), drop the spin and the draw-on */
 @media (prefers-reduced-motion: reduce) {
   .sync-ring { animation: none; }
@@ -113,8 +111,6 @@
    wrapper for layout.) */
 
 .ip-menu-sep { height: 1px; background: var(--glass-edge); margin: 4px; }
-/* tight variant: isolates a single terminal action (Einsatz abschliessen) without the full gap */
-.ip-menu-sep-tight { margin: 2px 4px; background: color-mix(in srgb, var(--glass-edge) 60%, transparent); }
 .ip-menu-act.danger { color: var(--red); }
 /* app utilities (Einstellungen · Bereitschaft · Hilfe · Installieren) as one compact row of
    labeled tiles — icon + word keeps recognition (3am tenet) while taking a third of the
@@ -185,8 +181,6 @@
 .or-browser-b + .or-browser-b { margin-top: 7px; }
 /* the download sits UNDER the install button in a browser tab — still offered, not the headline.
    Doubled selector: .or-load is declared further down, so equal specificity would let it win. */
-.or-load.or-load-quiet { background: var(--fill-soft); color: var(--ink); }
-.or-load.or-load-quiet:hover:not(:disabled) { background: var(--hover-strong); }
 
 .or-load { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap);
   border: none; border-radius: var(--r-sm); background: var(--ink-fill); color: var(--on-accent-ink);
@@ -260,7 +254,6 @@
 .ip-x:hover { background: var(--hover); }
 .ip-x svg { width: 18px; height: 18px; }
 .ip-body { padding: 6px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
-.ip-sub { margin: 8px 0 2px; font: 700 12px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
 
 .ip-field { display: flex; flex-direction: column; gap: 5px; }
 .ip-field > span { font: 600 12px var(--body); color: var(--ink-dim); }
@@ -295,17 +288,10 @@
 .ci-clear:hover { color: var(--ink); }
 .ci-clear svg { width: 15px; height: 15px; }
 
-.ip-select { width: 100%; cursor: pointer; }
 /* spinning glyph for in-progress actions (taking an alarm, opening/saving an Einsatz) so the
    rotate icon reads as "working", not a frozen refresh button */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin .9s linear infinite; transform-origin: 50% 50%; }
-.ip-seg { display: flex; gap: 6px; }
-.ip-seg button {
-  flex: 1; padding: 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
-  background: var(--surface); cursor: pointer; font: 700 12.5px var(--body); color: var(--ink-dim);
-}
-.ip-seg button.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
 .ip-check { display: flex; align-items: center; gap: 8px; font: 500 13px var(--body); color: var(--ink-dim); }
 
 .ip-actions, .ip-row-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
@@ -658,8 +644,6 @@
 .cv-btn-ghost { min-height: 40px; padding: 0 10px; background: none; border-color: transparent; color: var(--ink-faint); }
 .cv-btn-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 .cv-btn svg { width: 15px; height: 15px; }
-.cv-linkbtn { border: none; background: none; color: var(--accent); font: 700 12.5px var(--body); cursor: pointer; padding: 0; }
-.cv-ende { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 500 14.5px var(--body); color: var(--ink); }
 /* flows in the page scroll — the nested 46dvh list scroll confused touch (two surfaces) */
 .cv-people { display: flex; flex-direction: column; gap: 6px; }
 .cv-person { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 8px 12px;
@@ -704,11 +688,6 @@
   gap: 8px 10px; justify-content: end; width: 100%; }
 .cv-counts .cv-count-row { display: contents; }
 .cv-counts .cv-count-row > span { text-align: right; }
-.cv-matrow { display: flex; gap: 8px; }
-.cv-matrow .cv-input { flex: 1; min-width: 0; }
-.cv-amount { flex: 0 0 72px !important; text-align: center; }
-.cv-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;
-  font: 500 13.5px var(--body); color: var(--ink-faint); }
 .cv-error { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); font: 600 13.5px var(--body);
   flex-wrap: wrap; }
@@ -886,9 +865,6 @@
 .cv-modal.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81; }
 .cv-modal { width: min(420px, calc(100vw - 36px)); gap: 12px; background: var(--surface); box-shadow: var(--shadow);
   max-height: 90dvh; overflow-y: auto; }
-.cv-modal-who { display: flex; align-items: center; gap: 10px; }
-.cv-modal-who > span { flex: none; font: 700 13.5px var(--body); color: var(--ink); }
-.cv-modal-who > :last-child { flex: 1; min-width: 0; }
 .cv-modal-warn { color: var(--amber-strong); display: flex; align-items: center; gap: 6px; }
 .cv-modal-warn svg { width: 14px; height: 14px; flex: none; }
 .cv-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px; }
@@ -902,14 +878,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .cv-person-row { display: flex; align-items: center; gap: 8px; }
 .cv-person-row .cv-person { flex: 1; min-width: 0; }
 .cv-person-time { flex: none; }
-.cv-person-times { display: flex; align-items: center; gap: 6px; padding: 0 2px 2px 10px;
-  font: 500 12.5px var(--body); color: var(--ink-faint); }
-.cv-person-times input[type="time"] { width: 106px; font-variant-numeric: tabular-nums; min-height: 40px; padding: 4px 6px; border-radius: var(--r-ctl);
-  border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink); font: 500 13.5px var(--body); }
-.cv-ende input[type="time"] { width: 112px; font-variant-numeric: tabular-nums; min-height: 44px; padding: 4px 8px; border-radius: var(--r-ctl);
-  border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink); font: 500 14px var(--body); }
-.cv-ende > span:first-child { flex: none; font: 600 13.5px var(--body); color: var(--ink); min-width: 92px; }
-.cv-ende .cv-input { flex: 1; min-width: 0; }
 
 /* the Rapport surface's action row wraps instead of overflowing on phones */
 .report-preflight .ip-actions { flex-wrap: wrap; }
@@ -1265,12 +1233,6 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-loc-clear:hover { background: var(--hover-strong); color: var(--ink); }
 .ip-loc-clear svg { width: 15px; height: 15px; }
 
-/* category chips */
-.ip-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.ip-chip { padding: 8px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-pill); background: var(--surface);
-  cursor: pointer; font: 600 13px var(--body); color: var(--ink-dim); }
-.ip-chip:hover { background: var(--hover-strong); }
-.ip-chip.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
 
 .ip-textarea { padding: 11px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); font: 500 15px var(--body); color: var(--ink); resize: vertical; }

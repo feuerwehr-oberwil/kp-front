@@ -455,19 +455,10 @@
 
 /* ---- per-row controls ---------------------------------------------------------------- */
 
-.chipPair {
-  flex: none; display: inline-flex; align-items: center; gap: 2px; padding: 2px 2px 2px 6px;
-  border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--blue) 7%, transparent);
-}
-.chipConflict { border-color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
 .dash { color: var(--ink-faint); font: 600 12px var(--mono); }
 .time { flex: none; }
 /* HH:MM needs less than the 82px default, and the two of them plus × plus + share one row with
    the name — the tap target stays 44px tall, only the width tightens */
-.chipPair :global(.timefield) { gap: 4px; }
-.chipPair :global(.timefield-input) { width: 62px; padding: 4px 4px; font-size: 13.5px; }
-.chipPair :global(.timefield-trigger) { min-width: 62px; padding: 4px 6px; font-size: 13.5px; }
 
 
 /* only the sheet still has a delete button — the grid drops a shift by tapping its bar */
@@ -490,12 +481,6 @@
 /* ---- the per-person sheet ------------------------------------------------------------ */
 
 .sheet { max-width: 520px; }
-.sheetGroup { padding: 4px 0 12px; }
-.sheetGroup + .sheetGroup { border-top: 1px solid var(--border-soft); padding-top: 12px; }
-.sheetTitle {
-  margin: 0 0 8px; font: 700 11px var(--mono); color: var(--ink-dim);
-  letter-spacing: .08em; text-transform: uppercase;
-}
 /* the planning state, changed right here as well as by tapping the bar on the grid */
 /* align-self: flex-end like every other control in the row (the sheet's .row aligns on the bottom
    edge, which is the one edge a 59px field and a 44px button can share) — centred, it floated 8px

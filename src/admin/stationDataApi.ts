@@ -172,9 +172,6 @@ export function uploadChecklistFile(
 export const pruneChecklists = (keep: string[]) =>
   apiPost<{ pruned: string[] }>('/api/reference/checklists/prune', keep)
 
-/** Ids that make up one template row — the template plus its diagrams. */
-export const checklistRowIds = (row: ChecklistRow): string[] => [row.dataset.id, ...row.assets.map((a) => a.id)]
-
 /**
  * Remove the named checklist datasets: re-read the registry, then keep everything else. The
  * re-read is the point — see `pruneChecklists`. Returns what the server actually deleted.

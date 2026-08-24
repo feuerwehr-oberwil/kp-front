@@ -785,8 +785,6 @@ export interface Trupp {
 export interface Person {
   id: string
   externalIdentities?: { provider: string; externalId: string; syncedAt: string }[]
-  /** @deprecated compatibility projection; use externalIdentities. */
-  diveraId?: number
   displayName: string
   firstName?: string
   lastName?: string

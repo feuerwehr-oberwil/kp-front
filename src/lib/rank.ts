@@ -75,13 +75,3 @@ export function rankDisplay(key: string): string {
   return rankLabel(key) || key
 }
 
-/** Lowercase, strip accents, collapse whitespace — mirrors backend normalize_name(). */
-export function normalizeRank(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // strip combining diacritical marks
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase()
-}
-

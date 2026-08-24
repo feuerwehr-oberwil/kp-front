@@ -2,9 +2,6 @@
    The merged intake panel leads with a <2h alarm; over the app a fresh dispatch floats
    in; after a one-tap take the EL corrects in place (never blocking the map). */
 
-/* standalone map picker (intake "Auf Karte setzen" — works with no active incident) */
-.mp-ovl { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 18px;
-  background: rgba(10, 14, 20, .5); backdrop-filter: blur(2px); }
 /* Base UI Overlay variant of the map-picker frame (src/lib/overlays/Overlay.tsx). The mp modals
    open OVER other sheets, so scrim + popup sit at the old .mp-ovl z-index 120/121 (above the
    .ip-sheet 80/81). Popup is transform-centred (no .mp-ovl grid parent); the width keeps the old
@@ -163,11 +160,3 @@
 .offline-dl:hover:not(:disabled) { background: rgba(255, 255, 255, .12); }
 .offline-dl:disabled { opacity: var(--disabled); cursor: default; }
 .offline-dl svg { width: 16px; height: 16px; flex: 0 0 auto; color: rgba(255, 255, 255, .75); }
-.offline-bar {
-  height: 4px; border-radius: 3px; margin: 2px 2px 4px;
-  background: rgba(255, 255, 255, .2); overflow: hidden;
-}
-.offline-bar > span {
-  display: block; height: 100%;
-  background: var(--blue); transition: width 0.2s ease;
-}

@@ -451,8 +451,6 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-input { width: 150px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-xs);
   font-size: 13px; color: var(--ink); background: var(--surface); }
 .draw-editor .de-input-short { width: 60px; text-align: center; }
-.draw-editor .de-numrow { display: inline-flex; gap: 6px; }
-.draw-editor .de-numrow .de-input-short { width: 52px; }
 .draw-editor .de-toggle { padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
   font-size: 12.5px; font-weight: 700; color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
 .draw-editor .de-toggle.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }

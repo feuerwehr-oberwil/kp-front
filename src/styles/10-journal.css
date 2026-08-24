@@ -113,7 +113,6 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 
 /* weather detail popover (tap the bar readout) */
 .tb-weather-wrap { position: relative; display: inline-flex; }
-.tb-weather-scrim { position: fixed; inset: 0; z-index: 200; border: none; background: rgba(20, 28, 40, .12); cursor: default; }
 /* position + z-index now come from the Base UI Popover Positioner (src/lib/overlays/Popover.tsx);
    the popup itself is static within it. */
 .tb-weather-pop { width: 280px;

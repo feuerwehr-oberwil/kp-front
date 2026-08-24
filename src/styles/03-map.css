@@ -62,9 +62,8 @@
 .handle .i { width: 16px; height: 16px; stroke-width: 2.3; }
 /* inline delete + live-vehicle rotate share the top-LEFT corner of the ring (they are
    mutually exclusive — a live vehicle has no local delete) */
-.marker-del, .marker-rotate { left: calc(50% - var(--hbox) / 2 - 3px); top: calc(50% - var(--hbox) / 2 - 3px);
+.marker-rotate { left: calc(50% - var(--hbox) / 2 - 3px); top: calc(50% - var(--hbox) / 2 - 3px);
   transform: translate(-50%, -50%); }
-.marker-del { background: var(--red); cursor: pointer; }
 /* (a note's handles no longer live on the corners — see .note-grips below) */
 .marker-rotate { background: var(--ink-fill); cursor: grab; touch-action: none; }
 .marker-rotate:active { cursor: grabbing; }
@@ -212,7 +211,6 @@
    strangely", field feedback 2026-07-09) */
 @keyframes sheetUp { from { opacity: 0; transform: translateY(26px); } }
 @keyframes popIn { from { opacity: 0; transform: translateY(6px) scale(.97); } }
-.history-card { animation: panelIn .16s var(--ease); }
 .layers-card { animation: popIn .15s var(--ease); }  /* dock chrome → dock entrance */
 .ctx { animation: ctxIn .16s var(--ease); }
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; transition-duration: .001ms !important; } }

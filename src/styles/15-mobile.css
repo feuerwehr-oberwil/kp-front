@@ -50,7 +50,6 @@
 @media (min-width: 601px) and (max-width: 1024px) {
   /* narrow the map panels but let layers keep tracking the rail (--rail-w) */
   .layers-card { width: 240px; }
-  .history-card { width: 240px; left: 78px; }
   /* 300px was below what the drawing editor's own rows need: «Abschluss» and «Inhalt» carry
      control groups 200px+ wide, so at 300px the label and its buttons collided. Scale with the
      viewport instead of pinning a number — on a 768px tablet this lands at 340px and still leaves
@@ -351,14 +350,14 @@
 
   /* layers/history: the sheet opens ABOVE the bars (full width, scrolls, capped to the
      viewport) instead of beside the rail */
-  .layers-card, .history-card {
+  .layers-card {
     left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); width: auto; max-width: none;
     top: calc(76px + env(safe-area-inset-top)); bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); transform: none;
     max-height: none; overflow-y: auto; overscroll-behavior: contain; }
   /* …and where the tool bar is the SECOND bar, it clears both — the sheet used to start over
      the tool rail, hiding the very Ebenen button that opened it (same clearance the measure
      panel takes above) */
-  .phone-tools :is(.layers-card, .history-card) {
+  .phone-tools .layers-card {
     bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom)); }
 
   /* coordinate readout sits above the bottom bar + home indicator */
@@ -452,7 +451,7 @@
   .confirm-card { width: min(420px, calc(100vw - 24px)); }
   /* symbol search → bottom sheet (the grid is tall; bottom-aligning keeps the search
      field + close reachable). Symbol picking is editor-only so this is rare on a phone. */
-  .modal-backdrop:not(.modal-sheet):not(.confirm-backdrop) { place-items: end center; }
+  .modal-backdrop:not(.confirm-backdrop) { place-items: end center; }
   .sym-modal { width: 100%; max-width: none; height: 92dvh;
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
 

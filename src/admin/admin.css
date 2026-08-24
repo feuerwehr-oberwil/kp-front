@@ -37,7 +37,6 @@
   color: var(--ink-faint); white-space: nowrap;
 }
 .adm-header-right { display: flex; align-items: center; gap: 14px; }
-.adm-user { font-size: 13px; font-weight: 600; color: var(--ink-dim); white-space: nowrap; }
 .adm-link {
   font-size: 13px; font-weight: 600; color: var(--blue); text-decoration: none;
   white-space: nowrap;
@@ -155,7 +154,7 @@
   /* the header's nowrap cluster (name + link + logout) overflows a phone —
      drop the decorative pieces; the logout keeps its label, the link stays */
   .adm-header { padding: 10px 12px; gap: 10px; }
-  .adm-user, .adm-verwaltung { display: none; }
+  .adm-verwaltung { display: none; }
   .adm-logout { min-width: 0; }
   /* sidebar leaves the flow and slides in as a drawer; main fills the width + scrolls */
   .adm-side {
@@ -416,16 +415,6 @@
 .adm-view-badge-warn { color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); border-color: color-mix(in srgb, var(--amber) 38%, var(--border)); }
 .adm-view-badge-muted { color: var(--ink-faint); background: var(--fill-soft); border-color: var(--border-soft); }
 
-/* ── Symbole-only pieces ────────────────────────────────────────────────────── */
-/* legend — what each source badge means (the «what's happening here» key) */
-.adm-fleet-legend {
-  list-style: none; margin: 0; padding: 10px 13px;
-  display: flex; flex-wrap: wrap; gap: 8px 18px;
-  font-size: 11.5px; color: var(--ink-faint);
-  border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--surface);
-}
-.adm-fleet-legend li { display: inline-flex; align-items: center; gap: 7px; }
-.adm-fleet-legend .adm-fleet-rosterpill { padding: 3px 9px; font-size: 11px; }
 /* read-only doctrine chips: the symbol's on-canvas behaviours (Drehbar / Stockwerk / …) */
 .adm-fleet-props { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .adm-fleet-prop {
@@ -454,8 +443,6 @@
 /* em-dash / "frei eingeben" placeholder in a value cell */
 .adm-fleet-freeval { font-size: 12px; font-style: italic; color: var(--ink-faint); }
 
-/* ── integration badges ───────────────────────────────────────────────────── */
-.adm-badges { display: flex; flex-wrap: wrap; gap: 10px; }
 .adm-badge {
   display: inline-flex; align-items: center; gap: 9px;
   padding: 9px 14px; border-radius: var(--r-ctl);
@@ -654,7 +641,6 @@
   overflow: hidden;
 }
 .adm-brand-img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.adm-brand-empty { color: var(--ink-faint); font-weight: 600; }
 /* "Standard" tag shown beside the preview when the slot falls back to the bundled default asset */
 .adm-brand-default {
   flex: 0 0 auto; padding: 2px 8px; border-radius: var(--r-pill);
@@ -920,29 +906,9 @@
   .adm-tip-pop { max-width: min(248px, 70vw); }
 }
 
-/* ── "noch nicht wirksam" pending badge ───────────────────────────────────── */
-.adm-pending-badge {
-  display: inline-block;
-  padding: 1px 7px; border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--amber) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 35%, var(--border-soft));
-  color: var(--amber-strong);
-  font-size: 10px; font-weight: 700; letter-spacing: .02em;
-  text-transform: none;
-}
 
 /* ── focus-visible rings on every admin control ───────────────────────────── */
-.adm-side-item:focus-visible,
-.adm-navtoggle:focus-visible,
-.adm-input:focus-visible,
-.adm-color-swatch:focus-visible,
-.adm-chip-input:focus-visible,
-.adm-chip-x:focus-visible,
-.adm-link:focus-visible,
-.adm select:focus-visible,
-.adm input[type='checkbox']:focus-visible,
-.adm input[type='file']:focus-visible,
-.adm .btn:focus-visible {
+.adm-side-item:focus-visible, .adm-navtoggle:focus-visible, .adm-input:focus-visible, .adm-color-swatch:focus-visible, .adm-link:focus-visible, .adm select:focus-visible, .adm input[type='checkbox']:focus-visible, .adm input[type='file']:focus-visible, .adm .btn:focus-visible {
   outline: 2px solid var(--blue); outline-offset: 2px;
 }
 .adm-input:focus-visible { outline-offset: 0; border-color: var(--blue); }
@@ -977,52 +943,11 @@
    Kartenebenen (ReferenceLayersEditor)
    ════════════════════════════════════════════════════════════════════════════ */
 
-.adm-layers { display: flex; flex-direction: column; gap: 16px; }
-.adm-layers-empty { margin: 0; }
-.adm-layers-list { display: flex; flex-direction: column; gap: 14px; }
-.adm-layers-addbar { display: flex; justify-content: flex-start; }
 
-/* one layer card — a calm nested surface inside the section card */
-.adm-layer-card {
-  display: flex; flex-direction: column; gap: 14px;
-  padding: 16px;
-  background: var(--fill-soft);
-  border: 1px solid var(--border);
-  border-radius: var(--r-ctl);
-}
-.adm-layer-card.invalid {
-  border-color: color-mix(in srgb, var(--red) 45%, var(--border));
-  background: color-mix(in srgb, var(--red) 4%, var(--fill-soft));
-}
 
-.adm-layer-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.adm-layer-title { font-size: 13.5px; font-weight: 700; color: var(--ink); min-width: 0; }
-.adm-layer-kindtag {
-  display: inline-block; padding: 2px 8px; border-radius: var(--r-xs);
-  background: var(--surface-2); border: 1px solid var(--border-soft);
-  font-family: var(--mono); font-size: 10.5px; font-weight: 600; color: var(--ink-dim);
-}
-.adm-layer-remove { margin-left: auto; }
 
-/* inline per-row validation errors */
-.adm-layer-errs {
-  list-style: none; margin: 0; padding: 8px 11px;
-  display: flex; flex-direction: column; gap: 3px;
-  background: color-mix(in srgb, var(--red) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--red) 30%, var(--border-soft));
-  border-radius: var(--r-sm);
-  font-size: 12px; font-weight: 600; color: var(--red);
-}
 
-/* kind-conditional block sits in a subtly inset group */
-.adm-layer-cond {
-  display: flex; flex-direction: column; gap: 14px;
-  padding: 14px; border-radius: var(--r-sm);
-  background: var(--surface); border: 1px solid var(--border-soft);
-}
 
-/* test-tile row + result chip */
-.adm-layer-testrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .adm-test-chip {
   display: inline-flex; align-items: center;
   padding: 4px 10px; border-radius: var(--r-pill);
@@ -1062,11 +987,6 @@
 .adm-cap-rows + .adm-actions { margin-top: 2px; }
 .adm-cap-actions { padding-top: 16px; border-top: 1px solid var(--border-soft); }
 .adm-cap-actions .adm-danger-btn { margin-left: auto; }
-.adm-cap-url {
-  font-family: var(--mono); font-size: 12px; word-break: break-all;
-  padding: 3px 8px; border-radius: var(--r-xs);
-  background: var(--surface-2); border: 1px solid var(--border-soft); color: var(--ink-dim);
-}
 
 /* ─── Traccar device detail table — slight inset below the Traccar row ────────── */
 .adm-traccar-devices { margin: -2px 0 14px; }
@@ -1074,11 +994,6 @@
 .adm-traccar-devices .adm-table td { font-size: 12.5px; }
 
 
-/* ─── Mannschaft (roster) view ──────────────────────────────────────────────── */
-.adm-roster-toolbar {
-  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
-  min-height: var(--tap);
-}
 .adm-roster-inactive-toggle {
   display: inline-flex; align-items: center; gap: 7px;
   margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
@@ -1089,7 +1004,6 @@
   font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
 }
 .adm-roster-import { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.adm-roster-file { flex: 1 1 240px; padding: 7px 10px; }
 .adm-roster-result {
   display: flex; flex-direction: column; gap: 8px; margin-top: 12px;
 }
@@ -1192,32 +1106,7 @@
 .adm-history-table { min-width: 920px; }
 .adm-history-table .adm-ref-note { display: block; margin-top: 3px; }
 
-/* ── toggle-chip multiselect (Objektpläne › Kombiniert mit) ───────────────────── */
-.adm-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0; }
-.adm-chips-empty { margin: 6px 0 0; }
-.adm-chip {
-  min-height: 36px;
-  padding: 7px 12px; border-radius: var(--r-pill);
-  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
-  color: var(--ink-dim); background: var(--surface-2);
-  border: 1px solid var(--border-soft); cursor: pointer;
-  transition: border-color .12s, background .12s, color .12s;
-}
-.adm-chip:hover { border-color: color-mix(in srgb, var(--blue) 30%, var(--border)); }
-.adm-chip.on {
-  color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 38%, var(--border-soft));
-}
-.adm-chip.warn {
-  color: var(--red); border-color: color-mix(in srgb, var(--red) 32%, var(--border-soft));
-}
-.adm-chip:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 
-/* ── module filename match tester (Objektpläne) ──────────────────────────────── */
-.adm-match-tester { margin-top: 2px; }
-.adm-match-result { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
-.adm-match-result.ok { color: var(--green-strong); }
-.adm-match-result.none { color: var(--ink-faint); }
 
 /* ════════════════════════════════════════════════════════════════════════════
    Kebab (⋮) action menu — ui.tsx ActionMenu, replaces wide inline action rows

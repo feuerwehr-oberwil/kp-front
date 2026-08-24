@@ -77,4 +77,3 @@
 
 /* A NAMED clear, replacing the bin glyph. Emptying a «bis» does not delete anything — it says the
    person is still here — and a bin said the opposite of what it did. */
-.clearNamed { flex: 1.2; white-space: nowrap; }

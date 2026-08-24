@@ -29,7 +29,7 @@
 /* 44px hit pad — the chip is the ONLY tap target on a locked shape */
 .draw-lock-chip::after { content: ''; position: absolute; inset: -7px; border-radius: 50%; }
 .draw-lock-chip:hover { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-line)); }
-.draw-lock-chip > svg:not(.draw-lock-ring) { width: 15px; height: 15px; }
+.draw-lock-chip > svg { width: 15px; height: 15px; }
 .draw-lock-chip.holding { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
 /* hold progress floats ABOVE the chip (finger-independent) so it stays visible under a fingertip */
 .draw-lock-hint { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); pointer-events: none;

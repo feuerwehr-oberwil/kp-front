@@ -197,11 +197,6 @@ DETAIL_TRANSLATIONS: dict[str, dict[str, str]] = {
 _locale: str = DEFAULT_LOCALE
 
 
-def get_locale() -> str:
-    """Return the currently cached deployment locale."""
-    return _locale
-
-
 def set_locale(loc: str | None) -> None:
     """Set the cached deployment locale; None/empty normalizes to the German default."""
     global _locale

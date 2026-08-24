@@ -130,8 +130,6 @@
 /* one-shot actions + the display-mode switch read as discrete push-buttons
    (faint resting fill + hairline), visually distinct from the flat, sticky modal
    tools above — so "press to do X" is never confused with "select a mode" */
-/* audio is the only action that holds state — it goes red while recording */
-.vrail-tool.is-action.on, .vrail-tool.is-action.on:hover:not(:disabled) { background: var(--red); color: var(--on-fill); box-shadow: none; }
 /* drag grip on the LEFT edge — pull it to resize the rail (mirror of the nav-grip) */
 .vrail-grip { position: absolute; top: 0; left: -7px; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
   cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
