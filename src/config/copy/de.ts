@@ -113,7 +113,7 @@ export const de = {
           { kind: 'list', items: [
             'Zahlen öffnen das Plan-Modul mit dieser Nummer – welche es gibt, richtet sich nach den Modulen dieser Wehr: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
             '[[K]] Karte · [[C]] Checkliste · [[A]] Atemschutz · [[P]] Anwesenheit · [[M]] Material · [[R]] Rapport – jeweils der erste Buchstabe des Bereichs.',
-            '[[⌘]] [[[]] / [[⌘]] []]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
+            '[[⌘]] [[[]] / [[⌘]] [[]]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
           { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
           { kind: 'list', items: [
@@ -1308,9 +1308,9 @@ export const de = {
     start: 'Trupp anmelden',
     reenterSubmit: 'Einrücken',
     // Second path when re-entering: new cylinder, new Auftrag, but not under PA yet – the Trupp
-    // waits as a Sicherungstrupp and is started later with «Eingerückt».
+    // waits as a Sicherungstrupp and is started later with «Einrücken».
     reenterStandby: 'Bereitstellen',
-    reenterStandbyHint: 'Trupp als Reserve anmelden – die Kontaktuhr startet erst mit «Eingerückt».',
+    reenterStandbyHint: 'Trupp als Reserve anmelden – die Kontaktuhr startet erst mit «Einrücken».',
     // board card
     colorLabel: 'Farbe',
     colorAuto: 'Automatisch',
@@ -1321,7 +1321,7 @@ export const de = {
     // (it is finished), this one runs instead – that is the number the Überwacher needs for the
     // recovery time before the next Einsatz.
     outFor: 'Draussen seit',
-    estimated: 'Erwartet (Schätzung)',
+    estimated: 'Geschätzter Druck',
     estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
     estimatedHintHistory: 'Planungshilfe – aus dem bestätigten Druckverbrauch dieses Trupps hochgerechnet. Ersetzt keine Druckmeldung.',
     estimatedSourceHistory: 'aus {count} Druckwerten · Stand {time}',
@@ -1409,7 +1409,7 @@ export const de = {
     placeNoTarget: 'Kein Plan vorhanden – zuerst über «Gebäude» in der Leiste ein Gebäude wählen.',
     showOnPlan: 'Auf Plan zeigen',
     showOnMap: 'Auf der Lage zeigen',
-    preEntryHint: 'Noch nicht eingerückt – «Eingerückt» drücken, sobald der Trupp unter AS geht.',
+    preEntryHint: 'Noch nicht eingerückt – «Einrücken» drücken, sobald der Trupp unter Atemschutz in den Einsatz geht.',
     // Die Glocke: ein Knopf, drei ehrliche Zustände (siehe useAtemschutzMute). Jeder sagt, was
     // GERADE gilt, und nennt seine Reichweite – die Beschriftung war früher die Handlung
     // («Alarmton ausschalten», also ist er an), ein Versprechen, das der Knopf nicht halten
@@ -1591,7 +1591,7 @@ export const de = {
     trailsOff: 'Spuren ausblenden',
     deleteLocked: 'Trupp mit erfasstem Verlauf – zuerst Spur löschen',
     textPlaceholder: 'Notiz …',
-    blankHint: 'Leeres Blatt – mit Zeichnen, Text, Symbol oder Trupp beschriften',
+    blankHint: 'Leeres Blatt – mit Linie, Fläche, Notiz, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',
     osmError: 'Gebäudeumrisse (OSM) nicht erreichbar',
     osmEmpty: 'Keine Gebäude in diesem Bereich',
@@ -2135,7 +2135,7 @@ export const de = {
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
     incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
-    contactIntervalSub: 'Intervall bis «Kontakt fällig» (amber)',
+    contactIntervalSub: 'Intervall bis «Kontakt fällig» (orange)',
     contactIntervalAria: 'Funkkontakt-Intervall',
     grace: 'Nachfrist',
     graceSub: 'Roter Alarm nach Intervall + Nachfrist',
@@ -4075,7 +4075,7 @@ export const de = {
       defaultFunkkanal: 'Funkkanal (Standard)',
       defaultFunkkanalTip: 'Voreingestellter Funkkanal eines neuen Einsatzes.',
       contactInterval: 'Kontaktintervall (min)',
-      contactIntervalTip: 'AGT-Kontaktintervall; nach Ablauf gilt der Kontakt als fällig (amber).',
+      contactIntervalTip: 'AGT-Kontaktintervall; nach Ablauf gilt der Kontakt als fällig (orange).',
       contactGrace: 'Nachfrist (s)',
       contactGraceTip: 'Sekunden nach dem fälligen Kontakt, bis der überfällig-Alarm auslöst.',
       alarmBar: 'Alarmdruck (bar)',

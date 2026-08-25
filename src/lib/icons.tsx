@@ -76,7 +76,6 @@ export function IconSprite() {
       <symbol id="history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></symbol>
       <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3.5 2" /></symbol>
       <symbol id="hourglass" viewBox="0 0 24 24"><path d="M6 4h12M6 20h12M8 4l4 8 4-8M8 20l4-8 4 8" /></symbol>
-      <symbol id="bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z" /><path d="M10 20a2 2 0 0 0 4 0" /></symbol>
       <symbol id="check" viewBox="0 0 24 24"><path d="M5 12.5 10 17 19 7" stroke-width="2.2" /></symbol>
       {/* Am Einsatzort: the map's own position pin, so «vor Ort» on the crew list and a dot on
           the Lage read as the same idea. Deliberately NOT a flame — this says WHERE somebody is,

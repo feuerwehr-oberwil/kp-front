@@ -127,6 +127,16 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **Ein Prüfer mit frischen Augen fand die Stellen, wo die App sich selbst widerspricht.** An
+  external user test read the surface against itself. The Atemschutz hints told the operator to
+  press «Eingerückt» where the button says «Einrücken» – in all four languages; the Tafel hint
+  offered «Zeichnen, Text» where the dock names Linie, Fläche and Notiz; the AS settings explained
+  a colour in English («amber») on an otherwise German surface; and «Erwartet (Schätzung)» said
+  estimate twice without saying pressure once – it is «Geschätzter Druck» now. Two real bugs rode
+  along: the keyboard help rendered the «]» shortcut as raw brackets, because a literal bracket in
+  the chip markup is `[[]]]` and the copy had `[]]]`; and the icon sprite defined `bell` twice,
+  which is invalid HTML – the definition matching `bell-off` is the one that stays.
+
 - **Ein Löschdialog behauptete die Tat, bevor die Frage beantwortet war.** «Auswahl entfernt» – a
   toast string – was serving as the heading of the confirm dialog for a multi-object delete, so the
   question announced its own outcome. It has a title of its own. Two other destructive dialogs
