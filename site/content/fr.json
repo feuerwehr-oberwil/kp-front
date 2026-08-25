@@ -79,7 +79,7 @@
         "time": "03:07",
         "tag": "Situation",
         "h3": "La première situation est posée.",
-        "p": "Signes conventionnels CSSP, secteurs, conduites et notes sur la carte swisstopo. Bornes hydrantes,\n            conduites et positions des véhicules se trouvent en dessous, sous forme de couches."
+        "p": "Signes conventionnels CSSP, secteurs, conduites et notes sur la carte de situation numérique. Bornes hydrantes,\n            conduites et positions des véhicules se trouvent en dessous, sous forme de couches."
       },
       {
         "time": "03:12",
@@ -158,7 +158,7 @@
       {
         "alt": "Checklist : tâches de l’aide à la conduite avec l’avancement",
         "title": "Checklists",
-        "sub": "Les checklists de conduite de votre corps, à cocher plutôt que rangées dans un classeur"
+        "sub": "Les checklists de conduite de votre corps, avec accès direct au plan, au journal et aux outils"
       },
       {
         "alt": "Vue Moyens : matériel engagé, par provenance",

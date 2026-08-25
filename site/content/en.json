@@ -78,7 +78,7 @@
         "time": "03:07",
         "tag": "Situation",
         "h3": "The first situation picture is up.",
-        "p": "FKS tactical symbols, sectors, hose lines and notes on the swisstopo map.\n            Hydrants, utility lines and vehicle positions sit underneath as layers."
+        "p": "FKS tactical symbols, sectors, hose lines and notes on the digital situation map.\n            Hydrants, utility lines and vehicle positions sit underneath as layers."
       },
       {
         "time": "03:12",
@@ -157,7 +157,7 @@
       {
         "alt": "Checklist: command support tasks with progress",
         "title": "Checklists",
-        "sub": "Your own command checklists, there to be ticked off instead of sitting in a folder"
+        "sub": "Your own command checklists, with direct jumps to plan, log and tools"
       },
       {
         "alt": "Resources view: material used, by source",

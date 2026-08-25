@@ -1,5 +1,5 @@
 {
-  "notice": "Questa versione italiana non è ancora stata riletta da una persona italofona dei pompieri, e la demo gira in tedesco. Un termine che suona sbagliato? <a href=\"#kontakt\">Scrivetecelo</a>, lo correggiamo.",
+  "notice": "Questa traduzione non è ancora stata verificata da una persona italofona dei pompieri – <a href=\"#kontakt\">suggerimenti e correzioni</a> sono benvenuti. La demo è in tedesco.",
   "meta": {
     "title": "KP Front – condotta d’intervento per i pompieri di milizia",
     "description": "KP Front è il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto – offline e open source.",
@@ -79,7 +79,7 @@
         "time": "03:07",
         "tag": "Situazione",
         "h3": "La prima situazione è in piedi.",
-        "p": "Simboli tattici CSP, settori, condotte e note sulla carta swisstopo.\n            Idranti, condotte e posizioni dei veicoli stanno sotto come livelli."
+        "p": "Simboli tattici CSP, settori, condotte e note sulla carta digitale della situazione.\n            Idranti, condotte e posizioni dei veicoli stanno sotto come livelli."
       },
       {
         "time": "03:12",
@@ -158,7 +158,7 @@
       {
         "alt": "Lista di controllo: compiti del supporto alla condotta con l’avanzamento",
         "title": "Liste di controllo",
-        "sub": "Le liste di controllo della condotta dei vostri pompieri, da spuntare invece che nel classificatore"
+        "sub": "Le liste di controllo della condotta dei vostri pompieri, con accesso diretto a piano, cronologia e strumenti"
       },
       {
         "alt": "Vista Mezzi: materiale impiegato per provenienza",

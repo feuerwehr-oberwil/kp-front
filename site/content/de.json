@@ -82,7 +82,7 @@
         "time": "03:07",
         "tag": "Lage",
         "h3": "Die erste Lage steht.",
-        "p": "FKS-Symbole, Sektoren, Schlauchleitungen und Notizen auf der swisstopo-Karte.\n            Hydranten, Leitungen und Fahrzeugpositionen liegen als Ebenen drunter."
+        "p": "FKS-Symbole, Sektoren, Schlauchleitungen und Notizen auf der digitalen Lagekarte.\n            Hydranten, Leitungen und Fahrzeugpositionen liegen als Ebenen drunter."
       },
       {
         "time": "03:12",
@@ -181,7 +181,7 @@
         "h": 937,
         "alt": "Checkliste: Aufgaben der Führungsunterstützung mit Fortschritt",
         "title": "Checklisten",
-        "sub": "Die Führungs-Checklisten eurer Feuerwehr, zum Abhaken statt im Ordner"
+        "sub": "Die Führungs-Checklisten eurer Feuerwehr, mit direkten Sprüngen zu Plan, Verlauf und Werkzeugen"
       },
       {
         "file": "mittel.webp",
