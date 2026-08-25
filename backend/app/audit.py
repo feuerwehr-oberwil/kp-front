@@ -18,7 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import storage
-from .models import IncidentEvent, VehicleSample, WorkspaceSnapshot
+from .models import Incident, IncidentEvent, VehicleSample, WorkspaceSnapshot
 
 GENESIS = "0" * 64
 
@@ -61,9 +61,19 @@ async def append_event(
 ) -> IncidentEvent:
     """Append one event to an incident's chain, assigning seq/prev_hash/hash.
 
-    The unique(incident_id, seq) constraint is the race backstop; callers run inside the
-    request transaction. Single active editor makes contention rare.
+    Callers run inside the request transaction; concurrent appenders are serialised on the
+    incident row (see the lock below), so the unique(incident_id, seq) constraint is a
+    backstop again rather than the thing that decides the race.
     """
+    # Take the incident row first — the same lock the journal takes, for the same reason
+    # (api/journal._ensure). Both `seq` and `prev_hash` are read-then-written: two appends
+    # that read the same "last event" compute the same seq, and the loser of that race used to
+    # come back as a 500 on uq_incident_events_seq in production — the batch flush
+    # of one editor against a status webhook landing at the same moment. It would also fork the
+    # hash chain, which is the more expensive half. Serialising is the fix; the wait is one
+    # INSERT long. No-op on SQLite, which has neither row locks nor concurrent writers.
+    await db.execute(select(Incident.id).where(Incident.id == incident_id).with_for_update())
+
     last = (
         await db.execute(
             select(IncidentEvent)

@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import live_wait
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..database import get_db
 from ..models import Incident, JournalEntry
@@ -35,15 +36,7 @@ async def _ensure(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = Fals
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
 
 
-@router.get("/{incident_id}/journal", response_model=JournalPage)
-async def read_journal(
-    incident_id: uuid.UUID,
-    _user: CurrentUser,
-    since_seq: int = 0,
-    db: AsyncSession = Depends(get_db),
-) -> JournalPage:
-    """All rows with seq > since_seq, oldest first. since_seq=0 → the full journal."""
-    await _ensure(db, incident_id)
+async def _rows_since(db: AsyncSession, incident_id: uuid.UUID, since_seq: int) -> list[JournalEntryOut]:
     rows = (
         await db.execute(
             select(JournalEntry)
@@ -51,7 +44,33 @@ async def read_journal(
             .order_by(JournalEntry.seq.asc())
         )
     ).scalars()
-    entries = [JournalEntryOut(seq=r.seq, row=r.row_json) for r in rows]
+    return [JournalEntryOut(seq=r.seq, row=r.row_json) for r in rows]
+
+
+@router.get("/{incident_id}/journal", response_model=JournalPage)
+async def read_journal(
+    incident_id: uuid.UUID,
+    _user: CurrentUser,
+    since_seq: int = 0,
+    wait: bool = False,
+    db: AsyncSession = Depends(get_db),
+) -> JournalPage:
+    """All rows with seq > since_seq, oldest first. since_seq=0 → the full journal.
+
+    `wait=1` makes an EMPTY answer a long poll: the request parks until a row is appended —
+    by any device or by the server itself — or ~20 s pass and the empty page goes out anyway.
+    A Verlaufszeile dictated on one device is on the others as soon as it is committed, and a
+    quiet Verlauf costs one request per 20 s per device instead of one every 2–15 s.
+    """
+    # Subscribe BEFORE the read, so an append landing between read and park is not missed.
+    async with live_wait.subscribe(live_wait.journal_topic(incident_id)) as changes:
+        await _ensure(db, incident_id)
+        entries = await _rows_since(db, incident_id, since_seq)
+        if not entries and wait:
+            # Hand the pooled DB connection back before parking for ~20 s (see app/live_wait).
+            await db.commit()
+            if await changes.wait():
+                entries = await _rows_since(db, incident_id, since_seq)
     latest = entries[-1].seq if entries else since_seq
     return JournalPage(entries=entries, latest_seq=latest)
 
@@ -90,6 +109,10 @@ async def append_rows(db: AsyncSession, incident_id: uuid.UUID, entries: list[di
         next_seq += 1
 
     await db.flush()
+    if accepted:
+        # Wake every device long-polling this Verlauf — after the commit, so they read the rows
+        # they are woken for. Covers all appenders, HTTP and server-side alike (see live_wait).
+        live_wait.notify_after_commit(db, live_wait.journal_topic(incident_id))
     return accepted
 
 

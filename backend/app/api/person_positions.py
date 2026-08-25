@@ -45,7 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..alarms import is_demo_deployment
 from ..auth.capture_limiter import position_limiter
 from ..auth.dependencies import CurrentUser
-from ..database import execute_dml, get_db
+from ..database import dialect_insert, execute_dml, get_db
 from ..models import Incident, Personnel, PersonPosition
 
 #: A second device claiming a person who is already sharing is refused while the incumbent is
@@ -111,6 +111,22 @@ async def _open_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
     return inc
 
 
+async def _current_claim(db: AsyncSession, incident_id: uuid.UUID, person_id: uuid.UUID) -> PersonPosition | None:
+    """The row this person already holds for this Einsatz — the input to the claim check.
+
+    Its own function so the race it cannot win is testable: whatever this read says, a row may
+    exist by the time the write below runs, and that must end in an update rather than a 500.
+    """
+    return (
+        await db.execute(
+            select(PersonPosition).where(
+                PersonPosition.incident_id == incident_id,
+                PersonPosition.person_id == person_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+
 @router.post(
     "/{incident_id}/positions",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -134,14 +150,7 @@ async def put_position(
     if known is None:
         raise HTTPException(status_code=404, detail="Person nicht gefunden")
 
-    row = (
-        await db.execute(
-            select(PersonPosition).where(
-                PersonPosition.incident_id == incident_id,
-                PersonPosition.person_id == body.person_id,
-            )
-        )
-    ).scalar_one_or_none()
+    row = await _current_claim(db, incident_id, body.person_id)
 
     now = datetime.now(UTC)
     if row is not None and row.device_id != body.device_id:
@@ -157,27 +166,32 @@ async def put_position(
                 detail="Dieser Name wird bereits von einem anderen Gerät geteilt.",
             )
 
-    if row is None:
-        db.add(
-            PersonPosition(
-                incident_id=incident_id,
-                person_id=body.person_id,
-                device_id=body.device_id,
-                display_name=body.display_name,
-                lat=body.lat,
-                lng=body.lng,
-                accuracy_m=body.accuracy_m,
-                ts=body.ts,
-            )
+    # ONE statement, not read-then-insert. The read above decides the CLAIM (whose name this
+    # is); the write must not depend on it still being true a millisecond later. Two reports
+    # for the same person arriving together — one phone retrying, or the same person open on
+    # two tabs — both saw "no row yet" and both inserted, and the unique index turned the
+    # second one into a 500 on somebody's phone mid-Einsatz. INSERT … ON CONFLICT DO UPDATE
+    # cannot lose that race: whoever is second updates instead of colliding, and last-write-
+    # wins is exactly right for a row that only ever says "here, now".
+    insert = dialect_insert(db)
+    values = {
+        "incident_id": incident_id,
+        "person_id": body.person_id,
+        "device_id": body.device_id,
+        "display_name": body.display_name,
+        "lat": body.lat,
+        "lng": body.lng,
+        "accuracy_m": body.accuracy_m,
+        "ts": body.ts,
+        "updated_at": now,
+    }
+    stmt = insert(PersonPosition).values(**values)
+    await db.execute(
+        stmt.on_conflict_do_update(
+            index_elements=["incident_id", "person_id"],
+            set_={k: getattr(stmt.excluded, k) for k in values if k not in ("incident_id", "person_id")},
         )
-    else:
-        row.device_id = body.device_id
-        row.display_name = body.display_name
-        row.lat = body.lat
-        row.lng = body.lng
-        row.accuracy_m = body.accuracy_m
-        row.ts = body.ts
-        row.updated_at = now
+    )
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

@@ -21,6 +21,7 @@ from ..alarms import create_incident_from_alarm, find_by_source_ref, get_config_
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import execute_dml, get_db
+from ..live_wait import notify_after_commit, workspace_topic
 from ..models import DiveraEmergency, Incident
 from ..push import notify_new_alarm
 from ..schemas import RESERVED_ALARM_SOURCES, AlarmIn, AlarmOut, MilestonesIn, MilestonesOut
@@ -208,6 +209,10 @@ async def _apply_and_store(
             .values(map_workspace_json=new_ws, workspace_rev=base_rev + 1),
         )
         if result.rowcount:
+            # This path bumps workspace_rev itself instead of going through apply_workspace_put,
+            # so it owes the wake-up too — otherwise a Meilenstein reaches the DB instantly and
+            # the tablets still take a full long-poll timeout to show it (see app/live_wait).
+            notify_after_commit(db, workspace_topic(incident_id))
             return changed, journal_texts
     # Someone rewrote the blob under us five times running. The sender retries with backoff
     # and the upsert is idempotent, so a 503 costs a delay, never a milestone.

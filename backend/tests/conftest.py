@@ -118,14 +118,17 @@ async def client(engine, session_factory):
     """FastAPI app with get_db overridden onto the test DB and a real cookie jar."""
     import httpx
 
-    from app.auth.capture_limiter import capture_limiter
+    from app.auth.capture_limiter import capture_limiter, position_limiter
     from app.auth.token_blocklist import token_blocklist
     from app.database import get_db
     from app.main import app
 
     # In-memory per-IP bucket persists across tests (module singleton) — start each test full
-    # so a burst-draining rate-limit test can't starve unrelated capture tests.
+    # so a burst-draining rate-limit test can't starve unrelated capture tests. The position
+    # bucket is a SECOND singleton with its own sizing; leaving it undrained made a whole file
+    # of position tests order-dependent (adding one POST early failed a test much further down).
     capture_limiter.reset()
+    position_limiter.reset()
 
     async def _override_get_db():
         async with session_factory() as session:

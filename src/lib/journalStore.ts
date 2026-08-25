@@ -1,4 +1,4 @@
-import { ApiError, apiBeacon, apiGet, apiPost } from './api'
+import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './api'
 import { idbGet, idbSet } from './idb'
 import { rowPhotos, swapUrl } from './verlauf'
 import type { TimelineEvent } from '../types'
@@ -25,6 +25,10 @@ import type { TimelineEvent } from '../types'
  * - persist() is skipped while read-only, so a demoted/viewer tab can never clobber the
  *   editing tab's persisted outbox under the shared IDB key.
  */
+
+/** What one live-follow round achieved: rows adopted · the server said «nothing» · no answer
+ *  at all (offline, or the round was aborted). See JournalStore.pull. */
+export type PullResult = 'new' | 'none' | 'failed'
 
 interface ServerRow { seq: number; row: TimelineEvent }
 interface JournalPage { entries: ServerRow[]; latest_seq: number }
@@ -235,17 +239,26 @@ export class JournalStore {
     apiBeacon(`/api/incidents/${this.incidentId}/journal`, { entries: this.state.outbox.slice(0, FLUSH_BATCH) })
   }
 
-  /** Fetch rows newer than our cursor (the live-poll tick; an empty page is a few bytes).
-   *  The ONLY place the cursor advances — seqs below it are guaranteed fetched. */
-  /** Returns true when new rows were adopted — the live-poll loop uses this to stay on its fast
-   *  cadence while rows are arriving and ease off once the incident goes quiet (see pollBackoff). */
-  async pull(): Promise<boolean> {
-    if (this.disposed) return false
+  /** Fetch rows newer than our cursor (the live-follow round; an empty page is a few bytes).
+   *  The ONLY place the cursor advances — seqs below it are guaranteed fetched.
+   *
+   *  `wait` asks the server to HOLD the request (~20 s) until a row is appended, instead of
+   *  answering «nothing» immediately: a Verlaufszeile dictated on another device lands here as
+   *  soon as it commits, and a quiet Verlauf costs one request per 20 s. `signal` aborts that
+   *  held request when the loop restarts or tears down.
+   *
+   *  The outcome is a three-way answer, not a boolean, because the loop treats the two
+   *  non-productive cases differently: 'none' means the server answered (go straight into the
+   *  next round), 'failed' means it didn't (ease off before retrying). */
+  async pull(opts?: { wait?: boolean; signal?: AbortSignal }): Promise<PullResult> {
+    if (this.disposed) return 'none'
+    const wait = opts?.wait ?? false
     try {
       const res = await apiGet<JournalPage>(
-        `/api/incidents/${this.incidentId}/journal?since_seq=${this.state.latestSeq}`,
+        `/api/incidents/${this.incidentId}/journal?since_seq=${this.state.latestSeq}${wait ? '&wait=1' : ''}`,
+        { signal: opts?.signal, timeoutMs: wait ? LONG_POLL_TIMEOUT_MS : undefined },
       )
-      if (this.disposed || !res.entries.length) return false
+      if (this.disposed || !res.entries.length) return 'none'
       this.adoptRows(res.entries)
       this.state.latestSeq = Math.max(this.state.latestSeq, res.latest_seq)
       // another device may have pushed rows we still hold in the outbox (migration overlap)
@@ -253,10 +266,10 @@ export class JournalStore {
       this.state.outbox = this.state.outbox.filter((r) => !server.has(r.id))
       this.persist()
       this.emit()
-      return true
+      return 'new'
     } catch {
-      /* offline — the cached copy stands */
-      return false
+      /* offline (or the round was aborted) — the cached copy stands */
+      return 'failed'
     }
   }
 

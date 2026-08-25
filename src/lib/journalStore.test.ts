@@ -407,3 +407,34 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     expect(second.display().map((r) => r.id)).toEqual(['a'])
   })
 })
+
+describe('JournalStore — the long-poll round', () => {
+  it('asks the server to hold the request, and reports what the round achieved', async () => {
+    const server = fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    apiGet.mockClear()
+
+    // nothing there → 'none', and the request said it may be held
+    expect(await s.pull({ wait: true, signal: new AbortController().signal })).toBe('none')
+    const [path, opts] = apiGet.mock.calls[0]
+    expect(path).toContain('&wait=1')
+    expect(opts.signal).toBeInstanceOf(AbortSignal)
+    // the client bound must sit ABOVE the server's hold, or every quiet round self-times-out
+    expect(opts.timeoutMs).toBeGreaterThan(20_000)
+
+    // another device appended → 'new'
+    server.rows.push({ seq: 1, row: row('x') })
+    expect(await s.pull({ wait: true })).toBe('new')
+    expect(s.display().map((r) => r.id)).toEqual(['x'])
+
+    // no wait asked for (hidden tab) → plain conditional read
+    apiGet.mockClear()
+    await s.pull()
+    expect(apiGet.mock.calls[0][0]).not.toContain('wait=1')
+
+    // the server never answered → 'failed', which is what makes the loop ease off
+    apiGet.mockRejectedValueOnce(new ApiError(0, 'offline'))
+    expect(await s.pull({ wait: true })).toBe('failed')
+  })
+})

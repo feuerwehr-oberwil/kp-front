@@ -9,7 +9,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from .. import audit, storage
+from .. import audit, live_wait, storage
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, CurrentUser, UserOrAdmin, _admin_session_valid
 from ..database import execute_dml, get_db
@@ -133,26 +133,51 @@ async def _latch_editor_opened(db: AsyncSession, incident_id: uuid.UUID) -> None
     )
 
 
+async def _rev(db: AsyncSession, incident_id: uuid.UUID) -> int:
+    """The workspace revision alone — a cheap int column, no JSONB. 404 if the incident is gone."""
+    rev = (await db.execute(select(Incident.workspace_rev).where(Incident.id == incident_id))).scalar_one_or_none()
+    if rev is None:
+        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    return rev
+
+
 @router.get("/{incident_id}/workspace", response_model=WorkspaceOut)
 async def get_workspace(
     incident_id: uuid.UUID,
     user: CurrentUser,
     response: Response,
     since: int | None = None,
+    wait: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
+    """The workspace blob, or a 304 when the caller's `since` revision is still current.
+
+    `wait=1` (only meaningful together with `since`) makes that 304 a LONG POLL: instead of
+    answering «unchanged» right away and being asked again two seconds later, the request parks
+    until another device's save bumps the revision — or ~20 s pass, and the answer is the same
+    304 it would have been. The follower gets a cross-device edit in the time it takes to commit,
+    and a quiet incident costs one request per 20 s instead of one every 2–15 s.
+    """
     # Editors latch on read too (opening an incident GETs the workspace before any edit);
     # viewers (EL-Ansicht) don't — a read-only follower is not "the KP has it".
     latch = user.role == "editor"
     # Light live-follow: on a since= poll, read ONLY the revision (a cheap int column) to decide
-    # 304 — don't drag the whole workspace JSONB out of Postgres every ~2 s just to return a
-    # bodyless response. The full blob is loaded only on first open or when the caller is behind.
+    # 304 — don't drag the whole workspace JSONB out of Postgres just to return a bodyless
+    # response. The full blob is loaded only on first open or when the caller is behind.
     if since is not None:
-        rev = (await db.execute(select(Incident.workspace_rev).where(Incident.id == incident_id))).scalar_one_or_none()
-        if rev is None:
-            raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
-        if latch:
-            await _latch_editor_opened(db, incident_id)
+        # Subscribe BEFORE the read: a save committing between the two would otherwise go unheard
+        # and this follower would sit out the whole timeout with the new blob already in the DB.
+        async with live_wait.subscribe(live_wait.workspace_topic(incident_id)) as changes:
+            rev = await _rev(db, incident_id)
+            if latch:
+                await _latch_editor_opened(db, incident_id)
+            if since == rev and wait:
+                # Commit BEFORE parking. It persists the latch above and — the load-bearing half —
+                # hands the pooled DB connection back: a dozen followers asleep on a checked-out
+                # connection would drain the pool and stall every write in the station.
+                await db.commit()
+                if await changes.wait():
+                    rev = await _rev(db, incident_id)
         if since == rev:
             return Response(status_code=status.HTTP_304_NOT_MODIFIED)
     inc = await _get(db, incident_id)
@@ -197,6 +222,9 @@ async def apply_workspace_put(
             },
         )
     new_rev = body.base_rev + 1
+    # Wake the devices long-polling this incident's workspace — once this transaction commits,
+    # so they re-read the blob they are being woken for (see app/live_wait).
+    live_wait.notify_after_commit(db, live_wait.workspace_topic(incident_id))
     await audit.snapshot_workspace(db, incident_id=incident_id, workspace=body.workspace)
     # Record the save in the hash chain so workspace changes are replayable/attributable.
     await audit.append_event(

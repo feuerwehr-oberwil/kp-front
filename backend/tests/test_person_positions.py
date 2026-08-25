@@ -169,6 +169,38 @@ async def test_second_device_takes_over_once_the_claim_goes_quiet(client, editor
     assert len(rows) == 1 and rows[0][0] == OTHER_DEVICE
 
 
+# --- the race ---------------------------------------------------------------------------
+
+
+async def test_a_row_that_appears_mid_flight_updates_instead_of_500(
+    client, editor, incident, person, db_session, monkeypatch
+):
+    """Two reports for the same person in flight at once must not collide.
+
+    The shared Tablet did exactly this: two reports for one person, both looking up the claim
+    before either had written, both finding nothing, both inserting — and
+    uq_person_positions_incident_person turned the second into a 500 on a phone mid-Einsatz.
+    Simulated here by blinding the claim read, which is precisely what the loser of the race
+    experiences; the write must still land as an update.
+    """
+    from app.api import person_positions
+
+    await _login(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person, lat=47.51))
+    assert r.status_code == 204, r.text
+
+    async def _blind(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(person_positions, "_current_claim", _blind)
+    r = await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person, lat=47.53))
+    assert r.status_code == 204, r.text
+
+    rows = await _rows(db_session, incident)
+    assert len(rows) == 1  # still one row per person, never two
+    assert float(rows[0][1]) == pytest.approx(47.53)  # and it holds the later report
+
+
 # --- stopping ---------------------------------------------------------------------------
 
 

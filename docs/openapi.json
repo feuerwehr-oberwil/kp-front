@@ -1703,6 +1703,7 @@
           "incidents"
         ],
         "summary": "Get Workspace",
+        "description": "The workspace blob, or a 304 when the caller's `since` revision is still current.\n\n`wait=1` (only meaningful together with `since`) makes that 304 a LONG POLL: instead of\nanswering «unchanged» right away and being asked again two seconds later, the request parks\nuntil another device's save bumps the revision — or ~20 s pass, and the answer is the same\n304 it would have been. The follower gets a cross-device edit in the time it takes to commit,\nand a quiet incident costs one request per 20 s instead of one every 2–15 s.",
         "operationId": "get_workspace_api_incidents__incident_id__workspace_get",
         "parameters": [
           {
@@ -1729,6 +1730,16 @@
                 }
               ],
               "title": "Since"
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Wait"
             }
           },
           {
@@ -6955,7 +6966,7 @@
           "journal"
         ],
         "summary": "Read Journal",
-        "description": "All rows with seq > since_seq, oldest first. since_seq=0 → the full journal.",
+        "description": "All rows with seq > since_seq, oldest first. since_seq=0 → the full journal.\n\n`wait=1` makes an EMPTY answer a long poll: the request parks until a row is appended —\nby any device or by the server itself — or ~20 s pass and the empty page goes out anyway.\nA Verlaufszeile dictated on one device is on the others as soon as it is committed, and a\nquiet Verlauf costs one request per 20 s per device instead of one every 2–15 s.",
         "operationId": "read_journal_api_incidents__incident_id__journal_get",
         "parameters": [
           {
@@ -6976,6 +6987,16 @@
               "type": "integer",
               "default": 0,
               "title": "Since Seq"
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Wait"
             }
           },
           {

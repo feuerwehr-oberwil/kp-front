@@ -54,6 +54,10 @@ async def ingest_events(
     wall-clock, possibly buffered offline).
     """
     await _ensure(db, incident_id)
+    # A batch is one transaction, and `audit.append_event` takes the incident row before it
+    # computes a seq — so this flush landing at the same moment as another appender (a second
+    # device flushing, a status webhook) waits for it instead of colliding on
+    # uq_incident_events_seq, which is what a 500 on somebody's phone mid-Einsatz used to be.
     out = []
     for e in body.events:
         ev = await audit.append_event(

@@ -3,7 +3,7 @@ import { pollWorkspaceSince, type WorkspaceSync, type Workspace, type SyncStatus
 import { appConfig } from '../config/appConfig'
 import { attendanceConflictRows } from './attendanceConflict'
 import type { RecordConflict } from './mergeWorkspace'
-import { nextPollDelay } from './pollBackoff'
+import { LONG_POLL_SPACING_MS, nextPollDelay } from './pollBackoff'
 import { createSyncAlertTracker } from './syncAlert'
 import { recordTrouble } from './trouble'
 import { toast } from './ui'
@@ -118,75 +118,103 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     startRef.current?.(0)
   }, [readOnly, sync, flushEvents])
 
-  // live-follow: every device polls for newer server revisions and re-renders, so an edit on
-  // one device (e.g. a tablet) shows up on the others (e.g. a phone) within a poll cycle —
-  // shared situational awareness without WebSocket. Viewers follow unconditionally; editors
-  // follow too, but skip a cycle while they have unsynced local edits (their pending flush +
-  // last-write-wins owns that merge — pulling mid-edit would clobber in-progress work). On a
-  // pull we `adoptServer` so the sync engine rebases onto the new rev and the next local edit
-  // doesn't 409. Conditional on `> sync.rev` so we never re-hydrate our own just-pushed write.
+  // live-follow: every device follows the server's workspace revision and re-renders, so an edit
+  // on one device (e.g. a tablet) shows up on the others (e.g. a phone) — shared situational
+  // awareness without WebSocket. Viewers follow unconditionally; editors follow too, but skip a
+  // round while they have unsynced local edits (their pending flush + last-write-wins owns that
+  // merge — pulling mid-edit would clobber in-progress work). On a pull we `adoptServer` so the
+  // sync engine rebases onto the new rev and the next local edit doesn't 409. Conditional on
+  // `> sync.rev` so we never re-hydrate our own just-pushed write.
+  //
+  // A VISIBLE tab long-polls: `wait: true` makes the server hold the request until the rev moves
+  // (backend app/live_wait), so the other device's edit lands here as fast as it commits and the
+  // rounds are back-to-back instead of on a 2–15 s cadence. A HIDDEN tab does NOT hold a
+  // connection — there is nothing on screen to keep fresh, iOS suspends a backgrounded PWA's
+  // timers and sockets anyway (so a held request is killed and re-issued on resume, i.e. churn
+  // for nothing), and keeping the radio in its high-power state 20 s at a time is precisely the
+  // battery cost the old cadence was tuned to avoid. It keeps the flat 60 s no-wait poll and
+  // catches up at once on the visibility return.
   const liveRev = useRef(sync.rev)
   useEffect(() => {
     let stopped = false
     let timer: ReturnType<typeof setTimeout> | null = null
-    let quiet = 0    // consecutive rounds that pulled nothing new → adaptive ease-off (pollBackoff)
+    let quiet = 0    // consecutive rounds that fetched nothing (failed / dirty-skipped) → ease-off
     let gen = 0      // bumps to invalidate any in-flight async round when we (re)start or tear down
+    let inflight: AbortController | null = null // the held request, so a restart can drop it
 
     const tick = async (myGen: number) => {
       if (stopped || myGen !== gen) return
-      let changed = false
       // Demo follows the shared server too now (edits persist + sync across visitors, like a real
       // station). The `!sync.hasUnsynced` guard still protects in-progress local edits from being
       // clobbered mid-edit; the nightly reset re-seeds everyone at once.
-      if (readOnly || !sync.hasUnsynced) {
+      const skipped = !readOnly && sync.hasUnsynced
+      const hold = !document.hidden
+      let answered = false
+      if (!skipped) {
+        const ctrl = new AbortController()
+        inflight = ctrl
         try {
           const since = Math.max(liveRev.current, sync.rev)
-          const res = await pollWorkspaceSince(incidentId, since)
+          const res = await pollWorkspaceSince(incidentId, since, { wait: hold, signal: ctrl.signal })
+          answered = true
           // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
-          // flight (~the request's latency). Adopting the server blob now would clobber that unsaved
-          // edit — the "symbol placed on a tablet vanishes ~200ms later" race (slower network = a
-          // wider in-flight window, so it overlaps a tap reliably; on desktop it almost never does).
-          // Skip the take-server: the edit's own debounced flush will 3-way merge against the server.
+          // flight (with a held request that window is now the whole wait, so this guard matters
+          // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the
+          // "symbol placed on a tablet vanishes ~200ms later" race. Skip the take-server: the
+          // edit's own debounced flush will 3-way merge against the server.
           if (stopped || myGen !== gen || (!readOnly && sync.hasUnsynced)) return
           if (res && res.workspace_rev > sync.rev) {
             liveRev.current = res.workspace_rev
             const ws = (res.workspace ?? {}) as Workspace
             if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
             hydrate(ws as unknown as Saved)
-            changed = true
           }
-        } catch { /* ignore */ }
+        } catch { /* offline, or this round was aborted — handled by the delay below */ }
+        finally { if (inflight === ctrl) inflight = null }
       }
       if (stopped || myGen !== gen) return
-      // a pulled change snaps back to the fast cadence; an unproductive round (nothing new, or a
-      // brief dirty-skip while the local flush is pending) eases it off so a still incident stops
-      // pinning the radio awake. A local edit's flush + the visibility catch-up both reset to fast.
-      quiet = changed ? 0 : quiet + 1
-      timer = setTimeout(() => void tick(myGen), nextPollDelay({
-        baseMs: appConfig.sync.livePollMs, maxMs: appConfig.sync.livePollMaxMs,
-        quietRounds: quiet, hidden: document.hidden, hiddenMs: appConfig.sync.hiddenPollMs,
-      }))
+      // Straight into the next round while the server is answering a visible tab — it does the
+      // waiting for us, so the spacing is only a floor against a tight retry loop. A round that
+      // never reached the server, or one skipped because we're dirty, eases off instead
+      // (pollBackoff): a dead backend must not be hammered, and a dirty skip fetches nothing.
+      const hidden = document.hidden
+      let delay: number
+      if (answered && !hidden) { quiet = 0; delay = LONG_POLL_SPACING_MS }
+      else {
+        delay = nextPollDelay({
+          baseMs: appConfig.sync.livePollMs, maxMs: appConfig.sync.livePollMaxMs,
+          quietRounds: quiet, hidden, hiddenMs: appConfig.sync.hiddenPollMs,
+        })
+        quiet += 1
+      }
+      timer = setTimeout(() => void tick(myGen), delay)
     }
 
-    // (re)start the loop at the fast cadence, invalidating any prior in-flight round
+    // (re)start the loop, invalidating any prior round — including one the server is still
+    // holding: without the abort, a teardown or an incident switch would stay pinned to a
+    // 20 s request that can no longer do anything with its answer.
     const start = (delay: number) => {
       gen++
       const myGen = gen
       quiet = 0
       if (timer) clearTimeout(timer)
+      inflight?.abort()
+      inflight = null
       timer = setTimeout(() => void tick(myGen), delay)
     }
     start(appConfig.sync.livePollMs)
     startRef.current = start
 
-    // returning to the foreground: catch up immediately and reset to the fast cadence, so a
+    // returning to the foreground: catch up immediately and resume long-polling, so a
     // backgrounded device (which was polling at hiddenPollMs) shows the latest state at once.
-    const onVis = () => { if (document.visibilityState === 'visible') start(0) }
+    // Going away: drop the held request and fall back to the slow no-wait cadence.
+    const onVis = () => start(document.visibilityState === 'visible' ? 0 : appConfig.sync.hiddenPollMs)
     document.addEventListener('visibilitychange', onVis)
 
     return () => {
       stopped = true; gen++
       if (timer) clearTimeout(timer)
+      inflight?.abort()
       startRef.current = null
       document.removeEventListener('visibilitychange', onVis)
     }

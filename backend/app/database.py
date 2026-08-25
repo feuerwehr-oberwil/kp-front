@@ -35,6 +35,23 @@ class Base(DeclarativeBase):
     """Declarative base for all ORM models."""
 
 
+def dialect_insert(db: AsyncSession) -> Any:
+    """The dialect's own ``insert()``, i.e. the one that can do ``ON CONFLICT``.
+
+    ``ON CONFLICT`` is not in core SQLAlchemy — it lives on the postgresql and the sqlite
+    dialect, which spell it identically. Production is Postgres; the suite runs on SQLite when
+    no Postgres is around, and a check-then-insert that loses a race is a 500 on either.
+    """
+    name = db.bind.dialect.name if db.bind is not None else "postgresql"
+    if name == "sqlite":
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        return sqlite_insert
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    return pg_insert
+
+
 async def execute_dml(db: AsyncSession, stmt: Delete | Update) -> CursorResult[Any]:
     """`db.execute()` for UPDATE/DELETE, typed so `.rowcount` is actually visible.
 

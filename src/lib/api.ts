@@ -22,6 +22,18 @@ const DEFAULT_TIMEOUT_MS = 20_000
 // Media (photos / voice memos) are up to ~100 MB and upload over field LTE, so they get a far
 // longer leash — a premature abort would count a failed attempt against the upload queue.
 const UPLOAD_TIMEOUT_MS = 5 * 60_000
+/**
+ * The bound for a LONG POLL (`?wait=1` on the workspace / journal live-follow reads). The server
+ * deliberately holds those requests open until something changes — up to ~20 s (backend
+ * app/live_wait · LONG_POLL_TIMEOUT_S) — so the normal 20 s bound would race the server's own
+ * answer and turn every quiet round into a client-side timeout. The margin exists to keep this
+ * ABOVE the server's hold; a genuinely half-open connection still gets cut here.
+ *
+ * ⚠️ Two of these are open at all times per tab (workspace + Verlauf). Over HTTP/2 — every
+ * deployment, and the dev server with https — that costs nothing: one connection, multiplexed.
+ * Over plain HTTP/1.1 they occupy 2 of the browser's 6 per-origin connections.
+ */
+export const LONG_POLL_TIMEOUT_MS = 35_000
 
 /** AbortSignal that fires after `ms`. Guarded: an environment without AbortSignal.timeout
  *  simply keeps the old unbounded behaviour rather than failing every request. */
@@ -102,16 +114,31 @@ export class ApiError extends Error {
   }
 }
 
+/** One signal that fires when EITHER input does. The long-poll loops need both halves: the
+ *  timeout still cuts a half-open connection, and the caller's own controller drops a request
+ *  the server is deliberately holding open (tab hidden, incident switched, hook torn down). */
+function eitherSignal(a?: AbortSignal, b?: AbortSignal | null): AbortSignal | undefined {
+  if (!a) return b ?? undefined
+  if (!b) return a
+  const ctrl = new AbortController()
+  const abort = () => ctrl.abort()
+  a.addEventListener('abort', abort, { once: true })
+  b.addEventListener('abort', abort, { once: true })
+  if (a.aborted || b.aborted) abort()
+  return ctrl.signal
+}
+
 async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
   return fetch(`${BASE}${path}`, {
     credentials: 'include',
     // API JSON must never come from the HTTP cache: responses carry no Cache-Control, and
     // Safari's heuristic caching served stale poll results (an STT job stuck on "none").
     cache: 'no-store',
-    // keepalive beacons outlive the page, so they must NOT carry a signal — the caller passes
-    // timeoutMs: 0 to opt out. Everything else is bounded (see DEFAULT_TIMEOUT_MS).
-    signal: timeoutMs > 0 ? timeoutSignal(timeoutMs) : undefined,
     ...init,
+    // keepalive beacons outlive the page, so they must NOT carry a signal — the caller passes
+    // timeoutMs: 0 to opt out. Everything else is bounded (see DEFAULT_TIMEOUT_MS). Set AFTER
+    // the spread so a caller's `signal` joins the timeout instead of silently replacing it.
+    signal: eitherSignal(timeoutMs > 0 ? timeoutSignal(timeoutMs) : undefined, init?.signal),
     headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
   })
 }
@@ -209,8 +236,16 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
   }
 }
 
-export function apiGet<T>(path: string): Promise<T> {
-  return request<T>(path, { method: 'GET' })
+/** Per-call overrides for the two live-follow GETs. `signal` makes a held long poll abortable
+ *  (teardown / incident switch / tab hidden); `timeoutMs` lifts the bound above the server's
+ *  hold (see LONG_POLL_TIMEOUT_MS). Everything else keeps the plain defaults. */
+export interface GetOpts {
+  signal?: AbortSignal
+  timeoutMs?: number
+}
+
+export function apiGet<T>(path: string, opts?: GetOpts): Promise<T> {
+  return request<T>(path, { method: 'GET', signal: opts?.signal }, opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS)
 }
 
 // Compress large JSON request bodies (the workspace blob is highly repetitive JSON —
@@ -284,9 +319,9 @@ export function apiBeacon(path: string, body: unknown, method: 'POST' | 'PUT' = 
  * workspace live-follow poll). Returns the Response so the caller can branch on status.
  * A network failure throws `ApiError(0, …)` for consistency with `request()`.
  */
-export async function apiGetRaw(path: string): Promise<Response> {
+export async function apiGetRaw(path: string, opts?: GetOpts): Promise<Response> {
   try {
-    return await rawFetch(path, { method: 'GET' })
+    return await rawFetch(path, { method: 'GET', signal: opts?.signal }, opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS)
   } catch (e) {
     throw networkError(e)
   }
