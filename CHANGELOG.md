@@ -81,6 +81,27 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Changed
 
+- **«Löschen» heisst weg, «Entfernen» heisst nur losgelöst.** A consistency pass read every German
+  string in both KP apps – 3 862 here, 3 245 in KP Rück – and the call sites behind them. kp-rück
+  already kept a rule this app did not: the generic delete button said «Entfernen» and sat under
+  nine dialogs whose own title asked «löschen?». It says «Löschen» now, and the places that really
+  do only unlink – Standort, Organisation, ein Trupp, der die Atemschutz-Tafel verlässt – keep
+  «Entfernen». ⚠️ Read the verb before you tap: the word now tells you whether the thing comes back.
+
+- **Ein Wort pro Sache.** «Mittel» was the rail label for a surface the help called Material twice
+  and the printed Rapport called Material – it is **Material** everywhere now, and the [[M]]
+  shortcut finally stands for the word on screen. «Personal» is the Mannschaftsstamm (the admin
+  list), matching KP Rück, and the help stops giving the Anwesenheit surface a second name. The
+  same pass settled the rest of the vocabulary: errors read «X fehlgeschlagen», progress is passive
+  («wird geladen …»), «Erneut versuchen» is the only retry, a new record is «erstellt» while a list
+  entry is «hinzugefügt», and empty states say «Noch keine X.» when it still comes during the
+  Einsatz but «Keine X konfiguriert.» when the station has to set it up. Typography follows: «…»
+  with a space, guillemets, en dashes, Swiss ss. English, French and Italian were pulled onto the
+  same rules – each had drifted the same way the German had, and the Material rename had reached
+  only their menu entry. ⚠️ The translations are mechanical where the German decided a meaning; the
+  Personal/Mannschaft split is German-only, and a native speaker should decide whether French and
+  Italian want two words for it.
+
 - **Die Verlaufszeile trägt eine Einordnungs-Spalte statt zwölf Dekorationen.** The row is a
   four-track grid now – time · disc · sentence · trailing footnotes. The 26px disc carries the
   Bereich and becomes the ring for a Pendenz; footnotes (Nachtrag · korrigiert · 6×) trail the
@@ -105,6 +126,19 @@ so this file – not the log – is the record of what shipped up to that point.
   decision – the «two scrollbars» objection was about two overlapping ones, which these are not.
 
 ### Fixed
+
+- **Ein Löschdialog behauptete die Tat, bevor die Frage beantwortet war.** «Auswahl entfernt» – a
+  toast string – was serving as the heading of the confirm dialog for a multi-object delete, so the
+  question announced its own outcome. It has a title of its own. Two other destructive dialogs
+  confirmed with «OK» where every sibling names the verb, and the ✕ in the symbol palette was
+  labelled «Schliessen» although it only clears the search – one of four labels for that one
+  gesture, all «Suche löschen» now.
+
+- **Die Arbeitsmappe nannte Blätter, die es nicht gibt.** Renaming the surface from «Mittel» to
+  «Material» briefly renamed it in the workbook copy too – but the sheets in the Excel file are
+  literally called Mannschaft, Mittel and Mittel-Bestände, so the text promised sheets an operator
+  would not find. It quotes the real names again. ⚠️ Renaming those sheets is a data-format change,
+  not a copy change; if they are ever renamed, the parser and every station's saved file move too.
 
 - **Eine bewusste Einsatzwahl überlebt den Reload.** Boot preferred the newest alarm-created
   Einsatz unconditionally – no freshness window, no memory that the operator had already decided
