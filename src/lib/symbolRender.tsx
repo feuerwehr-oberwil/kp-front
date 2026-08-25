@@ -200,8 +200,10 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
   overlay?: { svg: string; rotation?: number; scale?: number }
   /** quantity badge at the bottom-right; shown only when > 1 */
   count?: number
-  /** signed storey badge at the top-right, tinted to the symbol colour. Pass only
-   *  where a floor badge is meaningful (the map); the plan encodes floor by tile. */
+  /** signed storey badge at the top-right. Shown on both surfaces — the Lage passes
+   *  `Entity.floor`, a plan board `BoardAnno.storey` (NOT `BoardAnno.floor`, which is the
+   *  Gebäude floor-stack's tile index). The stack never SETS one: there the sheet the symbol
+   *  sits on already says which storey it is. */
   floor?: number
   /** lower / upper storey of a vertical span (stairs, lift) — rendered together in
    *  the top-right slot as "-1/+3". Independent of `floor` (a symbol uses one or the

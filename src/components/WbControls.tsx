@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { LINE_DASH_SVG } from '../lib/draw'
 import { ToolDock } from './ToolDock'
 import { useNodeHold } from '../lib/nodeHold'
+import { vertexHandleIndices } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
 
 const COLORS = appConfig.drawing.colors
@@ -112,10 +113,14 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
 
 /**
  * On-canvas vertex editing for a selected line/area — ONE code path for both kinds (they're both
- * `pts`): a draggable grip per vertex (double-click or press-and-hold to delete — dblclick alone
- * is unreliable from an iOS double-tap) and a "+" at each segment midpoint to insert a node. The
- * closing edge is only offered for an area (`kind === 'area'`). Positions are board px (caller
- * passes sW/sH + the floor-stack y map).
+ * `pts`): a draggable grip per vertex (press-and-hold to delete) and a "+" at each segment midpoint
+ * to insert a node. The closing edge is only offered for an area (`kind === 'area'`). Positions are
+ * board px (caller passes sW/sH + the floor-stack y map).
+ *
+ * A dense freehand stroke shows a THINNED set of grips (lib/lineStyle · vertexHandleIndices) that
+ * densifies as the plan is zoomed in — the same bargain the Lage map makes, since sW/sH already
+ * carry the board zoom. The "+" handles only appear while EVERY node is shown: a midpoint between
+ * two thinned grips is nowhere near the drawn path.
  */
 export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, onDeleteVertex, onExtend }: {
   anno: BoardAnno
@@ -135,10 +140,14 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   const pts = anno.pts ?? []
   if (pts.length < 2) return null
   const closed = anno.kind === 'area'
-  const sp = pts.map(([x, y, floor]) => [x * sW, mapY(floor ?? anno.floor, y) * sH] as const)
+  const sp: [number, number][] = pts.map(([x, y, floor]) => [x * sW, mapY(floor ?? anno.floor, y) * sH])
+  const gripIdx = vertexHandleIndices(sp)
+  const allShown = gripIdx.length === sp.length
   const segs: number[] = [] // segment i runs from vertex i → i+1 (wraps to 0 for a closed area)
-  for (let i = 0; i < sp.length - 1; i++) segs.push(i)
-  if (closed && sp.length >= 3) segs.push(sp.length - 1)
+  if (allShown) {
+    for (let i = 0; i < sp.length - 1; i++) segs.push(i)
+    if (closed && sp.length >= 3) segs.push(sp.length - 1)
+  }
   const minPts = closed ? 3 : 2
   return (
     <>
@@ -169,7 +178,9 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
       {/* ⚠️ No double-tap delete any more (19.08.). It was the one gesture the map never had, iOS
           does not deliver `dblclick` reliably anyway, and on a dense line a stray second tap
           removed a node with no way to see it coming. The hold is the whole story now. */}
-      {sp.map(([x, y], i) => (
+      {gripIdx.map((i) => {
+        const [x, y] = sp[i]
+        return (
         <button key={`v-${i}`} className={`wb-vertex ${vertexPress.armed?.key === `v${i}` ? 'doomed' : ''}`}
           title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex}
           style={{ left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
@@ -178,7 +189,8 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
             onVertexDown(i, e)
           }}
         >{vertexPress.armed?.key === `v${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</button>
-      ))}
+        )
+      })}
     </>
   )
 }

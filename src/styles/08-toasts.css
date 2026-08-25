@@ -235,6 +235,29 @@
    near-white, which lands at 2.2:1 once the fill turns green */
 .toast-success { background: var(--green); color: var(--on-fill); }
 .toast-warn { background: var(--red); color: var(--on-fill); }
+/* …but a LIVE status (the print job, lib/printJobToast) wears its tone as an EDGE instead. It
+   stands on the screen for as long as the job takes, and a saturated pill held for a minute and a
+   half reads as an alarm rather than as «läuft» — then flips to a full green that reads as a
+   second alarm. So the pill stays the neutral ink surface every other status shares and the
+   colour sits on the leading edge and on the running step's glyph — the Meldeleiste's
+   `.ml-row.t-*` rule, one surface up.
+   ⚠️ Mixed toward --on-accent-ink, not used raw: --green/--red are tuned as ink ON a light
+   surface and land muddy on the dark pill (day --green #178a4a on --ink-fill #1b2330). The mix
+   tracks both themes' tokens, so night stays right too. */
+.toast-edge { --toast-edge: var(--on-accent-ink); }  /* a toneless status keeps the plain pill */
+.toast-edge.toast-success { --toast-edge: color-mix(in srgb, var(--green) 72%, var(--on-accent-ink)); }
+.toast-edge.toast-warn { --toast-edge: color-mix(in srgb, var(--red) 72%, var(--on-accent-ink)); }
+.toast-edge.toast-success, .toast-edge.toast-warn {
+  background: var(--ink-fill); color: var(--on-accent-ink);
+  /* the edge is drawn INTO the pill (inset shadow, no layout box), so it cannot round the
+     corner off; the extra left padding keeps the first glyph clear of it */
+  box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--on-accent-ink) 24%, transparent),
+    inset 3px 0 0 0 var(--toast-edge);
+  padding-left: 19px;
+}
+/* the glyph the sentence leads with (a failure's ⚠) and the running step's own icon carry the
+   same colour — the state is readable without the edge, for whoever reads glyphs before edges */
+.toast-edge > .i, .toast-edge .toast-step.now .i { color: var(--toast-edge); }
 @keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.96); } }
 
 .confirm-backdrop { z-index: 95; }

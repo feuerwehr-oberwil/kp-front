@@ -8,7 +8,7 @@ import { cx } from '../lib/cx'
 import { ProfileChart, ProfileStats } from './ProfileChart'
 import s from './MeasurePanel.module.css'
 
-export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onCalibrate, calibrateLabel, recalibrateLabel }: {
+export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onAdopt, onCalibrate, calibrateLabel, recalibrateLabel }: {
   mode: 'line' | 'area'
   coords: LngLat[]
   profile: ProfileResult | null
@@ -22,6 +22,10 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
   blocked?: boolean
   /** override the not-enough-points hint text. */
   hint?: string
+  /** turn the measured Strecke into a real, drawn line (the measured points become its nodes).
+   *  Absent ⇒ the action is hidden — a read-only surface measures but never draws. Line mode
+   *  only: a measured Fläche has no line to become. */
+  onAdopt?: () => void
   /** Plan only: start (or redo) the scale calibration straight from the panel. */
   onCalibrate?: () => void
   calibrateLabel?: string
@@ -56,6 +60,14 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
               </button>
             )}
           </div>
+          {/* «Als Linie übernehmen» — the measured path becomes a drawn line, with the measured
+              points as its nodes. Without it the only way to KEEP a Strecke was to draw it a
+              second time by hand over the top of the one just measured. */}
+          {onAdopt && (
+            <button type="button" className={cx('ip-btn', 'ghost', s['mp-adopt-btn'])} onClick={onAdopt}>
+              <Icon id="pen" />{C.adoptLine}
+            </button>
+          )}
           {hasProfile && profileOpen && (profileLoading ? (
             <div className={s['mp-prof-msg']}>{C.profileLoading}</div>
           ) : profile ? (

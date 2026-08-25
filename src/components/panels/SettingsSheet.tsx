@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { toast } from '../../lib/ui'
-import { loadPrefs, savePrefs, applyTheme, resolveTheme, type ThemeMode, type RailLabels, type SymbolSize } from '../../lib/prefs'
+import { loadPrefs, savePrefs, applyTheme, resolveTheme, SYMBOL_SCALE, type ThemeMode, type RailLabels, type SymbolSurface } from '../../lib/prefs'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import type { IncidentSettings } from '../../lib/workspace'
@@ -12,6 +12,36 @@ import { Modal } from './_shared'
 import { Segmented } from '../Segmented'
 import { Stepper } from '../Stepper'
 
+/** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
+ *  No-break space before the sign, so the number and its unit never split across a line. */
+const scalePct = (v: number) => `${Math.round(v * 100)}\u00a0%`
+
+/** One Symbolgrösse row: a labelled slider over that surface's band plus its live value.
+ *  Continuous under the thumb (0.05 steps) and live — the map and the plan re-render from the
+ *  same prop, so the symbols behind the sheet resize while you drag. */
+function ScaleRow({ surface, label, sub, value, onChange }: {
+  surface: SymbolSurface
+  label: string
+  sub: string
+  value: number
+  onChange: (surface: SymbolSurface, v: number) => void
+}) {
+  const r = SYMBOL_SCALE[surface]
+  return (
+    <div className="set-row">
+      <span className="set-row-l">{label}<small>{sub}</small></span>
+      <span className="set-range">
+        <input
+          type="range" min={r.min} max={r.max} step={r.step} value={value}
+          aria-label={label} aria-valuetext={scalePct(value)}
+          onChange={(e) => onChange(surface, Number(e.target.value))}
+        />
+        <b className="set-range-val">{scalePct(value)}</b>
+      </span>
+    </div>
+  )
+}
+
 /** Einstellungen: device prefs (theme, symbol size — local cookie) in one section, and
  *  synced per-incident settings (Atemschutz interval — stored in the workspace blob, so
  *  every device sees the same value) in another. The split is intentional: device prefs may
@@ -19,13 +49,14 @@ import { Stepper } from '../Stepper'
  *  Also opens from the landing card with no incident: omit settings/onSettings and the
  *  synced section disappears (device prefs need no workspace). */
 export function SettingsSheet({
-  onClose, symbolSize, onSymbolSize, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, keepScreenOn, onKeepScreenOn, themeCoord, settings, onSettings, canEdit, elView, onElView, onFeedback,
+  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, keepScreenOn, onKeepScreenOn, themeCoord, settings, onSettings, canEdit, elView, onElView, onFeedback,
   shareAs, onSharePosition,
 }: {
   onClose: () => void
-  symbolSize: SymbolSize
-  onSymbolSize: (s: SymbolSize) => void
-  /** on-canvas symbol captions (Aus/Auto/Alle) — device pref like symbolSize */
+  /** tactical-symbol size per surface, as multipliers (lib/prefs · SYMBOL_SCALE) */
+  symbolScale: Record<SymbolSurface, number>
+  onSymbolScale: (surface: SymbolSurface, v: number) => void
+  /** on-canvas symbol captions (Aus/Auto/Alle) — device pref like the symbol sizes */
   symbolCaptions: CaptionMode
   onSymbolCaptions: (m: CaptionMode) => void
   /** words under the rail glyphs — device pref, off by default (lib/prefs · railLabels). Both
@@ -128,11 +159,13 @@ export function SettingsSheet({
               <Segmented<ThemeMode> ariaLabel={cp.colorScheme} value={themeMode} onChange={setTheme}
                 options={themeOpts.map(({ m, label }) => ({ value: m, label }))} />
             </div>
-            <div className="set-row">
-              <span className="set-row-l">{cp.symbolSize}</span>
-              <Segmented<SymbolSize> ariaLabel={cp.symbolSize} value={symbolSize} onChange={onSymbolSize}
-                options={(['S', 'M', 'L'] as SymbolSize[]).map((s) => ({ value: s, label: s }))} />
-            </div>
+            {/* Two sliders, not one S/M/L segment: the map and the Modul boards never wanted the
+                same size — on a Modul-2/3 sheet even the old «S» was too big, on the map the old
+                «L» was already too big. */}
+            <ScaleRow surface="map" label={cp.symbolSizeMap} sub={cp.symbolSizeMapSub}
+              value={symbolScale.map} onChange={onSymbolScale} />
+            <ScaleRow surface="board" label={cp.symbolSizeBoard} sub={cp.symbolSizeBoardSub}
+              value={symbolScale.board} onChange={onSymbolScale} />
             <div className="set-row">
               <span className="set-row-l">{cp.symbolCaptions}<small>{cp.symbolCaptionsSub}</small></span>
               <Segmented<CaptionMode> ariaLabel={cp.symbolCaptions} value={symbolCaptions} onChange={onSymbolCaptions}

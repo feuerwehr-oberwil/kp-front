@@ -97,6 +97,19 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
 }
 
 /**
+ * Registered at the Tafel and still standing there — angemeldet, never eingerückt.
+ *
+ * The one state where putting the Trupp's symbol somewhere and its record disagree: the picture
+ * says the crew is at that spot, the board says nobody went in and no contact clock is running.
+ * So placing (or joining) a marker asks whether to einrücken now — see useTruppActions ·
+ * askTruppEntry. Covers a re-deployed Sicherungstrupp too (reactivateTrupp · standby), which is
+ * angemeldet again with an empty entryTime.
+ */
+export function truppAwaitsEntry(t: Trupp): boolean {
+  return !t.removedAt && t.status === 'angemeldet' && !t.entryTime
+}
+
+/**
  * Registered, then closed WITHOUT ever going under PA — the Sicherungstrupp that was never needed.
  *
  * It shares the `raus` state (2026-08-09): the crew is finished, off the active board, and can be

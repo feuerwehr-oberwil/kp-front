@@ -240,13 +240,40 @@
   /* top bar — one clean full-width row; the title truncates, Eintrag is the FAB.
      top/left/right hug the safe area so the bar clears the notch + rounded corners */
   .topbar { top: calc(10px + env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left));
-    right: max(10px, env(safe-area-inset-right)); max-width: none; padding: 6px 12px 6px 14px; gap: 8px; flex-wrap: nowrap; }
+    right: max(10px, env(safe-area-inset-right)); max-width: none; padding: 6px 10px; gap: 8px; flex-wrap: nowrap; }
   .eaddr, .vr { display: none; }
-  .ip-switch { min-width: 0; flex: 0 0 auto; }
+  /* ⚠️ `0 1 auto`, not `0 0 auto`. With the title hidden every remaining child of the switcher
+     is a fixed-size glyph or pill, so a bar that ran out of width had NOTHING left that could
+     give — and the flex algorithm let the whole action cluster paint straight out through the
+     bar's right edge instead (measured on a drill: 60px past it at 360px, 30px at 390px, with
+     «Verlauf» sitting off-screen and undo/redo jammed against the edge). The switcher is the
+     bar's designated yielder at every other width; it has to be one here too. */
+  .ip-switch { min-width: 0; flex: 0 1 auto; }
   /* the truncated title was useless at phone width («C…») — show the incident glyph
      instead; the full title lives one tap away in the dropdown header */
   .ip-switch-title { display: none; }
   .ip-switch-glyph { display: grid; }
+  /* …and the ÜBUNG marker is what actually yields, as the last resort before the bar breaks.
+     It never disappears (a drill must never read as a real Einsatz), it only ellipsises — and
+     only where the width truly runs out: German «ÜBUNG» stays whole on every phone in service,
+     the long translations («Esercitazione») trim on the narrow ones. */
+  .ip-switch-btn > .ip-badge { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* Sync state on a phone: the loud chips stay (offline · Sync-Fehler · Speicher voll — those
+     are their own branch in IncidentSwitcher), the quiet «gespeichert / speichert…» mark goes.
+     It is 24px of the tightest bar in the app spent on the state that needs no action, and the
+     save time is one tap away in the dropdown. Hidden in BOTH states, never per-state: a slot
+     that comes and goes on every save would shift the whole bar sideways twice a minute. */
+  .topbar .ip-status { display: none; }
+  /* With a drill running, the doc glyph is a second «this is an Einsatz» beside a marker that
+     already says which KIND of Einsatz it is — and it costs the 25px the marker needs. */
+  .topbar:has(.ip-switch-btn > .ip-badge-exercise) .ip-switch-glyph { display: none; }
+  /* The Einsatzuhr at the size of everything else in the bar. `.tb-einsatzuhr { font: inherit }`
+     (18-audio.css) resets the button chrome but also overrides the 12px `.stat` carries, so the
+     clock rendered at the inherited 16px — the largest text in the bar by a third, and ~10px of
+     width the phone bar does not have. */
+  .topbar .tb-einsatzuhr { font-size: 12.5px; padding: 6px 2px; }
+  /* the identity pill at phone spacing — the same 4px the action cluster already gives up */
+  .topbar .ip-switch-btn { padding: 6px 10px; gap: 6px; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
   /* Verlauf goes icon-only. :not(.tb-rem-count) — the bare `span` selector also caught the
      reminder-count badge, so the number of due reminders vanished on exactly the device most
@@ -409,11 +436,8 @@
     max-height: min(86dvh, calc(100dvh - var(--jc-kb, 0px) - 10px - env(safe-area-inset-top)));
     padding-bottom: calc(16px + env(safe-area-inset-bottom));
     animation: sheetUp .22s var(--ease); }
-  /* ⚠️ Nothing in the sheet shrinks. A flex column shrinks its items before the container
-     scrolls, so a sheet a few px over its cap silently compressed every row instead of
-     scrolling — the suggestion chips lost their bottom half and read as clipped. Now the
-     rows keep their height and the sheet scrolls, which is what `overflow-y: auto` is for. */
-  .journal-composer > * { flex: none; }
+  /* (`.journal-composer > * { flex: none }` used to live here — it is a base rule now, in
+     10-journal.css: the tablet card is the same capped flex column and clipped the same row.) */
 
   /* ── Tastatur oben: dieselbe Leiste, nur als Symbole ──
      With the keyboard up there are ~460px of screen left, and the full sheet needs ~600. Rather
@@ -579,6 +603,8 @@
   .set-row { flex-wrap: wrap; row-gap: 12px; }
   .set-row-l { flex: 1 1 100%; }
   .set-row .useg, .set-row .step { margin-left: auto; }
+  /* the sliders take the full wrapped row rather than a 260px slot — a thumb needs the travel */
+  .set-row .set-range { flex: 1 1 100%; }
 
   /* Einsätze list rows: title + two status badges + the Reaktivieren button never fit one
      line — badges slid under the button and the title crushed to one character. Text block
@@ -604,5 +630,10 @@
    stayed a vertical sidebar on every phone. A media query in the middle of a block is a scissor. */
 @media (max-width: 359px) {
   .tb-az-clock { display: none; }
+  /* …and the same trade the Atemschutz chip gets, for the same reason: below 360px the bar's
+     three gloved 44px actions leave the identity pill ~90px, which is less than the Einsatzname's
+     marker and its dropdown arrow need — so the ÜBUNG marker shrank to an amber «…». undo/redo
+     step aside and hand back 88px; «Verlauf» stays, and it still holds the history anyway. */
+  .topbar :is(.tb-act-history, .tb-vr-history) { display: none; }
 }
 

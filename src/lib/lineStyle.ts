@@ -46,10 +46,60 @@ export function resolveLinePreset(id: string, currentDashed?: boolean): LinePres
  *  letters are dropped along the polyline. Identical rhythm on both surfaces. */
 export const MARKER_SPACING_PX = 46
 
-/** Above this vertex count, per-node edit handles are suppressed (a dense freehand stroke has too
- *  many points to grab) — the stroke is still movable/deletable as a whole. Shared so the map and
- *  the plan cut over at the same size. */
+/** How many node handles a shape may show AT ONCE. Not a limit on how many points a line may
+ *  have — a 66-point freehand stroke keeps all 66 — but on how many pads are on screen competing
+ *  for the same finger. Shared so the map and the plan cut over at the same size. */
 export const MAX_VERTEX_HANDLES = 28
+
+/** Minimum screen (map) / board (plan) px between two shown handles. Two pads closer than this
+ *  cannot be told apart with a glove on, so the denser one is not offered. */
+export const HANDLE_MIN_SPACING_PX = 26
+
+/** `count` indices spread evenly over `n` points, both ends always included. The fallback for
+ *  when there is no pixel geometry to measure against yet (the map still initialising). */
+export function evenIndices(n: number, count = MAX_VERTEX_HANDLES): number[] {
+  if (n <= 0) return []
+  if (n <= count || count < 2) return Array.from({ length: n }, (_, i) => i)
+  const out: number[] = []
+  for (let k = 0; k < count; k++) {
+    const i = Math.round((k * (n - 1)) / (count - 1))
+    if (out[out.length - 1] !== i) out.push(i)
+  }
+  return out
+}
+
+/**
+ * Which vertices of a polyline get an on-canvas edit handle, given the path in PIXEL space
+ * (projected screen px on the map, board px on the plan).
+ *
+ * ⚠️ Until 25.08. a line above `MAX_VERTEX_HANDLES` points showed NO handles at all — a 66-point
+ * freehand «Zeichnung» could be moved, rotated and deleted, but not reshaped, and nothing on
+ * screen said why. That is the wrong end of the trade: the cap exists because pads pile up on
+ * each other, not because the operator stopped needing the line.
+ *
+ * So the cap degrades instead of switching off. Handles are thinned by SCREEN distance — a node
+ * closer than `minSpacingPx` to the last one shown is skipped — and the survivors are capped at
+ * `budget`. Both ends always keep a handle. Because the spacing is measured in the CURRENT
+ * projection, zooming in spreads the nodes apart and more of them earn a pad, until at close
+ * range every point is grabbable again; zooming out collapses them back. That is the same
+ * bargain the map already makes with labels: show what can be aimed at, here and now.
+ *
+ * Returns indices into `px`, ascending. `px.length <= budget` short-circuits to all of them, so
+ * an ordinary node line is untouched by any of this.
+ */
+export function vertexHandleIndices(px: [number, number][], budget = MAX_VERTEX_HANDLES, minSpacingPx = HANDLE_MIN_SPACING_PX): number[] {
+  const n = px.length
+  if (n <= budget || budget < 2) return Array.from({ length: n }, (_, i) => i)
+  const keep: number[] = [0]
+  for (let i = 1; i < n - 1; i++) {
+    const [ax, ay] = px[keep[keep.length - 1]]
+    if (Math.hypot(px[i][0] - ax, px[i][1] - ay) >= minSpacingPx) keep.push(i)
+  }
+  keep.push(n - 1)
+  if (keep.length <= budget) return keep
+  // still too dense (a long line at low zoom): thin the survivors evenly, ends included
+  return evenIndices(keep.length, budget).map((k) => keep[k])
+}
 
 /** Walk a polyline given in PIXEL space and return a parametric position `{seg, t}` every
  *  `spacing` px (seg = segment start index, t = 0..1 along it). The caller lerps its OWN coordinate

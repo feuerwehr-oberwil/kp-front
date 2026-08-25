@@ -78,6 +78,24 @@ export function stickyMagneticTarget(pointer: Point, targets: MagneticTarget[], 
   return nearestMagneticTarget(pointer, targets, radius)
 }
 
+/**
+ * ── Ring lädt, dann schnappt es ────────────────────────────────────────────────────────────
+ *
+ * The arming state of ONE magnetic acquisition, shared by all four snap sites (Lage endpoint
+ * drag, Lage draft stroke, Plan endpoint drag, Plan draft stroke).
+ *
+ * `armed` is the whole contract: **not armed = nothing attaches, not even on release.** Until
+ * 25.08. the endpoint-drag and draft paths attached whenever a candidate happened to be under
+ * the finger at lift-off, and `armed` only drove a decoration — so in the field a hose line
+ * dropped near a vehicle silently coupled to it, and the only way to notice was the geometry
+ * moving by itself later. The dwell now gates the commit, and the chip's ring (components ·
+ * NodeDeleteChip, tone «connect») is an honest picture of this state: it fills over `dwellMs`,
+ * and only a full ring attaches.
+ *
+ * Prevention needs no mode and no toggle: keep the finger moving, or let go before the ring
+ * closes. Switching candidate restarts the fill (`since` moves), which is also what the
+ * renderer keys its CSS animation on.
+ */
 export interface DwellState { key: string | null; since: number; armed: boolean }
 export const EMPTY_DWELL: DwellState = { key: null, since: 0, armed: false }
 
@@ -87,6 +105,27 @@ export function advanceDwell(prev: DwellState, candidateKey: string | null, now:
   if (prev.key !== candidateKey) return { key: candidateKey, since: now, armed: false }
   return { ...prev, armed: prev.armed || now - prev.since >= dwellMs }
 }
+
+/** The line-START exception: a NEW stroke whose pointerDOWN already lands inside a target's
+ *  radius is deliberate aim — you put the finger on the Teilstück's prong *because* that is
+ *  where the branch begins. There is nothing to hesitate about, so it arms at once and the ring
+ *  is drawn full. Only acquisitions made LATER in the same gesture go through `advanceDwell`. */
+export function armDwell(candidateKey: string | null, now: number): DwellState {
+  return candidateKey ? { key: candidateKey, since: now, armed: true } : EMPTY_DWELL
+}
+
+/** Unlock is the same ring, in red, at the socket the endpoint is leaving — but driven by
+ *  DISTANCE, not time: pull past `radius` and the link is off, stop short and release and the
+ *  endpoint springs back where it was. Dragging is therefore never a silent detach, and never a
+ *  timed one either — the operator's own hand runs the ring. */
+export function detachProgress(origin: Point, pointer: Point, radius = DETACH_RADIUS_PX): number {
+  return Math.max(0, Math.min(1, distance(origin, pointer) / radius))
+}
+
+/** Below this much of the release ring nothing is drawn, so nudging an attached endpoint by a
+ *  few px never flashes red under the finger (the same courtesy `NODE_HOLD_ARM_MS` pays the
+ *  hold-to-delete chip). ≈8 px of the 44 px detach radius. */
+export const DETACH_SHOW_PROGRESS = 0.18
 
 /** Intersection of the ray centre→toward with a padded, optionally rotated footprint. */
 export function boundaryPoint(footprint: TargetFootprint, toward: Point, padding = 5): Point {

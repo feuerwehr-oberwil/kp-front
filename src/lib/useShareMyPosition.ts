@@ -20,6 +20,12 @@ const cfg = appConfig.personGps
  * - **Off again at the next Einsatz.** Enforced by construction: what counts as sharing is
  *   `sharingFor === incidentId`, so a different Einsatz simply is not the one that was
  *   switched on. No effect resets anything, nothing can be forgotten.
+ * - **«Wer bist du?» again at the next Einsatz.** The device remembers the NAME, never the
+ *   confirmation: `pref.confirmedIncidentId` is the Einsatz its holder said «das bin ich» for,
+ *   and one tap is only enough while that is the Einsatz on screen. This is not paranoia — a
+ *   shared Tablet reported one Einsatz's positions under the previous Einsatz's name, and a
+ *   wrong name on the Lagekarte is worse than no name. The picker may put the remembered
+ *   person first; the tap on it is the confirmation.
  * - **Foreground only, and honest about it.** A browser gets no fixes while the phone is
  *   locked or the tab is in the background. There is no fixing that from here (no background
  *   geolocation on the web, and a Wake Lock burning the screen in someone's pocket is a worse
@@ -51,9 +57,12 @@ export type ShareState =
 
 export interface ShareApi {
   state: ShareState
-  /** the device has permission AND a name picked — i.e. one tap is enough to start sharing.
-   *  False means the control has to ask first. */
+  /** the device has permission AND a name picked. This is the standing DEVICE preference
+   *  (Einstellungen) — it says nothing about this Einsatz. */
   ready: boolean
+  /** the holder confirmed who this device is FOR THIS Einsatz — i.e. one tap is enough to
+   *  start sharing. False means the picker has to ask again, even when `ready` is true. */
+  confirmed: boolean
   /** who this device reports as, from the device preference */
   pref: SharePositionPref | null
   /** time of the last accepted fix (ms epoch), null before the first */
@@ -62,9 +71,10 @@ export interface ShareApi {
    *  separately from `state` because it is a REASON for still searching, not a state of its
    *  own — indoors a phone can sit here for a while and the holder deserves to know why. */
   imprecise: boolean
-  /** start sharing THIS Einsatz. With no argument it reuses the name already granted (the
-   *  one-tap case from the compass menu); with one it also grants the permission and records
-   *  who this device is. */
+  /** start sharing THIS Einsatz. With a person it grants the permission, records who this
+   *  device is and confirms that name FOR THIS Einsatz. With no argument it is the one-tap
+   *  case from the compass menu — and it only does anything once `confirmed` is true, so an
+   *  unconfirmed tap can never start sharing under a remembered name. */
   start: (person?: { id: string; displayName: string }) => void
   /** stop sharing this Einsatz and delete the reported position. The permission survives —
    *  stopping is not revoking, and making people re-consent to switch off would be perverse. */
@@ -109,13 +119,16 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
   const idleTimer = useRef<number | null>(null)
 
   const ready = !!pref?.allowed && !!pref.personId
+  // Who this device is, for THIS Einsatz. The name survives the Einsatz, the confirmation does
+  // not — see the «Wer bist du?» note above.
+  const confirmed = ready && !!incidentId && pref?.confirmedIncidentId === incidentId
   const sharing = !!incidentId && sharingFor === incidentId
   // On the public demo sharing is SIMULATED: the control behaves exactly as it does for a real
   // Wehr, but no fix is ever taken and nothing is posted — the dot is walked in the browser
   // (lib/demoCrewWalk), and the backend goes on refusing every position route. A demo visitor
   // gets to see what the feature does without their own location being involved at all.
   const demo = isDemoMode()
-  const active = enabled && sharing && ready && !demo
+  const active = enabled && sharing && confirmed && !demo
 
   const persist = useCallback((next: SharePositionPref | null) => {
     const prefs = loadPrefs()
@@ -127,6 +140,10 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
 
   const start = useCallback((person?: { id: string; displayName: string }) => {
     const current = loadPrefs().sharePosition
+    // The one-tap path is only a tap once somebody has confirmed the name for THIS Einsatz.
+    // Refused here rather than left to the caller: a remembered name is exactly what must not
+    // start sharing by itself on a Tablet that gets handed around.
+    if (!person && (!incidentId || current?.confirmedIncidentId !== incidentId)) return
     // Back to square one, always. Without this a device that had reached 'on' (or died on
     // 'taken') would show that same verdict the instant it restarts, before a single fix has
     // arrived — a green «Standort geteilt» for a phone that is reporting nothing yet.
@@ -140,6 +157,8 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
       personId: person?.id ?? current?.personId,
       displayName: person?.displayName ?? current?.displayName,
       deviceId: ensureDeviceId(current),
+      // Picking a name IS the confirmation, and it is scoped to the Einsatz on screen.
+      confirmedIncidentId: incidentId ?? undefined,
     })
     setSharingFor(incidentId)
   }, [incidentId, persist])
@@ -170,8 +189,14 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
     lastSentAt.current = 0
     lastSentCoord.current = null
     // Keep the deviceId: it identifies the phone, not the consent, and re-minting it on every
-    // revoke would let one phone hold two claims on the same name.
-    persist({ ...loadPrefs().sharePosition, allowed: false, deviceId: ensureDeviceId(loadPrefs().sharePosition) })
+    // revoke would let one phone hold two claims on the same name. The confirmation goes:
+    // withdrawing the permission and then granting it again must ask who this device is.
+    persist({
+      ...loadPrefs().sharePosition,
+      allowed: false,
+      deviceId: ensureDeviceId(loadPrefs().sharePosition),
+      confirmedIncidentId: undefined,
+    })
   }, [clearRow, persist])
 
   useEffect(() => {
@@ -268,7 +293,7 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
   // The simulated share reports «on» from the moment it is switched on: there is no fix to wait
   // for, and a permanent «suche Standort …» on a demo would read as a broken feature.
   const state: ShareState = demo
-    ? (enabled && sharing && ready ? 'on' : 'off')
+    ? (enabled && sharing && confirmed ? 'on' : 'off')
     : !active ? 'off' : !hasGeolocation() ? 'denied' : watch
-  return { state, ready, pref, lastAt, imprecise, start, stop, revoke }
+  return { state, ready, confirmed, pref, lastAt, imprecise, start, stop, revoke }
 }

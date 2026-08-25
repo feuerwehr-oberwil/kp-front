@@ -117,16 +117,60 @@ describe('useShareMyPosition', () => {
     unmount()
   })
 
-  it('starts on one tap once the device has permission and a name', async () => {
+  it('starts on one tap once the name is confirmed FOR THIS Einsatz', async () => {
     const geo = stubGeo()
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', fetchMock)
-    savePrefs({ ...loadPrefs(), sharePosition: { allowed: true, personId: P1, displayName: 'Meier Hans', deviceId: 'dev-aaaaaaaa' } })
+    savePrefs({ ...loadPrefs(), sharePosition: { allowed: true, personId: P1, displayName: 'Meier Hans', deviceId: 'dev-aaaaaaaa', confirmedIncidentId: INC } })
     const { result, unmount } = renderHook(() => useShareMyPosition(INC, true))
 
+    expect(result.current.confirmed).toBe(true)
     act(() => { result.current.start() }) // no argument — the compass-menu tap
     await act(async () => { geo.push(fix(7.5, 47.5)) })
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result.current.state).toBe('on')
+    unmount()
+  })
+
+  it('asks WHO AGAIN at the next Einsatz — a remembered name never starts by itself', async () => {
+    // The shared Tablet. The device knows the name from the last Einsatz; that name must not
+    // be reported into this one until somebody has confirmed it here.
+    const geo = stubGeo()
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    savePrefs({ ...loadPrefs(), sharePosition: { allowed: true, personId: P1, displayName: 'Meier Hans', deviceId: 'dev-aaaaaaaa', confirmedIncidentId: 'inc-vorher' } })
+    const { result, unmount } = renderHook(() => useShareMyPosition(INC, true))
+
+    expect(result.current.ready).toBe(true) // the device may use its position …
+    expect(result.current.confirmed).toBe(false) // … but nobody said who is holding it here
+
+    act(() => { result.current.start() }) // the one-tap path — must do nothing at all
+    await act(async () => { geo.push(fix(7.5, 47.5)) })
+    expect(result.current.state).toBe('off')
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    // …and the picker's tap is what unlocks it, under the name that was actually picked
+    act(() => { result.current.start({ id: 'person-2', displayName: 'Weber Anna' }) })
+    await act(async () => { geo.push(fix(7.5, 47.5)) })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).person_id).toBe('person-2')
+    unmount()
+  })
+
+  it('does not ask again when the SAME Einsatz is reopened', async () => {
+    // Re-opening the app mid-Einsatz must not put a roster list in front of somebody at 3am:
+    // the confirmation is persisted, so it survives the reload it was made in.
+    const geo = stubGeo()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
+    const first = renderHook(() => useShareMyPosition(INC, true))
+    act(() => { first.result.current.start({ id: P1, displayName: 'Meier Hans' }) })
+    await act(async () => { geo.push(fix(7.5, 47.5)) })
+    first.unmount()
+
+    const { result, unmount } = renderHook(() => useShareMyPosition(INC, true))
+    expect(result.current.confirmed).toBe(true)
+    expect(result.current.state).toBe('off') // sharing is still an act, switched on per Einsatz
+    act(() => { result.current.start() })
+    await act(async () => { geo.push(fix(7.5, 47.5)) })
     expect(result.current.state).toBe('on')
     unmount()
   })
@@ -145,6 +189,7 @@ describe('useShareMyPosition', () => {
     rerender({ inc: 'inc-2' })
     expect(result.current.state).toBe('off')
     expect(result.current.ready).toBe(true) // the permission survives; the act does not
+    expect(result.current.confirmed).toBe(false) // …and neither does «das bin ich»
     unmount()
   })
 
@@ -159,6 +204,8 @@ describe('useShareMyPosition', () => {
 
     expect(result.current.state).toBe('off')
     expect(result.current.ready).toBe(true)
+    // …and it is still THIS Einsatz, so switching back on is one tap, not a roster list again
+    expect(result.current.confirmed).toBe(true)
     expect(loadPrefs().sharePosition?.allowed).toBe(true)
     unmount()
   })
@@ -178,6 +225,8 @@ describe('useShareMyPosition', () => {
     expect(result.current.state).toBe('off')
     expect(result.current.ready).toBe(false)
     expect(loadPrefs().sharePosition?.allowed).toBe(false)
+    // granting it again has to ask who this device is, not resume under the old name
+    expect(loadPrefs().sharePosition?.confirmedIncidentId).toBeUndefined()
     unmount()
   })
 

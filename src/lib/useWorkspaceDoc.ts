@@ -5,7 +5,8 @@ import type { InitialState } from './workspace'
  *  blob (offline cache + three-way merge sync): the synced per-incident settings (Atemschutz
  *  interval …), the plan board, checklist tick-state, Atemschutz trupps, attendance, Mittel
  *  (material-use log), the Schichtenplanung and its bands, saved camera views, per-plan scale calibration, Einsatzrapport metadata,
- *  the Gebäude document, the active plan id, and the manually-picked Einsatzobjekt.
+ *  the Gebäude document, the active plan id, the manually-picked Einsatzobjekt, and the shared
+ *  «Einsatzdaten geprüft» stamp.
  *
  *  Seeded once from deriveInitial() (the component is keyed by incident id, so this runs
  *  exactly once per incident). This hook owns the STATE only — buildPayload / applyWorkspace
@@ -28,6 +29,7 @@ export function useWorkspaceDoc(init: InitialState) {
   const [building, setBuilding] = useState(init.building)
   const [activePlanId, setActivePlanId] = useState(init.activePlanId)
   const [pickedObjectId, setPickedObjectId] = useState(init.pickedObjectId)
+  const [intakeReviewedAt, setIntakeReviewedAt] = useState(init.intakeReviewedAt)
   return {
     incidentSettings, setIncidentSettings,
     board, setBoard,
@@ -44,5 +46,6 @@ export function useWorkspaceDoc(init: InitialState) {
     building, setBuilding,
     activePlanId, setActivePlanId,
     pickedObjectId, setPickedObjectId,
+    intakeReviewedAt, setIntakeReviewedAt,
   }
 }

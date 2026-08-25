@@ -35,6 +35,9 @@ describe('moduleNumbers — the digit(s) a plan doc answers to', () => {
   it('a single module answers its own number', () => expect(moduleNumbers(doc({ id: 'modul4' }))).toEqual([4]))
   it('a combined sheet answers BOTH digits', () => expect(moduleNumbers(doc({ id: 'modul2-3' }))).toEqual([2, 3]))
   it('a sub-slot (PV) carries no number', () => expect(moduleNumbers(doc({ id: 'modul5-pv', code: 'PV' }))).toEqual([]))
+  // the 2 in «Wasser 2» is the second waterplan, NOT Modul 2 — pressing 2 must not open it
+  it('a NUMBERED sub-slot still carries no number', () =>
+    expect(moduleNumbers(doc({ id: 'modul5-wasser2', code: 'Wasser 2' }))).toEqual([]))
   it('the Umgebung / a generic plan carries no number', () => expect(moduleNumbers(doc({ id: 'osm', icon: 'map' }))).toEqual([]))
   it('the Gebäude floor-stack carries no number', () => expect(moduleNumbers(doc({ id: 'gebaeude', floorStack: true }))).toEqual([]))
 })
@@ -62,6 +65,19 @@ describe('moduleTileLabel — the rail is 216px wide, the label has to fit', () 
     expect(moduleTileLabel('modul4')).toBe('Modul 4')
     expect(moduleTileLabel('modul4', 'Migros – modul4')).toBe('Modul 4')
   })
+
+  // An object with «Modul 5 - Wasser 1» AND «… Wasser 2» has two waterplans. Two tiles reading
+  // the same word would be worse than useless at 3am — the number is what tells them apart.
+  it('keeps the number of a numbered sibling', () => {
+    expect(moduleTileLabel('modul5-wasser1', 'Wasser 1')).toBe('Wasser 1')
+    expect(moduleTileLabel('modul5-wasser2', 'Wasser 2')).toBe('Wasser 2')
+  })
+
+  it('recovers the number from the id when the title is unusable', () => {
+    expect(moduleTileLabel('modul5-wasser2', 'Migros – modul5-wasser2')).toBe('Wasser 2')
+    expect(moduleTileLabel('modul5-wasser3')).toBe('Wasser 3')
+    expect(moduleTileLabel('modul5-pv15')).toBe('PV 15')
+  })
 })
 
 describe('the label and the chip agree', () => {
@@ -73,4 +89,14 @@ describe('the label and the chip agree', () => {
   it('a longer sub-sheet name still shortens to a monogram', () =>
     expect(planGlyph(doc({ id: 'modul5-wasser', code: moduleTileLabel('modul5-wasser') })))
       .toEqual({ mono: 'WAS' }))
+
+  // The collapsed rail shows monograms only — so the sibling number has to reach the chip too,
+  // or the two waterplans are one indistinguishable «WAS» twice.
+  it('numbered siblings get distinct monograms', () => {
+    const chip = (id: string, title: string) => planGlyph(doc({ id, code: moduleTileLabel(id, title) }))
+    expect(chip('modul5-wasser1', 'Wasser 1')).toEqual({ mono: 'WAS1' })
+    expect(chip('modul5-wasser2', 'Wasser 2')).toEqual({ mono: 'WAS2' })
+    expect(chip('modul5-pv15', 'PV 15')).toEqual({ mono: 'PV15' })
+    expect(chip('modul5-pv20', 'PV 20')).toEqual({ mono: 'PV20' })
+  })
 })

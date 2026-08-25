@@ -4,7 +4,7 @@ import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { useHoldToDrag } from '../lib/useHoldToDrag'
 import { Icon } from '../lib/icons'
-import { Popover, PopoverClose } from '../lib/overlays'
+import { Menu, Popover, PopoverClose } from '../lib/overlays'
 import { ShapeGlyph } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
@@ -107,7 +107,7 @@ interface Props {
   /** current map bearing (deg). Placed symbols are pinned to GEOGRAPHIC orientation, so every
    *  glyph/handle CSS rotation is offset by −bearing and a drag stores rotation + bearing. */
   bearing?: number
-  /** global S/M/L symbol-size multiplier (lib/prefs · symbolMul) — scales the symPx band */
+  /** per-device map symbol-size multiplier (lib/prefs · symbolScales, Einstellungen slider) — scales the symPx band */
   symMul?: number
   /** device default for on-canvas symbol captions; a symbol's own `caption` overrides it.
    *  Whether a caption actually FITS is decided once for the whole map — see suppressedLabels. */
@@ -120,7 +120,8 @@ interface Props {
    *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView). */
   readOnly?: boolean
   draggable: boolean
-  /** project lng/lat → container px (snapshots a symbol's start position for a hold-drag) */
+  /** project lng/lat → container px, through the map's LIVE transform (re-anchors a hold-drag on
+   *  every move, so a zoom/resize mid-drag can't teleport the symbol) */
   project: (c: LngLat) => { x: number; y: number } | undefined
   /** unproject container px → lng/lat (turns the dragged pointer position back into a coord) */
   unproject: (p: { x: number; y: number }) => LngLat | undefined
@@ -152,6 +153,11 @@ interface Props {
   trupps?: Trupp[]
   /** open the linked Trupp on the Atemschutz surface */
   onShowTrupp?: (truppId: string) => void
+  /** join this marker to an Atemschutz-Trupp — `undefined` lets go of the one it has. The mirror
+   *  of the line editor's «Gehört zu Trupp …»: a marker put down before anybody was registered
+   *  finds its Trupp afterwards, and joining never touches a contact clock (useTruppActions ·
+   *  adoptTruppMarker). Absent ⇒ no picker (read-only / tactically locked). */
+  onTeamTrupp?: (entityId: string, truppId: string | undefined) => void
   /** stamp the marker's current spot + time into its trail (the ONLY way positions are recorded) */
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker — the map twin of the plan chip's rename pen */
@@ -169,12 +175,23 @@ interface Props {
   onToggleTrail?: (id: string) => void
 }
 
+/** One menu row with a leading tick when it is the current pick — the same row the line editor's
+ *  «Gehört zu Trupp …» draws (DrawEditor · MenuPick), so the two pickers read as one control. */
+function TruppPick({ label, on }: { label: string; on: boolean }) {
+  return (
+    <>
+      <span className={`de-menu-tick${on ? ' on' : ''}`} aria-hidden><Icon id="check" /></span>
+      <span>{label}</span>
+    </>
+  )
+}
+
 /**
  * The placed-entity layer: one Marker per entity (shape / note / photo / symbol /
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)
@@ -228,9 +245,10 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // Press-and-hold to move a placed symbol. Markers are NOT react-map-gl-draggable (that would
   // claim every pan/zoom that starts on a symbol and drag it instead of the map); instead a still
   // hold past the delay arms a drag — a quick flick to pan/zoom passes straight through to the map.
-  // sx/sy = the symbol's start position in container px; cx/cy = the pointer's start client px.
+  // cx/cy = the pointer's start client px (the deadzone's reference); lx/ly = the pointer's client
+  // px at the previous move; `last` = the coord this drag put the symbol at, i.e. where it is now.
   const hold = useHoldToDrag()
-  const entDrag = useRef<{ id: string; sx: number; sy: number; cx: number; cy: number; moved: boolean; last: LngLat | null } | null>(null)
+  const entDrag = useRef<{ id: string; cx: number; cy: number; lx: number; ly: number; moved: boolean; last: LngLat | null } | null>(null)
   // id of the symbol currently being dragged — shows the same selection halo as a real select
   // (dropped on drop). Set only once the drag clears the deadzone, so a hold that never moves
   // shows nothing.
@@ -413,7 +431,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   const pile = pileUnder(ev.currentTarget, cx, cy, e)
                   const near = (pile.length ? entities.find((x) => x.id === pile[0].id) : undefined) ?? e
                   const fanned = !!fan
-                  hold.begin({ clientX: cx, clientY: cy }, {
+                  // pointerId/isPrimary ride along so the gesture stays bound to THIS finger: the
+                  // second finger of a pinch must go to the map, never steer a symbol (useHoldToDrag)
+                  hold.begin({ clientX: cx, clientY: cy, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
                     onTap: () => {
                       // already fanned: the spokes ARE the choice, so this tap is the answer
                       if (fanned) { setFan(null); onSelect(e); return }
@@ -425,8 +445,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     onHoldStart: () => {
                       // a rotor / shape-transform gesture owns the pointer — never also translate
                       if (rotateRef.current || shapeRef.current) { hold.cancel(); return }
-                      const p = project(near.coord as LngLat)
-                      entDrag.current = { id: near.id, sx: p?.x ?? 0, sy: p?.y ?? 0, cx, cy, moved: false, last: null }
+                      entDrag.current = { id: near.id, cx, cy, lx: cx, ly: cy, moved: false, last: null }
                       // don't select here: a quick hold-drag to reposition shouldn't open the
                       // ContextPanel. The move targets the symbol by id regardless of selection;
                       // selection (→ panel) is deferred to onDragEnd and only if it never moved.
@@ -436,8 +455,18 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       const st = entDrag.current; if (!st || st.id !== near.id) return
                       // deadzone: don't move until the finger clears DRAG_DEADZONE_PX from the grab point
                       if (!st.moved && Math.hypot(mx - st.cx, my - st.cy) < DRAG_DEADZONE_PX) return
-                      const nc = unproject({ x: st.sx + (mx - st.cx), y: st.sy + (my - st.cy) })
+                      // Re-anchor on EVERY move: project where the symbol is NOW through the LIVE map
+                      // transform and add only the pointer travel since the last move. A screen-px
+                      // anchor snapshotted at the grab goes stale the instant the map moves under the
+                      // finger (a pinch, a container resize, a programmatic jumpTo) — unprojecting it
+                      // through the new transform then teleports the symbol, which is what «bugs out
+                      // when the map resizes» looked like. Incrementally, a changed transform costs
+                      // nothing: the symbol simply keeps its screen offset to the finger.
+                      const base = project((st.last ?? near.coord) as LngLat)
+                      if (!base) return
+                      const nc = unproject({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
                       if (!nc) return
+                      st.lx = mx; st.ly = my
                       if (!st.moved) { st.moved = true; onMarkerDragStart(near.id); setDraggingId(near.id) } // snapshot for undo + show the selection halo on first real move
                       st.last = nc
                       onMarkerMove(near.id, nc)
@@ -526,7 +555,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               </div>
             ) : e.kind === 'note' ? (() => {
               // every note is a wrapping box; a stored note with no width falls back to the
-              // default. Font size = the fixed 12px base × the S/M/L step.
+              // default. Font size = the fixed 12px base × the size-slider step.
               // Colour applies in BOTH looks. It used to be `notePlain && color`, so on the
               // default pill the whole colour row was decoration: you picked red, nothing
               // changed, and the swatch stayed selected to prove it had been understood.
@@ -710,6 +739,30 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 )}
                 {e.truppId && onShowTrupp && (
                   <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp} onClick={() => onShowTrupp(e.truppId!)}><Icon id="warn" /></button>
+                )}
+                {/* «Atemschutz-Trupp» — the marker's half of the join, and the exact shape the
+                    line editor's «Gehört zu Trupp …» has: the app's own menu, never a native
+                    <select>. A Trupp registered AFTER this marker was put down is in the list, so
+                    a «Trupp 2» dropped at 03:12 still finds its crew at 03:14. ⚠️ A Trupp that is
+                    already out is offered only when it is the one standing here — it is the
+                    record of who was, not somebody to send. */}
+                {onTeamTrupp && (!!e.truppId || !!trupps?.some((t) => !t.removedAt && t.status !== 'raus')) && (
+                  <Menu
+                    popupClassName="de-menu-pop"
+                    itemClassName={() => 'de-menu-item'}
+                    trigger={
+                      <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
+                        <Icon id="people" />
+                      </button>
+                    }
+                    items={[
+                      { label: <TruppPick label={appConfig.copy.atemschutz.markerNone} on={!e.truppId} />, onClick: () => onTeamTrupp(e.id, undefined) },
+                      ...(trupps ?? []).filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === e.truppId)).map((t) => ({
+                        label: <TruppPick label={t.name} on={t.id === e.truppId} />,
+                        onClick: () => onTeamTrupp(e.id, t.id),
+                      })),
+                    ]}
+                  />
                 )}
                 {/* Farbe, where the Trupp is: the same palette the plan chip and the Trupp form
                     offer. On a marker bound to a Trupp the pick lands on the TRUPP, so card, chip

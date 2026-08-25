@@ -128,6 +128,15 @@
    at three different x positions down a column you operate with a thumb. One width for the value
    slot puts the buttons on a shared edge. */
 .set-row .step-val { min-width: 68px; }
+/* Symbolgrösse: two sliders (Karte · Module) where an S/M/L segment used to be. Tokenised
+   throughout so day and night both stay right — --blue for the track, never --accent, which is
+   the brand's alarm red and must not come to mean «this is the setting you picked». Same idiom
+   as .kf-at-range in the Kroki framing panel. */
+.set-range { display: flex; align-items: center; gap: 10px; flex: 0 1 260px; min-width: 0; }
+.set-range input[type=range] { flex: 1 1 auto; min-width: 0; height: var(--tap); accent-color: var(--blue); cursor: pointer; }
+/* fixed, tabular value slot: the two rows sit above each other, so «60 %» and «140 %» must not
+   shift the slider's right edge between them */
+.set-range-val { min-width: 46px; text-align: right; font: 700 13.5px var(--body); color: var(--ink); font-variant-numeric: tabular-nums; }
 .set-row-l { display: flex; flex-direction: column; gap: 2px; font: 600 14.5px var(--body); color: var(--ink); }
 .set-row-l small { font: 500 12px var(--body); color: var(--ink-faint); }
 .set-group-foot { margin: 2px 4px 0; font: 500 12px var(--body); color: var(--ink-faint); line-height: 1.4; }

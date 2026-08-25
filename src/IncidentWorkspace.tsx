@@ -43,7 +43,7 @@ import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog } from './lib/ui'
 import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
-import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
+import { loadPrefs, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useMittelActions } from './lib/useMittelActions'
@@ -133,7 +133,7 @@ import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
 import { TruppFinder } from './components/TruppFinder'
-import { placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
+import { markerOptions, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { annotatedPlans, changedReportMetaFields } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
@@ -169,6 +169,10 @@ interface WorkspaceProps {
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
   needsReview: boolean
   onReviewDone: () => void
+  /** When the Einsatzdaten were reviewed ON THIS DEVICE («Passt» or a saved correction — App's
+   *  markReviewed funnels both). Only the workspace can write the incident's blob, so this is
+   *  what gets published to the other devices as `intakeReviewedAt`. */
+  reviewedLocallyAt?: string
   onEditMeta: () => void
   /** The Abschluss was confirmed here (see `confirmAndComplete`): stamp report_done_at + close.
    *  Resolves TRUE only when the close actually happened — App reports the outcome so a failed
@@ -187,7 +191,7 @@ interface WorkspaceProps {
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, onEditMeta,
+  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -361,7 +365,8 @@ export function IncidentWorkspace({
   const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = useTacticalSelection()
 
   // Per-incident SYNCED workspace slices (board, checklists, trupps, attendance, mittel, camera
-  // views, plan scale, report meta, Gebäude, active plan, picked object, synced settings) — see
+  // views, plan scale, report meta, Gebäude, active plan, picked object, synced settings, the
+  // shared «Einsatzdaten geprüft» stamp) — see
   // useWorkspaceDoc. State only; buildPayload/applyWorkspace + the trupps auto-free effects stay
   // below and read these. layers/recent stay in the component (own derivation/effects).
   const {
@@ -369,6 +374,7 @@ export function IncidentWorkspace({
     trupps: allTrupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, attachments, setAttachments,
     planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
     activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
+    intakeReviewedAt, setIntakeReviewedAt,
   } = useWorkspaceDoc(init)
   // ⚠️ The board list, filtered ONCE at the source. A deleted Trupp is stamped rather than
   // removed (types · Trupp.removedAt) so the Rapport can still print it — and everything else in
@@ -513,11 +519,10 @@ export function IncidentWorkspace({
   // primary surface for, an invisible gesture that jumps the whole workspace to another section
   // is a thing you trigger by accident, never on purpose. The NavRail and the `nav` hotkey are
   // the two ways to change section.)
-  // global tactical-symbol size (S/M/L), captions, offline cache radius, keep-screen-on —
-  // device prefs shared with the landing Einstellungen (see useDevicePrefs; lazy loadPrefs
-  // seed). Their persistence rides the mode/activePlanId effect below.
-  const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
-  const symMul = symbolMul(symbolSize)
+  // tactical-symbol size PER SURFACE (Karte / Module), captions, offline cache radius,
+  // keep-screen-on — device prefs shared with the landing Einstellungen (see useDevicePrefs;
+  // lazy loadPrefs seed). Their persistence rides the mode/activePlanId effect below.
+  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   // "Mein Standort": bumping this takes a single GPS fix + flies to it. On-demand (no continuous
   // watch) so the GPS chip isn't powered all shift — see MapView.locateNonce.
   const [locateReq, setLocateReq] = useState(0)
@@ -945,7 +950,7 @@ export function IncidentWorkspace({
     // remote/merged state — undoing into it would resurrect remotely-deleted content).
     replaceDoc(next.doc); setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBoard(next.board); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId)
+    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
     // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
     // list that no longer exists, and stepping into one would write this device's rows back over
     // what another device just merged in. The Plan's stacks go too — they now outlive the board's
@@ -963,13 +968,13 @@ export function IncidentWorkspace({
   // useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
   const buildPayload = useCallback((): Saved => ({
     entities: doc.entities.filter((e) => e.kind !== 'photo'),
-    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings,
+    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings, intakeReviewedAt,
     layerState: layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })),
     // Verlauf rows live in the journal store now; the blob echoes an older incident's legacy
     // rows only until they're safely on the server, then ships empty forever (see JournalStore).
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings])
+  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, intakeReviewedAt])
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
@@ -979,6 +984,17 @@ export function IncidentWorkspace({
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     appendJournal: journal.append,
   })
+
+  // Publish this device's «Einsatzdaten geprüft» to the crew. The question belongs to the Einsatz,
+  // not to the tablet it was answered on (lib/incidentAlerts), and this component is the only
+  // writer of the incident's blob — so whichever way it was answered here (App's markReviewed
+  // takes both «Passt» and a saved correction) the stamp goes out with the next save and every
+  // other device drops the banner on its next poll. Auto-opened Einsätze only: a hand-typed one
+  // was never up for review, and stamping it would dirty the blob for nothing.
+  useEffect(() => {
+    if (readOnly || !reviewedLocallyAt || intakeReviewedAt || !incidentMeta.auto_opened) return
+    setIntakeReviewedAt(reviewedLocallyAt)
+  }, [readOnly, reviewedLocallyAt, intakeReviewedAt, incidentMeta.auto_opened, setIntakeReviewedAt])
 
   // Keep the screen awake while an incident workspace is open (this component only mounts for an
   // open incident) — so the map never dims/sleeps mid-operation on a station/vehicle tablet.
@@ -1308,7 +1324,7 @@ export function IncidentWorkspace({
   }, [resolvedPlanDocs])
 
   // remember the active surface + plan document in a cookie (preserve incidentId)
-  useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels }) }, [mode, activePlanId, symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels])
+  useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels }) }, [mode, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels])
 
   // bake every plan's bitmap into memory at app load (on idle, sized to the
   // window) so the very first time the Plan tab is opened the page appears
@@ -1368,7 +1384,7 @@ export function IncidentWorkspace({
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
     lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
-    commitDraft, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    commitDraft, createLine, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
   } = useMapDrawing({
@@ -1865,8 +1881,12 @@ export function IncidentWorkspace({
         disabled: !!blocked,
         onToggle: () => {
           if (on) share.stop()
-          else if (share.ready) share.start()
-          else setSharePick('ask')
+          // One tap only once somebody confirmed «das bin ich» FOR THIS Einsatz. A device that
+          // merely remembers a name from the last one has to be asked again — a Tablet that
+          // gets handed around otherwise reports the whole Einsatz under the wrong name. The
+          // permission is not re-asked, only the identity, so that is the picker alone.
+          else if (share.confirmed) share.start()
+          else setSharePick(share.ready ? 'pick' : 'ask')
         },
       }
     })(),
@@ -2213,7 +2233,7 @@ export function IncidentWorkspace({
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
+  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
     useTruppActions({
       trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // a new map marker lands at the current map centre (the operator drags it to position);
@@ -2263,6 +2283,9 @@ export function IncidentWorkspace({
     Object.values(board).flat().filter((a) => a.kind === 'draw'),
     effTrupps, exceptTruppId,
   )
+  // The Trupp symbols that already stand somewhere, for the placement picker. A function, like
+  // the Leitung quick-picks: «gehört zu» has to ignore the Trupp being placed itself.
+  const truppMarkerOptions = (exceptTruppId?: string) => markerOptions(placed, effTrupps, exceptTruppId)
   // «Leitung wählen»: arm the pick and leave the Atemschutz board for the Lage — there is nothing
   // to tap on the board itself. The arming survives a surface switch, so a hose drawn on a plan is
   // just as reachable. The toast carries the way out (no modal, no trapped state).
@@ -2707,7 +2730,7 @@ export function IncidentWorkspace({
           readOnly={tacticalLocked}
           layers={mapLayers}
           byName={sym.byName}
-          symMul={symMul}
+          symMul={symbolScale.map}
           captionMode={symbolCaptions}
           initialCenter={incidentView.center}
           fitPoints={initialFitPoints}
@@ -2722,7 +2745,16 @@ export function IncidentWorkspace({
           onNoteWidth={tacticalLocked ? undefined : noteWidthDrag}
           trupps={effTrupps}
           truppSeverities={azAlarm.severities}
-          onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
+          // …and it LANDS on the card: the board can be a wall of Trupps, so «Im Atemschutz
+          // zeigen» points at the one that was tapped (same gesture as the alarm row's «Zum
+          // Trupp»). Without the focus the jump answered «which one is this?» with a list.
+          onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
+          // the marker's half of the Trupp join — the same action the Atemschutz card's picker
+          // calls, so the takeover confirm and the «einrücken?» ask exist exactly once
+          onTeamTrupp={tacticalLocked ? undefined : (entityId, truppId) => {
+            if (truppId) void adoptTruppMarker(truppId, entityId)
+            else releaseTruppMarker(entityId)
+          }}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
           onTeamRename={tacticalLocked ? undefined : renameTeam}
           // a marker bound to a Trupp paints the TRUPP (board card + plan chip follow); a loose
@@ -3005,7 +3037,12 @@ export function IncidentWorkspace({
           operational immediately and with the dispatch's guesses unchecked. «Passt» confirms
           them, «Bearbeiten» opens the panel that holds Stichwort/Priorität/Ort/Einsatzart — no
           wizard between the crew and the Lage, which is the whole point (2026-08-02). */}
-      {needsReview && !readOnly && (
+      {/* ⚠️ …and it is asked ONCE of the crew, not once of every device: `intakeReviewedAt` is the
+          shared stamp on the workspace blob (lib/workspace). App decides `needsReview` from the
+          blob as it stood when the Einsatz was opened — the live-follow poll only lands HERE, so
+          this is the gate that retires the banner mid-Einsatz the moment someone else confirms on
+          their tablet. */}
+      {needsReview && !readOnly && !intakeReviewedAt && (
         <ReviewBanner meta={incidentMeta} onEdit={onEditMeta} onDone={onReviewDone} />
       )}
 
@@ -3429,7 +3466,13 @@ export function IncidentWorkspace({
         ]} />
       )}
       {mapUI && tool === 'measure' && (
-        <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading} />
+        <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading}
+          // «Als Linie übernehmen»: the measured points become a real line (createLine drops into
+          // Select with it active, so its editor opens straight away). Hidden on a locked surface —
+          // there, Messen is a question the EL may ask, not a way to draw.
+          onAdopt={!tacticalLocked && measure.mode === 'line' && measure.path.length >= 2
+            ? () => { const coords = measure.path; measure.reset(); createLine(coords) }
+            : undefined} />
       )}
 
       {/* the Verlauf drawer now docks INBOARD of this rail (see .journal-drawer /
@@ -3543,7 +3586,7 @@ export function IncidentWorkspace({
           objectName={activeObjectName}
           objectAddress={activeObjectAddress}
           onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
-          symMul={symMul}
+          symMul={symbolScale.board}
           captionMode={symbolCaptions}
           annos={(replayActive ? replayBoard : board)?.[activePlanId] ?? []}
           onChange={(next) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next })) }}
@@ -3671,11 +3714,14 @@ export function IncidentWorkspace({
           focus={planFocus}
           trupps={effTrupps}
           truppSeverities={azAlarm.severities}
-          onLinkTrupp={(annoId, truppId) => updateTrupp(truppId, { annoId, planId: activePlanId })}
+          // the plan's Trupp tool placed a chip FOR a Trupp — same ask as every other placement:
+          // the picture now says the crew is there, so «einrücken?» belongs here (askTruppEntry)
+          onLinkTrupp={(annoId, truppId) => { updateTrupp(truppId, { annoId, planId: activePlanId }); void askTruppEntry(truppId) }}
           onPickLine={linePickTrupp ? onLinePicked : undefined}
           onLinkLineTrupp={(annoId, truppId) => (truppId ? linkTruppLine(truppId, annoId) : unlinkLine(annoId))}
           onLineRenumber={syncLineNoToTrupp}
-          onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
+          // the plan chip's twin of the map marker's jump — it points at the card too
+          onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
           // the chip's colour grid paints the TRUPP, so its board card and its Lage marker follow
           onTruppColor={tacticalLocked ? undefined : (truppId, c) => setTruppColor(truppId, c)}
           planScale={planScale}
@@ -3722,6 +3768,9 @@ export function IncidentWorkspace({
           createTrupp={createTruppA}
           placeTrupp={placeTrupp}
           placeTargets={placeTargets}
+          // the Trupp symbols already standing on Lage/plan, offered under the placement targets
+          markerOptions={truppMarkerOptions}
+          adoptMarker={(truppId, markerId) => void adoptTruppMarker(truppId, markerId)}
           focusTruppOnPlan={focusTruppOnPlan}
           recordContact={recordContact}
           recordPressure={recordPressure}
@@ -3986,6 +4035,11 @@ export function IncidentWorkspace({
         <SharePositionSheet
           roster={personnel}
           pickOnly={sharePick === 'pick'}
+          lastPersonId={share.pref?.personId ?? null}
+          // «Neuer Einsatz» rather than «Namen ändern»: the question is back because this
+          // Einsatz has not been confirmed yet, and the sheet says so instead of looking like
+          // the app forgot.
+          reconfirm={!share.confirmed}
           onPick={(id, displayName) => { share.start({ id, displayName }); setSharePick(null) }}
           onClose={() => setSharePick(null)}
         />
@@ -4013,8 +4067,8 @@ export function IncidentWorkspace({
       {settingsOpen && (
         <SettingsSheet
           onClose={() => setSettingsOpen(false)}
-          symbolSize={symbolSize}
-          onSymbolSize={setSymbolSize}
+          symbolScale={symbolScale}
+          onSymbolScale={setSymbolScale}
           symbolCaptions={symbolCaptions}
           onSymbolCaptions={setSymbolCaptions}
           railLabels={railLabels}

@@ -6,13 +6,12 @@ import { useHoldToDrag, type HoldDragOpts } from './useHoldToDrag'
 // Tap selects; a still hold (touch) or a move (mouse) drags; a quick flick stays a pan. Movement/
 // release are tracked on window (capture), so the tests dispatch real PointerEvents on window.
 // DELAY_MS=180, MOVE_TOL_PX=8 (drag-arm slop), TAP_TOL_PX=16 (release-still-counts-as-tap slop).
-const down = (x = 100, y = 100) => ({ clientX: x, clientY: y })
+const down = (x = 100, y = 100, pointerId = 1, isPrimary = true) => ({ clientX: x, clientY: y, pointerId, isPrimary })
 
-function winEvent(type: string, x: number, y: number) {
-  // jsdom has no PointerEvent constructor; the hook only reads clientX/clientY off the event
+function winEvent(type: string, x: number, y: number, pointerId = 1) {
+  // jsdom has no PointerEvent constructor; the hook only reads clientX/clientY/pointerId off it
   const ev = new Event(type)
-  ;(ev as unknown as { clientX: number; clientY: number }).clientX = x
-  ;(ev as unknown as { clientX: number; clientY: number }).clientY = y
+  Object.assign(ev, { clientX: x, clientY: y, pointerId })
   act(() => void window.dispatchEvent(ev))
 }
 
@@ -99,6 +98,45 @@ describe('useHoldToDrag', () => {
     expect(c.onHoldStart).not.toHaveBeenCalled()
     winEvent('pointerup', 100, 100)
     expect(c.onTap).toHaveBeenCalledTimes(1)
+  })
+
+  // ── one gesture, one finger ────────────────────────────────────────────────────────────────
+  // The window listeners see EVERY pointer. Before this, the second finger of a pinch steered the
+  // symbol the first finger was holding — the two took turns and the zoom moved the ground under
+  // it, which is what «the Trupp marker bugs out when you resize the map» was.
+  it('a second finger ends the drag and hands the pinch to the map', () => {
+    const c = cbs()
+    const { result } = renderHook(() => useHoldToDrag())
+    begin(result, c, { mode: 'mouse' })
+    winEvent('pointermove', 120, 100)          // armed by finger 1
+    expect(c.onDragMove).toHaveBeenCalledTimes(1)
+    winEvent('pointerdown', 300, 300, 2)       // finger 2 lands → pinch
+    expect(c.onDragEnd).toHaveBeenCalledTimes(1)
+    winEvent('pointermove', 320, 300, 2)       // and never steers the symbol
+    expect(c.onDragMove).toHaveBeenCalledTimes(1)
+  })
+
+  it("a foreign pointer's move/release never touch a live drag", () => {
+    const c = cbs()
+    const { result } = renderHook(() => useHoldToDrag())
+    begin(result, c, { mode: 'mouse' })
+    winEvent('pointermove', 120, 100)
+    winEvent('pointerup', 400, 400, 7)         // a stray pointer lifting is not this release
+    expect(c.onDragEnd).not.toHaveBeenCalled()
+    winEvent('pointermove', 130, 100)
+    expect(c.onDragMove).toHaveBeenLastCalledWith(130, 100)
+    winEvent('pointerup', 130, 100)
+    expect(c.onDragEnd).toHaveBeenCalledTimes(1)
+  })
+
+  it('a non-primary pointer (the pinch finger) never starts a gesture', () => {
+    const c = cbs()
+    const { result } = renderHook(() => useHoldToDrag())
+    act(() => result.current.begin(down(100, 100, 2, false), c))
+    act(() => void vi.advanceTimersByTime(300))
+    winEvent('pointerup', 100, 100, 2)
+    expect(c.onHoldStart).not.toHaveBeenCalled()
+    expect(c.onTap).not.toHaveBeenCalled()
   })
 
   it('cancel() ends an active drag (restores pan) and aborts a pending press', () => {

@@ -3,12 +3,13 @@ import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LngLat, Timelin
 import type { Doc } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
-import { toast } from './ui'
+import { toast, confirmDialog } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
-import { currentRunStart } from './atemschutz'
+import { currentRunStart, truppAwaitsEntry } from './atemschutz'
+import { resolveMarkerJoin } from './placedTrupps'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
@@ -263,6 +264,7 @@ export function useTruppActions(deps: Deps) {
     setPlanFocus({ x: 0.5, y: 0.5, floor: 0, annoId, nonce: Date.now() })
     logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: tr.name }), { kind: 'team', annoId, x: 0.5, y: 0.5, floor: 0 })
     emit('atemschutz.place', { id, annoId, planId })
+    void askTruppEntry(id)
   }
   // Place a Trupp on the Lage map (outdoor teams — Verkehrsgruppe, Wasserversorgung, exterior
   // search): a 'team' marker either AT a tapped coord (the map's Trupp tool) or at the current
@@ -285,7 +287,116 @@ export function useTruppActions(deps: Deps) {
     focusMapEntity(entityId, atCoord ? undefined : marker.coord, !atCoord)
     log('flag', fillTemplate(appConfig.copy.atemschutz.logPlacedMap, { name: tr.name }), 'team', undefined, entityId)
     emit('atemschutz.place', { id, entityId })
+    void askTruppEntry(id)
   }
+
+  /**
+   * A Trupp's symbol was just put somewhere — but the board says the crew never went in.
+   *
+   * Placing the marker is the moment the Überwacher is looking at that Trupp anyway, and the
+   * picture already claims the crew is at that spot, so this is where «Einrücken» belongs. It is
+   * an ASK, never automatic: a Sicherungstrupp is placed at the vehicle precisely because it is
+   * standing by, and starting its contact clock would put a red alarm on a crew nobody sent in.
+   *
+   * ⚠️ The confirm runs the board's OWN action (setTruppStatus 'aktiv'), so the entry time, the
+   * entry reading and the undo toast are the same ones «Einrücken» writes — the clock logic
+   * exists once. Declining does nothing at all: the marker stays where it was put.
+   */
+  const askTruppEntry = async (id: string) => {
+    const tr = trupps.find((t) => t.id === id)
+    if (!tr || !truppAwaitsEntry(tr)) return
+    const az = appConfig.copy.atemschutz
+    const ok = await confirmDialog({
+      title: az.entryAskTitle,
+      message: fillTemplate(az.entryAskMsg, { name: tr.name }),
+      confirmLabel: az.actEnter,
+      cancelLabel: az.entryAskCancel,
+    })
+    if (ok) setTruppStatus(id, 'aktiv')
+  }
+
+  /**
+   * Join an ALREADY PLACED marker to this Trupp — the mirror of linkTruppLine for a symbol.
+   *
+   * A «Trupp 2» dropped on the Lage at 03:12 and the Atemschutz-Trupp registered at 03:14 are the
+   * same crew, and until now nothing could say so: placement was the only way to bind the two, so
+   * the marker had to be deleted and re-placed, losing its recorded positions with it. Reachable
+   * from both ends (the marker's own panel, the Trupp card's picker) — like a Leitung, the order
+   * of doing things is the operator's business.
+   *
+   * What it writes, in one action because they are two halves of one fact: the marker's anchor
+   * (truppId) plus the Trupp's name and colour, and the Trupp's placement ref. The marker's TRAIL
+   * survives — it is the same object, and those dots are the Truppverfolgung.
+   *
+   * A marker somebody else holds ASKS first — the same confirm a Leitung takeover shows, and it
+   * lives in here rather than at the two call sites so the two can never drift apart. An Ablösung
+   * at the same spot is the normal case; it just has to be said out loud. The previous Trupp lets
+   * go of the placement only — its record, its clocks and its readings are untouched.
+   */
+  const adoptTruppMarker = async (truppId: string, markerId: string): Promise<boolean> => {
+    const tr = trupps.find((t) => t.id === truppId)
+    if (!tr) return false
+    const join = resolveMarkerJoin(markerId, truppId, entities, board, trupps)
+    if (!join) return false
+    if (join.own) return true // already this Trupp's symbol — nothing to do, and no takeover
+    if (join.holder) {
+      const az = appConfig.copy.atemschutz
+      const ok = await confirmDialog({
+        title: fillTemplate(az.markerTakeTitle, { from: join.holder.name }),
+        message: fillTemplate(az.markerTakeMsg, { from: join.holder.name, to: tr.name }),
+        confirmLabel: az.markerTakeConfirm,
+        cancelLabel: appConfig.copy.cancel,
+      })
+      if (!ok) return false
+    }
+
+    const label = truppLabel(tr.name)
+    const color = teamColor(truppId)
+    dropPlacements(tr) // one Trupp, one place — whatever it stood on before goes
+    // ⚠️ Any OTHER marker still claiming this Trupp lets go of its anchor, the same release
+    // linkTruppLine does for a hose: dropPlacements only removes the placement the Trupp knows
+    // about, and a merge from a second device can leave a stale one behind.
+    setDocRaw((d) => ({
+      ...d,
+      entities: d.entities.map((e) => (e.id === markerId ? { ...e, truppId, label, color }
+        : e.kind === 'team' && e.truppId === truppId ? { ...e, truppId: undefined } : e)),
+    }))
+    setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) => [pid, annos.map((a) => (
+      a.id === markerId && a.kind === 'resource' ? { ...a, truppId, text: label, color }
+        : a.kind === 'resource' && a.truppId === truppId ? { ...a, truppId: undefined } : a))])))
+    // the holder keeps everything except the placement — a Trupp is not «out» because its
+    // symbol was taken over, and NOTHING here touches a contact clock
+    if (join.holder) updateTrupp(join.holder.id, { entityId: undefined, annoId: undefined, planId: undefined })
+    updateTrupp(truppId, join.site.kind === 'map'
+      ? { entityId: join.site.entityId, annoId: undefined, planId: undefined }
+      : { annoId: join.site.annoId, planId: join.site.planId, entityId: undefined })
+
+    // the same line placing a Trupp writes: what happened IS that this Trupp now stands there,
+    // and a second vocabulary for it would only make the Verlauf harder to read
+    if (join.site.kind === 'map') log('flag', fillTemplate(appConfig.copy.atemschutz.logPlacedMap, { name: tr.name }), 'team', undefined, join.site.entityId)
+    else logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: tr.name }), { kind: 'team', annoId: join.site.annoId })
+    emit('atemschutz.place', { id: truppId, ...(join.site.kind === 'map' ? { entityId: join.site.entityId } : { annoId: join.site.annoId, planId: join.site.planId }) })
+    void askTruppEntry(truppId)
+    return true
+  }
+
+  /**
+   * The same gesture from the MARKER's side («Atemschutz-Trupp» → «Kein Trupp»): whoever stands
+   * here lets go of the symbol. The marker itself stays exactly where it is, name, colour and
+   * trail included — it is still a Trupp in the picture, it just is not THAT Trupp any more (the
+   * hose link ends the same way: the Leitung keeps its number and simply has nobody on it).
+   */
+  const releaseTruppMarker = (markerId: string) => {
+    const tr = trupps.find((t) => !t.removedAt && (t.entityId === markerId || t.annoId === markerId))
+    setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === markerId ? { ...e, truppId: undefined } : e)) }))
+    setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) =>
+      [pid, annos.map((a) => (a.id === markerId && a.kind === 'resource' ? { ...a, truppId: undefined } : a))])))
+    if (!tr) return
+    updateTrupp(tr.id, { entityId: undefined, annoId: undefined, planId: undefined })
+    log('flag', fillTemplate(appConfig.copy.atemschutz.logMarkerUnlinked, { name: tr.name }), 'team')
+    emit('atemschutz.place.unlink', { id: tr.id, markerId })
+  }
+
   // jump to a placed Trupp — its plan chip or its Lage-map marker, wherever it lives
   const focusTruppOnPlan = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
@@ -783,5 +894,5 @@ export function useTruppActions(deps: Deps) {
     return out
   }
 
-  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
 }

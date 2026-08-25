@@ -591,9 +591,10 @@ export interface BoardAnno extends SymbolProps {
   dashed?: boolean           // draw: render dashed instead of solid (mirrors Drawing.dashed). Absent = solid.
   arrow?: boolean            // draw: an arrowhead at the last vertex (Messpfeil / Rettungsachse line presets)
   marker?: string            // draw: a letter repeated along the line (e.g. 'R' for Rettungsachse)
-  // showDistance carried for data-model + preset parity with the Lage `Drawing`; NOT rendered on a
-  // plan (a building sheet has no metric scale) — the line's free-text `label` covers that case.
-  showDistance?: boolean     // draw (Messpfeil): map renders a geodesic length; plan stores it inert
+  // ⚠️ NO LONGER inert on a plan (the comment here said it was): once the sheet is calibrated
+  // against its printed Maßstab, a line prints its Länge and an area its Fläche, exactly as the
+  // Lage does — uncalibrated, the read-out is the «zuerst kalibrieren» nudge instead.
+  showDistance?: boolean     // draw/area: print the measured length / area beside the ink
   labelDx?: number           // draw: per-line screen-space nudge of the label off the ink (parity w/ map)
   labelDy?: number
   // FKS hose-line annotations (draw/line only) — mirror Drawing's fields for cross-surface parity
@@ -615,6 +616,12 @@ export interface BoardAnno extends SymbolProps {
    *  independent when storeys are added/removed. Absent = floor 0. NOTE: this is a
    *  tile INDEX, distinct from Entity.floor's signed badge value (see SymbolProps). */
   floor?: number
+  /** The signed STOREY BADGE on a plan symbol (+2 / 0 / -1) — the plan-space twin of
+   *  `Entity.floor`, which is why it cannot simply BE `floor`: that name is already taken
+   *  here by the floor-stack tile index above. Wired on the plain Modul boards only; on the
+   *  Gebäude floor-stack the tile the symbol sits on already says which storey it is on, so
+   *  a second answer there would be one that can disagree with itself. */
+  storey?: number
   /** Magnetic relationship intent at the first/last vertex (draw/line only). */
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment

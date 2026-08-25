@@ -45,6 +45,88 @@ const NO_IDS = new Set<string>()
 /** Does this partner row say anything at all? Blank rows live on screen and never reach the blob. */
 const partnerFilled = (p: PartnerContact) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim())
 
+/** A typed count as the blob stores it — «», «3 », «-1» and «abc» all mean «nichts eingetragen». */
+const numOrU = (s: string): number | undefined => {
+  const n = Number(s)
+  return s.trim() !== '' && Number.isFinite(n) && n >= 0 ? Math.round(n) : undefined
+}
+
+// --- Rapportangaben that BOTH sides write ----------------------------------------------------
+//
+// The Rapport is not a dialog: it is opened early in an Einsatz and left open for hours, while
+// the workspace syncs every few seconds and the Einsatzleiter fills in the same sheet on the
+// iPad next to it. Every field below used to be seeded from `reportMeta` ONCE, at mount, and
+// then ignored the prop for the rest of the Einsatz — so the form showed the state it opened
+// on, and (the real damage) wrote all fifteen of those stale values back into the blob on the
+// next keystroke in any one of them. A Kurzbericht typed on the iPad was gone the moment
+// somebody touched the Bemerkung on the laptop. «Der Einsatzrapport synchronisiert nicht.»
+//
+// `useSyncedField` is the three-way merge that replaces the seeding. Two rules, and they are
+// the same rule seen from both ends:
+//   • what this operator did NOT touch follows the blob (adoption), and
+//   • what this operator DID touch is all this device is allowed to write back (`dirty`).
+//
+/** Which synced field the caret is in, by the `data-sync` marker on its wrapper — `null` when
+ *  the focus is anywhere else on the sheet. One attribute per field beats an onFocus/onBlur pair
+ *  on every input, half of which are custom components that forward neither. */
+const focusedSyncField = (): string | null => {
+  const el = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null)
+  return el?.closest?.('[data-sync]')?.getAttribute('data-sync') ?? null
+}
+
+/** Canonical forms. A round trip through the LOCAL shape must not read as a change — a
+ *  Kurzbericht is trimmed on the way to the blob, `dtLocalValue` drops the seconds off an ISO
+ *  stamp, a Stepper writes «3» where the blob holds 3 — and a field that looks edited because
+ *  of one of those would clobber the blob exactly as before. */
+const normText = (v: string) => v.trim()
+const normDtLocal = (v: string) => dtLocalToIso(v) ?? ''
+const normCount = (v: string) => String(numOrU(v) ?? '')
+const normList = (v: unknown[]) => JSON.stringify(v)
+/** blank partner rows live on screen and never reach the blob, so they are not a change either */
+const normPartners = (v: PartnerContact[]) => JSON.stringify(v.filter(partnerFilled))
+
+/**
+ * One Rapportangabe, merged with whatever the other devices have made of it.
+ *
+ * @param name    the field's `data-sync` marker — how «is the caret in here right now» is asked
+ * @param remote  what the blob says, already in this field's LOCAL shape (dtLocal string, list,
+ *                «» for absent), so the two sides are comparable at all
+ * @param norm    the field's canonical form (see above)
+ * @param tick    bumped on every focus move inside the sheet, so an adoption that was held back
+ *                for the caret is retried the moment the field is left
+ *
+ * ⚠️ Nothing is ever yanked out from under a typing operator: while the field has the caret the
+ * remote value waits, and the field stays CLEAN while it waits — so what this device saves is
+ * the blob's value, not the stale text still on screen. `dirty` is exactly what the save may
+ * carry (see dirtyMeta), and it clears itself the moment the write lands back in `reportMeta`.
+ */
+function useSyncedField<T>(
+  name: string, remote: T, norm: (v: T) => string, tick: number,
+): readonly [T, (next: T) => void, boolean] {
+  const [value, setValue] = useState(remote)
+  const [dirty, setDirty] = useState(false)
+  const rn = norm(remote)
+  const ln = norm(value)
+  useEffect(() => {
+    // In sync — which is also how a local edit stops being dirty: every field here persists on
+    // change and the workspace echoes the write straight back, so one render later the blob
+    // says what the operator typed and this device has nothing left of its own to defend.
+    if (rn === ln) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the write landed; nothing to defend
+      if (dirty) setDirty(false)
+      return
+    }
+    if (dirty) return                        // this operator's edit is the newer one — it stands
+    if (focusedSyncField() === name) return  // …or is being typed right now: adopt on blur (tick)
+    setValue(remote)                         // adoption: the blob moved, an untouched field follows
+    // `remote` itself is deliberately not a dep — it is compared through `norm`, so a new array
+    // identity that says the same thing must not re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rn, ln, dirty, tick, name])
+  const set = (next: T) => { setDirty(true); setValue(next) }
+  return [value, set, dirty] as const
+}
+
 /** HH:MM display value for the compact time inputs of the Zeiten grid. */
 function clockOf(iso?: string): string {
   if (!iso) return ''
@@ -260,11 +342,51 @@ export function ReportPreflight({
   // remount re-reads the live data (a Lage drawn in the meantime turns `kroki` back on) and then
   // re-applies what the operator actually decided.
   const optionOverrides = useRef<Partial<ReportOptions>>(keptFor(incident.id)?.optionOverrides ?? {})
+
+  // Every focus move inside the sheet, counted. An adoption held back because the caret was in
+  // the field (see useSyncedField) has to be retried when the operator leaves it, and «the field
+  // was left» is not a prop change — nothing else would re-run the effect. Both halves of the
+  // move are counted because `focusout` fires BEFORE the next element has the focus, so the
+  // reading taken on the way out can still name the field being left.
+  const [blurTick, setBlurTick] = useState(0)
+  useEffect(() => {
+    const moved = (e: FocusEvent) => {
+      if ((e.target as HTMLElement | null)?.closest?.('[data-sync]')) setBlurTick((t) => t + 1)
+    }
+    document.addEventListener('focusin', moved)
+    document.addEventListener('focusout', moved)
+    return () => {
+      document.removeEventListener('focusin', moved)
+      document.removeEventListener('focusout', moved)
+    }
+  }, [])
+
+  // What the BLOB says, field by field, in the shape each field holds it in on screen. This
+  // block is the mapping the old seeding did once at mount and never again; it is read on every
+  // render now, and `useSyncedField` decides per field whether the screen follows it.
+  const remoteSummary = reportMeta.summary ?? ''
+  const remoteKontaktperson = reportMeta.kontaktperson ?? ''
+  // ⚠️ The Kroki fallback belongs in here, not beside it: it is what an EMPTY blob shows, so a
+  // field sitting on the seeded name is in agreement with the blob and must not count as an edit
+  // this device has to defend (that is what `seededEinsatzleiter` below persists, once).
+  const remoteEinsatzleiter = reportMeta.einsatzleiter ?? einsatzleiterFromScene(scene?.entities) ?? ''
+  const remoteEndedAt = dtLocalValue(reportMeta.endedAt ?? incident.closed_at ?? undefined)
+  const remoteAusgerueckt = dtLocalValue(reportMeta.ausgeruecktAt)
+  const remoteRemarks = reportMeta.remarks ?? ''
+  const remoteLehren = reportMeta.lehren ?? ''
+  const remoteGruppen = reportMeta.gruppen ?? []
+  const remoteFahrzeuge = reportMeta.fahrzeuge ?? []
+  const remoteGeretteteP = reportMeta.gerettete?.personen?.toString() ?? ''
+  const remoteGeretteteT = reportMeta.gerettete?.tiere?.toString() ?? ''
+  const remoteRueckName = reportMeta.rueckmeldungElz?.name ?? ''
+  const remoteRueckAt = reportMeta.rueckmeldungElz?.at ?? ''
+  const remotePartners = reportMeta.partnerContacts ?? []
+
   // Partnerorganisationen. The field existed in the model and PRINTED for months, but nothing
   // ever wrote it — so every rapport fell back to the config's tick-off row and «Polizei war da»
   // was all the paper ever said. The remark is the point of the block: which patrol, whose
   // number, what they took over.
-  const [partners, setPartners] = useState<PartnerContact[]>(() => reportMeta.partnerContacts ?? [])
+  const [partners, setPartners, partnersDirty] = useSyncedField('partners', remotePartners, normPartners, blurTick)
   const savePartners = (next: PartnerContact[]) => {
     // Bail BEFORE the local state: `persist` already refuses to write while read-only, so
     // accepting the edit on screen would show a viewer (or a closed Einsatz) a partner that
@@ -345,31 +467,33 @@ export function ReportPreflight({
   // Einsatzdaten panel — display + print fallback only, never persisted into the report blob.
   const [alarmFallback, setAlarmFallback] = useState('')
 
-  // Rapportangaben = the after-arrival fields, edited inline here. Seeded once from the blob;
-  // every change is persisted live (see persist) so nothing is lost if the sheet is closed.
-  const [summary, setSummary] = useState(reportMeta.summary ?? '')
-  const [kontaktperson, setKontaktperson] = useState(reportMeta.kontaktperson ?? '')
+  // Rapportangaben = the after-arrival fields, edited inline here. Every change is persisted
+  // live (see persist) so nothing is lost if the sheet is closed — and every field follows the
+  // blob while this operator is not editing it (see useSyncedField), because the same sheet is
+  // open on the Einsatzleiter's iPad.
+  const [summary, setSummary, summaryDirty] = useSyncedField('summary', remoteSummary, normText, blurTick)
+  const [kontaktperson, setKontaktperson, kontaktpersonDirty] = useSyncedField('kontaktperson', remoteKontaktperson, normText, blurTick)
   // Seeded from the Kroki when the Rapport has none of its own: the EL was already named on the
   // map (Einsatzleiter glyph / KP Front), so typing it a second time is pure duplication. A
   // pre-fill only — the picker stays editable and the typed value wins from then on.
-  const [einsatzleiter, setEinsatzleiter] = useState(reportMeta.einsatzleiter ?? einsatzleiterFromScene(scene?.entities) ?? '')
-  const [endedAt, setEndedAt] = useState(dtLocalValue(reportMeta.endedAt ?? incident.closed_at ?? undefined))
-  const [ausgerueckt, setAusgerueckt] = useState(dtLocalValue(reportMeta.ausgeruecktAt))
-  const [remarks, setRemarks] = useState(reportMeta.remarks ?? '')
-  const [lehren, setLehren] = useState(reportMeta.lehren ?? '')
+  const [einsatzleiter, setEinsatzleiter, einsatzleiterDirty] = useSyncedField('einsatzleiter', remoteEinsatzleiter, normText, blurTick)
+  const [endedAt, setEndedAt, endedAtDirty] = useSyncedField('endedAt', remoteEndedAt, normDtLocal, blurTick)
+  const [ausgerueckt, setAusgerueckt, ausgeruecktDirty] = useSyncedField('ausgerueckt', remoteAusgerueckt, normDtLocal, blurTick)
+  const [remarks, setRemarks, remarksDirty] = useSyncedField('remarks', remoteRemarks, normText, blurTick)
+  const [lehren, setLehren, lehrenDirty] = useSyncedField('lehren', remoteLehren, normText, blurTick)
   // Alarmierungs-/Ausrückzeiten grid (G1/G2) + the paper-form Details fields (G4).
   // Grid rows come from deployment config (empty config = grid hidden); values are
   // prefilled by the milestone webhook, edits here stamp `manual` (human beats machine).
-  const [gruppen, setGruppen] = useState<GruppeZeit[]>(reportMeta.gruppen ?? [])
-  const [fahrzeuge, setFahrzeuge] = useState<FahrzeugZeit[]>(reportMeta.fahrzeuge ?? [])
-  const [geretteteP, setGeretteteP] = useState(reportMeta.gerettete?.personen?.toString() ?? '')
-  const [geretteteT, setGeretteteT] = useState(reportMeta.gerettete?.tiere?.toString() ?? '')
-  const [rueckName, setRueckName] = useState(reportMeta.rueckmeldungElz?.name ?? '')
+  const [gruppen, setGruppen, gruppenDirty] = useSyncedField<GruppeZeit[]>('gruppen', remoteGruppen, normList, blurTick)
+  const [fahrzeuge, setFahrzeuge, fahrzeugeDirty] = useSyncedField<FahrzeugZeit[]>('fahrzeuge', remoteFahrzeuge, normList, blurTick)
+  const [geretteteP, setGeretteteP, gerettetePDirty] = useSyncedField('geretteteP', remoteGeretteteP, normCount, blurTick)
+  const [geretteteT, setGeretteteT, geretteteTDirty] = useSyncedField('geretteteT', remoteGeretteteT, normCount, blurTick)
+  const [rueckName, setRueckName, rueckNameDirty] = useSyncedField('rueckName', remoteRueckName, normText, blurTick)
   // ⚠️ The full ISO, not an HH:MM. The Rückmeldung an die ELZ is regularly given after
   // midnight, or the morning after on a long Einsatz, and a bare clock had to guess which
   // day it meant (applyTimeToIso rolled it forward past the start). The Einsatzende beside
   // it has always asked for a date; this is the same question and now asks it the same way.
-  const [rueckAt, setRueckAt] = useState(reportMeta.rueckmeldungElz?.at ?? '')
+  const [rueckAt, setRueckAt, rueckAtDirty] = useSyncedField('rueckAt', remoteRueckAt, normText, blurTick)
 
   useEffect(() => {
     let alive = true
@@ -399,10 +523,6 @@ export function ReportPreflight({
   // exists; the manual field stays authoritative only while there is no vehicle data.
   const derivedAus = deriveAusgerueckt(fahrzeuge)
 
-  const numOrU = (s: string): number | undefined => {
-    const n = Number(s)
-    return s.trim() !== '' && Number.isFinite(n) && n >= 0 ? Math.round(n) : undefined
-  }
   const rueckIso = rueckAt || undefined
   const geretteteOver = (p: string, t: string): Partial<ReportMeta> => ({
     gerettete: numOrU(p) !== undefined || numOrU(t) !== undefined
@@ -417,6 +537,11 @@ export function ReportPreflight({
     const at = iso || undefined
     return { rueckmeldungElz: name.trim() || at ? { name: name.trim() || undefined, at } : undefined }
   }
+  /** The form AS IT STANDS ON SCREEN, for everything that reads the rapport rather than writes
+   *  it: the head's «noch offen», the Abschluss-Checkliste, the printed draft. It is not what
+   *  gets SAVED (that is `dirtyMeta` — this device may only write what it changed): an
+   *  Einsatzende typed a second ago has to count here without a round trip, and a field still
+   *  holding a value the blob has moved on from prints what the operator is looking at. */
   const editedMeta = (): Partial<ReportMeta> => ({
     summary: summary.trim() || undefined,
     kontaktperson: kontaktperson.trim() || undefined,
@@ -432,19 +557,70 @@ export function ReportPreflight({
     rueckmeldungElz: rueckName.trim() || rueckIso ? { name: rueckName.trim() || undefined, at: rueckIso } : undefined,
   })
 
-  // Write the after-arrival fields back to the blob, preserving everything else (the dispatch
-  // facts alarmText/alarmiertAt stay sourced from the incident — never persisted here). `over`
-  // carries the just-changed field so we don't read stale state mid-event.
-  const persist = (over: Partial<ReportMeta>) => canEdit && onSaveMeta({
-    ...reportMeta,
-    ...editedMeta(),
-    ...over,
-  })
-  // The freshest blob this surface has seen, for the one write that does NOT happen inside the
-  // event that triggered it (see stampReportMade). Updated in an effect rather than during
+  /**
+   * What THIS device is entitled to write: the fields its operator actually changed and whose
+   * change has not landed in the blob yet. Everything else is left to pass through from the
+   * latest `reportMeta`.
+   *
+   * ⚠️ This used to be `editedMeta()` — all fifteen fields, every time, out of state that was
+   * seeded at mount and never refreshed. So a device that had the Rapport open wrote its own
+   * half-hour-old idea of every field back on the next keystroke in any one of them, and the
+   * Kurzbericht the Einsatzleiter had just typed on the iPad was gone. A field is in here only
+   * while `useSyncedField` says the operator moved it, which also means a field they are
+   * currently TYPING in but have not changed (the caret holds off its adoption) is deliberately
+   * absent: what leaves this device is the blob's value, not the stale text still on screen.
+   */
+  const dirtyMeta = (): Partial<ReportMeta> => {
+    const out: Partial<ReportMeta> = {}
+    if (summaryDirty) out.summary = summary.trim() || undefined
+    if (kontaktpersonDirty) out.kontaktperson = kontaktperson.trim() || undefined
+    if (einsatzleiterDirty) out.einsatzleiter = einsatzleiter.trim() || undefined
+    if (endedAtDirty) out.endedAt = dtLocalToIso(endedAt)
+    // The header «Ausgerückt» is derived from the vehicle grid the moment it holds anything, so
+    // a change to either side is a change to this one stamp (see derivedAus).
+    if (ausgeruecktDirty || fahrzeugeDirty) out.ausgeruecktAt = derivedAus ?? dtLocalToIso(ausgerueckt)
+    if (remarksDirty) out.remarks = remarks.trim() || undefined
+    if (lehrenDirty) out.lehren = lehren.trim() || undefined
+    if (gruppenDirty) out.gruppen = gruppen.length ? gruppen : undefined
+    if (fahrzeugeDirty) out.fahrzeuge = fahrzeuge.length ? fahrzeuge : undefined
+    // ⚠️ Two fields, ONE blob key — so an untouched half is taken from the blob rather than from
+    // this device's copy of it: writing `gerettete` because the Tiere moved must not put back
+    // the Personen count another device corrected in the meantime.
+    if (gerettetePDirty || geretteteTDirty) {
+      const p = numOrU(gerettetePDirty ? geretteteP : remoteGeretteteP)
+      const t = numOrU(geretteteTDirty ? geretteteT : remoteGeretteteT)
+      out.gerettete = p !== undefined || t !== undefined ? { personen: p, tiere: t } : undefined
+    }
+    // …and the same for the Rückmeldung's name + time
+    if (rueckNameDirty || rueckAtDirty) {
+      const name = (rueckNameDirty ? rueckName : remoteRueckName).trim()
+      const at = (rueckAtDirty ? rueckAt : remoteRueckAt) || undefined
+      out.rueckmeldungElz = name || at ? { name: name || undefined, at } : undefined
+    }
+    if (partnersDirty) {
+      const clean = partners.filter(partnerFilled)
+      out.partnerContacts = clean.length ? clean : undefined
+    }
+    return out
+  }
+
+  // The freshest blob this surface has seen, for the writes that do NOT happen inside the event
+  // that triggered them (see persist, stampReportMade). Updated in an effect rather than during
   // render — a ref written while rendering is the pattern the immutability lint objects to.
   const metaRef = useRef(reportMeta)
   useEffect(() => { metaRef.current = reportMeta })
+
+  // Write the after-arrival fields back to the blob, preserving everything else (the dispatch
+  // facts alarmText/alarmiertAt stay sourced from the incident — never persisted here). `over`
+  // carries the just-changed field so we don't read stale state mid-event.
+  // ⚠️ The base is `metaRef`, the freshest blob this surface has seen, not the `reportMeta` of
+  // the render this closure was built in: `startOutput` persists the Kroki framing AFTER an
+  // awaited confirm dialog, by which time a sync may have moved the blob on underneath it.
+  const persist = (over: Partial<ReportMeta>) => canEdit && onSaveMeta({
+    ...metaRef.current,
+    ...dirtyMeta(),
+    ...over,
+  })
 
   // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
   // rapport printed from another device see the same name this field shows — a value that only
@@ -1467,8 +1643,11 @@ export function ReportPreflight({
               were already in (that order is the printed rapport's). */}
           <section className="report-pre-section report-pre-meta" data-tab="bericht">
             <h3>{P.sectionBericht}</h3>
-            {/* after-arrival — editable inline (replaces the old Bearbeiten modal) */}
-            <label className="ip-field" data-step="kurzbericht">
+            {/* after-arrival — editable inline (replaces the old Bearbeiten modal).
+                ⚠️ `data-sync` marks which Rapportangabe the caret is in, so a value arriving
+                from another device is never yanked out from under somebody typing here — it is
+                adopted the moment the field is left (see useSyncedField). One marker per field. */}
+            <label className="ip-field" data-step="kurzbericht" data-sync="summary">
               <span>{P.summaryLabel}</span>
               <textarea className="ip-textarea" value={summary} rows={5} placeholder={P.summaryPlaceholder}
                 onChange={(e) => { const v = stripUnprintable(e.target.value); setSummary(v); persist({ summary: v.trim() || undefined }) }} />
@@ -1478,7 +1657,7 @@ export function ReportPreflight({
                   «einsatzleiter», so the chip highlighted the Einsatzleiter AND the Kontaktperson
                   — two different people answering two different questions. The grid is a single
                   column, so a wrapper here is a plain block box and changes no layout. */}
-              <div data-step="einsatzleiter">
+              <div data-step="einsatzleiter" data-sync="einsatzleiter">
               <PersonField
                 label={P.einsatzleiterLabel} placeholder={P.einsatzleiterPlaceholder}
                 value={{ name: einsatzleiter }} onChange={(slot) => {
@@ -1501,7 +1680,7 @@ export function ReportPreflight({
               {/* ⚠️ A <div>, not a <label>: the row carries a BUTTON now, and a button inside a
                   label steals its own tap for the input's focus. Same shape the Rückmeldung-Zeit
                   row next to it already uses; the input keeps its name through `aria-label`. */}
-              <div className="ip-field" data-step="kontaktperson">
+              <div className="ip-field" data-step="kontaktperson" data-sync="kontaktperson">
                 <span>{P.kontaktpersonLabel}</span>
                 {/* «Entfällt» — the third answer. A Fehlalarm in an empty Altersheim has nobody
                     to name, and «leer» and «gibt es nicht» are two different statements: without
@@ -1542,13 +1721,13 @@ export function ReportPreflight({
                     details-modal count control. over-object carries the fresh values (state set in the
                     same tick is stale). Empty = null (shows «0» placeholder, − disabled). */}
                 <div className="rz-counts">
-                  <div className="rz-count">
+                  <div className="rz-count" data-sync="geretteteP">
                     <span>{P.gerettetePersonen}</span>
                     <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.gerettetePersonen}
                       onChange={(v) => { setGeretteteP(String(v)); persist(geretteteOver(String(v), geretteteT)) }}
                       onClear={() => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) }} canClear={geretteteP !== ''} />
                   </div>
-                  <div className="rz-count">
+                  <div className="rz-count" data-sync="geretteteT">
                     <span>{P.geretteteTiere}</span>
                     <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.geretteteTiere}
                       onChange={(v) => { setGeretteteT(String(v)); persist(geretteteOver(geretteteP, String(v))) }}
@@ -1574,7 +1753,7 @@ export function ReportPreflight({
                 </div>
               </label>
             ) : (getDeploymentConfig().fleet?.vehicles ?? []).length === 0 ? (
-              <label className="ip-field">
+              <label className="ip-field" data-sync="ausgerueckt">
                 <span>{A.ausgerueckt}</span>
                 <div className="report-meta-end dtrow">
                   <DateTimeField ariaLabel={A.ausgerueckt} value={dtLocalToIso(ausgerueckt)}
@@ -1614,7 +1793,7 @@ export function ReportPreflight({
               return (
                 <>
                   {gRows.length > 0 && (
-                    <div className="ip-field">
+                    <div className="ip-field" data-sync="gruppen">
                       <span>{P.gruppenLabel}</span>
                       <div className="rz-grid">
                         {gRows.map(({ config: c, value: v }) => (
@@ -1634,7 +1813,7 @@ export function ReportPreflight({
                     </div>
                   )}
                   {vRows.length > 0 && (
-                    <div className="ip-field">
+                    <div className="ip-field" data-sync="fahrzeuge">
                       <span>{P.fahrzeugeLabel}</span>
                       <div className="rz-grid">
                         {vRows.map(({ config: c, value: v }) => (
@@ -1668,12 +1847,12 @@ export function ReportPreflight({
 
           <section className="report-pre-section report-pre-meta" data-tab="bericht">
             <h3>{P.sectionNachbearbeitung}</h3>
-            <label className="ip-field">
+            <label className="ip-field" data-sync="remarks">
               <span>{P.remarksLabel}</span>
               <textarea className="ip-textarea" value={remarks} rows={3} placeholder={P.remarksPlaceholder}
                 onChange={(e) => { const v = stripUnprintable(e.target.value); setRemarks(v); persist({ remarks: v.trim() || undefined }) }} />
             </label>
-            <label className="ip-field">
+            <label className="ip-field" data-sync="lehren">
               <span>{P.lehrenLabel}</span>
               <textarea className="ip-textarea" value={lehren} rows={3} placeholder={P.lehrenPlaceholder}
                 onChange={(e) => { const v = stripUnprintable(e.target.value); setLehren(v); persist({ lehren: v.trim() || undefined }) }} />
@@ -1682,7 +1861,7 @@ export function ReportPreflight({
               {/* Einsatzende leads the block. ⚠️ It carries `data-step="zeiten"` because it IS
                   the Zeiten step (lib/abschluss · stepDone) — the «Zeiten» chip has to land on
                   the field that makes it go away, not on the Alarmierung grid it used to sit in. */}
-              <label className="ip-field" data-step="zeiten">
+              <label className="ip-field" data-step="zeiten" data-sync="endedAt">
                 <span>{P.incidentEndLabel}</span>
                 <div className="report-meta-end dtrow">
                   <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
@@ -1697,7 +1876,10 @@ export function ReportPreflight({
                   `kontaktperson` was split out of `einsatzleiter` for on 11.08. — a step has to
                   name the fields that make it go away and no others. Both halves are inside,
                   because `stepDone` wants the name AND the time (lib/abschluss). */}
-              <div className="rz-rueck" data-step="rueckmeldung">
+              {/* ⚠️ `data-sync` on the BLOCK stands for the name field, which has no wrapper of
+                  its own (PersonField takes no class); the Zeit row below carries its own marker
+                  and wins for the caret, because `closest` stops at the nearest one. */}
+              <div className="rz-rueck" data-step="rueckmeldung" data-sync="rueckName">
                 {/* …and the same «Entfällt» the Kontaktperson has, for the Einsatz the ELZ was
                     never told about because there was nothing to tell (an Ölspur, a Fehlalarm).
                     It replaces BOTH halves, because the step wants the name AND the time and
@@ -1757,7 +1939,7 @@ export function ReportPreflight({
                       </button>
                     ) : undefined}
                   />
-                  <div className="ip-field">
+                  <div className="ip-field" data-sync="rueckAt">
                     <span>{P.rueckmeldungZeit}</span>
                     {/* Datum + Zeit, the same control the Einsatzende uses — with «Jetzt» beside it,
                         because the ordinary case is that the call has just been made. */}
@@ -1878,8 +2060,12 @@ export function ReportPreflight({
             >
               <div className="rp-check-extra">
                 {/* own gate: the sheet's main fieldset ends above the checklist, so a viewer or
-                    a closed Einsatz would otherwise get fully live controls here */}
-                <fieldset className="report-fieldset rp-check-gate" disabled={!canEdit}>
+                    a closed Einsatz would otherwise get fully live controls here.
+                    ⚠️ `data-sync` sits on the WHOLE block, «+ Organisation» included: the button
+                    adds a blank row that lives on screen and never reaches the blob, so a partner
+                    list arriving from another device while the operator is still standing in that
+                    row would adopt the row away under them (see useSyncedField). */}
+                <fieldset className="report-fieldset rp-check-gate" disabled={!canEdit} data-sync="partners">
                   {/* A CHECKLIST, not a picker: every organisation the station works with is
                       already on the list, so the question is «war die da?» — one tap per row,
                       nothing to search, and an unticked row still proves it was considered.

@@ -32,3 +32,18 @@
 }
 .wb-pdf-retry:hover { filter: brightness(1.06); }
 .wb-pdf-retry:active { transform: scale(.97); }
+/* failure detail — one actionable sentence plus the code to read out (PdfFailDetail).
+   The container above is click-through; the code stays selectable on a desk machine. */
+.wb-pdf-reason {
+  max-width: 30ch;
+  margin-top: -6px;
+  text-align: center;
+  line-height: 1.35;
+}
+.wb-pdf-code {
+  pointer-events: auto;
+  user-select: text;
+  font: 400 11px var(--mono);
+  letter-spacing: .02em;
+  opacity: .7;
+}

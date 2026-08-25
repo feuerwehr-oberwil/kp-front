@@ -41,6 +41,14 @@ export interface HoldDragOpts {
  * Movement/release are tracked on `window` (capture) so the gesture stays correct once the finger
  * leaves the small marker element. One instance serves a whole list of markers (only one gesture
  * is ever live); `cancel()` lets a sibling gesture (e.g. a transform handle) abort it.
+ *
+ * ⚠️ A gesture belongs to ONE pointer. Two fingers mean the operator is pinching the map, which is
+ * the same grammar the canvas gestures use (useMapCanvasGestures: one finger draws, two pan/zoom).
+ * Without that rule the window listeners fed EVERY pointer's moves into the same drag — the second
+ * finger of a pinch dragged the symbol it happened to land on, the two fingers took turns steering
+ * it, and the pinch changed the map transform the drag was anchored against. So: a non-primary
+ * pointer never starts a gesture, a foreign pointer's moves/releases are ignored, and a second
+ * pointer going down anywhere ends the live gesture and hands the pinch back to the map.
  */
 export function useHoldToDrag(opts?: { delayMs?: number; moveTolerancePx?: number; tapTolerancePx?: number }) {
   const delayMs = opts?.delayMs ?? DELAY_MS
@@ -50,23 +58,30 @@ export function useHoldToDrag(opts?: { delayMs?: number; moveTolerancePx?: numbe
     timer: number
     sx: number
     sy: number
+    /** the one pointer this gesture answers to (undefined only where the host has no id to give) */
+    pid: number | undefined
     phase: 'pending' | 'pan' | 'drag'
     mode: 'mouse' | 'touch'
     canDrag: boolean
     cbs: HoldDragCbs
+    onDown: (e: PointerEvent) => void
     onMove: (e: PointerEvent) => void
-    onUp: () => void
+    onUp: (e: PointerEvent) => void
   } | null>(null)
 
   const teardown = () => {
     const s = st.current
     if (!s) return
     clearTimeout(s.timer)
+    window.removeEventListener('pointerdown', s.onDown, true)
     window.removeEventListener('pointermove', s.onMove, true)
     window.removeEventListener('pointerup', s.onUp, true)
     window.removeEventListener('pointercancel', s.onUp, true)
     st.current = null
   }
+
+  /** the event belongs to the pointer that started this gesture (a pinch's other finger does not) */
+  const isOurs = (s: NonNullable<typeof st.current>, ev: PointerEvent) => s.pid === undefined || ev.pointerId === s.pid
 
   /** abort a pending/active gesture from the outside (e.g. a transform handle took over) */
   const cancel = () => {
@@ -82,13 +97,19 @@ export function useHoldToDrag(opts?: { delayMs?: number; moveTolerancePx?: numbe
     s.cbs.onDragMove?.(clientX, clientY)
   }
 
-  const begin = (e: { clientX: number; clientY: number }, cbs: HoldDragCbs, o?: HoldDragOpts) => {
+  const begin = (e: { clientX: number; clientY: number; pointerId?: number; isPrimary?: boolean }, cbs: HoldDragCbs, o?: HoldDragOpts) => {
+    // A second finger landing on a symbol is the operator reaching for a pinch, not a second grab.
+    // It must not start a gesture of its own — and the live one is already gone (onDown, below).
+    if (e.isPrimary === false) { cancel(); return }
     teardown()
     const mode = o?.mode ?? 'touch'
     const canDrag = o?.canDrag ?? true
+    // any OTHER pointer going down = a two-finger map gesture starting → give it up, keeping
+    // whatever the drag has already committed (cancel ends an armed drag properly)
+    const onDown = (ev: PointerEvent) => { const s = st.current; if (s && !isOurs(s, ev)) cancel() }
     const onMove = (ev: PointerEvent) => {
       const s = st.current
-      if (!s) return
+      if (!s || !isOurs(s, ev)) return
       if (s.phase === 'drag') { s.cbs.onDragMove?.(ev.clientX, ev.clientY); return }
       if (s.phase !== 'pending') return
       const dist = Math.hypot(ev.clientX - s.sx, ev.clientY - s.sy)
@@ -99,12 +120,11 @@ export function useHoldToDrag(opts?: { delayMs?: number; moveTolerancePx?: numbe
       // moved far enough that it's a pan/scroll, not a tap → drop the select-on-release
       if (dist > tapTol) s.phase = 'pan'
     }
-    const onUp = () => {
+    const onUp = (ev: PointerEvent) => {
       const s = st.current
-      if (s) {
-        if (s.phase === 'drag') s.cbs.onDragEnd?.()
-        else if (s.phase === 'pending') s.cbs.onTap?.() // released within tap slop → select
-      }
+      if (!s || !isOurs(s, ev)) return // some other finger lifting is not this gesture's release
+      if (s.phase === 'drag') s.cbs.onDragEnd?.()
+      else if (s.phase === 'pending') s.cbs.onTap?.() // released within tap slop → select
       teardown()
     }
     // touch: a still hold arms the drag (mouse arms on move instead, above). Any movement past the
@@ -117,7 +137,8 @@ export function useHoldToDrag(opts?: { delayMs?: number; moveTolerancePx?: numbe
           s.cbs.onHoldStart?.()
         }, delayMs)
       : 0
-    st.current = { timer, sx: e.clientX, sy: e.clientY, phase: 'pending', mode, canDrag, cbs, onMove, onUp }
+    st.current = { timer, sx: e.clientX, sy: e.clientY, pid: e.pointerId, phase: 'pending', mode, canDrag, cbs, onDown, onMove, onUp }
+    window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('pointermove', onMove, true)
     window.addEventListener('pointerup', onUp, true)
     window.addEventListener('pointercancel', onUp, true)

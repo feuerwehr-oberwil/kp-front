@@ -64,6 +64,15 @@
 .rank { flex: none; font: 800 11px var(--body); letter-spacing: .02em; color: var(--ink-faint); min-width: 34px; }
 .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* «zuletzt» — the name this device reported as last, offered at the top of the list. Quiet on
+   purpose: it is a hint at the likely row, not a selection, and a loud badge on a shared
+   Tablet would invite the exact tap-without-reading this whole question exists to prevent. */
+.last {
+  flex: none; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--glass-edge); background: var(--surface-2);
+  font: 700 10.5px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint);
+}
+
 /* --- the pill --------------------------------------------------------------------------- */
 
 /* Icon only, at every width. The German state names run long and an inline label in the top

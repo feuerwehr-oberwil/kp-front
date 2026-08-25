@@ -110,9 +110,14 @@ export function usePlanMeasure({ activeId, stack, aspect, planScale, localY, flo
   const measUp = () => { measDrag.current = null }
   /** is a measure vertex mid-drag? The board's shared pointermove asks before routing to measMove. */
   const measDragging = () => measDrag.current !== null
+  /** Insert a node at the midpoint of segment `idx` — and keep the SAME press, now dragging the
+   *  node it just made (the twin of Whiteboard · insertVertex). Releasing without moving leaves it
+   *  at the midpoint, which is all a tap on the «+» ever did. */
   const measInsert = (idx: number, e: React.PointerEvent) => {
     e.stopPropagation()
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     setMeasPath((p) => { const b = p[(idx + 1) % p.length]; const mid: Pt = [(p[idx][0] + b[0]) / 2, (p[idx][1] + b[1]) / 2]; return [...p.slice(0, idx + 1), mid, ...p.slice(idx + 1)] })
+    measDrag.current = { idx: idx + 1, moved: true }
   }
   const measDelete = (idx: number) => { measDrag.current = null; setMeasPath((p) => p.filter((_, i) => i !== idx)) }
   // touch path for node delete — double-tap rarely synthesizes dblclick on iOS

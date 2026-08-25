@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { loadDocTimed, evictPlan, RETRY_AFTER_MS } from './PdfViewport'
+import { loadDocTimed, evictPlan, pdfWorkerUrl, PdfFailDetail, RETRY_AFTER_MS } from './PdfViewport'
+import { diagnosePdfFailure, type PdfFailure } from '../lib/pdfDiagnosis'
 import s from './PdfScroller.module.css'
 
 // A plain, scrollable multi-page PDF viewer for viewer-only plans (e.g. PV / documentation
@@ -18,6 +19,8 @@ export function PdfScroller({ url }: { url: string }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [attempt, setAttempt] = useState(0)
   const [slow, setSlow] = useState(false)
+  // why the last attempt failed — see PdfViewport's placeholder for the same two lines
+  const [fail, setFail] = useState<PdfFailure | null>(null)
 
   // track the available column width so pages render crisp at the current size
   useEffect(() => {
@@ -43,6 +46,7 @@ export function PdfScroller({ url }: { url: string }) {
   const retry = () => {
     evictPlan(url)
     setStatus('loading')
+    setFail(null)
     setAttempt((a) => a + 1)
   }
 
@@ -51,6 +55,7 @@ export function PdfScroller({ url }: { url: string }) {
     if (!host || !width) return
     let cancelled = false
     setStatus('loading')
+    setFail(null)
     const cssW = Math.max(120, Math.min(width - 24, MAX_COL_W)) // minus the column padding
     const dpr = DPR()
     loadDocTimed(url)
@@ -76,7 +81,11 @@ export function PdfScroller({ url }: { url: string }) {
         host.replaceChildren(frag) // swap in atomically (also clears a prior render)
         setStatus('ready')
       })
-      .catch(() => { if (!cancelled) setStatus('error') })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setStatus('error')
+        void diagnosePdfFailure(err, pdfWorkerUrl()).then((f) => { if (!cancelled) setFail(f) })
+      })
     return () => { cancelled = true }
   }, [url, width, attempt])
 
@@ -85,6 +94,7 @@ export function PdfScroller({ url }: { url: string }) {
       {status !== 'ready' && (
         <div className={s.hint}>
           <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
+          {fail && <PdfFailDetail fail={fail} reasonClass={s.reason} codeClass={s.code} />}
           {(status === 'error' || slow) && (
             <button type="button" className={s.retry} onClick={retry}>{appConfig.copy.pdf.retry}</button>
           )}

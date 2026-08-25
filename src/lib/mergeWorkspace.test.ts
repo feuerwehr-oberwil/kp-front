@@ -179,6 +179,16 @@ describe('mergeWorkspace — task-scoped cross-domain merges (no clobbering)', (
     expect(mergeWorkspace(base, mine, theirs).pickedObjectId).toBe('obj-7')
   })
 
+  // ⚠️ The device that is still SHOWING the review banner saves without the stamp — if this fell
+  // through to «mine» it would unset what the tablet at the desk just confirmed, and the banner
+  // would come back on every device.
+  it('the «Einsatzdaten geprüft» stamp survives a save from a device that has not reviewed', () => {
+    const base = {}
+    const theirs = { intakeReviewedAt: '2026-08-25T20:10:00Z' } // they tapped «Passt»
+    const mine = { entities: [o('e1')] } // I only drew
+    expect(mergeWorkspace(base, mine, theirs).intakeReviewedAt).toBe('2026-08-25T20:10:00Z')
+  })
+
   it('same singleton edited on both sides stays last-writer-wins (mine)', () => {
     const base = { settings: { contactIntervalMin: 10 } }
     const theirs = { settings: { contactIntervalMin: 20 } }

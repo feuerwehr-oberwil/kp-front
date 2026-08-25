@@ -150,6 +150,15 @@ describe('needsIntakeReview', () => {
     expect(needsIntakeReview(auto, { ...base, reviewed: new Set(['a']) })).toBe(false)
   })
 
+  it('is asked once of the CREW: a review on another device retires it here too', () => {
+    expect(needsIntakeReview(auto, { ...base, reviewedAt: '2026-07-08T12:01:00Z' })).toBe(false)
+  })
+
+  it('an unreviewed device still gets asked while nobody has confirmed anywhere', () => {
+    expect(needsIntakeReview(auto, { ...base, reviewedAt: undefined })).toBe(true)
+    expect(needsIntakeReview(auto, { ...base, reviewedAt: null })).toBe(true)
+  })
+
   it('lets go of stale and archived incidents', () => {
     expect(needsIntakeReview(inc({ ...auto, started_at: '2026-07-08T08:00:00Z' }), base)).toBe(false)
     expect(needsIntakeReview(inc({ ...auto, is_archived: true }), base)).toBe(false)

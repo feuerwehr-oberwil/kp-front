@@ -667,7 +667,10 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               {entity.extract && <div className="field"><span>{C.airflow}</span><b>{C.airflowExtract}</b></div>}
             </div>
           )}
-          {!readOnly && (showFloor || showCount || showRotate || showAirflow) && (
+          {/* ⚠️ `showFloorRange` belongs in this gate — it was the one stepper left out, so a
+              symbol whose preset lists ONLY 'floorRange' (the Lift) rendered the row of
+              steppers not at all and its von/bis storeys were unreachable on both surfaces. */}
+          {!readOnly && (showFloor || showFloorRange || showCount || showRotate || showAirflow) && (
             <div className="ctx-steps">
               {showFloor && (
                 <LabeledStepper label={C.floor} value={entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0}

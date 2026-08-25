@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Dispatch, SetStateAction } from 'react'
 import { useTruppActions, truppEditChanges, LAGE_TARGET } from './useTruppActions'
 import type { BoardDoc, Drawing, Entity, Trupp, TruppFields } from '../types'
@@ -10,12 +10,22 @@ import type { Doc } from './workspace'
 // Capture the confirm-with-undo toasts, so the undo the operator would tap can be tapped here.
 // `vi.hoisted` because vi.mock's factory is hoisted above the imports and would otherwise read
 // the array in its temporal dead zone.
-const ui = vi.hoisted(() => ({ toasts: [] as { text: string; undo?: () => void }[] }))
+// …and the confirms (the Leitung/Symbol takeover, the «einrücken?» ask), so a test can answer
+// them the way the operator would. `answer` is what the next dialog resolves to.
+const ui = vi.hoisted(() => ({
+  toasts: [] as { text: string; undo?: () => void }[],
+  confirms: [] as { title?: string; message: string }[],
+  answer: false,
+}))
 vi.mock('./ui', async (importOriginal) => ({
   ...await importOriginal<typeof import('./ui')>(),
   toast: (text: string, opts?: { action?: { onClick: () => void } }) => {
     ui.toasts.push({ text, undo: opts?.action?.onClick })
     return 0
+  },
+  confirmDialog: (opts: { title?: string; message: string }) => {
+    ui.confirms.push(opts)
+    return Promise.resolve(ui.answer)
   },
 }))
 
@@ -802,5 +812,187 @@ describe('re-deploying a Trupp keeps the pressure log', () => {
     expect(r[3].bar).toBe(300)   // the corrected entry of the current run
     // the lowest is measured over the RUNNING deployment only — 120 bar was another bottle
     expect(second.state.trupps[0].lowestBar).toBe(300)
+  })
+})
+
+/* ── A placed symbol and its Trupp find each other in ANY order ────────────────────────────────
+ *
+ * The mirror of the hose link: a «Trupp 2» dropped on the Lage before anybody was registered can
+ * be joined to its Atemschutz-Trupp afterwards, from either end. One symbol belongs to one Trupp,
+ * a takeover asks first — and NOTHING in here touches a contact clock. */
+describe('useTruppActions — placed symbol ⇄ Trupp', () => {
+  const marker = (over: Partial<Entity> & { id: string }): Entity =>
+    ({ kind: 'team', layer: 'operational', coord: [7.5, 47.4], ...over } as Entity)
+
+  /** two Trupps on one board — the shape adoption needs (somebody to take a symbol FROM) */
+  function pair(a: Trupp, b: Trupp, seed?: { entities?: Entity[]; board?: BoardDoc }) {
+    const state = {
+      trupps: [a, b],
+      board: seed?.board ?? {},
+      doc: { entities: seed?.entities ?? [], drawings: [] } as Doc,
+    }
+    const apply = <T,>(cur: T, x: SetStateAction<T>): T => (typeof x === 'function' ? (x as (p: T) => T)(cur) : x)
+    const lines: string[] = []
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+    const actions = useTruppActions({
+      trupps: state.trupps, drawings: state.doc.drawings, entities: state.doc.entities,
+      setTrupps: ((x) => { state.trupps = apply(state.trupps, x) }) as Dispatch<SetStateAction<Trupp[]>>,
+      board: state.board,
+      setBoard: ((x) => { state.board = apply(state.board, x) }) as Dispatch<SetStateAction<BoardDoc>>,
+      setDocRaw: ((x) => { state.doc = apply(state.doc, x) }) as Dispatch<SetStateAction<Doc>>,
+      building: null, log: (_i, t) => lines.push(t), logPlan: (_i, t) => lines.push(t), emit: () => {},
+      setMode: () => {}, setActivePlanId: () => {}, setPanel: () => {}, setPlanFocus: () => {},
+      mapCenter: () => [7.53, 47.41], focusMapEntity: () => {}, focusMapDrawing: () => {},
+    })
+    return { actions, state, lines }
+  }
+
+  const anna = baseTrupp({})
+  const beat = baseTrupp({ id: 'T2', name: 'Berger Beat' })
+
+  beforeEach(() => { ui.confirms.length = 0; ui.answer = false })
+
+  it('joins a loose marker: the symbol takes the Trupp’s name, the Trupp its place', async () => {
+    const { actions, state } = pair(anna, beat, { entities: [marker({ id: 'e1', label: 'Trupp 2', color: '#111111' })] })
+    expect(await actions.adoptTruppMarker('T1', 'e1')).toBe(true)
+    expect(state.doc.entities[0].truppId).toBe('T1')
+    expect(state.doc.entities[0].label).toBe('Keller Anna')
+    expect(state.doc.entities[0].color).not.toBe('#111111') // repainted to the Trupp's colour
+    expect(state.trupps[0].entityId).toBe('e1')
+    expect(ui.confirms).toHaveLength(0) // nobody held it — nothing to ask
+  })
+
+  // the dots ARE the Truppverfolgung: adopting patches the marker, it never re-places it
+  it('keeps the marker’s recorded trail', async () => {
+    const trail = [{ coord: [7.5, 47.4] as [number, number], t: '10:04' }]
+    const { actions, state } = pair(anna, beat, { entities: [marker({ id: 'e1', trail })] })
+    await actions.adoptTruppMarker('T1', 'e1')
+    expect(state.doc.entities[0].trail).toEqual(trail)
+  })
+
+  it('joins a plan chip and records the plan it stands on', async () => {
+    const chip = { id: 'a1', kind: 'resource' as const, x: 0.4, y: 0.6, floor: 2, text: 'Trupp 2' }
+    const { actions, state } = pair(anna, beat, { board: { gebaeude: [chip] } })
+    expect(await actions.adoptTruppMarker('T1', 'a1')).toBe(true)
+    expect(state.board.gebaeude[0].truppId).toBe('T1')
+    expect(state.trupps[0].annoId).toBe('a1')
+    expect(state.trupps[0].planId).toBe('gebaeude')
+    expect(state.trupps[0].entityId).toBeUndefined()
+  })
+
+  // one Trupp, one place — the same rule «Platzieren» follows
+  it('drops the Trupp’s previous placement', async () => {
+    const chip = { id: 'a1', kind: 'resource' as const, x: 0.5, y: 0.5, floor: 0, text: 'Keller Anna', truppId: 'T1' }
+    const { actions, state } = pair(baseTrupp({ annoId: 'a1', planId: 'gebaeude' }), beat, {
+      entities: [marker({ id: 'e1', label: 'Trupp 2' })], board: { gebaeude: [chip] },
+    })
+    await actions.adoptTruppMarker('T1', 'e1')
+    expect(state.board.gebaeude).toEqual([])
+    expect(state.trupps[0].entityId).toBe('e1')
+    expect(state.trupps[0].annoId).toBeUndefined()
+  })
+
+  it('asks before taking a symbol off another Trupp — and Abbrechen writes nothing', async () => {
+    const held = { ...beat, entityId: 'e1' }
+    const { actions, state } = pair(anna, held, { entities: [marker({ id: 'e1', truppId: 'T2', label: 'Berger Beat' })] })
+    expect(await actions.adoptTruppMarker('T1', 'e1')).toBe(false)
+    expect(ui.confirms).toHaveLength(1)
+    expect(ui.confirms[0].message).toContain('Berger Beat')
+    expect(ui.confirms[0].message).toContain('Keller Anna')
+    expect(state.doc.entities[0].truppId).toBe('T2')
+    expect(state.trupps[1].entityId).toBe('e1')
+  })
+
+  it('…and on «Übernehmen» the previous Trupp loses the PLACEMENT and nothing else', async () => {
+    ui.answer = true
+    const held = { ...beat, entityId: 'e1', lastContactTime: '2026-07-06T10:00:00Z', status: 'aktiv' as const }
+    const { actions, state } = pair(anna, held, { entities: [marker({ id: 'e1', truppId: 'T2' })] })
+    expect(await actions.adoptTruppMarker('T1', 'e1')).toBe(true)
+    expect(state.doc.entities[0].truppId).toBe('T1')
+    expect(state.trupps[0].entityId).toBe('e1')
+    const previous = state.trupps[1]
+    expect(previous.entityId).toBeUndefined()
+    // ⚠️ the clock doctrine: a takeover of a SYMBOL is not an event in the Atemschutzüberwachung
+    expect(previous.status).toBe('aktiv')
+    expect(previous.lastContactTime).toBe('2026-07-06T10:00:00Z')
+    expect(previous.exitTime).toBeUndefined()
+    expect(previous.readings).toEqual(held.readings)
+  })
+
+  it('never asks the operator to take a symbol over from itself', async () => {
+    const { actions } = pair(baseTrupp({ entityId: 'e1' }), beat, { entities: [marker({ id: 'e1', truppId: 'T1' })] })
+    expect(await actions.adoptTruppMarker('T1', 'e1')).toBe(true)
+    expect(ui.confirms).toHaveLength(0)
+  })
+
+  it('refuses an id that is not a placed Trupp', async () => {
+    const { actions } = pair(anna, beat, { entities: [marker({ id: 's1', kind: 'symbol' })] })
+    expect(await actions.adoptTruppMarker('T1', 's1')).toBe(false)
+    expect(await actions.adoptTruppMarker('T1', 'nope')).toBe(false)
+  })
+
+  it('releasing leaves the symbol standing — it just belongs to nobody', () => {
+    const { actions, state } = pair(baseTrupp({ entityId: 'e1' }), beat, {
+      entities: [marker({ id: 'e1', truppId: 'T1', label: 'Keller Anna' })],
+    })
+    actions.releaseTruppMarker('e1')
+    expect(state.doc.entities).toHaveLength(1)
+    expect(state.doc.entities[0].truppId).toBeUndefined()
+    expect(state.doc.entities[0].label).toBe('Keller Anna')
+    expect(state.trupps[0].entityId).toBeUndefined()
+    // …and the clock is untouched here too
+    expect(state.trupps[0].status).toBe('aktiv')
+    expect(state.trupps[0].lastContactTime).toBe(anna.lastContactTime)
+  })
+})
+
+/* ── «Der Trupp steht jetzt da – ist er eingerückt?» ────────────────────────────────────────────
+ *
+ * Placing (or joining) a symbol for a Trupp the board says never went in is the one moment the
+ * picture and the record disagree. The ask is the fix; confirming runs the board's own
+ * «Einrücken», declining leaves the symbol and nothing else. */
+describe('useTruppActions — the check-in ask on placement', () => {
+  const standby = () => baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] })
+
+  beforeEach(() => { ui.confirms.length = 0; ui.answer = false })
+
+  it('asks when an angemeldeter Trupp is placed, and «Einrücken» starts the clock', async () => {
+    ui.answer = true
+    const { actions, state } = harness(standby())
+    actions.placeTruppOnMap('T1')
+    await Promise.resolve() // the ask is fired-and-forgotten by the placement
+    await Promise.resolve()
+    expect(ui.confirms).toHaveLength(1)
+    expect(ui.confirms[0].message).toContain('Keller Anna')
+    expect(state.trupps[0].status).toBe('aktiv')
+    expect(state.trupps[0].entryTime).toBeTruthy()
+    expect(state.trupps[0].lastContactTime).toBeTruthy()
+    // the board's own «Einrücken» — so the entry reading is written the same way
+    const readings = state.trupps[0].readings ?? []
+    expect(readings[readings.length - 1]).toMatchObject({ kind: 'entry', bar: 300 })
+  })
+
+  it('declining places the symbol and nothing else — no clock, no entry row', async () => {
+    const { actions, state } = harness(standby())
+    actions.placeTruppOnMap('T1')
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(ui.confirms).toHaveLength(1)
+    expect(state.doc.entities[0].truppId).toBe('T1') // …the placement itself stands
+    expect(state.trupps[0].status).toBe('angemeldet')
+    expect(state.trupps[0].entryTime).toBe('')
+    expect(state.trupps[0].readings).toEqual([])
+  })
+
+  // a crew that is already inside has nothing to confirm, and one that is out would need a fresh
+  // cylinder («Wieder einrücken») — neither may be asked on a placement
+  it('stays quiet for a Trupp that is in the field or already out', async () => {
+    const inField = harness(baseTrupp({ status: 'aktiv' }))
+    inField.actions.placeTruppOnMap('T1')
+    const out = harness(baseTrupp({ status: 'raus', exitTime: '2026-07-06T11:00:00Z' }))
+    out.actions.placeTruppOnMap('T1')
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(ui.confirms).toHaveLength(0)
   })
 })

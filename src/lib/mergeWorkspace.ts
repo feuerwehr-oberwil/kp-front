@@ -45,6 +45,10 @@ interface WsShape {
   reportMeta?: Record<string, unknown> // Einsatzrapport bookkeeping text
   building?: unknown // the Gebäude floor-stack doc (merged whole — same-object stays LWW)
   pickedObjectId?: unknown // the shared picked Einsatzobjekt (one picture across devices)
+  // «Einsatzdaten geprüft» stamp — MUST be merged, not defaulted to mine: a device that still
+  // shows the review banner saves without it, and `...m` would quietly unset the stamp another
+  // device just wrote, bringing the banner back on every device.
+  intakeReviewedAt?: unknown
   [k: string]: unknown
 }
 
@@ -261,5 +265,6 @@ export function mergeWorkspace(
     ),
     building: pick3(b.building, m.building, t.building),
     pickedObjectId: pick3(b.pickedObjectId, m.pickedObjectId, t.pickedObjectId),
+    intakeReviewedAt: pick3(b.intakeReviewedAt, m.intakeReviewedAt, t.intakeReviewedAt),
   }
 }

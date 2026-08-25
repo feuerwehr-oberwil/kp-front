@@ -7,7 +7,7 @@ import type { SymbolControl } from '../types'
 afterEach(cleanup)
 
 // Steppers are keyed by their German labels (appConfig.copy.contextPanel).
-const L = { floor: 'Geschoss', count: 'Anzahl', rotation: 'Drehung' }
+const L = { floor: 'Geschoss', floorFrom: 'Von Geschoss', floorTo: 'Bis Geschoss', count: 'Anzahl', rotation: 'Drehung' }
 
 function setup(over: Partial<React.ComponentProps<typeof ContextPanel>> = {}) {
   const entity: SymbolView = { id: 's1', symbol: 'VKF Feuer', label: 'Brand', ...(over.entity ?? {}) }
@@ -57,6 +57,16 @@ describe('ContextPanel — stepper gating by the `controls` prop', () => {
     expect(hasStepper(L.floor)).toBe(true)
     expect(hasStepper(L.count)).toBe(true)
     expect(hasStepper(L.rotation)).toBe(true)
+  })
+
+  it('shows the von/bis storeys for a symbol that declares ONLY floorRange (the Lift)', () => {
+    // ⚠️ regression: floorRange was missing from the gate around the stepper row, so a Lift —
+    // whose preset lists no other control — rendered no steppers at all and its storey span was
+    // unreachable on both surfaces.
+    setup({ controls: new Set<SymbolControl>(['floorRange']), onFloorFrom: vi.fn(), onFloorTo: vi.fn() })
+    expect(hasStepper(L.floorFrom)).toBe(true)
+    expect(hasStepper(L.floorTo)).toBe(true)
+    expect(hasStepper(L.floor)).toBe(false)
   })
 
   it('a declared control whose callback is NOT wired stays hidden', () => {

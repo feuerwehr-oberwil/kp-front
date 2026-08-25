@@ -74,3 +74,17 @@
 }
 .retry:hover { filter: brightness(1.06); }
 .retry:active { transform: scale(.97); }
+/* failure detail — see PdfViewport.module.css for the same two lines on the board */
+.reason {
+  max-width: 30ch;
+  margin-top: -6px;
+  text-align: center;
+  line-height: 1.35;
+}
+.code {
+  pointer-events: auto;
+  user-select: text;
+  font: 400 11px var(--mono);
+  letter-spacing: .02em;
+  opacity: .7;
+}

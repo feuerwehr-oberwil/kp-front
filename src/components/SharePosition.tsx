@@ -44,13 +44,22 @@ function hintFor(state: Exclude<ShareState, 'off'>, imprecise: boolean): string 
  * The one-time question, then the name picker. Two steps rather than one screen: the decision
  * («teile ich meinen Standort?») and the identification («wer bin ich?») are different
  * questions, and stacking a roster list under the explanation buries the explanation.
+ *
+ * The picker is asked ONCE PER EINSATZ, never once per device: a Tablet that gets handed
+ * around reported a whole Einsatz under the previous holder's name. The remembered person is
+ * offered first so the usual case (own phone, next alarm) is still one tap — but it is a tap,
+ * and that tap is the confirmation.
  */
-export function SharePositionSheet({ roster, onPick, onClose, pickOnly }: {
+export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPersonId, reconfirm }: {
   roster: Person[]
   onPick: (personId: string, displayName: string) => void
   onClose: () => void
   /** skip the explanation — the device already has permission and is only changing the name */
   pickOnly?: boolean
+  /** whom this device last reported as. Offered first and marked, never pre-selected. */
+  lastPersonId?: string | null
+  /** this is the «neuer Einsatz» ask, not «Namen ändern» — say why the question is back */
+  reconfirm?: boolean
 }) {
   const C = appConfig.copy.sharePosition
   const [step, setStep] = useState<'ask' | 'pick'>(pickOnly ? 'pick' : 'ask')
@@ -61,10 +70,15 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly }: {
     const needle = searchQuery(q)
     return roster
       .filter((p) => p.active && (!needle || matchesQuery(needle, p.displayName)))
-      // Officer-first, then alphabetical — the same order every other roster list uses, so
-      // finding yourself is the same motion here as in the Anwesenheit.
-      .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de-CH'))
-  }, [roster, q])
+      // Whoever this device reported as last goes to the top — one scroll-free tap for the
+      // phone in somebody's own pocket. Below that: officer-first, then alphabetical, the same
+      // order every other roster list uses, so finding yourself is the same motion here as in
+      // the Anwesenheit.
+      .sort((a, b) =>
+        Number(b.id === lastPersonId) - Number(a.id === lastPersonId)
+        || rankOrder(a.rank) - rankOrder(b.rank)
+        || a.displayName.localeCompare(b.displayName, 'de-CH'))
+  }, [roster, q, lastPersonId])
 
   if (step === 'ask') {
     return (
@@ -91,7 +105,7 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly }: {
   return (
     <Modal title={C.pickTitle} onClose={onClose}>
       <div className={s.pick}>
-        <p className={s.note}>{C.pickHint}</p>
+        <p className={s.note}>{reconfirm ? C.pickAgain : C.pickHint}</p>
         <input
           className={s.search}
           type="search"
@@ -108,6 +122,8 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly }: {
               <button type="button" className={s.person} onClick={() => onPick(p.id, p.displayName)}>
                 {p.rank && <span className={s.rank}>{rankAbbr(p.rank)}</span>}
                 <span className={s.name}>{p.displayName}</span>
+                {/* A mark, not a pre-selection: nothing is sent until this row is tapped. */}
+                {p.id === lastPersonId && <span className={s.last}>{C.pickLast}</span>}
               </button>
             </li>
           ))}

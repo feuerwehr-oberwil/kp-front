@@ -6,7 +6,7 @@ import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, L
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { LINE_DASH_ML } from '../lib/draw'
-import { markerParamsAlong, lerpPoint, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
+import { markerParamsAlong, lerpPoint, vertexHandleIndices, evenIndices } from '../lib/lineStyle'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -28,7 +28,7 @@ import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { reportClientError } from '../lib/reportError'
 import { QuietAttributionControl } from './MapAttribution'
-import { advanceDwell, attachInsetPx, boundaryPoint, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
 // The pass measures a label before it exists in the DOM, so the chrome around its text has to
@@ -100,21 +100,33 @@ function LockChip({ onUnlock }: { onUnlock: () => void }) {
 // the tree root, which is an ANCESTOR of the map container, so maplibre's own listener on the
 // canvas container has already fired by then — the same tap would insert here AND append a
 // point at the end of the path, which is the opposite of what was asked for.
-function MeasureInsertHandle({ title, onInsert }: { title: string; onInsert: () => void }) {
+//
+// ⚠️ pointerdown INSERTS and hands the new node straight on to the caller's drag (25.08. field
+// exercise): «tap the +, then find the node it left behind, then drag that» is three aims where
+// there should be one. A release without movement leaves exactly what the old plain click left —
+// one node at the segment's midpoint — so nothing was taken away. `onInsert` is called with the
+// pointer event when there is one, and with `null` for a keyboard activation (Enter/Space on the
+// focused button reports `detail === 0`), where there is no gesture to hand over.
+function MeasureInsertHandle({ title, onInsert }: { title: string; onInsert: (e: PointerEvent | null) => void }) {
   const ref = useRef<HTMLButtonElement>(null)
   // re-bind each render so the closure sees the current onInsert (one element, one listener)
   useEffect(() => {
     const el = ref.current
     if (!el) return
     const swallow = (e: Event) => e.stopPropagation()
-    const click = (e: Event) => { e.stopPropagation(); e.preventDefault(); onInsert() }
+    const down = (e: PointerEvent) => { e.stopPropagation(); e.preventDefault(); onInsert(e) }
+    const click = (e: Event) => {
+      e.stopPropagation(); e.preventDefault()
+      if ((e as MouseEvent).detail !== 0) return // a pointer already inserted on its way down
+      onInsert(null)
+    }
+    el.addEventListener('pointerdown', down)
     el.addEventListener('click', click)
-    el.addEventListener('pointerdown', swallow)
     el.addEventListener('mousedown', swallow)
     el.addEventListener('touchstart', swallow, { passive: true })
     return () => {
+      el.removeEventListener('pointerdown', down)
       el.removeEventListener('click', click)
-      el.removeEventListener('pointerdown', swallow)
       el.removeEventListener('mousedown', swallow)
       el.removeEventListener('touchstart', swallow)
     }
@@ -142,7 +154,7 @@ interface Props {
   entities: Entity[]
   layers: LayerDef[]
   byName: Record<string, string>
-  /** global S/M/L symbol-size multiplier (lib/prefs · symbolMul) — scales the symPx band */
+  /** per-device map symbol-size multiplier (lib/prefs · symbolScales, Einstellungen slider) — scales the symPx band */
   symMul?: number
   /** device default for on-canvas symbol captions (lib/prefs · symbolCaptions) */
   captionMode?: CaptionMode
@@ -176,6 +188,8 @@ interface Props {
    *  the alarm host: the map must not re-render every second (measured battery drain). */
   truppSeverities?: Record<string, 1 | 2>
   onShowTrupp?: (truppId: string) => void
+  /** join a team marker to an Atemschutz-Trupp (undefined = let go) — see MapMarkers */
+  onTeamTrupp?: (entityId: string, truppId: string | undefined) => void
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker (absent = locked, or a Trupp-bound marker) */
   onTeamRename?: (id: string, name: string) => void
@@ -271,7 +285,7 @@ interface Props {
 }
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
@@ -327,7 +341,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     mapInst.current = null
     setMapReady(false)
   })
-  type EndpointDrag = { id: string; endpoint: LineEndpoint; coord: LngLat; dwell: DwellState; candidate: MagneticTarget | null }
+  // `origin` + `attached` + `detach` are the RELEASE half of the ring language: where the endpoint
+  // was plugged in when the drag started, whether it still is, and how full the red ring is.
+  type EndpointDrag = { id: string; endpoint: LineEndpoint; coord: LngLat; origin: LngLat; attached: boolean; detach: number; dwell: DwellState; candidate: MagneticTarget | null }
   const [endpointDrag, setEndpointDragState] = useState<EndpointDrag | null>(null)
   const endpointDragRef = useRef<EndpointDrag | null>(null)
   const dwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -427,38 +443,53 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     return [...objectTargets, ...lineTargets]
   }
   const beginEndpointDrag = (id: string, endpoint: LineEndpoint, coord: LngLat) => {
-    setEndpointDrag({ id, endpoint, coord, dwell: EMPTY_DWELL, candidate: null })
+    const stored = storedDrawings.find((d) => d.id === id)
+    const attached = !!(endpoint === 'start' ? stored?.startAttachment : stored?.endAttachment)
+    setEndpointDrag({ id, endpoint, coord, origin: coord, attached, detach: 0, dwell: EMPTY_DWELL, candidate: null })
   }
   const moveEndpointDrag = (coord: LngLat) => {
     const st = endpointDragRef.current, map = mapInst.current
     if (!st || !map) return
     const pointer = map.project(coord)
+    if (dwellTimer.current) clearTimeout(dwellTimer.current)
+    // Still hooked up? Then the only thing on offer is letting go, and the red ring at the OLD
+    // socket runs on distance: pull past the detach radius and the link is off (the endpoint is
+    // free from here on, and can court a new target below); stop short and release, and it
+    // springs back exactly where it was. No candidate is offered meanwhile — a blue ring while
+    // the line is still connected somewhere else would be two promises at once.
+    if (st.attached) {
+      const o = map.project(st.origin)
+      const detach = detachProgress([o.x, o.y], [pointer.x, pointer.y])
+      setEndpointDrag({ ...st, coord, detach, attached: detach < 1, candidate: null, dwell: EMPTY_DWELL })
+      if (detach >= 1) navigator.vibrate?.(12)
+      return
+    }
     const targets = candidatesAt(st.id, coord)
     const candidate = stickyMagneticTarget([pointer.x, pointer.y], targets, st.candidate?.key ?? null)
-    const dwell = advanceDwell(st.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now())
+    const dwell = advanceDwell(st.dwell, candidate?.key ?? null, Date.now())
     setEndpointDrag({ ...st, coord, candidate, dwell })
-    // haptic tick when a fresh target locks (visual fill is CSS-driven); no gating on it
-    if (dwellTimer.current) clearTimeout(dwellTimer.current)
-    if (candidate && !candidate.blocked && !dwell.armed) {
+    // A finger that has found its target STOPS MOVING — and then no pointermove fires, so
+    // `advanceDwell` alone would never reach `armed`. This timer is what actually closes the
+    // ring (the visible fill is the CSS twin of it) and ticks the haptics.
+    if (candidate && !dwell.armed) {
       dwellTimer.current = setTimeout(() => {
         const cur = endpointDragRef.current
         if (!cur || cur.candidate?.key !== candidate.key) return
         setEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } })
         navigator.vibrate?.(12)
-      }, Math.max(0, 350 - (Date.now() - dwell.since)))
+      }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - dwell.since)))
     }
   }
   const finishEndpointDrag = () => {
     const st = endpointDragRef.current
     if (!st) return
     if (dwellTimer.current) clearTimeout(dwellTimer.current)
-    const stored = storedDrawings.find((d) => d.id === st.id)
-    const existing = st.endpoint === 'start' ? stored?.startAttachment : stored?.endAttachment
-    // Move-not-detach: releasing over a valid target attaches / re-targets. Over empty space a FREE
-    // endpoint just moves there; an already-attached endpoint snaps back to its target (no change) —
-    // detaching is explicit (the × chip beside the node / the Verbindung lösen button), never a
-    // side effect of dragging. So attached branch lines can be repositioned without being severed.
-    if (st.candidate && !st.candidate.blocked) {
+    // Ring lädt, dann schnappt es: ONLY a completed dwell attaches. Releasing while the ring is
+    // still filling drops the endpoint free, right where the finger left it — that is the whole
+    // prevention story, and it needs no mode to leave.
+    // The other half is the release ring: an endpoint that is STILL attached (`st.attached`)
+    // never got pulled far enough, so nothing is written and the resolver springs it back.
+    if (st.dwell.armed && st.candidate) {
       const target = st.candidate.target
       const entity = target.kind === 'object' ? entities.find((e) => e.id === target.id) : null
       const port = target.kind === 'line' ? st.candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined : undefined
@@ -467,7 +498,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         ...(target.kind === 'object' && entity?.live ? { gps: { state: 'guarded' as const, confirmedAt: entity.coord, lastSafe: entity.coord } } : {}),
       }
       onDrawingAttachment?.(st.id, st.endpoint, attachment, st.coord)
-    } else if (!existing) onDrawingAttachment?.(st.id, st.endpoint, undefined, st.coord)
+    } else if (!st.attached) onDrawingAttachment?.(st.id, st.endpoint, undefined, st.coord)
     setEndpointDrag(null)
   }
 
@@ -484,47 +515,54 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const map = mapInst.current
     if (!map) return
     if (phase === 'start') {
+      // ── Line-START exception ──────────────────────────────────────────────────────────────
+      // A pointerDOWN that already lands inside a target's radius is deliberate aim: the finger
+      // was PUT on the Teilstück's prong because that is where the branch begins. There is
+      // nothing to hesitate about, so this one arms instantly and its ring is drawn full — the
+      // dwell exists to catch targets a moving line PASSES OVER, not the one it was aimed at.
+      // (Node-mode taps come through here too, and for the same reason: every tap is aimed.)
+      if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
       const targets = candidatesAt('__draft__', coord), pp = map.project(coord)
       const candidate = nearestMagneticTarget([pp.x, pp.y], targets)
       const atStart = draftKind === 'line' && !freehand ? draft.length === 0 : true
-      const next: DraftMagnet = { first: coord, coord, atStart, dwell: advanceDwell(EMPTY_DWELL, candidate && !candidate.blocked ? candidate.key : null, Date.now()), candidate }
-      setDraftMagnet(next)
-      if (candidate && !candidate.blocked) draftDwellTimer.current = setTimeout(() => {
-        const now = draftMagnet.current
-        if (!now || now.candidate?.key !== candidate.key) return
-        const attachment = attachmentForCandidate(candidate)
-        setDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true }, ...(now.atStart ? { startAttachment: attachment } : { endAttachment: attachment }) })
-        navigator.vibrate?.(12)
-      }, 350)
+      const attachment = candidate ? attachmentForCandidate(candidate) : undefined
+      setDraftMagnet({
+        first: coord, coord, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()),
+        ...(attachment ? (atStart ? { startAttachment: attachment } : { endAttachment: attachment }) : {}),
+      })
+      if (candidate) navigator.vibrate?.(12)
     } else if (phase === 'move') {
       const cur = draftMagnet.current; if (!cur) return
       const a = map.project(cur.first), b = map.project(coord)
       const atStart = Math.hypot(b.x - a.x, b.y - a.y) < 10 && !cur.startAttachment
       const targets = candidatesAt('__draft__', coord)
       const candidate = stickyMagneticTarget([b.x, b.y], targets, cur.candidate?.key ?? null)
-      const next = { ...cur, coord, atStart, candidate, dwell: advanceDwell(cur.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now()) }
+      // Leaving the start point ends the start's claim: from here the FAR end has to earn its own
+      // ring, even over the very target the stroke began on. Without this reset the instantly
+      // armed start would hand its `armed` straight to the end.
+      const base = atStart === cur.atStart ? cur.dwell : EMPTY_DWELL
+      const next = { ...cur, coord, atStart, candidate, dwell: advanceDwell(base, candidate?.key ?? null, Date.now()) }
       setDraftMagnet(next)
       if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
-      if (candidate && !candidate.blocked && !next.dwell.armed) draftDwellTimer.current = setTimeout(() => {
+      // arm on a motionless finger (no pointermove ⇒ no advanceDwell); the attachment itself is
+      // only materialised on release, so moving on after arming still lets the end go free.
+      if (candidate && !next.dwell.armed) draftDwellTimer.current = setTimeout(() => {
         const now = draftMagnet.current
         if (!now || now.candidate?.key !== candidate.key) return
-        const attachment = attachmentForCandidate(candidate)
-        setDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true }, ...(now.atStart ? { startAttachment: attachment } : { endAttachment: attachment }) })
+        setDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } })
         navigator.vibrate?.(12)
-      }, Math.max(0, 350 - (Date.now() - next.dwell.since)))
+      }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - next.dwell.since)))
     } else {
       const cur = draftMagnet.current
       if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
-      // Attach on release, no dwell hold needed. Recompute the target at the actual release point
-      // (a fast stroke never lingers long enough for 'move' to have locked one) so the END of a
-      // freehand line attaches when it finishes on an object or another line's endpoint.
-      const rp = map.project(coord)
-      const candidate = stickyMagneticTarget([rp.x, rp.y], candidatesAt('__draft__', coord), cur?.candidate && !cur.candidate.blocked ? cur.candidate.key : null)
-      const atEnd = !!cur && !cur.atStart
+      // Ring lädt, dann schnappt es: the far end attaches only if its ring actually closed. A
+      // stroke that FINISHES on a symbol without pausing there lands free — deliberately, and it
+      // is the reason the ring is drawn at all. (Until 25.08. this recomputed the target at the
+      // release point and attached regardless, which is the invisible coupling from the field.)
       let start = cur?.startAttachment, end = cur?.endAttachment
-      if (candidate && !candidate.blocked) {
-        const attachment = attachmentForCandidate(candidate)
-        if (cur?.atStart) start = start ?? attachment; else if (atEnd) end = end ?? attachment
+      if (cur?.dwell.armed && cur.candidate) {
+        const attachment = attachmentForCandidate(cur.candidate)
+        if (cur.atStart) start = start ?? attachment; else end = end ?? attachment
       }
       const out = cur ? { startAttachment: start, endAttachment: end } : undefined
       setDraftMagnet(null)
@@ -902,9 +940,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     ? [measureKind === 'area' && measurePoints.length >= 3 ? polyFeat(measurePoints) : lineFeat(measurePoints)]
     : [])
 
-  // editing a selected drawing: show draggable vertex handles + a move handle. Vertex
-  // handles are hidden for big freehand strokes (too many points to grab) — those can
-  // still be moved/deleted as a whole. The fat hit-line lets a click insert a vertex.
+  // editing a selected drawing: show draggable vertex handles + a move handle.
   // read-only never gets handles: the app's edit callbacks are no-ops there, so grabbable-looking
   // vertices would move under the finger and snap back — the worst kind of 3am lie.
   const editDraw = !readOnly && !picking && !freehand && !draftKind && !measureKind && resolvedSelectedDrawing && Array.isArray(resolvedSelectedDrawing.coords) && resolvedSelectedDrawing.coords.length > 0 ? resolvedSelectedDrawing : null
@@ -912,7 +948,22 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const editArea = !!editDraw && editDraw.kind === 'area' && editDraw.coords.length >= 3
   // circle: no per-vertex handles (it's centre + radius, not a polyline) — the centre
   // move-grip relocates it and the DrawEditor sets the radius.
-  const editVertices = !!editDraw && !editCircle && editDraw.coords.length <= MAX_VERTEX_HANDLES
+  const editNodes = !!editDraw && !editCircle
+  // Which of those vertices actually get a pad. A dense freehand stroke used to get NONE (the
+  // old `coords.length <= MAX_VERTEX_HANDLES` gate) — it now gets an evenly spread subset that
+  // densifies as the operator zooms in, since the thinning is measured in projected px. Recomputed
+  // on every render; the map bumps a render on moveend (see bumpLabelFrame), so a pinch-zoom lands
+  // the new spread when the fingers come off.
+  const editHandleIdx = editNodes && editDraw
+    ? mapInst.current
+      ? vertexHandleIndices(editDraw.coords.map((c) => { const p = mapInst.current!.project(c as [number, number]); return [p.x, p.y] as [number, number] }))
+      : evenIndices(editDraw.coords.length)
+    : []
+  // every node is on screen ⇒ the «+» midpoint handles are honest. On a thinned line they are not:
+  // the midpoint between two SHOWN nodes is nowhere near the path when real vertices sit between
+  // them, so inserting there would yank the line straight. Tapping the fat hit-line still inserts
+  // at the right segment (segInsertIndex walks all points), which is the affordance that survives.
+  const editAllNodes = editNodes && !!editDraw && editHandleIdx.length === editDraw.coords.length
   const editFC = fc(editDraw ? [editCircle ? polyFeat(circleRing(editDraw)) : editArea ? polyFeat(editDraw.coords) : lineFeat(editDraw.coords)] : [])
   const editCentroid: LngLat | null = editDraw
     ? [editDraw.coords.reduce((s, c) => s + c[0], 0) / editDraw.coords.length,
@@ -1010,6 +1061,45 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }
   const drawRotUp = () => { if (drawRot.current && editDraw) onDrawingEdit?.(editDraw.id, editDraw.coords, 'end'); drawRot.current = null }
 
+  /**
+   * Continue a gesture that started on a «+» as a drag of the node it just inserted — the second
+   * half of MeasureInsertHandle's one-gesture insert. Listens on `window` in the capture phase for
+   * the same reason nodeHold does: the pointer session began on a button inside a react-map-gl
+   * Marker, which is not the element the rest of the gesture is delivered to.
+   *
+   * `NUDGE_PX` of slop first, so a plain tap on the «+» stays a plain tap and never writes a
+   * reshape (or a Verlauf row) for a node that did not move.
+   */
+  const handOffNodeDrag = (ev: PointerEvent, apply: (at: LngLat | null, phase: 'start' | 'move' | 'end') => void) => {
+    const m = mapInst.current
+    if (!m) return
+    const NUDGE_PX = 4
+    const sx = ev.clientX, sy = ev.clientY
+    let moved = false
+    const at = (e: PointerEvent): LngLat | null => {
+      const r = m.getContainer().getBoundingClientRect()
+      const p = m.unproject([e.clientX - r.left, e.clientY - r.top])
+      return [p.lng, p.lat]
+    }
+    const move = (e: PointerEvent) => {
+      if (!moved) {
+        if (Math.hypot(e.clientX - sx, e.clientY - sy) < NUDGE_PX) return
+        moved = true
+        apply(null, 'start')
+      }
+      apply(at(e), 'move')
+    }
+    const up = (e: PointerEvent) => {
+      window.removeEventListener('pointermove', move, true)
+      window.removeEventListener('pointerup', up, true)
+      window.removeEventListener('pointercancel', up, true)
+      if (moved) apply(at(e), 'end')
+    }
+    window.addEventListener('pointermove', move, true)
+    window.addEventListener('pointerup', up, true)
+    window.addEventListener('pointercancel', up, true)
+  }
+
   // which path segment a click landed on (pixel-space point→segment distance), so a
   // click on the measure line/outline inserts a vertex there instead of appending.
   // Returns the insert index (after the segment's start; closing edge → push at end).
@@ -1044,7 +1134,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       if (idx != null) { onMeasureInsert(idx, lc); return }
     }
     // clicking the selected drawing's outline inserts a vertex there (reshape)
-    if (editDraw && editVertices && onDrawingVertexInsert && e.features?.some((f) => f.layer?.id === 'l-draw-edit-hit')) {
+    if (editDraw && editNodes && onDrawingVertexInsert && e.features?.some((f) => f.layer?.id === 'l-draw-edit-hit')) {
       const idx = segInsertIndex(editDraw.coords, editArea, lc)
       if (idx != null) { onDrawingVertexInsert(editDraw.id, idx, lc); return }
     }
@@ -1257,7 +1347,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* selected drawing being edited: an outline + fat hit-line so a click on the edge
           inserts a vertex. The visible reshape handles are DOM Markers, rendered below. */}
-      {editDraw && editVertices && (
+      {editDraw && editNodes && (
         <Source id="s-draw-edit" type="geojson" data={editFC}>
           <Layer id="l-draw-edit-hit" type="line" paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 }} />
         </Source>
@@ -1314,7 +1404,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
             <Marker key={`mi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
-              <MeasureInsertHandle title={appConfig.copy.measure.insertPoint} onInsert={() => onMeasureInsert(i + 1, mid)} />
+              <MeasureInsertHandle title={appConfig.copy.measure.insertPoint}
+                onInsert={(ev) => {
+                  onMeasureInsert(i + 1, mid)
+                  // …and the same press keeps dragging the point it just made (see MeasureInsertHandle)
+                  if (ev && onMeasureDrag) handOffNodeDrag(ev, (ll) => { if (ll) onMeasureDrag(i + 1, ll) })
+                }} />
             </Marker>
           )
         })
@@ -1439,17 +1534,36 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         </Marker>
       ))}
 
-      {/* Snap indicator: a ring pinned to the connection point that fills up to solid over ~350ms
-          while hovered (keyed to the target so it restarts on a new one). It's a hover flourish —
-          the attach commits on release. Cycle-forming targets are silently skipped (never offered),
-          so there is no blocked state. No detach × on drag: detach is the explicit chip beside the node. */}
+      {/* «Ring lädt, dann schnappt es» — the ONE picture of attachment on this surface (the plan
+          draws the identical pair). The blue chip hangs BESIDE the target, never under the finger,
+          and its ring is the remaining dwell; a full ring is the only thing that attaches
+          (lib/lineAttachments · DwellState). The key carries `since`, so re-entering the same
+          target restarts the CSS fill instead of silently continuing an old one.
+          Cycle-forming targets are filtered out of the candidate list, so there is no blocked
+          state to draw. The red twin below is the release ring. */}
       {endpointDrag?.candidate && mapInst.current && (() => {
         const ll = mapInst.current.unproject(endpointDrag.candidate.point)
-        return <Marker key={endpointDrag.candidate.key} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className="magnet-port snap" /></Marker>
+        return (
+          <Marker key={`${endpointDrag.candidate.key}:${endpointDrag.dwell.since}`} longitude={ll.lng} latitude={ll.lat} anchor="center">
+            <span className="magnet-anchor"><NodeDeleteChip tone="connect" fillMs={MAGNET_DWELL_MS} /></span>
+          </Marker>
+        )
       })()}
+      {/* release: same chip, red, at the socket the endpoint is leaving — its ring fills with the
+          DISTANCE pulled out, and a full one is what actually unhooks it. The explicit
+          «Verbindung lösen» chip on a selected endpoint stays; this is the in-drag twin. */}
+      {endpointDrag?.attached && endpointDrag.detach > DETACH_SHOW_PROGRESS && (
+        <Marker longitude={endpointDrag.origin[0]} latitude={endpointDrag.origin[1]} anchor="center">
+          <span className="magnet-anchor"><NodeDeleteChip tone="release" progress={endpointDrag.detach} /></span>
+        </Marker>
+      )}
       {draftMagnetState?.candidate && mapInst.current && (() => {
         const ll = mapInst.current.unproject(draftMagnetState.candidate.point)
-        return <Marker key={draftMagnetState.candidate.key} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className="magnet-port snap" /></Marker>
+        return (
+          <Marker key={`${draftMagnetState.candidate.key}:${draftMagnetState.dwell.since}`} longitude={ll.lng} latitude={ll.lat} anchor="center">
+            <span className="magnet-anchor"><NodeDeleteChip tone="connect" fillMs={MAGNET_DWELL_MS} progress={draftMagnetState.dwell.armed ? 1 : undefined} /></span>
+          </Marker>
+        )
       })()}
       {hiddenAttachmentTargets.map((e) => <Marker key={`hidden-${e.id}`} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center"><span className="hidden-attachment-marker" /></Marker>)}
 
@@ -1502,20 +1616,32 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           has always had, and the Plan too. On the map inserting a node used to mean hitting the
           line's invisible 18px hit-band with no sign that this was possible at all (19.08.).
           Rendered BEFORE the vertices so a node handle wins wherever the two overlap. */}
-      {editDraw && editVertices && onDrawingVertexInsert && editDraw.coords.length >= 2 && (() => {
+      {editDraw && editAllNodes && onDrawingVertexInsert && editDraw.coords.length >= 2 && (() => {
         const n = editDraw.coords.length
         return Array.from({ length: pathSegmentCount(n, editArea) }, (_, i) => {
           const a = editDraw.coords[i], b = editDraw.coords[(i + 1) % n]
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
             <Marker key={`di${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
-              <MeasureInsertHandle title={appConfig.copy.measure.insertPoint} onInsert={() => onDrawingVertexInsert(editDraw.id, i + 1, mid)} />
+              <MeasureInsertHandle title={appConfig.copy.measure.insertPoint}
+                onInsert={(ev) => {
+                  onDrawingVertexInsert(editDraw.id, i + 1, mid)
+                  // the geometry is snapshotted WITH the new node (same reason the body-move grip
+                  // snapshots: 'move' streams into the doc, so reading it back races the shape away)
+                  if (!ev || !onDrawingEdit) return
+                  const grown = [...editDraw.coords.slice(0, i + 1), mid, ...editDraw.coords.slice(i + 1)]
+                  handOffNodeDrag(ev, (ll, phase) => onDrawingEdit(editDraw.id,
+                    ll ? grown.map((q, j) => (j === i + 1 ? ll : q)) : grown, phase))
+                }} />
             </Marker>
           )
         })
       })()}
 
-      {editDraw && editVertices && onDrawingEdit && editDraw.coords.map((p, i) => {
+      {/* the node pads. On a dense stroke this is a SUBSET of the vertices (vertexHandleIndices) —
+          `i` stays the real index into `coords`, so a drag/delete still hits the point it points at. */}
+      {editDraw && onDrawingEdit && editHandleIdx.map((i) => {
+        const p = editDraw.coords[i]
         const endpoint: LineEndpoint | null = editDraw.kind === 'line' && i === 0 ? 'start' : editDraw.kind === 'line' && i === editDraw.coords.length - 1 ? 'end' : null
         return (
         <Marker
@@ -1547,7 +1673,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           handle and, when attached, the detach chip. A grip on top of those would be a third
           thing competing for the same pixel.
           Lines only — an area has no end to grow from, and a circle is centre + radius. */}
-      {editDraw && editDraw.kind === 'line' && editVertices && onDrawingEdit && editDraw.coords.length >= 2
+      {editDraw && editDraw.kind === 'line' && editNodes && onDrawingEdit && editDraw.coords.length >= 2
         && (['start', 'end'] as const).map((ep) => {
         const coords = editDraw.coords
         const i = ep === 'start' ? 0 : coords.length - 1
@@ -1674,6 +1800,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onNoteWidth={onNoteWidth}
         trupps={trupps}
         onShowTrupp={onShowTrupp}
+        onTeamTrupp={onTeamTrupp}
         onTeamMark={onTeamMark}
         onTeamRename={onTeamRename}
         onTeamColor={onTeamColor}

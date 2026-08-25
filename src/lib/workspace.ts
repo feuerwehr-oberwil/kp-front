@@ -196,6 +196,15 @@ export interface Saved {
   attachments?: ReportAttachment[]
   /** per-incident synced operational settings (see IncidentSettings) */
   settings?: IncidentSettings
+  /** When the dispatch's guesses (Stichwort, Kategorie, Ort) were confirmed or corrected — the
+   *  «Einsatzdaten prüfen» banner's one-shot stamp, see lib/incidentAlerts · needsIntakeReview.
+   *
+   *  On the blob rather than on the device because the question is asked ONCE of the crew, not
+   *  once of every tablet: until 25.08. this was a localStorage set, so the Einsatz that had
+   *  already been checked at the desk still nagged the phone, the second tablet and everyone who
+   *  joined later. Whoever taps «Passt» stamps it here, and the next poll retires the banner
+   *  everywhere. Only an editor can write it; the device set stays as the offline fallback. */
+  intakeReviewedAt?: string
   /** weather reading at the reconstructed instant — populated only by the replay fold
    *  (from `weather.observe` events), never persisted in live saves. */
   weather?: WeatherData | null
@@ -317,6 +326,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     attachments: arr<ReportAttachment>(raw.attachments, hasId),
     settings: rec<IncidentSettings>(raw.settings),
+    intakeReviewedAt: str(raw.intakeReviewedAt),
     schemaVersion: sv,
   }
   return { ws, dropped, newerSchema: sv != null && sv > WORKSPACE_SCHEMA_VERSION }
@@ -337,6 +347,8 @@ export interface InitialState {
   reportMeta: ReportMeta
   settings: IncidentSettings
   pickedObjectId?: string
+  /** shared «Einsatzdaten geprüft» stamp (see Saved.intakeReviewedAt) */
+  intakeReviewedAt?: string
 }
 
 // the plan a fresh emergency opens on: Modul 1 (the Übersicht), falling back to the first
@@ -482,6 +494,7 @@ export function deriveInitial(
     planScale: ws?.planScale ?? {},
     reportMeta: ws?.reportMeta ?? {},
     settings: ws?.settings ?? {},
+    intakeReviewedAt: ws?.intakeReviewedAt,
     // synced per incident; one-time import of the legacy device-cookie pick for THIS incident so
     // an in-flight manual pick isn't dropped on upgrade (the blob value wins thereafter).
     pickedObjectId: ws?.pickedObjectId

@@ -111,9 +111,17 @@ export function saveDismissedIncident(id: string): void {
 // An alarm opens its own Einsatz now, so the dispatch's guesses — Stichwort, Kategorie,
 // Priorität, Ort — reach the live map uncorrected. The review banner is where the EL fixes
 // them: on the surface they are already looking at, with the Lage running behind it, rather
-// than in a wizard that has to be got through before anyone can work. Tapping «Passt» (or
-// saving a correction) retires it PER DEVICE, like every other banner in this file — an
-// unreviewed incident must nag once, not on every reload.
+// than in a wizard that has to be got through before anyone can work.
+//
+// ⚠️ Unlike every other banner in this file, this one retires ACROSS DEVICES (25.08.): the
+// dispatch's guesses are checked once by whoever gets there first, and until then every tablet
+// and phone that opened the Einsatz put the same question up again — the crew's report was that
+// the banner kept coming back on device after device, long after it had been answered at the
+// desk. Tapping «Passt» (or saving a correction) stamps `intakeReviewedAt` on the incident's
+// workspace blob (lib/workspace), and the other devices drop the banner on their next poll.
+// The per-device set below stays as the local half: it retires the banner INSTANTLY on the
+// tapping device (no waiting for a save + poll round trip) and keeps an offline device that
+// reviewed on its own from re-nagging after a reload.
 const REVIEWED_KEY = 'kp.incident.reviewed'
 
 export function loadReviewedIncidents(): Set<string> {
@@ -137,13 +145,15 @@ export function saveReviewedIncident(id: string): void {
  * Should the correct-in-place review banner show for this incident? Only for an EDITOR (a
  * viewer can't correct anything), only for an incident an alarm opened by itself
  * (`auto_opened` — a human-created one was already reviewed while it was typed), only while
- * it is fresh, and only until it has been reviewed on this device.
+ * it is fresh, and only until it has been reviewed ANYWHERE: `reviewedAt` is the incident
+ * workspace's shared stamp (someone else already confirmed it), `reviewed` this device's own
+ * memory of having done so.
  */
 export function needsIntakeReview(
   inc: IncidentMeta | null | undefined,
-  opts: { isEditor: boolean; reviewed: ReadonlySet<string>; now: number },
+  opts: { isEditor: boolean; reviewed: ReadonlySet<string>; reviewedAt?: string | null; now: number },
 ): boolean {
   if (!inc || !opts.isEditor || !inc.auto_opened || inc.is_archived) return false
-  if (opts.reviewed.has(inc.id)) return false
+  if (opts.reviewedAt || opts.reviewed.has(inc.id)) return false
   return opts.now - ts(inc.started_at) < INCIDENT_ALERT_MAX_AGE_MS
 }

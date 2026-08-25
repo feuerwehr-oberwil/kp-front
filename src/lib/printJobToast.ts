@@ -70,18 +70,21 @@ export function trackPrintJob(t: PrintTransport, jobId: string, done?: ToastActi
       })
     },
   }
-  // Amber, not the default: a job sitting in a queue is not a finished print, and the colour is
-  // the first thing read. Green is earned when the relay says `done`.
+  // The tone rides the EDGE, not the fill (`toneStyle: 'edge'`, see 08-toasts.css): a job sitting
+  // in a queue is not a finished print — but it is not an alarm either, and this pill stays up for
+  // as long as the print takes. A full red pill for a minute and a half said «etwas ist kaputt»
+  // about a printer that was merely busy, and the green that followed said it just as loudly.
+  // The colour is still the first thing read; it is now the only thing that changes.
   const queuedText = opts?.relayOffline ? `${R.queued} – ${R.offline}` : R.queued
-  const id = toast(queuedText, { sticky: true, tone: 'warn', steps: steps('queued'), action: undo })
+  const id = toast(queuedText, { sticky: true, tone: 'warn', toneStyle: 'edge', steps: steps('queued'), action: undo })
   void pollJobUntilDone(t, jobId, (s) => {
-    if (s.status === 'printing') updateToast(id, R.printing, { tone: 'warn', steps: steps('printing'), action: undo })
+    if (s.status === 'printing') updateToast(id, R.printing, { tone: 'warn', toneStyle: 'edge', steps: steps('printing'), action: undo })
     // …and the offer rides the last step, so «gedruckt» stands a little longer than it used to:
     // 4 s is enough to read a word, not to notice a button and decide to press it.
-    else if (s.status === 'done') { settle('done'); updateToast(id, R.printed, { tone: 'success', steps: steps('done'), duration: done ? 8000 : 4000, action: done ?? null }) }
+    else if (s.status === 'done') { settle('done'); updateToast(id, R.printed, { tone: 'success', toneStyle: 'edge', steps: steps('done'), duration: done ? 8000 : 4000, action: done ?? null }) }
     // a failure drops the chain and keeps the sentence: «wo es hängt» is obvious, «Drucker
     // prüfen» is the part the Erfasser has to read, and it does not fit next to three stages
-    else if (s.status === 'failed') { settle('failed'); updateToast(id, R.printFailed, { icon: 'warn', tone: 'warn', duration: 6000 }) }
+    else if (s.status === 'failed') { settle('failed'); updateToast(id, R.printFailed, { icon: 'warn', tone: 'warn', toneStyle: 'edge', duration: 6000 }) }
     else if (s.status === 'cancelled') { settle('cancelled'); dismissToast(id) }
   }).then((final) => {
     // Never reached a terminal state within the window (agent offline, printer very slow):
@@ -89,7 +92,7 @@ export function trackPrintJob(t: PrintTransport, jobId: string, done?: ToastActi
     // stays OUTSTANDING — no `settle` here — so whoever recorded it keeps showing it.
     if (!final || !TERMINAL.includes(final.status)) {
       const stage = final?.status === 'printing' ? 'printing' : 'queued'
-      updateToast(id, stage === 'printing' ? R.printing : queuedText, { tone: 'warn', steps: steps(stage), duration: 6000 })
+      updateToast(id, stage === 'printing' ? R.printing : queuedText, { tone: 'warn', toneStyle: 'edge', steps: steps(stage), duration: 6000 })
     }
   })
 }

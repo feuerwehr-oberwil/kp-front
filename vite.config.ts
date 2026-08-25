@@ -141,7 +141,19 @@ export default defineConfig(({ mode }) => {
           // worker activates but never controls the live tab, so applying an update just spins the
           // "wird geladen" overlay until the watchdog reloads — often back into the stale build.
           clientsClaim: true,
-          globPatterns: ['**/*.{js,css,html,svg,woff2,json}'],
+          // ⚠️ `mjs` IS LOAD-BEARING. pdf.js' 1.2 MB worker is imported with `?url`, so Vite
+          // emits it as an ASSET keeping its own extension (pdf.worker.min-<hash>.mjs) rather
+          // than as a `.js` chunk. Without `mjs` here the precache contained only the 68-byte
+          // stub module that HOLDS that URL, never the worker itself — so the one file the
+          // whole PDF stack cannot work without was fetched from the server on every open.
+          // Combined with `registerType: 'prompt'` (a tablet legitimately stays on an old build
+          // until the app is fully closed, which an installed iOS app never is) that meant:
+          // deploy → the old hash is gone from the server → 404 → EVERY PDF fails, on exactly
+          // the devices that had not restarted, while the rest of the app ran fine out of their
+          // precache. Field report 2026-08-25 («PDF konnte nicht geladen werden», all PDFs, a
+          // few devices, no pattern). Adding an extension here is never cosmetic — check what
+          // is emitted with it (`ls dist/assets`) before removing one.
+          globPatterns: ['**/*.{js,mjs,css,html,svg,woff2,json}'],
           // custom notificationclick handler (focus/open the app + route to the right tab)
           importScripts: ['sw-notify.js'],
           // maplibre + pdf.worker chunks are large; precache them so the shell works offline.

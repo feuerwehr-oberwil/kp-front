@@ -433,6 +433,17 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
      two keeps a phone sheet short enough to stand above the keyboard. The 16px padding is the
      frame and stays larger — that is the edge, not a step in the rhythm. */
   display: flex; flex-direction: column; gap: 8px; animation: pop .16s var(--ease); }
+/* ⚠️ Nothing in the sheet shrinks. A flex column shrinks its items before the container scrolls,
+   so a sheet a few px over its cap silently compressed a row instead of scrolling — and the row
+   it compressed was always the SAME one: the suggestion band carries `overflow-y: hidden` for its
+   sideways scroll (18-audio.css), which is what makes its automatic minimum height 0, so it is the
+   only child the flex algorithm can take anything from. It gave everything: measured on a tablet
+   in landscape with the keyboard up, a card 6px over its cap collapsed the whole 44px band to
+   nothing — the Textbausteine were «cut off» while every other row kept its height.
+   Now the rows keep theirs too and the sheet scrolls, which is what `overflow-y: auto` is for.
+   (Was phone-only in 15-mobile.css; the desktop/tablet card is the same capped flex column and
+   the keyboard makes the cap bite hardest exactly there.) */
+.journal-composer > * { flex: none; }
 /* Touch, tablet and up: the composer opens with the text field already focused, so the OS
    keyboard is up before the card has finished animating in — and an iPad keyboard is close to
    half the screen. Anchored at 11vh the media row and «Speichern» sat behind it. Ride up to the

@@ -2,20 +2,37 @@ import { useEffect, useRef, useState } from 'react'
 import type * as PdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { appConfig } from '../config/appConfig'
+import { GIT_SHA } from '../lib/buildInfo'
+import { diagnosePdfFailure, type PdfFailure } from '../lib/pdfDiagnosis'
 import s from './PdfViewport.module.css'
+
+// The worker asset's URL, remembered for the diagnosis path: when a PDF fails, whether that
+// file is still being served is the single most telling fact we can gather (lib/pdfDiagnosis).
+// Stays null while the pdfjs chunk has never resolved — which is itself a diagnosis.
+let workerUrl: string | null = null
+export const pdfWorkerUrl = () => workerUrl
 
 // pdfjs (+ its ~1.2 MB worker) is the single heaviest dependency in the app and is only
 // needed on the Plan tab. Load it lazily via dynamic import() so it lands in its own chunk
 // and never ships in the initial bundle — the PDF stack downloads on first plan render.
+//
+// ⚠️ `?url` makes the worker its own EMITTED ASSET (pdf.worker.min-<hash>.mjs), not a chunk —
+// so it has to be matched by the service worker's `globPatterns` BY EXTENSION. It was not
+// (`.mjs` was missing) until 2026-08-25, which meant the one file the whole PDF stack cannot
+// work without was the one file never precached: fetched from the server on every open, and
+// gone from the server the moment the next deploy replaced its hash. Devices still on the old
+// build — registerType is 'prompt', and an installed iOS app is never closed — then failed
+// EVERY PDF while the rest of the app ran happily out of their precache.
 let pdfjsPromise: Promise<typeof PdfjsLib> | null = null
 function getPdfjs(): Promise<typeof PdfjsLib> {
   if (!pdfjsPromise) {
     const p = (async () => {
-      const [pdfjsLib, { default: workerUrl }] = await Promise.all([
+      const [pdfjsLib, { default: url }] = await Promise.all([
         import('pdfjs-dist'),
         import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
       ])
-      pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
+      workerUrl = url
+      pdfjsLib.GlobalWorkerOptions.workerSrc = url
       return pdfjsLib
     })()
     // a failed chunk load (brief offline moment) must not poison the app until a full
@@ -230,7 +247,10 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
   const [statusUrl, setStatusUrl] = useState(url)
   const [attempt, setAttempt] = useState(0)
   const [slow, setSlow] = useState(false)
-  if (url !== statusUrl) { setStatusUrl(url); setStatus('loading') }
+  // why the last attempt failed — rendered under the message so a field report carries a
+  // cause instead of «geht nicht» (lib/pdfDiagnosis)
+  const [fail, setFail] = useState<PdfFailure | null>(null)
+  if (url !== statusUrl) { setStatusUrl(url); setStatus('loading'); setFail(null) }
 
   // «Erneut laden» surfaces once a load has been pending for a while — the normal
   // cached/prewarmed fast path never flashes the button
@@ -246,6 +266,7 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
   const retry = () => {
     evictPlan(url)
     setStatus('loading')
+    setFail(null)
     setAttempt((a) => a + 1)
   }
 
@@ -265,7 +286,11 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
         canvas.getContext('2d')?.drawImage(bitmap, 0, 0)
         setStatus('ready')
       })
-      .catch(() => { if (!cancelled) setStatus('error') })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setStatus('error')
+        void diagnosePdfFailure(err, pdfWorkerUrl()).then((f) => { if (!cancelled) setFail(f) })
+      })
     return () => { cancelled = true }
   }, [url, vw, vh, attempt]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -325,11 +350,29 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
       {status !== 'ready' && (
         <div className={s['wb-pdf-status']} role="status">
           <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
+          {fail && <PdfFailDetail fail={fail} reasonClass={s['wb-pdf-reason']} codeClass={s['wb-pdf-code']} />}
           {(status === 'error' || slow) && (
             <button type="button" className={s['wb-pdf-retry']} onClick={retry}>{appConfig.copy.pdf.retry}</button>
           )}
         </div>
       )}
+    </>
+  )
+}
+
+/**
+ * The two lines under «PDF konnte nicht geladen werden.»: what to do about it, and the code to
+ * read out. Shared with PdfScroller — same information, each surface's own class names.
+ *
+ * The code is shown, not hidden behind a tap: at 3am nobody goes looking for details, and a
+ * reason nobody reads is worth nothing. It is selectable so it can be copied on a desk machine,
+ * and short enough to say over the radio («worker-404, Build 692d28a»).
+ */
+export function PdfFailDetail({ fail, reasonClass, codeClass }: { fail: PdfFailure; reasonClass?: string; codeClass?: string }) {
+  return (
+    <>
+      <span className={reasonClass}>{appConfig.copy.pdf.reason[fail.reason]}</span>
+      <code className={codeClass}>{`${fail.code} · ${GIT_SHA}`}</code>
     </>
   )
 }

@@ -15,6 +15,7 @@ import { useIsPhone } from '../lib/useIsPhone'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
+import type { MarkerOption } from '../lib/placedTrupps'
 import { ClearableInput } from './ClearableInput'
 import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
@@ -53,7 +54,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
+  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus,
@@ -90,6 +91,13 @@ export function AtemschutzView({
   placeTrupp: (id: string, targetId?: string) => void
   /** where a Trupp can be placed (Lage map / Gebäude / Modul 6) — >1 shows a picker first */
   placeTargets: { id: string; label: string }[]
+  /** the Trupp symbols ALREADY standing on the Lage / a plan (lib/placedTrupps · markerOptions),
+   *  offered under the placement targets: a «Trupp 2» dropped before anybody was registered is
+   *  joined to its Trupp from here, the way a Trupp picks a drawn Leitung. */
+  markerOptions: (exceptTruppId?: string) => MarkerOption[]
+  /** join one of those symbols to this Trupp (useTruppActions · adoptTruppMarker — it owns the
+   *  takeover confirm, so this side just hands over the two ids) */
+  adoptMarker: (truppId: string, markerId: string) => void
   focusTruppOnPlan: (id: string) => void
   recordContact: (id: string) => void
   recordPressure: (id: string, bar: number) => void
@@ -140,11 +148,16 @@ export function AtemschutzView({
   // a Trupp awaiting a Gebäude/Modul-6 placement choice (only when >1 target exists)
   const [placePick, setPlacePick] = useState<string | null>(null)
   const handlePlace = (id: string) => {
-    // no plan to place on yet — the EL must first create a Gebäude (from the Umrisse) or there's
-    // no Modul 6 for this object. Tell them rather than silently doing nothing.
-    if (placeTargets.length === 0) { toast(az.placeNoTarget, { icon: 'warn', tone: 'warn' }); return }
-    if (placeTargets.length > 1) setPlacePick(id)
-    else placeTrupp(id, placeTargets[0].id)
+    // «Wohin platzieren?» has two kinds of answer: a surface to put a NEW symbol on, and a symbol
+    // that is already standing (a «Trupp 2» somebody dropped before this Trupp existed). Both are
+    // counted here, so a station with one plan and one loose marker still gets to choose.
+    const markers = markerOptions(id)
+    // nothing to place on and nothing standing — the EL must first create a Gebäude (from the
+    // Umrisse) or there is no Modul 6 for this object. Tell them rather than doing nothing.
+    if (placeTargets.length === 0 && markers.length === 0) { toast(az.placeNoTarget, { icon: 'warn', tone: 'warn' }); return }
+    if (placeTargets.length + markers.length > 1) setPlacePick(id)
+    else if (placeTargets.length) placeTrupp(id, placeTargets[0].id)
+    else adoptMarker(id, markers[0].key)
   }
 
   // per-second tick so the contact clock re-renders (pattern from TopBar's clock). This drives
@@ -558,7 +571,10 @@ export function AtemschutzView({
         />
       )}
 
-      {placePick && (
+      {placePick && (() => {
+        // the symbols already standing, minus this Trupp's own (see lib/placedTrupps · markerOptions)
+        const markers = markerOptions(placePick)
+        return (
         <Overlay open onClose={() => setPlacePick(null)} className={cx(s.modal, s.placeModal)} ariaLabel={az.placeWhere}>
           <div className={s.modalHead}><h3>{az.placeWhere}</h3>
             <button className={s.iconBtn} aria-label={az.cancel} onClick={() => setPlacePick(null)}><Icon id="close" /></button>
@@ -569,9 +585,32 @@ export function AtemschutzView({
                 <Icon id={tgt.id === 'lage' ? 'map' : 'doc'} /><span>{tgt.label}</span>
               </button>
             ))}
+            {/* …or take over a Trupp that is ALREADY standing somewhere — the twin of the Trupp
+                form's «Gezeichnet:» Leitung quick-picks: the thing is already in the picture, so
+                the app offers it instead of making somebody place a second symbol for one crew.
+                A symbol somebody else holds stays pickable and says so; the confirm is in the
+                action (useTruppActions · adoptTruppMarker). */}
+            {markers.length > 0 && (
+              <>
+                <div className={s.placeSep}>{az.markerPick}</div>
+                {markers.map((m) => (
+                  <button key={m.key} className={cx(s.placeOpt, s.placeOptMarker)}
+                    onClick={() => { adoptMarker(placePick, m.key); setPlacePick(null) }}>
+                    <span>
+                      <span className={s.placeOptCap} style={{ background: m.color || appConfig.drawing.teamColors[0] }} aria-hidden />
+                      {m.name}
+                    </span>
+                    <span className={s.placeOptWhere}>
+                      {m.where}{m.takenBy ? ` · ${fillTemplate(az.markerOptTaken, { name: m.takenBy })}` : ''}
+                    </span>
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         </Overlay>
-      )}
+        )
+      })()}
     </div>
   )
 }

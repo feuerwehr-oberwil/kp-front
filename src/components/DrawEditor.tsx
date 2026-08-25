@@ -466,7 +466,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                   <span>{note}</span>
                   {hidden && onRevealAttachment && <button type="button" className="de-conn-reveal" onClick={() => onRevealAttachment(endpoint)}>{appConfig.copy.drawingEditor.revealTarget}</button>}
                 </div>}
-                {onRouting && (
+                {/* the connection READS in read-only (who the line hangs on, and «springe zu»);
+                    what it may not do is re-route or cut it — so the two mutating controls are
+                    gated here, not only by each surface remembering to pass undefined. */}
+                {!readOnly && onRouting && (
                   <div className="de-row"><span>{appConfig.copy.drawingEditor.route}</span>
                     <span className="de-presets">
                       {gps === 'paused'
@@ -480,7 +483,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                     </span>
                   </div>
                 )}
-                {onDetach && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>}
+                {!readOnly && onDetach && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>}
               </Fragment>
             })}
           </div>

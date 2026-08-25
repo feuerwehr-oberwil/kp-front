@@ -187,6 +187,15 @@ describe('presets that were silently absent', () => {
     expect(byName['VKF Feuer']).toBeUndefined()
   })
 
+  it('a Rettung counts the animals beside the people', () => {
+    // «Anzahl Personen» is the count stepper; the animals are their own field, worded like the
+    // Rapport's Gerettete (Personen / Tiere). Second field, so «Auto» still captions the Status.
+    expect(symbolPresetFieldKeys('VKF Rettungen')).toEqual(['Status', 'Anzahl Tiere'])
+    expect(appConfig.copy.contextPanel.countBySymbol['VKF Rettungen']).toBe('Anzahl Personen')
+    expect(symbolCaptionText({ symbol: 'VKF Rettungen', fields: { Status: 'vermisst', 'Anzahl Tiere': '2' } }, 'auto'))
+      .toBe('vermisst')
+  })
+
   it('kit that is carried inside can name the storey it is on', () => {
     // cellar work and stairwell ventilation are the normal case, and the storey was the one
     // thing these could not say. The VEHICLES deliberately keep none — a Drehleiter is outside.

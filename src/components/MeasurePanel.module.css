@@ -27,6 +27,9 @@
 /* the descent arrow points down, the ascent arrow up (the base glyph points right) */
 .mp-prof-stats .mp-stat:nth-child(1) .mp-k :global(.i) { transform: rotate(-90deg); }
 .mp-prof-stats .mp-stat:nth-child(2) .mp-k :global(.i) { transform: rotate(90deg); }
+/* «Als Linie übernehmen» — keep the measured Strecke as a drawn line */
+.mp-adopt-btn { align-self: stretch; justify-content: center; gap: 6px; }
+.mp-adopt-btn :global(.i) { width: 14px; height: 14px; }
 /* Plan-only: start/redo scale calibration straight from the panel */
 .mp-cal-btn { align-self: stretch; justify-content: center; gap: 6px; }
 .mp-cal-btn :global(.i) { width: 14px; height: 14px; }

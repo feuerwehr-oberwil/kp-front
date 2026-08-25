@@ -59,17 +59,18 @@ function rebaseDemoSeed(ws: Saved, incidentId: string): Saved {
 }
 
 function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback?: () => void }) {
-  const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
+  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   useEffect(() => {
-    savePrefs({ ...loadPrefs(), symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels })
-  }, [symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels])
+    // the legacy `symbolSize` key rides along in the spread untouched — see prefs · symbolScales
+    savePrefs({ ...loadPrefs(), symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels })
+  }, [symbolScale, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels])
   return (
     <SettingsSheet
       onClose={onClose}
-      symbolSize={symbolSize}
+      symbolScale={symbolScale}
       railLabels={railLabels}
       onRailLabels={setRailLabels}
-      onSymbolSize={setSymbolSize}
+      onSymbolScale={setSymbolScale}
       symbolCaptions={symbolCaptions}
       onSymbolCaptions={setSymbolCaptions}
       offlineRadiusM={offlineRadiusM}
@@ -168,12 +169,16 @@ export default function App() {
   // incident just opened one-tap → show the correct-in-place review banner until confirmed
   const [reviewPendingId, setReviewPendingId] = useState<string | null>(null)
   // …and the same banner for an Einsatz that opened ITSELF: nobody reviewed the dispatch's
-  // guesses on the way in any more, so the first editor to look at it gets the offer once
-  // (per device, kp.incident.reviewed).
+  // guesses on the way in any more, so the FIRST editor to look at it gets the offer — once for
+  // the whole crew, not once per tablet. Answering it here remembers it on the device
+  // (kp.incident.reviewed, instant + offline) and hands the moment to IncidentWorkspace, which
+  // publishes it into the incident's workspace blob for everyone else (lib/incidentAlerts).
   const [reviewedIncidents, setReviewedIncidents] = useState<Set<string>>(loadReviewedIncidents)
+  const [reviewedStamp, setReviewedStamp] = useState<{ id: string; at: string } | null>(null)
   const markReviewed = useCallback((id: string) => {
     saveReviewedIncident(id)
     setReviewedIncidents(loadReviewedIncidents())
+    setReviewedStamp({ id, at: new Date().toISOString() })
     setReviewPendingId(null)
   }, [])
   const syncRef = useRef<WorkspaceSync | null>(null)
@@ -575,9 +580,15 @@ export default function App() {
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
           needsReview={
             reviewPendingId === activeMeta.id ||
-            needsIntakeReview(activeMeta, { isEditor, reviewed: reviewedIncidents, now: Date.now() })
+            // `intakeReviewedAt` = somebody already checked this Einsatz on another device. This
+            // is the blob as it stood when the Einsatz was opened; the live poll lands inside the
+            // workspace, which gates the banner on the same field.
+            needsIntakeReview(activeMeta, {
+              isEditor, reviewed: reviewedIncidents, reviewedAt: workspace?.intakeReviewedAt, now: Date.now(),
+            })
           }
           onReviewDone={() => markReviewed(activeMeta.id)}
+          reviewedLocallyAt={reviewedStamp?.id === activeMeta.id ? reviewedStamp.at : undefined}
           onEditMeta={() => setEditMeta(activeMeta)}
         />
         </ErrorBoundary>

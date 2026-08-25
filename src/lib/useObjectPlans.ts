@@ -33,11 +33,11 @@ export const BUILDING_PICK_ID = 'osm'
  * says `osm` has to keep resolving to a document (and to a name on paper) long after a Gebäude
  * exists. Hand the FULL list to everything that looks a plan up by id, and this one to the rail.
  *
- * The tile states which face it wears, and it states it in both the glyph and the word:
- *   • no floor-stack yet → the footprint glyph + «Kein Gebäude» — tapping opens the picker;
- *   • a floor-stack exists → the storey glyph + «Gebäude».
- * That is the point of naming the tile after the goal instead of the mechanism: whoever is handed
- * the tablet mid-incident has to see from the rail whether a stack exists, without opening it.
+ * The tile always reads «Gebäude» — the word names the goal; the GLYPH states which face it wears:
+ *   • no floor-stack yet → the footprint glyph — tapping opens the picker;
+ *   • a floor-stack exists → the storey glyph.
+ * (It used to read «Kein Gebäude» on the picker face; dropped 25.08. — the negation read odd on a
+ * rail of nouns, and the glyph already carries the state for whoever is handed the tablet.)
  *
  * Which DOCUMENT the tile addresses follows the active plan, so the rail highlights it either way:
  * the stack, unless there is none yet or the operator deliberately stepped back onto the picker
@@ -51,7 +51,7 @@ export function railPlanTiles(docs: PlanDocument[], activePlanId: string): PlanD
   const wb = appConfig.copy.whiteboard
   const tile: PlanDocument = {
     ...base,
-    code: stack ? wb.railBuilding : wb.railBuildingNone,
+    code: wb.railBuilding,
     icon: (stack ? stack.icon : pick?.icon) ?? base.icon,
   }
   // the merged tile keeps the picker's slot — the floor-stack was always inserted right after it
@@ -98,22 +98,26 @@ function planCatalog(): { modules: PlanDocument[]; surfaces: PlanDocument[] } {
 // "Modul 2-3.pdf" tagged "modul2-3" / "2-3" / "Modul 2/3" / "modul2_3" → "modul2-3"; a named
 // Modul-5 sub-slot "Modul 5 - Wasser" tagged "modul5-wasser" → "modul5-wasser" (kept distinct
 // so Wasser/PV/RWA don't collapse onto a single modul5 tile).
+// The trailing number of a sub-slot is part of the key, never noise: an object with «Wasser 1»
+// AND «Wasser 2» has TWO waterplans (modul5-wasser1 / modul5-wasser2), and folding them onto one
+// key made the second one disappear from the rail.
 function normModule(m: string): string {
   const s = m.toLowerCase().replace(/\s+/g, '')
   const range = /(?:modul)?(\d+)[-_/](\d+)/.exec(s)
   if (range) return `modul${range[1]}-${range[2]}`
-  const named = /(?:modul)?(\d+)-([a-z]{2,})/.exec(s) // modul5-wasser → keep the sub-slot
+  const named = /(?:modul)?(\d+)-([a-z]{2,}\d*)/.exec(s) // modul5-wasser2 → keep the numbered sub-slot
   if (named) return `modul${named[1]}-${named[2]}`
   const single = /(?:modul)?(\d+)/.exec(s)
   if (single) return `modul${single[1]}`
   return s.startsWith('modul') ? s : `modul${s}`
 }
 
-// Modul 4 and the Modul-5 sub-sheets (Wasser/PV/RWA/…) have no fixed tile in `planDocuments`
-// and vary per station — so we DON'T hardcode their names. We synthesize a tile from the backend
-// module key (the only structural part is the module number for the `code`) and label it with
-// whatever the source filename carried, threaded through as the dataset `title`.
-function extraModuleDoc(id: string, url: string, title?: string): PlanDocument {
+// Modul 4 and the Modul-5 sub-sheets (Wasser/PV/RWA/…, including the numbered siblings Wasser 1
+// and Wasser 2) have no fixed tile in `planDocuments` and vary per station — so we DON'T hardcode
+// their names. We synthesize a tile from the backend module key (the only structural part is the
+// module number for the `code`) and label it with whatever the source filename carried, threaded
+// through as the dataset `title` — which is what keeps two waterplans apart in the rail.
+export function extraModuleDoc(id: string, url: string, title?: string): PlanDocument {
   const num = /^modul(\d+)/.exec(id)?.[1] ?? '?'
   const label = (title || '').trim()
   // a sub-slot (modul5-wasser) reads "Wasser" in the rail, not "Modul 5"; a bare module keeps
@@ -139,14 +143,20 @@ function planKey(pl: ReferenceDataset): string | null {
 // storage keys but IDENTICAL content — so they share `size_bytes` (verified in the live DB: 112
 // objects match, the 6 genuinely-separate ones differ). Equal size ⇒ synthesize a `modul2-3` key so
 // the rail shows ONE 2/3 tile; unequal size ⇒ leave Modul 2 and Modul 3 as separate tiles.
-function buildPlanInfo(plans: ReferenceDataset[]): { plans: Record<string, string>; titles: Record<string, string> } {
+export function buildPlanInfo(plans: ReferenceDataset[]): { plans: Record<string, string>; titles: Record<string, string> } {
   const map: Record<string, string> = {}
   const titles: Record<string, string> = {} // module → label from the source filename (data-driven tiles)
   for (const pl of plans) {
     const k = planKey(pl)
     if (!k) continue
-    map[k] = referenceUrl(pl.id, pl.current_version)
-    if (pl.title) titles[k] = pl.title
+    // One key, one plan: a second dataset that normalises onto a taken key (an older deployment
+    // that tagged BOTH «Wasser 1» and «Wasser 2» as plain `modul5-wasser`) gets the next free
+    // numbered variant instead of overwriting its sibling. Losing a waterplan is the one outcome
+    // this map must never produce.
+    let key = k
+    for (let n = 2; map[key]; n += 1) key = `${k}${n}`
+    map[key] = referenceUrl(pl.id, pl.current_version)
+    if (pl.title) titles[key] = pl.title
   }
   if (!map['modul2-3']) {
     const m2 = plans.find((p) => planKey(p) === 'modul2')

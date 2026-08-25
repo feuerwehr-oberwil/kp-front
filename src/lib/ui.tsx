@@ -10,6 +10,12 @@ import { Overlay } from './overlays'
 // module store; mount <Overlays/> once at the app root.
 
 type Tone = 'default' | 'warn' | 'success'
+/** How a tone is shown. `fill` paints the whole pill — right for a one-shot message that has to
+ * be noticed once («Sync-Fehler»). `edge` keeps the neutral ink pill every other status shares
+ * and puts the colour on the leading edge and the icons — right for a LIVE status that stands on
+ * screen for as long as a job takes: a print sitting in a queue is not an alarm, and a saturated
+ * red pill for a minute and a half says it is. Same idea as the Meldeleiste's `.ml-row.t-*`. */
+type ToneStyle = 'fill' | 'edge'
 export interface ToastAction { label: string; onClick: () => void }
 /** One stage of a multi-step toast (the live print job). `icon` omitted = an unreached step,
  * drawn as a dim pip; `printer` is the animated «paper coming out» glyph. */
@@ -18,7 +24,7 @@ export interface ToastStep {
   state: 'done' | 'now' | 'future' | 'fail'
   icon?: 'check' | 'warn' | 'printer'
 }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; action?: ToastAction; steps?: ToastStep[] }
+interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[] }
 interface ConfirmReq {
   id: number
   title?: string
@@ -61,9 +67,9 @@ export function dismissToast(id: number) {
   emit()
 }
 
-export function toast(text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[] }): number {
+export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[] }): number {
   const id = seq++
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action, steps: opts?.steps }]
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? 'fill', action: opts?.action, steps: opts?.steps }]
   emit()
   // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
   // action (e.g. confirm-with-undo) needs time to be seen and tapped.
@@ -73,10 +79,10 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; duratio
 
 /** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it
  * (e.g. once the job reaches done/failed); omit to keep it sticky. Unknown id = no-op. */
-export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction | null; steps?: ToastStep[] | null }) {
+export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction | null; steps?: ToastStep[] | null }) {
   if (!toasts.some((t) => t.id === id)) return
   toasts = toasts.map((t) => t.id === id
-    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action ?? undefined, steps: opts?.steps ?? undefined }
+    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? 'fill', action: opts?.action ?? undefined, steps: opts?.steps ?? undefined }
     : t)
   emit()
   if (opts?.duration) scheduleDismiss(id, opts.duration)
@@ -249,7 +255,7 @@ export function Overlays() {
     <>
       <div className="toaster" aria-live="polite" aria-atomic="false">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.tone}`} role="status">
+          <div key={t.id} className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}`} role="status">
             {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
               <>
                 {t.icon && <Icon id={t.icon} />}

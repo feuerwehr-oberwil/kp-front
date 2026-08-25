@@ -16,10 +16,20 @@ export type ThemeMode = 'auto' | 'day' | 'night'
 /** Rail labelling: glyphs only, or the word stacked under each glyph. */
 export type RailLabels = 'off' | 'short'
 
-/** Global tactical-symbol size on both surfaces (map + plan). A personal legibility
- *  preference like `theme` — the symbol size band (lib/mapView · symPx) and the plan
- *  base size are multiplied by this. Default 'M'. */
+/** LEGACY: one global tactical-symbol size for BOTH surfaces. Superseded by the per-surface
+ *  multipliers below (`symbolScaleMap` / `symbolScaleBoard`) — one size could not serve both:
+ *  on a Modul-2/3 sheet even 'S' was still too big, on the map 'L' was already too big.
+ *  Read only to migrate an older cookie (see symbolScales); never written any more. */
 export type SymbolSize = 'S' | 'M' | 'L'
+
+/** The two surfaces that size tactical symbols independently: the Lage map and the
+ *  Plan/Modul boards. A personal legibility preference like `theme`, so it stays a DEVICE
+ *  pref — the tablet at the Kommandoposten and the phone in a pocket want different sizes,
+ *  and neither may impose one on the other through the synced workspace. */
+export type SymbolSurface = 'map' | 'board'
+
+/** Bounds of one Symbolgrösse slider (multipliers, 1 = the tuned default). */
+export interface SymbolScaleRange { min: number; max: number; step: number; default: number }
 
 export interface Prefs {
   mode?: 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
@@ -44,8 +54,16 @@ export interface Prefs {
   zeitplanHorizonH?: number
   /** UI colour scheme — see ThemeMode. Default 'auto' (daylight-driven). */
   theme?: ThemeMode
-  /** global tactical-symbol size — see SymbolSize. Default 'M'. */
+  /** LEGACY global tactical-symbol size — see SymbolSize. Kept (and never deleted) so a cookie
+   *  written by an older build still resolves to the size its owner picked, and so rolling that
+   *  build back finds what it wrote. Migration is lazy: see symbolScales. */
   symbolSize?: SymbolSize
+  /** tactical-symbol size on the Lage map — a multiplier on the symPx band (lib/mapView · symPx).
+   *  Absent → migrated from `symbolSize`, else 1. See SYMBOL_SCALE for the band. */
+  symbolScaleMap?: number
+  /** tactical-symbol size on the Plan/Modul boards — a multiplier on the plan symbol base
+   *  (components/Whiteboard · symBase). Absent → migrated from `symbolSize`, else 1. */
+  symbolScaleBoard?: number
   /** on-canvas symbol captions (metadata printed under each glyph) — a personal legibility
    *  preference like `symbolSize`. Default falls to appConfig.symbols.captionDefault ('auto'). */
   symbolCaptions?: CaptionMode
@@ -98,19 +116,67 @@ export interface SharePositionPref {
   /** display name at the time of picking; shown in the UI so the control can say who you would
    *  be sharing as without waiting for the roster to load */
   displayName?: string
+  /** the Einsatz whose holder confirmed «das bin ich» on this device. The name above is
+   *  remembered for convenience, the CONFIRMATION is not: a device only reports under a name
+   *  for the Einsatz it was confirmed for, so the shared Tablet cannot carry the last
+   *  Einsatz's name into the next one. Persisted (not session state) so re-opening the same
+   *  Einsatz does not ask again. */
+  confirmedIncidentId?: string
   /** opaque random id for this device, so the backend can tell two phones apart (and refuse
    *  a second one claiming a name that is actively sharing). Never a device fingerprint. */
   deviceId?: string
 }
 
-/** The multiplier the S/M/L preference applies to every tactical symbol's size on
- *  both surfaces. M (1×) is the tuned default; S/L step it ±.
- *  ⚠️ S is 0.6, not the 0.8 it was until 17.08. On a Modul-2/3 Objektplan — a whole floor on one
- *  sheet — 0.8 was still a symbol you place two of before they touch, which is the one case the
- *  small setting exists for. It scales the whole band on the map too (see mapView · symPx), so the
- *  map's floor comes down with it; that is the point of the setting, and M remains the default. */
-export const symbolMul = (size: SymbolSize | undefined): number =>
+/** Bounds for the two Symbolgrösse sliders.
+ *
+ *  Derived from the S/M/L multipliers they replace (S 0.6 · M 1 · L 1.3), so nothing anyone had
+ *  set becomes unreachable and 1 — the tuned default — stays the exact MIDPOINT of both sliders.
+ *
+ *  The two bands differ on purpose, because the surfaces are not the same problem:
+ *   • Karte: a symbol sits on a house and competes with the map under it. 'L' (1.3) was already
+ *     at the edge of too big, so the ceiling only goes a touch past it and the floor keeps the
+ *     old 'S'.
+ *   • Module: a Modul-2/3 sheet is a whole floor on one page. Even 'S' (0.6) was still a symbol
+ *     you place two of before they touch — the complaint this rework exists for — so the floor
+ *     drops well below it, and the ceiling rises to match for a Modul-1 Übersicht read from
+ *     across the room.
+ *
+ *  0.05 steps: fine enough that the slider feels continuous under a thumb, coarse enough that
+ *  two devices set «by eye» land on the same number. */
+export const SYMBOL_SCALE: Record<SymbolSurface, SymbolScaleRange> = {
+  map: { min: 0.6, max: 1.4, step: 0.05, default: 1 },
+  board: { min: 0.4, max: 1.6, step: 0.05, default: 1 },
+}
+
+/** Snap a multiplier onto its surface's slider band. Anything unusable — a hand-edited cookie,
+ *  a value from a build with different bounds — falls back to that surface's default rather
+ *  than rendering symbols at 0× or 40×. */
+export const clampSymbolScale = (surface: SymbolSurface, n: number | undefined): number => {
+  const r = SYMBOL_SCALE[surface]
+  if (typeof n !== 'number' || !Number.isFinite(n)) return r.default
+  const snapped = Math.round(n / r.step) * r.step
+  // …and back off the binary-float dust 0.05 steps leave behind (0.7000000000000001)
+  return Math.min(r.max, Math.max(r.min, Math.round(snapped * 100) / 100))
+}
+
+/** LEGACY S/M/L → multiplier, for migration only (see symbolScales).
+ *  ⚠️ S is 0.6, not the 0.8 it was until 17.08. */
+export const legacySymbolMul = (size: SymbolSize | undefined): number =>
   size === 'S' ? 0.6 : size === 'L' ? 1.3 : 1
+
+/** The multipliers this device sizes tactical symbols with, per surface.
+ *
+ *  Migration is LAZY and LOSSLESS: a cookie that still carries only the old global `symbolSize`
+ *  resolves to that size's multiplier on BOTH surfaces, so a device keeps exactly the size it
+ *  had until somebody moves a slider. Nothing rewrites the cookie to achieve it and the old key
+ *  is never deleted — a rolled-back build still finds what it wrote. */
+export function symbolScales(p: Prefs): Record<SymbolSurface, number> {
+  const legacy = p.symbolSize ? legacySymbolMul(p.symbolSize) : undefined
+  return {
+    map: clampSymbolScale('map', p.symbolScaleMap ?? legacy),
+    board: clampSymbolScale('board', p.symbolScaleBoard ?? legacy),
+  }
+}
 
 function readCookie(name: string): string | null {
   const match = document.cookie.split('; ').find((row) => row.startsWith(`${name}=`))

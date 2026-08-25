@@ -54,10 +54,21 @@ export interface KrokiPayloadOut {
 }
 
 /** Print-specific marker scale for close-up Kroki crops. Mirrors backend/app/kroki.py:
- * overview maps stay unchanged; from z18 onward symbols ease down to a 70% floor. */
+ * overview maps stay unchanged; from z18 onward symbols ease down to a 0.85 floor.
+ *
+ * ⚠️ PURELY a function of the print zoom — the device's Symbolgrösse (lib/prefs · SYMBOL_SCALE)
+ * deliberately does NOT enter here. Three reasons, and this was decided, not overlooked:
+ *  • The sheet is a shared, archived record. Two tablets printing the same Einsatz must produce
+ *    the same paper; a per-device legibility setting made in bright sun must not change it.
+ *  • The device pref answers «how well can I read this screen». Paper has neither that screen's
+ *    pixel density nor its viewing distance, and the print path is tuned for the page already.
+ *  • WYSIWYG: KrokiFramingPanel previews the crop with exactly this factor and no other. Feeding
+ *    the pref in here would have to be mirrored in the preview AND in the backend payload as a
+ *    third place to keep in step — and the mul mirrors have bitten us before.
+ *
+ * ⚠️ It MUST stay in step with `kroki_symbol_mul` in backend/app/kroki.py, or the framing modal
+ * stops being WYSIWYG: what you crop is what prints. (0.85, not 0.70 — 18.08.) */
 export const krokiSymbolMul = (zoom: number): number =>
-  // ⚠️ 0.85, not 0.70 (18.08.) — and it MUST stay in step with `kroki_symbol_mul` in
-  // backend/app/kroki.py, or the framing modal stops being WYSIWYG: what you crop is what prints.
   Math.max(0.85, 1 - Math.max(0, zoom - 17) * 0.1)
 
 /** The same silhouettes as lib/shapes.tsx ShapeGlyph, as plain SVG strings for resvg. */

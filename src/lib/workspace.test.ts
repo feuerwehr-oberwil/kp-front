@@ -274,6 +274,9 @@ describe('sanitizeWorkspace — load gate', () => {
       trupps: [{ id: 'tr1' }] as Saved['trupps'],
       board: { modul1: [{ id: 'a1' }] } as unknown as Saved['board'],
       settings: { contactIntervalMin: 10 },
+      // the crew-wide «Einsatzdaten geprüft» stamp — dropping it here would put the review
+      // banner back up on every device (lib/incidentAlerts)
+      intakeReviewedAt: '2026-08-25T20:10:00Z',
       schemaVersion: 1,
     })
     const g = sanitizeWorkspace(blob)
@@ -283,6 +286,7 @@ describe('sanitizeWorkspace — load gate', () => {
     expect(s.doc.entities).toHaveLength(1)
     expect(s.trupps).toHaveLength(1)
     expect(s.settings.contactIntervalMin).toBe(10)
+    expect(s.intakeReviewedAt).toBe('2026-08-25T20:10:00Z')
   })
 
   it('drops collection entries without a string id and counts every loss', () => {

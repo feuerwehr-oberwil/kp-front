@@ -9,7 +9,7 @@ import { PdfViewport, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
-import { resolveLinePreset, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
+import { resolveLinePreset, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
@@ -28,8 +28,8 @@ import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, attachInsetPx, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
-import { pathMetres, type PlanScale } from '../lib/planScale'
+import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { pathMetres, polyAreaM2, type PlanScale } from '../lib/planScale'
 import { MeasurePanel } from './MeasurePanel'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
@@ -78,7 +78,7 @@ interface Props {
   plans: PlanDocument[]
   activeId: string
   annos: BoardAnno[]
-  /** global S/M/L symbol-size multiplier (lib/prefs · symbolMul) — scales the plan symbol base */
+  /** per-device board symbol-size multiplier (lib/prefs · symbolScales, Einstellungen slider) — scales the plan symbol base */
   symMul?: number
   /** device default for on-canvas symbol captions (lib/prefs · symbolCaptions). The Plan has no
    *  zoom, so captions show whenever the mode is on; the Lage map runs them through its label
@@ -292,7 +292,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean } | null>(null)
   // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based)
   const vertDrag = useRef<{ id: string; idx: number; floor: number; moved: boolean } | null>(null)
-  type PlanEndpointDrag = { id: string; endpoint: LineEndpoint; point: BoardPoint; dwell: DwellState; candidate: MagneticTarget | null }
+  // `origin` + `attached` + `detach` are the RELEASE half of the ring language (see the Lage map's
+  // EndpointDrag — same shape, board coords instead of lng/lat).
+  type PlanEndpointDrag = { id: string; endpoint: LineEndpoint; point: BoardPoint; origin: BoardPoint; attached: boolean; detach: number; dwell: DwellState; candidate: MagneticTarget | null }
   const [planEndpointDragState, setPlanEndpointDragState] = useState<PlanEndpointDrag | null>(null)
   const planEndpointDrag = useRef<PlanEndpointDrag | null>(null)
   const planDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -599,33 +601,51 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       }))
     return [...objects, ...lines]
   }
-  const updatePlanDraftMagnet = (point: BoardPoint, atStart: boolean) => {
+  const planAttachmentFor = (c: MagneticTarget): LineAttachment => ({
+    target: c.target, routing: c.defaultRouting ?? 'direct',
+    ...(c.target.kind === 'line' ? { port: c.port ?? nextFreePort(attachmentLines, c.target.id, c.target.endpoint) ?? undefined } : {}),
+  })
+  /** Same «Ring lädt, dann schnappt es» machine as the Lage map's `updateDraftMagnet`, in board px.
+   *  `phase` is the whole difference between the two behaviours: a pointerDOWN that lands on a
+   *  target is deliberate aim and arms at once (the line-START exception — you put your finger on
+   *  the Teilstück's prong because that is where the branch begins); everything acquired later in
+   *  the same stroke has to hold still for `MAGNET_DWELL_MS` first. */
+  const updatePlanDraftMagnet = (point: BoardPoint, atStart: boolean, phase: 'start' | 'move') => {
     const pointer: [number, number] = [point[0] * sW, mapY(point[2], point[1]) * sH]
     const cur = planDraftMagnet.current
     const targets = planCandidatesAt('__draft__', pointer)
-    const candidate = stickyMagneticTarget(pointer, targets, cur?.candidate?.key ?? null)
-    const next: PlanDraftMagnet = { point, atStart, candidate, dwell: advanceDwell(cur?.dwell ?? EMPTY_DWELL, candidate && !candidate.blocked ? candidate.key : null, Date.now()) }
-    setPlanDraftMagnet(next)
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
-    if (candidate && !candidate.blocked && !next.dwell.armed) planDraftTimer.current = setTimeout(() => {
+    if (phase === 'start') {
+      const candidate = nearestMagneticTarget(pointer, targets)
+      setPlanDraftMagnet({ point, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()) })
+      if (candidate) {
+        draftAttachments.current = { ...draftAttachments.current, [atStart ? 'startAttachment' : 'endAttachment']: planAttachmentFor(candidate) }
+        navigator.vibrate?.(12)
+      }
+      return
+    }
+    const candidate = stickyMagneticTarget(pointer, targets, cur?.candidate?.key ?? null)
+    // leaving the start point ends the start's claim — the far end earns its own ring
+    const base = cur && atStart === cur.atStart ? cur.dwell : EMPTY_DWELL
+    const next: PlanDraftMagnet = { point, atStart, candidate, dwell: advanceDwell(base, candidate?.key ?? null, Date.now()) }
+    setPlanDraftMagnet(next)
+    // arm on a motionless finger (no pointermove ⇒ no advanceDwell); the attachment itself is
+    // only written on release, so moving on after arming still lets the end go free.
+    if (candidate && !next.dwell.armed) planDraftTimer.current = setTimeout(() => {
       const now = planDraftMagnet.current
       if (!now || now.candidate?.key !== candidate.key) return
-      const target = candidate.target
-      const attachment: LineAttachment = { target, routing: candidate.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
-      draftAttachments.current = { ...draftAttachments.current, ...(now.atStart ? { startAttachment: attachment } : { endAttachment: attachment }) }
       setPlanDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } }); navigator.vibrate?.(12)
-    }, Math.max(0, 350 - (Date.now() - next.dwell.since)))
+    }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - next.dwell.since)))
   }
   const finishPlanDraftMagnet = () => {
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
-    // Finish over a valid candidate attaches even without the dwell hold, matching endpoint drag.
+    // Ring lädt, dann schnappt es: only a CLOSED ring attaches. A stroke that ends on a symbol
+    // without pausing there lands free — until 25.08. it silently coupled instead, which is the
+    // invisible attachment reported from the field.
     const now = planDraftMagnet.current, c = now?.candidate
-    if (now && c && !c.blocked) {
-      const target = c.target, key = now.atStart ? 'startAttachment' : 'endAttachment'
-      if (!draftAttachments.current[key]) {
-        const attachment: LineAttachment = { target, routing: c.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: c.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
-        draftAttachments.current = { ...draftAttachments.current, [key]: attachment }
-      }
+    if (now?.dwell.armed && c) {
+      const key = now.atStart ? 'startAttachment' : 'endAttachment'
+      if (!draftAttachments.current[key]) draftAttachments.current = { ...draftAttachments.current, [key]: planAttachmentFor(c) }
     }
     setPlanDraftMagnet(null)
   }
@@ -652,7 +672,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const atStart = !draft?.length
       if (atStart) draftAttachments.current = {}
       else draftAttachments.current = { ...draftAttachments.current, endAttachment: undefined }
-      updatePlanDraftMagnet([x, y, floor], atStart)
+      updatePlanDraftMagnet([x, y, floor], atStart, 'start')
     }
     if (tool === 'line' && lineMode === 'freehand') {
       // Freehand is the one create tool whose gesture IS the drag — the stroke follows the finger,
@@ -791,7 +811,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (inkTap.current) {
       if (tool === 'line') {
         const n = toNorm(e.clientX, e.clientY)
-        if (n) { const floor = stack ? floorAt(n[1]) : draftFloor.current; updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], !draft?.length) }
+        if (n) { const floor = stack ? floorAt(n[1]) : draftFloor.current; updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], !draft?.length, 'move') }
       }
       // node tool: drag pans the board (and disqualifies the tap). 8px of slop tolerates finger
       // jitter so a still tap still places. Pan from the recorded origin, like useBoardGestures.
@@ -803,7 +823,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!(tool === 'line' && lineMode === 'freehand') || !draft) return
     const n = toNorm(e.clientX, e.clientY); if (n) {
       const floor = stack ? floorAt(n[1]) : draftFloor.current
-      updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], false)
+      updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], false, 'move')
       setDraft((d) => (d ? [...d, [n[0], localY(n[1], floor), floor]] : [[n[0], localY(n[1], floor), floor]]))
     }
   }
@@ -950,7 +970,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const endpoint: LineEndpoint | null = a.kind === 'draw' && idx === 0 ? 'start' : a.kind === 'draw' && idx === a.pts.length - 1 ? 'end' : null
     if (endpoint) {
       const resolved = resolvedPts.get(a.id) ?? a.pts
-      setPlanEndpointDrag({ id: a.id, endpoint, point: resolved[idx], dwell: EMPTY_DWELL, candidate: null })
+      const attached = !!(endpoint === 'start' ? a.startAttachment : a.endAttachment)
+      setPlanEndpointDrag({ id: a.id, endpoint, point: resolved[idx], origin: resolved[idx], attached, detach: 0, dwell: EMPTY_DWELL, candidate: null })
     }
     vertDrag.current = { id: a.id, idx, floor: a.floor ?? 0, moved: false }
   }
@@ -962,16 +983,29 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const floor = stack ? floorAt(n[1]) : st.floor
       const point: BoardPoint = [n[0], localY(n[1], floor), floor]
       const pointer: [number, number] = [n[0] * sW, n[1] * sH]
+      if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
+      st.moved = true
+      // Still hooked up? Then the only thing on offer is letting go, and the red ring at the OLD
+      // socket runs on distance: pull past the detach radius and the link is off; stop short and
+      // release, and it springs back. Mirrors the Lage map's moveEndpointDrag exactly.
+      if (magnetic.attached) {
+        const o = magnetic.origin
+        const detach = detachProgress([o[0] * sW, mapY(o[2] ?? 0, o[1]) * sH], pointer)
+        setPlanEndpointDrag({ ...magnetic, point, detach, attached: detach < 1, candidate: null, dwell: EMPTY_DWELL })
+        if (detach >= 1) navigator.vibrate?.(12)
+        return
+      }
       const targets = planCandidatesAt(st.id, pointer)
       const candidate = stickyMagneticTarget(pointer, targets, magnetic.candidate?.key ?? null)
-      const dwell = advanceDwell(magnetic.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now())
-      setPlanEndpointDrag({ ...magnetic, point, candidate, dwell }); st.moved = true
-      if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
-      if (candidate && !candidate.blocked && !dwell.armed) planDwellTimer.current = setTimeout(() => {
+      const dwell = advanceDwell(magnetic.dwell, candidate?.key ?? null, Date.now())
+      setPlanEndpointDrag({ ...magnetic, point, candidate, dwell })
+      // a finger that has found its target stops moving — and then nothing but this timer can
+      // close the ring (the visible fill is its CSS twin)
+      if (candidate && !dwell.armed) planDwellTimer.current = setTimeout(() => {
         const cur = planEndpointDrag.current
         if (!cur || cur.candidate?.key !== candidate.key) return
         setPlanEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } }); navigator.vibrate?.(12)
-      }, Math.max(0, 350 - (Date.now() - dwell.since)))
+      }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - dwell.since)))
       return
     }
     if (!st.moved) { pushPast(); st.moved = true }
@@ -985,18 +1019,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
       const a = annos.find((x) => x.id === magnetic.id)
       if (a?.pts) {
-        const existing = magnetic.endpoint === 'start' ? a.startAttachment : a.endAttachment
-        // Move-not-detach: release over a valid target attaches / re-targets; over empty space a free
-        // endpoint just moves, an attached one snaps back (no change). Detach is explicit (× chip /
-        // Verbindung lösen), never a drag side effect — so branch lines can be repositioned intact.
+        // Ring lädt, dann schnappt es: ONLY a closed ring attaches, and only a closed RELEASE ring
+        // (`attached` already flipped false mid-drag) frees an endpoint that had a link. Anything
+        // in between — let go while either ring was still filling — leaves the endpoint where the
+        // finger dropped it, or springs it back to the socket it never left.
         const floor = magnetic.point[2] ?? 0
-        let attachment: LineAttachment | undefined = existing
+        let attachment: LineAttachment | undefined
         let endPt = magnetic.point
-        if (magnetic.candidate && !magnetic.candidate.blocked) {
+        if (magnetic.dwell.armed && magnetic.candidate) {
           const target = magnetic.candidate.target
           attachment = { target, routing: magnetic.candidate.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: magnetic.candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
           if (sW && sH) endPt = [magnetic.candidate.point[0] / sW, localY(magnetic.candidate.point[1] / sH, floor), floor]
-        } else if (existing) { setPlanEndpointDrag(null); return }  // attached + no target → snap back, no change
+        } else if (magnetic.attached) { setPlanEndpointDrag(null); return }  // ring never closed → snap back, no change
         const pts = a.pts.map((p, i): BoardPoint => i === (magnetic.endpoint === 'start' ? 0 : a.pts!.length - 1) ? endPt : p)
         patchCommit(a.id, { pts, ...(magnetic.endpoint === 'start' ? { startAttachment: attachment } : { endAttachment: attachment }) })
       }
@@ -1027,15 +1061,26 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     vertDrag.current = { id: a.id, idx: end === 'start' ? 0 : next.length - 1, floor, moved: true }
   }
 
-  // insert a node on the segment after vertex `idx` (at its midpoint), then commit
+  /**
+   * Insert a node on the segment after vertex `idx` (at its midpoint) — and then hand the SAME
+   * press over to the ordinary vertex drag, exactly as `extendLine` does, so the new node follows
+   * the finger until it lifts. Letting go without moving leaves the node at the midpoint, which is
+   * what a plain tap on the «+» always left. One undo step (pushPast once, at the start).
+   */
   const insertVertex = (idx: number, e: React.PointerEvent) => {
+    if (tool !== 'pan') return
     e.stopPropagation()
     const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     const n = toNorm(e.clientX, e.clientY)
     const floor = a.kind === 'draw' && n && stack ? floorAt(n[1]) : (a.floor ?? 0)
     const next = pts[(idx + 1) % pts.length] // wraps for the closing edge of an area
     const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [(pts[idx][0] + next[0]) / 2, (pts[idx][1] + next[1]) / 2, floor]
-    patchCommit(a.id, { pts: [...pts.slice(0, idx + 1), mid, ...pts.slice(idx + 1)] })
+    pushPast()
+    patch(a.id, { pts: [...pts.slice(0, idx + 1), mid, ...pts.slice(idx + 1)] })
+    // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and vertUp
+    // commits — the new node never gets a chance to look like something you have to find again.
+    vertDrag.current = { id: a.id, idx: idx + 1, floor, moved: true }
   }
   // delete vertex `idx`, keeping a valid shape (≥2 for a line, ≥3 for an area)
   const deleteVertex = (idx: number) => {
@@ -1552,6 +1597,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // what the Einsatz is called by. The name is still what the picker and its toast say, because
   // that is where an object is searched for. Name is the fallback when there is no address.
   const objectChipName = objectAddress ?? objectName ?? appConfig.copy.whiteboard.objectNone
+  // The leading glyph is dropped on exactly two surfaces. On the Gebäude tile (both faces —
+  // outline picker and floor stack) the chip right next to it already carries the building
+  // glyph, so the row read as two building icons and one address; on the blank Tafel there is
+  // no plan for a glyph to qualify. Everywhere else it stays: it is what marks the address out
+  // as the OBJECT rather than a Maßstab or a label. Field feedback 25.08.
+  const objectChipGlyph = !(osm || active.floorStack || active.id === 'tafel')
   const objectChip = (
     <button
       type="button"
@@ -1568,7 +1619,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       disabled={!onObjectSwitch}
       onClick={onObjectSwitch}
     >
-      <Icon id="footprint" />
+      {objectChipGlyph && <Icon id="footprint" />}
       <span>{objectChipName}</span>
     </button>
   )
@@ -1705,16 +1756,29 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
               truppTones={truppTones} />
-            {/* snap ring that fills up while hovered (keyed to the target so it restarts on a new one);
-                attach commits on release. Cycle-forming targets are silently skipped, so no blocked
-                state. Detach is the explicit × chip beside the node, not a drag side effect. */}
+            {/* «Ring lädt, dann schnappt es» — the identical pair the Lage map draws: a blue chip
+                BESIDE the target whose ring is the remaining dwell (only a full one attaches), and
+                its red twin at the socket an attached endpoint is being pulled out of (only a full
+                one releases). The key carries `since`, so re-entering the same target restarts the
+                CSS fill. Cycle-forming targets never make the candidate list, so no blocked state.
+                The explicit «Verbindung lösen» chip on a selected endpoint stays as it was. */}
             {planEndpointDragState?.candidate && (
-              <span key={planEndpointDragState.candidate.key} className="magnet-port wb-magnet snap"
-                style={{ left: planEndpointDragState.candidate.point[0], top: planEndpointDragState.candidate.point[1] }} />
+              <span key={`${planEndpointDragState.candidate.key}:${planEndpointDragState.dwell.since}`} className="magnet-anchor wb-magnet"
+                style={{ left: planEndpointDragState.candidate.point[0], top: planEndpointDragState.candidate.point[1] }}>
+                <NodeDeleteChip tone="connect" fillMs={MAGNET_DWELL_MS} />
+              </span>
+            )}
+            {planEndpointDragState?.attached && planEndpointDragState.detach > DETACH_SHOW_PROGRESS && (
+              <span className="magnet-anchor wb-magnet"
+                style={{ left: planEndpointDragState.origin[0] * sW, top: mapY(planEndpointDragState.origin[2] ?? 0, planEndpointDragState.origin[1]) * sH }}>
+                <NodeDeleteChip tone="release" progress={planEndpointDragState.detach} />
+              </span>
             )}
             {planDraftMagnetState?.candidate && (
-              <span key={planDraftMagnetState.candidate.key} className="magnet-port wb-magnet snap"
-                style={{ left: planDraftMagnetState.candidate.point[0], top: planDraftMagnetState.candidate.point[1] }} />
+              <span key={`${planDraftMagnetState.candidate.key}:${planDraftMagnetState.dwell.since}`} className="magnet-anchor wb-magnet"
+                style={{ left: planDraftMagnetState.candidate.point[0], top: planDraftMagnetState.candidate.point[1] }}>
+                <NodeDeleteChip tone="connect" fillMs={MAGNET_DWELL_MS} progress={planDraftMagnetState.dwell.armed ? 1 : undefined} />
+              </span>
             )}
 
             {/* line arrowheads · repeated marker letters · free-text label + distance — rendered in
@@ -1807,18 +1871,26 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             })}
 
             {/* area (Sektor/Abschnitt) labels — a labelled area renders its free text at the polygon
-                centroid in board px (the 1×1 ink SVG would distort text). Draggable like a line label. */}
-            {renderAnnos.filter((a) => a.kind === 'area' && a.label && (a.pts?.length ?? 0) >= 3).map((a) => {
+                centroid in board px (the 1×1 ink SVG would distort text). Draggable like a line label.
+                «Auf Karte zeigen» prints the Fläche above it, exactly as the line label above prints
+                its Länge — the switch existed for a plan area but nothing rendered what it turned on. */}
+            {renderAnnos.filter((a) => a.kind === 'area' && (a.label || a.showDistance) && (a.pts?.length ?? 0) >= 3).map((a) => {
               const bpx = a.pts!.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
               const cx = bpx.reduce((s, q) => s + q[0], 0) / bpx.length
               const cy = bpx.reduce((s, q) => s + q[1], 0) / bpx.length
+              const areaLines: string[] = []
+              if (a.showDistance) {
+                const m2 = calibrated && activeScale ? polyAreaM2(a.pts!.map(([x, y]) => [x, y]), activeScale.mPerU, measureAR) : null
+                areaLines.push(m2 != null ? fmtArea(m2) : appConfig.copy.whiteboard.scale.needsCalibration)
+              }
+              if (a.label) areaLines.push(a.label)
               return (
                 <span key={`al-${a.id}`} className="wb-line-label wb-area-label"
                   style={{ left: 0, top: 0, transform: `translate(${cx + (a.labelDx ?? 0) * sW}px, ${cy + (a.labelDy ?? 0) * sH}px) translate(-50%, -50%)`, cursor: tool === 'pan' ? 'move' : undefined }}
                   onPointerDown={tool === 'pan' ? (e) => labelDown(e, a.id, a.labelDx ?? 0, a.labelDy ?? 0) : undefined}
                   onPointerMove={tool === 'pan' ? labelMove : undefined}
                   onPointerUp={tool === 'pan' ? labelUp : undefined}
-                  onPointerCancel={tool === 'pan' ? labelUp : undefined}>{a.label}</span>
+                  onPointerCancel={tool === 'pan' ? labelUp : undefined}>{areaLines.map((t, j) => <div key={j}>{t}</div>)}</span>
               )
             })}
 
@@ -1881,9 +1953,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             )}
 
             {/* vertex editing for a selected line/area — node drag / insert / delete (one shared
-                code path for Linie + Fläche). Skipped for a many-point freehand stroke, where
-                per-node handles would be unusable (mirrors the map's vertex-handle cap). */}
-            {selDraw && tool === 'pan' && (selDraw.kind === 'area' || (selDraw.pts?.length ?? 99) <= MAX_VERTEX_HANDLES) && (
+                code path for Linie + Fläche). A many-point freehand stroke used to be skipped here
+                entirely and so could not be reshaped at all; WbVertexHandles now thins its own
+                grips instead (mirrors the map's cap). */}
+            {selDraw && tool === 'pan' && (
               <WbVertexHandles anno={renderAnnos.find((a) => a.id === selDraw.id) ?? selDraw} sW={sW} sH={sH} mapY={mapY}
                 onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine} />
             )}
@@ -1945,6 +2018,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         sizePx={symBase * scale}
                         rotation={veh ? 0 : (a.rotation ?? 0)}
                         overlay={overlay}
+                        // the signed Stockwerk badge, same slot and same glyph as on the Lage.
+                        // `storey`, never `floor` — that one is the stack's tile index.
+                        floor={a.storey}
                         floorFrom={a.floorFrom}
                         floorTo={a.floorTo}
                         spread={a.spread}
@@ -1970,7 +2046,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 )}
                 {a.kind === 'text' && (() => {
                   // every note is a wrapping box; a stored note with no width falls back to the
-                  // default. Font size = plan-scaled base × the S/M/L step.
+                  // default. Font size = plan-scaled base × the size-slider step.
                   // colour applies in both looks — see the twin in MapMarkers for why it did not
                   const tinted = !a.notePlain && !!a.color
                   const cls = (base: string) => `${base} box${a.notePlain ? ' plain' : ''}${tinted ? ' tinted' : ''}`
@@ -2348,7 +2424,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {selSymbol && tool === 'pan' && (
         <ContextPanel
           key={selSymbol.id}
-          entity={selSymbol}
+          // ⚠️ `floor` is remapped, not spread through: on a BoardAnno that name is the
+          // floor-stack TILE INDEX, while the panel's `floor` is the signed Stockwerk badge
+          // (see types · BoardAnno.storey). Handing the tile index to the stepper would have
+          // shown «+3» for the third sheet and moved the symbol to another storey on a tap.
+          entity={{ ...selSymbol, floor: selSymbol.storey }}
           readOnly={readOnly}
           svg={selSymbol.symbol ? sym.byName[selSymbol.symbol] ?? '' : ''}
           onClose={() => setSelId(null)}
@@ -2361,6 +2441,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             }
           }}
           onNotes={(v) => patchCommit(selSymbol.id, { notes: v || undefined })}
+          // Stockwerk — the Lage has always offered it, the Modul boards never did, so a Brand
+          // drawn on «Modul 2» could not say which storey it was on. Absent on the Gebäude
+          // floor-stack ALONE: there the sheet the symbol sits on IS the storey.
+          onFloor={stack ? undefined : (f) => patchCommit(selSymbol.id, { storey: f ?? undefined })}
           onFloorFrom={(f) => patchCommit(selSymbol.id, { floorFrom: f ?? undefined })}
           onFloorTo={(f) => patchCommit(selSymbol.id, { floorTo: f ?? undefined })}
           onSpread={(s) => patchCommit(selSymbol.id, { spread: s ?? undefined })}
@@ -2394,7 +2478,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onTitleLive={(v) => patch(selNote.id, { text: v })}
           onFields={(fields) => patchCommit(selNote.id, { fields })}
           onNotes={(v) => patchCommit(selNote.id, { notes: v || undefined })}
-          // a width set by hand ends the auto-fit; the S/M/L step keeps it and re-measures
+          // a width set by hand ends the auto-fit; the size-slider step keeps it and re-measures
           onNoteWidth={(w) => patchCommit(selNote.id, { wN: w ?? undefined, noteAutoW: undefined })}
           onNoteSize={(s) => patchCommit(selNote.id, selNote.noteAutoW
             ? { noteSize: s, wN: autoNoteWN(selNote.text ?? '', txtBase * scale * noteScale(s), sW) }
@@ -2408,9 +2492,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {/* selected stroke / Linie / Fläche editor — the SAME shared DrawEditor the Lage map uses, so a
           plan line/area exposes the line presets (Freihand/Messpfeil/Rettungsachse) + colour / width /
           style / label / marker / arrow identically. Distance is omitted (a plan has no metric scale). */}
-      {!readOnly && selDraw && tool === 'pan' && (
+      {/* …and it opens in read-only too, like the ContextPanel two blocks up and like the Lage's
+          own locked DrawEditor: an Einsatzleiter tapping a Leitung on the plan gets its Länge,
+          its Leitung-Nr. and the Trupp on it. The panel strips every control that would change
+          the shape itself (DrawEditor · readOnly). */}
+      {selDraw && tool === 'pan' && (
         <DrawEditor
           key={selDraw.id}
+          readOnly={readOnly}
           drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
@@ -2418,6 +2507,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           /* same Messung section as the Lage, in the plan's calibrated metres — but no
              Höhenprofil: a building plan carries no height data */
           lengthM={selDraw.pts && selDraw.pts.length >= 2 ? planMetres(selDraw.pts.map(([x, y]) => [x, y])) : null}
+          /* …and a Fläche measures itself the same way the Lage's does — Fläche + Umfang, in the
+             plan's calibrated metres. Without these the Messung section simply never appeared for
+             an area on a plan, so a Sektor drawn on Modul 2 could state neither. */
+          areaM2={selDraw.kind === 'area' && calibrated && activeScale && (selDraw.pts?.length ?? 0) >= 3
+            ? polyAreaM2(selDraw.pts!.map(([x, y]) => [x, y]), activeScale.mPerU, measureAR) : null}
+          perimeterM={selDraw.kind === 'area' && (selDraw.pts?.length ?? 0) >= 3
+            ? planMetres([...selDraw.pts!, selDraw.pts![0]].map(([x, y]) => [x, y])) : null}
           onPreset={(presetId) => {
             setLinePreset(presetId)
             patchCommit(selDraw.id, resolveLinePreset(presetId, selDraw.dashed)) // ONE bundle, shared with the Lage map (lib/lineStyle)
@@ -2532,6 +2628,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           metrics={{ lengthM: measLenM, areaM2: measAreaM2, perimeterM: measPerimM }}
           blocked={!calibrated}
           hint={readOnly ? appConfig.copy.whiteboard.scale.needsCalibrationViewer : appConfig.copy.whiteboard.scale.needsCalibration}
+          // «Als Linie übernehmen»: the measured nodes become a real Linie on this plan. Board
+          // coords are whole-board normalized, so each point is folded back into its storey tile
+          // (the space every stored `pts` lives in) before addLine sees it.
+          onAdopt={!readOnly && measMode === 'line' && measPath.length >= 2
+            ? () => {
+                const pts: BoardPoint[] = measPath.map(([x, y]) => {
+                  const f = stack ? floorAt(y) : draftFloor.current
+                  return [x, localY(y, f), f]
+                })
+                measReset()
+                addLine(pts)
+              }
+            : undefined}
           onCalibrate={readOnly ? undefined : () => setTool('scale')}
           calibrateLabel={appConfig.copy.whiteboard.scale.calibrate}
           recalibrateLabel={appConfig.copy.whiteboard.scale.recalibrate}

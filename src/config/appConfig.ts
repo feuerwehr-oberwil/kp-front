@@ -283,9 +283,15 @@ const base = {
         // those three on the 2nd floor are still unaccounted for or known and trapped, which
         // is the difference between a search and a rescue. Free text stays possible — the list
         // is the fast path, not a cage (a station overrides it via fleet.attributeLists).
+        // «Anzahl Tiere» sits beside the count stepper, which on this symbol reads «Anzahl
+        // Personen» (copy · countBySymbol). A Stall, a Wohnung mit Hund, ein Pferd im Anhänger:
+        // the animals are rescued, they are reported, and the Rapport has counted them
+        // separately from the people all along (report · gerettete {personen, tiere}) — the
+        // symbol was the one place the two could not be told apart. Second field, so the
+        // «Auto»-Beschriftung stays the Status (fields[0]).
         'VKF Rettungen': {
           controls: ['count', 'floor'],
-          fields: ['Status'],
+          fields: ['Status', 'Anzahl Tiere'],
           fieldOptions: { Status: ['vermisst', 'eingesperrt', 'gerettet'] },
         },
         'VKF Unfall': { controls: ['floor'] },

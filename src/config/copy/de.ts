@@ -192,7 +192,7 @@ export const de = {
             '**Trupps** als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Trupp-Chips, deren Trupp «raus» ist, werden ausgegraut/durchgestrichen.',
             '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien mit «Länge» und das **Messen** echte Meter.',
           ] },
-          { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist («Kein Gebäude»), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Stockwerkstapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
+          { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Stockwerkstapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
         ],
       },
       {
@@ -880,6 +880,12 @@ export const de = {
     // the arrow grip past an open line end — dragging it appends one point
     extendLine: 'Linie verlängern',
     deleteNode: 'Gedrückt halten zum Löschen · am Computer Rechtsklick',
+    // Der blaue Ring am Ziel: er läuft, solange das Ende darüber steht, und erst wenn er voll
+    // ist, klinkt die Linie ein. Wer früher loslässt, setzt den Punkt einfach dorthin.
+    snapConnect: 'Halten zum Verbinden',
+    // Derselbe Ring in Rot, an der alten Anschlussstelle: wegziehen, bis er voll ist, dann ist
+    // das Ende frei. Kurz davor loslassen und es springt zurück.
+    snapRelease: 'Wegziehen zum Lösen',
     distance: 'Distanz',
     perimeter: 'Umfang',
     area: 'Fläche',
@@ -893,6 +899,10 @@ export const de = {
     profileNone: 'Kein Höhenprofil verfügbar',
     hintLine: 'Mind. 2 Punkte für die Distanz',
     hintArea: 'Mind. 3 Punkte für den Flächeninhalt',
+    // «Messen» und «Zeichnen» massen zweimal dasselbe: die Strecke war gemessen, und wer sie
+    // behalten wollte, musste sie ein zweites Mal ziehen. Der Knopf macht aus den gemessenen
+    // Punkten eine echte Linie – ab da gilt die normale Linienbearbeitung.
+    adoptLine: 'Als Linie übernehmen',
   },
   shapes: {
     sectionTitle: 'Formen',
@@ -1282,6 +1292,23 @@ export const de = {
     lineLinkedToast: 'Leitung {n} mit {name} verknüpft',
     logLineLinked: 'Trupp {name} auf Leitung {n}',
     logLineUnlinked: 'Trupp {name}: Leitung gelöst',
+    // Gesetzter Trupp ⇄ Atemschutz-Trupp – dieselbe Regel wie bei der Leitung: die beiden finden
+    // in beliebiger Reihenfolge zueinander, und einer steht für genau einen Trupp. Das Symbol
+    // bleibt beim Lösen stehen; es gehört dann einfach zu niemandem mehr.
+    markerLabel: 'Atemschutz-Trupp',
+    markerNone: 'Kein Trupp',
+    markerPick: 'Gesetzten Trupp übernehmen',
+    markerOptTaken: 'Gehört zu Trupp {name}',
+    markerTakeTitle: 'Trupp {from} steht hier',
+    markerTakeMsg: 'Der gesetzte Trupp gehört zu Trupp {from}. Neu Trupp {to}?',
+    markerTakeConfirm: 'Übernehmen',
+    logMarkerUnlinked: 'Trupp {name} ist nicht mehr gesetzt',
+    // Ein gesetzter Trupp sagt «hier steht die Mannschaft» – die Tafel sagt beim angemeldeten
+    // Trupp «noch niemand drin». Beim Platzieren wird deshalb gefragt, statt die Kontaktuhr
+    // ungefragt zu starten: ein Sicherungstrupp wird genau deshalb ans Fahrzeug gesetzt.
+    entryAskTitle: 'Trupp einrücken?',
+    entryAskMsg: 'Trupp {name} ist angemeldet, aber noch nicht eingerückt. Jetzt einrücken? Die Kontaktuhr läuft ab sofort.',
+    entryAskCancel: 'Noch nicht',
     pressureLabel: 'Eingangsdruck (bar)',
     newPressureLabel: 'Neuer Eingangsdruck (bar)',
     // ⚠️ «Trupp bearbeiten» shows the Eingangsdruck too. It used to be the one field the form
@@ -1640,11 +1667,10 @@ export const de = {
     // (23.08.) – wer ein anderes Gebäude will, tippt hier, nicht auf eine zweite Kachel.
     backToBuilding: 'Zurück zum Gebäude',
     // Beschriftung dieser einen Kachel. Sie nennt das Ziel («Gebäude»), nicht das Mittel
-    // («Umrisse») – und sie sagt im Wort, ob ein Stockwerkstapel existiert. Das ist der ganze
-    // Punkt: wer das Tablet mitten im Einsatz in die Hand gedrückt bekommt, muss das an der
-    // Leiste sehen, ohne sie zu öffnen.
+    // («Umrisse») – ob schon ein Stockwerkstapel existiert, sagt das GLYPH (Footprint vs.
+    // Stockwerke), nicht das Wort: «Kein Gebäude» las sich in einer Leiste aus Substantiven
+    // schräg (entfernt 25.08.).
     railBuilding: 'Gebäude',
-    railBuildingNone: 'Kein Gebäude',
     otherObject: 'Anderes Objekt',
     // The object decides which plans are loaded – that is why it sits on the plan surface, above
     // the plans it determines. The label names the thing first («Objekt»), then the name: what
@@ -2103,13 +2129,29 @@ export const de = {
     loading: 'PDF wird geladen …',
     failed: 'PDF konnte nicht geladen werden.',
     retry: 'Erneut versuchen',
+    // WARUM es nicht ging – eine Zeile unter der Meldung, damit ein Gerät im Einsatz nicht
+    // einfach «geht nicht» meldet. Zuordnung: lib/pdfDiagnosis.ts.
+    reason: {
+      stale: 'Die App läuft auf einer alten Version – App schliessen und neu öffnen.',
+      offline: 'Keine Verbindung – das PDF ist auf diesem Gerät nicht gespeichert.',
+      missing: 'Das PDF ist auf dem Server nicht mehr vorhanden.',
+      denied: 'Die Anmeldung gilt nicht mehr – neu anmelden.',
+      timeout: 'Der Server hat nicht geantwortet.',
+      unsupported: 'Dieser Browser ist zu alt für die PDF-Anzeige.',
+      unknown: 'Grund unbekannt.',
+    },
   },
   // Einstellungen sheet (device prefs + synced per-incident settings)
   settings: {
     title: 'Einstellungen',
     deviceGroup: 'Gerät',
     colorScheme: 'Farbschema',
-    symbolSize: 'Symbolgrösse',
+    // Two sliders, not one size: a Modul-2/3 sheet is a whole floor on one page and needs
+    // far smaller symbols than the map, where the same size is already at its limit.
+    symbolSizeMap: 'Symbolgrösse Karte',
+    symbolSizeMapSub: 'Taktische Zeichen auf der Lagekarte',
+    symbolSizeBoard: 'Symbolgrösse Module',
+    symbolSizeBoardSub: 'Taktische Zeichen auf den Modulplänen',
     symbolCaptions: 'Beschriftungen',
     symbolCaptionsSub: 'Kennwert unter dem Symbol',
     railLabels: 'Leisten-Beschriftung',
@@ -2474,6 +2516,10 @@ export const de = {
     askAgain: 'Bei jedem Einsatz musst du das Teilen selbst einschalten – es startet nie von allein.',
     pickTitle: 'Wer bist du?',
     pickHint: 'Damit dein Punkt auf der Karte einen Namen hat.',
+    // Bei jedem neuen Einsatz wird nochmals gefragt: auf einem Tablet, das herumgereicht wird,
+    // stünde sonst der Name des letzten Einsatzes auf der Lagekarte.
+    pickAgain: 'Neuer Einsatz – bitte bestätige nochmals, wer du bist. Der zuletzt gewählte Name steht zuoberst.',
+    pickLast: 'zuletzt',
     search: 'Name suchen',
     yes: 'Ja, Standort teilen',
     no: 'Nein, danke',
