@@ -225,7 +225,7 @@ describe('report journal rows', () => {
     expect(byId.get('meta')).toBe('Rapport')
     expect(byId.get('az')).toBe('Atemschutz')
     expect(byId.get('anw')).toBe('Anwesenheit')
-    expect(byId.get('mit')).toBe('Mittel')
+    expect(byId.get('mit')).toBe('Material')
     expect(byId.get('qr')).toBe('Anwesenheit')
     expect(byId.get('check')).toBe('Checkliste')
     expect(byId.get('lage')).toBe('Kroki')

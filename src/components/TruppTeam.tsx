@@ -186,7 +186,7 @@ export function TruppTeam({
         />
         {q && (
           <button type="button" className={s.teamSearchClear} onClick={() => setQ('')}
-            aria-label={appConfig.copy.anwesenheit.clearSearch}><Icon id="close" /></button>
+            aria-label={appConfig.copy.clear}><Icon id="close" /></button>
         )}
       </label>
 

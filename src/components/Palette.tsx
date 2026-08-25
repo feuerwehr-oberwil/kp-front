@@ -96,7 +96,7 @@ export function Palette({ sym, onPick, onClose, onPickShape }: Props) {
                 answers a question nobody asks — how many symbols the pack has changes nothing
                 about the one you are looking for. */}
             <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={appConfig.copy.symbolSearchPlaceholder} />
-            {q && <button className="sym-clear" onClick={() => setQ('')} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>}
+            {q && <button className="sym-clear" onClick={() => setQ('')} title={appConfig.copy.clear} aria-label={appConfig.copy.clear}><Icon id="close" /></button>}
           </label>
           <button className="sym-close" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         </div>

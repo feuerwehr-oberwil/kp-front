@@ -22,8 +22,8 @@ export type HelpBlock =
 export interface HelpSection { id: string; title: string; icon: string; blocks: HelpBlock[] }
 
 export const de = {
-  loadingSubtitle: 'Lade Karte & Symbolbibliothek ...',
-  modes: { map: 'Lage', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Atemschutz', anwesenheit: 'Anwesenheit', mittel: 'Mittel', rapport: 'Rapport' },
+  loadingSubtitle: 'Karte & Symbolbibliothek werden geladen …',
+  modes: { map: 'Lage', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Atemschutz', anwesenheit: 'Anwesenheit', mittel: 'Material', rapport: 'Rapport' },
   // the left navigation rail (Karte · Pläne group · Checkliste · Atemschutz)
   // (no «Objekt wählen» any more: the rail is pure navigation, the object sits on the
   //  plan surface – see whiteboard.objectLabel)
@@ -77,7 +77,7 @@ export const de = {
             '**Plan** – die Objektpläne dieser Wehr (Module, Gebäudeumrisse) als Whiteboard, stockwerkweise.',
             '**Checkliste** – abarbeitbare Einsatz-Checklisten.',
             '**Atemschutz** – Überwachung der eingesetzten Trupps mit Zeit und Druck.',
-            '**Personal** – wer im Einsatz ist, mit Zeiten und Bemerkung; auch Gäste («Weitere Person»).',
+            '**Anwesenheit** – wer im Einsatz ist, mit Zeiten und Bemerkung; auch Gäste («Weitere Person»).',
             '**Material** – was eingesetzt wurde, aus dem Katalog oder frei erfasst.',
             '**Rapport** – der Einsatzrapport: ein vorausgefülltes Formular, das über den ganzen Einsatz hinweg ergänzt und am Schluss gedruckt wird.',
           ] },
@@ -112,7 +112,7 @@ export const de = {
           { kind: 'sub', text: 'Bereiche wechseln' },
           { kind: 'list', items: [
             'Zahlen öffnen das Plan-Modul mit dieser Nummer – welche es gibt, richtet sich nach den Modulen dieser Wehr: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
-            '[[K]] Karte · [[C]] Checkliste · [[A]] Atemschutz · [[P]] Personal · [[M]] Material · [[R]] Rapport – jeweils der erste Buchstabe des Bereichs.',
+            '[[K]] Karte · [[C]] Checkliste · [[A]] Atemschutz · [[P]] Anwesenheit · [[M]] Material · [[R]] Rapport – jeweils der erste Buchstabe des Bereichs.',
             '[[⌘]] [[[]] / [[⌘]] []]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
           { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
@@ -139,7 +139,7 @@ export const de = {
             '**Basiskarte** (zuoberst im Ebenen-Panel) wechselt den Hintergrund: Carto, OpenStreetMap oder Satellit.',
             '**Vergrössern/Verkleinern**, **Einpassen** und **Koordinaten abgreifen** in der rechten Leiste unten. Beim Abgreifen auf die Karte tippen, um einen Punkt (LV95 + WGS84) festzuhalten; der Kompass richtet wieder nach Norden aus.',
             '**Wind** wird laufend angezeigt (Richtung + Temperatur), damit die Ausbreitungsrichtung sofort ersichtlich ist.',
-            '**Fahrzeuge/Mittel** erscheinen live per GPS (Name + Ausrichtung), die eigene Position als ruhiger blauer Punkt.',
+            '**Fahrzeuge** erscheinen live per GPS (Name + Ausrichtung), die eigene Position als ruhiger blauer Punkt.',
           ] },
         ],
       },
@@ -189,7 +189,7 @@ export const de = {
             '**Symbol**, **Auswahl**, **Zeichnen** (Farbe/Stärke/Linienart), **Notiz** (Text), **Trupp**.',
             '**Stockwerke** als Stapel: mit den **OG/UG**-Knöpfen am Plan ein Geschoss darüber/darunter hinzufügen.',
             '**Zoom/Einpassen** unten in der Werkzeugleiste, wie auf der Karte.',
-            '**Trupps** als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Trupp-Chips, deren Trupp „raus" ist, werden ausgegraut/durchgestrichen.',
+            '**Trupps** als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Trupp-Chips, deren Trupp «raus» ist, werden ausgegraut/durchgestrichen.',
             '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien mit «Länge» und das **Messen** echte Meter.',
           ] },
           { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist («Kein Gebäude»), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Stockwerkstapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
@@ -199,10 +199,10 @@ export const de = {
         id: 'atemschutz', title: 'Atemschutzüberwachung', icon: 'gauge',
         blocks: [
           { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS – das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
-          { kind: 'sub', text: 'Trupp anlegen' },
+          { kind: 'sub', text: 'Trupp erstellen' },
           { kind: 'list', items: [
             '**Wer geht rein**: drei Slots, der oberste ist der **GF** – die ganze Zeile antippen macht jemanden zum Gruppenführer, das **✕** entfernt ihn. Ein grösserer Trupp hängt einfach weitere Zeilen an.',
-            'Über die **Personensuche** wird die ganze Mannschaft gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
+            'Über die **Personensuche** wird das ganze Personal gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
             '**Eingangsdruck** (bar) und **Funkkanal** stehen rechts daneben.',
             'Darunter der **Auftrag**: Art (Retten · Löschen · Absuchen · Sichern · Erkunden · Anderes), **Ziel / Ort** in Klartext, **Leitung Nr.** (die bereits gezeichneten Leitungen stehen als Schnellwahl daneben) und die **Farbe** auf Lage und Plan.',
             'Der Auftrag hält niemanden auf: **Trupp anmelden** geht auch ohne ihn. Die Karte trägt dann **«Auftrag offen»**, und ein Tipp darauf öffnet das Formular.',
@@ -220,7 +220,7 @@ export const de = {
             '**Bearbeiten** (Stift) passt Auftrag, Ziel/Stockwerk oder Trupp mitten im Einsatz an.',
             'Wer unter AS ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
             'Überfällige Trupps rücken nach oben, oben erscheint ein Zähler. Die **Glocke** schaltet den Alarm pro Gerät stumm – Ton **und** Benachrichtigung, und nur bis zum Ende dieses Einsatzes. Zeigt sie rot, hat der Browser den Ton nicht freigegeben: antippen. Die Tafel selbst wird nie stumm. Alles landet im Verlauf.',
-            'Jeder Trupp lässt sich auf dem Plan platzieren (Knopf „auf Plan zeigen").',
+            'Jeder Trupp lässt sich auf dem Plan platzieren (Knopf «auf Plan zeigen»).',
           ] },
         ],
       },
@@ -228,7 +228,7 @@ export const de = {
       // erstes landet, standen in einer Hilfe mit sechzehn Abschnitten nur nebenbei. Der Tipp-Zyklus
       // der Anwesenheit ist nirgends sonst erklärt.
       {
-        id: 'anwesenheit', title: 'Anwesenheit & Personal', icon: 'people',
+        id: 'anwesenheit', title: 'Anwesenheit', icon: 'people',
         blocks: [
           { kind: 'lead', text: 'Wer im Einsatz ist, von wann bis wann – die Grundlage für Personalblatt und Stunden. Die Mannschaft kommt aus der Verwaltung; hier wird nur festgehalten, wer heute da ist.' },
           { kind: 'sub', text: 'Erfassen' },
@@ -236,7 +236,7 @@ export const de = {
             'Eine Zeile **antippen** schaltet weiter: **frei → anwesend → gegangen → frei**. «Anwesend» beginnt beim ersten Mal ab der **Alarmzeit** (getippt wird meist später als angekommen), bei einer Rückkehr ab jetzt.',
             'Jede Zeile hat eine **Bemerkung** («Fahrer TLF», «verletzt, abgelöst 21:40»). Sie beschreibt, was diese Person hier getan hat, und steht auf dem Personalblatt. Wird eine Zeile versehentlich auf «frei» gestellt, ist die Bemerkung beim nächsten «anwesend» wieder da.',
             'Wer **vor Ort** oder im **Magazin** ist, steht als Paar in der Zeile – die Antwort auf «wen könnte ich noch nachziehen». In der Kopfzeile steht die Aufteilung, sobald jemand im Magazin ist.',
-            '**Weitere Person** erfasst jemanden, der nicht auf der Mannschaftsliste steht (Nachbarwehr, Gast). Das ist eine Aussage über diesen Einsatz, nicht über die Mitgliedschaft der Wehr.',
+            '**Weitere Person** erfasst jemanden, der nicht auf der Personalliste steht (Nachbarwehr, Gast). Das ist eine Aussage über diesen Einsatz, nicht über die Mitgliedschaft der Wehr.',
             'Wer **unter Atemschutz** ist, lässt sich nicht abmelden – ein Tipp springt stattdessen auf die Karte des Trupps.',
           ] },
           { kind: 'sub', text: 'Korrigieren' },
@@ -249,13 +249,13 @@ export const de = {
         ],
       },
       {
-        id: 'mittel', title: 'Material & Mittel', icon: 'box',
+        id: 'mittel', title: 'Material', icon: 'box',
         blocks: [
           { kind: 'lead', text: 'Was eingesetzt wurde – aus dem Katalog der Wehr oder frei erfasst. Der Rapport druckt daraus die Materialliste.' },
           { kind: 'list', items: [
             'Der **Katalog** kommt aus der Verwaltung, mit Einheit und Bestand («auf dem TLF», «Pio»). **+** erhöht die Menge, die Zeile bleibt stehen.',
-            '**Anderes Mittel** erfasst etwas, das der Katalog nicht kennt – Bezeichnung und Menge genügen.',
-            'Wo ein Symbol auf der Lage für ein Material steht (Lüfter, Ölbinder), bietet seine Karte **«Als Mittel erfassen»** an: einmal tippen, statt dieselbe Sache zweimal zu erfassen.',
+            '**Anderes Material** erfasst etwas, das der Katalog nicht kennt – Bezeichnung und Menge genügen.',
+            'Wo ein Symbol auf der Lage für ein Material steht (Lüfter, Ölbinder), bietet seine Karte **«Als Material erfassen»** an: einmal tippen, statt dieselbe Sache zweimal zu erfassen.',
             'Eine Menge auf **0** zu setzen entfernt die Zeile nicht aus dem Protokoll – der Rapport zeigt, was eingesetzt und was zurückgenommen wurde.',
           ] },
         ],
@@ -288,10 +288,10 @@ export const de = {
       {
         id: 'verlauf', title: 'Verlauf & Eintrag', icon: 'history',
         blocks: [
-          { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan – die Einsatz-Chronik.' },
+          { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan – der Verlauf des Einsatzes.' },
           { kind: 'list', items: [
             '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe. **Gedrückt halten** klappt zwei Felder auf – **Sprachnotiz** zuerst, **Foto** dahinter. Der Finger schiebt auf eines davon und lässt los. Der Knopf selbst wird dabei zum **✕**: loslassen, ohne geschoben zu haben, bricht ab und hinterlässt nichts. Erst beim Loslassen läuft die Aufnahme bzw. öffnet die Kamera. Fotos lassen sich auch im Eintrag selbst anhängen.',
-            'Ab **zwei Buchstaben** werden Namen vorgeschlagen – Mannschaft, Material, Partnerorganisationen, Fahrzeuge und Alarmgruppen, dazu die Posten **EL** und **Stv. EL**. Angetippt wird der ganze Name eingesetzt; im Verlauf und auf dem gedruckten Rapport ist er hervorgehoben. Wer den Posten schreibt, bekommt den Namen dazu («EL (Widmer Céline)»), und wer den Namen schreibt, den Posten. Ein eigenes «Von»-Feld gibt es nicht: der Satz sagt schon, wer gemeldet hat.',
+            'Ab **zwei Buchstaben** werden Namen vorgeschlagen – Personal, Material, Partnerorganisationen, Fahrzeuge und Alarmgruppen, dazu die Posten **EL** und **Stv. EL**. Angetippt wird der ganze Name eingesetzt; im Verlauf und auf dem gedruckten Rapport ist er hervorgehoben. Wer den Posten schreibt, bekommt den Namen dazu («EL (Widmer Céline)»), und wer den Namen schreibt, den Posten. Ein eigenes «Von»-Feld gibt es nicht: der Satz sagt schon, wer gemeldet hat.',
             'Sobald der Satz auf einem Namen endet, stehen **→** und **←** als Vorschlag daneben: ein Tipp schreibt den Pfeil, und «EL → Sanität: Patient stabil» liest sich wie das Funkprotokoll, das der Verlauf ist. Auf dem Papier wird daraus «->».',
             'Solange das Feld **leer** ist, stehen Startchips bereit: zuerst **EL →**, danach die Textbausteine, die auf diesem Einsatz schon geschrieben wurden (sonst die Liste der Wehr). Sie bleiben stehen, bis wirklich getippt wird – ein zweiter Chip hängt sich an den ersten an.',
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
@@ -329,7 +329,7 @@ export const de = {
           { kind: 'lead', text: 'Der **Einsatzrapport** ist eine eigene Fläche in der linken Leiste, unter Material ([[R]]) – ein vorausgefülltes Erfassungsblatt, kein Formular von null. Er wird über den ganzen Einsatz hinweg ergänzt, nicht erst am Schluss.' },
           { kind: 'list', items: [
             'Auf breiten Schirmen zwei Spalten: links das **Formular** zum Tippen (Alarmierung, Kurzbericht, Zeiten, Bemerkungen, Rückmeldung ELZ), rechts der **Abgleich** zum Abhaken (Anwesenheit, Material, Partnerorganisationen, Fotos).',
-            'Unter dem Titel steht, was erfasst ist – und als eigene Chips, was **noch offen** ist: Zeiten, Anwesenheit, Mittel, Einsatzleiter, Kurzbericht, Rückmeldung ELZ. Nichts davon blockiert je den Druck.',
+            'Unter dem Titel steht, was erfasst ist – und als eigene Chips, was **noch offen** ist: Zeiten, Anwesenheit, Material, Einsatzleiter, Kurzbericht, Rückmeldung ELZ. Nichts davon blockiert je den Druck.',
             'Der **Kroki-Ausschnitt** liegt als Feld neben dem Formular: verschieben, zoomen, **Hoch/Quer** und der **Kroki-Stand** – welchen Zeitpunkt das Bild zeigt, mit Strichen dort, wo etwas passiert ist. Gedruckt wird genau das, was auf dem Schirm steht; es gibt keinen Bestätigungsschritt.',
             '**Einsatzrapport (PDF)** erzeugt den fertigen Rapport – serverseitig gerendert, ein Knopf. Das **▾** daneben öffnet **«Abschnitte»**: was aufs Papier kommt (Kroki, Pläne, Atemschutz, Anwesenheit, Material, Verlauf, Fotos, detaillierter Prüfnachweis). Das Menü bleibt beim Anhaken offen.',
             'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** reiht den Rapport dort ein. Eingereiht ist nicht gedruckt – solange der Auftrag hängt, steht er als **offener Druckauftrag** unter dem Rapportkopf, mit **Prüfen** und **Abbrechen**. Erst wenn der Drucker «gedruckt» meldet, gilt der Rapport als erstellt.',
@@ -346,7 +346,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Wo eine Wehr die Erfassung aktiviert hat (Verwaltung › Erfassung), öffnet ein **QR-Poster** im Magazin die Erfassungs-Ansicht – ohne Login, für alle ohne Tablet-Zugriff.' },
           { kind: 'list', items: [
-            'Der laufende Einsatz wird gewählt; **Anwesenheit** und **Mittel** lassen sich am eigenen Handy erfassen.',
+            'Der laufende Einsatz wird gewählt; **Anwesenheit** und **Material** lassen sich am eigenen Handy erfassen.',
             'Ein Name wird durch Antippen weitergeschaltet: **nicht anwesend → Magazin → Vor Ort → gegangen**. Das **ⓘ** neben der Suche sagt es nochmals, samt der Bedeutung der Zeit daneben (von = Ankunft, bis = Weggang).',
             'Die Angaben fliessen in **denselben Einsatz** wie am KP-Tablet und werden zusammengeführt (bei Abweichungen mit Hinweis zum Prüfen).',
             'Als Rückfall gibt es das **leere Erfassungsblatt (PDF)** zum Ausdrucken und Nachtragen von Hand.',
@@ -399,19 +399,19 @@ export const de = {
       {
         id: 'verwaltung', title: 'Verwaltung & Stationsdaten', icon: 'gear',
         blocks: [
-          { kind: 'lead', text: 'Was für die ganze Wehr gilt – Mannschaft, Dienstgrade, Fahrzeuge, Material, Kartenebenen, Objektpläne, Checklisten – wird unter **Verwaltung** gepflegt, nicht im Einsatz. Der Zugang dorthin ist ein eigenes Passwort, nicht die Einsatz-PIN.' },
+          { kind: 'lead', text: 'Was für die ganze Wehr gilt – Personal, Dienstgrade, Fahrzeuge, Material, Kartenebenen, Objektpläne, Checklisten – wird unter **Verwaltung** gepflegt, nicht im Einsatz. Der Zugang dorthin ist ein eigenes Passwort, nicht die Einsatz-PIN.' },
           { kind: 'sub', text: 'Die Arbeitsmappe (Excel)' },
           { kind: 'list', items: [
-            'Unter **Daten › Arbeitsmappe** gibt es die Listen der Wehr als eine einzige Excel-Datei: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen. Acht Blätter – Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder.',
+            'Unter **Daten › Arbeitsmappe** gibt es die Listen der Wehr als eine einzige Excel-Datei: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen. Acht Blätter – Personal, Dienstgrade, Fahrzeuge, Material, Material-Bestände, Quellen, Partnerorganisationen, Symbolfelder.',
             'Vor dem Schreiben kommt immer eine **Vorschau**: Blatt für Blatt, was neu wäre, was sich ändert, was wegfällt – und jede abgelehnte Zeile mit Blatt und Zeilennummer. Bis zur Bestätigung ist nichts geschrieben, und Abbrechen schreibt nichts.',
             'Dieselbe Datei nochmals hochgeladen ändert gar nichts. Der Download ist damit auch die Vorlage – und man kann ihn gefahrlos nur zum Nachschauen holen.',
           ] },
           { kind: 'note', text: '**Ein fehlendes Blatt ist kein leeres Blatt.** Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert. Nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – genau so leert man eine Liste absichtlich.' },
-          { kind: 'note', text: '**«Fehlt» heisst zweierlei.** Eine Person, die im Blatt Mannschaft fehlt, wird **deaktiviert** und nie gelöscht – abgeschlossene Einsätze lösen ihren Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird **entfernt**. Die Vorschau benennt beides mit genau diesen Wörtern und zählt es nicht nur.' },
+          { kind: 'note', text: '**«Fehlt» heisst zweierlei.** Eine Person, die im Blatt Personal fehlt, wird **deaktiviert** und nie gelöscht – abgeschlossene Einsätze lösen ihren Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird **entfernt**. Die Vorschau benennt beides mit genau diesen Wörtern und zählt es nicht nur.' },
           { kind: 'sub', text: 'Wenn doch etwas schiefgeht' },
           { kind: 'list', items: [
             'Jede Änderung an den **Listen** hebt den Stand von vorher auf: **Sicherung › Letzte Änderungen** zeigt sie mit Zeitpunkt und holt einen davon zurück – egal ob ein Formular, die Arbeitsmappe oder das Terminal geschrieben hat.',
-            '**Die Mannschaft steht dort nicht drin.** Personen sind keine Konfiguration, sondern eigene Einträge – ein Import, der nur das Blatt Mannschaft anfasst, taucht unter «Letzte Änderungen» gar nicht auf. Dafür wird dort auch nie jemand gelöscht, nur deaktiviert: rückgängig heisst wieder aktivieren. Wer die Liste als Ganzes zurückholen will, nimmt die Datei, die er vor dem Import heruntergeladen hat.',
+            '**Das Personal steht dort nicht drin.** Personen sind keine Konfiguration, sondern eigene Einträge – ein Import, der nur das Blatt Mannschaft anfasst, taucht unter «Letzte Änderungen» gar nicht auf. Dafür wird dort auch nie jemand gelöscht, nur deaktiviert: rückgängig heisst wieder aktivieren. Wer die Liste als Ganzes zurückholen will, nimmt die Datei, die er vor dem Import heruntergeladen hat.',
             'Die Arbeitsmappe ist **keine Sicherung**: sie deckt nur die Listen ab. Die Sicherung ist der JSON-Export unter **Sicherung**.',
           ] },
         ],
@@ -600,10 +600,9 @@ export const de = {
   floor: { eg: 'EG', og: '{n}. OG', ug: '{n}. UG' },
   // hose-count hint for the Messpfeil label (lib/geo · hoseLengthHint), e.g. "~5 Schläuche"
   hoseHint: '~{n} Schläuche',
-  noHistoryRows: 'Noch keine Ereignisse erfasst',
+  noHistoryRows: 'Noch keine Ereignisse erfasst.',
   symbolSearchPlaceholder: 'Suchen …',
   noSymbolMatches: 'Keine Treffer',
-  close: 'Zu',
   closeDialog: 'Schliessen',
   sheetGrip: 'Detailhöhe anpassen',
   edit: 'Bearbeiten',
@@ -613,11 +612,11 @@ export const de = {
   // shared «Übung» marker — switcher, dropdown rows, Alle Einsätze (is_exercise incidents)
   exerciseBadge: 'Übung',
   keepPlacing: 'Mehrere platzieren',
-  delete: 'Entfernen',
+  delete: 'Löschen',
   undo: 'Rückgängig',
   redo: 'Wiederholen',
   play: 'Abspielen',
-  clear: 'Leeren',
+  clear: 'Suche löschen',
   // kind drives how the tool-rail button reads & behaves:
   //   'tool'   — modal, sticky (flat, lights up while active)
   //   'action' — one-shot, fires & gives toast feedback (push-button look)
@@ -656,7 +655,7 @@ export const de = {
     { id: 'resource', icon: 'flag', label: 'Trupp' },
     { id: 'sep-measure', sep: true, icon: '', label: '' },
     // Messen: node-based distance/area on the plan (uses the calibrated scale). Calibration
-    // itself is reached via the always-visible Maßstab trust chip, not a separate rail button.
+    // itself is reached via the always-visible Massstab trust chip, not a separate rail button.
     { id: 'measure', icon: 'measure', label: 'Messen' },
   ],
   nav: {
@@ -693,7 +692,7 @@ export const de = {
     merged: 'Änderungen zusammengeführt',
   },
   mapHints: {
-    placeSymbol: 'Tippe auf die Karte, um "{name}" zu platzieren',
+    placeSymbol: 'Tippe auf die Karte, um «{name}» zu platzieren',
   },
   // help shown by the info (ℹ) button on each tool dock — the instructions
   // that used to sit in the bottom hint bar
@@ -729,7 +728,7 @@ export const de = {
     locationHead: 'Standort',
     addressLabel: 'Adresse',
     addressPlaceholder: 'Strasse Nr, PLZ Ort',
-    addressSearching: 'Suche …',
+    addressSearching: 'Wird gesucht …',
     addressNoHits: 'Keine Adresse gefunden',
     objectButton: 'Objekt aus Feuerwehrplänen',
     objectSearchPlaceholder: 'Objekt oder Adresse suchen …',
@@ -769,12 +768,12 @@ export const de = {
     opening: 'Wird eröffnet …',
     demoBlocked: 'In der Demo deaktiviert – hier lässt sich kein neuer Einsatz eröffnen.',
     cancel: 'Abbrechen',
-    errorCreate: 'Fehler beim Erstellen',
+    errorCreate: 'Erstellen fehlgeschlagen',
     errorTake: 'Übernahme fehlgeschlagen',
     errorUpdate: 'Aktualisierung fehlgeschlagen',
     // --- edit mode + result toasts ---
     editTitle: 'Einsatzdaten bearbeiten',
-    back: '← Zurück',
+    back: 'Zurück',
     save: 'Speichern',
     saving: 'Speichert …',
     created: 'Einsatz erstellt',
@@ -880,7 +879,7 @@ export const de = {
     insertPoint: 'Punkt einfügen',
     // the arrow grip past an open line end — dragging it appends one point
     extendLine: 'Linie verlängern',
-    deleteNode: 'Gedrückt halten zum Entfernen · am Computer Rechtsklick',
+    deleteNode: 'Gedrückt halten zum Löschen · am Computer Rechtsklick',
     distance: 'Distanz',
     perimeter: 'Umfang',
     area: 'Fläche',
@@ -909,7 +908,7 @@ export const de = {
   },
   log: {
     audioNote: 'Audionotiz',
-    symbolPlaced: 'Symbol "{name}" gesetzt',
+    symbolPlaced: 'Symbol «{name}» gesetzt',
     shapePlaced: '{name} platziert',
     notePlaced: 'Notiz gesetzt',
     teamPlaced: '{name} auf der Lage gesetzt',
@@ -917,11 +916,11 @@ export const de = {
     circleDrawn: 'Absperrkreis gezeichnet',
     drawingCreated: 'Zeichnung erstellt',
     objectMoved: '{name} verschoben',
-    objectDeleted: '{name} entfernt',
-    drawingDeleted: 'Zeichnung entfernt',
+    objectDeleted: '{name} gelöscht',
+    drawingDeleted: 'Zeichnung gelöscht',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is
     // wrong – the singular claims there was only one.
-    selectionDeleted: '{n} Objekte entfernt',
+    selectionDeleted: '{n} Objekte gelöscht',
     duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
     redo: 'Aktion wiederholt',
@@ -969,7 +968,7 @@ export const de = {
     add: 'Eintrag',
     addHint: 'Tippen für Eintrag · halten und auf Sprachnotiz oder Foto schieben',
     title: 'Verlauf',
-    empty: 'Noch keine Ereignisse erfasst',
+    empty: 'Noch keine Ereignisse erfasst.',
     surfaceMap: 'Lage',
     surfacePlan: 'Plan',
     replay: 'Wiedergabe starten',
@@ -992,7 +991,7 @@ export const de = {
     audioStartHint: 'Startzeit anhand der Sprachmemo kontrollieren.',
     audioStartConfirm: 'Startzeit bestätigen',
     audioImportedNote: 'Externe Audioaufnahme ({duration})',
-    audioDiscardImport: 'Audiodatei entfernen',
+    audioDiscardImport: 'Audiodatei verwerfen',
     audioUploading: 'Wird hochgeladen …',
     audioOffline: 'Audio-Upload benötigt eine Verbindung. Datei später erneut auswählen.',
     audioTooLarge: 'Audiodatei ist zu gross. Maximum: {max} MB.',
@@ -1005,8 +1004,8 @@ export const de = {
     // audio player (Durchhören)
     playerOpen: 'Durchhören',
     editEntry: 'Text bearbeiten',
-    removeEntry: 'Eintrag entfernen',
-    entryRemoved: 'Eintrag entfernt',
+    removeEntry: 'Eintrag löschen',
+    entryRemoved: 'Eintrag gelöscht',
     playerEntryHere: 'Eintrag an dieser Stelle',
     playerEntryPlaceholder: 'Was war zu hören? Meldung, Entscheid …',
     playerEntries: 'Einträge in dieser Aufnahme',
@@ -1201,9 +1200,9 @@ export const de = {
     subtitle: 'Lückenlose Überwachung jedes Atemschutztrupps',
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
-    newTrupp: 'Trupp anlegen',
+    newTrupp: 'Trupp erstellen',
     // create / edit / re-deploy form (one shared form, section labels + per-mode titles)
-    formCreateTitle: 'Trupp anlegen',
+    formCreateTitle: 'Trupp erstellen',
     formEditTitle: 'Trupp bearbeiten',
     formRedeployTitle: 'Wieder einrücken',
     sectionTeam: 'Trupp',
@@ -1223,7 +1222,7 @@ export const de = {
     zielLabel: 'Auftrag / Ziel',
     zielPlaceholder: 'z. B. 2OG links',
     zielOtherPlaceholder: 'Auftrag beschreiben',
-    zielClear: 'Auftrag / Ziel leeren',
+    zielClear: 'Auftrag / Ziel löschen',
     // Order of the cards on the board. Überfällige Trupps ALWAYS sit at the top – that is not a
     // setting, it is the reason this board exists.
     orderLabel: 'Reihenfolge',
@@ -1298,7 +1297,7 @@ export const de = {
     funkkanalUnit: 'Kanal',
     clearName: 'Name leeren',
     notPresent: 'nicht anwesend',
-    noRoster: 'Keine Mannschaft verfügbar',
+    noRoster: 'Kein Personal verfügbar',
     officersOnly: 'nur Offiziere',
     typeName: 'Name eingeben …',
     assignedConflict: '{name} ist bereits in einem anderen Trupp.',
@@ -1499,8 +1498,8 @@ export const de = {
     fallbackObjectName: 'Objekt',
   },
   notes: {
-    deleteTitle: 'Notiz entfernen?',
-    deleteMsg: 'Diese Notiz enthält Text. Wirklich entfernen?',
+    deleteTitle: 'Notiz löschen',
+    deleteMsg: 'Diese Notiz enthält Text. Wirklich löschen?',
     // note styling — shared by the Lage map and the Plan whiteboard (same controls in the
     // armed-tool dock before placing and in the detail panel afterwards)
     section: 'Notiz',
@@ -1535,7 +1534,7 @@ export const de = {
       scale: 'Die zwei Endpunkte des gedruckten Massstabs antippen, dann die reale Länge eingeben. Danach zeigen Linien mit «Länge» echte Meter.',
       measure: 'Punkte auf den Plan tippen. «Strecke» zeigt die Distanz, «Fläche» den Inhalt + Umfang – in echten Metern, sobald der Massstab kalibriert ist. Punkte ziehen zum Verschieben, doppeltippen entfernt einen Punkt.',
     },
-    // Plan-Maßstab (calibrate against a printed scale bar so plan lines read in metres)
+    // Plan-Massstab (calibrate against a printed scale bar so plan lines read in metres)
     scale: {
       tool: 'Massstab',
       promptTitle: 'Massstab festlegen',
@@ -1567,10 +1566,11 @@ export const de = {
     cancelShape: 'Abbrechen',
     insertVertex: 'Punkt einfügen',
     dragVertex: 'Eckpunkt ziehen · gedrückt halten zum Löschen',
-    groupDeleted: 'Auswahl entfernt',
-    groupDeletedN: '{n} Objekte vom Plan entfernt',
+    groupDeleteTitle: 'Auswahl löschen',
+    groupDeleted: 'Auswahl gelöscht',
+    groupDeletedN: '{n} Objekte vom Plan gelöscht',
     placeText: 'Notiz auf Plan gesetzt',
-    placeSymbol: 'Symbol "{name}" auf Plan gesetzt',
+    placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
     placeLine: 'Linie auf Plan gezeichnet',
     placeArea: 'Fläche auf Plan gezeichnet',
     placeTeam: '{name} auf Plan gesetzt',
@@ -1590,12 +1590,12 @@ export const de = {
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
     deleteLocked: 'Trupp mit erfasstem Verlauf – zuerst Spur löschen',
-    textPlaceholder: 'Notiz ...',
+    textPlaceholder: 'Notiz …',
     blankHint: 'Leeres Blatt – mit Zeichnen, Text, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',
     osmError: 'Gebäudeumrisse (OSM) nicht erreichbar',
     osmEmpty: 'Keine Gebäude in diesem Bereich',
-    osmRetry: 'Erneut laden',
+    osmRetry: 'Erneut versuchen',
     osmPickHint: 'Gebäude antippen, dann übernehmen',
     // ⚠️ Nur noch für ein Gebäude OHNE Georeferenz (vor 23.08. gewählt): dessen Umriss lässt
     // sich nicht wiederfinden, die Auswahl fängt also wirklich bei null an. Mit Georeferenz ist
@@ -1612,9 +1612,9 @@ export const de = {
     osmClear: 'Auswahl löschen',
     addFloorUp: 'Obergeschoss hinzufügen',
     addFloorDown: 'Untergeschoss hinzufügen',
-    removeFloor: 'Geschoss entfernen',
-    removeFloorConfirm: '{floor} enthält Skizzen oder Markierungen. Geschoss trotzdem entfernen?',
-    floorRemoved: 'Geschoss entfernt',
+    removeFloor: 'Geschoss löschen',
+    removeFloorConfirm: '{floor} enthält Skizzen oder Markierungen. Geschoss trotzdem löschen?',
+    floorRemoved: 'Geschoss gelöscht',
     floorAdded: 'Geschoss hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',
@@ -1657,7 +1657,7 @@ export const de = {
     objectIs: 'Einsatzobjekt: {name}',
     objectSwitch: 'Einsatzobjekt: {name} – anderes Objekt wählen',
     objectSwitchShort: 'Anderes Objekt wählen',
-    objectActive: 'Pläne von "{name}"',
+    objectActive: 'Pläne von «{name}»',
     objectReset: 'Auf nächstes Objekt zurücksetzen',
     // tapping an object in the picker swaps the plans of EVERY module at once, so it
     // is gated behind a confirmation to avoid an accidental tap blowing away context.
@@ -1672,7 +1672,7 @@ export const de = {
     orientLongAxis: 'Auf Längsachse drehen',
   },
   contextPanel: {
-    titlePlaceholder: 'Bezeichnung ...',
+    titlePlaceholder: 'Bezeichnung …',
     // ⚠️ The generic Fahrzeug is the ONE symbol whose label is its identity («TLF», nicht
     // «Fahrzeug»), so it keeps an editable name — as a field down here rather than as the panel
     // header. Every other symbol's header says which symbol it is and is read-only; was etwas
@@ -1691,7 +1691,7 @@ export const de = {
     // ⚠️ Der Balken gehört zu SEINEM Pfeil, nicht zur Achse: eine Front, die beidseits läuft
     // und nur an einer Brandmauer steht, ist ein Symbol. Auf einem ausgeschalteten Pfeil
     // schaltet «Grenze» die Richtung gleich mit ein — sonst kostet der Normalfall zwei Tipps.
-    spreadBoundedTitle: 'Entwicklungsgrenze — Ausbreitung hier gestoppt',
+    spreadBoundedTitle: 'Entwicklungsgrenze – Ausbreitung hier gestoppt',
     spreadDirTitles: { left: 'nach links', right: 'nach rechts', up: 'Obergeschoss (↑)', down: 'Untergeschoss (↓)' } as Record<string, string>,
     count: 'Anzahl',
     rotation: 'Drehung',
@@ -1739,7 +1739,7 @@ export const de = {
     stopSharingFailed: 'Standort konnte nicht entfernt werden.',
     // Driver of a LIVE Fahrzeug: the GPS feed knows where it is, never who is at the wheel.
     driverLabel: 'Fahrer',
-    driverPlaceholder: 'Name aus der Mannschaft',
+    driverPlaceholder: 'Name aus dem Personalstamm',
     rotateHint: 'Griff ziehen zum Ausrichten',
     // on-canvas caption override for this one symbol (Standard = follow the device default)
     caption: 'Beschriftung',
@@ -1750,7 +1750,7 @@ export const de = {
     notes: 'Notizen',
     notesPlaceholder: 'Allgemeine Notizen …',
     addField: 'Feld hinzufügen',
-    removeField: 'Feld entfernen',
+    removeField: 'Feld löschen',
     // ⇄ between the Einsatzleiter glyph's two rows. Says what HAPPENS, not what the button is:
     // an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow the swap by themselves.
     swapEl: 'Führung übergeben (EL ⇄ Stv.)',
@@ -1877,9 +1877,9 @@ export const de = {
     gpsPause: 'Folgen pausieren',
     hiddenTarget: 'Ziel ausgeblendet',
     revealTarget: 'Ebene einblenden',
-    removeConnectedTitle: '{name} löschen?',
+    removeConnectedTitle: '{name} löschen',
     removeConnectedMessage: '{n} Linien werden gelöst.',
-    removeEMessage: 'Teilstück entfernen? {n} angeschlossene Linien werden gelöst.',
+    removeEMessage: 'Teilstück löschen? {n} angeschlossene Linien werden gelöst.',
   },
   topBar: {
     offline: 'Offline',
@@ -1925,7 +1925,7 @@ export const de = {
       canTitle: 'Du kannst …',
       can: [
         'Auf Karte und Plan zeichnen und taktische Zeichen setzen',
-        'Atemschutz-Trupps und Mittel führen',
+        'Atemschutz-Trupps und Material führen',
         'Zwischen Lage und Plan wechseln und Objektpläne öffnen',
       ],
       knowTitle: 'Gut zu wissen',
@@ -1943,11 +1943,11 @@ export const de = {
     subtitle: 'Führungsunterstützung',
     pinEnter: 'PIN eingeben',
     connectionFailed: 'Verbindung zum Server fehlgeschlagen',
-    loadingRoster: 'Lade Mannschaft…',
+    loadingRoster: 'Personal wird geladen …',
     noUsers: 'Keine Benutzer hinterlegt',
     whoAreYou: 'Wer bist du?',
     loginFailed: 'Anmeldung fehlgeschlagen',
-    pleaseWait: 'Bitte kurz warten…',
+    pleaseWait: 'Bitte kurz warten …',
     clearDigit: 'Löschen',
     retry: 'Erneut versuchen',
   },
@@ -2100,9 +2100,9 @@ export const de = {
   },
   // PDF rendering — status line in PdfScroller + first-load placeholder in PdfViewport (Plan)
   pdf: {
-    loading: 'PDF wird geladen…',
+    loading: 'PDF wird geladen …',
     failed: 'PDF konnte nicht geladen werden.',
-    retry: 'Erneut laden',
+    retry: 'Erneut versuchen',
   },
   // Einstellungen sheet (device prefs + synced per-incident settings)
   settings: {
@@ -2187,7 +2187,7 @@ export const de = {
     // Attach a photo – direct send only, because copy and e-mail cannot carry a file.
     photoAdd: 'Foto anhängen',
     photoHint: 'Höchstens zwei, werden vorher verkleinert.',
-    photoRemove: 'Foto entfernen',
+    photoRemove: 'Foto verwerfen',
     photoAlt: 'Angehängtes Foto',
     photoTooBig: 'Dieses Bild lässt sich nicht klein genug rechnen – bitte ein anderes.',
     photoOnlyDirect: 'Angehängte Fotos gehen nur beim Direktversand mit – nicht per Kopie oder '
@@ -2247,11 +2247,11 @@ export const de = {
     checking: 'wird geprüft …',
     ready: 'bereit',
     notLoaded: 'nicht geladen',
-    loading: 'lädt …',
+    loading: 'wird geladen …',
     rowSymbols: 'Symbole',
     rowHazmat: 'Gefahrgut (UN/ADR)',
     rowMap: 'Karte',
-    noLayer: 'kein Layer',
+    noLayer: 'keine Ebene',
     rowPlans: 'Pläne',
     noObject: 'kein Objekt',
     rowLeitung: 'Leitungskataster',
@@ -2260,7 +2260,7 @@ export const de = {
     rowWeather: 'Wetter',
     weatherUnreachable: 'nicht erreichbar',
     onlineOnly: 'nur online',
-    rowPersonnel: 'Mannschaft',
+    rowPersonnel: 'Personal',
     personnelCount: '{n} Personen',
     rowObjectSearch: 'Objektsuche',
     // Device storage — the readiness row that never existed: a full device stores NOTHING
@@ -2276,7 +2276,7 @@ export const de = {
     dlTightMsg: 'Der Download braucht ≈ {need}, frei sind {free}. Reduziert wird das ganze Gebiet geladen, aber weniger detailliert (etwa {pct} % der Kartenkacheln). Der Einsatzrapport behält so Platz.',
     dlTightConfirm: 'Reduziert laden',
     dlNoSpace: 'Zu wenig Speicher für den Offline-Vorrat (nur {free} frei). Bitte Platz auf dem Gerät freigeben.',
-    loadingForOffline: 'Lädt für offline …',
+    loadingForOffline: 'Wird für offline geladen …',
     loadAll: 'Alles für offline laden',
     foot: 'Lädt Karte, Pläne, Symbole und Leitungen für diesen Einsatz auf dieses Gerät. Wetter und Objektsuche brauchen eine Verbindung und sind offline nicht verfügbar.',
     // workspace load gate (lib/workspace sanitizeWorkspace): honest reporting, never silent
@@ -2350,7 +2350,7 @@ export const de = {
     alarmedAt: 'Alarm {t}',
     saveFailed: 'Speichern fehlgeschlagen – nochmals versuchen.',
     saveFailedOffline: 'Kein Empfang – die letzte Änderung wurde nicht gespeichert.',
-    retry: 'Nochmals versuchen',
+    retry: 'Erneut versuchen',
     savedOk: 'Gespeichert',
     undo: 'Rückgängig',
     removedEntry: '{name} entfernt (inkl. Zeiten)',
@@ -2378,7 +2378,7 @@ export const de = {
     beilagenAdd: 'Foto hinzufügen',
     beilagenBusy: 'Wird hochgeladen …',
     beilagenCaption: 'Bildlegende',
-    beilagenRemove: 'Foto entfernen',
+    beilagenRemove: 'Foto löschen',
     beilagenFailed: 'Foto konnte nicht hochgeladen werden.',
     beilagenCount: '{n} Foto(s)',
     beilagenNone: 'keine',
@@ -2455,7 +2455,7 @@ export const de = {
     offlineHint: 'Ohne Verbindung lässt sich der Einsatz nicht öffnen. Sobald du wieder Empfang hast: nochmals versuchen.',
     errorTitle: 'Der Server antwortet nicht.',
     errorHint: 'Bitte nochmals versuchen. Bleibt es dabei: bei der Einsatzleitung melden.',
-    retry: 'Nochmals versuchen',
+    retry: 'Erneut versuchen',
     // the Einsatz could not be loaded after opening the link (signal gone) – the landing page
     // says so instead of showing an empty incident list
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
@@ -2610,7 +2610,7 @@ export const de = {
     steps: {
       zeiten: 'Zeiten',
       anwesenheit: 'Anwesenheit',
-      mittel: 'Mittel',
+      mittel: 'Material',
       einsatzleiter: 'Einsatzleiter',
       kontaktperson: 'Kontaktperson',
       kurzbericht: 'Kurzbericht',
@@ -2666,7 +2666,7 @@ export const de = {
     kindLines: 'Linien',
     kindPoints: 'Punkte',
     color: 'Farbe',
-    adding: 'Lädt …',
+    adding: 'Wird geladen …',
     add: 'Hinzufügen',
     geojsonNoteBefore: 'GeoJSON in WGS84 [lng, lat]. Wird als globaler Datensatz ',
     geojsonNoteAfter: ' gespeichert.',
@@ -2678,7 +2678,7 @@ export const de = {
   },
   // sync the roster with the configured personnel source
   personnelSync: {
-    title: 'Mannschaft mit {provider} synchronisieren',
+    title: 'Personal mit {provider} synchronisieren',
     unknownError: 'Unbekannter Fehler',
     syncFailed: 'Synchronisierung fehlgeschlagen',
     countNew: 'neu',
@@ -2783,7 +2783,7 @@ export const de = {
     areaManual: 'Manuell',
     areaAtemschutz: 'Atemschutz',
     areaAnwesenheit: 'Anwesenheit',
-    areaMittel: 'Mittel',
+    areaMittel: 'Material',
     areaChecklist: 'Checkliste',
     areaRapport: 'Rapport',
     // ⚠️ «Kroki» again (10.08.), reversing the 09.08. rename to «Lage». The reasoning then was
@@ -2794,10 +2794,10 @@ export const de = {
     areaLage: 'Kroki',
     // describeDrawing — short tactical labels for a drawing in the report
     drawCircle: 'Absperrkreis',
-    drawAreaLabeled: 'Abschnitt "{label}"',
+    drawAreaLabeled: 'Abschnitt «{label}»',
     drawArea: 'Fläche',
     drawRescueAxis: 'Rettungsachse',
-    drawMeasureArrow: 'Maßpfeil',
+    drawMeasureArrow: 'Masspfeil',
     drawLine: 'Linie',
   },
   // Einsatzrapport drucken — preflight sheet (ReportPreflight)
@@ -2904,7 +2904,7 @@ export const de = {
     plansAll: 'Alle',
     toggleAtemschutz: 'Atemschutzüberwachung ({n})',
     toggleAttendance: 'Anwesenheit ({n})',
-    toggleMittel: 'Mittel ({n})',
+    toggleMittel: 'Material ({n})',
     toggleJournal: 'Einsatzjournal',
     togglePendenzen: 'Aufträge / Pendenzen ({n})',
     toggleAttachments: 'Fotos ({n})',
@@ -3109,11 +3109,11 @@ export const de = {
     logGuestAddedAs: '{name} als weitere Person erfasst – {role}',
     addGuest: 'Weitere Person',
     addGuestTitle: 'Weitere Person erfassen',
-    addGuestHint: 'Für jemanden, der nicht auf der Mannschaftsliste steht – Gast, Nachbarwehr, noch nicht synchronisiert. Wird nur für diesen Einsatz erfasst.',
+    addGuestHint: 'Für jemanden, der nicht auf der Personalliste steht – Gast, Nachbarwehr, noch nicht synchronisiert. Wird nur für diesen Einsatz erfasst.',
     addGuestName: 'Name',
     addGuestPlaceholder: 'z. B. Muster Felix (Nachbarwehr)',
     guestBadge: 'Gast',
-    removeGuest: 'Person entfernen',
+    removeGuest: 'Person löschen',
     // Whoever takes on a role is present too – the remark is set automatically along with it, but
     // only if none has been written by hand yet.
     // one row per person, not one for the Anwesenheit and a second one for the role
@@ -3167,8 +3167,8 @@ export const de = {
     // numbers that describe the crew on hand.
     summary: '{present} anwesend',
     summaryLeft: '{left} gegangen',
-    reload: 'Mannschaft neu laden',
-    loading: 'Lädt …',
+    reload: 'Personal neu laden',
+    loading: 'Wird geladen …',
     searchPlaceholder: 'Suchen',
     clearSearch: 'Suche löschen',
     statusFrei: 'nicht anwesend',
@@ -3182,23 +3182,23 @@ export const de = {
     // daneben auch nachschaut, was der Punkt bedeutet, ist ein Nebeneffekt und kein Titel.
     statusFilterLabel: 'Nach Status filtern',
     noteOnly: 'Nur mit Bemerkung',
-    loadFailedTitle: 'Mannschaft konnte nicht geladen werden.',
+    loadFailedTitle: 'Personal konnte nicht geladen werden.',
     loadFailedHint: 'Offline oder Server nicht erreichbar. Zuletzt geladene Liste bleibt erhalten.',
-    emptyTitle: 'Keine Mannschaft vorhanden.',
+    emptyTitle: 'Noch kein Personal erfasst.',
     // same rule as emptyApp.bodyEditor: name the source only where there is one to name
-    emptyHint: 'Noch keine Mannschaft erfasst.',
-    emptyHintSync: 'Synchronisiere die Mannschaft aus {provider}.',
+    emptyHint: 'Personal wird in der Verwaltung erfasst oder synchronisiert.',
+    emptyHintSync: 'Synchronisiere das Personal aus {provider}.',
     retry: 'Erneut versuchen',
     noMatches: 'Keine Treffer.',
     lockedTitle: 'Im Atemschutz-Trupp – zuerst Trupp draussen melden',
-    notInDivera: 'Nicht mehr auf der Mannschaftsliste',
+    notInDivera: 'Nicht mehr auf der Personalliste',
     notInSource: 'Nicht mehr in {provider}',
     weg: 'weg',
     // Zeitplan + Schichten: planning happens with whoever is here — the whole Mannschaft on the
     // axis buries the handful of present people under empty tracks. Switchable, because somebody
     // arriving in two hours must still be plannable.
-    presentOnlyOn: 'Nur Anwesende – tippen für die ganze Mannschaft',
-    presentOnlyOff: 'Ganze Mannschaft – tippen für nur Anwesende',
+    presentOnlyOn: 'Nur Anwesende – tippen für das ganze Personal',
+    presentOnlyOff: 'Ganzes Personal – tippen für nur Anwesende',
     rankFilterLabel: 'Nach Grad filtern',
     rankAll: 'Alle',
     // Return: the third tap deletes (clears), so returning gets a button of its own. It opens a
@@ -3210,8 +3210,8 @@ export const de = {
     bis: 'bis',
     addBlock: 'Neue Zeit ab jetzt',
     blockSplit: '{name}: neue Zeit – die laufende wurde beendet',
-    blockRemoved: 'Zeit von {name} entfernt',
-    blockRemove: 'Zeit entfernen',
+    blockRemoved: 'Zeit von {name} gelöscht',
+    blockRemove: 'Zeit löschen',
     blocksTitle: 'Anwesenheit – {name}',
     blocksSection: 'Erfasste Zeiten',
     blocksNone: 'Noch nicht anwesend gewesen.',
@@ -3307,7 +3307,7 @@ export const de = {
     actualHint: 'Kommt aus der Anwesenheit und wird dort erfasst – der Zeitplan ändert sie nicht.',
     actualNone: 'Noch nicht anwesend gewesen.',
     plannedNone: 'Noch keine Verfügbarkeit erfasst.',
-    addShift: 'Schicht hinzufügen',
+    addShift: 'Schicht erstellen',
     stillHere: 'noch da',
     // Head of the time card: what this row IS. Not a switch – an Anwesenheit is running or has
     // ended, and the list decides that, not this sheet.
@@ -3352,18 +3352,18 @@ export const de = {
     emptyHint: 'Leg die Zeitfenster an, die du besetzen willst – danach wird pro Person nur noch angetippt.',
     emptyAxisHint: 'Oder im Zeitplan pro Person frei einzeichnen.',
     // The band sheet: creating and editing share one surface
-    sheetAddTitle: 'Schicht anlegen',
+    sheetAddTitle: 'Schicht erstellen',
     sheetEditTitle: 'Schicht bearbeiten',
     labelField: 'Name',
     labelPlaceholder: 'Früh',
     // The reassurance the whole design rests on: creating one assigns nobody.
-    sheetHint: 'Die Schicht wird für die ganze Mannschaft angelegt. Jede Zelle beginnt leer.',
-    create: 'Anlegen',
-    save: 'Sichern',
+    sheetHint: 'Die Schicht wird für das ganze Personal angelegt. Jede Zelle beginnt leer.',
+    create: 'Erstellen',
+    save: 'Speichern',
     removeBand: 'Schicht löschen',
     // What gets deleted is the BAND, not the planning: the Schichten remain as freehand ones.
     // This is the one path on which real planning would otherwise vanish silently.
-    removeBandHint: 'Löschen entfernt nur die Spalte – die eingeteilten Zeiten bleiben als freihändige im Zeitplan stehen.',
+    removeBandHint: 'Gelöscht wird nur die Spalte – die eingeteilten Zeiten bleiben als freihändige im Zeitplan stehen.',
     removedBand: 'Schicht «{label}» gelöscht',
     // When a band is moved: no silent coupling in either direction.
     moveTitle: 'Zeiten mitziehen?',
@@ -3421,10 +3421,10 @@ export const de = {
   },
   // Mittel surface (MittelView) — manual material capture for Rapport / resupply
   mittel: {
-    title: 'Mittel',
+    title: 'Material',
     summary: '{lines} Positionen',
     summaryEmpty: 'Noch nichts erfasst',
-    add: 'Mittel',
+    add: 'Material',
     // «In Verwendung» ist ein Filter-Knopf auf der Suchzeile, kein Tab mehr – die Bezeichnung
     // bleibt, sie ist jetzt Tooltip und aria-label. (viewLabel/viewList sind mit dem Tab weg.)
     viewBySource: 'In Verwendung',
@@ -3441,14 +3441,14 @@ export const de = {
     // remaining-stock readout: dots up to 7 Stück, «noch N» beyond; aria/tooltip spells it out
     noch: 'noch {n}',
     stockAria: '{label}: noch {remaining} von {total}',
-    emptyTitle: 'Noch keine Mittel erfasst.',
-    emptyHint: 'Erfasse mit «+ Mittel», was verbraucht wurde – fürs Rapport und um zu sehen, ob Nachschub nötig ist.',
-    emptyReadonly: 'Keine Mittel erfasst.',
+    emptyTitle: 'Noch kein Material erfasst.',
+    emptyHint: 'Erfasse mit «+ Material», was verbraucht wurde – fürs Rapport und um zu sehen, ob Nachschub nötig ist.',
+    emptyReadonly: 'Noch kein Material erfasst.',
     // Composer
-    composerTitle: 'Mittel erfassen',
-    materialLabel: 'Mittel',
-    materialPlaceholder: 'Mittel wählen',
-    customMaterial: 'Anderes Mittel',
+    composerTitle: 'Material erfassen',
+    materialLabel: 'Material',
+    materialPlaceholder: 'Material wählen',
+    customMaterial: 'Anderes Material',
     unitLabel: 'Einheit',
     unitPlaceholder: 'Einheit',
     sourceLabel: 'Quelle',
@@ -3482,7 +3482,7 @@ export const de = {
     // ⚠️ A ROW in the symbol's own panel, not a toast (11.08.). As a toast the offer sat beside
     // every other toast, was missed constantly, and recorded with no Quelle — which is how the
     // Rapport filled up with «Ohne Zuordnung». A row can be found again ten minutes later.
-    captureOffer: 'Als Mittel erfassen',
+    captureOffer: 'Als Material erfassen',
     captureAction: 'Erfassen',
     captureFrom: 'ab',
     captureNoSource: 'ohne Quelle',
@@ -3494,11 +3494,11 @@ export const de = {
     railLabel: 'Checklisten',
     showList: 'Liste anzeigen',
     groupTasks: 'Aufgaben',
-    searchPlaceholder: 'Stichwort suchen ...',
+    searchPlaceholder: 'Stichwort suchen …',
     searchAria: 'Stichwort suchen',
     matching: 'Passend: {title}',
     noMatches: 'Keine Treffer.',
-    none: 'Noch keine Checklisten verfügbar.',
+    none: 'Keine Checklisten konfiguriert.',
     pickEntry: 'Stichwort wählen oder suchen.',
     // runner
     done: 'erledigt',
@@ -3515,7 +3515,7 @@ export const de = {
   // ── Admin / Verwaltung surface (the /admin back-office) ───────────────────────
   admin: {
     common: {
-      configLoading: 'Konfiguration wird geladen…',
+      configLoading: 'Konfiguration wird geladen …',
       copy: 'Kopieren',
       copied: 'Kopiert',
       confirmYes: 'Ja, ausführen',
@@ -3549,7 +3549,7 @@ export const de = {
       body: 'Die Verwaltung ist mit dem Stations-Adminschlüssel geschützt – getrennt von der Einsatz-PIN. Bitte gib den Schlüssel ein, um fortzufahren.',
       label: 'Adminschlüssel',
       submit: 'Entsperren',
-      submitting: 'Wird geprüft…',
+      submitting: 'Wird geprüft …',
       logout: 'Abmelden',
       disabledTitle: 'Verwaltung nicht eingerichtet',
       disabledBody: 'Auf diesem Server ist kein Adminschlüssel (ADMIN_SECRET) konfiguriert. Die Verwaltung ist deshalb gesperrt. Bitte richte ADMIN_SECRET in der Deployment-Konfiguration ein.',
@@ -3589,7 +3589,7 @@ export const de = {
         tip: 'Eine Vorlage ist eine JSON-Datei mit einer eigenen «id» – die entscheidet, welche Vorlage ersetzt wird. Wird eine Vorlage unter neuem Namen hochgeladen, bleibt die alte bestehen und wird weiter an alle Geräte ausgeliefert, bis sie hier gelöscht wird.',
       },
       mitglieder: { label: 'Mitglieder & Zugriff', title: 'Mitglieder & Zugriff', lede: 'Wer sich anmelden darf, mit welcher Rolle und welcher PIN.' },
-      mannschaft: { label: 'Mannschaft', title: 'Mannschaft', lede: 'Lokaler Personenstamm der Wehr: Handeingabe und CSV funktionieren immer; eine konfigurierte Personalquelle kann zusätzlich synchronisieren.' },
+      mannschaft: { label: 'Personal', title: 'Personal', lede: 'Lokaler Personenstamm der Wehr: Handeingabe und CSV funktionieren immer; eine konfigurierte Personalquelle kann zusätzlich synchronisieren.' },
       erfassung: { label: 'Erfassung', title: 'Erfassung (Poster)', lede: 'Das Erfassungs-Poster fürs Magazin: QR-Code, über den ohne Anmeldung Anwesenheit, Material und Notizen zu einem aktuellen Einsatz erfasst werden.' },
       einsaetze: { label: 'Einsatzhistorie', title: 'Einsatzhistorie', lede: 'Alle aktuellen und historischen Einsätze mit Startzeit, Status, Herkunft, Rapportstand und letzter Änderung.' },
       divera: {
@@ -3623,7 +3623,7 @@ export const de = {
       arbeitsmappe: {
         label: 'Arbeitsmappe',
         title: 'Stationsdaten als Arbeitsmappe',
-        lede: 'Mannschaft, Dienstgrade, Fahrzeuge, Mittel und Partnerorganisationen als eine Excel-Datei herunterladen, bearbeiten und wieder einspielen.',
+        lede: 'Personal, Dienstgrade, Fahrzeuge, Material und Partnerorganisationen als eine Excel-Datei herunterladen, bearbeiten und wieder einspielen.',
         tip: 'Vor dem Schreiben zeigt die Vorschau je Blatt, was neu ist, was sich ändert und was wegfällt – benannt, nicht gezählt. Erst «Jetzt übernehmen» schreibt.',
       },
       system: { label: 'System & Wartung', title: 'System & Wartung', lede: 'Status & Wartung: Version, Datenbank, Bestand, Speicher und der Offline-Cache dieses Geräts.' },
@@ -3633,11 +3633,11 @@ export const de = {
     // Feature: was neu ist, was sich ändert, was wegfällt – benannt, vor dem Schreiben.
     workbook: {
       caption: 'Eine Excel-Datei mit den Listen dieser Wehr: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen.',
-      covers: 'Enthalten sind acht Blätter: Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder.',
+      covers: 'Enthalten sind acht Blätter: Personal, Dienstgrade, Fahrzeuge, Material, Material-Bestände, Quellen, Partnerorganisationen und Symbolfelder.',
       notBackup: 'Das ist keine Sicherung.',
       notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Journal stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
       carriesNot: 'Nicht enthalten – und absichtlich nicht: Schlüssel und Passwörter, Logos, Objektpläne, Kartenebenen, eigene Formulare und die Alarm-Stichwörter.',
-      nameNote: 'Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt Mannschaft fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
+      nameNote: 'Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt Personal fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
       step1Title: '1. Arbeitsmappe herunterladen',
       step1Body: 'Der aktuelle Stand der Station – gleichzeitig die Vorlage und das Rückgängig: dieselbe Datei nochmals eingespielt ändert nichts. Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich.',
       download: 'Arbeitsmappe herunterladen',
@@ -3792,14 +3792,14 @@ export const de = {
       saveBtn: 'Speichern',
       replaceBtn: 'Ersetzen',
       saved: 'Gespeichert – ab sofort aktiv, ohne Neustart.',
-      removeBtn: 'Entfernen',
-      removeMsg: 'Wert entfernen? Die Anbindung ist danach aus, bis wieder einer gesetzt wird.',
+      removeBtn: 'Löschen',
+      removeMsg: 'Wert löschen? Die Anbindung ist danach aus, bis wieder einer gesetzt wird.',
       removed: 'Entfernt – Anbindung aus.',
       failed: 'Aktion fehlgeschlagen',
       groups: {
         divera: {
           title: 'Divera 24/7',
-          caption: 'Accesskey für Alarme und Mannschaft, plus das Secret für den Webhook. Der zweite Accesskey ist nur nötig, wenn die Dienstgrade aus den Qualifikationen kommen sollen.',
+          caption: 'Accesskey für Alarme und Personal, plus das Secret für den Webhook. Der zweite Accesskey ist nur nötig, wenn die Dienstgrade aus den Qualifikationen kommen sollen.',
         },
         traccar: {
           title: 'Fahrzeugortung (Traccar)',
@@ -3846,8 +3846,8 @@ export const de = {
       },
     },
     incidentHistory: {
-      loading: 'Einsätze werden geladen…', error: 'Einsätze konnten nicht geladen werden.', search: 'Titel, Adresse oder Herkunft suchen…',
-      none: 'Keine Einsätze vorhanden.', noMatches: 'Keine Einsätze passen zur Suche.', started: 'Beginn', incident: 'Einsatz', status: 'Status',
+      loading: 'Einsätze werden geladen …', error: 'Einsätze konnten nicht geladen werden.', search: 'Titel, Adresse oder Herkunft suchen …',
+      none: 'Noch keine Einsätze.', noMatches: 'Keine Einsätze passen zur Suche.', started: 'Beginn', incident: 'Einsatz', status: 'Status',
       source: 'Herkunft', report: 'Rapport', updated: 'Geändert', open: 'offen', closed: 'abgeschlossen', complete: 'vollständig', incomplete: 'offen',
       // ⚠️ Löschen vernichtet eine Einsatzakte: Verlauf, Prüfkette, Anwesenheit, Fotos und
       // Sprachnotizen. Die Frage nennt deshalb, was verschwindet — nicht «wirklich löschen?»,
@@ -3862,8 +3862,8 @@ export const de = {
     },
     autosave: {
       retry: 'Erneut versuchen',
-      saving: 'Speichern…',
-      pending: 'Änderungen werden gespeichert…',
+      saving: 'Wird gespeichert …',
+      pending: 'Änderungen werden gespeichert …',
       saved: 'Gespeichert',
       sessionExpired: 'Sitzung abgelaufen – bitte neu anmelden.',
       saveFailed: 'Speichern fehlgeschlagen',
@@ -3960,7 +3960,7 @@ export const de = {
       extTokens: 'Platzhalter einfügen',
       extPreview: 'Vorschau mit einem Beispiel-Standort',
       extAdd: 'Kartenportal hinzufügen',
-      extRemove: 'Kartenportal entfernen',
+      extRemove: 'Kartenportal löschen',
       extNoTitle: 'Ohne Beschriftung erscheint dieser Eintrag nicht unter «Datenquellen».',
       extNoUrl: 'Keine gültige Adresse (http oder https) – dieser Eintrag erscheint nicht unter «Datenquellen».',
     },
@@ -4000,7 +4000,7 @@ export const de = {
       linkUrlTip: 'Bei Google Forms: im Formular «Link zum Vorausfüllen abrufen», Beispielwerte eintippen, den Link hierher kopieren – und die Beispielwerte durch Platzhalter ersetzen.',
       linkUrlPlaceholder: 'https://…',
       linkAdd: 'Link hinzufügen',
-      linkRemove: 'Link entfernen',
+      linkRemove: 'Link löschen',
       linkTokens: 'Platzhalter einfügen',
       linkPreview: 'Vorschau mit einem Beispiel-Einsatz',
       linkPreviewNone: 'Kein gültiger Link (http oder https) – dieser Eintrag erscheint nicht auf dem Rapport.',
@@ -4032,7 +4032,7 @@ export const de = {
       groupNotePlaceholder: 'Rot',
       groupPreview: 'Auf dem Rapport: {zeile}',
       groupAdd: 'Alarmgruppe hinzufügen',
-      groupRemove: 'Alarmgruppe entfernen',
+      groupRemove: 'Alarmgruppe löschen',
       groupIncomplete: 'Noch nicht gespeichert – Bezeichnung und Kennung müssen ausgefüllt sein.',
       groupDuplicate: 'Diese Kennung gibt es schon – zwei Gruppen mit derselben Kennung würden auf dem Rapport zu einer einzigen Zeile.',
       groupArchive: 'Automatisch archivieren',
@@ -4052,7 +4052,7 @@ export const de = {
       webhookUrl: 'Ziel-Adresse',
       webhookPlaceholder: 'https://…',
       webhookAdd: 'Webhook hinzufügen',
-      webhookRemove: 'Webhook entfernen',
+      webhookRemove: 'Webhook löschen',
       webhookInvalid: 'Noch nicht gespeichert – erwartet wird eine vollständige Adresse mit http:// oder https://.',
       webhookDuplicate: 'Diese Adresse steht schon in der Liste.',
       webhooksEmpty: 'Kein Webhook eingerichtet – ein neuer Einsatz wird nirgends gemeldet.',
@@ -4104,8 +4104,8 @@ export const de = {
       logoOpen: 'Login-Screen und Rapport-Briefkopf zeigen noch den Standard',
       users: 'Eigene Zugänge',
       usersSet: '{n} Zugänge',
-      usersOpen: 'Nur das eingerichtete Erstkonto – PIN ändern und eigene anlegen',
-      personnel: 'Mannschaft erfassen',
+      usersOpen: 'Nur das eingerichtete Erstkonto – PIN ändern und eigene erstellen',
+      personnel: 'Personal erfassen',
       personnelSet: '{n} aktive Personen',
       personnelOpen: 'Keine Personen – Anwesenheit und Rapport bleiben leere Listen',
       fleet: 'Fahrzeuge hinterlegen',
@@ -4154,9 +4154,9 @@ export const de = {
       // die Einheiten nur eine Konfigurationsdatei. Beide Wege melden Fehler über diese Labels
       // zurück, also braucht der Abschnitt hier seine deutschen Namen
       // (ConfigContext · rejectedFieldLabel).
-      fieldMittelCatalogue: 'Mittel – Katalog',
-      fieldMittelSources: 'Mittel – Quellen',
-      fieldMittelUnits: 'Mittel – Einheiten',
+      fieldMittelCatalogue: 'Material – Katalog',
+      fieldMittelSources: 'Material – Quellen',
+      fieldMittelUnits: 'Material – Einheiten',
       importFailed: 'Import fehlgeschlagen.',
       histTitle: 'Letzte Änderungen',
       histCaption: 'Jede Änderung an der Konfiguration wird aufbewahrt. «Wiederherstellen» schreibt den Stand von damals zurück – auch das ist wieder rückgängig zu machen.',
@@ -4172,7 +4172,7 @@ export const de = {
       histSourceWorkbook: 'Arbeitsmappe',
       histSourceBranding: 'Logo-Upload',
       histSourceGeodata: 'Geodaten-Push',
-      histSourceRoster: 'Mannschaftsimport',
+      histSourceRoster: 'Personalimport',
       histSourceUnknown: 'Unbekannt',
       histAdminOnly: 'nur mit Adminschlüssel',
       histChanged: 'geändert: {what}',
@@ -4189,17 +4189,17 @@ export const de = {
     common2: {
       cancel: 'Abbrechen',
       save: 'Speichern',
-      saving: 'Speichere…',
-      create: 'Anlegen',
+      saving: 'Wird gespeichert …',
+      create: 'Erstellen',
       edit: 'Bearbeiten',
-      remove: 'Entfernen',
+      remove: 'Löschen',
       notAvailable: 'nicht verfügbar',
       unknownError: 'Unbekannter Fehler',
     },
     infoTip: { prefix: 'Info: {label}' },
     stringList: {
-      addPlaceholder: 'Hinzufügen…',
-      removeItem: '{item} entfernen',
+      addPlaceholder: 'Hinzufügen …',
+      removeItem: '{item} löschen',
     },
     fleet: {
       // ── Fahrzeuge: die einzige bearbeitbare Liste auf dieser Seite ──
@@ -4213,7 +4213,7 @@ export const de = {
       vehicleIdTip: 'Der technische Schlüssel: klein, ohne Leerzeichen und identisch mit dem Gerätenamen in der Fahrzeugortung (z. B. «tlf-1») – nur so landen GPS- und Alarmzeiten beim richtigen Fahrzeug. Wird sie später geändert, erscheinen bereits erfasste Zeiten als zusätzliche Zeile.',
       vehicleIdPlaceholder: 'tlf-1',
       vehicleAdd: 'Fahrzeug hinzufügen',
-      vehicleRemove: 'Fahrzeug entfernen',
+      vehicleRemove: 'Fahrzeug löschen',
       vehicleIncomplete: 'Unvollständig – die Zeile wird erst mit Bezeichnung und Kennung gespeichert.',
       vehicleDuplicate: 'Diese Kennung gibt es schon – die Zeile wird nicht gespeichert.',
       // ── Symbol-Auswahllisten: hier nur Ansicht, geschrieben wird auf dem Blatt «Symbolfelder» ──
@@ -4230,7 +4230,7 @@ export const de = {
       fieldGlossary: {
         Titel: 'Sichtbare Fahrzeugbezeichnung, z. B. TLF 1.', Status: 'Lageabhängiger Zustand, z. B. gerettet oder Schieber offen/zu.',
         Stoff: 'Gefahrstoffbezeichnung.', 'UN-Nr': 'Vierstellige UN-Gefahrgutnummer.', Einheit: 'Organisation oder eingesetzte Einheit.',
-        Name: 'Person aus dem Mannschaftsstamm.', Funktion: 'Führungsaufgabe, z. B. Front oder SiBe.', Fahrer: 'Fahrer aus dem Mannschaftsstamm.', Typ: 'Geräte- oder Ausführungstyp.',
+        Name: 'Person aus dem Personalstamm.', Funktion: 'Führungsaufgabe, z. B. Front oder SiBe.', Fahrer: 'Fahrer aus dem Personalstamm.', Typ: 'Geräte- oder Ausführungstyp.',
       },
       propsLabel: 'Eigenschaften',
       colCategory: 'Kategorie',
@@ -4256,9 +4256,9 @@ export const de = {
       },
       listsMeaningTitle: 'Quelle & Auswahlliste.',
       noConfiguredLists: 'Für diese Station sind keine eigenen Auswahllisten hinterlegt. Name und Fahrer kommen aus der Mannschaft; alle übrigen Felder bleiben frei editierbar.',
-      configuredLists: '„Konfiguriert“ zeigt Stationsvorschläge, „Aus Mannschaft“ übernimmt Personen. Die Vorschläge beschleunigen die Eingabe; Freitext bleibt möglich.',
-      rosterField: 'Aus Mannschaft',
-      rosterBadgeHint: 'wird aus der Mannschaft gefüllt',
+      configuredLists: '«Konfiguriert» zeigt Stationsvorschläge, «Aus Personal» übernimmt Personen. Die Vorschläge beschleunigen die Eingabe; Freitext bleibt möglich.',
+      rosterField: 'Aus Personal',
+      rosterBadgeHint: 'wird aus dem Personal gefüllt',
       configuredBadge: 'Konfiguriert',
       configuredBadgeHint: 'in der Stationskonfiguration hinterlegt',
       freitextBadge: 'Freitext',
@@ -4284,8 +4284,8 @@ export const de = {
       pinDigits: '{n} Ziffern',
       title: 'Erfasste Mitglieder',
       caption: 'Wer sich anmelden darf und mit welcher Rolle. Mitglieder werden deaktiviert, nie gelöscht (der Verlauf bleibt erhalten).',
-      loading: 'Mitglieder werden geladen…',
-      none: 'Keine Mitglieder.',
+      loading: 'Mitglieder werden geladen …',
+      none: 'Keine Mitglieder konfiguriert.',
       colName: 'Name',
       colUsername: 'Benutzername',
       colRole: 'Rolle',
@@ -4310,7 +4310,7 @@ export const de = {
       roleEditorMeans: 'Trägt im Einsatz ein: Journal, Anwesenheit, Lage und Rapport.',
       roleViewerMeans: 'Liest nur mit. Kann im Einsatz nichts eintragen – auch die eigene Anwesenheit nicht.',
       roleChangeableHint: 'Beides lässt sich später ändern. Nur nicht mitten im Einsatz, wenn niemand die Verwaltung offen hat.',
-      rolePickFirst: 'Rolle wählen, dann anlegen',
+      rolePickFirst: 'Rolle wählen, dann erstellen',
       // PIN setzen im eigenen Pinpad-Sheet (statt window.prompt)
       pinSheetTitle: 'Neue PIN setzen',
       pinSheetSub: 'Die bisherige PIN gilt sofort nicht mehr.',
@@ -4329,9 +4329,9 @@ export const de = {
       // Name format — one order for the whole Wehr. It sits here because the effect is visible
       // directly below it in the list.
       nameOrderTitle: 'Namensformat',
-      nameOrderCaption: 'Gilt überall: Mannschaftsliste, Anwesenheit, Karte, Rapport und Druck.',
+      nameOrderCaption: 'Gilt überall: Personalliste, Anwesenheit, Karte, Rapport und Druck.',
       nameOrderLabel: 'Reihenfolge',
-      nameOrderTip: 'Divera liefert «Nachname Vorname» – so sind auch Mannschaftslisten und Soldblätter sortiert. Die Umstellung wirkt sofort auf alle Geräte; bereits gedruckte Rapporte und abgeschlossene Einsätze behalten ihre Schreibweise.',
+      nameOrderTip: 'Divera liefert «Nachname Vorname» – so sind auch Personallisten und Soldblätter sortiert. Die Umstellung wirkt sofort auf alle Geräte; bereits gedruckte Rapporte und abgeschlossene Einsätze behalten ihre Schreibweise.',
       nameOrderLastFirst: 'Nachname Vorname · Meier Hans',
       nameOrderFirstLast: 'Vorname Nachname · Hans Meier',
       sourceHint: 'Spalten: name (Pflicht), rank (optional). UTF-8, kommagetrennt, mit Kopfzeile. Provider-Identitäten werden durch die Synchronisation verwaltet.',
@@ -4341,7 +4341,7 @@ export const de = {
       namePlaceholder: 'z. B. Meier Hans',
       csvImport: 'CSV importieren',
       csvTemplate: 'Beispiel-CSV herunterladen',
-      importing: 'Importiere…',
+      importing: 'Wird importiert …',
       imported: '{n} importiert',
       skipped: '{n} übersprungen',
       syncProvider: 'Mit {provider} synchronisieren',
@@ -4349,8 +4349,8 @@ export const de = {
       title: 'Erfasste Personen',
       caption: 'Personenstamm der Wehr. Personen werden deaktiviert, nie gelöscht (der Verlauf bleibt erhalten).',
       showInactive: 'Inaktive anzeigen',
-      loading: 'Mannschaft wird geladen…',
-      none: 'Keine Personen erfasst.',
+      loading: 'Personal wird geladen …',
+      none: 'Noch keine Personen erfasst.',
       colName: 'Name',
       colRank: 'Grad',
       colSource: 'Quelle',
@@ -4399,7 +4399,7 @@ export const de = {
     },
     data: {
       testConnection: 'Verbindung testen',
-      testing: 'Teste…',
+      testing: 'Wird geprüft …',
       testOk: 'OK',
       testOff: 'nicht konfiguriert',
       testErr: 'Fehler',
@@ -4407,17 +4407,17 @@ export const de = {
       stateConnected: 'verbunden',
       stateUnavailable: 'nicht verfügbar',
       stateNotConfigured: 'nicht konfiguriert',
-      poolLoading: 'Pool wird geladen…',
+      poolLoading: 'Pool wird geladen …',
       poolCount: '{n} Alarm im Pool',
       poolCountPlural: '{n} Alarme im Pool',
       poolUnavailable: 'Pool nicht verfügbar',
       refresh: 'Aktualisieren',
-      refreshing: 'Aktualisiere…',
+      refreshing: 'Wird aktualisiert …',
       lastAlarm: 'Letzter Alarm',
       alarmFallback: 'Alarm {id}',
       noneInPool: 'keiner im Pool',
       address: 'Adresse',
-      vehiclesLoading: 'Fahrzeuge werden geladen…',
+      vehiclesLoading: 'Fahrzeuge werden geladen …',
       vehicleCount: '{n} Fahrzeug',
       vehicleCountPlural: '{n} Fahrzeuge',
       onlineCount: '{n} online',
@@ -4432,15 +4432,15 @@ export const de = {
       offline: 'offline',
       unknown: 'unbekannt',
       noPlans: 'keine Pläne',
-      objectsLoading: 'Objekte werden geladen…',
+      objectsLoading: 'Objekte werden geladen …',
       objectsUnavailable: 'Objekte nicht verfügbar.',
       objectsError: 'Objekte konnten nicht geladen werden.',
       objectsNone: 'Keine Objekte hinterlegt.',
-      objectsHintBefore: 'Hier anlegen – oder viele auf einmal per ',
+      objectsHintBefore: 'Hier erstellen – oder viele auf einmal per ',
       objectsHintAfter: ' aus einem Manifest. Erst wenn ein Objekt existiert, kann ein Plan überhaupt daran hängen.',
-      mapLoading: 'Karte wird geladen…',
+      mapLoading: 'Karte wird geladen …',
       noLocation: 'kein Standort',
-      geodataLoading: 'Daten werden geladen…',
+      geodataLoading: 'Daten werden geladen …',
       geodataUnavailable: 'Daten nicht verfügbar.',
       geodataError: 'Daten konnten nicht geladen werden.',
       geodataNone: 'Keine Referenzdaten eingespielt.',
@@ -4497,20 +4497,20 @@ export const de = {
       noteLabel: 'Notiz',
       noteHint: 'woher die Angaben stammen',
       save: 'Speichern',
-      saving: 'Speichere…',
+      saving: 'Wird gespeichert …',
       saveFailed: 'Objekt konnte nicht gespeichert werden.',
       plansTitle: 'Modulpläne',
       plansHint: 'Ein erneuter Upload ersetzt den Plan: gleiche Kachel, neue Version – nie ein zweiter Eintrag.',
       plansHintNew: 'Pläne lassen sich anhängen, sobald das Objekt gespeichert ist.',
       choosePdf: 'PDF wählen',
       replacePdf: 'PDF ersetzen',
-      uploading: 'Lädt hoch…',
+      uploading: 'Wird hochgeladen …',
       uploadFailed: 'Plan konnte nicht hochgeladen werden.',
       planVersion: 'v{n} · {date}',
       noPlanYet: 'kein Plan',
       offCatalogue: 'nicht im Katalog',
       subslotLabel: 'Untermodul',
-      subslotAdd: '{module}: Untermodul anlegen',
+      subslotAdd: '{module}: Untermodul erstellen',
       subslotPlaceholder: 'wasser',
       pullNote: 'Der zeitgesteuerte Abgleich aus dem Planspeicher hängt Pläne nur an bestehende '
         + 'Objekte an – er legt keine an. Ein Plan ohne passendes Objekt wird übersprungen und gezählt.',
@@ -4530,9 +4530,9 @@ export const de = {
       cliHint: 'Viele Vorlagen auf einmal – aus einem Manifest, im Verzeichnis backend/:',
       cliCmd: 'uv run python -m app.admin_checklists push checklists.manifest.json',
       upload: 'Vorlage hochladen',
-      loading: 'Checklisten werden geladen…',
+      loading: 'Checklisten werden geladen …',
       loadError: 'Checklisten konnten nicht geladen werden.',
-      none: 'Keine Checklisten hinterlegt.',
+      none: 'Keine Checklisten konfiguriert.',
       noneHint: 'Solange keine hinterlegt ist, zeigt die Checkliste-Ansicht die mitgelieferte Beispielliste.',
       colTitle: 'Checkliste',
       colSlug: 'Kennung',
@@ -4543,20 +4543,20 @@ export const de = {
       deleteAria: '{title} löschen',
       addAsset: 'Diagramme',
       delete: 'Löschen',
-      deleting: 'Lösche…',
+      deleting: 'Wird gelöscht …',
       deleted: '{n} Datensätze gelöscht.',
       deleteFailed: 'Löschen fehlgeschlagen.',
       deleteTitle: 'Checkliste löschen',
       deleteBody: '«{title}» wird nicht mehr ausgeliefert. Diese Datensätze werden entfernt:',
       deleteNote: 'Tablets, die die Vorlage schon geladen haben, behalten ihre Kopie bis zum nächsten Abgleich.',
       orphans: '{n} Diagramme ohne Vorlage – Reste einer umbenannten oder gelöschten Checkliste.',
-      cleanOrphans: 'Reste entfernen',
+      cleanOrphans: 'Reste löschen',
       uploadTitle: 'Checklisten-Vorlage hochladen',
       uploadHint: 'Die Datei bestimmt selbst, wohin sie gehört: ihre eigene «id» ist die Kennung. '
         + 'Gleiche Kennung heisst ersetzen.',
       pickFile: 'JSON wählen',
       uploadConfirm: 'Hochladen',
-      uploadingLabel: 'Lädt hoch…',
+      uploadingLabel: 'Wird hochgeladen …',
       uploadFailed: 'Vorlage konnte nicht hochgeladen werden.',
       factTitle: 'Titel',
       factSlot: 'Ablage',
@@ -4663,11 +4663,11 @@ export const de = {
       geojsonFileTip: 'GeoJSON FeatureCollection in WGS84 [lng, lat]. Wird vor dem Hochladen geprüft – Anzahl Features und Geometrie stehen danach hier.',
       geojsonPick: 'Datei auswählen',
       geojsonPickOther: 'Andere Datei',
-      geojsonUpload: 'Hochladen und Ebene anlegen',
+      geojsonUpload: 'Hochladen und Ebene erstellen',
       geojsonUploading: 'Wird hochgeladen …',
       geojsonCancel: 'Abbrechen',
       geojsonReplace: 'Datei ersetzen',
-      geojsonRemove: 'Ebene entfernen',
+      geojsonRemove: 'Ebene löschen',
       geojsonIncomplete: 'Noch nicht gespeichert – Datei und Bezeichnung gehören zusammen.',
       geojsonNoId: 'Noch nicht gespeichert – ohne Kennung fehlt der Ebene der Name, unter dem sie geführt wird.',
       geojsonNoLabel: 'Ohne Bezeichnung erscheint auf der Karte die Kennung.',
@@ -4697,7 +4697,7 @@ export const de = {
       rasterTilesPlaceholder: 'https://…/{z}/{x}/{y}.png',
       rasterAttributionPlaceholder: 'z. B. © Geodaten Kanton Basel-Landschaft',
       rasterAdd: 'Raster-Ebene hinzufügen',
-      rasterRemove: 'Ebene entfernen',
+      rasterRemove: 'Ebene löschen',
       rasterIncomplete: 'Noch nicht gespeichert – Bezeichnung, Kennung und mindestens eine URL-Vorlage gehören zusammen.',
       rasterDuplicate: 'Diese Kennung ist schon vergeben – jede Ebene braucht eine eigene.',
     },
@@ -4714,18 +4714,18 @@ export const de = {
       appIcon512Hint: 'Startbildschirm & Splash – quadratisches PNG, 512×512',
       usingDefault: 'Standard',
       upload: 'Bild auswählen',
-      uploading: 'Wird hochgeladen…',
-      remove: 'Entfernen',
-      removeConfirm: 'Dieses Bild entfernen?',
+      uploading: 'Wird hochgeladen …',
+      remove: 'Löschen',
+      removeConfirm: 'Dieses Bild löschen?',
       uploadFailed: 'Hochladen fehlgeschlagen',
-      removeFailed: 'Entfernen fehlgeschlagen',
+      removeFailed: 'Löschen fehlgeschlagen',
       // ⚠️ Die iOS-Warnung ist kein Beiwerk: das Home-Screen-Icon wird beim Hinzufügen
       // eingefroren und nie neu gelesen – das ist die häufigste «das Rebranding hat nicht
       // funktioniert»-Frage, und diese Zeile ist der Ort, wo eine Wehr sie beantwortet sieht.
       iconsNote: 'Name, Farbe und diese Icons erscheinen auf dem Startbildschirm der installierten App. Achtung: iOS merkt sich das Icon beim Hinzufügen zum Startbildschirm und liest es nie wieder neu – auf einem Tablet, auf dem die App bereits liegt, bleibt das alte Icon, bis sie entfernt und neu hinzugefügt wird.',
     },
     system: {
-      loading: 'Systemdaten werden geladen…',
+      loading: 'Systemdaten werden geladen …',
       refresh: 'Aktualisieren',
       liveSnapshot: 'Live-Systemstatus',
       updatedAt: 'Stand {time}',
@@ -4750,7 +4750,7 @@ export const de = {
       inventoryTip: 'Datensätze in der Datenbank dieser Installation.',
       incidentsTotal: 'Einsätze (gesamt)',
       incidentsOpen: 'Einsätze (offen)',
-      personnelActive: 'Mannschaft (aktiv)',
+      personnelActive: 'Personal (aktiv)',
       users: 'Benutzer',
       referenceData: 'Referenzdaten',
       domain: 'Bereich',
@@ -4787,7 +4787,7 @@ export const de = {
       free: 'Frei: {size}',
       offlineCache: 'Offline-Cache (dieses Gerät)',
       offlineCacheTip: 'Der Offline-Cache (Service-Worker) dieses Geräts: gespeicherte Karten, Pläne und App-Dateien für den Einsatz offline. Zahlen gelten nur für DIESES Gerät, nicht für den Server.',
-      cacheReading: 'Cache wird gelesen…',
+      cacheReading: 'Cache wird gelesen …',
       cacheUnavailable: 'In diesem Browser nicht verfügbar.',
       usedQuota: 'Belegt / Kontingent',
       storageEstimateUnavailable: 'Speicher-Schätzung nicht verfügbar.',
@@ -4796,7 +4796,7 @@ export const de = {
       cache: 'Cache',
       entries: 'Einträge',
       clearCaches: 'Caches leeren',
-      clearing: 'Leere…',
+      clearing: 'Wird geleert …',
       cleared: 'geleert',
       clearConfirm: 'Offline-Cache auf DIESEM Gerät leeren?\n\nDie gespeicherten Karten, Pläne und App-Dateien werden gelöscht. Beim nächsten Laden werden sie neu vom Server geholt (Internet nötig). Anmeldung und Server-Daten bleiben unberührt.',
       offlineCacheCaption: 'Lokale Wartung: leert nur den Offline-Cache auf DIESEM Gerät. Beim nächsten Laden werden die Dateien neu geholt. Anmeldung und Server bleiben unberührt.',
@@ -4810,7 +4810,7 @@ export const de = {
       tip: 'Betrifft nur automatische Absturzberichte im Hintergrund. Die Rückmeldung, die eine '
         + 'Bedienerin selbst abschickt, läuft unabhängig davon – dort ist der Knopf die '
         + 'Zustimmung. Was in beiden Fällen übertragen wird, steht unten wörtlich.',
-      loading: 'Wird geladen…',
+      loading: 'Wird geladen …',
       loadError: 'Status konnte nicht geladen werden.',
       // First-time question: no answer is pre-selected, none is emphasised.
       askCaption: 'Einmal entscheiden – bis dahin wird nichts gesendet.',

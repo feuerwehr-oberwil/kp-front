@@ -231,7 +231,7 @@ export function PersonField({
                 />
                 {search && (
                   <button type="button" className={s.comboSearchClear}
-                    aria-label={appConfig.copy.anwesenheit.clearSearch}
+                    aria-label={appConfig.copy.clear}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setSearch('')}><Icon id="close" /></button>
                 )}

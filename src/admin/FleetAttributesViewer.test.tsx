@@ -46,6 +46,6 @@ describe('FleetAttributesViewer — read-only config viewer', () => {
     render(<FleetAttributesViewer lists={[]} />)
     expect(screen.getAllByText('Eigenschaften').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Drehbar').length).toBeGreaterThan(0)        // rotation control
-    expect(screen.getAllByText('Aus Mannschaft').length).toBeGreaterThan(0) // Fahrer roster field
+    expect(screen.getAllByText('Aus Personal').length).toBeGreaterThan(0) // Fahrer roster field
   })
 })

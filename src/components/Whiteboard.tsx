@@ -1306,7 +1306,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return rel && removable.includes(rel.target.id) ? [{ a, endpoint, rel }] : []
     }))
     if (affected.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleted, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     commit(annos.filter((a) => !removable.includes(a.id)).map((a) => {
@@ -1456,7 +1456,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return rel?.target.kind === 'line' && rel.target.id === selDraw.id && rel.target.endpoint === 'end'
     }).map((endpoint) => ({ id: a.id, endpoint }))) : []
     if (incoming.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.confirm.ok, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     const resolved = renderAnnos.find((a) => a.id === selDraw.id)?.pts
