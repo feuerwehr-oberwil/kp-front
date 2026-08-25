@@ -87,7 +87,7 @@ so this file – not the log – is the record of what shipped up to that point.
   do only unlink – Standort, Organisation, ein Trupp, der die Atemschutz-Tafel verlässt – keep
   «Entfernen». ⚠️ Read the verb before you tap: the word now tells you whether the thing comes back.
 
-- **Ein Wort pro Sache.** «Mittel» was the rail label for a surface the help called Material twice
+- **One word per thing.** «Mittel» was the rail label for a surface the help called Material twice
   and the printed Rapport called Material – it is **Material** everywhere now, and the [[M]]
   shortcut finally stands for the word on screen. «Personal» is the Mannschaftsstamm (the admin
   list), matching KP Rück, and the help stops giving the Anwesenheit surface a second name. The
@@ -181,7 +181,7 @@ so this file – not the log – is the record of what shipped up to that point.
   hand-rolled modals go through `lib/overlays` and own Escape outright; starting a Sprachnotiz no
   longer un-lights the armed map tool.
 
-- **Eine korrigierte Zeit behält ihren Tag.** The Rapport's Gruppen and Fahrzeuge rows seeded the
+- **A corrected time keeps its own day.** The Rapport's Gruppen and Fahrzeuge rows seeded the
   day picker from today, so correcting a Monday Ausrückzeit on Wednesday filed it as Wednesday –
   silently, on the sheet that becomes the printed record. Those were the last two call sites
   carrying the trap. The print-section toggles also survive ordinary navigation now, and Capture's
