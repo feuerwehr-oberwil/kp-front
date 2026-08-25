@@ -31,7 +31,7 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
-- **Die Meldeleiste – ein Streifen, eine Rangfolge, alles sichtbar.** Nine banners used to compete
+- **The Meldeleiste – one strip, one ranking, everything visible.** Nine banners used to compete
   for the same screen edges with nothing but z-index deciding who could be read: the worst realistic
   stack on an iPad in landscape covered the due Wiedervorlage – the one message whose whole doctrine
   is «stays up until handled» – with the one that could have waited. They are one strip under the top
@@ -46,7 +46,7 @@ so this file – not the log – is the record of what shipped up to that point.
   yields while an alarm is pending, because confirming one Einsatz's data while looking at another's
   is a nonsense question.
 
-- **Ein Atemschutz-Alarm, der tönt, sagt jetzt, wofür.** The escalating tone, the wake lock and the
+- **An Atemschutz-Alarm that sounds now says what it is for.** The escalating tone, the wake lock and the
   OS notification always fired app-wide, but away from the board their cause was a small chip and a
   dot – a noise the operator had to investigate rather than act on, and since low pressure joined
   the tier, genuinely ambiguous. Each Trupp in alarm now has its own Meldeleiste row at rank 1 –
@@ -58,7 +58,7 @@ so this file – not the log – is the record of what shipped up to that point.
   pressed. ⚠️ Found on the way: a pressure alarm posted «Kontakt herstellen» as its OS notification.
   Air does not come back on the radio; title and body follow the reason now.
 
-- **Ein Beschriftungs-Durchgang entscheidet auf der Lage, statt sechs, die es nicht tun.** Captions,
+- **One labelling pass decides on the Lage, instead of six that don't.** Captions,
   Trupp names, end tags, readouts and radii were placed by six independent loops with no collision
   test between any of them – at the exact zoom where captions appeared, every one overlapped every
   other on a Zimmerbrand. `lib/labelPass.ts` is the one arbiter now: fixed rank, exempt set first,
@@ -70,8 +70,7 @@ so this file – not the log – is the record of what shipped up to that point.
   – zooming in already answers what it said.) German captions break at compound seams, on the Plan
   too.
 
-- **Zeichnungen überleben einen Gebäudewechsel – und die Leiste hat eine Gebäude-Kachel statt
-  zwei.** «Umrisse» and «Gebäude» were two rail entries for one goal; they are one tile now, showing
+- **Drawings survive a building change – and the rail has one building tile instead of two.** «Umrisse» and «Gebäude» were two rail entries for one goal; they are one tile now, showing
   the OSM picker while no building exists and the floor stack once one does – the way back to the
   picker is a chip, not a second rail entry. And changing the footprint no longer silently re-points
   every mark at different ground: each annotation is carried old frame → ground → new frame, floors
@@ -81,7 +80,7 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Changed
 
-- **«Löschen» heisst weg, «Entfernen» heisst nur losgelöst.** A consistency pass read every German
+- **«Löschen» means gone, «Entfernen» means only unlinked.** A consistency pass read every German
   string in both KP apps – 3 862 here, 3 245 in KP Rück – and the call sites behind them. kp-rück
   already kept a rule this app did not: the generic delete button said «Entfernen» and sat under
   nine dialogs whose own title asked «löschen?». It says «Löschen» now, and the places that really
@@ -102,7 +101,7 @@ so this file – not the log – is the record of what shipped up to that point.
   Personal/Mannschaft split is German-only, and a native speaker should decide whether French and
   Italian want two words for it.
 
-- **Die Verlaufszeile trägt eine Einordnungs-Spalte statt zwölf Dekorationen.** The row is a
+- **The Verlauf row carries one classification column instead of twelve decorations.** The row is a
   four-track grid now – time · disc · sentence · trailing footnotes. The 26px disc carries the
   Bereich and becomes the ring for a Pendenz; footnotes (Nachtrag · korrigiert · 6×) trail the
   sentence instead of preceding it, so every sentence starts at one x and a done item no longer
@@ -110,7 +109,7 @@ so this file – not the log – is the record of what shipped up to that point.
   rows keep classifying exactly as before, and what is written, printed and hashed did not change –
   the row renders `e.text` byte for byte, both pinned by tests.
 
-- **Die Kroki-Vorschau zeichnet das Blatt, nicht ein zweites Bild.** The server turns every label
+- **The Kroki preview draws the sheet, not a second picture.** The server turns every label
   into a numbered disc with a legend and decides membership by whether the disc fits inside the
   crop; the framing preview drew full captions and no legend, scale bar, north dial or attribution
   plate – so the single most consequential effect of the pan was invisible exactly where the pan
@@ -118,7 +117,7 @@ so this file – not the log – is the record of what shipped up to that point.
   the server's own fractions. The fit test uses the true printed radius while the drawing keeps a
   15px floor, and amber means exactly one thing on this surface – «this will not be on the sheet».
 
-- **Pendenzen und Log sind zwei gestapelte Rollbereiche, statt einer mit Deckel.** The Pendenzen
+- **Pendenzen and log are two stacked scroll areas, instead of one with a lid.** The Pendenzen
   block was sticky inside the log – capped, clipped, «Aufklappen» to see past it, the log frozen
   while it was open, and rows sliced in half behind its opaque edge. It is a sibling above the log
   now, its own scrollbar, `max-height: 45%` with content height as the floor. The slicing is not
@@ -127,7 +126,7 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
-- **Ein Prüfer mit frischen Augen fand die Stellen, wo die App sich selbst widerspricht.** An
+- **A reviewer with fresh eyes found the places where the app contradicts itself.** An
   external user test read the surface against itself. The Atemschutz hints told the operator to
   press «Eingerückt» where the button says «Einrücken» – in all four languages; the Tafel hint
   offered «Zeichnen, Text» where the dock names Linie, Fläche and Notiz; the AS settings explained
@@ -137,20 +136,20 @@ so this file – not the log – is the record of what shipped up to that point.
   the chip markup is `[[]]]` and the copy had `[]]]`; and the icon sprite defined `bell` twice,
   which is invalid HTML – the definition matching `bell-off` is the one that stays.
 
-- **Ein Löschdialog behauptete die Tat, bevor die Frage beantwortet war.** «Auswahl entfernt» – a
+- **A delete dialog claimed the deed before the question was answered.** «Auswahl entfernt» – a
   toast string – was serving as the heading of the confirm dialog for a multi-object delete, so the
   question announced its own outcome. It has a title of its own. Two other destructive dialogs
   confirmed with «OK» where every sibling names the verb, and the ✕ in the symbol palette was
   labelled «Schliessen» although it only clears the search – one of four labels for that one
   gesture, all «Suche löschen» now.
 
-- **Die Arbeitsmappe nannte Blätter, die es nicht gibt.** Renaming the surface from «Mittel» to
+- **The workbook named sheets that do not exist.** Renaming the surface from «Mittel» to
   «Material» briefly renamed it in the workbook copy too – but the sheets in the Excel file are
   literally called Mannschaft, Mittel and Mittel-Bestände, so the text promised sheets an operator
   would not find. It quotes the real names again. ⚠️ Renaming those sheets is a data-format change,
   not a copy change; if they are ever renamed, the parser and every station's saved file move too.
 
-- **Eine bewusste Einsatzwahl überlebt den Reload.** Boot preferred the newest alarm-created
+- **A deliberate Einsatz choice survives the reload.** Boot preferred the newest alarm-created
   Einsatz unconditionally – no freshness window, no memory that the operator had already decided
   otherwise – and then stamped its own pick into the cookie, so a stale alarm re-confirmed itself on
   every reload and could make another Einsatz unreachable for as long as it stayed open. The alarm
@@ -158,14 +157,14 @@ so this file – not the log – is the record of what shipped up to that point.
   operator last opened something by hand; a genuinely new alarm still wins, which is the case the
   rule exists for.
 
-- **Eine Pendenz lässt sich abhaken, wo man sie sieht – und der Plan-Sprung landet beim Symbol.**
+- **A Pendenz can be ticked off where you see it – and the plan jump lands on the symbol.**
   Down in the log the same item showed ring, «fällig» and pen but no way to mark it done; the row's
   ring now calls the same handler as the pinned tick – one path to one state. And plan placement
   rows carry the annotation, the point and the floor, so «Symbol auf Plan gesetzt» selects it
   instead of merely opening the Gebäude. ⚠️ Rows written before can never grow coordinates (the
   record is append-only) and degrade to exactly the old behaviour.
 
-- **Das Atemschutz-Board sagt, was der Alarm längst weiss.** Low pressure has been a tier-2 alarm
+- **The Atemschutz board says what the alarm has long known.** Low pressure has been a tier-2 alarm
   app-wide since 10.08. – tone, OS notification, NavRail dot, TopBar chip – but card, row, badge and
   sort read the contact clock alone: a Trupp at 40 bar with a fresh Kontakt had the whole app
   screaming while its card stayed green. `truppAlarm()` is now the one place a tier is decided, so
@@ -174,7 +173,7 @@ so this file – not the log – is the record of what shipped up to that point.
   Fortsetzen – a mis-tap silenced an overdue Trupp and wrote a false line into an append-only
   record – and a standby Trupp with a low bottle no longer sounds a tone its chip denied.
 
-- **Plan-Undo überlebt den Oberflächenwechsel.** Plan history lived in the Whiteboard, which
+- **Plan undo survives the surface switch.** Plan history lived in the Whiteboard, which
   unmounts on every surface switch – drawing on a plan, hopping to the Verlauf and coming back left
   nothing to undo, while the Lage always survived this. The stacks live on the owning surface now,
   still keyed per plan document. Same pass: the line presets (Rettungsachse, Pfeil) were declared
@@ -189,7 +188,7 @@ so this file – not the log – is the record of what shipped up to that point.
   base button no longer fills four buttons – including a Cancel – with the brand red reserved for
   the one primary.
 
-- **Das ✕ des Eintrag-Composers schliesst, statt zu löschen.** It looked like every other ✕ in the
+- **The entry composer's ✕ closes, instead of deleting.** It looked like every other ✕ in the
   app, all of which merely close, and it destroyed the typed draft with no confirm and no undo – one
   glyph with two meanings is unlearnable at 3am. The draft guard now keeps Type, Fälligkeit, clip
   and photos too (only an imported audio file is let go, and that loss is spoken out loud), and a
@@ -199,7 +198,7 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
-- **Eine Ausbreitung zeigt in vier Richtungen, und jede trägt ihre eigene Grenze.** A fire running
+- **An Ausbreitung points in four directions, and each one carries its own boundary.** A fire running
   along a façade to *both* sides and stopped at only one Brandmauer could not be drawn: horizontally
   the symbol knew `'E' | 'W'` – either/or – and a boundary belonged to the AXIS rather than to the
   arrow, so one `vBounded` put a bar on both vertical arrows whether it was true or not. All four
@@ -211,7 +210,7 @@ so this file – not the log – is the record of what shipped up to that point.
   Nothing reads the fields raw; everything goes through `normalizeSpread`, and `kroki.py`'s
   `_spread_dirs` mirrors it line for line so paper and screen cannot drift apart.
 
-- **«Entfällt» ist eine Antwort – auf dem Schirm und auf dem Papier.** A Fehlalarm has no
+- **«Entfällt» is an answer – on screen and on paper.** A Fehlalarm has no
   Kontaktperson and an Ölspur is never reported back to the ELZ, and neither step had a way of
   saying so: the rapport of a routine Einsatz could not reach complete, so «Angaben fehlen noch»
   stood in front of every print until it was being tapped away unread. Both fields now take the
@@ -230,7 +229,7 @@ so this file – not the log – is the record of what shipped up to that point.
   reported instead of swallowed. One word pair for the lifecycle throughout: abschliessen / wieder
   öffnen.
 
-- **Der Ziehgriff der Leisten geht mit den Wörtern, nicht mit dem Eingabegerät.** The decision was
+- **The bars' drag handle goes with the words, not with the input device.** The decision was
   already made and only half carried out: with «Beschriftung · Wörter» on, the expand chevron is not
   rendered at all, because there is nothing left to expand once the word stands under the sign. The
   drag handle was the remainder the same thought had missed. It is gone whenever the words are on,
@@ -241,21 +240,21 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
-- **«Beschriftung · Wörter» erreichte die Leiste auf dem Plan nicht.** The setting promises the word
+- **«Beschriftung · Wörter» never reached the bar on the plan.** The setting promises the word
   under every sign in *both* rails and kept that promise on the Lage only: the Whiteboard renders the
   same `<ToolRail>` – its own comment says so – but never passed it `labels`. One setting, two rails,
   and one of them was not listening. ⚠️ Threaded through as a prop rather than a second
   `useDevicePrefs()` in the Whiteboard: that hook keeps its own state per call site, so a second call
   would have made a copy that goes stale the moment the setting is switched.
 
-- **Die Fussknöpfe der Leisten schnitten ihre Wörter ab, die Werkzeuge darüber nicht** – same frame,
+- **The bars' footer buttons cut their words off, the tools above them did not** – same frame,
   same font. The browser's own `padding: 1px 6px` on a `<button>`: `.vrail-tool` zeroes it,
   `.vrail-nbtn` never did, so twelve pixels that stand in no rule of ours left a foot button 64 px
   for a label where a tool had 76. That is why «Absperrkreis» (75 px) and «Vergrössern» (70 px) did
   not fit. Measured in the built bundle, in Sora, against the real rail: all 23 labels of both rails
   fit now, and it needed **no** shorter words – the established terms stay.
 
-- **Ein Druckauftrag in der Warteschlange ist kein gedruckter Rapport.** «Ausdrucken» stamped
+- **A print job in the queue is not a printed Rapport.** «Ausdrucken» stamped
   `reportMadeAt` the instant the job left the device – including right after the dialog that had just
   said the printer was offline – so the app offered to close an Einsatz whose rapport existed on no
   sheet of paper anywhere. The open job lives on the workspace now and shows as an amber band under
@@ -264,7 +263,7 @@ so this file – not the log – is the record of what shipped up to that point.
   distinguishes cancelled / late / gone / unreachable instead of dressing a network failure up as
   «zu spät».
 
-- **Die Glocke im Atemschutz verspricht nur, was sie halten kann.** Three honest states instead of an
+- **The bell in Atemschutz only promises what it can keep.** Three honest states instead of an
   action label, including a silent «Ton nicht freigegeben» whose tap retries the unlock: the tone
   needs an AudioContext the browser only releases inside a gesture, and nothing guaranteed one. The
   unlock now rides the first touch of every Einsatz rather than the Trupp form alone. The mute
@@ -272,14 +271,14 @@ so this file – not the log – is the record of what shipped up to that point.
   bell that said off – and it is scoped to one Einsatz per device, so a tablet muted at a drill in
   February is armed again for the next real alarm.
 
-- **Der Kachel-Download zählte Versuche, nicht Treffer.** The progress bar reaches 100 % whatever
+- **The tile download counted attempts, not hits.** The progress bar reaches 100 % whatever
   happens – it counts attempts finished, and must, or a dead host would hang it – so «fertig» said
   nothing about «geklappt»: on dead WLAN in the Magazin it toasted a green «Karte offline verfügbar
   (0 Kacheln)». The result buckets stored / notFound / failed now, a 404 counting as final (no
   coverage at a layer's edge is not a miss that «Weiterladen» could ever fill), and four outcomes get
   four messages – green only when everything fetchable arrived.
 
-- **Die Beschriftung einer Leitung stand auf der Leitung.** The boxed end tag («1 · S · +2 · Müller
+- **A Leitung's label sat on top of the Leitung.** The boxed end tag («1 · S · +2 · Müller
   H.») was drawn 72 % along the last segment, centred on the line, and its box is opaque – so on
   paper it covered the last quarter of the very Leitung it names, the line appeared to stop dead at
   the tag, and the Teilstück fork past it read as a second, unattached mark. It is pushed clear along
@@ -287,7 +286,7 @@ so this file – not the log – is the record of what shipped up to that point.
   side away from the line's centre of mass – so a hose that loops back is labelled outside its bend –
   and clamped inside the sheet, because a tag that is cut off says nothing.
 
-- **Der Kroki-Ausschnitt zeigt jetzt, was das Blatt zeigt.** Four ways the preview disagreed with the
+- **The Kroki frame now shows what the sheet shows.** Four ways the preview disagreed with the
   paper it previews. The words rendered at plain screen size while the symbols beside them were
   scaled, so in Hoch they came out about 1.7× too big; on top of that a **second** print reference
   for Hoch inflated everything scaled by a further 1.6×, on the reasoning that the server sizes
@@ -302,7 +301,7 @@ so this file – not the log – is the record of what shipped up to that point.
   the raw last segment – a hose drawn with a finger routinely ends in a 3 px vertex that carries no
   direction.
 
-- **Der Lade-Ping lag über der Arbeit.** The in-workspace splash stands in for the map, and it was a
+- **The loading ping sat on top of the work.** The in-workspace splash stands in for the map, and it was a
   transparent `position: fixed` sheet above everything: while the tiles and the symbol pack loaded,
   the brand pulse and the station wordmark were painted straight across the Rapport, the rails and
   the panels – all perfectly usable – with nothing behind them to say what they belonged to. A
@@ -1522,167 +1521,163 @@ so this file – not the log – is the record of what shipped up to that point.
   (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
   downloaded PDF stays in reading order, because that one is read on a screen.
 
-- **Ein GPS-Fahrzeug kann einen Fahrer bekommen.** Der Feed weiss, wo ein Fahrzeug ist, nie wer
-  darin sitzt – und genau das braucht die Einsatzleitung, um es zu erreichen. Der Fahrer wird am
-  Fahrzeug gesetzt, aus der Mannschaft, steht auf der Beschriftung und druckt auf dem Kroki wie
-  bei einem von Hand gesetzten Fahrzeug. Er überlebt den nächsten GPS-Poll, der das Symbol sonst
-  neu baut.
+- **A GPS vehicle can be given a driver.** The feed knows where a vehicle is, never who sits
+  in it – and that is exactly what the Einsatzleitung needs in order to reach it. The driver is
+  set on the vehicle, picked from the Mannschaft, appears on the label and prints on the Kroki
+  like on a hand-placed vehicle. He survives the next GPS poll, which otherwise rebuilds the
+  symbol.
 
-- **Der Live-Standort in der Anwesenheit ist wieder eine Markierung, keine Ablesung.**
-  «63 m · jetzt» hinter jedem Namen war eine zweite Zahlenspalte neben dem, wofür die Liste
-  gelesen wird – den Namen. Es bleibt das Symbol, direkt links neben der Uhr; die Angabe steht
-  im Tooltip, und ein Tipp zeigt die Person weiterhin auf der Karte.
+- **The live position in Anwesenheit is a marker again, not a reading.**
+  «63 m · jetzt» behind every name was a second number column next to the thing the list is
+  read for – the names. It stays the symbol, directly left of the clock; the reading lives in
+  the tooltip, and a tap still shows the person on the map.
 
-- **Die Geschoss-Skizze kam halb hochkant und halb quer aus dem Drucker.** Each page was shaped
+- **The floor sketch came out of the printer half portrait, half landscape.** Each page was shaped
   by the number of storeys that happened to land on it – two gave an upright sheet, one a wide
   one – so a building with an odd number of floors printed in two orientations. Every page keeps
   the same grid now; a page short of a storey leaves its lower band empty, which is what a stack
   with nothing above it looks like.
 
-- **Die Kroki-Vorschau zeigt, was gedruckt wird.** Sie zeichnete nackte Linien – der eine
-  Bildschirm, dessen ganze Aufgabe «so kommt es heraus» ist, zeigte weniger als das, was
-  herauskam: Teilstück-Gabel, Endetikett («Leitungsnummer · Inhalt · Stockwerk · Trupp»),
-  Distanz- und Beschriftungs-Chips fehlten, gestrichelte Linien erschienen durchgezogen und jede
-  Linie gleich dick. Jetzt dieselben Bausteine wie auf der Lagekarte, unter derselben
-  Beschriftungs-Einstellung wie der Export.
+- **The Kroki preview shows what will be printed.** It drew naked lines – the one screen whose
+  entire job is «this is how it comes out» showed less than what came out: the section fork,
+  the end label («Leitungsnummer · Inhalt · Stockwerk · Trupp»), the distance and label chips
+  were missing, dashed lines appeared solid and every line equally thick. Now the same building
+  blocks as on the Lagekarte, under the same labelling setting as the export.
 
-- **Das Kroki trägt einen Nordpfeil.** Auf dem Bildschirm weiss man, wie man schaut; auf Papier
-  nicht – und ein Kroki ohne Nordmarke lässt sich weder neben einen Plan legen noch gegen das
-  Gelände lesen.
+- **The Kroki carries a north arrow.** On screen you know which way you are looking; on paper
+  you don't – and a Kroki without a north mark can neither be laid next to a plan nor be read
+  against the terrain.
 
-- **Das Einsatzjournal beginnt auf einer eigenen Seite.** Es ist eine Beilage, keine Fortsetzung:
-  bisher fing es dort an, wo der unterschriebene Teil gerade endete – die ersten Einträge standen
-  im Weissraum unter den Unterschriften, und beides las sich als ein Dokument.
+- **The Einsatzjournal starts on a page of its own.** It is a Beilage, not a continuation:
+  until now it began wherever the signed part happened to end – the first entries stood in the
+  whitespace below the signatures, and the two read as one document.
 
-- **Die Geschoss-Skizze hatte einen Kasten um jede Stockwerk-Beschriftung.** «2. OG» wurde als
-  breite Textbox gezeichnet statt als Pille: eine fehlende Breitenangabe bedeutet laut Vertrag
-  die einzeilige Pille, der Code setzte aber eine Standardbreite ein.
+- **The floor sketch had a box around every storey label.** «2. OG» was drawn as a wide text
+  box instead of as a pill: per the contract a missing width means the one-line pill, but the
+  code substituted a default width.
 
-- **Auf dem Personalblatt ist auch der Beginn grau, wenn jemand von Anfang an dabei war** – eine
-  Zeile, die auf beiden Seiten grau ist, muss niemand prüfen. Und die Zeitspalte passt sich an
-  ihren Inhalt an: mit Datum brach «02.08. 14:41 – 04.06. 11:00» bisher auf zwei Zeilen um.
+- **On the personnel sheet the start is grey too when somebody was there from the beginning** –
+  a row that is grey on both ends needs nobody to check it. And the time column adapts to its
+  content: with dates, «02.08. 14:41 – 04.06. 11:00» used to wrap onto two lines.
 
-- **Das Kroki-Fenster ist nicht mehr durchscheinend.** Der Rapport dahinter schlug durch genau
-  die Karte, die man durch dieses Fenster beurteilen soll.
+- **The Kroki window is no longer translucent.** The Rapport behind it bled through exactly
+  the map this window exists to judge.
 
-- **Die Datums-Eingabe hatte am Rechner keine Datumswahl.** Der Auswahl-Dialog zeigte eine grosse
-  leere Fläche mit nur der Uhrzeit darin: die Räder sind eine Finger-Bedienung, und mit Tastatur
-  wurde nichts an ihre Stelle gesetzt. Jetzt Tag · Monat · Jahr als Auswahlfelder neben der Zeit.
+- **The date input had no date picker on the desktop.** The picker dialog showed a large empty
+  area with only the time in it: the wheels are a finger control, and with a keyboard nothing
+  was put in their place. Now day · month · year as select fields next to the time.
 
-- **Die Demo widersprach sich selbst.** Der Alarm lag 14 Minuten zurück, die Mannschaft hatte sich
-  aber vor 20 Minuten eingetragen – sechs Minuten *vor* dem Alarm – und der erste Trupp ging in
-  derselben Minute ins Gebäude, in der der Pager losging. Genau das, was die neue
-  Zeiten-Plausibilität anzeigt: die Demo fiel durch die eigene Prüfung.
+- **The demo contradicted itself.** The alarm was 14 minutes ago, but the crew had signed in
+  20 minutes ago – six minutes *before* the alarm – and the first Trupp entered the building in
+  the same minute the pager went off. Exactly what the new time-plausibility check flags: the
+  demo failed its own test.
 
-- **«Einsatz abschliessen» schliesst nur noch sich selbst.** Der Einsatzrapport wurde vorsorglich
-  mitgeschlossen – auf der Demo, wo die Aktion gar nicht ausgeführt wird, verlor man damit seinen
-  Platz für etwas, das nie passiert ist.
+- **«Einsatz abschliessen» now closes only itself.** The Einsatzrapport was closed along with
+  it as a precaution – on the demo, where the action is never actually executed, that cost you
+  your place for something that never happened.
 
-- **Was über den QR-Poster erfasst wird, steht jetzt im Verlauf.** Anwesenheit, Material,
-  Rapportangaben und Beilagen liessen sich über das Poster ändern, ohne dass eine einzige Zeile
-  entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im
-  Rechtsdokument sichtbar sein muss, dass sie nicht von einer angemeldeten Person stammt.
+- **What is captured via the QR poster now lands in the Verlauf.** Anwesenheit, Material,
+  Rapport details and Beilagen could be changed through the poster without a single line being
+  written – the same action on the tablet always wrote one. Every line carries «(QR)», because
+  the legal document has to show that it did not come from a signed-in person.
 
-- **Logo und Titel stehen auf einer Zeile.** Übereinander schob das Logo den Einsatz – das,
-  worum es auf dem Blatt geht – ein Drittel der Seite nach unten, und beide lasen sich als zwei
-  Blöcke statt als ein Kopf.
+- **Logo and title sit on one line.** Stacked, the logo pushed the Einsatz – the thing the
+  sheet is about – a third of the page down, and the two read as two blocks instead of one
+  head.
 
-- **«Stk» heisst jetzt «Stk.»** – eine Abkürzung liest sich mit Punkt. Die Demo führt ausserdem
-  dieselben Partnerorganisationen wie Oberwil, damit der Block dort so aussieht, wie eine Station
-  ihm wirklich begegnet.
+- **«Stk» is now «Stk.»** – an abbreviation reads with a dot. The demo also carries the same
+  partner organisations as Oberwil, so the block looks there the way a station actually meets
+  it.
 
-- **Im Hellmodus waren die Kästchen der Partnerorganisationen unsichtbar.** Sie waren mit dem
-  Glanz-Token gerahmt – im Hellmodus schlicht weiss, also weiss auf weissem Blatt. Ein leeres
-  Kästchen IST die Bedienung; es muss sichtbar sein, bevor etwas darin steht. Dasselbe galt für
-  die Ringe der Abschluss-Checkliste.
+- **In light mode the partner organisations' boxes were invisible.** They were framed with the
+  gloss token – in light mode plain white, so white on a white sheet. An empty box IS the
+  control; it has to be visible before anything is in it. The same held for the rings of the
+  Abschluss checklist.
 
-- **Die Partnerorganisationen sahen aus wie drei verschiedene Listen.** Angekreuzte Zeilen in
-  Schwarz, nicht angekreuzte in Grau, die Schreibzeile leer – drei Schriftbilder und drei
-  Zeilenhöhen in einem Block, dessen ganzer Sinn die Vergleichbarkeit ist. Ein Kreuz sagt bereits
-  «die waren da»; die Typografie muss es nicht leiser ein zweites Mal sagen.
+- **The partner organisations looked like three different lists.** Ticked rows in black,
+  unticked ones in grey, the write-in line empty – three typefaces and three row heights in one
+  block whose whole point is comparability. A cross already says «they were there»; the
+  typography does not have to say it again more quietly.
 
-- **Der Atemschutz-Anhang druckt keinen Status mehr.** «Im Einsatz» auf einem abgeschlossenen
-  Einsatz behauptet etwas, das schon nicht mehr stimmte, als das Blatt aus dem Drucker kam. Die
-  Drucktabelle ist ausserdem schmaler – eine Uhrzeit, ein Wort und eine Zahl brauchen keine
-  volle Seitenbreite – und aus «Mitglieder» wird **AdF**, der Begriff, den die App sonst benutzt.
+- **The Atemschutz attachment no longer prints a status.** «Im Einsatz» on a closed Einsatz
+  claims something that had already stopped being true when the sheet left the printer. The
+  print table is narrower, too – a time, a word and a number do not need a full page width –
+  and «Mitglieder» becomes **AdF**, the term the app uses everywhere else.
 
-- **Das Rapport-Logo lässt sich auch per Befehl setzen.** `admin_branding push reportLogo <datei>`
-  – nötig für die Demo, deren nächtlicher Reset die Konfiguration neu lädt und ein von Hand
-  hochgeladenes Logo jedes Mal gelöscht hätte. Die Demo bringt ihr Logo jetzt selbst mit.
+- **The Rapport logo can also be set by command.** `admin_branding push reportLogo <datei>`
+  – needed for the demo, whose nightly reset reloads the configuration and would have deleted a
+  hand-uploaded logo every time. The demo now brings its own logo.
 
-- **Auf einem laufenden Einsatz sagt das Blatt nur, wie viele da sind.** Ohne Einsatzende lässt
-  sich kein Block auswerten – gedruckt wurde trotzdem «0:00 · gerundet 0:00» samt Absatz, der
-  erklärte, warum beide Nullen nichts bedeuten. Jetzt steht dort die eine Zahl, die feststeht.
-  Die Rundungsregel steht gar nicht mehr auf dem Blatt: sie ist auf jedem Rapport dieselbe und
-  gehört in die Weisung, nicht neben die zwei Zahlen, die tatsächlich jemand überträgt.
+- **On a running Einsatz the sheet only says how many are there.** Without an Einsatzende no
+  block can be evaluated – yet «0:00 · gerundet 0:00» was printed anyway, complete with a
+  paragraph explaining why both zeros mean nothing. Now the sheet shows the one number that is
+  certain. The rounding rule is no longer on the sheet at all: it is the same on every Rapport
+  and belongs in the Weisung, not next to the two numbers somebody actually copies over.
 
-- **Das Rapport-Logo erschien nicht auf dem Papier.** Es war hochgeladen, wurde ausgeliefert und
-  stand in der Konfiguration – der Ablageschlüssel ist aber ein PFAD («branding/<uuid>.png»),
-  und das Muster, das ihn wiedererkennen sollte, liess keine Schrägstriche zu. Es passte auf
-  nichts und das Logo wurde stillschweigend weggelassen.
+- **The Rapport logo did not appear on paper.** It was uploaded, was served, and stood in the
+  configuration – but the storage key is a PATH («branding/<uuid>.png»), and the pattern meant
+  to recognise it allowed no slashes. It matched nothing, and the logo was silently left out.
 
-- **«Einsatzstunden 0:00» bei vier Anwesenden.** Ein noch offener Anwesenheitsblock leiht sich
-  das Einsatzende – war das unplausibel (etwa ein vertipptes Datum), ergab jede Person eine
-  negative Dauer, die auf 0 gekappt wurde. Vier Leute, null Stunden, und nichts sagte warum. Ein
-  Block, der vor seinem Anfang endet, ist jetzt **nicht auswertbar** statt «gemessen und
-  nichts», und das Blatt schreibt hin, wie viele Personen deshalb in keiner der beiden Summen
-  stehen. Die Zahlen stehen ausserdem auf einer eigenen Zeile, die Rundungsregel als Fussnote
-  darunter – als ein Satz lief das über die ganze Seitenbreite und die zwei Zahlen, die
-  überhaupt jemand überträgt, lagen mittendrin.
+- **«Einsatzstunden 0:00» with four people present.** A still-open Anwesenheit block borrows
+  the Einsatzende – if that was implausible (say, a mistyped date), every person yielded a
+  negative duration, capped to 0. Four people, zero hours, and nothing said why. A block that
+  ends before its start is now **not evaluable** instead of «measured, and nothing», and the
+  sheet writes down how many people are therefore in neither of the two sums. The numbers also
+  sit on a line of their own, the rounding rule as a footnote below – as one sentence this ran
+  across the whole page width, with the two numbers anybody actually copies buried in the
+  middle.
 
-- **Ein Klick ins Bild zoomt.** Der Zeiger zeigte eine Lupe, aber ein Klick tat nichts – der Zoom
-  lag hinter Doppelklick, Mausrad und Zwei-Finger-Geste, von denen das Bild keine anzeigt.
-  Klick hinein, Klick heraus; die anderen Gesten bleiben.
+- **A click into the picture zooms.** The cursor showed a magnifier, but a click did nothing –
+  the zoom hid behind double-click, mouse wheel and two-finger gesture, none of which the
+  picture advertises. Click in, click out; the other gestures stay.
 
-- **Der Rapport hat ein eigenes Logo.** Die Marke der App wird auf einem Bildschirm im
-  Vorbeigehen gelesen, die des Rapports auf Papier von einer Gemeinde oder einer Versicherung –
-  Stationen wollen dort zu Recht ein anderes Zeichen, und eines mit dem vollen Namen liest sich
-  in einer Kopfzeile schlecht, auf einem Briefkopf richtig. **Admin → Branding → Rapport-Logo**;
-  leer bedeutet weiterhin das Logo darüber, niemand muss zweimal hochladen.
+- **The Rapport has a logo of its own.** The app's mark is read on a screen in passing, the
+  Rapport's on paper by a Gemeinde or an insurer – stations rightly want a different mark
+  there, and one carrying the full name reads badly in a top bar and right on a letterhead.
+  **Admin → Branding → Rapport-Logo**; empty still means the logo above it, nobody has to
+  upload twice.
 
-- **Ein Eintrag riss einen von der Karte weg.** Nach «Erfassen» ging der Verlauf immer auf – auch
-  wenn der Eintrag über den Knopf am unteren Rand oder über eine Checkliste begonnen wurde. Der
-  Verlauf bleibt jetzt, wie er war: wer ihn offen hatte, sieht ihn weiter, wer auf der Karte
-  arbeitete, bleibt dort. Gespeichert wird es ohnehin bestätigt.
+- **An entry tore you away from the map.** After «Erfassen» the Verlauf always opened – even
+  when the entry was started from the button at the bottom edge or from a checklist. The
+  Verlauf now stays as it was: whoever had it open keeps seeing it, whoever was working on the
+  map stays there. The save is confirmed either way.
 
-- **In der Bildlegende einer Beilage liessen sich keine Leerzeichen tippen.** Die Legende wurde
-  bei jedem Tastendruck beschnitten, also war das eben getippte Leerzeichen weg, bevor der
-  nächste Buchstabe ankam – «Ausweis Lenker» wurde «AusweisLenker». Aufgeräumt wird jetzt einmal,
-  beim Verlassen des Feldes.
+- **No spaces could be typed in an attachment's caption.** The caption was trimmed on every
+  keystroke, so the space just typed was gone before the next letter arrived – «Ausweis Lenker»
+  became «AusweisLenker». Cleanup now happens once, on leaving the field.
 
-- **Die Partnerorganisationen drucken als vollständige Liste.** Wie beim Personal: jede Ortschaft
-  aus der Stationsliste mit eigenem Kästchen – angekreuzt oder eben nicht – und eine leere Zeile
-  am Schluss für die, an die niemand gedacht hat. Ein Abschnitt, der nur die Angekreuzten zeigt,
-  kann nicht sagen «die Polizei war NICHT da». Die Demo bringt jetzt auch eine Liste mit.
+- **The partner organisations print as a complete list.** Like the Personal: every Ortschaft
+  from the station list with its own box – ticked or not – and an empty line at the end for the
+  one nobody thought of. A section that shows only the ticked ones cannot say «the police were
+  NOT there». The demo now ships a list too.
 
-- **Wer die Atemschutz-Sicherheitswerte verstellt, hinterlässt eine Spur.** Kontaktintervall und
-  Nachfrist entscheiden, wann ein Trupp als fällig und als überfällig gilt – wer einen davon
-  mitten im Einsatz verschiebt, verschiebt alle Uhren des Atemschutz-Boards gleichzeitig, und das
-  hinterliess bisher gar nichts: die Rekonstruktion konnte sehen, dass ein Trupp überfällig
-  wurde, aber nicht, dass die Schwelle unter ihm verschoben worden war. Die Zeile trägt **alten
-  und neuen Wert** – «geändert» allein sagt nicht, ob die Grenze strenger oder lockerer wurde.
+- **Whoever changes the Atemschutz safety values leaves a trace.** Kontaktintervall and
+  Nachfrist decide when a Trupp counts as due and as overdue – whoever moves one of them
+  mid-Einsatz moves every clock on the Atemschutz board at once, and until now that left
+  nothing behind: the reconstruction could see that a Trupp became overdue, but not that the
+  threshold had been moved underneath it. The line carries the **old and new value** –
+  «geändert» alone does not say whether the limit got stricter or looser.
 
-- **Auch die Rapportangaben schreiben eine Zeile.** Einsatzleiter, Endezeit, Gerettete,
-  Partnerorganisationen, die Alarm- und Fahrzeugzeiten – der Inhalt des Dokuments, das
-  unterschrieben wird – änderten sich bisher spurlos. Eine Zeile pro Speicherung, die sagt
-  *welche* Felder es waren.
+- **The Rapport details write a line too.** Einsatzleiter, end time, Gerettete, partner
+  organisations, the alarm and vehicle times – the content of the document that gets signed –
+  used to change without a trace. One line per save, saying *which* fields it was.
 
-- **Ein Übungsrapport sah aus wie ein Einsatzrapport.** Ob ein Einsatz eine **Übung** war, stand
-  nirgends auf dem Papier – dabei ist es das Einzige, was ändert, *was das Dokument überhaupt
-  ist*, und Übungen fliessen nicht in die Statistik ein. Ein Übungsrapport, der sich wie ein
-  Ereignis liest, widerspricht den Zahlen dahinter. Er steht jetzt über dem Titel, vor allem
-  anderen.
+- **An Übungsrapport looked like an Einsatzrapport.** Whether an Einsatz was an **Übung**
+  appeared nowhere on the paper – yet it is the one thing that changes *what the document even
+  is*, and Übungen do not flow into the statistics. An Übungsrapport that reads like a real
+  event contradicts the numbers behind it. It now stands above the title, before everything
+  else.
 
-- **Die Kategorie hiess auf dem Rapport «Stichwort».** Sie ist die Kategorie – das Stichwort ist
-  der Titel darüber. Jetzt heisst sie, was sie ist.
+- **The category was called «Stichwort» on the Rapport.** It is the category – the Stichwort
+  is the title above it. Now it is called what it is.
 
-- **Die Adresssuche verlor die Strasse, sobald man die Postleitzahl tippte.** «storchenweg 8,
-  410» kam mit sechs Treffern zurück, von denen keiner ein Storchenweg war. Eine PLZ hat vier
-  Ziffern – eine halb getippte galt nicht als eine, also hängte die App die eigene Ortschaft
-  noch dazu. Die Anfrage trug zwei Ortschaften, und der Kartendienst antwortete, indem er auf
-  die ZAHLEN passte und den Strassennamen fallen liess. Sobald jemand selbst eine Ortschaft
-  schreibt, bleibt die Anfrage jetzt unangetastet – und **die eigene Gemeinde steht zuoberst**,
-  wenn es eine Strasse in mehreren Dörfern der Region gibt.
+- **The address search lost the street as soon as you typed the postal code.** «storchenweg 8,
+  410» came back with six hits, none of them a Storchenweg. A PLZ has four digits – a
+  half-typed one did not count as one, so the app appended its own locality on top. The query
+  carried two localities, and the map service answered by matching the NUMBERS and dropping
+  the street name. As soon as somebody writes a locality themselves, the query now stays
+  untouched – and **the own Gemeinde sorts first** when a street exists in several villages of
+  the region.
 
 - **The station's logo prints on the Rapport.** The uploaded Logo (Admin → Branding) sits above
   the title as a letterhead – the rapport leaves the building, to the Gemeinde, the Versicherung
@@ -1752,7 +1747,7 @@ so this file – not the log – is the record of what shipped up to that point.
   field it belongs to – as a **hint, not a barrier**: an Einsatz over midnight is normal, and a
   correction made at 3am is worth more than a form that refuses it.
 
-- **Datum und Zeit are asked as two things, not one string.** The desktop got a bare
+- **Datum and Zeit are asked as two things, not one string.** The desktop got a bare
   `TT.MM.JJJJ HH:MM` text box, which is where a mistyped year comes from in the first place.
   Both now open the same picker on every device – a day/month/year selector beside the clock,
   with typing still available inside it. The **Rückmeldung ELZ** gained the day it was missing:
@@ -1769,7 +1764,7 @@ so this file – not the log – is the record of what shipped up to that point.
   remark dragged its amount down the page with it. Amounts hang on the right edge and stay on
   their own line.
 
-- **Personen und Tiere didn't line up either.** On the Erfassungs-Poster the two counters were
+- **Personen and Tiere didn't line up either.** On the Erfassungs-Poster the two counters were
   each only as wide as their own word, so the steppers staggered. They share one column now.
 
 - **A Verlaufszeile with several photos kept only one of them.** Attaching three pictures to one
@@ -1817,7 +1812,7 @@ so this file – not the log – is the record of what shipped up to that point.
   free line), and a Mittel line offers its remark wherever an amount was recorded. A person's remark also shows
   in the Anwesenheit row – a remark nobody sees is a remark nobody keeps up to date.
 
-- **Anwesende und Einsatzstunden stehen auf dem Rapport.** One line under the roster: how many
+- **Anwesende and Einsatzstunden are on the Rapport.** One line under the roster: how many
   people were there, and how long – `6 Anwesende · Einsatzstunden 14:35 (gerundet 16:00)`. The
   first figure is **raw**, summed to the minute, because that is what actually happened. The
   second is the Sold convention: each person's own time rounded up to the next block, but only

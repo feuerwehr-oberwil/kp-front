@@ -1,126 +1,127 @@
-# site/ – die öffentliche Landingpage (kp-front.ch)
+# site/ – the public landing page (kp-front.ch)
 
-Statische Seite, kein Framework – aber seit der zweiten Sprache **generiert**:
+Static page, no framework – but **generated** since the second language arrived:
 
 ```
 site/
-  index.template.html   ← Struktur und Markup (Text steht hier NICHT)
-  content/config.json   ← welche Sprachen es gibt, und unter welcher URL
-  content/de.json       ← der deutsche Text – die Grundlage
-  content/fr.json       ← die Übersetzung, über de.json gelegt
-  landing.css           ← das gemeinsame Design von KP Front und KP Rück
-  fonts/                ← Sora + Spline Sans Mono (variable, gehostet, kein CDN)
-  shots/                ← Screenshots aus einer echten Instanz (generiert, WebP)
-  capture.mjs           ← nimmt shots/ neu auf
-  build.mjs             ← baut aus Vorlage + Texten die Seiten
+  index.template.html   ← structure and markup (the text does NOT live here)
+  content/config.json   ← which languages exist, and under which URL
+  content/de.json       ← the German text – the foundation
+  content/fr.json       ← the translation, layered over de.json
+  landing.css           ← the shared design of KP Front and KP Rück
+  fonts/                ← Sora + Spline Sans Mono (variable, self-hosted, no CDN)
+  shots/                ← screenshots from a real instance (generated, WebP)
+  capture.mjs           ← re-captures shots/
+  build.mjs             ← builds the pages from template + texts
 
-  index.html            ← gebaut, eingecheckt, wird ausgeliefert
-  fr/index.html         ← dito
-  dist/…/index.html     ← alles eingebettet, nicht eingecheckt
+  index.html            ← built, checked in, what gets served
+  fr/index.html         ← ditto
+  dist/…/index.html     ← everything embedded, not checked in
 ```
 
-## Bauen
+## Building
 
 ```bash
-node site/build.mjs          # schreibt index.html, fr/index.html und dist/
-node site/build.mjs --check  # schreibt nichts, meldet nur Abweichungen (das macht die CI)
+node site/build.mjs          # writes index.html, fr/index.html and dist/
+node site/build.mjs --check  # writes nothing, only reports drift (this is what CI does)
 ```
 
-⚠️ **`index.html` und `fr/index.html` sind Ergebnisse, keine Quellen.** Wer dort hineinschreibt,
-verliert es beim nächsten Bauen. Trotzdem sind beide eingecheckt: GitHub Pages liefert `site/`
-unverändert aus, die Seite im Repo **ist** die Seite im Netz. Damit das nicht auseinanderläuft,
-prüft die CI (`node site/build.mjs --check`) bei jedem Push, dass die gebauten Seiten zum Stand
-von Vorlage und Texten passen.
+⚠️ **`index.html` and `fr/index.html` are outputs, not sources.** Whoever writes into them
+loses it on the next build. They are checked in anyway: GitHub Pages serves `site/` as-is,
+so the page in the repo **is** the page on the web. To keep the two from drifting apart,
+CI (`node site/build.mjs --check`) verifies on every push that the built pages match the
+state of template and texts.
 
-## Sprachen
+## Languages
 
-Deutsch ist die Grundlage, jede weitere Sprache **überlagert** sie – dieselbe Mechanik wie in der
-App (`src/config/copy/`). Eine Übersetzung schreibt nur, was sie übersetzt; alles andere fällt
-sichtbar auf Deutsch zurück, und `build.mjs` meldet nach jedem Lauf, wie viele Texte das sind.
+German is the foundation, every further language **overlays** it – the same mechanism as in
+the app (`src/config/copy/`). A translation only writes what it translates; everything else
+visibly falls back to German, and `build.mjs` reports after every run how many texts that is.
 
-Eine dritte Sprache ist **ein Eintrag in `content/config.json` und eine Datei in `content/`** – an
-der Vorlage ändert sich nichts. Umgekehrt gilt: **eine Sprache wird erst ausgeliefert, wenn sie in
-`config.json` steht.** Ein halb übersetztes `it/` ist schlimmer als gar keins.
+A third language is **one entry in `content/config.json` and one file in `content/`** – the
+template does not change. The reverse holds too: **a language only ships once it is listed in
+`config.json`.** A half-translated `it/` is worse than none at all.
 
-Bewusst entschieden und nicht aus Versehen so:
+Decided deliberately, not accidental:
 
-- **Umschalter sind zwei Textlinks**, keine Flaggen, kein Dropdown, kein Cookie. Echte Links,
-  damit sie crawlbar bleiben und ein geteilter Link seine Sprache mitbringt.
-- **Keine Weiterleitung nach `Accept-Language`.** Ein deutschsprachiger Feuerwehrmann, den eine
-  Browsereinstellung nach `/fr/` schickt, ist schlimmer als ein Umschalter, den er sieht.
-- **Die Screenshots bleiben deutsch, auf jeder Sprachfassung.** Sie kommen aus einer echten
-  Instanz; nachgestellte Bilder wären eine Behauptung. Die FR-Seite sagt das in einer Zeile –
-  und dazu, dass die App selbst Französisch spricht.
-- **Eine Übersetzung, die keine französischsprachige Feuerwehr-Person gelesen hat, sagt das
-  oben auf der Seite** (`notice` in `fr.json`). Diese Zeile verschwindet, wenn jemand
-  gegengelesen hat – sie ist kein Dekor.
+- **The switcher is two text links**, no flags, no dropdown, no cookie. Real links, so they
+  stay crawlable and a shared link carries its language with it.
+- **No redirect based on `Accept-Language`.** A German-speaking firefighter whose browser
+  setting sends them to `/fr/` is worse than a switcher they can see.
+- **The screenshots stay German, on every language version.** They come from a real
+  instance; staged images would be a claim. The FR page says so in one line – and adds
+  that the app itself speaks French.
+- **A translation that no French-speaking fire-service person has read says so at the top
+  of the page** (`notice` in `fr.json`). That line disappears once someone has proofread
+  it – it is not decoration.
 
-## Screenshots aktualisieren
+## Updating screenshots
 
 ```bash
-node site/capture.mjs                        # gegen https://demo.kp-front.ch
+node site/capture.mjs                        # against https://demo.kp-front.ch
 node site/capture.mjs --base http://localhost:5188
-node site/capture.mjs --only lage,mittel     # nur einzelne Bilder
-node site/capture.mjs --scale 2 --docs-only  # README-Bilder in 2x nachziehen
-node site/build.mjs                          # danach neu bauen
+node site/capture.mjs --only lage,mittel     # only individual images
+node site/capture.mjs --scale 2 --docs-only  # refresh the README images at 2x
+node site/build.mjs                          # then rebuild
 ```
 
-`capture.mjs` fährt eine laufende Instanz mit Playwright an (aus `node_modules`, keine
-zusätzliche Abhängigkeit), erzwingt den Tagmodus über das Prefs-Cookie, überspringt den
-Demo-Willkommensdialog, blendet die DEMO-Banderole aus und schiesst jede Ansicht in 1500 × 937.
-Neue Bilder kommen als neuer Eintrag in die `shots`-Liste im Skript **und** als Eintrag unter
-`shots.items` in `content/de.json` – die Dateinamen sind der Vertrag zwischen beiden. Der
-Dateiname steht nur in `de.json`; die Übersetzungen erben ihn und beschriften nur.
+`capture.mjs` drives a running instance with Playwright (from `node_modules`, no extra
+dependency), forces day mode via the prefs cookie, skips the demo welcome dialog, hides the
+DEMO banner and shoots every view at 1500 × 937. New images go in as a new entry in the
+`shots` list in the script **and** as an entry under `shots.items` in `content/de.json` –
+the filenames are the contract between the two. The filename lives only in `de.json`; the
+translations inherit it and only provide the caption.
 
-**Das Format ist WebP** – dieselbe Aufnahme wiegt rund halb so viel wie das JPEG von früher, und
-encodiert wird im Chromium, den Playwright ohnehin mitbringt (keine zweite Abhängigkeit, kein
-`cwebp` auf dem Rechner). Drei Ausgaben statt einer, alle aus derselben Aufnahme:
+**The format is WebP** – the same capture weighs about half of what the old JPEG did, and
+encoding happens in the Chromium that Playwright brings along anyway (no second dependency,
+no `cwebp` on the machine). Three outputs instead of one, all from the same capture:
 
-| Datei | wofür |
+| File | what for |
 | --- | --- |
-| `<name>.webp` (1500 px) | die Kacheln und die Lightbox |
-| `lage-992.webp` | das Hero-Bild auf Telefonen und 1x-Bildschirmen – breiter als 992 px wird es nie gezeigt (`.wrap` = 1040 px minus 2×24 px) |
-| `lage.jpg` | **nur** die Linkvorschau (`og:image`): WhatsApp, Facebook und Co. zeigen kein WebP |
+| `<name>.webp` (1500 px) | the tiles and the lightbox |
+| `lage-992.webp` | the hero image on phones and 1x screens – it is never shown wider than 992 px (`.wrap` = 1040 px minus 2×24 px) |
+| `lage.jpg` | **only** the link preview (`og:image`): WhatsApp, Facebook and co. don't show WebP |
 
-Die kleine Fassung und das JPEG entstehen an dem einen Shot, der im Skript `hero: true` trägt.
+The small version and the JPEG are derived from the one shot that carries `hero: true` in
+the script.
 
-Zwei Dinge zur Demo: sie wird von Besuchern mitbenutzt und jede Nacht um 00:00 zurückgesetzt.
-Für saubere Bilder also am besten kurz nach dem Reset aufnehmen – oder mit `--base` gegen eine
-lokale Instanz fahren.
+Two things about the demo: it is shared with visitors and reset every night at 00:00. So
+for clean images, capture shortly after the reset – or use `--base` against a local
+instance.
 
-## Kontakt
+## Contact
 
-Drei Wege, alle ohne eigenes Backend: zwei vorausgefüllte GitHub-Issue-Templates
-(`.github/ISSUE_TEMPLATE/bug_report.md` und `feature_request.md`) und ein Formular, das an einen
-externen Formulardienst postet. Ohne JavaScript bleibt das Formular ein gewöhnlicher POST.
+Three channels, all without a backend of our own: two pre-filled GitHub issue templates
+(`.github/ISSUE_TEMPLATE/bug_report.md` and `feature_request.md`) and a form that posts to
+an external form service. Without JavaScript the form remains an ordinary POST.
 
-Wer die Templates umbenennt, muss die `?template=…`-Links in `index.template.html` mitziehen.
+Whoever renames the templates must update the `?template=…` links in `index.template.html`
+along with them.
 
 ## Design
 
-Das Aussehen («Schweizer Plakat × Tageslicht») steckt komplett in `landing.css`, und **diese
-Datei ist in kp-front und kp-rueck identisch**. Wer das Design ändert, kopiert sie ins andere
-Repo hinüber – sonst laufen die beiden Schwesterseiten auseinander. Nur Vorlage und Texte
-unterscheiden sich: Inhalt, Bilder und die gegenseitige Verlinkung
-(`kp-front.ch` ⇄ `kp-rueck.ch`).
+The look («Schweizer Plakat × Tageslicht») lives entirely in `landing.css`, and **this file
+is identical in kp-front and kp-rueck**. Whoever changes the design copies it over to the
+other repo – otherwise the two sister pages drift apart. Only template and texts differ:
+content, images and the mutual cross-linking (`kp-front.ch` ⇄ `kp-rueck.ch`).
 
-## Hosten
+## Hosting
 
-`site/` ist direkt ausrollbar (statische Dateien, keine Server-Logik). `dist/index.html` und
-`dist/fr/index.html` sind dieselben Seiten als je eine einzige Datei mit eingebetteten Schriften
-und Bildern – zum Weitergeben oder für einen Host, der nur eine Datei annimmt.
+`site/` can be deployed as-is (static files, no server logic). `dist/index.html` and
+`dist/fr/index.html` are the same pages as one single file each, with fonts and images
+embedded – for passing around or for a host that only accepts one file.
 
-### README-Bilder
+### README images
 
-Shots mit `docs:` schreiben denselben Seitenzustand zusätzlich als PNG nach `docs/screenshots/` –
-das ist der Grund, warum die README-Bilder früher ein halbes Jahr älter waren als die
-Landingpage. Beide Ausgaben entstehen aus einer Aufnahme, wollen aber nicht dieselbe
-Auflösung: die Landingpage bindet die Bilder inline ein (1x, Seitengewicht zählt), die
-README-Bilder werden auf GitHub vergrössert betrachtet.
+Shots with `docs:` additionally write the same page state as PNG to `docs/screenshots/` –
+which is why the README images used to be half a year older than the landing page. Both
+outputs come from one capture but don't want the same resolution: the landing page embeds
+the images inline (1x, page weight counts), the README images are viewed enlarged on
+GitHub.
 
 ```bash
-node site/capture.mjs                    # Landingpage-WebP (1x) + README-PNGs
+node site/capture.mjs                    # landing-page WebP (1x) + README PNGs
 node site/capture.mjs --scale 2 --docs-only --only lage,gebaeude,atemschutz,mittel
 ```
 
-`--docs-only` lässt die Bilder der Landingpage unangetastet. Aktuell liegen die README-Bilder bei 3000 px Breite.
+`--docs-only` leaves the landing-page images untouched. The README images are currently 3000 px wide.

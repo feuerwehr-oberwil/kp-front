@@ -150,6 +150,11 @@ to prod.
 - **Domain language is German** (Lage, Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
   accurate. **All user-facing strings live in `appConfig.copy.*`** – never hard-code UI text in
   a component; add a key and reference it.
+- **Prose language split: technical English, user-facing German.** Everything technical –
+  `docs/`, READMEs, `CHANGELOG.md`, code comments, commit messages – is written in English;
+  German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
+  with i18n overlays (above). The gitignored internal station documents under `docs/` are the
+  exception and may stay German.
 - **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`) is the canonical
   base and the source of the `Copy` type; `en.ts` (full) / `fr.ts` / `it.ts` are
   `Localizable<Copy>` partial overlays **deep-merged over German**, so any missing key falls

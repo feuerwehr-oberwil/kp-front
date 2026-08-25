@@ -1,205 +1,204 @@
-# Was im Verlauf steht – und was nicht
+# What lands in the Verlauf – and what doesn't
 
-Der **Verlauf** ist die menschenlesbare Einsatzchronik. Er ist *keine* Protokollierung jeder
-Bedienhandlung, und das ist Absicht: ein Journal, in dem jedes Verschieben eines Symbols steht,
-ist eines, in dem man den Funkspruch nicht mehr findet.
+The **Verlauf** is the human-readable incident chronicle. It is *not* a log of every operator
+action, and that is deliberate: a journal that records every nudge of a symbol is one in which
+you can no longer find the Funkspruch.
 
-Diese Seite hält fest, **welche Handlung wo landet**, damit sich niemand darauf verlässt, dass
-etwas im Verlauf steht, das dort nie hingeschrieben wurde. Stand: 2026-08-24.
+This page pins down **which action lands where**, so nobody relies on something being in the
+Verlauf that was never written there. As of 2026-08-24.
 
-## Es sind zwei Aufzeichnungen, nicht eine
+## There are two records, not one
 
-| | Verlauf | Audit-/Replay-Strom |
+| | Verlauf | Audit/replay stream |
 |---|---|---|
-| Geschrieben von | `log()` / `logPlan()` → `journal.append` | `emit(op, payload)` (`src/lib/useAuditEvents.ts:36`) |
-| Landet in | `POST /api/incidents/{id}/journal` | `POST /api/incidents/{id}/events` |
-| Form | Zeilen in Klartext, append-only | maschinenlesbar, **hash-verkettet** |
-| Sichtbar | im Verlauf, im gedruckten Rapport | nur in der Wiedergabe / Prüfung |
+| Written by | `log()` / `logPlan()` → `journal.append` | `emit(op, payload)` (`src/lib/useAuditEvents.ts:36`) |
+| Lands in | `POST /api/incidents/{id}/journal` | `POST /api/incidents/{id}/events` |
+| Form | plain-text rows, append-only | machine-readable, **hash-chained** |
+| Visible | in the Verlauf, on the printed Rapport | only in replay / review |
 
-`backend/app/models.py:523-532` sagt es selbst: der Audit-Strom ist *"the hash-chained AUDIT
-record of committed domain actions"*, der Journal-Store *"the operational journal store"*.
+`backend/app/models.py:523-532` says it itself: the audit stream is *"the hash-chained AUDIT
+record of committed domain actions"*, the journal store *"the operational journal store"*.
 
-**Wichtig:** `emit()` erzeugt **keine** Verlaufszeile. Alles, was unten als *nur Audit* steht,
-ist rechtlich festgehalten, aber für niemanden sichtbar, der den Verlauf liest.
+**Important:** `emit()` creates **no** Verlauf row. Everything listed below as *audit only* is
+legally on the record, but invisible to anyone reading the Verlauf.
 
-Dazu kommt eine dritte, kleine Quelle: der Server schreibt Lebenszyklus-Zeilen selbst
-(`append_system_row`, `backend/app/api/journal.py:96`) – Einsatz abgeschlossen, wiedereröffnet,
-Nachalarm, automatische Archivierung.
+On top of that there is a third, small source: the server writes lifecycle rows itself
+(`append_system_row`, `backend/app/api/journal.py:96`) – incident closed, reopened,
+Nachalarm, automatic archival.
 
-## Atemschutz: der Zyklus steht vollständig drin
+## Atemschutz: the full cycle is on the record
 
-Ein neu angemeldeter Trupp erzeugt eine Verlaufszeile – «Trupp {name} angemeldet»
-(`useTruppActions.ts` · `logRegister`). Wer meint, das fehle, sieht meist, dass der Verlauf beim
-Anmelden nicht auf dem Schirm ist: Atemschutz ist eine eigene Ansicht.
+A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
+(`useTruppActions.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
+at the Verlauf while registering: Atemschutz is its own view.
 
-**Seit 2026-08-17 geschlossen** (stand hier vorher als Lücke): Löschen (`logRemoved`),
-Wiederherstellen (`logRestored`) und der Truppfarben-Wechsel (`logColor`) schreiben ihre Zeile.
-Ein gelöschter Trupp wird ohnehin nur noch weich entfernt (`removedAt`) und druckt weiter auf dem
-Rapport als «Von Tafel entfernt».
+**Closed since 2026-08-17** (this used to be listed here as a gap): deleting (`logRemoved`),
+restoring (`logRestored`) and the Trupp color change (`logColor`) write their row.
+A deleted Trupp is only soft-removed anyway (`removedAt`) and keeps printing on the
+Rapport as «Von Tafel entfernt».
 
-Alles Übrige am Atemschutz steht im Verlauf: Platzieren, Funkkontakt, Druckmeldung, Statuswechsel,
-Bearbeiten, Wiedereinrücken, Leitung verknüpfen/lösen, Alarm-Eskalation.
+Everything else on the Atemschutz board is in the Verlauf: placing, radio contact, pressure
+report, status change, editing, returning, linking/unlinking a Leitung, alarm escalation.
 
-⚠️ **Zwei Kontaktarten sind seit 2026-08-19 eigene Arten**, nicht mehr «Kontakt»: der **Austritt**
-(«Ausgerückt») und der **Wiedereinstieg** nach einem Rückzug. Die Sicherheitsuhr ist davon
-unberührt – ein Wiedereinstieg setzt sie zurück wie ein Kontakt –, aber das gedruckte
-Atemschutz-Journal liest sich dadurch als Chronologie statt mitten im Einsatz abzubrechen.
+⚠️ **Two contact kinds have been kinds of their own since 2026-08-19**, no longer «Kontakt»: the
+**exit** («Ausgerückt») and the **re-entry** after a Rückzug. The safety clock is untouched by
+this – a re-entry resets it just like a contact does – but the printed Atemschutz journal now
+reads as a chronology instead of breaking off mid-deployment.
 
-⚠️ **Der Alarm wird einmal pro Turnus geschrieben**, nicht pro Tick. Eine überfällige Kontaktuhr
-schrieb früher alle paar Sekunden dieselbe Zeile; die nächste ist erst nach einem Funkkontakt
-fällig, der die Uhr zurückgesetzt hat. Ton und Systemmeldung hängen bewusst **nicht** daran.
+⚠️ **The alarm is written once per cycle**, not per tick. An overdue contact clock used to write
+the same row every few seconds; the next one is only due after a radio contact that has reset
+the clock. Sound and system notification deliberately do **not** hang off it.
 
-## Bewusst still
+## Deliberately silent
 
-| Bereich | Warum |
+| Area | Why |
 |---|---|
-| Zeitplan / Schichten | `src/lib/useShiftActions.ts:16-19`: *«attendance is a RECORD … a plan is not, and logging each nudge of a chip would bury the operational journal under bookkeeping»* |
-| Checklisten | nur Meilensteine erzeugen eine Zeile (`src/lib/useChecklistActions.ts:34`) |
-| Zeichnungen bearbeiten (Farbe, Stil, Geometrie) | Bedienhandlung, kein Ereignis – siehe die Doktrin-Notiz unten |
+| Zeitplan / shifts | `src/lib/useShiftActions.ts:16-19`: *«attendance is a RECORD … a plan is not, and logging each nudge of a chip would bury the operational journal under bookkeeping»* |
+| Checklists | only milestones create a row (`src/lib/useChecklistActions.ts:34`) |
+| Editing drawings (color, style, geometry) | operator action, not an event – see the doctrine note below |
 
-Die Doktrin dazu steht in der AdFU-Ablaufbeschreibung: *«Der Verlauf ist keine automatische
+The doctrine lives in the AdFU workflow description: *«Der Verlauf ist keine automatische
 Einsatzchronik … Der AdFU sollte nicht jede Bedienhandlung protokollieren.»*
 
-## Die Meldeleiste (23.08.) schreibt nichts Eigenes
+## The Meldeleiste (23.08.) writes nothing of its own
 
-Die Meldeleiste – der eine Meldungsstreifen unter der Top-Bar, der die neun Banner ersetzt hat –
-ist eine **Anzeige, keine Aufzeichnung**: dass eine Meldung erschien oder weggewischt wurde, steht
-nirgends. Was auf ihr *getan* wird, läuft durch dieselben Handler wie überall sonst und schreibt
-deshalb dieselben Zeilen:
+The Meldeleiste – the single message strip under the top bar that replaced the nine banners –
+is a **display, not a record**: that a message appeared or was swiped away is written nowhere.
+What is *done* on it runs through the same handlers as everywhere else and therefore writes
+the same rows:
 
-- **«Erledigt»** auf einer fälligen Wiedervorlage hängt die Erledigt-Zeile an
-  (`useReminders.ts` · `doneLog`), **«+10 min»** die Verschiebe-Zeile – exakt die Zeilen, die der
-  Abhak-Ring im Verlauf schreibt. Eine Pflicht pro Zeile: seit dem 23.08. hat **jede** fällige
-  Wiedervorlage ihre eigene Zeile auf dem Streifen («2 Erinnerungen fällig» nannte zwei und
-  erledigte eine).
-- Die **Atemschutz-Alarmzeile** liest denselben Fold, der den Ton spielt, und schreibt nichts
-  Neues – die Verlaufszeile des Alarms entsteht wie bisher einmal pro Turnus (siehe oben).
-- **Wegwischen (✕), Übernehmen-Navigation, «Zum Trupp»** schreiben nichts – Ansicht, nicht
-  Inhalt. Das Übernehmen eines Alarms selbst schreibt über seinen bestehenden Pfad.
+- **«Erledigt»** on a due Wiedervorlage (follow-up reminder) appends the done row
+  (`useReminders.ts` · `doneLog`), **«+10 min»** the postpone row – exactly the rows the
+  check-off ring in the Verlauf writes. One obligation per row: since 23.08. **every** due
+  Wiedervorlage has its own row on the strip («2 Erinnerungen fällig» named two and
+  completed one).
+- The **Atemschutz alarm row** reads the same fold that plays the sound and writes nothing
+  new – the alarm's Verlauf row is created once per cycle as before (see above).
+- **Swiping away (✕), take-over navigation, «Zum Trupp»** write nothing – view, not
+  content. Taking over an alarm itself writes through its existing path.
 
-## Zeichnungen: Erstellen, Benennen und Löschen stehen drin – Arrangieren nicht
+## Drawings: creating, naming and deleting are on the record – arranging is not
 
-Die Durchsicht vom 21.08. hielt fest, dass das Wort **«Fläche»** auf dieser Seite nicht vorkam.
-Der Befund war eine Lücke der *Doku*, nicht des Verlaufs – so sieht die Wahrheit aus
-(`src/lib/useMapDrawing.ts`, Copy-Schlüssel in `config/copy/de.ts` · `log`):
+The review of 21.08. noted that the word **«Fläche»** did not appear on this page. The finding
+was a gap in the *docs*, not in the Verlauf – this is what the truth looks like
+(`src/lib/useMapDrawing.ts`, copy keys in `config/copy/de.ts` · `log`):
 
-- **Erstellen schreibt:** «Fläche gezeichnet» (`areaDrawn`), «Zeichnung erstellt»
-  (`drawingCreated`, Linien/Freihand), Absperrkreis (`circleDrawn`). Auf dem Plan: «Fläche auf
-  Plan gezeichnet» / «Linie auf Plan gezeichnet» (`Whiteboard.tsx`) – **seit dem 23.08. mit
-  Annotation, Punkt und Stockwerk**, damit der Sprung aus der Zeile das Objekt selektiert statt
-  nur das Gebäude zu öffnen. Ältere Zeilen bleiben ohne Koordinaten (append-only) und öffnen wie
-  bisher nur den Plan.
-- **Benennen schreibt eine Zeile** – «Fläche «Sammelplatz»» (`drawingLabelSet` /
-  `drawingLabelCleared`), beim Verlassen des Felds, nicht je Tastendruck: der Name ist die eine
-  Bearbeitung, die sagt, was die Form *ist*, und erreichte das Dokument früher stumm.
-- **Löschen schreibt** «Zeichnung entfernt» / «{n} Objekte entfernt».
-- **Arrangieren schreibt nicht:** Farbe, Stil, Geometrie, Eckpunkte sind Bedienhandlung und
-  landen nur im Audit-Strom (`draw.edit`) – das ist die bewusste Stille aus der Tabelle oben,
-  und sie gilt für die Fläche wie für jede andere Zeichnung.
+- **Creating writes:** «Fläche gezeichnet» (`areaDrawn`), «Zeichnung erstellt»
+  (`drawingCreated`, lines/freehand), cordon circle (`circleDrawn`). On the Plan: «Fläche auf
+  Plan gezeichnet» / «Linie auf Plan gezeichnet» (`Whiteboard.tsx`) – **since 23.08. with
+  annotation, point and floor**, so that the jump from the row selects the object instead of
+  merely opening the building. Older rows stay without coordinates (append-only) and keep
+  opening only the Plan, as before.
+- **Naming writes one row** – «Fläche «Sammelplatz»» (`drawingLabelSet` /
+  `drawingLabelCleared`), on leaving the field, not per keystroke: the name is the one edit
+  that says what the shape *is*, and it used to reach the document silently.
+- **Deleting writes** «Zeichnung entfernt» / «{n} Objekte entfernt».
+- **Arranging does not write:** color, style, geometry, vertices are operator actions and
+  land only in the audit stream (`draw.edit`) – that's the deliberate silence from the table
+  above, and it applies to the Fläche just like to every other drawing.
 
-Warum in einem echten Log trotzdem 0 «Fläche»-Treffer stehen können: gezeichnet wird auf der
-Lage vor allem mit Linien und Symbolen – die Zeile entsteht, sobald jemand eine Fläche zieht.
+Why a real log can still show 0 «Fläche» hits: on the Lage people draw mostly with lines and
+symbols – the row appears the moment somebody drags out a Fläche.
 
-## Was eine Verlaufszeile seit dem 17.08. tragen kann
+## What a Verlauf row can carry since 17.08.
 
-Die Zeile ist nicht mehr nur Text und Zeitpunkt. Vier Eigenschaften sind dazugekommen, und alle
-vier sind **Eigenschaften eines Eintrags**, keine eigenen Zeilenarten – das ist der Grund, warum
-sie ohne Migration auf bestehende Einsätze passen:
+The row is no longer just text and a timestamp. Four properties have been added, and all four
+are **properties of an entry**, not row kinds of their own – which is why they fit existing
+incidents without a migration:
 
-| Eigenschaft | Was sie bedeutet | Wo sie sichtbar wird |
+| Property | What it means | Where it shows |
 |---|---|---|
-| **Pendenz** (offener Ring) | die Zeile ist nicht erledigt; eigener Thread aus **Meldungen** | oben im Verlauf, dringend zuerst; auf dem Rapport als «Aufträge / Pendenzen» mit «offen» |
-| **Fälligkeit** (Erinnerung) | Wiedervorlage mit **Tag** und Uhrzeit; ein vergangener Moment wird abgelehnt | Uhr in der Metazeile; auf dem Rapport «fällig HH:MM» |
-| **Korrektur** | eine getippte Zeile wurde umgeschrieben; beide Wortlaute bleiben im Datensatz und in der Hash-Kette | «korrigiert HH:MM»; auf dem Rapport zusätzlich «ursprünglich: ‹…›» |
-| **Transkript-Abschnitte** | Worte einer Sprachnotiz, je mit Offset in die Aufnahme | Untertitelzeilen unter der Zeile, auf Papier gleich |
+| **Pendenz** (open ring) | the row is not done; its own thread of **Meldungen** | at the top of the Verlauf, urgent first; on the Rapport as «Aufträge / Pendenzen» with «offen» |
+| **Fälligkeit** (reminder) | Wiedervorlage with **day** and time; a moment in the past is rejected | clock in the meta row; on the Rapport «fällig HH:MM» |
+| **Korrektur** | a typed row was rewritten; both wordings stay in the record and in the hash chain | «korrigiert HH:MM»; on the Rapport additionally «ursprünglich: ‹…›» |
+| **Transcript sections** | the words of a voice memo, each with an offset into the recording | subtitle lines under the row, same on paper |
 
-⚠️ **Korrigierbar ist nur, was ein Mensch getippt hat** – Composer-Einträge, Meldungen,
-Nachdokumentation. **Nie**, was die App über eine Handlung geschrieben hat: «Trupp 2 eingerückt»
-ist die Aufzeichnung eines Vorgangs, und diesen Satz umzuschreiben hiesse, das Journal eine
-Handlung behaupten zu lassen, die so nie stattfand. Die Art allein kann die beiden nicht
-unterscheiden (ein Checklisten-Haken ist auch eine Zeile), das Icon muss mitreden.
+⚠️ **Only what a human typed is correctable** – composer entries, Meldungen,
+Nachdokumentation. **Never** what the app wrote about an action: «Trupp 2 eingerückt»
+is the record of an event, and rewriting that sentence would mean letting the journal claim an
+action that never happened that way. The entry kind alone cannot tell the two apart (a
+checklist tick is a row too), the icon has to weigh in.
 
-⚠️ **Eine Pendenz hängt am Lebenszyklus-Ereignis, nie an `entryType: 'auftrag'`.** An das Feld
-gebunden wäre jede je geschriebene Auftragszeile – laufende Einsätze wie Archiv – zu einer ewig
-offenen Pendenz geworden, die niemand abhaken kann.
+⚠️ **A Pendenz hangs off the lifecycle event, never off `entryType: 'auftrag'`.** Bound to the
+field, every Auftrag row ever written – running incidents and archive alike – would have
+become a forever-open Pendenz nobody can check off.
 
-⚠️ **Wiederholungen werden beim LESEN zusammengefasst**, nicht beim Schreiben (`lib/verlauf` ·
-`repeatRuns`): die erste Zeile steht mit einem «6×»-Vermerk, alle Wiederholungen bleiben im
-append-only-Datensatz. **Von Hand geschriebene Zeilen werden nie zusammengefasst** – wer zweimal
-dasselbe tippt, meinte es zweimal.
+⚠️ **Repetitions are collapsed on READ**, not on write (`lib/verlauf` ·
+`repeatRuns`): the first row appears with a «6×» marker, all repetitions stay in the
+append-only record. **Hand-written rows are never collapsed** – whoever types the same thing
+twice meant it twice.
 
-**Seit dem 23.08. gibt es den Chip vor der Zeile nicht mehr** – die Zeile ist ein Raster aus
-Zeit · Scheibe · Satz · nachgestellten Fussnoten. Die 26px-Scheibe trägt den **Bereich, den der
-gedruckte Rapport nennt** (Anwesenheit, Mittel, Atemschutz, Auftrag …; die Zuordnung selbst kam
-am 19.08.), und wird bei einer Pendenz zum Abhak-Ring; Nachtrag, «korrigiert» und «6×» stehen als
-Fussnoten hinter dem Satz statt davor. ⚠️ **Geändert ist nur, was gezeichnet wird** – was
-geschrieben, gedruckt und gehasht wird, nicht: die Zeile rendert `e.text` byteweise, und alte
-Zeilen mit alten Icons werden von den bisherigen Regeln weiter genau gleich eingeordnet (beides
-durch Tests festgenagelt, `Journal.test.tsx`).
+**Since 23.08. the chip in front of the row is gone** – the row is a grid of
+time · disc · sentence · trailing footnotes. The 26px disc carries the **section the printed
+Rapport names** (Anwesenheit, Mittel, Atemschutz, Auftrag …; the mapping itself arrived
+on 19.08.), and becomes the check-off ring on a Pendenz; Nachtrag, «korrigiert» and «6×» sit as
+footnotes after the sentence instead of before it. ⚠️ **Only what is drawn changed** – what is
+written, printed and hashed did not: the row renders `e.text` byte for byte, and old rows with
+old icons keep being classified by the existing rules exactly as before (both nailed down by
+tests, `Journal.test.tsx`).
 
-## Geschlossen (2026-08-07)
+## Closed (2026-08-07)
 
-- **Die Erfassung schreibt in den Verlauf.** Jede Poster-Mutation läuft über `saveAction`
-  (`src/lib/captureClient.ts`), das nach dem angenommenen Workspace-Schreibvorgang eine Zeile
-  anhängt – mit «(QR)», weil im Rechtsdokument stehen muss, dass keine angemeldete Person
-  dahintersteht. Best effort: der Zustand ist bereits gespeichert, und ein Poster ist ein Handy
-  an der Magazintür – ein fehlgeschlagener Journal-Schreibvorgang darf den Tap nicht scheitern
-  lassen, wird aber laut geloggt.
-- **Rapportangaben und Partnerorganisationen schreiben eine Zeile** – eine pro Speicherung, die
-  sagt, *welche* Felder sich geändert haben (`changedReportMetaFields`, `src/lib/report.ts`).
-- **Die Atemschutz-Sicherheitswerte schreiben eine Zeile, mit altem und neuem Wert**
-  (`changedSafetySettings`, `src/lib/workspace.ts`). Kontaktintervall und Nachfrist entscheiden,
-  wann ein Trupp als fällig und als überfällig gilt – wer einen davon mitten im Einsatz
-  verschiebt, verschiebt alle Uhren des Atemschutz-Boards gleichzeitig. «Geändert» allein würde
-  nicht sagen, ob die Schwelle strenger oder lockerer wurde.
+- **The Erfassung writes to the Verlauf.** Every poster mutation runs through `saveAction`
+  (`src/lib/captureClient.ts`), which appends a row after the accepted workspace write –
+  with «(QR)», because the legal document has to state that no signed-in person is behind it.
+  Best effort: the state is already saved, and a poster is a phone at the station door – a
+  failed journal write must not make the tap fail, but it is logged loudly.
+- **Rapport details and partner organisations write a row** – one per save, naming
+  *which* fields changed (`changedReportMetaFields`, `src/lib/report.ts`).
+- **The Atemschutz safety values write a row, with old and new value**
+  (`changedSafetySettings`, `src/lib/workspace.ts`). Contact interval and grace period decide
+  when a Trupp counts as due and as overdue – whoever moves one of them mid-incident moves
+  every clock on the Atemschutz board at once. «Geändert» alone would not say whether the
+  threshold got stricter or looser.
 
-## Seither geschlossen (2026-08-17 bis 2026-08-19)
+## Closed since then (2026-08-17 to 2026-08-19)
 
-Drei der sechs Lücken unten sind zu. Sie stehen benannt hier, damit niemand sie aus einer alten
-Fassung dieser Datei wieder aufmacht:
+Three of the six gaps below are closed. They are named here so nobody reopens them from an old
+version of this file:
 
-- **Einen Anwesenheitsblock entfernen** schreibt seine Zeile (`useAttendanceActions.ts` ·
-  `abschluss.attendanceRemoved`). Dazu ist die **Anwesenheit jetzt insgesamt widerrufbar**, mit
-  eigenem Stack und einer Korrekturzeile im Verlauf, die nennt, wer verschoben wurde.
-  ⚠️ Diese Zeile trägt das Icon `people`, **nicht** `undo`: der Bereich wird aus dem Icon
-  abgeleitet, und `undo` ist auch das des Atemschutz-Rückzugs – die Zeile druckte deshalb unter
-  «Atemschutz». Ältere Zeilen werden über die Copy-Vorlage nachträglich richtig eingeordnet.
-- **Eine Zeichnung benennen** schreibt **eine** Zeile statt einer je Tastendruck. Das Feld patcht
-  still während des Tippens (ein Undo-Schritt für die ganze Bearbeitung) und schreibt beim
-  Verlassen oder mit Enter, was das Label *ist* – statt den Weg dorthin zu erzählen.
-- **Die Bemerkung einer Partnerorganisation** erreicht den Verlauf und damit das gedruckte
-  Journal. Sie ging vorher nur ins Rapportfeld. Auch das **Löschen** einer Bemerkung sagt es jetzt.
+- **Removing an attendance block** writes its row (`useAttendanceActions.ts` ·
+  `abschluss.attendanceRemoved`). On top of that, **attendance as a whole is now undoable**,
+  with its own stack and a correction row in the Verlauf that names who was moved.
+  ⚠️ That row carries the icon `people`, **not** `undo`: the section is derived from the icon,
+  and `undo` is also the icon of the Atemschutz-Rückzug – so the row used to print under
+  «Atemschutz». Older rows are retroactively classified correctly via the copy template.
+- **Naming a drawing** writes **one** row instead of one per keystroke. The field patches
+  silently while typing (one undo step for the whole edit) and writes, on leaving or with
+  Enter, what the label *is* – instead of narrating the way there.
+- **The remark of a partner organisation** reaches the Verlauf and thus the printed
+  Journal. It used to go only into the Rapport field. **Deleting** a remark now says so too.
 
-**Teilweise geschlossen:** Korrekturen an Alarmierungszeit, Adresse, Stichwort und Priorität
-erzeugen ein Audit-Ereignis (`meta.change`, `_TRACKED_META` in `backend/app/api/incidents.py`) –
-aber weiterhin **keine Verlaufszeile**. Wer den Verlauf liest, sieht die Korrektur nicht.
+**Partially closed:** corrections to the alarm time, address, Stichwort (dispatch keyword) and
+priority create an audit event (`meta.change`, `_TRACKED_META` in `backend/app/api/incidents.py`) –
+but still **no Verlauf row**. Whoever reads the Verlauf does not see the correction.
 
-## Lücken – bekannt, noch nicht geschlossen
+## Gaps – known, not yet closed
 
-Diese sind **nicht** durch die Doktrin gedeckt: es geht um den Inhalt der Aufzeichnung selbst,
-nicht um Bedienhandlungen. Nach operativer Tragweite geordnet.
+These are **not** covered by the doctrine: they concern the content of the record itself,
+not operator actions. Ordered by operational impact.
 
-1. **Korrekturen an den Einsatzdaten** stehen im Audit, nicht im Verlauf (siehe oben).
-   `started_at` ist ein Feld des Rechtsdokuments und trägt eigens ein
-   `started_at_source = "manual"` – aber die Änderung selbst liest niemand im Verlauf nach.
-2. **Leitungsnummer einer gezeichneten Linie ändern** nur im Audit (`useTruppActions.ts` ·
-   `atemschutz.line.renumber`). Über diese Nummer wird zugeordnet, welcher Trupp an welcher
-   Leitung arbeitet – die Zuordnung lässt sich also still verschieben. ⚠️ Seit dem 19.08. zieht
-   ein Renumber die Nummer auf den Trupp nach (**über den Anker, nie über die Nummer**), die
-   Zuordnung *stimmt* also – aufgezeichnet ist die Verschiebung trotzdem nur maschinenlesbar.
-3. **Einzelne Plan-Annotation löschen** nur im Audit (`src/components/useBoardDoc.ts` ·
-   `removeAnno`), während das Gruppen-Löschen eine Zeile schreibt (`Whiteboard.tsx`).
-4. **Rapport-Beilagen** hinzufügen/entfernen nur im Audit, die Bildlegende gar nicht
-   (`src/IncidentWorkspace.tsx`, Rapport-Beilagen-Block).
-5. **Fahrer eines GPS-Fahrzeugs** und **Gebäude/Stockwerk anlegen** haben keinen Kanal.
+1. **Corrections to the incident data** are in the audit, not in the Verlauf (see above).
+   `started_at` is a field of the legal document and even carries its own
+   `started_at_source = "manual"` – but nobody can look the change itself up in the Verlauf.
+2. **Changing the line number of a drawn hose line** – audit only (`useTruppActions.ts` ·
+   `atemschutz.line.renumber`). This number is what maps which Trupp works on which
+   Leitung – so the mapping can be shifted silently. ⚠️ Since 19.08. a renumber pulls the
+   number onto the Trupp (**via the anchor, never via the number**), so the mapping *is*
+   correct – but the shift is still recorded only machine-readably.
+3. **Deleting a single Plan annotation** – audit only (`src/components/useBoardDoc.ts` ·
+   `removeAnno`), while group deletion writes a row (`Whiteboard.tsx`).
+4. **Rapport attachments** – adding/removing audit only, the image caption not at all
+   (`src/IncidentWorkspace.tsx`, Rapport attachments block).
+5. **Driver of a GPS vehicle** and **creating a building/floor** have no channel.
 
-*(Die Dateipfade sind bewusst ohne Zeilennummern: die Datei ist zweimal daran veraltet, dass
-`IncidentWorkspace.tsx` sich verschoben hat, nicht daran, dass sich das Verhalten änderte.)*
+*(The file paths deliberately carry no line numbers: this file has gone stale twice because
+`IncidentWorkspace.tsx` moved, not because the behavior changed.)*
 
-## Wenn du etwas ergänzt
+## If you add something
 
-- Eine Handlung, die den **Inhalt der Aufzeichnung** ändert, gehört in den Verlauf.
-  Eine Handlung, die nur die **Ansicht** ändert, gehört höchstens in den Audit-Strom.
-- Löschen und Anlegen gehören in denselben Kanal. Die Asymmetrie ist es, die Leute glauben
-  lässt, es werde gar nichts erfasst.
-- Der Verlauf ist append-only: eine Korrektur ist eine neue Zeile, nie eine geänderte.
+- An action that changes the **content of the record** belongs in the Verlauf.
+  An action that only changes the **view** belongs at most in the audit stream.
+- Deleting and creating belong in the same channel. The asymmetry is what makes people
+  believe nothing is recorded at all.
+- The Verlauf is append-only: a correction is a new row, never an edited one.
