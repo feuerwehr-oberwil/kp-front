@@ -265,7 +265,7 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload) -> bytes:
     footnote_scope = (
         "Aufgeführt sind nur eingeteilte Personen; alle Zeiten stehen auf dem Blatt «Verfügbarkeiten»."
         if assigned
-        else "Noch niemand eingeteilt – die ganze Mannschaft steht zum Ausfüllen von Hand."
+        else "Noch niemand eingeteilt – das ganze Personal steht zum Ausfüllen von Hand."
     )
     story: list = [
         Paragraph("SCHICHTPLAN", st["title"]),

@@ -104,8 +104,8 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `fleet.partner.*` | ✅ | the Arbeitsmappe only (§9h) – ⚠️ it is the **legacy** shape, see the caveat in §9h |
 | `mittel.catalogue`, `mittel.sources` (incl. `catalogue[].stock`) | ✅ | the Arbeitsmappe only (§9h) |
 | `mittel.catalogue[].when`, `fleet.vehicles[].winfapAlias` | ❌ | **preserved but not editable** through the Arbeitsmappe (§9h); a file is the only way to set them |
-| `roster.nameOrder` | ✅ | Personen › **Mannschaft** (§4) |
-| `roster.source` | ❌ | **file only** – «Mannschaft» edits the crew and the name order, never where the crew comes from ([`SETUP.md` §4](SETUP.md)) |
+| `roster.nameOrder` | ✅ | Personen › **Personal** (§4) |
+| `roster.source` | ❌ | **file only** – «Personal» edits the crew and the name order, never where the crew comes from ([`SETUP.md` §4](SETUP.md)) |
 | `roster.ranks` | ✅ | the CSV import's «Grade zuordnen» → `adopt` (§4b) – **and** the Arbeitsmappe (§9h). There is no rank *form* |
 | `mittel.units` | ❌ | **file only** – the Arbeitsmappe does not carry it |
 | `alarmKeywords` | ❌ | **file only** – it is a paste-a-document, not a fill-a-form (§1a) |
@@ -244,7 +244,7 @@ both now have browser pages – §9e and §9f.
     // AND reusable gear like Lüfter/Wärmebildkamera). `unit` seeds the entry's default unit
     // (editable per incident); `category` groups the picker + Bestand view; optional `stock` is
     // the nominal per-source load-out (→ used/available readout + the Bestand overview, where
-    // sources omitted = none there). Anything not listed → type «Anderes Mittel» in-app.
+    // sources omitted = none there). Anything not listed → type «Anderes Material» in-app.
     "catalogue": [
       { "id": "oelbinder",        "label": "Ölbinder (Granulat)", "unit": "Sack", "category": "Ölwehr" },
       { "id": "luefter",          "label": "Lüfter",              "unit": "Stk",  "category": "Geräte",
@@ -742,7 +742,7 @@ is the usual "the rebrand didn't work" report, and it is not fixable from the se
 («Hans Meier»). It is applied when a name is served, not when it is stored, so flipping it takes
 effect on every device at once and needs no re-sync – but a name already frozen into a printed
 Rapport or a closed incident keeps the spelling it was captured with. Set it in the admin UI
-under **Mannschaft**; everything downstream (lists, map tags, the Rapport, the print) follows,
+under **Personal**; everything downstream (lists, map tags, the Rapport, the print) follows,
 including the abbreviated Trupp tag («Meier H.»), which uses the order to tell surname from
 given name.
 
@@ -980,7 +980,7 @@ and locks the field – see the rule above).
 | `PUBLIC_URL` | this deployment's public origin (e.g. `https://front.example.org`), used to compose absolute links in outbound webhooks (the capture URL on an alarm slip). Empty = those links are omitted |
 | `APP_BIND` | *(read by `docker-compose.yml`, not by the app)* which host address the app's port is published on: `0.0.0.0` (default) for a trusted LAN, `127.0.0.1` as soon as anything terminates TLS in front. ⚠️ A published port is open whatever `ufw` says. The four shapes and why: [`DEPLOYMENT.md` §3](DEPLOYMENT.md#app_port-and-app_bind) |
 | 🔐 `DIVERA_ACCESS_KEY`, `DIVERA_WEBHOOK_SECRET` | if `diveraEnabled` |
-| 🔐 `DIVERA_PERSONNEL_ACCESS_KEY` | optional second Divera key used **only** for the Mannschaft pull. It must belong to a user whose read scope includes members' Qualifikationen – the alarm key above usually does not – and it is what makes the roster sync derive a Dienstgrad. Empty = falls back to `DIVERA_ACCESS_KEY` (names only, no rank) |
+| 🔐 `DIVERA_PERSONNEL_ACCESS_KEY` | optional second Divera key used **only** for the «Personal» pull. It must belong to a user whose read scope includes members' Qualifikationen – the alarm key above usually does not – and it is what makes the roster sync derive a Dienstgrad. Empty = falls back to `DIVERA_ACCESS_KEY` (names only, no rank) |
 | 🔐 `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems – auto-opens an incident per alarm, idempotent on `source`+`source_id` (nothing set anywhere = endpoint disabled, fail-closed). `./scripts/setup.sh` mints this one and `DIVERA_WEBHOOK_SECRET` into the credential store on a fresh install, so a station reads and rotates them at `/admin` → Zugangsdaten – [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §1 |
 | 🔐 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push. Generate the pair once – on a Docker-only host `docker compose exec app uv run python -m app.gen_vapid`, or `cd backend && uv run python -m app.gen_vapid` where the toolchain is installed – then paste both halves into `/admin` → Zugangsdaten, which takes effect without a restart. `./scripts/setup.sh` does exactly that on a fresh install, into the credential store rather than into `.env`. Nothing set anywhere = push disabled, fail-closed. ⚠️ Generate **once** and keep the pair stable: rotating it invalidates every stored subscription |
 | 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. ⚠️ **Deliberately not minted by the installer**, unlike the two webhook secrets: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. (The old reason – that it would schedule a background job – is wrong: the sweep is registered unconditionally and returns on its first line when no secret is set.) Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Zugangsdaten |
@@ -1028,7 +1028,7 @@ nothing to put in `.env` and nothing that could outrank the stored value.)
 
 | Feature | Where it is managed | What it does |
 |---------|---------------------|--------------|
-| **Erfassungs-Poster** (station capture) | `/admin` → Personen › Erfassung: activate / rotate / disable, print the A4 poster | Scanning it opens `/e/<token>`, where attendance, Mittel and notes for incidents of the last `alarms.captureWindowHours` are recorded **without a login**. Fail-closed: no token → the whole `/api/capture/*` surface answers 403. Rotation invalidates every printed poster at once. |
+| **Erfassungs-Poster** (station capture) | `/admin` → Personen › Erfassung: activate / rotate / disable, print the A4 poster | Scanning it opens `/e/<token>`, where attendance, Material and notes for incidents of the last `alarms.captureWindowHours` are recorded **without a login**. Fail-closed: no token → the whole `/api/capture/*` surface answers 403. Rotation invalidates every printed poster at once. |
 | **Statistik-Export** | `/admin` → Daten › Statistik-Export | `GET /api/stats/incidents?year=` returns one flat read-only JSON record per incident (metadata, Zeiten, Anwesenheit von–bis, Mittel totals, Rapport status) for external analytics – auth via the `X-Stats-Token` header or `?t=`. Fail-closed: no token → 403. Full field reference: [`STATS-EXPORT.md`](STATS-EXPORT.md). |
 | **Einsatz-Link** (read-only link into one incident) | `/admin` → Daten › Einsatz-Link: show, rotate or delete the station's `incident_link_key` | Copy the key into the alerting system, which signs a token with it and puts `/l/<token>` into the alert it sends out. A responder taps that on a personal phone and sees **one** incident the way a `viewer` does – no login, nothing that writes, prints or costs money – for as long as the Einsatz runs: closing or archiving it revokes every open link at once (12 h is the backstop for the one nobody closes). Fail-closed: no key → the link surface answers 403 and nothing exists, which is also what an existing deployment gets from the migration. Rotation or deletion invalidates every link already sent out and requires reconfiguring the alerting system. Trust model and reachable surface: [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §4. |
 

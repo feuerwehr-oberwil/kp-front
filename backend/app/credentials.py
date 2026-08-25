@@ -116,7 +116,7 @@ class CredentialField:
 FIELDS: tuple[CredentialField, ...] = (
     # --- Divera -----------------------------------------------------------------------
     CredentialField("divera_access_key", "divera", True, "Divera Accesskey"),
-    CredentialField("divera_personnel_access_key", "divera", True, "Divera Accesskey (Mannschaft)"),
+    CredentialField("divera_personnel_access_key", "divera", True, "Divera Accesskey (Personal)"),
     CredentialField("divera_webhook_secret", "divera", True, "Divera Webhook-Secret"),
     # --- Traccar ----------------------------------------------------------------------
     # The URL is readable: it is a hostname, the admin System card already prints it, and an
