@@ -24,20 +24,21 @@ The repository includes the same synthetic station dataset in
 | Lage – live command picture | Atemschutz – SCBA teams on the clock |
 | --- | --- |
 | ![Lage map](docs/screenshots/lage.png) | ![Atemschutz](docs/screenshots/atemschutz.png) |
-| **Gebäude – floor stack and AGT tracking** | **Mittel – material use by source** |
-| ![Gebäude](docs/screenshots/gebaeude.png) | ![Mittel](docs/screenshots/mittel.png) |
+| **Gebäude – floor stack and AGT tracking** | **Material – material use by source** |
+| ![Gebäude](docs/screenshots/gebaeude.png) | ![Material](docs/screenshots/mittel.png) |
 
 ## Why KP Front
 
 KP Front grew out of a Swiss Milizfeuerwehr command point. It is designed around **one
 station, one incident, one operator**, not scaled down from dispatch-center software.
 
-- **Built for Swiss practice.** FKS-style tactical symbols, swisstopo maps and geocoding,
-  LV95 coordinates, and optional Divera, Traccar, hydrant, and cadastre data.
+- **Built for Swiss practice.** FKS-style tactical symbols, swisstopo geocoding and LV95
+  coordinates, Carto/OSM/swisstopo-satellite base maps with cantonal WMS layers, and optional
+  Divera, Traccar, hydrant, and cadastre data.
 - **Offline-first.** Field data is cached, readiness is verified, and edits sync when the
   connection returns.
-- **One command surface.** Lage, Plan, Verlauf, Atemschutz, Mannschaft, Mittel, and reporting
-  share consistent controls.
+- **One command surface.** Lage, Plan, Checkliste, Atemschutz, Anwesenheit, Material, Verlauf,
+  and reporting share consistent controls.
 - **Made for 3am.** Recognition over recall, safe defaults, large touch targets, and undo for
   mutable actions.
 - **Defensible records.** Verlauf and audit events are append-only; corrections become new
@@ -49,8 +50,13 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 - **Lage:** MapLibre map, tactical symbols, drawing, sectors, radii, notes, photos, and audio.
 - **Plan:** Image-backed whiteboards with symbols, resources, scale calibration, and measurement.
 - **Einsatz-Intake:** Guided incident creation from Divera, an address, an object, or the map.
+- **Checklisten:** The brigade's own command checklists, phase by phase, with direct jumps to
+  the plan, the Verlauf, and the tools – loaded from station data like everything else.
 - **Atemschutz:** Trupp setup, pressure and return estimates, alarms, map links, and logging.
-- **Mannschaft:** Divera or manual attendance, roster, and assignments.
+- **Anwesenheit:** Divera or manual attendance against the station's Personal roster, and
+  assignments.
+- **Material:** The station's Material catalogue on a stepper list – what was used, from which
+  source, with remarks that print on the Rapport.
 - **Zeitplan:** Shift planning for long incidents – availability and assignment per person, a
   coverage curve across the span, printable as the «Zeitplan» Führungsformular.
 - **Reference data:** ADR lookup, wind, hydrants, utility lines, and Traccar vehicle positions.
@@ -150,7 +156,7 @@ starts, generates all four secrets, waits until the app answers, and then mints 
 and the two webhook secrets into the encrypted credential store – so they stay rotatable in
 `/admin` instead of frozen in `.env`. `just self-host` runs the identical script.
 
-**Getting your data in.** A fresh deployment is meant to be run empty – swisstopo base map, no
+**Getting your data in.** A fresh deployment is meant to be run empty – Carto base map, no
 layers, no plans, no roster, and nothing errors – then filled in whichever way suits you. There are
 two doors, and it is worth knowing which is which:
 
@@ -208,7 +214,7 @@ flowchart TB
     GEO["swisstopo geocoder"]
     WX["MeteoSwiss / Open-Meteo"]
   end
-  TILES["Map tiles<br/>swisstopo · OSM · canton WMS"]
+  TILES["Map tiles<br/>Carto · OSM · swisstopo satellite · canton WMS"]
   UI -->|"/api/* same-origin"| API
   API --> DIV
   API --> TRC
@@ -265,7 +271,7 @@ database stores selection and behaviour, never credentials.
 | **Incident relay** | out | Any endpoint that accepts the incident JSON. The payload is a nested envelope sent without an auth header, so feeding KP Rück's `/api/alarms` needs a short adapter – it is not drop-in | Point a URL at it; the core knows nothing about the receiver |
 | **Personnel roster** | in | Divera 24/7, including Qualifikationen mapped to Dienstgrad | Synced identities are stored provider-neutrally (`personnel_external_identities`), so a second source can be added |
 | **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific – no abstraction yet. It can be generalised the same way as the alarm connectors |
-| **Maps & geocoding** | in | swisstopo (search, LV95), OpenStreetMap, cantonal WMS layers | `GEOCODER_URL` plus config-driven reference layers – see [docs/geodata-architecture.md](docs/geodata-architecture.md) |
+| **Maps & geocoding** | in | swisstopo geocoding (search, LV95); Carto, OpenStreetMap and swisstopo-satellite base maps; cantonal WMS layers | `GEOCODER_URL` plus config-driven reference layers – see [docs/geodata-architecture.md](docs/geodata-architecture.md) |
 | **Weather** | in | MeteoSwiss / Open-Meteo (wind for the spread estimate) | – |
 | **Speech-to-text** | in | Any OpenAI-compatible `/v1/audio/transcriptions` server – Groq, OpenAI, or a self-hosted faster-whisper | Set `STT_BASE_URL`. Empty means off everywhere, and audio never leaves the instance |
 | **Push notifications** | out | Web Push (VAPID) for Atemschutz and reminder alerts when the app is killed | Unset keys disable the sweep entirely |
@@ -300,8 +306,11 @@ src/                       React/Vite frontend
   data/                    neutral fallback data
   lib/                     domain logic, offline storage, and sync
 backend/                   FastAPI/PostgreSQL service
+e2e/                       Playwright smoke against the built image
 examples/demo-data/        synthetic Musterdorf deployment data
+examples/scenarios/        fake-alarm scenarios for `app.fake_scenario`
 public/                    tactical symbols and PWA assets
+site/                      the public landing page (kp-front.ch), generated
 tools/                     symbol generator and source assets
 docs/                      product and technical documentation
 ```

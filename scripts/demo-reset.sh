@@ -68,9 +68,10 @@ fi
 
 cd backend
 
-# ⚠️ The three HTTP steps below talk to a RUNNING app, and the nightly cron fires whenever it
-# fires — including while Railway is mid-redeploy, when the edge answers 502. On 08.08. that
-# killed a reset between «config loaded» and «geodata/logo re-pushed». `admin_config load` no
+# ⚠️ The three HTTP steps below talk to a RUNNING app, and the twice-daily cron (00:00 and
+# 12:00) fires whenever it fires — including while Railway is mid-redeploy, when the edge
+# answers 502. On 08.08. that killed a reset between «config loaded» and «geodata/logo
+# re-pushed». `admin_config load` no
 # longer strips what these steps restore (app/admin_config · _RUNTIME_SECTIONS), so a lost run
 # is survivable now; retrying means it usually is not lost at all.
 retry() {

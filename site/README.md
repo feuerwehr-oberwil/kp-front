@@ -7,7 +7,7 @@ site/
   index.template.html   ← structure and markup (the text does NOT live here)
   content/config.json   ← which languages exist, and under which URL
   content/de.json       ← the German text – the foundation
-  content/fr.json       ← the translation, layered over de.json
+  content/fr|it|en.json ← the translations, layered over de.json
   landing.css           ← the shared design of KP Front and KP Rück
   fonts/                ← Sora + Spline Sans Mono (variable, self-hosted, no CDN)
   shots/                ← screenshots from a real instance (generated, WebP)
@@ -15,18 +15,18 @@ site/
   build.mjs             ← builds the pages from template + texts
 
   index.html            ← built, checked in, what gets served
-  fr/index.html         ← ditto
+  fr|it|en/index.html   ← ditto
   dist/…/index.html     ← everything embedded, not checked in
 ```
 
 ## Building
 
 ```bash
-node site/build.mjs          # writes index.html, fr/index.html and dist/
+node site/build.mjs          # writes index.html, the fr/ it/ en/ pages and dist/
 node site/build.mjs --check  # writes nothing, only reports drift (this is what CI does)
 ```
 
-⚠️ **`index.html` and `fr/index.html` are outputs, not sources.** Whoever writes into them
+⚠️ **`index.html` and the `fr/` `it/` `en/` pages are outputs, not sources.** Whoever writes into them
 loses it on the next build. They are checked in anyway: GitHub Pages serves `site/` as-is,
 so the page in the repo **is** the page on the web. To keep the two from drifting apart,
 CI (`node site/build.mjs --check`) verifies on every push that the built pages match the
@@ -38,9 +38,10 @@ German is the foundation, every further language **overlays** it – the same me
 the app (`src/config/copy/`). A translation only writes what it translates; everything else
 visibly falls back to German, and `build.mjs` reports after every run how many texts that is.
 
-A third language is **one entry in `content/config.json` and one file in `content/`** – the
-template does not change. The reverse holds too: **a language only ships once it is listed in
-`config.json`.** A half-translated `it/` is worse than none at all.
+Four languages ship today: `de` (the base), `fr`, `it` and `en`. Another language is **one
+entry in `content/config.json` and one file in `content/`** – the template does not change.
+The reverse holds too: **a language only ships once it is listed in `config.json`.** A
+half-translated page is worse than none at all.
 
 Decided deliberately, not accidental:
 
@@ -49,11 +50,11 @@ Decided deliberately, not accidental:
 - **No redirect based on `Accept-Language`.** A German-speaking firefighter whose browser
   setting sends them to `/fr/` is worse than a switcher they can see.
 - **The screenshots stay German, on every language version.** They come from a real
-  instance; staged images would be a claim. The FR page says so in one line – and adds
-  that the app itself speaks French.
-- **A translation that no French-speaking fire-service person has read says so at the top
-  of the page** (`notice` in `fr.json`). That line disappears once someone has proofread
-  it – it is not decoration.
+  instance; staged images would be a claim. The FR and IT pages say so in one line – and add
+  that the app itself speaks the language.
+- **A translation that no fire-service person of that language has read says so at the top
+  of the page** (`notice` in `fr.json` and `it.json`). That line disappears once someone has
+  proofread it – it is not decoration.
 
 ## Updating screenshots
 
@@ -85,9 +86,9 @@ no `cwebp` on the machine). Three outputs instead of one, all from the same capt
 The small version and the JPEG are derived from the one shot that carries `hero: true` in
 the script.
 
-Two things about the demo: it is shared with visitors and reset every night at 00:00. So
-for clean images, capture shortly after the reset – or use `--base` against a local
-instance.
+Two things about the demo: it is shared with visitors and reset twice a day (00:00 and
+12:00 Europe/Zurich). So for clean images, capture shortly after a reset – or use `--base`
+against a local instance.
 
 ## Contact
 

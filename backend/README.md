@@ -13,7 +13,9 @@ app/
   models.py          all tables (Phases 1–7 + audit substrate)
   schemas.py         pydantic request/response models
   auth/              PIN-kiosk auth: peppered bcrypt, JWT cookies, JTI blocklist, cooldown
-  api/               routers: incidents, media, events, divera, traccar, reference, objects
+  api/               routers: incidents, journal, alarms, capture, media, events, divera,
+                     traccar, geocode, reference, objects, report, print_relay, push, stats,
+                     personnel, admin, …
   audit.py           hash-chained event append + workspace snapshots + chain verify
   divera.py          keyword maps + alarm parsing + pool upsert
   traccar.py         Traccar client (knots→km/h, frontend-compatible shape)
@@ -69,7 +71,7 @@ SQLite.
 Inject realistic external inputs – Divera alarms, group/vehicle milestone times, Traccar
 positions – into a running deployment through the same public webhooks production uses,
 backdated so everything reads like a just-happened Einsatz. Taking the alarm, Anwesenheit,
-Mittel and Journal stay manual in the app (exercising them is part of the test). Scenario
+Material and the Verlauf stay manual in the app (exercising them is part of the test). Scenario
 files live in `examples/scenarios/`; times are offsets like `"-25m"` relative to run time.
 
 ```bash

@@ -8,7 +8,7 @@ follows the real streets. Safe to commit and to load into a throwaway deployment
 
 | File | What it is | Loaded by |
 | --- | --- | --- |
-| `config.json` | deployment config: app name, map center (Musterdorf), demo flag, doctrine, and a dummy **Mittel** catalogue | `admin_config` |
+| `config.json` | deployment config: app name, map center (Musterdorf), demo flag, doctrine, and a dummy **Material** catalogue (config keys `mittel.*`) | `admin_config` |
 | `geodata.manifest.json` + `wasserleitung.geojson` + `hydrant.geojson` | water mains (LineStrings following the streets) + hydrants sampled along them | `admin_geodata` |
 | `objects.manifest.json` + `plans/` | Schloss Musterdorf at the prepared alarm address, with a hand-drawn Modul 1 (Übersicht) and combined Modul 2/3 (Zugang & Objekt) | `admin_objects` |
 | `checklists.manifest.json` + `checklists/` | a demo action list (Aufgaben FU) + tactical Stichworte (no diagram images) | `admin_checklists` |
@@ -22,8 +22,8 @@ slot exists in the app, this object simply has no sheet for it. A real deploymen
 Modul-PDFs and real checklists (incl. playbook diagrams) from a private data source
 (see [`docs/objektplaene-architecture.md`](../../docs/objektplaene-architecture.md)).
 
-`load.sh` seeds the synthetic **Mannschaft** (12 people, so Anwesenheit and Schichtenplanung have
-someone to work with) but no incident and no alarm – you start those yourself. The live demo goes
+`load.sh` seeds the synthetic **Personal** roster (12 people, so Anwesenheit and Schichtenplanung
+have someone to work with) but no incident and no alarm – you start those yourself. The live demo goes
 further and seeds a pre-filled *running* incident plus the two demo login accounts – that's
 `app.demo_reset` (see `scripts/demo-reset.sh`), not `load.sh`.
 

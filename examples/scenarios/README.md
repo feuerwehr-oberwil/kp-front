@@ -3,7 +3,7 @@
 Test scenarios for `python -m app.fake_scenario` – fake Divera alarms, group/vehicle
 milestone times (offsets relative to run time, e.g. `"-25m"`), and Traccar positions for
 the Fahrzeuge layer. They exercise the real webhook endpoints of a running deployment;
-taking the alarm, Anwesenheit, Mittel and Journal stay manual in the app.
+taking the alarm, Anwesenheit, Material and the Verlauf stay manual in the app.
 
 ```bash
 cd backend
