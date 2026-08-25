@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test'
 // unreachable (shipped in v0.6.0): the kebab (⋮) menu opened, Base UI portalled its popup to
 // <body>, and the popup painted BEHIND the admin shell (`.adm` is position:fixed, z-index:100).
 // Nothing was visible and nothing was clickable — Bearbeiten, Rolle ändern, Deaktivieren and
-// PIN zurücksetzen were all dead on «Mitglieder & Zugriff» and on «Mannschaft».
+// PIN zurücksetzen were all dead on «Mitglieder & Zugriff» and on «Personal».
 //
 // A screenshot cannot catch this and neither can jsdom (it has no compositor), so the check is
 // the one that found it: open the menu, then ask the browser what is ACTUALLY on top at the
