@@ -402,12 +402,12 @@ export const de = {
           { kind: 'lead', text: 'Was für die ganze Wehr gilt – Personal, Dienstgrade, Fahrzeuge, Material, Kartenebenen, Objektpläne, Checklisten – wird unter **Verwaltung** gepflegt, nicht im Einsatz. Der Zugang dorthin ist ein eigenes Passwort, nicht die Einsatz-PIN.' },
           { kind: 'sub', text: 'Die Arbeitsmappe (Excel)' },
           { kind: 'list', items: [
-            'Unter **Daten › Arbeitsmappe** gibt es die Listen der Wehr als eine einzige Excel-Datei: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen. Acht Blätter – Personal, Dienstgrade, Fahrzeuge, Material, Material-Bestände, Quellen, Partnerorganisationen, Symbolfelder.',
+            'Unter **Daten › Arbeitsmappe** gibt es die Listen der Wehr als eine einzige Excel-Datei: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen. Acht Blätter – Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder (die Blätter heissen so, wie sie in der Datei stehen).',
             'Vor dem Schreiben kommt immer eine **Vorschau**: Blatt für Blatt, was neu wäre, was sich ändert, was wegfällt – und jede abgelehnte Zeile mit Blatt und Zeilennummer. Bis zur Bestätigung ist nichts geschrieben, und Abbrechen schreibt nichts.',
             'Dieselbe Datei nochmals hochgeladen ändert gar nichts. Der Download ist damit auch die Vorlage – und man kann ihn gefahrlos nur zum Nachschauen holen.',
           ] },
           { kind: 'note', text: '**Ein fehlendes Blatt ist kein leeres Blatt.** Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert. Nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – genau so leert man eine Liste absichtlich.' },
-          { kind: 'note', text: '**«Fehlt» heisst zweierlei.** Eine Person, die im Blatt Personal fehlt, wird **deaktiviert** und nie gelöscht – abgeschlossene Einsätze lösen ihren Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird **entfernt**. Die Vorschau benennt beides mit genau diesen Wörtern und zählt es nicht nur.' },
+          { kind: 'note', text: '**«Fehlt» heisst zweierlei.** Eine Person, die im Blatt «Mannschaft» fehlt, wird **deaktiviert** und nie gelöscht – abgeschlossene Einsätze lösen ihren Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird **entfernt**. Die Vorschau benennt beides mit genau diesen Wörtern und zählt es nicht nur.' },
           { kind: 'sub', text: 'Wenn doch etwas schiefgeht' },
           { kind: 'list', items: [
             'Jede Änderung an den **Listen** hebt den Stand von vorher auf: **Sicherung › Letzte Änderungen** zeigt sie mit Zeitpunkt und holt einen davon zurück – egal ob ein Formular, die Arbeitsmappe oder das Terminal geschrieben hat.',
@@ -3623,7 +3623,7 @@ export const de = {
       arbeitsmappe: {
         label: 'Arbeitsmappe',
         title: 'Stationsdaten als Arbeitsmappe',
-        lede: 'Personal, Dienstgrade, Fahrzeuge, Material und Partnerorganisationen als eine Excel-Datei herunterladen, bearbeiten und wieder einspielen.',
+        lede: 'Mannschaft, Dienstgrade, Fahrzeuge, Mittel und Partnerorganisationen als eine Excel-Datei herunterladen, bearbeiten und wieder einspielen.',
         tip: 'Vor dem Schreiben zeigt die Vorschau je Blatt, was neu ist, was sich ändert und was wegfällt – benannt, nicht gezählt. Erst «Jetzt übernehmen» schreibt.',
       },
       system: { label: 'System & Wartung', title: 'System & Wartung', lede: 'Status & Wartung: Version, Datenbank, Bestand, Speicher und der Offline-Cache dieses Geräts.' },
@@ -3633,11 +3633,11 @@ export const de = {
     // Feature: was neu ist, was sich ändert, was wegfällt – benannt, vor dem Schreiben.
     workbook: {
       caption: 'Eine Excel-Datei mit den Listen dieser Wehr: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen.',
-      covers: 'Enthalten sind acht Blätter: Personal, Dienstgrade, Fahrzeuge, Material, Material-Bestände, Quellen, Partnerorganisationen und Symbolfelder.',
+      covers: 'Enthalten sind acht Blätter: Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder – so, wie sie in der Datei heissen.',
       notBackup: 'Das ist keine Sicherung.',
       notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Journal stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
       carriesNot: 'Nicht enthalten – und absichtlich nicht: Schlüssel und Passwörter, Logos, Objektpläne, Kartenebenen, eigene Formulare und die Alarm-Stichwörter.',
-      nameNote: 'Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt Personal fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
+      nameNote: 'Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt «Mannschaft» fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
       step1Title: '1. Arbeitsmappe herunterladen',
       step1Body: 'Der aktuelle Stand der Station – gleichzeitig die Vorlage und das Rückgängig: dieselbe Datei nochmals eingespielt ändert nichts. Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich.',
       download: 'Arbeitsmappe herunterladen',
@@ -3794,7 +3794,7 @@ export const de = {
       saved: 'Gespeichert – ab sofort aktiv, ohne Neustart.',
       removeBtn: 'Löschen',
       removeMsg: 'Wert löschen? Die Anbindung ist danach aus, bis wieder einer gesetzt wird.',
-      removed: 'Entfernt – Anbindung aus.',
+      removed: 'Gelöscht – Anbindung aus.',
       failed: 'Aktion fehlgeschlagen',
       groups: {
         divera: {
@@ -3841,7 +3841,7 @@ export const de = {
         actions: {
           set: 'gesetzt',
           rotated: 'ersetzt',
-          cleared: 'entfernt',
+          cleared: 'gelöscht',
         } as Record<string, string>,
       },
     },
@@ -4547,7 +4547,7 @@ export const de = {
       deleted: '{n} Datensätze gelöscht.',
       deleteFailed: 'Löschen fehlgeschlagen.',
       deleteTitle: 'Checkliste löschen',
-      deleteBody: '«{title}» wird nicht mehr ausgeliefert. Diese Datensätze werden entfernt:',
+      deleteBody: '«{title}» wird nicht mehr ausgeliefert. Diese Datensätze werden gelöscht:',
       deleteNote: 'Tablets, die die Vorlage schon geladen haben, behalten ihre Kopie bis zum nächsten Abgleich.',
       orphans: '{n} Diagramme ohne Vorlage – Reste einer umbenannten oder gelöschten Checkliste.',
       cleanOrphans: 'Reste löschen',
