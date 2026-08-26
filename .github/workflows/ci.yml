@@ -21,13 +21,13 @@ jobs:
     name: Frontend (tsc + build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6  # version comes from package.json packageManager (pnpm@10.18.3)
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6; pnpm from packageManager
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24  # matches Dockerfile (node:24-slim); 20 went EOL 2026-04-30
           cache: pnpm
@@ -53,10 +53,9 @@ jobs:
       - name: Landing page is built from its sources
         run: node site/build.mjs --check
 
-      # Advisory (like the backend's pip-audit): surface vulnerable prod deps in the log
-      # without wedging CI on an unfixable upstream CVE.
-      - name: Dependency audit (pnpm audit, advisory)
-        continue-on-error: true
+      # High/critical production advisories block the gate. Dependabot proposes routine
+      # bumps; any temporary exception must name one advisory and its expiry in this file.
+      - name: Dependency audit (pnpm audit)
         run: pnpm audit --prod --audit-level high
 
       # Blocking LICENSE audit (distinct from the vulnerability audit above): a new prod
@@ -70,7 +69,7 @@ jobs:
     name: Secrets (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # CLI via container (not gitleaks-action, which needs a license key for org repos).
       # Scans exactly the TRACKED tree at HEAD (git archive), so local .env files and
       # node_modules never enter the picture; deliberate test values carry inline
@@ -79,7 +78,8 @@ jobs:
         run: |
           mkdir -p /tmp/scan
           git archive HEAD | tar -x -C /tmp/scan
-          docker run --rm -v /tmp/scan:/repo zricethezav/gitleaks:latest \
+          docker run --rm -v /tmp/scan:/repo \
+            zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
             detect --source /repo --no-git --redact --exit-code 1
 
   # --- Backend: ruff + migrations + pytest ------------------------------------------
@@ -92,7 +92,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16@sha256:c1b3783309b6499c795eed7c20135a1a4d25cae1b575c3d52c6f536129a1b109
         env:
           POSTGRES_USER: kpfront
           POSTGRES_PASSWORD: kpfront
@@ -112,10 +112,10 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://kpfront:kpfront@localhost:5432/kpfront
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
@@ -141,10 +141,9 @@ jobs:
       - name: Type check (mypy)
         run: uv run mypy app
 
-      # Dependency vulnerability scan. Non-blocking (advisory) so a fresh CVE with no fix
-      # yet doesn't wedge merges; review the warnings and bump when a fix lands.
+      # High/critical dependency advisories block the gate. Keep any unavoidable exception
+      # narrow (`--ignore-vuln ID`) and record its expiry/rationale next to the command.
       - name: pip-audit (dependency vulnerabilities)
-        continue-on-error: true
         run: uv run --with pip-audit pip-audit
 
       # Blocking LICENSE audit — same rationale as the frontend job's. Runs from the repo
@@ -179,11 +178,11 @@ jobs:
       # made every row action unclickable and shipped unnoticed in v0.6.0.
       ADMIN_SECRET: 'ci-only-admin-secret-not-a-credential'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Lint Dockerfile (hadolint)
-        uses: hadolint/hadolint-action@v3.4.0
-        continue-on-error: true  # advisory, like pip-audit — surfaces issues without wedging merges
+        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
+        continue-on-error: true  # advisory until the existing Dockerfile baseline is clean
         with:
           dockerfile: Dockerfile
 
@@ -207,10 +206,10 @@ jobs:
           DOMAIN=example.org docker compose --profile tls config -q
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Build image (gha-cached)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: Dockerfile
@@ -244,10 +243,10 @@ jobs:
       # Catches the catastrophic class the curl check can't see: a surface that throws on
       # mount, a wedged session, a build that loads blank.
       - name: Install pnpm
-        uses: pnpm/action-setup@v6  # version comes from package.json packageManager (pnpm@10.18.3)
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6; pnpm from packageManager
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: pnpm
@@ -267,7 +266,7 @@ jobs:
 
       - name: Upload Playwright report (on failure)
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-report
           path: playwright-report/

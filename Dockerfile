@@ -9,12 +9,12 @@
 # 2026-04-30 and this stage sat on it for three months. Keep in step with node-version in
 # .github/workflows/ci.yml and the engines field in package.json; dependabot's docker
 # ecosystem now proposes the bumps so it cannot drift silently again.
-FROM --platform=$BUILDPLATFORM node:24-slim AS frontend
+FROM --platform=$BUILDPLATFORM node:24-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df AS frontend
 WORKDIR /app
 # Pin pnpm 10 (matches lockfileVersion 9.0). corepack's bundled default is incompatible
 # with the Node line above, so install explicitly.
-RUN npm install -g pnpm@10
-COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm@10.18.3
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
 # .git is dockerignored, so the build stamp's sha comes in as a build arg: Railway passes
@@ -26,7 +26,7 @@ ENV GIT_SHA=${GIT_SHA:-$RAILWAY_GIT_COMMIT_SHA}
 RUN pnpm build
 
 # --- Stage 2: backend runtime -------------------------------------------------------
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58
 WORKDIR /app/backend
 
 # pg_dump for the pre-migration safety dump in start.sh (and manual in-container dumps).
@@ -48,7 +48,7 @@ WORKDIR /app/backend
 # The key is fetched by the builder itself (no curl/gnupg in the image); apt reads an
 # ASCII-armored keyring directly as long as it is named .asc.
 ARG PG_CLIENT_MAJOR=18
-ADD --chmod=644 https://www.postgresql.org/media/keys/ACCC4CF8.asc /etc/apt/keyrings/pgdg.asc
+ADD --checksum=sha256:0144068502a1eddd2a0280ede10ef607d1ec592ce819940991203941564e8e76 --chmod=644 https://www.postgresql.org/media/keys/ACCC4CF8.asc /etc/apt/keyrings/pgdg.asc
 # ffmpeg decodes uploaded voice memos server-side: waveform peaks + the STT re-encode
 # (docs/planning/audio-player-markers.md). Missing ffmpeg degrades to a flat seek bar.
 # fonts-dejavu-core: the server-side Kroki/plan renderer (app/kroki.py) needs a real

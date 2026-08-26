@@ -25,7 +25,7 @@ jobs:
       # the tree it checks out onto the live demo, so "whatever was current when the cron fired"
       # is not good enough. `ref: main` takes the tip at RUN time, which is also the only thing
       # that satisfies the preflight in scripts/demo-reset.sh (HEAD must equal origin/main).
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: main
 
@@ -53,7 +53,7 @@ jobs:
 
       - name: Install uv
         if: steps.gate.outputs.enabled == 'true'
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
