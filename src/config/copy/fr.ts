@@ -2572,6 +2572,10 @@ export const fr: Localizable<Copy> = {
           title: 'Mémos vocaux → texte',
           caption: 'Serveur compatible OpenAI pour la transcription. Sans adresse, le bouton « Transcrire » n’apparaît pas – tout le reste du mémo vocal fonctionne.',
         },
+        maps: {
+          title: 'Fond de carte (CARTO)',
+          caption: 'Clé navigateur pour les cartes CARTO Voyager et Dark Matter. Elle apparaît nécessairement dans les requêtes de tuiles ; limitez-la donc aux domaines de cette installation dans CARTO.',
+        },
         webhooks: {
           title: 'Webhooks et imprimante de caserne',
           caption: 'Secrets partagés pour l’interface d’alarme de centrales tierces et pour l’agent d’impression de la caserne. Sans saisie, les deux portes restent fermées.',

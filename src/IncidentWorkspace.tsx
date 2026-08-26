@@ -33,6 +33,7 @@ import { trackPrintJob } from './lib/printJobToast'
 import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
 import { panelNudge, panelNudgeUp, panelNudgeSelection, panelNudgeSelectionUp, isBottomSheet } from './lib/panelNudge'
+import { cartoRasterTiles } from './lib/carto'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
@@ -635,7 +636,7 @@ export function IncidentWorkspace({
     const map = mapRef.current?.getMap()
     if (!map) return
     const base = layers.find((l) => l.base && l.visible)
-    const templates = base?.tiles ?? ['https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png']
+    const templates = base?.tiles ?? cartoRasterTiles('rastertiles/voyager', ['a'])
     const bounds = incidentBounds
     // warm: per-object plan PDFs, the symbol library, and the geojson overlays cropped to the box
     const warmUrls = [

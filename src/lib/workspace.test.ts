@@ -5,6 +5,7 @@ import type { LayerDef } from '../types'
 // Inject one station reference layer with a category rule so the auto-activation path is
 // exercisable (the bundled demo layers carry no autoActivate).
 vi.mock('./deploymentConfig', () => ({
+  getDeploymentConfig: () => ({}),
   referenceLayersFromConfig: (): LayerDef[] => [{
     id: 'hydrant', group: 'Wasser', label: 'Hydranten', icon: 'drop', base: false, visible: false,
     opacity: 100, geojson: '/api/reference/geo:hydrant', vectorKind: 'point', autoActivate: ['Brandbekämpfung'],

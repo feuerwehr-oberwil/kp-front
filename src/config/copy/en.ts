@@ -2745,6 +2745,10 @@ export const en: Localizable<Copy> = {
           title: 'Voice memos → text',
           caption: 'OpenAI-compatible server for transcription. Without an address the «Transcribe» button is absent – everything else about voice memos works.',
         },
+        maps: {
+          title: 'Base map (CARTO)',
+          caption: 'Browser key for the CARTO Voyager and Dark Matter maps. It necessarily appears in tile requests, so restrict it to this installation’s domains in CARTO.',
+        },
         webhooks: {
           title: 'Webhooks & station printer',
           caption: 'Shared secrets for the alarm interface of external dispatch systems and for the print agent at the station. With no entry, both doors stay shut.',

@@ -9904,6 +9904,17 @@
             "title": "Sttconfigured",
             "default": false
           },
+          "cartoBasemapKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cartobasemapkey"
+          },
           "personnel": {
             "$ref": "#/components/schemas/ProviderCapability"
           },
@@ -10219,7 +10230,7 @@
         },
         "type": "object",
         "title": "DeploymentConfigOut",
-        "description": "GET/PUT response projection: the validated document PLUS env-derived integration\nflags. NEVER includes updated_by, raw secrets, or API keys."
+        "description": "GET/PUT response projection: the validated document PLUS env-derived integration\nflags. NEVER includes updated_by or server secrets. `cartoBasemapKey` is the one deliberate\nbrowser credential: CARTO requires it in every raster tile URL."
       },
       "DiveraEmergencyOut": {
         "properties": {

@@ -2,6 +2,7 @@ import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Dra
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
+import { keyCartoTileTemplates } from './carto'
 import type { ChecklistState } from './checklists'
 import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
@@ -461,6 +462,7 @@ export function deriveInitial(
   // layer can never appear twice during a transition where a def lives in both places.
   const seen = new Set(initialLayers.map((l) => l.id))
   const allLayers = [...initialLayers, ...referenceLayersFromConfig().filter((l) => !seen.has(l.id))]
+    .map(keyCartoTileTemplates)
   let layers = ws?.layerState
     ? allLayers.map((l) => { const s = ws.layerState!.find((x) => x.id === l.id); return s ? { ...l, visible: s.visible, opacity: s.opacity } : l })
     : allLayers

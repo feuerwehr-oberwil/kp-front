@@ -126,14 +126,16 @@ to prod.
   <schema|example|validate|diff|load>`; it's served at `GET /api/config` and applied at boot to
   override `appConfig` defaults.
 - **Integration credentials are settable from `/admin`, encrypted, and read through an
-  accessor — never off `settings`.** Divera / Traccar / VAPID / STT / the two webhook secrets /
+  accessor — never off `settings`.** Divera / Traccar / VAPID / STT / CARTO / the two webhook secrets /
   the print-agent secret / `HEALTHCHECK_PING_URL` live in `integration_credentials`
   (AES-256-GCM under an HKDF key derived from `SECRET_KEY`, which stays in `.env`), and every
   consumer reads `app.credentials.get(name)` after `await load(db)`. **`.env` still wins where
   it is set**, so no existing deployment changes. Two rules for anything added here: a
   scheduler job whose credential is runtime-settable is **registered unconditionally and
   no-ops when unset** (gating registration at boot is what made this impossible before), and
-  a secret is **write-only over the API** — settable, never readable. `SECRET_KEY`,
+  a secret is **write-only over the API** — settable, never readable. The CARTO basemap key is
+  the explicit client-credential exception: CARTO requires it in browser tile URLs, so it is
+  public at runtime and must be restricted to deployment domains at the provider. `SECRET_KEY`,
   `ADMIN_SECRET`, `KP_TELEMETRY_*` and `REQUIRE_PLAN_DIGEST` stay env-only on purpose: each
   would defeat itself in the database it gates.
 - **Reference geodata, object plans, and checklists are station data, never bundled.**

@@ -248,6 +248,8 @@ export interface DeploymentIntegrations {
   traccarConfigured?: boolean
   /** STT engine reachable (env stt_base_url) — gates the player's Transkribieren button */
   sttConfigured?: boolean
+  /** CARTO Basemaps browser key; public by design and restricted to deployment domains. */
+  cartoBasemapKey?: string | null
   personnel?: ProviderCapability
   alarms?: ProviderCapability
   vehicles?: ProviderCapability

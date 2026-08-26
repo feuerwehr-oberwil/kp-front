@@ -1300,6 +1300,8 @@ class ConfigIntegrations(BaseModel):
     traccarConfigured: bool = False
     # STT engine reachable (env stt_base_url set) — gates the player's Transkribieren button
     sttConfigured: bool = False
+    # CARTO Basemaps client key. Public by design: MapLibre sends it as `?key=` on tile URLs.
+    cartoBasemapKey: str | None = None
     personnel: ProviderCapability = Field(default_factory=ProviderCapability)
     alarms: ProviderCapability = Field(default_factory=ProviderCapability)
     vehicles: ProviderCapability = Field(default_factory=ProviderCapability)
@@ -1337,7 +1339,8 @@ class ConfigHistoryEntry(BaseModel):
 
 class DeploymentConfigOut(DeploymentConfigIn):
     """GET/PUT response projection: the validated document PLUS env-derived integration
-    flags. NEVER includes updated_by, raw secrets, or API keys.
+    flags. NEVER includes updated_by or server secrets. `cartoBasemapKey` is the one deliberate
+    browser credential: CARTO requires it in every raster tile URL.
     """
 
     integrations: ConfigIntegrations = Field(default_factory=ConfigIntegrations)

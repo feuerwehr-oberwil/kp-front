@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Marker, NavigationControl, type MapRef } from 'react-map-gl/maplibre'
 import { QuietAttributionControl } from '../components/MapAttribution'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { cartoRasterTiles } from '../lib/carto'
 
 // Standalone object-locations map for the admin Objektpläne page. Lazy-loaded so MapLibre
 // only ships to whoever opens this page. A single Carto raster base (the app's default
@@ -13,14 +14,13 @@ import { appConfig } from '../config/appConfig'
 
 export interface MapObj { id: string; name: string; lat: number; lng: number }
 
-const CARTO = ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png`)
 const FALLBACK: [number, number] = [8.2275, 46.8182] // Switzerland centroid
 
-const STYLE = {
+const mapStyle = () => ({
   version: 8 as const,
-  sources: { base: { type: 'raster' as const, tiles: CARTO, tileSize: 256, attribution: '© CARTO, © OpenStreetMap-Mitwirkende' } },
+  sources: { base: { type: 'raster' as const, tiles: cartoRasterTiles('rastertiles/voyager'), tileSize: 256, attribution: '© CARTO, © OpenStreetMap-Mitwirkende' } },
   layers: [{ id: 'base', type: 'raster' as const, source: 'base' }],
-}
+})
 
 export default function ObjectsMap({ objects, selectedId, onSelect, hoveredId, onHover }: {
   objects: MapObj[]
@@ -32,6 +32,7 @@ export default function ObjectsMap({ objects, selectedId, onSelect, hoveredId, o
 }) {
   const mapRef = useRef<MapRef | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const style = useMemo(() => mapStyle(), [])
 
   // Frame all objects: a single point gets a close zoom, several get a padded fit.
   const fit = useCallback((duration = 0) => {
@@ -68,7 +69,7 @@ export default function ObjectsMap({ objects, selectedId, onSelect, hoveredId, o
     <Map
       ref={mapRef}
       initialViewState={{ longitude: start.lng, latitude: start.lat, zoom: 13 }}
-      mapStyle={STYLE}
+      mapStyle={style}
       style={{ width: '100%', height: '100%' }}
       attributionControl={false}
       onLoad={() => setLoaded(true)}

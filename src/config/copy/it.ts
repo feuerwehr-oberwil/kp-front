@@ -2572,6 +2572,10 @@ export const it: Localizable<Copy> = {
           title: 'Memo vocali → testo',
           caption: 'Server compatibile OpenAI per la trascrizione. Senza indirizzo manca il pulsante «Trascrivi» – tutto il resto del memo vocale funziona.',
         },
+        maps: {
+          title: 'Mappa di base (CARTO)',
+          caption: 'Chiave browser per le mappe CARTO Voyager e Dark Matter. Compare necessariamente nelle richieste delle tile; limitala quindi ai domini di questa installazione in CARTO.',
+        },
         webhooks: {
           title: 'Webhook e stampante di sede',
           caption: 'Segreti condivisi per l’interfaccia di allarme di centrali esterne e per l’agente di stampa in sede. Senza voce, entrambe le porte restano chiuse.',

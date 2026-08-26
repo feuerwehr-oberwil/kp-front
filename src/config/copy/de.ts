@@ -3875,6 +3875,10 @@ export const de = {
           title: 'Sprachnotizen → Text',
           caption: 'OpenAI-kompatibler Server für die Transkription. Ohne Adresse fehlt der Knopf «Transkribieren» – alles andere am Sprachmemo funktioniert.',
         },
+        maps: {
+          title: 'Basiskarte (CARTO)',
+          caption: 'Browser-Key für die CARTO-Karten Voyager und Dark Matter. Er steht technisch bedingt in den Kachel-Anfragen; deshalb in CARTO auf die Domains dieser Installation beschränken.',
+        },
         webhooks: {
           title: 'Webhooks & Stationsdrucker',
           caption: 'Gemeinsame Geheimnisse für die Alarm-Schnittstelle fremder Leitstellen und für den Druck-Agenten auf der Wache. Ohne Eintrag sind beide Türen zu.',

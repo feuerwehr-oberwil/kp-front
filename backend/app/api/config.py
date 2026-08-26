@@ -34,8 +34,10 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
                                          # If-Match on the next PUT (see put_config)
     }
 
-Never exposes ``updated_by``, raw secrets, or API keys. On a fresh / empty / corrupt DB
-row, GET serves the safe empty config above — never 404, never 500.
+Never exposes ``updated_by`` or server secrets. The one deliberate client credential is
+``integrations.cartoBasemapKey``: CARTO requires it in browser tile URLs, so domain restrictions
+rather than secrecy protect it. On a fresh / empty / corrupt DB row, GET serves the safe empty
+config above — never 404, never 500.
 """
 
 import hashlib
