@@ -264,6 +264,7 @@ async def _upsert(
     key = storage.new_key(storage_dir, suffix)
     storage.put_bytes(key, data)
     ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
+    storage.replaced_in_transaction(db, new_key=key, old_key=ds.storage_key if ds is not None else None)
     if ds is None:
         ds = ReferenceDataset(id=ds_id, kind=kind)
         db.add(ds)
@@ -321,7 +322,7 @@ async def _load(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple[int
         for ds in stale:
             if ds.id not in expected:
                 if ds.storage_key:
-                    storage.delete(ds.storage_key)
+                    storage.delete_after_commit(db, ds.storage_key)
                 await db.delete(ds)
                 n_pruned += 1
         await db.commit()

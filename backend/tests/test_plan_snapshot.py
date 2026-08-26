@@ -143,6 +143,7 @@ async def test_manual_upload_still_writes_the_dataset_it_always_did(
     assert body["current_version"] == 1
     ds = await _dataset(db_session, f"plan:{OBJ_ID}:modul1")
     assert storage_mod.get_bytes(ds.storage_key) == PDF
+    first_key = ds.storage_key
 
     # A second upload bumps the version in place and keeps a title/source_note it isn't given.
     r2 = await client.put(
@@ -153,6 +154,7 @@ async def test_manual_upload_still_writes_the_dataset_it_always_did(
     assert r2.json()["current_version"] == 2
     assert r2.json()["title"] == "Schulhaus – modul1"
     assert r2.json()["source_note"] == "Revision 2026"
+    assert not storage_mod.exists(first_key)  # unreachable version removed only after DB commit
     r3 = await client.put(
         f"/api/objects/{OBJ_ID}/plans/modul1",
         files={"file": ("modul1.pdf", PDF, "application/pdf")},

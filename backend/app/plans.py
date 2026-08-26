@@ -84,8 +84,10 @@ async def store_plan(
     """
     ds_id = f"plan:{obj.id}:{module}"
     ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
+    old_key = ds.storage_key if ds is not None else None
     key = storage.new_key(f"plans/{obj.id}", f"-{module}.pdf")
     storage.put_bytes(key, data)
+    storage.replaced_in_transaction(db, new_key=key, old_key=old_key)
 
     if ds is None:
         ds = ReferenceDataset(id=ds_id, object_id=obj.id, module=module, kind="pdf")

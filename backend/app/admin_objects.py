@@ -384,6 +384,7 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> WriteResult:
                 ds = (
                     await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))
                 ).scalar_one_or_none()
+                storage.replaced_in_transaction(db, new_key=key, old_key=ds.storage_key if ds is not None else None)
                 if ds is None:
                     ds = ReferenceDataset(id=ds_id, object_id=oid, module=p.module, kind="pdf")
                     db.add(ds)

@@ -109,6 +109,7 @@ async def upload_media(
             status_code=413,
             detail=f"Datei zu gross (Maximum {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
         ) from None
+    storage.created_in_transaction(db, key)
 
     # The DB row exists only after a complete, size-checked write — an aborted upload leaves
     # neither a partial blob (put_astream cleans up) nor a dangling Media record.

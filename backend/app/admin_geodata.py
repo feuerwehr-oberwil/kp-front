@@ -298,6 +298,9 @@ async def _load(
             existing = (
                 await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))
             ).scalar_one_or_none()
+            storage.replaced_in_transaction(
+                db, new_key=key, old_key=existing.storage_key if existing is not None else None
+            )
             if existing is None:
                 existing = ReferenceDataset(id=ds_id, kind="geojson", current_version=1)
                 db.add(existing)

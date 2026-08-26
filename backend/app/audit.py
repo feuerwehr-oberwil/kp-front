@@ -123,6 +123,7 @@ async def snapshot_workspace(db: AsyncSession, *, incident_id: uuid.UUID, worksp
     ).scalar_one()
     key = storage.new_key(f"snapshots/{incident_id}", ".json")
     storage.put_bytes(key, json.dumps(workspace, separators=(",", ":")).encode("utf-8"))
+    storage.created_in_transaction(db, key)
     snap = WorkspaceSnapshot(incident_id=incident_id, seq_at=seq_at, storage_key=key)
     db.add(snap)
     await db.flush()

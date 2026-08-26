@@ -4,14 +4,14 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from .. import audit, live_wait, storage
 from ..alarms import is_demo_deployment
-from ..auth.dependencies import CurrentEditor, CurrentUser, UserOrAdmin, _admin_session_valid
+from ..auth.dependencies import CurrentAdmin, CurrentEditor, CurrentUser, UserOrAdmin
 from ..database import execute_dml, get_db
 from ..geocode import geocode
 from ..models import Incident
@@ -362,20 +362,14 @@ async def patch_incident(
 @router.delete("/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_incident(
     incident_id: uuid.UUID,
-    _user: CurrentEditor,
+    _admin: CurrentAdmin,
     db: AsyncSession = Depends(get_db),
-    admin_session: str | None = Cookie(default=None),
 ) -> None:
     """Hard delete. Child rows (journal, audit chain, people, media, snapshots) go via FK CASCADE;
-    their storage blobs are removed best-effort first.
+    their storage blobs are removed best-effort after the database commit.
 
-    TWO doors, because they answer different questions:
-
-    · **Übungen** — any editor, any time. An exercise is not an operational record; it exists to
-      be thrown away, and needing an admin for it would make the tidy-up cost more than the
-      exercise.
-
-    · **Real Einsätze** — an ADMIN session, and only once the Einsatz is ARCHIVED. Deleting one
+    ADMIN ONLY for both Übungen and real Einsätze. A real Einsatz additionally has to be
+    ARCHIVED. Deleting one
       destroys an Einsatzakte: the Verlauf, the hash-chained audit trail, the Anwesenheit, every
       photo and voice memo. That is a legal record, so it takes the same key as the Verwaltung
       and it cannot happen to something still running — the archive step is the operator saying
@@ -387,15 +381,11 @@ async def delete_incident(
     otherwise record it is one of the things being deleted.
     """
     inc = await _get(db, incident_id)
+    if not inc.is_exercise and not inc.is_archived:
+        raise HTTPException(
+            status_code=409, detail="Einsatz zuerst abschliessen — ein laufender Einsatz kann nicht gelöscht werden"
+        )
     if not inc.is_exercise:
-        if not await _admin_session_valid(admin_session):
-            raise HTTPException(
-                status_code=403, detail="Nur Übungen können gelöscht werden — ein echter Einsatz braucht die Verwaltung"
-            )
-        if not inc.is_archived:
-            raise HTTPException(
-                status_code=409, detail="Einsatz zuerst abschliessen — ein laufender Einsatz kann nicht gelöscht werden"
-            )
         logger.warning(
             "ADMIN DELETE of a real incident %s (%r, started %s, archived=%s) — Verlauf, Prüfkette, "
             "Anwesenheit und Medien gehen mit.",
@@ -412,7 +402,9 @@ async def delete_incident(
         ).scalars()
     )
     for key in keys:
-        storage.delete(key)
-        storage.delete(key + ".peaks.json")  # cached waveform peaks ride next to the blob
+        storage.delete_after_commit(db, key)
+        # Cached waveform peaks ride next to the blob. It is harmless to queue the key for
+        # photos/snapshots too: delete is deliberately idempotent for absent files.
+        storage.delete_after_commit(db, key + ".peaks.json")
     await db.delete(inc)
     await db.flush()

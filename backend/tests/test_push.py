@@ -250,6 +250,8 @@ async def test_notify_new_alarm_noop_without_vapid_keys(db_session, monkeypatch)
 
 
 async def test_notify_new_alarm_broadcasts_stichwort_and_address(db_session, monkeypatch):
+    import asyncio
+
     import app.push as push_mod
     from app.config import settings
 
@@ -262,8 +264,12 @@ async def test_notify_new_alarm_broadcasts_stichwort_and_address(db_session, mon
         return 2
 
     monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+    await db_session.execute(select(1))  # the real intake has an open write transaction here
     n = await push_mod.notify_new_alarm(db_session, tag="divera-99", title="Zimmerbrand", address="Teststrasse 1")
-    assert n == 2
+    assert n == 1  # queued, but never sent before the alarm transaction commits
+    assert calls == []
+    await db_session.commit()
+    await asyncio.gather(*tuple(push_mod._inflight))
     assert calls == [
         {"title": "Neuer Einsatz", "body": "Zimmerbrand — Teststrasse 1", "tag": "divera-99", "target": "divera"}
     ]

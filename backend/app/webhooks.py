@@ -12,6 +12,7 @@ never delay or break alarm intake.
 
 import asyncio
 import logging
+from functools import partial
 from urllib.parse import urlsplit
 
 import httpx
@@ -19,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from .models import Incident
+from .transaction_hooks import after_commit
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,13 @@ RETRY_DELAYS_S = (0, 2, 8)  # first attempt immediate, then backoff
 
 # Strong references to in-flight delivery tasks; see notify_incident_created.
 _inflight: set[asyncio.Task] = set()
+
+
+def _schedule(url: str, payload: dict) -> None:
+    """Start one detached delivery after its incident transaction committed."""
+    task = asyncio.create_task(_deliver(url, payload))
+    _inflight.add(task)
+    task.add_done_callback(_inflight.discard)
 
 
 def build_incident_payload(inc: Incident, capture_token: str | None) -> dict:
@@ -73,10 +82,11 @@ async def _deliver(url: str, payload: dict) -> None:
 
 
 async def notify_incident_created(db: AsyncSession, inc: Incident) -> int:
-    """Schedule delivery to every configured webhook. Returns how many were scheduled.
+    """Queue delivery to every configured webhook. Returns how many were queued.
 
-    Reads config + capture token NOW (while the session is alive), then detaches — the
-    fired tasks own no DB state and outlive the request safely.
+    Reads config + capture token NOW (while the session is alive), but starts detached
+    delivery only after COMMIT. A later audit/incident write failure therefore cannot tell
+    another system about an Einsatz which does not exist. Fired tasks own no DB state.
     """
     try:
         from sqlalchemy import select
@@ -91,12 +101,9 @@ async def notify_incident_created(db: AsyncSession, inc: Incident) -> int:
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         payload = build_incident_payload(inc, row.capture_secret if row else None)
         for url in urls:
-            # Keep a strong reference until the task finishes. asyncio only holds a WEAK one,
-            # so a fire-and-forget task can be garbage-collected mid-flight and the webhook
-            # silently never arrives — the exact failure this retry logic exists to prevent.
-            task = asyncio.create_task(_deliver(url, payload))
-            _inflight.add(task)
-            task.add_done_callback(_inflight.discard)
+            # Keep a strong reference once started. asyncio only holds a WEAK one, so a
+            # fire-and-forget task can otherwise be collected mid-flight.
+            after_commit(db, partial(_schedule, url, payload))
         return len(urls)
     except Exception:  # webhooks must never break intake
         logger.exception("Scheduling incident webhooks failed")
