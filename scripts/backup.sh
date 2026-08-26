@@ -120,6 +120,15 @@ pgdump_gz() {
 }
 dump "$DIR/db-$STAMP.sql.gz" verify_pgdump pgdump_gz
 
+# A backup is a PAIR. If the storage half below fails or the process is interrupted, remove
+# this run's database half instead of leaving an unrestorable orphan that retention counts as
+# one of the newest backups. Disarm immediately after both verified files exist; failures in
+# the later retention/reporting steps must not delete a complete pair.
+cleanup_incomplete_pair() {
+  rm -f "$DIR/db-$STAMP.sql.gz" "$DIR/storage-$STAMP.tar.gz"
+}
+trap cleanup_incomplete_pair EXIT
+
 echo "→ 2/2  storage volume (media, plans, snapshots)"
 # `exec` needs a RUNNING app container, and the night this matters most is the night it is not
 # running — a restart loop, a stopped stack, a restore in progress. Then `exec` fails, the
@@ -139,6 +148,7 @@ storage_tar() {
   fi
 }
 dump "$DIR/storage-$STAMP.tar.gz" verify_tar storage_tar
+trap - EXIT
 
 # Retention: keep the newest $KEEP of each series. Only complete files are ever named like this
 # (see `dump` above), so this can never rotate a good backup out in favour of a fragment.

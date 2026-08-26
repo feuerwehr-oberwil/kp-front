@@ -61,7 +61,7 @@ if [ -n "${DATABASE_URL:-}" ]; then
         # mid-dump can't leave a truncated file that looks valid, and the retention glob below
         # never counts a partial as one of the "newest 5" — which is how a directory of
         # fragments ends up rotating away the last good backup.
-        if pg_dump "$dump_url" | gzip > "$f.part" && [ -s "$f.part" ] && gzip -t "$f.part" 2>/dev/null; then
+        if (umask 077; pg_dump "$dump_url" | gzip > "$f.part") && [ -s "$f.part" ] && gzip -t "$f.part" 2>/dev/null; then
           mv "$f.part" "$f"
           # keep the newest 5 pre-migration dumps
           ls -1t "$BACKUP_DIR"/pre-migrate-*.sql.gz 2>/dev/null | tail -n +6 | xargs -r rm -f --
