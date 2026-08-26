@@ -14,7 +14,7 @@ That is a website, not the app — see [The project website](#the-project-websit
 
 ## Map and address services are a separate matter
 
-Nothing above is about the **map**. Drawing a map means asking somebody for map data, and three
+Nothing above is about the **map**. Drawing a map means asking somebody for map data, and four
 of those requests carry a location:
 
 | Service | What leaves | Who it goes to | Turn it off |
@@ -22,6 +22,7 @@ of those requests carry a location:
 | Basemap tiles | the map tiles you are looking at, i.e. roughly where you are working | the configured tile provider, **from the browser** (so it can cache them) | choose a different `map.bases` entry, or self-host tiles |
 | Building outlines («Umrisse») | a bounding box around the incident | public [Overpass](https://wiki.openstreetmap.org/wiki/Overpass_API) mirrors, **from the server** | `OVERPASS_MIRRORS=` (empty disables the surface) or point it at your own Overpass |
 | Address search / geocoding | the text you type, or a clicked coordinate | the configured geocoder (swisstopo by default), **from the server** | `GEOCODER_URL` |
+| Weather / wind | the incident coordinate for the point-based weather code and fallback; MeteoSwiss observation downloads themselves are national, not point queries | [Open-Meteo](https://open-meteo.com/), **from the server** | `OPEN_METEO_URL=` (empty disables weather) |
 
 These are ordinary third-party services, not a channel to the maintainer, and none of them
 receives names, roster, attendance or journal text — only a location. The shipped Overpass

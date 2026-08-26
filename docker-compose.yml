@@ -32,7 +32,7 @@ x-logging: &default-logging
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     restart: unless-stopped
     logging: *default-logging
     environment:
@@ -78,7 +78,8 @@ services:
       SEED_DATABASE: ${SEED_DATABASE:-true}
       # Required whenever SEED_DATABASE is on in production — the seed file's PIN is public.
       # Six digits, not a well-known one. Missing, you get no login: this build refuses to
-      # boot, v0.6.0 comes up green with an empty roster (docs/SETUP.md §1 has both shapes).
+      # boot; the old v0.6.0 image came up green with an empty roster instead
+      # (docs/SETUP.md §1 has both shapes).
       SEED_PIN: ${SEED_PIN:-}
       # The deployer's telemetry veto (PRIVACY.md). It has to be named here to work at all:
       # compose's .env is interpolation-only, so a KP_TELEMETRY_ENABLED=0 sitting in .env
@@ -92,10 +93,18 @@ services:
       # Aim the same machinery at your own GlitchTip instead of ours; set it blank to switch
       # the forwarder off entirely. Default MUST match UPSTREAM_DSN in app/telemetry/dsn.py.
       KP_TELEMETRY_DSN: ${KP_TELEMETRY_DSN-https://f8ac2e518d46448d80037de2b4499141@ingest.kp-front.ch/1}
+      # Aggregate, cookie-free visit counters are for the public demo only. Keep the
+      # self-host default off, but pass an explicit opt-in through: compose's .env is
+      # interpolation-only, so a documented VISIT_STATS=true otherwise does nothing.
+      VISIT_STATS: ${VISIT_STATS:-false}
       # Overpass mirrors for the building-outline surface (PRIVACY.md). Same blank-is-not-unset
       # trap as the telemetry pair above: an empty value switches the surface off, so the
       # fallback repeats the application default from app/config.py.
       OVERPASS_MIRRORS: ${OVERPASS_MIRRORS-https://overpass.kumi.systems/api/interpreter,https://overpass-api.de/api/interpreter,https://maps.mail.ru/osm/tools/overpass/api/interpreter}
+      # Weather normally downloads national MeteoSwiss observations, then asks Open-Meteo
+      # for the point-based weather code (or uses it as fallback). An explicitly empty URL
+      # disables the whole weather client; absent keeps the application default.
+      OPEN_METEO_URL: ${OPEN_METEO_URL-https://api.open-meteo.com/v1/forecast}
       # ⚠️ The dead-man's switch, and it has to be listed here like everything else: an
       # operator who sets HEALTHCHECK_PING_URL in .env and never sees a ping would have no way
       # to tell "the monitor is misconfigured" from "compose never passed it in". Blank = off,
@@ -181,7 +190,7 @@ services:
 
   # Optional automatic HTTPS. Enabled only with `--profile tls`; set DOMAIN (A record → this host).
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: unless-stopped
     logging: *default-logging
     profiles: ["tls"]

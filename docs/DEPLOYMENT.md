@@ -23,9 +23,11 @@ Verify `GET /ready` after the deployment; both `database` and `storage` must rep
 > **What the committed `railway.json` sets, and why** (2026-08-08, after a 25-minute outage on
 > 0/1 replicas). `restartPolicyType: ALWAYS` – a station server has no successful exit, so a
 > clean shutdown must be restarted too; `ON_FAILURE` only covers a crash and left production
-> stopped. `numReplicas: 1` is a **correctness** constraint, not a budget one: the backend runs
-> APScheduler in-process (Divera polling, push sweep, heartbeat), and a second replica
-> double-fires every one of those. `sleepApplication: false` – an app that sleeps is an app that
+> stopped. `numReplicas: 1` remains the supported topology: the local asset volume is not shared
+> replica-safe. Scheduler jobs themselves are protected by a PostgreSQL advisory-lock leader;
+> standby replicas retry every 10 seconds and take over after the leader connection dies, so a
+> transient overlap cannot double-fire Divera polling, push sweeps, resets or heartbeats.
+> `sleepApplication: false` – an app that sleeps is an app that
 > is not there when the pager goes off. `healthcheckTimeout: 300` because migrations run on boot
 > and a long history needs the room. **`region` is deliberately not in the file** – that one is
 > the deployer's choice, set it on the service.
@@ -143,8 +145,9 @@ docker compose --profile tls up -d
 > `/admin` disabled), and **`SEED_PIN`** (six digits, not 000000/123456).
 >
 > Leave `SEED_PIN` empty and nobody can log in – **in one of two shapes**, depending on which
-> image you run: this build restart-loops (§8), while **v0.6.0 and `latest` come up green with
-> an empty roster**. Both, and the one fix, are the table in [`SETUP.md` §1](SETUP.md).
+> image you run: current releases restart-loop (§8), while the old **v0.6.0** image came up
+> green with an empty roster. Both shapes, and the one fix, are in
+> [`SETUP.md` §1](SETUP.md).
 >
 > `KP_FRONT_TAG` (which release to run, default `latest` – §5) and the rest are optional; see §4
 > and `CONFIGURATION.md §6`. **`./scripts/init-env.sh` fills all four and refuses to clobber an
@@ -200,9 +203,17 @@ Pick what `KP_FRONT_TAG` follows, in `.env`:
 Which versions exist is the [releases page](https://github.com/feuerwehr-oberwil/kp-front/releases);
 `latest` is the newest *release*, never `main`.
 
-**To build from source instead** (contributors, or a patched fork): comment out the `image:`
-line in the `app` service, uncomment the `build:` block below it, and use
-`docker compose up -d --build`.
+**To build from source instead** (contributors, or a patched fork), keep the tracked compose
+file unchanged and install its gitignored override:
+
+```bash
+cp docker-compose.override.yml.example docker-compose.override.yml
+GIT_SHA=$(git rev-parse --short HEAD) BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  docker compose up -d --build
+```
+
+`./scripts/setup.sh --build` performs the same setup. Rebuild after each `git pull`; without
+`--build`, Compose keeps running the previous local image.
 
 Then open the app and **log in by picking your name + PIN**. For station setup, **start in the
 browser**: making the deployment yours – name, colours, logo, doctrine, accounts, crew, vehicles,
@@ -489,7 +500,7 @@ producing files. It prints the command that fixes what it finds. It is the same 
   lines worth looking for in the same output: a missing `SECRET_KEY`/`POSTGRES_PASSWORD`
   (compose names them in the error), and a refused pre-migration dump (§5).
 
-  ⚠️ On **v0.6.0** and `latest` this same cause produces no restart loop at all – seeding is
+  ⚠️ On the old **v0.6.0** image this same cause produces no restart loop at all – seeding is
   wrapped in a `try/except` there, so the stack comes up green with an empty roster and the
   only trace is a *"Seeding failed (continuing)"* line. If everything is healthy and nobody can
   log in, that is what you are looking at: [`SETUP.md` §1](SETUP.md) has both shapes and the fix.
