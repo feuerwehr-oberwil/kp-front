@@ -687,6 +687,13 @@ refused with 415, a non-square or wrongly-sized image with 422 naming the size y
 uploaded. A larger square export is accepted and scaled down (nominal edge up to 4×), so a 1024²
 icon is fine for either slot.
 
+This validation does not make arbitrary SVG a safe untrusted document. Branding SVG is served
+with a route-specific sandbox CSP, but a deployment-admin-supplied `symbols:*` catalogue is
+rendered as inline tactical markup. In the supported one-station/custom model, the deployment
+admin and private station-data repo are therefore a trusted code-equivalent boundary. Managed
+hosting or delegated/untrusted upload access requires SVG sanitization plus an application-wide
+CSP first; see [`SECURITY.md`](../SECURITY.md#accepted-single-station-deployment-constraints).
+
 `/manifest.webmanifest` is **served by the backend**, not shipped as a static file: it takes the
 built manifest and overlays `identity.appName`, `identity.locale`, `accentColor` (as `theme_color`)
 and whichever of the two icons exist. A deployment that has uploaded neither keeps the bundled

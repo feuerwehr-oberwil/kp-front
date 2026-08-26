@@ -47,7 +47,7 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 | `/api/config`, `/api/branding`, `/api/system` | deployment config, branding assets, maintenance status | read public (config) · admin (writes) |
 | `/api/integrations/*` | integration credentials + their audit trail (see below) | admin |
 | `/api/station-workbook/*` | the station-data `.xlsx` – export, preview, import (see below) | admin |
-| `/api/incidents/*`, `/api/events/*` | incident CRUD, workspace sync, notes, append-only events | editor (mutations) |
+| `/api/incidents/*`, `/api/events/*` | incident CRUD, workspace sync, notes, append-only events; whole-incident hard delete is the narrow exception | editor (mutations) · admin (hard delete) |
 | `/api/objects/*`, `/api/reference/*` | object library + plans, reference geodata layers | read auth · admin (writes) |
 | `/api/media/*` | photo / audio upload + serve | editor |
 | `/api/personnel/*`, `/api/divera/*`, `/api/traccar/*` | roster, alarm/roster pull, vehicle GPS | editor |

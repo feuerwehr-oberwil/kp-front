@@ -41,13 +41,16 @@ the latest tagged release (or `main`) and update promptly – see [`docs/DEPLOYM
   `ADMIN_SECRET` env var – not the editor PIN. It is **fail-closed**: with `ADMIN_SECRET` unset the
   admin surface returns 403 and never falls back to the editor PIN.
 - **Single-origin, no CORS:** one deployment = one station (single-tenant). The FastAPI
-  service serves the SPA same-origin, so there is no cross-origin surface; it is also the only
-  component that reaches external services (Divera, Traccar, geocoder, weather).
-- **Secrets in env only:** `SECRET_KEY`, `ADMIN_SECRET`, `DATABASE_URL`, and integration
-  credentials live in environment variables and **never** in the repo. Self-hosters **must set a
-  strong, stable `SECRET_KEY`** (≥32 chars, e.g. `openssl rand -hex 32`) – it signs JWTs and
-  peppers PINs, so rotating it invalidates all sessions and PIN hashes. `just init-env` generates
-  both secrets for a fresh `.env`.
+  service serves the SPA same-origin, so there is no cross-origin API surface. It proxies the
+  configured integrations, geocoder, and weather; map/WMS tiles are fetched by the browser so
+  they can be cached offline.
+- **Secrets stay out of the repo:** host-root secrets (`SECRET_KEY`, `ADMIN_SECRET`,
+  `DATABASE_URL`) live in environment variables. Integration credentials can live there too,
+  or in the deployment's encrypted credential store managed through `/admin`; an environment
+  value wins. Self-hosters **must set a strong, stable `SECRET_KEY`** (≥32 chars, e.g.
+  `openssl rand -hex 32`) – it signs JWTs, peppers PINs, and seals that credential store, so
+  rotating it invalidates sessions and PIN hashes and makes stored integration credentials
+  unreadable. `just init-env` generates the required host secrets for a fresh `.env`.
 - **One credential *is* in the repo, deliberately:** the telemetry DSN in
   `backend/app/telemetry/dsn.py`. It is a Sentry **public key** – write-only by construction,
   able to submit an event and nothing else. It cannot read stored events, reach another project,
@@ -55,6 +58,21 @@ the latest tagged release (or `main`) and update promptly – see [`docs/DEPLOYM
   finds it and can rule it out in thirty seconds, rather than finding it hidden behind an env var
   and wondering. If you would still rather it did not exist on your instance, set
   `KP_TELEMETRY_ENABLED=0` – see [`PRIVACY.md`](PRIVACY.md).
+
+## Accepted single-station deployment constraints
+
+- **Station-supplied tactical SVG is trusted administrator input.** A deployment admin can
+  replace a `symbols:*` reference dataset, and the browser renders its SVG markup inline. The
+  current self-hosted/custom model accepts that risk because the station administrator and its
+  private data repository are inside the same trust boundary as the deployment itself. Do not
+  give this upload path to untrusted users. Before KP Front is offered as managed hosting or a
+  multi-customer service, require strict SVG sanitization at ingestion and rendering plus a
+  tested application-wide Content Security Policy; tenant isolation alone is not a substitute.
+- **Whole-incident deletion is destructive maintenance.** It is available only to a deployment
+  admin; a real Einsatz must first be archived. It deletes Verlauf, hash-chained audit events,
+  attendance and media together, so the in-database chain cannot prove the deletion afterwards.
+  This is accepted for station-operated cleanup for now. A hosted service needs an explicit
+  retention policy and deletion evidence outside the deleted incident record.
 
 ## Data protection
 
@@ -67,10 +85,10 @@ controllers** for their deployment:
   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §6).
 - **Per-station data is not in this repo** – configs (`backend/private/`) and reference geodata
   live outside it and must never be committed.
-- **Nothing leaves your instance unless you switch it on.** There is no cloud account, licence
-  check or usage beacon. Two opt-in channels exist for reporting problems to the maintainer –
-  both off or manual by default, both showing you the exact payload first.
-  [`PRIVACY.md`](PRIVACY.md) documents what they send, what they can never send, how to verify
-  that from your own log and database, and how to disable them centrally.
+- **Nothing is sent to the maintainer unless you switch it on.** There is no cloud account,
+  licence check or usage beacon. Map tiles, geocoding, weather, and optional integrations do
+  contact their configured providers; [`PRIVACY.md`](PRIVACY.md) documents those separately.
+  The two channels for reporting problems to the maintainer are off or manual by default and
+  show the exact payload first; the same document explains how to verify and disable them.
 - If you process personal or operational data, follow your canton's data-protection (DSG)
   guidance.
