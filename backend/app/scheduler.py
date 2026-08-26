@@ -1,9 +1,12 @@
-"""APScheduler: periodic Divera poll (~2 min). Webhook + manual refresh cover the gaps.
+"""APScheduler jobs with PostgreSQL-backed singleton leadership.
 
-Started/stopped from the FastAPI lifespan. No-op when no Divera access key is set.
+Started/stopped from the FastAPI lifespan. Only the process holding the deployment-wide
+advisory lock runs jobs; standby replicas retry and take over after leader failure.
 """
 
+import asyncio
 import logging
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -11,14 +14,25 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from .config import settings
-from .database import async_session_maker, execute_dml
+from .database import async_session_maker, engine, execute_dml
 from .models import INCIDENT_ACTIVE_STATUSES
 
 logger = logging.getLogger(__name__)
 
 _scheduler: AsyncIOScheduler | None = None
+_scheduler_leader_connection: AsyncConnection | None = None
+_leadership_task: asyncio.Task[None] | None = None
+
+# Session-level PostgreSQL advisory lock. It belongs to the dedicated connection below,
+# so PostgreSQL releases it atomically when the leader exits or loses the connection.
+# Decimal value of the ASCII bytes ``KPFRONT``; fixed forever so every release competes
+# for the same lock during a rolling deploy.
+SCHEDULER_ADVISORY_LOCK_ID = int.from_bytes(b"KPFRONT", "big")
+SCHEDULER_LEADERSHIP_RETRY_SECONDS = 10
 
 
 #: How often the integration-credential snapshot is refreshed from the database.
@@ -378,10 +392,12 @@ async def _telemetry_flush() -> None:
             logger.exception("Telemetry flush failed")
 
 
-async def start_scheduler(app: FastAPI) -> None:
+def _start_scheduler_jobs() -> None:
     global _scheduler
     from .plans import plans_pull_enabled
 
+    if _scheduler is not None:
+        return
     jobs: list[str] = []
     _scheduler = AsyncIOScheduler()
     # ⚠️ THE FOUR JOBS BELOW ARE REGISTERED UNCONDITIONALLY, and each no-ops on a tick where
@@ -531,11 +547,124 @@ async def start_scheduler(app: FastAPI) -> None:
             settings.demo_reset_seconds,
         )
     _scheduler.start()
-    logger.info("Scheduler running: %s", ", ".join(jobs))
+    logger.info("Scheduler leader running: %s", ", ".join(jobs))
 
 
-async def stop_scheduler() -> None:
+def _stop_scheduler_jobs() -> None:
     global _scheduler
     if _scheduler is not None:
         _scheduler.shutdown(wait=False)
         _scheduler = None
+
+
+async def _acquire_scheduler_lock() -> AsyncConnection | None:
+    """Try to hold the deployment-wide scheduler lock on a dedicated connection.
+
+    SQLite is a single-process development/test convenience and has no advisory locks; it
+    runs jobs directly. Production is PostgreSQL, where returning the connection to the
+    pool would also return a still-held session lock, so the leader retains it explicitly.
+    """
+    if engine.dialect.name != "postgresql":
+        return None
+
+    conn = await engine.connect()
+    try:
+        acquired = bool(
+            await conn.scalar(
+                text("SELECT pg_try_advisory_lock(:lock_id)"),
+                {"lock_id": SCHEDULER_ADVISORY_LOCK_ID},
+            )
+        )
+        # End SQLAlchemy's implicit transaction. The session-level lock intentionally
+        # survives commits and remains tied to this connection.
+        await conn.commit()
+        if acquired:
+            return conn
+    except BaseException:
+        await conn.close()
+        raise
+    await conn.close()
+    return None
+
+
+async def _release_scheduler_lock() -> None:
+    global _scheduler_leader_connection
+    conn = _scheduler_leader_connection
+    _scheduler_leader_connection = None
+    if conn is None:
+        return
+    try:
+        await conn.execute(
+            text("SELECT pg_advisory_unlock(:lock_id)"),
+            {"lock_id": SCHEDULER_ADVISORY_LOCK_ID},
+        )
+        await conn.commit()
+    except Exception:  # noqa: BLE001 — cleanup must tolerate any broken-driver failure
+        # A dead connection has already caused PostgreSQL to release its session locks.
+        logger.warning("Scheduler leadership connection was lost during release", exc_info=True)
+    finally:
+        await conn.close()
+
+
+async def _leadership_loop() -> None:
+    """Monitor the held connection or promote this standby when the lock becomes free."""
+    global _scheduler_leader_connection
+    while True:
+        if _scheduler_leader_connection is None:
+            try:
+                _scheduler_leader_connection = await _acquire_scheduler_lock()
+            except Exception:  # noqa: BLE001 — election is retried; app serving must continue
+                logger.warning("Scheduler leadership election failed; retrying", exc_info=True)
+            if _scheduler_leader_connection is not None:
+                _start_scheduler_jobs()
+                logger.info("Scheduler leadership acquired")
+        else:
+            try:
+                # A session advisory lock disappears with its connection. Probe that exact
+                # connection: if it has died, stop jobs before attempting a new election.
+                await _scheduler_leader_connection.execute(text("SELECT 1"))
+                await _scheduler_leader_connection.commit()
+            except Exception:
+                logger.error("Scheduler leadership lost; stopping jobs before re-election", exc_info=True)
+                _stop_scheduler_jobs()
+                with suppress(Exception):
+                    await _scheduler_leader_connection.close()
+                _scheduler_leader_connection = None
+        await asyncio.sleep(SCHEDULER_LEADERSHIP_RETRY_SECONDS)
+
+
+async def start_scheduler(app: FastAPI) -> None:
+    """Start jobs here or enter standby; PostgreSQL promotes exactly one replica."""
+    del app  # lifespan symmetry; the scheduler does not retain the application object
+    global _leadership_task, _scheduler_leader_connection
+    if _leadership_task is not None or _scheduler is not None:
+        return
+
+    # Tests and the reloadable dev server run jobs in-process directly. Leadership is a
+    # production topology concern, and keeping it off there also avoids holding a pooled
+    # connection across pytest's per-test event loops.
+    if not settings.is_production or engine.dialect.name != "postgresql":
+        _start_scheduler_jobs()
+        return
+
+    try:
+        _scheduler_leader_connection = await _acquire_scheduler_lock()
+    except Exception:  # noqa: BLE001 — election is retried; app serving must continue
+        logger.warning("Initial scheduler leadership election failed; entering standby", exc_info=True)
+    if _scheduler_leader_connection is not None:
+        _start_scheduler_jobs()
+        logger.info("Scheduler leadership acquired")
+    else:
+        logger.info("Scheduler standby: another replica holds the PostgreSQL advisory lock")
+    _leadership_task = asyncio.create_task(_leadership_loop(), name="scheduler-leadership")
+
+
+async def stop_scheduler() -> None:
+    global _leadership_task
+    if _leadership_task is not None:
+        _leadership_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _leadership_task
+        _leadership_task = None
+    _stop_scheduler_jobs()
+    await _release_scheduler_lock()
