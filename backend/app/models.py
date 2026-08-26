@@ -301,12 +301,11 @@ class PersonnelExternalIdentity(Base):
     __table_args__ = (
         UniqueConstraint("provider", "external_id", name="uq_personnel_external_provider_id"),
         UniqueConstraint("personnel_id", "provider", name="uq_personnel_external_person_provider"),
+        Index("ix_personnel_external_personnel_id", "personnel_id"),
     )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
-    personnel_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    personnel_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False)
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     external_id: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
@@ -510,14 +509,13 @@ class DeploymentConfigHistory(Base):
     """
 
     __tablename__ = "deployment_config_history"
+    __table_args__ = (Index("ix_config_history_replaced_at", "replaced_at"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     #: the document as it stood BEFORE the write, not a diff — a diff needs an intact base to
     #: mean anything, and the case this exists for is exactly the one where there isn't one
     config_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    replaced_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
-    )
+    replaced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     #: which path did the replacing — `api` (Verwaltung / HTTP), `cli` (admin_config load),
     #: `branding` (a logo upload), `geodata` (a reference-layer push). The one question that was
     #: unanswerable after the fact: nobody could say whether it had been a browser or a terminal.
