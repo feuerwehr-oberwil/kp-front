@@ -75,6 +75,9 @@ async def test_system_shape_as_admin(client, editor, admin_login):
     assert {(p["provider"], p["domain"]) for p in registrations} == {
         ("divera", "personnel"),
         ("divera", "alarms"),
+        # A payload adapter over the generic intake path — no server-side key, so always listed
+        # as a discoverable-but-unconfigured dispatch-system choice (POST /api/firehub/webhook).
+        ("firehub", "alarms"),
         ("traccar", "vehicles"),
         # Published contract, no ingestion — listed so it is discoverable, `implemented: False`
         # so the registry does not imply it works (docs/CONFIGURATION.md §4c).

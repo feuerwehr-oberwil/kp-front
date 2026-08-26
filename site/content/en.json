@@ -72,7 +72,7 @@
         "time": "03:01",
         "tag": "Call",
         "h3": "The call comes in.",
-        "p": "Take over an alert from your paging system (e.&nbsp;g. Divera) with one tap – or start\n            by hand from an address, a building or the map. The location and the building data are\n            there before the first appliance rolls."
+        "p": "Take over an alert from your paging system (e.&nbsp;g. Divera or FireHub) with one tap – or start\n            by hand from an address, a building or the map. The location and the building data are\n            there before the first appliance rolls."
       },
       {
         "time": "03:07",
@@ -254,7 +254,7 @@
           "Several devices at once, everything syncs by itself",
           "Roles: edit, or read along only",
           "Day/night mode, symbol size, large touch targets for the tablet",
-          "Can take over alerts from Divera <span class=\"opt\">optional</span>",
+          "Can take over alerts from Divera or FireHub <span class=\"opt\">optional</span>",
           "Vehicle positions by GPS <span class=\"opt\">optional</span>",
           "PDF printing at the station <span class=\"opt\">optional</span>",
           "<strong>Your own administration area</strong> per fire brigade: crew, vehicles, checklists, map layers and templates",

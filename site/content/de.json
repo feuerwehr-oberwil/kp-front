@@ -76,7 +76,7 @@
         "time": "03:01",
         "tag": "Alarm",
         "h3": "Der Alarm kommt rein.",
-        "p": "Alarme aus dem Alarmierungssystem (z.&nbsp;B. Divera) mit einem Tipp übernehmen – oder\n            von Hand ab Adresse, Objekt oder Karte starten. Einsatzort und Objektdaten stehen,\n            bevor das erste Fahrzeug rollt."
+        "p": "Alarme aus dem Alarmierungssystem (z.&nbsp;B. Divera oder FireHub) mit einem Tipp übernehmen – oder\n            von Hand ab Adresse, Objekt oder Karte starten. Einsatzort und Objektdaten stehen,\n            bevor das erste Fahrzeug rollt."
       },
       {
         "time": "03:07",
@@ -284,7 +284,7 @@
           "Mehrere Geräte gleichzeitig, alles synchronisiert sich automatisch",
           "Rollen: bearbeiten oder nur mitlesen",
           "Tag-/Nachtmodus, Symbolgrösse, grosse Bedienflächen fürs Tablet",
-          "Kann Alarme aus Divera übernehmen <span class=\"opt\">optional</span>",
+          "Kann Alarme aus Divera oder FireHub übernehmen <span class=\"opt\">optional</span>",
           "Fahrzeugpositionen per GPS <span class=\"opt\">optional</span>",
           "PDF-Druck im Magazin <span class=\"opt\">optional</span>",
           "<strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fahrzeuge, Checklisten, Karten-Ebenen und Vorlagen",
