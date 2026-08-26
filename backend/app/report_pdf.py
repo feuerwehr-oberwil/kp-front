@@ -285,6 +285,21 @@ class PlanAnnoIn(BaseModel):
     symbol: str | None = None
     symbolSvg: str | None = None
     rotation: float | None = None
+    # --- symbol badges, the same decor the Kroki prints (KrokiEntityIn) and the board shows ---
+    #: signed STOREY badge (+2 / 0 / -1). ⚠️ `storey`, not `floor`: on a plan anno `floor` is
+    #: the Gebäude floor-stack's TILE INDEX (client types.ts · BoardAnno), and the client lifts
+    #: that into page coordinates before sending — the server has no floor model. Absent on
+    #: floor-stack pages by design: there the sheet a symbol sits on already is its storey.
+    storey: int | None = None
+    #: lower / upper storey of a vertical span (stairs, lift) — printed as a `-1/+3` range badge
+    #: in the storey's slot. Placed on the object, so it prints on floor-stack pages too.
+    floorFrom: int | None = None
+    floorTo: int | None = None
+    #: quantity badge at the bottom-right; 1 or absent = no badge
+    count: int | None = None
+    #: FKS Entwicklung arrows around the glyph — {left, right, up, down, …Bounded} (+ the legacy
+    #: {h, hBounded, vBounded} shape); see kroki._spread_dirs
+    spread: dict | None = None
     # generic shapes (Pfeil/Rauch/Rechteck) arrive as kind 'symbol' with a client-resolved
     # svg + their size as a fraction of the plan width (overrides the fixed symbol size)
     sizeN: float | None = None

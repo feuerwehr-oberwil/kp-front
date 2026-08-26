@@ -903,6 +903,9 @@ export const de = {
     // behalten wollte, musste sie ein zweites Mal ziehen. Der Knopf macht aus den gemessenen
     // Punkten eine echte Linie – ab da gilt die normale Linienbearbeitung.
     adoptLine: 'Als Linie übernehmen',
+    // Das Gegenstück für die Fläche: der gemessene Umriss wird zur gezeichneten Fläche,
+    // statt ihn ein zweites Mal von Hand nachzuziehen.
+    adoptArea: 'Als Fläche übernehmen',
   },
   shapes: {
     sectionTitle: 'Formen',

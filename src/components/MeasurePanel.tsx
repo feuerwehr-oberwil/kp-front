@@ -22,9 +22,9 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
   blocked?: boolean
   /** override the not-enough-points hint text. */
   hint?: string
-  /** turn the measured Strecke into a real, drawn line (the measured points become its nodes).
-   *  Absent ⇒ the action is hidden — a read-only surface measures but never draws. Line mode
-   *  only: a measured Fläche has no line to become. */
+  /** turn the measurement into a real, drawn object — the measured points become the nodes of a
+   *  line (line mode) or of a Fläche (area mode). Absent ⇒ the action is hidden: a read-only
+   *  surface measures but never draws, and so does one whose measurement is still just a hint. */
   onAdopt?: () => void
   /** Plan only: start (or redo) the scale calibration straight from the panel. */
   onCalibrate?: () => void
@@ -81,10 +81,20 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
           ))}
         </>
       ) : (
-        <div className={s['mp-stat-row']}>
-          <div className={s['mp-stat']}><span className={s['mp-k']}>{C.area}</span><b className={s['mp-v']}>{fmtArea(areaM2)}</b></div>
-          <div className={s['mp-stat']}><span className={s['mp-k']}>{C.perimeter}</span><b className={s['mp-v']}>{fmtDistance(perimeterM)}</b></div>
-        </div>
+        <>
+          <div className={s['mp-stat-row']}>
+            <div className={s['mp-stat']}><span className={s['mp-k']}>{C.area}</span><b className={s['mp-v']}>{fmtArea(areaM2)}</b></div>
+            <div className={s['mp-stat']}><span className={s['mp-k']}>{C.perimeter}</span><b className={s['mp-v']}>{fmtDistance(perimeterM)}</b></div>
+          </div>
+          {/* «Als Fläche übernehmen» — the twin of the line adopt: the measured ring becomes a
+              drawn Fläche, so an outline that was just paced out can be KEPT instead of traced a
+              second time by hand over the top of the measurement. */}
+          {onAdopt && (
+            <button type="button" className={cx('ip-btn', 'ghost', s['mp-adopt-btn'])} onClick={onAdopt}>
+              <Icon id="area" />{C.adoptArea}
+            </button>
+          )}
+        </>
       )}
       {onCalibrate && (
         <button type="button" className={cx('ip-btn', blocked ? 'primary' : 'ghost', s['mp-cal-btn'])} onClick={onCalibrate}>

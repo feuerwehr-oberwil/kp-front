@@ -338,6 +338,93 @@ def test_plan_page_renders_a_wrapped_note_box(tmp_path):
     assert img.width > 0 and img.height > 0
 
 
+# --- plan-page symbol decor: the badges the board draws must survive onto paper ------------
+# Until 26.08. a symbol on a PLAN page printed bare — the Kroki grew storey/count badges and
+# Entwicklung arrows, the plan pages never did. So «3 Brände im 2. OG» came off the printer as
+# one nameless flame, on the sheet that is supposed to BE the record.
+
+
+def _plan_ink(img: Image.Image, box: tuple[int, int, int, int]) -> int:
+    """Non-white pixels in a box of a rendered plan page (the base is white)."""
+    return sum(n for n, px in img.crop(box).getcolors(maxcolors=1_000_000) if min(px[:3]) < 235)
+
+
+def _blank_plan(anno: dict, width: int = 400) -> Image.Image:
+    """One anno on a blank square page; the glyph lands dead centre at 21px (42 · u · ss / ss)."""
+    return kk.render_blank_page(1.0, [anno], PACK, width=width)
+
+
+#: the rendered glyph's half-size on a 400px `_blank_plan` page — 42px at ref_width 800
+_HALF = 42 * (400 / 800) / 2
+
+
+def test_a_plan_symbol_prints_its_storey_and_count_badges():
+    base = {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer"}
+    cx = cy = 200
+    top_right = (int(cx + _HALF - 4), int(cy - _HALF - 8), int(cx + _HALF + 14), int(cy - _HALF + 4))
+    bottom_right = (int(cx + _HALF - 4), int(cy + _HALF - 4), int(cx + _HALF + 14), int(cy + _HALF + 8))
+
+    bare = _blank_plan(base)
+    assert _plan_ink(bare, top_right) == 0 and _plan_ink(bare, bottom_right) == 0
+
+    badged = _blank_plan({**base, "storey": 2, "count": 3})
+    assert _plan_ink(badged, top_right) > 0  # «+2» chip
+    assert _plan_ink(badged, bottom_right) > 0  # «3» chip
+
+    # a von/bis span (stairs, lift) uses the storey's slot — and it is a property of the OBJECT,
+    # so it prints on the Gebäude floor-stack pages too
+    ranged = _blank_plan({**base, "floorFrom": -1, "floorTo": 3})
+    assert _plan_ink(ranged, top_right) > 0
+
+
+def test_a_plan_symbols_floor_is_the_tile_index_and_never_a_badge():
+    """⚠️ `floor` on a BoardAnno is the floor-stack's TILE INDEX, `storey` is the signed badge
+    (types.ts · BoardAnno). Reading the wrong one here would stamp «+3» on every symbol that
+    happens to sit on the fourth sheet."""
+    base = {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer"}
+    assert _blank_plan({**base, "floor": 3}).tobytes() == _blank_plan(base).tobytes()
+
+
+def test_a_plan_symbol_prints_its_entwicklung_arrows():
+    base = {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer"}
+    # the arrows sit OUTSIDE the glyph in a 250% box, so they ink a band the bare glyph cannot
+    outside = (200 - 8, int(200 - _HALF * 2.2), 200 + 8, int(200 - _HALF * 1.2))
+    assert _plan_ink(_blank_plan(base), outside) == 0
+    assert _plan_ink(_blank_plan({**base, "spread": {"up": True, "left": True}}), outside) > 0
+
+
+def test_a_plan_trupp_chip_prints_its_truppfarbe():
+    """The colour IS the team's identity on both surfaces; the printed chip was the one place
+    it got lost (the dark pill knew nothing but the name)."""
+    chip = {"kind": "resource", "x": 0.5, "y": 0.5, "text": "Trupp 1", "color": "#e8590c"}
+    img = _blank_plan(chip)
+    warm = img.crop((150, 185, 250, 215)).getcolors(maxcolors=1_000_000)
+    assert any(px[0] > 180 and px[1] < 160 and px[2] < 90 for _n, px in warm)
+
+
+def test_plan_anno_schema_lets_the_badge_fields_through():
+    """The badges only reach the renderer if the SCHEMA knows them: pydantic drops an unknown
+    field without a word, and the sheet then simply has no badge and no error either."""
+    from app.report_pdf import PlanAnnoIn
+
+    a = PlanAnnoIn.model_validate(
+        {
+            "kind": "symbol",
+            "x": 0.5,
+            "y": 0.5,
+            "symbol": "VKF Feuer",
+            "storey": -1,
+            "floorFrom": 0,
+            "floorTo": 3,
+            "count": 4,
+            "spread": {"up": True, "upBounded": True},
+        }
+    )
+    d = a.model_dump()
+    assert (d["storey"], d["floorFrom"], d["floorTo"], d["count"]) == (-1, 0, 3, 4)
+    assert d["spread"] == {"up": True, "upBounded": True}
+
+
 def test_every_label_becomes_a_number_and_a_legend_line():
     """⚠️ Chips used to be drawn where their own anchor was, with no idea what was already
     there — so three symbols within a few metres printed three chips on top of one another and

@@ -647,6 +647,7 @@ export const en: Localizable<Copy> = {
     hintLine: 'At least 2 points for the distance',
     hintArea: 'At least 3 points for the area',
     adoptLine: 'Keep as a line',
+    adoptArea: 'Keep as an area',
   },
   shapes: {
     sectionTitle: 'Shapes',

@@ -62,20 +62,24 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       if (draft.length >= 2) { const coords = draft; const attachments = draftAttachments; setDraft([]); createLine(coords, attachments); return }
       setDraft([]); return
     }
-    if (draft.length >= 3) {
-      const coords = draft; const id = `d${Date.now()}`
-      // carry the dock's colour/width/dash so the area-tool style controls actually apply
-      // (parity with the line tool + the Plan area tool); still fully editable in the DrawEditor.
-      const drawing: Drawing = { id, kind: 'area', coords, color: drawColor, width: drawWidth, dashed: drawDashed }
-      commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
-      log('area', appConfig.copy.log.areaDrawn, 'symbol'); emit('draw.add', { id, kind: 'area', drawing })
-      // drop into Select with the new area active so its reshape/move/rotate handles are
-      // immediately usable (mirrors symbol/shape placement). Staying in 'area' would keep
-      // draftKind set, which suppresses the edit handles → the area looks uneditable.
-      setDraft([]); setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
-      return
-    }
+    // node-mode area: ≥3 tapped vertices → a Fläche (createArea drops into Select itself)
+    if (draft.length >= 3) { const coords = draft; setDraft([]); createArea(coords); return }
     setDraft([])
+  }
+  // create an area from a finished ring — the node-tapped draft, or a measured Fläche taken over
+  // from the Messen panel. The twin of createLine: same funnel, same one-shot to Select.
+  const createArea = (coords: LngLat[]) => {
+    if (tacticalLocked) return // same guard as createLine + the edit handlers
+    const id = `d${Date.now()}`
+    // carry the dock's colour/width/dash so the area-tool style controls actually apply
+    // (parity with the line tool + the Plan area tool); still fully editable in the DrawEditor.
+    const drawing: Drawing = { id, kind: 'area', coords, color: drawColor, width: drawWidth, dashed: drawDashed }
+    commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
+    log('area', appConfig.copy.log.areaDrawn, 'symbol'); emit('draw.add', { id, kind: 'area', drawing })
+    // drop into Select with the new area active so its reshape/move/rotate handles are
+    // immediately usable (mirrors symbol/shape placement). Staying in 'area' would keep
+    // draftKind set, which suppresses the edit handles → the area looks uneditable.
+    setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
   }
   // annotated-polyline presets: tools that draw like a freehand line but seed the new
   // arrow/marker/distance fields. The fields stay fully editable in the DrawEditor.
@@ -278,7 +282,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
     linePreset, setLinePreset, lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
-    commitDraft, createLine, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    commitDraft, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
   }

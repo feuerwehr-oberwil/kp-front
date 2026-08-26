@@ -1384,7 +1384,7 @@ export function IncidentWorkspace({
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
     lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
-    commitDraft, createLine, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    commitDraft, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
   } = useMapDrawing({
@@ -3467,11 +3467,17 @@ export function IncidentWorkspace({
       )}
       {mapUI && tool === 'measure' && (
         <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading}
-          // «Als Linie übernehmen»: the measured points become a real line (createLine drops into
-          // Select with it active, so its editor opens straight away). Hidden on a locked surface —
-          // there, Messen is a question the EL may ask, not a way to draw.
-          onAdopt={!tacticalLocked && measure.mode === 'line' && measure.path.length >= 2
-            ? () => { const coords = measure.path; measure.reset(); createLine(coords) }
+          // «Als Linie/Fläche übernehmen»: the measured points become a real line resp. Fläche
+          // (createLine/createArea drop into Select with it active, so its editor opens straight
+          // away). Hidden on a locked surface — there, Messen is a question the EL may ask, not a
+          // way to draw — and while the measurement is still too short to be one.
+          onAdopt={!tacticalLocked && measure.path.length >= (measure.mode === 'line' ? 2 : 3)
+            ? () => {
+              const coords = measure.path
+              measure.reset()
+              if (measure.mode === 'line') createLine(coords)
+              else createArea(coords)
+            }
             : undefined} />
       )}
 

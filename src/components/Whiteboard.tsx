@@ -862,6 +862,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     log('pen', appConfig.copy.whiteboard.placeLine, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
     draftAttachments.current = {}; setSelId(id); setTool('pan')
   }
+  // create a Fläche from a finished ring (a node-tapped draft OR a measured Fläche taken over) —
+  // then select it + drop to pan so its draggable vertex handles are immediately usable (matches
+  // the Lage map, where a finished area auto-selects for reshaping). The twin of addLine.
+  // ⚠️ an area lives on ONE storey: the caller pins every vertex to the same floor.
+  const addArea = (pts: BoardPoint[]) => {
+    const id = `a${Date.now()}`
+    const floor = pts[0]?.[2] ?? draftFloor.current
+    add({ id, kind: 'area', pts, floor, color, width, dashed })
+    log('area', appConfig.copy.whiteboard.placeArea, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
+    setSelId(id); setTool('pan')
+  }
   // commit the in-progress node shape: a Linie (≥2 pts) or a Fläche (≥3 pts, closed + filled).
   // Then drop to pan so it's immediately selectable.
   const finishShape = () => {
@@ -872,12 +883,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     if (tool === 'area' && d && d.length >= 3) {
-      const id = `a${Date.now()}`
-      add({ id, kind: 'area', pts: d, floor: draftFloor.current, color, width, dashed })
-      log('area', appConfig.copy.whiteboard.placeArea, { annoId: id, x: d[0]?.[0], y: d[0]?.[1], floor: draftFloor.current })
-      // select the new area + drop to pan so its draggable vertex handles are immediately usable
-      // (matches the Lage map, where a finished area auto-selects for reshaping)
-      setDraft(null); lastTap.current = null; setSelId(id); setTool('pan')
+      setDraft(null); lastTap.current = null
+      addArea(d)
       return
     }
     setDraft(null); lastTap.current = null; setTool('pan')
@@ -2628,17 +2635,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           metrics={{ lengthM: measLenM, areaM2: measAreaM2, perimeterM: measPerimM }}
           blocked={!calibrated}
           hint={readOnly ? appConfig.copy.whiteboard.scale.needsCalibrationViewer : appConfig.copy.whiteboard.scale.needsCalibration}
-          // «Als Linie übernehmen»: the measured nodes become a real Linie on this plan. Board
-          // coords are whole-board normalized, so each point is folded back into its storey tile
-          // (the space every stored `pts` lives in) before addLine sees it.
-          onAdopt={!readOnly && measMode === 'line' && measPath.length >= 2
+          // «Als Linie/Fläche übernehmen»: the measured nodes become a real Linie resp. Fläche on
+          // this plan. Board coords are whole-board normalized, so each point is folded back into
+          // its storey tile (the space every stored `pts` lives in) before addLine/addArea sees it.
+          // Unreachable while the plan is uncalibrated — the panel then shows the hint, not the
+          // readout, so neither adopt button is rendered.
+          onAdopt={!readOnly && measPath.length >= (measMode === 'line' ? 2 : 3)
             ? () => {
+                // a Linie keeps the storey under each node; a Fläche lives on ONE storey — its
+                // first point's — exactly like the node tool, which pins every vertex of a ring
+                // to the floor it was started on.
+                const floorOf = (y: number) => (stack ? floorAt(y) : draftFloor.current)
+                const ringFloor = floorOf(measPath[0][1])
                 const pts: BoardPoint[] = measPath.map(([x, y]) => {
-                  const f = stack ? floorAt(y) : draftFloor.current
+                  const f = measMode === 'line' ? floorOf(y) : ringFloor
                   return [x, localY(y, f), f]
                 })
                 measReset()
-                addLine(pts)
+                if (measMode === 'line') addLine(pts)
+                else addArea(pts)
               }
             : undefined}
           onCalibrate={readOnly ? undefined : () => setTool('scale')}

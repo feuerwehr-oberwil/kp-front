@@ -13,6 +13,27 @@ describe('planAnnosForPdf', () => {
     expect(out.label).toBeUndefined() // the implicit shape name must not print as a label
   })
 
+  it('sends the badges the board draws on the glyph – storey, von/bis, count, Entwicklung', () => {
+    const annos: BoardAnno[] = [{
+      id: 's1', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.3,
+      storey: 2, floorFrom: -1, floorTo: 3, count: 4, spread: { up: true },
+    }]
+    const [out] = planAnnosForPdf(annos, {})
+    expect(out.storey).toBe(2)
+    expect(out.floorFrom).toBe(-1)
+    expect(out.floorTo).toBe(3)
+    expect(out.count).toBe(4)
+    expect(out.spread).toEqual({ up: true })
+  })
+
+  it('never sends the floor-stack TILE INDEX as a storey badge', () => {
+    // ⚠️ `floor` on a BoardAnno is the tile the symbol sits on, `storey` the signed badge
+    // (types · BoardAnno). Sending the tile index would stamp «+3» on the fourth sheet.
+    const [out] = planAnnosForPdf([{ id: 's2', kind: 'symbol', symbol: 'VKF Feuer', x: 0.5, y: 0.5, floor: 3 }], {})
+    expect(out.storey).toBeUndefined()
+    expect(out.floor).toBeUndefined()
+  })
+
   it('falls back to the shape defaults when colour/size were never touched', () => {
     const [out] = planAnnosForPdf([{ id: 'sh2', kind: 'shape', shape: 'arrow', x: 0.1, y: 0.1 }], {})
     expect(String(out.symbolSvg)).toContain('<svg')

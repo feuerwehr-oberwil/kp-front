@@ -393,6 +393,69 @@ def _badge(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, h: flo
     draw.text((x, y - h * 0.04), text, font=f, fill=fg, anchor="mm")
 
 
+def _place_symbol(
+    overlay: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    svg: str,
+    xy: tuple[float, float],
+    size: int,
+    rotation: float | None,
+    spread: dict | None,
+) -> None:
+    """Paint one tactical glyph with the decor that belongs to the glyph itself: the FKS
+    Entwicklung arrows outside it (client `.sym-spread`, a 250% box), the white legibility chip
+    behind outline symbols, then the rotated glyph on top.
+
+    Shared by the Kroki and the plan pages — a symbol carries the same decor wherever it was
+    placed, which is also what the two screens show.
+    """
+    x, y = xy
+    glyph = raster_svg(svg, size)
+    if spread:
+        osize = int(size * 2.5)
+        oimg = raster_svg(spread_overlay_svg(spread, sym_color(svg)), osize)
+        overlay.alpha_composite(oimg, (int(x - osize / 2), int(y - osize / 2)))
+    if needs_white(svg):
+        draw.rounded_rectangle(
+            [x - size / 2, y - size / 2, x + size / 2, y + size / 2], radius=size * 0.14, fill=(255, 255, 255, 235)
+        )
+    if rotation:
+        glyph = glyph.rotate(-rotation, expand=True, resample=Image.Resampling.BICUBIC)
+    overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
+
+
+def _symbol_badges(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[float, float],
+    size: float,
+    u: float,
+    storey: int | None,
+    floor_from: int | None,
+    floor_to: int | None,
+    count: int | None,
+) -> None:
+    """Storey badge top-right (white chip, ink), count badge bottom-right (ink chip, white) —
+    the client's `.sym-floor` / `.sym-count`. `u` is the sheet's px-per-unit factor (u · ss).
+
+    The storey is a single value or a von/bis RANGE (stairs, lift). On the Kroki it comes from
+    the entity's `floor`, on a plan page from the anno's `storey` — two names because on a plan
+    `floor` is already the floor-stack's tile index (see types.ts · BoardAnno).
+
+    ⚠️ The storey was once printed in the SYMBOL's colour, which is the one legibility this
+    chip exists to provide: a yellow symbol's «+1» came out yellow on white — on paper, where
+    nobody can zoom in.
+    """
+    x, y = xy
+    bh = max(16.0 * u / 2, size * 0.46)
+    if storey is not None:
+        _badge(draw, (x + size / 2, y - size / 2), floor_badge(storey), bh, "white", "#1b2330")
+    elif floor_from is not None or floor_to is not None:
+        rng = "/".join(floor_badge(v) for v in (floor_from, floor_to) if v is not None)
+        _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", "#1b2330")
+    if (count or 0) > 1:
+        _badge(draw, (x + size / 2, y + size / 2), str(count), bh, "#1b2330", "white")
+
+
 def _caption(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str], fs: int) -> None:
     """White caption chip under a glyph — the map's .sym-caption (bold, stacked lines)."""
     f = _font(fs)
@@ -1022,34 +1085,9 @@ def render_kroki(
             size = round(max(24.0, min(900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss)
         else:
             size = round(sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u * ss)
-        glyph = raster_svg(svg, size)
-        color = sym_color(svg)
         x, y = x0_, y0_
-        # FKS Entwicklung arrows sit OUTSIDE the glyph in a 250% box (client .sym-spread)
-        if e.get("spread"):
-            osize = int(size * 2.5)
-            oimg = raster_svg(spread_overlay_svg(e["spread"], color), osize)
-            overlay.alpha_composite(oimg, (int(x - osize / 2), int(y - osize / 2)))
-        # white legibility chip behind outline symbols (KP Front, hydrants, …)
-        if needs_white(svg):
-            draw.rounded_rectangle(
-                [x - size / 2, y - size / 2, x + size / 2, y + size / 2], radius=size * 0.14, fill=(255, 255, 255, 235)
-            )
-        if e.get("rotation"):
-            glyph = glyph.rotate(-e["rotation"], expand=True, resample=Image.Resampling.BICUBIC)
-        overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
-        # storey badge top-right (white chip, ink) / count bottom-right (ink chip, white)
-        # ⚠️ The storey was printed in the SYMBOL's colour, which is the one legibility this
-        # chip exists to provide: a yellow symbol's «+1» came out yellow on white — on paper,
-        # where nobody can zoom in. Matches the client (.sym-floor).
-        bh = max(16.0 * u * ss / 2, size * 0.46)
-        if e.get("floor") is not None:
-            _badge(draw, (x + size / 2, y - size / 2), floor_badge(e["floor"]), bh, "white", "#1b2330")
-        elif e.get("floorFrom") is not None or e.get("floorTo") is not None:
-            rng = "/".join(floor_badge(v) for v in (e.get("floorFrom"), e.get("floorTo")) if v is not None)
-            _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", "#1b2330")
-        if (e.get("count") or 0) > 1:
-            _badge(draw, (x + size / 2, y + size / 2), str(e["count"]), bh, "#1b2330", "white")
+        _place_symbol(overlay, draw, svg, (x, y), size, e.get("rotation"), e.get("spread"))
+        _symbol_badges(draw, (x, y), size, u * ss, e.get("floor"), e.get("floorFrom"), e.get("floorTo"), e.get("count"))
         # metadata caption under the glyph (the map's .sym-caption) — DEFERRED into the same
         # collision pass the drawing labels go through: on the 08.08. Kroki two of these
         # («Kurmann Thomas» over «Lüfter Akku 3. OG») printed straight on top of one another,
@@ -1126,7 +1164,7 @@ def render_plan_page(
 ) -> Image.Image:
     """Render an annotated Objektplan page: the plan PDF's first page via pdfium, then the
     board annotations (relative 0..1 coords — the Whiteboard's model) drawn on top with the
-    same primitives as the Kroki. Mirrors the print view's PlanPrintPage (42px symbols,
+    same primitives as the Kroki. Mirrors what the Whiteboard shows on screen (42px symbols,
     non-scaling ~`width`px strokes)."""
     import pypdfium2 as pdfium
 
@@ -1210,11 +1248,19 @@ def _overlay_board_annos(
             # symbols print at a fixed 42px; generic shapes carry their size as a
             # fraction of the plan width (sizeN) — mirror of the on-screen sizing
             size = round(a["sizeN"] * w) if a.get("sizeN") else round(42 * u * ss)
-            glyph = raster_svg(svg, size)
-            if a.get("rotation"):
-                glyph = glyph.rotate(-a["rotation"], expand=True, resample=Image.Resampling.BICUBIC)
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
-            overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
+            # ⚠️ Same decor as the Kroki, deliberately: a plan symbol printed BARE until 26.08.
+            # — no Entwicklung arrows, no white chip, no storey and no count — so «3 Brände im
+            # 2. OG», drawn once on the board, came off the printer as one nameless flame.
+            _place_symbol(overlay, draw, svg, (x, y), size, a.get("rotation"), a.get("spread"))
+            # `storey`, never `floor`: on a plan anno that name is the floor-stack's tile index.
+            # On the Gebäude floor-stack `storey` is always absent — the sheet the symbol sits on
+            # IS the storey, so the client never offers the control there (Whiteboard · onFloor)
+            # and the page needs no second answer that could disagree with the first. A von/bis
+            # RANGE and the count are placed things, not page facts, and print on every page.
+            _symbol_badges(
+                draw, (x, y), size, u * ss, a.get("storey"), a.get("floorFrom"), a.get("floorTo"), a.get("count")
+            )
         elif kind in ("text", "resource") and (a.get("text") or "").strip():
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
             dark = kind == "resource"  # resource chips are ink-on-dark like the app
@@ -1234,6 +1280,13 @@ def _overlay_board_annos(
             pad = fs * 0.45
             half_w = (box_w / 2 + pad) if box_w else (max(draw.textlength(t, font=f) for t in lines) / 2 + pad)
             half_h = lh * len(lines) / 2 + pad * 0.55
+            # a Trupp chip wears its Truppfarbe as the cap bar on its left edge (client
+            # .wb-resource-cap) — the colour IS the team's identity on both surfaces, and the
+            # printed chip was the one place it got lost. The bar takes its own width out of the
+            # chip, so the name stays centred in what is left of it.
+            cap_w = fs * 0.3 if (dark and a.get("color")) else 0
+            cap_gap = fs * 0.4 if cap_w else 0
+            half_w += (cap_w + cap_gap) / 2
             # keep the note on the sheet: an anchor near the edge must not clip the text
             x = max(half_w + 2, min(w - half_w - 2, x))
             plain = bool(a.get("notePlain")) and not dark
@@ -1246,9 +1299,20 @@ def _overlay_board_annos(
                     outline=None if dark else "#d4dae3",
                     width=1,
                 )
+            if cap_w:
+                draw.rounded_rectangle(
+                    [
+                        x - half_w + pad * 0.6,
+                        y - half_h + pad * 0.7,
+                        x - half_w + pad * 0.6 + cap_w,
+                        y + half_h - pad * 0.7,
+                    ],
+                    radius=cap_w / 2,
+                    fill=a["color"],
+                )
             # a box is left-aligned (it is a paragraph); the one-line pill stays centred on its
             # anchor, exactly as both have always rendered on screen
-            tx = (x - half_w + pad) if box_w else x
+            tx = (x - half_w + pad) if box_w else x + (cap_w + cap_gap) / 2
             anchor = "lm" if box_w else "mm"
             for i, t in enumerate(lines):
                 ty = y - half_h + pad * 0.55 + lh * (i + 0.5)

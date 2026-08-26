@@ -39,6 +39,16 @@ export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, stri
       wN: a.wN, noteSize: a.noteSize, notePlain: a.notePlain,
     }
     if (a.kind === 'symbol') {
+      // the badges the board draws on the glyph, so the sheet says the same thing it does.
+      // ⚠️ `storey`, never `floor` — on a BoardAnno that name is the floor-stack's TILE INDEX
+      // (see types · BoardAnno), and the stack's tiles are flattened into page space before the
+      // annos ever reach the server. The storey badge is only ever set on the Modul boards; on
+      // the stack the sheet already says which storey it is, so there is nothing to print.
+      out.storey = a.storey
+      out.floorFrom = a.floorFrom
+      out.floorTo = a.floorTo
+      out.count = a.count
+      out.spread = a.spread
       const veh = a.symbol === appConfig.symbols.vehicleName
       const svg = veh ? vehicleSymbolSvg(a.label ?? '', a.rotation ?? 0) : placardSvgForSymbol(a.symbol, a.fields)
       if (svg) {
