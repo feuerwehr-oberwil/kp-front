@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { apiGet, apiPost, ApiError } from './api'
 import { idbGet, idbSet, idbDel } from './idb'
 import { isDemoMode, loadDeploymentConfig } from './deploymentConfig'
+import { syncMediaCacheAuth } from './authMediaCache'
 
 // The demo's public PIN (shown to every visitor) — used to auto-sign-in on demo instances so
 // there's no login screen. Only ever sent when isDemoMode() is true; real stations never use it.
@@ -107,6 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })()
     return () => { alive = false }
   }, [])
+
+  // Protected media is cached only for a known real-user client. Do not signal during the
+  // initial probe: `user === null` still means "unknown" then, not "logged out". Once the
+  // probe settles, logout/session expiry clears media, a user change changes cache ownership,
+  // and an Einsatz-Link becomes network-only without consuming the station cache.
+  useEffect(() => {
+    if (!loading) syncMediaCacheAuth(user)
+  }, [loading, user])
 
   // Throws ApiError on a bad PIN (401) or cooldown (429) so LoginScreen can show
   // the backend's German `detail` (and disable the pad on a Retry-After).

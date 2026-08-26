@@ -11,6 +11,8 @@ vi.mock('./api', async () => {
 })
 const { idbSet, idbDel } = vi.hoisted(() => ({ idbSet: vi.fn(), idbDel: vi.fn() }))
 vi.mock('./idb', () => ({ idbGet: vi.fn().mockResolvedValue(null), idbSet, idbDel }))
+const { syncMediaCacheAuth } = vi.hoisted(() => ({ syncMediaCacheAuth: vi.fn() }))
+vi.mock('./authMediaCache', () => ({ syncMediaCacheAuth }))
 
 import { ApiError } from './api'
 import * as deploymentConfig from './deploymentConfig'
@@ -27,7 +29,9 @@ const LINK_USER = {
   last_login: null, link_scoped: true, link_incident_id: 'inc-1',
 }
 
-beforeEach(() => { apiGet.mockReset(); apiPost.mockReset(); idbSet.mockReset(); idbDel.mockReset() })
+beforeEach(() => {
+  apiGet.mockReset(); apiPost.mockReset(); idbSet.mockReset(); idbDel.mockReset(); syncMediaCacheAuth.mockReset()
+})
 afterEach(() => vi.restoreAllMocks())
 
 describe('AuthProvider — offline user cache', () => {
@@ -38,6 +42,7 @@ describe('AuthProvider — offline user cache', () => {
     const { result } = renderHook(() => useAuth(), { wrapper })
     await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
     expect(idbSet).toHaveBeenCalledWith('kp-front-user', EDITOR_USER)
+    await waitFor(() => expect(syncMediaCacheAuth).toHaveBeenCalledWith(EDITOR_USER))
   })
 
   it('never caches an Einsatz-Link session, and clears whatever was cached', async () => {
@@ -50,6 +55,7 @@ describe('AuthProvider — offline user cache', () => {
     await waitFor(() => expect(result.current.user).toEqual(LINK_USER))
     expect(idbSet).not.toHaveBeenCalled()
     expect(idbDel).toHaveBeenCalledWith('kp-front-user')
+    await waitFor(() => expect(syncMediaCacheAuth).toHaveBeenCalledWith(LINK_USER))
   })
 })
 
@@ -74,5 +80,6 @@ describe('AuthProvider — demo auto-login', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.user).toBeNull()
     expect(apiPost).not.toHaveBeenCalled()
+    await waitFor(() => expect(syncMediaCacheAuth).toHaveBeenCalledWith(null))
   })
 })

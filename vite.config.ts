@@ -154,8 +154,9 @@ export default defineConfig(({ mode }) => {
           // few devices, no pattern). Adding an extension here is never cosmetic — check what
           // is emitted with it (`ls dist/assets`) before removing one.
           globPatterns: ['**/*.{js,mjs,css,html,svg,woff2,json}'],
-          // custom notificationclick handler (focus/open the app + route to the right tab)
-          importScripts: ['sw-notify.js'],
+          // Notification routing plus the auth-aware incident-media cache. Imported before
+          // Workbox registers routes; sw-media-cache owns /api/media/* itself.
+          importScripts: ['sw-notify.js', 'sw-media-cache.js'],
           // maplibre + pdf.worker chunks are large; precache them so the shell works offline.
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           navigateFallback: '/index.html',
@@ -182,16 +183,6 @@ export default defineConfig(({ mode }) => {
                 cacheName: 'reference-data',
                 cacheableResponse: { statuses: [0, 200] },
                 expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              },
-            },
-            {
-              // Incident media (immutable by id).
-              urlPattern: /\/api\/media\/.*/,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'incident-media',
-                cacheableResponse: { statuses: [0, 200] },
-                expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
               },
             },
             {
