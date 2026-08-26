@@ -11,21 +11,22 @@ import { fmtDistance } from '../lib/geo'
 import { listObjects, type ObjectWithPlans } from '../lib/incidents'
 import { Overlay } from '../lib/overlays'
 import type { LngLat } from '../types'
+import { cartoRasterTiles } from '../lib/carto'
 
 // Carto Voyager — the app's default basemap (see demoIncident base-carto), so the
 // mini-map matches the Lagekarte look.
-const BASE_STYLE = {
+const baseStyle = () => ({
   version: 8 as const,
   sources: {
     carto: {
       type: 'raster' as const,
-      tiles: ['https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', 'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'],
+      tiles: cartoRasterTiles('rastertiles/voyager', ['a', 'b']),
       tileSize: 256,
       attribution: '© CARTO, © OpenStreetMap-Mitwirkende',
     },
   },
   layers: [{ id: 'carto', type: 'raster' as const, source: 'carto' }],
-}
+})
 
 const pdfCount = (o: ObjectWithPlans) => o.plans.filter((p) => p.kind === 'pdf' && p.module).length
 
@@ -48,6 +49,7 @@ interface Props {
  */
 export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose }: Props) {
   const pp = appConfig.copy.planPicker
+  const style = useMemo(() => baseStyle(), [])
   const [q, setQ] = useState('')
   const [objects, setObjects] = useState<ObjectWithPlans[]>([])
   const [loading, setLoading] = useState(true)
@@ -153,7 +155,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
               <Map
                 ref={mapRef}
                 initialViewState={{ longitude: center[0], latitude: center[1], zoom: 16 }}
-                mapStyle={BASE_STYLE}
+                mapStyle={style}
                 attributionControl={false}
                 dragRotate={false}
               >

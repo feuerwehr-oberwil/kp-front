@@ -211,6 +211,17 @@ async def test_the_public_config_reflects_a_connection_made_in_the_browser(clien
     assert (await client.get("/api/config")).json()["integrations"]["diveraConfigured"] is True
 
 
+async def test_carto_browser_key_reaches_public_runtime_config(client, admin_login, blank_env):
+    """The raster provider requires `?key=` in browser requests, so this one credential is
+    intentionally public while still staying out of git and encrypted at rest."""
+    await admin_login(client)
+    key = "carto-browser-key"
+    r = await client.put("/api/integrations/credentials/carto_api_key", json={"value": key})
+    assert r.status_code == 200, r.text
+    assert r.json()["value"] == key
+    assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] == key
+
+
 # --- audit ----------------------------------------------------------------------------
 
 

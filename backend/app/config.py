@@ -320,6 +320,11 @@ class Settings(BaseSettings):
     stt_model: str = "whisper-large-v3-turbo"
     stt_language: str = "de"
 
+    # CARTO raster basemaps require a browser key (`?key=…`). It is public by design and
+    # should be restricted to this deployment's domains in CARTO; keeping it in env/the
+    # encrypted credential store still prevents it from being committed or baked into images.
+    carto_api_key: str = ""
+
     # --- Web Push (killed-app alarms: Atemschutz überfällig + Wiedervorlagen) ---
     # Generate a VAPID pair once per deployment (see .env.example); push is silently
     # disabled while unset — the in-app tone/notification path keeps working regardless.

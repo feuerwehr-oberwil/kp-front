@@ -35,7 +35,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
     [4c. `"snapshot"` – the roster-snapshot contract](#4c-snapshot--a-roster-file-somebody-else-publishes)
 - [5. User accounts, roles, and deployment administration](#5-user-accounts-roles-and-deployment-administration)
 - [6. Environment variables (secrets / infra)](#6-environment-variables-secrets--infra--operator-not-admin)
-  - [The sixteen integration credentials – env **or** `/admin`](#the-sixteen-integration-credentials--env-or-admin--zugangsdaten)
+  - [The seventeen integration credentials – env **or** `/admin`](#the-seventeen-integration-credentials--env-or-admin--zugangsdaten)
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
 - [7. What ships with the app (no config needed)](#7-what-ships-with-the-app-no-config-needed)
@@ -63,7 +63,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 |-------|------|-------|-------------|
 | **Defaults** | National/safe fallbacks (FKS doctrine, symbol presets) | `src/config/appConfig.ts` | developers |
 | **Deployment config** ← *this doc* | Per-station settings + uploaded assets | DB `deployment_config` row + asset storage | technical deployment owner – forms at `/admin`, or the same rows as a config file via CLI |
-| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the sixteen integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those sixteen. **Env wins and locks the field** (§6) |
+| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the seventeen integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those seventeen. **Env wins and locks the field** (§6) |
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
@@ -917,13 +917,13 @@ The product role model is deliberately small:
 
 ## 6. Environment variables (secrets / infra – operator, not admin)
 
-Set at deploy time, never in the repo. **Sixteen of them are also settable from the browser** –
+Set at deploy time, never in the repo. **Seventeen of them are also settable from the browser** –
 see the rule immediately below; everything else in the table really is deploy-time only.
 
-### The sixteen integration credentials – env **or** `/admin` → Zugangsdaten
+### The seventeen integration credentials – env **or** `/admin` → Zugangsdaten
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
-four STT settings, `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET` and `HEALTHCHECK_PING_URL` – no
+four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET` and `HEALTHCHECK_PING_URL` – no
 longer have to come from `.env`. An admin can set and rotate them at `/admin` → **Zugangsdaten**,
 where they are stored **encrypted** in the `integration_credentials` table (AES-256-GCM, key
 derived from `SECRET_KEY` via HKDF-SHA256, the credential's own name as AAD) and take effect
@@ -935,13 +935,15 @@ Four rules, and none of them is optional reading:
 1. **A value in `.env` wins and locks the field.** The browser shows it as server-set, names the
    variable, and offers no input; the API answers **409** to a `PUT` or `DELETE`. **Existing
    deployments therefore change behaviour not at all.** "Supplied" means *different from the
-   application's own default* – `docker-compose.yml` names all sixteen variables and materialises
+   application's own default* – `docker-compose.yml` names all seventeen variables and materialises
    the default for `STT_MODEL`, `STT_LANGUAGE` and `VAPID_SUBJECT`, and a compose passthrough is
    not a deployer's decision.
-2. **Secrets are write-only.** They can be set and rotated over the API, never read back. Six
+2. **Secrets are write-only.** They can be set and rotated over the API, never read back. Seven
    fields are readable because each earns it individually: `TRACCAR_URL` (a hostname the System
    card already prints), `VAPID_PUBLIC_KEY` (already handed to every logged-in browser),
-   `VAPID_SUBJECT`, `STT_BASE_URL`, `STT_MODEL`, `STT_LANGUAGE`. `TRACCAR_EMAIL` is *not* readable –
+   `VAPID_SUBJECT`, `STT_BASE_URL`, `STT_MODEL`, `STT_LANGUAGE`, and `CARTO_API_KEY`. The CARTO
+   key is the deliberate exception: CARTO requires it in every browser tile URL, so domain
+   restrictions in CARTO—not secrecy—prevent use elsewhere. `TRACCAR_EMAIL` is *not* readable –
    it is half of a credential pair – and neither is `HEALTHCHECK_PING_URL`, whose one misuse is
    pinging it so the monitor believes a dead station is alive.
 3. **Rotating `SECRET_KEY` now costs more than the PINs.** It is the key the credentials are
@@ -987,6 +989,7 @@ and locks the field – see the rule above).
 | 🔐 `HEALTHCHECK_PING_URL` | dead-man's switch: **the job GETs this URL every 60 s** (healthchecks.io or any cron monitor), so the monitor alerts when the pings *stop*. Catches the class an HTTP probe of `/ready` cannot: a container stopped with nothing replacing it, or a wedged event loop. Point it at a check with a **1 min period and ~3 min grace** – matching the 60 s cadence, so two missed pings raise it. Nothing set anywhere = the heartbeat job still runs but returns on its first line, so nothing is pinged; a failed ping is logged and swallowed, so a monitoring outage never disturbs the deployment. The «Einrichtung» card on the admin landing page links straight to this field |
 | 🔐 `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | 🔐 `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments |
+| 🔐 `CARTO_API_KEY` | browser key for the built-in CARTO Voyager and Dark Matter raster basemaps. Request it for the deployment domains at [CARTO Basemaps](https://carto.com/basemaps/apikey/). The runtime config appends it as `?key=` to every CARTO tile template, including map pickers, the admin object map, offline downloads and Rapport/Kroki rendering. It is necessarily visible in browser requests; restrict it to the deployment domains in CARTO and never commit a real value. Empty = the provider's unkeyed/watermarked response is shown. |
 | `PLANS_S3_ENDPOINT`, `PLANS_S3_BUCKET`, `PLANS_S3_PREFIX`, `PLANS_S3_REGION`, `PLANS_S3_ACCESS_KEY_ID`, `PLANS_S3_SECRET_ACCESS_KEY`, `PLANS_PULL_INTERVAL_MINUTES` | Objektplan-Pull – see [§6a](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in) (empty endpoint/bucket/key/secret = no pull, fail-closed). **These are the only `S3_`-shaped variables the app reads**, and they are prefixed `PLANS_S3_` – there is no bare `S3_ACCESS_KEY_ID` |
 | `MAX_UPLOAD_MB` | request-body cap for multipart uploads (default 110 – must stay above the media endpoint's 100 MB per-file cap) |
 | `REQUIRE_PLAN_DIGEST` | make `PUT /api/objects/{id}/plans/{module}` **refuse an automated publish** (admin secret, no logged-in user – i.e. `admin_objects push`) that does not declare the SHA-256 of the bytes it carries. A declared digest is verified everywhere, always; this only decides whether one is *mandatory*, and only for machines – a person uploading a PDF in the admin UI is never affected. Unset = auto: on for the public demo (`DEMO_RESET_CRON`/`DEMO_RESET_SECONDS`), off for a station, so an older `admin_objects` keeps working. ⚠️ It is a **wrong-tree** guard, and deliberately server-side: the `sha256` pin in `objects.manifest.json` cannot catch a stale checkout, because such a checkout brings a stale manifest *and* a stale CLI. Turning it on means a publisher too old to name its own bytes is refused – which is precisely the publisher you do not want |
@@ -1023,7 +1026,7 @@ is fetched, and plans stay exactly as they were loaded. Index format and the rea
 
 Each of these is a **token or key stored in the database** and managed in the admin UI, not set
 at deploy time. They are listed here because that is where people go looking for them. (Unlike
-the sixteen 🔐 credentials above, these three have **no** environment variable at all – there is
+the seventeen 🔐 credentials above, these three have **no** environment variable at all – there is
 nothing to put in `.env` and nothing that could outrank the stored value.)
 
 | Feature | Where it is managed | What it does |

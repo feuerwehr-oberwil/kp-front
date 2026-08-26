@@ -22,6 +22,7 @@ import {
 } from '../lib/krokiLegend'
 import type { CaptionMode, Drawing, Entity, LayerDef, LngLat, Trupp } from '../types'
 import { krokiStandLabel, type KrokiView } from '../lib/report'
+import { cartoRasterTiles } from '../lib/carto'
 
 // WYSIWYG framing of the printed Kroki: the auto-fit (or the last chosen crop) is just the
 // STARTING point — the operator pans/zooms and exactly this crop becomes the printed Kroki.
@@ -42,7 +43,7 @@ const FIT_MAX_ZOOM = 20 // mirror of the server's fit_view max_z
 /** Breathing room around the fitted Lage, in preview px. 48 was ~2 cm of white on every side of
  *  an A4 sheet — enough street to orient by is a good thing, that much of it is not. */
 const FIT_PAD = 28
-const CARTO_FALLBACK = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+const CARTO_FALLBACK_STYLE = 'rastertiles/voyager'
 // the same default `buildKrokiPayload` sends, so the plate on the preview is the plate on paper
 const DEFAULT_ATTRIBUTION = '© CARTO, © OpenStreetMap-Mitwirkende'
 // backend/app/kroki.py renders print overlays against this reference viewport. Scaling the
@@ -172,7 +173,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const base = scene.layers.find((l) => l.base && l.visible && l.tiles?.length) ?? scene.layers.find((l) => l.base && l.tiles?.length)
   const style = useMemo(() => ({
     version: 8 as const,
-    sources: { base: { type: 'raster' as const, tiles: base?.tiles?.length ? [base.tiles[0]] : [CARTO_FALLBACK], tileSize: 256, maxzoom: base?.maxzoom } },
+    sources: { base: { type: 'raster' as const, tiles: base?.tiles?.length ? [base.tiles[0]] : cartoRasterTiles(CARTO_FALLBACK_STYLE, ['a']), tileSize: 256, maxzoom: base?.maxzoom } },
     layers: [{ id: 'base', type: 'raster' as const, source: 'base' }],
   }), [base])
 

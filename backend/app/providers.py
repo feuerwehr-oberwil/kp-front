@@ -17,6 +17,7 @@ def integrations() -> ConfigIntegrations:
         diveraConfigured=divera,
         traccarConfigured=traccar,
         sttConfigured=bool(credential("stt_base_url")),
+        cartoBasemapKey=credential("carto_api_key") or None,
         personnel=ProviderCapability(
             provider="divera" if divera else None,
             configured=divera,

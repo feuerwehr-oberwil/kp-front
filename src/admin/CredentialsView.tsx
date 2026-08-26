@@ -47,7 +47,7 @@ interface AuditEntry {
 }
 
 /** Card order = the order a station connects things in, not alphabetical. */
-const GROUPS = ['divera', 'traccar', 'push', 'stt', 'webhooks', 'monitoring'] as const
+const GROUPS = ['divera', 'traccar', 'push', 'stt', 'maps', 'webhooks', 'monitoring'] as const
 
 function badgeFor(c: CredentialState): { tone: 'on' | 'off' | 'warn' | 'err'; state: string } {
   const C = appConfig.copy.admin.zugaenge

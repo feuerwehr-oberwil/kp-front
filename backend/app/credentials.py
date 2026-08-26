@@ -18,7 +18,7 @@ THE SHAPE, AND WHY EACH PART OF IT
   leak and the import a credential-deletion button. Same reasoning the three existing
   station secrets follow (``capture_secret``, ``stats_secret``, ``incident_link_key`` are
   columns, not document fields) — this is that decision, one table further along because
-  there are sixteen of them and they carry their own «changed when, by whom».
+  there are seventeen of them and they carry their own «changed when, by whom».
 
 * **Encrypted with a key derived from ``SECRET_KEY``, which stays in ``.env``.** A stolen
   database dump — the nightly ``pg_dump``, the pre-migration safety dump, a laptop with a
@@ -139,6 +139,10 @@ FIELDS: tuple[CredentialField, ...] = (
     CredentialField("stt_api_key", "stt", True, "STT-API-Key"),
     CredentialField("stt_model", "stt", False, "STT-Modell"),
     CredentialField("stt_language", "stt", False, "STT-Sprache"),
+    # --- Map tiles --------------------------------------------------------------------
+    # CARTO requires this value in every browser tile URL. It therefore is not a server
+    # secret; CARTO's domain restrictions are the protection against reuse elsewhere.
+    CredentialField("carto_api_key", "maps", False, "CARTO Basemap API-Key"),
     # --- Webhooks + relay -------------------------------------------------------------
     CredentialField("alarm_webhook_secret", "webhooks", True, "Alarm-Webhook-Secret"),
     CredentialField("print_agent_secret", "webhooks", True, "Print-Agent-Secret"),
@@ -237,7 +241,7 @@ def _env_value(field: CredentialField) -> str | None:
 
 #: How long the STORED half of a credential may be stale. Short, because the whole point is
 #: that a credential set in a browser takes effect without a restart — and cheap, because a
-#: refresh is one scan of a sixteen-row table. Writes refresh immediately anyway; this bounds
+#: refresh is one scan of a seventeen-row table. Writes refresh immediately anyway; this bounds
 #: the staleness for a second process (or a synchronous reader between requests).
 CACHE_TTL_SECONDS = 30.0
 
