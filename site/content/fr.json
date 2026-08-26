@@ -73,7 +73,7 @@
         "time": "03:01",
         "tag": "Alarme",
         "h3": "L’alarme arrive.",
-        "p": "Reprendre en un geste une alarme de votre système d’alerte (p.&nbsp;ex. Divera) – ou démarrer\n            à la main depuis une adresse, un objet ou la carte. Le lieu et les données de l’objet\n            sont là avant que le premier véhicule ne roule."
+        "p": "Reprendre en un geste une alarme de votre système d’alerte (p.&nbsp;ex. Divera ou FireHub) – ou démarrer\n            à la main depuis une adresse, un objet ou la carte. Le lieu et les données de l’objet\n            sont là avant que le premier véhicule ne roule."
       },
       {
         "time": "03:07",
@@ -255,7 +255,7 @@
           "Plusieurs appareils à la fois, tout se synchronise automatiquement",
           "Rôles : modifier, ou seulement suivre",
           "Mode jour/nuit, taille des symboles, grandes zones tactiles pour la tablette",
-          "Peut reprendre les alarmes de Divera <span class=\"opt\">facultatif</span>",
+          "Peut reprendre les alarmes de Divera ou FireHub <span class=\"opt\">facultatif</span>",
           "Positions des véhicules par GPS <span class=\"opt\">facultatif</span>",
           "Impression PDF à la caserne <span class=\"opt\">facultatif</span>",
           "<strong>Espace d’administration propre</strong> à chaque corps : effectif, véhicules, checklists, couches cartographiques et modèles",

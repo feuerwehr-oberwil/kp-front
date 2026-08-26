@@ -73,7 +73,7 @@
         "time": "03:01",
         "tag": "Allarme",
         "h3": "Arriva l’allarme.",
-        "p": "Riprendere con un tocco un allarme dal sistema di allertamento (p.&nbsp;es. Divera) –\n            oppure partire a mano da un indirizzo, un oggetto o la carta. Il luogo e i dati\n            dell’oggetto ci sono prima che il primo veicolo si muova."
+        "p": "Riprendere con un tocco un allarme dal sistema di allertamento (p.&nbsp;es. Divera o FireHub) –\n            oppure partire a mano da un indirizzo, un oggetto o la carta. Il luogo e i dati\n            dell’oggetto ci sono prima che il primo veicolo si muova."
       },
       {
         "time": "03:07",
@@ -255,7 +255,7 @@
           "Più dispositivi insieme, tutto si sincronizza da solo",
           "Ruoli: modificare, oppure solo leggere",
           "Modo giorno/notte, dimensione dei simboli, superfici di comando grandi per il tablet",
-          "Può riprendere allarmi da Divera <span class=\"opt\">opzionale</span>",
+          "Può riprendere allarmi da Divera o FireHub <span class=\"opt\">opzionale</span>",
           "Posizioni dei veicoli via GPS <span class=\"opt\">opzionale</span>",
           "Stampa PDF in rimessa <span class=\"opt\">opzionale</span>",
           "<strong>Area amministrativa propria</strong> per ogni corpo: uomini, veicoli, liste di controllo, livelli cartografici e modelli",

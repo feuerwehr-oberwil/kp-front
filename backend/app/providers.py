@@ -47,6 +47,20 @@ def integrations() -> ConfigIntegrations:
                 active=divera,
                 capabilities=["pool", "refresh", "webhook", "take"],
             ),
+            # FireHub (Tercero) needs no server-side key: the station points its webhook at us
+            # and authenticates with the shared alarm secret, so there is nothing in the
+            # environment to key `configured`/`active` off — it is a payload adapter over the
+            # generic intake path (start → auto-open, end → stamp Einsatzende), available once a
+            # webhook secret is set. Listed so the alarms domain reads as a choice of dispatch
+            # systems, not just Divera. No `pool` capability (unlike KP Rück's registry entry):
+            # KP Front auto-opens on arrival rather than pooling.
+            ProviderRegistration(
+                provider="firehub",
+                domain="alarms",
+                configured=False,
+                active=False,
+                capabilities=["webhook", "auto-open", "lifecycle"],
+            ),
             ProviderRegistration(
                 provider="traccar",
                 domain="vehicles",

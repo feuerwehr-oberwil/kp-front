@@ -364,6 +364,87 @@ class AlarmOut(BaseModel):
     created: bool
 
 
+# --- FireHub (Tercero) adapter ------------------------------------------------------------
+# FireHub has no public REST API for our use case, but it fires a station-configured webhook
+# on the "Einsatzstart" and "Einsatzende" triggers. That is enough for KP Front: a start
+# auto-opens an incident (the same thing every intake path does since 2026-08-02), an end
+# stamps the Einsatzende on that incident's Rapport. The payload is a fixed nested shape (as
+# of 2026-08), mapped onto the provider-neutral AlarmIn above. See docs/ALARM-INTEGRATIONS.md.
+
+
+class FireHubOperation(BaseModel):
+    """The ``operation`` object of a FireHub webhook.
+
+    Field names mirror FireHub's camelCase JSON via aliases. ``extra="ignore"`` so fields
+    FireHub may add later (full address, PLZ/Ort, coordinates) never break intake before we
+    map them.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    # ``opsID`` is STABLE and never changes — it is our idempotency and start↔end linking key
+    # (source_ref). ``opsNumber`` is display-only and VOLATILE: Tercero confirmed it can change
+    # when operations are merged or past ones are backfilled, so nothing may key off it.
+    ops_id: int = Field(alias="opsID")
+    ops_number: int | None = Field(default=None, alias="opsNumber")
+    category: str | None = None
+    title: str = Field(min_length=1, max_length=255)
+    street: str | None = None
+    # Tercero is adding ``city`` globally (a payload-wide change, not per-webhook). Optional
+    # because it ships slightly after this adapter — older payloads omit it — so the address is
+    # composed from street + city, degrading to street-only during the rollout window.
+    city: str | None = None
+    created: datetime | None = None
+    # NOT sent by FireHub today (no coordinates). Declared as optional so the day Tercero adds
+    # them they flow straight through; until then they stay None and the map pin is geocoded
+    # downstream from the address (or left unplaced).
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+
+
+class FireHubTrigger(BaseModel):
+    """The ``trigger`` object: which lifecycle event fired the webhook (``start``/``end``)."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    type: str | None = None
+    action: str = Field(min_length=1)
+    tech_name: str | None = Field(default=None, alias="techName")
+
+
+class FireHubWebhook(BaseModel):
+    """A FireHub Einsatzstart/Einsatzende webhook payload (``POST /api/firehub/webhook``)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    operation: FireHubOperation
+    status: str | None = None
+    trigger: FireHubTrigger
+
+    def to_alarm(self) -> "AlarmIn":
+        """Map onto the provider-neutral alarm the intake pipeline consumes.
+
+        The address is composed from ``street`` + ``city`` (the field Tercero is adding), and
+        degrades to street-only while that field is still rolling out. ``category`` ("firealarm")
+        is deliberately not carried into ``text`` or ``type``: it is an English slug, and the
+        German title ("Oberwil: Feueralarm") already carries the keyword our type inference
+        reads. ``number`` (opsNumber) is set for cross-app parity with KP Rück's pool reference,
+        but KP Front's intake accepts-and-ignores it (an Einsatz here has no such field).
+        """
+        op = self.operation
+        address = ", ".join(part for part in (op.street, op.city) if part) or None
+        return AlarmIn(
+            source="firehub",
+            source_id=str(op.ops_id),
+            title=op.title,
+            address=address,
+            lat=op.lat,
+            lng=op.lng,
+            number=str(op.ops_number) if op.ops_number is not None else None,
+            started_at=op.created,
+        )
+
+
 class MilestoneGroup(BaseModel):
     """One alarmed group: id matches `alarms.groups[].id` in the deployment config."""
 

@@ -139,6 +139,64 @@ the first milestone carrying it wins and no later one rewrites it, for the same 
 Omitting it is normal and means *unknown*, not *no*. Senders that cannot know the origin —
 notably a fallback relay running while the main service is unreachable — simply leave it out.
 
+### FireHub (Tercero) – `POST /api/firehub/webhook`
+
+FireHub has **no** public REST API for our use case, but it fires **station-configured
+webhooks** on the triggers «Einsatzstart» and «Einsatzende». Point both at
+`POST /api/firehub/webhook`; there is nothing to configure server-side, and nothing to key
+`configured` off, so the capability registry lists FireHub as a discoverable-but-unconfigured
+choice under the `alarms` domain.
+
+**Auth: put `?secret=…` in the target URL.** The webhook target URL is freely choosable, but
+FireHub's JSON **schema and headers are fixed** (a payload-wide format, not per-webhook
+configurable), so a custom `X-Webhook-Secret` header is not an option. The station appends
+`?secret=<alarm_webhook_secret>` to the URL instead – the **same `alarm_webhook_secret`** as the
+generic intake above, fail-closed when unset.
+
+Payload sent (as of 2026-08):
+
+```json
+{
+  "operation": {
+    "opsID": 1,          // STABLE, never changes → idempotency + start↔end link key (source_ref)
+    "opsNumber": 1,      // human reference ("E-1"), VOLATILE (merges/backfills) → display-only, ignored
+    "category": "firealarm",
+    "title": "Oberwil: Feueralarm",
+    "street": "Teststrasse 112",
+    "city": "Oberwil",   // added by Tercero shortly after this adapter – omitted by older payloads
+    "created": "2026-08-24T18:25:07.000Z"
+  },
+  "status": "OK",
+  "trigger": { "type": "operation", "action": "start", "techName": "operation_start" }
+}
+```
+
+- **`action: "start"`** → **auto-opens an incident**, exactly like the generic `POST /api/alarms`
+  path (title ← `title`, address ← `street` + `city`, Alarmierungszeit ← `created`; `category`, an
+  English slug, is deliberately not mapped – the German title already carries the keyword the
+  type inference reads). Idempotent on `(source="firehub", source_id=opsID)` – and because
+  **`opsID` never changes** while **`opsNumber` can** (operations merged, past ones backfilled),
+  the dedup/link key is `opsID`, never the display number. A redelivered start returns the
+  existing incident. It does **not** use the Divera pool – that pool is keyed by `divera_id` and
+  is Divera's; FireHub rides KP Front's provider-neutral intake, source-tagged.
+- **`action: "end"`** → **stamps the Einsatzende** on the matching incident's Rapport
+  (`Incident.closed_at`, which the sheet reads as `reportMeta.endedAt ?? closed_at`, so an
+  operator-entered value still wins). FireHub sends no end timestamp, so the receipt time is
+  used, and `closed_at` is write-once – a redelivered end, or one arriving after the operator
+  already closed the Einsatz, changes nothing. It is **not** archived/closed: retiring the
+  Einsatz and releasing its crew stays the operator's decision (`is_open` ignores `closed_at`).
+  An `end` for an operation we never opened is a no-op. A Wehr that does not want the stamp
+  simply does not wire the Einsatzende webhook.
+  - **This is the one place KP Front and KP Rück behave differently on purpose.** KP Rück does
+    not own the Einsatzrapport, so its `end` only records an audit-log note; KP Front owns the
+    Rapport, so its `end` stamps the Einsatzende there. Start behaviour, the field mapping, the
+    source slug and the auth are identical between the two.
+- **Limits today:** FireHub sends **no coordinates** – the map pin is geocoded from the
+  composed `street` + `city` address (the `lat`/`lng` field aliases are already wired for the
+  day Tercero adds them). `city` itself is a payload-wide addition still rolling out, so the
+  address degrades to street-only for older payloads. Personnel/response data exists in FireHub
+  but is not sent by webhook yet.
+
 ## 2. Outbound: incident-created webhooks – `alarms.webhooks`
 
 Deployment config (`docs/CONFIGURATION.md` §1):

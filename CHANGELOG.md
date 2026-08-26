@@ -31,6 +31,20 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **FireHub (Tercero) alarms, without a second integration to learn.** A station on FireHub now
+  points its «Einsatzstart» and «Einsatzende» webhooks at `POST /api/firehub/webhook` and gets the
+  same result every other intake path gives: a start **auto-opens the incident**, an end **stamps the
+  Einsatzende** on its Rapport (`reportMeta.endedAt ?? closed_at`, so an operator-entered time still
+  wins) without closing the card – retiring the Einsatz stays the operator's call. It is a payload
+  adapter over the existing provider-neutral intake, not a new pipeline: no server-side key, no DB
+  migration, deduped on the **stable `opsID`** (never the volatile `opsNumber`), and authenticated
+  with the same `alarm_webhook_secret` as the generic webhook – put in the URL as `?secret=…`, because
+  FireHub's schema and headers are fixed and cannot carry a custom auth header. The address is composed
+  from `street` + `city` (a payload field Tercero is adding, degrading to street-only until it ships);
+  FireHub sends no coordinates yet, so the pin is geocoded. Listed in the capability registry
+  (`GET /api/system` › integrations) as a discoverable dispatch-system choice. See
+  [`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md).
+
 - **The Meldeleiste – one strip, one ranking, everything visible.** Nine banners used to compete
   for the same screen edges with nothing but z-index deciding who could be read: the worst realistic
   stack on an iPad in landscape covered the due Wiedervorlage – the one message whose whole doctrine

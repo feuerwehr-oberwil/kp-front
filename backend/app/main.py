@@ -396,6 +396,7 @@ def _register_optional_routers() -> None:
         ("app.api.media", "router"),
         ("app.api.divera", "router"),
         ("app.api.alarms", "router"),
+        ("app.api.firehub", "router"),
         ("app.api.capture", "router"),
         ("app.api.incident_link", "router"),
         ("app.api.personnel", "router"),

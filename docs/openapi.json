@@ -3065,6 +3065,68 @@
         }
       }
     },
+    "/api/firehub/webhook": {
+      "post": {
+        "tags": [
+          "firehub"
+        ],
+        "summary": "Webhook",
+        "description": "Receive a FireHub Einsatzstart/Einsatzende webhook. Secret via ?secret= or\nX-Webhook-Secret (same convention as the Divera and generic-intake webhooks). Always 200 —\na redelivered start and an end for an unknown operation are both idempotent no-ops.",
+        "operationId": "webhook_api_firehub_webhook_post",
+        "parameters": [
+          {
+            "name": "x-webhook-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Webhook-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FireHubWebhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Webhook Api Firehub Webhook Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/capture/secret": {
       "get": {
         "tags": [
@@ -10782,6 +10844,174 @@
         ],
         "title": "FakeVehicleIn",
         "description": "One fake vehicle position. `name` should match a `fleet.vehicles[].id`/label so the\nmap and the milestone times tell the same story."
+      },
+      "FireHubOperation": {
+        "properties": {
+          "opsID": {
+            "type": "integer",
+            "title": "Opsid"
+          },
+          "opsNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opsnumber"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "street": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          }
+        },
+        "type": "object",
+        "required": [
+          "opsID",
+          "title"
+        ],
+        "title": "FireHubOperation",
+        "description": "The ``operation`` object of a FireHub webhook.\n\nField names mirror FireHub's camelCase JSON via aliases. ``extra=\"ignore\"`` so fields\nFireHub may add later (full address, PLZ/Ort, coordinates) never break intake before we\nmap them."
+      },
+      "FireHubTrigger": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Action"
+          },
+          "techName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Techname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "FireHubTrigger",
+        "description": "The ``trigger`` object: which lifecycle event fired the webhook (``start``/``end``)."
+      },
+      "FireHubWebhook": {
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/FireHubOperation"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/FireHubTrigger"
+          }
+        },
+        "type": "object",
+        "required": [
+          "operation",
+          "trigger"
+        ],
+        "title": "FireHubWebhook",
+        "description": "A FireHub Einsatzstart/Einsatzende webhook payload (``POST /api/firehub/webhook``)."
       },
       "FleetAttributeList": {
         "properties": {
