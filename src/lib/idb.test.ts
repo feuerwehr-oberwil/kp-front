@@ -53,8 +53,16 @@ describe('idb localStorage fallback when IndexedDB is unavailable', () => {
   it('reads and writes through localStorage (JSON) instead', async () => {
     await idbSet('k', { x: 1 })
     expect(await idbGet('k')).toEqual({ x: 1 })
-    // stored as a JSON string, since localStorage is string-only
-    expect(localStorage.getItem('k')).toBe(JSON.stringify({ x: 1 }))
+    // All new fallbacks use one namespace, independently of why IDB failed. The plain key is
+    // retained only as a read path for data written by older app versions.
+    expect(localStorage.getItem('kp-idb-fb:k')).toBe(JSON.stringify({ x: 1 }))
+    expect(localStorage.getItem('k')).toBeNull()
+
+    // If IndexedDB is available on the next launch, the namespaced fallback remains canonical;
+    // changing browser modes must not strand the value written during the failed launch.
+    globalThis.indexedDB = new IDBFactory()
+    __resetIdbForTests()
+    expect(await idbGet('k')).toEqual({ x: 1 })
   })
 
   it('round-trips delete via the fallback', async () => {

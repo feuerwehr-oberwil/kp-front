@@ -6,46 +6,84 @@ import { idbDel, idbGet, idbSet, isStorageDegraded, onStorageDegraded, requestPe
 // of a quota failure is simply "put() errors, the store keeps its previous value, get() still
 // works". This hand-rolled store reproduces exactly that shape, under our control.
 //
-// The claim under test (read off the code in idb.ts, not yet observed): a failed write leaves the
-// OLDER value readable, and idbGet happily returns it — because `idbUnavailable` is only set when
-// the database fails to OPEN, never when a transaction fails. For WorkspaceSync that means a
-// stale `workspace` AND a stale `baseRev`/`base`/`dirty` on the next reopen.
+// The important distinction is request success versus transaction completion: a request can
+// succeed and the transaction still abort, while a quota error can leave an older value intact.
+// The harness makes both event sequences explicit so WorkspaceSync never mistakes either stale
+// `workspace`/`baseRev`/`dirty` state for its newly persisted revision.
 
-type Mode = 'ok' | 'writes-fail'
+type Mode = 'ok' | 'writes-fail' | 'abort-after-request'
 
 function installFakeIdb(mode: Mode, seed: Record<string, unknown> = {}) {
   const data = new Map<string, unknown>(Object.entries(seed))
   let writeAttempts = 0
 
-  const request = <T>(settle: (req: { onsuccess: (() => void) | null; onerror: (() => void) | null; result?: T; error?: unknown }) => void) => {
-    const req: { onsuccess: (() => void) | null; onerror: (() => void) | null; result?: T; error?: unknown } = {
-      onsuccess: null, onerror: null,
-    }
-    // async so the caller has attached its handlers first (mirrors real IDB dispatch)
-    setTimeout(() => settle(req), 0)
-    return req
-  }
-
-  const store = {
-    get: (k: string) => request<unknown>((req) => { req.result = data.get(k); req.onsuccess?.() }),
-    put: (v: unknown, k: string) => request<undefined>((req) => {
-      writeAttempts++
-      if (mode === 'writes-fail') {
-        // Real quota failure: the request errors and the store keeps its previous value.
-        req.error = new DOMException('The quota has been exceeded.', 'QuotaExceededError')
-        req.onerror?.()
-        return
-      }
-      data.set(k, v)
-      req.onsuccess?.()
-    }),
-    delete: (k: string) => request<undefined>((req) => { data.delete(k); req.onsuccess?.() }),
-  }
-
   const db = {
-    objectStoreNames: { contains: () => true },
-    createObjectStore: () => store,
-    transaction: () => ({ objectStore: () => store }),
+    transaction: () => {
+      const transaction: {
+        error: DOMException | null
+        oncomplete: (() => void) | null
+        onerror: (() => void) | null
+        onabort: (() => void) | null
+        objectStore: () => unknown
+      } = {
+        error: null,
+        oncomplete: null,
+        onerror: null,
+        onabort: null,
+        objectStore: () => store,
+      }
+      type Request<T> = {
+        onsuccess: (() => void) | null
+        onerror: (() => void) | null
+        result?: T
+        error: DOMException | null
+      }
+      const request = <T>(settle: (req: Request<T>) => void) => {
+        const req: Request<T> = { onsuccess: null, onerror: null, error: null }
+        // Async so idb.ts has attached both request and transaction handlers first.
+        setTimeout(() => settle(req), 0)
+        return req
+      }
+      const complete = (commit: () => void) => setTimeout(() => {
+        commit()
+        transaction.oncomplete?.()
+      }, 0)
+      const abort = (error: DOMException) => setTimeout(() => {
+        transaction.error = error
+        transaction.onabort?.()
+      }, 0)
+
+      const store = {
+        get: (k: string) => request<unknown>((req) => {
+          req.result = data.get(k)
+          req.onsuccess?.()
+          complete(() => {})
+        }),
+        put: (v: unknown, k: string) => request<undefined>((req) => {
+          writeAttempts++
+          if (mode === 'writes-fail') {
+            const error = new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+            req.error = error
+            req.onerror?.()
+            transaction.error = error
+            transaction.onerror?.()
+            abort(error)
+            return
+          }
+          req.onsuccess?.()
+          if (mode === 'abort-after-request') {
+            abort(new DOMException('The transaction was aborted.', 'AbortError'))
+          } else {
+            complete(() => data.set(k, v))
+          }
+        }),
+        delete: (k: string) => request<undefined>((req) => {
+          req.onsuccess?.()
+          complete(() => data.delete(k))
+        }),
+      }
+      return transaction
+    },
   }
 
   ;(globalThis as { indexedDB?: unknown }).indexedDB = {
@@ -118,15 +156,25 @@ describe('idb under an exhausted storage budget', () => {
     off()
   })
 
-  it('stops re-attempting a localStorage fallback that cannot ever fit', async () => {
+  it('retries the fallback so a later quota recovery is observed', async () => {
     installFakeIdb('writes-fail', { k: { old: true } })
-    const ls = installLocalStorage(10)
-    const setItem = vi.spyOn(ls === null ? ({} as never) : localStorage, 'setItem')
-    await idbSet('k', { big: 'x'.repeat(5000) })
-    await idbSet('k', { big: 'x'.repeat(5000) })
-    await idbSet('k', { big: 'x'.repeat(5000) })
-    // tried once, learned it's hopeless, and stopped paying the large stringify every save
-    expect(setItem).toHaveBeenCalledTimes(1)
+    installLocalStorage(10)
+    expect(await idbSet('k', { fresh: true })).toBe(false)
+
+    // The operator may free space without an IDB write succeeding in between. A permanently
+    // memoized fallback failure would keep discarding every later edit.
+    installLocalStorage()
+    expect(await idbSet('k', { fresh: true })).toBe(true)
+    expect(await idbGet('k')).toEqual({ fresh: true })
+  })
+
+  it('does not report success when a transaction aborts after request success', async () => {
+    const fake = installFakeIdb('abort-after-request', { k: { rev: 1 } })
+    installLocalStorage(1) // force the fallback to fail too
+
+    expect(await idbSet('k', { rev: 2 })).toBe(false)
+    expect(fake.data.get('k')).toEqual({ rev: 1 })
+    expect(isStorageDegraded()).toBe(true)
   })
 
   it('a later successful write clears the degraded flag', async () => {
@@ -137,6 +185,18 @@ describe('idb under an exhausted storage budget', () => {
     installFakeIdb('ok') // space freed (e.g. tiles evicted)
     expect(await idbSet('k', { fresh: true })).toBe(true)
     expect(isStorageDegraded()).toBe(false)
+  })
+
+  it('a later committed IDB write retires the older fallback copy', async () => {
+    installFakeIdb('writes-fail', { k: { rev: 1 } })
+    const ls = installLocalStorage()
+    expect(await idbSet('k', { rev: 2 })).toBe(true)
+    expect(ls.has('kp-idb-fb:k')).toBe(true)
+
+    installFakeIdb('ok', { k: { rev: 1 } })
+    expect(await idbSet('k', { rev: 3 })).toBe(true)
+    expect(ls.has('kp-idb-fb:k')).toBe(false)
+    expect(await idbGet('k')).toEqual({ rev: 3 })
   })
 
   it('finds the localStorage fallback copy again — it is no longer write-only', async () => {
@@ -155,8 +215,9 @@ describe('idb under an exhausted storage budget', () => {
     const fake = installFakeIdb('writes-fail', { k: { rev: 1 } })
     installLocalStorage()
     await idbSet('k', { rev: 2 })
-    // the now-stale IDB entry is dropped, so exactly one source of truth remains
-    expect(fake.data.has('k')).toBe(false)
+    // The fallback namespace is canonical until a later successful IDB commit removes it, so a
+    // stale IDB record is harmless even if the browser cannot clean it up under quota pressure.
+    expect(fake.data.get('k')).toEqual({ rev: 1 })
     expect(await idbGet('k')).toEqual({ rev: 2 })
   })
 
