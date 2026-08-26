@@ -13,19 +13,56 @@ the first authenticated *editor* workspace read/write, deliberately never for a 
 Einsatz-Link responder is one). Unconfirmed incidents stay out of the stats export.
 """
 
+import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from weakref import WeakValueDictionary
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import audit
 from .geocode import geocode
 from .models import DeploymentConfig, Incident
 from .schemas import AlarmsConfig, DeploymentConfigIn, load_stored_config
+from .transaction_hooks import after_completion
 
 logger = logging.getLogger(__name__)
+
+# SQLite is used by the local suite. It has no transaction-scoped advisory locks, so
+# serialize identical identities in-process there. Production Postgres uses a database lock
+# below, shared across workers/instances. Weak values release old test identities naturally.
+_local_alarm_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
+_HELD_ALARM_LOCKS = "kp_held_alarm_locks"
+
+
+async def lock_alarm_identity(db: AsyncSession, source: str, source_ref: str) -> None:
+    """Serialize check+create for one upstream alarm until this transaction completes.
+
+    The unique index remains the final invariant; this lock turns its concurrent loser from
+    an IntegrityError/500 into the endpoint's ordinary idempotent ``created: false`` reply.
+    """
+    # Length-prefix instead of a NUL separator: PostgreSQL text rejects U+0000, while the
+    # prefix still makes ("ab", "c") distinct from ("a", "bc").
+    identity = f"{len(source)}:{source}{source_ref}"
+    dialect = db.bind.dialect.name if db.bind is not None else "postgresql"
+    if dialect == "postgresql":
+        await db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(identity, 0))))
+        return
+
+    held = db.sync_session.info.setdefault(_HELD_ALARM_LOCKS, set())
+    if identity in held:
+        return
+    lock = _local_alarm_locks.setdefault(identity, asyncio.Lock())
+    await lock.acquire()
+    held.add(identity)
+
+    def release() -> None:
+        held.discard(identity)
+        lock.release()
+
+    after_completion(db, release)
 
 
 async def get_config_model(db: AsyncSession) -> DeploymentConfigIn:

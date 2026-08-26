@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..alarms import create_incident_from_alarm, find_by_source_ref, get_config_model
+from ..alarms import create_incident_from_alarm, find_by_source_ref, get_config_model, lock_alarm_identity
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import execute_dml, get_db
@@ -67,6 +67,7 @@ async def intake(
     # (KP Rück always allowed it to be), and matching on None would collapse every
     # id-less alarm from one source into the first one ever received.
     if payload.source_id is not None:
+        await lock_alarm_identity(db, payload.source, payload.source_id)
         existing = await find_by_source_ref(db, payload.source, payload.source_id)
         if existing is not None:
             response.status_code = status.HTTP_200_OK
@@ -228,6 +229,7 @@ async def milestones(
 ):
     """Apply milestone times to an existing incident. 404 while no incident matches —
     the sender retries with backoff (dispatch precedes take/auto-open by minutes at most)."""
+    await load_credentials(db)
     _check_secret(request.query_params.get("secret") or x_webhook_secret)
 
     inc: Incident | None = None
