@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from fastapi import Response
-from jose import JWTError
+from jwt import InvalidTokenError as JWTError
 
 from ..config import settings
 from .incident_link import LINK_COOKIE

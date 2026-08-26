@@ -17,10 +17,9 @@ import logging
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ..database import execute_dml
+from ..database import dialect_insert, execute_dml
 from ..models import RevokedToken
 
 logger = logging.getLogger(__name__)
@@ -81,6 +80,18 @@ class TokenBlocklist:
             ).scalar_one_or_none()
             return found is not None
 
+    async def consume(self, jti: str, expires_at: datetime) -> bool:
+        """Atomically revoke a presented one-time token.
+
+        Exactly one concurrent caller can insert the JTI and receives ``True``; every replay
+        receives ``False``. This combines refresh-token check + rotation in one database
+        statement instead of the racy ``is_revoked`` then ``revoke`` pair.
+        """
+        async with self._factory()() as session:
+            inserted = await self._revoke(session, jti, expires_at)
+            await session.commit()
+            return inserted
+
     async def cleanup_expired(self) -> int:
         """Delete rows whose tokens have already expired; returns rows removed."""
         async with self._factory()() as session:
@@ -91,26 +102,17 @@ class TokenBlocklist:
 
     # --- internals -----------------------------------------------------------------
 
-    async def _revoke(self, session: AsyncSession, jti: str, expires_at: datetime) -> None:
-        """Upsert one revocation. Uses an ON CONFLICT no-op on postgres; falls back to a
-        select-then-insert elsewhere (e.g. SQLite in tests) so a double-logout is a no-op,
-        never an IntegrityError on the auth hot path."""
+    async def _revoke(self, session: AsyncSession, jti: str, expires_at: datetime) -> bool:
+        """Insert one revocation if absent; return whether this call inserted it."""
         # Opportunistic prune so the table can't grow unbounded between periodic sweeps.
         await session.execute(delete(RevokedToken).where(RevokedToken.expires_at <= datetime.now(UTC)))
-
-        dialect = session.bind.dialect.name if session.bind is not None else ""
-        if dialect == "postgresql":
-            stmt = (
-                pg_insert(RevokedToken)
-                .values(jti=jti, expires_at=expires_at)
-                .on_conflict_do_nothing(index_elements=["jti"])
-            )
-            await session.execute(stmt)
-            return
-
-        exists = (await session.execute(select(RevokedToken.jti).where(RevokedToken.jti == jti))).scalar_one_or_none()
-        if exists is None:
-            session.add(RevokedToken(jti=jti, expires_at=expires_at))
+        stmt = (
+            dialect_insert(session)(RevokedToken)
+            .values(jti=jti, expires_at=expires_at)
+            .on_conflict_do_nothing(index_elements=["jti"])
+            .returning(RevokedToken.jti)
+        )
+        return (await session.execute(stmt)).scalar_one_or_none() is not None
 
 
 token_blocklist = TokenBlocklist()

@@ -5,7 +5,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import Cookie, Depends, HTTPException, Request, status
-from jose import JWTError
+from jwt import InvalidTokenError as JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
