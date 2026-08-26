@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveLinePreset, vertexHandleIndices, evenIndices, rdpIndices, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES, HANDLE_MIN_SPACING_PX } from './lineStyle'
+import { resolveLinePreset, vertexHandleIndices, evenIndices, rdpIndices, hubOffsetPx, isTapStroke, MIN_STROKE_PX, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES, HANDLE_MIN_SPACING_PX } from './lineStyle'
 
 // resolveLinePreset is the ONE preset bundle both drawing surfaces (Lage map + Plan whiteboard)
 // apply — this pins the coercion so they can't drift. The default presets are the app's stock
@@ -176,5 +176,57 @@ describe('rdpIndices — Freihand-Vereinfachung', () => {
     const counts = [1, 2, 3.5, 6].map((eps) => rdpIndices(raw, eps).length)
     expect(counts).toEqual([...counts].sort((a, b) => b - a))
     expect(counts[0]).toBeGreaterThan(counts[counts.length - 1])
+  })
+})
+
+describe('hubOffsetPx', () => {
+  it('lifts the hub off a horizontal line, upward', () => {
+    const [dx, dy] = hubOffsetPx([[0, 100], [200, 100]], [100, 100], 42)
+    expect(dx).toBeCloseTo(0)
+    expect(dy).toBeCloseTo(-42)
+  })
+
+  it('offsets perpendicular to the segment NEAREST the anchor, not to the whole line', () => {
+    // an L: the anchor sits by the vertical leg, so the offset must be horizontal
+    const [dx, dy] = hubOffsetPx([[0, 0], [0, 100], [100, 100]], [4, 50], 10)
+    expect(Math.abs(dy)).toBeCloseTo(0)
+    expect(dx).toBeCloseTo(10) // a vertical segment ties on y → the offset goes right
+  })
+
+  it('clears the node hit pads either way the line runs', () => {
+    const up = hubOffsetPx([[0, 0], [100, 100]], [50, 50], 42)
+    const down = hubOffsetPx([[100, 100], [0, 0]], [50, 50], 42)
+    expect(up[1]).toBeLessThan(0)
+    expect(down[1]).toBeLessThan(0) // direction of travel must not flip which side the hub takes
+    expect(Math.hypot(...up)).toBeCloseTo(42)
+    expect(Math.hypot(...down)).toBeCloseTo(42)
+  })
+
+  it('falls back to straight up for a degenerate path', () => {
+    expect(hubOffsetPx([[5, 5]], [5, 5], 30)).toEqual([0, -30])
+  })
+})
+
+// Lift-off is the only way out of a stroke that began armed on a target, so what counts as
+// «went nowhere» has to be exact — nothing else stands between a mis-grab and a coupled stub.
+describe('isTapStroke', () => {
+  it('a single point, or none, is a tap', () => {
+    expect(isTapStroke([])).toBe(true)
+    expect(isTapStroke([[10, 10]])).toBe(true)
+  })
+
+  it('a fingertip wobble is a tap, however many samples it left', () => {
+    const wobble: [number, number][] = [[10, 10], [12, 11], [9, 12], [11, 9], [10, 10]]
+    expect(isTapStroke(wobble)).toBe(true)
+  })
+
+  it('a stroke that reached the threshold is a line', () => {
+    expect(isTapStroke([[0, 0], [0, MIN_STROKE_PX]])).toBe(false)
+    expect(isTapStroke([[0, 0], [0, MIN_STROKE_PX - 1]])).toBe(true)
+  })
+
+  it('measures the FURTHEST the path ever got, not where it ended', () => {
+    // out past the threshold and back onto its own start: the finger did go somewhere
+    expect(isTapStroke([[0, 0], [40, 0], [0, 0]])).toBe(false)
   })
 })

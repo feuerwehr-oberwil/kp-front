@@ -1,6 +1,7 @@
 import { type SetStateAction, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { resolveLinePreset } from './lineStyle'
+import { flipLine } from './lineAttachments'
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, TimelineEvent } from '../types'
 import { confirmDialog } from './ui'
@@ -221,6 +222,34 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     const coords = dr.coords.filter((_, j) => j !== index)
     emit('draw.edit', { id, patch: { coords } }); commit((d) => ({ ...d, drawings: d.drawings.map((x) => (x.id === id ? { ...x, coords } : x)) }))
   }
+  /**
+   * «Richtung umkehren» — the point order flips, so the Abschluss (arrow / Teilstück-«E») and the
+   * end tag move to the other end. The drawn line does not move an inch.
+   *
+   * ONE undo step for everything the flip touches: this line's own two attachments swap, and every
+   * OTHER line hooked to one of its ends is rewritten to the end that kept the coordinate — so a
+   * branch on the tip of a hose stays on that tip instead of leaping across the map. The dragged
+   * end-tag anchor is dropped: it was pinned beside the OLD end, and the honest fallback is the
+   * new one.
+   */
+  const reverseDrawing = (id: string) => {
+    if (tacticalLocked) return
+    const dr = drawings.find((x) => x.id === id)
+    if (!dr || dr.kind !== 'line' || dr.coords.length < 2) return
+    const lines = drawings.filter((d) => d.kind === 'line' && d.coords.length >= 2)
+      .map((d) => ({ id: d.id, points: d.coords, startAttachment: d.startAttachment, endAttachment: d.endAttachment }))
+    const flip = flipLine({ id, points: dr.coords, startAttachment: dr.startAttachment, endAttachment: dr.endAttachment }, lines)
+    const patch: Partial<Drawing> = { coords: flip.points, startAttachment: flip.startAttachment, endAttachment: flip.endAttachment, endLabelAt: undefined }
+    commit((d) => ({ ...d, drawings: d.drawings.map((x) => {
+      if (x.id === id) return { ...x, ...patch }
+      const mine = flip.incoming.filter((i) => i.lineId === x.id)
+      return mine.length
+        ? mine.reduce((acc, i) => ({ ...acc, [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }), x)
+        : x
+    }) }))
+    emit('draw.edit', { id, patch })
+    flip.incoming.forEach((i) => emit('draw.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment } }))
+  }
   const deleteDrawing = async (id: string) => {
     if (tacticalLocked) return
     const target = drawings.find((d) => d.id === id)
@@ -284,6 +313,6 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     draftActive, lineNodes, selectedDrawing,
     commitDraft, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
+    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   }
 }

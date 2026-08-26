@@ -4,9 +4,10 @@ import type { Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
+import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
 import { LINE_DASH_ML } from '../lib/draw'
-import { markerParamsAlong, lerpPoint, vertexHandleIndices, evenIndices } from '../lib/lineStyle'
+import { markerParamsAlong, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -94,7 +95,9 @@ function LockChip({ onUnlock }: { onUnlock: () => void }) {
   )
 }
 
-// The "+" sitting at the middle of a measured segment — the Plan already had one per segment
+// The grip that MAKES a node and hands it straight to the finger. Two of them are built on it: the
+// "+" at the middle of a measured/selected segment, and the «Verlängern» arrow past an open line
+// end. The "+" — the Plan already had one per segment
 // (WbControls · Messen), and tapping a thin dashed line to land a point between two others is
 // the aim that fails with gloves on. Its listeners are NATIVE, not React's: React delegates at
 // the tree root, which is an ANCESTOR of the map container, so maplibre's own listener on the
@@ -107,7 +110,14 @@ function LockChip({ onUnlock }: { onUnlock: () => void }) {
 // one node at the segment's midpoint — so nothing was taken away. `onInsert` is called with the
 // pointer event when there is one, and with `null` for a keyboard activation (Enter/Space on the
 // focused button reports `detail === 0`), where there is no gesture to hand over.
-function MeasureInsertHandle({ title, onInsert }: { title: string; onInsert: (e: PointerEvent | null) => void }) {
+function NewNodeHandle({ title, onInsert, className = 'measure-insert', icon = 'plus', style }: {
+  title: string
+  onInsert: (e: PointerEvent | null) => void
+  /** the two grips built on this: the «+» midpoint insert (default) and the «Verlängern» arrow */
+  className?: string
+  icon?: string
+  style?: React.CSSProperties
+}) {
   const ref = useRef<HTMLButtonElement>(null)
   // re-bind each render so the closure sees the current onInsert (one element, one listener)
   useEffect(() => {
@@ -131,7 +141,7 @@ function MeasureInsertHandle({ title, onInsert }: { title: string; onInsert: (e:
       el.removeEventListener('touchstart', swallow)
     }
   })
-  return <button ref={ref} type="button" className="measure-insert" title={title} aria-label={title}><Icon id="plus" /></button>
+  return <button ref={ref} type="button" className={className} title={title} aria-label={title} style={style}><Icon id={icon} /></button>
 }
 
 // planar shoelace area (deg², relative only) of a clicked feature's outer ring; non-polygon
@@ -241,7 +251,9 @@ interface Props {
    *  handles, no editor sheet. What «Leitung zeigen» on an Atemschutz card does: it answers where
    *  the hose is, and nothing on screen becomes draggable by answering it. Cleared by the caller. */
   flashDrawingId?: string | null
-  onSelectDrawing: (id: string) => void
+  /** `at` = where on the map container the tap landed, so the panel nudge can anchor on the spot
+   *  that was aimed at instead of on a screen-spanning line's far edge (lib/panelNudge). */
+  onSelectDrawing: (id: string, at?: { x: number; y: number }) => void
   /** unlock a locked drawing (tap its centre lock chip) → unlocks + selects it */
   onUnlockDrawing?: (id: string) => void
   onDelete: (id: string) => void
@@ -969,9 +981,21 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     ? [editDraw.coords.reduce((s, c) => s + c[0], 0) / editDraw.coords.length,
        editDraw.coords.reduce((s, c) => s + c[1], 0) / editDraw.coords.length]
     : null
+  // Where the action hub (move grip · rotate knob · delete ✕) actually hangs. For an area or a
+  // circle that is the centroid; for a LINE the centroid lies on the path, so the hub is lifted
+  // perpendicular off it (lib/lineStyle · hubOffsetPx) — otherwise the move grip parks on top of a
+  // vertex node and the node can neither be seen nor grabbed.
+  const editHubAt: LngLat | null = (() => {
+    const map = mapInst.current
+    if (!editCentroid || !editDraw) return null
+    if (!map || editDraw.kind !== 'line' || editDraw.coords.length < 2) return editCentroid
+    const px = editDraw.coords.map((c) => { const q = map.project(c as [number, number]); return [q.x, q.y] as [number, number] })
+    const c = map.project(editCentroid as [number, number])
+    const [dx, dy] = hubOffsetPx(px, [c.x, c.y])
+    const ll = map.unproject([c.x + dx, c.y + dy])
+    return [ll.lng, ll.lat]
+  })()
   const moveRef = useRef<{ start: LngLat; coords: LngLat[] } | null>(null)
-  /** the line's geometry as it was when an extend-grip drag began — see the ⚠️ at the grip */
-  const growRef = useRef<LngLat[] | null>(null)
   // Translate from the geometry snapshotted at drag-start (moveRef.coords), NOT the live doc —
   // 'move' streams into the doc each frame, so reading it back would re-add the full delta and
   // race the line away. Attached endpoints stay pinned (moveLineBody) and re-resolve on render.
@@ -1040,10 +1064,14 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const drawRotDown = (e: React.PointerEvent) => {
     e.stopPropagation(); e.preventDefault()
     if (!editDraw || !editCentroid) return
-    const hub = (e.currentTarget as HTMLElement).closest('.draw-edit-hub') as HTMLElement | null
-    if (!hub) return
-    const r = hub.getBoundingClientRect()
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+    // ⚠️ The pivot is the projected CENTROID, not the hub's own rect: since the hub is offset off
+    // a line's path (editHubAt), those two are no longer the same point, and turning the shape
+    // about a knob that sits beside it would swing the line away instead of rotating it in place.
+    const map = mapInst.current
+    if (!map) return
+    const r = map.getContainer().getBoundingClientRect()
+    const c = map.project(editCentroid as [number, number])
+    const cx = r.left + c.x, cy = r.top + c.y
     drawRot.current = { cx, cy, a0: Math.atan2(e.clientY - cy, e.clientX - cx), coords: editDraw.coords, cLng: editCentroid[0], cLat: editCentroid[1] }
     onDrawingEdit?.(editDraw.id, editDraw.coords, 'start')
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -1063,7 +1091,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
   /**
    * Continue a gesture that started on a «+» as a drag of the node it just inserted — the second
-   * half of MeasureInsertHandle's one-gesture insert. Listens on `window` in the capture phase for
+   * half of NewNodeHandle's one-gesture insert. Listens on `window` in the capture phase for
    * the same reason nodeHold does: the pointer session began on a button inside a react-map-gl
    * Marker, which is not the element the rest of the gesture is delivered to.
    *
@@ -1085,6 +1113,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       if (!moved) {
         if (Math.hypot(e.clientX - sx, e.clientY - sy) < NUDGE_PX) return
         moved = true
+        beginSheetPeek() // the inserted node is now travelling — let the phone sheet peek away
         apply(null, 'start')
       }
       apply(at(e), 'move')
@@ -1093,6 +1122,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       window.removeEventListener('pointermove', move, true)
       window.removeEventListener('pointerup', up, true)
       window.removeEventListener('pointercancel', up, true)
+      endSheetPeek()
       if (moved) apply(at(e), 'end')
     }
     window.addEventListener('pointermove', move, true)
@@ -1160,7 +1190,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           const a = featArea(cands[i])
           if (a < bestA) { bestA = a; best = cands[i] }
         }
-        onSelectDrawing(best.properties!.id as string); return
+        onSelectDrawing(best.properties!.id as string, { x: e.point.x, y: e.point.y }); return
       }
     }
     onMapClick(lc)
@@ -1404,10 +1434,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
             <Marker key={`mi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
-              <MeasureInsertHandle title={appConfig.copy.measure.insertPoint}
+              <NewNodeHandle title={appConfig.copy.measure.insertPoint}
                 onInsert={(ev) => {
                   onMeasureInsert(i + 1, mid)
-                  // …and the same press keeps dragging the point it just made (see MeasureInsertHandle)
+                  // …and the same press keeps dragging the point it just made (see NewNodeHandle)
                   if (ev && onMeasureDrag) handOffNodeDrag(ev, (ll) => { if (ll) onMeasureDrag(i + 1, ll) })
                 }} />
             </Marker>
@@ -1569,8 +1599,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* selected drawing — on-canvas edit handles: a move grip at the centre, a delete
           ✕ above it, and (for non-huge shapes) a draggable handle on every vertex */}
-      {editDraw && editCentroid && (
-        <Marker longitude={editCentroid[0]} latitude={editCentroid[1]} anchor="center">
+      {editDraw && editHubAt && (
+        <Marker longitude={editHubAt[0]} latitude={editHubAt[1]} anchor="center">
           <div className="draw-edit-hub">
             {onDrawingEdit && !editCircle && (
               <div className="draw-rotor">
@@ -1599,15 +1629,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           </div>
         </Marker>
       )}
-      {editDraw && editCentroid && onDrawingEdit && (
+      {editDraw && editHubAt && onDrawingEdit && (
         <Marker
-          longitude={editCentroid[0]}
-          latitude={editCentroid[1]}
+          longitude={editHubAt[0]}
+          latitude={editHubAt[1]}
           anchor="center"
           draggable
-          onDragStart={() => { moveRef.current = { start: editCentroid, coords: editDraw.coords }; onDrawingEdit(editDraw.id, editDraw.coords, 'start') }}
+          onDragStart={() => { beginSheetPeek(); moveRef.current = { start: editHubAt, coords: editDraw.coords }; onDrawingEdit(editDraw.id, editDraw.coords, 'start') }}
           onDrag={(e) => { const m = moveRef.current; if (!m) return; const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, bodyMovedCoords(editDraw.id, dx, dy), 'move') }}
-          onDragEnd={(e) => { const m = moveRef.current; if (!m) { onDrawingEdit(editDraw.id, editDraw.coords, 'end'); return } const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, bodyMovedCoords(editDraw.id, dx, dy), 'end'); moveRef.current = null }}
+          onDragEnd={(e) => { endSheetPeek(); const m = moveRef.current; if (!m) { onDrawingEdit(editDraw.id, editDraw.coords, 'end'); return } const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, bodyMovedCoords(editDraw.id, dx, dy), 'end'); moveRef.current = null }}
         >
           <div className="draw-move" title={appConfig.copy.drawingEditor.move} aria-label={appConfig.copy.drawingEditor.move}><Icon id="move" /></div>
         </Marker>
@@ -1623,7 +1653,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
             <Marker key={`di${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
-              <MeasureInsertHandle title={appConfig.copy.measure.insertPoint}
+              <NewNodeHandle title={appConfig.copy.measure.insertPoint}
                 onInsert={(ev) => {
                   onDrawingVertexInsert(editDraw.id, i + 1, mid)
                   // the geometry is snapshotted WITH the new node (same reason the body-move grip
@@ -1650,9 +1680,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           latitude={p[1]}
           anchor="center"
           draggable
-          onDragStart={() => endpoint && onDrawingAttachment ? beginEndpointDrag(editDraw.id, endpoint, p) : onDrawingEdit(editDraw.id, editDraw.coords, 'start')}
+          onDragStart={() => { beginSheetPeek(); endpoint && onDrawingAttachment ? beginEndpointDrag(editDraw.id, endpoint, p) : onDrawingEdit(editDraw.id, editDraw.coords, 'start') }}
           onDrag={(e) => { vertexPress.cancel(); endpoint && onDrawingAttachment ? moveEndpointDrag([e.lngLat.lng, e.lngLat.lat]) : onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'move') }}
-          onDragEnd={(e) => endpoint && onDrawingAttachment ? (moveEndpointDrag([e.lngLat.lng, e.lngLat.lat]), finishEndpointDrag()) : onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'end')}
+          onDragEnd={(e) => {
+            endSheetPeek()
+            if (endpoint && onDrawingAttachment) { moveEndpointDrag([e.lngLat.lng, e.lngLat.lat]); finishEndpointDrag() }
+            else onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'end')
+          }}
         >
           <div
             className={`draw-handle ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
@@ -1664,16 +1698,22 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         )
       })}
       {/* ── Verlängern ─────────────────────────────────────────────────────────────────────────
-          An arrow grip sitting ~46px PAST each open end of a selected line, pointing the way the
-          line runs. Dragging it appends one point where the finger lets go, and the grip then sits
-          at the new end — so a hose that grew gets drawn on rather than re-drawn. Until now the
-          only way to lengthen a line was to draw a second one and magnet it on, which produces a
-          second Leitung with its own number and its own Trupp link (19.08.).
+          The arrow tip sitting `EXTEND_STEP_PX` PAST each open end of a selected line, pointing the
+          way the line runs. Until now the only way to lengthen a line was to draw a second one and
+          magnet it on, which produces a second Leitung with its own number and its own Trupp link
+          (19.08.).
+          ⚠️ A TAP is the whole gesture (26.08. field test). The grip used to be drag-only, so
+          tapping the arrow — which is what an arrow tip invites — did nothing at all and the line
+          just sat there. Now pointerdown appends one node AT the arrow, one fixed step further out,
+          and hands the same press over to that node's drag: let go without moving and the line grew
+          by one step; keep moving and it follows the finger. Exactly what the «+» does one segment
+          back, and exactly what the Plan's grip already did (Whiteboard · extendLine) — the two
+          surfaces now grow a line the same way.
           ⚠️ Offset OUTWARD, never on the endpoint itself: the endpoint already carries the node
           handle and, when attached, the detach chip. A grip on top of those would be a third
           thing competing for the same pixel.
           Lines only — an area has no end to grow from, and a circle is centre + radius. */}
-      {editDraw && editDraw.kind === 'line' && editNodes && onDrawingEdit && editDraw.coords.length >= 2
+      {editDraw && editDraw.kind === 'line' && editNodes && onDrawingEdit && onDrawingVertexInsert && editDraw.coords.length >= 2
         && (['start', 'end'] as const).map((ep) => {
         const coords = editDraw.coords
         const i = ep === 'start' ? 0 : coords.length - 1
@@ -1684,30 +1724,28 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         if (map) {
           const p = map.project(pt), q = map.project(neighbor)
           const dx = p.x - q.x, dy = p.y - q.y, len = Math.hypot(dx, dy) || 1
-          const ll = map.unproject([p.x + (dx / len) * 46, p.y + (dy / len) * 46])
+          const ll = map.unproject([p.x + (dx / len) * EXTEND_STEP_PX, p.y + (dy / len) * EXTEND_STEP_PX])
           at = [ll.lng, ll.lat]
           deg = (Math.atan2(dy, dx) * 180) / Math.PI
         }
-        // ⚠️ Built from the geometry SNAPSHOTTED at drag start (growRef), never from the live
-        // drawing — the same rule the body-move handle follows (moveRef above). Reading the live
-        // coords appends one point per pointermove: a single drag across the screen turned an
-        // 8-point hose into a 21-point one (19.08.).
-        const grownFrom = (base: LngLat[], c: LngLat): LngLat[] => (ep === 'start' ? [c, ...base] : [...base, c])
+        // where the new node lands in `coords`, and the geometry it lands in — SNAPSHOTTED here,
+        // never read back from the live drawing while the drag streams ('move' writes into the doc
+        // each frame, so reading it back appends one point per pointermove: a single drag across
+        // the screen turned an 8-point hose into a 21-point one, 19.08.).
+        const idx = ep === 'start' ? 0 : coords.length
+        const grown = ep === 'start' ? [at, ...coords] : [...coords, at]
         return (
-          <Marker
-            key={`grow-${ep}`}
-            longitude={at[0]}
-            latitude={at[1]}
-            anchor="center"
-            draggable
-            onDragStart={(e) => { growRef.current = coords; onDrawingEdit(editDraw.id, grownFrom(coords, [e.lngLat.lng, e.lngLat.lat]), 'start') }}
-            onDrag={(e) => onDrawingEdit(editDraw.id, grownFrom(growRef.current ?? coords, [e.lngLat.lng, e.lngLat.lat]), 'move')}
-            onDragEnd={(e) => { onDrawingEdit(editDraw.id, grownFrom(growRef.current ?? coords, [e.lngLat.lng, e.lngLat.lat]), 'end'); growRef.current = null }}
-          >
-            <div className="draw-grow" title={appConfig.copy.measure.extendLine} aria-label={appConfig.copy.measure.extendLine}
-              style={{ ['--grow-deg' as string]: `${deg}deg` }}>
-              <Icon id="arrow" />
-            </div>
+          <Marker key={`grow-${ep}`} longitude={at[0]} latitude={at[1]} anchor="center">
+            <NewNodeHandle
+              className="draw-grow" icon="arrow"
+              title={appConfig.copy.measure.extendLine}
+              style={{ ['--grow-deg' as string]: `${deg}deg` } as React.CSSProperties}
+              onInsert={(ev) => {
+                onDrawingVertexInsert(editDraw.id, idx, at)
+                if (!ev) return
+                handOffNodeDrag(ev, (ll, phase) => onDrawingEdit(editDraw.id,
+                  ll ? grown.map((q, j) => (j === idx ? ll : q)) : grown, phase))
+              }} />
           </Marker>
         )
       })}
@@ -1758,9 +1796,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           latitude={groupCentroid[1]}
           anchor="center"
           draggable
-          onDragStart={() => { groupMoveRef.current = { start: groupCentroid }; onGroupMove(selectedDrawIds, selectedEntityIds, 0, 0, 'start') }}
+          onDragStart={() => { beginSheetPeek(); groupMoveRef.current = { start: groupCentroid }; onGroupMove(selectedDrawIds, selectedEntityIds, 0, 0, 'start') }}
           onDrag={(e) => { const s = groupMoveRef.current; if (!s) return; onGroupMove(selectedDrawIds, selectedEntityIds, e.lngLat.lng - s.start[0], e.lngLat.lat - s.start[1], 'move') }}
-          onDragEnd={(e) => { const s = groupMoveRef.current; if (s) onGroupMove(selectedDrawIds, selectedEntityIds, e.lngLat.lng - s.start[0], e.lngLat.lat - s.start[1], 'end'); groupMoveRef.current = null }}
+          onDragEnd={(e) => { endSheetPeek(); const s = groupMoveRef.current; if (s) onGroupMove(selectedDrawIds, selectedEntityIds, e.lngLat.lng - s.start[0], e.lngLat.lat - s.start[1], 'end'); groupMoveRef.current = null }}
         >
           <div className="draw-move" title={appConfig.copy.drawingEditor.move} aria-label={appConfig.copy.drawingEditor.move}><Icon id="move" /></div>
         </Marker>

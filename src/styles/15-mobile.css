@@ -207,6 +207,12 @@
     animation: sheetUp .22s var(--ease); transition: height .22s var(--ease); }
   .ctx.sheet-dragging { transition: none; }
   .ctx.sheet-full { height: var(--sheet-h, 88dvh); }
+  /* …and while a placed object is actually being DRAGGED, the sheet peeks down to its grip +
+     header line so the whole surface is available to move the thing in (lib/sheetPeek). It is
+     a height change and nothing else — the sheet keeps its half/full class, its content, its
+     in-progress edits and its scroll position, and springs back on drop through the same
+     transition. Beats .sheet-full on specificity, so a full sheet peeks away too. */
+  body.sheet-peek .ctx { height: calc(72px + env(safe-area-inset-bottom)); }
   /* phone scroll model: the sheet is a fixed flex column, ONLY the grip + header are
      pinned (by layout, not position:sticky — sticky inside a backdrop-filtered scroller
      proved unreliable on iOS) and EVERYTHING else scrolls in the body, including the

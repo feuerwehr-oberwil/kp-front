@@ -32,7 +32,7 @@ import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from '.
 import { trackPrintJob } from './lib/printJobToast'
 import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
-import { panelNudge, panelNudgeUp, panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from './lib/panelNudge'
+import { panelNudge, panelNudgeUp, panelNudgeSelection, panelNudgeSelectionUp, isBottomSheet } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
@@ -96,6 +96,7 @@ import type { AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { Whiteboard } from './components/Whiteboard'
 import type { BoardHistory } from './components/useBoardDoc'
+import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
 import { prewarmPlans } from './components/PdfViewport'
@@ -363,6 +364,10 @@ export function IncidentWorkspace({
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
   // scope for that callback; threaded into useMapDrawing below just as before.
   const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = useTacticalSelection()
+  /** Where the currently selected drawing was TAPPED (map-container px), paired with its id so a
+   *  selection that arrived some other way can't borrow a stale point. Only the panel nudge reads
+   *  it (lib/panelNudge · panelNudgeSelection). */
+  const [drawTap, setDrawTap] = useState<{ id: string; x: number; y: number } | null>(null)
 
   // Per-incident SYNCED workspace slices (board, checklists, trupps, attendance, mittel, camera
   // views, plan scale, report meta, Gebäude, active plan, picked object, synced settings, the
@@ -415,6 +420,12 @@ export function IncidentWorkspace({
   // nicht rückgängig machen lässt» broken by a tab switch. Keyed by plan id (see BoardHistory),
   // so surviving the unmount never leaks one plan's undo into another plan's.
   const [planHistory, setPlanHistory] = useState<BoardHistory>({})
+  // …and the zoom/pan of each plan, for the same reason: coming back from the Karte to a board
+  // that had reset itself to «eingepasst» means finding your place on it again, every time.
+  // Same scope as the Lage map's own view memory (MapView · viewRef): this component is keyed
+  // per Einsatz and dies with it, and nothing here is written to the synced workspace — where a
+  // viewer stands on a plan is private to their device. A REF, so a pan re-renders only the board.
+  const planViews = useRef<BoardViews>({})
   // the Plan exposes its fit-to-view here so the phone top bar can offer Fit (the plan's
   // equivalent of the map's locate) instead of a floating zoom cluster on a small screen.
   const planFit = useRef<(() => void) | null>(null)
@@ -1386,7 +1397,7 @@ export function IncidentWorkspace({
     draftActive, lineNodes, selectedDrawing,
     commitDraft, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
+    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   } = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
@@ -2061,9 +2072,11 @@ export function IncidentWorkspace({
         minX: Math.min(...pts.map((p) => p.x)), maxX: Math.max(...pts.map((p) => p.x)),
         minY: Math.min(...pts.map((p) => p.y)), maxY: Math.max(...pts.map((p) => p.y)),
       }
+      // `e.point` is already container-relative, the same space `box` lives in
+      const tap = drawTap?.id === selectedDrawingId ? { x: drawTap.x, y: drawTap.y } : null
       const nudge = isBottomSheet(r.width, cont.width)
-        ? panelNudgeBoxUp(box, { top: r.top - cont.top })
-        : panelNudgeBox(box, { left: r.left - cont.left, top: r.top - cont.top, bottom: r.bottom - cont.top })
+        ? panelNudgeSelectionUp(box, tap, { top: r.top - cont.top })
+        : panelNudgeSelection(box, tap, { left: r.left - cont.left, top: r.top - cont.top, bottom: r.bottom - cont.top })
       if (nudge) m.panBy(nudge, { duration: 350 })
     })
     return () => cancelAnimationFrame(raf)
@@ -2842,9 +2855,13 @@ export function IncidentWorkspace({
           drawDashed={drawDashed}
           selectedDrawingId={selectedDrawingId}
           flashDrawingId={flashDrawingId}
-          onSelectDrawing={(id) => {
+          onSelectDrawing={(id, at) => {
             // «Leitung wählen» armed → this tap assigns the hose to the waiting Trupp
             if (linePickTrupp) { onLinePicked(id); return }
+            // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for
+            // a drawing too big for its bounds to mean anything. Any other way into the selection
+            // (Verlauf jump, a just-finished stroke) leaves a stale id here and is simply ignored.
+            setDrawTap(at ? { id, x: at.x, y: at.y } : null)
             setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
           }}
           onUnlockDrawing={tacticalLocked ? undefined : (id) => { patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
@@ -3313,6 +3330,7 @@ export function IncidentWorkspace({
           onMarker={(marker) => patchDrawing({ marker })}
           onArrow={(arrow) => patchDrawing({ arrow })}
           onEnding={(ending) => void changeMapEnding(ending)}
+          onReverse={tacticalLocked ? undefined : () => reverseDrawing(selectedDrawing.id)}
           onContent={(content) => patchDrawing({ content })}
           // the anchored Trupp carries a COPY of the number (the AS chip prints it), so a
           // renumbered hose renumbers the Trupp too (useTruppActions · syncLineNoToTrupp)
@@ -3715,6 +3733,7 @@ export function IncidentWorkspace({
           onHistoryState={setPlanCan}
           hist={planHistory}
           setHist={setPlanHistory}
+          views={planViews}
           fitRef={planFit}
           keysRef={planKeys}
           focus={planFocus}

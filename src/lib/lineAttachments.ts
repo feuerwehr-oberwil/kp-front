@@ -254,6 +254,48 @@ export function resolveLinePoints<P extends Coordinate>(line: AttachableLine<P>,
   return points
 }
 
+/** The other end. */
+const otherEndpoint = (ep: LineEndpoint): LineEndpoint => (ep === 'start' ? 'end' : 'start')
+
+/** What a «Richtung umkehren» costs: the line's own two attachments, plus the corrected target of
+ *  every attachment that pointed AT one of its ends. */
+export interface LineFlip<P extends Coordinate> {
+  points: P[]
+  startAttachment?: LineAttachment
+  endAttachment?: LineAttachment
+  /** other lines hanging on this one: `endpoint` is which of THEIR ends carries `attachment` */
+  incoming: { lineId: string; endpoint: LineEndpoint; attachment: LineAttachment }[]
+}
+
+/**
+ * Reverse a line's point order, so the arrow / Teilstück-«E» / distance label move to the other
+ * end. The geometry does not move — only which coordinate is called «start».
+ *
+ * Every attachment therefore travels WITH ITS COORDINATE, in both directions:
+ * - the line's own two attachments swap places (what hung on the last point now hangs on the first);
+ * - every OTHER line that was hooked to this line's `end` is rewritten to `start`, and back —
+ *   otherwise a branch coupled to the tip of a hose would leap to its other end the moment the
+ *   Abschluss was flipped, which is the one thing a flip must never do.
+ *
+ * Pure: the caller applies `points` + the two attachments to the line and each `incoming` entry to
+ * its own line, in ONE commit (one undo step). Both surfaces call this — Lage useMapDrawing ·
+ * reverseDrawing and Plan Whiteboard · reverseAnno.
+ */
+export function flipLine<P extends Coordinate>(line: AttachableLine<P>, lines: AttachableLine<P>[] = []): LineFlip<P> {
+  const incoming = lines.flatMap((other) => (other.id === line.id ? [] : (['start', 'end'] as const).flatMap((ep) => {
+    const a = attachmentAt(other, ep)
+    return a?.target.kind === 'line' && a.target.id === line.id
+      ? [{ lineId: other.id, endpoint: ep, attachment: { ...a, target: { ...a.target, endpoint: otherEndpoint(a.target.endpoint) } } }]
+      : []
+  })))
+  return {
+    points: [...line.points].reverse(),
+    startAttachment: line.endAttachment,
+    endAttachment: line.startAttachment,
+    incoming,
+  }
+}
+
 export function materializeEndpoint<P extends Coordinate>(line: AttachableLine<P>, endpoint: LineEndpoint, resolved: P): AttachableLine<P> {
   const points = line.points.map((p, i) => i === (endpoint === 'start' ? 0 : line.points.length - 1) ? [...resolved] as P : p)
   return { ...line, points, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }

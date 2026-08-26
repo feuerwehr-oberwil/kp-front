@@ -80,6 +80,16 @@ describe('TruppTeam', () => {
     expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }])
   })
 
+  // an empty slot looks like the field it is not — the tap has to hand the caret on, or the
+  // first-time user sits there waiting for a keyboard that never opens
+  it('points an empty slot at the search field instead of becoming one', () => {
+    setup()
+    const slot = screen.getAllByTitle('Person suchen …')[0]
+    expect(slot.querySelector('input')).toBe(null)
+    fireEvent.click(slot)
+    expect(document.activeElement).toBe(screen.getByLabelText('Person suchen …'))
+  })
+
   it('drops a member without touching the rest of the order', () => {
     const value: Slot[] = [
       { name: 'Meier Anna', personId: 'p1' },

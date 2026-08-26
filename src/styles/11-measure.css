@@ -81,7 +81,7 @@
    Einladung, einen anzuhängen. `--grow-deg` dreht nur den Pfeil, nie den Kreis, sonst wandert
    der Schatten mit. */
 .draw-grow { position: relative; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--surface); border: 3px solid var(--blue); color: var(--blue); cursor: grab;
+  padding: 0; background: var(--surface); border: 3px solid var(--blue); color: var(--blue); cursor: grab;
   box-shadow: 0 2px 8px rgba(30, 45, 70, .35); box-sizing: border-box; touch-action: none; }
 .draw-grow::after { content: ''; position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; transform: translate(-50%, -50%); }
 .draw-grow .i { width: 16px; height: 16px; stroke-width: 3; transform: rotate(var(--grow-deg, 0deg)); }

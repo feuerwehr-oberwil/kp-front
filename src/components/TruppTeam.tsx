@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -56,6 +56,25 @@ export function TruppTeam({
   const [typing, setTyping] = useState(false)
   const [typed, setTyped] = useState('')
   const typedRef = useRef<HTMLInputElement>(null)
+  // An empty slot LOOKS like the field it is not: people tap it and wait for a keyboard. It
+  // stays a slot — names are picked from the Mannschaft below — so the tap points at the search
+  // instead: caret in the field, and the field blinks once so the eye follows the finger. Same
+  // pointing gesture the card flash makes (.cardFlash), never a state that stays.
+  const searchRef = useRef<HTMLInputElement>(null)
+  const [hint, setHint] = useState(false)
+  const pointAtSearch = () => {
+    searchRef.current?.focus()
+    // restart the blink even if one is still running — a second tap has to be answered too
+    setHint(false)
+    requestAnimationFrame(() => setHint(true))
+  }
+  // cleared on a timer, not on animationend: under prefers-reduced-motion there is no animation
+  // to end, and the ring would sit there for good
+  useEffect(() => {
+    if (!hint) return
+    const t = window.setTimeout(() => setHint(false), 1200)
+    return () => window.clearTimeout(t)
+  }, [hint])
 
   const chosenIds = new Set(value.map((v) => v.personId).filter(Boolean) as string[])
   const chosenNames = new Set(value.map((v) => v.name.trim()).filter(Boolean))
@@ -133,10 +152,18 @@ export function TruppTeam({
             // only «something is missing here»; the badge column was blank on exactly the rows
             // where a first-time user needs to be told what a Trupp is made of. The role is the
             // one thing the form knows about a slot nobody is in yet, so it is what the slot says.
+            // ⚠️ …and it is TAPPABLE, but never a field: the tap hands the caret to the search
+            // below (pointAtSearch). Out of the screen reader's way — it announces nothing a
+            // «–» row could tell it, and the search field is the next thing in the tab order.
             return (
-              <li key={`empty-${i}`} className={cx(s.teamRow, s.teamRowEmpty)} aria-hidden>
-                <span className={s.teamRole}>{i === 0 ? az.leaderBadge : az.memberLabel}</span>
-                <span className={s.teamName}>{az.teamSlotEmpty}</span>
+              <li key={`empty-${i}`} className={cx(s.teamRow, s.teamRowEmpty)}>
+                <button
+                  type="button" className={s.teamPick} tabIndex={-1} aria-hidden
+                  title={az.teamSearchPlaceholder} onClick={pointAtSearch}
+                >
+                  <span className={s.teamRole}>{i === 0 ? az.leaderBadge : az.memberLabel}</span>
+                  <span className={s.teamName}>{az.teamSlotEmpty}</span>
+                </button>
               </li>
             )
           }
@@ -178,9 +205,10 @@ export function TruppTeam({
 
       {/* THE MANNSCHAFT. A search box rather than a scroll list: on a 66-person roster the old
           dropdown was the surface people complained about first. */}
-      <label className={s.teamSearch}>
+      <label className={cx(s.teamSearch, hint && s.teamSearchHint)}>
         <Icon id="search" />
         <input
+          ref={searchRef}
           value={q} onChange={(e) => setQ(e.target.value)} inputMode="search"
           placeholder={az.teamSearchPlaceholder} aria-label={az.teamSearchPlaceholder}
         />

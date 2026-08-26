@@ -4,7 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { LINE_DASH_SVG } from '../lib/draw'
 import { ToolDock } from './ToolDock'
 import { useNodeHold } from '../lib/nodeHold'
-import { vertexHandleIndices } from '../lib/lineStyle'
+import { vertexHandleIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
 
 const COLORS = appConfig.drawing.colors
@@ -160,14 +160,15 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
         )
       })}
       {/* ── Verlängern ──────────────────────────────────────────────────────────────────────
-          The arrow grip past each open end, exactly as on the Lage: dragging it appends one
-          point and the grip moves to the new end. A Fläche has no end to grow from. */}
+          The arrow tip past each open end, exactly as on the Lage: pressing it appends one point
+          right there — one fixed step further out — and the same press keeps dragging that point,
+          so a tap alone already grew the line. A Fläche has no end to grow from. */}
       {!closed && onExtend && (['start', 'end'] as const).map((ep) => {
         const i = ep === 'start' ? 0 : sp.length - 1
         const nb = ep === 'start' ? sp[1] : sp[sp.length - 2]
         const p0 = sp[i]
         const dx = p0[0] - nb[0], dy = p0[1] - nb[1], len = Math.hypot(dx, dy) || 1
-        const gx = p0[0] + (dx / len) * 46, gy = p0[1] + (dy / len) * 46
+        const gx = p0[0] + (dx / len) * EXTEND_STEP_PX, gy = p0[1] + (dy / len) * EXTEND_STEP_PX
         const deg = (Math.atan2(dy, dx) * 180) / Math.PI
         return (
           <button key={`grow-${ep}`} className="draw-grow wb-grow" title={appConfig.copy.measure.extendLine} aria-label={appConfig.copy.measure.extendLine}

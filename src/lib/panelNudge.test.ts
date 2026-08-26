@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { panelNudge, panelNudgeBox, panelNudgeBoxUp } from './panelNudge'
+import { panelNudge, panelNudgeBox, panelNudgeBoxUp, panelNudgeSelection, panelNudgeSelectionUp, fitsBesidePanel, NUDGE_MARGIN } from './panelNudge'
 
 // panel occupying the right band of a 1280×800 surface (desktop .ctx geometry)
 const panel = { left: 804, top: 88, bottom: 760 }
@@ -69,5 +69,51 @@ describe('panelNudgeBoxUp (bottom sheet)', () => {
     // clearing would need 236px, but the top edge sits at 150 → only 94 remain
     expect(panelNudgeBoxUp({ minX: 100, maxX: 300, minY: 150, maxY: 600 }, sheet)).toEqual([0, 94])
     expect(panelNudgeBoxUp({ minX: 100, maxX: 300, minY: 40, maxY: 600 }, sheet)).toBeNull()
+  })
+})
+
+// A hose line drawn right across the screen has bounds that describe nothing: its far edge is
+// off-stage, and clearing THAT threw the camera past the piece of line the finger had just been on.
+describe('panelNudgeSelection', () => {
+  // an 1100px-wide surface with the panel docked from x=760
+  const panel = { left: 760, top: 0, bottom: 900 }
+  const small = { minX: 800, maxX: 860, minY: 400, maxY: 460 }   // fits beside the panel
+  const long = { minX: 400, maxX: 3000, minY: 400, maxY: 460 }   // does not
+
+  it('leaves small selections on the box rule, tap point or not', () => {
+    const boxOnly = panelNudgeBox(small, panel)
+    expect(panelNudgeSelection(small, null, panel)).toEqual(boxOnly)
+    expect(panelNudgeSelection(small, { x: 820, y: 430 }, panel)).toEqual(boxOnly)
+  })
+
+  it('does not move at all when the tapped spot on a long line is already clear of the panel', () => {
+    // the box rule wanted a pan here — the tap point says there is nothing to fix
+    expect(panelNudgeBox(long, panel)).not.toBeNull()
+    expect(panelNudgeSelection(long, { x: 300, y: 430 }, panel)).toBeNull()
+  })
+
+  it('brings a long line clear by exactly what the TAPPED spot needs, not its far edge', () => {
+    const tapped = panelNudgeSelection(long, { x: 800, y: 430 }, panel)
+    expect(tapped).toEqual([800 - (panel.left - NUDGE_MARGIN), 0])
+    // …which is a far smaller move than the box rule's
+    expect(tapped![0]).toBeLessThan(panelNudgeBox(long, panel)![0])
+  })
+
+  it('falls back to the box rule for a long line with no tap point (Verlauf jump, fresh stroke)', () => {
+    expect(panelNudgeSelection(long, null, panel)).toEqual(panelNudgeBox(long, panel))
+  })
+
+  it('fitsBesidePanel draws the line at the width of the open strip', () => {
+    const open = panel.left - 2 * NUDGE_MARGIN
+    expect(fitsBesidePanel({ minX: 0, maxX: open, minY: 0, maxY: 10 }, panel)).toBe(true)
+    expect(fitsBesidePanel({ minX: 0, maxX: open + 1, minY: 0, maxY: 10 }, panel)).toBe(false)
+  })
+
+  it('the bottom sheet follows the same rule, straight up', () => {
+    const sheet = { top: 600 }
+    const tall = { minX: 0, maxX: 40, minY: 100, maxY: 2000 }
+    expect(panelNudgeSelectionUp(tall, { x: 20, y: 200 }, sheet)).toBeNull()
+    expect(panelNudgeSelectionUp(tall, { x: 20, y: 700 }, sheet)).toEqual([0, 700 - (sheet.top - NUDGE_MARGIN)])
+    expect(panelNudgeSelectionUp(tall, null, sheet)).toEqual(panelNudgeBoxUp(tall, sheet))
   })
 })

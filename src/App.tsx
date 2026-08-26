@@ -564,7 +564,11 @@ export default function App() {
           forceReadOnly={forceReadOnly}
           tabLockLost={!tabLock.held}
           onTakeOverTab={tabLock.takeOver}
-          onSwitchIncident={(i) => void selectIncident(i.id, { meta: i }).catch(() => {})}
+          // An abgeschlossener Einsatz opens read-only — the same rule «Alle Einsätze» follows
+          // (HistoryPanel · onOpen), and it matters here because the menu's «Frühere» rows switch
+          // straight to archived Einsätze: without it they would open editable AND join the list
+          // of running ones. «Wieder öffnen» stays the one way back to editing.
+          onSwitchIncident={(i) => void selectIncident(i.id, { meta: i, readOnly: i.is_archived }).catch(() => {})}
           onOpenHistory={() => setOverlay('history')}
           // «Einsatz eröffnen» goes straight to the manual wizard — the pool sheet is gone
           // (testing feedback 2026-07-18): incoming alarms are taken via the landing card or

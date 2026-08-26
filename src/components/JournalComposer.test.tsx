@@ -353,6 +353,39 @@ describe('JournalComposer · the half-written draft', () => {
   })
 })
 
+// ── the sheet gives things up in a decided order ──────────────────────────────────────────
+// jsdom has no layout, so the two numbers the ladder reads are stood in for. What is tested here
+// is the WIRING — that the card's own overflow is what flips the class; the rule itself is
+// lib/composerFit.
+describe('JournalComposer · what gives way when the room runs out', () => {
+  const layout = (scrollH: number, clientH: number) => {
+    for (const [prop, v] of [['scrollHeight', scrollH], ['clientHeight', clientH]] as const) {
+      Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, get: () => v })
+    }
+  }
+  afterEach(() => {
+    for (const prop of ['scrollHeight', 'clientHeight']) {
+      Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, value: 0 })
+    }
+  })
+
+  it('collapses Art and media into one symbol row rather than scrolling the sheet', async () => {
+    layout(386, 340) // the full sheet in what a keyboard leaves of a small screen
+    setup()
+    await waitFor(() => expect(document.querySelector('.journal-composer')?.className).toContain('is-compact'))
+    // …and the words are still what the row is CALLED, whatever it now shows
+    expect(screen.getByRole('button', { name: 'Sofortmassnahme' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Foto' })).toBeTruthy()
+  })
+
+  it('leaves the sheet alone while it fits', async () => {
+    layout(386, 420)
+    setup()
+    await waitFor(() => expect(document.querySelector('.jc-controls')).toBeTruthy())
+    expect(document.querySelector('.journal-composer')?.className).not.toContain('is-compact')
+  })
+})
+
 describe('JournalComposer · «Wer» is read off the sentence', () => {
   it('takes the first vocabulary name, with no field asking for one', () => {
     const { onSubmit } = setup({ vocab: [{ name: 'Werkhof Oberwil', kind: 'partner' }] })

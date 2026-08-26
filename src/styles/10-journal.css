@@ -444,6 +444,74 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
    (Was phone-only in 15-mobile.css; the desktop/tablet card is the same capped flex column and
    the keyboard makes the cap bite hardest exactly there.) */
 .journal-composer > * { flex: none; }
+
+/* ── the degradation ladder: today's layout → one compact row → scrolling ──────────────────
+   `flex: none` above ended the silent squeeze, and traded it for the other failure: a sheet a
+   few px over its cap scrolls, and with the field focused the browser scrolls the CARET into
+   view — which pushes the head, the field and the whole predictive band off the top edge. The
+   Textbausteine were «cut off» either way.
+   So the sheet gives things up in a decided order instead:
+     1. by default nothing changes, and the predictive row is never what gives way;
+     2. `.is-compact` — the Art strip and the media strip become ONE row of symbols
+        («I · A · S», the clock, the ring, mic · upload · camera). Worth 44px of row plus the
+        8px gap that went with it = 52px, which is `COMPACT_SAVES` in JournalComposer.tsx;
+     3. only then `overflow-y: auto` above does what it has always done.
+   ⚠️ Rung 2 is switched by MEASURING the card, not by a height media query: on iOS the layout
+   viewport does not shrink for the keyboard (which is why the cap has to subtract `--jc-kb` at
+   all), so `@media (max-height: …)` reports the full screen at exactly the moment half of it is
+   gone. See JournalComposer · nextCompact.
+   The numbers behind the rungs, measured in the app's own Sora at 320 · 360 · 390 · 460 with an
+   empty sheet: 16+16 padding · 38 head · 92 field · 44 predictive band · 44 Art · 44 media ·
+   44 «Erfassen» · 5×8 gaps = 386px, and 334px compact. On a phone with the keyboard up the field
+   is 62 rather than 92 (15-mobile.css), so the same two are 356px and 304px. The saving is
+   exactly 52px in every case.
+   Against the card's own cap — `100dvh − 24px − --jc-kb` on a tablet — that puts rung 2 at
+   ~410px of screen left over the keyboard and rung 3 at ~358px; on a phone (cap
+   `100dvh − --jc-kb − 10px − safe-area-top`) at ~366px and ~314px above the inset. An iPad in
+   landscape with the keyboard up has ~440px and stays on rung 1; a phone in landscape has ~210px
+   and lands on rung 3 — which is why both of the lower rungs exist. */
+.jc-controls { display: flex; flex-direction: column; gap: 8px; }
+/* the same «nothing shrinks» rule as the sheet's, one level down */
+.jc-controls > * { flex: none; }
+/* ⚠️ …and only where the row can BE a row. Its own minimum is 326px — three 32px letters, two
+   44px round controls, three 36px media buttons and the gaps between them — which is 358px of
+   screen once the sheet's 16px frame is counted on both sides. Below that (a 320px phone) rung 2
+   is simply skipped and the sheet goes straight to rung 3: eight controls do not fit across a
+   320px card at any size a glove can hit, and a row that overflows sideways is a worse answer
+   than one that scrolls. */
+@media (min-width: 360px) {
+  .journal-composer.is-compact .jc-controls { flex-direction: row; align-items: center; gap: 6px; }
+  /* ⚠️ The Art strip is the one that GIVES: its three letters shrink 44 → 32 (the track minmax
+     below) while the media buttons keep a floor of their own (.jc-rec min-width). The other way
+     round — `flex: 1 1 0` on the media strip — it took only what was left over, which on a 375px
+     card was 46px for three buttons: they came out 10px wide and the row still overflowed
+     sideways. Measured at 320 · 360 · 375 · 460. */
+  .journal-composer.is-compact .jc-meta { flex: 0 1 auto; }
+  .journal-composer.is-compact .jc-audio { flex: 1 1 auto; }
+  /* ⚠️ Overrides the `:has(.jc-due-btn)` template in 18-audio.css, which is imported AFTER this
+     file — hence the extra class on every selector below. A tie would go to the later file.
+     `minmax(32px, var(--tap))`: a full 44px target wherever there is room, and never below 32
+     before the sheet gives up and scrolls. The two round controls keep --tap at every width. */
+  .journal-composer.is-compact .jc-meta-row {
+    grid-template-columns: repeat(3, minmax(32px, var(--tap))) var(--tap) var(--tap); gap: 4px; }
+  /* the clock and the ring move with the template (five tracks now, not six) */
+  .journal-composer.is-compact .jc-meta-row > :nth-last-child(2) { grid-column: 4; }
+  .journal-composer.is-compact .jc-meta-row > :last-child { grid-column: 5; }
+  /* the letter is the whole chip: no side padding to squeeze, and big enough to read at arm's
+     length with a glove on. The SELECTED treatment is untouched — same fill, same border, same
+     ink as the full chip (see .jc-chip.on in 18-audio.css), just narrower. */
+  .journal-composer.is-compact .jc-meta-row .jc-chip { padding: 5px 2px; font-size: 15px; }
+  .journal-composer.is-compact .jc-meta-row .jc-chip-word { display: none; }
+  .journal-composer.is-compact .jc-meta-row .jc-chip-letter { display: block; }
+  /* …and the media buttons drop their labels, exactly as the phone already does with the keyboard
+     up (15-mobile.css · .is-kb). The word stays as `title`/`aria-label` on the button. */
+  .journal-composer.is-compact .jc-rec { min-width: 36px; padding: 8px 4px; }
+  .journal-composer.is-compact .jc-rec .jc-lbl { display: none; }
+  .journal-composer.is-compact .jc-rec .i { width: 19px; height: 19px; }
+}
+/* the two halves of the Art chip: the word by default, the letter only in the compact row */
+.jc-chip-word { min-width: 0; }
+.jc-chip-letter { display: none; font-weight: 700; }
 /* Touch, tablet and up: the composer opens with the text field already focused, so the OS
    keyboard is up before the card has finished animating in — and an iPad keyboard is close to
    half the screen. Anchored at 11vh the media row and «Speichern» sat behind it. Ride up to the
@@ -510,7 +578,10 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 .jc-rec .i { flex: none; }
 .jc-rec-time { font-family: var(--mono); }
 .jc-rec .i { width: 15px; height: 15px; }
-.jc-rec:hover { color: var(--ink); }
+/* gated on a pointer that can leave again — see .jc-phrase in 18-audio.css */
+@media (hover: hover) {
+  .jc-rec:hover { color: var(--ink); }
+}
 .jc-rec.on { background: var(--red); border-color: var(--red); color: var(--on-fill); animation: recPulse 1.4s ease-in-out infinite; }
 @keyframes recPulse { 50% { opacity: .72; } }
 /* framed exactly like the imported-memo row below it — the two say the same thing about the same
@@ -540,7 +611,9 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
   background: var(--blue); color: var(--on-fill); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: 12.5px; font-weight: 800;
   font-family: inherit; white-space: nowrap; }
 .jc-send .i { width: 15px; height: 15px; }
-.jc-send:hover { background: var(--blue-strong); }
+@media (hover: hover) {
+  .jc-send:hover { background: var(--blue-strong); }
+}
 .jc-send:disabled { opacity: var(--disabled); cursor: default; }
 
 /* ⚠️ The «Eintrag · Erinnerung» track these rules styled is GONE (17.08.) — the head holds the

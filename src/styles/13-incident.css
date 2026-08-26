@@ -41,27 +41,48 @@
 .ip-error-chip { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent);
   border-color: color-mix(in srgb, var(--red) 38%, transparent); }
 .ip-switch-btn .ip-error-chip svg { width: 12px; height: 12px; opacity: 1; }
-/* active-incident HEADER card: plain title + address + two small meta lines with the
-   icon-only Sync beside them — no highlighted row, no big pill (field feedback 2026-07-09,
-   round 3: the pill+✕ treatment read as a selected item with a stray close button) */
-.ip-menu-head { display: flex; align-items: flex-start; gap: 8px; padding: 8px 8px 8px 12px; }
-.ip-menu-headmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.ip-menu-headtitle { font: 700 15px var(--body); color: var(--ink); overflow-wrap: anywhere; }
-/* larger screens show the title in the switcher button already — repeating it in the
-   header card read as a duplicate; phones (glyph-only button) keep it here */
-@media (min-width: 601px) { .ip-menu-headtitle { display: none; } }
-.ip-menu-headmain > .ip-menu-sub { white-space: normal; margin-bottom: 4px; }
-.ip-menu-metaline { display: flex; align-items: center; gap: 6px; font: 600 11.5px var(--body); }
-.ip-menu-metaline > span { color: var(--ink-dim); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ip-menu-metaline svg, .ip-menu-metaline .i { width: 12px; height: 12px; flex: none; }
-.ip-menu-metaline .i { color: var(--ink-dim); }
-/* icon-only resync — a compact 40px target beside the status lines */
-.ip-menu-resync { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
-  border: 1px solid color-mix(in srgb, var(--blue) 40%, var(--border)); border-radius: var(--r-sm); background: color-mix(in srgb, var(--blue) 8%, var(--surface));
-  color: var(--blue-strong); cursor: pointer; }
-.ip-menu-resync:hover { background: color-mix(in srgb, var(--blue) 15%, var(--surface)); }
-.ip-menu-resync svg { width: 15px; height: 15px; }
-.ip-menu-resync:disabled { cursor: default; }
+/* THE ACTIVE EINSATZ AS A CARD — the heaviest object in the menu, and the only one with a
+   surface of its own: green status edge, Titel, Adresse, two status pills, and the Einsatz's
+   own actions along its bottom. Everything below it is deliberately lighter, so one look
+   sorts the menu into «jetzt» / «läuft auch» / «vorbei» (field feedback 2026-08-25: every row
+   carried the same weight). Replaces the old flat .ip-menu-head + the two action rows. */
+/* the fill is a soft tile with a breath of the status green in it — over the white day surface
+   `--surface-2` alone was invisible, and the tint says «läuft» in the same colour as the edge */
+.ip-card { display: flex; flex-direction: column; gap: 3px; margin: 2px 2px 6px;
+  padding: 10px 12px; border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--green) 6%, var(--fill-soft));
+  border: 1px solid var(--glass-edge); border-left: 4px solid var(--green); }
+.ip-card-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.ip-card-name { font: 700 15px var(--body); color: var(--ink); overflow-wrap: anywhere; }
+.ip-card-sub { font: 500 12.5px var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
+/* the pills WRAP instead of clipping: on a 360px phone «Gespeichert um 20:14» and
+   «Einsatzbeginn 20:14 · 1 h 32» never fit on one line, and both are read, not glanced at */
+.ip-card-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+.ip-card-pill { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%;
+  padding: 3px 9px; border-radius: 999px; font: 600 11.5px var(--body);
+  color: var(--ink-dim); background: color-mix(in srgb, var(--ink-faint) 14%, transparent); }
+.ip-card-pill > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-card-pill svg, .ip-card-pill .i { width: 12px; height: 12px; flex: none; }
+/* the sync pill wears its state — same colours as the mark in the top bar (.ip-status-*),
+   spelled out here because the pill's own rule would otherwise win on order */
+.ip-card-pill.ip-status-synced { color: var(--green-strong); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.ip-card-pill.ip-status-pending { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 16%, transparent); }
+.ip-card-pill.ip-status-error, .ip-card-pill.ip-status-storage {
+  color: var(--red-strong); background: color-mix(in srgb, var(--red) 14%, transparent); }
+/* the Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen, with the icon-only
+   Sync at the right edge. Wraps rather than overflows on a narrow phone. */
+.ip-card-acts { display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+  margin: 8px -6px -4px; padding-top: 6px; border-top: 1px solid var(--glass-edge); }
+.ip-card-act { display: inline-flex; align-items: center; gap: 6px; min-height: 40px;
+  padding: 6px 10px; border: none; background: none; border-radius: var(--r-sm);
+  color: var(--ink); cursor: pointer; font: 600 12.5px var(--body); }
+.ip-card-act:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.ip-card-act svg { width: 15px; height: 15px; opacity: .65; flex: none; }
+/* Sync keeps its own 40px icon target and its blue, at the card's right edge */
+.ip-card-sync { margin-left: auto; width: 40px; padding: 0; justify-content: center;
+  color: var(--blue-strong); }
+.ip-card-sync svg { opacity: 1; }
+.ip-card-sync:disabled { cursor: default; }
 /* Spinner → tick, as ONE circle rather than two icons swapped: r=9 ⇒ circumference ≈ 56.5, and
    every dash length below is cut to that. Busy draws a ~quarter arc and rotates it; done closes
    the arc to a full ring and strokes the tick through it, so the eye follows the same shape from
@@ -89,23 +110,31 @@
   box-shadow: var(--shadow); padding: 8px; z-index: 62; max-height: calc(100dvh - 104px); overflow: auto;
 }
 .ip-menu-empty { padding: 12px; color: var(--ink-faint); font: 500 13px var(--body); }
-.ip-menu-rowmain, .ip-menu-act {
-  display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; text-align: left;
-  padding: 8px 12px; min-height: 44px; border: none; background: none; border-radius: var(--r-ctl);
-  cursor: pointer; color: var(--ink); font: 600 13.5px var(--body);
+.ip-menu-act {
+  display: flex; flex-direction: row; align-items: center; gap: 10px; width: 100%; min-width: 0;
+  text-align: left; padding: 8px 12px; min-height: 44px; border: none; background: none;
+  border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); font: 600 13.5px var(--body);
 }
-.ip-menu-act { flex-direction: row; align-items: center; gap: 10px; font-weight: 600; }
 .ip-menu-act svg { width: 16px; height: 16px; opacity: .65; }
-/* «Einsatz abschliessen» carries its open-point count on the right — the label takes the row so
-   the badge sits at the edge instead of hugging the word (see IncidentSwitcher) */
-.ip-menu-actmain { flex: 1; min-width: 0; }
-/* incident row — pure switch target (no destructive actions in this menu; closing an
-   incident lives in «Alle Einsätze» / the Rapport) */
-.ip-menu-row { display: flex; align-items: stretch; gap: 2px; border-radius: var(--r-ctl); }
-.ip-menu-rowmain { flex: 1; }
-.ip-menu-rowmain:hover, .ip-menu-act:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
-.ip-menu-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ip-menu-sub { font: 500 12px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* incident row — pure switch target (no destructive actions in this menu; closing another
+   incident lives in «Alle Einsätze» / the Rapport). The leading FIXED-WIDTH column is what
+   makes the two lists scan: laufende Zeit for a running Einsatz, Datum for a früherer one,
+   both on the same edge. */
+.ip-menu-row { display: flex; align-items: baseline; gap: 10px; width: 100%; min-width: 0;
+  text-align: left; padding: 6px 12px; min-height: 38px; border: none; background: none;
+  border-radius: var(--r-ctl); cursor: pointer; color: var(--ink-dim); font: 500 13px var(--body); }
+.ip-menu-when { flex: none; width: 62px; font: 600 11.5px var(--body); font-variant-numeric: tabular-nums;
+  color: var(--ink-faint); }
+/* a running Einsatz is a real alternative to the one on screen: full ink, and the green says
+   «läuft». --accent is the brand red and would say something else entirely. */
+.ip-menu-row-run { min-height: 44px; color: var(--ink); font-weight: 700; font-size: 13.5px; }
+.ip-menu-row-run .ip-menu-when { color: var(--green-strong); }
+.ip-menu-row:hover, .ip-menu-act:hover, .ip-menu-more:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+.ip-menu-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the way into the full archive, under the four «Frühere» rows — a link, not a sixth row */
+.ip-menu-more { width: 100%; text-align: left; padding: 7px 12px; min-height: 40px; border: none;
+  background: none; border-radius: var(--r-ctl); cursor: pointer; color: var(--blue-strong);
+  font: 600 12.5px var(--body); }
 /* (.section-pager and the phone .edge-swipe strips are gone — 2026-08-14, with swipe-to-page
    itself. The section views carry their own absolute inset/z-index, so they never needed the
    wrapper for layout.) */
@@ -380,7 +409,9 @@
 /* «2 offen» — the same amber, named after what it means rather than after the Übung it borrows
    from: something is outstanding and the operator is about to act as if it were not. */
 .ip-badge-todo { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); text-transform: none; }
-.ip-menu-headtitle .ip-badge, .ip-menu-title .ip-badge { margin-left: 6px; vertical-align: 1px; }
+/* the badge sits INSIDE the row title (which ellipsises), so it needs its own gap; the card's
+   title is a flex line and spaces it itself */
+.ip-menu-title .ip-badge { margin-left: 6px; vertical-align: 1px; }
 .ip-hist-sub, .ip-ds-sub { font: 500 12px var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* rapport lifecycle badges (derived, lib/rapportStatus) */
 /* Alle Einsätze: search + time-group headers — the list grows by one row per Einsatz

@@ -3,6 +3,7 @@ import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { useHoldToDrag } from '../lib/useHoldToDrag'
+import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
 import { ShapeGlyph } from '../lib/shapes'
@@ -467,7 +468,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       const nc = unproject({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
                       if (!nc) return
                       st.lx = mx; st.ly = my
-                      if (!st.moved) { st.moved = true; onMarkerDragStart(near.id); setDraggingId(near.id) } // snapshot for undo + show the selection halo on first real move
+                      // snapshot for undo + show the selection halo on first real move — and on a
+                      // phone let the detail sheet peek away, so the drag has the whole surface
+                      if (!st.moved) { st.moved = true; onMarkerDragStart(near.id); setDraggingId(near.id); beginSheetPeek() }
                       st.last = nc
                       onMarkerMove(near.id, nc)
                     },
@@ -475,6 +478,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       const st = entDrag.current; entDrag.current = null
                       setDragPan(true)
                       setDraggingId(null) // drop the halo once it stops moving
+                      endSheetPeek() // …and the sheet comes back to the height it had
                       if (st?.moved && st.last) onMarkerDragEnd(near.id, st.last)
                       else if (selectedId !== near.id) onSelect(near) // held but never dragged → treat as a select (open the panel)
                     },

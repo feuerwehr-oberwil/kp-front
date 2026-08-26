@@ -102,6 +102,8 @@ interface Props {
   onArrow: (arrow: boolean) => void
   /** line end: 'none' | 'arrow' | 'teilstueck' (mutually exclusive). Absent ⇒ only the legacy arrow toggle. */
   onEnding?: (ending: 'none' | 'arrow' | 'teilstueck') => void
+  /** reverse the point order, so the Abschluss sits at the other end. Absent ⇒ the row is hidden. */
+  onReverse?: () => void
   /** FKS device letter at the end (S/W/H/P) or undefined for plain Wasser */
   onContent?: (content: 'S' | 'W' | 'H' | 'P' | undefined) => void
   /** Druckleitung number + storey badge on the line (undefined clears) */
@@ -153,7 +155,7 @@ function MenuPick({ label, on }: { label: string; on: boolean }) {
   )
 }
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -306,6 +308,19 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
               <div className="de-row"><span>{appConfig.copy.drawingEditor.arrow}</span>
                 <span className="dh-widths">
                   <button className={`de-toggle ${drawing.arrow ? 'on' : ''}`} aria-pressed={!!drawing.arrow} onClick={() => onArrow(!drawing.arrow)}>{drawing.arrow ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}</button>
+                </span>
+              </div>
+            )}
+            {/* Which end the Abschluss sits at is the second half of the same question — so it sits
+                in the same row block, directly under it. It does not MOVE the line: the drawn hose
+                stays where it is, only its direction of travel turns around (lib/lineAttachments ·
+                flipLine), and everything hooked to either end stays hooked where it physically is. */}
+            {onReverse && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.reverse}</span>
+                <span className="dh-widths">
+                  <button className="de-toggle" onClick={onReverse} title={appConfig.copy.drawingEditor.reverse} aria-label={appConfig.copy.drawingEditor.reverse}>
+                    <Icon id="swap" />
+                  </button>
                 </span>
               </div>
             )}

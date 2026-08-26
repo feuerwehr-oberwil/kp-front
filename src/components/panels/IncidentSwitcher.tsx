@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
-import { initials, roleLabel, fillTemplate, fmtElapsedHM } from '../../lib/format'
+import { initials, roleLabel, fillTemplate, fmtSpanShort } from '../../lib/format'
 import { buildLabel } from '../../lib/buildInfo'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
-import { shortAddress } from '../../lib/deploymentConfig'
-import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
+import { fmtDayShort } from '../../lib/zeitplanFormat'
+import { switcherLists } from '../../lib/switcherLists'
+import { listIncidents, type IncidentMeta, type SyncStatus } from '../../lib/incidents'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
 function fmtClock(ms: number): string {
@@ -34,6 +35,11 @@ function SyncGlyph({ done, label }: { done: boolean; label: string }) {
     </svg>
   )
 }
+
+/** How many archived Einsätze the menu pulls for its «Frühere» rows. Four are shown; the rest
+ *  of the page only serves the «Alle Einsätze (n)» count — and once the archive outgrows it the
+ *  count is no longer whole, so the row drops the number rather than stating a wrong one. */
+const ARCHIVE_FETCH = 100
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
@@ -119,6 +125,20 @@ export function IncidentSwitcher({
     const t = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(t)
   }, [open])
+  // «Frühere» comes from the ARCHIVE, which nothing else in the app keeps client-side: the list
+  // the app polls every 30 s is the running one (listIncidentsResilient · archived=false).
+  // Fetched lazily, the first time the menu is opened — the rows only matter while it is open —
+  // and never polled. A failed fetch (offline) resets the latch, so the next open tries again.
+  const [archived, setArchived] = useState<{ list: IncidentMeta[]; whole: boolean } | null>(null)
+  const archiveTried = useRef(false)
+  useEffect(() => {
+    // no «Alle Einsätze» ⇒ an Einsatz-Link session, which may only ever see its own Einsatz
+    if (!open || archiveTried.current || !onHistory) return
+    archiveTried.current = true
+    listIncidents(true, ARCHIVE_FETCH)
+      .then((list) => setArchived({ list, whole: list.length < ARCHIVE_FETCH }))
+      .catch(() => { archiveTried.current = false })
+  }, [open, onHistory])
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     // clicks inside an overlay sheet/dialog don't count as "outside": on phones the menu
@@ -151,8 +171,15 @@ export function IncidentSwitcher({
     : syncStatus === 'error' || syncStatus === 'storage'
       ? <Icon id="warn" />
       : <span className="ip-status-dot" />
-  const otherIncidents = incidents.filter((i) => i.id !== active?.id)
-  const showIncidents = otherIncidents.length > 0 || isEditor || !!onHistory || (incidents.length === 0 && !active)
+  const lists = switcherLists(incidents, archived?.list ?? [], active?.id ?? null)
+  // the count is only shown while it is TRUE: before the archive is loaded, and once it is
+  // deeper than one page, «Alle Einsätze» stands without a number
+  const allIncidentsLabel = archived?.whole
+    ? fillTemplate(cp.allIncidentsN, { n: lists.total })
+    : cp.allIncidents
+  const showIncidents = lists.running.length > 0 || lists.past.length > 0 || isEditor || !!onHistory
+    || (incidents.length === 0 && !active)
+  const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   return (
     <div className="ip-switch" ref={ref}>
       <button className="ip-switch-btn" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
@@ -190,40 +217,66 @@ export function IncidentSwitcher({
       </button>
       {open && (
         <div className="ip-menu">
-          {/* Three zones (field feedback 2026-07-09), and each one now SAYS which it is: ① THIS
-              Einsatz as a plain HEADER card — title (phone-only, the button shows it on larger
-              screens), address, two small meta lines, icon-only Sync — plus «Einsatz
-              abschliessen»; ② «Einsätze» — WHICH Einsatz: the others + eröffnen + alle; ③ «App»
-              — the rows that have nothing to do with any Einsatz, then the user. The zones were
-              only ever separated by hairlines, so a row's scope had to be inferred from the
-              company it kept; the two labels are what the admin sidebar does with its nav, and
-              they cost one line each. The head card needs no label — it names itself.
-              The round-4 rule was "no destructive actions in this menu" (a stray per-row ✕
-              closed old incidents in one tap); the «abschliessen» row is the sanctioned
-              exception (field request 2026-07-12): it goes through the SAME confirm as the
-              Rapport — open points named, `report_done_at` stamped — and closing stays
-              reversible via «Wieder öffnen». Closing OTHER incidents lives only in «Alle
-              Einsätze». */}
+          {/* Three weights, so one look sorts the menu (field feedback: everything carried the
+              same weight and «läuft gerade» was indistinguishable from «vorbei»): ① THIS Einsatz
+              as a CARD — green status edge, Titel, Adresse, zwei Status-Pills — carrying its OWN
+              actions inside it; ② the other RUNNING Einsätze as strong rows led by their laufende
+              Zeit; ③ «Frühere» as quiet rows led by a fixed date column, four at most. The card
+              needs no label — it names itself.
+              The round-4 rule was "no destructive actions in this menu" (a stray per-row ✕ closed
+              old incidents in one tap); «abschliessen» is the sanctioned exception (field request
+              2026-07-12), and only ever for the Einsatz whose card it sits in: it runs the SAME
+              confirm as the Rapport — open points named, `report_done_at` stamped — and closing
+              stays reversible via «Wieder öffnen». Closing OTHER incidents lives only in «Alle
+              Einsätze».
+              No «Einsatzrapport» action either: it is a surface in the rail now, and a second
+              door to it from here made the menu the place you go to find things that are already
+              one tap away. And no «Objekt» row — which Einsatzobjekt is loaded decides which
+              PLANS are loaded, so it belongs on the Plan surface above them (Whiteboard). */}
           {active && (
-            <>
-              <div className="ip-menu-head">
-                <div className="ip-menu-headmain">
-                  <span className="ip-menu-headtitle">
-                    {active.title}
-                    {active.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
+            <div className="ip-card">
+              <div className="ip-card-title">
+                <span className="ip-card-name">{active.title}</span>
+                {active.is_exercise && exerciseBadge}
+              </div>
+              {active.address && <span className="ip-card-sub">{active.address}</span>}
+              <div className="ip-card-pills">
+                <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedText}</span></span>
+                {active.started_at && (
+                  <span className="ip-card-pill">
+                    <Icon id="clock" />
+                    <span>{fillTemplate(cp.startedRow, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(now - Date.parse(active.started_at)) })}</span>
                   </span>
-                  {active.address && <span className="ip-menu-sub">{active.address}</span>}
-                  <span className={`ip-menu-metaline ip-status-${syncStatus}`}>{statusMark}<span>{savedText}</span></span>
-                  {active.started_at && (
-                    <span className="ip-menu-metaline"><Icon id="clock" /><span>{fillTemplate(cp.startedRow, { t: fmtClock(Date.parse(active.started_at)), d: fmtElapsedHM(now - Date.parse(active.started_at)) })}</span></span>
-                  )}
-                </div>
+                )}
+              </div>
+              {/* The Einsatz's own actions, inside its own card. Short labels: the card names the
+                  Einsatz one line above, so «Einsatz abschliessen» would say it twice — the full
+                  wording rides along as the button's title/aria-label.
+                  A wrong ADDRESS is noticed while looking at the map, long before anybody opens
+                  the Rapport — whose «Bearbeiten» link was once the only way into the mask. */}
+              <div className="ip-card-acts">
+                {onEditMeta && (
+                  <button className="ip-card-act" title={cp.editMeta} aria-label={cp.editMeta}
+                    onClick={() => { setOpen(false); onEditMeta() }}>
+                    <Icon id="pen" />{cp.editMetaShort}
+                  </button>
+                )}
+                {onArchive && (
+                  <button className="ip-card-act" title={cp.archive} aria-label={cp.archive}
+                    onClick={() => { setOpen(false); onArchive() }}>
+                    <Icon id="archive" />{cp.archiveShort}
+                    {/* the counter BEFORE the press, not only in the dialog after it */}
+                    {archiveOpenCount > 0 && (
+                      <span className="ip-badge ip-badge-todo">{fillTemplate(cp.archiveOpen, { n: archiveOpenCount })}</span>
+                    )}
+                  </button>
+                )}
                 {/* always offered (not only on offline/error): forces a push AND an immediate
-                    pull, the "make everything fresh right now" action when things feel stale */}
-                {/* It has to LOOK like it ran. On an already-synced Einsatz — the normal case —
-                    the status line above says «gerade eben synchronisiert» both before and after
-                    the tap, so without this the button read as broken. */}
-                <button className={`ip-menu-resync sync-${syncPhase}`} disabled={syncPhase === 'busy'}
+                    pull, the "make everything fresh right now" action when things feel stale.
+                    It has to LOOK like it ran — on an already-synced Einsatz, the normal case,
+                    the pill above reads «Gespeichert um …» before and after the tap, so the ring
+                    spins for the round trip and then closes into a tick on the button itself. */}
+                <button className={`ip-card-act ip-card-sync sync-${syncPhase}`} disabled={syncPhase === 'busy'}
                   aria-busy={syncPhase === 'busy'} onClick={() => { void runSyncNow() }}
                   aria-label={cp.syncNow} title={cp.syncNow}>
                   {syncPhase === 'idle'
@@ -231,65 +284,44 @@ export function IncidentSwitcher({
                     : <SyncGlyph done={syncPhase === 'done'} label={syncPhase === 'done' ? cp.syncDone : cp.syncNow} />}
                 </button>
               </div>
-              {/* No «Einsatzrapport» row: it is a surface in the rail now, and a second door to
-                  it from here made the menu the place you go to find things that are already
-                  one tap away. Einsatzdaten editing still lives inside it (the «Bearbeiten»
-                  link on its dispatch block) rather than as a menu entry of its own. */}
-              {/* No «Objekt» row either: which Einsatzobjekt is loaded decides which PLANS are
-                  loaded, so it belongs on the Plan surface above them (Whiteboard · .wb-object),
-                  not in a menu that is opened for something else. Here it also had to say the
-                  object's name — a menu row is the wrong place for a read-out you want to check
-                  while you work on the plans it names. */}
-              {/* A wrong ADDRESS is noticed while looking at the map, long before anybody opens
-                  the Rapport — and the Rapport's «Bearbeiten» link was the only way in. Same
-                  mask either way; this is just the second door, next to the incident it edits. */}
-              {onEditMeta && (
-                <button className="ip-menu-act" onClick={() => { setOpen(false); onEditMeta() }}><Icon id="pen" /> {cp.editMeta}</button>
-              )}
-              {onArchive && (
-                /* No rule above it. It was there to set the terminal «abschliessen» apart from
-                   the Sync button as a mis-tap neighbour — but Sync is a 40px icon at the head's
-                   right edge and this is a full-width row below it, so they were never in the
-                   same reach; the rule only chopped the head card in half. The separation that
-                   does the work is the rule UNDER it, which parts «dieser Einsatz» from the list
-                   of other ones, and the confirm the action still runs. */
-                <button className="ip-menu-act" onClick={() => { setOpen(false); onArchive() }}>
-                  <Icon id="archive" />
-                  <span className="ip-menu-actmain">{cp.archive}</span>
-                  {/* the counter BEFORE the press, not only in the dialog after it */}
-                  {archiveOpenCount > 0 && (
-                    <span className="ip-badge ip-badge-todo">{fillTemplate(cp.archiveOpen, { n: archiveOpenCount })}</span>
-                  )}
-                </button>
-              )}
-              <div className="ip-menu-sep" />
-            </>
+            </div>
           )}
           {/* The Einsätze group is about moving BETWEEN Einsätze. When nothing in it can
-              render — no other incident, no «Neuer Einsatz», no «Alle Einsätze» — the label
-              would head an empty list, which is what an Einsatz-Link sees: it is bound to
-              one Einsatz and switching is neither offered nor permitted. Derived rather
-              than passed, so the menu never has to know why the rows are missing. */}
+              render — no other incident, no «Neuer Einsatz», no «Alle Einsätze» — none of it
+              shows, which is what an Einsatz-Link sees: it is bound to one Einsatz and switching
+              is neither offered nor permitted. Derived rather than passed, so the menu never has
+              to know why the rows are missing. */}
           {showIncidents && (
-            <>
-              <div className="ip-menu-label">{cp.incidents}</div>
+            <div className="ip-rows">
+              {/* No label over the laufende rows: they sit directly under the card they are the
+                  alternatives to. Without a card there is no such context, so the group says
+                  what it is. */}
+              {!active && <div className="ip-menu-label">{cp.incidents}</div>}
               {incidents.length === 0 && !active && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
-              {otherIncidents.map((i) => (
-                <div key={i.id} className="ip-menu-row">
-                  <button className="ip-menu-rowmain" onClick={() => { onSwitch(i); setOpen(false) }}>
-                    <span className="ip-menu-title">
-                      {i.title}
-                      {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
-                    </span>
-                    <span className="ip-menu-sub">{shortAddress(i.address) ?? i.status}</span>
-                  </button>
-                </div>
+              {lists.running.map((i) => (
+                <button key={i.id} className="ip-menu-row ip-menu-row-run" onClick={() => { onSwitch(i); setOpen(false) }}>
+                  <span className="ip-menu-when">{fmtSpanShort(now - Date.parse(i.started_at))}</span>
+                  <span className="ip-menu-title">{i.title}{i.is_exercise && exerciseBadge}</span>
+                </button>
               ))}
-              {isEditor && <button className="ip-menu-act" onClick={() => { onDivera(); setOpen(false) }}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>}
-              {onHistory && <button className="ip-menu-act" onClick={() => openSheet(onHistory)}><Icon id="history" /> {cp.allIncidents}</button>}
-              <div className="ip-menu-sep" />
-            </>
+              {lists.past.length > 0 && <div className="ip-menu-label">{cp.earlier}</div>}
+              {lists.past.map((i) => (
+                <button key={i.id} className="ip-menu-row" onClick={() => { onSwitch(i); setOpen(false) }}>
+                  <span className="ip-menu-when">{fmtDayShort(new Date(i.started_at))}</span>
+                  <span className="ip-menu-title">{i.title}{i.is_exercise && exerciseBadge}</span>
+                </button>
+              ))}
+              {/* the rest of the archive — the four rows above are only the recent end of it */}
+              {onHistory && <button className="ip-menu-more" onClick={() => openSheet(onHistory)}>{allIncidentsLabel}</button>}
+              {isEditor && (
+                <>
+                  <div className="ip-menu-sep" />
+                  <button className="ip-menu-act" onClick={() => { onDivera(); setOpen(false) }}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>
+                </>
+              )}
+            </div>
           )}
+          <div className="ip-menu-sep" />
           {/* «App»: device + installation, not this Einsatz. It always has rows — Hilfe is
               unconditional — so the label never heads an empty group the way «Einsätze» can. */}
           <div className="ip-menu-label">{cp.app}</div>

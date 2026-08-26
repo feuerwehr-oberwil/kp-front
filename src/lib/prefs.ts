@@ -145,7 +145,7 @@ export interface SharePositionPref {
  *  two devices set «by eye» land on the same number. */
 export const SYMBOL_SCALE: Record<SymbolSurface, SymbolScaleRange> = {
   map: { min: 0.6, max: 1.4, step: 0.05, default: 1 },
-  board: { min: 0.4, max: 1.6, step: 0.05, default: 1 },
+  board: { min: 0.3, max: 1.7, step: 0.05, default: 1 },
 }
 
 /** Snap a multiplier onto its surface's slider band. Anything unusable — a hand-edited cookie,

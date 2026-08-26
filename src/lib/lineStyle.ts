@@ -46,6 +46,10 @@ export function resolveLinePreset(id: string, currentDashed?: boolean): LinePres
  *  letters are dropped along the polyline. Identical rhythm on both surfaces. */
 export const MARKER_SPACING_PX = 46
 
+/** How far past an open end the «Verlängern» arrow tip sits — and therefore how far ONE tap on it
+ *  grows the line. Screen px on the map, board px on the plan; both surfaces read this one number. */
+export const EXTEND_STEP_PX = 46
+
 /** How many node handles a shape may show AT ONCE. Not a limit on how many points a line may
  *  have — a 66-point freehand stroke keeps all 66 — but on how many pads are on screen competing
  *  for the same finger. Shared so the map and the plan cut over at the same size. */
@@ -152,6 +156,29 @@ export function rdpIndices(pts: [number, number][], epsilon: number): number[] {
   return out
 }
 
+/**
+ * ── Abheben ist der Rückzieher ────────────────────────────────────────────────────────────────
+ * How far a freehand stroke must actually travel from where it started, in screen (map) / board
+ * (plan) px, before it counts as a LINE rather than a tap.
+ *
+ * ⚠️ This is the ONLY way out of a stroke that began on a target. Since the snapping model of
+ * 25.08. a pointerdown inside a target's radius arms the start attachment INSTANTLY (the aim is
+ * deliberate — see lineAttachments · armDwell), and from there any movement draws. So lifting off
+ * has to be the cancel, and it has to leave nothing at all behind: no line, no attachment, no
+ * Verlauf row. 12 px sits just above the 8–10 px the two surfaces already treat as «did not move».
+ */
+export const MIN_STROKE_PX = 12
+
+/** Was that a tap rather than a stroke? Measured as the greatest distance the path ever reached
+ *  from its own first point — a finger that wobbled in place has travelled some total distance but
+ *  has been nowhere. `px` is the RAW stroke in pixel space. */
+export function isTapStroke(px: [number, number][], minPx = MIN_STROKE_PX): boolean {
+  if (px.length < 2) return true
+  const [x0, y0] = px[0]
+  for (let i = 1; i < px.length; i++) if (Math.hypot(px[i][0] - x0, px[i][1] - y0) >= minPx) return false
+  return true
+}
+
 /** px tolerance for freehand simplification — how far the thinned line may stray from the raw stroke
  *  (≈ this many screen px). Tuned so a hand-drawn line keeps its shape but lands a editable node count. */
 export const FREEHAND_SIMPLIFY_PX = 3.5
@@ -169,4 +196,43 @@ export function lookbackPoint(px: [number, number][], dist: number): [number, nu
     acc += seg
   }
   return px[0]
+}
+
+/**
+ * How far the action hub of a SELECTED line sits OFF its own path, in screen (map) / board (plan)
+ * px. 42 = the move grip's hit pad (40px ⇒ 20) plus a node handle's (44px ⇒ 22): at exactly this
+ * distance the two stop competing for the same finger.
+ */
+export const HUB_OFFSET_PX = 42
+
+/**
+ * Screen-px offset `[dx, dy]` that lifts a selected line's action hub — the move grip, the rotate
+ * knob above it and the red ✕ beside it — clear of the path it belongs to.
+ *
+ * ⚠️ The hub used to sit exactly ON the centroid (25.08.), which for a line is a point on or beside
+ * the line itself: the move grip covered a vertex node, so the node under it could neither be seen
+ * nor grabbed. An area or a circle has an interior and needs none of this — only a line does.
+ *
+ * The offset is PERPENDICULAR to the segment nearest `at`, on whichever side points up the screen
+ * (a tie — a vertical line — goes right). Up, because the hub's own furniture already grows upward
+ * (stem + knob) and to the upper right (✕): pushing the cluster the way it already leans keeps it
+ * one shape instead of two.
+ */
+export function hubOffsetPx(px: [number, number][], at: [number, number], distPx = HUB_OFFSET_PX): [number, number] {
+  if (px.length < 2) return [0, -distPx]
+  let best = 0, bestD = Infinity
+  for (let i = 1; i < px.length; i++) {
+    const [ax, ay] = px[i - 1], [bx, by] = px[i]
+    const dx = bx - ax, dy = by - ay
+    const len2 = dx * dx + dy * dy || 1e-12
+    const t = Math.max(0, Math.min(1, ((at[0] - ax) * dx + (at[1] - ay) * dy) / len2))
+    const d = Math.hypot(at[0] - (ax + t * dx), at[1] - (ay + t * dy))
+    if (d < bestD) { bestD = d; best = i }
+  }
+  const [ax, ay] = px[best - 1], [bx, by] = px[best]
+  const len = Math.hypot(bx - ax, by - ay) || 1
+  // the two unit normals of that segment; take the one that points up the screen (y grows down)
+  const nx = (by - ay) / len, ny = -(bx - ax) / len
+  const up = ny < 0 || (ny === 0 && nx > 0) ? [nx, ny] : [-nx, -ny]
+  return [up[0] * distPx, up[1] * distPx]
 }

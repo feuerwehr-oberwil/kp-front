@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
@@ -24,6 +24,7 @@ import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
+import { nextCompact } from '../lib/composerFit'
 
 // `C` (appConfig.copy.journal) is read at the top of each component below rather than captured
 // here at module-load, so the locale resolved at boot (config/copy) applies.
@@ -621,6 +622,40 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   }
 
   const kbInset = useKeyboardInset()
+  // …and which rung of the degradation ladder the sheet stands on (see lib/composerFit): with
+  // the keyboard up this card is regularly taller than what is left of the screen, and it used to
+  // answer that by scrolling — which, with the field focused, scrolled the CARET into view and
+  // pushed the head, the field and the whole predictive band off the top edge.
+  // ⚠️ The CARD is what is measured, not the viewport: it is the scrollport, so its own overflow
+  // is the question. `wrapRef` carries `display: contents` and has no box of its own, hence the
+  // `closest` — the element that scrolls is the sheet around it.
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [compact, setCompact] = useState(false)
+  const frameRef = useRef(0)
+  const remeasure = useCallback(() => {
+    // coalesced into one frame: a burst of resize events — or a render per keystroke — costs
+    // ONE layout read, taken right before the paint that needs it anyway
+    if (frameRef.current) return
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = 0
+      const card = wrapRef.current?.closest('.journal-composer')
+      if (card) setCompact((cur) => nextCompact(cur, card.scrollHeight, card.clientHeight))
+    })
+  }, [])
+  // after every render — a photo, a memo, a longer sentence all change what has to fit
+  useEffect(remeasure)
+  // …and whenever the ROOM changes rather than the content: the keyboard opening is a
+  // visualViewport resize, a rotation is a window one
+  useEffect(() => {
+    const vv = window.visualViewport
+    vv?.addEventListener('resize', remeasure)
+    window.addEventListener('resize', remeasure)
+    return () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current)
+      vv?.removeEventListener('resize', remeasure)
+      window.removeEventListener('resize', remeasure)
+    }
+  }, [remeasure])
   return (
     // <Overlay> (Base UI) owns focus-trap + scroll-lock + backdrop-close; its pointerdown-based
     // outside-press already ignores the opening tap, so the old Android `armed` delay is gone.
@@ -631,10 +666,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     // the height has to be capped against the keyboard instead (see 10-journal.css).
     // `is-kb` is the same fact as a class: on a PHONE it collapses the four media buttons to
     // icons so the whole sheet still fits in what the keyboard leaves (see 15-mobile.css).
-    <Overlay open onClose={onClose} className={`journal-composer ${kbInset > 0 ? 'is-kb' : ''}`} backdropClassName="modal-backdrop"
+    // `is-compact` is the rung below that and asks a different question — not «is a keyboard up»
+    // but «does the card still fit», measured (see lib/composerFit · 10-journal.css).
+    <Overlay open onClose={onClose} className={`journal-composer ${kbInset > 0 ? 'is-kb' : ''}${compact ? ' is-compact' : ''}`} backdropClassName="modal-backdrop"
       ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef}
       style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}>
-      <div onPaste={onPaste} style={{ display: 'contents' }}>
+      <div onPaste={onPaste} ref={wrapRef} style={{ display: 'contents' }}>
         {/* What this sheet is, and the ✕ beside it.
             ⚠️ There is no «Eintrag · Erinnerung» switch here any more (17.08.). It asked which KIND
             of row this would be BEFORE the sentence was written — and the answer stripped the
@@ -731,13 +768,20 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             taller than the Meldung sheet with nothing in the gap. */}
         {(nameHits.length === 0 && !arrowHit && starters.length === 0 && suggestions.length === 0 && pendenzHits.length === 0)
           ? <div className="jc-phrases is-empty" aria-hidden /> : (
+          // ⚠️ Every chip in this row keeps the textarea focused through the tap — no blur, no
+          // keyboard closing under the sentence being written — and it does that on MOUSEdown,
+          // never on pointerdown. WebKit builds its pointer events on the touch stream, so
+          // cancelling `pointerdown` cancels that touch's default: the band stopped panning
+          // sideways on an iPad, and side-scroll is this row's only overflow (it never wraps —
+          // see .jc-phrases in 18-audio.css). `mousedown` is what MOVES focus and cannot cancel
+          // a gesture, so both facts hold at once.
           <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
             {/* the empty-field chips: the opener first, then what this Einsatz keeps writing */}
             {starters.map((c) => (
               <button
                 key={c.label}
                 className={`jc-phrase${c.kind === 'opener' ? ' jc-phrase-starter' : ''}`}
-                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => takeStarter(c.insert)}
               >{c.label}</button>
             ))}
@@ -749,7 +793,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 className="jc-phrase jc-phrase-arrow"
                 title={ch === ARROW ? C.arrowTitle : C.arrowBackTitle}
                 aria-label={ch === ARROW ? C.arrowTitle : C.arrowBackTitle}
-                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => takeArrow(ch)}
               >{ch}</button>
             ))}
@@ -757,7 +801,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
               <button
                 key={`n:${n.kind}:${n.id ?? n.name}`}
                 className={`jc-phrase jc-phrase-link jc-link-${n.kind}`}
-                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => takeName(n.name)}
               >{n.name}{n.hint && <em className="jc-phrase-hint">{n.hint}</em>}</button>
             ))}
@@ -765,8 +809,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
               <button
                 key={m.phrase}
                 className="jc-phrase"
-                // keep the textarea focused through the tap — no blur, no keyboard close
-                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => accept(m)}
               >{m.phrase}</button>
             ))}
@@ -782,7 +825,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 key={`p:${r.id}`}
                 className="jc-phrase jc-phrase-pendenz"
                 title={C.linkPendenzTitle}
-                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onLinkPendenz?.({ id: r.id, text: r.text })}
               ><span className="jc-ring" />{C.noteOnLabel}{r.text}</button>
             ))}
@@ -793,7 +836,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             All of it lives BELOW the text and above the media, in one quiet strip: the sentence is
             still what this surface is for, and none of these may look like a field that has to be
             filled in before it will accept one. */}
-        {(
+        {/* ⚠️ ONE wrapper around the Art strip and the media strip, and that is what it is for:
+            rung 2 of the ladder lays the two out side by side on a single line (see
+            10-journal.css · .jc-controls). Stacked, it is the sheet's own 8px column and changes
+            nothing. */}
+        <div className="jc-controls">
           <div className="jc-meta">
             {/* Art — quiet by design: three small chips, none preselected. «Info» is the
                 ordinary case and prints no marker at all (lib/journalEntry).
@@ -808,12 +855,24 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   type="button"
                   className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
                   aria-pressed={entryType === t}
+                  // ⚠️ The WORD is the accessible name on both rungs of the ladder — the compact
+                  // row shows the initial alone, and «I» is not something anybody can be asked to
+                  // tap. The plain label, never the hyphenated one: a soft hyphen has no business
+                  // in what a screen reader reads out or a tooltip shows.
+                  title={C.entryTypes[t]}
+                  aria-label={C.entryTypes[t]}
                   onClick={() => setEntryType((cur) => (cur === t ? null : t))}
-                  // ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
-                  // the plain one. This chip is the narrowest control on the sheet; the word that
-                  // has to wrap in it is a doctrine word, and where it breaks is not the browser's
-                  // guess to make. What gets WRITTEN is still `entryTypes` (lib/journalEntry).
-                >{C.entryTypesWrap[t] ?? C.entryTypes[t]}</button>
+                >
+                  {/* ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
+                      the plain one. This chip is the narrowest control on the sheet; the word that
+                      has to wrap in it is a doctrine word, and where it breaks is not the browser's
+                      guess to make. What gets WRITTEN is still `entryTypes` (lib/journalEntry). */}
+                  <span className="jc-chip-word">{C.entryTypesWrap[t] ?? C.entryTypes[t]}</span>
+                  {/* …and the single letter that stands for the word once there is no room for it
+                      (see 10-journal.css · .is-compact). Taken off the LOCALE's own label, so it is
+                      «I · A · S» in German and whatever the other three read in theirs. */}
+                  <span className="jc-chip-letter" aria-hidden>{C.entryTypes[t].charAt(0)}</span>
+                </button>
               ))}
               {/* ── … and whether anything has to come back to it ──
                   Separated from the three by a rule, because it answers a DIFFERENT question.
@@ -959,19 +1018,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
               </span>
             </div>
           </div>
-        )}
 
-        {/* media: record a voice memo or attach a photo — on EVERY entry now, including one that
-            carries a due time. An Erinnerung used to be text-only, which is why «Foto vom Zähler,
-            in 10 min nachschauen» had to be two rows. */}
-        {(<>
-          {/* ⚠️ `.file-picker`, never `hidden`: Safari opens a file chooser only for an input it
-              actually renders, so `.click()` on a display:none input is a silent no-op on iOS
-              (see 02-base.css). Off-screen and transparent, both pickers work on a phone. */}
-          <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple
-            className="file-picker" tabIndex={-1} onChange={onPhotoPicked} />
-          <input ref={audioFileRef} type="file" accept={AUDIO_IMPORT_ACCEPT}
-            className="file-picker" tabIndex={-1} onChange={(e) => void onAudioPicked(e)} />
+          {/* media: record a voice memo or attach a photo — on EVERY entry now, including one that
+              carries a due time. An Erinnerung used to be text-only, which is why «Foto vom
+              Zähler, in 10 min nachschauen» had to be two rows. */}
           <div className="jc-audio">
             {/* recording shows the stop square + the running time, NOT «Aufnahme stoppen · 22s»:
                 this button is one of three in a fixed 1fr grid and that label never fitted, so it
@@ -1005,37 +1055,46 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
               </span>
             )}
           </div>
-          {imported && (
-            <div className="jc-import">
-              <div className="jc-import-row">
-                <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
-                <span className="jc-import-name">
-                  <strong>{C.audioImportLabel}</strong>
-                  <em>{imported.name}{imported.durationSec != null ? ` · ${formatAudioDuration(imported.durationSec)}` : ''}</em>
-                </span>
-                <button className="jc-clip-x" title={C.audioDiscardImport} aria-label={C.audioDiscardImport} onClick={discardImport}><Icon id="close" /></button>
-              </div>
-              <div className="jc-import-start">
-                <span className="jc-due-label">{C.audioStartLabel}</span>
-                <TimeStepper hhmm={startHHMM} onChange={(v) => { setStartHHMM(v); setStartConfirmed(true) }} />
-                <button className={`jc-due-chip ${startConfirmed ? 'on' : ''}`} aria-pressed={startConfirmed} onClick={() => setStartConfirmed(true)}>
-                  <Icon id="check" />{C.audioStartConfirm}
-                </button>
-              </div>
-              <p className="jc-import-hint">{C.audioStartHint}</p>
+        </div>
+
+        {/* ⚠️ `.file-picker`, never `hidden`: Safari opens a file chooser only for an input it
+            actually renders, so `.click()` on a display:none input is a silent no-op on iOS
+            (see 02-base.css). Off-screen and transparent, both pickers work on a phone.
+            Fixed-positioned, so they are out of the sheet's flow wherever they sit. */}
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple
+          className="file-picker" tabIndex={-1} onChange={onPhotoPicked} />
+        <input ref={audioFileRef} type="file" accept={AUDIO_IMPORT_ACCEPT}
+          className="file-picker" tabIndex={-1} onChange={(e) => void onAudioPicked(e)} />
+        {imported && (
+          <div className="jc-import">
+            <div className="jc-import-row">
+              <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
+              <span className="jc-import-name">
+                <strong>{C.audioImportLabel}</strong>
+                <em>{imported.name}{imported.durationSec != null ? ` · ${formatAudioDuration(imported.durationSec)}` : ''}</em>
+              </span>
+              <button className="jc-clip-x" title={C.audioDiscardImport} aria-label={C.audioDiscardImport} onClick={discardImport}><Icon id="close" /></button>
             </div>
-          )}
-          {photos.length > 0 && (
-            <div className="jc-photos">
-              {photos.map((url) => (
-                <div className="jc-photo" key={url}>
-                  <img src={url} alt="" />
-                  <button className="jc-clip-x" title={C.discardPhoto} aria-label={C.discardPhoto} onClick={() => discardPhoto(url)}><Icon id="close" /></button>
-                </div>
-              ))}
+            <div className="jc-import-start">
+              <span className="jc-due-label">{C.audioStartLabel}</span>
+              <TimeStepper hhmm={startHHMM} onChange={(v) => { setStartHHMM(v); setStartConfirmed(true) }} />
+              <button className={`jc-due-chip ${startConfirmed ? 'on' : ''}`} aria-pressed={startConfirmed} onClick={() => setStartConfirmed(true)}>
+                <Icon id="check" />{C.audioStartConfirm}
+              </button>
             </div>
-          )}
-        </>)}
+            <p className="jc-import-hint">{C.audioStartHint}</p>
+          </div>
+        )}
+        {photos.length > 0 && (
+          <div className="jc-photos">
+            {photos.map((url) => (
+              <div className="jc-photo" key={url}>
+                <img src={url} alt="" />
+                <button className="jc-clip-x" title={C.discardPhoto} aria-label={C.discardPhoto} onClick={() => discardPhoto(url)}><Icon id="close" /></button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* the send, alone. The pin moved up into the media row (see .jc-audio) — it describes
             the entry, not the act of saving it, and «Erfassen» is the one thing on this sheet

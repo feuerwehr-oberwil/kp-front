@@ -177,6 +177,9 @@
    think to tap. A mix off --ink carries the same weight in both themes. */
 .jc-phrase { min-height: 44px; padding: 8px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
   border: none; border-radius: var(--r-pill); color: var(--ink);
+  /* like every other control on this sheet: the press is said by :active below, not by the
+     platform's grey wash (which lingers on the chip a beat after the finger is gone) */
+  -webkit-tap-highlight-color: transparent;
   background: color-mix(in srgb, var(--ink) 8%, transparent); }
 /* a NAME suggestion is a different offer from a Textbaustein — it completes the WORD under the
    cursor rather than the sentence, and what it carries is the spelling the rest of the app uses.
@@ -187,7 +190,17 @@
 .jc-link-partner { background: color-mix(in srgb, var(--amber) 17%, transparent); color: var(--amber-strong); }
 .jc-link-vehicle { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
 .jc-link-group { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
-.jc-phrase:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+/* ⚠️ HOVER ONLY WHERE A POINTER CAN LEAVE AGAIN — the same instrument the Ebenen list uses
+   (05-navrail.css · .lrow). On a touchscreen :hover sticks to whatever was tapped last, so a
+   Textbaustein stayed lit long after the finger was gone; in a row whose last chip DOES change
+   the sheet, a lit chip reads as «this one is selected», which is not a state this row has.
+   Nothing is lost on touch: the inserted text is the feedback, and the press has its own. */
+@media (hover: hover) {
+  .jc-phrase:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+}
+/* press = shrink, like every other :active in the app (02-base.css). It is over when the finger
+   is up, which is exactly what «tap, and the word is in the sentence» should feel like. */
+.jc-phrase:active { transform: scale(.96); }
 
 /* ── Von / Art ────────────────────────────────────────────────────────────────────────────
    One quiet strip under the text. Deliberately NOT field-shaped: the sentence is what this
@@ -254,7 +267,11 @@
    system-ui, which reported one line at every width while Sora wrapped in the real sheet. */
 .jc-meta-row:has(.jc-openwrap) { gap: 6px; }
 .jc-meta-row:has(.jc-openwrap) .jc-chip { padding: 5px 3px; font-size: 11.5px; }
-.jc-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+/* gated like the chips above it: these DO have a selected state (.on), so a hover left behind by
+   a finger is a lie about which Art this entry carries */
+@media (hover: hover) {
+  .jc-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+}
 /* --blue, never --accent: this is a SELECTED state, and --accent is the deployment's brand red */
 .jc-chip.on { color: var(--blue-strong); font-weight: 700;
   background: color-mix(in srgb, var(--blue) 16%, transparent);
@@ -397,7 +414,9 @@
 .jc-open, .jc-due-btn { min-width: 0; min-height: var(--tap); padding: 0; border-radius: var(--r-sm); cursor: pointer;
   display: grid; place-items: center; border: 1px solid var(--glass-edge); background: var(--surface);
   color: var(--ink-faint); -webkit-tap-highlight-color: transparent; }
-.jc-open:hover, .jc-due-btn:hover { color: var(--ink-dim); border-color: var(--ink-faint); }
+@media (hover: hover) {
+  .jc-open:hover, .jc-due-btn:hover { color: var(--ink-dim); border-color: var(--ink-faint); }
+}
 .jc-ring { width: 21px; height: 21px; border-radius: 50%; border: 2px solid currentColor;
   display: grid; place-items: center; }
 /* the urgency mark, drawn rather than iconised: a bar + a dot on the solid disc. The `warn`

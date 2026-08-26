@@ -25,7 +25,11 @@ import { useEffect, useRef, useState } from 'react'
  */
 
 export const NODE_HOLD_ARM_MS = 250
-export const NODE_HOLD_FIRE_MS = 900
+/** 900 → 825 (26.08. field test): the ring read as slow with a glove on, and the whole gesture is
+ *  performed a dozen times while a hose is being reshaped. The ring is painted from the SAME two
+ *  numbers (`progress` below), so shortening the hold shortens the fill — the promise the ring
+ *  makes and the moment the node goes cannot drift apart. */
+export const NODE_HOLD_FIRE_MS = 825
 export const NODE_HOLD_MOVE_PX = 10
 /** ~30 Hz — enough for a ring that fills over half a second, cheap enough for a marker layer */
 const TICK_MS = 33

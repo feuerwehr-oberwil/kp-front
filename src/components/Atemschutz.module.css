@@ -656,7 +656,10 @@ button.stepVal:hover { border-color: var(--blue); }
 /* a slot nobody is in yet: the shape of the row, none of its weight */
 /* ⚠️ The same left inset and gap as a FILLED row (.teamPick), so the role column lines up down
    the whole stack — «GF» over «AdF» over a name has to be one column, not three near-misses. */
-.teamRowEmpty { border-style: dashed; background: none; padding-left: 8px; gap: 9px; color: var(--ink-faint); }
+/* ⚠️ The inset and gap live on the button INSIDE (.teamPick, same values a filled row uses), not
+   on the row — an empty slot is tappable too, and a hit area that stops short of the dashes is
+   the one place the tap has to land. */
+.teamRowEmpty { border-style: dashed; background: none; color: var(--ink-faint); }
 .teamRowEmpty .teamName { color: var(--ink-faint); font-weight: 600; }
 /* the ROLE is what an empty slot has to say («GF», «AdF»), so it reads a shade stronger than the
    placeholder beside it — otherwise the one piece of information on the row is the faintest */
@@ -683,6 +686,18 @@ button.stepVal:hover { border-color: var(--blue); }
 
 .teamSearch { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
+/* «hier, nicht dort» — a tap on an empty slot lands the caret in here and blinks the field once,
+   because the slot above looks like something you can type into and is not. Two beats and gone:
+   the same gesture as the card flash (truppFlash), and INK rather than a status colour or
+   --accent — the brand red means «Alarm» everywhere else on this surface. */
+@keyframes teamSearchFlash {
+  0%, 30%, 70% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
+  15%, 50%, 100% { box-shadow: 0 0 0 3px transparent; }
+}
+.teamSearchHint { animation: teamSearchFlash 1.1s ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  .teamSearchHint { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
+}
 .teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
 .teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
   font-family: var(--body); font-size: 15px; color: var(--ink); padding: 0; }

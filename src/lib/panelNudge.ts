@@ -74,6 +74,57 @@ export function panelNudgeBoxUp(
   return dy > 0 ? [0, dy] : null
 }
 
+/**
+ * ── Grosse Auswahl: der getippte Punkt zählt ──────────────────────────────────────────────────
+ * Does the whole selection still fit in the open strip beside the panel? If it does, its BOX is a
+ * fair description of «where the operator is looking» and the box nudge brings all of it clear.
+ * If it does not — a hose line drawn right across the screen — the box says nothing useful: its
+ * far edge is somewhere off-stage, and clearing that edge pans the map past the piece of the line
+ * that was actually tapped.
+ */
+export function fitsBesidePanel(box: NudgeBox, panel: NudgeRect, margin = NUDGE_MARGIN): boolean {
+  return box.maxX - box.minX <= panel.left - 2 * margin
+}
+
+/** The bottom-sheet twin: does the extent fit in the strip above the sheet? */
+export function fitsAbovePanel(box: NudgeBox, panel: { top: number }, margin = NUDGE_MARGIN): boolean {
+  return box.maxY - box.minY <= panel.top - 2 * margin
+}
+
+/**
+ * The nudge both surfaces actually call for a selected drawing: box rule for anything that fits,
+ * TAP POINT for anything that does not.
+ *
+ * ⚠️ On a screen-spanning line the box rule overshot (26.08. field test) — tapping a long Leitung
+ * threw the map sideways, away from the spot that had just been aimed at. Anchoring on the tap
+ * point fixes both halves of that: the pan is measured from the place the finger actually was, and
+ * a tap that was already clear of the panel moves the camera not at all (`panelNudge` returns null
+ * there). Without a tap point — a Verlauf jump, a freshly finished stroke — nothing changes: the
+ * box rule still runs, so small objects behave exactly as before.
+ */
+export function panelNudgeSelection(
+  box: NudgeBox,
+  tap: { x: number; y: number } | null | undefined,
+  panel: NudgeRect,
+  margin = NUDGE_MARGIN,
+): [number, number] | null {
+  return tap && !fitsBesidePanel(box, panel, margin)
+    ? panelNudge(tap, panel, margin)
+    : panelNudgeBox(box, panel, margin)
+}
+
+/** Bottom-sheet twin of `panelNudgeSelection` (phones): same rule, straight up. */
+export function panelNudgeSelectionUp(
+  box: NudgeBox,
+  tap: { x: number; y: number } | null | undefined,
+  panel: { top: number },
+  margin = NUDGE_MARGIN,
+): [number, number] | null {
+  return tap && !fitsAbovePanel(box, panel, margin)
+    ? panelNudgeUp(tap, panel, margin)
+    : panelNudgeBoxUp(box, panel, margin)
+}
+
 /** a panel covering (almost) the surface's full width is the bottom-sheet presentation */
 export function isBottomSheet(panelWidth: number, surfaceWidth: number): boolean {
   return panelWidth >= surfaceWidth * 0.9

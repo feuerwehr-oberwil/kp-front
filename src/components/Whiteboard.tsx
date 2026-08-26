@@ -9,14 +9,15 @@ import { PdfViewport, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
-import { resolveLinePreset, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { resolveLinePreset, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { Overlay } from '../lib/overlays'
-import { panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from '../lib/panelNudge'
+import { panelNudgeSelection, panelNudgeSelectionUp, isBottomSheet } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
@@ -28,7 +29,7 @@ import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { pathMetres, polyAreaM2, type PlanScale } from '../lib/planScale'
 import { MeasurePanel } from './MeasurePanel'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
@@ -39,7 +40,7 @@ import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
 import { buildView, remapPoint, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
-import { MAX_SCALE, MIN_SCALE, useBoardView } from './useBoardView'
+import { MAX_SCALE, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
 import { useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbInkLayer, WbVertexHandles } from './WbControls'
@@ -135,6 +136,12 @@ interface Props {
    *  Verlauf. Keyed by plan id, so it stays per-plan-document. See useBoardDoc · BoardHistory. */
   hist: BoardHistory
   setHist: React.Dispatch<React.SetStateAction<BoardHistory>>
+  /** ⚠️ The per-plan zoom/pan memory, also held by the caller and for the same reason as `hist`:
+   *  a glance at the Lage unmounts this component, and a board that reset to «eingepasst» every
+   *  time you looked away is a board you have to re-find your way around on every return. A REF,
+   *  not state — the Lage map keeps its live view out of state too, so panning re-renders the
+   *  board and nothing above it. Omitted ⇒ every plan opens fitted (see useBoardView · memory). */
+  views?: React.MutableRefObject<BoardViews>
   /** expose fit-to-view so the phone top bar can offer Fit instead of a floating cluster. */
   fitRef?: React.MutableRefObject<(() => void) | null>
   /** expose tool-pick + zoom so the global keyboard-shortcut layer (App) can drive the Plan
@@ -199,7 +206,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -256,6 +263,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const draftAttachments = useRef<{ startAttachment?: LineAttachment; endAttachment?: LineAttachment }>({})
   // the single Linie tool's input mode: Freihand (drag) ↔ Punkte (tap each vertex), like the Lage map
   const [lineMode, setLineMode] = useState<'freehand' | 'nodes'>('freehand')
+  /** Where the selected anno was TAPPED (client px), paired with its id so a selection that
+   *  arrived some other way can't borrow a stale point. Read only by the panel nudge. */
+  const [annoTap, setAnnoTap] = useState<{ id: string; x: number; y: number } | null>(null)
   // sticky line preset (Freihand / Messpfeil / Rettungsachse) baked into a new line + editable after,
   // mirroring the Lage map. Chosen in the post-draw editor now, not the dock.
   const [linePreset, setLinePreset] = useState<string>(appConfig.drawing.linePresets[0].id)
@@ -314,8 +324,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const groupMove = useRef<{ sx: number; sy: number } | null>(null)
   type GrpOrig = { id: string; floor: number; bx?: number; by?: number; bpts?: BoardPoint[] }
   const groupOrig = useRef<GrpOrig[]>([])
-  // zoom/pan view state (layout-based zoom + focal wheel-zoom) lives in a hook
-  const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef, canvasEl)
+  // zoom/pan view state (layout-based zoom + focal wheel-zoom) lives in a hook, which also
+  // remembers it per plan across a surface switch — `signature` says when a remembered view has
+  // gone stale (the plan's image / floor stack / calibration changed under it).
+  const viewMemory = views
+    ? { views, planId: activeId, signature: boardViewSignature(active, building, planScale[activeId]) }
+    : undefined
+  const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef, canvasEl, viewMemory)
 
   const osm = active.osm
   // floor-stack: a vertical stack of footprint sheets (top = highest storey)
@@ -461,11 +476,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     closeCalPrompt, commitCalibration,
   } = usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate })
 
-  // reset view + transient state when switching document; seed an aspect from the
+  // reset transient state when switching document; seed an aspect from the
   // orientation (image docs refine it on load, blank sheets keep it). Sits BELOW the hook
   // because it clears the state the hook owns — above it, resetEphemeral is not yet declared.
+  // ⚠️ The VIEW is no longer reset here: useBoardView restores the plan's remembered zoom/pan
+  // (falling back to fit on a first visit), and a reset here would run after it and undo it.
   useEffect(() => {
-    applyView(1, { x: 0, y: 0 }); setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null)
+    setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null)
     resetEphemeral() // the measure/calibrate state usePlanMeasure owns
     if (tool === 'symbol') setTool('pan')
     setAspect(active.orientation === 'portrait' ? 1.414 : 1 / 1.414)
@@ -659,7 +676,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // a second finger means "pinch-zoom", not "place another point": abort an in-progress
       // freehand stroke (node/area drafts keep their tapped vertices) and start the pinch
       e.stopPropagation()
-      if (tool === 'line' && lineMode === 'freehand') { setDraft(null); finishPlanDraftMagnet() }
+      // an aborted stroke leaves no line, so it may leave no attachment either — the start one
+      // armed on pointerdown would otherwise ride along into the next line (see inkUp)
+      if (tool === 'line' && lineMode === 'freehand') { setDraft(null); finishPlanDraftMagnet(); draftAttachments.current = {} }
       inkTap.current = null // a second finger → pinch-zoom, not a node tap
       inkPinch.current = inkPinchPts()?.dist ?? null
       return
@@ -839,14 +858,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     if (tool === 'line' && lineMode === 'freehand' && draft) {
+      // ⚠️ The magnet is settled BEFORE the line is built. `finishPlanDraftMagnet` is what writes an
+      // armed END attachment into `draftAttachments`, and `addLine` is what consumes that ref and
+      // empties it — in the other order the end attachment missed its own line and was left lying
+      // in the ref for whatever got drawn next.
+      finishPlanDraftMagnet()
       // thin the raw stroke into a clean, editable polyline (drops the point clusters a slow finger
       // dumps at the start/end). Node-mode lines keep their explicit taps (finishShape doesn't thin).
-      if (draft.length >= 2) {
-        const idx = rdpIndices(draft.map(([x, y, floor]) => [x * sW, mapY(floor ?? draftFloor.current, y) * sH]), FREEHAND_SIMPLIFY_PX)
+      const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloor.current, y) * sH])
+      if (!isTapStroke(px)) {
+        const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
         addLine(idx.map((i) => draft[i]))
+      } else {
+        // ── Abheben ist der Rückzieher ──────────────────────────────────────────────────────
+        // The stroke went nowhere, so nothing may be left behind — least of all the start
+        // attachment that armed the instant the finger landed on a target (lineAttachments ·
+        // armDwell). Without this the next line drawn anywhere on the plan inherited it.
+        draftAttachments.current = {}
       }
       setDraft(null)
-      finishPlanDraftMagnet()
     }
   }
   // create a Linie from a finished path (a freehand drag OR a node-tapped draft), baking the sticky
@@ -900,6 +930,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // can't link anything.
     if (onPickLine) { onPickLine(id); return }
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for a stroke
+    // too big for its bounds to mean anything (lib/panelNudge · panelNudgeSelection). Client px,
+    // the same space the nudge's box is built in.
+    setAnnoTap({ id, x: e.clientX, y: e.clientY })
     setSelId(id); setSelIds([])
     const a = annos.find((x) => x.id === id); if (!a || (a.kind !== 'draw' && a.kind !== 'area')) return
     // snapshot the vertices in board-space (y mapped to the stacked board), so the delta is always
@@ -1160,8 +1194,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     else if (drawDrag.current) drawMove(e)
     else if (vertDrag.current) vertMove(e)
     else if (measDragging()) measMove(e)
+    // once an object is really travelling (past the shared deadzone), the phone detail sheet
+    // peeks down to its grip line so the board isn't reduced to a strip — lib/sheetPeek
+    if (chipDrag.current?.moved || drawDrag.current?.moved || vertDrag.current?.moved) beginSheetPeek()
   }
-  const manipUp = () => { chipUp(); drawUp(); vertUp(); measUp() }
+  const manipUp = () => { endSheetPeek(); chipUp(); drawUp(); vertUp(); measUp() }
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
@@ -1330,6 +1367,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
   const grpMove = (e: React.PointerEvent) => {
     const st = groupMove.current; if (!st) return
+    beginSheetPeek()
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
     const ndx = (e.clientX - st.sx) / rect.width, ndy = (e.clientY - st.sy) / rect.height
     // move within each anno's own storey (floor unchanged), consistent with the flat map group-move
@@ -1344,6 +1382,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }))
   }
   const grpUp = () => {
+    endSheetPeek()
     if (!groupMove.current) return
     groupMove.current = null
     annos.filter((a) => selIds.includes(a.id)).forEach((a) => emit('board.move', { id: a.id, x: a.x, y: a.y, floor: a.floor, planId: activeId }))
@@ -1420,9 +1459,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         box.minX -= half; box.maxX += half
       }
       // phone bottom sheet → nudge up; desktop/tablet side panel → nudge left
+      const tap = annoTap?.id === selId ? { x: annoTap.x, y: annoTap.y } : null
       const nudge = isBottomSheet(r.width, window.innerWidth)
-        ? panelNudgeBoxUp(box, { top: r.top })
-        : panelNudgeBox(box, { left: r.left, top: r.top, bottom: r.bottom })
+        ? panelNudgeSelectionUp(box, tap, { top: r.top })
+        : panelNudgeSelection(box, tap, { left: r.left, top: r.top, bottom: r.bottom })
       if (nudge) applyView(scaleRef.current, { x: posRef.current.x - nudge[0], y: posRef.current.y - nudge[1] })
     })
     return () => cancelAnimationFrame(raf)
@@ -1500,6 +1540,29 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
   // a selected generic shape — colour via the same ShapeEditor sheet as the Lage map
   const selShape = annos.find((a) => a.id === selId && a.kind === 'shape')
+
+  /**
+   * «Richtung umkehren» on the plan — the twin of the Lage's useMapDrawing · reverseDrawing, built
+   * on the SAME rule (lib/lineAttachments · flipLine): the point order turns around so the
+   * Abschluss and the end tag move to the other end, the drawn line stays exactly where it is, and
+   * every attachment — this line's own two AND every other line hooked to one of its ends — keeps
+   * the coordinate it was sitting on. One `commit` = one undo step for all of it.
+   * (The end tag's own nudge, `endDx`/`endDy`, is a RELATIVE offset from wherever the tag belongs,
+   * so unlike the Lage's absolute `endLabelAt` it survives the flip unchanged.)
+   */
+  const reverseAnno = () => {
+    if (!selDraw?.pts || selDraw.pts.length < 2 || selDraw.kind !== 'draw') return
+    const lines = annos.filter((a) => a.kind === 'draw' && (a.pts?.length ?? 0) >= 2)
+      .map((a) => ({ id: a.id, points: a.pts!, startAttachment: a.startAttachment, endAttachment: a.endAttachment }))
+    const flip = flipLine({ id: selDraw.id, points: selDraw.pts, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }, lines)
+    commit(annos.map((a) => {
+      if (a.id === selDraw.id) return { ...a, pts: flip.points, startAttachment: flip.startAttachment, endAttachment: flip.endAttachment }
+      const mine = flip.incoming.filter((i) => i.lineId === a.id)
+      return mine.reduce((acc, i) => ({ ...acc, [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }), a)
+    }))
+    emit('board.edit', { id: selDraw.id, patch: { pts: flip.points, startAttachment: flip.startAttachment, endAttachment: flip.endAttachment }, planId: activeId })
+    flip.incoming.forEach((i) => emit('board.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }, planId: activeId }))
+  }
 
   const changePlanEnding = async (ending: 'none' | 'arrow' | 'teilstueck') => {
     if (!selDraw) return
@@ -1604,13 +1667,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // what the Einsatz is called by. The name is still what the picker and its toast say, because
   // that is where an object is searched for. Name is the fallback when there is no address.
   const objectChipName = objectAddress ?? objectName ?? appConfig.copy.whiteboard.objectNone
-  // The leading glyph is dropped on exactly two surfaces. On the Gebäude tile (both faces —
-  // outline picker and floor stack) the chip right next to it already carries the building
-  // glyph, so the row read as two building icons and one address; on the blank Tafel there is
-  // no plan for a glyph to qualify. Everywhere else it stays: it is what marks the address out
-  // as the OBJECT rather than a Maßstab or a label. Field feedback 25.08.
-  const objectChipGlyph = !(osm || active.floorStack || active.id === 'tafel')
-  const objectChip = (
+  // The chip is dropped whole on exactly two surfaces. The Gebäude tile (both faces — outline
+  // picker and floor stack) already answers «welches Gebäude» with the chip right beside it,
+  // which walks to the picker that changes it; the object read-out only repeated that in a
+  // second pill nobody could act on. The blank Tafel has no plan for it to be about at all.
+  // Everywhere else it stays: on a plan page nothing else names the object the sheet belongs to.
+  // Field feedback 25.08.
+  const objectChipHidden = osm || !!active.floorStack || active.id === 'tafel'
+  const objectChip = objectChipHidden ? null : (
     <button
       type="button"
       className="wb-scale-chip wb-object"
@@ -1626,7 +1690,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       disabled={!onObjectSwitch}
       onClick={onObjectSwitch}
     >
-      {objectChipGlyph && <Icon id="footprint" />}
+      <Icon id="footprint" />
       <span>{objectChipName}</span>
     </button>
   )
@@ -2544,6 +2608,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onMarker={(marker) => patchCommit(selDraw.id, { marker: marker || undefined })}
           onArrow={(arrow) => patchCommit(selDraw.id, { arrow: arrow || undefined })}
           onEnding={(ending) => void changePlanEnding(ending)}
+          onReverse={selDraw.kind === 'draw' ? reverseAnno : undefined}
           onContent={(content) => patchCommit(selDraw.id, { content })}
           onLineNo={(lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
           onFloorTag={(floorTag) => patchCommit(selDraw.id, { floorTag })}

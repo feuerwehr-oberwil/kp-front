@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LineAttachment } from '../types'
 import {
   advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress,
-  DETACH_SHOW_PROGRESS, EMPTY_DWELL, endpointCapacity,
+  DETACH_SHOW_PROGRESS, EMPTY_DWELL, endpointCapacity, flipLine,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, materializeEndpoint, moveLineBody,
   nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
   wouldCreateCycle, type AttachableLine, type MagneticTarget,
@@ -197,5 +197,79 @@ describe('per-vertex Plan floors', () => {
     const l: AttachableLine<[number, number] | [number, number, number]> = { id: 'p', points: [[0, 0], [1, 1, 2]] }
     const moved = applyRouting(l.points, 'end', [2, 2, 3], 'direct')
     expect(moved).toEqual([[0, 0], [2, 2, 3]])
+  })
+})
+
+// «Richtung umkehren» — the one rule both surfaces flip a line by. The whole point is that NOTHING
+// visibly moves except the Abschluss: the drawn path stays, and every attachment keeps the exact
+// coordinate it was hanging on, from both directions.
+describe('flipLine', () => {
+  const obj = (id: string): LineAttachment => ({ target: { kind: 'object', id }, routing: 'direct' })
+  const onLine = (id: string, endpoint: 'start' | 'end'): LineAttachment => ({ target: { kind: 'line', id, endpoint }, routing: 'direct' })
+
+  it('reverses the points and swaps the line\'s own two attachments', () => {
+    const hose: AttachableLine = { id: 'h', points: [[0, 0], [1, 0], [2, 0]], startAttachment: obj('tlf'), endAttachment: obj('haus') }
+    const f = flipLine(hose, [hose])
+    expect(f.points).toEqual([[2, 0], [1, 0], [0, 0]])
+    // the TLF sat on [0,0]; that coordinate is now the LAST point, so it is the end attachment
+    expect(f.endAttachment).toEqual(obj('tlf'))
+    expect(f.startAttachment).toEqual(obj('haus'))
+  })
+
+  it('leaves an attachment-free line alone but for its order', () => {
+    const f = flipLine({ id: 'h', points: [[0, 0], [3, 4]] }, [])
+    expect(f.points).toEqual([[3, 4], [0, 0]])
+    expect(f.startAttachment).toBeUndefined()
+    expect(f.endAttachment).toBeUndefined()
+    expect(f.incoming).toEqual([])
+  })
+
+  it('re-points every line hooked to it, so a branch stays on the tip it was coupled to', () => {
+    const hose: AttachableLine = { id: 'h', points: [[0, 0], [2, 0]] }
+    const branch: AttachableLine = { id: 'b', points: [[2, 0], [2, 2]], startAttachment: onLine('h', 'end') }
+    const f = flipLine(hose, [hose, branch])
+    // the branch hangs on the coordinate [2,0] — after the flip that is the hose's START
+    expect(f.incoming).toEqual([{ lineId: 'b', endpoint: 'start', attachment: onLine('h', 'start') }])
+  })
+
+  it('carries a port (Teilstück prong) across untouched', () => {
+    const hose: AttachableLine = { id: 'h', points: [[0, 0], [2, 0]], teilstueck: true }
+    const branch: AttachableLine = { id: 'b', points: [[2, 0], [2, 2]], endAttachment: { ...onLine('h', 'end'), port: 2 } }
+    const f = flipLine(hose, [hose, branch])
+    expect(f.incoming[0].attachment.port).toBe(2)
+    expect(f.incoming[0].attachment.target).toEqual({ kind: 'line', id: 'h', endpoint: 'start' })
+  })
+
+  it('ignores lines hooked to something else, and never rewrites the flipped line via `incoming`', () => {
+    const hose: AttachableLine = { id: 'h', points: [[0, 0], [2, 0]], startAttachment: onLine('other', 'end') }
+    const elsewhere: AttachableLine = { id: 'x', points: [[9, 9], [8, 8]], startAttachment: onLine('other', 'start') }
+    const f = flipLine(hose, [hose, elsewhere])
+    expect(f.incoming).toEqual([])
+    // its own link to `other` travelled with its coordinate instead
+    expect(f.endAttachment).toEqual(onLine('other', 'end'))
+  })
+
+  it('is its own inverse — flipping twice restores the line and everything on it', () => {
+    const hose: AttachableLine = { id: 'h', points: [[0, 0], [1, 1], [2, 0]], startAttachment: obj('tlf'), endAttachment: obj('haus') }
+    const branch: AttachableLine = { id: 'b', points: [[2, 0], [3, 0]], startAttachment: onLine('h', 'end') }
+    const once = flipLine(hose, [hose, branch])
+    const branch1: AttachableLine = { ...branch, startAttachment: once.incoming[0].attachment }
+    const hose1: AttachableLine = { ...hose, points: once.points, startAttachment: once.startAttachment, endAttachment: once.endAttachment }
+    const twice = flipLine(hose1, [hose1, branch1])
+    expect(twice.points).toEqual(hose.points)
+    expect(twice.startAttachment).toEqual(hose.startAttachment)
+    expect(twice.endAttachment).toEqual(hose.endAttachment)
+    expect(twice.incoming[0].attachment).toEqual(branch.startAttachment)
+  })
+
+  it('the flipped geometry still resolves both ends onto their targets', () => {
+    const hose: AttachableLine = { id: 'h', points: [[0, 0], [5, 0]], startAttachment: obj('tlf'), endAttachment: obj('haus') }
+    const f = flipLine(hose, [hose])
+    const flipped: AttachableLine = { ...hose, points: f.points, startAttachment: f.startAttachment, endAttachment: f.endAttachment }
+    const at: Record<string, [number, number]> = { tlf: [0, 0], haus: [5, 0] }
+    const resolved = resolveLinePoints(flipped, { lines: [flipped], objectPoint: (id) => at[id] ?? null })
+    // start = the Haus it now leaves from, end = the TLF — both still ON their object
+    expect(resolved[0]).toEqual([5, 0])
+    expect(resolved[resolved.length - 1]).toEqual([0, 0])
   })
 })

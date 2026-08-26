@@ -1862,6 +1862,9 @@ export const de = {
     endingNone: 'Keiner',
     endingArrow: 'Pfeil',
     endingTeilstueck: 'Teilstück',
+    // Dreht die Punktreihenfolge um – der Abschluss (Pfeil bzw. Teilstück-«E») sitzt danach am
+    // anderen Ende. Die Linie selbst bleibt, wo sie ist.
+    reverse: 'Richtung umkehren',
     content: 'Inhalt',
     contentPlain: 'Wasser',
     lineNo: 'Leitung Nr.',
@@ -2595,16 +2598,26 @@ export const de = {
     // what came of it.
     syncDone: 'Alles synchronisiert',
     syncFailedToast: 'Synchronisieren fehlgeschlagen – Änderungen bleiben lokal gespeichert.',
-    // group titles in the menu: this Einsatz first (header card), then WHICH Einsatz, then the app.
+    // group titles in the menu: this Einsatz first (its card), then WHICH Einsatz, then the app.
     incidents: 'Einsätze',
+    // heads the abgeschlossenen Einsätze under the laufenden ones – «Archiv» bleibt der Liste
+    // vorbehalten (siehe archived), hier geht es nur um «nicht mehr aktuell».
+    earlier: 'Frühere',
     app: 'App',
     allIncidents: 'Alle Einsätze',
+    // …mit Anzahl, sobald das Menü das Archiv geladen hat und die Zahl vollständig ist
+    allIncidentsN: 'Alle Einsätze ({n}) …',
     report: 'Einsatzrapport',
     // Correct Adresse, Kategorie, Stichwort — the same form as when opening. Also sits in the
     // Rapport («Aus den Einsatzdaten › Bearbeiten»); in the menu, because a wrong location gets
     // noticed long before anybody opens the Rapport.
     editMeta: 'Einsatzdaten bearbeiten',
     archive: 'Einsatz abschliessen',
+    // Kurzformen für die Aktionen IN der Karte des aktiven Einsatzes: die Karte nennt den
+    // Einsatz schon in der Titelzeile, das Wort davor wäre dreimal dasselbe. Die vollen
+    // Beschriftungen bleiben als title/aria-label an den Knöpfen.
+    editMetaShort: 'Bearbeiten',
+    archiveShort: 'Abschliessen',
     // der Zähler schon im Menü, damit die Prüfung sichtbar ist, bevor jemand drückt
     archiveOpen: '{n} offen',
     noOpenIncidents: 'Keine offenen Einsätze',

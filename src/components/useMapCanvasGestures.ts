@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { Map as MlMap } from 'maplibre-gl'
 import type { Drawing, Entity, LineAttachment, LngLat } from '../types'
 import { haversineM } from '../lib/geo'
-import { rdpIndices, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { isMarqueeTap, marqueeContains, type MarqueeRect } from '../lib/marquee'
 
 type Rect = MarqueeRect
@@ -96,8 +96,16 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
         // thin the raw stroke into a clean, editable polyline before committing — project to
         // screen px so the tolerance is zoom-correct, keep the RDP nodes (parity with the Plan).
         const px = p.map((c) => { const pt = map.project(c as [number, number]); return [pt.x, pt.y] as [number, number] })
-        const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
-        onFreehandRef.current(idx.length >= 2 ? idx.map((i) => p[i]) : p, attachments)
+        // ── Abheben ist der Rückzieher ────────────────────────────────────────────────────────
+        // …but only if the stroke went somewhere. A pointerdown that lands on a target arms its
+        // start attachment at once, so letting go without drawing has to be the way back out — and
+        // a fingertip's wobble makes two coordinates, which used to be enough to commit a stub of a
+        // line, already coupled to whatever it started on (26.08. field test). `attachments` above
+        // is still collected: that call is what clears the magnet ring off the screen.
+        if (!isTapStroke(px)) {
+          const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
+          onFreehandRef.current(idx.length >= 2 ? idx.map((i) => p[i]) : p, attachments)
+        }
       }
     }
     const onTouchStart = (e: any) => {

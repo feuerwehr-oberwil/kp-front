@@ -121,12 +121,18 @@ export function IconSprite() {
       <symbol id="wind" viewBox="0 0 24 24"><path d="M3 8h11a2.5 2.5 0 1 0-2.5-2.5" /><path d="M3 16h15a2.5 2.5 0 1 1-2.5 2.5" /><path d="M3 12h7a2 2 0 1 0-2-2" /></symbol>
       <symbol id="moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z" /></symbol>
       <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.2 5.2l1.7 1.7M17.1 17.1l1.7 1.7M18.8 5.2l-1.7 1.7M6.9 17.1l-1.7 1.7" /></symbol>
-      <symbol id="wx-cloud" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 18z" /></symbol>
-      <symbol id="wx-partly" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.2" /><path d="M8 1.8v1.6M1.8 8h1.6M3.6 3.6l1.1 1.1M12.4 3.6l-1.1 1.1" /><path d="M9 19a3.5 3.5 0 0 1-.4-6.98 4.8 4.8 0 0 1 9.2-.9A3.3 3.3 0 0 1 18 19z" /></symbol>
-      <symbol id="wx-rain" viewBox="0 0 24 24"><path d="M7 15a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 15z" /><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5" /></symbol>
-      <symbol id="wx-snow" viewBox="0 0 24 24"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M8.5 18.5v2M11.5 17.5v2M14.5 18.5v2" stroke-linecap="round" /></symbol>
-      <symbol id="wx-fog" viewBox="0 0 24 24"><path d="M7 12a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 12z" /><path d="M5 16h14M7 19.5h12" stroke-linecap="round" /></symbol>
-      <symbol id="wx-storm" viewBox="0 0 24 24"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M12 14l-2.5 4h3l-2 3.5" /></symbol>
+      {/* Present-weather family (WindBadge · TopBar). All six embed the SAME cloud silhouette,
+          each translated down by the room its accessory needs below it — and the fog variant
+          rides so high that its top arc fell outside the 0 0 24 24 box and was cropped flat by
+          the <symbol> viewport (snow and storm cleared that edge by a third of a stroke). The
+          box was too small, not the cloud: one shared "-1 -2 26 26" gives the whole family the
+          headroom and keeps the six the same size as each other. */}
+      <symbol id="wx-cloud" viewBox="-1 -2 26 26"><path d="M7 18a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 18z" /></symbol>
+      <symbol id="wx-partly" viewBox="-1 -2 26 26"><circle cx="8" cy="8" r="3.2" /><path d="M8 1.8v1.6M1.8 8h1.6M3.6 3.6l1.1 1.1M12.4 3.6l-1.1 1.1" /><path d="M9 19a3.5 3.5 0 0 1-.4-6.98 4.8 4.8 0 0 1 9.2-.9A3.3 3.3 0 0 1 18 19z" /></symbol>
+      <symbol id="wx-rain" viewBox="-1 -2 26 26"><path d="M7 15a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 15z" /><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5" /></symbol>
+      <symbol id="wx-snow" viewBox="-1 -2 26 26"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M8.5 18.5v2M11.5 17.5v2M14.5 18.5v2" stroke-linecap="round" /></symbol>
+      <symbol id="wx-fog" viewBox="-1 -2 26 26"><path d="M7 12a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 12z" /><path d="M5 16h14M7 19.5h12" stroke-linecap="round" /></symbol>
+      <symbol id="wx-storm" viewBox="-1 -2 26 26"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M12 14l-2.5 4h3l-2 3.5" /></symbol>
       {/* leaving the app: the station's own forms on the Rapport (Formulare & Links) */}
       <symbol id="external" viewBox="0 0 24 24"><path d="M18 13.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.5" /><path d="M14.5 3H21v6.5M21 3l-9.5 9.5" /></symbol>
       <symbol id="share-ios" viewBox="0 0 24 24"><path d="M8 8.5H6.5A1.8 1.8 0 0 0 4.7 10.3v8.4a1.8 1.8 0 0 0 1.8 1.8h11a1.8 1.8 0 0 0 1.8-1.8v-8.4a1.8 1.8 0 0 0-1.8-1.8H16" /><path d="M12 14V3M8.5 6.5 12 3l3.5 3.5" /></symbol>
