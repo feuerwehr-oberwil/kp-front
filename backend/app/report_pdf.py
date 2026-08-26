@@ -297,6 +297,12 @@ class PlanAnnoIn(BaseModel):
     floorTo: int | None = None
     #: quantity badge at the bottom-right; 1 or absent = no badge
     count: int | None = None
+    #: the words the board shows UNDER the glyph — already composed by the client (lib/symbols ·
+    #: symbolCaptionText, the same call the Kroki payload makes), newline-separated for a
+    #: multi-line caption. The page prints them as a numbered disc + a legend line, never as a
+    #: chip: three chips within a few centimetres of one another on a plan are as unreadable on
+    #: paper as they were on the 08.08. Kroki, and a plan has no zoom.
+    caption: str | None = None
     #: FKS Entwicklung arrows around the glyph — {left, right, up, down, …Bounded} (+ the legacy
     #: {h, hBounded, vBounded} shape); see kroki._spread_dirs
     spread: dict | None = None
@@ -1033,6 +1039,57 @@ def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
     return Image(io.BytesIO(data), width=iw * scale, height=ih * scale)
 
 
+# --- the numbered legend under a picture ---------------------------------------------------
+# The renderer (app/kroki.py · _number_words) replaces every set of words on a picture with a
+# numbered disc and hands back the words themselves. This is where they land — on the Kroki page
+# and, since 26.08., on every annotated PLAN page, laid out identically so a reader who turns
+# from one sheet to the next reads the same thing the same way.
+
+
+def _legend_height(lines: list[str]) -> float:
+    """The room a legend claims BELOW its picture, so the picture is sized to what is left over
+    instead of pushing the block onto a second sheet. Two columns, hence half the rows."""
+    return (5 * mm + ((len(lines) + 1) // 2) * 4.6 * mm) if lines else 0.0
+
+
+def _legend_table(lines: list[str], width: float, st: dict[str, ParagraphStyle]) -> Table:
+    """«1 · Brandherd – Melder 3. OG» — numbers down the left of each column, full text beside.
+
+    ⚠️ TWO COLUMNS, directly under the picture (18.08.). One column of «1 …» ran the legend down
+    half the page for a Lage with eight labelled things, which pushed the picture itself smaller
+    (the block claims its room below) and put number 8 a hand's width away from the disc it
+    belongs to. Reading «wo ist die 4» is a scan between two places; the shorter that distance,
+    the less the numbering costs.
+    """
+    half = (len(lines) + 1) // 2
+    left, right = lines[:half], lines[half:]
+    num_w, col_gap = 7 * mm, 6 * mm
+    text_w = (width - col_gap) / 2 - num_w
+    rows = [
+        [
+            Paragraph(f"<b>{i + 1}</b>", st["cell"]),
+            Paragraph(_esc(left[i]), st["cell"]),
+            Paragraph(f"<b>{half + i + 1}</b>", st["cell"]) if i < len(right) else "",
+            Paragraph(_esc(right[i]), st["cell"]) if i < len(right) else "",
+        ]
+        for i in range(len(left))
+    ]
+    lt = Table(rows, colWidths=[num_w, text_w, num_w, text_w])
+    lt.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ]
+        )
+    )
+    lt.hAlign = "LEFT"
+    return lt
+
+
 # ----------------------------------------------------------------------------- composition
 
 # Print Kroki canvas size — the composer and the tile prewarm share it so both derive the
@@ -1602,29 +1659,37 @@ def compose_report_pdf(
     # legacy captured figures fall back. Rendered BEFORE the Kroki page is appended so
     # the Kroki's trailing page break can be skipped when plan pages follow (each plan
     # page issues its own template+break — two breaks in a row print an empty page).
-    plan_imgs: list[tuple[str, bytes, bool]] = []
+    #: label, PNG, landscape, legend — a plan page numbers its symbol captions exactly as the
+    #: Kroki does, so the words travel back out of the renderer the same way (legend_out)
+    plan_imgs: list[tuple[str, bytes, bool, list[str]]] = []
     for pp in payload.planPages:
         pdf_bytes = plan_pdfs.get(pp.url or "")
         if not pdf_bytes and not pp.blankAspect:
             continue
+        plan_legend: list[str] = []
         try:
             from . import kroki as kk
 
             rendered = (
-                kk.render_plan_page(pdf_bytes, [a.model_dump() for a in pp.annos], kk.get_pack())
+                kk.render_plan_page(
+                    pdf_bytes, [a.model_dump() for a in pp.annos], kk.get_pack(), legend_out=plan_legend
+                )
                 if pdf_bytes
-                else kk.render_blank_page(pp.blankAspect or 1.0, [a.model_dump() for a in pp.annos], kk.get_pack())
+                else kk.render_blank_page(
+                    pp.blankAspect or 1.0, [a.model_dump() for a in pp.annos], kk.get_pack(), legend_out=plan_legend
+                )
             )
         except Exception:  # noqa: BLE001 — a broken plan PDF must not sink the whole rapport
             logger.warning("Plan page %r could not be rendered; skipped", pp.label, exc_info=True)
             continue
         b = io.BytesIO()
         rendered.save(b, "PNG")
-        plan_imgs.append((pp.label, b.getvalue(), rendered.width >= rendered.height))
+        plan_imgs.append((pp.label, b.getvalue(), rendered.width >= rendered.height, plan_legend))
     for p in payload.plans:
         data = figures.get(p.key)
         if data:
-            plan_imgs.append((p.label, data, p.landscape))
+            # a legacy CAPTURED plan is pixels the client composed; it carries its own words
+            plan_imgs.append((p.label, data, p.landscape, []))
 
     if kroki_png:
         k_land = opt.krokiLandscape
@@ -1638,7 +1703,7 @@ def compose_report_pdf(
         # the legend claims its own room when there is one, so the picture is never squeezed
         # under a block that then overflows onto a second sheet
         # …and the room it claims halves with it: two columns are half the rows
-        legend_h = (5 * mm + ((len(kroki_legend) + 1) // 2) * 4.6 * mm) if kroki_legend else 0
+        legend_h = _legend_height(kroki_legend)
         img = _fit_image(kroki_png, k_w, k_h - legend_h)
         if img:
             story.append(Spacer(1, 4))
@@ -1649,52 +1714,26 @@ def compose_report_pdf(
         # other reason it is the better fallback than a shortened chip.
         if kroki_legend:
             story.append(Spacer(1, 4))
-            # ⚠️ TWO COLUMNS, directly under the picture (18.08.). One column of «1 …» ran the
-            # legend down half the page for a Lage with eight labelled things, which pushed the
-            # picture itself smaller (the block claims its room below) and put number 8 a hand's
-            # width away from the disc it belongs to. Reading «wo ist die 4» is a scan between two
-            # places; the shorter that distance, the less the numbering costs.
-            half = (len(kroki_legend) + 1) // 2
-            left, right = kroki_legend[:half], kroki_legend[half:]
-            num_w, col_gap = 7 * mm, 6 * mm
-            text_w = (k_w - col_gap) / 2 - num_w
-            rows = [
-                [
-                    Paragraph(f"<b>{i + 1}</b>", st["cell"]),
-                    Paragraph(_esc(left[i]), st["cell"]),
-                    Paragraph(f"<b>{half + i + 1}</b>", st["cell"]) if i < len(right) else "",
-                    Paragraph(_esc(right[i]), st["cell"]) if i < len(right) else "",
-                ]
-                for i in range(len(left))
-            ]
-            lt = Table(rows, colWidths=[num_w, text_w, num_w, text_w])
-            lt.setStyle(
-                TableStyle(
-                    [
-                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                        ("TOPPADDING", (0, 0), (-1, -1), 1),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-                    ]
-                )
-            )
-            lt.hAlign = "LEFT"
-            story.append(lt)
+            story.append(_legend_table(kroki_legend, k_w, st))
         if not plan_imgs:
             story.append(NextPageTemplate("portrait"))
             story.append(PageBreak())
 
-    for label, data, is_landscape in plan_imgs:
+    for label, data, is_landscape, plan_legend in plan_imgs:
         story.append(NextPageTemplate("landscape" if is_landscape else "portrait"))
         story.append(PageBreak())
         story.extend(head(label))
         mw = land_inner_w if is_landscape else inner_w
         mh = (land_inner_h if is_landscape else (ph - 2 * margin)) - 22 * mm
-        img = _fit_image(data, mw, mh)
+        # the legend claims its room first, so the plan is sized to what is left and the words
+        # stay on the SAME sheet as the discs they explain (the Kroki page's rule)
+        img = _fit_image(data, mw, mh - _legend_height(plan_legend))
         if img:
             story.append(Spacer(1, 4))
             story.append(img)
+        if plan_legend:
+            story.append(Spacer(1, 4))
+            story.append(_legend_table(plan_legend, mw, st))
     if plan_imgs:
         story.append(NextPageTemplate("portrait"))
         story.append(PageBreak())

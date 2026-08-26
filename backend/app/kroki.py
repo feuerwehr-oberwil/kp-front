@@ -779,6 +779,36 @@ def _numbered_marker(draw: ImageDraw.ImageDraw, xy: tuple[float, float], n: int,
     draw.text((x, y + r * 0.04), str(n), font=_font(int(r * 1.25)), fill="white", anchor="mm")
 
 
+def _number_words(
+    draw: ImageDraw.ImageDraw,
+    words: list[tuple[tuple[float, float], list[str], bool]],
+    r: float,
+    canvas: tuple[int, int],
+    legend: list[str],
+) -> None:
+    """The sheet's ONE way of printing words that belong to a picture: a numbered disc where the
+    words were, and the words themselves in `legend`, in the order the items are given.
+
+    Shared by the Kroki and the plan pages so a reader who turns from one sheet to the next meets
+    the same convention and the same wording. `under` says the anchor is the TOP edge of the chip
+    that would have hung under a glyph, so the disc is nudged down onto it; a label chip is
+    centred on its anchor already.
+
+    ⚠️ ONLY what the picture actually shows. A disc that cannot sit WHOLLY inside the canvas is
+    drawn off it and silently clipped, and a legend line for it then sends the reader looking for
+    a number that is not there — worse than not listing it at all (11.08.). Such an item is
+    skipped entirely, so the numbering stays 1..n with no gaps.
+    """
+    w_px, h_px = canvas
+    for xy, lines, under in words:
+        x, y = xy
+        mx, my = x, (y + r if under else y)
+        if not (r <= mx <= w_px - r and r <= my <= h_px - r):
+            continue
+        legend.append(" · ".join(t for t in lines if t.strip()))
+        _numbered_marker(draw, (mx, my), len(legend), r)
+
+
 def _fmt_distance(m: float) -> str:
     return f"{round(m)} m" if m < 1000 else f"{m / 1000:.2f} km".replace(".", ",")
 
@@ -1114,30 +1144,12 @@ def render_kroki(
     # is a question the sheet must never raise. Predictable beats clever here — and the legend
     # has room for the full text where a chip had to be cut short, which is the other half of
     # why it is the better shape.
-    words = [(xy, lines, fs, False) for xy, lines, fs in labels]
-    words += [(xy, lines, fs, True) for xy, lines, fs in captions]
-    # ⚠️ ONLY what the picture actually shows. The Kroki crop follows the Lage, so the scene
-    # routinely carries labelled things outside the frame — their numbered disc is drawn off the
-    # canvas and silently clipped, while the legend went on listing them. The sheet then ended in
-    # a «7» nobody could find on the map, which is worse than not listing it: a reader assumes
-    # they missed it and goes looking. The disc has to be able to sit fully inside the frame.
-    r = _NUM_R * u * ss
-    w_px, h_px = overlay.size
-
-    def marker_xy(xy: tuple[float, float], under: bool) -> tuple[float, float]:
-        # a caption's anchor is the TOP edge of where its chip would have hung, so the disc is
-        # nudged down onto it; a label chip is centred on its anchor already
-        x, y = xy
-        return (x, y + r if under else y)
-
-    on_picture = [
-        (marker_xy(xy, under), lines)
-        for xy, lines, _fs, under in words
-        if r <= marker_xy(xy, under)[0] <= w_px - r and r <= marker_xy(xy, under)[1] <= h_px - r
-    ]
-    for i, (xy, lines) in enumerate(on_picture, start=1):
-        _numbered_marker(draw, xy, i, r)
-        legend.append(" · ".join(t for t in lines if t.strip()))
+    #
+    # The disc, the fit test and the « · »-joined legend line all live in `_number_words`, which
+    # the PLAN pages call too — one convention across every sheet of the same rapport.
+    words = [(xy, lines, False) for xy, lines, _fs in labels]
+    words += [(xy, lines, True) for xy, lines, _fs in captions]
+    _number_words(draw, words, _NUM_R * u * ss, overlay.size, legend)
 
     out = Image.alpha_composite(img, overlay).resize((width, height), Image.Resampling.LANCZOS).convert("RGB")
     d2 = ImageDraw.Draw(out)
@@ -1161,11 +1173,16 @@ def render_plan_page(
     width: int = 1600,
     supersample: int = 2,
     ref_width: int = 1050,
+    legend_out: list[str] | None = None,
 ) -> Image.Image:
     """Render an annotated Objektplan page: the plan PDF's first page via pdfium, then the
     board annotations (relative 0..1 coords — the Whiteboard's model) drawn on top with the
     same primitives as the Kroki. Mirrors what the Whiteboard shows on screen (42px symbols,
-    non-scaling ~`width`px strokes)."""
+    non-scaling ~`width`px strokes).
+
+    `legend_out`: like `render_kroki`'s — filled with «1 · 2 · 3 …» for the symbol captions this
+    page turned into numbered discs, in placement order. An out-parameter for the same reason:
+    every existing caller stays exactly as it was."""
     import pypdfium2 as pdfium
 
     ss = supersample
@@ -1177,7 +1194,7 @@ def render_plan_page(
         base = page.render(scale=scale).to_pil().convert("RGBA")
     finally:
         doc.close()
-    return _overlay_board_annos(base, annos, pack, width, supersample, ref_width)
+    return _overlay_board_annos(base, annos, pack, width, supersample, ref_width, legend_out)
 
 
 def render_blank_page(
@@ -1187,6 +1204,7 @@ def render_blank_page(
     width: int = 1600,
     supersample: int = 2,
     ref_width: int = 800,
+    legend_out: list[str] | None = None,
 ) -> Image.Image:
     """A plan page WITHOUT a PDF behind it (the Gebäude floor-stack): a white base of the
     given aspect (h/w), with the whole page — footprint outlines, floor labels, north dial
@@ -1197,11 +1215,17 @@ def render_blank_page(
     aspect = max(0.2, min(4.0, aspect))
     ss = supersample
     base = Image.new("RGBA", (width * ss, round(width * aspect) * ss), (255, 255, 255, 255))
-    return _overlay_board_annos(base, annos, pack, width, supersample, ref_width)
+    return _overlay_board_annos(base, annos, pack, width, supersample, ref_width, legend_out)
 
 
 def _overlay_board_annos(
-    base: Image.Image, annos: list[dict], pack: SymbolPack | None, width: int, supersample: int, ref_width: int
+    base: Image.Image,
+    annos: list[dict],
+    pack: SymbolPack | None,
+    width: int,
+    supersample: int,
+    ref_width: int,
+    legend_out: list[str] | None = None,
 ) -> Image.Image:
     ss = supersample
     u = width / ref_width
@@ -1212,7 +1236,11 @@ def _overlay_board_annos(
     def pp(x: float, y: float) -> tuple[float, float]:
         return x * w, y * h
 
+    legend = legend_out if legend_out is not None else []
     labels: list[tuple[tuple[float, float], list[str], int]] = []
+    # symbol captions ride in their own list: they become numbered DISCS + legend lines at the
+    # end (the Kroki's rule, `_number_words`), so the whole page has to be walked first
+    captions: list[tuple[tuple[float, float], list[str]]] = []
     for a in annos:
         kind = a.get("kind")
         color = a.get("color") or "#1f6feb"
@@ -1261,6 +1289,16 @@ def _overlay_board_annos(
             _symbol_badges(
                 draw, (x, y), size, u * ss, a.get("storey"), a.get("floorFrom"), a.get("floorTo"), a.get("count")
             )
+            # …and the WORDS the board shows under the glyph («Melder 3. OG», a Fahrer, the typed
+            # detail fields). They print the way the Kroki prints them: a numbered disc under the
+            # symbol and the text in a legend below the picture — the anchor is the top edge of
+            # the chip that would have hung there, exactly as on the map.
+            # ⚠️ The caption arrives COMPOSED (client · lib/symbols · symbolCaptionText, the same
+            # call the Kroki payload and the board itself make). Deriving it here from `fields`
+            # would be a second answer to «what does this symbol say», and the two sheets of one
+            # rapport would eventually disagree.
+            if (a.get("caption") or "").strip():
+                captions.append(((x, y + size / 2 + 3 * u * ss), str(a["caption"]).split("\n")))
         elif kind in ("text", "resource") and (a.get("text") or "").strip():
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
             dark = kind == "resource"  # resource chips are ink-on-dark like the app
@@ -1324,6 +1362,11 @@ def _overlay_board_annos(
                     draw.text((tx, ty), t, font=f, fill=ink, anchor=anchor)
     for xy, lines, fs in labels:
         _label_box(draw, xy, lines, int(fs))
+    # ⚠️ Only the SYMBOL captions are numbered. A plan's area label, its Notizzettel and its Trupp
+    # chip keep printing inline — the same carve-out the Kroki makes for the things that are not
+    # a glyph with words hanging under it (`if not svg` returns before the caption list). Sweeping
+    # them in would put lines in the legend for text the reader is already looking straight at.
+    _number_words(draw, [(xy, lines, True) for xy, lines in captions], _NUM_R * u * ss, base.size, legend)
 
     out = Image.alpha_composite(base, overlay)
     return out.resize((width, round(h / ss)), Image.Resampling.LANCZOS).convert("RGB")

@@ -20,6 +20,7 @@ import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './att
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, shapeSvgString } from './krokiPayload'
+import { symbolCaptionText } from './symbols'
 import { SHAPE_DEFS } from './shapes'
 import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
@@ -28,8 +29,12 @@ import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
- *  glyphs resolved to SVG strings, like the whiteboard renders them). */
-export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, string>): Record<string, unknown>[] {
+ *  glyphs resolved to SVG strings, like the whiteboard renders them).
+ *
+ *  `captionMode` is the device's Beschriftungen setting — the SAME one the board renders with
+ *  (IncidentWorkspace · symbolCaptions), so the printed plan is labelled the way the screen it
+ *  was drawn on was. */
+export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, string>, captionMode: CaptionMode = 'auto'): Record<string, unknown>[] {
   return resolvePlanAnnos(annos).map((a) => {
     const out: Record<string, unknown> = {
       kind: a.kind, x: a.x, y: a.y, pts: a.pts, color: a.color, width: a.width,
@@ -49,6 +54,11 @@ export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, stri
       out.floorTo = a.floorTo
       out.count = a.count
       out.spread = a.spread
+      // …and the WORDS under the glyph. ⚠️ symbolCaptionText, not a hand-rolled join: it is the
+      // one resolver the board, the Lage map and the Kroki payload all ask, so the same symbol
+      // says the same thing on the screen and on every sheet of the rapport. The server prints
+      // it as a numbered disc + a legend line (backend · kroki · _number_words).
+      out.caption = symbolCaptionText(a, captionMode) ?? undefined
       const veh = a.symbol === appConfig.symbols.vehicleName
       const svg = veh ? vehicleSymbolSvg(a.label ?? '', a.rotation ?? 0) : placardSvgForSymbol(a.symbol, a.fields)
       if (svg) {
@@ -83,7 +93,7 @@ const STACK_INK = '#3b4656'
 
 /** The floor-stack rendered as blank-base plan pages (chunked, top storey first). */
 export function floorStackPages(
-  plan: PlanDocument, building: BuildingDoc, annos: BoardAnno[], byName: Record<string, string>,
+  plan: PlanDocument, building: BuildingDoc, annos: BoardAnno[], byName: Record<string, string>, captionMode: CaptionMode = 'auto',
 ): { label: string; blankAspect: number; annos: Record<string, unknown>[] }[] {
   const floorsTTB = [...building.floors].sort((a, b) => b - a)
   if (!floorsTTB.length) return []
@@ -133,7 +143,7 @@ export function floorStackPages(
       const idx = chunk.indexOf(pointFloors.find((f) => chunk.includes(f)) ?? a.floor ?? 0)
       return idx < 0 ? [] : [lift(a, idx)]
     })
-    page.push(...planAnnosForPdf(lifted, byName))
+    page.push(...planAnnosForPdf(lifted, byName, captionMode))
     const labels = chunk.map(floorLabel)
     return { label: `${plan.title} · ${labels.length > 1 ? `${labels[0]} – ${labels[labels.length - 1]}` : labels[0]}`, blankAspect: N * TILE_AR, annos: page }
   })
@@ -223,11 +233,11 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const planPages: Record<string, unknown>[] = printPlans.map((p) => ({
     label: `${p.code} · ${p.title}`,
     url: p.imageUrl,
-    annos: planAnnosForPdf(board?.[p.id] ?? [], scene?.byName ?? {}),
+    annos: planAnnosForPdf(board?.[p.id] ?? [], scene?.byName ?? {}, scene?.captionMode ?? 'auto'),
   }))
   if (building) {
     for (const p of selectedPlans.filter((x) => x.floorStack)) {
-      planPages.push(...floorStackPages(p, building, board?.[p.id] ?? [], scene?.byName ?? {}))
+      planPages.push(...floorStackPages(p, building, board?.[p.id] ?? [], scene?.byName ?? {}, scene?.captionMode ?? 'auto'))
     }
   }
 

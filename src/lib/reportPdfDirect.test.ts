@@ -34,6 +34,21 @@ describe('planAnnosForPdf', () => {
     expect(out.floor).toBeUndefined()
   })
 
+  it('sends the caption the board shows under the glyph, composed by the ONE resolver', () => {
+    // ⚠️ Same call as the board and the Kroki payload (lib/symbols · symbolCaptionText), so the
+    // sheet's legend and the screen cannot word the same symbol differently.
+    const anno: BoardAnno = { id: 's3', kind: 'symbol', symbol: 'FW Gefahr Tafel', x: 0.5, y: 0.5, fields: { 'UN-Nr': '1203', Stoff: 'Benzin' } }
+    expect(planAnnosForPdf([anno], {})[0].caption).toBe('Benzin')           // 'auto': the one value
+    expect(planAnnosForPdf([anno], {}, 'all')[0].caption).toBe('1203\nBenzin')
+    expect(planAnnosForPdf([anno], {}, 'off')[0].caption).toBeUndefined()   // Beschriftungen aus
+  })
+
+  it('leaves a symbol with nothing typed on it without a caption', () => {
+    // no caption → no numbered disc and no legend line: a symbol is still just a symbol
+    const [out] = planAnnosForPdf([{ id: 's4', kind: 'symbol', symbol: 'SI Ueberflurhydrant', x: 0.5, y: 0.5 }], {})
+    expect(out.caption).toBeUndefined()
+  })
+
   it('falls back to the shape defaults when colour/size were never touched', () => {
     const [out] = planAnnosForPdf([{ id: 'sh2', kind: 'shape', shape: 'arrow', x: 0.1, y: 0.1 }], {})
     expect(String(out.symbolSvg)).toContain('<svg')

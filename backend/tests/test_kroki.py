@@ -425,6 +425,102 @@ def test_plan_anno_schema_lets_the_badge_fields_through():
     assert d["spread"] == {"up": True, "upBounded": True}
 
 
+# --- plan-page captions: the words the board shows under a glyph -------------------------
+# Until 26.08. a plan symbol printed its badges but never its CAPTION — «Melder 3. OG» was on
+# the board and missing from the sheet stapled next to the Kroki, which prints exactly that.
+
+
+def _blank_plan_legend(annos: list[dict], width: int = 400) -> tuple[Image.Image, list[str]]:
+    """A blank plan page plus the legend it produced — the plan twin of `render_kroki`'s."""
+    legend: list[str] = []
+    return kk.render_blank_page(1.0, annos, PACK, width=width, legend_out=legend), legend
+
+
+#: where the disc for a centred glyph lands on a 400px `_blank_plan` page: it hangs under the
+#: caption's anchor (glyph bottom + 3u), nudged down by its own radius
+_DISC_BOX = (192, 210, 208, 224)
+
+
+def test_a_plan_symbol_prints_a_disc_only_when_it_has_a_caption():
+    base = {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer"}
+
+    bare, no_legend = _blank_plan_legend([base])
+    assert _plan_ink(bare, _DISC_BOX) == 0
+    assert no_legend == []
+
+    captioned, legend = _blank_plan_legend([{**base, "caption": "Brandherd"}])
+    assert _plan_ink(captioned, _DISC_BOX) > 0
+    assert legend == ["Brandherd"]
+
+
+def test_a_plan_caption_never_prints_as_a_chip_on_the_plan():
+    """The words go in the LEGEND, not next to the glyph — the 08.08. lesson, applied to the
+    sheet that has even less room than the Kroki. A caption chip would ink a band far wider
+    than the disc; the disc is all that may appear."""
+    img, _ = _blank_plan_legend(
+        [{"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer", "caption": "Zugang nur über Treppenhaus Ost"}]
+    )
+    assert _plan_ink(img, _DISC_BOX) > 0
+    # the bands a chip that long would have to reach into — clear of both glyph and disc
+    for band in ((120, 208, 185, 232), (215, 208, 280, 232)):
+        assert _plan_ink(img, band) == 0, band
+
+
+def test_plan_numbering_follows_placement_order_and_skips_the_uncaptioned():
+    """Numbers are per page, 1..n, in the order the annos were placed — and a symbol without a
+    caption is not a hole in the sequence, it simply never enters it."""
+    a = {"kind": "symbol", "x": 0.25, "y": 0.5, "symbol": "VKF Feuer", "caption": "erstes"}
+    silent = {"kind": "symbol", "x": 0.5, "y": 0.25, "symbol": "VKF Luefter mobil"}
+    b = {"kind": "symbol", "x": 0.75, "y": 0.5, "symbol": "VKF Einsatzleiter", "caption": "zweites"}
+
+    _, legend = _blank_plan_legend([a, silent, b])
+    assert legend == ["erstes", "zweites"]
+    # …and dropping the uncaptioned symbol changes nothing about the numbers
+    _, without = _blank_plan_legend([a, b])
+    assert without == legend
+
+
+def test_a_plan_caption_at_the_edge_is_left_out_rather_than_clipped():
+    """⚠️ Same rule as the Kroki's crop (11.08.): a disc that cannot sit WHOLLY on the page is
+    drawn half off it, and a legend line for it sends the reader hunting for a number that is
+    not there. It is skipped, and the numbering closes up behind it."""
+    inside = {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer", "caption": "im Bild"}
+    at_edge = {"kind": "symbol", "x": 0.5, "y": 0.999, "symbol": "VKF Feuer", "caption": "über den Rand"}
+    _, legend = _blank_plan_legend([inside, at_edge])
+    assert legend == ["im Bild"]
+
+
+def test_a_plan_page_and_the_kroki_word_the_same_caption_identically():
+    """One rapport, two kinds of sheet: the reader must not meet «Meier A. · TLF» on one and
+    «Meier A. / TLF» on the other. Both go through kroki · _number_words."""
+    caption = "Lüfter Akku 3. OG\nMeier Anna"
+    _, plan_legend = _blank_plan_legend(
+        [{"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer", "caption": caption}]
+    )
+
+    kroki_legend: list[str] = []
+    kk.render_kroki(
+        kk.KrokiScene(entities=[{"kind": "symbol", "symbol": "VKF Feuer", "coord": [7.53, 47.41], "caption": caption}]),
+        PACK,
+        "",
+        width=900,
+        height=700,
+        legend_out=kroki_legend,
+    )
+    assert plan_legend == kroki_legend == ["Lüfter Akku 3. OG · Meier Anna"]
+
+
+def test_plan_anno_schema_lets_the_caption_through():
+    """pydantic drops an unknown field without a word — the sheet would then simply have no
+    legend and no error either (the badge fields' own lesson, one field later)."""
+    from app.report_pdf import PlanAnnoIn
+
+    a = PlanAnnoIn.model_validate(
+        {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer", "caption": "Melder 3. OG"}
+    )
+    assert a.model_dump()["caption"] == "Melder 3. OG"
+
+
 def test_every_label_becomes_a_number_and_a_legend_line():
     """⚠️ Chips used to be drawn where their own anchor was, with no idea what was already
     there — so three symbols within a few metres printed three chips on top of one another and
