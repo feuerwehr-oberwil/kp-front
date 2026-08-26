@@ -185,7 +185,7 @@ async def test_prewarm_ok_when_available_noop_without_relay(client, editor, monk
     assert r.status_code == 200 and r.json() == {"ok": False}
 
 
-def test_color_only_with_rendered_kroki():
+async def test_color_only_with_rendered_kroki():
     """Colour print iff the Kroki actually renders: payload has kroki data AND the option on."""
     from app.api.print_relay import payload_wants_color
     from app.report_pdf import ReportPayload
@@ -294,7 +294,7 @@ async def test_capture_print_requires_token(client, editor, db_session, relay_se
     assert r.status_code == 401
 
 
-def test_reverse_pdf_pages_turns_the_stack_around():
+async def test_reverse_pdf_pages_turns_the_stack_around():
     """The station printer ejects face-up, so the Rapport is composed in reading order and sent
     reversed — the stack then comes out the right way round. Anything unreadable is returned
     untouched: a rapport in the wrong order is a nuisance, one that never prints is a problem."""

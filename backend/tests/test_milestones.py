@@ -57,6 +57,21 @@ async def test_fails_closed_and_bad_secret(client, monkeypatch):
     assert r.status_code == 403
 
 
+async def test_uses_database_stored_secret_on_a_cold_cache(client, db_session, monkeypatch):
+    """The milestone endpoint must reload browser-set credentials like every other intake."""
+    from app import credentials
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "alarm_webhook_secret", "")
+    await credentials.set_value(db_session, "alarm_webhook_secret", SECRET, actor_id=None)
+    await db_session.commit()
+    credentials.reset_cache()
+
+    r = await client.post("/api/alarms/milestones", json=PAYLOAD, headers={"X-Webhook-Secret": SECRET})
+
+    assert r.status_code == 404
+
+
 async def test_unknown_incident_is_404(client):
     r = await client.post("/api/alarms/milestones", json=PAYLOAD, headers={"X-Webhook-Secret": SECRET})
     assert r.status_code == 404
