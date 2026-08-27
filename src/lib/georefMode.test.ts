@@ -15,6 +15,7 @@ import {
   georefPlacing,
   georefPointNo,
   georefQueueNo,
+  georefMapQueueNo,
   georefReduce,
   georefSnapshot,
   georefWantsMap,
@@ -500,6 +501,87 @@ describe('georefChip', () => {
 
 // The Ampel is the reading the bar never had. It replaces «2 Paare» — a number nobody can have
 // an opinion about — with the sentence that decides whether to place a third point.
+// ⚠️ EITHER surface may start a pair. The Modul and the Karte are two halves of one landmark,
+// not a fixed order, and somebody standing at a house corner with the map already open should
+// not have to go to the sheet first. Only the COUNT and the ORDER have to correspond: the nth
+// point on one surface pairs with the nth on the other.
+describe('a pair may be started on either surface', () => {
+  const run = (start: GeorefModeState, actions: Parameters<typeof georefReduce>[1][]) =>
+    actions.reduce(georefReduce, start)
+
+  it('plan first, then the map — the classic order', () => {
+    const s = run(armed(), [
+      { type: 'planTap', pt: { x: 0.2, y: 0.2 } },
+      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
+    ])
+    expect(s.pairs).toHaveLength(1)
+    expect(s.queue).toEqual([])
+    expect(s.mapQueue).toEqual([])
+  })
+
+  it('MAP first, then the plan — and it lands as the very same pair', () => {
+    const mapFirst = run(armed(), [
+      { type: 'goMap' },
+      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
+    ])
+    // the map half is waiting and it is point 1 — while the prompt has already moved on to the
+    // NEXT one, exactly as it does after a first plan tap: either surface may queue several
+    // halves before crossing over
+    expect(mapFirst.mapQueue).toHaveLength(1)
+    expect(georefMapQueueNo(mapFirst, 0)).toBe(1)
+    expect(georefPointNo(mapFirst)).toBe(2)
+    expect(georefPointNo(georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.2 } }))).toBe(2)
+
+    const paired = georefReduce(mapFirst, { type: 'planTap', pt: { x: 0.2, y: 0.2 } })
+    expect(paired.pairs).toEqual([{ plan: { x: 0.2, y: 0.2 }, lngLat: { lng: 7.5, lat: 47.5 }, kind: 'gesetzt' }])
+    expect(paired.mapQueue).toEqual([])
+  })
+
+  it('reaches the identical fit whichever surface went first', () => {
+    const planFirst = run(armed(), [
+      { type: 'planTap', pt: { x: 0.2, y: 0.2 } }, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
+      { type: 'planTap', pt: { x: 0.8, y: 0.8 } }, { type: 'mapTap', lngLat: { lng: 7.5015, lat: 47.4991 } },
+    ])
+    const mapFirst = run(armed(), [
+      { type: 'goMap' },
+      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } }, { type: 'planTap', pt: { x: 0.2, y: 0.2 } },
+      { type: 'goMap' },
+      { type: 'mapTap', lngLat: { lng: 7.5015, lat: 47.4991 } }, { type: 'planTap', pt: { x: 0.8, y: 0.8 } },
+    ])
+    expect(mapFirst.pairs).toEqual(planFirst.pairs)
+  })
+
+  // the numbering is what «the order has to match» MEANS: the queued half on either surface
+  // carries the number its partner will carry
+  it('numbers a queued half the same on both surfaces', () => {
+    const withOne = run(armed(), [
+      { type: 'planTap', pt: { x: 0.2, y: 0.2 } }, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
+    ])
+    const planQueued = georefReduce(withOne, { type: 'planTap', pt: { x: 0.8, y: 0.8 } })
+    const mapQueued = run(withOne, [{ type: 'goMap' }, { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } }])
+    // the waiting half carries the same number on either surface…
+    expect(georefQueueNo(planQueued, 0)).toBe(2)
+    expect(georefMapQueueNo(mapQueued, 0)).toBe(2)
+    // …and so does the one the prompt is asking for next
+    expect(georefPointNo(planQueued)).toBe(3)
+    expect(georefPointNo(mapQueued)).toBe(3)
+  })
+
+  // …and only ONE queue is ever open: a tap on the far surface matches the waiting half rather
+  // than starting a second, parallel backlog nobody could pair up afterwards
+  it('never leaves both surfaces holding unmatched halves', () => {
+    const s = run(armed(), [
+      { type: 'goMap' },
+      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
+      { type: 'planTap', pt: { x: 0.2, y: 0.2 } },
+      { type: 'planTap', pt: { x: 0.8, y: 0.8 } },
+    ])
+    expect(s.pairs).toHaveLength(1)
+    expect(s.queue).toHaveLength(1)
+    expect(s.mapQueue).toHaveLength(0)
+  })
+})
+
 describe('georefLamp', () => {
   it('is red with nothing, and says what two points would buy', () => {
     const lamp = georefLamp(null, armed())

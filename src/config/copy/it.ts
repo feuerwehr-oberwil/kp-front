@@ -1179,7 +1179,6 @@ export const it: Localizable<Copy> = {
       checkOpacity: 'Visibilità della sovrapposizione del modulo',
       checkMap: 'Mappa',
       checkPlan: 'Modulo',
-      planFirst: 'Toccare prima il punto sul piano',
       crossTitle: 'Punto {n} – trascinare per regolare, toccare per correggere o eliminare',
       pendingCrossTitle: 'Punto {n} – toccare per correggere o eliminare',
       saveFailed: 'Salvataggio del collegamento non riuscito',

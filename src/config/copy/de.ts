@@ -1664,7 +1664,6 @@ export const de = {
       checkOpacity: 'Sichtbarkeit der Modul-Deckung',
       checkMap: 'Karte',
       checkPlan: 'Modul',
-      planFirst: 'Zuerst den Punkt auf dem Plan antippen',
       crossTitle: 'Punkt {n} – ziehen zum Feinjustieren, antippen zum Korrigieren oder Löschen',
       pendingCrossTitle: 'Punkt {n} – antippen zum Korrigieren oder Löschen',
       saveFailed: 'Verknüpfung speichern fehlgeschlagen',

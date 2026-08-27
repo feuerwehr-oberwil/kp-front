@@ -1177,7 +1177,6 @@ export const en: Localizable<Copy> = {
       checkOpacity: 'Module overlay visibility',
       checkMap: 'Map',
       checkPlan: 'Module',
-      planFirst: 'Tap the point on the plan first',
       crossTitle: 'Point {n} – drag to fine-tune, tap to correct or delete',
       pendingCrossTitle: 'Point {n} – tap to correct or delete',
       saveFailed: 'Saving the link failed',
