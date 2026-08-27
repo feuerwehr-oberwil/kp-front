@@ -313,7 +313,11 @@ export function IncidentSwitcher({
                   one opens an earlier Einsatz, one opens a new one. The old blue text link looked
                   detached from the full-size creation row directly below it, especially on a
                   phone, so both now use the same recognised icon+label action recipe. */}
-              {(onHistory || isEditor) && <div className="ip-menu-sep" />}
+              {/* ⚠️ Only when something stands ABOVE it inside this group. With one Einsatz running
+                  and no others, the rows above are empty and the rule landed directly under the
+                  active Einsatz's card — a divider between a card and the two doors out of a list
+                  that isn't there, which reads as «there is more, and it is hidden». */}
+              {(running.length > 0 || !active) && (onHistory || isEditor) && <div className="ip-menu-sep" />}
               {onHistory && (
                 <button className="ip-menu-act" onClick={onHistory}>
                   <Icon id="history" /> {cp.allIncidents}
