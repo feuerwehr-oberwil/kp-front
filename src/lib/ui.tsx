@@ -54,6 +54,12 @@ const emit = () => listeners.forEach((l) => l())
 // Pending auto-dismiss timers, keyed by toast id, so updateToast can reset a toast's clock
 // and dismissToast can cancel it (a live status toast is sticky until it reaches done/failed).
 const timers = new Map<number, ReturnType<typeof setTimeout>>()
+/** Keep brief feedback brief, but leave long operational/API messages on screen long enough to
+ * read. Explicit caller durations still win; action toasts retain the six-second undo floor. */
+function defaultToastDuration(text: string, hasAction: boolean) {
+  const floor = hasAction ? 6000 : 2800
+  return Math.min(10_000, Math.max(floor, 1800 + Array.from(text).length * 45))
+}
 function scheduleDismiss(id: number, ms: number) {
   const prev = timers.get(id)
   if (prev) clearTimeout(prev)
@@ -73,7 +79,7 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
   emit()
   // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
   // action (e.g. confirm-with-undo) needs time to be seen and tapped.
-  if (!opts?.sticky) scheduleDismiss(id, opts?.duration ?? (opts?.action ? 6000 : 2800))
+  if (!opts?.sticky) scheduleDismiss(id, opts?.duration ?? defaultToastDuration(text, !!opts?.action))
   return id
 }
 
@@ -184,11 +190,10 @@ function ToastSteps({ steps, text }: { steps: ToastStep[]; text: string }) {
 /**
  * The action cluster of a confirm-with-undo toast — «Rückgängig», and the way to get rid of it.
  *
- * ⚠️ The toast pill itself is `pointer-events: none` on purpose: it lands over the FAB and over
- * the phone's bottom rail, and a tap aimed at either has to reach them. Its BUTTON is the one part
- * that cannot pass taps through — a «Rückgängig» nobody can press would be pointless — so the
- * button is also the one part that can be in the way. Everything that removes the toast therefore
- * lives here, in that same small region, and the pill stays transparent to touch.
+ * The bounded toast stack accepts vertical panning wherever a pill is visible, so an unusually
+ * busy burst remains reachable instead of clipping. Mobile lane rules keep that region clear of
+ * the FAB, tool bars and variable-height task panels; these controls remove the actionable pill
+ * directly when the operator needs the map area back.
  *
  * Two ways out, because they suit different moments: the ✕ for «not now, move», and a flick in
  * either direction for the hand that is already on its way to whatever sits underneath.
@@ -253,13 +258,19 @@ export function Overlays() {
 
   return (
     <>
+      {/* ⚠️ Rendered NEWEST-FIRST into a `column-reverse` stack (see .toaster in 08-toasts.css).
+          Reversed flex lays the first DOM child at the baseline, so newest-first is what puts the
+          latest message nearest the controls — and it is also what makes the browser anchor the
+          scroll port at that end for free. Plain `column` with the natural order looks identical
+          until the stack overflows its lane, and then starts the scroll at the OLDEST toast, so a
+          burst hides the pill carrying «Rückgängig» below the fold with nothing saying so. */}
       <div className="toaster" aria-live="polite" aria-atomic="false">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}`} role="status">
+        {[...toasts].reverse().map((t) => (
+          <div key={t.id} className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}`}>
             {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
               <>
                 {t.icon && <Icon id={t.icon} />}
-                <span>{t.text}</span>
+                <span className="toast-message">{t.text}</span>
               </>
             )}
             {t.action && <ToastAction toast={t} />}

@@ -11,6 +11,46 @@
    Karte is reselected (the phone rule below does the same for all non-map surfaces on a phone). */
 .app.mode-plans .maplibregl-map { visibility: hidden; }
 
+/* …EXCEPT while «Karte verknüpfen» is armed on a tablet/desktop. The mode needs both surfaces at
+   once, and the one thing it must NOT do is stand up a second map: this instance already carries
+   every base/overlay layer, every symbol, and the operator's own framing of the Einsatz. So the
+   whiteboard gives up the right half and the map that was behind it all along comes back — a
+   TEMPORARY split, marked as such by the dashed seam (GeorefMode.module.css · .seam).
+   ⚠️ The map is genuinely re-laid-out (left/width), not merely uncovered: uncovering would leave
+   its centre — and therefore the incident — sitting under the plan. MapView calls `resize()` when
+   the class appears and again when it goes (see MapView · georef split).
+   ⚠️ `!important` on the width, and only there: react-map-gl writes `width: 100%` as an INLINE
+   style on this container, which no stylesheet rule can outrank. Without it the map kept its
+   full width and merely started 50% further right — so half of it hung off the screen, its
+   centre (the Einsatz) sat outside the viewport, and the pairing loupe, which pins itself to the
+   container's right edge, was drawn ~400px past it. Exactly the failure the paragraph above
+   says this rule exists to prevent. */
+.app.mode-plans:has(.wb-georef-split) > .maplibregl-map {
+  visibility: visible; margin-left: 50%; width: 50% !important;
+}
+.whiteboard.wb-georef-split { right: 50%; }
+/* «Deckung prüfen» is not a third layout. The live map takes the WHOLE screen and the Modul
+   snapshot is its georeferenced raster layer; leaving the PDF in the left half showed coverage
+   on only half the available pixels and made the phone version impossible. Keep only the fixed
+   mode instrument from the whiteboard while the map beneath it owns the comparison canvas. */
+.app.mode-plans:has(.wb-georef-check) > .maplibregl-map {
+  visibility: visible; margin-left: 0; width: 100% !important;
+}
+.whiteboard.wb-georef-check { background: transparent; pointer-events: none; }
+.whiteboard.wb-georef-check .wb-stage { visibility: hidden; }
+.whiteboard.wb-georef-check .wb-botleft { pointer-events: auto; }
+/* Alignment is one temporary two-surface task, not another ordinary app surface. Hide both
+   navigation rails and any panel/tool chrome that may have been open when it started; otherwise
+   a desktop operator can leave for a different section halfway through a point pair, while a
+   phone shows the map's ordinary tool bar behind the mode card. The TopBar stays: incident
+   identity, clock and operational status remain useful context while placing landmarks. */
+.app.georef-mode :is(.navrail, .tool-rail, .layers-card, .mapctl-backdrop, .ctx, .coord-read) {
+  display: none;
+}
+/* the tool rail steps aside for the mode's own action bar — one bar at a time, so it is never in
+   doubt that a mode is running (the phone mock's rule, applied on every form factor) */
+.whiteboard.wb-georef-armed .wb-tools { display: none; }
+
 /* (the old .wb-modules/.wb-mod/.wb-objpick document-switcher sidebar was removed — plan
    docs are picked in the left NavRail and the PlanPicker modal below; CSS pruned 2026-07-12) */
 
@@ -23,6 +63,27 @@
 .wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 12px;
   max-width: calc(100% - var(--rail-w) - 44px);
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* ⚠️ While «Karte verknüpfen» is armed this row IS the mode's instrument (GeorefMode ·
+   GeorefInstrument), and it has to lie OVER the split's dashed seam. `z-index: 8` above makes
+   the row a stacking context, so the bar's own z 34 only ever ordered it inside that row — the
+   seam (z 13, same stylesheet as the bar) was painted straight across the bar's text, right
+   through «Punkt 3 · mind. 2». Raising the row raises the one thing in it. */
+.wb-georef-armed .wb-botleft { z-index: 35; }
+/* ⚠️ …and while it is armed the sheet shows the SHEET. Every symbol, line, note, Trupp-Pille
+   and trail this plan carries is hidden for the duration of the mode, because all of them sit
+   exactly where the reference points have to go: a Brandherd painted over the house corner you
+   are trying to hit is a landmark you cannot see and a tap you cannot aim. Nothing is deleted
+   and nothing is touched — the capture layer already owns every gesture on the board (z 9 over
+   an annotation's 3), so this is purely what the eye is given. They are all back on «Fertig».
+   The reference crosses (GeorefMode.module.css · .cross) and the loupe are NOT in this list:
+   they are the mode. */
+.wb-georef-armed .wb-anno,
+.wb-georef-armed .wb-ink-svg,
+.wb-georef-armed .wb-line-deco,
+.wb-georef-armed .wb-arrowhead,
+.wb-georef-armed .wb-lock-anchor,
+.wb-georef-armed .wb-trail-dot,
+.wb-georef-armed .wb-trail-mark { display: none; }
 /* the chips position themselves through the row now, not against the stage — `relative` is the
    containing block for their touch pad below, nothing more */
 .wb-botleft > .wb-scale-chip { position: relative; }
@@ -61,7 +122,7 @@
   /* ⚠️ Counted from what is ACTUALLY on screen, one lane at a time. The base is the nav bar
      alone — a viewer-only PDF renders no tool rail at all (`phoneTools` excludes it), so
      reserving two lanes there left the chip hanging a whole bar's height above nothing. */
-  .wb-botleft { position: fixed; left: 10px; right: 10px; max-width: none;
+  .wb-botleft { position: fixed; left: 10px; right: calc(10px + var(--fab-safe, 0px)); max-width: none;
     bottom: calc(var(--rail-h) + 20px + env(safe-area-inset-bottom)); }
   /* an editable surface adds the tool rail under it… */
   .app.phone-tools .wb-botleft {
@@ -351,7 +412,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .team-dot.raus b { text-decoration: line-through; color: var(--ink-dim); }
 .wb-resource-input { border: none; outline: none; background: color-mix(in srgb, var(--blue) 8%, transparent); border-radius: var(--r-xs); font-family: var(--body);
   font-size: 12.5px; font-weight: 700; color: var(--ink); width: 76px; padding: 2px 5px; }
-.wb-del { position: absolute; top: -11px; right: -11px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff;
+.wb-del { position: absolute; top: -11px; left: -11px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff;
   background: var(--red); color: var(--on-fill); display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .3); }
 /* 44px touch pad (parity with the Lage map orbs + .wb-mark) so the 28px delete orb is still
    gloved-finger sized on a plan */
@@ -567,6 +628,40 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
     max-width: none; flex-wrap: wrap; }
 }
 .wb-scale-chip.arm { border-color: var(--blue); color: var(--blue); }
+
+/* Passung — the georeference's reading, docked one row above the chip that opened it. Same
+   recipe, same corner and the same arithmetic as `.wb-scale-persist` above: the Massstab's
+   follow-up already lives there, and this is its sibling.
+   ⚠️ A DOCK, not a popover. The board underneath stays live and un-dismissing, so a tap on a
+   symbol is a tap on that symbol — not a press that the overlay swallows to close itself. */
+.wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 52px; z-index: 9;
+  border-radius: var(--r-surface); border: 1px solid var(--glass-line); background: var(--surface);
+  box-shadow: var(--shadow); }
+@media (max-width: 600px) {
+  /* ⚠️ Its height is NOT fixed — `.qActions` is a 2-column grid of 2 or 3 rows (Neu ausrichten /
+     Zurücksetzen / Übertragen), each button a full --tap — so no bottom offset in the toast lane
+     table could clear it and a pill (z90) landed on that row. It is therefore listed among the
+     variable-height bottom owners that push transient feedback to the top lane instead
+     (15-mobile.css). Keep the two in step if this dock ever moves. */
+  .wb-georef-dock { position: fixed; left: 10px; right: 10px;
+    bottom: calc(var(--rail-h) * 2 + 62px + env(safe-area-inset-bottom)); }
+}
+/* «⌖ Karte» — the georeference's own two linked tones. Amber whenever a warning stands (two
+   pairs is the commonest: exact by construction, therefore UNMEASURED — and an unmeasured fit
+   must never look like a checked one); the green tone only once a third point has measured it.
+   ⚠️ Tokens, not frozen literals — both have to survive the day/night swap. */
+.wb-scale-chip.wb-georef-ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
+.wb-scale-chip.wb-georef-warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 50%, var(--glass-edge)); }
+.wb-scale-chip.wb-georef-ok:hover, .wb-scale-chip.wb-georef-warn:hover { border-color: currentColor; }
+/* the chip stays in its own tone while its Passung is open — «open» is a fill, not a recolour,
+   so the quality it reports is never overwritten by the state of a panel.
+   ⚠️ The fill is mixed INTO `--surface`, never `--fill-soft` on its own: that token is a 4.5 %
+   black wash, and setting it as the background REPLACED the chip's opaque white with an almost
+   transparent one — the plan showed straight through the open chip and amber text on a
+   Situationsplan is unreadable. A chip that states a fact has to be legible over anything. */
+.wb-scale-chip.wb-georef-ok.arm, .wb-scale-chip.wb-georef-warn.arm {
+  background: color-mix(in srgb, currentColor 10%, var(--surface));
+}
 
 /* vertex-editing handles for a selected line/area (board px, absolute on the board) —
    small dots visually, but with transparent hit pads (::after) like the map's handles;
