@@ -25,6 +25,21 @@ def _short_wait(monkeypatch):
     monkeypatch.setattr(live_wait, "LONG_POLL_TIMEOUT_S", 0.2)
 
 
+async def _parked() -> None:
+    """Block until the poll task has actually registered its waiter.
+
+    ⚠️ This replaces a bare ``asyncio.sleep(0.02)``. Twenty milliseconds is not a fact about the
+    code, it is a guess about the machine — and on a loaded box (the full frontend suite running
+    beside this one) the poll had not parked yet, so the write below fired before there was
+    anything to wake and the test failed on a timing accident rather than on a defect. The
+    condition the test actually depends on is observable, so wait for THAT.
+    """
+    deadline = time.perf_counter() + 2.0
+    while not live_wait._waiters:
+        assert time.perf_counter() < deadline, "the poll never parked"
+        await asyncio.sleep(0.005)
+
+
 async def _login(client, user) -> None:
     r = await client.post("/api/auth/login", json={"user_id": str(user.id), "pin": "135790"})
     assert r.status_code == 200
@@ -54,7 +69,7 @@ async def test_workspace_wait_wakes_on_another_devices_save(client, editor):
     inc = await _incident(client)
 
     poll = asyncio.create_task(client.get(f"/api/incidents/{inc}/workspace?since=0&wait=1"))
-    await asyncio.sleep(0.02)  # let it park (and hand its DB connection back)
+    await _parked()  # …and it has handed its DB connection back
 
     put = await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": {"a": 1}, "base_rev": 0})
     assert put.status_code == 200, put.text
@@ -94,7 +109,7 @@ async def test_journal_wait_wakes_on_an_append(client, editor):
     inc = await _incident(client)
 
     poll = asyncio.create_task(client.get(f"/api/incidents/{inc}/journal?since_seq=0&wait=1"))
-    await asyncio.sleep(0.02)
+    await _parked()
 
     row = {"id": "r1", "t": "14:02", "icon": "flag", "text": "Wasser ab"}
     post = await client.post(f"/api/incidents/{inc}/journal", json={"entries": [row]})
