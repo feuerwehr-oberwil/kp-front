@@ -70,6 +70,7 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
     <>
       {twins.map((t) => {
         const e = t.entity
+        const selected = selectedKey === t.key
         const name = twinName(e)
         const veh = t.kind === 'vehicle' || isVehicleSym(e)
         const rot = e.rotation ?? 0
@@ -90,7 +91,7 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
             // it sits on screen. Clamped to the sheet, because a projection dragged off the
             // paper has no plan point to name and would fold back through the fit as a
             // coordinate nobody aimed at.
-            onMove={onMove && ((phase, dx, dy) => {
+            onMove={selected && onMove ? ((phase, dx, dy) => {
               if (phase === 'start') from.current = t.pt
               const base = from.current ?? t.pt
               if (phase === 'end') from.current = null
@@ -100,9 +101,9 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
                 x: Math.max(0, Math.min(1, base.x + dx / sW)),
                 y: Math.max(0, Math.min(1, base.y + dy / sH)),
               }, phase)
-            })}
+            }) : undefined}
             interactive={interactive}
-            selected={selectedKey === t.key}
+            selected={selected}
             style={{ left: 0, top: 0, transform: `translate(${t.pt.x * sW}px, ${t.pt.y * sH}px) translate(-50%, -50%)` }}
           />
         )

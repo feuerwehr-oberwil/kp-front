@@ -24,7 +24,7 @@ const twinAt = (x: number, y: number): BoardTwin => ({ key: 'modul2:e1', kind: '
 const SW = 1000, SH = 500
 const renderBoard = (onMove?: typeof vi.fn extends never ? never : ((t: BoardTwin, p: { x: number; y: number }, ph: 'start' | 'move' | 'end') => void)) =>
   render(<GeorefTwinsBoard twins={[twinAt(0.5, 0.5)]} byName={{}} sW={SW} sH={SH} sizePx={40}
-    onOpen={() => {}} onMove={onMove} />)
+    selectedKey="modul2:e1" onOpen={() => {}} onMove={onMove} />)
 
 const mark = () => screen.getByRole('button')
 const drag = (to: [number, number]) => {
@@ -66,7 +66,7 @@ describe('a twin dragged across the sheet', () => {
     const Live = () => {
       const [p, setP] = useState(pt)
       return <GeorefTwinsBoard twins={[{ ...twinAt(p.x, p.y) }]} byName={{}} sW={SW} sH={SH} sizePx={40}
-        onOpen={() => {}} onMove={(_t, next) => { seen.push(next); pt = next; setP(next) }} />
+        selectedKey="modul2:e1" onOpen={() => {}} onMove={(_t, next) => { seen.push(next); pt = next; setP(next) }} />
     }
     render(<Live />)
     const m = screen.getByRole('button')
@@ -93,6 +93,18 @@ describe('a twin dragged across the sheet', () => {
   it('offers no drag at all when the surface does not pass one (locked / viewer)', () => {
     renderBoard(undefined)
     expect(mark().className).not.toContain('grab')
+  })
+
+  it('is tap-only until its detail panel and halo select it', () => {
+    const onOpen = vi.fn()
+    const onMove = vi.fn()
+    render(<GeorefTwinsBoard twins={[twinAt(0.5, 0.5)]} byName={{}} sW={SW} sH={SH} sizePx={40}
+      onOpen={onOpen} onMove={onMove} />)
+    expect(mark().className).not.toContain('grab')
+    drag([300, 250])
+    expect(onMove).not.toHaveBeenCalled()
+    fireEvent.click(mark())
+    expect(onOpen).toHaveBeenCalledOnce()
   })
 })
 
