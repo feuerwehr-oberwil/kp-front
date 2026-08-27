@@ -219,6 +219,7 @@
           "Mesure de distances et de surfaces, à l’échelle également sur le plan",
           "Couches : bornes hydrantes, cadastre des conduites, services cartographiques cantonaux",
           "Plans d’objet comme tableau blanc, étages superposés, tableau vierge",
+          "<strong>Géoréférencement</strong>&nbsp;: relier un plan à la carte par des points de repère communs – les symboles apparaissent en double sur les deux surfaces, avec une indication honnête de la précision",
           "Annuler/rétablir sur chaque surface"
         ]
       },

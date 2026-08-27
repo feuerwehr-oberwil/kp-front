@@ -31,6 +31,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Georeferenz – ein Plan und die Karte zeigen dieselbe Stelle.** Ein Modul-Plan wird über
+  gemeinsame Landmarken mit der Karte verknüpft: auf dem Blatt antippen, auf der Karte antippen,
+  fertig. Ab drei Punkten nennt die Passung eine mittlere Abweichung in Metern – bei zwei Punkten
+  steht dort bewusst «aus 2 Punkten» und **keine Zahl**, weil zwei Punkte immer exakt aufgehen und
+  eine 0.0 m dort die selbstbewussteste Lüge der App wäre. Danach spiegeln sich Symbole und
+  Fahrzeuge als *Zwillinge* auf beide Flächen, jede Projektion ist eine gewöhnliche Zeile in
+  «Ebenen», und ein Objekt lässt sich mit «Hierher übertragen» endgültig auf die andere Fläche
+  verschieben – angeschlossene Leitungen werden dabei sauber gelöst, nicht verwaist. Eine fertige
+  Passung überträgt sich auf weitere Module desselben Objekts. Lupe auf beiden Seiten, damit man
+  die Hausecke trifft und nicht das Dach daneben.
+
 - **FireHub (Tercero) alarms, without a second integration to learn.** A station on FireHub now
   points its «Einsatzstart» and «Einsatzende» webhooks at `POST /api/firehub/webhook` and gets the
   same result every other intake path gives: a start **auto-opens the incident**, an end **stamps the
@@ -139,6 +150,48 @@ so this file – not the log – is the record of what shipped up to that point.
   decision – the «two scrollbars» objection was about two overlapping ones, which these are not.
 
 ### Fixed
+
+- **Vier Halte-Gesten, ein Ring.** «Entsperren» trug als einziges einen 4-px-Balken in einer
+  schwebenden Karte, mit eigener Dauer (700 ms) und ohne die 250 ms Ruhe, die jede andere Halte-Geste
+  abwartet, bevor überhaupt etwas erscheint – ausgerechnet auf dem einzigen Antippfeld einer
+  gesperrten Fläche, das man am ehesten streift. Es trägt jetzt denselben Ring wie Knoten löschen,
+  Verbinden und Lösen, an derselben Uhr (`lib/nodeHold`), blau wie alles, was etwas zurückgibt.
+  ⚠️ Dabei fiel ein echter Fehler auf: der eigene 700-ms-Timer wurde beim Verschwinden des Chips
+  **nicht** abgeräumt – ein Chip, der mitten im Halten wegfiel (Werkzeugwechsel, Sync), entsperrte
+  die Fläche 700 ms später trotzdem.
+
+- **Der Fortschrittsring log unter «Bewegung reduzieren».** Die globale Regel
+  `@media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important } }` schlägt
+  jede lokale Ausnahme – der Verbinden-Ring stand also sofort voll, während die Verweildauer noch
+  350 ms zu laufen hatte. Ein Ring ist keine Zierde, sondern die Aussage «so lange noch»; er wird
+  jetzt in JS getickt und kann von einer Zier-Regel nicht mehr stummgeschaltet werden.
+
+- **«Ebenen» legte sich auf die Detail-Karte.** Beide belegen denselben Platz rechts neben der
+  Werkzeugleiste – auf dem Telefon dieselbe untere Kante –, und die Ebenen-Karte liegt darüber. Die
+  vergrabene Detail-Karte blieb durch den Hintergrund hindurch antippbar. Jetzt tritt sie zurück,
+  solange ein Dock offen ist, **ohne die Auswahl wegzuwerfen**: der Halo bleibt, die Karte kommt
+  zurück, sobald «Ebenen» zugeht. Gleiches gilt für die Zwillings-Karte.
+
+- **Die Detail-Karte folgt der ausgeklappten Werkzeugleiste.** Ihr Abstand war eine feste Zahl
+  (`right: 116px`), während jede andere Fläche daneben die Rail-Breite mitliest. Ausgeklappt lagen
+  116 px der Karte unter der Leiste, bei gezogener Leiste bis zu 180 px.
+
+- **Auf dem Telefon bleiben «Löschen» und «Zentrieren» stehen.** Die Fusszeile scrollte im Sheet mit
+  – auf einer Zwillings-Karte mit fünf Aktionen bis auf drei Reihen ganz unten. Sie ist jetzt
+  angeheftet (durch Layout, nicht `position: sticky` – das ist in einem Blur-Scroller auf iOS
+  unzuverlässig); die Beschriftungs-Zeile scrollt weiter mit, denn sie ist der seltene Griff.
+
+- **Die neueste Meldung konnte unter der Faltkante liegen.** Der Toast-Stapel hatte eine Höhe
+  bekommen, aber kein verlässliches Ende: bei einem Schwall begann der Bereich beim ÄLTESTEN, und die
+  Pille mit «Rückgängig» stand unsichtbar darunter. Ausserdem legte sich die verschobene Toast-Spur
+  exakt auf die Meldeleiste – dieselbe Verdeckung, die sie vermeiden sollte, nur oben statt unten.
+
+- **Ein einziger fehlerhafter Georeferenz-Eintrag löschte alle Massstäbe.** Das Dokument wurde als
+  Ganzes geprüft: eine unbrauchbare Koordinate in *einem* Plan liess die ganze Station auf
+  «kalibrieren» zurückfallen, sichtbar nur im Server-Log. Jetzt fällt genau der defekte Eintrag weg.
+
+- **Der Rückzugs-Alarm liess sich auf 0 stellen.** Ein geleertes Feld in der Verwaltung nahm den
+  Niederdruck-Alarm still von **beiden** Wegen – Server-Push und Gerät. Das Feld hat jetzt Grenzen.
 
 - **A reviewer with fresh eyes found the places where the app contradicts itself.** An
   external user test read the surface against itself. The Atemschutz hints told the operator to

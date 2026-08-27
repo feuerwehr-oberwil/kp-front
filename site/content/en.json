@@ -218,7 +218,8 @@
           "Measuring distance and area, to scale on the plan as well",
           "Layers: hydrants, utility cadastre, cantonal map services",
           "Building plans as a whiteboard, stack of floors, blank board",
-          "Undo/redo on every surface"
+          "Undo/redo on every surface",
+          "<strong>Georeferencing</strong>: link a plan to the map through shared landmarks – symbols appear as twins on both surfaces, with an honest read-out of the accuracy"
         ]
       },
       {

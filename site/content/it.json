@@ -219,7 +219,8 @@
           "Misurazione di distanze e superfici, in scala anche sul piano",
           "Livelli: idranti, catasto delle condotte, servizi cartografici cantonali",
           "Piani d’oggetto come lavagna, piani sovrapposti, lavagna vuota",
-          "Annulla/ripristina su ogni superficie"
+          "Annulla/ripristina su ogni superficie",
+          "<strong>Georeferenziazione</strong>: collegare una planimetria alla mappa tramite punti di riferimento comuni – i simboli compaiono come gemelli su entrambe le superfici, con un'indicazione onesta della precisione"
         ]
       },
       {
