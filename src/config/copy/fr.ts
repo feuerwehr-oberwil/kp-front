@@ -1166,6 +1166,8 @@ export const fr: Localizable<Copy> = {
       cancel: 'Annuler',
       done: 'Terminé',
       goMap: 'Associer sur la carte',
+      placePoint: 'Placer le point',
+      targetOutside: 'Placez d’abord le réticule sur la surface visible',
       checkFit: 'Vérifier la superposition',
       checkOpacity: 'Visibilité de la superposition du module',
       checkMap: 'Carte',

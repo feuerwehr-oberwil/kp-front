@@ -1164,6 +1164,8 @@ export const en: Localizable<Copy> = {
       cancel: 'Cancel',
       done: 'Done',
       goMap: 'Match on the map',
+      placePoint: 'Set point',
+      targetOutside: 'Move the crosshair onto the visible surface first',
       checkFit: 'Check the fit',
       checkOpacity: 'Module overlay visibility',
       checkMap: 'Map',

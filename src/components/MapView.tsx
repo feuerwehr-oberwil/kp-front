@@ -28,12 +28,13 @@ import { useNodeHold } from '../lib/nodeHold'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
+import { useIsPhone } from '../lib/useIsPhone'
 import { reportClientError } from '../lib/reportError'
 import { QuietAttributionControl } from './MapAttribution'
 import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { GeorefTwinsMap } from './GeorefTwinsMap'
 import type { MapTwin } from '../lib/georefTwins'
-import { georefDispatch, georefWantsMap, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
+import { georefDispatch, georefPhoneTargetPoint, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
@@ -304,6 +305,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
     twins = [], onTwinOpen, onTwinMove, selectedTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
+  const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
   // team's action bar hides only THAT team's trail; mirrors the plan board's per-team
   // hiddenTrails. The record itself is never touched here.
@@ -369,6 +371,23 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const aimGeorefMap = () => {
     if (georefTurn && georef.want !== 'map') georefDispatch({ type: 'goMap' })
   }
+  // The phone does not place where a finger happens to lift after a pan. It pans/zooms the one
+  // live map beneath the app-level fixed target, and the explicit button asks this resolver for
+  // the WGS84 coordinate under that exact screen pixel. Desktop keeps its direct tap workflow.
+  useEffect(() => {
+    if (!isPhone || !georefOn || !mapReady) return
+    return registerGeorefPhoneTarget('map', () => {
+      const map = mapInst.current
+      if (!map) return null
+      const surface = map.getContainer().getBoundingClientRect()
+      const top = document.querySelector('.topbar')?.getBoundingClientRect().bottom
+      const bottom = document.querySelector<HTMLElement>('[data-georef-controls]')?.getBoundingClientRect().top
+      const target = georefPhoneTargetPoint(surface, { top, bottom })
+      if (!target) return null
+      const ll = map.unproject([target.x - surface.left, target.y - surface.top])
+      return { lng: ll.lng, lat: ll.lat }
+    })
+  }, [georefOn, isPhone, mapReady])
   // ⚠️ The container can now change size WITHOUT the window doing so: «Karte verknüpfen» hands
   // the map the right half of the screen (09-whiteboard.css) and takes it back again. MapLibre
   // only listens to the WINDOW, so without this it keeps rendering at the old width — a
@@ -1314,7 +1333,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       }}
       onMouseDown={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       onMouseMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onMouseUp={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && georefTap.end()) placeGeoref(e.lngLat); if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseUp={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // ⚠️ The pairing aim is deliberately NOT cleared here. The loupe is up for the whole of the
       // map's turn and keeps showing the last thing aimed at — clearing it on mouse-out closed
       // the magnifier every time the hand crossed the seam back to the plan.
@@ -1325,7 +1344,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // mousemove never fires on touch — the loupe follows the drag instead, which is exactly the
       // gesture the mock asks for («halten und schieben»)
       onTouchMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point, e.points.length > 1); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onTouchEnd={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && georefTap.end()) placeGeoref(e.lngLat); if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onTouchEnd={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
       cursor={picking || georefTurn ? 'crosshair' : undefined}
       attributionControl={false}
       maxPitch={0}
@@ -1939,7 +1958,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
     </Map>
     {/* the pairing mode's magnifier — base-map tiles, no second GL context (GeorefMapLayer) */}
-    {!georef.check && georefTurn && georef.want === 'map' && (
+    {!isPhone && !georef.check && georefTurn && georef.want === 'map' && (
       <GeorefMapLoupe map={mapInst.current} layers={layers} isVisible={isVisible} night={night}
         atRef={georefPoint} />
     )}

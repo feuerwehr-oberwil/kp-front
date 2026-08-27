@@ -7,6 +7,7 @@ import {
   isPlacingTap,
   trackTap,
   georefDispatch,
+  georefPhoneTargetPoint,
   resetGeorefMode,
   georefChip,
   georefMatching,
@@ -14,8 +15,11 @@ import {
   georefPointNo,
   georefQueueNo,
   georefReduce,
+  georefSnapshot,
   georefWantsMap,
   georefWarnings,
+  placeGeorefPhoneTarget,
+  registerGeorefPhoneTarget,
   resetGeorefPlan,
   transferGeorefPlan,
   type GeorefModeState,
@@ -45,6 +49,48 @@ const armed = (pairs: GeorefPair[] = []): GeorefModeState =>
 
 const pair = (x: number, y: number, lng: number, lat: number): GeorefPair =>
   ({ plan: { x, y }, lngLat: { lng, lat }, kind: 'gesetzt' })
+
+describe('phone fixed reference target', () => {
+  beforeEach(() => resetGeorefMode())
+
+  it('centres inside the usable lane below chrome, above controls, and within edge padding', () => {
+    expect(georefPhoneTargetPoint(
+      { left: 0, top: 0, right: 390, bottom: 844 },
+      { top: 68, bottom: 620 },
+      18,
+    )).toEqual({ x: 195, y: 344 })
+    expect(georefPhoneTargetPoint(
+      { left: 0, top: 0, right: 40, bottom: 100 },
+      { top: 40, bottom: 70 },
+      18,
+    )).toBeNull()
+  })
+
+  it('the explicit action can start on the Plan', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
+    const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.42, y: 0.31 }))
+    expect(placeGeorefPhoneTarget('plan')).toBe(true)
+    expect(georefSnapshot().queue).toEqual([{ x: 0.42, y: 0.31 }])
+    unregister()
+  })
+
+  it('the explicit action can start on the Karte', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
+    georefDispatch({ type: 'goMap' })
+    const unregister = registerGeorefPhoneTarget('map', () => ({ lng: 7.527, lat: 47.516 }))
+    expect(placeGeorefPhoneTarget('map')).toBe(true)
+    expect(georefSnapshot().mapQueue).toEqual([{ lng: 7.527, lat: 47.516 }])
+    unregister()
+  })
+
+  it('refuses an unavailable or out-of-sheet target without inventing a point', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
+    const unregister = registerGeorefPhoneTarget('plan', () => null)
+    expect(placeGeorefPhoneTarget('plan')).toBe(false)
+    expect(georefSnapshot().queue).toEqual([])
+    unregister()
+  })
+})
 
 describe('georefReduce · placing a pair', () => {
   it('arms on a plan and asks for the plan first', () => {

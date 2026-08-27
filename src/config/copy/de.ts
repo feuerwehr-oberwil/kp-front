@@ -1636,6 +1636,8 @@ export const de = {
       // Der Sprung zur Karte passiert NUR auf Wunsch (Telefon): pro Punkt hin und her war der
       // Grund, warum niemand mehr als zwei Punkte gesetzt hat.
       goMap: 'Auf der Karte zuordnen',
+      placePoint: 'Punkt setzen',
+      targetOutside: 'Fadenkreuz zuerst auf die sichtbare Fläche bewegen',
       // Sichtprüfung nach dem Ausrichten: der Blattumriss liegt auf der Karte, man sieht sofort,
       // ob die Ecken zusammenfallen. Einmalig – kein Dauer-Layer.
       checkFit: 'Deckung prüfen',

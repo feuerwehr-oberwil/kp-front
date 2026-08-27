@@ -1166,6 +1166,8 @@ export const it: Localizable<Copy> = {
       cancel: 'Annulla',
       done: 'Fatto',
       goMap: 'Associa sulla mappa',
+      placePoint: 'Imposta punto',
+      targetOutside: 'Sposta prima il mirino sulla superficie visibile',
       checkFit: 'Verifica la sovrapposizione',
       checkOpacity: 'Visibilità della sovrapposizione del modulo',
       checkMap: 'Mappa',

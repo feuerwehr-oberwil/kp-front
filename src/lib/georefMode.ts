@@ -525,6 +525,48 @@ export function georefDispatch(a: GeorefAction) {
 
 export function georefSnapshot(): GeorefModeState { return state }
 
+/** A phone places a new reference at one fixed screen target. The surface underneath owns the
+ *  coordinate conversion (Plan pixels → normalized sheet point, MapLibre pixels → WGS84),
+ *  while the app-level mode card owns the explicit «Punkt setzen» action. Keeping only the
+ *  resolver here avoids streaming every pan frame through the persisted mode store. */
+type PhoneTargetResolver = () => PlanPt | GeoPt | null
+const phoneTargetResolvers: Partial<Record<GeorefSide, PhoneTargetResolver>> = {}
+
+export function registerGeorefPhoneTarget(side: GeorefSide, resolve: PhoneTargetResolver): () => void {
+  phoneTargetResolvers[side] = resolve
+  return () => {
+    if (phoneTargetResolvers[side] === resolve) delete phoneTargetResolvers[side]
+  }
+}
+
+/** Commit the fixed target on the visible phone surface. False means the target is currently
+ *  outside the sheet / the surface has not mounted yet, so no invisible point is invented. */
+export function placeGeorefPhoneTarget(side: GeorefSide): boolean {
+  const target = phoneTargetResolvers[side]?.()
+  if (!target) return false
+  if (side === 'plan') georefDispatch({ type: 'planTap', pt: target as PlanPt })
+  else georefDispatch({ type: 'mapTap', lngLat: target as GeoPt })
+  return true
+}
+
+export interface GeorefTargetRect { left: number; top: number; right: number; bottom: number }
+
+/** Centre of the actually usable phone canvas: below the TopBar, above the variable-height mode
+ *  card, with a quiet inset from every viewport edge. Both the painted reticle and each surface's
+ *  coordinate resolver call this same function, so the plus button cannot land beside the mark. */
+export function georefPhoneTargetPoint(
+  surface: GeorefTargetRect,
+  blockers: { top?: number; bottom?: number } = {},
+  padding = 18,
+): { x: number; y: number } | null {
+  const left = surface.left + padding
+  const right = surface.right - padding
+  const top = Math.max(surface.top + padding, (blockers.top ?? surface.top) + padding)
+  const bottom = Math.min(surface.bottom - padding, (blockers.bottom ?? surface.bottom) - padding)
+  if (right <= left || bottom <= top) return null
+  return { x: (left + right) / 2, y: (top + bottom) / 2 }
+}
+
 function revSnapshot(): number { return rev }
 
 /** Subscribe a surface to STORED georeferences: it re-renders whenever any plan's saved pairs
@@ -581,6 +623,8 @@ export async function transferGeorefPlan(sourceKey: string, targetKey: string): 
 export function resetGeorefMode() {
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
   savePending = null
+  delete phoneTargetResolvers.plan
+  delete phoneTargetResolvers.map
   state = GEOREF_OFF
   listeners.forEach((l) => l())
 }
