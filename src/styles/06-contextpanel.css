@@ -23,6 +23,17 @@
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-hero); z-index: 35;
   box-shadow: var(--shadow); max-height: calc(100dvh - 104px - env(safe-area-inset-bottom));
   display: flex; flex-direction: column; overflow: hidden; }
+/* A Plan's Ebenen list describes the projections in the selected object's detail panel, so both
+   stay visible on tablet/desktop. Put Ebenen in the lane immediately left of `.ctx`; the map keeps
+   its single-slot behaviour. `--plan-ctx-w` follows the tablet narrowing in 15-mobile.css, and
+   max-width lets Ebenen yield first at intermediate widths rather than overlap the detail panel. */
+@media (min-width: 601px) {
+  .app.mode-plans { --plan-ctx-w: 360px; }
+  .app.mode-plans:has(.ctx) .layers-card {
+    right: calc(var(--vrail-w, 60px) + 36px + var(--plan-ctx-w));
+    max-width: calc(100vw - var(--vrail-w, 60px) - var(--plan-ctx-w) - 52px);
+  }
+}
 /* Pin the header (with its close button) + photo + caption + footer actions; scroll ONLY the
    body. So a long panel (e.g. a Gefahrentafel with the full UN-hazard block) stays a sane height,
    never overflows the viewport, and the ✕ / Löschen buttons are always reachable. The draw editor
