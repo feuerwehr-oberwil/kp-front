@@ -189,8 +189,19 @@
 .exHouse { fill: color-mix(in srgb, var(--ink) 12%, transparent); stroke: var(--ink-faint); stroke-width: .8; }
 .exMark { fill: none; stroke: var(--blue); stroke-width: 1.8; }
 
-/* the instruction: picture, sentence, and what happens next */
+/* the instruction: picture, heading, and the lesson one tap away */
 .say { display: flex; align-items: center; gap: 10px; }
+/* ⚠️ The (i) is a 44px target that LOOKS like nothing — no box, no fill. It carries the one
+   thing on this card that is teaching rather than instruction, and teaching may not take three
+   lines of room from somebody placing their fifth point. Sticky while open (GeorefModeBars):
+   whoever opened it is having trouble, and snapping it shut per point would be the app deciding
+   they had learned. */
+.explainBtn {
+  flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
+  border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm);
+}
+.explainBtn svg { width: 19px; height: 19px; }
+.explainOn { color: var(--blue); background: color-mix(in srgb, var(--blue) 11%, transparent); }
 .sayText { min-width: 0; }
 .sayText b { display: block; font: 700 13.5px/1.3 var(--body); color: var(--ink); }
 .sayText i {
@@ -203,8 +214,14 @@
    width from «Fertig», both full-size buttons, one of them red — with a glove on, in the dark,
    that is a coin toss over half an alignment. The destructive one also stays on the LEFT, away
    from the exit somebody reaches for while finishing. */
-.quiet { display: flex; align-items: center; gap: 2px; }
-.quietGap { flex: 1 1 auto; }
+/* ⚠️ TWO actions, never three. Every button in this card is `flex: none` (a label may not be
+   squeezed into two words), so a third one was simply cut off by the card's edge — and letting
+   the row wrap only moved the problem: the third then sat alone on a line of its own, left
+   aligned under nothing. The row is kept to two by the card instead (see GeorefModeBars: the
+   bulk reset steps out once the fit is finished). `wrap` stays as a floor for a long
+   translation — a wrapped label is still readable, a clipped one is not. */
+.quiet { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; row-gap: 2px; }
+.quietGap { flex: 1 1 0; min-width: 0; }
 .quietWarn { color: var(--red-strong); }
 .quietDone { font-weight: 800; }
 
@@ -419,8 +436,11 @@
      «Fertig» and «Deckung prüfen» are ordinary things to want and a text button that has to
      be aimed at is not quieter, only worse. Labels may ellipsize; the row never wraps. */
   .bar .quietBtn {
+    /* `flex: 0 1 auto` overrides the card-wide `flex: none`: shrink before wrapping, wrap
+       before clipping, and ellipsize only if even a line of its own is not enough. */
+    flex: 0 1 auto;
     min-width: 0; max-width: 100%; padding: 0 8px; min-height: var(--tap); font-size: 13px;
-    overflow: hidden; text-overflow: ellipsis;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* ⚠️ A SEGMENTED control, at the app's usual weight — it used to be the full 60px rail height
      with the active half filled in --ink-fill, i.e. the same shape and the same black as the

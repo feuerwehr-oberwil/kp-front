@@ -1159,6 +1159,7 @@ export const fr: Localizable<Copy> = {
       linkTitle: 'Lier ce plan à la carte',
       openQuality: 'Vérifier et corriger la référence',
       promptBoth: 'Un endroit que vous retrouverez sûrement sur les deux images : angle de bâtiment, hydrant, croisement',
+      explainTitle: 'Qu’est-ce qu’un bon point ?',
       promptPlanNo: 'Point {n} · Plan',
       promptMap: 'Même point · Carte',
       promptMapNo: 'Point {n} · Carte',

@@ -10,7 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { confirmDialog, toast } from '../lib/ui'
-import { beginTap, georefDispatch, georefLamp, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefPlacing, georefPointNo, georefQueueNo, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type TapGesture } from '../lib/georefMode'
+import { beginTap, georefDispatch, georefLamp, type GeorefLamp, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefPlacing, georefPointNo, georefQueueNo, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type TapGesture } from '../lib/georefMode'
 import { fitSimilarity } from '../lib/georef'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { GeorefPair, PlanPt } from '../lib/georef'
@@ -385,10 +385,7 @@ export function GeorefSplitSeam() {
  * The Ampel, drawn. One line that is always there: how good the reference is, and — the sentence
  * that used to be a tap away in the Passung — what the next point changes about it.
  */
-function GeorefLampRow({ mode }: { mode: GeorefModeState }) {
-  // solved here rather than passed in: both bars want it, and it is a closed-form fit over a
-  // handful of points (the same call the Whiteboard already makes every render)
-  const lamp = georefLamp(fitSimilarity(mode.pairs, mode.aspect), mode)
+function GeorefLampRow({ lamp }: { lamp: GeorefLamp }) {
   return (
     <div className={`${s.lamp} ${s[`lamp_${lamp.tone}`]}`} role="status">
       <span className={s.lampDot} />
@@ -444,14 +441,15 @@ function georefPrompt(mode: GeorefModeState) {
     // The examples teach the first two pairs; by point eight they are repeated prose between
     // the operator and the buttons. Once the gesture is established, keep only destination +
     // progress in the mode bar.
-    // ⚠️ ONE line, and the SAME line on both surfaces. It used to stack two sentences and swap
-    // them per surface, so placing the two halves of one landmark read as two different jobs
-    // with two different rules («Dieselbe Stelle danach auf der Karte» / «Möglichst weit vom
-    // letzten Punkt entfernt»). It is one job: find a place you can point at twice. That
-    // sentence is true whichever half you are on, so it is what the card says on both.
-    // ⚠️ The only line that DOES differ is a correction, because then the rule really is a
-    // different one — this point already exists and is being moved.
-    hint: mode.edit ? C.subRe : C.promptBoth,
+    // ⚠️ Two DIFFERENT kinds of line, and only one of them may ever be hidden.
+    //  · `hint` is a consequence of the action about to be taken — «der alte Punkt verschwindet
+    //    dabei». It is not teaching, it is a warning, so it is always on the card.
+    //  · `explain` is the lesson: what makes a good landmark. One sentence, the SAME on both
+    //    surfaces (it used to differ per surface, which made the two halves of one landmark read
+    //    as two jobs with two rules), and it lives behind the (i) — by point five it is three
+    //    lines of prose standing between the operator and the buttons.
+    hint: mode.edit ? C.subRe : undefined,
+    explain: mode.edit ? undefined : C.promptBoth,
     // «3 Paare gesetzt · 2 offen» — what stands, and what is still waiting to be matched
     status: [
       mode.pairs.length === 0 ? C.barNone
@@ -600,6 +598,10 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   const shownSurface = mode.check ? 'map' : mode.want
   const barRef = useRef<HTMLDivElement | null>(null)
   const [fixedTarget, setFixedTarget] = useState<{ x: number; y: number } | null>(null)
+  // ⚠️ Sticky, not a peek: somebody who opens the lesson is having trouble, and having it snap
+  // shut after every point would be the app deciding they had learned. It stays until they
+  // close it, and it starts closed on every fresh arming.
+  const [explain, setExplain] = useState(false)
 
   useEffect(() => {
     if (!mode.planId || !isPhone || mode.check) return
@@ -634,6 +636,16 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   const mapEnabled = !mode.edit || mode.edit.side === 'map'
   const planEnabled = !mode.edit || mode.edit.side === 'plan'
   const done = mode.pairs.length >= 2 && !mode.queue.length && !mode.mapQueue.length
+  // ⚠️ MEASURED and good, with nothing outstanding. Then the card stops asking for work: the big
+  // row becomes «Fertig» and «Punkt setzen» drops to the quiet one. Placing another point stayed
+  // the loud action all the way through a fit that was already green with a measured ⌀ — the app
+  // pushing for a fifth point it has no reason to want, next to a «Fertig» in small text. A green
+  // lamp is precisely the moment there is nothing left to ask for, so it is the moment to say so.
+  const lamp = georefLamp(fitSimilarity(mode.pairs, mode.aspect), mode)
+  const finished = done && !mode.edit && !mode.check && lamp.tone === 'green'
+  const place = () => {
+    if (!placeGeorefPhoneTarget(shownSurface)) toast(C.targetOutside, { icon: 'warn', tone: 'warn' })
+  }
   return (
     <>
     {!mode.check && fixedTarget && (
@@ -643,14 +655,24 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
     )}
     <div ref={barRef} data-georef-controls className={s.bar} role="status" aria-label={C.title}>
       {/* ── the reading ── always there, never a tap away (georefLamp) */}
-      {!mode.check && <GeorefLampRow mode={mode} />}
-      {/* ── the instruction ── a picture of what is meant, the sentence, and what comes next */}
+      {!mode.check && <GeorefLampRow lamp={lamp} />}
+      {/* ── the instruction ── a picture of what is meant, and the lesson one tap away.
+          ⚠️ The picture STAYS. It is the cheap reminder — one line of card for the whole idea —
+          and it is what keeps the collapsed state from being a bare heading. */}
       <div className={s.say}>
         {!mode.check && <GeorefExample />}
         <span className={s.sayText}>
           <b>{p.title}</b>
           {p.hint && <i>{p.hint}</i>}
+          {explain && p.explain && <i>{p.explain}</i>}
         </span>
+        {!mode.check && p.explain && (
+          <button
+            type="button" className={`${s.explainBtn} ${explain ? s.explainOn : ''}`}
+            aria-expanded={explain} title={C.explainTitle} aria-label={C.explainTitle}
+            onClick={() => setExplain((v) => !v)}
+          ><Icon id="info" /></button>
+        )}
       </div>
       {/* On a phone the two surfaces are part of this one task, so their switch belongs inside
           its card, immediately below the status that says which point is being worked on. */}
@@ -672,12 +694,17 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
           the dark, that is a coin toss over half an alignment. Everything else is now the quiet
           row below, at text weight. */}
       {!mode.check && (
-        <button type="button" className={`btn primary ${s.placeAction}`}
-          onClick={() => {
-            if (!placeGeorefPhoneTarget(shownSurface)) toast(C.targetOutside, { icon: 'warn', tone: 'warn' })
-          }}>
-          <Icon id="plus" />{fillTemplate(C.placePointNo, { n: String(p.n) })}
-        </button>
+        finished
+          ? (
+            <button type="button" className={`btn primary ${s.placeAction}`} onClick={() => georefDispatch({ type: 'end' })}>
+              <Icon id="check" />{C.done}
+            </button>
+          )
+          : (
+            <button type="button" className={`btn primary ${s.placeAction}`} onClick={place}>
+              <Icon id="plus" />{fillTemplate(C.placePointNo, { n: String(p.n) })}
+            </button>
+          )
       )}
       {mode.check
         ? <span className={s.acts}><GeorefActions mode={mode} /></span>
@@ -689,6 +716,11 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
               <button type="button" className={`btn link ${s.quietBtn}`} aria-pressed={mode.check}
                 onClick={() => georefDispatch({ type: 'check', on: true })}><Icon id="eye" />{C.checkFit}</button>
             )}
+            {/* ⚠️ «Alle Punkte zurücksetzen» steps OUT once the fit is finished. Three actions is
+                one too many for this row — the third wrapped onto a line of its own and sat
+                there orphaned — and at a measured, green fit throwing every point away is the
+                one thing nobody is reaching for. It is not lost: «Fertig» leads straight to the
+                Passung, where «Zurücksetzen» is one of the two things on offer. */}
             {mode.edit
               ? (
                 <button type="button" className={`btn link ${s.quietBtn} ${s.quietWarn}`}
@@ -698,17 +730,27 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
                   <Icon id="trash" />{C.removePoint}
                 </button>
               )
-              : mode.pairs.length > 0 && (
+              : !finished && mode.pairs.length > 0 && (
                 <button type="button" className={`btn link ${s.quietBtn} ${s.quietWarn}`} onClick={() => void clearGeorefPoints()}>
                   <Icon id="trash" />{C.clearPoints}
                 </button>
               )}
             <span className={s.quietGap} />
-            {/* the way out, and the word matches what it does */}
-            <button type="button" className={`btn link ${s.quietBtn} ${done ? s.quietDone : ''}`}
-              onClick={() => georefDispatch({ type: 'end' })}>
-              <Icon id={done ? 'check' : 'close'} />{done ? C.done : C.cancel}
-            </button>
+            {/* …and the two exchange places when the fit is finished: adding a point is still
+                one tap away, it simply stops being the thing the card is asking for. */}
+            {finished
+              ? (
+                <button type="button" className={`btn link ${s.quietBtn}`} onClick={place}>
+                  <Icon id="plus" />{fillTemplate(C.placePointNo, { n: String(p.n) })}
+                </button>
+              )
+              : (
+                /* the way out, and the word matches what it does */
+                <button type="button" className={`btn link ${s.quietBtn} ${done ? s.quietDone : ''}`}
+                  onClick={() => georefDispatch({ type: 'end' })}>
+                  <Icon id={done ? 'check' : 'close'} />{done ? C.done : C.cancel}
+                </button>
+              )}
           </div>
         )}
     </div>

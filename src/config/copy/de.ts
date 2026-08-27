@@ -1643,6 +1643,10 @@ export const de = {
       // eine Aufgabe: eine Stelle finden, auf die man zweimal zeigen kann — auf dem Blatt und
       // draussen. Der Satz gilt auf beiden Seiten, also steht er auf beiden.
       promptBoth: 'Eine Stelle, die auf beiden Bildern sicher wiederzufinden ist: Hausecke, Hydrant, Wegkreuzung',
+      // die Lektion selbst steht hinter dem (i) – ab Punkt fünf sind drei Zeilen Prosa nur noch
+      // etwas, das zwischen dem Bediener und den Tasten steht. Das Bild bleibt: EIN Kartenstrich
+      // erinnert an dieselbe Sache und kostet eine Zeile.
+      explainTitle: 'Was ist ein guter Punkt?',
       promptMap: 'Derselbe Punkt · Karte',
       // sobald mehr als ein Punkt offen ist, zählt die Nummer – «denselben» stimmt dann nicht mehr
       promptMapNo: 'Punkt {n} · Karte',

@@ -271,6 +271,51 @@ describe('the phone can start a pair on either surface', () => {
     }
   })
 
+  // ⚠️ The lesson is behind the (i), and only the lesson. By point five «eine Stelle, die auf
+  // beiden Bildern sicher wiederzufinden ist …» is three lines of prose standing between the
+  // operator and the buttons — but a first-timer must still be able to ask for it.
+  it('keeps the landmark lesson behind the (i), and the picture beside the heading', () => {
+    const previous = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: q === PHONE_QUERY, media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
+      render(<GeorefModeBars planLabel="Modul 2" />)
+      expect(screen.queryByText(/auf beiden Bildern sicher wiederzufinden/)).toBeNull()
+      // the drawing stays — it is the reminder the collapsed card is built around
+      expect(screen.getByRole('img', { name: /dieselbe Hausecke/ })).toBeTruthy()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Was ist ein guter Punkt?' }))
+      expect(screen.getByText(/auf beiden Bildern sicher wiederzufinden/)).toBeTruthy()
+    } finally {
+      window.matchMedia = previous
+    }
+  })
+
+  // A green lamp is the moment there is nothing left to ask for. «Punkt setzen» used to stay the
+  // loud action through a measured, good fit, next to a «Fertig» in small text.
+  it('makes «Fertig» the big action once the fit is measured and good', () => {
+    const previous = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: q === PHONE_QUERY, media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      const three = [...TWO, pair(0.5, 0.3, 7.5008, 47.4997)]
+      act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: three, aspect: 1.5 }))
+      render(<GeorefModeBars planLabel="Modul 2" />)
+      // …and adding a fourth is still there, one tap away, simply not what is being asked for
+      const finish = screen.getByRole('button', { name: 'Fertig' })
+      const add = screen.getByRole('button', { name: 'Punkt 4 setzen' })
+      expect(finish.className).toContain('primary')
+      expect(add.className).not.toContain('primary')
+    } finally {
+      window.matchMedia = previous
+    }
+  })
+
   it('switches to Karte before any Modul point exists and records a map-first half', () => {
     const previous = window.matchMedia
     window.matchMedia = ((q: string) => ({

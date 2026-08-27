@@ -1159,6 +1159,7 @@ export const it: Localizable<Copy> = {
       linkTitle: 'Collega questo piano alla mappa',
       openQuality: 'Verifica e correggi il riferimento',
       promptBoth: 'Un punto che ritrovi con certezza su entrambe le immagini: spigolo, idrante, incrocio',
+      explainTitle: 'Che cos’è un buon punto?',
       promptPlanNo: 'Punto {n} · Piano',
       promptMap: 'Stesso punto · Mappa',
       promptMapNo: 'Punto {n} · Mappa',

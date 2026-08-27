@@ -1157,6 +1157,7 @@ export const en: Localizable<Copy> = {
       linkTitle: 'Link this plan to the map',
       openQuality: 'Review and correct the reference',
       promptBoth: 'A spot you can find again on both pictures: building corner, hydrant, path junction',
+      explainTitle: 'What makes a good point?',
       promptPlanNo: 'Point {n} · Plan',
       promptMap: 'Same point · Map',
       promptMapNo: 'Point {n} · Map',
