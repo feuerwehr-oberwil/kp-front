@@ -9,6 +9,7 @@
  * (TwinMark's own tap-vs-drag rule lives in GeorefTwinMark.test.tsx.)
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { Entity } from '../types'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
@@ -48,6 +49,39 @@ describe('a twin dragged across the sheet', () => {
 
   // a point off the paper is not a place on that document, and would fold back through the fit
   // as a ground coordinate nobody aimed at
+  /**
+   * ⚠️ THE regression test for «bewegt sich viel zu weit» (27.08.).
+   *
+   * The board is re-rendered mid-drag with the projection already moved — that is the whole point
+   * of a twin following its source. So the cumulative delta from the mark has to be added to where
+   * the twin STOOD when the finger went down, not to its live position. Adding it to the live prop
+   * re-applied the whole travel on every sample: 25 → 75 → 150 → 250 px for four samples of 25.
+   *
+   * The earlier test missed this by holding `pt` fixed for the whole gesture, which is the one
+   * thing the real board never does.
+   */
+  it('follows the finger 1:1 even though the twin moves under it', () => {
+    let pt = { x: 0.2, y: 0.2 }
+    const seen: { x: number; y: number }[] = []
+    const Live = () => {
+      const [p, setP] = useState(pt)
+      return <GeorefTwinsBoard twins={[{ ...twinAt(p.x, p.y) }]} byName={{}} sW={SW} sH={SH} sizePx={40}
+        onOpen={() => {}} onMove={(_t, next) => { seen.push(next); pt = next; setP(next) }} />
+    }
+    render(<Live />)
+    const m = screen.getByRole('button')
+    fireEvent.pointerDown(m, { pointerId: 1, clientX: 100, clientY: 100 })
+    for (const step of [25, 50, 75, 100]) {
+      fireEvent.pointerMove(m, { pointerId: 1, clientX: 100 + step, clientY: 100 })
+    }
+    fireEvent.pointerUp(m, { pointerId: 1, clientX: 200, clientY: 100 })
+    // 100px of travel across a 1000px sheet = exactly +0.1, however many samples it took
+    expect(pt.x).toBeCloseTo(0.3, 9)
+    expect(pt.y).toBeCloseTo(0.2, 9)
+    // …and it never overshot on the way, which is what «viel zu weit» looked like
+    for (const s of seen) expect(s.x).toBeLessThanOrEqual(0.3 + 1e-9)
+  })
+
   it('clamps to the sheet rather than naming a point off the paper', () => {
     const onMove = vi.fn()
     renderBoard(onMove)
