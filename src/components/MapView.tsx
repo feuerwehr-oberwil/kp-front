@@ -6,6 +6,7 @@ import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, L
 import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
+import { LockChip } from './LockChip'
 import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
@@ -24,11 +25,15 @@ import { MapLayers } from './MapLayers'
 // long-press to delete a path vertex (touch — desktop right-click kept); the placed-object
 // move threshold lives in MapMarkers with the entity-drag logic.
 import { useNodeHold } from '../lib/nodeHold'
-import { NodeDeleteChip } from './NodeDeleteChip'
+import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { reportClientError } from '../lib/reportError'
 import { QuietAttributionControl } from './MapAttribution'
+import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
+import { GeorefTwinsMap } from './GeorefTwinsMap'
+import type { MapTwin } from '../lib/georefTwins'
+import { georefDispatch, georefWantsMap, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
@@ -67,32 +72,6 @@ function endTagText(d: Drawing, trupp?: Trupp): string {
   const name = trupp ? truppTagText(trupp) : ''
   if (!parts.length && !name) return ''
   return [parts.join(' · '), name].filter(Boolean).join('\n')
-}
-
-// Lock chip on a locked drawing: a SHORT HOLD (not a tap) unlocks it, with a filling ring as
-// the progress indicator (Miro-style) so a stray tap never unlocks instantly.
-function LockChip({ onUnlock }: { onUnlock: () => void }) {
-  const [holding, setHolding] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const start = (e: React.PointerEvent) => {
-    e.stopPropagation()
-    setHolding(true)
-    timer.current = setTimeout(() => { setHolding(false); onUnlock() }, 700)
-  }
-  const cancel = () => { setHolding(false); if (timer.current) { clearTimeout(timer.current); timer.current = null } }
-  return (
-    <button className={`draw-lock-chip${holding ? ' holding' : ''}`} title={appConfig.copy.drawingEditor.unlockHold} aria-label={appConfig.copy.drawingEditor.unlockHold}
-      onPointerDown={start} onPointerUp={cancel} onPointerLeave={cancel} onPointerCancel={cancel} onClick={(e) => e.stopPropagation()}>
-      {/* progress sits ABOVE the chip so the fingertip never covers it */}
-      {holding && (
-        <span className="draw-lock-hint">
-          <span className="draw-lock-hint-label">{appConfig.copy.drawingEditor.unlocking}</span>
-          <span className="draw-lock-hint-bar"><i /></span>
-        </span>
-      )}
-      <Icon id="lock" />
-    </button>
-  )
 }
 
 // The grip that MAKES a node and hands it straight to the finger. Two of them are built on it: the
@@ -168,6 +147,10 @@ interface Props {
   symMul?: number
   /** device default for on-canvas symbol captions (lib/prefs · symbolCaptions) */
   captionMode?: CaptionMode
+  /** The Lage label pass is the source of truth for which map captions are actually visible.
+   *  Share its suppressed entity ids with plan twins so a hidden «Feuer» does not reappear only
+   *  because it is projected onto a Modul. */
+  onCaptionSuppressionChange?: (ids: ReadonlySet<string>) => void
   initialCenter: LngLat
   initialZoom?: number
   initialBearing?: number
@@ -294,14 +277,29 @@ interface Props {
   selectedEntityIds?: string[]
   onGroupMove?: (ids: string[], entIds: string[], dLng: number, dLat: number, phase: 'start' | 'move' | 'end') => void
   onGroupDelete?: (ids: string[], entIds: string[]) => void
+  /** Georeferenz twins: the tactical symbols of every georeferenced plan, already projected onto
+   *  the map (lib/georefTwins · mapTwins). They own no state and are read-only projections.
+   *  Empty during replay and whenever their Ebenen row is off. */
+  twins?: MapTwin[]
+  /** tap on a twin → open its details, read-only (components/GeorefTwinPanel) */
+  onTwinOpen?: (twin: MapTwin) => void
+  selectedTwinKey?: string | null
+  /** Opt-in literal plan sheets from Ebenen, already rasterized and projected by their fit. */
+  georefPlanRasters?: {
+    id: string
+    url: string
+    opacity: number
+    coordinates: [[number, number], [number, number], [number, number], [number, number]]
+  }[]
 }
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
-    marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle } = props
+    marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
+    twins = [], onTwinOpen, selectedTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
   // team's action bar hides only THAT team's trail; mirrors the plan board's per-team
@@ -344,6 +342,41 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // its `d.color || '#1f6feb'` fallbacks below are deliberately left alone.
   const night = useNightTheme()
   const uiBlue = night ? '#5aa0ff' : '#1f6feb'
+
+  // ── «Karte verknüpfen»: the map half of the pairing mode (components/GeorefMapLayer) ────────
+  // The mode is a module store, not a prop chain: on a phone the Plan surface is unmounted while
+  // this map takes the second half of a pair, so there is nobody left to thread props through.
+  const georef = useGeorefMode()
+  const georefOn = !!georef.planId
+  const georefTurn = georefWantsMap(georef)
+  // where the pairing aim sits. Cleared the moment the map's turn is over, so the shared loupe
+  // never stays parked over a surface nobody is aiming at.
+  // A REF, not state: this is written on every pointer sample of the georef turn, and the only
+  // thing that needs it is the loupe (GeorefMapLayer · GeorefMapLoupe), which ticks itself off
+  // it. As state it re-rendered this whole component — and with it the full label pass — per
+  // sample, which is the very thing the note on `onView` below forbids.
+  const georefPoint = useRef<{ lng: number; lat: number } | null>(null)
+  // tap-vs-pan for the pairing mode, tracked by hand — MapLibre's `click` fires on a pan that
+  // ends where it began (see GeorefMapLayer · useGeorefMapTap)
+  const georefTap = useGeorefMapTap()
+  /** the one place a map half of a pair is placed, or the mode says why it cannot be */
+  const placeGeoref = (lngLat: { lng: number; lat: number }) => {
+    if (georefTurn) { georefDispatch({ type: 'mapTap', lngLat: { lng: lngLat.lng, lat: lngLat.lat } }); georefPoint.current = null }
+  }
+  const aimGeorefMap = () => {
+    if (georefTurn && georef.want !== 'map') georefDispatch({ type: 'goMap' })
+  }
+  // ⚠️ The container can now change size WITHOUT the window doing so: «Karte verknüpfen» hands
+  // the map the right half of the screen (09-whiteboard.css) and takes it back again. MapLibre
+  // only listens to the WINDOW, so without this it keeps rendering at the old width — a
+  // stretched, mis-projected picture in which every tap lands metres off. A container observer
+  // covers the split, its end, and any future layout that moves this element.
+  useEffect(() => {
+    const m = mapInst.current; if (!m || !mapReady) return
+    const ro = new ResizeObserver(() => { try { m.resize() } catch { /* map gone */ } })
+    ro.observe(m.getContainer())
+    return () => ro.disconnect()
+  }, [mapReady])
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that
@@ -944,6 +977,14 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     return placeLabels(cands, occupied)
   }
   const suppressedLabels = labelDecisions()
+  const suppressedCaptionKey = [...suppressedLabels]
+    .filter((key) => key.startsWith('cap:'))
+    .map((key) => key.slice(4))
+    .sort()
+    .join('\u0000')
+  useEffect(() => {
+    onCaptionSuppressionChange?.(new Set(suppressedCaptionKey ? suppressedCaptionKey.split('\u0000') : []))
+  }, [onCaptionSuppressionChange, suppressedCaptionKey])
 
   // the draft outline/fill; its vertices render as draggable Markers (not circles) below
   const draftFC = fc(draft.length >= 2 ? [draftKind === 'area' && draft.length >= 3 ? polyFeat(draft) : lineFeat(draft)] : [])
@@ -1155,6 +1196,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const handleClick = (e: MapLayerMouseEvent) => {
     // swallow the click that trails a long-press vertex delete (keeps the line selected)
     if (suppressClick.current) { suppressClick.current = false; return }
+    // The pairing mode owns every click on the map while it runs — including the ones that come
+    // too early. Placing a symbol mid-pairing would be a silent mis-hit on a surface the operator
+    // is aiming at for something else entirely.
+    // ⚠️ The pairing mode SWALLOWS the click and places nothing here. MapLibre emits `click`
+    // whenever the pointer goes down and comes up within 3px of each other — which a pan that
+    // returns to its starting point does — so the placement rides on pointer-up with a sticky
+    // moved flag instead (see the georef handlers on <Map> below). Swallowing still matters:
+    // a mis-aimed reference tap must never drop a symbol on the Lage.
+    if (georefOn) return
     // picking takes precedence — lock the clicked coordinate, place nothing
     if (picking) { onPick?.([e.lngLat.lng, e.lngLat.lat]); return }
     const lc: LngLat = [e.lngLat.lng, e.lngLat.lat]
@@ -1247,6 +1297,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // fires at the end of the gesture and updates App's view state then — the App-level compass /
       // coord readout just settle on release instead of tracking every frame.
       onRotate={(e) => setBearing(e.viewState.bearing)}
+      // MapLibre says a genuine pan began: that settles the gesture as a drag whatever the raw
+      // travel looked like, so an armed mode never turns a pan into a reference point
+      onDragStart={georefOn ? () => georefTap.panned() : undefined}
       // North-snap: a GESTURE (originalEvent set — programmatic easeTo/flyTo carry none, so
       // «Nach Norden», saved views and the snap's own ease never re-trigger it) that releases
       // within a few degrees of north eases back to exactly 0. Accidental rotation from a
@@ -1256,16 +1309,21 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           mapInst.current?.easeTo({ bearing: 0, duration: 250 })
         }
       }}
-      onMouseDown={nodeMagnetActive ? (e) => updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) : undefined}
-      onMouseMove={(picking || nodeMagnetActive) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onMouseUp={nodeMagnetActive ? (e) => finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) : undefined}
+      onMouseDown={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseUp={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && georefTap.end()) placeGeoref(e.lngLat); if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      // ⚠️ The pairing aim is deliberately NOT cleared here. The loupe is up for the whole of the
+      // map's turn and keeps showing the last thing aimed at — clearing it on mouse-out closed
+      // the magnifier every time the hand crossed the seam back to the plan.
       onMouseOut={picking ? () => onCursor?.(null) : undefined}
       // mousemove never fires on touch — stream the aim coords from the drag as well,
       // so the crosshair readout tracks the finger on iPhone/iPad
-      onTouchStart={nodeMagnetActive ? (e) => updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) : undefined}
-      onTouchMove={(picking || nodeMagnetActive) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onTouchEnd={nodeMagnetActive ? (e) => finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) : undefined}
-      cursor={picking ? 'crosshair' : undefined}
+      onTouchStart={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { aimGeorefMap(); georefTap.start(e.point, e.points.length > 1) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      // mousemove never fires on touch — the loupe follows the drag instead, which is exactly the
+      // gesture the mock asks for («halten und schieben»)
+      onTouchMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point, e.points.length > 1); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onTouchEnd={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && georefTap.end()) placeGeoref(e.lngLat); if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      cursor={picking || georefTurn ? 'crosshair' : undefined}
       attributionControl={false}
       maxPitch={0}
       maxZoom={20}
@@ -1278,38 +1336,62 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       <QuietAttributionControl />
       <MapLayers layers={layers} preparedOverlays={preparedOverlays} isVisible={isVisible} mapReady={mapReady} />
 
+      {/* Literal georeferenced Modul sheets are separate from their symbol projections. Ebenen
+          owns visibility + transparency; they sit above the basemap and below every tactical
+          object, exactly like a reference raster rather than like an editable surface. */}
+      {!georefOn && georefPlanRasters.map((p, i) => (
+        <Source key={p.id} id={`s-georef-plan-${i}`} type="image" url={p.url} coordinates={p.coordinates}>
+          <Layer id={`l-georef-plan-${i}`} type="raster"
+            paint={{ 'raster-opacity': p.opacity, 'raster-fade-duration': 0 }} />
+        </Source>
+      ))}
+
+      {/* «Karte verknüpfen»: the numbered reference crosses, drag-to-fine-tune, tap-to-re-place */}
+      {!georef.check && <GeorefMapMarks mode={georef} map={mapInst.current} />}
+      {/* …and the one-shot «Deckung prüfen»: the sheet's outline, where the fit puts it */}
+      <GeorefCheckOutline mode={georef} map={mapInst.current} />
+
+      {/* …and what the finished reference produces: the plans' own symbols, mirrored onto the
+          map as quieter twins. Drawn UNDER everything the operator can actually edit (the
+          drawings, the markers below) — a projection must never sit on top of the real thing
+          and swallow the tap meant for it. */}
+      {twins.length > 0 && onTwinOpen && !georefOn && (
+        <GeorefTwinsMap twins={twins} byName={byName} zoom={zoom} bearing={bearing} symMul={symMul} captionMode={captionMode}
+          interactive={!placing} selectedKey={selectedTwinKey} onOpen={onTwinOpen} />
+      )}
+
       {/* committed drawings (per-feature colour/width) — gated by the markup layer toggle */}
       <Source id="s-draw" type="geojson" data={drawFC}>
         {/* Atemschutz halo: the Leitung a due/überfällig Trupp works on keeps its own colour and
             gains a soft outline in the alarm tone — the picture says WHERE those people are,
             while the Atemschutz board stays the surface that actually alarms. */}
         <Layer id="l-draw-atemschutz" type="line" filter={['!=', ['get', 'truppTone'], ''] as any}
-          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
+          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }}
           paint={{
             'line-color': ['match', ['get', 'truppTone'], 'crit', appConfig.drawing.atemschutzTone.crit, appConfig.drawing.atemschutzTone.warn],
             'line-width': ['+', ['get', 'width'], 8],
             'line-opacity': 0.45,
           } as any} />
         <Layer id="l-draw-network" type="line" filter={['>=', ['get', 'networkDepth'], 0] as any}
-          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
+          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }}
           paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 9], 'line-opacity': ['interpolate', ['linear'], ['get', 'networkDepth'], 0, 0.34, 4, 0.08] } as any} />
         {/* «zeigen» outline: wider and softer than the selection halo, and it goes away by itself.
             Deliberately NOT animated — a pulsing hose was tried and rejected on the Lage; the
             camera has just moved here, so a steady ring is enough to say which line. */}
         <Layer id="l-draw-flash" type="line" filter={['in', ['get', 'id'], ['literal', flashHighlight]] as any}
-          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
+          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }}
           paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 14], 'line-opacity': 0.3 } as any} />
         <Layer id="l-draw-sel" type="line" filter={['in', ['get', 'id'], ['literal', selHighlight]] as any}
-          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
+          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }}
           paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.5 } as any} />
-        <Layer id="l-draw-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} layout={vis(drawingsVisible)} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.14] } as any} />
+        <Layer id="l-draw-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} layout={vis(drawingsVisible && !georefOn)} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.14] } as any} />
         {/* solid + dashed split: line-dasharray can't be data-driven, so dashed lines
             render in their own layer filtered on the feature's `dashed` property */}
-        <Layer id="l-draw-line" type="line" filter={['!', ['get', 'dashed']] as any} layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] } as any} />
-        <Layer id="l-draw-line-dash" type="line" filter={['get', 'dashed'] as any} layout={{ 'line-cap': 'butt', 'line-join': 'round', ...vis(drawingsVisible) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-dasharray': LINE_DASH_ML } as any} />
+        <Layer id="l-draw-line" type="line" filter={['!', ['get', 'dashed']] as any} layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] } as any} />
+        <Layer id="l-draw-line-dash" type="line" filter={['get', 'dashed'] as any} layout={{ 'line-cap': 'butt', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-dasharray': LINE_DASH_ML } as any} />
         {/* fat transparent hit line over EVERY drawn line (solid + dashed) so a click on or
             near any line — including thin/styled ones like the Rettungsachse — selects it */}
-        <Layer id="l-draw-hit" type="line" filter={['!=', ['geometry-type'], 'Polygon']} layout={{ ...vis(drawingsVisible) }} paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 } as any} />
+        <Layer id="l-draw-hit" type="line" filter={['!=', ['geometry-type'], 'Polygon']} layout={{ ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 } as any} />
         {/* the inline letter marker (e.g. R on a Rettungsachse) renders as a DOM Marker below
             — a MapLibre text-field symbol would require a `glyphs` font source this
             offline-first style intentionally omits (it would also break offline). */}
@@ -1318,7 +1400,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           SDF icon rotated to the final-segment bearing */}
       <Source id="s-draw-arrow" type="geojson" data={arrowFC}>
         <Layer id="l-draw-arrow" type="symbol"
-          layout={{ 'icon-image': 'draw-arrow', 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1, ...vis(drawingsVisible) } as any}
+          layout={{ 'icon-image': 'draw-arrow', 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1, ...vis(drawingsVisible && !georefOn) } as any}
           paint={{ 'icon-color': ['get', 'color'] } as any} />
       </Source>
       {/* team trails — dashed path through the recorded positions, in the team's colour
@@ -1575,7 +1657,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const ll = mapInst.current.unproject(endpointDrag.candidate.point)
         return (
           <Marker key={`${endpointDrag.candidate.key}:${endpointDrag.dwell.since}`} longitude={ll.lng} latitude={ll.lat} anchor="center">
-            <span className="magnet-anchor"><NodeDeleteChip tone="connect" fillMs={MAGNET_DWELL_MS} /></span>
+            <span className="magnet-anchor"><ConnectRing since={endpointDrag.dwell.since} armed={endpointDrag.dwell.armed} /></span>
           </Marker>
         )
       })()}
@@ -1591,7 +1673,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const ll = mapInst.current.unproject(draftMagnetState.candidate.point)
         return (
           <Marker key={`${draftMagnetState.candidate.key}:${draftMagnetState.dwell.since}`} longitude={ll.lng} latitude={ll.lat} anchor="center">
-            <span className="magnet-anchor"><NodeDeleteChip tone="connect" fillMs={MAGNET_DWELL_MS} progress={draftMagnetState.dwell.armed ? 1 : undefined} /></span>
+            <span className="magnet-anchor"><ConnectRing since={draftMagnetState.dwell.since} armed={draftMagnetState.dwell.armed} /></span>
           </Marker>
         )
       })()}
@@ -1807,7 +1889,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {/* entity markers — guard against malformed entities (e.g. a server workspace
           missing a coord) so one bad row can't white-screen the whole map */}
       <MapMarkers
-        entities={entities}
+        // ⚠️ NOTHING of the Lage is drawn while «Karte verknüpfen» is armed — see the plan half
+        // (09-whiteboard.css · .wb-georef-armed) for the reason, which is the same on both
+        // surfaces: the landmark you are aiming at is exactly where the symbols sit. The
+        // entities themselves are untouched; they are back the moment the mode ends.
+        entities={georefOn ? [] : entities}
         byName={byName}
         isVisible={isVisible}
         selectedId={selectedId}
@@ -1848,6 +1934,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       />
 
     </Map>
+    {/* the pairing mode's magnifier — base-map tiles, no second GL context (GeorefMapLayer) */}
+    {!georef.check && georefTurn && georef.want === 'map' && (
+      <GeorefMapLoupe map={mapInst.current} layers={layers} isVisible={isVisible} night={night}
+        atRef={georefPoint} />
+    )}
     {/* WebGL context lost and auto-healing has already been tried: without this the map is just
         a blank rectangle surrounded by working chrome, with no hint and no action — a full app
         restart was the only cure. Deliberately NOT a toast: it must stay until acted on. */}

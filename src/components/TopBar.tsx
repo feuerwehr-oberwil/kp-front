@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Popover, PopoverClose } from '../lib/overlays'
 import { fmtMMSS } from '../lib/geo'
 import { fmtElapsedHM } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'
-import type { Incident, WeatherData } from '../types'
+import type { Incident, ReactivateResult, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
@@ -81,7 +81,7 @@ interface Props {
   /** leave the read-only view — back to the previously active Einsatz / «Alle Einsätze» */
   onBackFromArchive?: () => void
   /** editors only: re-open the closed Einsatz (its own confirm lives upstream) */
-  onReactivate?: () => void
+  onReactivate?: () => Promise<ReactivateResult>
 }
 
 // Single-line top bar: incident identity + clock on the left, global journal +
@@ -278,12 +278,19 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
  *  could read). The exits come along: tapping the chip offers «Zurück» and, for editors, «Wieder
  *  öffnen» — so nothing the banner could do got lost with it.
  *  With no exits to offer (a link session) it is a plain, non-interactive chip. */
-function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactivate?: () => void }) {
+function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactivate?: () => Promise<ReactivateResult> }) {
   const C = appConfig.copy.archived
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  // ⚠️ A SUCCESSFUL «Wieder öffnen» unmounts this chip — the Einsatz stops being archived — and
+  // the promise settles a tick later, so neither state write below may be made unconditionally.
+  const alive = useRef(true)
+  useEffect(() => () => { alive.current = false }, [])
   const label = <><Icon id="lock" />{C.title}</>
   if (!onBack && !onReactivate) return <span className="tb-mode" title={C.hint}>{label}</span>
   return (
     <Popover side="bottom" align="start" popupClassName="tb-uhr-menu" ariaLabel={C.title}
+      open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}
       trigger={<button type="button" className="tb-mode" title={C.hint} aria-label={`${C.title} – ${C.hint}`}>{label}</button>}
     >
       {onBack && (
@@ -292,9 +299,22 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
         </PopoverClose>
       )}
       {onReactivate && (
-        <PopoverClose className="tb-uhr-row" onClick={onReactivate}>
+        <button type="button" className="tb-uhr-row" disabled={busy} onClick={() => {
+          setBusy(true); setOpen(false)
+          void onReactivate()
+            // ONLY a real failure reopens the menu — a cancelled confirm means the operator
+            // is already where they wanted to be.
+            .then((r) => { if (r === 'failed' && alive.current) setOpen(true) })
+            // ⚠️ …and a CATCH, because reopening is not the only thing that can reject: upstream
+            // the incident-list refresh runs OUTSIDE its own try, so an offline refresh throws
+            // after the Einsatz has in fact been reopened. Unhandled, that was filed by the error
+            // reporter as a client error for an action that succeeded. Genuine failures are
+            // already reported by the caller's own toast, so there is nothing to say here.
+            .catch(() => {})
+            .finally(() => { if (alive.current) setBusy(false) })
+        }}>
           <Icon id="pen" /><span className="tb-uhr-lbl">{C.reactivate}</span>
-        </PopoverClose>
+        </button>
       )}
     </Popover>
   )

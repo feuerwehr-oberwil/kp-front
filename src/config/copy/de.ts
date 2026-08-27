@@ -127,7 +127,7 @@ export const de = {
           { kind: 'sub', text: 'Ansicht & Panels' },
           { kind: 'list', items: [
             '[[+]] / [[−]] Zoom · [[0]] Einpassen · [[G]] Mein Standort · [[X]] Koordinaten-Format. «Nach Norden» hat keine Taste – dafür ist der Kompass da, der immer sichtbar ist und mitdreht.',
-            '[[J]] Verlauf · [[E]] Eintrag · [[B]] Ebenen · [[O]] Objekt wählen · [[⌘]] [[,]] Einstellungen · [[?]] diese Hilfe.',
+            '[[J]] Verlauf · [[E]] Eintrag · [[B]] Ebenen · [[⌘]] [[,]] Einstellungen · [[?]] diese Hilfe.',
           ] },
         ],
       },
@@ -185,7 +185,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Pro Objekt ein Whiteboard über den Modul-/Gebäudeplänen. Stockwerkweise, mit eigenen Werkzeugen.' },
           { kind: 'list', items: [
-            'Unten links, neben dem Massstab, steht die **Adresse** des geladenen Objekts – antippen wählt ein anderes ([[O]]). Das Objekt bestimmt die Pläne in der linken Leiste.',
+            'Unten links, neben dem Massstab, steht die **Adresse** des geladenen Objekts – antippen wählt ein anderes. Das Objekt bestimmt die Pläne in der linken Leiste.',
             '**Symbol**, **Auswahl**, **Zeichnen** (Farbe/Stärke/Linienart), **Notiz** (Text), **Trupp**.',
             '**Stockwerke** als Stapel: mit den **OG/UG**-Knöpfen am Plan ein Geschoss darüber/darunter hinzufügen.',
             '**Zoom/Einpassen** unten in der Werkzeugleiste, wie auf der Karte.',
@@ -929,6 +929,9 @@ export const de = {
     circleDrawn: 'Absperrkreis gezeichnet',
     drawingCreated: 'Zeichnung erstellt',
     objectMoved: '{name} verschoben',
+    // ein Zwilling wechselt die Fläche: das Objekt ist danach wirklich dort und nicht mehr hier
+    twinTransferredToMap: '{name} auf die Karte übertragen',
+    twinTransferredToPlan: '{name} auf den Plan übertragen',
     objectDeleted: '{name} gelöscht',
     drawingDeleted: 'Zeichnung gelöscht',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is
@@ -1575,6 +1578,7 @@ export const de = {
       // The chip floats ABOVE the plan, so every word costs plan. The icon already says
       // «Massstab»; the text only says where you stand.
       chipCalibrated: 'Ref. {m} m',
+      chipAuto: 'Ref. auto',
       chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
       calibrate: 'Massstab kalibrieren',
@@ -1591,6 +1595,104 @@ export const de = {
       // read-only (Führungsansicht / viewer): measuring only works once somebody with write
       // rights has set the Massstab – never show a button that would fail
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
+    },
+    // «Karte verknüpfen» – die Paarung markanter Punkte, die den Plan auf die Karte legt
+    // (lib/georef · fitSimilarity, lib/georefMode). Zwei Punkte genügen; erst der dritte misst.
+    georef: {
+      chipUnlinked: 'Karte verknüpfen',
+      // ⚠️ Der Chip sagt EIN Wort: dass dieses Blatt an der Karte hängt. Die Güte stand früher
+      // daneben («Verknüpft · ⌀ 10.8 m») – ein Satz in einer Reihe von Dreiwort-Pillen, und eine
+      // Zahl ohne «aus wie vielen Paaren» sagt nichts. Der Farbton trägt weiterhin, ob die
+      // Passung gemessen ist; die Zahl steht einen Tipp entfernt in der Passung.
+      chipLinked: 'Verknüpft',
+      // die Güte selbst – in der Passung und in den Ebenen-Zeilen der Zwillinge: «aus 2 Punkten»
+      // heisst exakt gelöst und damit UNGEMESSEN, eine Zahl gibt es erst ab dem dritten Punkt
+      // (georef · residualClaim).
+      chipTwoPoints: 'aus 2 Punkten',
+      chipResidual: '⌀ {m} m',
+      linkTitle: 'Plan mit der Karte verknüpfen',
+      openQuality: 'Passung anzeigen',
+      // ⚠️ Die Naht trägt KEINE Beschriftung mehr – weder «KARTE VERKNÜPFEN» noch «Karte
+      // geliehen». Beides war Erklärung des Layouts statt Anweisung; die Leiste am Fuss sagt,
+      // welcher Modus läuft und was als Nächstes zu tippen ist. Die gestrichelte Linie genügt.
+      // Anweisungsleiste (die einzige Einführung, die es gibt – kein separates Tutorial)
+      promptPlanNo: 'Punkt {n} · Plan',
+      promptPlanHint: 'Markanter Punkt: Hausecke, Hydrant oder Wegkreuzung',
+      promptMap: 'Derselbe Punkt · Karte',
+      // sobald mehr als ein Punkt offen ist, zählt die Nummer – «denselben» stimmt dann nicht mehr
+      promptMapNo: 'Punkt {n} · Karte',
+      promptMapHint: 'Möglichst weit vom letzten Punkt entfernt',
+      promptRePlan: 'Punkt {n} neu · Plan',
+      promptReMap: 'Punkt {n} neu · Karte',
+      title: 'Karte verknüpfen',
+      barNone: 'Noch kein Paar',
+      barOne: '1 Paar',
+      barMany: '{n} Paare',
+      // offene Punkte: auf dem Plan gesetzt, auf der Karte noch nicht zugeordnet
+      barOpen: '{n} offen',
+      cancel: 'Abbrechen',
+      done: 'Fertig',
+      // Der Sprung zur Karte passiert NUR auf Wunsch (Telefon): pro Punkt hin und her war der
+      // Grund, warum niemand mehr als zwei Punkte gesetzt hat.
+      goMap: 'Auf der Karte zuordnen',
+      // Sichtprüfung nach dem Ausrichten: der Blattumriss liegt auf der Karte, man sieht sofort,
+      // ob die Ecken zusammenfallen. Einmalig – kein Dauer-Layer.
+      checkFit: 'Deckung prüfen',
+      checkOpacity: 'Sichtbarkeit der Modul-Deckung',
+      checkMap: 'Karte',
+      checkPlan: 'Modul',
+      planFirst: 'Zuerst den Punkt auf dem Plan antippen',
+      crossTitle: 'Punkt {n} – ziehen zum Feinjustieren, antippen zum Korrigieren oder Löschen',
+      pendingCrossTitle: 'Punkt {n} – antippen zum Korrigieren oder Löschen',
+      saveFailed: 'Verknüpfung speichern fehlgeschlagen',
+      // Passungs-Anzeige. ⚠️ EINE Zeile zur Güte, mehr nicht: Blattbreite, Drehung und die
+      // Restfehler je Punkt standen hier, weil sie sich rechnen liessen – gelesen hat sie
+      // niemand mitten im Einsatz. Was zählt, ist «wie viele Paare» und «wie weit daneben».
+      qualityTitle: 'Passung',
+      pairs: 'Paare',
+      // aus 3 Paaren gemessen; bei 2 Paaren steht stattdessen chipTwoPoints (georef · residualClaim)
+      qualityDeviation: 'Abweichung ⌀ {m} m',
+      warnTwoPoints: 'Zwei Paare lösen exakt – erst ein dritter Punkt zeigt, wie gut die Passung wirklich ist.',
+      warnCollinear: 'Die Punkte liegen fast auf einer Linie – quer dazu ist die Lage schlecht bestimmt. Ein dritter Punkt abseits davon hilft.',
+      warnBaseline: 'Die Punkte liegen nur {m} m auseinander – kleine Tippfehler wirken über den ganzen Plan.',
+      addThird: 'Dritten Punkt setzen',
+      // ab dem dritten Paar: es gibt keinen «vierten Punkt» zu lehren, nur noch einen weiteren
+      addMore: 'Punkte hinzufügen',
+      transfer: 'Übertragen',
+      transferTitle: 'Passung übertragen',
+      transferBody: 'Die Referenzpunkte von {source} werden kopiert. Danach kann jedes Modul separat angepasst werden.',
+      transferLinked: 'bereits verknüpft',
+      transferCompleted: 'übertragen',
+      transferReplaceTitle: 'Passung von {target} ersetzen?',
+      transferReplaceBody: 'Die vorhandenen Referenzpunkte von {target} werden durch die Passung von {source} ersetzt.',
+      transferDone: 'Passung auf {target} übertragen – Deckung dort prüfen',
+      reset: 'Zurücksetzen',
+      resetTitle: 'Referenz zurücksetzen?',
+      resetBody: 'Die Verknüpfung zwischen diesem Plan und der Karte wird gelöscht. Die Punkte müssen danach neu gesetzt werden.',
+      resetDone: 'Referenz zurückgesetzt',
+      // In der Leiste des laufenden Modus: alle Paare weg, der Modus bleibt an – man setzt ja
+      // sofort neu. «Abbrechen» daneben behält, was steht.
+      clearPoints: 'Zurücksetzen',
+      clearTitle: 'Alle Punkte zurücksetzen?',
+      clearBody: 'Die gesetzten Punkte werden gelöscht, die Verknüpfung des Plans mit der Karte fällt damit weg. Das Setzen beginnt von vorn.',
+      // ein aufgenommener Punkt: entweder neu setzen (antippen) oder ganz weg
+      removePoint: 'Punkt löschen',
+      // Zwillinge (lib/georefTwins): gespiegelte Symbole, die nie wie gesetzte aussehen dürfen.
+      // In den Ebenen bekommt jedes verknüpfte Blatt seine eigene Zeile – der Plan-Code steht
+      // drin, damit «welches Blatt spiegelt hier?» keine Rückfrage ist.
+      layerGroupPlans: 'Pläne',
+      layerPlanSymbols: 'Symbole ({plan})',
+      layerPlanImage: 'Plan ({plan})',
+      layerGroupMap: 'Karte',
+      layerMapVehicles: 'Karte – Fahrzeuge',
+      layerMapSymbols: 'Karte – Symbole',
+      twinFromPlan: '{name} – gespiegelt von {plan}. Antippen zeigt die Angaben.',
+      twinFromMap: '{name} – gespiegelt von der Karte. Antippen zeigt die Angaben.',
+      // Untertitel im Detailfenster eines Zwillings: sagt, warum hier nichts eingebbar ist
+      twinPanelFromPlan: 'Gespiegelt von {plan} – nur zum Lesen',
+      twinPanelFromMap: 'Gespiegelt von der Karte – nur zum Lesen',
+      // Ein Zwilling ohne Namen: das Wort steht im Etikett, damit die Plakette nie leer bleibt.
+      twinUnnamed: 'Symbol',
     },
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
@@ -1745,6 +1847,14 @@ export const de = {
     airflowBlow: 'Einblasen',
     airflowExtract: 'Absaugen',
     center: 'Zentrieren',
+    // Georeferenz-Zwilling: das Fenster spiegelt ein Objekt der anderen Fläche und ist deshalb
+    // ganz gesperrt. Diese eine Zeile führt dorthin, wo es wirklich liegt – und bearbeitbar ist.
+    toOriginal: 'Zum Original',
+    toProjection: 'Auf verknüpfter Fläche zeigen',
+    showOnMap: 'Auf Karte zeigen',
+    showOnPlan: 'Auf {plan} zeigen',
+    transferHere: 'Hierher übertragen',
+    transferredHere: '{name} hierher übertragen',
     resetGps: 'GPS',
     resetGpsTitle: 'Auf GPS-Position und -Kurs zurücksetzen',
     // The Kroki is printed hours later. A Fahrzeug that has since driven home takes its symbol
@@ -1891,7 +2001,6 @@ export const de = {
     lockHint: 'Sperrt die Form gegen versehentliches Verschieben; halte das Schloss in der Mitte gedrückt zum Entsperren.',
     // map LockChip on a locked drawing (short-hold to unlock)
     unlockHold: 'Zum Entsperren gedrückt halten',
-    unlocking: 'Entsperren …',
     connections: 'Verbindungen',
     connectedStart: 'Anfang',
     connectedEnd: 'Ende',
@@ -2600,13 +2709,9 @@ export const de = {
     syncFailedToast: 'Synchronisieren fehlgeschlagen – Änderungen bleiben lokal gespeichert.',
     // group titles in the menu: this Einsatz first (its card), then WHICH Einsatz, then the app.
     incidents: 'Einsätze',
-    // heads the abgeschlossenen Einsätze under the laufenden ones – «Archiv» bleibt der Liste
-    // vorbehalten (siehe archived), hier geht es nur um «nicht mehr aktuell».
-    earlier: 'Frühere',
     app: 'App',
+    // …und die Tür zu allem, was vorbei ist: im Menü stehen nur laufende Einsätze.
     allIncidents: 'Alle Einsätze',
-    // …mit Anzahl, sobald das Menü das Archiv geladen hat und die Zahl vollständig ist
-    allIncidentsN: 'Alle Einsätze ({n}) …',
     report: 'Einsatzrapport',
     // Correct Adresse, Kategorie, Stichwort — the same form as when opening. Also sits in the
     // Rapport («Aus den Einsatzdaten › Bearbeiten»); in the menu, because a wrong location gets

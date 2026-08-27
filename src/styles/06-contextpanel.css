@@ -14,8 +14,12 @@
    given the ordinary field look rather than the muted read-out the GPS readings get. */
 .kv-driver { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 8px; }
 .kv-driver > span { font: 700 11px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
-/* inset to the left of the right-edge tool rail (rail 88 + 16 margin + 12 gap) */
-.ctx { position: absolute; right: 116px; top: 88px; width: 360px; background: var(--glass);
+/* Inset to the left of the right-edge tool rail, TRACKING its width instead of quoting a sum:
+   the rail is 60 / 88 / 216px wide and drag-resizable to 280 (ToolRail), so a frozen 116px meant
+   an expanded rail parked itself ON the panel — 116px of it at the labelled width, 180px at full
+   drag. Same formula as every other rail-tracking dock (.layers-card, .mv-dock, .wb-dock-map,
+   PdfScroller): 16px rail inset + --vrail-w + a 10px channel. */
+.ctx { position: absolute; right: calc(var(--vrail-w, 60px) + 26px); top: 88px; width: 360px; background: var(--glass);
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-hero); z-index: 35;
   box-shadow: var(--shadow); max-height: calc(100dvh - 104px - env(safe-area-inset-bottom));
   display: flex; flex-direction: column; overflow: hidden; }
@@ -336,7 +340,8 @@
 /* the caption row keeps only its tighter LABEL — height/radius come from the one segmented spec */
 .ctx-caprow .useg-btn { padding: 4px 10px; }
 
-.ctx-actions { display: flex; gap: 6px; padding: 12px 14px 16px; }
+.ctx-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px 16px; }
+.ctx-actions > .btn { flex: 1 1 140px; }
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 700;
   padding: 11px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
   cursor: pointer; color: var(--ink); white-space: nowrap; }
@@ -344,6 +349,10 @@
 .btn .i { width: 14px; height: 14px; }
 .btn.warn { color: var(--red); }
 .btn.warn:hover { background: color-mix(in srgb, var(--red) 8%, transparent); border-color: color-mix(in srgb, var(--red) 32%, transparent); }
+/* «Zum Original» on a Georeferenz twin's panel — the link tone (--blue), like every other part
+   of «Karte verknüpfen», and never --accent: the station's alarm red is not a hyperlink. */
+.btn.link { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 34%, transparent); }
+.btn.link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 52%, transparent); }
 
 /* overflow-x hidden: with overflow-y:auto the x-axis otherwise computes to `auto` and the
    Verlauf scrolls sideways on a tablet — rows must line-wrap, never scroll horizontally */

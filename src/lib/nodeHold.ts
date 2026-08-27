@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 /**
- * Hold-to-delete for the node handles of a line, an area, a measurement or a draft — the ONE
- * gesture that removes geometry, on both surfaces.
+ * Hold-to-act for the node handles of a line, an area, a measurement or a draft — and for the
+ * lock chip. The ONE deliberate hold in the app, on both surfaces.
  *
  * Why a hold and not a tap or a double-tap: a node sits in the busiest place on the picture
  * (the incident point, where symbols, the Leitung tag and the Trupp chip already pile up), the
@@ -22,6 +22,11 @@ import { useEffect, useRef, useState } from 'react'
  * Movement + release are tracked on `window` in the capture phase, because on the map the
  * handle lives inside a react-map-gl Marker that takes pointer capture the instant a drag
  * starts — the element's own pointer events would stop arriving (same reason as useLongPress).
+ *
+ * ⚠️ «Entsperren» rides on this too (components/LockChip). It used to run its own 700 ms
+ * `setTimeout` behind a linear bar, which meant a second duration, a second picture and — with
+ * no unmount cleanup — an unlock that still fired after the chip was gone. One hold, one clock,
+ * one ring: whatever the operator learns on a node handle is what the lock chip does.
  */
 
 export const NODE_HOLD_ARM_MS = 250
@@ -92,6 +97,10 @@ export function useNodeHold() {
         if (held >= NODE_HOLD_FIRE_MS) {
           const cb = s.cb
           cancel()
+          // the same 12 ms tick «verbinden» and «lösen» give at the moment they take effect
+          // (lib/lineAttachments call sites) — a hold that completes under a glove is felt, not
+          // read. Absent on desktop and on iOS, where the API simply is not there.
+          navigator.vibrate?.(12)
           cb()
           return
         }
@@ -105,4 +114,40 @@ export function useNodeHold() {
   })
 
   return { press, cancel, armed }
+}
+
+/**
+ * Ring progress for a fill driven by a DEADLINE rather than by the hand — the magnetic dwell
+ * («halten, dann verbindet es»), whose clock starts at `since` and closes `ms` later.
+ *
+ * ⚠️ This exists because the fill used to be a CSS keyframe, and a CSS keyframe cannot be
+ * trusted to tell the truth here: `@media (prefers-reduced-motion: reduce) { * {
+ * animation-duration: .001ms !important } }` (styles/03-map.css) beats any local opt-out, so a
+ * reduced-motion operator saw a ring that was already full while the dwell timer still had
+ * 350 ms to run. The ring is not decoration — it is the statement «this is how much longer you
+ * must hold» — and a decoration rule must not be able to make it lie. Ticking it in JS puts the
+ * fill on the same clock as the thing it promises, for everyone.
+ *
+ * The reason it is a timer and not a pointermove calculation: a motionless finger fires no
+ * pointermove, and a motionless finger is exactly the case a dwell is about.
+ *
+ * `since = null` (nothing hovered) parks it at 0 and runs no timer.
+ */
+export function useTimedProgress(since: number | null, ms: number): number {
+  const [progress, setProgress] = useState(0)
+  // React's own «adjust state when a prop changes» pattern, and it earns its keep here: the
+  // interval below cannot repaint before its first tick, so without this reset the first frame
+  // after switching to a NEW magnet still showed the previous target's fill — a ring that opens
+  // half full is a promise the dwell has not made. Resetting during render (rather than in an
+  // effect) means that frame never reaches the screen.
+  const [seen, setSeen] = useState(since)
+  if (seen !== since) { setSeen(since); setProgress(0) }
+  useEffect(() => {
+    if (since == null) return
+    // Date.now() lives in the timer, never in render: a clock read during render is exactly the
+    // unstable-result trap react-hooks/purity is about.
+    const timer = setInterval(() => setProgress(Math.max(0, Math.min(1, (Date.now() - since) / ms))), TICK_MS)
+    return () => clearInterval(timer)
+  }, [since, ms])
+  return since == null ? 0 : progress
 }

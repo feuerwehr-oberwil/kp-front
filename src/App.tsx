@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactivateResult } from './types'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
 import { demoClockAnchor, latestTruppStamp, rebaseDemoClocks, type Saved } from './lib/workspace'
@@ -466,7 +467,13 @@ export default function App() {
   // «Wieder öffnen» — the mirror of abschliessen (the ArchivedBanner action), and as deliberate:
   // the confirm also teaches the consequences (Nachträge, «geändert nach Abschluss»). On confirm
   // the same incident reopens EDITABLE (readOnly false ⇒ it rejoins the open list).
-  const reactivateById = useCallback(async (id: string) => {
+  /**
+   * ⚠️ Three states, not a boolean. «Abbrechen» in the confirm and «der Server hat nein
+   * gesagt» are different answers, and the one caller (TopBar · ArchivedChip) reopens the
+   * Archiviert menu on a failure so the operator can try again. Collapsed into `false`,
+   * cancelling the confirm re-opened the very menu you were backing out of.
+   */
+  const reactivateById = useCallback(async (id: string): Promise<ReactivateResult> => {
     const h = appConfig.copy.history
     const ok = await confirmDialog({
       title: h.reactivateConfirmTitle,
@@ -474,7 +481,7 @@ export default function App() {
       confirmLabel: h.reactivateConfirmBtn,
       cancelLabel: appConfig.copy.cancel,
     })
-    if (!ok) return
+    if (!ok) return 'cancelled'
     // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
     // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
     // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
@@ -482,10 +489,15 @@ export default function App() {
       await reactivateIncident(id)
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
-      return
+      return 'failed'
     }
     await refreshList()
-    await selectIncident(id, { readOnly: false }).catch(() => {})
+    try {
+      await selectIncident(id, { readOnly: false })
+      return 'ok'
+    } catch {
+      return 'failed'
+    }
   }, [refreshList, selectIncident])
 
   // Incident list still loading after auth: keep the boot Splash up rather than a blank
@@ -580,7 +592,7 @@ export default function App() {
           // checked — while the Rapport path stamped and counted. Both doors run the SAME confirm
           // in IncidentWorkspace now and end here (mockup 06 · Fall 4).
           onCompleteRapport={() => completeRapport(activeMeta.id)}
-          onReactivateActive={isEditor && activeMeta.is_archived ? () => void reactivateById(activeMeta.id) : undefined}
+          onReactivateActive={isEditor && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
           needsReview={
             reviewPendingId === activeMeta.id ||
@@ -697,11 +709,11 @@ export default function App() {
             </div>
             <div className="ip-emptyapp-ver">{buildLabel()}</div>
           </div>
-          {landingSheet === 'settings' && (
+          {landingSheet === 'settings' && !feedbackFor && (
             <LandingSettings
               onClose={() => setLandingSheet(null)}
               // Rückmeldung posts a diagnostic report — refused for a link session
-              onFeedback={linkScoped ? undefined : () => { setLandingSheet(null); setFeedbackFor('plain') }}
+              onFeedback={linkScoped ? undefined : () => setFeedbackFor('plain')}
             />
           )}
           {landingSheet === 'help' && <HelpOverlay onClose={() => setLandingSheet(null)} />}
@@ -709,7 +721,11 @@ export default function App() {
           {feedbackFor && (
             <FeedbackSheet
               trouble={feedbackFor === 'plain' ? undefined : feedbackFor}
-              onClose={() => setFeedbackFor(null)}
+              onClose={(reason) => {
+                const fromSettings = feedbackFor === 'plain' && landingSheet === 'settings'
+                setFeedbackFor(null)
+                if (reason === 'complete' && fromSettings) setLandingSheet(null)
+              }}
             />
           )}
         </div>

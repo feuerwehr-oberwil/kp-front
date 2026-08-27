@@ -15,10 +15,10 @@ import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
-import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
+import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
-import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, type DeploymentMittelItem } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
@@ -32,7 +32,7 @@ import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from '.
 import { trackPrintJob } from './lib/printJobToast'
 import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
-import { panelNudge, panelNudgeUp, panelNudgeSelection, panelNudgeSelectionUp, isBottomSheet } from './lib/panelNudge'
+import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { cartoRasterTiles } from './lib/carto'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
@@ -66,6 +66,15 @@ import { NavRail } from './components/NavRail'
 import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
+import {
+  georefPlans, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
+  twinPlanImageLayerId, twinPlanImageVisible, twinPlanLayerId, twinVisible, isTwinLayerId, TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
+  boardSymbolToEntity, entityToBoardSymbol, onSheet, revealTwinLayer, type MapTwin,
+} from './lib/georefTwins'
+import { glyphFor, twinName } from './lib/twinGlyph'
+import { GeorefTwinPanel } from './components/GeorefTwinPanel'
+import { georefForPlan, getStationPlanScales } from './lib/stationPlanScale'
+import { effectiveLayer } from './lib/mapView'
 import { ToolRail } from './components/ToolRail'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { Palette } from './components/Palette'
@@ -96,11 +105,13 @@ import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import type { AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { Whiteboard } from './components/Whiteboard'
+import { GeorefModeBars } from './components/GeorefMode'
+import { georefDispatch, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
 import type { BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
-import { prewarmPlans } from './components/PdfViewport'
+import { planPreviewUrl, prewarmPlans } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
@@ -145,6 +156,30 @@ import { prepareUploadImage } from './lib/imagePrep'
 
 const prefs = loadPrefs()
 
+/**
+ * Let a drawing go from an object that is disappearing off the Karte, pinning the endpoint where
+ * the object stood so the drawn line does not jump.
+ *
+ * An object leaves the map by two doors — «Löschen» and «Hierher übertragen» (onto a Modul) — and
+ * both owe every Leitung anchored to it the same courtesy. Only deletion used to do it; the
+ * transfer filtered the entity out and left the attachments pointing at an id that no longer
+ * existed, so «Verbunden mit» printed the raw id and trace-routing quietly stopped working. One
+ * helper, so the two doors cannot drift apart again.
+ *
+ * Returns the drawing unchanged when nothing is attached to `ent` — safe to `.map()` over the
+ * whole list.
+ */
+function detachDrawingFrom(dr: Drawing, ent: Entity): Drawing {
+  let next = dr
+  for (const endpoint of ['start', 'end'] as const) {
+    const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
+    if (a?.target.kind !== 'object' || a.target.id !== ent.id || next.coords.length < 2) continue
+    const coords = next.coords.map((p, i) => (i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? ent.coord : p))
+    next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+  }
+  return next
+}
+
 /** How long an edit has to sit still before it earns a Verlauf row. Long enough that a sentence
  *  being typed is ONE edit, short enough that reading the Verlauf a moment later already shows
  *  it. Shared by the Rapportangaben logger and the Kroki symbol-edit logger — both write on
@@ -183,7 +218,7 @@ interface WorkspaceProps {
    *  and the Einsatz-Menü row — go through the one confirm and end in this one callback. */
   onCompleteRapport: () => Promise<boolean>
   /** re-open the CLOSED active incident (confirm dialog included) — the banner action */
-  onReactivateActive?: () => void
+  onReactivateActive?: () => Promise<ReactivateResult>
   /** leave the archived read-only view — back to the previously active incident, else the
    *  «Alle Einsätze» list it was entered from (everyone, not just editors) */
   onBackFromArchive?: () => void
@@ -503,9 +538,13 @@ export function IncidentWorkspace({
   // it is a rail surface, so «open it» is setMode('rapport'),
   // layers panel) — grouped in useSheets; switching to a tool closes the views popover + panel.
   const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen } = useSheets()
-  // Rückmeldung composer, reachable only from Einstellungen. Deliberately NOT in useSheets'
-  // mutual-exclusion group: it is opened by that sheet closing itself, not by a tool switch.
+  // Child sheets suspend their parent rather than destroying it. Their origin decides whether
+  // cancel restores Einstellungen/Ansichten/status and whether a completed action closes the
+  // entire chain.
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [feedbackParent, setFeedbackParent] = useState<'settings' | null>(null)
+  const [shareParent, setShareParent] = useState<'settings' | 'views' | 'status' | null>(null)
+  const shareStatusRestore = useRef<(() => void) | null>(null)
   // the layers side panel shares the tool docks' on-screen slot, so switching to any drawing
   // tool closes it + the views popover. Kept here (not in useSheets) next to the tactical
   // gesture state it's cleared alongside (enterReplay), so those stay plain useState setters.
@@ -521,6 +560,13 @@ export function IncidentWorkspace({
   /** The Rapport is a surface now, so «open it» is «go there». Kept as a named helper because
    *  half a dozen entry points say it (Abschluss-Assistent, the print action, the return chip). */
   const openRapport = () => setMode('rapport')
+  // «Karte verknüpfen» on a PHONE hops between the plan and the map — there is no room for the
+  // two-pane split, so the app follows the mode instead of asking anyone to find the other
+  // surface. This one line is the whole bridge; the mode itself lives in lib/georefMode.
+  useGeorefSurfaceBridge(setMode)
+  const georefMode = useGeorefMode()
+  const georefActive = !!georefMode.planId
+  const phoneGeoref = isPhone && !!georefMode.planId
   // Demo-only: which surface someone opened, for the public demo's visit statistics. A no-op
   // on every real station (isDemoMode) and in a link session — see lib/visitBeacon.ts.
   useEffect(() => { countSurface(mode, { linkScoped }) }, [mode, linkScoped])
@@ -590,6 +636,32 @@ export function IncidentWorkspace({
   // order it can show (Trupp.order) is synced, so «wie gesetzt» is the same board everywhere.
   const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'manuell')
   const setAtemschutzOrder = (o: TruppOrder) => { setAtemschutzOrderState(o); savePrefs({ ...loadPrefs(), atemschutzOrder: o }) }
+  // Which Georeferenz twin layers this device shows. A DEVICE pref like every other «what am I
+  // looking at» switch, and persisted the same way `atemschutzOrder` above is: seeded lazily from
+  // the cookie, written on the toggle. Absent = shown (lib/georefTwins · twinVisible) — a
+  // georeference exists because somebody made one, and both pictures at once is what for.
+  const [twinLayers, setTwinLayers] = useState<Record<string, boolean>>(() => loadPrefs().twinLayers ?? {})
+  const [twinLayerOpacity, setTwinLayerOpacity] = useState<Record<string, number>>(() => loadPrefs().twinLayerOpacity ?? {})
+  const [mapSuppressedCaptions, setMapSuppressedCaptions] = useState<ReadonlySet<string>>(new Set())
+  /**
+   * ⚠️ The cookie write happens OUTSIDE the updater, exactly as `setAtemschutzOrder` above does
+   * it. React runs updater functions during the render phase — and twice under StrictMode — so a
+   * `savePrefs` inside one is a side effect on an unpredictable schedule, which is the one thing
+   * an updater may not contain. These three setters used to do it inside; the comment above even
+   * claimed they were "persisted the same way `atemschutzOrder` is", which is precisely what they
+   * were not doing.
+   */
+  const persistTwinLayers = (next: Record<string, boolean>) => {
+    setTwinLayers(next)
+    savePrefs({ ...loadPrefs(), twinLayers: next })
+  }
+  const toggleTwinLayer = (id: string) => persistTwinLayers({ ...twinLayers, [id]: !twinVisible(twinLayers, id) })
+  /** A «zeigen» jump is a promise that its target will be visible. Respect a deliberate layer
+   *  choice normally, but turn the one required projection back on for that explicit jump. */
+  const showTwinLayer = (id: string) => {
+    const next = revealTwinLayer(twinLayers, id)
+    if (next !== twinLayers) persistTwinLayers(next)
+  }
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
   const [rapportReturn, setRapportReturn] = useState(false)
   // «Leitung wählen»: the Trupp waiting for a hose to be tapped. Ephemeral (never saved) and
@@ -859,7 +931,7 @@ export function IncidentWorkspace({
   const composerOpenedAt = useRef<string | null>(null)
   useEffect(() => { if (composerOpen) composerOpenedAt.current = new Date().toISOString() }, [composerOpen])
   // a Verlauf row can ask the plan to revisit a point; nonce makes each request distinct
-  const [planFocus, setPlanFocus] = useState<{ x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null>(null)
+  const [planFocus, setPlanFocus] = useState<{ x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; nonce: number } | null>(null)
   // «zeigen» on the Lage: the drawing gets an outline for a couple of seconds and is NOT selected
   // (see MapView · flashDrawingId). Cleared on a timer — pointing is a gesture, not a state.
   const [flashDrawingId, setFlashDrawingId] = useState<string | null>(null)
@@ -896,6 +968,22 @@ export function IncidentWorkspace({
   // a note stays quiet — it is placed mid-sentence and a panel sliding in on every tap would be
   // in the way. Only the ⚙ handle sets this.
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
+  // which Georeferenz twin has its (read-only) details open — a linked plan's symbol, mirrored
+  // onto the map. Selection belongs to the shared source object; the projection carries its halo.
+  const [twinView, setTwinView] = useState<MapTwin | null>(null)
+  // A detail sidebar has one owner. Opening a projection first drops every real selection so
+  // the read-only and editable versions can never stack, compete for Escape, or leave two
+  // objects looking active at once.
+  const openTwinView = (twin: MapTwin) => {
+    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+    setNotePanelId(null); setEditNoteId(null)
+    // …and the two chrome docks, which a twin's panel shares a slot with exactly as an ordinary
+    // detail panel does. A twin is not part of `selKey`, so the «new selection closes the map
+    // chrome» effect never fires for one — without this, tapping a projected Modul symbol while
+    // Ebenen was open stacked a THIRD surface into the same band.
+    setPanel(null); setViewsOpen(false)
+    setTwinView(twin)
+  }
   // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
   const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
     { size: 'm', plain: false, color: '' },
@@ -1270,7 +1358,11 @@ export function IncidentWorkspace({
       // peel a layer behind it. That is what the note above always claimed; it was never enforced,
       // so Esc in the «Welcher Trupp?» picker closed the picker AND disarmed the Team tool. Focus
       // is trapped inside the dialog, so the event target is enough to tell.
-      if (el?.closest('[role="dialog"]')) return
+      // ⚠️ `alertdialog` as well as `dialog`: ConfirmCard (lib/overlays/ConfirmCard) renders the
+      // alert role, so a delete confirm on the Lage was NOT a modal by this test — Escape closed
+      // the confirm AND peeled a map layer behind it. The Plan's twin of this handler already
+      // matched both roles; this is the Lage catching up.
+      if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
       if (pending || pendingShape) { setPending(null); setPendingShape(null); setTool('select') }
       else if (panel || viewsOpen) { setPanel(null); setViewsOpen(false) }
       // …then the active TOOL and the dock that belongs to it. Escape used to bail out of an
@@ -1279,12 +1371,13 @@ export function IncidentWorkspace({
       // and stopped.
       else if (tool !== 'select') { setTool('select'); setDraft([]) }
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
+      else if (twinView) setTwinView(null)
       else if (notePanelId) setNotePanelId(null)
       else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pending, pendingShape, panel, viewsOpen, tool, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pending, pendingShape, panel, viewsOpen, tool, twinView, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
@@ -1368,6 +1461,86 @@ export function IncidentWorkspace({
     const m = new Map(mapLayers.map((l) => [l.id, l.visible]))
     return (id: LayerId) => m.get(id) ?? true
   }, [mapLayers])
+
+  // --- Georeferenz: the twins (lib/georefTwins, components/GeorefTwinMark) -----------------------
+  // A projection, never an object: it is not stored, logged, printed, given a clock or moved.
+  // Repositioning belongs to the original surface; the twin panel provides that explicit jump.
+  //
+  // ⚠️ `useGeorefStorage()` is what makes the memo below re-run. `georefForPlan` reads a module
+  // singleton synchronously, so a plan that was just linked has nothing else to tell React with.
+  useGeorefStorage()
+  // …and THIS is the dep that carries it: `saveStationPlanScales` replaces the singleton with a
+  // new object on every write, so its identity changes exactly when a reference does (and once
+  // more when the boot fetch lands). Read during render — it is a synchronous accessor.
+  const stationScales = getStationPlanScales()
+  // Every plan of this object that carries a usable fit, solved once per plan/pairs change. The
+  // aspect each fit is taken at is recovered from the plan's calibration — see georefTwins ·
+  // planAspect for why that is the right source and what happens when there is none.
+  const linkedPlans = useMemo(
+    () => georefPlans(planDocs, georefForPlan, (p) => planAspect(p, stationScales, planScale[p.id])),
+    [planDocs, planScale, stationScales],
+  )
+  // The plans' symbols, projected onto the map. Re-projected only when a board or a fit actually
+  // moves — never on a pan, a zoom or a vehicle poll, none of which change where a plan symbol is
+  // on the ground. Hidden wholesale during replay: the georeference is station data that was
+  // never part of the recorded incident, so a past picture must not carry today's fit.
+  const mapTwinList = useMemo<MapTwin[]>(() => {
+    if (replayActive) return []
+    const shown = linkedPlans.filter((p) => twinVisible(twinLayers, twinPlanLayerId(p.id)))
+    return shown.length ? projectMapTwins(shown, board) : []
+  }, [replayActive, linkedPlans, twinLayers, board])
+  const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (replayActive) return
+    let cancelled = false
+    for (const p of linkedPlans) {
+      if (!p.imageUrl || !twinPlanImageVisible(twinLayers, p.id) || georefPlanPreviews[p.id]) continue
+      const url = p.imageUrl.startsWith('/') || /^https?:/.test(p.imageUrl)
+        ? p.imageUrl
+        : `${import.meta.env.BASE_URL}${p.imageUrl}`
+      void planPreviewUrl(url, window.innerWidth, window.innerHeight).then((preview) => {
+        if (!cancelled) setGeorefPlanPreviews((cur) => cur[p.id] ? cur : { ...cur, [p.id]: preview })
+      }).catch(() => {})
+    }
+    return () => { cancelled = true }
+  }, [replayActive, linkedPlans, twinLayers, georefPlanPreviews])
+  const georefPlanRasters = useMemo(() => replayActive ? [] : linkedPlans.flatMap((p) => {
+    const url = georefPlanPreviews[p.id]
+    if (!url || !twinPlanImageVisible(twinLayers, p.id)) return []
+    const points = ([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] as const)
+      .map((pt) => { const c = p.fit.toMap(pt); return [c.lng, c.lat] as [number, number] })
+    return [{
+      id: p.id,
+      url,
+      opacity: (twinLayerOpacity[twinPlanImageLayerId(p.id)] ?? 55) / 100,
+      coordinates: points as [[number, number], [number, number], [number, number], [number, number]],
+    }]
+  }), [replayActive, linkedPlans, georefPlanPreviews, twinLayers, twinLayerOpacity])
+  // …and the other direction: what the Karte lends the OPEN sheet. Only the raw lists travel —
+  // the Whiteboard projects and clips them against its own fit, which is solved at the aspect it
+  // has actually measured (see Whiteboard · twinVehicles).
+  const activeLinkedPlan = linkedPlans.find((p) => p.id === activePlanId) ?? null
+  const selectedPlanProjection = useMemo(() => {
+    const entity = doc.entities.find((e) => e.id === selectedId)
+    if (!entity || entity.kind !== 'symbol') return null
+    const ordered = [...linkedPlans].sort((a, b) => Number(b.id === activePlanId) - Number(a.id === activePlanId))
+    for (const plan of ordered) {
+      const pt = plan.fit.toPlan({ lng: entity.coord[0], lat: entity.coord[1] })
+      if (onSheet(pt)) return { plan, pt }
+    }
+    return null
+  }, [doc.entities, selectedId, linkedPlans, activePlanId])
+  const boardTwinSources = useMemo(() => {
+    if (replayActive || !activeLinkedPlan) return undefined
+    return {
+      vehicles: twinVisible(twinLayers, TWIN_MAP_VEHICLES) ? liveVehicles : [],
+      // the Lage's own tactical symbols, honouring the Karte's layer switch: a symbol hidden
+      // there must not reappear on the sheet through the back door
+      symbols: twinVisible(twinLayers, TWIN_MAP_SYMBOLS)
+        ? doc.entities.filter((e) => e.kind === 'symbol' && isVisible(effectiveLayer(e)))
+        : [],
+    }
+  }, [replayActive, activeLinkedPlan, twinLayers, liveVehicles, doc.entities, isVisible])
 
   // The journal is append-only: every action pushes a row, and nothing ever edits
   // or removes one — undo/redo log their own lines. So the stream stays a faithful
@@ -1498,6 +1671,11 @@ export function IncidentWorkspace({
   }
 
   const toggleLayer = (id: LayerId) => {
+    // A Georeferenz twin row is not a `LayerDef` and does not live in `layerState`: its ids are
+    // per plan (and per object), so they have no home in the fixed layer list `deriveInitial`
+    // reconciles against. It is a device pref instead — same scope, different drawer. Routed by
+    // id so the Ebenen panel stays ONE list with one gesture (lib/georefTwins · isTwinLayerId).
+    if (isTwinLayerId(id)) { toggleTwinLayer(id); return }
     const target = layers.find((l) => l.id === id)
     emit('layer.toggle', { id, base: !!target?.base, visible: target?.base ? true : !(target?.visible ?? true) })
     setLayers((ls) => {
@@ -1507,7 +1685,16 @@ export function IncidentWorkspace({
       return ls.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l))
     })
   }
-  const setOpacity = (id: LayerId, v: number) => setLayers((ls) => ls.map((l) => (l.id === id ? { ...l, opacity: v } : l)))
+  const setOpacity = (id: LayerId, v: number) => {
+    if (isTwinLayerId(id)) {
+      // written outside the updater — see the note on persistTwinLayers
+      const next = { ...twinLayerOpacity, [id]: v }
+      setTwinLayerOpacity(next)
+      savePrefs({ ...loadPrefs(), twinLayerOpacity: next })
+      return
+    }
+    setLayers((ls) => ls.map((l) => (l.id === id ? { ...l, opacity: v } : l)))
+  }
 
   /**
    * The ONE place that drops the Lage map's transient UI. Six call sites — pick, togglePanel,
@@ -1519,9 +1706,16 @@ export function IncidentWorkspace({
    * is a 46dvh bottom sheet and buries the tool bar outright. The Plan surface never had this —
    * Whiteboard gates all four of its editors on `tool === 'pan'`; this is the Lage catching up.
    *
-   * `keep: 'selection'` is for the two chrome toggles (Ebenen, Kartenansichten). Those are drawn
-   * ABOVE the detail panel, not over a tool dock, so nothing becomes unreachable and throwing away
-   * what you had tapped just to look at a layer would be its own surprise.
+   * `keep: 'selection'` is for the two chrome toggles (Ebenen, Kartenansichten): throwing away
+   * what you had tapped just to look at a layer would be its own surprise, so the halo stays and
+   * the panel returns when the dock closes.
+   *
+   * ⚠️ This used to claim the toggles are "drawn ABOVE the detail panel … so nothing becomes
+   * unreachable". They are drawn above it — and at the SAME coordinates: `.layers-card` (z201,
+   * 264px) lands on `.ctx` (z35, 360px), and on a phone both are bottom sheets on the same edge
+   * with only a z28 backdrop between them, so the buried panel stayed tappable. Keeping the
+   * selection was right; concluding that the panel could therefore stay rendered was not. The
+   * panel now stands down via `detailSlotFree` while a dock is up — see its note above.
    */
   const clearMapUi = (keep?: 'selection') => {
     setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setTeamPick(null)
@@ -1529,6 +1723,7 @@ export function IncidentWorkspace({
     // otherwise leaving the map with it open silently re-opened it on the way back
     setPanel(null); setViewsOpen(false); setPaletteOpen(false)
     if (keep === 'selection') return
+    setTwinView(null)
     setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
     setNotePanelId(null); setEditNoteId(null)
   }
@@ -1582,7 +1777,7 @@ export function IncidentWorkspace({
       setMode('plans'); setPanel(null); setActivePlanId(e.planId)
       if (e.px != null && e.py != null) setPlanFocus({ x: e.px, y: e.py, floor: e.floor ?? 0, annoId: e.annoId, nonce: Date.now() })
     } else if (e.coord) {
-      setMode('map'); mapRef.current?.flyTo({ center: e.coord, zoom: 18 })
+      setMode('map'); flyToMapVisible(e.coord, 18)
     } else if (e.entityId) {
       setMode('map'); focusEntity(e.entityId)
     }
@@ -1773,6 +1968,7 @@ export function IncidentWorkspace({
   const pickShape = (kind: ShapeKind) => { setTool('shape'); setPending(null); setPendingShape(kind); setPaletteOpen(false) }
 
   const onMapClick = (c: LngLat) => {
+    setTwinView(null)
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
     // the panel is map chrome, so tapping the map behind it should just close it
     if (panel !== null) { setPanel(null); return }
@@ -1892,13 +2088,18 @@ export function IncidentWorkspace({
         note: blocked ?? (isDemoMode() ? C.menuDemo : on ? C.menuOnHint : null),
         disabled: !!blocked,
         onToggle: () => {
-          if (on) share.stop()
+          if (on) { share.stop(); return false }
           // One tap only once somebody confirmed «das bin ich» FOR THIS Einsatz. A device that
           // merely remembers a name from the last one has to be asked again — a Tablet that
           // gets handed around otherwise reports the whole Einsatz under the wrong name. The
           // permission is not re-asked, only the identity, so that is the picker alone.
-          else if (share.confirmed) share.start()
-          else setSharePick(share.ready ? 'pick' : 'ask')
+          else if (share.confirmed) { share.start(); return false }
+          else {
+            setShareParent('views')
+            setSharePick(share.ready ? 'pick' : 'ask')
+            return true
+          }
+          return false
         },
       }
     })(),
@@ -1975,6 +2176,24 @@ export function IncidentWorkspace({
     if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || composerOpen) return
     const cmd = resolveHotkey(e)
     if (!cmd) return
+    // An alignment session owns navigation on every form factor. The hidden NavRail must not
+    // have a keyboard back door to another module or surface; only its own Karte/Modul pair
+    // remains reachable until the operator deliberately finishes or cancels the task.
+    if (georefActive && cmd.type === 'module') {
+      e.preventDefault()
+      const target = planDocs.find((p) => moduleNumbers(p).includes(cmd.n))
+      if (target?.id === georefMode.planId) georefDispatch({ type: 'goPlan' })
+      return
+    }
+    if (georefActive && cmd.type === 'nav') {
+      e.preventDefault()
+      return
+    }
+    if (georefActive && cmd.type === 'surface') {
+      e.preventDefault()
+      if (cmd.surface === 'map') georefDispatch({ type: 'goMap' })
+      return
+    }
     const onMap = mode === 'map', onPlan = mode === 'plans', drawing = onMap || onPlan
     switch (cmd.type) {
       case 'module': e.preventDefault(); goToModule(cmd.n); break
@@ -1998,7 +2217,6 @@ export function IncidentWorkspace({
           case 'journal': e.preventDefault(); setJournalOpen((v) => !v); break
           case 'composer': if (!readOnly && !linkScoped) { e.preventDefault(); setComposerOpen(true) } break
           case 'layers': if (onMap) { e.preventDefault(); togglePanel('layers') } break
-          case 'picker': if (!linkScoped) { e.preventDefault(); setPickerOpen(true) } break
           case 'settings': if (!linkScoped) { e.preventDefault(); setSettingsOpen(true) } break
           case 'help': e.preventDefault(); setHelpOpen(true); break
         }
@@ -2026,6 +2244,17 @@ export function IncidentWorkspace({
   // while you place the next thing (selection alone doesn't change until that thing lands)
   useEffect(() => { if (tool !== 'select') setNotePanelId(null) }, [tool])
 
+  const mapWorkRect = (container: DOMRect, panelEl: Element): NudgeBox | null => {
+    const panel = panelEl.getBoundingClientRect()
+    if (!panel.width) return null
+    const surface = { minX: 0, maxX: container.width, minY: 0, maxY: container.height }
+    const obstruction = {
+      minX: panel.left - container.left, maxX: panel.right - container.left,
+      minY: panel.top - container.top, maxY: panel.bottom - container.top,
+    }
+    return visibleWorkRect(surface, obstruction, isBottomSheet(panel.width, container.width))
+  }
+
   // keep the tapped symbol visible: the ContextPanel overlay covers the right band of the
   // map — when the selection (incl. its halo/handles) lands under it, ease the camera just
   // enough to bring it clear (lib/panelNudge). Keyed on the id only, NOT the coord: dragging
@@ -2038,13 +2267,10 @@ export function IncidentWorkspace({
       const panelEl = document.querySelector('.ctx')
       if (!m || !panelEl || !selected) return
       const cont = m.getContainer().getBoundingClientRect()
-      const r = panelEl.getBoundingClientRect()
-      if (!r.width) return // panel present but CSS-hidden — nothing occludes
+      const work = mapWorkRect(cont, panelEl)
+      if (!work) return // panel present but CSS-hidden — nothing occludes
       const pt = m.project(selected.coord)
-      // phone bottom sheet → nudge up; desktop/tablet side panel → nudge left
-      const nudge = isBottomSheet(r.width, cont.width)
-        ? panelNudgeUp(pt, { top: r.top - cont.top })
-        : panelNudge(pt, { left: r.left - cont.left, top: r.top - cont.top, bottom: r.bottom - cont.top })
+      const nudge = nudgePointIntoRect(pt, work)
       if (nudge) m.panBy(nudge, { duration: 350 })
     })
     return () => cancelAnimationFrame(raf)
@@ -2063,8 +2289,8 @@ export function IncidentWorkspace({
       const d = drawings.find((x) => x.id === selectedDrawingId)
       if (!m || !panelEl || !d?.coords.length) return
       const cont = m.getContainer().getBoundingClientRect()
-      const r = panelEl.getBoundingClientRect()
-      if (!r.width) return // panel present but CSS-hidden — nothing occludes
+      const work = mapWorkRect(cont, panelEl)
+      if (!work) return // panel present but CSS-hidden — nothing occludes
       const coords = d.kind === 'circle' && d.radiusM
         ? (circlePolygon(d.coords[0], d.radiusM, 16)[0] as LngLat[])
         : d.coords
@@ -2075,14 +2301,29 @@ export function IncidentWorkspace({
       }
       // `e.point` is already container-relative, the same space `box` lives in
       const tap = drawTap?.id === selectedDrawingId ? { x: drawTap.x, y: drawTap.y } : null
-      const nudge = isBottomSheet(r.width, cont.width)
-        ? panelNudgeSelectionUp(box, tap, { top: r.top - cont.top })
-        : panelNudgeSelection(box, tap, { left: r.left - cont.left, top: r.top - cont.top, bottom: r.bottom - cont.top })
+      const nudge = nudgeSelectionIntoRect(box, tap, work)
       if (nudge) m.panBy(nudge, { duration: 350 })
     })
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDrawingId, mode])
+
+  // Projections open the same detail geometry as real objects and therefore obey the same calm
+  // visibility rule. A twin near an edge used to disappear behind its own read-only panel.
+  useEffect(() => {
+    if (!twinView || mode !== 'map') return
+    const raf = requestAnimationFrame(() => {
+      const m = mapRef.current?.getMap()
+      const panelEl = document.querySelector('.ctx')
+      if (!m || !panelEl) return
+      const work = mapWorkRect(m.getContainer().getBoundingClientRect(), panelEl)
+      if (!work) return
+      const pt = m.project(twinView.coord)
+      const nudge = nudgePointIntoRect(pt, work)
+      if (nudge) m.panBy(nudge, { duration: 350 })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [twinView?.key, mode]) // eslint-disable-line react-hooks/exhaustive-deps
   // a marquee selects a SET of drawings: one falls back to the single-edit path, several
   // become a group (move/delete together). Empty box clears any selection. The lasso is a
   // one-shot tool: drop back to plain navigate (select) after the box so a stray next
@@ -2178,14 +2419,134 @@ export function IncidentWorkspace({
       : appConfig.copy.log.drawingDeleted)
   }
 
+  /** Centre a deliberate jump in the part of the map that remains visible around an editor.
+   *  Selection state mounts the editor in the same frame; one rAF lets us measure its real
+   *  desktop/tablet/phone geometry before the camera moves. Zoom is chosen by the caller. */
+  const flyToMapVisible = (center: LngLat, zoom: number) => {
+    requestAnimationFrame(() => {
+      const m = mapRef.current?.getMap()
+      if (!m) return
+      const cont = m.getContainer().getBoundingClientRect()
+      const panelEl = document.querySelector('.ctx')
+      const surface = { minX: 0, maxX: cont.width, minY: 0, maxY: cont.height }
+      const work = panelEl ? mapWorkRect(cont, panelEl) : visibleWorkRect(surface, null, false)
+      const target = rectCenter(work ?? visibleWorkRect(surface, null, false))
+      m.flyTo({ center, zoom, offset: [target.x - cont.width / 2, target.y - cont.height / 2] })
+    })
+  }
+
   // select + fly to an object — used by clickable Verlauf rows
   const focusEntity = (id: string) => {
     const e = entities.find((x) => x.id === id); if (!e) return
-    setSelectedId(id); setSelectedDrawingId(null); mapRef.current?.flyTo({ center: e.coord, zoom: 18.4 })
+    setSelectedId(id); setSelectedDrawingId(null); flyToMapVisible(e.coord, 18.4)
   }
   const focusDrawing = (id: string) => {
     const d = drawings.find((x) => x.id === id); if (!d?.coords[0]) return
-    setSelectedDrawingId(id); setSelectedId(null); mapRef.current?.flyTo({ center: d.coords[0], zoom: 17.8 })
+    // A long line is never zoom-fitted. Its first real vertex is enough to make a useful part
+    // visible, centred in the free workspace; the current drawing zoom convention stays intact.
+    setSelectedDrawingId(id); setSelectedId(null); flyToMapVisible(d.coords[0], 17.8)
+  }
+  /** One movement path for a real Lage marker and for that marker's projection on a Modul.
+   *  The gesture still writes the ONE source entity, so undo, routed Leitungen, audit and Verlauf
+   *  cannot diverge depending on which picture the operator happened to drag. */
+  const startEntityMove = (id: string) => { if (!liveIds.has(id)) beginDrag() }
+  const streamEntityMove = (id: string, c: LngLat) => {
+    if (tacticalLocked) return
+    if (liveIds.has(id)) { setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } })); return }
+    setDocRaw((d) => ({
+      ...d,
+      entities: d.entities.map((e) => (e.id === id ? { ...e, coord: c } : e)),
+      drawings: d.drawings.map((dr) => {
+        if (dr.kind !== 'line') return dr
+        let next = dr
+        for (const endpoint of ['start', 'end'] as const) {
+          const a = next[endpoint === 'start' ? 'startAttachment' : 'endAttachment']
+          if (a?.target.kind === 'object' && a.target.id === id && a.routing === 'trace') next = { ...next, coords: applyRouting(next.coords, endpoint, c, 'trace', 0.000008) }
+        }
+        return next
+      }),
+    }))
+  }
+  const finishEntityMove = (id: string, c: LngLat) => {
+    if (tacticalLocked) return
+    if (liveIds.has(id)) setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } }))
+    else {
+      // a moved team marker re-stamps its «last moved» time; it does NOT breadcrumb
+      setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, coord: c, ...(e.kind === 'team' ? { t: formatTime(new Date()) } : {}) } : e)) }))
+      endDrag()
+    }
+    log('select', fillTemplate(appConfig.copy.log.objectMoved, { name: entities.find((x) => x.id === id)?.label ?? appConfig.copy.entities.fallbackObjectName }), 'symbol', undefined, id)
+    emit(liveIds.has(id) ? 'entity.edit' : 'entity.move', { id, coord: c })
+    drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id && a.routing === 'trace'))
+      .forEach((d) => emit('draw.edit', { id: d.id, patch: { coords: d.coords } }))
+  }
+  const transferPlanTwinToMap = (t: MapTwin) => {
+    if (tacticalLocked || doc.entities.some((e) => e.id === t.annoId)) return
+    const entity = boardSymbolToEntity(t.anno, t.coord, appConfig.defaults.operationalLayerId)
+    if (!entity) return
+    setBoard((all) => ({ ...all, [t.planId]: (all[t.planId] ?? []).filter((a) => a.id !== t.annoId) }))
+    setDocRaw((d) => ({ ...d, entities: [...d.entities, entity] }))
+    setTwinView(null); setSelectedId(entity.id)
+    // A transfer is a committed domain action — the object is somewhere else now — so it leaves a
+    // Verlauf row and an audit event like every other one. Without them a symbol could move
+    // between Modul and Karte and appear in NO record: not the Verlauf, not the Rapport, not the
+    // hash chain. See AGENTS.md on what the event log is for.
+    log('move', fillTemplate(appConfig.copy.log.twinTransferredToMap, { name: twinName(t.anno) }), 'symbol', undefined, entity.id)
+    emit('entity.add', { entity })
+    toast(fillTemplate(appConfig.copy.contextPanel.transferredHere, { name: twinName(t.anno) }), {
+      icon: 'move',
+      action: {
+        label: appConfig.copy.undo,
+        onClick: () => {
+          setDocRaw((d) => ({ ...d, entities: d.entities.filter((e) => e.id !== entity.id) }))
+          setBoard((all) => ({ ...all, [t.planId]: [...(all[t.planId] ?? []).filter((a) => a.id !== t.annoId), t.anno] }))
+          setSelectedId(null)
+          emit('entity.delete', { id: entity.id })
+        },
+      },
+    })
+  }
+  const transferMapTwinToPlan = (entity: Entity, planId: string, pt: { x: number; y: number }) => {
+    if (tacticalLocked || entity.live || (board[planId] ?? []).some((a) => a.id === entity.id)) return
+    const anno = entityToBoardSymbol(entity, pt)
+    if (!anno) return
+    // ⚠️ Leitungen anchored to this object have to be let go, exactly as `deleteEntity` lets them
+    // go: the object is leaving the Karte, so an attachment pointing at it would name an id that
+    // is no longer there. The endpoint is pinned where the object stood, so the drawn line does
+    // not jump. Without this the «Verbunden mit» row fell back to printing the raw id
+    // (DrawEditor · attachmentLabels) and trace-routing silently stopped working for good.
+    const connected = drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === entity.id))
+    setDocRaw((d) => ({
+      ...d,
+      entities: d.entities.filter((e) => e.id !== entity.id),
+      drawings: d.drawings.map((dr) => detachDrawingFrom(dr, entity)),
+    }))
+    setBoard((all) => ({ ...all, [planId]: [...(all[planId] ?? []), anno] }))
+    setSelectedId(null); setTwinView(null)
+    log('move', fillTemplate(appConfig.copy.log.twinTransferredToPlan, { name: twinName(entity) }), 'symbol', undefined, entity.id)
+    emit('entity.delete', { id: entity.id })
+    connected.forEach((dr) => {
+      const next = detachDrawingFrom(dr, entity)
+      emit('draw.edit', { id: dr.id, patch: { coords: next.coords, startAttachment: next.startAttachment, endAttachment: next.endAttachment } })
+    })
+    setPlanFocus({ x: pt.x, y: pt.y, floor: 0, annoId: anno.id, nonce: Date.now() })
+    toast(fillTemplate(appConfig.copy.contextPanel.transferredHere, { name: twinName(entity) }), {
+      icon: 'move',
+      action: {
+        label: appConfig.copy.undo,
+        onClick: () => {
+          setBoard((all) => ({ ...all, [planId]: (all[planId] ?? []).filter((a) => a.id !== anno.id) }))
+          // the object comes back AND so do its Leitungen — an undo that restored the symbol but
+          // left the hose lines loose would be a different picture from the one before the tap
+          setDocRaw((d) => ({
+            ...d,
+            entities: d.entities.some((e) => e.id === entity.id) ? d.entities : [...d.entities, entity],
+            drawings: d.drawings.map((dr) => connected.find((c) => c.id === dr.id) ?? dr),
+          }))
+          emit('entity.add', { entity })
+        },
+      },
+    })
   }
   /** Every Trupp standing somewhere on this Einsatz — Lage markers AND plan chips, Atemschutz
    *  or not (lib/placedTrupps). Feeds the rail's count and the finder's list. */
@@ -2196,6 +2557,35 @@ export function IncidentWorkspace({
    * second set of rules about what «zeigen» leaves behind: the map jump selects the marker, the
    * plan jump opens its storey and points at the chip.
    */
+  /**
+   * Tap on a Georeferenz twin — the SAME two jumps `goToTrupp` makes, for the same reason: a
+   * twin answers «where is this really?», and there must be exactly one set of rules for what
+   * arriving there leaves behind. A twin is never selected; it can also be dragged in place,
+   * and that drag writes its source through the helpers above.
+   */
+  const goToTwinSource = (t: MapTwin) => {
+    setPanel(null)
+    setMode('plans'); setActivePlanId(t.planId)
+    setPlanFocus({ x: t.anno.x ?? 0.5, y: t.anno.y ?? 0.5, floor: t.anno.floor ?? 0, annoId: t.annoId, nonce: Date.now() })
+  }
+  const goToTwinOnMap = (e: Entity) => {
+    const layer = effectiveLayer(e)
+    if (!isVisible(layer)) toggleLayer(layer)
+    setPanel(null); setMode('map'); focusEntity(e.id)
+  }
+  const showMapSourceOnPlan = (entity: Entity, target = selectedPlanProjection) => {
+    if (!target) return
+    showTwinLayer(entity.kind === 'vehicle' ? TWIN_MAP_VEHICLES : TWIN_MAP_SYMBOLS)
+    setPanel(null); setMode('plans'); setActivePlanId(target.plan.id)
+    setPlanFocus({ x: target.pt.x, y: target.pt.y, floor: 0, twinEntityId: entity.id, nonce: Date.now() })
+  }
+  const showPlanSourceOnMap = (planId: string, annoId: string, coord: LngLat) => {
+    showTwinLayer(twinPlanLayerId(planId))
+    setPanel(null); setMode('map')
+    const twin = mapTwinList.find((t) => t.planId === planId && t.annoId === annoId)
+    if (twin) openTwinView(twin)
+    flyToMapVisible(coord, 18.4)
+  }
   const goToTrupp = (t: PlacedTrupp) => {
     setPanel(null)
     if (t.target.kind === 'map') { setMode('map'); focusEntity(t.target.entityId); return }
@@ -2220,16 +2610,8 @@ export function IncidentWorkspace({
     commit((d) => ({
       ...d,
       entities: d.entities.filter((e) => e.id !== id),
-      drawings: d.drawings.map((dr) => {
-        let next = dr
-        for (const endpoint of ['start', 'end'] as const) {
-          const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
-          if (a?.target.kind !== 'object' || a.target.id !== id || !ent || next.coords.length < 2) continue
-          const coords = next.coords.map((p, i) => i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? ent.coord : p)
-          next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-        }
-        return next
-      }),
+      // the same detach «Hierher übertragen» performs — see detachDrawingFrom
+      drawings: ent ? d.drawings.map((dr) => detachDrawingFrom(dr, ent)) : d.drawings,
     }))
     if (selectedId === id) setSelectedId(null)
     if (editNoteId === id) setEditNoteId(null)
@@ -2266,13 +2648,13 @@ export function IncidentWorkspace({
       focusMapDrawing: (drawingId) => {
         setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedDrawingId(null); setSelectedId(null)
         const d = drawings.find((x) => x.id === drawingId)
-        if (d?.coords[0]) mapRef.current?.flyTo({ center: d.coords[0], zoom: 17.8 })
+        if (d?.coords[0]) flyToMapVisible(d.coords[0], 17.8)
         setFlashDrawingId(drawingId)
       },
       focusMapEntity: (entityId, coord, fly = true) => {
         setMode('map')
         if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
-        if (coord) { setSelectedId(entityId); setSelectedDrawingId(null); mapRef.current?.flyTo({ center: coord, zoom: 18.4 }) }
+        if (coord) { setSelectedId(entityId); setSelectedDrawingId(null); flyToMapVisible(coord, 18.4) }
         else focusEntity(entityId)
       },
     })
@@ -2423,6 +2805,17 @@ export function IncidentWorkspace({
   // The gate for the symbol→Mittel row: «has this station mapped anything at all». Not a setting
   // anybody has to discover, and a Wehr that never configured it never sees an offer.
   const mittelCaptureOn = symbolCaptureConfigured(getDeploymentConfig().mittel?.catalogue ?? appConfig.mittel.catalogue)
+  /** What is ALREADY on the Material sheet for this material from this Quelle — the number the
+   *  capture row shows. One function, handed to the Lage's symbol panel and the Plan's alike: a
+   *  TLF placed on Modul 1 and one placed on the Karte book into the same sheet, so they must
+   *  count from it identically. */
+  const mittelCountForSymbol = (item: DeploymentMittelItem, sourceId?: string) => currentMengeFor(mittel, {
+    materialId: item.id,
+    label: item.label,
+    unit: item.unit || appConfig.mittel.defaultUnit,
+    sourceId,
+    sourceLabel: (getDeploymentConfig().mittel?.sources ?? appConfig.mittel.sources).find((x) => x.id === sourceId)?.label,
+  })
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
   const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
   // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
@@ -2725,6 +3118,23 @@ export function IncidentWorkspace({
   }
 
   const mapUI = mode === 'map'
+  /**
+   * Is the right-hand dock slot free for a detail panel (.ctx — ContextPanel / DrawEditor /
+   * ShapeEditor)?
+   *
+   * The Lage's twin of Whiteboard · `editorSlotFree`, and the same rule: that slot holds exactly
+   * ONE thing. `05-navrail.css` already writes it down for the chrome toggles — «Only one of
+   * {Ebenen, views popover, tool dock} is ever open» — but the detail panel was never counted
+   * into that set even though `.ctx` sits in the same band (z35, right of the tool rail) that
+   * `.layers-card` opens over (z201), and on a phone on the very same bottom edge. Opening
+   * Ebenen therefore buried an open panel that stayed tappable through the z28 backdrop.
+   *
+   * ⚠️ Hides the panel, never the SELECTION. `clearMapUi('selection')` deliberately keeps
+   * `selectedId` for exactly these two toggles, so the halo stays put and the panel comes back
+   * the moment Ebenen closes. That is the half of its reasoning which was always right; the half
+   * that claimed «nothing becomes unreachable» was not, and this is what makes it true.
+   */
+  const detailSlotFree = mapUI && !twinView && !journalOpen && panel === null && !viewsOpen
 
   const annotatedPlanCount = useMemo(() => annotatedPlans(planDocs, board, false).length, [planDocs, board])
 
@@ -2732,7 +3142,7 @@ export function IncidentWorkspace({
   // plan canvas's own `tool-<tool>` does. Gated on mapUI so an armed tool can never leak a
   // crosshair onto Checkliste, Atemschutz or the plan.
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
         logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
@@ -2746,6 +3156,7 @@ export function IncidentWorkspace({
           byName={sym.byName}
           symMul={symbolScale.map}
           captionMode={symbolCaptions}
+          onCaptionSuppressionChange={setMapSuppressedCaptions}
           initialCenter={incidentView.center}
           fitPoints={initialFitPoints}
           locateNonce={locateReq}
@@ -2755,7 +3166,7 @@ export function IncidentWorkspace({
           onNoteEdit={tacticalLocked ? undefined : (id) => { setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id) }}
           // the ⚙ stays on a locked surface — it opens the note READ-ONLY (a long note is
           // truncated on the map, and reading it is not editing it)
-          onNotePanel={setNotePanelId}
+          onNotePanel={(id) => { setTwinView(null); setNotePanelId(id) }}
           onNoteWidth={tacticalLocked ? undefined : noteWidthDrag}
           trupps={effTrupps}
           truppSeverities={azAlarm.severities}
@@ -2779,9 +3190,16 @@ export function IncidentWorkspace({
           }}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
           preparedOverlays={preparedOverlays}
+          // Georeferenz twins: every linked plan's symbols, mirrored onto the map. Read-only,
+          // and never part of `entities` — a twin must not be selectable, printable or countable
+          // anywhere (see components/GeorefTwinMark).
+          twins={mapTwinList}
+          onTwinOpen={openTwinView}
+          selectedTwinKey={twinView?.key}
+          georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}
           selectedId={selectedId}
-          onSelect={(e) => { setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
+          onSelect={(e) => { setTwinView(null); setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
           onMapClick={onMapClick}
           drawings={drawings}
           drawingsVisible={isVisible(appConfig.defaults.drawingLayerId)}
@@ -2799,39 +3217,9 @@ export function IncidentWorkspace({
           onMeasureDelete={(i) => measure.setPath((pts) => pts.filter((_, j) => j !== i))}
           measureLabels={measure.labels}
           draggable={!tacticalLocked && tool === 'select'}
-          onMarkerDragStart={(id) => { if (!liveIds.has(id)) beginDrag() }}
-          onMarkerMove={(id, c) => {
-            if (tacticalLocked) return
-            if (liveIds.has(id)) setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } }))
-            else setDocRaw((d) => ({
-              ...d,
-              entities: d.entities.map((e) => (e.id === id ? { ...e, coord: c } : e)),
-              drawings: d.drawings.map((dr) => {
-                if (dr.kind !== 'line') return dr
-                let next = dr
-                for (const endpoint of ['start', 'end'] as const) {
-                  const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
-                  if (a?.target.kind === 'object' && a.target.id === id && a.routing === 'trace') next = { ...next, coords: applyRouting(next.coords, endpoint, c, 'trace', 0.000008) }
-                }
-                return next
-              }),
-            }))
-          }}
-          onMarkerDragEnd={(id, c) => {
-            if (tacticalLocked) return
-            if (liveIds.has(id)) {
-              setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } }))
-            } else {
-              // a moved team marker re-stamps its «last moved» time (plan-chip parity);
-              // it does NOT breadcrumb — positions are recorded only via markTeamPosition
-              setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, coord: c, ...(e.kind === 'team' ? { t: formatTime(new Date()) } : {}) } : e)) }))
-              endDrag()
-            }
-            log('select', fillTemplate(appConfig.copy.log.objectMoved, { name: entities.find((x) => x.id === id)?.label ?? appConfig.copy.entities.fallbackObjectName }), 'symbol', undefined, id)
-            emit(liveIds.has(id) ? 'entity.edit' : 'entity.move', { id, coord: c })
-            drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id && a.routing === 'trace'))
-              .forEach((d) => emit('draw.edit', { id: d.id, patch: { coords: d.coords } }))
-          }}
+          onMarkerDragStart={startEntityMove}
+          onMarkerMove={streamEntityMove}
+          onMarkerDragEnd={finishEntityMove}
           onRotate={(id, deg) => { if (tacticalLocked) return; setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], rotation: deg } })) }}
           onShapeTransform={(id, patch, phase) => {
             if (tacticalLocked) return
@@ -2857,6 +3245,7 @@ export function IncidentWorkspace({
           selectedDrawingId={selectedDrawingId}
           flashDrawingId={flashDrawingId}
           onSelectDrawing={(id, at) => {
+            setTwinView(null)
             // «Leitung wählen» armed → this tap assigns the hose to the waiting Trupp
             if (linePickTrupp) { onLinePicked(id); return }
             // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for
@@ -2865,7 +3254,7 @@ export function IncidentWorkspace({
             setDrawTap(at ? { id, x: at.x, y: at.y } : null)
             setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
           }}
-          onUnlockDrawing={tacticalLocked ? undefined : (id) => { patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
+          onUnlockDrawing={tacticalLocked ? undefined : (id) => { setTwinView(null); patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
           onDelete={deleteEntity}
           selectedDrawing={selectedDrawing}
           onDrawingEdit={editDrawingCoords}
@@ -2935,7 +3324,11 @@ export function IncidentWorkspace({
         gpsAgeMs={gpsAgeMs}
         // On EVERY surface, unlike the GPS caveat above: this says what the device in your hand
         // is doing, which does not stop being true because you switched to the Plan.
-        shareSlot={<SharePositionPill share={share} onChangeName={() => setSharePick('pick')} />}
+        shareSlot={<SharePositionPill share={share} onChangeName={(restore) => {
+          shareStatusRestore.current = restore
+          setShareParent('status')
+          setSharePick('pick')
+        }} />}
         // «Einsatz abgeschlossen»: a mode of the incident, so it stands beside the Einsatzname
         // instead of floating as a fifth banner. Its two exits ride in the chip's menu.
         archived={incidentMeta.is_archived}
@@ -2977,6 +3370,7 @@ export function IncidentWorkspace({
             // a link session has no login to leave (and no way back in) — see App's landing card
             onLogout={linkScoped ? undefined : () => { void logout() }}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
+            sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen}
           />
         }
       />
@@ -3139,17 +3533,41 @@ export function IncidentWorkspace({
       {/* click-away: a transparent full-screen backdrop closes the open map panel */}
       {/* phone only: a tap-catcher behind the panel sheet to close it. On desktop the panel
           floats as a side card, so NO backdrop — the map stays pannable with Ebenen open. */}
-      {mapUI && panel !== null && isPhone && <div className="mapctl-backdrop" onClick={() => setPanel(null)} />}
+      {/* ⚠️ The Plan half carries `activeLinkedPlan` because its LayerPanel below does. Without
+          it the backdrop outlived its own sheet: switching to an UNLINKED sheet keeps `panel`
+          on 'layers' (onSelectPlan skips clearMapUi when the mode is already 'plans'), the
+          panel then renders nothing — and a full-screen z28 catcher was left sitting over the
+          z20 whiteboard, eating the first tap on a board that looked perfectly normal. */}
+      {(mapUI || (mode === 'plans' && activeLinkedPlan)) && panel !== null && isPhone && <div className="mapctl-backdrop" onClick={() => setPanel(null)} />}
 
       {/* the Ebenen dock (.layers-card z201) sits ABOVE the +Eintrag composer / Verlauf
           scrim that covers every other map popup, so it needs an explicit guard to hide
           with them — otherwise it pokes through the modal (parity with the tool popups) */}
-      {mapUI && panel === 'layers' && !composerOpen && !journalOpen && (
+      {mapUI && panel === 'layers' && !composerOpen && !journalOpen && !offlineReadyOpen && (
         <LayerPanel
           layers={layers}
           onToggle={toggleLayer}
           onOpacity={setOpacity}
-          onOfflineReadiness={() => { setPanel(null); setOfflineReadyOpen(true) }}
+          twins={planTwinRows(linkedPlans, twinLayers, twinLayerOpacity)}
+          // …directly under «Lage», wherever the deployment's config calls that group: a
+          // mirrored plan symbol is one more tactical symbol on this map, not a reference
+          // overlay to be found past Wasser and Gefahren.
+          twinsAfterGroup={layers.find((l) => l.id === appConfig.defaults.operationalLayerId)?.group}
+          onOfflineReadiness={() => setOfflineReadyOpen(true)}
+          onClose={() => setPanel(null)}
+        />
+      )}
+
+      {/* The SAME dock on the Plan surface — and only the rows that mean anything there: what the
+          Karte lends this sheet. No base maps, no reference layers, no offline door; a plan has
+          none of those. Rendered by the shell rather than by the Whiteboard because `panel` is
+          the shell's state and the Karte's dock has always lived here. */}
+      {mode === 'plans' && panel === 'layers' && activeLinkedPlan && !composerOpen && !journalOpen && (
+        <LayerPanel
+          layers={[]}
+          onToggle={toggleLayer}
+          onOpacity={setOpacity}
+          twins={mapTwinRows(activeLinkedPlan.fit, twinLayers)}
           onClose={() => setPanel(null)}
         />
       )}
@@ -3158,13 +3576,13 @@ export function IncidentWorkspace({
           `tool === 'pan'`): a detail editor belongs to Auswahl and nothing else. clearMapUi already
           drops the selection on every tool pick, so this is the backstop for any path that sets a
           tool without going through pick(). */}
-      {mapUI && !tacticalLocked && !journalOpen && tool === 'select' && selected && selected.kind === 'shape' && (
+      {detailSlotFree && !tacticalLocked && tool === 'select' && selected && selected.kind === 'shape' && (
         <ShapeEditor
           key={selected.id}
           entity={selected}
           onColor={(c) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, color: c } : e)) }))}
           onScale={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, sizeM: Math.max(8, Math.min(800, (e.sizeM ?? SHAPE_DEFS[e.shape ?? 'square'].defaultSizeM) * f)) } : e)) }))}
-          onCenter={() => mapRef.current?.flyTo({ center: selected.coord, zoom: 18.4 })}
+          onCenter={() => flyToMapVisible(selected.coord, 18.4)}
           onDelete={() => deleteEntity(selected.id)}
           onClose={() => setSelectedId(null)}
         />
@@ -3173,14 +3591,18 @@ export function IncidentWorkspace({
       {/* rendered even when tactical editing is locked (viewer / EL view — NOT phones, where
           the .ctx overlay is CSS-hidden): tapping a symbol always shows its details; the
           forced readOnly strips every edit affordance inside the panel. */}
-      {mapUI && !journalOpen && tool === 'select' && selected && selected.kind !== 'shape' && selected.kind !== 'note' && selected.kind !== 'team' && (
+      {detailSlotFree && tool === 'select' && selected && selected.kind !== 'shape' && selected.kind !== 'note' && selected.kind !== 'team' && (
         <ContextPanel
           key={selected.id}
           entity={selected}
           readOnly={selected.live || tacticalLocked}
           svg={selected.symbolSvg ?? (selected.symbol === appConfig.symbols.vehicleName ? vehicleSymbolSvg(selected.label ?? '', selected.rotation ?? 0) : selected.symbol ? sym.byName[selected.symbol] : undefined)}
           onClose={() => setSelectedId(null)}
-          onCenter={() => mapRef.current?.flyTo({ center: selected.coord, zoom: 18.4 })}
+          onCenter={() => flyToMapVisible(selected.coord, 18.4)}
+          onProjection={selectedPlanProjection ? () => showMapSourceOnPlan(selected) : undefined}
+          projectionLabel={selectedPlanProjection
+            ? fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: selectedPlanProjection.plan.code })
+            : undefined}
           onTitleLive={(v) => {
             // stream into the doc so the note-pill / label updates live, but silently —
             // snapshot once for undo, no per-keystroke audit event
@@ -3200,13 +3622,7 @@ export function IncidentWorkspace({
           // Symbol→Mittel: only where the station mapped at least one material to a symbol.
           // No switch to find — a Wehr that has not configured it never gets an offer.
           onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
-          mittelCountFor={(item, sourceId) => currentMengeFor(mittel, {
-            materialId: item.id,
-            label: item.label,
-            unit: item.unit || appConfig.mittel.defaultUnit,
-            sourceId,
-            sourceLabel: (getDeploymentConfig().mittel?.sources ?? appConfig.mittel.sources).find((x) => x.id === sourceId)?.label,
-          })}
+          mittelCountFor={mittelCountForSymbol}
           onFields={(fields) => { patchEntity(selected.id, { fields }); linkRosterFields(selected, fields) }}
           onNotes={!selected.live ? (v) => patchEntity(selected.id, { notes: v || undefined }) : undefined}
           onFloor={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: f ?? undefined }) : undefined}
@@ -3276,10 +3692,30 @@ export function IncidentWorkspace({
         />
       )}
 
+      {/* a Zwilling's details — a linked plan's symbol, mirrored onto the map and read-only
+          throughout. «Zum Original» is the one row that leaves (see GeorefTwinPanel for why a
+          twin is never editable). Gone with the projection itself: no map UI, no panel. */}
+      {mapUI && !journalOpen && panel === null && !viewsOpen && twinView && (
+        <GeorefTwinPanel
+          // ⚠️ `floor` is remapped, exactly as the plan's own panel does it: on a BoardAnno that
+          // name is the floor-stack TILE INDEX, while the panel's `floor` is the signed Stockwerk
+          // badge (types · BoardAnno.storey).
+          entity={{ ...twinView.anno, floor: twinView.anno.storey }}
+          svg={twinView.anno.symbol === appConfig.symbols.vehicleName
+            ? vehicleSymbolSvg(twinName(twinView.anno), twinView.anno.rotation ?? 0)
+            : glyphFor(twinView.anno, sym.byName)}
+          subtitle={fillTemplate(appConfig.copy.whiteboard.georef.twinPanelFromPlan, { plan: twinView.planCode })}
+          onClose={() => setTwinView(null)}
+          onOriginal={() => { const t = twinView; setTwinView(null); goToTwinSource(t) }}
+          originalLabel={fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: twinView.planCode })}
+          onTransferHere={tacticalLocked ? undefined : () => transferPlanTwinToMap(twinView)}
+        />
+      )}
+
       {/* note detail panel — the same ContextPanel, but opened from the ⚙ handle rather than by
           selecting (see notePanelId above). The note's TEXT is its title, so the panel's title
           field edits the note itself. */}
-      {mapUI && !journalOpen && noteEntity && (
+      {detailSlotFree && noteEntity && (
         <ContextPanel
           key={noteEntity.id}
           entity={noteEntity}
@@ -3305,7 +3741,7 @@ export function IncidentWorkspace({
         />
       )}
 
-      {mapUI && !journalOpen && tool === 'select' && selectedDrawing && (
+      {detailSlotFree && tool === 'select' && selectedDrawing && (
         <DrawEditor
           drawing={selectedDrawing}
           pointCount={selectedDrawing.coords.length}
@@ -3532,7 +3968,7 @@ export function IncidentWorkspace({
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). */}
-                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
+                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
                 {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px). Every touch form
                     factor pinches, and on a tablet the two buttons cost rail space that the
                     tools above need more. */}
@@ -3613,6 +4049,17 @@ export function IncidentWorkspace({
           onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
           symMul={symbolScale.board}
           captionMode={symbolCaptions}
+          mapSuppressedCaptions={mapSuppressedCaptions}
+          // the other half of the mirror: the Karte's vehicles + symbols, offered to this sheet.
+          // Raw lists — the Whiteboard projects and clips them against its own fit.
+          mapTwins={boardTwinSources}
+          onTwinJump={goToTwinOnMap}
+          onTwinTransferHere={transferMapTwinToPlan}
+          onPlanProjection={showPlanSourceOnMap}
+          layersOn={panel === 'layers'}
+          // the Ebenen button appears only on a linked sheet: with no fit the map lends it
+          // nothing, and the panel would be an empty room
+          onToggleLayers={activeLinkedPlan ? () => togglePanel('layers') : undefined}
           annos={(replayActive ? replayBoard : board)?.[activePlanId] ?? []}
           onChange={(next) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next })) }}
           building={replayActive ? replayBuilding : building}
@@ -3727,6 +4174,15 @@ export function IncidentWorkspace({
           rosterNames={rosterNames}
           rosterRank={rosterRank}
           onRosterField={(symbol, label, key, name) => linkRosterFields({ symbol, label } as Entity, { [key]: name })}
+          // the same two roster read-outs the Lage's symbol panel has shown all along: who that
+          // name already is ON the dropdown entry, and the contradiction a filled field carries
+          // UNDER it. A plan symbol is not an Entity, so the hint call is fed its parts.
+          personStatus={personStatus}
+          fieldHints={(symbol, label, fields) => rosterFieldHints({ kind: 'symbol', symbol, label, fields } as Entity)}
+          // Symbol→Mittel on the plan, with the Lage's exact gate and the shared count: a TLF
+          // placed on Modul 1 books onto the Material sheet like one placed on the Karte
+          onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
+          mittelCountFor={mittelCountForSymbol}
           onRecent={addRecent}
           log={logPlan}
           emit={emit}
@@ -3743,6 +4199,13 @@ export function IncidentWorkspace({
           // the plan's Trupp tool placed a chip FOR a Trupp — same ask as every other placement:
           // the picture now says the crew is there, so «einrücken?» belongs here (askTruppEntry)
           onLinkTrupp={(annoId, truppId) => { updateTrupp(truppId, { annoId, planId: activePlanId }); void askTruppEntry(truppId) }}
+          // …and the chip's half of the join, joined from the picture rather than from the card —
+          // the identical wiring the map marker's menu gets, through the identical action, so the
+          // takeover confirm and the «einrücken?» ask exist exactly once for both surfaces
+          onTeamTrupp={tacticalLocked ? undefined : (annoId, truppId) => {
+            if (truppId) void adoptTruppMarker(truppId, annoId)
+            else releaseTruppMarker(annoId)
+          }}
           onPickLine={linePickTrupp ? onLinePicked : undefined}
           onLinkLineTrupp={(annoId, truppId) => (truppId ? linkTruppLine(truppId, annoId) : unlinkLine(annoId))}
           onLineRenumber={syncLineNoToTrupp}
@@ -4066,8 +4529,19 @@ export function IncidentWorkspace({
           // Einsatz has not been confirmed yet, and the sheet says so instead of looking like
           // the app forgot.
           reconfirm={!share.confirmed}
-          onPick={(id, displayName) => { share.start({ id, displayName }); setSharePick(null) }}
-          onClose={() => setSharePick(null)}
+          onPick={(id, displayName) => {
+            share.start({ id, displayName })
+            setSharePick(null)
+            if (shareParent === 'views') setViewsOpen(false)
+            shareStatusRestore.current = null
+            setShareParent(null)
+          }}
+          onClose={() => {
+            setSharePick(null)
+            if (shareParent === 'status') shareStatusRestore.current?.()
+            shareStatusRestore.current = null
+            setShareParent(null)
+          }}
         />
       )}
       {helpOpen && <HelpOverlay onClose={() => setHelpOpen(false)} />}
@@ -4090,7 +4564,7 @@ export function IncidentWorkspace({
           progress={offlineProgress}
         />
       )}
-      {settingsOpen && (
+      {settingsOpen && !feedbackOpen && !(sharePick && shareParent === 'settings') && (
         <SettingsSheet
           onClose={() => setSettingsOpen(false)}
           symbolScale={symbolScale}
@@ -4110,15 +4584,17 @@ export function IncidentWorkspace({
           elView={elView}
           onElView={isEditor ? setElView : undefined}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
-          onFeedback={linkScoped ? undefined : () => { setSettingsOpen(false); setFeedbackOpen(true) }}
+          onFeedback={linkScoped ? undefined : () => { setFeedbackParent('settings'); setFeedbackOpen(true) }}
           // Einstellungen holds the PERMISSION only — «dieses Gerät darf meinen Standort
           // verwenden» — never the act. Switching it on opens the sheet (the device has to know
           // whose position it would be reporting); switching it off revokes and stops.
           shareAs={share.ready ? (share.pref?.displayName ?? null) : null}
           onSharePosition={!isDemoMode()
             ? (on) => {
-              setSettingsOpen(false)
-              if (on) setSharePick('ask')
+              if (on) {
+                setShareParent('settings')
+                setSharePick('ask')
+              }
               else share.revoke()
             }
             : undefined}
@@ -4126,7 +4602,11 @@ export function IncidentWorkspace({
       )}
       {/* Rückmeldung, opened deliberately from Einstellungen. Nothing ever PUSHES this at the
           operator mid-incident — the trouble prompt lives on the launcher (see lib/trouble). */}
-      {feedbackOpen && <FeedbackSheet onClose={() => setFeedbackOpen(false)} />}
+      {feedbackOpen && <FeedbackSheet onClose={(reason) => {
+        setFeedbackOpen(false)
+        if (reason === 'complete' && feedbackParent === 'settings') setSettingsOpen(false)
+        setFeedbackParent(null)
+      }} />}
 
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,
@@ -4150,6 +4630,11 @@ export function IncidentWorkspace({
         <input ref={photoInputRef} type="file" accept="image/*" capture="environment" multiple
           className="file-picker" tabIndex={-1} onChange={onQuickPhotoPicked} />
       )}
+
+      {/* «Karte verknüpfen» runs ACROSS surfaces (Plan ⇄ Karte), so its instruction and action
+          bars belong to the shell rather than to either one — on a phone the Plan is unmounted
+          for the map half of every pair. Renders nothing while the mode is off. */}
+      <GeorefModeBars planLabel={planDocs.find((p) => p.id === georefMode.planId)?.code} />
     </div>
   )
 }

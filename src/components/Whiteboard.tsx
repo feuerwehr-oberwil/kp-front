@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { NodeDeleteChip } from './NodeDeleteChip'
-import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
+import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
+import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, Entity, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
@@ -16,8 +16,8 @@ import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDeco
 import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
-import { Overlay } from '../lib/overlays'
-import { panelNudgeSelection, panelNudgeSelectionUp, isBottomSheet } from '../lib/panelNudge'
+import { Menu, Overlay } from '../lib/overlays'
+import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
@@ -26,6 +26,9 @@ import { softHyphenateText } from '../lib/symbolWrap'
 import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
+import { MenuPick } from './MenuPick'
+import { LockChip } from './LockChip'
+import type { DeploymentMittelItem } from '../lib/deploymentConfig'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
@@ -40,6 +43,16 @@ import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
 import { buildView, remapPoint, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
+import { GeorefBoardLayer, GeorefInstrument, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
+import { GeorefQuality } from './GeorefQuality'
+import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
+import { fitSimilarity } from '../lib/georef'
+import { georefForPlan } from '../lib/stationPlanScale'
+import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
+import { boardTwins, type BoardTwin } from '../lib/georefTwins'
+import { GeorefTwinsBoard } from './GeorefTwinsBoard'
+import { GeorefTwinPanel } from './GeorefTwinPanel'
+import { glyphFor, twinName } from '../lib/twinGlyph'
 import { MAX_SCALE, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
 import { useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
@@ -85,6 +98,9 @@ interface Props {
    *  zoom, so captions show whenever the mode is on; the Lage map runs them through its label
    *  pass instead (neither surface zoom-gates them any more). */
   captionMode?: CaptionMode
+  /** Entity ids whose captions the source Lage map currently suppresses in its shared label
+   *  pass. Their Modul twins must stay captionless too. */
+  mapSuppressedCaptions?: ReadonlySet<string>
   onChange: (next: BoardAnno[]) => void
   building: BuildingDoc | null
   /** the picked footprints, their auto-orientation angle, and WHERE that footprint box sits on
@@ -119,6 +135,24 @@ interface Props {
   /** a roster field on a plan symbol («Fahrer», «Name») names somebody who is standing there —
    *  same rule as on the Lage, so the Anwesenheit learns about it from either surface */
   onRosterField?: (symbol: string | undefined, label: string | undefined, key: string, name: string) => void
+  /** What is already known about a roster NAME — «unter Atemschutz», «Magazin», «gegangen» —
+   *  shown ON the dropdown entry (lib/roleAssignment · personStatusHint). Handed to the plan for
+   *  the same reason it is handed to the map: the picker is the moment you learn that the person
+   *  you are about to name as Fahrer is under PA, and it read the same on both surfaces or on
+   *  neither. Omitted ⇒ plain names. */
+  personStatus?: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
+  /** …and the contradiction a FILLED roster field already carries, per field key (lib/roleAssignment
+   *  · roleConflictHint) — printed under the field itself. Same call the Lage makes, just from a
+   *  BoardAnno's parts, since a plan symbol is not an Entity. */
+  fieldHints?: (symbol: string | undefined, label: string | undefined, fields: Record<string, string> | undefined) => Record<string, string | undefined> | undefined
+  /** Symbol→Mittel on a PLAN symbol: book what this glyph IS onto the Material sheet, the same
+   *  row the Lage's panel offers (ContextPanel · MittelCaptureRow). A TLF placed on Modul 1 is
+   *  the same TLF placed on the Karte — it books identically. Omitted ⇒ no row (the station has
+   *  mapped no material to a symbol, or the surface is read-only). */
+  onCaptureMittel?: (item: DeploymentMittelItem, sourceId?: string) => void
+  /** how much of that material is already booked from that Quelle — the row shows a COUNT, not a
+   *  bare +, so the second tap knows about the first. */
+  mittelCountFor?: (item: DeploymentMittelItem, sourceId?: string) => number
   onRecent: (name: string) => void
   /** append to the unified journal with plan context (team link, plan coords). */
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
@@ -149,7 +183,7 @@ interface Props {
   keysRef?: React.MutableRefObject<{ pickTool: (tool: string) => void; zoom: (f: number) => void } | null>
   /** a Verlauf row asked to revisit a plan point — center + select on arrival. */
   /** `flash` shows the anno (a few-second outline) instead of selecting it — see the focus effect */
-  focus: { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
+  focus: { x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; nonce: number } | null
   /** report the current plan-view centre (tile-local). Optional and currently unused: it existed
    *  for the composer's «an der Planmitte anheften», which went away on 14.08. — the Wiedergabe
    *  answers «wie sah es da aus» by scrubbing the whole picture instead of storing a point. */
@@ -160,6 +194,13 @@ interface Props {
   onLinkTrupp?: (annoId: string, truppId: string) => void
   /** jump to the Atemschutz board for a linked Trupp ("show the trupp"). */
   onShowTrupp?: (truppId: string) => void
+  /** join this CHIP to an Atemschutz-Trupp — `undefined` lets go of the one it has. The plan twin
+   *  of the map marker's «Atemschutz-Trupp» menu (MapMarkers · onTeamTrupp) and routed through the
+   *  same action, so the takeover confirm and the «einrücken?» ask exist exactly once
+   *  (useTruppActions · adoptTruppMarker / releaseTruppMarker). A chip dropped before anybody was
+   *  registered finds its Trupp afterwards, instead of having to be deleted and re-placed — which
+   *  on a plan chip would throw away its recorded trail. Absent ⇒ no picker (read-only / locked). */
+  onTeamTrupp?: (annoId: string, truppId: string | undefined) => void
   /** recolouring a linked team chip writes the TRUPP's colour (see recolorTeam) */
   onTruppColor?: (truppId: string, color: string) => void
   /** «Leitung wählen» is armed: the next tap on a drawn line reports it here (and links it to the
@@ -188,6 +229,23 @@ interface Props {
   planScale?: PlanScales
   /** persist a plan's calibration (null clears it). Rides the workspace blob via App. */
   onCalibrate?: (planId: string, scale: PlanScale | null) => void
+  /** Georeferenz twins — what the Karte lends a georeferenced sheet (lib/georefTwins).
+   *  Two lists because they are two Ebenen rows: `vehicles` are the live GPS fleet, `symbols`
+   *  the Lage's own tactical symbols. Each is already filtered by its row's visibility; the
+   *  PROJECTION + clip happen here, against this sheet's own fit, so a twin can never disagree
+   *  with the reference crosses drawn beside it. */
+  mapTwins?: { vehicles: Entity[]; symbols: Entity[] }
+  /** tap on a twin → show its read-only source details */
+  onTwinJump?: (entity: Entity) => void
+  /** Move the map-owned source onto this plan, preserving its id and offering one-step undo. */
+  onTwinTransferHere?: (entity: Entity, planId: string, pt: { x: number; y: number }) => void
+  /** Show a plan-owned source at its projected position on the Lage map. */
+  onPlanProjection?: (planId: string, annoId: string, coord: LngLat) => void
+  /** the Ebenen panel is open (it lives in the app shell; the plan only owns the button) */
+  layersOn?: boolean
+  /** Ebenen button in the rail footer — omitted ⇒ no button, which is the state of every sheet
+   *  that has nothing to switch (no georeference ⇒ nothing is lent to it) */
+  onToggleLayers?: () => void
 }
 
 /**
@@ -206,7 +264,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onCaptureMittel, mittelCountFor, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -254,6 +312,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
     { size: 'm', plain: false, color: '' },
   )
+  // which Georeferenz twin has its (read-only) details open — the Karte's object, mirrored onto
+  // this sheet. Its open panel gives the projection the source object's normal selection halo.
+  const [twinView, setTwinView] = useState<BoardTwin | null>(null)
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
   const [color, setColor] = useState<string>(appConfig.drawing.defaultColor)
@@ -383,6 +444,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!selectOnly) return
     setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null)
   }, [selectOnly])
+  // WHICH plan the Passung is open for, not merely whether it is open: switching documents then
+  // closes it by derivation instead of by an effect that fires after the wrong panel has already
+  // been painted over the new sheet.
+  const [qualityFor, setQualityFor] = useState<string | null>(null)
   // Esc cancels an in-progress node shape, else clears the selection
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -391,20 +456,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // both finishes the text and drops the selection (which would take the handles with it).
       // Read the event TARGET, not activeElement: the field's own handler has already blurred
       // by the time this bubbles up, so activeElement is <body> and the guard would miss.
-      const el = e.target as HTMLElement | null
+      const el = e.target instanceof HTMLElement ? e.target : null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       // …and a MODAL on top of the board owns Escape outright: it closes, the board does not
       // also drop the draft/selection behind it. Focus is trapped inside the dialog, so the
       // target is enough to tell (covers the Trupp picker, the Maßstab entry, every overlay).
-      if (el?.closest('[role="dialog"]')) return
+      if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
       if (draft) { setDraft(null); lastTap.current = null }
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
+      else if (twinView) setTwinView(null)
+      // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
+      // behind a scrim while a fit is being judged), so it has no Escape of its own and would
+      // otherwise be the ONE panel on this surface that the key cannot dismiss.
+      else if (qualityFor) setQualityFor(null)
       else if (notePanelId) setNotePanelId(null)
       else if (selId) setSelId(null)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [draft, selId, notePanelId])
+  }, [draft, twinView, qualityFor, selId, notePanelId])
 
   // Stable ref callback that focuses a freshly-mounted text/resource input. The focus is
   // DEFERRED past the current placement tap: focusing synchronously on mount gets immediately
@@ -445,7 +515,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // height excludes TOP_INSET so the fitted plan never sits behind the bar. In the
   // floor-stack we also reserve STACK_VPAD top & bottom so the +OG / −UG pills (which
   // straddle the stack edges) stay fully visible at the default fit.
-  const side = useMemo(() => sideInsets(vp.w), [vp.w])
+  // …and the rails: the WINDOW decides whether they are floating side rails or bottom bars, not
+  // the canvas width — during the «Karte verknüpfen» split the canvas is half a screen wide with
+  // both rails still in place (lib/whiteboard · sideInsets).
+  const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
   const fit = useMemo(() => {
     const w = Math.max(0, vp.w - side.l - side.r)
     const h = Math.max(0, vp.h - TOP_INSET - (stack ? 2 * STACK_VPAD : 0)); if (!w || !h) return { w: 0, h: 0 }
@@ -467,14 +540,167 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // One hook, because both halves share the measurement space: a calibration is only meaningful
   // in the space its reference was drawn in, and a measured path has to be converted into that
   // same space before it can become metres. Nothing here is ever written to the board document.
+  // The alignment and the ruler solve the same physical factor. Resolve the live/stored fit
+  // before the measuring hook so a linked sheet measures immediately and says «Ref. auto»;
+  // there is no second persisted calibration that could drift away from the reference points.
+  const georef = useGeorefMode()
+  useGeorefStorage()
+  const georefArmed = georef.planId === activeId
+  const activeGeorefKey = active?.georefKey ?? activeId
+  const canGeoref = !osm && !blank && !stack && active?.viewer !== true
+  const measureARForGeoref = stack ? 1 / TILE_AR : 1 / aspect
+  const georefPairs = georefArmed ? georef.pairs : georefForPlan(activeGeorefKey)?.pairs ?? []
+  const georefFit = canGeoref ? fitSimilarity(georefPairs, measureARForGeoref) : null
+  const autoScale: PlanScale | undefined = georefFit
+    ? { mPerU: georefFit.scaleMPerU, refM: 0, ar: measureARForGeoref }
+    : undefined
   const {
     calNodes, setCalNodes, calPrompt, setCalPrompt, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode, setMeasLine, setMeasArea,
-    measureAR, activeScale, scaleStale, calibrated, planMetres,
+    measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres,
     measPath, setMeasPath, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
     measNodeDown, measMove, measUp, measDragging, measInsert, measDelete, measPress,
     closeCalPrompt, commitCalibration,
-  } = usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate })
+  } = usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale })
+
+  // --- Karte verknüpfen (Georeferenz) --------------------------------------------------------
+  // The pairing mode itself lives in lib/georefMode — outside React, because on a phone this
+  // component is unmounted between the plan tap and the map tap (see that file's header).
+  // Which surfaces can carry a georeference at all: a printed sheet can. The Tafel has no
+  // geometry to tie down, the OSM picking face IS the map, a viewer-only PDF is not annotated,
+  // and the Gebäude floor stack is a COLUMN of copies of one footprint — one similarity
+  // transform cannot mean anything across it (georef.ts · «tile-locally», not built here).
+  // Armed ⇒ the live pairs; otherwise what is stored. Deliberately NOT memoised: both sides are
+  // a reference to an array somebody else owns (the mode store, or the station document), so the
+  // identity is already stable between renders and a memo would only add a dependency the linter
+  // cannot see. `useGeorefStorage()` above is what makes the stored read re-run.
+  // measureAR is the plan's width/height — exactly the `planAspect` the fit is taken at. Solved
+  // per render rather than memoised: it is a closed-form fit over at most a handful of points,
+  // and a memo here would depend on an array identity the linter cannot reason about.
+  const georefState = georefChip(georefFit, georef, activeId)
+  /** The real plan bitmap for «Deckung prüfen». The PDF viewport already rendered it into its
+   *  first canvas, so taking a same-origin snapshot is both cheaper and more faithful than
+   *  rendering the PDF a second time on the map side. It rides in the cross-surface mode store,
+   *  which also keeps it alive while the Whiteboard is unmounted on a phone. */
+  const georefPreviewUrl = () => {
+    const canvas = boardRef.current?.querySelector('canvas') as HTMLCanvasElement | null
+    if (!canvas?.width || !canvas.height) return null
+    try { return canvas.toDataURL('image/jpeg', 0.82) } catch { return null }
+  }
+  const beginGeoref = (opts?: { check?: boolean; returnToQuality?: boolean }) => startGeorefMode(activeId, measureAR, {
+    storageKey: activeGeorefKey,
+    check: opts?.check,
+    returnToQuality: opts?.returnToQuality,
+    previewUrl: georefPreviewUrl(),
+  })
+  const georefQuality = qualityFor === activeId
+  const [georefTransferOpen, setGeorefTransferOpen] = useState(false)
+  const georefPanelPlan = useRef(activeId)
+  // These overlays describe one concrete document. A real document switch closes them for good;
+  // merely hiding them and reopening the old state when the operator later returns is dangerous
+  // because transfer would then act on a source they are no longer looking at.
+  useEffect(() => {
+    if (georefPanelPlan.current === activeId) return
+    georefPanelPlan.current = activeId
+    setQualityFor(null)
+    setGeorefTransferOpen(false)
+  }, [activeId])
+  // A coverage check opened from Passung keeps its mode alive just long enough for the phone to
+  // navigate back from Karte and mount this surface again. Restore the panel, then retire that
+  // temporary mode; on desktop the same transition is immediate and produces identical UI.
+  useEffect(() => {
+    if (!georefArmed || georef.check || georef.checkReturn !== 'quality') return
+    setQualityFor(activeId)
+    georefDispatch({ type: 'dismiss' })
+  }, [activeId, georefArmed, georef.check, georef.checkReturn])
+  // Only object-specific Modul sheets receive a `georefKey`; this excludes Tafel, OSM and
+  // generic PDFs without guessing from their labels. Sibling Modules describe the same object
+  // area, which is exactly the case where copying a fit is meaningful.
+  const georefTransferTargets: GeorefTransferTarget[] = active?.georefKey
+    ? plans
+      .filter((p) => p.id !== activeId && !!p.georefKey && p.viewer !== true && !!p.imageUrl && !p.osm && !p.floorStack)
+      .map((plan) => ({ plan, linked: !!georefForPlan(plan.georefKey!)?.pairs.length }))
+    : []
+  const transferGeoref = async (target: GeorefTransferTarget) => {
+    const C = appConfig.copy.whiteboard.georef
+    const targetKey = target.plan.georefKey
+    if (!targetKey) return false
+    if (target.linked) {
+      const replace = await confirmDialog({
+        title: fillTemplate(C.transferReplaceTitle, { target: target.plan.code }),
+        message: fillTemplate(C.transferReplaceBody, { target: target.plan.code, source: active?.code ?? activeId }),
+        confirmLabel: C.transfer,
+        cancelLabel: C.cancel,
+      })
+      if (!replace) return false
+    }
+    try {
+      const copied = await transferGeorefPlan(activeGeorefKey, targetKey)
+      if (!copied) return false
+      toast(fillTemplate(C.transferDone, { target: target.plan.code }))
+      return true
+    } catch {
+      toast(C.saveFailed, { icon: 'warn', tone: 'warn' })
+      return false
+    }
+  }
+  // an offline PUT must not lose the pairs: they stay in the store and the next save writes the
+  // whole list again (saveGeoref replaces the document), so the retry needs no queue of its own
+  useEffect(() => {
+    setGeorefSaveErrorHandler(() => toast(appConfig.copy.whiteboard.georef.saveFailed, { icon: 'warn', tone: 'warn' }))
+    return () => setGeorefSaveErrorHandler(null)
+  }, [])
+  // switching to another plan document ends the mode — the references belong to ONE sheet, and
+  // a half-placed pair carried onto a different one would be nonsense
+  useEffect(() => {
+    if (georef.planId && georef.planId !== activeId) georefDispatch({ type: 'dismiss' })
+  }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ⚠️ ONE mode at a time — the same clean slate a document switch makes (see the reset above).
+  // Arming hides the tool rail, and until 26.08. that was ALL it did: the tool stayed armed
+  // underneath, so a Messen path kept its handles, a create tool kept its `.wb-ink` layer and a
+  // selected object kept its vertex grips — every one of them drawn ABOVE the pairing layer
+  // (z 7/8 vs the capture's z 6). A tap meant for a reference point then dragged a node or
+  // extended a line, and a hold armed a node delete. The rail being gone is exactly why this has
+  // to be a real reset and not a visual one: there is no way back to «Auswahl» while the mode runs.
+  useEffect(() => {
+    if (!georefArmed) return
+    setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null); setPendingShape(null)
+    setPaletteOpen(false); setTruppPick(null)
+    resetEphemeral() // the measure path / calibration nodes usePlanMeasure owns
+    setTool('pan')
+  }, [georefArmed]) // eslint-disable-line react-hooks/exhaustive-deps
+  const georefView: PlanViewApi = { toNorm, applyView, zoomTo, scaleRef, posRef, canvasEl, boardRef }
+
+  // --- Zwillinge: what the Karte lends this sheet ---------------------------------------------
+  // Projected HERE, against this sheet's own `georefFit`, so a twin can never disagree with the
+  // reference crosses drawn beside it — the app shell resolves a plan's aspect from its stored
+  // calibration, while this surface has actually measured the bitmap (usePlanMeasure · measureAR).
+  //
+  // ⚠️ The two memos are separate on purpose. The vehicle feed re-renders on every poll that
+  // MOVED something (lib/useVehiclePositions · vehiclesSignature); the Lage symbols change when
+  // somebody edits them. Sharing one memo would re-project the whole Lage every 15 s for a truck
+  // that rolled ten metres. `fit` is a fresh object each render (see georefFit above), so the
+  // deps name its two INPUTS instead — the pairs array identity and the aspect it is solved at.
+  const twinVehicles = useMemo(
+    () => (georefFit && mapTwins?.vehicles.length ? boardTwins(mapTwins.vehicles, georefFit, 'vehicle') : []),
+    [mapTwins?.vehicles, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const twinSymbols = useMemo(
+    () => (georefFit && mapTwins?.symbols.length ? boardTwins(mapTwins.symbols, georefFit, 'symbol') : []),
+    [mapTwins?.symbols, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  // ⚠️ Joined ONCE, not in the JSX. `GeorefTwinsBoard` is `memo()`d and its own comment promises
+  // it "re-renders only when that list actually moves" — a `[...a, ...b]` literal in the prop is
+  // a fresh array identity every render, so the memo could never bail and every twin re-ran its
+  // glyph/caption work. This board re-renders on every pan frame (`applyView` is state), while
+  // the twins' board-space positions do not move at all during a pan.
+  const twins = useMemo(() => [...twinVehicles, ...twinSymbols], [twinVehicles, twinSymbols])
+  // …and the handler with it. Empty deps are correct and not a shortcut: every call here is a
+  // `useState` setter, and those identities are stable for the life of the component.
+  const openBoardTwin = useCallback((twin: BoardTwin) => {
+    setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null)
+    setTwinView(twin)
+  }, [])
 
   // reset transient state when switching document; seed an aspect from the
   // orientation (image docs refine it on load, blank sheets keep it). Sits BELOW the hook
@@ -494,6 +720,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // through from the caller — it has to outlive this component's unmount (see Props · hist).
   // which drawing's label is being typed right now (one undo step per edit, not per keystroke)
   const labelLive = useRef<string | null>(null)
+  // …and the same for a symbol's / note's TITLE in the detail panel: the panel streams every
+  // keystroke (ContextPanel · onTitleLive) so the glyph's label updates under the finger, exactly
+  // as it does on the Lage. Checkpoint once when typing starts, emit once on blur — otherwise
+  // «Sicherung» is nine undo steps and nine audit rows.
+  const titleLive = useRef<string | null>(null)
   const { pushPast, set, commit, add, patch, patchCommit, removeAnno } = useBoardDoc({
     annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist,
   })
@@ -924,6 +1155,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // --- single freehand-stroke select + drag (tap the fat hit-line in WbInkLayer, pan mode) ---
   const drawDown = (id: string, e: React.PointerEvent) => {
     if (tool !== 'pan' || readOnly) return
+    // locked (BoardAnno.locked): the ink is click-through, so a big Sektor-Fläche stops swallowing
+    // the taps meant for the work on top of it. NOT stopPropagation'd — the tap goes on to the
+    // stage and does what an empty-canvas tap does, which is the map's behaviour too. The lock
+    // chip over it is the only tap target it still has.
+    if (annos.find((x) => x.id === id)?.locked) return
     e.stopPropagation()
     // «Leitung wählen» is armed on the Atemschutz board: this tap assigns the line to that Trupp
     // instead of selecting it. Read-only surfaces never get here (the guard above), so a viewer
@@ -1420,12 +1656,33 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       : appConfig.copy.whiteboard.groupDeleted)
   }
 
-  // pan (no zoom change) so a normalized plan point lands at the viewport centre
+  const planWorkRect = (canvas: DOMRect, panelEl?: Element | null): NudgeBox => {
+    // The default fitted view already reserves these permanent lanes; use the same geometry for
+    // focus so “centre” never means underneath a rail or the floating top bar.
+    const surface = {
+      minX: canvas.left + side.l, maxX: canvas.right - side.r,
+      minY: canvas.top + TOP_INSET, maxY: canvas.bottom,
+    }
+    if (!panelEl) return visibleWorkRect(surface, null, false)
+    const panel = panelEl.getBoundingClientRect()
+    if (!panel.width) return visibleWorkRect(surface, null, false)
+    const obstruction = { minX: panel.left, maxX: panel.right, minY: panel.top, maxY: panel.bottom }
+    return visibleWorkRect(surface, obstruction, isBottomSheet(panel.width, canvas.width))
+  }
+
+  // pan (no zoom change) so a normalized plan point lands at the centre of the unobscured work area
   const centerOnPoint = (x: number, y: number, floor: number) => {
     const s = scaleRef.current, w = fit.w * s, h = fit.h * s
-    if (!w || !h) return
+    const canvas = canvasRef.current?.getBoundingClientRect()
+    if (!w || !h || !canvas) return
     const my = mapY(floor, y)
-    applyView(s, { x: -(x * w - w / 2), y: -(my * h - h / 2) })
+    const target = rectCenter(planWorkRect(canvas, document.querySelector('.ctx')))
+    const baseX = canvas.left + canvas.width / 2 + (side.l - side.r) / 2
+    const baseY = canvas.top + canvas.height / 2 + TOP_INSET / 2
+    applyView(s, {
+      x: target.x - baseX - (x - 0.5) * w,
+      y: target.y - baseY - (my - 0.5) * h,
+    })
   }
 
   // keep the tapped object visible: the shared .ctx editor overlay covers the right band of
@@ -1438,10 +1695,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const raf = requestAnimationFrame(() => {
       const a = annos.find((x) => x.id === selId)
       const rect = boardRef.current?.getBoundingClientRect()
+      const canvas = canvasRef.current?.getBoundingClientRect()
       const panelEl = document.querySelector('.ctx')
-      if (!a || !rect?.width || !panelEl) return
-      const r = panelEl.getBoundingClientRect()
-      if (!r.width) return // panel present but CSS-hidden — nothing occludes
+      if (!a || !rect?.width || !canvas || !panelEl) return
+      const work = planWorkRect(canvas, panelEl)
       // anchored annos (symbol/text/resource) give one point; a draw/area gives its whole
       // vertex set — the box nudge clears the full extent (map parity), capped so an
       // extent wider than the open area never slides fully off the stage.
@@ -1458,16 +1715,29 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         const half = (noteWN(a.wN) * rect.width) / 2
         box.minX -= half; box.maxX += half
       }
-      // phone bottom sheet → nudge up; desktop/tablet side panel → nudge left
       const tap = annoTap?.id === selId ? { x: annoTap.x, y: annoTap.y } : null
-      const nudge = isBottomSheet(r.width, window.innerWidth)
-        ? panelNudgeSelectionUp(box, tap, { top: r.top })
-        : panelNudgeSelection(box, tap, { left: r.left, top: r.top, bottom: r.bottom })
+      const nudge = nudgeSelectionIntoRect(box, tap, work)
       if (nudge) applyView(scaleRef.current, { x: posRef.current.x - nudge[0], y: posRef.current.y - nudge[1] })
     })
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selId, notePanelId])
+
+  // A map-owned twin is a read-only projection, but its details occupy the same .ctx space as a
+  // real annotation. Keep the projected glyph itself inside the padded work area when it opens.
+  useEffect(() => {
+    if (!twinView) return
+    const raf = requestAnimationFrame(() => {
+      const rect = boardRef.current?.getBoundingClientRect()
+      const canvas = canvasRef.current?.getBoundingClientRect()
+      const panelEl = document.querySelector('.ctx')
+      if (!rect?.width || !canvas || !panelEl) return
+      const point = { x: rect.left + twinView.pt.x * rect.width, y: rect.top + twinView.pt.y * rect.height }
+      const nudge = nudgePointIntoRect(point, planWorkRect(canvas, panelEl))
+      if (nudge) applyView(scaleRef.current, { x: posRef.current.x - nudge[0], y: posRef.current.y - nudge[1] })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [twinView?.key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // report the current view centre (tile-local x/y + floor) upward so the journal
   // composer can pin an entry to "here" on the plan. Cheap — just a ref write.
@@ -1493,7 +1763,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     setTool('pan')
     if (focus.annoId && focus.flash) setFlashId(focus.annoId)
     else if (focus.annoId) setSelId(focus.annoId)
-    centerOnPoint(focus.x, focus.y, focus.floor)
+    if (focus.twinEntityId) {
+      const twin = [...twinVehicles, ...twinSymbols].find((t) => t.entityId === focus.twinEntityId)
+      if (twin) setTwinView(twin)
+    }
+    // Selection mounts its panel as state settles. Measure on the next frame so an explicit
+    // “show” centres in the space that remains visible, not under the newly opened panel.
+    requestAnimationFrame(() => centerOnPoint(focus.x, focus.y, focus.floor))
     appliedFocus.current = focus.nonce
   }, [focus, fit.w, fit.h]) // eslint-disable-line react-hooks/exhaustive-deps
   // the outline fades out on its own — it is a pointing gesture, not a state
@@ -1506,6 +1782,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const pickSymbol = (name: string) => { setPending(name); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name) }
   const pickShape = (kind: ShapeKind) => { setPendingShape(kind); setPending(null); setTool('shape'); setPaletteOpen(false) }
   const selResource = annos.find((a) => a.id === selId && a.kind === 'resource')
+  /**
+   * Is the right-hand dock slot free for a detail editor?
+   *
+   * The slot holds exactly ONE thing. 05-navrail.css states the rule for the chrome toggles —
+   * «Only one of {Ebenen, views popover, tool dock} is ever open» — but the detail panel was
+   * never written into that set, although `.ctx` occupies the very same band (and, on a phone,
+   * the very same bottom edge) as `.layers-card`. So opening Ebenen used to drop the layers card
+   * straight on top of an open editor, at z201 over z35, with the buried panel still tappable
+   * through the z28 backdrop.
+   *
+   * ⚠️ This hides the panel, it does NOT drop the selection — `selId` survives, so closing Ebenen
+   * brings the editor straight back to the object still wearing its halo. Throwing away what you
+   * had tapped just to look at a layer would be its own surprise (the reason `clearMapUi` on the
+   * Lage keeps the selection too).
+   *
+   * `tool === 'pan'` is the long-standing half: a detail editor belongs to Auswahl and nothing
+   * else. `twinView` is the mirrored-object panel, which owns the slot while it is up.
+   */
+  const editorSlotFree = !twinView && !layersOn && tool === 'pan'
   // a selected plan symbol gets the SAME editor as the map (label / fields / notes /
   // count / rotation) — floor is omitted because on the plan it's the tile, not a badge
   const selSymbol = annos.find((a) => a.id === selId && a.kind === 'symbol')
@@ -1519,6 +1814,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // reaching for a tool means you are done reading this note — the panel should not sit there
   // while you place the next thing (selection alone doesn't change until that thing lands)
   useEffect(() => { if (tool !== 'pan') setNotePanelId(null) }, [tool])
+  // …and the same for a Zwilling's details, plus one more reason: the twin is a projection of
+  // ANOTHER sheet's fit, so switching plan or arming the pairing mode makes the panel describe
+  // something that is no longer on screen.
+  useEffect(() => { setTwinView(null) }, [tool, activeId, georefArmed])
   // a selected stroke / Linie / Fläche — drives the shared DrawEditor (style + presets) panel
   const selDraw = annos.find((a) => a.id === selId && (a.kind === 'draw' || a.kind === 'area'))
   // Explicit detach for a plan line endpoint (the × chip on the canvas + the Verbindung lösen button
@@ -1735,7 +2034,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
 
   return (
-    <div className="whiteboard">
+    // ⚠️ `wb-georef-split` is what the app's ONE live map keys off (09-whiteboard.css): the board
+    // gives up the right half and the map that was hidden behind it becomes visible again. No
+    // second map instance — this one already carries every layer, every symbol and the operator's
+    // own framing. Not on a phone: there the surfaces take turns instead (lib/georefMode).
+    <div className={`whiteboard${georefArmed ? ' wb-georef-armed' : ''}${georefArmed && georef.check ? ' wb-georef-check' : ''}${georefArmed && !georef.check && !isPhone ? ' wb-georef-split' : ''}`}>
       {/* the plan DOCUMENTS are picked in the global left NavRail (it is pure navigation); the
           object they all belong to is named on the chip in the bottom-left corner */}
       {/* plan canvas + annotation layer */}
@@ -1745,10 +2048,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           className={`wb-canvas tool-${tool} ${pending || pendingShape ? 'placing' : ''}`}
           // capture-phase bookkeeping FIRST — it sees the fingers a chip's own handler
           // swallows, which is what makes the two-finger gesture work on a busy board
-          onPointerDownCapture={trackDown}
+          onPointerDownCapture={(e) => { setTwinView(null); trackDown(e) }}
           onPointerUpCapture={trackUp}
           onPointerCancelCapture={trackUp}
-          onPointerDown={stageDown}
+          onPointerDown={(e) => { setTwinView(null); stageDown(e) }}
           onPointerMove={stageMove}
           onPointerUp={stageUp}
           onPointerCancel={stageUp}
@@ -1836,7 +2139,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {planEndpointDragState?.candidate && (
               <span key={`${planEndpointDragState.candidate.key}:${planEndpointDragState.dwell.since}`} className="magnet-anchor wb-magnet"
                 style={{ left: planEndpointDragState.candidate.point[0], top: planEndpointDragState.candidate.point[1] }}>
-                <NodeDeleteChip tone="connect" fillMs={MAGNET_DWELL_MS} />
+                <ConnectRing since={planEndpointDragState.dwell.since} armed={planEndpointDragState.dwell.armed} />
               </span>
             )}
             {planEndpointDragState?.attached && planEndpointDragState.detach > DETACH_SHOW_PROGRESS && (
@@ -1848,7 +2151,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {planDraftMagnetState?.candidate && (
               <span key={`${planDraftMagnetState.candidate.key}:${planDraftMagnetState.dwell.since}`} className="magnet-anchor wb-magnet"
                 style={{ left: planDraftMagnetState.candidate.point[0], top: planDraftMagnetState.candidate.point[1] }}>
-                <NodeDeleteChip tone="connect" fillMs={MAGNET_DWELL_MS} progress={planDraftMagnetState.dwell.armed ? 1 : undefined} />
+                <ConnectRing since={planDraftMagnetState.dwell.since} armed={planDraftMagnetState.dwell.armed} />
               </span>
             )}
 
@@ -2031,6 +2334,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               <WbVertexHandles anno={renderAnnos.find((a) => a.id === selDraw.id) ?? selDraw} sW={sW} sH={sH} mapY={mapY}
                 onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine} />
             )}
+            {/* unlock chip on every locked line/area — the click-through ink's only tap target,
+                a SHORT HOLD to unlock + select (the Lage's twin, MapView · LockChip). Its only job
+                is unlocking, so it stays away where editing is locked anyway. Position mirrors the
+                map: an area is chipped at its centroid, a line at its middle vertex. */}
+            {!readOnly && tool === 'pan' && renderAnnos.filter((a) => a.locked && (a.kind === 'draw' || a.kind === 'area') && a.pts?.length).map((a) => {
+              const pts = a.pts!
+              const p = a.kind === 'area'
+                ? [pts.reduce((t, q) => t + q[0], 0) / pts.length, pts.reduce((t, q) => t + mapY(q[2] ?? a.floor, q[1]), 0) / pts.length] as const
+                : [pts[Math.floor((pts.length - 1) / 2)][0], mapY(pts[Math.floor((pts.length - 1) / 2)][2] ?? a.floor, pts[Math.floor((pts.length - 1) / 2)][1])] as const
+              return (
+                <span key={`lk${a.id}`} className="wb-lock-anchor" style={{ left: p[0] * sW, top: p[1] * sH }}>
+                  <LockChip onUnlock={() => { patchCommit(a.id, { locked: undefined }); setSelId(a.id) }} />
+                </span>
+              )
+            })}
             {/* explicit detach: a × chip beside a connected endpoint of the selected line — dragging
                 the node only moves/re-targets (never severs), so this is how a link is broken. */}
             {selDraw?.kind === 'draw' && tool === 'pan' && !planEndpointDragState && (['start', 'end'] as const).map((ep) => {
@@ -2201,10 +2519,44 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     corner orbs. Delete is locked once the team has a recorded trail. */}
                 {a.kind === 'resource' && selId === a.id && tool === 'pan' && !readOnly && (
                   <div className="wb-pill-acts" onPointerDown={(e) => e.stopPropagation()}>
-                    {/* rename — the touch path (double-tap→dblclick is unreliable on iOS) */}
-                    <button className="wb-pa" title={appConfig.copy.edit} aria-label={appConfig.copy.edit} onClick={() => setEditId(a.id)}><Icon id="pen" /></button>
+                    {/* rename — the touch path (double-tap→dblclick is unreliable on iOS). A
+                        Trupp-bound chip gets no pen, the same rule the map marker follows: its name
+                        is the TRUPP's, written on the Atemschutz board, and renaming it here would
+                        fork the two apart. Now that the chip can be joined to a Trupp from its own
+                        menu (above), that state is reachable from here too. */}
+                    {!a.truppId && (
+                      <button className="wb-pa" title={appConfig.copy.edit} aria-label={appConfig.copy.edit} onClick={() => setEditId(a.id)}><Icon id="pen" /></button>
+                    )}
                     {a.truppId && onShowTrupp && (
                       <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp} onClick={() => onShowTrupp(a.truppId!)}><Icon id="warn" /></button>
+                    )}
+                    {/* «Atemschutz-Trupp» — the chip's half of the join, the exact twin of the map
+                        marker's menu (MapMarkers) and of the line editor's «Gehört zu Trupp …»:
+                        the app's own menu, never a native <select>. Until this existed, a chip put
+                        down on Modul 1 before anybody was registered could only be joined from the
+                        AT card — and joining it from the picture, where you are looking, meant
+                        deleting the chip and re-placing it, which threw its recorded trail away.
+                        Takeover of somebody else's chip asks first, in the ONE place that ask lives
+                        (useTruppActions · adoptTruppMarker). ⚠️ A Trupp that is already out is
+                        offered only when it is the one standing here — it is the record of who was,
+                        not somebody to send. */}
+                    {onTeamTrupp && (!!a.truppId || trupps.some((t) => !t.removedAt && t.status !== 'raus')) && (
+                      <Menu
+                        popupClassName="de-menu-pop"
+                        itemClassName={() => 'de-menu-item'}
+                        trigger={
+                          <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
+                            <Icon id="people" />
+                          </button>
+                        }
+                        items={[
+                          { label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={!a.truppId} />, onClick: () => onTeamTrupp(a.id, undefined) },
+                          ...trupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === a.truppId)).map((t) => ({
+                            label: <MenuPick label={t.name} on={t.id === a.truppId} />,
+                            onClick: () => onTeamTrupp(a.id, t.id),
+                          })),
+                        ]}
+                      />
                     )}
                     <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition} onClick={markPosition}><Icon id="flag" /></button>
                     {/* per-team trail visibility toggle — deletion of the record itself
@@ -2353,6 +2705,31 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {creating && (
               <div className="wb-ink" onPointerDown={inkDown} onPointerMove={inkMove} onPointerUp={inkUp} onPointerCancel={inkUp} />
             )}
+            {/* «Karte verknüpfen»: the numbered crosses live IN the board so they pan and zoom
+                with the sheet. Shown while the mode is armed, and while the Passung is open —
+                otherwise a reference set in June could not be found again in November. */}
+            {canGeoref && (georefArmed || georefQuality) && (
+              <GeorefBoardLayer pairs={georefPairs} mode={georef} armed={georefArmed} sW={sW} sH={sH} view={georefView} />
+            )}
+            {/* …and the Karte's own objects, mirrored ONTO this sheet. In the board so they pan
+                and zoom with it, and clipped to the sheet (lib/georefTwins · onSheet) so a
+                vehicle two kilometres away is simply absent rather than smeared along the edge.
+                Not while the pairing mode is armed: the sheet then belongs to the mode, and a
+                twin under the aim would be one more thing to mis-tap. */}
+            {!georefArmed && onTwinJump && (twinVehicles.length > 0 || twinSymbols.length > 0) && (
+              <GeorefTwinsBoard
+                twins={twins}
+                byName={sym.byName}
+                sW={sW}
+                sH={sH}
+                sizePx={symBase * scale}
+                captionMode={captionMode}
+                sourceSuppressedCaptions={mapSuppressedCaptions}
+                interactive={tool === 'pan'}
+                selectedKey={twinView?.key}
+                onOpen={openBoardTwin}
+              />
+            )}
             {/* add a storey above (OG) / below (UG) — attached to the stack itself, just above
                 the top floor and below the bottom floor, like a real building section */}
             {stack && !readOnly && (
@@ -2442,12 +2819,23 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           }}
           footer={
             <>
+              {/* ⚠️ THE MAP RAIL'S ORDER, top to bottom: Ebenen · the view control · zoom ±.
+                  It used to run the other way round here (zoom, Einpassen, Ebenen), so the two
+                  rails put Ebenen at opposite ends of the same footer and the hand had to look
+                  for it on whichever surface it happened to be on. Same footer, same order.
+                  Ebenen appears only once this sheet is linked to the map: before that the map
+                  lends it nothing and the panel would be an empty room. */}
+              {onToggleLayers && (
+                <button className={`vrail-nbtn vrail-layers ${layersOn ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={layersOn} onClick={onToggleLayers}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
+              )}
+              {/* «Einpassen» — where the map rail carries its compass / views button: the one
+                  control that puts the whole surface back in front of you. */}
+              <button className="vrail-nbtn vrail-fit" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
               {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px) — the plan pinches
-                  on every touch form factor, and «Einpassen» below covers the one state that
+                  on every touch form factor, and «Einpassen» above covers the one state that
                   matters. */}
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= MAX_SCALE} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
-              <button className="vrail-nbtn" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
               {/* Gebäude orientation toggle — only on a floor-stack that was auto-rotated */}
               {canOrient && (
                 <>
@@ -2492,7 +2880,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           symbol now exposes label / fields / notes / count / rotation identically */}
       {/* rendered in read-only too (viewer / EL view): tapping a plan symbol shows its
           details; the readOnly prop strips every edit affordance inside the panel. */}
-      {selSymbol && tool === 'pan' && (
+      {editorSlotFree && selSymbol && (
         <ContextPanel
           key={selSymbol.id}
           // ⚠️ `floor` is remapped, not spread through: on a BoardAnno that name is the
@@ -2503,7 +2891,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           readOnly={readOnly}
           svg={selSymbol.symbol ? sym.byName[selSymbol.symbol] ?? '' : ''}
           onClose={() => setSelId(null)}
-          onTitle={(v) => patchCommit(selSymbol.id, { label: v })}
+          onProjection={georefFit && onPlanProjection && selSymbol.x != null && selSymbol.y != null
+            ? () => { const c = georefFit.toMap({ x: selSymbol.x!, y: selSymbol.y! }); onPlanProjection(activeId, selSymbol.id, [c.lng, c.lat]) }
+            : undefined}
+          projectionLabel={appConfig.copy.contextPanel.showOnMap}
+          // ⚠️ Live while typing, one step on blur — the same split the Lage's symbol panel has
+          // (IncidentWorkspace · titleLiveRef) and the same one the plan's LINE label already had.
+          // Committing only on blur meant the glyph on the board still read «Fahrzeug» while the
+          // panel already said «TLF 1»: on the Lage the caption follows the keystrokes, on the plan
+          // it did not, and the surface you were looking at decided which.
+          onTitleLive={(v) => {
+            if (titleLive.current !== selSymbol.id) { titleLive.current = selSymbol.id; pushPast() }
+            patch(selSymbol.id, { label: v })
+          }}
+          onTitle={(v) => {
+            const live = titleLive.current === selSymbol.id
+            titleLive.current = null
+            if (live) emit('board.edit', { id: selSymbol.id, patch: { label: v }, planId: activeId })
+            else patchCommit(selSymbol.id, { label: v })
+          }}
           onFields={(fields) => {
             const before = selSymbol.fields ?? {}
             patchCommit(selSymbol.id, { fields })
@@ -2529,6 +2935,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           titleOptions={symbolTitleOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
           fieldOptions={symbolFieldOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat, rosterNames)}
           rosterRank={rosterRank}
+          // who that name already is, on the entry itself + under the filled field — the Lage has
+          // shown both since the roster pickers existed, the plan showed neither, so naming a
+          // Fahrer who is under Atemschutz was silent on exactly the surface a Zugführer works on
+          personStatus={personStatus}
+          fieldHints={fieldHints?.(selSymbol.symbol, selSymbol.label, selSymbol.fields)}
+          // Symbol→Mittel, identical to the map: a placed TLF books onto the Material sheet from
+          // here too. Only where the station mapped material to symbols (the prop is absent
+          // otherwise), and never read-only.
+          onCaptureMittel={readOnly ? undefined : onCaptureMittel}
+          mittelCountFor={mittelCountFor}
           protectedKeys={new Set(symbolPresetFieldKeys(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat))}
           connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: lineLabel(a) }))}
           onFocusLine={(id) => setSelId(id)}
@@ -2539,14 +2955,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {/* note detail panel — the same ContextPanel, opened from the ⚙ handle rather than by
           selecting (see notePanelId). The note's TEXT is its title, so the panel's title field
           edits the note itself; `noteWidth` drives the Form row + the "Zu Textfeld" default. */}
-      {selNote && tool === 'pan' && (
+      {editorSlotFree && selNote && (
         <ContextPanel
           key={selNote.id}
           entity={{ ...selNote, label: selNote.text, subtitle: appConfig.copy.notes.section }}
           readOnly={readOnly}
           onClose={() => setNotePanelId(null)}
-          onTitle={(v) => patchCommit(selNote.id, { text: v })}
-          onTitleLive={(v) => patch(selNote.id, { text: v })}
+          // one checkpoint when typing starts, one audit row on blur — the live `patch` writes
+          // without a checkpoint, so committing again on blur used to snapshot the ALREADY typed
+          // text and «Rückgängig» after renaming a note did nothing at all.
+          onTitleLive={(v) => {
+            if (titleLive.current !== selNote.id) { titleLive.current = selNote.id; pushPast() }
+            patch(selNote.id, { text: v })
+          }}
+          onTitle={(v) => {
+            const live = titleLive.current === selNote.id
+            titleLive.current = null
+            if (live) emit('board.edit', { id: selNote.id, patch: { text: v }, planId: activeId })
+            else patchCommit(selNote.id, { text: v })
+          }}
           onFields={(fields) => patchCommit(selNote.id, { fields })}
           onNotes={(v) => patchCommit(selNote.id, { notes: v || undefined })}
           // a width set by hand ends the auto-fit; the size-slider step keeps it and re-measures
@@ -2560,6 +2987,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         />
       )}
 
+      {/* a Zwilling's details — the Karte's own object, mirrored onto this sheet and read-only
+          throughout. «Zum Original» is the one row that leaves (see GeorefTwinPanel for why a
+          twin is never editable). */}
+      {twinView && onTwinJump && (
+        <GeorefTwinPanel
+          entity={twinView.entity}
+          svg={twinView.kind === 'vehicle' || twinView.entity.symbol === appConfig.symbols.vehicleName
+            ? vehicleSymbolSvg(twinName(twinView.entity), twinView.entity.rotation ?? 0, twinView.entity.directed ?? true)
+            : glyphFor(twinView.entity, sym.byName)}
+          subtitle={appConfig.copy.whiteboard.georef.twinPanelFromMap}
+          onClose={() => setTwinView(null)}
+          onOriginal={() => { const e = twinView.entity; setTwinView(null); onTwinJump(e) }}
+          originalLabel={appConfig.copy.contextPanel.showOnMap}
+          onTransferHere={!readOnly && onTwinTransferHere && twinView.kind === 'symbol' && !twinView.entity.live
+            ? () => { const t = twinView; setTwinView(null); onTwinTransferHere(t.entity, activeId, t.pt) }
+            : undefined}
+        />
+      )}
+
       {/* selected stroke / Linie / Fläche editor — the SAME shared DrawEditor the Lage map uses, so a
           plan line/area exposes the line presets (Freihand/Messpfeil/Rettungsachse) + colour / width /
           style / label / marker / arrow identically. Distance is omitted (a plan has no metric scale). */}
@@ -2567,7 +3013,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           own locked DrawEditor: an Einsatzleiter tapping a Leitung on the plan gets its Länge,
           its Leitung-Nr. and the Trupp on it. The panel strips every control that would change
           the shape itself (DrawEditor · readOnly). */}
-      {selDraw && tool === 'pan' && (
+      {editorSlotFree && selDraw && (
         <DrawEditor
           key={selDraw.id}
           readOnly={readOnly}
@@ -2637,6 +3083,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             const a = endpoint === 'start' ? selDraw.startAttachment : selDraw.endAttachment
             if (a) setSelId(a.target.id)
           }}
+          // Verriegeln — the same control the Lage's line editor has, on the same field name
+          // (types · BoardAnno.locked mirrors Drawing.locked). Locking DESELECTS, because a locked
+          // shape can no longer be tapped: leaving its panel open would offer edits to something
+          // that has just stopped accepting them. ⚠️ Not `readOnly` — that is the whole SURFACE
+          // being locked for a viewer, and a viewer may not change this flag at all.
+          locked={!!selDraw.locked}
+          onToggleLock={readOnly ? undefined : () => {
+            patchCommit(selDraw.id, { locked: selDraw.locked ? undefined : true })
+            if (!selDraw.locked) setSelId(null)
+          }}
           onDelete={() => void removeWithConnections(selDraw)}
           onClose={() => setSelId(null)}
         />
@@ -2644,7 +3100,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
       {/* selected-shape editor — the SAME colour sheet as the Lage map (size + rotation
           live on the canvas handles). Read-only surfaces just show the selection halo. */}
-      {!readOnly && selShape && tool === 'pan' && (
+      {editorSlotFree && !readOnly && selShape && (
         <ShapeEditor
           key={selShape.id}
           entity={selShape}
@@ -2740,6 +3196,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           at. One family now, one corner — and the building switch joined it rather than earning a
           rail tile of its own. */}
       <div className="wb-botleft">
+      {/* ⚠️ While «Karte verknüpfen» is armed, this row carries the INSTRUMENT and nothing else.
+          One mode, one indicator: the chip that armed the mode is the thing that now says what
+          to tap, how far along it is and how to stop — and the facts that were in this row
+          (Objekt, Gebäude, Massstab) are not what anyone is reading mid-pairing. They come
+          straight back when the mode ends. On a phone the instrument is the bar instead
+          (GeorefMode · GeorefModeBars), so this row simply stays empty of it. */}
+      {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
       {objectChip}
       {buildingChip}
       {/* Maßstab — trust chip: shows whether the active plan is calibrated; tap to (re)calibrate.
@@ -2757,17 +3220,90 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           <span>{
             tool === 'scale' ? appConfig.copy.whiteboard.scale.calibrateHint
               : scaleStale ? appConfig.copy.whiteboard.scale.stale
+              : scaleAuto ? appConfig.copy.whiteboard.scale.chipAuto
               : calibrated ? fillTemplate(appConfig.copy.whiteboard.scale.chipCalibrated, { m: String(activeScale!.refM) })
               : appConfig.copy.whiteboard.scale.chipUncalibrated
           }</span>
         </button>
       )}
+      {/* «⌖ Karte» — the third fact about a plan that no page of it states: whether this sheet is
+          tied to the world, and how well. Same recipe and same corner as the Massstab beside it,
+          and the same rule: never a hidden assumption. Blue, like Messen and Massstab — a
+          georeference is not an alarm, so never the station's --accent.
+          A viewer sees the reading but cannot arm it; a plan with no reference offers the verb. */}
+      {canGeoref && (!readOnly || georefState.kind === 'linked') && (
+        <button
+          className={`wb-scale-chip ${georefState.kind === 'linked' ? (georefState.warn ? 'wb-georef-warn' : 'wb-georef-ok') : ''} ${georefQuality ? 'arm' : ''}`}
+          title={readOnly ? undefined
+            : georefState.kind === 'linked' ? appConfig.copy.whiteboard.georef.openQuality
+            : appConfig.copy.whiteboard.georef.linkTitle}
+          disabled={readOnly}
+          aria-expanded={georefState.kind === 'linked' ? georefQuality : undefined}
+          onClick={() => {
+            // linked ⇒ the chip opens the Passung; unlinked ⇒ it arms the pairing straight away.
+            // A plan that has no reference has nothing to show, so the reading would be an empty
+            // panel where the verb belongs.
+            if (georefState.kind === 'linked') setQualityFor(georefQuality ? null : activeId)
+            else beginGeoref()
+          }}
+        >
+          <Icon id="locate" />
+          {/* ⚠️ «Verknüpft», and nothing after it. The chip used to carry the reading too —
+              «Verknüpft · aus 2 Punkten», «Verknüpft · ⌀ 10.8 m» — which is a sentence in a row
+              of three-word pills, and it put the one number that needs context (a residual means
+              nothing without «out of how many pairs») where there is no room to give any. The
+              TONE still says whether the fit is checked; the number lives one tap away, in the
+              Passung, next to what to do about it. */}
+          <span>{georefState.kind === 'linked'
+            ? appConfig.copy.whiteboard.georef.chipLinked
+            : appConfig.copy.whiteboard.georef.chipUnlinked}</span>
+        </button>
+      )}
+      </>}
       </div>
 
       {/* #3: persist a fresh calibration station-wide so plans measure out of the box next time */}
       {savePrompt && !readOnly && (
         <PlanScalePersist scale={savePrompt} activeId={activeId} onDone={() => setSavePrompt(null)} />
       )}
+
+      {/* Passung — the reading behind the linked chip, in the same dock the Massstab's own
+          follow-up uses (`.wb-scale-persist`), one row above the chip that opened it.
+          ⚠️ Deliberately NOT the shared <Popover>. That one is modal-ish by construction: it
+          portals, manages focus and dismisses on the first press anywhere outside — over a LIVE
+          board that means the next tap on a symbol is eaten by the dismissal instead of
+          selecting it. src/lib/overlays/Popover.tsx says exactly this in its own header: for
+          surfaces that must stay live underneath, keep the hand-rolled dock. */}
+      {georefQuality && georefFit && !georefArmed && (
+        <div className="wb-georef-dock" role="group" aria-label={appConfig.copy.whiteboard.georef.qualityTitle}>
+          <GeorefQuality
+            fit={georefFit}
+            onClose={() => setQualityFor(null)}
+            onAddPoint={() => beginGeoref({ returnToQuality: true })}
+            // «Deckung prüfen» needs BOTH pictures on screen, which is exactly what the armed
+            // split is — so the check arms the mode and comes up with the outline already drawn.
+            onCheck={() => beginGeoref({ check: true, returnToQuality: true })}
+            onTransfer={georefTransferTargets.length ? () => setGeorefTransferOpen(true) : undefined}
+            onReset={() => { setQualityFor(null); resetGeorefPlan(activeGeorefKey); toast(appConfig.copy.whiteboard.georef.resetDone) }}
+          />
+        </div>
+      )}
+
+      {georefTransferOpen && active && georefTransferTargets.length > 0 && (
+        <GeorefTransfer
+          source={active}
+          targets={georefTransferTargets}
+          onTransfer={transferGeoref}
+          onClose={() => setGeorefTransferOpen(false)}
+          onDone={() => { setGeorefTransferOpen(false); setQualityFor(null) }}
+        />
+      )}
+
+      {/* the dashed seam, and nothing but it: the boundary the split created. It carries no
+          label — the mode's instruction and the way out are the chip row's instrument on a
+          tablet and a shell-level bar on a phone (this component is unmounted for the map half
+          of every pair there). See GeorefMode · GeorefSplitSeam. */}
+      {georefArmed && !isPhone && <GeorefSplitSeam />}
     </div>
   )
 }

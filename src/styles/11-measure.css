@@ -31,18 +31,9 @@
 .draw-lock-chip:hover { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-line)); }
 .draw-lock-chip > svg { width: 15px; height: 15px; }
 .draw-lock-chip.holding { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
-/* hold progress floats ABOVE the chip (finger-independent) so it stays visible under a fingertip */
-.draw-lock-hint { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); pointer-events: none;
-  display: flex; flex-direction: column; gap: 5px; min-width: 96px; padding: 7px 10px; border-radius: var(--r-sm);
-  background: var(--surface); box-shadow: 0 6px 18px rgba(0, 0, 0, .32); }
-/* The chip lives in the right-hand tool cluster, a thumb's width off the edge. Centred on it, a
-   nowrap German label hangs its right half off the screen — there is no room to the right to
-   centre into. Below a tablet the hint hangs its RIGHT edge on the chip's instead. */
-@media (max-width: 720px) { .draw-lock-hint { left: auto; right: 0; transform: none; } }
-.draw-lock-hint-label { font: 700 11px var(--body); color: var(--ink); white-space: nowrap; text-align: center; }
-.draw-lock-hint-bar { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
-.draw-lock-hint-bar i { display: block; height: 100%; width: 0; background: var(--blue); animation: lock-bar .7s linear forwards; }
-@keyframes lock-bar { to { width: 100%; } }
+/* The hold progress is the shared ring (.node-del, tone-unlock), placed beside the chip by
+   components/LockChip — not a bar in a floating card. See NodeDeleteChip for why all four
+   holds wear one picture, and nodeHold for why the fill is JS and not a keyframe. */
 /* draggable measurement vertex */
 /* path vertices — small dot, but a 44px transparent hit pad (::after) so a fingertip can
    grab one to drag, or press-and-hold to delete, without a precise aim. touch-action:none
@@ -73,6 +64,9 @@
    damit: Verbinden ist blau, Lösen ist rot, und beides trägt denselben Ring wie das Löschen. */
 .magnet-anchor { position: relative; display: block; width: 0; height: 0; z-index: 12; }
 .magnet-anchor.wb-magnet { position: absolute; }
+/* the same lock chip on the PLAN: the map hangs it off a MapLibre Marker, the board has no
+   markers, so it gets a zero-size anchor positioned in board px (Whiteboard · lock chips). */
+.wb-lock-anchor { position: absolute; display: grid; place-items: center; width: 0; height: 0; z-index: 12; }
 /* explicit detach affordance: a chip beside a selected, connected endpoint (map + plan). Sized for
    fat fingers — it's the only on-canvas control that both signals "connected" and breaks the link. */
 /* ── Linie verlängern ───────────────────────────────────────────────────────────────────────
@@ -110,18 +104,18 @@
 .node-del.tone-connect .node-del-face { border-color: var(--blue); color: var(--blue); }
 .node-del.tone-connect .node-del-track { stroke: color-mix(in srgb, var(--blue) 20%, transparent); }
 .node-del.tone-connect .node-del-fill { stroke: var(--blue); }
-/* Der Ring des Verbinden-Chips läuft in CSS, nicht in React: ein stillstehender Finger löst kein
-   pointermove aus, ein gerechneter Fortschritt bliebe also genau dann stehen, wenn er zählt.
-   `--ring-len` liefert der Chip aus seiner eigenen Geometrie (kein zweiter Wert, der driften
-   kann), `--ring-ms` ist die Verweildauer. Neustart = neuer React-key (Ziel + since). */
-.node-del.tone-connect .node-del-fill { animation: nodeRingFill var(--ring-ms, 350ms) linear forwards; }
-/* ⚠️ Eine laufende Animation schlägt im Kaskaden-Rang sogar das style-Attribut. Wer einen
-   Fortschritt mitgibt (der rote Lösen-Ring, oder der Start-Ring, der sofort voll ist), muss die
-   Animation deshalb ausdrücklich abschalten – sonst füllt sie ihn nochmals von vorne. */
-.node-del.ring-set .node-del-fill { animation: none; }
-/* bewusst NICHT unter prefers-reduced-motion abgeschaltet: der Ring ist keine Zierde, sondern
-   die Anzeige der verbleibenden Zeit. Ohne ihn wüsste niemand, wann es einklinkt. */
-@keyframes nodeRingFill { from { stroke-dashoffset: var(--ring-len); } to { stroke-dashoffset: 0; } }
+/* Entsperren — blue like «verbinden», because both give something back rather than take it
+   away. NIE --accent: das ist das Markenrot und heisst hier Alarm. */
+.node-del.tone-unlock .node-del-face { border-color: var(--blue); color: var(--blue); }
+.node-del.tone-unlock .node-del-track { stroke: color-mix(in srgb, var(--blue) 20%, transparent); }
+.node-del.tone-unlock .node-del-fill { stroke: var(--blue); }
+/* ⚠️ Der Ring wird NICHT in CSS animiert. Eine Keyframe-Animation hier war eine Lüge: die
+   globale Regel `@media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms
+   !important } }` (03-map.css) schlägt jede lokale Ausnahme, also stand der Ring sofort
+   voll, während die Verweildauer noch 350 ms zu laufen hatte. Der Ring ist keine Zierde,
+   sondern die Anzeige der verbleibenden Zeit — und was eine Zier-Regel abschalten kann,
+   ist keine Anzeige. Den Fortschritt liefert jetzt lib/nodeHold · useTimedProgress als
+   Attribut, für alle vier Tönungen gleich. */
 /* the node under the finger, while the ring fills — it says «this one», not «selected» */
 .draw-handle.doomed, .measure-handle.doomed, .wb-vertex.doomed {
   border-color: var(--red); background: color-mix(in srgb, var(--red) 12%, var(--surface)); }

@@ -223,6 +223,12 @@ html.rail-dragging .layers-card { transition: none; }
   top: calc(16px + 42px + 10px); right: 16px; bottom: auto; transform: none;
   max-height: calc(100dvh - 96px);
 }
+/* …and the detail panel with them: a tap on a replayed symbol opens `.ctx` read-only (the map
+   surface is live during replay), and it was still inset for the rail that is not there. Only
+   `right` moves — it keeps its own `top: 88px` and height budget on purpose, so entering replay
+   shifts the panel sideways and never vertically, and 88px also clears the utility cluster at
+   601–860px, where the cluster itself drops to top:80 (MapUtility.module.css). */
+.map-util .ctx { right: 16px; }
 /* the title row STICKS while the list scrolls: it carries the ✕, and a long layer list (or a
    short phone viewport) scrolled the only way out of the sheet off the top. `-10px` cancels the
    card's own padding so the sticky strip spans the full width and nothing shows through beside
@@ -246,6 +252,10 @@ html.rail-dragging .layers-card { transition: none; }
 /* Basiskarte tiles — one row for a one-of-three choice. auto-fit so a deployment with a
    different number of bases still lays out; 70px is the floor a glyph + short name needs. */
 .lbases { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 6px; padding: 0 4px 2px; }
+/* The shipped three-map set is one choice row even in the intermediate tablet dock. `auto-fit`
+   fell to two columns once the 601–1024px rule narrowed the card, making Satellit look like a
+   different group and needlessly adding a row to an already scrollable panel. */
+.lbases:has(> :nth-child(3):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 /* Left-aligned like every row beneath them. These tiles used to centre their icon and label
    while the whole rest of the panel (Taktische Zeichen, Fahrzeuge, Hydranten …) ran flush
    left, so the one section at the TOP was the one that did not line up with anything. */
@@ -278,6 +288,10 @@ html.rail-dragging .layers-card { transition: none; }
 .lrow.off { opacity: .55; }
 .lrow .ic { font-size: 15px; color: rgba(255, 255, 255, .75); display: grid; place-items: center; }
 .lrow .name { flex: 1; font-size: 13px; font-weight: 600; }
+/* second line on a Georeferenz twin row: which fit it mirrors through («aus 2 Punkten» / «⌀ x m»).
+   A row that only said «gespiegelt» would be a claim with no measurement behind it. */
+.lrow .name small { display: block; font-size: 10.5px; font-weight: 500; line-height: 1.3;
+  color: rgba(255, 255, 255, .58); }
 .lrow .lock { display: grid; place-items: center; font-size: 13px; color: rgba(255, 255, 255, .5); }
 .lrow .eye { font-size: 15px; color: var(--blue); display: grid; place-items: center; }
 .lrow.off .eye { color: rgba(255, 255, 255, .45); }

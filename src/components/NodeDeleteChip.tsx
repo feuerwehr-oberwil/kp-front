@@ -1,13 +1,17 @@
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { useTimedProgress } from '../lib/nodeHold'
+import { MAGNET_DWELL_MS } from '../lib/lineAttachments'
 
 /** Radius of the progress ring in its own 62px viewBox — the circumference the fill runs on. */
 const R = 28
 const RING_LEN = 2 * Math.PI * R
 
 /** delete = hold a node until it goes · connect = dwell on a target until the line couples ·
- *  release = pull an attached end out of its socket. Three things, one ring. */
-export type NodeChipTone = 'delete' | 'connect' | 'release'
+ *  release = pull an attached end out of its socket · unlock = hold a locked shape's chip until
+ *  it opens. Four things, one ring — red where something is taken away or broken, blue where
+ *  something is joined or given back. */
+export type NodeChipTone = 'delete' | 'connect' | 'release' | 'unlock'
 
 /**
  * What a node about to be deleted looks like: the app's own detach chip (× on white, red rim —
@@ -20,40 +24,56 @@ export type NodeChipTone = 'delete' | 'connect' | 'release'
  *
  * Since 25.08. it is also the ONE picture of magnetic attachment on both surfaces: the same
  * chip in blue with a paperclip says «halten, dann verbindet es», the same chip in red at the
- * old socket says «weiterziehen, dann ist es frei». Connect, release and delete are the three
- * things that can happen at a line's end, so they get one shape and one ring — learn it once.
+ * old socket says «weiterziehen, dann ist es frei». Since 27.08. «Entsperren» wears it too, in
+ * blue with a padlock. Connect, release, delete and unlock are everything that can happen at a
+ * held point, so they get one shape and one ring — learn it once.
  *
- * `progress` paints the ring explicitly (hold-to-delete, pull-to-release, both driven by the
- * hand). Omit it and pass `fillMs` instead for the timed connect ring: CSS runs the fill, so a
- * motionless finger — which fires no pointermove and would freeze a computed value — still sees
- * it close. Give the element a React `key` that changes when the dwell restarts.
+ * `progress` (0…1) paints the ring, always. Whatever drives it — a hold's clock
+ * (lib/nodeHold · useNodeHold), a dwell's deadline (useTimedProgress) or the hand's own
+ * distance (lib/lineAttachments · detachProgress) — the fill is a plain attribute.
+ *
+ * ⚠️ It used to be a CSS keyframe for the timed connect case, and that was a bug: the global
+ * `prefers-reduced-motion` rule in styles/03-map.css zeroes every animation with `!important`,
+ * so the ring showed FULL while the dwell still had 350 ms to run. A progress indicator that a
+ * decoration rule can silence is not an indicator. One driver, in JS, for all four tones.
  */
-export function NodeDeleteChip({ progress, fillMs, tone = 'delete', label }: {
-  progress?: number
-  fillMs?: number
+export function NodeDeleteChip({ progress, tone = 'delete', label }: {
+  progress: number
   tone?: NodeChipTone
   label?: string
 }) {
   const copy = appConfig.copy.measure
   const text = label ?? (tone === 'connect' ? copy.snapConnect : tone === 'release' ? copy.snapRelease : copy.deleteNode)
+  const icon = tone === 'connect' ? 'attach' : tone === 'unlock' ? 'lock' : 'close'
   return (
-    <span className={`node-del tone-${tone}${progress != null ? ' ring-set' : ''}`} aria-hidden>
-      <span className="node-del-face" title={text}><Icon id={tone === 'connect' ? 'attach' : 'close'} /></span>
-      <svg
-        className="node-del-ring"
-        viewBox="0 0 62 62"
-        style={{ ['--ring-len' as string]: `${RING_LEN}`, ['--ring-ms' as string]: fillMs != null ? `${fillMs}ms` : undefined }}
-      >
+    <span className={`node-del tone-${tone}`} aria-hidden>
+      <span className="node-del-face" title={text}><Icon id={icon} /></span>
+      <svg className="node-del-ring" viewBox="0 0 62 62">
         <circle className="node-del-track" cx="31" cy="31" r={R} />
-        {/* an explicit progress wins (and `.ring-set` shuts the keyframe off for it); without
-            one the `--ring-ms` animation owns the offset */}
         <circle
           className="node-del-fill"
           cx="31" cy="31" r={R}
           strokeDasharray={RING_LEN}
-          {...(progress != null ? { strokeDashoffset: RING_LEN * (1 - Math.max(0, Math.min(1, progress))) } : {})}
+          strokeDashoffset={RING_LEN * (1 - Math.max(0, Math.min(1, progress)))}
         />
       </svg>
     </span>
   )
+}
+
+/**
+ * The «halten, dann verbindet es» ring, in the one place that knows how it is driven.
+ *
+ * A component rather than a bare hook call at each site, because there are two of these live at
+ * once per surface (the endpoint drag and the draft stroke) and a hook cannot be called inside
+ * the conditional JSX where the ring appears. `since` is the dwell's own start stamp, so
+ * re-entering a target restarts the fill by changing the hook's dependency — no React `key`
+ * gymnastics required.
+ *
+ * `armed` short-circuits to a full ring: `armDwell` (lib/lineAttachments) fires the instant a
+ * NEW stroke starts inside a target, and that case has nothing to wait for.
+ */
+export function ConnectRing({ since, armed }: { since: number; armed: boolean }) {
+  const progress = useTimedProgress(since, MAGNET_DWELL_MS)
+  return <NodeDeleteChip tone="connect" progress={armed ? 1 : progress} />
 }
