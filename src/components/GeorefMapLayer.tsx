@@ -270,8 +270,49 @@ export function loupeCrop(tpl: string, lng: number, lat: number, z: number, k: n
   return { tiles, dx: ox - px, dy: oy - py }
 }
 
-/** A raster source the loupe can magnify: one `{z}/{x}/{y}` template and how deep it goes. */
-interface LoupeSource { tpl: string; maxzoom: number }
+/** A raster source the loupe can magnify: one `{z}/{x}/{y}` template, how deep it goes, and the
+ *  raster paint the MAP applies to it (which the loupe has to reproduce — see `loupePaint`). */
+interface LoupeSource { tpl: string; maxzoom: number; paint: RasterPaint }
+
+/** The subset of MapLibre's raster paint that changes how a base map LOOKS (MapLayers ·
+ *  NIGHT_BASE_PAINT / DARK_BASE_PAINT). Everything else is geometry and the loupe ignores it. */
+interface RasterPaint {
+  brightnessMin?: number
+  brightnessMax?: number
+  saturation?: number
+  contrast?: number
+}
+
+/**
+ * The map's raster paint, re-expressed for plain `<img>` tiles.
+ *
+ * ⚠️ THIS is why the loupe was a black disc on the night map. The dark basemap (Carto Dark
+ * Matter, or a station's own night raster) renders buildings near-black on black; the map lifts
+ * them into a legible charcoal with `raster-brightness-min: 0.34`, and MapLayers has a whole
+ * comment explaining that this is the lever. The loupe paints the very same tiles as `<img>`
+ * elements — with none of that — so it showed the tiles as they really are: black on black,
+ * under a magnifier, at the one moment the operator is trying to find a house corner.
+ *
+ * `brightness-min` lifts the BLACK FLOOR, which no CSS `filter` does: `brightness()` multiplies.
+ * The map that does it is `out = min + (1 − min)·in`, and that is exactly a `screen` blend
+ * against a flat grey of `min` — hence a veil rather than a filter. `brightness-max` (the gentle
+ * night dim of a light base) IS a multiply, so it rides in the filter with saturation/contrast.
+ *
+ * Returns `null` for an untouched raster, so the ordinary day map costs no extra element.
+ */
+export function loupePaint(p: RasterPaint): { filter?: string; veil?: string } | null {
+  const fx: string[] = []
+  if (p.brightnessMax != null && p.brightnessMax !== 1) fx.push(`brightness(${p.brightnessMax})`)
+  if (p.saturation) fx.push(`saturate(${Math.max(0, 1 + p.saturation)})`)
+  if (p.contrast) fx.push(`contrast(${Math.max(0, 1 + p.contrast)})`)
+  const lift = p.brightnessMin && p.brightnessMin > 0 ? Math.min(1, p.brightnessMin) : 0
+  if (!fx.length && !lift) return null
+  const v = Math.round(lift * 255)
+  return {
+    filter: fx.length ? fx.join(' ') : undefined,
+    veil: lift ? `rgb(${v}, ${v}, ${v})` : undefined,
+  }
+}
 
 /**
  * The tile source the RUNNING MAP is actually painting, read off the live style.
@@ -295,7 +336,23 @@ function liveBaseSource(map: MlMap | null): LoupeSource | null {
       if (map.getLayoutProperty(l.id, 'visibility') === 'none') continue
       const src = style.sources?.[l.source as string]
       if (!src || src.type !== 'raster' || !src.tiles?.length) continue
-      return { tpl: src.tiles[0], maxzoom: src.maxzoom ?? 19 }
+      // …and the paint that layer is drawn WITH, read off the same style. A loupe that magnifies
+      // the right tiles with the wrong paint is still magnifying a different map than the one
+      // under the finger — on the night base, a black one.
+      const num = (k: string): number | undefined => {
+        const v = map.getPaintProperty(l.id, k as never)
+        return typeof v === 'number' ? v : undefined
+      }
+      return {
+        tpl: src.tiles[0],
+        maxzoom: src.maxzoom ?? 19,
+        paint: {
+          brightnessMin: num('raster-brightness-min'),
+          brightnessMax: num('raster-brightness-max'),
+          saturation: num('raster-saturation'),
+          contrast: num('raster-contrast'),
+        },
+      }
     }
   } catch { /* style not built yet, or the map is being torn down — the config below covers it */ }
   return null
@@ -363,8 +420,17 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
     // …and the configured base only as a fallback, for the moment before the style exists
     const b = layers.find((l) => l.base && isVisible(l.id) && (l.tiles?.length || l.nightTiles?.length))
     if (!b) return null
-    const tiles = (night && b.nightTiles?.length ? b.nightTiles : b.tiles) ?? []
-    return tiles.length ? { tpl: tiles[0], maxzoom: b.maxzoom ?? 19 } : null
+    const useNight = night && !!b.nightTiles?.length
+    const tiles = (useNight ? b.nightTiles : b.tiles) ?? []
+    // mirrors MapLayers: a true-dark raster gets the black floor lifted, a light base at night
+    // gets the gentle dim instead. Only for the moment before the style exists — after that the
+    // paint is read off the live layer above, which is the honest source.
+    const paint: RasterPaint = useNight || b.dark
+      ? { brightnessMin: 0.34, contrast: -0.05 }
+      : night && b.icon !== 'sat'
+        ? { brightnessMax: 0.6, saturation: -0.1, contrast: 0.1 }
+        : {}
+    return tiles.length ? { tpl: tiles[0], maxzoom: b.maxzoom ?? 19, paint } : null
   }, [map, layers, isVisible, night])
 
   if (mode.check || !map || !base) return null
@@ -389,17 +455,26 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
   const alive = crop.tiles.filter((t) => !dead[t.url])
   if (!alive.length) return null
 
+  // paint the crop the way the MAP paints it — without this the night base magnifies to black
+  const look = loupePaint(base.paint)
   return (
     <div className={s.loupe} aria-hidden>
       <div
         className={s.plane}
-        style={{ transform: `translate(${size / 2}px, ${size / 2}px) rotate(${-map.getBearing()}deg) scale(${k}) translate(${crop.dx}px, ${crop.dy}px)` }}
+        style={{
+          transform: `translate(${size / 2}px, ${size / 2}px) rotate(${-map.getBearing()}deg) scale(${k}) translate(${crop.dx}px, ${crop.dy}px)`,
+          filter: look?.filter,
+        }}
       >
         {alive.map((t) => (
           <img key={t.key} src={t.url} alt="" style={{ left: t.left, top: t.top }} draggable={false}
             onError={() => setDead((d) => (d[t.url] ? d : { ...d, [t.url]: true }))} />
         ))}
       </div>
+      {/* the black floor, lifted — `screen` against a flat grey IS `raster-brightness-min`
+          (see loupePaint). Over the whole circle, so it also covers a tile that has not
+          arrived yet rather than leaving a hole of a different darkness. */}
+      {look?.veil && <span className={s.veil} style={{ background: look.veil }} />}
       <span className={s.xh} />
       <span className={s.ring} />
     </div>

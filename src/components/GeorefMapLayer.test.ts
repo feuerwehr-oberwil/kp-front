@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { loupeCrop } from './GeorefMapLayer'
+import { loupeCrop, loupePaint } from './GeorefMapLayer'
 
 /** Oberwil BL, roughly the Feuerwehrmagazin — a real deep-zoom crop, not a synthetic one. */
 const LNG = 7.5617
@@ -37,5 +37,29 @@ describe('the map loupe crop', () => {
   it('fills the template and drops the retina/subdomain placeholders', () => {
     const [first] = loupeCrop('https://{s}.tiles.test/{z}/{x}/{y}{r}.png', LNG, LAT, 14, 1, 148).tiles
     expect(first.url).toMatch(/^https:\/\/a\.tiles\.test\/14\/\d+\/\d+\.png$/)
+  })
+})
+
+
+// ⚠️ The night map bug. The dark base is near-black on black; the MAP lifts it with
+// `raster-brightness-min`, the loupe paints the same tiles as plain <img> and did not — so the
+// magnifier was a black disc at the one moment somebody is hunting for a house corner.
+describe('loupePaint — the loupe wears the map\'s own raster paint', () => {
+  it('turns brightness-min into a screen veil, because no CSS filter lifts a black floor', () => {
+    const look = loupePaint({ brightnessMin: 0.34, contrast: -0.05 })
+    // 0.34 · 255 ≈ 87 — screened over the tiles this is exactly out = 0.34 + 0.66·in
+    expect(look?.veil).toBe('rgb(87, 87, 87)')
+    expect(look?.filter).toBe('contrast(0.95)')
+  })
+
+  it('turns the gentle night dim of a LIGHT base into a filter, with no veil', () => {
+    const look = loupePaint({ brightnessMax: 0.6, saturation: -0.1, contrast: 0.1 })
+    expect(look?.veil).toBeUndefined()
+    expect(look?.filter).toBe('brightness(0.6) saturate(0.9) contrast(1.1)')
+  })
+
+  it('costs the ordinary day map nothing at all', () => {
+    expect(loupePaint({})).toBeNull()
+    expect(loupePaint({ brightnessMin: 0, contrast: 0 })).toBeNull()
   })
 })
