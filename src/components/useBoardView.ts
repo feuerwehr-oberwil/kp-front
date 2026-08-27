@@ -14,7 +14,11 @@ import { TOP_INSET } from '../lib/whiteboard'
  *  edge, and a whole Gebäude floor-stack in one view. Below fit the board stays centred
  *  (see zoomTo), because panning a board smaller than its canvas only loses it. */
 export const MIN_SCALE = 0.6
-export const MAX_SCALE = 6
+/** 8, not 6 — one more press of the + button (each step is ×1.3). At 6 a Modul sheet stopped
+ *  just short of the zoom that makes a hydrant number or a room label readable at arm's length,
+ *  which is the whole reason anybody zooms a plan in the first place. The board re-rasterizes at
+ *  the real zoom (layout, not a CSS transform), so the extra step costs sharpness nothing. */
+export const MAX_SCALE = 8
 
 /** A board view as it is remembered: the layout zoom, the pan offset in canvas px, and the
  *  `sig` the plan had when it was put away (see boardViewSignature). */
