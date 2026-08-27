@@ -15,6 +15,7 @@ describe('SYMBOL_SCALE bands', () => {
 
   it('lets the board go meaningfully below the old S — the reason for the rework', () => {
     expect(SYMBOL_SCALE.board.min).toBeLessThan(legacySymbolMul('S'))
+    expect(SYMBOL_SCALE.board.min).toBe(0.2)
     // the map keeps the old S as its floor and the old L stays reachable on both surfaces
     expect(SYMBOL_SCALE.map.min).toBe(legacySymbolMul('S'))
     expect(SYMBOL_SCALE.map.max).toBeGreaterThan(legacySymbolMul('L'))

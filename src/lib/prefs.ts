@@ -143,7 +143,7 @@ export interface SharePositionPref {
 /** Bounds for the two Symbolgrösse sliders.
  *
  *  Derived from the S/M/L multipliers they replace (S 0.6 · M 1 · L 1.3), so nothing anyone had
- *  set becomes unreachable and 1 — the tuned default — stays the exact MIDPOINT of both sliders.
+ *  set becomes unreachable and 1 — the tuned default — stays the exact midpoint of both sliders.
  *
  *  The two bands differ on purpose, because the surfaces are not the same problem:
  *   • Karte: a symbol sits on a house and competes with the map under it. 'L' (1.3) was already
@@ -158,7 +158,9 @@ export interface SharePositionPref {
  *  two devices set «by eye» land on the same number. */
 export const SYMBOL_SCALE: Record<SymbolSurface, SymbolScaleRange> = {
   map: { min: 0.6, max: 1.4, step: 0.05, default: 1 },
-  board: { min: 0.3, max: 1.7, step: 0.05, default: 1 },
+  // 0.2 is deliberately two thirds of the previous floor: on dense Modul sheets 0.3 still
+  // made neighbouring FKS glyphs overlap before their anchors were meaningfully distinct.
+  board: { min: 0.2, max: 1.8, step: 0.05, default: 1 },
 }
 
 /** Snap a multiplier onto its surface's slider band. Anything unusable — a hand-edited cookie,
