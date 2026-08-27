@@ -179,7 +179,9 @@
 /* «Markanter Punkt» is a phrase nobody reads twice; 52×40 px of drawing says «the corner, not
    the wall» without a word. Drawn, not photographed — a photo of one station's house teaches
    that house. Tokens again, so it is not a white card on a night screen. */
-.example { width: 52px; height: 40px; flex: none; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); }
+.example { width: 60px; height: 40px; flex: none; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); }
+/* the hairline between the two halves — they are two pictures of ONE place, not two examples */
+.exSeam { stroke: var(--glass-edge); stroke-width: 1; stroke-dasharray: 2 2; }
 .exPaper { fill: var(--board-bg); }
 .exGround { fill: color-mix(in srgb, var(--green) 12%, var(--board-bg)); }
 .exWall { fill: none; stroke: var(--ink-faint); stroke-width: 2.4; }
@@ -412,9 +414,12 @@
   /* no box, no border — the quiet row is text, or it is a second row of buttons again */
   .bar .quietBtn, .bar .quietBtn:hover { border-color: transparent; background: transparent; }
   .bar .finishAction { width: 100%; }
-  /* the quiet row: text weight, 34px, and it may ellipsize — a label may, a sentence may not */
+  /* ⚠️ QUIET, not small. The row carries no box and no fill — that is what keeps it from
+     competing with «Punkt setzen» — but it is still 44px of pressable height, because
+     «Fertig» and «Deckung prüfen» are ordinary things to want and a text button that has to
+     be aimed at is not quieter, only worse. Labels may ellipsize; the row never wraps. */
   .bar .quietBtn {
-    min-width: 0; max-width: 100%; padding: 0 6px; min-height: 34px; font-size: 12.5px;
+    min-width: 0; max-width: 100%; padding: 0 8px; min-height: var(--tap); font-size: 13px;
     overflow: hidden; text-overflow: ellipsis;
   }
   /* ⚠️ A SEGMENTED control, at the app's usual weight — it used to be the full 60px rail height
@@ -426,8 +431,11 @@
     position: static; box-sizing: border-box; margin: 0; padding: 3px;
     background: var(--fill-soft); border-radius: var(--r-ctl);
   }
+  /* ⚠️ --tap (44px), like every other control in the app. 36 looked tidy in a screenshot and is
+     under the size a gloved thumb hits reliably — and both of these are the switch between the
+     two halves of the task, i.e. among the most-pressed controls in the mode. */
   .surfaceSwitch button {
-    min-width: 0; min-height: 36px; display: inline-flex; align-items: center;
+    min-width: 0; min-height: var(--tap); display: inline-flex; align-items: center;
     justify-content: center; gap: 6px; padding: 0 8px; border: 0; border-radius: var(--r-sm);
     background: transparent; color: var(--ink-dim); font: 700 12.5px var(--body); cursor: pointer;
   }
@@ -451,7 +459,9 @@
     .bar .sayText i:last-child { display: none; }
     .surfaceSwitch { height: auto; }
     .surfaceSwitch button { min-height: 38px; }
-    .bar .placeAction { min-height: 44px; }
+    /* ⚠️ the ACTIONS keep their 44px here too — a landscape phone is still a gloved thumb.
+       The room comes out of the gaps, the thumbnail and the Ampel's second line instead. */
+    .bar .placeAction { min-height: var(--tap); }
     .loupeCorner { width: 96px; height: 96px; top: calc(64px + env(safe-area-inset-top)); }
   }
 }

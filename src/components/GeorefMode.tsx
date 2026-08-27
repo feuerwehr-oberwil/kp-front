@@ -397,23 +397,32 @@ function GeorefLampRow({ mode }: { mode: GeorefModeState }) {
   )
 }
 
-/** «Markanter Punkt» is a phrase nobody reads twice. These two 52×40 thumbnails say which
- *  corner is meant — the corner, not the wall — in the one place the question comes up.
- *  Deliberately drawn, not photographed: a photo of one station's house teaches that house. */
-function GeorefExample({ side }: { side: 'plan' | 'map' }) {
+/**
+ * «Markanter Punkt» is a phrase nobody reads twice — so the card shows one instead.
+ *
+ * ⚠️ ONE picture, not one per surface. It used to swap between a sheet and a basemap depending
+ * on which half was being placed, which made the two halves look like two different tasks. They
+ * are one: the SAME corner, once here and once there. So the thumbnail says exactly that — the
+ * sheet on the left, the map on the right, the same mark on the same corner of both — and it
+ * does not change when the surface does.
+ *
+ * Drawn, not photographed: a photo of one station's house teaches that house.
+ */
+function GeorefExample() {
   const C = appConfig.copy.whiteboard.georef
-  return side === 'plan' ? (
-    <svg className={s.example} viewBox="0 0 52 40" role="img" aria-label={C.exampleAltPlan}>
-      <rect width="52" height="40" className={s.exPaper} />
-      <path d="M8 34 V14 H36" className={s.exWall} />
-      <g className={s.exMark}><circle cx="8" cy="14" r="5" /><path d="M8 6v4M8 18v4M0 14h4M12 14h4" /></g>
-    </svg>
-  ) : (
-    <svg className={s.example} viewBox="0 0 52 40" role="img" aria-label={C.exampleAltMap}>
-      <rect width="52" height="40" className={s.exGround} />
-      <path d="M4 26h44" className={s.exRoad} />
-      <rect x="14" y="6" width="20" height="12" className={s.exHouse} />
-      <g className={s.exMark}><circle cx="34" cy="18" r="5" /><path d="M34 10v4M34 22v4M26 18h4M38 18h4" /></g>
+  return (
+    <svg className={s.example} viewBox="0 0 60 40" role="img" aria-label={C.exampleAlt}>
+      {/* the sheet */}
+      <rect width="29" height="40" className={s.exPaper} />
+      <path d="M6 33 V15 H24" className={s.exWall} />
+      <g className={s.exMark}><circle cx="6" cy="15" r="4.2" /><path d="M6 8.5v2.3M6 19.2v2.3M0 15h2.3M9.7 15h2.3" /></g>
+      {/* the map */}
+      <rect x="31" width="29" height="40" className={s.exGround} />
+      <path d="M33 30h27" className={s.exRoad} />
+      <rect x="37" y="8" width="18" height="14" className={s.exHouse} />
+      <g className={s.exMark}><circle cx="37" cy="22" r="4.2" /><path d="M37 15.5v2.3M37 26.2v2.3M31 22h2.3M40.7 22h2.3" /></g>
+      {/* the seam, so the two halves read as two pictures of one place */}
+      <path d="M30 3 V37" className={s.exSeam} />
     </svg>
   )
 }
@@ -435,15 +444,14 @@ function georefPrompt(mode: GeorefModeState) {
     // The examples teach the first two pairs; by point eight they are repeated prose between
     // the operator and the buttons. Once the gesture is established, keep only destination +
     // progress in the mode bar.
-    // ⚠️ ONE line under the title, never two. The prompt used to stack its own hint and a «what
-    // happens next» line, which on the first point read «Möglichst weit vom letzten Punkt
-    // entfernt · Ruhig weit hineinzoomen» — two sentences, of which the first is about a point
-    // that does not exist yet. The specific advice wins where there IS any; otherwise the line
-    // says what happens after this tap, which is the question a first-timer actually has.
-    // ⚠️ «weit vom letzten Punkt» only once there IS a last point.
-    hint: mode.edit ? C.subRe
-      : onMap ? (mode.pairs.length ? C.promptMapHint : C.subMap)
-      : mode.pairs.length < 2 ? C.promptPlanHint : C.subPlan,
+    // ⚠️ ONE line, and the SAME line on both surfaces. It used to stack two sentences and swap
+    // them per surface, so placing the two halves of one landmark read as two different jobs
+    // with two different rules («Dieselbe Stelle danach auf der Karte» / «Möglichst weit vom
+    // letzten Punkt entfernt»). It is one job: find a place you can point at twice. That
+    // sentence is true whichever half you are on, so it is what the card says on both.
+    // ⚠️ The only line that DOES differ is a correction, because then the rule really is a
+    // different one — this point already exists and is being moved.
+    hint: mode.edit ? C.subRe : C.promptBoth,
     // «3 Paare gesetzt · 2 offen» — what stands, and what is still waiting to be matched
     status: [
       mode.pairs.length === 0 ? C.barNone
@@ -638,7 +646,7 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
       {!mode.check && <GeorefLampRow mode={mode} />}
       {/* ── the instruction ── a picture of what is meant, the sentence, and what comes next */}
       <div className={s.say}>
-        {!mode.check && <GeorefExample side={shownSurface === 'map' ? 'map' : 'plan'} />}
+        {!mode.check && <GeorefExample />}
         <span className={s.sayText}>
           <b>{p.title}</b>
           {p.hint && <i>{p.hint}</i>}

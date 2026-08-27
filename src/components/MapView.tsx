@@ -1956,8 +1956,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       />
 
     </Map>
-    {/* the pairing mode's magnifier — base-map tiles, no second GL context (GeorefMapLayer) */}
-    {!isPhone && !georef.check && georefTurn && georef.want === 'map' && (
+    {/* the pairing mode's magnifier — base-map tiles, no second GL context (GeorefMapLayer).
+        ⚠️ On a phone TOO, since it moved into the corner: what made the old centred one wrong
+        there was that it sat under the finger, and an inset does not. Without it the map half
+        of a pair is placed blind, which is the half where blind hurts most — a house corner on
+        a basemap at phone zoom is a few pixels of grey. */}
+    {!georef.check && georefTurn && georef.want === 'map' && (
       <GeorefMapLoupe map={mapInst.current} layers={layers} isVisible={isVisible} night={night}
         atRef={georefPoint} />
     )}

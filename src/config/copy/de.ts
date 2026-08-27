@@ -1638,11 +1638,14 @@ export const de = {
       // welcher Modus läuft und was als Nächstes zu tippen ist. Die gestrichelte Linie genügt.
       // Anweisungsleiste (die einzige Einführung, die es gibt – kein separates Tutorial)
       promptPlanNo: 'Punkt {n} · Plan',
-      promptPlanHint: 'Markanter Punkt: Hausecke, Hydrant oder Wegkreuzung',
+      // ⚠️ EINE Beschreibung für beide Flächen. Sie stand vorher je Fläche anders da, womit die
+      // zwei Hälften EINES Punktes wie zwei verschiedene Aufgaben mit zwei Regeln aussahen. Es ist
+      // eine Aufgabe: eine Stelle finden, auf die man zweimal zeigen kann — auf dem Blatt und
+      // draussen. Der Satz gilt auf beiden Seiten, also steht er auf beiden.
+      promptBoth: 'Eine Stelle, die auf beiden Bildern sicher wiederzufinden ist: Hausecke, Hydrant, Wegkreuzung',
       promptMap: 'Derselbe Punkt · Karte',
       // sobald mehr als ein Punkt offen ist, zählt die Nummer – «denselben» stimmt dann nicht mehr
       promptMapNo: 'Punkt {n} · Karte',
-      promptMapHint: 'Möglichst weit vom letzten Punkt entfernt',
       promptRePlan: 'Punkt {n} neu · Plan',
       promptReMap: 'Punkt {n} neu · Karte',
       title: 'Karte verknüpfen',
@@ -1692,11 +1695,9 @@ export const de = {
       lampGoodBody: 'Genau genug, um Symbole zwischen Plan und Karte zu spiegeln.',
       // Beispielbild neben der Anweisung: «markanter Punkt» ist ein Wort, das niemand zweimal
       // liest – die Ecke, nicht die Wand.
-      exampleAltPlan: 'Beispiel: eine Hausecke auf dem Plan',
-      exampleAltMap: 'Beispiel: derselbe Punkt auf der Karte',
-      // Untertitel unter der Anweisung – was danach kommt bzw. worauf es ankommt
-      subPlan: 'Dieselbe Stelle danach auf der Karte.',
-      subMap: 'Ruhig weit hineinzoomen.',
+      // EIN Bild, kein Bild je Fläche: dieselbe Ecke, links auf dem Blatt, rechts auf der Karte
+      exampleAlt: 'Beispiel: dieselbe Hausecke auf dem Plan und auf der Karte',
+      // die eine Zeile, die doch abweicht: eine Korrektur ist eine andere Regel
       subRe: 'Der alte Punkt verschwindet dabei.',
       // die grosse Taste nennt den Punkt, den sie setzt
       placePointNo: 'Punkt {n} setzen',
