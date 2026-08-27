@@ -36,6 +36,15 @@ const truppLabel = (name: string): string => name.trim()
  * indistinguishable from each other AND from nothing at all. The crew line names the person, not
  * just «Mannschaft» — «wer war im Trupp» is the question asked afterwards.
  */
+/** The Auftrag as the card states it — «Retten – 2OG links». `anderes` carries no label of its
+ *  own: there the free text IS the order (types.ts · Trupp.ziel), so printing «Anderes» in front
+ *  of it would only say that a dropdown was set to the escape hatch. */
+function auftragText(auftrag: Trupp['auftrag'], ziel?: string): string {
+  const labels = appConfig.copy.atemschutz.auftragLabels
+  const label = auftrag && auftrag !== 'anderes' ? labels[auftrag] ?? auftrag : ''
+  return [label, (ziel ?? '').trim()].filter(Boolean).join(' – ')
+}
+
 export function truppEditChanges(prev: Trupp | undefined, f: TruppFields): string[] {
   if (!prev) return []
   const az = appConfig.copy.atemschutz
@@ -48,7 +57,10 @@ export function truppEditChanges(prev: Trupp | undefined, f: TruppFields): strin
   const added = after.filter((x) => !before.includes(x))
   if (gone.length) out.push(fillTemplate(az.changeMemberOut, { names: gone.join(', ') }))
   if (added.length) out.push(fillTemplate(az.changeMemberIn, { names: added.join(', ') }))
-  if (prev.auftrag !== f.auftrag || (prev.ziel ?? '') !== (f.ziel ?? '')) out.push(az.changeAuftrag)
+  if (prev.auftrag !== f.auftrag || (prev.ziel ?? '') !== (f.ziel ?? '')) {
+    const to = auftragText(f.auftrag, f.ziel)
+    out.push(to ? fillTemplate(az.changeAuftragTo, { auftrag: to }) : az.changeAuftragCleared)
+  }
   if ((prev.lineNo ?? null) !== (f.lineNo ?? null)) {
     out.push(f.lineNo == null ? az.changeLineCleared : fillTemplate(az.changeLine, { n: String(f.lineNo) }))
   }

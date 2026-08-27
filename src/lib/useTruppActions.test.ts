@@ -711,6 +711,23 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
       .toEqual(['Gruppenführer Keller Anna → Schmid Peter'])
   })
 
+  // «Auftrag angepasst» named nothing: read back an hour later it could be a new order, a
+  // corrected floor or a fixed typo, and that is precisely what the Verlauf is read for.
+  it('names the Auftrag the Trupp now has, Ziel included', () => {
+    expect(truppEditChanges(prev, fields({ auftrag: 'retten', ziel: '2OG links' })))
+      .toEqual(['Auftrag Retten – 2OG links'])
+  })
+
+  it('lets the free text stand alone under «anderes» — there the text IS the order', () => {
+    expect(truppEditChanges(prev, fields({ auftrag: 'anderes', ziel: 'Tank sichern' })))
+      .toEqual(['Auftrag Tank sichern'])
+  })
+
+  it('says an Auftrag was taken away rather than naming an empty one', () => {
+    expect(truppEditChanges(baseTrupp({ ...prev, auftrag: 'retten', ziel: '2OG links' }), fields()))
+      .toEqual(['Auftrag entfernt'])
+  })
+
   it('distinguishes a new Leitung from a released one', () => {
     expect(truppEditChanges(prev, fields({ lineNo: 3 }))).toEqual(['Leitung 3'])
     expect(truppEditChanges(baseTrupp({ ...prev, lineNo: 3 }), fields())).toEqual(['Leitung gelöst'])
