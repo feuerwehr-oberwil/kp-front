@@ -8,7 +8,7 @@ import { cx } from '../lib/cx'
 import { ProfileChart, ProfileStats } from './ProfileChart'
 import s from './MeasurePanel.module.css'
 
-export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onAdopt, onCalibrate, calibrateLabel, recalibrateLabel }: {
+export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onAdopt, onCalibrate, calibrateLabel, recalibrateLabel, scaleNote }: {
   mode: 'line' | 'area'
   coords: LngLat[]
   profile: ProfileResult | null
@@ -26,10 +26,15 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
    *  line (line mode) or of a Fläche (area mode). Absent ⇒ the action is hidden: a read-only
    *  surface measures but never draws, and so does one whose measurement is still just a hint. */
   onAdopt?: () => void
-  /** Plan only: start (or redo) the scale calibration straight from the panel. */
+  /** Plan only: start (or redo) the scale calibration straight from the panel. Absent when the
+   *  scale is DERIVED from the Kartenverknüpfung — see `scaleNote`. */
   onCalibrate?: () => void
   calibrateLabel?: string
   recalibrateLabel?: string
+  /** Where these metres come from, when it is not a calibration anybody made here. A quiet
+   *  reading in place of the button, so a sheet that is already tied to the map does not offer
+   *  «Neu kalibrieren» — which reads as «this is not calibrated» on a plan that is. */
+  scaleNote?: string
 }) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.measure
@@ -96,11 +101,13 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
           )}
         </>
       )}
-      {onCalibrate && (
+      {onCalibrate ? (
         <button type="button" className={cx('ip-btn', blocked ? 'primary' : 'ghost', s['mp-cal-btn'])} onClick={onCalibrate}>
           <Icon id="measure" />{blocked ? calibrateLabel : recalibrateLabel}
         </button>
-      )}
+      ) : scaleNote ? (
+        <div className={s['mp-cal-note']} role="status"><Icon id="measure" />{scaleNote}</div>
+      ) : null}
     </div>
   )
 }
