@@ -211,15 +211,22 @@ async def test_the_public_config_reflects_a_connection_made_in_the_browser(clien
     assert (await client.get("/api/config")).json()["integrations"]["diveraConfigured"] is True
 
 
-async def test_carto_browser_key_reaches_public_runtime_config(client, admin_login, blank_env):
+async def test_carto_browser_key_reaches_a_session_but_not_an_anonymous_caller(client, admin_login, blank_env):
     """The raster provider requires `?key=` in browser requests, so this one credential is
-    intentionally public while still staying out of git and encrypted at rest."""
+    readable back over the API — while still staying out of git and encrypted at rest.
+
+    Readable is not the same as public: the runtime config hands it to a caller with a session
+    (here the admin's), and withholds it from one with none. See
+    `test_config_carto_key_visibility.py` for the rule and the incident-link case."""
     await admin_login(client)
     key = "carto-browser-key"
     r = await client.put("/api/integrations/credentials/carto_api_key", json={"value": key})
     assert r.status_code == 200, r.text
     assert r.json()["value"] == key
     assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] == key
+
+    client.cookies.clear()
+    assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] is None
 
 
 # --- audit ----------------------------------------------------------------------------

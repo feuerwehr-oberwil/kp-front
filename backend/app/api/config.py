@@ -44,12 +44,13 @@ import hashlib
 import json
 import logging
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarm_keywords import SHIPPED
 from ..auth.dependencies import CurrentAdmin, OptionalUser, _admin_session_valid
+from ..auth.incident_link import read_link_session
 from ..config_history import changed_sections, emptied_sections, keep_previous
 from ..credentials import load as load_credentials
 from ..database import get_db
@@ -114,6 +115,7 @@ def _projection(
     *,
     include_keywords: bool = True,
     include_links: bool = True,
+    include_carto: bool = True,
     version: str | None = None,
 ) -> DeploymentConfigOut:
     """Validated document + env-derived integration flags → the response projection.
@@ -134,6 +136,21 @@ def _projection(
     key is not an option anyway — ``DeploymentConfigOut`` types the section, so the field comes
     back with its default whatever the dict says.)
 
+    ``include_carto=False`` drops ``integrations.cartoBasemapKey``. The key is a BROWSER
+    credential — CARTO wants it in every tile URL, and a domain restriction in CARTO, not
+    secrecy, is what stops it being used elsewhere. That is an argument for not hiding it from
+    the people who draw maps; it is not an argument for handing it to callers who draw none.
+    The only caller this endpoint serves before any session exists is the LOGIN SCREEN, and the
+    login screen renders a Splash, never a map. So the key follows the same rule as
+    ``report.links``: everyone with a session, nobody without.
+
+    ⚠️ «A session» here includes an incident-LINK session, and that is the whole subtlety.
+    ``LinkApp`` renders the full app — the AdF who taps the alarm link gets the real map — while
+    ``OptionalUser`` sees no user for them, because a link carries its own cookie and never an
+    ``access_token``. Gating on ``actor is not None`` alone would therefore hand a blank basemap
+    to precisely the person furthest from a keyboard. ``/api/config`` is on the link allowlist
+    for this exact reason (auth/incident_link · «the map is useless without it»).
+
     The ``alarmVocabulary`` SUMMARY stays public either way — it carries counts and which
     source is active, never the words — because "is my override live?" must be answerable
     without a session.
@@ -147,9 +164,14 @@ def _projection(
         payload.pop("alarmKeywords", None)
     if not include_links:
         payload["report"] = {**(payload.get("report") or {}), "links": []}
+    ints = integrations()
+    if not include_carto:
+        # `None`, not "", so it is byte-identical to a deployment that configured no key —
+        # the withholding does not announce itself, exactly as with `report.links`.
+        ints = ints.model_copy(update={"cartoBasemapKey": None})
     return DeploymentConfigOut(
         **payload,
-        integrations=integrations(),
+        integrations=ints,
         alarmVocabulary=_alarm_vocabulary(doc),
         version=version,
     )
@@ -185,19 +207,23 @@ def _keep_assets(stored: dict | None, incoming: dict) -> dict:
 
 @router.get("", response_model=DeploymentConfigOut)
 async def get_config(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     actor: OptionalUser = None,
     admin_session: str | None = Cookie(default=None),
 ) -> DeploymentConfigOut:
     """PUBLIC (no auth) — the login screen needs branding before login.
 
-    Two sections are withheld from ANONYMOUS callers, and each for its own reason:
+    Three sections are withheld from ANONYMOUS callers, and each for its own reason:
 
     * ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).
     * ``report.links`` — the station's own Formulare. Withheld from anonymous callers but
       served to any SIGNED-IN one (PIN user or admin), because the Rapport that shows them is
       itself behind the PIN. A prefill URL is a capability — whoever has it can submit to that
       form — so «anyone who can reach the login screen» is the wrong audience for it.
+    * ``integrations.cartoBasemapKey`` — the CARTO browser key. Served to anyone with a session
+      OF ANY KIND, including an incident-LINK session, and withheld from a caller with none.
+      See ``_projection`` for why the link case is the one that matters.
 
     ⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately
     comes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see
@@ -223,10 +249,13 @@ async def get_config(
         logger.warning("deployment_config row failed validation; serving empty fallback", exc_info=True)
         doc = DeploymentConfigIn()
     is_admin = await _admin_session_valid(admin_session)
+    # A link session is a session: LinkApp mounts the whole app, map included.
+    has_session = is_admin or actor is not None or read_link_session(request) is not None
     return _projection(
         doc,
         include_keywords=is_admin,
         include_links=is_admin or actor is not None,
+        include_carto=has_session,
         version=_version(raw),
     )
 
