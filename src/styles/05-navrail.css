@@ -1,9 +1,10 @@
 /* ── left navigation rail (Karte · Pläne · Checkliste) ── */
 /* ⚠️ `max(16px, …)`, not a media query: every horizontal safe-area rule in this codebase sat
-   inside `@media (max-width: 600px)` — i.e. only in portrait, where the left inset is always 0,
-   and never in landscape, which is the one orientation where it is 44–59px. At 852×393 that put
-   43 of this rail's 60px under the sensor housing, leaving 17px of tappable rail. It is a no-op
-   everywhere else. */
+   inside a phone `@media` block, which used to mean PORTRAIT only — where the left inset is
+   always 0 — and never landscape, the one orientation where it is 44–59px. At 852×393 that put
+   43 of this rail's 60px under the sensor housing, leaving 17px of tappable rail. The phone
+   blocks now cover landscape too, so the inset reaches them; this stays unconditional because it
+   is a no-op wherever there is no inset. */
 .navrail { position: absolute; left: max(16px, env(safe-area-inset-left)); top: 88px; bottom: 16px; height: max-content; margin-block: auto;
   z-index: 35; display: flex; flex-direction: column; gap: 4px;
   /* vertically centred in the same band as the right .tool-rail (top 88 → bottom 16), so the two

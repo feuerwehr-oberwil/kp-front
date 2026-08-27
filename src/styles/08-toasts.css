@@ -151,7 +151,7 @@
   color: var(--ink-faint); border-radius: var(--r-sm); cursor: pointer; }
 .ml-x:hover { background: var(--hover-strong); color: var(--ink); }
 .ml-x.ghost { visibility: hidden; pointer-events: none; }
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   /* the rails are gone from the sides here (the nav rail is the bottom bar), so the strip takes
      the full width — and the actions drop onto a second line per row, where they may shrink
      below the 116px that straightens the edge on a wide screen. */
@@ -198,7 +198,7 @@
     right: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 360px + 16px);
   }
 }
-@media (min-width: 601px) and (max-width: 1024px) {
+@media (min-width: 601px) and (min-height: 521px) and (max-width: 1024px) {
   :root:has(.app .ctx) :is(.ml, .toaster) {
     left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 16px);
     right: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 16px

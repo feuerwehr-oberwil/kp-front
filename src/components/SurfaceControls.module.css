@@ -96,7 +96,7 @@
 
 /* phones: tighter gutters, and the search yields so the buttons share its line rather than
    claiming rows of their own — vertical space is what the list underneath is short of */
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   .controls { gap: 8px; padding: 10px 14px; }
   .search { flex: 1 1 120px; }
 }

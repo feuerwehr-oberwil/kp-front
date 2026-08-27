@@ -117,7 +117,7 @@
    selected state gets a (status-coloured) fill */
 
 
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   /* 78px clears the floating top bar with a visible gap (at 64px the header ran under it) */
   .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
     calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }

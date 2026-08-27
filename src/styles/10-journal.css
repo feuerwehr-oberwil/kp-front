@@ -84,7 +84,7 @@
 .tb-mode .i { width: 14px; height: 14px; flex: none; }
 button.tb-mode { cursor: pointer; }
 button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transparent); }
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   /* the phone bar has room for the glyph, not the word — the state stays visible, the sentence
      is one tap away in the chip's own menu */
   .tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }
@@ -305,7 +305,7 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 /* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
    that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
    above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   .journal-replay span { display: none; }
   .journal-replay { padding: 0 8px; }
   /* …and the trailing group closes up, so the sentence keeps its share on the one row that can
@@ -537,7 +537,7 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
    top edge and cap the height against the measured keyboard (--jc-kb): on iOS the layout
    viewport does NOT shrink for the keyboard, so dvh alone cannot see it. Phones keep the
    bottom-sheet rule below (they lift by margin instead). */
-@media (pointer: coarse) and (min-width: 601px) {
+@media (pointer: coarse) and (min-width: 601px) and (min-height: 521px) {
   .journal-composer { top: max(12px, env(safe-area-inset-top));
     max-height: calc(100dvh - 24px - var(--jc-kb, 0px)); }
 }

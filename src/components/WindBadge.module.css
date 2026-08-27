@@ -46,7 +46,7 @@
   .badge { right: calc(72px + 16px + 12px); }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   /* phone: the wind moves into the top bar (downwind arrow + speed, no temp), so the
      floating corner badge is dropped entirely — the bottom edge is left to the FAB. */
   .badge { display: none; }
