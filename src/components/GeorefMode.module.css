@@ -145,9 +145,70 @@
   border-color: var(--blue);
 }
 
+/* ── the Ampel ──────────────────────────────────────────────────────────────────────────── */
+/* ⚠️ It is a READING, not a control, and it is up for the whole mode. The bar used to count
+   pairs («2 Paare») — a number nobody can have an opinion about — while the sentence that says
+   whether two is enough («zwei lösen exakt, erst der dritte misst») sat in the Passung panel,
+   one tap away: precisely where somebody about to stop at two will never look. Tone carries the
+   verdict, the head carries the count, the body carries what the next point buys.
+   Colours through tokens, never a frozen rgba — day and night both have to be right. */
+.lamp {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 8px 10px; border-radius: var(--r-sm);
+  font: 500 11.5px/1.4 var(--body);
+}
+.lampDot { width: 10px; height: 10px; border-radius: 50%; flex: none; margin-top: 3px; }
+.lampText { min-width: 0; }
+.lampText b { display: block; font: 700 12.5px var(--body); }
+.lampText i { display: block; font-style: normal; margin-top: 1px; opacity: .88; }
+/* ⚠️ --red / --amber / --green, NEVER --accent. --accent is the station's own brand colour and
+   means «Alarm» everywhere in this app; a georeference is a state of a drawing, not an alarm. */
+.lamp_red { background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--ink); }
+.lamp_red .lampDot { background: var(--red); }
+.lamp_amber { background: color-mix(in srgb, var(--amber) 14%, transparent); color: var(--ink); }
+.lamp_amber .lampDot { background: var(--amber); }
+.lamp_green { background: color-mix(in srgb, var(--green) 11%, transparent); color: var(--ink); }
+.lamp_green .lampDot { background: var(--green); }
+/* the desktop instrument has no room for a band, so its existing pulse dot carries the tone.
+   Green stops pulsing: the fit is measured, there is nothing left to ask for. */
+.dot_red { background: var(--red); }
+.dot_amber { background: var(--amber); }
+.dot_green { background: var(--green); animation: none; }
+
+/* ── the example ────────────────────────────────────────────────────────────────────────── */
+/* «Markanter Punkt» is a phrase nobody reads twice; 52×40 px of drawing says «the corner, not
+   the wall» without a word. Drawn, not photographed — a photo of one station's house teaches
+   that house. Tokens again, so it is not a white card on a night screen. */
+.example { width: 52px; height: 40px; flex: none; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); }
+.exPaper { fill: var(--board-bg); }
+.exGround { fill: color-mix(in srgb, var(--green) 12%, var(--board-bg)); }
+.exWall { fill: none; stroke: var(--ink-faint); stroke-width: 2.4; }
+.exRoad { stroke: var(--surface); stroke-width: 6; }
+.exHouse { fill: color-mix(in srgb, var(--ink) 12%, transparent); stroke: var(--ink-faint); stroke-width: .8; }
+.exMark { fill: none; stroke: var(--blue); stroke-width: 1.8; }
+
+/* the instruction: picture, sentence, and what happens next */
+.say { display: flex; align-items: center; gap: 10px; }
+.sayText { min-width: 0; }
+.sayText b { display: block; font: 700 13.5px/1.3 var(--body); color: var(--ink); }
+.sayText i {
+  display: block; font-style: normal; font: 500 11.5px/1.35 var(--body);
+  color: var(--ink-dim); margin-top: 2px;
+}
+
+/* ── the quiet row ──────────────────────────────────────────────────────────────────────── */
+/* ⚠️ NOTHING here is the same weight as «Punkt setzen». «Zurücksetzen» used to sit a thumb's
+   width from «Fertig», both full-size buttons, one of them red — with a glove on, in the dark,
+   that is a coin toss over half an alignment. The destructive one also stays on the LEFT, away
+   from the exit somebody reaches for while finishing. */
+.quiet { display: flex; align-items: center; gap: 2px; }
+.quietGap { flex: 1 1 auto; }
+.quietWarn { color: var(--red-strong); }
+.quietDone { font-weight: 800; }
+
 /* The PHONE's single indicator: it takes the tool bar's lane, so it is never in doubt that a
-   mode is running and never in competition with a second read-out. Positioned in
-   `@media (max-width: 600px)` at the foot of this file — it renders nowhere else. */
+   mode is running and never in competition with a second read-out. Positioned in the phone
+   block at the foot of this file — it renders nowhere else. */
 .bar { display: none; }
 .surfaceSwitch { display: none; }
 
@@ -190,6 +251,9 @@
   box-shadow: 0 0 0 1px rgb(0 0 0 / .5), var(--shadow);
 }
 .loupe canvas, .loupe .plane { position: absolute; left: 0; top: 0; }
+/* the lifted black floor of a dark base map — `screen` against a flat grey reproduces MapLibre's
+   `raster-brightness-min`, which no CSS filter can (see GeorefMapLayer · loupePaint) */
+.veil { position: absolute; inset: 0; mix-blend-mode: screen; pointer-events: none; }
 .loupe .plane { transform-origin: 0 0; }
 .loupe .plane img { position: absolute; width: 256px; height: 256px; max-width: none; }
 .xh::before, .xh::after { content: ''; position: absolute; background: color-mix(in srgb, var(--blue) 85%, transparent); }
@@ -296,10 +360,15 @@
 /* Phone: the bars hug the edges and clear the nav bar / tool lane, the same arithmetic
    `.wb-botleft` does one file over (09-whiteboard.css). FIXED, not absolute — `.whiteboard`'s
    own bottom is already lifted above the bars there, so an absolute offset would compound. */
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   .bar {
-    display: grid;
-    grid-template-columns: 9px minmax(0, 1fr);
+    /* ⚠️ A COLUMN, not the 9px|1fr grid it used to be. The instruction no longer shares a row
+       with a status dot: the Ampel above it carries its own, and every part of the card is now
+       a full-width band — reading, instruction, surface switch, the one big action, the quiet
+       row. That order is the card's argument: what is true → what to do → how to do it. */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     position: fixed;
     left: 8px; right: 8px;
     /* This one card replaces the hidden nav rail during alignment, including its Karte/Modul
@@ -308,30 +377,29 @@
     bottom: calc(8px + env(safe-area-inset-bottom));
     max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     overflow-y: auto;
+    /* symmetric now that nothing hangs in a first column */
+    padding: 10px;
   }
-  /* ⚠️ The instruction leads on a phone, with the surface switch and actions underneath. In
-     one row the actions («Zurücksetzen», «Deckung prüfen», «Abbrechen», «Fertig»)
-     take ~330 of the 374 px available and the prompt column collapses to one WORD per line —
-     twelve lines of instruction pushed halfway up the sheet. The buttons wrap among themselves
-     if they have to, and they shrink: a label may ellipsize, a sentence may not. */
-  .bar .dot { align-self: start; margin-top: 4px; }
-  .bar .pillText { min-width: 0; }
-  .bar .acts {
-    grid-column: 1 / -1; width: 100%; display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  /* «Deckung prüfen» keeps the old two-up action row — it is its own one-line mode. */
+  .bar .acts { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bar .acts > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* ⚠️ 54px and alone on its row. It is the only thing on this card that ADDS something, and
+     it names the point it is about to set — «Punkt 3 setzen», not «Punkt setzen», so the count
+     is on the button somebody is actually looking at. */
   .bar .placeAction {
-    grid-column: 1 / -1; width: 100%; min-height: 48px;
+    width: 100%; min-height: 54px; border-radius: var(--r-btn);
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 15.5px;
   }
-  .bar .placeAction svg { width: 18px; height: 18px; }
-  /* Fertig/Abbrechen is the final, full-width action in every phone state. */
-  .bar .finishAction { grid-column: 1 / -1; order: 1; }
-  .bar .checkBlend { grid-column: 1 / -1; }
+  .bar .placeAction svg { width: 19px; height: 19px; }
+  .bar .finishAction { width: 100%; }
+  /* the quiet row: text weight, 34px, and it may ellipsize — a label may, a sentence may not */
+  .bar .quietBtn {
+    min-width: 0; max-width: 100%; padding: 0 6px; min-height: 34px; font-size: 12.5px;
+    overflow: hidden; text-overflow: ellipsis;
+  }
   .surfaceSwitch {
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
-    grid-column: 1 / -1;
     position: static; height: var(--rail-h); box-sizing: border-box;
     margin: -2px -2px 2px; padding: 0;
   }
@@ -344,6 +412,19 @@
   .surfaceSwitch button.surfaceOn { background: var(--ink-fill); color: var(--on-accent-ink); }
   .surfaceSwitch button:disabled { opacity: var(--disabled); cursor: default; }
   .fixedTarget { display: block; }
+  /* ⚠️ A phone TURNED SIDEWAYS is ~400px tall and this card is five bands. The two parts that
+     teach — the example thumbnail and the Ampel's «why» line — are the ones a second run no
+     longer needs, so they are what goes; the reading, the instruction and the actions stay.
+     (The lamp's body remains readable as the row's title attribute for a pointer device.) */
+  @media (orientation: landscape) and (max-height: 520px) {
+    .bar { gap: 6px; }
+    .bar .example { display: none; }
+    .bar .lampText i { display: none; }
+    .bar .sayText i:last-child { display: none; }
+    .surfaceSwitch { height: auto; }
+    .surfaceSwitch button { min-height: 38px; }
+    .bar .placeAction { min-height: 46px; }
+  }
   /* The persistent magnifier was the ambiguous second drag surface this fixed-target workflow
      replaces. Existing numbered crosses remain directly draggable for corrections. */
   .loupe { display: none; }
