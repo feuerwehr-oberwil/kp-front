@@ -496,9 +496,12 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                     numbered disc and its words are in the legend below (see the disc markers) */}
               </Fragment>
             ))}
-            {shown.map((e) => (
-              <Marker key={e.id} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center">
-                {(() => {
+            {/* ⚠️ The glyph is built BEFORE the <Marker>, and nothing the sheet does not print
+                gets one. react-map-gl decides «has children?» once, in a useMemo([]) at mount:
+                a marker whose only child evaluates to null gets MapLibre's own default pin — the
+                stock teal drop — and keeps it for good. Same trap as the Lage labels (MapView). */}
+            {shown.map((e) => {
+              const glyph = (() => {
                   const printable = krokiEntity(e, scene.byName, captionMode)
                   if (!printable) return null
                   if (e.kind === 'shape') {
@@ -545,9 +548,12 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                       </div>
                     </div>
                   )
-                })()}
-              </Marker>
-            ))}
+                })()
+              if (!glyph) return null
+              return (
+                <Marker key={e.id} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center">{glyph}</Marker>
+              )
+            })}
             {/* ── the words, as the sheet carries them ──
                 A filled disc with its figure while it fits; a hollow amber ring the moment it does
                 not, because then the server clips it and its line never reaches the legend. The

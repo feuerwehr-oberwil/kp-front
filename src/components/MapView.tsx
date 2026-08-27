@@ -1579,13 +1579,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* annotated-line readouts (auto distance + hose-length helper / free-text label),
           pinned to each line's midpoint — reuses the measure-label chrome */}
-      {drawingsVisible && drawLabels.map((l) => (
+      {/* ⚠️ The suppression is decided BEFORE the <Marker>, never as a null child inside one.
+          react-map-gl reads «has children?» once, in a useMemo([]) at mount, and a marker that
+          mounts with nothing in it gets MapLibre's own default pin — the stock teal drop —
+          which it then keeps for good, label or no label. That is exactly what the field saw:
+          teal pins scattered over the Lage next to perfectly readable labels. Filtering here
+          means a suppressed label has no marker at all, and gets a fresh one when it fits again. */}
+      {drawingsVisible && drawLabels.filter((l) => !suppressedLabels.has(`dl:${l.id}`)).map((l) => (
         <Marker key={`dl${l.id}`} longitude={l.coord[0]} latitude={l.coord[1]} anchor="bottom" offset={[0, -10]}>
-          {/* The pass could not fit it, so it is simply not drawn — selecting the line brings the
-              readout back (a selection is exempt), and so does zooming in, which is what spreads
-              the labels apart in the first place. */}
-          {suppressedLabels.has(`dl:${l.id}`) ? null : (
-          /* draggable: dragging pins the label to a georeferenced anchor (stays put on zoom/rotate) */
+          {/* draggable: dragging pins the label to a georeferenced anchor (stays put on zoom/rotate) */}
           <div
             className={`measure-label draw-label draggable${l.id === selectedDrawingId ? ' sel' : ''}`}
             style={{ cursor: onLabelMove ? 'move' : undefined }}
@@ -1596,16 +1598,14 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           >
             {l.lines.map((t, j) => <div key={j}>{t}</div>)}
           </div>
-          )}
         </Marker>
       ))}
 
       {/* committed Absperrkreis radius readout, pinned just above the circle's top edge */}
-      {drawingsVisible && circleLabels.map((c) => (
+      {/* suppressed ⇒ no marker (see the dl labels above: an empty <Marker> becomes a default pin) */}
+      {drawingsVisible && circleLabels.filter((c) => !suppressedLabels.has(`cl:${c.id}`)).map((c) => (
         <Marker key={`cl${c.id}`} longitude={c.coord[0]} latitude={c.coord[1]} anchor="bottom" offset={[0, -4]}>
-          {suppressedLabels.has(`cl:${c.id}`)
-            ? null
-            : <div className={`measure-label draw-label${c.id === selectedDrawingId ? ' sel' : ''}`}>{c.text}</div>}
+          <div className={`measure-label draw-label${c.id === selectedDrawingId ? ' sel' : ''}`}>{c.text}</div>
         </Marker>
       ))}
 
@@ -1632,7 +1632,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               it the decorations of a line that runs under its own tag paint straight through
               the text, and the tag is the one thing on a Leitung that has to stay readable.
               Both levels come from the one stacking table (lib/labelPass · MARKER_Z). */}
-          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null || ld.trupp) && (
+          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above) */}
+          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null || ld.trupp) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
             <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]}
               // …and ABOVE the resting tactical symbols (MARKER_Z.note…team, 4–8) once its own
               // line is selected. At rest the tag stays under the symbols, so it can neither cover
@@ -1642,8 +1643,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               // A SELECTED symbol still clears it (MARKER_Z.selected) — only one of the two can
               // be the current selection, and the tapped object is the one that must be visible.
               style={{ zIndex: ld.d.id === selectedDrawingId ? MARKER_Z.tagSelected : MARKER_Z.tag }}>
-              {suppressedLabels.has(`tag:${ld.d.id}`) ? null : (
-              /* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */
+              {/* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */}
               <div className={`line-end-tag-wrap draggable${ld.d.id === selectedDrawingId ? ' sel' : ''}`}
                 style={{ cursor: onLabelMove ? 'move' : undefined }}
                 onPointerDown={onLabelMove ? (e) => labelDown(e, ld.d.id, ld.d.endLabelAt ?? ld.anchor, 'end') : undefined}
@@ -1656,7 +1656,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
                   color={ld.color}
                 />
               </div>
-              )}
             </Marker>
           )}
         </Fragment>
