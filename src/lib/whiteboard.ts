@@ -23,9 +23,17 @@ export const TOP_INSET = 80
 // already on screen, and re-fitting under the hand would move what somebody is looking at.
 export const SIDE_INSET_L = 88
 export const SIDE_INSET_R = 92
-/** No side rails on a phone — they are the two stacked bottom bars there. */
-export const sideInsets = (viewportW: number) =>
-  viewportW <= 600 ? { l: 0, r: 0 } : { l: SIDE_INSET_L, r: SIDE_INSET_R }
+/**
+ * No side rails on a phone — they are the two stacked bottom bars there.
+ *
+ * ⚠️ `phone` is an OVERRIDE, because the canvas width alone lies during «Karte verknüpfen»:
+ * the plan half of the split is often narrower than 600px while the floating rails are still
+ * exactly where they were. Reading the phone rule off that width opened the sheet flush against
+ * both edges — under the NavRail on the left, and against the mode's own seam on the right, so
+ * the dashed boundary appeared to run straight through the plan.
+ */
+export const sideInsets = (viewportW: number, phone = viewportW <= 600) =>
+  phone ? { l: 0, r: 0 } : { l: SIDE_INSET_L, r: SIDE_INSET_R }
 // in the floor-stack (Gebäude) view the +OG / −UG pills straddle the top and bottom
 // edges of the stack (CSS top/bottom: -17px). The default "fit" reserves this much
 // extra room above AND below so both pills stay fully on-screen instead of clipping.

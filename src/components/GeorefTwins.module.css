@@ -1,0 +1,40 @@
+/* Zwillinge — the projected halves of a georeferenced plan, on both surfaces.
+
+   The link tone is the BLUE family (--blue), like every other part of «Karte verknüpfen»,
+   and NEVER --accent: --accent is the station's alarm red, and a projection is not an alarm.
+
+   Everything here says ONE thing: this is the SAME object seen on the linked surface. Its own
+   glyph and caption are enough; a permanent ⇄ badge repeated that relationship on every object
+   and turned a cluster into blue confetti. The layer row and the read-only detail subtitle carry
+   the provenance when somebody asks for it.
+   A tap opens read-only source details; repositioning happens only after «Zum Original». The
+   mark has no handles or edit state of its own. */
+
+/* ── the mark ───────────────────────────────────────────────────────────────────────────── */
+.twin {
+  position: absolute;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  /* the glyph is the button; the ring below is drawn around it */
+  line-height: 0;
+  cursor: pointer;
+  /* The read-only projection leaves every movement gesture to the surrounding surface. */
+  touch-action: manipulation;
+  /* ⚠️ UNDER everything the operator can actually touch — the plan's own annotations sit at 3
+     (.wb-anno) and the trail dots at 2, and on the map the lowest real marker is a Leitung's end
+     tag at MARKER_Z.tag. A projection that covered a placed symbol would swallow the tap meant
+     for it and offer a jump to a different surface instead: the exact opposite of helpful. */
+  z-index: 2;
+}
+/* ⚠️ A twin goes INERT the moment the surface is doing something else — a tool is armed, or the
+   pairing mode is running. Its tap navigates to another surface, which is the last thing a
+   half-placed symbol or a half-placed reference point needs under the finger. It stays visible
+   (the picture is why it exists); it simply stops answering. */
+.inert { pointer-events: none; cursor: default; }
+
+/* the projection is quieter than the real thing it mirrors — enough to read at a glance and to
+   recognise the symbol, never enough to compete with one somebody actually set here */
+.twin :global(.ts) { position: relative; z-index: 1; opacity: .75; }
+.twin:hover :global(.ts), .twin:focus-visible :global(.ts) { opacity: 1; }

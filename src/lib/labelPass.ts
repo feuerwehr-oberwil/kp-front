@@ -272,6 +272,10 @@ export function fanOffsets(points: readonly PilePoint[]): Record<string, { dx: n
  * Einsatzort ring and two more symbols, and (being a drag handle) took their taps too.
  */
 export const MARKER_Z = {
+  /** a Georeferenz twin (components/GeorefTwinMark): a PROJECTION of something that lives on a
+   *  plan, so it sits under every real marker. One that covered a placed symbol would swallow
+   *  the tap meant for it and offer a jump to another surface instead. */
+  twin: 2,
   /** a Leitung's end tag at rest — under everything tactical, and under its own line's decor */
   tag: 3,
   /** notes and photos: paper, not position */

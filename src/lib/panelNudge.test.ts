@@ -1,119 +1,47 @@
 import { describe, expect, it } from 'vitest'
-import { panelNudge, panelNudgeBox, panelNudgeBoxUp, panelNudgeSelection, panelNudgeSelectionUp, fitsBesidePanel, NUDGE_MARGIN } from './panelNudge'
+import { nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect } from './panelNudge'
 
-// panel occupying the right band of a 1280×800 surface (desktop .ctx geometry)
-const panel = { left: 804, top: 88, bottom: 760 }
+describe('padded visible workspace', () => {
+  const surface = { minX: 0, maxX: 1200, minY: 0, maxY: 800 }
+  const sidePanel = { minX: 820, maxX: 1200, minY: 80, maxY: 780 }
 
-describe('panelNudge', () => {
-  it('leaves selections in the open area alone', () => {
-    expect(panelNudge({ x: 400, y: 300 }, panel)).toBeNull()
-    expect(panelNudge({ x: 748, y: 300 }, panel)).toBeNull() // exactly at the margin edge
+  it('reserves padding around every border and the side panel', () => {
+    const visible = visibleWorkRect(surface, sidePanel, false)
+    expect(visible).toEqual({ minX: 56, maxX: 764, minY: 56, maxY: 744 })
+    expect(rectCenter(visible)).toEqual({ x: 410, y: 400 })
   })
 
-  it('nudges an occluded selection just clear of the panel edge', () => {
-    expect(panelNudge({ x: 900, y: 300 }, panel)).toEqual([152, 0]) // 900 - (804 - 56)
-    expect(panelNudge({ x: 760, y: 300 }, panel)).toEqual([12, 0])  // barely inside the margin
+  it('uses the same padded rule above a phone bottom sheet', () => {
+    const sheet = { minX: 0, maxX: 400, minY: 460, maxY: 800 }
+    expect(visibleWorkRect({ ...surface, maxX: 400 }, sheet, true)).toEqual({
+      minX: 56, maxX: 344, minY: 56, maxY: 404,
+    })
   })
 
-  it('ignores points above or below the panel', () => {
-    expect(panelNudge({ x: 900, y: 10 }, panel)).toBeNull()
-    expect(panelNudge({ x: 900, y: 830 }, panel)).toBeNull()
+  it('nudges a point away from viewport borders as well as panels', () => {
+    const visible = visibleWorkRect(surface, sidePanel, false)
+    expect(nudgePointIntoRect({ x: 12, y: 790 }, visible)).toEqual([-44, 46])
+    expect(nudgePointIntoRect({ x: 400, y: 300 }, visible)).toBeNull()
   })
 
-  it('respects a custom margin', () => {
-    expect(panelNudge({ x: 800, y: 300 }, panel, 0)).toBeNull()
-    expect(panelNudge({ x: 810, y: 300 }, panel, 0)).toEqual([6, 0])
-  })
-})
-
-describe('panelNudgeBox (drawings — line/area/circle extents)', () => {
-  it('leaves an extent in the open area alone', () => {
-    expect(panelNudgeBox({ minX: 200, maxX: 700, minY: 200, maxY: 400 }, panel)).toBeNull()
+  it('keeps a small extent fully visible with snug padding', () => {
+    const visible = visibleWorkRect(surface, sidePanel, false)
+    expect(nudgeSelectionIntoRect(
+      { minX: 720, maxX: 800, minY: 100, maxY: 180 }, null, visible,
+    )).toEqual([36, 0])
   })
 
-  it('brings a partially occluded extent clear of the panel edge', () => {
-    // right edge at 900 → shift left by 900 - (804 - 56) = 152, like a point there
-    expect(panelNudgeBox({ minX: 500, maxX: 900, minY: 200, maxY: 400 }, panel)).toEqual([152, 0])
+  it('does not zoom or chase a long line; it keeps the tapped part visible', () => {
+    const visible = visibleWorkRect(surface, sidePanel, false)
+    const long = { minX: -500, maxX: 1800, minY: 200, maxY: 230 }
+    expect(nudgeSelectionIntoRect(long, { x: 900, y: 215 }, visible)).toEqual([136, 0])
+    expect(nudgeSelectionIntoRect(long, { x: 300, y: 215 }, visible)).toBeNull()
   })
 
-  it('caps the shift so a wide extent keeps its left edge on the surface', () => {
-    // clearing the panel would need 152px, but the left edge sits at 100 → only 44 remain
-    expect(panelNudgeBox({ minX: 100, maxX: 900, minY: 200, maxY: 400 }, panel)).toEqual([44, 0])
-    // left edge already at the margin → nothing to gain, stay calm
-    expect(panelNudgeBox({ minX: 40, maxX: 900, minY: 200, maxY: 400 }, panel)).toBeNull()
-  })
-
-  it('ignores extents entirely above or below the panel band', () => {
-    expect(panelNudgeBox({ minX: 500, maxX: 900, minY: 0, maxY: 20 }, panel)).toBeNull()
-    expect(panelNudgeBox({ minX: 500, maxX: 900, minY: 830, maxY: 900 }, panel)).toBeNull()
-  })
-
-  it('degenerates to the point behaviour for a single-point box', () => {
-    expect(panelNudgeBox({ minX: 900, maxX: 900, minY: 300, maxY: 300 }, panel)).toEqual([152, 0])
-    expect(panelNudgeBox({ minX: 748, maxX: 748, minY: 300, maxY: 300 }, panel)).toBeNull()
-  })
-})
-
-describe('panelNudgeBoxUp (bottom sheet)', () => {
-  const sheet = { top: 420 }
-
-  it('leaves an extent above the sheet alone', () => {
-    expect(panelNudgeBoxUp({ minX: 100, maxX: 300, minY: 100, maxY: 364 }, sheet)).toBeNull()
-  })
-
-  it('shifts an occluded extent up clear of the sheet', () => {
-    expect(panelNudgeBoxUp({ minX: 100, maxX: 300, minY: 300, maxY: 500 }, sheet)).toEqual([0, 136])
-  })
-
-  it('caps the shift so a tall extent keeps its top edge on the surface', () => {
-    // clearing would need 236px, but the top edge sits at 150 → only 94 remain
-    expect(panelNudgeBoxUp({ minX: 100, maxX: 300, minY: 150, maxY: 600 }, sheet)).toEqual([0, 94])
-    expect(panelNudgeBoxUp({ minX: 100, maxX: 300, minY: 40, maxY: 600 }, sheet)).toBeNull()
-  })
-})
-
-// A hose line drawn right across the screen has bounds that describe nothing: its far edge is
-// off-stage, and clearing THAT threw the camera past the piece of line the finger had just been on.
-describe('panelNudgeSelection', () => {
-  // an 1100px-wide surface with the panel docked from x=760
-  const panel = { left: 760, top: 0, bottom: 900 }
-  const small = { minX: 800, maxX: 860, minY: 400, maxY: 460 }   // fits beside the panel
-  const long = { minX: 400, maxX: 3000, minY: 400, maxY: 460 }   // does not
-
-  it('leaves small selections on the box rule, tap point or not', () => {
-    const boxOnly = panelNudgeBox(small, panel)
-    expect(panelNudgeSelection(small, null, panel)).toEqual(boxOnly)
-    expect(panelNudgeSelection(small, { x: 820, y: 430 }, panel)).toEqual(boxOnly)
-  })
-
-  it('does not move at all when the tapped spot on a long line is already clear of the panel', () => {
-    // the box rule wanted a pan here — the tap point says there is nothing to fix
-    expect(panelNudgeBox(long, panel)).not.toBeNull()
-    expect(panelNudgeSelection(long, { x: 300, y: 430 }, panel)).toBeNull()
-  })
-
-  it('brings a long line clear by exactly what the TAPPED spot needs, not its far edge', () => {
-    const tapped = panelNudgeSelection(long, { x: 800, y: 430 }, panel)
-    expect(tapped).toEqual([800 - (panel.left - NUDGE_MARGIN), 0])
-    // …which is a far smaller move than the box rule's
-    expect(tapped![0]).toBeLessThan(panelNudgeBox(long, panel)![0])
-  })
-
-  it('falls back to the box rule for a long line with no tap point (Verlauf jump, fresh stroke)', () => {
-    expect(panelNudgeSelection(long, null, panel)).toEqual(panelNudgeBox(long, panel))
-  })
-
-  it('fitsBesidePanel draws the line at the width of the open strip', () => {
-    const open = panel.left - 2 * NUDGE_MARGIN
-    expect(fitsBesidePanel({ minX: 0, maxX: open, minY: 0, maxY: 10 }, panel)).toBe(true)
-    expect(fitsBesidePanel({ minX: 0, maxX: open + 1, minY: 0, maxY: 10 }, panel)).toBe(false)
-  })
-
-  it('the bottom sheet follows the same rule, straight up', () => {
-    const sheet = { top: 600 }
-    const tall = { minX: 0, maxX: 40, minY: 100, maxY: 2000 }
-    expect(panelNudgeSelectionUp(tall, { x: 20, y: 200 }, sheet)).toBeNull()
-    expect(panelNudgeSelectionUp(tall, { x: 20, y: 700 }, sheet)).toEqual([0, 700 - (sheet.top - NUDGE_MARGIN)])
-    expect(panelNudgeSelectionUp(tall, null, sheet)).toEqual(panelNudgeBoxUp(tall, sheet))
+  it('brings the nearest edge in when an oversized extent is wholly off-screen', () => {
+    const visible = visibleWorkRect(surface, sidePanel, false)
+    expect(nudgeSelectionIntoRect(
+      { minX: 900, maxX: 2200, minY: 200, maxY: 230 }, null, visible,
+    )).toEqual([136, 0])
   })
 })

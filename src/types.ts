@@ -470,6 +470,11 @@ export interface Incident {
 
 export interface PlanDocument {
   id: string
+  /** Stable key for station-level data that belongs to THIS object's sheet. `id` is only the
+   *  module slot (`modul1`, `modul2`, …) and is reused by every Einsatzobjekt, so using it for
+   *  a georeference makes the last opened building overwrite every other one. Absent on generic
+   *  surfaces and legacy/bundled documents, where callers fall back to `id`. */
+  georefKey?: string
   code: string           // short label, e.g. "Module 1"
   title: string          // descriptive title, e.g. "Übersicht"
   subtitle: string       // one-line description
@@ -622,6 +627,13 @@ export interface BoardAnno extends SymbolProps {
    *  Gebäude floor-stack the tile the symbol sits on already says which storey it is on, so
    *  a second answer there would be one that can disagree with itself. */
   storey?: number
+  /** locked: the anno ignores tap-select / drag so it can't be moved by accident or swallow
+   *  taps meant for things over it (a big Sektor-Fläche under the work on Modul 1). A lock chip
+   *  on it unlocks it with a short hold. Absent = editable. The plan-space twin of
+   *  `Drawing.locked` — same field name, same meaning, so a Leitung behaves the same on both
+   *  surfaces. ⚠️ NOT `tacticalLocked`, which locks the whole surface for a viewer.
+   *  Draw/area only, exactly like the map (a symbol is never locked on either surface). */
+  locked?: boolean
   /** Magnetic relationship intent at the first/last vertex (draw/line only). */
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment
@@ -948,3 +960,7 @@ export interface CameraView {
   zoom: number
   bearing: number
 }
+
+/** Outcome of «Wieder öffnen» on an archived Einsatz. `cancelled` is the operator backing out
+ *  of the confirm — nothing failed, so nothing should be offered again. */
+export type ReactivateResult = 'ok' | 'cancelled' | 'failed'

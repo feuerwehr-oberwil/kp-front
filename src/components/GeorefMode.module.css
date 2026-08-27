@@ -1,0 +1,318 @@
+/* «Karte verknüpfen» — the chrome of the pairing mode.
+   Everything here exists only while the mode is armed, EXCEPT the crosses, which stay drawable
+   on a linked plan so the references can be found again later.
+
+   The link tone is the BLUE family throughout (--blue), never --accent: --accent is the
+   station's alarm red, and a georeference is not an alarm. Blue is what Messen and Massstab
+   already wear, and this is the third member of that family. */
+
+/* ── Referenzkreuze ──────────────────────────────────────────────────────────────────────── */
+/* Positioned in BOARD space (the caller multiplies by the board's px size), so a cross pans and
+   zooms with the sheet exactly like an annotation does. */
+.cross {
+  position: absolute;
+  /* one over the capture layer below — the crosses are the only thing on the sheet the armed
+     mode still lets you touch */
+  z-index: 10;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  color: var(--blue);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: grab;
+  touch-action: none;
+}
+.cross:active { cursor: grabbing; }
+/* ⚠️ 44px of transparent pad, like every other small control on this surface (.wb-vertex does the
+   same): the visible cross is 26px and the whole point of the mode is aiming precisely with a
+   gloved finger. The pad is what the finger lands on; the cross is what the eye lands on. */
+.cross::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.cross svg { width: 26px; height: 26px; display: block; filter: drop-shadow(0 1px 3px rgb(0 0 0 / .45)); }
+/* the half that has no counterpart yet — amber, because it does not count yet */
+.pending { color: var(--amber-strong); }
+/* the half currently being re-placed: it stays visible (it is what you are correcting) but steps
+   back, so the eye goes to the surface it has to tap rather than to the old position */
+.picked { opacity: .35; }
+.badge {
+  position: absolute;
+  left: 17px;
+  top: -8px;
+  font: 700 10px/1.4 var(--body);
+  color: var(--on-fill);
+  background: var(--blue);
+  border-radius: var(--r-pill);
+  padding: 1px 6px;
+}
+.pending .badge { background: var(--amber-strong); }
+/* crosses go inert while a placement is mid-pair — a tap meant for the sheet must never be
+   swallowed by a cross that happens to lie under it */
+.inert { pointer-events: none; cursor: default; }
+
+/* The tap capture layer: an armed mode owns every tap on the sheet.
+   ⚠️ z 9, not 6. The board draws its own controls well above the annotations — a selected line's
+   grips at 7 (.wb-vertex), its Verlängern arrow at 8 (.wb-grow), a Messen node at 7
+   (.wb-meas-node), the floor-stack's +OG pill at 8 — so a layer at 6 was UNDER every one of
+   them, and a tap meant for a reference point dragged a node instead (26.08. field report).
+   The Whiteboard also resets the tool and the selection when the mode arms, so most of those
+   are gone by the time this mounts; the z-index is what makes that a rule rather than a hope. */
+.capture { position: absolute; inset: 0; z-index: 9; touch-action: none; cursor: crosshair; }
+/* the sheet is being panned: the same cursor the board itself wears (.wb-canvas.tool-pan:active) */
+.capturePan { cursor: grabbing; }
+
+/* ── Die Anweisung ──────────────────────────────────────────────────────────────────────── */
+/* ⚠️ ONE indicator per screen. The mode used to say «I am running» in two places at once — a
+   chip in the corner AND a bar across the top — and the eye then has to decide which of the two
+   to read. So there is exactly one thing now: the bar along the foot of the screen that carries
+   the instruction, how far along it is, and the way out. `.pill` is the tablet/desktop form and
+   `.bar` the phone's; they differ only in where they sit, never in what they say.
+
+   The mode's only teaching lives in this one line of text. No tutorial, and deliberately no
+   «first use» variant — an instruction that reads the same on the fiftieth Einsatz as on the
+   first is the only kind still there at 3 in the morning. */
+.pill, .bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 16px;
+  border-radius: var(--r-ctl);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--blue) 52%, transparent);
+  box-shadow: var(--shadow);
+  animation: georefIn .16s var(--ease);
+}
+/* ⚠️ The FULL width of the bottom, not a chip-sized pill in the corner. A mode that has taken
+   over both surfaces has to look like it: a bar across the foot of the screen reads as «this is
+   what is happening now» from across the room, and a pill reads as one more read-out among the
+   read-outs. It is `fixed` because during the split `.whiteboard` is only the LEFT half — the
+   instrument belongs to the MODE, so it spans the plan half and the borrowed map half alike.
+   Inset on the left by the NavRail (the one thing that is genuinely in the way) and by a hair on
+   the right; the bottom offset matches the chip row it grew out of. */
+.pill {
+  position: fixed;
+  left: calc(var(--rail-w) + 16px);
+  right: 16px;
+  bottom: 12px;
+  /* above the whiteboard (z 20) so it also lies over the borrowed map half */
+  z-index: 34;
+  flex-wrap: nowrap;
+}
+/* The mode hides the NavRail on every form factor (09-whiteboard.css), so its own full-width
+   instrument reclaims that inset instead of preserving an empty rail-sized gutter. */
+:global(.app.georef-mode) .pill { left: 16px; }
+.pillText { min-width: 0; flex: 1 1 auto; }
+/* the actions, as one block — so the phone can put them on a line of their own (see the
+   `max-width: 600px` block at the foot of this file) */
+.acts { display: flex; align-items: center; gap: 8px; flex: none; }
+.checkBlend {
+  min-width: 176px; display: grid; grid-template-columns: auto minmax(80px, 1fr) auto;
+  align-items: center; gap: 7px; padding: 0 4px; color: var(--ink-dim);
+  font: 700 10.5px var(--body);
+}
+.checkBlend input { width: 100%; min-width: 0; height: 28px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex: none;
+  animation: georefPulse 1.3s var(--ease) infinite;
+}
+.promptText { display: block; font: 700 13px var(--body); color: var(--ink); }
+/* ⚠️ It WRAPS, on every width. This is the mode's only teaching, and «Hausecke, Hydrant,
+   Wegkreu…» teaches nothing. The ellipsis used to be undone for phones alone — but during the
+   split the bar's text column is HALF a screen while the window is still a tablet's, so every
+   width from ~600 to ~900px cut the sentence mid-word: the same «the window is not the pane»
+   trap as lib/whiteboard · sideInsets. Two lines of 11.5px cost less than an unreadable line. */
+.promptHint {
+  display: block; font: 500 11.5px var(--body); color: var(--ink-dim); margin-top: 2px;
+}
+/* ⚠️ `:global`. `.btn` is the app's shared button class (06-contextpanel.css); inside a CSS
+   module a bare `.btn` would be hashed into a class nothing on the page carries. */
+.pill :global(.btn), .bar :global(.btn) { flex: none; padding: 7px 11px; font-size: 12.5px; white-space: nowrap; }
+.finishAction, .resetAction, .checkAction { min-width: 0; }
+.pill :global(.btn.link.on), .bar :global(.btn.link.on) {
+  background: color-mix(in srgb, var(--blue) 12%, var(--surface));
+  border-color: var(--blue);
+}
+
+/* The PHONE's single indicator: it takes the tool bar's lane, so it is never in doubt that a
+   mode is running and never in competition with a second read-out. Positioned in
+   `@media (max-width: 600px)` at the foot of this file — it renders nowhere else. */
+.bar { display: none; }
+.surfaceSwitch { display: none; }
+
+/* ── Naht ────────────────────────────────────────────────────────────────────────────────── */
+/* Deliberately loud. The map in the right half is on LOAN for the duration of the mode — it is
+   not a new permanent layout, and the seam is what stops it reading as one. It carries no label
+   at all: the instrument bar at the foot says what is running (GeorefMode · GeorefSplitSeam). */
+/* Sits ON the whiteboard's own right edge — which IS the boundary, because the split is what
+   moved that edge to the middle of the screen. Anchored to the edge rather than to a 50% that
+   would mean «half of the plan half». */
+.seam {
+  position: absolute;
+  right: -1px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  z-index: 13;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg,
+    color-mix(in srgb, var(--blue) 75%, transparent) 0 10px, transparent 10px 18px);
+}
+/* ── Lupe ────────────────────────────────────────────────────────────────────────────────── */
+/* One shared position for both surfaces. Only the surface named by `mode.want` renders its
+   picture, so there is one larger magnifier at the centre instead of two unrelated corner
+   circles competing for attention. */
+.loupe {
+  position: fixed;
+  top: calc(88px + env(safe-area-inset-top));
+  left: 50vw;
+  width: 196px;
+  height: 196px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  overflow: hidden;
+  /* app-level chrome: above the split plan (z 20), below the mode bar (z 34) */
+  z-index: 33;
+  pointer-events: none;
+  background: var(--canvas-bg);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / .5), var(--shadow);
+}
+.loupe canvas, .loupe .plane { position: absolute; left: 0; top: 0; }
+.loupe .plane { transform-origin: 0 0; }
+.loupe .plane img { position: absolute; width: 256px; height: 256px; max-width: none; }
+.xh::before, .xh::after { content: ''; position: absolute; background: color-mix(in srgb, var(--blue) 85%, transparent); }
+.xh::before { left: 0; right: 0; top: 50%; height: 1.5px; margin-top: -.75px; }
+.xh::after { top: 0; bottom: 0; left: 50%; width: 1.5px; margin-left: -.75px; }
+.ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  border: 2px solid var(--blue);
+}
+
+/* ── Passungs-Anzeige ────────────────────────────────────────────────────────────────────── */
+/* Technical language on purpose: Restfehler, Grundlinie, Drehung. The people who open this are
+   asking whether the link can be trusted, and vague words cannot answer that. */
+.quality { width: min(92vw, 400px); max-width: 100%; display: grid; gap: 10px; padding: 12px; }
+.qHead { display: flex; align-items: center; gap: 8px;
+  font: 700 11px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
+.qX { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center;
+  border: none; background: transparent; color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; }
+.qX:hover { background: var(--fill-soft); color: var(--ink); }
+.qX svg { width: 15px; height: 15px; }
+.qSummary { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+  padding: 2px 2px 4px; color: var(--ink-dim); font: 600 12.5px/1.4 var(--body); }
+.qSummary span { white-space: nowrap; }
+.qSummary span b { color: var(--ink); font: 700 15px var(--mono); }
+.qSummary strong { color: var(--ink); font: 700 15px/1.35 var(--body); text-align: right; }
+.qWarn {
+  display: flex; gap: 9px; padding: 9px 11px; border-radius: var(--r-sm);
+  font: 600 12px/1.45 var(--body);
+  color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 34%, transparent);
+}
+.qWarn svg { width: 15px; height: 15px; flex: none; margin-top: 1px; }
+.qActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+/* Two stable columns instead of label-sized wrapping: the German verbs fit at ordinary tablet
+   width and may wrap rather than escape the dock on a narrow split. With only three actions the
+   destructive reset gets its own final row; transfer fills that fourth cell when it exists. */
+.qActions :global(.btn) {
+  width: 100%; min-width: 0; min-height: var(--tap); display: inline-flex; align-items: center;
+  justify-content: center; gap: 7px; white-space: normal; line-height: 1.25; text-align: center;
+}
+.qActions:not(.qActionsFour) :global(.btn:last-child) { grid-column: 1 / -1; }
+.qActions svg { width: 15px; height: 15px; flex: none; }
+
+/* ── Passung auf Geschwistermodule übertragen ───────────────────────────────────────────── */
+.transferBody { margin: 0; color: var(--ink-dim); font: 500 13px/1.5 var(--body); }
+.transferList { display: flex; flex-direction: column; gap: 8px; }
+/* This is an option row, not ordinary action chrome: `--r-ctl` is the app-wide distinction
+   between a selectable cell and a button. The whole 56px row is the touch target. */
+.transferRow {
+  width: 100%; min-height: 56px; display: flex; align-items: center; gap: 11px;
+  padding: 9px 11px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: var(--surface); color: var(--ink); cursor: pointer; text-align: left;
+}
+.transferRow:hover { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
+.transferRow:disabled { opacity: var(--disabled); cursor: default; }
+.transferRow:disabled:hover { border-color: var(--glass-edge); background: var(--surface); }
+.transferIcon { width: 34px; height: 34px; flex: none; display: grid; place-items: center;
+  border-radius: var(--r-sm); color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.transferIcon svg, .transferRow > svg { width: 17px; height: 17px; }
+.transferName { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.transferName b { font: 700 13px var(--body); }
+.transferName small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font: 500 11.5px var(--body); }
+.transferLinked { flex: none; color: var(--amber-strong); font: 700 10.5px var(--body); }
+
+@keyframes georefIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes georefPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: .5; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pill, .bar { animation: none; }
+  .dot { animation: none; }
+}
+
+/* Phone: the bars hug the edges and clear the nav bar / tool lane, the same arithmetic
+   `.wb-botleft` does one file over (09-whiteboard.css). FIXED, not absolute — `.whiteboard`'s
+   own bottom is already lifted above the bars there, so an absolute offset would compound. */
+@media (max-width: 600px) {
+  .bar {
+    display: grid;
+    grid-template-columns: 9px minmax(0, 1fr);
+    position: fixed;
+    left: 8px; right: 8px;
+    /* This one card replaces the hidden nav rail during alignment, including its Karte/Modul
+       switch. It therefore owns the rail's bottom lane and paints just above the rail z-index. */
+    z-index: 36;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+  /* ⚠️ The instruction leads on a phone, with the surface switch and actions underneath. In
+     one row the actions («Zurücksetzen», «Deckung prüfen», «Abbrechen», «Fertig»)
+     take ~330 of the 374 px available and the prompt column collapses to one WORD per line —
+     twelve lines of instruction pushed halfway up the sheet. The buttons wrap among themselves
+     if they have to, and they shrink: a label may ellipsize, a sentence may not. */
+  .bar .dot { align-self: start; margin-top: 4px; }
+  .bar .pillText { min-width: 0; }
+  .bar .acts {
+    grid-column: 1 / -1; width: 100%; display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .bar .acts > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* Fertig/Abbrechen is the final, full-width action in every phone state. */
+  .bar .finishAction { grid-column: 1 / -1; order: 1; }
+  .bar .checkBlend { grid-column: 1 / -1; }
+  .surfaceSwitch {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
+    grid-column: 1 / -1;
+    position: static; height: var(--rail-h); box-sizing: border-box;
+    margin: -2px -2px 2px; padding: 0;
+  }
+  .surfaceSwitch button {
+    min-width: 0; min-height: var(--tap); display: inline-flex; align-items: center;
+    justify-content: center; gap: 7px; padding: 0 10px; border: 0; border-radius: var(--r-sm);
+    background: transparent; color: var(--ink); font: 700 12.5px var(--body); cursor: pointer;
+  }
+  .surfaceSwitch button svg { width: 18px; height: 18px; }
+  .surfaceSwitch button.surfaceOn { background: var(--ink-fill); color: var(--on-accent-ink); }
+  .surfaceSwitch button:disabled { opacity: var(--disabled); cursor: default; }
+  .loupe { width: 168px; height: 168px; }
+}

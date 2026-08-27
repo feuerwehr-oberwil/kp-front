@@ -1,131 +1,79 @@
-// Minimal-nudge math for "the tapped object is hidden behind the details panel". The
-// ContextPanel/DrawEditor (.ctx) is an overlay docked to the right edge of the surface; a
-// selection landing under it — including its halo/rotate handles — would be invisible while
-// being edited. Both surfaces (Lage map + Plan board, parity) call this with the selection's
-// screen point and the panel's rect (same coordinate space) and apply the returned pan delta.
-// Deliberately minimal: selections in the open area return null (the camera never moves), an
-// occluded one is shifted just far enough to clear the panel's left edge plus a margin.
-
-export interface NudgeRect { left: number; top: number; bottom: number }
+// Shared Lage/Plan viewport math. Selection never changes object coordinates: it only pans the
+// camera/board enough to keep the useful part inside the padded space left by panels and sheets.
 
 /** margin ≈ selection halo + rotate-handle ring + breathing room */
 export const NUDGE_MARGIN = 56
 
-/**
- * Pan delta [dx, dy] (in px, to apply as a camera move) that brings `pt` clear of `panel`,
- * or null when it is already visible. Horizontal-only: the panel spans nearly the full
- * height, so clearing its left edge is always the shortest calm move.
- */
-export function panelNudge(
-  pt: { x: number; y: number },
-  panel: NudgeRect,
-  margin = NUDGE_MARGIN,
-): [number, number] | null {
-  if (pt.y < panel.top - margin || pt.y > panel.bottom + margin) return null
-  const clearX = panel.left - margin
-  if (pt.x <= clearX) return null
-  return [pt.x - clearX, 0]
-}
-
-/**
- * The bottom-sheet variant (phones): the panel spans the full width along the bottom,
- * so the calm move is straight up — clear the sheet's top edge plus the margin.
- */
-export function panelNudgeUp(
-  pt: { x: number; y: number },
-  panel: { top: number },
-  margin = NUDGE_MARGIN,
-): [number, number] | null {
-  const clearY = panel.top - margin
-  if (pt.y <= clearY) return null
-  return [0, pt.y - clearY]
-}
-
-/** screen-space bounding box of a drawing's projected points (incl. a circle's radius) */
+/** Screen-space bounding box. Coordinates may be container-local (Lage) or client-global (Plan). */
 export interface NudgeBox { minX: number; maxX: number; minY: number; maxY: number }
 
-/**
- * Box variant for drawings (line / area / circle): their footprint is an extent, not a
- * point. Same minimal move — clear the panel's left edge — but capped so the drawing's
- * own left edge never leaves the surface: an extent wider than the open area only shifts
- * until its left edge reaches the margin (partially visible beats fully hidden).
- */
-export function panelNudgeBox(
-  box: NudgeBox,
-  panel: NudgeRect,
+/** The genuinely usable part of a surface, in the same coordinate space as the selection. */
+export function visibleWorkRect(
+  surface: NudgeBox,
+  panel: NudgeBox | null,
+  bottomSheet: boolean,
   margin = NUDGE_MARGIN,
-): [number, number] | null {
-  if (box.maxY < panel.top - margin || box.minY > panel.bottom + margin) return null
-  const clearX = panel.left - margin
-  if (box.maxX <= clearX) return null
-  const dx = Math.min(box.maxX - clearX, Math.max(0, box.minX - margin))
-  return dx > 0 ? [dx, 0] : null
+): NudgeBox {
+  const out = {
+    minX: surface.minX + margin,
+    maxX: surface.maxX - margin,
+    minY: surface.minY + margin,
+    maxY: surface.maxY - margin,
+  }
+  if (panel) {
+    if (bottomSheet) out.maxY = Math.min(out.maxY, panel.minY - margin)
+    else out.maxX = Math.min(out.maxX, panel.minX - margin)
+  }
+  // Extremely small/landscape viewports can leave less than two margins. Collapse to a usable
+  // centre line instead of returning an inverted rectangle whose clamp would move unpredictably.
+  if (out.maxX < out.minX) out.minX = out.maxX = (surface.minX + Math.min(surface.maxX, panel?.minX ?? surface.maxX)) / 2
+  if (out.maxY < out.minY) out.minY = out.maxY = (surface.minY + Math.min(surface.maxY, bottomSheet && panel ? panel.minY : surface.maxY)) / 2
+  return out
 }
 
-/** bottom-sheet box variant: shift up, capped so the extent's top edge stays on-surface */
-export function panelNudgeBoxUp(
-  box: NudgeBox,
-  panel: { top: number },
-  margin = NUDGE_MARGIN,
-): [number, number] | null {
-  const clearY = panel.top - margin
-  if (box.maxY <= clearY) return null
-  const dy = Math.min(box.maxY - clearY, Math.max(0, box.minY - margin))
-  return dy > 0 ? [0, dy] : null
+/** Minimal pan delta that puts a point inside the padded, unobscured work rectangle. */
+export function nudgePointIntoRect(pt: { x: number; y: number }, rect: NudgeBox): [number, number] | null {
+  const x = Math.max(rect.minX, Math.min(rect.maxX, pt.x))
+  const y = Math.max(rect.minY, Math.min(rect.maxY, pt.y))
+  const dx = pt.x - x, dy = pt.y - y
+  return dx || dy ? [dx, dy] : null
+}
+
+function nudgeAxis(min: number, max: number, visibleMin: number, visibleMax: number, anchor?: number | null): number {
+  const span = max - min, available = visibleMax - visibleMin
+  if (span <= available) {
+    if (min < visibleMin) return min - visibleMin
+    if (max > visibleMax) return max - visibleMax
+    return 0
+  }
+  // A screen-spanning line is intentionally not fitted. Keep the part the operator tapped in
+  // view; without a tap, move only when the whole extent is outside the usable rectangle.
+  if (anchor != null) return anchor - Math.max(visibleMin, Math.min(visibleMax, anchor))
+  if (max < visibleMin) return max - visibleMin
+  if (min > visibleMax) return min - visibleMax
+  return 0
 }
 
 /**
- * ── Grosse Auswahl: der getippte Punkt zählt ──────────────────────────────────────────────────
- * Does the whole selection still fit in the open strip beside the panel? If it does, its BOX is a
- * fair description of «where the operator is looking» and the box nudge brings all of it clear.
- * If it does not — a hose line drawn right across the screen — the box says nothing useful: its
- * far edge is somewhere off-stage, and clearing that edge pans the map past the piece of the line
- * that was actually tapped.
+ * Minimal pan for a point or extent against all four padded viewport borders and any open panel.
+ * Small geometry is kept wholly visible; oversized geometry stays at the current zoom and only
+ * the tapped/nearest part is kept visible.
  */
-export function fitsBesidePanel(box: NudgeBox, panel: NudgeRect, margin = NUDGE_MARGIN): boolean {
-  return box.maxX - box.minX <= panel.left - 2 * margin
-}
-
-/** The bottom-sheet twin: does the extent fit in the strip above the sheet? */
-export function fitsAbovePanel(box: NudgeBox, panel: { top: number }, margin = NUDGE_MARGIN): boolean {
-  return box.maxY - box.minY <= panel.top - 2 * margin
-}
-
-/**
- * The nudge both surfaces actually call for a selected drawing: box rule for anything that fits,
- * TAP POINT for anything that does not.
- *
- * ⚠️ On a screen-spanning line the box rule overshot (26.08. field test) — tapping a long Leitung
- * threw the map sideways, away from the spot that had just been aimed at. Anchoring on the tap
- * point fixes both halves of that: the pan is measured from the place the finger actually was, and
- * a tap that was already clear of the panel moves the camera not at all (`panelNudge` returns null
- * there). Without a tap point — a Verlauf jump, a freshly finished stroke — nothing changes: the
- * box rule still runs, so small objects behave exactly as before.
- */
-export function panelNudgeSelection(
+export function nudgeSelectionIntoRect(
   box: NudgeBox,
   tap: { x: number; y: number } | null | undefined,
-  panel: NudgeRect,
-  margin = NUDGE_MARGIN,
+  rect: NudgeBox,
 ): [number, number] | null {
-  return tap && !fitsBesidePanel(box, panel, margin)
-    ? panelNudge(tap, panel, margin)
-    : panelNudgeBox(box, panel, margin)
+  const dx = nudgeAxis(box.minX, box.maxX, rect.minX, rect.maxX, tap?.x)
+  const dy = nudgeAxis(box.minY, box.maxY, rect.minY, rect.maxY, tap?.y)
+  return dx || dy ? [dx, dy] : null
 }
 
-/** Bottom-sheet twin of `panelNudgeSelection` (phones): same rule, straight up. */
-export function panelNudgeSelectionUp(
-  box: NudgeBox,
-  tap: { x: number; y: number } | null | undefined,
-  panel: { top: number },
-  margin = NUDGE_MARGIN,
-): [number, number] | null {
-  return tap && !fitsAbovePanel(box, panel, margin)
-    ? panelNudgeUp(tap, panel, margin)
-    : panelNudgeBoxUp(box, panel, margin)
+export function rectCenter(rect: NudgeBox): { x: number; y: number } {
+  return { x: (rect.minX + rect.maxX) / 2, y: (rect.minY + rect.maxY) / 2 }
 }
 
-/** a panel covering (almost) the surface's full width is the bottom-sheet presentation */
+/** A panel covering (almost) the surface's full width is the bottom-sheet presentation. */
 export function isBottomSheet(panelWidth: number, surfaceWidth: number): boolean {
   return panelWidth >= surfaceWidth * 0.9
 }

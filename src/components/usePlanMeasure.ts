@@ -29,6 +29,10 @@ interface Args {
   toNorm: (clientX: number, clientY: number) => Pt | null
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
   onCalibrate?: (planId: string, scale: PlanScale | null) => void
+  /** A finished map↔plan fit already contains the same metre factor. It is derived, not stored
+   *  as a second calibration, and sits below an incident-specific manual reference but above a
+   *  station fallback. */
+  autoScale?: PlanScale
 }
 
 /**
@@ -40,7 +44,7 @@ interface Args {
  * two: a calibration is only meaningful in the space its reference was drawn in, and a measured
  * path has to be converted into that same space before it can be turned into metres.
  */
-export function usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate }: Args) {
+export function usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale }: Args) {
   // Plan-Maßstab calibration: the reference is captured by tapping its TWO endpoints (nodes), then
   // a popover asks for its real length. last-used length is pre-filled (plans share similar bars).
   const [calNodes, setCalNodes] = useState<Pt[]>([])
@@ -68,7 +72,9 @@ export function usePlanMeasure({ activeId, stack, aspect, planScale, localY, flo
   // so a plan measures out of the box without re-calibrating each incident (#3). A field
   // calibration for this incident still wins; a stale candidate falls through.
   const workspaceScale: PlanScale | undefined = planScale[activeId]
-  const activeScale: PlanScale | undefined = resolvePlanScale(activeId, workspaceScale, measureAR)
+  const validWorkspaceScale = workspaceScale && !isStale(workspaceScale, measureAR) ? workspaceScale : undefined
+  const activeScale: PlanScale | undefined = validWorkspaceScale ?? autoScale ?? resolvePlanScale(activeId, undefined, measureAR)
+  const scaleAuto = !!autoScale && activeScale === autoScale
   const scaleStale = !!workspaceScale && isStale(workspaceScale, measureAR) && !activeScale
   const calibrated = !!activeScale
   // metres of a stored polyline (tile-local pts already, for a floor-stack) under the calibration
@@ -143,7 +149,7 @@ export function usePlanMeasure({ activeId, stack, aspect, planScale, localY, flo
   return {
     calNodes, setCalNodes, calPrompt, setCalPrompt, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode, measLine, setMeasLine, measArea, setMeasArea,
-    measureAR, activeScale, scaleStale, calibrated, planMetres, toMeasurePt,
+    measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres, toMeasurePt,
     measPath, setMeasPath, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
     measNodeDown, measMove, measUp, measDragging, measInsert, measDelete, measPress,
     closeCalPrompt, commitCalibration,
