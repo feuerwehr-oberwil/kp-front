@@ -613,7 +613,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // the ground via − bearing; plain markers (hydrants, KP, command posts, lifts…) stay
               // UPRIGHT at every bearing ("always north"), so they never look crooked on a turned map.
               // The Hubretter body is rotatable (`rotation`), INDEPENDENT of the boom (`rotation2`).
-              const directional = veh || !!e.live || isRotatableSym(e)
+              // ⚠️ A shared PERSON position is live but has no heading — nobody reports which way
+              // they are facing, and the glyph is a disc with their initials in it. It was caught
+              // by `e.live` and tilted with the map like a truck, which turns the one thing on it
+              // that has to be read at a glance upside down. A person is «always north».
+              const directional = (veh || !!e.live || isRotatableSym(e)) && e.kind !== 'person'
               const rot = (e.rotation ?? 0) - (directional ? bearing : 0)
               // rebuilt at the bearing-compensated angle; `directed` so a vehicle that has never
               // moved doesn't gain a heading arrow it never reported
