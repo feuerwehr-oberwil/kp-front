@@ -53,7 +53,6 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
   onMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
 }) {
   const C = appConfig.copy.whiteboard.georef
-  const movable = interactive && !!onMove
   // a Marker drag ends with a click on the mark; without this the details panel would open on
   // top of the object that was just moved
   const dragged = useRef(false)
@@ -61,6 +60,10 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
     <>
       {twins.map((t) => {
         const a = t.anno
+        const selected = selectedKey === t.key
+        // Match a source object: the first tap selects and explains it; only the object wearing
+        // the halo may then be moved. Otherwise a casual map pan can silently move a projection.
+        const movable = interactive && selected && !!onMove
         const name = twinName(a)
         const veh = a.symbol === appConfig.symbols.vehicleName
         const rot = (a.rotation ?? 0) - bearing
@@ -84,7 +87,7 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
               // the Marker above runs the gesture and hands back ground coordinates directly
               nativeDrag={movable}
               interactive={interactive}
-              selected={selectedKey === t.key}
+              selected={selected}
               // the Marker already places the element; the mark only has to centre itself in it
               style={{ position: 'relative', margin: 0 }}
             />

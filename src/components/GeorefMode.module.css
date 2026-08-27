@@ -206,6 +206,30 @@
   border: 2px solid var(--blue);
 }
 
+/* Phone placement has one immovable target in the usable canvas. It is screen furniture, not a
+   handle: no hit area, no cursor and no pointer events. The content pans beneath it; the explicit
+   plus action in the mode card is the only thing that commits a new point. */
+.fixedTarget {
+  display: none;
+  position: fixed;
+  width: 42px;
+  height: 42px;
+  margin: -21px 0 0 -21px;
+  z-index: 35;
+  color: var(--blue);
+  pointer-events: none;
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / .45));
+}
+.fixedTarget::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.fixedTarget svg { position: relative; width: 42px; height: 42px; stroke-width: 1.7; }
+
 /* ── Passungs-Anzeige ────────────────────────────────────────────────────────────────────── */
 /* Technical language on purpose: Restfehler, Grundlinie, Drehung. The people who open this are
    asking whether the link can be trusted, and vague words cannot answer that. */
@@ -297,6 +321,11 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .bar .acts > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .bar .placeAction {
+    grid-column: 1 / -1; width: 100%; min-height: 48px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .bar .placeAction svg { width: 18px; height: 18px; }
   /* Fertig/Abbrechen is the final, full-width action in every phone state. */
   .bar .finishAction { grid-column: 1 / -1; order: 1; }
   .bar .checkBlend { grid-column: 1 / -1; }
@@ -314,5 +343,8 @@
   .surfaceSwitch button svg { width: 18px; height: 18px; }
   .surfaceSwitch button.surfaceOn { background: var(--ink-fill); color: var(--on-accent-ink); }
   .surfaceSwitch button:disabled { opacity: var(--disabled); cursor: default; }
-  .loupe { width: 168px; height: 168px; }
+  .fixedTarget { display: block; }
+  /* The persistent magnifier was the ambiguous second drag surface this fixed-target workflow
+     replaces. Existing numbered crosses remain directly draggable for corrections. */
+  .loupe { display: none; }
 }

@@ -1808,24 +1808,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const pickShape = (kind: ShapeKind) => { setPendingShape(kind); setPending(null); setTool('shape'); setPaletteOpen(false) }
   const selResource = annos.find((a) => a.id === selId && a.kind === 'resource')
   /**
-   * Is the right-hand dock slot free for a detail editor?
+   * A Plan may show Ebenen BESIDE its selected object's details on tablet/desktop. That is useful
+   * here in a way it is not on the Lage: the layer list explains which Karte/Plan projection the
+   * selected object belongs to. 06-contextpanel.css gives the pair separate horizontal slots.
    *
-   * The slot holds exactly ONE thing. 05-navrail.css states the rule for the chrome toggles —
-   * «Only one of {Ebenen, views popover, tool dock} is ever open» — but the detail panel was
-   * never written into that set, although `.ctx` occupies the very same band (and, on a phone,
-   * the very same bottom edge) as `.layers-card`. So opening Ebenen used to drop the layers card
-   * straight on top of an open editor, at z201 over z35, with the buried panel still tappable
-   * through the z28 backdrop.
-   *
-   * ⚠️ This hides the panel, it does NOT drop the selection — `selId` survives, so closing Ebenen
-   * brings the editor straight back to the object still wearing its halo. Throwing away what you
-   * had tapped just to look at a layer would be its own surprise (the reason `clearMapUi` on the
-   * Lage keeps the selection too).
-   *
-   * `tool === 'pan'` is the long-standing half: a detail editor belongs to Auswahl and nothing
-   * else. `twinView` is the mirrored-object panel, which owns the slot while it is up.
+   * A phone cannot fit two bottom sheets. There the old one-slot rule remains: Ebenen temporarily
+   * hides the detail panel without dropping `selId` / `twinView`, so closing it restores the same
+   * selected object and halo. `tool === 'pan'` remains the long-standing selection-only gate.
    */
-  const editorSlotFree = !twinView && !layersOn && tool === 'pan'
+  const detailPanelVisible = !layersOn || !isPhone
+  const editorSlotFree = !twinView && detailPanelVisible && tool === 'pan'
   // a selected plan symbol gets the SAME editor as the map (label / fields / notes /
   // count / rotation) — floor is omitted because on the plan it's the tile, not a badge
   const selSymbol = annos.find((a) => a.id === selId && a.kind === 'symbol')
@@ -3018,7 +3010,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {/* a Zwilling's details — the Karte's own object, mirrored onto this sheet and read-only
           throughout. «Zum Original» is the one row that leaves (see GeorefTwinPanel for why a
           twin is never editable). */}
-      {twinView && onTwinJump && (
+      {detailPanelVisible && twinView && onTwinJump && (
         <GeorefTwinPanel
           entity={twinView.entity}
           svg={twinView.kind === 'vehicle' || twinView.entity.symbol === appConfig.symbols.vehicleName
@@ -3233,26 +3225,34 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
       {objectChip}
       {buildingChip}
-      {/* Maßstab — trust chip: shows whether the active plan is calibrated; tap to (re)calibrate.
-          Never a hidden assumption — a plan with no scale says so. Hidden for the OSM live outline /
-          blank sheet (no printed reference to measure against). A locked surface keeps the chip
-          READING (its metres are only as good as the calibration behind them) but can't arm it. */}
+      {/* Maßstab — trust chip: shows where the active plan's scale comes from. A manually
+          calibrated scale remains a control because tapping it edits that calibration. An
+          automatic scale is different: it is DERIVED from the Karte link and must therefore be
+          a reading, never a shortcut into a second, competing manual calibration. The separate
+          Verknüpft control beside it opens the Passung and its explicit correction actions.
+          Hidden for the OSM live outline / blank sheet (no printed reference to measure against).
+          A locked surface keeps the reading but cannot arm a manual calibration. */}
       {(!readOnly || slimRail) && !osm && !blank && (
-        <button
-          className={`wb-scale-chip ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
-          title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
-          disabled={readOnly}
-          onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
-        >
-          <Icon id="measure" />
-          <span>{
-            tool === 'scale' ? appConfig.copy.whiteboard.scale.calibrateHint
-              : scaleStale ? appConfig.copy.whiteboard.scale.stale
-              : scaleAuto ? appConfig.copy.whiteboard.scale.chipAuto
-              : calibrated ? fillTemplate(appConfig.copy.whiteboard.scale.chipCalibrated, { m: String(activeScale!.refM) })
-              : appConfig.copy.whiteboard.scale.chipUncalibrated
-          }</span>
-        </button>
+        scaleAuto
+          ? <div className="wb-scale-chip wb-scale-status on" role="status"
+              title={appConfig.copy.whiteboard.scale.chipAutoHint}>
+              <Icon id="measure" />
+              <span>{appConfig.copy.whiteboard.scale.chipAuto}</span>
+            </div>
+          : <button
+              className={`wb-scale-chip ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
+              title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
+              disabled={readOnly}
+              onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
+            >
+              <Icon id="measure" />
+              <span>{
+                tool === 'scale' ? appConfig.copy.whiteboard.scale.calibrateHint
+                  : scaleStale ? appConfig.copy.whiteboard.scale.stale
+                  : calibrated ? fillTemplate(appConfig.copy.whiteboard.scale.chipCalibrated, { m: String(activeScale!.refM) })
+                  : appConfig.copy.whiteboard.scale.chipUncalibrated
+              }</span>
+            </button>
       )}
       {/* «⌖ Karte» — the third fact about a plan that no page of it states: whether this sheet is
           tied to the world, and how well. Same recipe and same corner as the Massstab beside it,

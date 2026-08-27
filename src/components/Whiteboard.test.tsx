@@ -235,6 +235,12 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
     expect(screen.getAllByRole('button', { name: new RegExp(D.lock) }).length).toBeGreaterThan(0)
   })
 
+  it('keeps its detail editor open beside Ebenen above the phone breakpoint', () => {
+    const { container } = renderPlan([line], { layersOn: true })
+    fireEvent.pointerDown(hitShape(container))
+    expect(screen.getAllByRole('button', { name: new RegExp(D.lock) }).length).toBeGreaterThan(0)
+  })
+
   it('is tap-through once locked — no selection, no editor, no drag', () => {
     const { container, onChange } = renderPlan([{ ...line, locked: true }])
     fireEvent.pointerDown(hitShape(container))

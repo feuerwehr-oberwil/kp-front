@@ -1579,6 +1579,7 @@ export const de = {
       // «Massstab»; the text only says where you stand.
       chipCalibrated: 'Ref. {m} m',
       chipAuto: 'Ref. auto',
+      chipAutoHint: 'Ref. automatisch – Massstab aus der Kartenverknüpfung',
       chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
       calibrate: 'Massstab kalibrieren',
@@ -1611,7 +1612,7 @@ export const de = {
       chipTwoPoints: 'aus 2 Punkten',
       chipResidual: '⌀ {m} m',
       linkTitle: 'Plan mit der Karte verknüpfen',
-      openQuality: 'Passung anzeigen',
+      openQuality: 'Referenz prüfen und korrigieren',
       // ⚠️ Die Naht trägt KEINE Beschriftung mehr – weder «KARTE VERKNÜPFEN» noch «Karte
       // geliehen». Beides war Erklärung des Layouts statt Anweisung; die Leiste am Fuss sagt,
       // welcher Modus läuft und was als Nächstes zu tippen ist. Die gestrichelte Linie genügt.
@@ -1635,6 +1636,8 @@ export const de = {
       // Der Sprung zur Karte passiert NUR auf Wunsch (Telefon): pro Punkt hin und her war der
       // Grund, warum niemand mehr als zwei Punkte gesetzt hat.
       goMap: 'Auf der Karte zuordnen',
+      placePoint: 'Punkt setzen',
+      targetOutside: 'Fadenkreuz zuerst auf die sichtbare Fläche bewegen',
       // Sichtprüfung nach dem Ausrichten: der Blattumriss liegt auf der Karte, man sieht sofort,
       // ob die Ecken zusammenfallen. Einmalig – kein Dauer-Layer.
       checkFit: 'Deckung prüfen',

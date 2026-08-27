@@ -7,6 +7,7 @@ import {
   isPlacingTap,
   trackTap,
   georefDispatch,
+  georefPhoneTargetPoint,
   resetGeorefMode,
   georefChip,
   georefMatching,
@@ -14,8 +15,11 @@ import {
   georefPointNo,
   georefQueueNo,
   georefReduce,
+  georefSnapshot,
   georefWantsMap,
   georefWarnings,
+  placeGeorefPhoneTarget,
+  registerGeorefPhoneTarget,
   resetGeorefPlan,
   transferGeorefPlan,
   type GeorefModeState,
@@ -46,6 +50,48 @@ const armed = (pairs: GeorefPair[] = []): GeorefModeState =>
 const pair = (x: number, y: number, lng: number, lat: number): GeorefPair =>
   ({ plan: { x, y }, lngLat: { lng, lat }, kind: 'gesetzt' })
 
+describe('phone fixed reference target', () => {
+  beforeEach(() => resetGeorefMode())
+
+  it('centres inside the usable lane below chrome, above controls, and within edge padding', () => {
+    expect(georefPhoneTargetPoint(
+      { left: 0, top: 0, right: 390, bottom: 844 },
+      { top: 68, bottom: 620 },
+      18,
+    )).toEqual({ x: 195, y: 344 })
+    expect(georefPhoneTargetPoint(
+      { left: 0, top: 0, right: 40, bottom: 100 },
+      { top: 40, bottom: 70 },
+      18,
+    )).toBeNull()
+  })
+
+  it('the explicit action can start on the Plan', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
+    const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.42, y: 0.31 }))
+    expect(placeGeorefPhoneTarget('plan')).toBe(true)
+    expect(georefSnapshot().queue).toEqual([{ x: 0.42, y: 0.31 }])
+    unregister()
+  })
+
+  it('the explicit action can start on the Karte', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
+    georefDispatch({ type: 'goMap' })
+    const unregister = registerGeorefPhoneTarget('map', () => ({ lng: 7.527, lat: 47.516 }))
+    expect(placeGeorefPhoneTarget('map')).toBe(true)
+    expect(georefSnapshot().mapQueue).toEqual([{ lng: 7.527, lat: 47.516 }])
+    unregister()
+  })
+
+  it('refuses an unavailable or out-of-sheet target without inventing a point', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
+    const unregister = registerGeorefPhoneTarget('plan', () => null)
+    expect(placeGeorefPhoneTarget('plan')).toBe(false)
+    expect(georefSnapshot().queue).toEqual([])
+    unregister()
+  })
+})
+
 describe('georefReduce · placing a pair', () => {
   it('arms on a plan and asks for the plan first', () => {
     const s = armed()
@@ -57,11 +103,10 @@ describe('georefReduce · placing a pair', () => {
 
   it('a plan tap opens a point — and does NOT drag the operator to the map', () => {
     const s = georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.3 } })
-    // ⚠️ the SHEET stays free: open points do not make the plan's own crosses inert (you go on
-    // marking corners, fine-tuning and picking up), while the map's do go inert — over there
-    // every tap belongs to an open point.
+    // ⚠️ Both surfaces' existing crosses stay directly draggable while points are queued.
+    // A phone correction must not require deleting and recreating a pair.
     expect(georefPlacing(s)).toBe(false)
-    expect(georefMatching(s)).toBe(true)
+    expect(georefMatching(s)).toBe(false)
     expect(s.queue).toEqual([{ x: 0.2, y: 0.3 }])
     // ⚠️ the whole point of the queue: the sheet stays in front of you until you say otherwise
     expect(s.want).toBe('plan')
@@ -131,6 +176,16 @@ describe('georefReduce · placing a pair', () => {
     expect(s.pairs.map((p) => p.plan)).toEqual([{ x: 0.2, y: 0.3 }, { x: 0.6, y: 0.3 }, { x: 0.4, y: 0.8 }])
     expect(s.queue).toEqual([])
     expect(s.want).toBe('plan') // …and only now back to the sheet
+  })
+
+  it('keeps existing map crosses draggable while unmatched plan points wait', () => {
+    let s = armed([pair(0.2, 0.3, 7.5, 47.5)])
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.7, y: 0.8 } })
+    expect(s.queue).toHaveLength(1)
+    expect(georefMatching(s)).toBe(false)
+    const moved = georefReduce(s, { type: 'dragMap', idx: 0, lngLat: { lng: 7.51, lat: 47.51 } })
+    expect(moved.pairs[0].lngLat).toEqual({ lng: 7.51, lat: 47.51 })
+    expect(moved.queue).toEqual(s.queue)
   })
 
   it('may switch to the map before either half has been set', () => {

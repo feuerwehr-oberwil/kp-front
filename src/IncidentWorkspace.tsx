@@ -631,7 +631,7 @@ export function IncidentWorkspace({
   // drill in February is armed again for the next one (see useAtemschutzMute). `audioBlocked` is
   // the third honest state: the browser has not released audio, so only the OS notification can
   // fire and the bell says so instead of claiming to be on.
-  const { muted: atemschutzMuted, toggle: toggleAtemschutzMuted, audioBlocked: atemschutzAudioBlocked, unlockAudio: unlockAtemschutzAudio } = useAtemschutzMute(incidentMeta.id)
+  const { muted: atemschutzMuted, mute: muteAtemschutz, toggle: toggleAtemschutzMuted, audioBlocked: atemschutzAudioBlocked, unlockAudio: unlockAtemschutzAudio } = useAtemschutzMute(incidentMeta.id)
   // how the Atemschutz board is arranged — a way of LOOKING at it, so per device. The hand-set
   // order it can show (Trupp.order) is synced, so «wie gesetzt» is the same board everywhere.
   const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'manuell')
@@ -3444,6 +3444,9 @@ export function IncidentWorkspace({
         severities={azAlarm.severities}
         intervalMin={azIntervalMin}
         graceSec={azGraceSec}
+        // Reaching the named card is acknowledgement enough to stop the room's tone and tray
+        // re-notifications. The row itself stays until a real contact/pressure event clears it.
+        onAcknowledge={muteAtemschutz}
         onGoToTrupp={(id) => {
           setMode('atemschutz'); setPanel(null)
           setTruppFocus({ id, nonce: Date.now() })

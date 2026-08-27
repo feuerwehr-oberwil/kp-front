@@ -16,8 +16,8 @@
  *  away off the sheet) is lib/georefTwins. This file only draws.
  *
  *  ⚠️ BOUNDARIES, and they are the whole design:
- *   • A twin is never a second editable object. A tap opens its read-only details; repositioning
- *     requires the explicit «Zum Original» jump, where the real object and its context are visible.
+ *   • A twin is never a second editable object. A tap opens its read-only details; while that
+ *     panel and its selection halo are visible, dragging the twin repositions the ONE source.
  *   • Nothing here writes directly: no workspace document, Verlauf row, clock or placement.
  *   • Nothing here prints. The Kroki payload and the plan pages are built from `entities` /
  *     `board` (lib/krokiPayload, backend kroki.py), and twins exist only in this render tree —
@@ -77,8 +77,8 @@ export function TwinMark({ svg, sizePx, rotation, count, caption, title, onOpen,
    *  .inert): a tool is armed, or the pairing mode is running, and the tap belongs to that. */
   interactive?: boolean
   /** The projection whose shared detail panel is open gets the same selection halo as its
-   *  source object. Selection cannot look weaker merely because it is being viewed through the
-   *  georeference, even though movement belongs exclusively to the original. */
+   *  source object. Its container also uses this selection to enable movement; an unselected
+   *  projection remains tap-only, matching the source surfaces' pick-then-drag rule. */
   selected?: boolean
   style?: React.CSSProperties
   className?: string

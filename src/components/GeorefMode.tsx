@@ -9,8 +9,8 @@ import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
-import { confirmDialog } from '../lib/ui'
-import { beginTap, georefDispatch, georefPlacing, georefPointNo, georefQueueNo, GEOREF_TAP_SLOP_PX, isPlacingTap, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type TapGesture } from '../lib/georefMode'
+import { confirmDialog, toast } from '../lib/ui'
+import { beginTap, georefDispatch, georefPhoneTargetPoint, georefPlacing, georefPointNo, georefQueueNo, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type TapGesture } from '../lib/georefMode'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { GeorefPair, PlanPt } from '../lib/georef'
 import s from './GeorefMode.module.css'
@@ -62,7 +62,10 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
   sH: number
   view: PlanViewApi
 }) {
+  const isPhone = useIsPhone()
   const [aim, setAim] = useState<Aim | null>(null)
+  const targetCanvasEl = view.canvasEl
+  const targetToNorm = view.toNorm
   // the current gesture is moving the sheet, not aiming at it — the loupe steps aside for it and
   // the cursor says so (a magnifier over a sliding plan magnifies nothing but the slide)
   const [panning, setPanning] = useState(false)
@@ -114,6 +117,25 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
     if (!armed) { setAim(null); setPanning(false); return }
     setAim((cur) => cur ?? centreAim())
   }, [armed]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Phone placement is deliberately two-step: move the sheet under one fixed reticle, then use
+  // the explicit action in the mode card. The resolver reads the geometry only at commit time,
+  // so panning stays frame-local and the crosshair can never drift away from the point saved.
+  useEffect(() => {
+    if (!isPhone || !armed || !targetCanvasEl) return
+    return registerGeorefPhoneTarget('plan', () => {
+      const surface = targetCanvasEl.getBoundingClientRect()
+      if (!surface) return null
+      const top = document.querySelector('.topbar')?.getBoundingClientRect().bottom
+      const bottom = document.querySelector<HTMLElement>('[data-georef-controls]')?.getBoundingClientRect().top
+      const target = georefPhoneTargetPoint(surface, { top, bottom })
+      if (!target) return null
+      const n = targetToNorm(target.x, target.y)
+      return n && n[0] >= 0 && n[0] <= 1 && n[1] >= 0 && n[1] <= 1
+        ? { x: n[0], y: n[1] }
+        : null
+    })
+  }, [armed, isPhone, targetCanvasEl, targetToNorm])
 
   const down = (e: React.PointerEvent) => {
     // ⚠️ The mode OWNS this pointer, exactly the way `.wb-ink` owns a placement pointer one file
@@ -171,7 +193,7 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
     // the aim STAYS where the finger left it — the loupe is up for the whole mode, so the last
     // thing looked at is what it keeps showing until something else is pointed at
     aimAt(e.clientX, e.clientY)
-    if (e.type !== 'pointerup' || !isPlacingTap(st)) return // a pan, a pinch or a cancel places nothing
+    if (e.type !== 'pointerup' || !isPlacingTap(st) || isPhone) return // phone commits only through the fixed target action
     const n = view.toNorm(e.clientX, e.clientY)
     // Only points ON the sheet can be references — the grey around it is not part of the plan.
     if (!n || n[0] < 0 || n[0] > 1 || n[1] < 0 || n[1] > 1) return
@@ -264,7 +286,7 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
           </button>
         )
       })}
-      {armed && mode.want === 'plan' && aim && !panning && createPortal(
+      {armed && mode.want === 'plan' && aim && !panning && !isPhone && createPortal(
         <PlanLoupe aim={aim} sW={sW} sH={sH} boardRef={view.boardRef} />, document.body,
       )}
     </>
@@ -480,13 +502,50 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   // handler is not mounted, and «the way out» must not depend on which half you are in.
   useGeorefEscape(!!mode.planId, mode.check, !!mode.edit)
   const C = appConfig.copy.whiteboard.georef
+  const shownSurface = mode.check ? 'map' : mode.want
+  const barRef = useRef<HTMLDivElement | null>(null)
+  const [fixedTarget, setFixedTarget] = useState<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    if (!mode.planId || !isPhone || mode.check) return
+    let frame = 0
+    const surfaceSelector = shownSurface === 'map' ? '.maplibregl-map' : '.wb-canvas'
+    const measure = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const surface = document.querySelector<HTMLElement>(surfaceSelector)?.getBoundingClientRect()
+        const bar = barRef.current?.getBoundingClientRect()
+        if (!surface || !bar) { setFixedTarget(null); return }
+        const top = document.querySelector('.topbar')?.getBoundingClientRect().bottom
+        setFixedTarget(georefPhoneTargetPoint(surface, { top, bottom: bar.top }))
+      })
+    }
+    measure()
+    const observed = [document.querySelector<HTMLElement>(surfaceSelector), barRef.current].filter(Boolean) as HTMLElement[]
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    observed.forEach((el) => ro?.observe(el))
+    window.addEventListener('resize', measure)
+    window.visualViewport?.addEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(frame)
+      ro?.disconnect()
+      window.removeEventListener('resize', measure)
+      window.visualViewport?.removeEventListener('resize', measure)
+    }
+  }, [isPhone, mode.check, mode.planId, shownSurface])
+
   if (!mode.planId || !isPhone) return null
   const p = georefPrompt(mode)
-  const shownSurface = mode.check ? 'map' : mode.want
   const mapEnabled = !mode.edit || mode.edit.side === 'map'
   const planEnabled = !mode.edit || mode.edit.side === 'plan'
   return (
-    <div className={s.bar} role="status" aria-label={C.title}>
+    <>
+    {!mode.check && fixedTarget && (
+      <div className={s.fixedTarget} style={{ left: fixedTarget.x, top: fixedTarget.y }} aria-hidden>
+        {crossSvg}
+      </div>
+    )}
+    <div ref={barRef} data-georef-controls className={s.bar} role="status" aria-label={C.title}>
       <span className={s.dot} />
       <span className={s.pillText}>
         <span className={s.promptText}>{p.title}</span>
@@ -506,7 +565,16 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
           <Icon id="doc" />{planLabel ?? C.checkPlan}
         </button>
       </div>}
+      {!mode.check && (
+        <button type="button" className={`btn primary ${s.placeAction}`}
+          onClick={() => {
+            if (!placeGeorefPhoneTarget(shownSurface)) toast(C.targetOutside, { icon: 'warn', tone: 'warn' })
+          }}>
+          <Icon id="plus" />{C.placePoint}
+        </button>
+      )}
       <span className={s.acts}><GeorefActions mode={mode} /></span>
     </div>
+    </>
   )
 }

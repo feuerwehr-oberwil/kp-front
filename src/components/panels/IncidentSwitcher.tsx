@@ -309,15 +309,17 @@ export function IncidentSwitcher({
                   </span>
                 </button>
               ))}
-              {/* the door to everything that is over — searchable and grouped by month there,
-                  which is what finding an old Einsatz actually takes */}
-              {onHistory && <button className="ip-menu-more" onClick={onHistory}>{cp.allIncidents}</button>}
-              {isEditor && (
-                <>
-                  <div className="ip-menu-sep" />
-                  <button className="ip-menu-act" onClick={onDivera}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>
-                </>
+              {/* History and creation are the two doors OUT of the running list. They are peers:
+                  one opens an earlier Einsatz, one opens a new one. The old blue text link looked
+                  detached from the full-size creation row directly below it, especially on a
+                  phone, so both now use the same recognised icon+label action recipe. */}
+              {(onHistory || isEditor) && <div className="ip-menu-sep" />}
+              {onHistory && (
+                <button className="ip-menu-act" onClick={onHistory}>
+                  <Icon id="history" /> {cp.allIncidents}
+                </button>
               )}
+              {isEditor && <button className="ip-menu-act" onClick={onDivera}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>}
             </div>
           )}
           <div className="ip-menu-sep" />

@@ -21,9 +21,8 @@ import type { Trupp } from '../types'
 //    two Trupps can be in alarm for DIFFERENT reasons — one out of contact, one out of air.
 //    One row can only carry one of those words, and either choice is a lie about the other.
 //  · NO ✕. A Trupp that is überfällig cannot be waved away; the row goes when a Funkkontakt or
-//    a Druckmeldung makes it go. The bell that silences the TONE stays where it is (the
-//    Atemschutz board's header, per Einsatz and per device) and is deliberately NOT duplicated
-//    here: this row is precisely what has to remain readable after the bell was pressed.
+//    a Druckmeldung makes it go. «Zum Trupp» acknowledges and silences the device, but the visual
+//    row deliberately remains: navigation is not evidence that the safety condition was fixed.
 //  · Only tier 2 — the tier that sounds. The amber «Kontakt fällig» lead is silent and
 //    board-only by doctrine, and a row for it would make the strip nag before anything is wrong.
 //    That keeps the invariant this file exists for: tone ⇔ row.
@@ -75,13 +74,15 @@ export function atemschutzAlarmRows(
  * Publish one Meldeleiste row per Trupp in alarm. Renders nothing itself (the strip paints) —
  * mount it wherever the alarm state lives, beside the other publishers.
  */
-export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, graceSec, onGoToTrupp }: {
+export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, graceSec, onAcknowledge, onGoToTrupp }: {
   trupps: readonly Trupp[]
   /** per-Trupp tier from the alarm fold; only `2` is published (see the header) */
   severities: Record<string, 1 | 2>
   /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec) */
   intervalMin: number
   graceSec: number
+  /** silence this device's audible/OS alarm before navigating; visual rows remain */
+  onAcknowledge?: () => void
   /** open the Atemschutz board with this Trupp's card pointed at */
   onGoToTrupp: (id: string) => void
 }) {
@@ -94,14 +95,15 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
   // which is why the impure read is fine where it stands.
   // eslint-disable-next-line react-hooks/purity -- justified directly above
   const rows = atemschutzAlarmRows(trupps, severities, Date.now(), intervalMin, graceSec, atemschutzDoctrine())
-  return <>{rows.map((r) => <AtemschutzAlarmMeldung key={r.id} row={r} onGo={onGoToTrupp} />)}</>
+  return <>{rows.map((r) => <AtemschutzAlarmMeldung key={r.id} row={r} onAcknowledge={onAcknowledge} onGo={onGoToTrupp} />)}</>
 }
 
-function AtemschutzAlarmMeldung({ row, onGo }: { row: AtemschutzAlarmRow; onGo: (id: string) => void }) {
+function AtemschutzAlarmMeldung({ row, onAcknowledge, onGo }: { row: AtemschutzAlarmRow; onAcknowledge?: () => void; onGo: (id: string) => void }) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const az = appConfig.copy.atemschutz
   const pressure = row.reason === 'pressure'
   const name = row.name || az.truppFallbackName
+  const go = () => { onAcknowledge?.(); onGo(row.id) }
   useMeldung({
     id: `atemschutz:${row.id}`,
     kind: 'atemschutz',
@@ -115,12 +117,12 @@ function AtemschutzAlarmMeldung({ row, onGo }: { row: AtemschutzAlarmRow; onGo: 
       : az.alarmRowOverdueSub,
     // ONE move, and it is forward: the board is where a Funkkontakt or a Druckmeldung is
     // entered, i.e. where this row is actually ended.
-    actions: [{ label: az.alarmRowGo, icon: 'gauge', primary: true, onClick: () => onGo(row.id) }],
+    actions: [{ label: az.alarmRowGo, icon: 'gauge', primary: true, onClick: go }],
     // …and the Trupp's name is the way there too, like every other row whose message has a place
     // (Meldeleiste · MeldungTitle). The filled button STAYS: this is the loudest row the app can
     // show, and it has to read as actionable at a glance, from across the Kommandoraum — the
     // tappable title is the shortcut for the hand that is already on the name, not a replacement.
-    onOpen: { label: az.alarmRowGo, onClick: () => onGo(row.id) },
+    onOpen: { label: az.alarmRowGo, onClick: go },
   })
   return null
 }

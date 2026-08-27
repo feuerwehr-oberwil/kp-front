@@ -57,6 +57,7 @@
      the map its centre. Only the WIDTH is a tablet matter: `right` was a frozen 96px with the
      same defect the base rule had (an expanded tool rail sat on the panel), and now that the base
      tracks --vrail-w there is nothing left to override. */
+  .app.mode-plans { --plan-ctx-w: clamp(300px, calc(100vw - 420px), 360px); }
   .ctx { width: clamp(300px, calc(100vw - 420px), 360px); }
   .topbar { gap: 10px; }
   .eaddr { max-width: 26vw; }

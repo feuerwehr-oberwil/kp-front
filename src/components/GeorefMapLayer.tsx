@@ -41,8 +41,8 @@ export function GeorefMapMarks({ mode, map }: { mode: GeorefModeState; map: MlMa
   // MapLibre suppresses a native click after most drags, but not uniformly across mouse/touch
   // engines. Remember a real drag briefly so its trailing click cannot turn into “pick up”.
   const draggedAt = useRef(0)
-  // the map's own crosses go inert while anything is waiting to be matched — over here every
-  // tap belongs to an open point, and a cross under it would swallow the one that matters
+  // Paired crosses remain draggable while unmatched points wait: an intentional press on an
+  // existing landmark is a correction. Only a picked-up half makes them inert while it lands.
   const placing = georefMatching(mode)
   const C = appConfig.copy.whiteboard.georef
   if (!mode.planId) return null

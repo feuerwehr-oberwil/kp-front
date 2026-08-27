@@ -22,7 +22,7 @@ vi.mock('./PdfViewport', () => ({
 }))
 
 import { Whiteboard } from './Whiteboard'
-import { georefDispatch, georefSnapshot, resetGeorefMode } from '../lib/georefMode'
+import { georefDispatch, georefSnapshot, registerGeorefPhoneTarget, resetGeorefMode } from '../lib/georefMode'
 import { GeorefModeBars } from './GeorefMode'
 import { Overlays } from '../lib/ui'
 
@@ -91,10 +91,29 @@ describe('the «Karte verknüpfen» chip', () => {
     expect(screen.queryByText(/aus 2 Punkten/)).toBeNull()
   })
 
-  it('uses the finished georeference as the plan scale without asking for a second calibration', () => {
+  it('uses the finished georeference as a non-interactive scale status', () => {
     store.pairs = TWO
     renderBoard()
-    expect(screen.getByText('Ref. auto')).toBeTruthy()
+    const status = screen.getByRole('status')
+    expect(status.textContent).toContain('Ref. auto')
+    expect(status.getAttribute('title')).toContain('Ref. automatisch')
+    expect(screen.getByText('Ref. auto').closest('button')).toBeNull()
+    expect(screen.queryByText('Zwei Punkte des Massstabs antippen')).toBeNull()
+  })
+
+  it('keeps georeference correction behind the separate linked-reference control', () => {
+    store.pairs = TWO
+    renderBoard()
+    const reference = screen.getByRole('button', { name: 'Verknüpft' })
+    expect(reference.getAttribute('title')).toBe('Referenz prüfen und korrigieren')
+    fireEvent.click(reference)
+    expect(screen.getByRole('button', { name: 'Dritten Punkt setzen' })).toBeTruthy()
+  })
+
+  it('keeps manual calibration available when no automatic reference scale exists', () => {
+    renderBoard()
+    fireEvent.click(screen.getByRole('button', { name: 'nicht kalibriert' }))
+    expect(screen.getByText('Zwei Punkte des Massstabs antippen')).toBeTruthy()
   })
 
   it('offers to add points instead of claiming it will correct a calculated pair', () => {
@@ -230,6 +249,47 @@ describe('leaving Deckung prüfen', () => {
   })
 })
 
+describe('the phone can start a pair on either surface', () => {
+  it('commits the fixed Plan target only through the explicit action', () => {
+    const previous = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: q === '(max-width: 600px)', media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
+      const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.45, y: 0.35 }))
+      render(<GeorefModeBars planLabel="Modul 2" />)
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      expect(georefSnapshot().queue).toEqual([{ x: 0.45, y: 0.35 }])
+      unregister()
+    } finally {
+      window.matchMedia = previous
+    }
+  })
+
+  it('switches to Karte before any Modul point exists and records a map-first half', () => {
+    const previous = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: q === '(max-width: 600px)', media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
+      render(<GeorefModeBars planLabel="Modul 2" />)
+      const switcher = screen.getByRole('group', { name: /Karte verknüpfen/ })
+      fireEvent.click(within(switcher).getByRole('button', { name: 'Karte' }))
+      expect(georefSnapshot().want).toBe('map')
+      const unregister = registerGeorefPhoneTarget('map', () => ({ lng: 7.5, lat: 47.5 }))
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      expect(georefSnapshot().mapQueue).toEqual([{ lng: 7.5, lat: 47.5 }])
+      unregister()
+    } finally {
+      window.matchMedia = previous
+    }
+  })
+})
+
 // ⚠️ The rule the whole armed mode stands on: a TAP places a point, and everything else pans the
 // sheet exactly as it does with no mode running. The pure fold is covered in
 // lib/georefMode.test.ts; this drives the real capture layer, because the bug that prompted it
@@ -247,7 +307,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
   }
   const at = (x: number, y: number) => ({ pointerId: 1, clientX: x, clientY: y, isPrimary: true })
 
-  it('a still tap opens a point and leaves the sheet in front of the operator', () => {
+  it('a desktop still tap opens a point and leaves the sheet in front of the operator', () => {
     const { capture } = arm()
     fireEvent.pointerDown(capture, at(400, 300))
     fireEvent.pointerUp(capture, at(401, 301))
@@ -255,6 +315,24 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
     // ⚠️ NOT 'map'. The mode used to send the phone to the map after every single plan tap;
     // the queue is what replaced that, and the hop is a button now (copy · georef.goMap).
     expect(georefSnapshot().want).toBe('plan')
+  })
+
+  it('a phone tap only aims or pans; it never commits without Punkt setzen', () => {
+    const previous = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: q === '(max-width: 600px)', media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      const { capture } = arm()
+      fireEvent.pointerDown(capture, at(400, 300))
+      fireEvent.pointerUp(capture, at(400, 300))
+      expect(georefSnapshot().queue).toEqual([])
+      expect(screen.queryByText('Punkt setzen')).toBeNull() // app-shell action tested separately
+    } finally {
+      cleanup()
+      window.matchMedia = previous
+    }
   })
 
   it('a pan places nothing — not even one that ends exactly where it started', () => {

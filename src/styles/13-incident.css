@@ -141,7 +141,7 @@
    baseline as the title beside it (align-items is flex-start, for the two-line rows). */
 .ip-menu-when { flex: none; width: 62px; padding-top: 1px; font: 600 11.5px var(--body);
   font-variant-numeric: tabular-nums; color: var(--green-strong); }
-.ip-menu-row:hover, .ip-menu-act:hover, .ip-menu-more:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+.ip-menu-row:hover, .ip-menu-act:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 /* Two lines at most: WHAT it is, and WHERE — «Ölspur» tells two Einsätze apart from each other
    only with the street under it, the same way the card carries its address. */
 .ip-menu-rowmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -149,10 +149,6 @@
 .ip-menu-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ip-menu-rowsub { font: 500 11.5px var(--body); color: var(--ink-faint);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* the way into the archive, under the running rows — a link, not another row */
-.ip-menu-more { width: 100%; text-align: left; padding: 7px 12px; min-height: 40px; border: none;
-  background: none; border-radius: var(--r-ctl); cursor: pointer; color: var(--blue-strong);
-  font: 600 12.5px var(--body); }
 /* (.section-pager and the phone .edge-swipe strips are gone — 2026-08-14, with swipe-to-page
    itself. The section views carry their own absolute inset/z-index, so they never needed the
    wrapper for layout.) */
