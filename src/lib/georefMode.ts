@@ -593,6 +593,15 @@ export function registerGeorefPhoneTarget(side: GeorefSide, resolve: PhoneTarget
   }
 }
 
+/** WHERE the fixed target currently is, in the surface's own coordinates — without placing
+ *  anything. The loupe reads this so the magnified crop is the reticle's surroundings and not
+ *  the map's centre: on a phone those are two different places, and the whole point of the inset
+ *  is to show what is under the mark somebody is about to commit. Null while the target sits off
+ *  the sheet or the surface has not mounted. */
+export function peekGeorefPhoneTarget(side: GeorefSide): PlanPt | GeoPt | null {
+  return phoneTargetResolvers[side]?.() ?? null
+}
+
 /** Commit the fixed target on the visible phone surface. False means the target is currently
  *  outside the sheet / the surface has not mounted yet, so no invisible point is invented. */
 export function placeGeorefPhoneTarget(side: GeorefSide): boolean {

@@ -250,6 +250,18 @@
   border: 3px solid var(--surface);
   box-shadow: 0 0 0 1px rgb(0 0 0 / .5), var(--shadow);
 }
+/* ⚠️ On a phone the magnifier moves into the CORNER instead of hovering over the aim. The
+   centred one was dropped when the fixed-target workflow arrived, for a good reason — a circle
+   under the finger is a second, ambiguous drag surface — but that reason does not apply to an
+   inset: it never covers the reticle, and without any magnifier the sheet is placed blind. At
+   the zoom where a whole Modul fits a phone screen a house corner is about three pixels wide.
+   ⚠️ TOP-LEFT, not right: the Windfahne and the speed badge live in the right corner. */
+.loupeCorner {
+  width: 124px; height: 124px;
+  top: calc(76px + env(safe-area-inset-top));
+  left: calc(10px + env(safe-area-inset-left));
+  transform: none;
+}
 .loupe canvas, .loupe .plane { position: absolute; left: 0; top: 0; }
 /* the lifted black floor of a dark base map — `screen` against a flat grey reproduces MapLibre's
    `raster-brightness-min`, which no CSS filter can (see GeorefMapLayer · loupePaint) */
@@ -375,10 +387,15 @@
        switch. It therefore owns the rail's bottom lane and paints just above the rail z-index. */
     z-index: 36;
     bottom: calc(8px + env(safe-area-inset-bottom));
-    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    /* ⚠️ HALF the viewport, at most. The reticle is placed in what is left between the TopBar
+       and this card (georefMode · georefPhoneTargetPoint), and that function honestly returns
+       NULL when the band collapses — so a card that grew a row too tall did not overlap the
+       mark, it made the mark disappear. The card scrolls instead; the sheet keeps its half. */
+    max-height: min(50dvh, calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
     overflow-y: auto;
     /* symmetric now that nothing hangs in a first column */
-    padding: 10px;
+    padding: 9px;
+    gap: 7px;
   }
   /* «Deckung prüfen» keeps the old two-up action row — it is its own one-line mode. */
   .bar .acts { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -387,31 +404,42 @@
      it names the point it is about to set — «Punkt 3 setzen», not «Punkt setzen», so the count
      is on the button somebody is actually looking at. */
   .bar .placeAction {
-    width: 100%; min-height: 54px; border-radius: var(--r-btn);
+    width: 100%; min-height: 48px; border-radius: var(--r-btn);
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    font-size: 15.5px;
+    font-size: 15px;
   }
-  .bar .placeAction svg { width: 19px; height: 19px; }
+  .bar .placeAction svg { width: 18px; height: 18px; }
+  /* no box, no border — the quiet row is text, or it is a second row of buttons again */
+  .bar .quietBtn, .bar .quietBtn:hover { border-color: transparent; background: transparent; }
   .bar .finishAction { width: 100%; }
   /* the quiet row: text weight, 34px, and it may ellipsize — a label may, a sentence may not */
   .bar .quietBtn {
     min-width: 0; max-width: 100%; padding: 0 6px; min-height: 34px; font-size: 12.5px;
     overflow: hidden; text-overflow: ellipsis;
   }
+  /* ⚠️ A SEGMENTED control, at the app's usual weight — it used to be the full 60px rail height
+     with the active half filled in --ink-fill, i.e. the same shape and the same black as the
+     primary button directly under it. Two big dark blocks in one card, only one of which does
+     anything: that is what made the card read as heavier than the thing it is asking for. */
   .surfaceSwitch {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
-    position: static; height: var(--rail-h); box-sizing: border-box;
-    margin: -2px -2px 2px; padding: 0;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px;
+    position: static; box-sizing: border-box; margin: 0; padding: 3px;
+    background: var(--fill-soft); border-radius: var(--r-ctl);
   }
   .surfaceSwitch button {
-    min-width: 0; min-height: var(--tap); display: inline-flex; align-items: center;
-    justify-content: center; gap: 7px; padding: 0 10px; border: 0; border-radius: var(--r-sm);
-    background: transparent; color: var(--ink); font: 700 12.5px var(--body); cursor: pointer;
+    min-width: 0; min-height: 36px; display: inline-flex; align-items: center;
+    justify-content: center; gap: 6px; padding: 0 8px; border: 0; border-radius: var(--r-sm);
+    background: transparent; color: var(--ink-dim); font: 700 12.5px var(--body); cursor: pointer;
   }
-  .surfaceSwitch button svg { width: 18px; height: 18px; }
-  .surfaceSwitch button.surfaceOn { background: var(--ink-fill); color: var(--on-accent-ink); }
+  .surfaceSwitch button svg { width: 16px; height: 16px; }
+  .surfaceSwitch button.surfaceOn { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
   .surfaceSwitch button:disabled { opacity: var(--disabled); cursor: default; }
   .fixedTarget { display: block; }
+  /* ⚠️ The magnifier is BACK on a phone — as the corner inset (.loupeCorner), never as the
+     centred circle this workflow replaced. What was wrong with the old one was that it sat
+     under the finger and read as a second drag surface; an inset in the empty corner is
+     neither, and it is the only way to see what the reticle is actually on. */
+  .loupe { display: block; }
   /* ⚠️ A phone TURNED SIDEWAYS is ~400px tall and this card is five bands. The two parts that
      teach — the example thumbnail and the Ampel's «why» line — are the ones a second run no
      longer needs, so they are what goes; the reading, the instruction and the actions stay.
@@ -423,9 +451,7 @@
     .bar .sayText i:last-child { display: none; }
     .surfaceSwitch { height: auto; }
     .surfaceSwitch button { min-height: 38px; }
-    .bar .placeAction { min-height: 46px; }
+    .bar .placeAction { min-height: 44px; }
+    .loupeCorner { width: 96px; height: 96px; top: calc(64px + env(safe-area-inset-top)); }
   }
-  /* The persistent magnifier was the ambiguous second drag surface this fixed-target workflow
-     replaces. Existing numbered crosses remain directly draggable for corrections. */
-  .loupe { display: none; }
 }

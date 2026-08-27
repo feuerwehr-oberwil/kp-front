@@ -10,7 +10,7 @@ import type { Map as MlMap } from 'maplibre-gl'
 import type { LayerDef, LayerId } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { georefDispatch, georefMapQueueNo, georefMatching, GEOREF_TAP_SLOP_PX, useGeorefMode, type GeorefModeState } from '../lib/georefMode'
+import { georefDispatch, georefMapQueueNo, georefMatching, GEOREF_TAP_SLOP_PX, peekGeorefPhoneTarget, useGeorefMode, type GeorefModeState } from '../lib/georefMode'
 import { fitSimilarity } from '../lib/georef'
 import s from './GeorefMode.module.css'
 
@@ -434,13 +434,19 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
   }, [map, layers, isVisible, night])
 
   if (mode.check || !map || !base) return null
+  const phone = window.innerWidth <= 600 || (window.innerWidth > window.innerHeight && window.innerHeight <= 520)
   // ⚠️ The magnifier is up for the WHOLE of the map's turn, and it opens by itself on the map's
   // centre. Waiting for a pointer position meant waiting for a hover — which a touch screen never
   // sends, so on the one device this mode is built for the map loupe simply never appeared: you
   // placed the point and only afterwards saw what you had hit. Same rule as the plan half, which
   // opens on the middle of the sheet (GeorefMode · centreAim).
-  const aim = at ?? map.getCenter()
-  const size = window.innerWidth <= 600 ? 168 : 196
+  // ⚠️ On a phone the aim is the fixed RETICLE, not the map's centre — the tall mode card pushes
+  // the reticle well above centre, and a magnifier showing a different place than the mark you
+  // are about to commit is worse than none. (`peek`, never `place`: reading the resolver has no
+  // side effect, and the loupe must not commit anything.)
+  const phoneAt = phone ? peekGeorefPhoneTarget('map') as { lng: number; lat: number } | null : null
+  const aim = phoneAt ?? at ?? map.getCenter()
+  const size = phone ? 124 : 196
 
   const live = map.getZoom()
   const z = Math.max(0, Math.min(base.maxzoom, Math.round(live) + LOUPE_ZOOM_UP))
@@ -458,7 +464,7 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
   // paint the crop the way the MAP paints it — without this the night base magnifies to black
   const look = loupePaint(base.paint)
   return (
-    <div className={s.loupe} aria-hidden>
+    <div className={`${s.loupe} ${phone ? s.loupeCorner : ''}`} aria-hidden>
       <div
         className={s.plane}
         style={{

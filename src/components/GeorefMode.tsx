@@ -10,7 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { confirmDialog, toast } from '../lib/ui'
-import { beginTap, georefDispatch, georefLamp, georefPhoneTargetPoint, georefPlacing, georefPointNo, georefQueueNo, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type TapGesture } from '../lib/georefMode'
+import { beginTap, georefDispatch, georefLamp, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefPlacing, georefPointNo, georefQueueNo, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type TapGesture } from '../lib/georefMode'
 import { fitSimilarity } from '../lib/georef'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { GeorefPair, PlanPt } from '../lib/georef'
@@ -290,8 +290,38 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
       {armed && mode.want === 'plan' && aim && !panning && !isPhone && createPortal(
         <PlanLoupe aim={aim} sW={sW} sH={sH} boardRef={view.boardRef} />, document.body,
       )}
+      {/* …and on a PHONE the same magnifier, aimed at the fixed reticle rather than at a pointer
+          there is none of. It was dropped when the fixed-target workflow arrived, on the grounds
+          that a centred loupe was a second, ambiguous drag surface — true of a loupe UNDER the
+          finger, not of an inset in the corner. Without it the sheet is placed blind: at the
+          zoom where a whole Modul fits a phone screen, a house corner is three pixels wide. */}
+      {armed && mode.want === 'plan' && isPhone && createPortal(
+        <PhonePlanLoupe sW={sW} sH={sH} boardRef={view.boardRef} />, document.body,
+      )}
     </>
   )
+}
+
+/**
+ * The phone's plan magnifier: the same crop, aimed at the fixed reticle.
+ *
+ * ⚠️ Its own rAF lives HERE, not in the parent. The aim moves with every pan frame, and driving
+ * it from the surface that owns the sheet would re-render the whole plan tree once per frame —
+ * the shape of the battery bug this app has already paid for once (see MapView · onView). Only
+ * this 124px inset repaints.
+ */
+function PhonePlanLoupe({ sW, sH, boardRef }: { sW: number; sH: number; boardRef: React.RefObject<HTMLDivElement | null> }) {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    let raf = 0
+    const loop = () => { tick((n) => n + 1); raf = requestAnimationFrame(loop) }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  const pt = peekGeorefPhoneTarget('plan') as PlanPt | null
+  // off the sheet ⇒ nothing to magnify, and an empty circle would read as «nothing is there»
+  if (!pt) return null
+  return <PlanLoupe aim={{ pt }} sW={sW} sH={sH} boardRef={boardRef} corner />
 }
 
 /**
@@ -302,7 +332,7 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
  * zoom makes it soft (the bake is sized for the viewport, not for ×4), which is the honest
  * trade: a soft magnifier that always matches beats a sharp one that lags.
  */
-function PlanLoupe({ aim, sW, sH, boardRef }: { aim: Aim; sW: number; sH: number; boardRef: React.RefObject<HTMLDivElement | null> }) {
+function PlanLoupe({ aim, sW, sH, boardRef, corner = false }: { aim: Aim; sW: number; sH: number; boardRef: React.RefObject<HTMLDivElement | null>; corner?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
@@ -325,7 +355,7 @@ function PlanLoupe({ aim, sW, sH, boardRef }: { aim: Aim; sW: number; sH: number
   }, [aim, sW, sH, boardRef])
 
   return (
-    <div className={s.loupe} aria-hidden>
+    <div className={`${s.loupe} ${corner ? s.loupeCorner : ''}`} aria-hidden>
       <canvas ref={ref} style={{ width: '100%', height: '100%' }} />
       <span className={s.xh} />
       <span className={s.ring} />
@@ -405,10 +435,15 @@ function georefPrompt(mode: GeorefModeState) {
     // The examples teach the first two pairs; by point eight they are repeated prose between
     // the operator and the buttons. Once the gesture is established, keep only destination +
     // progress in the mode bar.
-    hint: mode.edit ? undefined : onMap ? C.promptMapHint : mode.pairs.length < 2 ? C.promptPlanHint : undefined,
-    // …and the one line under it that says what happens NEXT. The prompt says where to tap; a
-    // first-timer's actual question is «and then?», which used to have no answer anywhere.
-    sub: mode.edit ? C.subRe : onMap ? C.subMap : C.subPlan,
+    // ⚠️ ONE line under the title, never two. The prompt used to stack its own hint and a «what
+    // happens next» line, which on the first point read «Möglichst weit vom letzten Punkt
+    // entfernt · Ruhig weit hineinzoomen» — two sentences, of which the first is about a point
+    // that does not exist yet. The specific advice wins where there IS any; otherwise the line
+    // says what happens after this tap, which is the question a first-timer actually has.
+    // ⚠️ «weit vom letzten Punkt» only once there IS a last point.
+    hint: mode.edit ? C.subRe
+      : onMap ? (mode.pairs.length ? C.promptMapHint : C.subMap)
+      : mode.pairs.length < 2 ? C.promptPlanHint : C.subPlan,
     // «3 Paare gesetzt · 2 offen» — what stands, and what is still waiting to be matched
     status: [
       mode.pairs.length === 0 ? C.barNone
@@ -607,7 +642,6 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
         <span className={s.sayText}>
           <b>{p.title}</b>
           {p.hint && <i>{p.hint}</i>}
-          {!mode.check && <i>{p.sub}</i>}
         </span>
       </div>
       {/* On a phone the two surfaces are part of this one task, so their switch belongs inside
