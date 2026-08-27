@@ -176,8 +176,8 @@ curl -s http://127.0.0.1:8000/api/auth/roster    # must NOT be []
 ```
 
 `/ready` only knows about the database and the storage volume. It cannot tell you whether an
-account exists, and there is a released image where that is exactly what goes wrong: in **v0.6.0**
-– the newest published release, and therefore what `latest` pulls today – seeding runs inside a
+account exists, and there is an old released image where that is exactly what goes wrong: in
+**v0.6.0**, seeding runs inside a
 `try/except`, so a `SEED_PIN` the backend refuses is logged as *"Seeding failed (continuing)"* and
 the deployment **comes up green with an empty roster**. Every container healthy, `/ready` ok, and
 a login screen with nobody on it.
@@ -189,7 +189,7 @@ right now depending on which image you run, so recognise either:
 | What you see | Which image | What it is |
 | --- | --- | --- |
 | The `app` container restarting forever, logs say *"SEED_PIN is required in production"* | working tree / anything after v0.6.0 | The refusal, working as intended |
-| Everything healthy, `/ready` ok, `/api/auth/roster` returns `[]` | v0.6.0 / `latest` | The same cause, silently swallowed |
+| Everything healthy, `/ready` ok, `/api/auth/roster` returns `[]` | old v0.6.0 image | The same cause, silently swallowed |
 
 Same fix for both: a six-digit `SEED_PIN` in `.env` that is not one of the well-known ones, then
 `docker compose up -d --force-recreate app`. `setup.sh` performs this roster check itself – it

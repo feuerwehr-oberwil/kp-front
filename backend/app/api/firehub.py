@@ -42,7 +42,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audit
-from ..alarms import create_incident_from_alarm, find_by_source_ref
+from ..alarms import create_incident_from_alarm, find_by_source_ref, lock_alarm_identity
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import get_db
@@ -95,6 +95,7 @@ async def webhook(
 
 async def _handle_start(db: AsyncSession, payload: FireHubWebhook, source_id: str) -> dict:
     """Auto-open an incident from an Einsatzstart, deduping on (source, opsID)."""
+    await lock_alarm_identity(db, SOURCE, source_id)
     existing = await find_by_source_ref(db, SOURCE, source_id)
     if existing is not None:
         logger.info("Duplicate FireHub alarm ignored: firehub:%s", source_id)

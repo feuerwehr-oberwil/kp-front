@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
-from jose import JWTError
+from jwt import InvalidTokenError as JWTError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -96,19 +96,28 @@ async def refresh(
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Falscher Token-Typ")
 
-    # Honour logout/revocation: a refresh token whose JTI is blocklisted must not mint
-    # new access cookies (otherwise logout could be bypassed until the 7-day expiry).
     jti = payload.get("jti")
-    if jti and await token_blocklist.is_revoked(jti):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh-Token widerrufen")
+    exp = payload.get("exp")
+    if not isinstance(jti, str) or not jti or not isinstance(exp, (int, float)):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Refresh-Token")
 
-    user = (await db.execute(select(User).where(User.id == uuid.UUID(payload["sub"])))).scalar_one_or_none()
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except (KeyError, TypeError, ValueError) as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Refresh-Token") from e
+
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzer inaktiv")
 
-    # Rotate: revoke the presented refresh token and issue a fresh access + refresh pair,
-    # so a leaked refresh token can't be replayed after the legitimate client refreshes.
-    await revoke_token(refresh_token)
+    # Atomically consume before rotating. A check followed by a separate revoke lets two
+    # concurrent requests both pass the check and each mint a valid successor token.
+    try:
+        expires_at = datetime.fromtimestamp(exp, tz=UTC)
+    except (OverflowError, OSError, ValueError) as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Refresh-Token") from e
+    if not await token_blocklist.consume(jti, expires_at):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh-Token widerrufen")
     claims = _claims(user)
     set_auth_cookies(response, create_access_token(claims), create_refresh_token(claims))
     return user

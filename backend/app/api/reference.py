@@ -189,6 +189,7 @@ async def replace_reference(
 
     key = storage.new_key("reference", f"-{dataset_id.replace(':', '_')}")
     storage.put_bytes(key, data)
+    storage.replaced_in_transaction(db, new_key=key, old_key=ds.storage_key if ds is not None else None)
 
     if ds is None:
         ds = ReferenceDataset(id=dataset_id, kind=kind)
@@ -221,7 +222,7 @@ async def prune_checklists(keep: list[str], _admin: CurrentAdmin, db: AsyncSessi
     for ds in rows:
         if ds.id not in keepset:
             if ds.storage_key:
-                storage.delete(ds.storage_key)
+                storage.delete_after_commit(db, ds.storage_key)
             await db.delete(ds)
             pruned.append(ds.id)
     return {"pruned": pruned}

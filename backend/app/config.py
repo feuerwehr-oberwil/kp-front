@@ -257,14 +257,15 @@ class Settings(BaseSettings):
 
     # Dead-man's-switch: if set to a healthchecks.io / cron-monitor ping URL, a 60 s scheduler
     # job GETs it — the monitor alerts if the pings ever stop (app/scheduler silently dead).
-    # Unset → the heartbeat job isn't scheduled.
+    # Unset → the unconditionally registered job returns without making a request.
     healthcheck_ping_url: str = ""
 
     # --- Public demo auto-reset (DEMO ONLY) ---
     # If > 0, an in-process scheduler job wipes + reseeds the synthetic Musterdorf incident/roster
     # on this cadence (7200 = every 2 h), so the public demo self-cleans reliably regardless of
-    # GitHub Actions cron delays/skips. DESTRUCTIVE — it wipes ALL incidents/roster/objects — so
-    # it's fail-closed: unset/0 → the job isn't scheduled, and a real station must never set it.
+    # GitHub Actions cron delays/skips. DESTRUCTIVE — it wipes ALL incidents and roster rows — so
+    # it is fail-closed twice: unset/0 means no job, and demo_reset.reset separately requires
+    # KP_DEMO_RESET=1 before opening a DB session. A real station must never set any of them.
     # The GitHub demo-reset workflow still handles the static config/geodata/objects reload.
     demo_reset_seconds: int = 0
     # Preferred over demo_reset_seconds: a crontab expression (Europe/Zurich) for the daily hard

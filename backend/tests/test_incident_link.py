@@ -30,8 +30,8 @@ import re
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import jwt
 import pytest
-from jose import jwt
 from sqlalchemy import select
 
 from app import storage
@@ -39,7 +39,7 @@ from app.auth.cookies import ACCESS_COOKIE
 from app.auth.incident_link import LINK_ALLOWED, LINK_COOKIE, LINK_TOKEN_TYPE
 from app.models import DeploymentConfig, Incident, Media
 
-MINT_KEY = "link-mint-key-0123456789"  # gitleaks:allow
+MINT_KEY = "link-mint-key-0123456789-at-least-32-bytes"  # gitleaks:allow
 SRC, REF = "divera", "alarm-4711"
 
 #: The SPA shell. On the allowlist, but never in the OpenAPI spec (include_in_schema=False).
@@ -125,7 +125,7 @@ async def test_exchange_fails_closed_without_key(client, incident):
 @pytest.mark.parametrize(
     "token_kwargs, key",
     [
-        pytest.param({}, "a-different-key-entirely", id="bad-signature"),
+        pytest.param({}, "a-different-key-entirely-with-32-bytes", id="bad-signature"),
         pytest.param({"ttl": timedelta(minutes=-5)}, MINT_KEY, id="expired"),
         pytest.param({"type": "access"}, MINT_KEY, id="wrong-type-claim"),
         pytest.param({"src": ...}, MINT_KEY, id="missing-src"),
@@ -712,7 +712,7 @@ async def test_rotating_ends_sessions_that_are_already_open(client, db_session, 
     # test is about the guard, and a client holding an admin cookie alongside its link one
     # would have the link session stood aside for a different reason.
     row = await _config_row(db_session)
-    row.incident_link_key = "rotated-to-something-else"
+    row.incident_link_key = "rotated-to-something-else-at-least-32-bytes"
     await db_session.commit()
 
     after = await client.get(f"/api/incidents/{incident.id}")

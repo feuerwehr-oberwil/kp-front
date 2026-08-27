@@ -12,6 +12,7 @@ remaining «no» is the split-dispatch guard. The sweep archives only auto-opene
 nobody ever touched.
 """
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -87,6 +88,20 @@ async def test_intake_is_idempotent_on_source_id(client, alarm_secret, db_sessio
     assert r2.json() == {"incident_id": r1.json()["incident_id"], "created": False}
     n = (await db_session.execute(select(Incident))).scalars().all()
     assert len(n) == 1
+
+
+async def test_concurrent_generic_delivery_creates_one_incident(client, alarm_secret, db_session):
+    """The unique-index loser gets an idempotent reply, not an IntegrityError/500."""
+    first, second = await asyncio.gather(
+        client.post("/api/alarms?secret=alarm-secret-123", json=PAYLOAD),
+        client.post("/api/alarms?secret=alarm-secret-123", json=PAYLOAD),
+    )
+
+    assert sorted([first.status_code, second.status_code]) == [200, 201]
+    assert first.json()["incident_id"] == second.json()["incident_id"]
+    assert sorted([first.json()["created"], second.json()["created"]]) == [False, True]
+    rows = (await db_session.execute(select(Incident))).scalars().all()
+    assert len(rows) == 1
 
 
 async def test_intake_accepts_kp_ruecks_payload(client, alarm_secret, db_session):
@@ -189,6 +204,32 @@ async def test_divera_webhook_opens_the_incident(client, webhook_secret, db_sess
     em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4712))).scalar_one()
     assert em.is_taken is True
     assert em.taken_incident_id == inc.id
+
+
+async def test_concurrent_divera_delivery_claims_and_pushes_once(client, webhook_secret, db_session, monkeypatch):
+    from app import push
+
+    monkeypatch.setattr(push, "push_enabled", lambda: True)
+    pushes: list[str] = []
+
+    async def fake_broadcast(_db, **kwargs):
+        pushes.append(kwargs["tag"])
+        return 1
+
+    monkeypatch.setattr(push, "broadcast", fake_broadcast)
+    first, second = await asyncio.gather(
+        client.post("/api/divera/webhook?secret=hook-secret-123", json=DIVERA_PAYLOAD),
+        client.post("/api/divera/webhook?secret=hook-secret-123", json=DIVERA_PAYLOAD),
+    )
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    assert first.status_code == second.status_code == 200
+    assert sorted([first.json()["new"], second.json()["new"]]) == [False, True]
+    assert first.json()["incident_id"] or second.json()["incident_id"]
+    assert len((await db_session.execute(select(DiveraEmergency))).scalars().all()) == 1
+    assert len((await db_session.execute(select(Incident))).scalars().all()) == 1
+    assert pushes == ["divera-4712"]
 
 
 async def test_divera_auto_open_ignores_the_retired_config_flags(client, webhook_secret, db_session):

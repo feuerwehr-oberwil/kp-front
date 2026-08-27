@@ -22,10 +22,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .config import settings
 from .models import DeploymentConfig, Incident, JournalEntry, PushSubscription
+from .transaction_hooks import after_commit
 
 logger = logging.getLogger(__name__)
 
@@ -115,10 +116,12 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
 
 
 #: Per-endpoint push timeout. pywebpush hands this to requests; without it the default is
-#: None, i.e. wait forever. That matters because `notify_new_alarm` is awaited INLINE in the
-#: Divera webhook and the generic intake — one unreachable FCM/Mozilla endpoint could hang
-#: the alarm itself, and an alarm that never lands is the worst failure this system has.
+#: None, i.e. wait forever. New-alarm delivery is detached after the intake COMMIT, but due
+#: alarm sweeps still await a broadcast; every path needs a finite upper bound.
 PUSH_TIMEOUT_SECONDS = 10
+
+# Strong references to post-commit tasks. asyncio itself holds only weak references.
+_inflight: set[asyncio.Task] = set()
 
 
 def _send_one(sub: dict, payload: str) -> bool:
@@ -187,21 +190,43 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target
 async def notify_new_alarm(
     db: AsyncSession, *, tag: str, title: str, address: str | None, target: str | None = "divera"
 ) -> int:
-    """Immediate "Neuer Einsatz" push when a NEW alarm lands (Divera webhook/poll or the
-    generic intake) — reaches subscribed browsers even when the PWA is killed. Best-effort:
-    a push failure must never break the intake path. No-op without VAPID keys."""
+    """Queue a "Neuer Einsatz" push after the alarm transaction commits.
+
+    Delivery uses a fresh session, so dead-subscription pruning is committed independently
+    and no task retains the request session. Returns 1 when queued, 0 when push is disabled.
+    """
     if not push_enabled():
         return 0
+    body = " — ".join(p for p in (title, address) if p) or "Alarmeingang"
+    # Bind the fresh session to the caller's engine. This is the application engine in
+    # production and the isolated engine under tests.
+    factory = async_sessionmaker(db.bind, class_=AsyncSession, expire_on_commit=False, autoflush=False)
+
+    def schedule() -> None:
+        task = asyncio.create_task(
+            _broadcast_committed(factory, title="Neuer Einsatz", body=body, tag=tag, target=target)
+        )
+        _inflight.add(task)
+        task.add_done_callback(_inflight.discard)
+
+    after_commit(db, schedule)
+    return 1
+
+
+async def _broadcast_committed(
+    factory: async_sessionmaker[AsyncSession], *, title: str, body: str, tag: str, target: str | None
+) -> None:
+    """Best-effort post-commit delivery with independent dead-endpoint pruning."""
     try:
-        body = " — ".join(p for p in (title, address) if p) or "Alarmeingang"
-        # target "divera": a tap routes the app to the intake pool (sw-notify.js → App), so
-        # the operator lands one tap from taking the alarm. When the incident was already
-        # auto-opened there is nothing to take — target None just focuses/boots the app,
-        # whose cold-start pick then lands on the newest alarm incident.
-        return await broadcast(db, title="Neuer Einsatz", body=body, tag=tag, target=target)
-    except Exception:
+        async with factory() as send_db:
+            # Refresh runtime-settable VAPID values before the blocking sender reads them.
+            from .credentials import load
+
+            await load(send_db)
+            await broadcast(send_db, title=title, body=body, tag=tag, target=target)
+            await send_db.commit()
+    except Exception:  # push must never affect already-committed intake
         logger.exception("New-alarm push failed (%s)", tag)
-        return 0
 
 
 # ---------------------------------------------------------------------------------------

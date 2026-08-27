@@ -11,7 +11,7 @@ from sqlalchemy.orm import defer
 
 from .. import audit, live_wait, storage
 from ..alarms import is_demo_deployment
-from ..auth.dependencies import CurrentEditor, CurrentUser, UserOrAdmin, _admin_session_valid
+from ..auth.dependencies import CurrentEditor, CurrentUser, EditorOrAdmin, UserOrAdmin, _admin_session_valid
 from ..database import execute_dml, get_db
 from ..geocode import geocode
 from ..models import Incident
@@ -362,18 +362,24 @@ async def patch_incident(
 @router.delete("/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_incident(
     incident_id: uuid.UUID,
-    _user: CurrentEditor,
+    _actor: EditorOrAdmin,
     db: AsyncSession = Depends(get_db),
     admin_session: str | None = Cookie(default=None),
 ) -> None:
     """Hard delete. Child rows (journal, audit chain, people, media, snapshots) go via FK CASCADE;
-    their storage blobs are removed best-effort first.
+    their storage blobs are removed best-effort after the database commit.
 
     TWO doors, because they answer different questions:
 
     · **Übungen** — any editor, any time. An exercise is not an operational record; it exists to
       be thrown away, and needing an admin for it would make the tidy-up cost more than the
-      exercise.
+      exercise. That is the whole point of the flag, and a Wehr that cannot clear its own
+      practice runs stops marking them as practice runs. A viewer still cannot (403).
+
+    ⚠️ The door is ``EditorOrAdmin``, not ``CurrentEditor``: the Verwaltung's own incident list
+      offers this button, and /admin is reached with an ADMIN cookie that need not be
+      accompanied by an editor login. Requiring both made that control fail for exactly the
+      person the Verwaltung exists for.
 
     · **Real Einsätze** — an ADMIN session, and only once the Einsatz is ARCHIVED. Deleting one
       destroys an Einsatzakte: the Verlauf, the hash-chained audit trail, the Anwesenheit, every
@@ -412,7 +418,9 @@ async def delete_incident(
         ).scalars()
     )
     for key in keys:
-        storage.delete(key)
-        storage.delete(key + ".peaks.json")  # cached waveform peaks ride next to the blob
+        storage.delete_after_commit(db, key)
+        # Cached waveform peaks ride next to the blob. It is harmless to queue the key for
+        # photos/snapshots too: delete is deliberately idempotent for absent files.
+        storage.delete_after_commit(db, key + ".peaks.json")
     await db.delete(inc)
     await db.flush()

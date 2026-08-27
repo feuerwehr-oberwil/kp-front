@@ -35,6 +35,7 @@ from . import audit
 from .alarm_keywords import SHIPPED, InvalidVocabularyError, Vocabulary, parse
 from .config import settings
 from .credentials import get as credential
+from .database import dialect_insert
 from .models import DiveraEmergency, Incident
 from .push import notify_new_alarm
 from .schemas import DiveraWebhookPayload
@@ -226,46 +227,55 @@ async def upsert_emergency(db: AsyncSession, payload: DiveraWebhookPayload) -> D
     Returns the row if a *new* alarm was created, None for a known one (an update to a
     known alarm refreshes fields but is never a second alarm — dedupe by divera_id).
     """
-    existing = (
-        await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == payload.id))
+    from .alarms import lock_alarm_identity  # lazy — alarms imports this module's classifiers
+
+    await lock_alarm_identity(db, "divera", str(payload.id))
+    values = {
+        "divera_id": payload.id,
+        "divera_number": payload.number,
+        "title": payload.title or "(ohne Titel)",
+        "text": payload.text,
+        "address": payload.address,
+        "lat": payload.lat,
+        "lng": payload.lng,
+        "ts_create": payload.ts_create,
+        "ts_update": payload.ts_update,
+        "raw_payload_json": payload.model_dump(),
+    }
+    inserted_id = (
+        await db.execute(
+            dialect_insert(db)(DiveraEmergency)
+            .values(**values)
+            .on_conflict_do_nothing(index_elements=["divera_id"])
+            .returning(DiveraEmergency.id)
+        )
     ).scalar_one_or_none()
+    if inserted_id is not None:
+        # Only the transaction that atomically claimed this Divera id may auto-open or push.
+        return await db.get(DiveraEmergency, inserted_id)
 
-    if existing is not None:
-        # `is_taken` used to mean «a human decided to work this», which is why a taken row
-        # was frozen against later Divera edits. Since alarms auto-open on arrival
-        # (2026-08-02) every row is taken within seconds, and freezing on it would mean a
-        # pool row could never be refreshed again — a corrected address from the dispatch
-        # centre would simply never arrive. The question the guard actually wants to ask is
-        # whether a person has worked the Einsatz, and `editor_opened_at` is what answers
-        # that now. Until someone has, the mirror keeps mirroring.
-        worked = await _incident_is_confirmed(db, existing.taken_incident_id)
-        if payload.ts_update and (existing.ts_update or 0) < payload.ts_update and not worked:
-            existing.title = payload.title or existing.title
-            existing.text = payload.text
-            existing.address = payload.address
-            existing.lat = payload.lat
-            existing.lng = payload.lng
-            # ts_create is the alarm's birth time — an update never moves it, it only fills
-            # it in for a row that arrived before the sender started sending it.
-            existing.ts_create = existing.ts_create or payload.ts_create
-            existing.ts_update = payload.ts_update
-            existing.raw_payload_json = payload.model_dump()
-        return None
+    existing = (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == payload.id))).scalar_one()
 
-    em = DiveraEmergency(
-        divera_id=payload.id,
-        divera_number=payload.number,
-        title=payload.title or "(ohne Titel)",
-        text=payload.text,
-        address=payload.address,
-        lat=payload.lat,
-        lng=payload.lng,
-        ts_create=payload.ts_create,
-        ts_update=payload.ts_update,
-        raw_payload_json=payload.model_dump(),
-    )
-    db.add(em)
-    return em
+    # `is_taken` used to mean «a human decided to work this», which is why a taken row
+    # was frozen against later Divera edits. Since alarms auto-open on arrival
+    # (2026-08-02) every row is taken within seconds, and freezing on it would mean a
+    # pool row could never be refreshed again — a corrected address from the dispatch
+    # centre would simply never arrive. The question the guard actually wants to ask is
+    # whether a person has worked the Einsatz, and `editor_opened_at` is what answers
+    # that now. Until someone has, the mirror keeps mirroring.
+    worked = await _incident_is_confirmed(db, existing.taken_incident_id)
+    if payload.ts_update and (existing.ts_update or 0) < payload.ts_update and not worked:
+        existing.title = payload.title or existing.title
+        existing.text = payload.text
+        existing.address = payload.address
+        existing.lat = payload.lat
+        existing.lng = payload.lng
+        # ts_create is the alarm's birth time — an update never moves it, it only fills
+        # it in for a row that arrived before the sender started sending it.
+        existing.ts_create = existing.ts_create or payload.ts_create
+        existing.ts_update = payload.ts_update
+        existing.raw_payload_json = payload.model_dump()
+    return None
 
 
 async def open_emergency(db: AsyncSession, em: DiveraEmergency) -> Incident:

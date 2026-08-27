@@ -8,7 +8,6 @@ import { vertexHandleIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
 
 const COLORS = appConfig.drawing.colors
-const NOTES = appConfig.copy.notes
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
 
 interface InkProps {
@@ -238,6 +237,8 @@ interface DocksProps {
  * the post-draw editor, not here.
  */
 export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
+  // Read copy per render: the deployment locale is resolved after modules are imported.
+  const NOTES = appConfig.copy.notes
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
   return (
     <>

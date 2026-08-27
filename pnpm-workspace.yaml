@@ -1,0 +1,4 @@
+overrides:
+  # jsPDF pulls DOMPurify transitively. Keep the patched floor here rather than in
+  # package.json: pnpm 10 ignores the legacy package.json `pnpm.overrides` field.
+  dompurify: ">=3.4.13"

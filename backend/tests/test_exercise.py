@@ -102,6 +102,7 @@ async def test_admin_cannot_delete_a_running_real_incident(client, editor, admin
 
 
 async def test_delete_exercise_removes_it(client, editor):
+    """An Übung is disposable by any editor, archived or not — no admin key for a scratch pad."""
     await _login(client, editor)
     inc_id = await _create(client, "Übung Magazin", exercise=True)
 
@@ -113,6 +114,7 @@ async def test_delete_exercise_removes_it(client, editor):
 
 
 async def test_viewer_cannot_delete(client, editor, viewer):
+    """Disposable is not the same as unguarded: deletion is an EDITOR door, never a viewer's."""
     await _login(client, editor)
     inc_id = await _create(client, "Übung Hydrant", exercise=True)
 

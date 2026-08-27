@@ -78,6 +78,12 @@ to prod.
   their actual text/value, because the Rapport is read on paper where nothing can be clicked. The
   row is also the ONE string the Verlauf, the Rapport and the hash chain all read – so a re-shown
   reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
+  The one accepted maintenance exception is whole-incident hard deletion through `/admin`:
+  `DELETE /api/incidents/{id}` is deployment-admin-only, and a real Einsatz must already be
+  archived (an Übung may be deleted in any state). It deliberately removes the full record and
+  its audit chain, so do not widen this to editors, individual production rows, or a mutable
+  history shortcut. Revisit external deletion evidence/retention policy before offering managed
+  hosting; the current trust boundary is one station operating its own deployment.
 - **Two kinds of settings:** per-device preferences (cookie/Preferences) vs. synced
   per-incident state (workspace blob). Both live in the Einstellungen sheet – pick the right
   one for a new setting.

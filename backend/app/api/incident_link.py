@@ -26,8 +26,9 @@ so a link nobody at the station ever worked never reaches the statistics.
 
 import secrets
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from jose import JWTError, jwt
+from jwt import InvalidTokenError as JWTError
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,7 +78,10 @@ async def rotate_link_key(_admin: CurrentAdmin, db: AsyncSession = Depends(get_d
     """Mint a fresh minting key — every link already sent out stops working at once, so the
     alerting system has to be reconfigured with the new one in the same breath."""
     row = await _config_row(db)
-    row.incident_link_key = secrets.token_urlsafe(18)
+    # HS256 requires at least 256 bits of key material (RFC 7518 §3.2). Older releases
+    # minted 18 bytes; those keys remain valid for compatibility, while every rotation now
+    # meets the full requirement.
+    row.incident_link_key = secrets.token_urlsafe(32)
     await db.flush()
     return {"configured": True, "token": row.incident_link_key}
 

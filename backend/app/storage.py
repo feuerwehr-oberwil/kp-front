@@ -8,12 +8,15 @@ module's internals for R2/S3 at scale without touching callers.
 import contextlib
 import os
 import shutil
+import tempfile
 import uuid
 from collections.abc import AsyncIterator
 
 import anyio
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
+from .transaction_hooks import after_commit, after_rollback
 
 _ROOT = os.path.abspath(settings.media_storage_dir)
 
@@ -94,6 +97,24 @@ def delete(key: str) -> None:
         os.remove(_full(key))
 
 
+def created_in_transaction(db: AsyncSession, key: str) -> None:
+    """Remove a newly written blob if the SQL row pointing at it does not commit."""
+    after_rollback(db, lambda: delete(key))
+
+
+def delete_after_commit(db: AsyncSession, key: str | None) -> None:
+    """Remove an obsolete blob only once the SQL row stopped pointing at it."""
+    if key:
+        after_commit(db, lambda: delete(key))
+
+
+def replaced_in_transaction(db: AsyncSession, *, new_key: str, old_key: str | None) -> None:
+    """Track both halves of replacing a blob referenced by a database row."""
+    created_in_transaction(db, new_key)
+    if old_key and old_key != new_key:
+        delete_after_commit(db, old_key)
+
+
 def local_path(key: str) -> str:
     """Absolute path for FileResponse streaming."""
     return _full(key)
@@ -116,7 +137,10 @@ def probe_writable() -> None:
     so an unmounted volume, read-only mount, or full disk fails instead of passing on a mere
     directory check. Raises on failure."""
     os.makedirs(_ROOT, exist_ok=True)
-    path = os.path.join(_ROOT, ".readycheck")
-    with open(path, "wb") as fh:
-        fh.write(b"ok")
-    os.remove(path)
+    fd, path = tempfile.mkstemp(prefix=".readycheck-", dir=_ROOT)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(b"ok")
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(path)

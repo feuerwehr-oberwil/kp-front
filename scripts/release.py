@@ -3,7 +3,7 @@
 
     python3 scripts/release.py 0.3.0        # or: just release 0.3.0
 
-Touches five files and NOTHING else – no staging, no commit, no tag (this repo keeps
+Touches six files and NOTHING else – no staging, no commit, no tag (this repo keeps
 uncommitted WIP around, so the script never reaches into git). Review the diff, then:
 
     just release-tag 0.3.0

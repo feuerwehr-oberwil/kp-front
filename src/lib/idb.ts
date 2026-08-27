@@ -40,10 +40,6 @@ let idbUnavailable = false
 // worse than a visible crash. Callers now get a boolean and the UI can say so.
 let degraded = false
 const degradedListeners = new Set<(d: boolean) => void>()
-/** keys whose localStorage fallback is known hopeless (payload exceeds the ~5 MB budget), so we
- *  stop paying a large, doomed JSON.stringify on every debounced save. Cleared on any success. */
-const noFallback = new Set<string>()
-
 function setDegraded(v: boolean) {
   if (degraded === v) return
   degraded = v
@@ -84,7 +80,7 @@ export async function requestPersistentStorage(): Promise<boolean> {
 
 function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise
-  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+  const opening = new Promise<IDBDatabase>((resolve, reject) => {
     let req: IDBOpenDBRequest
     try {
       req = indexedDB.open(DB_NAME, DB_VERSION)
@@ -100,8 +96,13 @@ function openDb(): Promise<IDBDatabase> {
     req.onerror = () => reject(req.error)
     req.onblocked = () => reject(new Error('idb blocked'))
   })
-  // Mark IDB unavailable on a failed open so subsequent calls skip straight to the fallback.
-  dbPromise.catch(() => { idbUnavailable = true })
+  // Set this in the promise callers await, rather than a detached catch handler. The first
+  // operation that observes the failed open must choose the same fallback namespace as every
+  // subsequent operation.
+  dbPromise = opening.catch((error) => {
+    idbUnavailable = true
+    throw error
+  })
   return dbPromise
 }
 
@@ -111,52 +112,63 @@ function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequ
       new Promise<T>((resolve, reject) => {
         const t = db.transaction(STORE, mode)
         const req = run(t.objectStore(STORE))
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error)
+        let result!: T
+        let requestError: DOMException | null = null
+
+        // A request succeeding only means it was accepted by the transaction. The transaction
+        // can still abort afterwards (quota, I/O failure, another request), rolling the write
+        // back. Resolve only from oncomplete so `idbSet(...).then(true)` means committed.
+        req.onsuccess = () => { result = req.result }
+        req.onerror = () => { requestError = req.error }
+        t.oncomplete = () => requestError ? reject(requestError) : resolve(result)
+        t.onerror = () => reject(t.error ?? requestError ?? new Error('IndexedDB transaction failed'))
+        t.onabort = () => reject(t.error ?? requestError ?? new Error('IndexedDB transaction aborted'))
       }),
   )
 }
 
 // --- localStorage fallback (JSON, since localStorage is string-only) -----------------
 //
-// TWO distinct fallback situations, deliberately kept in separate key spaces:
-//
-//  1. IndexedDB won't OPEN at all (Safari private mode, locked-down WebView). localStorage then
-//     IS the store, under the PLAIN key — the same key the value used before the IDB migration,
-//     so the degraded path stays continuous with pre-migration data.
-//  2. IndexedDB opened but a TRANSACTION failed (quota). Here IDB still holds an older copy, so
-//     the fallback is a side-store and must not be mistaken for the real thing. It goes under
-//     FB_PREFIX. That namespace matters: `idbGet` consults this on an empty read (so the copy is
-//     still found after a reload), and without the prefix it would happily return unrelated
-//     localStorage entries — the device prefs that live there ON PURPOSE and were never migrated.
+// Every new fallback write uses one namespaced key, whether IndexedDB failed to open or a
+// transaction aborted. Older versions used the plain key when IDB could not open; reads retain
+// that path only as a legacy last resort. Keeping new writes in one namespace avoids a first-call
+// race and makes the source of truth deterministic across reloads and changing browser modes.
 const FB_PREFIX = 'kp-idb-fb:'
 
-/** Which key space a localStorage fallback belongs in. Read INSIDE the failure path, never
- *  cached: the very first call after a failed open enters the try with `idbUnavailable` still
- *  false and only learns the truth in its catch, and writing that one value under the prefix
- *  while every later read looked for the plain key would silently strand it. */
-const fbKey = (key: string) => (idbUnavailable ? key : FB_PREFIX + key)
+type LocalValue<T> = { found: true; value: T } | { found: false }
 
-const lsGet = <T>(key: string): T | null => {
+const lsRead = <T>(key: string): LocalValue<T> => {
   try {
     const raw = localStorage.getItem(key)
-    return raw == null ? null : (JSON.parse(raw) as T)
+    return raw == null ? { found: false } : { found: true, value: JSON.parse(raw) as T }
   } catch {
-    return null
+    return { found: false }
   }
+}
+const lsGet = <T>(key: string): T | null => {
+  const read = lsRead<T>(key)
+  return read.found ? read.value : null
 }
 /** Returns whether the value actually landed. A workspace blob normally will NOT fit (see the
  *  header: ~5 MB is too small for one), which is precisely why the caller must know. */
 const lsSet = (key: string, value: unknown): boolean => {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    const encoded = JSON.stringify(value)
+    if (encoded === undefined) return false
+    localStorage.setItem(key, encoded)
     return true
   } catch {
     return false
   }
 }
-const lsDel = (key: string): void => {
-  try { localStorage.removeItem(key) } catch { /* ignore */ }
+const lsDel = (key: string): boolean => {
+  try {
+    localStorage.removeItem(key)
+    return localStorage.getItem(key) == null
+  } catch {
+    // If localStorage is unavailable, it cannot outrank the committed IDB value on reads either.
+    return true
+  }
 }
 
 // --- Public API: async, structured-clone values, transparent fallback ----------------
@@ -164,16 +176,22 @@ const lsDel = (key: string): void => {
 /** Read a value (structured-clone object), or null if absent. Never rejects — a storage
  *  failure resolves to null so callers degrade gracefully (the same shape as a cache miss). */
 export async function idbGet<T>(key: string): Promise<T | null> {
-  if (idbUnavailable) return lsGet<T>(key)
+  // A fallback write is canonical until a later IDB transaction commits and removes it. Check
+  // it first even when IDB is available: a previous attempt may have committed its request and
+  // then aborted, leaving an older IDB value that must never outrank the fallback.
+  const fallback = lsRead<T>(FB_PREFIX + key)
+  if (fallback.found) return fallback.value
+  if (idbUnavailable) return lsGet<T>(key) // legacy failed-open namespace
   try {
     const v = await tx<T | undefined>('readonly', (s) => s.get(key) as IDBRequest<T | undefined>)
-    // An EMPTY IndexedDB read must still consult the quota fallback. A failed transaction routes
-    // that write to localStorage, and after a reload nothing in memory remembers which keys — so
-    // the old "only fall back when the READ throws" rule made the fallback write-only: the copy
-    // was stored and then never found again.
-    return v === undefined ? lsGet<T>(fbKey(key)) : v
+    const concurrentFallback = lsRead<T>(FB_PREFIX + key)
+    if (concurrentFallback.found) return concurrentFallback.value
+    return v === undefined ? null : v
   } catch {
-    return lsGet<T>(key)
+    // Re-read in case a concurrent failed write installed the canonical fallback while the IDB
+    // read was in flight. The plain key is consulted only after a failed database open.
+    const retryFallback = lsRead<T>(FB_PREFIX + key)
+    return retryFallback.found ? retryFallback.value : (idbUnavailable ? lsGet<T>(key) : null)
   }
 }
 
@@ -185,40 +203,36 @@ export async function idbGet<T>(key: string): Promise<T | null> {
  * memory and dies with the tab.
  */
 export async function idbSet(key: string, value: unknown): Promise<boolean> {
-  if (idbUnavailable) {
-    const ok = lsSet(key, value)
-    if (!ok) setDegraded(true)
-    return ok
-  }
-  try {
-    await tx('readwrite', (s) => s.put(value, key))
-    noFallback.delete(key)
-    setDegraded(false) // a successful write clears the condition
-    return true
-  } catch {
-    // The transaction failed — quota being the realistic cause. IndexedDB still holds the
-    // PREVIOUS value for this key, so doing nothing here is what produced the silent stale read.
-    if (noFallback.has(key)) { setDegraded(true); return false }
-    if (!lsSet(fbKey(key), value)) {
-      noFallback.add(key) // too big for localStorage; stop re-stringifying it every save
-      setDegraded(true)
-      return false
-    }
-    // The fallback copy is now NEWER than the IndexedDB one. Drop the stale IDB entry so reads
-    // resolve to exactly one source of truth (idbGet consults localStorage on an empty read).
+  if (!idbUnavailable) {
     try {
-      await tx('readwrite', (s) => s.delete(key))
+      await tx('readwrite', (s) => s.put(value, key))
+      // The commit is now the source of truth. Stale fallback data must not survive to outrank it
+      // on this or a later page load. The plain key is an old failed-open fallback namespace.
+      const clearedFallback = lsDel(FB_PREFIX + key)
+      const clearedLegacy = lsDel(key)
+      if (!clearedFallback || !clearedLegacy) {
+        setDegraded(true)
+        return false
+      }
+      setDegraded(false)
+      return true
     } catch {
-      setDegraded(true) // both stores disagree and we can't reconcile — say so
+      // Fall through to the one canonical localStorage namespace. In particular, an individual
+      // transaction failure does not make the entire database unavailable.
     }
-    return true
   }
+
+  if (!lsSet(FB_PREFIX + key, value)) {
+    setDegraded(true)
+    return false
+  }
+  setDegraded(false)
+  return true
 }
 
 /** Delete a key from every store it could be in. Clearing only IndexedDB would leave a quota
  *  fallback copy that `idbGet`'s empty-read path would then resurrect as if it were current. */
 export async function idbDel(key: string): Promise<void> {
-  noFallback.delete(key)
   lsDel(FB_PREFIX + key) // quota fallback
   lsDel(key)             // IDB-unavailable store
   if (idbUnavailable) return
@@ -232,5 +246,4 @@ export function __resetIdbForTests(): void {
   dbPromise = null
   idbUnavailable = false
   degraded = false
-  noFallback.clear()
 }

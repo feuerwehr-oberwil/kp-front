@@ -461,6 +461,7 @@ async def capture_upload_media(
             status_code=413,
             detail=f"Datei zu gross (Maximum {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
         ) from None
+    storage.created_in_transaction(db, key)
 
     # created_by stays NULL: a poster upload has no user behind it, and inventing one would put
     # a name on the record that nobody typed.

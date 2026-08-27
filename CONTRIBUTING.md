@@ -82,7 +82,7 @@ that can't be undone.** Concretely:
 - For any generated calculation, show source, timestamp, and editable assumptions, and label
   estimates as *Planungshilfe / Schätzung*.
 
-See [`CLAUDE.md`](CLAUDE.md) for the full conventions; it is the source of truth and should be
+See [`AGENTS.md`](AGENTS.md) for the full conventions; it is the source of truth and should be
 kept current when a convention changes.
 
 ## Conventions
@@ -105,6 +105,22 @@ kept current when a convention changes.
 - There is **no per-file license-header requirement**, but new files must be compatible with
   AGPL-3.0-or-later.
 
+## Dependency and build-input updates
+
+Dependabot checks pnpm, Python, GitHub Actions and Docker weekly. GitHub Actions are pinned to
+full commit SHAs and Docker build/runtime inputs to manifest digests; keep the readable release
+tag in the adjacent comment or image name. Review the upstream release, let Dependabot update the
+pin, then run the normal CI gate. Do not replace a digest with a mutable major tag to make an
+update easier.
+
+`pnpm audit --prod --audit-level high` and `pip-audit` are blocking. If an upstream advisory has
+no fix and production must continue, any exception must name exactly one advisory beside the
+command, explain why this app is not exposed, and carry a review/expiry date. Do not make the
+whole audit advisory again. The gitleaks CLI image used inside `docker run` is the one manual pin:
+resolve its current manifest digest with `docker buildx imagetools inspect` and review/update it
+with other CI-tool bumps. Remote files fetched by the Dockerfile keep an explicit SHA-256; verify
+new bytes before changing that checksum.
+
 ## Releases (maintainers)
 
 Other stations run **published images**, not `main`, so a tag is a promise. A release is a
@@ -113,8 +129,8 @@ label on a `main` commit CI already proved green – never a rushed cut.
 ```bash
 just changelog            # draft notes from the commits since the last tag
 #                           → curate them into CHANGELOG.md's [Unreleased] section
-just release 0.3.0        # bump package.json + pyproject.toml + config.py + CHANGELOG
-just release-tag 0.3.0    # commit (only those four files) + annotated tag
+just release 0.3.0        # bump the six version/lock/contract/changelog files
+just release-tag 0.3.0    # commit only those six files + annotated tag
 git push --follow-tags    # → CI gate → GHCR image → GitHub Release
 ```
 
@@ -133,7 +149,8 @@ Per-station deployment data is **not** part of this repo and must never be commi
   `admin_config` CLI.
 - Reference geodata (hydrants, Leitungskataster, canton WMS) lives in a **private data repo**
   and is loaded via `admin_geodata` – never bundled here.
-- Secrets (`SECRET_KEY`, `DATABASE_URL`, Divera/Traccar credentials) live in environment
-  variables only – never in the repo.
+- Host secrets (`SECRET_KEY`, `ADMIN_SECRET`, `DATABASE_URL`) live in environment variables;
+  integration credentials live either there or encrypted in the deployment database via
+  `/admin` (the environment wins). None belongs in the repo.
 
 Keep deployment data, rosters, and any personal/operational data out of the repository.

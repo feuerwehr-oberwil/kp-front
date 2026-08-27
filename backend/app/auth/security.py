@@ -11,7 +11,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError as JWTError
 
 from ..config import settings
 
