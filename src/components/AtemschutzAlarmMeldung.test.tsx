@@ -82,6 +82,7 @@ describe('the published rows', () => {
   // would be a regression, so both are pinned here.
   it('lets the name of the Trupp lead to the board too, without giving up the labelled button', () => {
     const went: string[] = []
+    const acknowledged: string[] = []
     render(
       <>
         <AtemschutzAlarmMeldungen
@@ -89,6 +90,7 @@ describe('the published rows', () => {
           severities={{ a: 2 }}
           intervalMin={5}
           graceSec={60}
+          onAcknowledge={() => acknowledged.push('mute')}
           onGoToTrupp={(id) => went.push(id)}
         />
         <Meldeleiste />
@@ -98,5 +100,6 @@ describe('the published rows', () => {
     expect(document.querySelectorAll('.ml-act button')).toHaveLength(1)
     fireEvent.click(document.querySelector('.ml-act button')!)
     expect(went).toEqual(['a', 'a'])
+    expect(acknowledged).toEqual(['mute', 'mute'])
   })
 })

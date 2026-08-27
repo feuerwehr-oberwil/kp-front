@@ -38,6 +38,14 @@ export function useAtemschutzMute(incidentId: string) {
     setMutedFor(next)
   }, [muted, incidentId])
 
+  /** Idempotent acknowledgement path for an alarm action such as «Zum Trupp». Unlike `toggle`,
+   *  a second tap can never re-arm a tone the operator just acknowledged. The visual alarm stays
+   *  live until a contact/pressure event clears its cause (useAtemschutzAlarm). */
+  const mute = useCallback(() => {
+    try { localStorage.setItem(MUTE_KEY, incidentId) } catch { /* preference only */ }
+    setMutedFor(incidentId)
+  }, [incidentId])
+
   const [audioReady, setAudioReady] = useState(audioUnlocked)
   useEffect(() => {
     if (audioReady) return
@@ -53,5 +61,5 @@ export function useAtemschutzMute(incidentId: string) {
 
   // Only worth saying while the alarm claims to be on: a muted bell promises no tone anyway,
   // and two warnings about the same silence would be one too many.
-  return { muted, toggle, audioBlocked: !audioReady && !muted, unlockAudio }
+  return { muted, mute, toggle, audioBlocked: !audioReady && !muted, unlockAudio }
 }
