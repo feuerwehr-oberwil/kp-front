@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 from sqlalchemy import select
 
-from app.push import _should_send, due_reminders, due_trupps
+from app.push import _atemschutz_message, _should_send, due_reminders, due_trupps
 
 
 def ms(iso: str) -> float:
@@ -65,6 +65,68 @@ class TestDueTrupps:
         ws = {"trupps": [trupp("a", None)]}  # entered 14:00, never a contact → due at 14:06
         assert [t["id"] for t in due_trupps(ws, {}, NOW)] == ["a"]
 
+    def test_alarmdruck_is_tier_two_even_with_a_fresh_contact(self):
+        ws = {
+            "trupps": [
+                trupp("a", "2026-07-02T14:09:30Z", entryPressureBar=300, lastPressureBar=90),
+            ]
+        }
+        alert = due_trupps(ws, {}, NOW)
+        assert alert == [
+            {
+                "id": "a",
+                "name": "Trupp a",
+                "since": ms("2026-07-02T14:09:30Z"),
+                "reason": "pressure",
+                "bar": 90,
+                "line": 100,
+                "pressureAt": ms("2026-07-02T14:00:00Z"),
+            }
+        ]
+        assert _atemschutz_message(alert[0]) == (
+            "Alarmdruck erreicht – Trupp a",
+            "90 bar, Grenze 100 bar – Rückzug anordnen.",
+        )
+
+    def test_pressure_wins_over_an_overdue_contact(self):
+        ws = {"trupps": [trupp("a", "2026-07-02T14:00:00Z", lastPressureBar=80, entryPressureBar=300)]}
+        assert due_trupps(ws, {}, NOW)[0]["reason"] == "pressure"
+
+    def test_rueckzug_uses_its_lower_alarm_line(self):
+        ws = {
+            "trupps": [
+                trupp("safe", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=60, entryPressureBar=300),
+                trupp("due", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=50, entryPressureBar=300),
+            ]
+        }
+        alert = due_trupps(ws, {}, NOW)
+        assert [(t["id"], t["line"]) for t in alert] == [("due", 50)]
+
+    def test_deployment_keeps_separate_working_and_rueckzug_lines(self):
+        doctrine = {"alarmBar": 140, "alarmBarRueckzug": 70}
+        ws = {
+            "trupps": [
+                trupp("working", "2026-07-02T14:09:30Z", lastPressureBar=140, entryPressureBar=300),
+                trupp("withdraw-safe", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=71, entryPressureBar=300),
+                trupp("withdraw-due", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=70, entryPressureBar=300),
+            ]
+        }
+        alert = due_trupps(ws, doctrine, NOW)
+        assert [(t["id"], t["line"]) for t in alert] == [("working", 140), ("withdraw-due", 70)]
+
+    def test_zero_alarmdruck_disables_pressure_alarm(self):
+        ws = {"trupps": [trupp("a", "2026-07-02T14:09:30Z", lastPressureBar=0, entryPressureBar=300)]}
+        assert due_trupps(ws, {"alarmBar": 0}, NOW) == []
+
+    def test_contact_notification_matches_foreground_action_copy(self):
+        alert = due_trupps(
+            {"trupps": [trupp("a", "2026-07-02T14:00:00Z", name="Angriff 1")]}, {}, NOW
+        )[0]
+        assert _atemschutz_message(alert) == (
+            "Atemschutz überfällig",
+            "Trupp Angriff 1 überfällig – Kontakt herstellen.",
+        )
+
 
 def rem_row(rid: str, op: str, due: str | None = None, text: str = "Prüfen") -> dict:
     return {"id": f"row-{rid}-{op}", "text": text, "reminder": {"op": op, "id": rid, **({"dueAt": due} if due else {})}}
@@ -100,6 +162,53 @@ def test_should_send_dedupes_and_renotifies_on_cadence():
     assert _should_send(key, t0) is True
     assert _should_send(key, t0 + 10_000) is False  # within the renotify window
     assert _should_send(key, t0 + settings.push_renotify_seconds * 1000 + 1) is True
+
+
+async def test_killed_app_sweep_pushes_confirmed_pressure_with_station_threshold(db_session, monkeypatch):
+    import app.push as push_mod
+    from app.models import DeploymentConfig, Incident
+
+    push_mod._notified.clear()
+    db_session.add(DeploymentConfig(id=1, config_json={"doctrine": {"alarmBar": 140, "alarmBarRueckzug": 70}}))
+    db_session.add(
+        Incident(
+            title="Zimmerbrand",
+            source="manual",
+            status="offen",
+            is_archived=False,
+            map_workspace_json={
+                "trupps": [
+                    trupp(
+                        "a",
+                        "2026-07-02T14:09:30Z",
+                        name="Angriff 1",
+                        entryPressureBar=300,
+                        lastPressureBar=130,
+                        lastPressureTime="2026-07-02T14:09:30Z",
+                    )
+                ]
+            },
+        )
+    )
+    await db_session.commit()
+    calls: list[dict] = []
+
+    async def fake_broadcast(_db, **kw):
+        calls.append(kw)
+        return 1
+
+    monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+    assert await push_mod.check_and_push(db_session, NOW) == 1
+    assert calls == [
+        {
+            "title": "Alarmdruck erreicht – Angriff 1",
+            "body": "130 bar, Grenze 140 bar – Rückzug anordnen.",
+            "tag": "atemschutz-a",
+            "target": "atemschutz",
+        }
+    ]
+    # Same confirmed reading is one crossing, not a new push on every 30 s sweep.
+    assert await push_mod.check_and_push(db_session, NOW + 30_000) == 0
 
 
 async def test_subscription_endpoints(client, editor, viewer):

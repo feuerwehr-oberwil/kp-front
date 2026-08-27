@@ -290,12 +290,13 @@ export function peakAtemschutzAlarm(
     if (sev > peak) peak = sev
     if (sev === 0) continue // narrows sev to 1 | 2 for the urgent record below
     severities[t.id] = sev
-    // Rank by tier, then by how far past the line. A low-pressure Trupp ranks by how far BELOW
-    // the Alarmdruck it is (in bar, scaled so it sorts against the seconds of a contact clock),
-    // so the one with the least air left is the one the chip points at.
+    // Rank by tier, then reason, then how far past the line. The TopBar has ONE slot: a confirmed
+    // Alarmdruck must occupy it ahead of a missed contact, otherwise the app can be sounding for
+    // low air while its only app-wide words still talk about radio. Among pressure alarms, the
+    // one with the least air left wins; among contact alarms, the longest-overdue one wins.
     const lowPressure = reason === 'pressure'
     const overBy = lowPressure ? (line! - currentBar) * 60 : sinceContactSec
-    const rank = sev * 1_000_000 + overBy
+    const rank = sev * 1_000_000_000 + (lowPressure ? 100_000_000 : 0) + overBy
     if (rank > bestRank) {
       bestRank = rank
       urgent = {

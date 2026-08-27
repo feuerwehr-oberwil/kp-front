@@ -308,6 +308,18 @@ describe('peakAtemschutzAlarm — the Alarmdruck reaches the app-wide surfaces t
     expect(r.severities).toEqual({ a: 2, b: 2 })
   })
 
+  it('gives the one-slot app-wide warning to Alarmdruck ahead of missed contact', () => {
+    const r = peakAtemschutzAlarm(
+      [
+        inField({ id: 'contact', name: 'Kontakt', lastContactTime: '2026-08-10T11:40:00Z' }),
+        inField({ id: 'pressure', name: 'Druck', lastPressureBar: 100 }),
+      ],
+      REF, 5, 60, 100,
+    )
+    expect(r.urgent).toMatchObject({ id: 'pressure', reason: 'pressure', bar: 100 })
+    expect(r.severities).toEqual({ contact: 2, pressure: 2 })
+  })
+
   it('leaves the contact clock alone when no Alarmdruck is configured', () => {
     expect(peakAtemschutzAlarm([inField({ lastPressureBar: 10 })], REF, 10, 60).peak).toBe(0)
   })

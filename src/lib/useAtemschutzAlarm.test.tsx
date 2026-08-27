@@ -78,6 +78,26 @@ describe('the notification names the emergency it is about', () => {
     expect(title).toMatch(/Alarmdruck/)
     expect(opts?.body).toContain('90 bar')
   })
+
+  it('posts pressure immediately when an already-overdue Trupp crosses the Alarmdruck', () => {
+    const overdue = trupp({ lastContactTime: new Date(T0 - 10 * 60_000).toISOString() })
+    const { rerender } = render(
+      <AtemschutzAlarmHost trupps={[overdue]} muted={false} active logAlarm={() => {}}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(vi.mocked(notify).mock.calls[0][0]).toMatch(/überfällig/i)
+    vi.mocked(notify).mockClear()
+
+    rerender(
+      <AtemschutzAlarmHost trupps={[{ ...overdue, lastPressureBar: 90, lastPressureTime: new Date(T0 + 1000).toISOString() }]}
+        muted={false} active logAlarm={() => {}} intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    expect(notify).toHaveBeenCalledTimes(1)
+    const [title, opts] = vi.mocked(notify).mock.calls[0]
+    expect(title).toMatch(/Alarmdruck/)
+    expect(opts?.body).toContain('90 bar')
+  })
 })
 
 describe('AtemschutzAlarmHost', () => {
@@ -110,6 +130,18 @@ describe('AtemschutzAlarmHost', () => {
     act(() => { vi.advanceTimersByTime(60_000) })
     expect(onState).toHaveBeenCalledTimes(2)
     expect(onState.mock.lastCall![0].peak).toBe(2)
+  })
+
+  it('updates the app-wide chip when tier 2 changes from contact to pressure', () => {
+    const overdue = trupp({ lastContactTime: new Date(T0 - 10 * 60_000).toISOString() })
+    const onState = vi.fn()
+    const { rerender } = render(host([overdue], onState))
+    expect(onState.mock.lastCall![0].urgent).toMatchObject({ reason: 'contact' })
+    onState.mockClear()
+
+    rerender(host([{ ...overdue, lastPressureBar: 90, lastPressureTime: new Date(T0 + 1000).toISOString() }], onState))
+    expect(onState).toHaveBeenCalledTimes(1)
+    expect(onState.mock.lastCall![0].urgent).toMatchObject({ reason: 'pressure', bar: 90 })
   })
 })
 

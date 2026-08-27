@@ -770,6 +770,16 @@ describe('useTruppActions — the Alarmdruck is a reading of its own kind', () =
     const r = state.trupps[0].readings ?? []
     expect(r[r.length - 1]).toMatchObject({ kind: 'pressure' })
   })
+
+  it('uses the separate Rückzug line for a Trupp already on its way out', () => {
+    const rueckzugBar = appConfig.atemschutz.alarmBarRueckzug
+    const { actions, state } = harness(baseTrupp({
+      status: 'rueckzug', lastPressureBar: rueckzugBar + 10, readings: [],
+    }))
+    actions.recordPressure('T1', rueckzugBar)
+    const r = state.trupps[0].readings ?? []
+    expect(r[r.length - 1]).toMatchObject({ kind: 'alarm', bar: rueckzugBar })
+  })
 })
 
 // ⚠️ The Atemschutz page of the Rapport prints `readings`. Re-deploying used to START A NEW LOG,

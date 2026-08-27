@@ -2,22 +2,24 @@
 
 The in-app alarm layer (tone + SW notification) only works while the PWA is alive; a
 swiped-away or OS-reclaimed app hears nothing. This module closes that gap server-side:
-a scheduler job recomputes, every ~30s, which Atemschutz-Trupps are überfällig and which
-Wiedervorlagen are due — from the SAME data the clients sync (workspace trupps + journal
-reminder rows) with the SAME doctrine fallbacks — and pushes an OS notification to every
-subscribed browser. A NEW Divera alarm additionally pushes "Neuer Einsatz" immediately
+a scheduler job recomputes, every ~30s, which Atemschutz-Trupps are überfällig or at their
+confirmed Alarmdruck and which Wiedervorlagen are due — from the SAME data the clients sync
+(workspace trupps + journal reminder rows) with the SAME doctrine fallbacks — and pushes an
+OS notification to every subscribed browser. A NEW Divera alarm additionally pushes
+"Neuer Einsatz" immediately
 (``notify_new_alarm``, called from both intake paths). Silently disabled while no VAPID
 keys are configured.
 
-Deduplication: an alert is sent once per crossing (keyed by what defines the crossing —
-the Trupp's lastContactTime / the reminder's effective dueAt) and re-sent on a slow
-cadence while still due. State is in-memory: a restart re-notifies once, which is the
-right failure direction for a safety alarm.
+Deduplication: an alert is sent once per crossing (keyed by what defines the crossing — the
+Trupp's lastContactTime, its lastPressureTime, or the reminder's effective dueAt) and re-sent
+on a slow cadence while still due. State is in-memory: a restart re-notifies once, which is
+the right failure direction for a safety alarm.
 """
 
 import asyncio
 import json
 import logging
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -51,6 +53,8 @@ def push_enabled() -> bool:
 
 DEFAULT_INTERVAL_MIN = 5
 DEFAULT_GRACE_SEC = 60
+DEFAULT_ALARM_BAR = 100
+DEFAULT_ALARM_BAR_RUECKZUG = 50
 
 
 def _ms(iso: str | None) -> float | None:
@@ -63,19 +67,72 @@ def _ms(iso: str | None) -> float | None:
 
 
 def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str, Any]]:
-    """Trupps past interval+grace since last contact (the überfällig alarm)."""
+    """Trupps at frontend tier 2: overdue contact or measured Alarmdruck.
+
+    Pressure wins when both reasons apply, matching ``truppAlarm``: a radio check cannot
+    resolve a crew at its Alarmdruck. The expected-pressure estimate is deliberately absent;
+    it remains a Planungshilfe and never raises an alarm.
+    """
     settings_ws = workspace.get("settings") or {}
-    interval_min = settings_ws.get("contactIntervalMin") or doctrine.get("contactIntervalMin") or DEFAULT_INTERVAL_MIN
-    grace_sec = settings_ws.get("contactGraceSec") or doctrine.get("contactGraceSec") or DEFAULT_GRACE_SEC
+    interval_min = settings_ws.get("contactIntervalMin")
+    if interval_min is None:
+        interval_min = doctrine.get("contactIntervalMin")
+    if interval_min is None:
+        interval_min = DEFAULT_INTERVAL_MIN
+    grace_sec = settings_ws.get("contactGraceSec")
+    if grace_sec is None:
+        grace_sec = doctrine.get("contactGraceSec")
+    if grace_sec is None:
+        grace_sec = DEFAULT_GRACE_SEC
+    alarm_bar = doctrine.get("alarmBar")
+    if alarm_bar is None:
+        alarm_bar = DEFAULT_ALARM_BAR
+    alarm_bar_rueckzug = doctrine.get("alarmBarRueckzug")
+    if alarm_bar_rueckzug is None:
+        alarm_bar_rueckzug = DEFAULT_ALARM_BAR_RUECKZUG
     out = []
     for t in workspace.get("trupps") or []:
         entry = _ms(t.get("entryTime"))
         if not entry or t.get("status") in ("angemeldet", "raus") or t.get("exitTime"):
             continue
         contact = _ms(t.get("lastContactTime")) or entry
-        if now_ms - contact >= (interval_min * 60 + grace_sec) * 1000:
-            out.append({"id": t.get("id"), "name": t.get("name") or "Trupp", "since": contact})
+        current_bar = t.get("lastPressureBar")
+        if current_bar is None:
+            current_bar = t.get("entryPressureBar")
+        line = alarm_bar_rueckzug if t.get("status") == "rueckzug" else alarm_bar
+        pressure_due = (
+            isinstance(current_bar, (int, float))
+            and not isinstance(current_bar, bool)
+            and math.isfinite(current_bar)
+            and isinstance(line, (int, float))
+            and not isinstance(line, bool)
+            and line > 0
+            and current_bar <= line
+        )
+        contact_due = now_ms - contact >= (interval_min * 60 + grace_sec) * 1000
+        if pressure_due or contact_due:
+            # A Funkkontakt below the Alarmdruck must not look like a new pressure crossing.
+            # A NEW confirmed Druckmeldung should, even if its value happens to be unchanged.
+            pressure_at = _ms(t.get("lastPressureTime")) or entry
+            out.append(
+                {
+                    "id": t.get("id"),
+                    "name": t.get("name") or "Trupp",
+                    "since": contact,
+                    "reason": "pressure" if pressure_due else "contact",
+                    **({"bar": current_bar, "line": line, "pressureAt": pressure_at} if pressure_due else {}),
+                }
+            )
     return out
+
+
+def _atemschutz_message(alert: dict[str, Any]) -> tuple[str, str]:
+    """German OS-notification copy matching the frontend tier-2 notification."""
+    if alert["reason"] == "pressure":
+        bar = f"{alert['bar']:g}"
+        line = f"{alert['line']:g}"
+        return f"Alarmdruck erreicht – {alert['name']}", f"{bar} bar, Grenze {line} bar – Rückzug anordnen."
+    return "Atemschutz überfällig", f"Trupp {alert['name']} überfällig – Kontakt herstellen."
 
 
 def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> list[dict[str, Any]]:
@@ -256,12 +313,14 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
     for inc in incidents:
         ws = inc.map_workspace_json or {}
         for t in due_trupps(ws, doctrine, now_ms):
-            key = f"az:{inc.id}:{t['id']}:{t['since']}"
+            crossing = t.get("pressureAt") if t["reason"] == "pressure" else t["since"]
+            key = f"az:{inc.id}:{t['id']}:{crossing}:{t['reason']}"
             if _should_send(key, now_ms):
+                title, body = _atemschutz_message(t)
                 sent += await broadcast(
                     db,
-                    title="Atemschutz überfällig",
-                    body=f"{t['name']} — Funkkontakt überfällig",
+                    title=title,
+                    body=body,
                     tag=f"atemschutz-{t['id']}",
                     target="atemschutz",
                 )

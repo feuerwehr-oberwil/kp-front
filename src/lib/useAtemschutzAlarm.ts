@@ -58,6 +58,11 @@ export function useAtemschutzAlarm({
    *  yet has never been evaluated by this session, so whatever tier it is on is a state we found,
    *  not a crossing we watched (see `justCrossed`). */
   const prevSeverity = useRef<Map<string, number>>(new Map())
+  /** Last reason/signature behind a Trupp's tier. Severity alone is insufficient: an overdue
+   *  contact can stay tier 2 while a confirmed pressure reading crosses the Alarmdruck. That
+   *  reason change must update the TopBar and re-post the OS notification immediately. */
+  const prevReason = useRef<Map<string, 'contact' | 'pressure' | null>>(new Map())
+  const prevPressureAlert = useRef<Map<string, string>>(new Map())
   const lastNotify = useRef<Map<string, number>>(new Map())
   /** the contact stamp a Trupp's «Überfällig» line was written FOR. One line per TURNUS: the
    *  next one is owed only once a new Funkkontakt has reset the clock, so a tier that dips and
@@ -98,7 +103,13 @@ export function useAtemschutzAlarm({
     let peak = 0
     for (const t of trupps) {
       const l = deriveTruppLive(t, now, intervalMin, graceSec)
-      if ((l.status ?? t.status) === 'raus') { prevSeverity.current.set(t.id, 0); lastNotify.current.delete(t.id); continue }
+      if ((l.status ?? t.status) === 'raus') {
+        prevSeverity.current.set(t.id, 0)
+        prevReason.current.set(t.id, null)
+        prevPressureAlert.current.delete(t.id)
+        lastNotify.current.delete(t.id)
+        continue
+      }
       // ⚠️ Two emergencies, one tier. A Trupp at or below the Alarmdruck has to turn round NOW,
       // exactly like one out of contact — and until 10.08. that fact lived on its card and
       // nowhere else, so it reached nobody who was not already looking at the Atemschutz board.
@@ -118,9 +129,15 @@ export function useAtemschutzAlarm({
       // land afterwards as a fresh 0 → 2 crossing, which is the same bug wearing a hat.
       const seen = prevSeverity.current.has(t.id)
       const was = prevSeverity.current.get(t.id) ?? 0
+      const wasReason = prevReason.current.get(t.id) ?? null
       // …and a contact still resets the tier to 0, so going overdue again DOES log again — that
       // is the case actually worth a second line.
       const justCrossed = seen && sev >= 2 && was < 2
+      const reasonChangedAtAlarm = seen && sev >= 2 && reason !== wasReason
+      // A second Druckmeldung below the line is still new safety information. Update the tray
+      // immediately instead of leaving the previous bar value there until the 30 s cadence.
+      const pressureAlert = lowPressure ? `${t.lastPressureTime ?? ''}:${l.currentBar}:${line ?? ''}` : ''
+      const pressureReadingChanged = seen && lowPressure && pressureAlert !== prevPressureAlert.current.get(t.id)
       // the Verlauf already carries the pressure crossing from recordPressure (logPressureAlarm),
       // so only the contact crossing is recorded here — otherwise one reading writes two lines
       const turnus = t.lastContactTime ?? t.entryTime ?? ''
@@ -141,7 +158,7 @@ export function useAtemschutzAlarm({
         // the OS's own sound and vibration included. A control that silences half of what it
         // claims to silence is worse than none: it is trusted, and it is wrong.
         const lastN = lastNotify.current.get(t.id) ?? 0
-        if (!demo && !muted && (justCrossed || now - lastN >= ALARM_RENOTIFY_MS)) {
+        if (!demo && !muted && (justCrossed || reasonChangedAtAlarm || pressureReadingChanged || now - lastN >= ALARM_RENOTIFY_MS)) {
           lastNotify.current.set(t.id, now)
           // ⚠️ TWO reasons reach tier 2, and until 23.08. the tray was told only one of them:
           // a Trupp at its Alarmdruck was announced as «überfällig – Kontakt herstellen», which
@@ -164,6 +181,9 @@ export function useAtemschutzAlarm({
         lastNotify.current.delete(t.id)
       }
       prevSeverity.current.set(t.id, sev)
+      prevReason.current.set(t.id, reason)
+      if (lowPressure) prevPressureAlert.current.set(t.id, pressureAlert)
+      else prevPressureAlert.current.delete(t.id)
       if (sev > peak) peak = sev
     }
     if (!alarm.current) alarm.current = new Alarm()
@@ -202,6 +222,9 @@ export function AtemschutzAlarmHost({ onState, ...opts }: Parameters<typeof useA
     const prev = last.current
     if (state.peak !== prev.peak || state.urgent?.id !== prev.urgent?.id
       || state.urgent?.severity !== prev.urgent?.severity || state.urgent?.name !== prev.urgent?.name
+      // tier 2 can change from «Kontakt überfällig» to «Alarmdruck» without changing its
+      // severity or Trupp. The TopBar must swap gauge/clock for drop/bar on that same transition.
+      || state.urgent?.reason !== prev.urgent?.reason || state.urgent?.bar !== prev.urgent?.bar
       // per-Trupp tiers drive the hose-line tone on the map/plan. Compared BY CONTENT: the fold
       // builds a fresh object every tick, so a reference check would push a state update (and a
       // full re-render, map included) once a second — exactly what this host exists to prevent.

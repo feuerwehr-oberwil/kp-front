@@ -8,7 +8,7 @@ import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
-import { currentRunStart, truppAwaitsEntry } from './atemschutz'
+import { alarmBarFor, currentRunStart, truppAwaitsEntry } from './atemschutz'
 import { resolveMarkerJoin } from './placedTrupps'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
@@ -501,9 +501,10 @@ export function useTruppActions(deps: Deps) {
     // Only on the CROSSING, so a Trupp already below the threshold does not repeat it at every
     // contact — and as ONE row, not a second one after the reading: the crossing IS this reading,
     // and two lines in the same minute read as two Druckmeldungen on the printed Journal.
-    const alarmBar = atemschutzDoctrine().alarmBar
+    const doctrine = atemschutzDoctrine()
+    const alarmBar = tr ? alarmBarFor(tr, doctrine) : doctrine.alarmBar
     const wasAbove = (tr?.lastPressureBar ?? tr?.entryPressureBar ?? Infinity) > alarmBar
-    const crossed = !!tr && wasAbove && bar <= alarmBar
+    const crossed = !!tr && alarmBar > 0 && wasAbove && bar <= alarmBar
     // …and the LOG ROW says so too, so the printed Atemschutz-Journal can name the moment
     // instead of leaving a reader to compare a column of numbers against the station's doctrine
     setTrupps((ts) => ts.map((t) => (t.id === id
