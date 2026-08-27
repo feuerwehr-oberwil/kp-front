@@ -141,7 +141,11 @@ to prod.
   no-ops when unset** (gating registration at boot is what made this impossible before), and
   a secret is **write-only over the API** — settable, never readable. The CARTO basemap key is
   the explicit client-credential exception: CARTO requires it in browser tile URLs, so it is
-  public at runtime and must be restricted to deployment domains at the provider. `SECRET_KEY`,
+  readable at runtime and must be restricted to deployment domains at the provider. ⚠️ Readable
+  is not public — `/api/config` serves it only to a caller holding a session, and «session»
+  includes an incident LINK (`LinkApp` mounts the whole app, and a link carries no
+  `access_token`, so `actor is not None` is the wrong test). Server-side renders (Rapport/Kroki)
+  use `app/carto.py` and the deployment's own credential, never the client's copy. `SECRET_KEY`,
   `ADMIN_SECRET`, `KP_TELEMETRY_*` and `REQUIRE_PLAN_DIGEST` stay env-only on purpose: each
   would defeat itself in the database it gates.
 - **Reference geodata, object plans, and checklists are station data, never bundled.**

@@ -27,6 +27,8 @@ from pathlib import Path
 import httpx
 from PIL import Image, ImageDraw, ImageFont
 
+from . import carto
+
 TILE = 256
 _UA = {"User-Agent": "kp-front-kroki/1.0 (+https://github.com/feuerwehr-oberwil/kp-front)"}
 
@@ -167,6 +169,9 @@ def render_base(
     """Stitch the XYZ raster tiles covering the view. `tile_url` has {z}/{x}/{y} slots.
     Fractional view zoom: tiles come from ceil(z) (crisper than upscaling from floor)
     and the stitched canvas is resized down to the view's pixel size."""
+    # The credential is the SERVER's, never the client's: strip whatever came in, apply ours,
+    # and key the cache on the bare template (app/carto.py explains why both halves exist).
+    fetch_tpl, cache_tpl = carto.for_fetch(tile_url)
     tz = min(max_tile_z, math.ceil(view.z))
     f = 2.0 ** (tz - view.z)  # tile-zoom px per view px (≥ 1)
     tw, th = math.ceil(view.width * f), math.ceil(view.height * f)
@@ -182,15 +187,16 @@ def render_base(
 
         def fetch(txy: tuple[int, int]) -> tuple[int, int, bytes | None]:
             tx, ty = txy
-            url = tile_url.format(z=tz, x=tx % n, y=ty)
-            data = cache.get(url) if cache else None
+            slots = {"z": tz, "x": tx % n, "y": ty}
+            cache_url = cache_tpl.format(**slots)
+            data = cache.get(cache_url) if cache else None
             if data is None:
                 try:
-                    r = client.get(url)
+                    r = client.get(fetch_tpl.format(**slots))
                     r.raise_for_status()
                     data = r.content
                     if cache:
-                        cache.put(url, data)
+                        cache.put(cache_url, data)
                 except httpx.HTTPError:
                     return tx, ty, None  # missing tile → keep the neutral background
             return tx, ty, data

@@ -38,6 +38,7 @@ from app import storage
 from app.auth.cookies import ACCESS_COOKIE
 from app.auth.incident_link import LINK_ALLOWED, LINK_COOKIE, LINK_TOKEN_TYPE
 from app.models import DeploymentConfig, Incident, Media
+from app.schemas import ConfigIntegrations
 
 MINT_KEY = "link-mint-key-0123456789-at-least-32-bytes"  # gitleaks:allow
 SRC, REF = "divera", "alarm-4711"
@@ -809,3 +810,29 @@ async def test_a_link_cannot_read_media_from_another_incident(client, link_key, 
         "it itself"
     )
     assert b"not-a-real-photo" not in r.content
+
+
+async def test_a_link_session_receives_the_carto_basemap_key(client, link_key, incident, monkeypatch):
+    """The regression this gate could introduce, and the reason it is not `actor is not None`.
+
+    `LinkApp` mounts the WHOLE app — the AdF who tapped the alarm link gets the real map — but
+    a link carries its own cookie and never an `access_token`, so `OptionalUser` sees nobody.
+    Gating the CARTO key on a USER session would therefore hand a blank basemap to precisely
+    the person furthest from a keyboard, and it would do it silently: tiles just stop.
+    """
+    monkeypatch.setattr(
+        "app.api.config.integrations",
+        lambda: ConfigIntegrations(cartoBasemapKey="carto-browser-key"),
+    )
+
+    # anonymous first: same endpoint, same station, no key
+    assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] is None
+
+    await _open_link(client)
+    r = await client.get("/api/config")
+    assert r.status_code == 200, r.text
+    assert r.json()["integrations"]["cartoBasemapKey"] == "carto-browser-key"
+
+    # …and it goes away again with the link
+    _forget_link(client)
+    assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] is None

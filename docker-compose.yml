@@ -144,7 +144,8 @@ services:
       # upload, player, waveform — works fully without it, only Transkribieren is absent.
       STT_BASE_URL: ${STT_BASE_URL:-}
       STT_API_KEY: ${STT_API_KEY:-}
-      # CARTO raster basemap browser key. Public in tile requests, but never commit it.
+      # CARTO raster basemap browser key. Visible in browser tile requests — restrict it to the
+      # deployment domains in CARTO — served only to callers with a session, and never committed.
       CARTO_API_KEY: ${CARTO_API_KEY:-}
       # ⚠️ These two fallbacks must stay LITERALLY the app defaults (app/config.py) — see the
       # VAPID_SUBJECT note below. Change one to a value you prefer and you do not change a
