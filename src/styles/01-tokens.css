@@ -23,7 +23,11 @@
   --shadow-sm: 0 0 0 1px rgba(30, 45, 70, .07), 0 1px 2px rgba(30, 45, 70, .1), 0 6px 16px rgba(30, 45, 70, .12);
   /* radius scale: control / button / surface / hero */
   --r-ctl: 14px;
-  --r-btn: 16px;
+  /* ⚠️ NOT a button radius, whatever the old name (`--r-btn`) claimed. Every button in the app
+     is --r-sm; this is the outer shell of a FLOATING GLASS CLUSTER (.toputil, .wb-zoom-float,
+     .phone-wx), which nests a --r-ctl group of --r-sm buttons inside it. The three radii are the
+     nesting. Renamed 27.08. after it had drifted onto one real button. */
+  --r-cluster: 16px;
   --r-surface: 20px;
   --r-hero: 22px;
   --ease: cubic-bezier(.2, .7, .3, 1);

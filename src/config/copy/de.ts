@@ -1658,7 +1658,14 @@ export const de = {
       barMany: '{n} Paare',
       // offene Punkte: auf dem Plan gesetzt, auf der Karte noch nicht zugeordnet
       barOpen: '{n} offen',
+      // ⚠️ `cancel` gehört noch der Rückfrage vor «Alle Punkte zurücksetzen» – dort bricht es
+      // wirklich etwas ab. Der Ausstieg aus dem Modus heisst `closeMode`: er verwirft nichts.
       cancel: 'Abbrechen',
+      // Der Weg hinaus, solange noch keine brauchbare Verknüpfung steht. ⚠️ NICHT «Abbrechen»:
+      // gesetzte Punkte werden laufend gespeichert, der Ausstieg nimmt nichts zurück. Wer den
+      // Knopf drückte, um eine schiefe Ausrichtung loszuwerden, fand den Plan danach trotzdem
+      // verknüpft. Zum Wegwerfen gibt es «Alle Punkte zurücksetzen», mit Rückfrage.
+      closeMode: 'Schliessen',
       done: 'Fertig',
       // Der Sprung zur Karte passiert NUR auf Wunsch (Telefon): pro Punkt hin und her war der
       // Grund, warum niemand mehr als zwei Punkte gesetzt hat.
@@ -2356,7 +2363,7 @@ export const de = {
     blankSheet: 'Leeres Erfassungsblatt (PDF)',
     blankSheetSub: 'Papierblatt zum Handausfüllen',
     blankSheetDownload: 'Herunterladen',
-    blankSheetFailed: 'PDF fehlgeschlagen – nochmals versuchen.',
+    blankSheetFailed: 'PDF fehlgeschlagen – nochmals versuchen',
     feedbackRow: 'Rückmeldung geben',
     feedbackRowSub: 'Was umständlich war oder gefehlt hat',
     feedbackOpen: 'Schreiben',
@@ -2402,7 +2409,7 @@ export const de = {
     privacy: 'Nichts wird automatisch gesendet. Du entscheidest, ob, wie und an wen.',
     copy: 'Text kopieren',
     copied: 'Kopiert – jetzt einfügen und senden.',
-    copyFailed: 'Kopieren nicht möglich – Text markieren und von Hand kopieren.',
+    copyFailed: 'Kopieren nicht möglich – Text markieren und von Hand kopieren',
     mail: 'E-Mail schreiben',
     send: 'Senden',
     sending: 'Wird gesendet …',
@@ -2555,7 +2562,7 @@ export const de = {
     filterRecorded: 'Erfasste {n}',
     back: 'Zurück',
     alarmedAt: 'Alarm {t}',
-    saveFailed: 'Speichern fehlgeschlagen – nochmals versuchen.',
+    saveFailed: 'Speichern fehlgeschlagen – nochmals versuchen',
     saveFailedOffline: 'Kein Empfang – die letzte Änderung wurde nicht gespeichert.',
     retry: 'Erneut versuchen',
     savedOk: 'Gespeichert',
@@ -2594,7 +2601,7 @@ export const de = {
     fahrzeugeHead: 'Ausrückzeiten Fahrzeuge',
     einsatzleiter: 'Einsatzleiter',
     rapportPdf: 'Rapport-PDF',
-    pdfFailed: 'PDF fehlgeschlagen – nochmals versuchen.',
+    pdfFailed: 'PDF fehlgeschlagen – nochmals versuchen',
     sectionZeiten: 'Zeiten',
     sectionAngaben: 'Angaben',
     zeitenFilled: '{n} Zeiten erfasst',
@@ -2959,7 +2966,7 @@ export const de = {
     print: 'Drucken',
     pdf: 'PDF herunterladen',
     pdfBusy: 'PDF wird erstellt …',
-    pdfFailed: 'PDF konnte nicht erstellt werden',
+    pdfFailed: 'PDF konnte nicht erstellt werden.',
     // Haupt-Rapport form rows (value or write-in line)
     keyword: 'Stichwort',
     einsatzleiter: 'Einsatzleiter',
@@ -4078,7 +4085,7 @@ export const de = {
       deleteAria: '«{title}» löschen',
       deleteQuestion: 'Verlauf, Prüfkette, Anwesenheit und alle Medien von «{title}» endgültig löschen?',
       deleteOpenHint: 'Erst abschliessen',
-      deleteFailed: 'Löschen fehlgeschlagen.',
+      deleteFailed: 'Löschen fehlgeschlagen',
       actions: 'Aktionen',
     },
     autosave: {
@@ -4088,7 +4095,7 @@ export const de = {
       saved: 'Gespeichert',
       sessionExpired: 'Sitzung abgelaufen – bitte neu anmelden.',
       saveFailed: 'Speichern fehlgeschlagen',
-      loadFailed: 'Konfiguration konnte nicht geladen werden',
+      loadFailed: 'Konfiguration konnte nicht geladen werden.',
       // ⚠️ NOT an error – nothing failed and nothing is lost. Somebody (oder ein Reset, oder die
       // Kommandozeile) hat die Konfiguration inzwischen geändert, und dieser Browser-Tab kennt
       // noch den Stand von vorher. Eine solche Seite hat immer das ganze Dokument geschrieben:
@@ -4378,7 +4385,7 @@ export const de = {
       fieldMittelCatalogue: 'Material – Katalog',
       fieldMittelSources: 'Material – Quellen',
       fieldMittelUnits: 'Material – Einheiten',
-      importFailed: 'Import fehlgeschlagen.',
+      importFailed: 'Import fehlgeschlagen',
       histTitle: 'Letzte Änderungen',
       histCaption: 'Jede Änderung an der Konfiguration wird aufbewahrt. «Wiederherstellen» schreibt den Stand von damals zurück – auch das ist wieder rückgängig zu machen.',
       histNow: 'Aktueller Stand',
@@ -4405,7 +4412,7 @@ export const de = {
       histUntil: 'bis {time}',
       histRestoreConfirm: 'Den Stand vom {when} wiederherstellen? Die aktuelle Konfiguration wird vorher aufbewahrt.',
       histRestored: 'Stand wiederhergestellt.',
-      histRestoreFailed: 'Wiederherstellen fehlgeschlagen.',
+      histRestoreFailed: 'Wiederherstellen fehlgeschlagen',
     },
     common2: {
       cancel: 'Abbrechen',
@@ -4766,7 +4773,7 @@ export const de = {
       delete: 'Löschen',
       deleting: 'Wird gelöscht …',
       deleted: '{n} Datensätze gelöscht.',
-      deleteFailed: 'Löschen fehlgeschlagen.',
+      deleteFailed: 'Löschen fehlgeschlagen',
       deleteTitle: 'Checkliste löschen',
       deleteBody: '«{title}» wird nicht mehr ausgeliefert. Diese Datensätze werden gelöscht:',
       deleteNote: 'Tablets, die die Vorlage schon geladen haben, behalten ihre Kopie bis zum nächsten Abgleich.',
@@ -4897,7 +4904,7 @@ export const de = {
       geojsonVersion: 'Version {v}',
       geojsonStored: '«{name}» gespeichert – {n} Features. Die Ebene erscheint im Einsatz unter «Ebenen».',
       geojsonReplaced: 'Ersetzt – Version {v}, {n} Features.',
-      geojsonUploadFailed: 'Hochladen fehlgeschlagen.',
+      geojsonUploadFailed: 'Hochladen fehlgeschlagen',
       // Die Absage nennt den Weg hinaus, nicht nur das Problem: LV95 ist der Normalfall
       // schweizerischer Exporte, und ohne diese Zeile bleibt die Wehr beim «geht nicht» stehen.
       geojsonReproject: 'Umprojizieren: in QGIS «Layer → Speichern als …» mit KBS EPSG:4326, oder auf der Kommandozeile ogr2ogr -f GeoJSON -t_srs EPSG:4326 neu.geojson alt.geojson.',

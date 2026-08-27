@@ -531,13 +531,16 @@ function GeorefActions({ mode }: { mode: GeorefModeState }) {
             onClick={() => georefDispatch({ type: 'check', on: !mode.check })}><Icon id="eye" />{C.checkFit}</button>
         </>
       )}
-      {/* One way out, with the word matching what it does. Once a usable fit stands this keeps
-          it («Fertig»); before that, or while unmatched plan points are open, it abandons the
-          unfinished step («Abbrechen»). Two adjacent exit buttons used to do the same thing. */}
+      {/* One way out, with the word matching what it does. Once a usable fit stands it says so
+          («Fertig»); before that it is «Schliessen».
+          ⚠️ NOT «Abbrechen», which it said until 27.08. and never once did: pairs are saved as
+          they are placed (georefMode · the debounced save), so leaving keeps every one of them.
+          Somebody who pressed it to get rid of a crooked alignment found the plan georeferenced
+          anyway. Throwing the points away is «Alle Punkte zurücksetzen», and that one asks. */}
       <button className={`btn ${s.finishAction} ${mode.pairs.length >= 2 && !mode.queue.length && !mode.mapQueue.length ? 'primary' : ''}`}
         onClick={() => georefDispatch({ type: 'end' })}>
         <Icon id={mode.pairs.length >= 2 && !mode.queue.length && !mode.mapQueue.length ? 'check' : 'close'} />
-        {mode.pairs.length >= 2 && !mode.queue.length && !mode.mapQueue.length ? C.done : C.cancel}
+        {mode.pairs.length >= 2 && !mode.queue.length && !mode.mapQueue.length ? C.done : C.closeMode}
       </button>
     </>
   )
@@ -569,9 +572,19 @@ export function GeorefInstrument({ mode }: { mode: GeorefModeState }) {
       <span className={`${s.dot} ${s[`dot_${lamp.tone}`]}`} />
       <span className={s.pillText}>
         <span className={s.promptText}>{p.title}</span>
-        <span className={s.promptHint} title={lamp.body}>
-          {p.hint ? `${p.hint} · ${lamp.head}` : lamp.head}
-        </span>
+        {/* ⚠️ The lesson stands OPEN here, where the phone keeps it behind the (i). The reason
+            for hiding it there is room — five lines of card between the operator and the
+            buttons — and this bar has a whole screen of width. Same sentence, same source. */}
+        {(p.hint ?? p.explain) && <span className={s.promptHint}>{p.hint ?? p.explain}</span>}
+        {/* ⚠️ VISIBLE, not a `title=`. This is the one sentence that says what the next point
+            buys — and a hover tooltip never fires on the iPad this bar was built for, so on the
+            primary field device it said nothing at all while the phone card printed it in full.
+            Toned, because «exakt, aber ungeprüft» is a warning and reads as one. */}
+        {!mode.check && (
+          <span className={`${s.lampLine} ${s[`lampLine_${lamp.tone}`]}`}>
+            <b>{lamp.head}</b>{' · '}<i>{lamp.body}</i>
+          </span>
+        )}
       </span>
       <span className={s.acts}><GeorefActions mode={mode} /></span>
     </div>
@@ -745,10 +758,11 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
                 </button>
               )
               : (
-                /* the way out, and the word matches what it does */
+                /* the way out, and the word matches what it does — «Schliessen», never
+                   «Abbrechen»: see the same button in GeorefActions for why. */
                 <button type="button" className={`btn link ${s.quietBtn} ${done ? s.quietDone : ''}`}
                   onClick={() => georefDispatch({ type: 'end' })}>
-                  <Icon id={done ? 'check' : 'close'} />{done ? C.done : C.cancel}
+                  <Icon id={done ? 'check' : 'close'} />{done ? C.done : C.closeMode}
                 </button>
               )}
           </div>

@@ -155,7 +155,7 @@
 .pp-dist { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); }
 .pp-mods { font-size: 11px; font-weight: 700; color: var(--blue); }
 .pp-mods-none { color: var(--ink-faint); font-weight: 600; }
-.pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-btn); overflow: hidden; border: 1px solid var(--glass-edge); }
+.pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-cluster); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
 .pp-map-note { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 6px 9px; border-radius: var(--r-sm);
   background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: 11px; font-weight: 600; text-align: center; pointer-events: none; }
@@ -189,7 +189,7 @@
 /* floating zoom — top-right of the canvas, matching the map's MapUtility cluster */
 .wb-zoom { display: flex; align-items: center; gap: 2px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; flex: none; }
 .wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: 40; background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-btn); padding: 4px; }
+  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: 4px; }
 .wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink-dim); cursor: pointer; font-family: var(--body); font-size: 12.5px; font-weight: 700; transition: background .14s var(--ease); }
 .wb-zoom button:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }

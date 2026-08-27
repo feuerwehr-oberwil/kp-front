@@ -60,4 +60,8 @@
      the other seven. (It only renders while that edge actually overflows, so on a rail that fits
      there is no cost.) */
   .nav-more, .vrail-more { height: var(--tap); }
+  /* Compass · Zoom · Standort, top-right of the map — 42×42, i.e. exactly the two pixels short
+     that `.tb-act` above was, and picked the same way: a number that looked right rather than one
+     measured against a finger. The glass cluster grows 2px with them; nothing else moves. */
+  .tu-btn { width: var(--tap); height: var(--tap); }
 }

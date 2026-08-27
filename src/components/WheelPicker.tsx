@@ -216,8 +216,14 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   const top = Math.max(8, Math.min(wanted, window.innerHeight - height - 8))
   const style: React.CSSProperties = { position: 'fixed', left, width, top }
 
+  // ⚠️ `role="dialog"` WITHOUT `aria-modal`. It claimed to be modal until 27.08. and never was:
+  // there is no backdrop, no focus trap and no focus restore, so Tab walks straight out into the
+  // page behind while a screen reader is told the rest of it is inert. It is a popover — an
+  // outside tap and Esc close it (see the effect above) — and that is the honest contract.
+  // Making it a real modal would mean routing it through overlays/Popover, which does not do the
+  // outside-tap swallow this one needs.
   return createPortal(
-    <div className="wheelpop" style={style} ref={ref} role="dialog" aria-modal="true">
+    <div className="wheelpop" style={style} ref={ref} role="dialog">
       {/* KEYBOARD ENTRY, wherever there is a keyboard. The wheels used to be replaced wholesale by
           a bare text input on a fine pointer — which is why every feature added to this popover
           (day wheel, ab Start, noch da) simply did not exist at a desk. Now the popover is the one

@@ -134,7 +134,10 @@ describe('the «Karte verknüpfen» chip', () => {
     // the instruction has taken the chip's place — ONE indicator, where the finger already was
     expect(screen.getByText('Punkt 1 · Plan')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Karte verknüpfen/ })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeTruthy()
+    // ⚠️ «Schliessen», NOT «Abbrechen». Points are saved as they are placed, so leaving the mode
+    // discards nothing — the word that promised otherwise is the bug this pins (27.08.).
+    expect(screen.getByRole('button', { name: 'Schliessen' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Abbrechen' })).toBeNull()
   })
 
   it('a viewer sees the reading but is given no way to arm it', () => {

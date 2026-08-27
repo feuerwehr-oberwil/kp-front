@@ -70,15 +70,29 @@ body {
 /* Touch ergonomics — gloved field use on a tablet. Small icon-only controls get
    a centred, transparent 44×44 hit area so the tap target meets WCAG 2.5.8
    without inflating the visible button. Densely-packed pickers are enlarged
-   directly (overlapping invisible targets would cause mis-taps). */
+   directly (overlapping invisible targets would cause mis-taps).
+
+   ⚠️ THE 44px FLOOR LIVES IN THREE PLACES, and an audit that reads only one of them will
+   report controls as too small that are not:
+     1. this list — a transparent pad under an isolated icon-only control, on every pointer;
+     2. a per-rule `::after` beside the control's own rule (`.journal-legend-btn`,
+        `.journal-replay`, `.cross` in GeorefMode.module.css) where the pad needs the
+        surrounding context to be safe;
+     3. `20-touch-floors.css` — `(pointer: coarse)` only, for controls that must actually GROW
+        because a pad would overlap a neighbour.
+   Adding one here is the default; reach for (3) when the control sits in a dense row. */
 .ctx-x, .sym-close, .sym-clear, .tl-play,
 .journal-x, .wb-dock-x, .ip-x, .jc-clip-x, .pp-clear, .step-clear,
-.wb-dock-tog, .wb-dock-go, .jr-jump { position: relative; }
+.wb-dock-tog, .wb-dock-go, .jr-jump,
+/* the Hilfe overlay's two — a phone surface, and both sit alone in a padded row, so a pad
+   cannot reach a neighbour (34px and 30px until 27.08.) */
+.help-x, .help-search-x { position: relative; }
 .ctx-x::after, .sym-close::after, .sym-clear::after,
 .tl-play::after, .wb-del::after,
 .journal-x::after, .wb-dock-x::after, .ip-x::after,
 .jc-clip-x::after, .pp-clear::after, .step-clear::after,
-.wb-dock-tog::after, .wb-dock-go::after, .jr-jump::after {
+.wb-dock-tog::after, .wb-dock-go::after, .jr-jump::after,
+.help-x::after, .help-search-x::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
   transform: translate(-50%, -50%);
 }

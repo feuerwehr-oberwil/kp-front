@@ -1,7 +1,7 @@
 /* top-right map controls — compass | zoom | locate · coordinates */
 .toputil { position: absolute; top: 16px; right: 16px; z-index: 40; display: flex; align-items: center; gap: 3px;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-btn); padding: 5px 6px; box-shadow: var(--shadow); white-space: nowrap; }
+  border-radius: var(--r-cluster); padding: 5px 6px; box-shadow: var(--shadow); white-space: nowrap; }
 .tu-btn { width: 42px; height: 42px; border: none; background: transparent; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink); cursor: pointer; transition: background .14s var(--ease), transform .12s var(--ease); }
 .tu-btn:hover { background: var(--hover-strong); }

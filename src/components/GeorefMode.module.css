@@ -136,6 +136,19 @@
 .promptHint {
   display: block; font: 500 11.5px var(--body); color: var(--ink-dim); margin-top: 2px;
 }
+/* The Ampel as a LINE, for the bar that has no room for a band. Same reading as the phone card's
+   `.lamp`, same source (georefMode · georefLamp) — only the shape differs, because the desktop
+   instrument is one row of chrome and a tinted block would turn it into a panel.
+   ⚠️ The `-strong` tones, never the bare ones: this is TEXT on a light surface by day and on a
+   dark one at night, which is exactly the pair those tokens exist for (01-tokens.css). Bare
+   --red on white is 4.0:1 at 11.5px — not enough for the one line carrying the warning. */
+.lampLine { display: block; font: 600 11.5px/1.35 var(--body); margin-top: 3px; }
+.lampLine b { font-weight: 700; }
+/* not italic: `i` is this card's shape for «the quieter half of a two-part line», nothing more */
+.lampLine i { font-style: normal; font-weight: 500; opacity: .9; }
+.lampLine_red { color: var(--red-strong); }
+.lampLine_amber { color: var(--amber-strong); }
+.lampLine_green { color: var(--green-strong); }
 /* ⚠️ `:global`. `.btn` is the app's shared button class (06-contextpanel.css); inside a CSS
    module a bare `.btn` would be hashed into a class nothing on the page carries. */
 .pill :global(.btn), .bar :global(.btn) { flex: none; padding: 7px 11px; font-size: 12.5px; white-space: nowrap; }
@@ -423,7 +436,7 @@
      it names the point it is about to set — «Punkt 3 setzen», not «Punkt setzen», so the count
      is on the button somebody is actually looking at. */
   .bar .placeAction {
-    width: 100%; min-height: 48px; border-radius: var(--r-btn);
+    width: 100%; min-height: 48px; border-radius: var(--r-sm);
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     font-size: 15px;
   }

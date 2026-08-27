@@ -659,7 +659,7 @@
   .phone-wx { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 40;
     display: flex; align-items: center;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-    border-radius: var(--r-btn); padding: 4px; box-shadow: var(--shadow); }
+    border-radius: var(--r-cluster); padding: 4px; box-shadow: var(--shadow); }
   /* the bar's own weather readout is phone-hidden — it lives in this cluster instead */
   .topbar .tb-weather-wrap { display: none; }
   /* …and the GPS caveat leaves the bar for the same reason the weather did: there is no room

@@ -162,6 +162,19 @@ to prod.
 - **Domain language is German** (Lage, Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
   accurate. **All user-facing strings live in `appConfig.copy.*`** – never hard-code UI text in
   a component; add a key and reference it.
+- **Failure copy has two shapes, and they are not interchangeable** (settled 2026-08-27 after a
+  sweep found 35 of one and 20+ of the other with no rule between them):
+  - *«X fehlgeschlagen»* – the action the operator just triggered failed, on a surface that
+    already says which one it was (the toast right after the button). It is a **fragment**.
+  - *«X konnte nicht … werden»* – the failure is about a **named thing** the operator did not
+    just act on, or the sentence has to carry *which* object failed («Plan konnte nicht
+    hochgeladen werden»). Losing the object name to shorten it is the wrong trade.
+  - **Punctuation follows the last segment, not the string.** A string ends with a period only
+    when its final segment is a full clause (subject + finite verb): «… – Änderungen sind lokal
+    gespeichert.» keeps it, «… – nochmals versuchen» and «Löschen fehlgeschlagen» do not.
+    Headings and titles never take one, even when they are full clauses («Ein Fehler ist
+    aufgetreten»). The rule is per locale – French «La suppression a échoué.» is a clause where
+    German «Löschen fehlgeschlagen» is a fragment, and both are right.
 - **Prose language split: technical English, user-facing German.** Everything technical –
   `docs/`, READMEs, `CHANGELOG.md`, code comments, commit messages – is written in English;
   German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
