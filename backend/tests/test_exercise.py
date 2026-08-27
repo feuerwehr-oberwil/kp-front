@@ -64,12 +64,12 @@ async def test_flag_roundtrip_and_patch(client, editor):
 
 
 async def test_delete_real_incident_forbidden(client, editor):
-    """An EDITOR cannot delete a real Einsatz — deletion belongs to deployment admin."""
+    """An EDITOR still cannot delete a real Einsatz — that is an Einsatzakte, not a scratch pad."""
     await _login(client, editor)
     inc_id = await _create(client, "Echter Einsatz")
 
     r = await client.delete(f"/api/incidents/{inc_id}")
-    assert r.status_code == 401
+    assert r.status_code == 403
 
     # still there
     r = await client.get(f"/api/incidents/{inc_id}")
@@ -101,11 +101,11 @@ async def test_admin_cannot_delete_a_running_real_incident(client, editor, admin
     assert (await client.get(f"/api/incidents/{inc_id}")).status_code == 200
 
 
-async def test_admin_can_delete_exercise(client, editor, admin_login):
+async def test_delete_exercise_removes_it(client, editor):
+    """An Übung is disposable by any editor, archived or not — no admin key for a scratch pad."""
     await _login(client, editor)
     inc_id = await _create(client, "Übung Magazin", exercise=True)
 
-    await admin_login(client)
     r = await client.delete(f"/api/incidents/{inc_id}")
     assert r.status_code == 204
 
@@ -113,12 +113,14 @@ async def test_admin_can_delete_exercise(client, editor, admin_login):
     assert r.status_code == 404
 
 
-async def test_editor_cannot_delete_exercise_without_admin(client, editor):
+async def test_viewer_cannot_delete(client, editor, viewer):
+    """Disposable is not the same as unguarded: deletion is an EDITOR door, never a viewer's."""
     await _login(client, editor)
     inc_id = await _create(client, "Übung Hydrant", exercise=True)
 
+    await _login(client, viewer)
     r = await client.delete(f"/api/incidents/{inc_id}")
-    assert r.status_code == 401
+    assert r.status_code == 403
 
 
 async def test_stats_excludes_exercises_by_default(client, editor, stats_secret):

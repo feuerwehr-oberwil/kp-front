@@ -66,8 +66,10 @@ export function IncidentHistoryView() {
                   <td><span className="adm-view-badge adm-view-badge-muted">{incident.source}</span></td>
                   <td>{incident.report_done_at ? C.complete : C.incomplete}</td>
                   <td className="adm-mono">{dateTime(incident.updated_at)}</td>
-                  {/* Real Einsätze must be closed first; exercises are disposable admin data
-                      and may be removed in any state. The backend enforces the same split. */}
+                  {/* The backend's two doors, mirrored: an Übung is disposable and goes in any
+                      state, a real Einsatz only once it is CLOSED — archiving is the operator
+                      saying it is over, and the only moment «löschen» is a decision rather than
+                      an accident. A running Einsatz is refused server-side either way (409). */}
                   <td>
                     {closed || incident.is_exercise ? (
                       <ConfirmButton

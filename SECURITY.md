@@ -68,11 +68,14 @@ the latest tagged release (or `main`) and update promptly – see [`docs/DEPLOYM
   give this upload path to untrusted users. Before KP Front is offered as managed hosting or a
   multi-customer service, require strict SVG sanitization at ingestion and rendering plus a
   tested application-wide Content Security Policy; tenant isolation alone is not a substitute.
-- **Whole-incident deletion is destructive maintenance.** It is available only to a deployment
-  admin; a real Einsatz must first be archived. It deletes Verlauf, hash-chained audit events,
-  attendance and media together, so the in-database chain cannot prove the deletion afterwards.
-  This is accepted for station-operated cleanup for now. A hosted service needs an explicit
-  retention policy and deletion evidence outside the deleted incident record.
+- **Whole-incident deletion is destructive maintenance.** Deleting a **real Einsatz** needs a
+  deployment admin and the Einsatz must first be archived. It deletes Verlauf, hash-chained audit
+  events, attendance and media together, so the in-database chain cannot prove the deletion
+  afterwards. This is accepted for station-operated cleanup for now. A hosted service needs an
+  explicit retention policy and deletion evidence outside the deleted incident record.
+  **Übungen are deliberately outside this rule** — any editor may delete one in any state. An
+  exercise is not an operational record, and a Wehr that cannot clear its own practice runs
+  stops marking them as practice runs, which costs more evidence than it preserves.
 
 ## Data protection
 

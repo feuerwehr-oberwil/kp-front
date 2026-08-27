@@ -1,12 +1,14 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
-import { confirmDialog } from '../../lib/ui'
+import { toast, confirmDialog } from '../../lib/ui'
+import { ApiError } from '../../lib/api'
 import { filterIncidents, historyGroupKey, monthLabel } from '../../lib/historyGroups'
 import { getLocaleId } from '../../config/copy'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
 import {
+  deleteIncident,
   listIncidents,
   reactivateIncident,
   type IncidentMeta,
@@ -48,6 +50,26 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
     onOpen(id, false)
   }
   const archive = async (id: string) => { await onArchive?.(id); reload() }
+  // hard delete — Übungen only (server-enforced). Deliberately NOT undoable, so it gets the
+  // danger confirm instead of confirm-with-undo; real Einsätze never show the button.
+  const removeExercise = async (i: IncidentMeta) => {
+    const h = appConfig.copy.history
+    const ok = await confirmDialog({
+      title: h.deleteConfirmTitle,
+      message: h.deleteConfirmMsg,
+      confirmLabel: h.deleteConfirmBtn,
+      cancelLabel: appConfig.copy.cancel,
+      danger: true,
+    })
+    if (!ok) return
+    try {
+      await deleteIncident(i.id)
+      toast(h.deleted, { icon: 'check', tone: 'success' })
+      reload()
+    } catch (e) {
+      toast(e instanceof ApiError ? e.detail : h.deleteFailed, { icon: 'warn', tone: 'warn' })
+    }
+  }
   // active first, then by start time (newest first)
   const sorted = [...items].sort(
     (a, b) => Number(a.is_archived) - Number(b.is_archived) || (a.started_at < b.started_at ? 1 : -1),
@@ -92,6 +114,13 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
               {i.is_archived
                 ? <button className="ip-btn" onClick={() => reactivate(i.id)}>{h.reactivate}</button>
                 : onArchive && <button className="ip-btn" onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</button>}
+              {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
+                  Übung is first abgeschlossen like any incident, then deletable */}
+              {i.is_exercise && i.is_archived && onArchive && (
+                <button className="ip-btn ip-btn-danger" onClick={() => void removeExercise(i)} aria-label={h.deleteConfirmTitle}>
+                  <Icon id="trash" /> {h.deleteExercise}
+                </button>
+              )}
             </div>
           </Fragment>
         )

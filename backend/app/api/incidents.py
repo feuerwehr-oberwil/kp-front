@@ -4,14 +4,14 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from .. import audit, live_wait, storage
 from ..alarms import is_demo_deployment
-from ..auth.dependencies import CurrentAdmin, CurrentEditor, CurrentUser, UserOrAdmin
+from ..auth.dependencies import CurrentEditor, CurrentUser, EditorOrAdmin, UserOrAdmin, _admin_session_valid
 from ..database import execute_dml, get_db
 from ..geocode import geocode
 from ..models import Incident
@@ -362,14 +362,26 @@ async def patch_incident(
 @router.delete("/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_incident(
     incident_id: uuid.UUID,
-    _admin: CurrentAdmin,
+    _actor: EditorOrAdmin,
     db: AsyncSession = Depends(get_db),
+    admin_session: str | None = Cookie(default=None),
 ) -> None:
     """Hard delete. Child rows (journal, audit chain, people, media, snapshots) go via FK CASCADE;
     their storage blobs are removed best-effort after the database commit.
 
-    ADMIN ONLY for both Übungen and real Einsätze. A real Einsatz additionally has to be
-    ARCHIVED. Deleting one
+    TWO doors, because they answer different questions:
+
+    · **Übungen** — any editor, any time. An exercise is not an operational record; it exists to
+      be thrown away, and needing an admin for it would make the tidy-up cost more than the
+      exercise. That is the whole point of the flag, and a Wehr that cannot clear its own
+      practice runs stops marking them as practice runs. A viewer still cannot (403).
+
+    ⚠️ The door is ``EditorOrAdmin``, not ``CurrentEditor``: the Verwaltung's own incident list
+      offers this button, and /admin is reached with an ADMIN cookie that need not be
+      accompanied by an editor login. Requiring both made that control fail for exactly the
+      person the Verwaltung exists for.
+
+    · **Real Einsätze** — an ADMIN session, and only once the Einsatz is ARCHIVED. Deleting one
       destroys an Einsatzakte: the Verlauf, the hash-chained audit trail, the Anwesenheit, every
       photo and voice memo. That is a legal record, so it takes the same key as the Verwaltung
       and it cannot happen to something still running — the archive step is the operator saying
@@ -381,11 +393,15 @@ async def delete_incident(
     otherwise record it is one of the things being deleted.
     """
     inc = await _get(db, incident_id)
-    if not inc.is_exercise and not inc.is_archived:
-        raise HTTPException(
-            status_code=409, detail="Einsatz zuerst abschliessen — ein laufender Einsatz kann nicht gelöscht werden"
-        )
     if not inc.is_exercise:
+        if not await _admin_session_valid(admin_session):
+            raise HTTPException(
+                status_code=403, detail="Nur Übungen können gelöscht werden — ein echter Einsatz braucht die Verwaltung"
+            )
+        if not inc.is_archived:
+            raise HTTPException(
+                status_code=409, detail="Einsatz zuerst abschliessen — ein laufender Einsatz kann nicht gelöscht werden"
+            )
         logger.warning(
             "ADMIN DELETE of a real incident %s (%r, started %s, archived=%s) — Verlauf, Prüfkette, "
             "Anwesenheit und Medien gehen mit.",
