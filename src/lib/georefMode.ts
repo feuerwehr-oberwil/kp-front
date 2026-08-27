@@ -379,10 +379,14 @@ export function georefPlacing(s: GeorefModeState): boolean {
   return !!s.planId && !!s.edit
 }
 
-/** The MAP's own crosses, on the other hand, go inert as soon as anything is waiting to be
- *  matched: over there every tap belongs to an open point (georefWantsMap). */
+/** The MAP's paired crosses stay draggable while unmatched points are queued. An intentional
+ *  press on an existing landmark is a correction, and making it inert forced phone users to
+ *  delete and recreate the pair. Only an actively picked-up half makes every cross inert: its
+ *  landing tap must belong to the map beneath it. A queued point cannot validly be placed on an
+ *  existing cross anyway (`replacePair` would replace that landmark), so the cross may own its
+ *  own hit target without creating two references at one place. */
 export function georefMatching(s: GeorefModeState): boolean {
-  return !!s.planId && (!!s.edit || s.queue.length > 0)
+  return !!s.planId && !!s.edit
 }
 
 /**

@@ -230,6 +230,27 @@ describe('leaving Deckung prüfen', () => {
   })
 })
 
+describe('the phone can start a pair on either surface', () => {
+  it('switches to Karte before any Modul point exists and records a map-first half', () => {
+    const previous = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: q === '(max-width: 600px)', media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
+      render(<GeorefModeBars planLabel="Modul 2" />)
+      const switcher = screen.getByRole('group', { name: /Karte verknüpfen/ })
+      fireEvent.click(within(switcher).getByRole('button', { name: 'Karte' }))
+      expect(georefSnapshot().want).toBe('map')
+      act(() => georefDispatch({ type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } }))
+      expect(georefSnapshot().mapQueue).toEqual([{ lng: 7.5, lat: 47.5 }])
+    } finally {
+      window.matchMedia = previous
+    }
+  })
+})
+
 // ⚠️ The rule the whole armed mode stands on: a TAP places a point, and everything else pans the
 // sheet exactly as it does with no mode running. The pure fold is covered in
 // lib/georefMode.test.ts; this drives the real capture layer, because the bug that prompted it

@@ -57,11 +57,10 @@ describe('georefReduce · placing a pair', () => {
 
   it('a plan tap opens a point — and does NOT drag the operator to the map', () => {
     const s = georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.3 } })
-    // ⚠️ the SHEET stays free: open points do not make the plan's own crosses inert (you go on
-    // marking corners, fine-tuning and picking up), while the map's do go inert — over there
-    // every tap belongs to an open point.
+    // ⚠️ Both surfaces' existing crosses stay directly draggable while points are queued.
+    // A phone correction must not require deleting and recreating a pair.
     expect(georefPlacing(s)).toBe(false)
-    expect(georefMatching(s)).toBe(true)
+    expect(georefMatching(s)).toBe(false)
     expect(s.queue).toEqual([{ x: 0.2, y: 0.3 }])
     // ⚠️ the whole point of the queue: the sheet stays in front of you until you say otherwise
     expect(s.want).toBe('plan')
@@ -131,6 +130,16 @@ describe('georefReduce · placing a pair', () => {
     expect(s.pairs.map((p) => p.plan)).toEqual([{ x: 0.2, y: 0.3 }, { x: 0.6, y: 0.3 }, { x: 0.4, y: 0.8 }])
     expect(s.queue).toEqual([])
     expect(s.want).toBe('plan') // …and only now back to the sheet
+  })
+
+  it('keeps existing map crosses draggable while unmatched plan points wait', () => {
+    let s = armed([pair(0.2, 0.3, 7.5, 47.5)])
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.7, y: 0.8 } })
+    expect(s.queue).toHaveLength(1)
+    expect(georefMatching(s)).toBe(false)
+    const moved = georefReduce(s, { type: 'dragMap', idx: 0, lngLat: { lng: 7.51, lat: 47.51 } })
+    expect(moved.pairs[0].lngLat).toEqual({ lng: 7.51, lat: 47.51 })
+    expect(moved.queue).toEqual(s.queue)
   })
 
   it('may switch to the map before either half has been set', () => {
