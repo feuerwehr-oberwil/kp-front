@@ -52,11 +52,34 @@ export function getStationPlanScales(): StationPlanScales {
 
 /** Fetch the station calibration (PUBLIC GET), cache for offline, populate the singleton.
  *  Never throws — a failure just means no station default (plans fall back to «calibrate»). */
+// --- change notification --------------------------------------------------------------------
+// `resolved` is a module singleton read synchronously (getStationPlanScales / georefForPlan /
+// resolvePlanScale), so a surface showing a station calibration has nothing to re-render on when
+// the document changes underneath it. These listeners are that something; lib/georefMode wires
+// its own version counter to them, which is what `useGeorefStorage` already subscribes to.
+const listeners = new Set<() => void>()
+
+/** Subscribe to «the station document changed» — a local write, or a refresh that brought
+ *  something new down from the server. Returns the unsubscribe. */
+export function subscribeStationPlanScales(fn: () => void): () => void {
+  listeners.add(fn)
+  return () => { listeners.delete(fn) }
+}
+
+const notify = () => listeners.forEach((l) => l())
+
+/** Bumped by every write, so a GET that was already in the air when a local save started cannot
+ *  land on top of it with the server's older answer. */
+let writeSeq = 0
+
 export async function loadStationPlanScales(): Promise<StationPlanScales> {
   try {
-    resolved = normalize(await apiGet<StationPlanScales>('/api/plan-scales'))
+    const next = normalize(await apiGet<StationPlanScales>('/api/plan-scales'))
+    const changed = JSON.stringify(next) !== JSON.stringify(resolved)
+    resolved = next
     loaded = true
     void idbSet(CACHE_KEY, resolved)
+    if (changed) notify()
     return resolved
   } catch {
     // A cache HIT is a real document too — it is the last one the server confirmed to this
@@ -74,9 +97,41 @@ export async function loadStationPlanScales(): Promise<StationPlanScales> {
  *  writer therefore read-modify-writes on top of `baseForWrite()`, as the helpers below do;
  *  building a body from scratch would drop whatever the other half of the document holds. */
 export async function saveStationPlanScales(next: StationPlanScales): Promise<void> {
+  writeSeq++
   resolved = next
   void idbSet(CACHE_KEY, next)
+  notify()
   await apiPut('/api/plan-scales', next)
+}
+
+/**
+ * Re-read the station document from the server.
+ *
+ * ⚠️ This is the ONLY way a device that is ALREADY RUNNING learns about a Massstab or a
+ * Georeferenz somebody set on another device. The boot load (main.tsx) runs exactly once and
+ * nothing polls, so a plan referenced on the KP tablet used to reach the phone in the same
+ * Einsatz only after the phone was restarted — and the whole point of this document is that it
+ * is station data, not device data.
+ *
+ * Deliberately quieter than the boot load: a failed fetch keeps whatever we have (a refresh must
+ * never degrade a good document into the offline void), and an answer identical to what is
+ * already resolved notifies nobody, so a periodic check costs no re-render at all.
+ */
+export async function refreshStationPlanScales(): Promise<void> {
+  const seenWrites = writeSeq
+  let next: StationPlanScales
+  try {
+    next = normalize(await apiGet<StationPlanScales>('/api/plan-scales'))
+  } catch {
+    return
+  }
+  // a local write started while the GET was in the air — its body is newer than this answer
+  if (writeSeq !== seenWrites) return
+  loaded = true
+  if (JSON.stringify(next) === JSON.stringify(resolved)) return
+  resolved = next
+  void idbSet(CACHE_KEY, next)
+  notify()
 }
 
 /**

@@ -14,7 +14,7 @@ import { Splash } from './components/Splash'
 import { lockChromeZoom } from './lib/lockZoom'
 import { loadPrefs, applyTheme, resolveTheme } from './lib/prefs'
 import { loadDeploymentConfigBounded, applyDeploymentBranding } from './lib/deploymentConfig'
-import { loadStationPlanScales } from './lib/stationPlanScale'
+import { loadStationPlanScales, refreshStationPlanScales } from './lib/stationPlanScale'
 import { migrateLocalStorageToIdb } from './lib/storageMigration'
 import { requestPersistentStorage } from './lib/idb'
 import { applyLocale } from './config/copy'
@@ -107,6 +107,15 @@ void (async () => {
     applyDeploymentBranding(cfg)
     // station plan calibration (public, offline-cached) — so plans measure out of the box (#3)
     void loadStationPlanScales()
+    // …and re-read it whenever this device comes back to the foreground. The document holds
+    // STATION data — the Massstab and the Georeferenz of a sheet — which somebody sets on the
+    // KP tablet while the phone in the same Einsatz sits in a pocket. The boot load runs once,
+    // so without this the other device only learned about it by being restarted.
+    // Event-driven on purpose: no interval, no clock, nothing that ticks while the app is idle.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void refreshStationPlanScales()
+    })
+    window.addEventListener('focus', () => { void refreshStationPlanScales() })
     // Resolve the UI language now that the deployment config is in: device pref →
     // deployment locale → de-CH. Runs before first render, so appConfig.copy.* (a getter
     // delegating to config/copy · getCopy) is already in the right language from the first paint.

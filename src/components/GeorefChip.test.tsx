@@ -13,6 +13,8 @@ vi.mock('../lib/stationPlanScale', () => ({
   saveGeoref: vi.fn(() => Promise.resolve()),
   resolvePlanScale: () => undefined,
   getStationPlanScales: () => ({ default: null, byPlan: {}, georefByPlan: {} }),
+  subscribeStationPlanScales: vi.fn(() => () => {}),
+  refreshStationPlanScales: vi.fn(() => Promise.resolve()),
 }))
 // the PDF stack is the heaviest dependency in the app and irrelevant here
 vi.mock('./PdfViewport', () => ({
@@ -22,6 +24,7 @@ vi.mock('./PdfViewport', () => ({
 }))
 
 import { Whiteboard } from './Whiteboard'
+import { PHONE_QUERY } from '../lib/useIsPhone'
 import { georefDispatch, georefSnapshot, registerGeorefPhoneTarget, resetGeorefMode } from '../lib/georefMode'
 import { GeorefModeBars } from './GeorefMode'
 import { Overlays } from '../lib/ui'
@@ -253,14 +256,14 @@ describe('the phone can start a pair on either surface', () => {
   it('commits the fixed Plan target only through the explicit action', () => {
     const previous = window.matchMedia
     window.matchMedia = ((q: string) => ({
-      matches: q === '(max-width: 600px)', media: q, onchange: null,
+      matches: q === PHONE_QUERY, media: q, onchange: null,
       addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
     })) as unknown as typeof window.matchMedia
     try {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
       const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.45, y: 0.35 }))
       render(<GeorefModeBars planLabel="Modul 2" />)
-      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt 1 setzen' }))
       expect(georefSnapshot().queue).toEqual([{ x: 0.45, y: 0.35 }])
       unregister()
     } finally {
@@ -271,7 +274,7 @@ describe('the phone can start a pair on either surface', () => {
   it('switches to Karte before any Modul point exists and records a map-first half', () => {
     const previous = window.matchMedia
     window.matchMedia = ((q: string) => ({
-      matches: q === '(max-width: 600px)', media: q, onchange: null,
+      matches: q === PHONE_QUERY, media: q, onchange: null,
       addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
     })) as unknown as typeof window.matchMedia
     try {
@@ -281,7 +284,7 @@ describe('the phone can start a pair on either surface', () => {
       fireEvent.click(within(switcher).getByRole('button', { name: 'Karte' }))
       expect(georefSnapshot().want).toBe('map')
       const unregister = registerGeorefPhoneTarget('map', () => ({ lng: 7.5, lat: 47.5 }))
-      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt 1 setzen' }))
       expect(georefSnapshot().mapQueue).toEqual([{ lng: 7.5, lat: 47.5 }])
       unregister()
     } finally {
@@ -320,7 +323,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
   it('a phone tap only aims or pans; it never commits without Punkt setzen', () => {
     const previous = window.matchMedia
     window.matchMedia = ((q: string) => ({
-      matches: q === '(max-width: 600px)', media: q, onchange: null,
+      matches: q === PHONE_QUERY, media: q, onchange: null,
       addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
     })) as unknown as typeof window.matchMedia
     try {
@@ -328,7 +331,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
       fireEvent.pointerDown(capture, at(400, 300))
       fireEvent.pointerUp(capture, at(400, 300))
       expect(georefSnapshot().queue).toEqual([])
-      expect(screen.queryByText('Punkt setzen')).toBeNull() // app-shell action tested separately
+      expect(screen.queryByText(/Punkt \d+ setzen/)).toBeNull() // app-shell action tested separately
     } finally {
       cleanup()
       window.matchMedia = previous

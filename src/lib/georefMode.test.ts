@@ -10,6 +10,7 @@ import {
   georefPhoneTargetPoint,
   resetGeorefMode,
   georefChip,
+  georefLamp,
   georefMatching,
   georefPlacing,
   georefPointNo,
@@ -35,6 +36,8 @@ const { mockGeorefForPlan } = vi.hoisted(() => ({
 vi.mock('./stationPlanScale', () => ({
   georefForPlan: mockGeorefForPlan,
   saveGeoref: vi.fn(() => Promise.resolve()),
+  // the store subscribes at module load so a reference set on ANOTHER device re-renders here
+  subscribeStationPlanScales: vi.fn(() => () => {}),
 }))
 
 // The pairing mode is the one piece of this feature that has to be right on a phone, in the
@@ -492,6 +495,48 @@ describe('georefChip', () => {
     expect(chip.warn).toBe(false)
     expect(chip.residualM).not.toBeNull()
     expect(chip.residualM!).toBeGreaterThanOrEqual(0)
+  })
+})
+
+// The Ampel is the reading the bar never had. It replaces «2 Paare» — a number nobody can have
+// an opinion about — with the sentence that decides whether to place a third point.
+describe('georefLamp', () => {
+  it('is red with nothing, and says what two points would buy', () => {
+    const lamp = georefLamp(null, armed())
+    expect(lamp.tone).toBe('red')
+    expect(lamp.body).toBe('Zwei Punkte legen den Plan auf die Karte.')
+  })
+
+  it('stays red on ONE pair — a single point carries no sheet', () => {
+    expect(georefLamp(null, armed([TWO[0]])).tone).toBe('red')
+  })
+
+  it('is amber at two, and carries the reason a third is needed', () => {
+    const lamp = georefLamp(fitSimilarity(TWO, AR), armed(TWO))
+    expect(lamp.tone).toBe('amber')
+    expect(lamp.head).toBe('2 Punkte – exakt, aber ungeprüft')
+    expect(lamp.body).toContain('erst ein dritter Punkt')
+  })
+
+  it('turns green on a measured fit, with the number AND what it is good for', () => {
+    const lamp = georefLamp(fitSimilarity(THREE, AR), armed(THREE))
+    expect(lamp.tone).toBe('green')
+    expect(lamp.head).toMatch(/^3 Punkte · ⌀ \d+\.\d m$/)
+    expect(lamp.body).toContain('spiegeln')
+  })
+
+  // a measured fit can still be a bad one — then the residual is the least useful thing on the
+  // bar, and what is wrong with the POINTS takes its place
+  it('stays amber on a collinear fit, and says so instead of boasting the number', () => {
+    const line = [pair(0.2, 0.2, 7.5, 47.5), pair(0.5, 0.5, 7.5008, 47.4995), pair(0.8, 0.8, 7.5015, 47.4991)]
+    const lamp = georefLamp(fitSimilarity(line, AR), armed(line))
+    expect(lamp.tone).toBe('amber')
+    expect(lamp.body).toContain('fast auf einer Linie')
+  })
+
+  it('counts the unmatched halves that are still waiting', () => {
+    const withOpen: GeorefModeState = { ...armed(THREE), queue: [{ x: 0.1, y: 0.1 }] }
+    expect(georefLamp(fitSimilarity(THREE, AR), withOpen).head).toContain('1 offen')
   })
 })
 

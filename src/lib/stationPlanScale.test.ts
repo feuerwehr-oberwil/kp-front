@@ -163,3 +163,51 @@ describe('a write never builds on a document that never loaded', () => {
     expect(apiPut).not.toHaveBeenCalled()
   })
 })
+
+// The document is STATION data: a Massstab or a Georeferenz set on the KP tablet has to reach
+// the phone in the same Einsatz. The boot load runs once, so `refreshStationPlanScales` is the
+// only path by which an already-running device ever learns about it.
+describe('refreshStationPlanScales — a second device picks up the change', () => {
+  it('adopts a georeference set on another device and tells its subscribers', async () => {
+    const m = await booted({})
+    const seen = vi.fn()
+    m.subscribeStationPlanScales(seen)
+
+    apiGet.mockResolvedValue(doc({ georefByPlan: { m1: georef(2) } }))
+    await m.refreshStationPlanScales()
+
+    expect(m.georefForPlan('m1')?.pairs).toHaveLength(2)
+    expect(seen).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays silent when the server answers with what we already have', async () => {
+    const m = await booted({ default: scale(100) })
+    const seen = vi.fn()
+    m.subscribeStationPlanScales(seen)
+
+    apiGet.mockResolvedValue(doc({ default: scale(100) }))
+    await m.refreshStationPlanScales()
+
+    expect(seen).not.toHaveBeenCalled()
+  })
+
+  it('keeps the resolved document when the refresh fetch fails', async () => {
+    const m = await booted({ default: scale(100) })
+    apiGet.mockRejectedValue(new Error('offline'))
+    await m.refreshStationPlanScales()
+    expect(m.getStationPlanScales().default?.mPerU).toBe(100)
+  })
+
+  it('does not let an in-flight GET land on top of a local write', async () => {
+    const m = await booted({ default: scale(100) })
+    // the GET is answered only after the local save has already replaced the document
+    let answer: (v: unknown) => void = () => {}
+    apiGet.mockReturnValue(new Promise((res) => { answer = res }))
+    const refreshing = m.refreshStationPlanScales()
+    await m.saveStationDefault(scale(42))
+    answer(doc({ default: scale(100) }))
+    await refreshing
+
+    expect(m.getStationPlanScales().default?.mPerU).toBe(42)
+  })
+})

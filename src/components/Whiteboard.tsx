@@ -47,7 +47,7 @@ import { GeorefBoardLayer, GeorefInstrument, GeorefSplitSeam, type PlanViewApi }
 import { GeorefQuality } from './GeorefQuality'
 import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
 import { fitSimilarity } from '../lib/georef'
-import { georefForPlan } from '../lib/stationPlanScale'
+import { georefForPlan, refreshStationPlanScales } from '../lib/stationPlanScale'
 import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
 import { boardTwins, type BoardTwin } from '../lib/georefTwins'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
@@ -556,6 +556,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   useGeorefStorage()
   const georefArmed = georef.planId === activeId
   const activeGeorefKey = active?.georefKey ?? activeId
+  // Opening a sheet is the moment its station data has to be current: the Massstab and the
+  // Georeferenz are set by whoever happens to be holding a device, and every OTHER device only
+  // read the document once, at boot. Re-reads on plan switch (and on focus, from main.tsx);
+  // an unchanged answer notifies nobody, so this costs a render only when something really moved.
+  useEffect(() => { void refreshStationPlanScales() }, [activeGeorefKey])
   const canGeoref = !osm && !blank && !stack && active?.viewer !== true
   const measureARForGeoref = stack ? 1 / TILE_AR : 1 / aspect
   const georefPairs = georefArmed ? georef.pairs : georefForPlan(activeGeorefKey)?.pairs ?? []
@@ -3197,9 +3202,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 else addArea(pts)
               }
             : undefined}
-          onCalibrate={readOnly ? undefined : () => setTool('scale')}
+          // ⚠️ NOT offered on an automatically referenced sheet. `scaleAuto` means the metres come
+          // from the Kartenverknüpfung, and the same rule the Massstab chip follows holds here:
+          // an automatic scale is a READING, never a shortcut into a second, competing manual
+          // calibration. «Neu kalibrieren» under a plan that is already tied to the map read as
+          // «this is not calibrated» — the opposite of the truth. The reading takes its place.
+          onCalibrate={readOnly || scaleAuto ? undefined : () => setTool('scale')}
           calibrateLabel={appConfig.copy.whiteboard.scale.calibrate}
           recalibrateLabel={appConfig.copy.whiteboard.scale.recalibrate}
+          scaleNote={scaleAuto ? appConfig.copy.whiteboard.scale.chipAutoHint : undefined}
         />
       )}
 

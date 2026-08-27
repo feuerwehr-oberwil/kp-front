@@ -42,8 +42,10 @@
  */
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { BASELINE_WARN_M, replacePair, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt } from './georef'
-import { georefForPlan, saveGeoref } from './stationPlanScale'
+import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './stationPlanScale'
 import { useIsPhone } from './useIsPhone'
+import { appConfig } from '../config/appConfig'
+import { fillTemplate } from './format'
 
 /** Which surface the mode is waiting on. */
 export type GeorefSide = 'plan' | 'map'
@@ -454,6 +456,53 @@ export function georefChip(fit: GeorefFit | null, mode: GeorefModeState, planId:
   }
 }
 
+/** The Ampel: how good the reference is RIGHT NOW, and what the next point changes about it. */
+export interface GeorefLamp {
+  /** red = no fit yet · amber = a fit that is unmeasured or warned about · green = measured */
+  tone: 'red' | 'amber' | 'green'
+  /** the state, in three or four words — «2 Punkte – exakt, aber ungeprüft» */
+  head: string
+  /** why that is, and what one more point buys. The sentence the operator is missing when they
+   *  decide to stop at two. */
+  body: string
+}
+
+/**
+ * The reading that stands beside the instruction for the whole of the mode.
+ *
+ * ⚠️ This is the one thing «Karte verknüpfen» never said. The bar counted pairs («2 Paare»),
+ * which is a fact nobody can have an opinion about: it does not say whether that is enough, and
+ * the warning that it is NOT — two pairs solve exactly, so the residual is zero by construction
+ * — lived in the Passung panel, one tap away, i.e. exactly where somebody who is about to stop
+ * at two points will never look. So the warning moves to where the decision is made.
+ *
+ * Pure, and the ONLY place the tone is decided, so the phone bar and the desktop instrument
+ * cannot end up disagreeing about whether a reference is good.
+ */
+export function georefLamp(fit: GeorefFit | null, mode: GeorefModeState): GeorefLamp {
+  const C = appConfig.copy.whiteboard.georef
+  const n = mode.pairs.length
+  const open = mode.queue.length + mode.mapQueue.length
+  const withOpen = (head: string) => (open ? `${head} · ${fillTemplate(C.barOpen, { n: String(open) })}` : head)
+  if (!fit || n < 2) {
+    return n === 0
+      ? { tone: 'red', head: withOpen(C.lampNoneHead), body: C.lampNoneBody }
+      : { tone: 'red', head: withOpen(C.lampOneHead), body: C.lampOneBody }
+  }
+  // ⚠️ Through `residualClaim`, never `meanResidualM` directly — the «no ⌀ 0.0 m at two pairs»
+  // rule has exactly one home (georef · residualClaim) and this is a caller, not a second copy.
+  const claim = residualClaim(fit)
+  if (claim == null) return { tone: 'amber', head: withOpen(C.lampTwoHead), body: C.warnTwoPoints }
+  const head = withOpen(fillTemplate(C.lampGoodHead, { n: String(n), m: claim.toFixed(1) }))
+  // a measured fit can still be a bad one, and then the number is the least useful thing on the
+  // bar: say what is wrong with the POINTS instead, which is what the next one has to fix
+  if (fit.collinear) return { tone: 'amber', head, body: C.warnCollinear }
+  if (fit.baselineM < BASELINE_WARN_M) {
+    return { tone: 'amber', head, body: fillTemplate(C.warnBaseline, { m: String(Math.round(fit.baselineM)) }) }
+  }
+  return { tone: 'green', head, body: C.lampGoodBody }
+}
+
 // --- the store ------------------------------------------------------------------------------
 
 let state: GeorefModeState = GEOREF_OFF
@@ -463,6 +512,11 @@ const listeners = new Set<() => void>()
 // this counter is that something. Deliberately not part of the machine's state: it is a fact
 // about storage, not about the mode.
 let rev = 0
+
+// …including a change that came from ANOTHER DEVICE. The station document is re-read on focus /
+// when a plan is opened (stationPlanScale · refreshStationPlanScales); without this line the new
+// pairs would sit in the singleton with nothing on screen re-reading them.
+subscribeStationPlanScales(() => { rev++; listeners.forEach((l) => l()) })
 
 /** Called with the reason a save failed, so the UI can raise the app's standard error toast.
  *  Set once by the Whiteboard; the store itself knows nothing about toasts or copy. */
