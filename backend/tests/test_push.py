@@ -107,8 +107,12 @@ class TestDueTrupps:
         ws = {
             "trupps": [
                 trupp("working", "2026-07-02T14:09:30Z", lastPressureBar=140, entryPressureBar=300),
-                trupp("withdraw-safe", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=71, entryPressureBar=300),
-                trupp("withdraw-due", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=70, entryPressureBar=300),
+                trupp(
+                    "withdraw-safe", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=71, entryPressureBar=300
+                ),
+                trupp(
+                    "withdraw-due", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=70, entryPressureBar=300
+                ),
             ]
         }
         alert = due_trupps(ws, doctrine, NOW)
@@ -119,9 +123,7 @@ class TestDueTrupps:
         assert due_trupps(ws, {"alarmBar": 0}, NOW) == []
 
     def test_contact_notification_matches_foreground_action_copy(self):
-        alert = due_trupps(
-            {"trupps": [trupp("a", "2026-07-02T14:00:00Z", name="Angriff 1")]}, {}, NOW
-        )[0]
+        alert = due_trupps({"trupps": [trupp("a", "2026-07-02T14:00:00Z", name="Angriff 1")]}, {}, NOW)[0]
         assert _atemschutz_message(alert) == (
             "Atemschutz überfällig",
             "Trupp Angriff 1 überfällig – Kontakt herstellen.",

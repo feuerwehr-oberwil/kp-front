@@ -1071,7 +1071,7 @@
           "plan-scales"
         ],
         "summary": "Get Plan Scales",
-        "description": "PUBLIC — needed to measure on plans (viewers included) and cached offline at boot.\nNever raises: a malformed stored blob falls back to empty.",
+        "description": "PUBLIC — needed to measure on plans (viewers included) and cached offline at boot.\nNever raises: whatever in the stored blob does not validate is dropped entry-wise, the rest\nis served.",
         "operationId": "get_plan_scales_api_plan_scales_get",
         "responses": {
           "200": {
@@ -1091,7 +1091,7 @@
           "plan-scales"
         ],
         "summary": "Put Plan Scales",
-        "description": "Editor-only. Replaces the whole document (the client sends the merged result). Creates\nthe singleton row if the station has no config row yet.",
+        "description": "Editor-only. REPLACES the whole document — scales and georeferences alike — so the client\nmust read-modify-write (src/lib/stationPlanScale.ts does; a body built from scratch drops the\nhalf it doesn't know about). Creates the singleton row if the station has no config row yet.\n\n⚠️ Whole-document replace with NO optimistic-concurrency guard: there is no If-Match/version\nhere, so the last PUT wins and a second editor who loaded the document earlier overwrites the\nfirst one's calibration or georeference without either of them noticing. Adding a guard is a\ndeliberate design change (client + endpoint + a 428 path), not a drive-by fix.",
         "operationId": "put_plan_scales_api_plan_scales_put",
         "parameters": [
           {
@@ -10559,6 +10559,19 @@
             ],
             "title": "Alarmbar"
           },
+          "alarmBarRueckzug": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 300.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alarmbarrueckzug"
+          },
           "contactIntervalMin": {
             "anyOf": [
               {
@@ -11189,6 +11202,52 @@
           "lng"
         ],
         "title": "GeoHit"
+      },
+      "Georef": {
+        "properties": {
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/GeorefPair"
+            },
+            "type": "array",
+            "title": "Pairs"
+          }
+        },
+        "type": "object",
+        "title": "Georef",
+        "description": "A plan's georeference: the landmark pairs, nothing else. The transform itself is DERIVED\n(client-side, `fitSimilarity`) and deliberately not stored — the pairs are what the operator\nplaced and can correct, and a stored matrix could only ever disagree with them."
+      },
+      "GeorefPair": {
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/PlanPoint"
+          },
+          "lngLat": {
+            "$ref": "#/components/schemas/LngLat"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "gesetzt",
+                  "korrigiert"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan",
+          "lngLat"
+        ],
+        "title": "GeorefPair",
+        "description": "One landmark seen on both surfaces. `kind` records how it came to be ('gesetzt' = newly\nplaced, 'korrigiert' = an existing reference re-tapped); it carries no weight in the fit."
       },
       "HTTPValidationError": {
         "properties": {
@@ -12158,6 +12217,29 @@
           "token"
         ],
         "title": "LinkTokenIn"
+      },
+      "LngLat": {
+        "properties": {
+          "lng": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lng"
+          },
+          "lat": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lng",
+          "lat"
+        ],
+        "title": "LngLat",
+        "description": "WGS84 position with named fields (mirrors src/lib/georef.ts GeoPt) — a tuple here would\nmake a swapped lng/lat indistinguishable from a valid one."
       },
       "LoginRequest": {
         "properties": {
@@ -13251,6 +13333,29 @@
         ],
         "title": "PinReset"
       },
+      "PlanPoint": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": -1.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": -1.0,
+            "title": "Y"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "PlanPoint",
+        "description": "A point on the plan sheet, normalized 0..1 of the document box, y down — the same space\nplan annotations are stored in (src/types.ts BoardAnno.x/y).\n\nBounded generously rather than exactly: a landmark may sit a hair outside the sheet, but a\nvalue of 1100 is plan PIXELS, and catching that here beats storing a georeference that puts\nevery symbol in the North Sea."
+      },
       "PlanScale": {
         "properties": {
           "mPerU": {
@@ -13296,11 +13401,18 @@
             },
             "type": "object",
             "title": "Byplan"
+          },
+          "georefByPlan": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Georef"
+            },
+            "type": "object",
+            "title": "Georefbyplan"
           }
         },
         "type": "object",
         "title": "PlanScales",
-        "description": "The station calibration document: one default + per-plan overrides (planId → scale)."
+        "description": "The station document: one default calibration + per-plan overrides (planId → scale), plus\nthe per-plan georeference (planId → pairs). Every field is optional, so a document stored\nbefore georeferencing existed still validates."
       },
       "PositionIn": {
         "properties": {

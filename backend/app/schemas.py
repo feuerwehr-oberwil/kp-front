@@ -847,6 +847,13 @@ class DoctrineConfig(BaseModel):
     funkkanalMin: int | None = None
     funkkanalMax: int | None = None
     alarmBar: int | None = None
+    #: The lower Alarmdruck applied while a Trupp is on Rückzug. Bounded like ``cylinderLiters``
+    #: below, because on this field an empty-looking value is not «off»: ``app/push.py`` only
+    #: alarms while ``line > 0``, and the frontend reads ``alarmBarRueckzug ?? alarmBar``, where
+    #: ``0 ?? x`` is ``0`` — so a stored zero silently removes the Rückzug alarm on BOTH paths
+    #: instead of falling back to ``alarmBar``. To switch the lower line off, set it EQUAL to
+    #: ``alarmBar`` (src/lib/atemschutz.ts documents that as the way back to the old behaviour).
+    alarmBarRueckzug: int | None = Field(default=None, gt=0, le=300)
     contactIntervalMin: int | None = None
     contactGraceSec: int | None = None
     defaultPressureBar: int | None = None
@@ -864,6 +871,21 @@ class DoctrineConfig(BaseModel):
     # The colour a Trupp with that order STARTS in; it stays overridable per Trupp. Absent/empty
     # keeps the automatic behaviour (every Trupp a different colour from the palette).
     auftragColors: dict[str, str] | None = None
+
+    @model_validator(mode="after")
+    def _rueckzug_line_stays_below_the_bare_alarm(self) -> "DoctrineConfig":
+        """The Rückzug line is the QUIETER of the two and must stay at or below the bare Alarmdruck.
+
+        Its whole point (src/lib/atemschutz.ts) is that a Trupp already ordered out must not have
+        the card scream for the entire walk back — it speaks up again only lower down, where the
+        crew is genuinely late getting out. Set above `alarmBar` it inverts that: the retreating
+        Trupp would alarm earlier than one still working."""
+        if self.alarmBar is not None and self.alarmBarRueckzug is not None and self.alarmBarRueckzug > self.alarmBar:
+            raise ValueError(
+                f"doctrine.alarmBarRueckzug ({self.alarmBarRueckzug}) must not exceed "
+                f"doctrine.alarmBar ({self.alarmBar}) — the Rückzug line alarms earlier, not later"
+            )
+        return self
 
 
 class AlarmGroup(BaseModel):
