@@ -6,6 +6,20 @@ import type { PlanLogExtra } from './Whiteboard'
 
 const EMPTY_HIST = { past: [] as BoardAnno[][], future: [] as BoardAnno[][] }
 
+/**
+ * Check-point one plan's annotations — the single definition of what an undo step IS on the board.
+ *
+ * Exported because the Whiteboard is not the only writer any more: dragging a plan symbol's
+ * projection on the Karte moves that plan's annotation while the plan itself is not open (and the
+ * Whiteboard is not even mounted — it lives only while `mode === 'plans'`). That write still owes
+ * the document an undo step, and it must be the SAME step, capped the same way, or the two writers
+ * would disagree about what Rückgängig means on one document.
+ */
+export function pushBoardPast(hist: BoardHistory, planId: string, snapshot: BoardAnno[]): BoardHistory {
+  const c = hist[planId] ?? EMPTY_HIST
+  return { ...hist, [planId]: { past: [...c.past, snapshot].slice(-appConfig.defaults.historyCap), future: [] } }
+}
+
 /** Undo/redo stacks for every plan document, keyed by plan id — the scope is per-plan, so one
  *  plan's history can never step into another's. Owned by the surface ABOVE the Whiteboard: see
  *  `hist`/`setHist` below. */
@@ -52,10 +66,7 @@ export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSe
   const h = hist[activeId] ?? EMPTY_HIST
   const canUndo = h.past.length > 0
   const canRedo = h.future.length > 0
-  const pushPast = () => setHist((m) => {
-    const c = m[activeId] ?? EMPTY_HIST
-    return { ...m, [activeId]: { past: [...c.past, annos].slice(-appConfig.defaults.historyCap), future: [] } }
-  })
+  const pushPast = () => setHist((m) => pushBoardPast(m, activeId, annos))
   const set = (next: BoardAnno[]) => onChange(next)                      // raw write, no checkpoint
   const commit = (next: BoardAnno[]) => { pushPast(); onChange(next) }   // checkpoint + write
   // plan mutations now feed the hash-chained audit trail too (board.* ops) — previously

@@ -107,7 +107,7 @@ import { ensureNotifyPermission } from './lib/alarm'
 import { Whiteboard } from './components/Whiteboard'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
-import type { BoardHistory } from './components/useBoardDoc'
+import { pushBoardPast, type BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
@@ -2480,6 +2480,54 @@ export function IncidentWorkspace({
     drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id && a.routing === 'trace'))
       .forEach((d) => emit('draw.edit', { id: d.id, patch: { coords: d.coords } }))
   }
+  /**
+   * A projection on a Modul was dragged — move the object it mirrors.
+   *
+   * Deliberately the SAME three calls the Karte's own marker drag makes, in the same order: the
+   * gesture writes the one source entity, so undo, trace-routed Leitungen, the audit event and the
+   * Verlauf row cannot diverge depending on which picture the operator happened to have in front
+   * of them. `startEntityMove`'s doc has described this as its second call site since the
+   * Georeferenz landed; until 27.08. nothing actually called it that way, so a twin simply
+   * ignored every drag and the sheet gave no reason why.
+   *
+   * A LIVE vehicle behaves exactly as it does on the Karte: `finishEntityMove` writes a position
+   * override, which is «Festhalten» — the vehicle stops following the feed until «GPS» hands it
+   * back. Dragging one here is the same statement as dragging it there.
+   */
+  const moveTwinSource = (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => {
+    if (tacticalLocked) return
+    if (phase === 'start') startEntityMove(entityId)
+    else if (phase === 'move') streamEntityMove(entityId, coord)
+    else finishEntityMove(entityId, coord)
+  }
+  /**
+   * A projection of a PLAN annotation was dragged on the Karte — move the source annotation.
+   *
+   * The mirror of `moveTwinSource`, and the same rule: the write lands on the one source, so the
+   * plan and every projection of it agree without anybody reconciling them. `t.fit` is the sheet's
+   * own fit, carried on the twin precisely so this fold-back cannot pick a different one.
+   *
+   * ⚠️ The undo step is pushed HERE rather than by the Whiteboard, because the Whiteboard is not
+   * mounted: it lives only while `mode === 'plans'`, and this gesture happens on the Karte with
+   * that sheet closed. The per-plan history survives that (it is keyed by plan id and owned up
+   * here for exactly this reason — see useBoardDoc · BoardDocDeps), so the move is waiting to be
+   * undone when the plan is next opened, checkpointed by the same rule the board itself uses.
+   */
+  const moveMapTwinSource = (t: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => {
+    if (tacticalLocked) return
+    // one checkpoint for the whole drag, on the first movement — the map's own model
+    if (phase === 'start') { setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? [])); return }
+    const p = t.fit.toPlan({ lng: coord[0], lat: coord[1] })
+    // clamped to the sheet: a plan point outside the paper is not a place on that document
+    const x = Math.max(0, Math.min(1, p.x)), y = Math.max(0, Math.min(1, p.y))
+    setBoard((all) => ({ ...all, [t.planId]: (all[t.planId] ?? []).map((a) => (a.id === t.annoId ? { ...a, x, y } : a)) }))
+    if (phase !== 'end') return
+    pushEvent({
+      icon: 'move', kind: 'symbol', surface: 'plan', planId: t.planId, annoId: t.annoId, px: x, py: y, floor: t.anno.floor,
+      text: fillTemplate(appConfig.copy.log.objectMoved, { name: twinName(t.anno) }),
+    })
+    emit('board.edit', { planId: t.planId, id: t.annoId, patch: { x, y } })
+  }
   const transferPlanTwinToMap = (t: MapTwin) => {
     if (tacticalLocked || doc.entities.some((e) => e.id === t.annoId)) return
     const entity = boardSymbolToEntity(t.anno, t.coord, appConfig.defaults.operationalLayerId)
@@ -3195,6 +3243,7 @@ export function IncidentWorkspace({
           // anywhere (see components/GeorefTwinMark).
           twins={mapTwinList}
           onTwinOpen={openTwinView}
+          onTwinMove={moveMapTwinSource}
           selectedTwinKey={twinView?.key}
           georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}
@@ -4056,6 +4105,7 @@ export function IncidentWorkspace({
           onTwinJump={goToTwinOnMap}
           onTwinTransferHere={transferMapTwinToPlan}
           onPlanProjection={showPlanSourceOnMap}
+          onTwinMove={moveTwinSource}
           layersOn={panel === 'layers'}
           // the Ebenen button appears only on a linked sheet: with no fit the map lends it
           // nothing, and the panel would be an empty room

@@ -3,7 +3,7 @@
  *  The mark itself is GeorefTwinMark; the derivation (which points cross over) is
  *  lib/georefTwins. This file only places them on the one live map.
  */
-import { memo } from 'react'
+import { memo, useRef } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -15,7 +15,7 @@ import { TwinMark } from './GeorefTwinMark'
 import { glyphFor, twinName } from '../lib/twinGlyph'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
-import type { CaptionMode } from '../types'
+import type { CaptionMode, LngLat } from '../types'
 
 // --- plan symbols, on the Lage map ------------------------------------------------------------
 
@@ -27,7 +27,7 @@ import type { CaptionMode } from '../types'
  * the projection itself is done once per board/fit change by the caller, and this tree then
  * re-renders only when that list, the zoom or the bearing actually moves.
  */
-export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', interactive = true, selectedKey, onOpen }: {
+export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', interactive = true, selectedKey, onOpen, onMove }: {
   twins: MapTwin[]
   byName: Record<string, string>
   zoom: number
@@ -43,8 +43,20 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
   selectedKey?: string | null
   /** tap: open this twin's details, read-only (never edit — see GeorefTwinPanel) */
   onOpen: (twin: MapTwin) => void
+  /**
+   * Drag a projection to move the plan annotation it mirrors.
+   *
+   * The coordinate is a ground position; the caller folds it back through the twin's own `fit`
+   * (MapTwin carries it for exactly this) and writes the source annotation in plan space, so every
+   * other projection of it follows from that one write. Omitted ⇒ tap-only.
+   */
+  onMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
 }) {
   const C = appConfig.copy.whiteboard.georef
+  const movable = interactive && !!onMove
+  // a Marker drag ends with a click on the mark; without this the details panel would open on
+  // top of the object that was just moved
+  const dragged = useRef(false)
   return (
     <>
       {twins.map((t) => {
@@ -56,7 +68,11 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
         const rawCaption = symbolCaptionText(a, captionMode)
         return (
           <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center"
-            style={{ zIndex: MARKER_Z.twin }}>
+            style={{ zIndex: MARKER_Z.twin }}
+            draggable={movable}
+            onDragStart={() => { dragged.current = true; onMove?.(t, t.coord, 'start') }}
+            onDrag={(e) => onMove?.(t, [e.lngLat.lng, e.lngLat.lat], 'move')}
+            onDragEnd={(e) => onMove?.(t, [e.lngLat.lng, e.lngLat.lat], 'end')}>
             <TwinMark
               svg={svg}
               sizePx={symPx('symbol', t.coord[1], zoom, symMul)}
@@ -64,7 +80,9 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
               count={a.count}
               caption={rawCaption ? softHyphenateText(rawCaption) : rawCaption}
               title={fillTemplate(C.twinFromPlan, { name, plan: t.planCode })}
-              onOpen={() => onOpen(t)}
+              onOpen={() => { if (!dragged.current) onOpen(t); dragged.current = false }}
+              // the Marker above runs the gesture and hands back ground coordinates directly
+              nativeDrag={movable}
               interactive={interactive}
               selected={selectedKey === t.key}
               // the Marker already places the element; the mark only has to centre itself in it

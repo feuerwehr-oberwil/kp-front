@@ -283,6 +283,9 @@ interface Props {
   twins?: MapTwin[]
   /** tap on a twin → open its details, read-only (components/GeorefTwinPanel) */
   onTwinOpen?: (twin: MapTwin) => void
+  /** drag a projection of a plan annotation — writes the SOURCE anno through the twin's own
+   *  fit, so every other projection of it follows from that one write (see MapTwin · fit) */
+  onTwinMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   selectedTwinKey?: string | null
   /** Opt-in literal plan sheets from Ebenen, already rasterized and projected by their fit. */
   georefPlanRasters?: {
@@ -299,7 +302,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], onTwinOpen, selectedTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], onTwinOpen, onTwinMove, selectedTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
   // team's action bar hides only THAT team's trail; mirrors the plan board's per-team
@@ -1357,7 +1360,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           and swallow the tap meant for it. */}
       {twins.length > 0 && onTwinOpen && !georefOn && (
         <GeorefTwinsMap twins={twins} byName={byName} zoom={zoom} bearing={bearing} symMul={symMul} captionMode={captionMode}
-          interactive={!placing} selectedKey={selectedTwinKey} onOpen={onTwinOpen} />
+          interactive={!placing} selectedKey={selectedTwinKey} onOpen={onTwinOpen}
+          onMove={readOnly ? undefined : onTwinMove} />
       )}
 
       {/* committed drawings (per-feature colour/width) — gated by the markup layer toggle */}

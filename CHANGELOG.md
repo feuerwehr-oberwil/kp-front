@@ -151,6 +151,18 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **Zwillinge liessen sich nicht verschieben.** Ein «gespiegelt von der Karte» schluckte den
+  Pointerdown und beantwortete nur Tipper – obwohl `startEntityMove` seit dem Georeferenz-Start
+  dokumentiert, dass die Projektion auf einem Modul eine seiner beiden Aufrufstellen ist. Sie ist
+  es jetzt wirklich, in beide Richtungen: Ziehen schreibt **das eine Quellobjekt** durch die
+  Passung, also können Rückgängig, mitgeführte Leitungen, Audit-Eintrag und Verlaufszeile nicht
+  auseinanderlaufen, je nachdem welches Bild gerade vor einem lag. Ein Live-Fahrzeug verhält sich
+  wie auf der Karte: Ziehen heisst «Festhalten», bis «GPS» es dem Feed zurückgibt.
+  ⚠️ Auf der Karte führt der MapLibre-Marker die Geste selbst – ein `stopPropagation()` käme dort
+  zu spät, weil MapLibre am Kartencontainer lauscht und React erst darüber delegiert, die Karte
+  also schon zu schwenken begonnen hätte. Der Fortschritt am Blatt: 1 Blatt-Einheit ist genau das,
+  was die Passung sagt, geklemmt aufs Papier – ein Punkt neben dem Blatt ist kein Ort darauf.
+
 - **Vier Halte-Gesten, ein Ring.** «Entsperren» trug als einziges einen 4-px-Balken in einer
   schwebenden Karte, mit eigener Dauer (700 ms) und ohne die 250 ms Ruhe, die jede andere Halte-Geste
   abwartet, bevor überhaupt etwas erscheint – ausgerechnet auf dem einzigen Antippfeld einer

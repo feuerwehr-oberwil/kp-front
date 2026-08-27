@@ -31,14 +31,65 @@ describe('a read-only Georeferenz twin', () => {
     expect(getByRole('button').querySelector('.sel-halo')).toBeTruthy()
   })
 
-  it('does not expose a draggable affordance', () => {
+  // no `onMove` ⇒ tap-only, which is what a locked surface and a viewer session get
+  it('ignores a drag when the surface does not offer one', () => {
     const onOpen = vi.fn()
     const { getByRole } = render(<TwinMark {...props} onOpen={onOpen} />)
     const mark = getByRole('button')
     fireEvent.pointerDown(mark, { pointerId: 1, clientX: 10, clientY: 10 })
     fireEvent.pointerMove(mark, { pointerId: 1, clientX: 30, clientY: 30 })
     fireEvent.pointerUp(mark, { pointerId: 1, clientX: 35, clientY: 35 })
+    fireEvent.click(mark)
+    expect(onOpen).toHaveBeenCalledTimes(1)  // it was a tap, because nothing else was on offer
+  })
+})
+
+describe('a twin the surface lets you move', () => {
+  const drag = (mark: Element, from: [number, number], to: [number, number]) => {
+    fireEvent.pointerDown(mark, { pointerId: 1, clientX: from[0], clientY: from[1] })
+    fireEvent.pointerMove(mark, { pointerId: 1, clientX: to[0], clientY: to[1] })
+    fireEvent.pointerUp(mark, { pointerId: 1, clientX: to[0], clientY: to[1] })
+  }
+
+  it('reports the travel as a delta, opening on the first sample past the slop', () => {
+    const onMove = vi.fn()
+    const { getByRole } = render(<TwinMark {...props} onOpen={() => {}} onMove={onMove} />)
+    drag(getByRole('button'), [100, 100], [140, 130])
+    expect(onMove.mock.calls).toEqual([
+      ['start', 0, 0],
+      ['move', 40, 30],
+      ['end', 40, 30],
+    ])
+  })
+
+  // the whole point of the slop: a fingertip's wobble on a glove must not move the object
+  it('stays a tap when the finger never travels', () => {
+    const onOpen = vi.fn(); const onMove = vi.fn()
+    const { getByRole } = render(<TwinMark {...props} onOpen={onOpen} onMove={onMove} />)
+    const mark = getByRole('button')
+    drag(mark, [100, 100], [102, 101])
+    fireEvent.click(mark)
+    expect(onMove).not.toHaveBeenCalled()
+    expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  // ⚠️ a drag must not ALSO open the details panel behind the object just moved
+  it('does not open the details after a real drag', () => {
+    const onOpen = vi.fn(); const onMove = vi.fn()
+    const { getByRole } = render(<TwinMark {...props} onOpen={onOpen} onMove={onMove} />)
+    const mark = getByRole('button')
+    drag(mark, [100, 100], [140, 130])
+    fireEvent.click(mark)
     expect(onOpen).not.toHaveBeenCalled()
-    expect(mark.className).not.toContain('movable')
+    // …and the next tap still opens it — the suppression is for that one click only
+    fireEvent.click(mark)
+    expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('is inert while a tool is armed, even though the surface offers movement', () => {
+    const onMove = vi.fn()
+    const { getByRole } = render(<TwinMark {...props} interactive={false} onOpen={() => {}} onMove={onMove} />)
+    drag(getByRole('button'), [100, 100], [140, 130])
+    expect(onMove).not.toHaveBeenCalled()
   })
 })

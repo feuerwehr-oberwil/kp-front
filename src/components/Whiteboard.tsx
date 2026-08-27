@@ -241,6 +241,15 @@ interface Props {
   onTwinTransferHere?: (entity: Entity, planId: string, pt: { x: number; y: number }) => void
   /** Show a plan-owned source at its projected position on the Lage map. */
   onPlanProjection?: (planId: string, annoId: string, coord: LngLat) => void
+  /**
+   * A projection of a Karte object was dragged on this sheet — move the SOURCE entity there.
+   *
+   * The coordinate has already been folded back through this sheet's own fit, so the caller
+   * writes an ordinary map move: one source of truth, one undo step, one audit event, and
+   * trace-routed Leitungen follow exactly as they do when the marker is dragged on the Karte.
+   * `phase` mirrors the map's own drag (start ⇒ snapshot for undo, end ⇒ log + emit).
+   */
+  onTwinMove?: (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   /** the Ebenen panel is open (it lives in the app shell; the plan only owns the button) */
   layersOn?: boolean
   /** Ebenen button in the rail footer — omitted ⇒ no button, which is the state of every sheet
@@ -264,7 +273,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onCaptureMittel, mittelCountFor, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onCaptureMittel, mittelCountFor, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -697,6 +706,22 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const twins = useMemo(() => [...twinVehicles, ...twinSymbols], [twinVehicles, twinSymbols])
   // …and the handler with it. Empty deps are correct and not a shortcut: every call here is a
   // `useState` setter, and those identities are stable for the life of the component.
+  /**
+   * Drag a mirrored Karte object on this sheet.
+   *
+   * ⚠️ The write goes to the MAP entity, never to a copy on this board — a twin is a projection,
+   * and a projection that could be moved independently would be a second position for one object.
+   * `georefFit.toMap` is the exact inverse of the projection that drew it, so the mark lands
+   * where it was dropped; what the fit's residual costs is how well that plan point matches the
+   * real ground, which is the same error the twin was already drawn with.
+   *
+   * Gated on `readOnly`: a viewer or a locked surface may open a twin's details and nothing more.
+   */
+  const moveBoardTwin = useCallback((twin: BoardTwin, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => {
+    if (readOnly || !georefFit || !onTwinMove) return
+    const c = georefFit.toMap(pt)
+    onTwinMove(twin.entityId, [c.lng, c.lat], phase)
+  }, [readOnly, georefFit, onTwinMove])
   const openBoardTwin = useCallback((twin: BoardTwin) => {
     setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null)
     setTwinView(twin)
@@ -2728,6 +2753,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 interactive={tool === 'pan'}
                 selectedKey={twinView?.key}
                 onOpen={openBoardTwin}
+                // undefined (not a no-op) on a locked surface, so the mark shows no grab
+                // cursor and no drag affordance it would refuse to honour
+                onMove={readOnly ? undefined : moveBoardTwin}
               />
             )}
             {/* add a storey above (OG) / below (UG) — attached to the stack itself, just above

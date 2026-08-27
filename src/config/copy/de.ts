@@ -1686,8 +1686,8 @@ export const de = {
       layerGroupMap: 'Karte',
       layerMapVehicles: 'Karte – Fahrzeuge',
       layerMapSymbols: 'Karte – Symbole',
-      twinFromPlan: '{name} – gespiegelt von {plan}. Antippen zeigt die Angaben.',
-      twinFromMap: '{name} – gespiegelt von der Karte. Antippen zeigt die Angaben.',
+      twinFromPlan: '{name} – gespiegelt von {plan}. Antippen zeigt die Angaben, Ziehen verschiebt das Original.',
+      twinFromMap: '{name} – gespiegelt von der Karte. Antippen zeigt die Angaben, Ziehen verschiebt das Original.',
       // Untertitel im Detailfenster eines Zwillings: sagt, warum hier nichts eingebbar ist
       twinPanelFromPlan: 'Gespiegelt von {plan} – nur zum Lesen',
       twinPanelFromMap: 'Gespiegelt von der Karte – nur zum Lesen',

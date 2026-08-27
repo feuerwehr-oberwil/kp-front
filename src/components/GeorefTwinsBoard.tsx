@@ -26,7 +26,7 @@ import type { CaptionMode } from '../types'
  * annotation — its position is the normalized plan point times the board's px size, which is
  * the same arithmetic every `.wb-anno` does.
  */
-export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, sW, sH, sizePx, captionMode = 'off', sourceSuppressedCaptions, interactive = true, selectedKey, onOpen }: {
+export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, sW, sH, sizePx, captionMode = 'off', sourceSuppressedCaptions, interactive = true, selectedKey, onOpen, onMove }: {
   twins: BoardTwin[]
   byName: Record<string, string>
   /** the board's rendered size in px (fit × zoom) */
@@ -42,6 +42,15 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
   selectedKey?: string | null
   /** tap: open this twin's details, read-only (never edit — see GeorefTwinPanel) */
   onOpen: (twin: BoardTwin) => void
+  /**
+   * Drag a projection to move the object it mirrors.
+   *
+   * The point handed back is in the SHEET's normalized space; the Whiteboard runs it through the
+   * fit and writes the one source entity on the Karte, so undo, routed Leitungen, audit and
+   * Verlauf cannot diverge depending on which picture was dragged. Omitted ⇒ tap-only (a locked
+   * surface, a viewer session).
+   */
+  onMove?: (twin: BoardTwin, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => void
 }) {
   const C = appConfig.copy.whiteboard.georef
   if (!sW || !sH) return null
@@ -64,6 +73,15 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
             caption={sourceSuppressedCaptions?.has(e.id) ? null : rawCaption ? softHyphenateText(rawCaption) : rawCaption}
             title={fillTemplate(C.twinFromMap, { name })}
             onOpen={() => onOpen(t)}
+            // client px → the sheet's own normalized space. A DELTA, not an absolute point:
+            // the board's origin moves with every pan and zoom, and the mark has no idea where
+            // it sits on screen. Clamped to the sheet, because a projection dragged off the
+            // paper has no plan point to name and would fold back through the fit as a
+            // coordinate nobody aimed at.
+            onMove={onMove && ((phase, dx, dy) => onMove(t, {
+              x: Math.max(0, Math.min(1, t.pt.x + dx / sW)),
+              y: Math.max(0, Math.min(1, t.pt.y + dy / sH)),
+            }, phase))}
             interactive={interactive}
             selected={selectedKey === t.key}
             style={{ left: 0, top: 0, transform: `translate(${t.pt.x * sW}px, ${t.pt.y * sH}px) translate(-50%, -50%)` }}
