@@ -160,7 +160,13 @@ export const SYMBOL_SCALE: Record<SymbolSurface, SymbolScaleRange> = {
   map: { min: 0.6, max: 1.4, step: 0.05, default: 1 },
   // 0.2 is deliberately two thirds of the previous floor: on dense Modul sheets 0.3 still
   // made neighbouring FKS glyphs overlap before their anchors were meaningfully distinct.
-  board: { min: 0.2, max: 1.8, step: 0.05, default: 1 },
+  // ⚠️ The DEFAULT is 0.7, not the map's 1. A Modul sheet is a building at 1:200 on an A4 —
+  // a symbol sized for the Lage covers a whole room on it, and every station that has used the
+  // plan surface has reached for the slider in the same direction on its first Einsatz. The
+  // slider still runs to 1.8 for anybody who wants the old size.
+  // ⚠️ Only devices that have never moved the slider (and carry no legacy `symbolSize`) are
+  // affected — see `symbolScales`, where the stored value wins and nothing is rewritten.
+  board: { min: 0.2, max: 1.8, step: 0.05, default: 0.7 },
 }
 
 /** Snap a multiplier onto its surface's slider band. Anything unusable — a hand-edited cookie,

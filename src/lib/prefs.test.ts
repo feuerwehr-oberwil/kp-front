@@ -6,11 +6,20 @@ import { SYMBOL_SCALE, clampSymbolScale, legacySymbolMul, symbolScales, type Pre
 // setting is lost on the way over.
 
 describe('SYMBOL_SCALE bands', () => {
-  it('keeps 1 (the tuned default) at the exact midpoint of both sliders', () => {
+  // ⚠️ The board's default is no longer the midpoint of its band, and that is the point: the
+  // slider is symmetric around «Lage size», the plan is not. Every default still has to sit
+  // INSIDE its own band, and on a step of it, or the slider opens on a value it cannot return to.
+  it('keeps every default inside its own band and on a step of it', () => {
     for (const r of Object.values(SYMBOL_SCALE)) {
-      expect((r.min + r.max) / 2).toBeCloseTo(r.default)
-      expect(r.default).toBe(1)
+      expect(r.default).toBeGreaterThanOrEqual(r.min)
+      expect(r.default).toBeLessThanOrEqual(r.max)
+      expect(clampSymbolScale('board', r.default)).toBeCloseTo(r.default)
     }
+    // the map is still centred on 1 — a Lage symbol needs no rescaling by default
+    expect(SYMBOL_SCALE.map.default).toBe(1)
+    expect((SYMBOL_SCALE.map.min + SYMBOL_SCALE.map.max) / 2).toBeCloseTo(SYMBOL_SCALE.map.default)
+    // …and the plan opens smaller than the Lage, because an A4 of a building is not the Lage
+    expect(SYMBOL_SCALE.board.default).toBeLessThan(SYMBOL_SCALE.map.default)
   })
 
   it('lets the board go meaningfully below the old S — the reason for the rework', () => {
@@ -38,16 +47,18 @@ describe('clampSymbolScale', () => {
     expect(clampSymbolScale('map', 0.45)).toBe(SYMBOL_SCALE.map.min)
   })
 
-  it('falls back to the default for anything unusable', () => {
-    expect(clampSymbolScale('map', undefined)).toBe(1)
-    expect(clampSymbolScale('board', NaN)).toBe(1)
-    expect(clampSymbolScale('board', 'M' as unknown as number)).toBe(1)
+  it('falls back to the surface’s OWN default for anything unusable', () => {
+    expect(clampSymbolScale('map', undefined)).toBe(SYMBOL_SCALE.map.default)
+    expect(clampSymbolScale('board', NaN)).toBe(SYMBOL_SCALE.board.default)
+    expect(clampSymbolScale('board', 'M' as unknown as number)).toBe(SYMBOL_SCALE.board.default)
   })
 })
 
 describe('symbolScales migration', () => {
-  it('defaults to 1 on both surfaces when nothing is stored', () => {
-    expect(symbolScales({})).toEqual({ map: 1, board: 1 })
+  // ⚠️ NOT the same number on both. A Modul sheet is a building on an A4: a symbol sized for
+  // the Lage covers a room on it, so the plan starts smaller and the slider goes up from there.
+  it('defaults per surface when nothing is stored — the plan starts smaller than the map', () => {
+    expect(symbolScales({})).toEqual({ map: 1, board: 0.7 })
   })
 
   it('carries a legacy S/M/L pref over to BOTH surfaces unchanged', () => {
