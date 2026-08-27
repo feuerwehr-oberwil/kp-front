@@ -669,7 +669,10 @@ button.stepVal:hover { border-color: var(--blue); }
    and a radio is chosen by tapping the option rather than a glyph beside it. */
 .teamPick { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 9px;
   align-self: stretch; padding: 0 0 0 8px; border: none; background: none; cursor: pointer;
-  text-align: left; font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
+  text-align: left; font: inherit; color: inherit; -webkit-tap-highlight-color: transparent;
+  /* the row also promotes on a HOLD (TruppTeam · useLongPress), and iOS answers a hold over
+     text with the selection callout — which eats the gesture and leaves a highlighted name */
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .teamPick:disabled { cursor: default; }
 .teamPick:hover:not(:disabled) { background: var(--fill-soft); border-radius: var(--r-ctl); }
 /* the role, spelled out on the left — «GF» or «AdF». It replaced a star: a symbol that has to
@@ -689,14 +692,18 @@ button.stepVal:hover { border-color: var(--blue); }
 /* «hier, nicht dort» — a tap on an empty slot lands the caret in here and blinks the field once,
    because the slot above looks like something you can type into and is not. Two beats and gone:
    the same gesture as the card flash (truppFlash), and INK rather than a status colour or
-   --accent — the brand red means «Alarm» everywhere else on this surface. */
+   --accent — the brand red means «Alarm» everywhere else on this surface.
+   ⚠️ The LIST blinks with it. The search field alone answered «where do I type», which is not
+   the question somebody tapping an empty slot is asking — they are looking for a name, and the
+   answer is «pick one from down here», where typing is only the way to narrow it. Blinking the
+   two together points at the whole answer instead of at half of it. */
 @keyframes teamSearchFlash {
   0%, 30%, 70% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
   15%, 50%, 100% { box-shadow: 0 0 0 3px transparent; }
 }
-.teamSearchHint { animation: teamSearchFlash 1.1s ease-out 1; }
+.teamSearchHint, .teamListHint { animation: teamSearchFlash 1.1s ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
-  .teamSearchHint { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
+  .teamSearchHint, .teamListHint { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
 }
 .teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
 .teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
@@ -734,7 +741,7 @@ button.stepVal:hover { border-color: var(--blue); }
 .teamTypeAdd:disabled { opacity: var(--disabled); cursor: default; }
 .teamTypeAdd :global(.i) { width: 17px; height: 17px; }
 
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
      the header sat glued under it); the bottom inset clears the NavRail bottom bar */
   .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
@@ -945,7 +952,7 @@ button.stepVal:hover { border-color: var(--blue); }
 
 /* «+ Trupp anlegen» collapsed to an icon sat at 38px with a 16px glyph beside 44px/18px neighbours
    — the 16px is right when it has a 14px label next to it, wrong once it is a bare icon. */
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   .newBtn { padding: 13px; }
   .newBtn :global(.i) { width: 18px; height: 18px; }
 }

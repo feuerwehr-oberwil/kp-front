@@ -6,6 +6,7 @@ import { cx } from '../lib/cx'
 import { fillTemplate, stripUnprintable } from '../lib/format'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
+import { useLongPress } from '../lib/useLongPress'
 import type { Person } from '../types'
 import type { Slot } from './PersonField'
 import s from './Atemschutz.module.css'
@@ -58,8 +59,10 @@ export function TruppTeam({
   const typedRef = useRef<HTMLInputElement>(null)
   // An empty slot LOOKS like the field it is not: people tap it and wait for a keyboard. It
   // stays a slot — names are picked from the Mannschaft below — so the tap points at the search
-  // instead: caret in the field, and the field blinks once so the eye follows the finger. Same
+  // AND at the list: caret in the field, and both blink once so the eye follows the finger. Same
   // pointing gesture the card flash makes (.cardFlash), never a state that stays.
+  // ⚠️ Both, not just the field. The search is only how you NARROW the list; the list is where
+  // the names actually are, and blinking the field alone sent people looking for a keyboard again.
   const searchRef = useRef<HTMLInputElement>(null)
   const [hint, setHint] = useState(false)
   const pointAtSearch = () => {
@@ -120,6 +123,16 @@ export function TruppTeam({
   const remove = (i: number) => onChange(value.filter((_, j) => j !== i))
   /** crown: the chosen person moves to the front, everyone else keeps their order */
   const promote = (i: number) => onChange([value[i], ...value.filter((_, j) => j !== i)])
+  // …by a tap OR by a hold. The row is a radio and a tap is the right gesture for one, but the
+  // hand that has just learned «press and hold» on a node handle, a lock chip and a Trupp card
+  // tries it here too — and a press that does nothing reads as a row that isn't a control.
+  // ⚠️ The trailing click MUST be swallowed. The rows re-order the instant the hold fires, so
+  // the click that arrives a moment later would land on whoever slid into that position and
+  // crown THEM — the mis-tap this whole surface exists to prevent.
+  const hold = useLongPress()
+  const heldAt = useRef(0)
+  const promoteByHold = (i: number) => { heldAt.current = Date.now(); promote(i) }
+  const clickAfterHold = () => Date.now() - heldAt.current < 600
 
   const submitTyped = () => {
     const name = typed.trim()
@@ -182,7 +195,8 @@ export function TruppTeam({
                 disabled={lead}
                 title={lead ? az.leaderLabel : fillTemplate(az.makeLeader, { name: m.name })}
                 aria-label={lead ? az.leaderLabel : fillTemplate(az.makeLeader, { name: m.name })}
-                onClick={() => promote(i)}
+                {...(lead ? {} : hold.press(() => promoteByHold(i)))}
+                onClick={() => { if (!clickAfterHold()) promote(i) }}
               >
                 <span className={cx(s.teamRole, lead && s.teamRoleLead)}>
                   {lead ? az.leaderBadge : az.memberLabel}
@@ -218,7 +232,7 @@ export function TruppTeam({
         )}
       </label>
 
-      <ul className={s.teamList} role="listbox" aria-label={az.sectionTeam}>
+      <ul className={cx(s.teamList, hint && s.teamListHint)} role="listbox" aria-label={az.sectionTeam}>
         {filtered.map((o) => (
           <li key={o.key}>
             <button

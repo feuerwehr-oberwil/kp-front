@@ -40,6 +40,34 @@ describe('TruppTeam', () => {
     expect(onChange).toHaveBeenCalledWith([{ name: 'Huber Sarah', personId: 'p2' }])
   })
 
+  // The hold is the SAME action as the tap — the hand that learned «press and hold» on a node
+  // handle tries it here too. What must not happen is the trailing click landing on whoever slid
+  // into that row when the crew re-ordered.
+  it('crowns on a long press, and the trailing click does not crown somebody else', () => {
+    vi.useFakeTimers()
+    try {
+      const value: Slot[] = [
+        { name: 'Meier Anna', personId: 'p1' },
+        { name: 'Huber Sarah', personId: 'p2' },
+      ]
+      const onChange = setup(value)
+      const row = screen.getByRole('button', { name: 'Huber Sarah als Gruppenführer' })
+      fireEvent.pointerDown(row, { clientX: 10, clientY: 10 })
+      vi.advanceTimersByTime(600)
+      expect(onChange).toHaveBeenCalledWith([
+        { name: 'Huber Sarah', personId: 'p2' },
+        { name: 'Meier Anna', personId: 'p1' },
+      ])
+
+      // …and the click the release still produces is swallowed
+      onChange.mockClear()
+      fireEvent.click(row)
+      expect(onChange).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('makes the FIRST person the Gruppenführer and moves the crown on a tap', () => {
     const value: Slot[] = [
       { name: 'Meier Anna', personId: 'p1' },
