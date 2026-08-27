@@ -9,7 +9,7 @@
 # 2026-04-30 and this stage sat on it for three months. Keep in step with node-version in
 # .github/workflows/ci.yml and the engines field in package.json; dependabot's docker
 # ecosystem now proposes the bumps so it cannot drift silently again.
-FROM --platform=$BUILDPLATFORM node:24-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df AS frontend
+FROM --platform=$BUILDPLATFORM node:25-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS frontend
 WORKDIR /app
 # Pin pnpm 10 (matches lockfileVersion 9.0). corepack's bundled default is incompatible
 # with the Node line above, so install explicitly.
