@@ -23,6 +23,57 @@ const nameOf = (c: RecordConflict): string => {
   return mine?.displayNameSnapshot ?? theirs?.displayNameSnapshot ?? c.key
 }
 
+/** Both sides of one reported divergence. The merge is last-writer-wins and MINE is the writer
+ *  that won (mergeWorkspace · mergeRecord), so `mine` is what now stands in the record and
+ *  `theirs` is what was dropped — which is exactly the pair somebody has to check. */
+const sides = (c: RecordConflict) => ({
+  kept: c.mine as AttendanceEntry | undefined,
+  dropped: c.theirs as AttendanceEntry | undefined,
+})
+
+/** The times an entry asserts, as one comparable string. Blocks are the truth where they exist;
+ *  the derived first/last pair carries entries written before blocks did (types.ts). */
+const timesOf = (e?: AttendanceEntry): string =>
+  JSON.stringify([e?.intervals ?? null, e?.checkedInAt ?? null, e?.leftAt ?? null])
+
+/**
+ * WHAT diverged, in the words the row prints.
+ *
+ * ⚠️ The point of the row. It used to say only «abweichende Angaben … bitte prüfen», which hands
+ * the reader a name, an instruction and nothing to act on — while the everyday case is perfectly
+ * nameable: the same person picked up a Funktion at the QR sheet and another one at the KP, so
+ * two are on file and one of them is now gone. Say that.
+ *
+ * Every field that actually differs is named; the Funktion carries its two values because they
+ * are short and they ARE the question. A divergence in none of the known fields still reports —
+ * an entry that grows a field this function has not learned yet must not fall silent.
+ */
+export function conflictWhat(c: RecordConflict): string {
+  const C = appConfig.copy.journal
+  const { kept, dropped } = sides(c)
+  const out: string[] = []
+
+  // ⚠️ BOTH Funktionen, side by side, and neither of them called «verworfen». The reader's job
+  // is to decide which one is right, and for that they need to see the pair — which of the two
+  // happens to sit in the record is a consequence of the merge order (last writer wins), not
+  // the question being asked. Naming only the discarded one made the row read like a report of
+  // data loss instead of a person who was booked twice.
+  const a = (kept?.note ?? '').trim()
+  const b = (dropped?.note ?? '').trim()
+  if (a !== b) {
+    out.push(a && b
+      ? fillTemplate(C.attendanceConflictTwoNotes, { a, b })
+      : fillTemplate(C.attendanceConflictOneNote, { a: a || b }))
+  }
+  if (kept?.status !== dropped?.status) out.push(C.attendanceConflictStatus)
+  // absent reads as 'scene' everywhere else (lib/attendanceOrt · ortOf) — so it does here, or
+  // an entry written before `ort` existed would report a divergence against every new one
+  if ((kept?.ort ?? 'scene') !== (dropped?.ort ?? 'scene')) out.push(C.attendanceConflictOrt)
+  if (timesOf(kept) !== timesOf(dropped)) out.push(C.attendanceConflictTimes)
+
+  return out.length ? out.join(' · ') : C.attendanceConflictOther
+}
+
 /**
  * Turn freshly reported attendance conflicts into journal rows, one per affected person,
  * skipping (and recording into `seen`) every signature already reported. `seen` is the
@@ -45,7 +96,7 @@ export function attendanceConflictRows(
       t: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
       at: now.toISOString(),
       icon: 'warn',
-      text: fillTemplate(appConfig.copy.journal.attendanceConflict, { name: nameOf(c) }),
+      text: fillTemplate(appConfig.copy.journal.attendanceConflict, { name: nameOf(c), what: conflictWhat(c) }),
     })
   }
   return rows

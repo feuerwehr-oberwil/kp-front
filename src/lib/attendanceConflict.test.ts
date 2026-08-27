@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { mergeWorkspace, type RecordConflict } from './mergeWorkspace'
-import { attendanceConflictRows, conflictSignature } from './attendanceConflict'
+import { attendanceConflictRows, conflictSignature, conflictWhat } from './attendanceConflict'
 import type { AttendanceEntry } from '../types'
 
 const entry = (status: AttendanceEntry['status'], name = 'Meier Anna', extra: Partial<AttendanceEntry> = {}): AttendanceEntry =>
@@ -101,5 +101,43 @@ describe('attendanceConflictRows — journal rows with signature dedupe', () => 
     const anon: RecordConflict = { key: 'p9', mine: { status: 'left' }, theirs: { status: 'present' } }
     const rows = attendanceConflictRows([anon], new Set())
     expect(rows[0].text).toContain('p9')
+  })
+})
+
+
+// The row's job is to hand the reader something to CHECK. «Abweichende Angaben wurden
+// zusammengeführt» named nothing; the everyday case — a Funktion picked up at the QR sheet and
+// another one at the KP — is a sentence.
+describe('conflictWhat — what the row actually says', () => {
+  const c = (mine: Partial<AttendanceEntry>, theirs: Partial<AttendanceEntry>): RecordConflict => ({
+    key: 'p1',
+    mine: entry('present', 'Martina Marco', mine),
+    theirs: entry('present', 'Martina Marco', theirs),
+  })
+
+  // ⚠️ BOTH, side by side. Which one the merge kept is not the question — «welche stimmt» is,
+  // and that cannot be answered from one of them.
+  it('names both Funktionen, and calls neither of them discarded', () => {
+    expect(conflictWhat(c({ note: 'Fahrer PIO' }, { note: 'AS' })))
+      .toBe('zwei Funktionen erfasst – «Fahrer PIO» und «AS»')
+  })
+
+  it('does not claim two when only one side carried a Funktion', () => {
+    expect(conflictWhat(c({ note: 'Fahrer PIO' }, {}))).toBe('Funktion «Fahrer PIO» nur auf einem Gerät erfasst')
+    expect(conflictWhat(c({}, { note: 'AS' }))).toBe('Funktion «AS» nur auf einem Gerät erfasst')
+  })
+
+  it('names every field that diverged', () => {
+    expect(conflictWhat({
+      key: 'p1',
+      mine: entry('present', 'Martina Marco', { ort: 'station' }),
+      theirs: entry('left', 'Martina Marco', { leftAt: '2026-07-18T20:00:00Z' }),
+    })).toBe('Anwesenheit abweichend erfasst · Standort abweichend erfasst · unterschiedliche Zeiten erfasst')
+  })
+
+  // an entry written before `ort` existed reads as 'scene' everywhere else — it must not report a
+  // divergence against every entry written since
+  it('treats a missing Ort as «am Einsatzort»', () => {
+    expect(conflictWhat(c({ ort: 'scene', note: 'x' }, { note: 'x' }))).toBe('abweichende Angaben zusammengeführt')
   })
 })

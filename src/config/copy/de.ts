@@ -1061,7 +1061,22 @@ export const de = {
     // system row appended when a three-way sync merge saw BOTH sides (KP tablet and
     // QR-Erfassung/server) change the SAME person's attendance to different values —
     // last-writer-wins stays, but the divergence is said, not silent (append-only record)
-    attendanceConflict: 'Anwesenheit von {name}: abweichende Angaben aus QR-Erfassung und KP wurden zusammengeführt – bitte prüfen.',
+    // ⚠️ Says WHAT diverged, not that something did. «Abweichende Angaben wurden zusammengeführt»
+    // left the reader with a name and an instruction and nothing to check: the usual case is two
+    // Funktionen on the same person, and that is a sentence, not a mystery. The merge itself is
+    // unchanged (last writer wins) — this row only reports it.
+    attendanceConflict: 'Anwesenheit {name}: {what} – bitte prüfen.',
+    // ⚠️ BEIDE Funktionen, und keine davon als «verworfen». Wer das liest, muss entscheiden,
+    // welche stimmt – dafür braucht er beide nebeneinander. Welche gerade im Datensatz steht,
+    // ist eine Folge der Zusammenführung (jüngste gewinnt) und nicht die Frage, die sich stellt.
+    attendanceConflictTwoNotes: 'zwei Funktionen erfasst – «{a}» und «{b}»',
+    // eine Seite trug keine – dann gibt es nichts zu vergleichen, nur eine zu prüfen
+    attendanceConflictOneNote: 'Funktion «{a}» nur auf einem Gerät erfasst',
+    attendanceConflictStatus: 'Anwesenheit abweichend erfasst',
+    attendanceConflictOrt: 'Standort abweichend erfasst',
+    attendanceConflictTimes: 'unterschiedliche Zeiten erfasst',
+    // nothing above matched — an entry gained a field this row does not know about yet
+    attendanceConflictOther: 'abweichende Angaben zusammengeführt',
     quickPhrasesAria: 'Textbausteine',
     typeLabel: 'Art',
     // «Info» is the normal case and prints NO badge — a badge on every row is wallpaper. The
@@ -1484,7 +1499,12 @@ export const de = {
     changeLeader: 'Gruppenführer {from} → {to}',
     changeMemberOut: '{names} aus dem Trupp genommen',
     changeMemberIn: '{names} dazugekommen',
-    changeAuftrag: 'Auftrag angepasst',
+    // ⚠️ Says WHAT the Auftrag now is, not that a field was touched. «Auftrag angepasst» was the
+    // one line on this row that named nothing: read back an hour later it could mean a new order,
+    // a corrected floor or a typo fixed in the Ziel, and the Verlauf is read precisely to find out
+    // which. The words are the ones the card carries.
+    changeAuftragTo: 'Auftrag {auftrag}',
+    changeAuftragCleared: 'Auftrag entfernt',
     changeLine: 'Leitung {n}',
     changeLineCleared: 'Leitung gelöst',
     changeFunkkanal: 'Funkkanal {n}',
@@ -1658,6 +1678,29 @@ export const de = {
       warnTwoPoints: 'Zwei Paare lösen exakt – erst ein dritter Punkt zeigt, wie gut die Passung wirklich ist.',
       warnCollinear: 'Die Punkte liegen fast auf einer Linie – quer dazu ist die Lage schlecht bestimmt. Ein dritter Punkt abseits davon hilft.',
       warnBaseline: 'Die Punkte liegen nur {m} m auseinander – kleine Tippfehler wirken über den ganzen Plan.',
+      // ── Ampel (lib/georefMode · georefLamp) ────────────────────────────────────────────────
+      // ⚠️ Sie steht die ganze Zeit im Balken, nicht erst in der Passung. Der Balken zählte
+      // bisher Paare («2 Paare») – eine Zahl, zu der niemand eine Meinung haben kann. Was fehlt,
+      // ist der Satz, der sagt, ob das reicht und was der nächste Punkt daran ändert. Genau den
+      // liest niemand, der ihn in einem Panel einen Tipp weiter suchen müsste.
+      lampNoneHead: 'Noch keine Verknüpfung',
+      lampNoneBody: 'Zwei Punkte legen den Plan auf die Karte.',
+      lampOneHead: '1 Punkt gesetzt',
+      lampOneBody: 'Der zweite legt den Plan auf die Karte.',
+      lampTwoHead: '2 Punkte – exakt, aber ungeprüft',
+      lampGoodHead: '{n} Punkte · ⌀ {m} m',
+      // Die Zahl bekommt ihren Satz. «⌀ 1.4 m» allein sagt nicht, ob man weitermachen soll.
+      lampGoodBody: 'Genau genug, um Symbole zwischen Plan und Karte zu spiegeln.',
+      // Beispielbild neben der Anweisung: «markanter Punkt» ist ein Wort, das niemand zweimal
+      // liest – die Ecke, nicht die Wand.
+      exampleAltPlan: 'Beispiel: eine Hausecke auf dem Plan',
+      exampleAltMap: 'Beispiel: derselbe Punkt auf der Karte',
+      // Untertitel unter der Anweisung – was danach kommt bzw. worauf es ankommt
+      subPlan: 'Dieselbe Stelle danach auf der Karte.',
+      subMap: 'Ruhig weit hineinzoomen.',
+      subRe: 'Der alte Punkt verschwindet dabei.',
+      // die grosse Taste nennt den Punkt, den sie setzt
+      placePointNo: 'Punkt {n} setzen',
       addThird: 'Dritten Punkt setzen',
       // ab dem dritten Paar: es gibt keinen «vierten Punkt» zu lehren, nur noch einen weiteren
       addMore: 'Punkte hinzufügen',
