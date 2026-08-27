@@ -91,10 +91,29 @@ describe('the «Karte verknüpfen» chip', () => {
     expect(screen.queryByText(/aus 2 Punkten/)).toBeNull()
   })
 
-  it('uses the finished georeference as the plan scale without asking for a second calibration', () => {
+  it('uses the finished georeference as a non-interactive scale status', () => {
     store.pairs = TWO
     renderBoard()
-    expect(screen.getByText('Ref. auto')).toBeTruthy()
+    const status = screen.getByRole('status')
+    expect(status.textContent).toContain('Ref. auto')
+    expect(status.getAttribute('title')).toContain('Ref. automatisch')
+    expect(screen.getByText('Ref. auto').closest('button')).toBeNull()
+    expect(screen.queryByText('Zwei Punkte des Massstabs antippen')).toBeNull()
+  })
+
+  it('keeps georeference correction behind the separate linked-reference control', () => {
+    store.pairs = TWO
+    renderBoard()
+    const reference = screen.getByRole('button', { name: 'Verknüpft' })
+    expect(reference.getAttribute('title')).toBe('Referenz prüfen und korrigieren')
+    fireEvent.click(reference)
+    expect(screen.getByRole('button', { name: 'Dritten Punkt setzen' })).toBeTruthy()
+  })
+
+  it('keeps manual calibration available when no automatic reference scale exists', () => {
+    renderBoard()
+    fireEvent.click(screen.getByRole('button', { name: 'nicht kalibriert' }))
+    expect(screen.getByText('Zwei Punkte des Massstabs antippen')).toBeTruthy()
   })
 
   it('offers to add points instead of claiming it will correct a calculated pair', () => {

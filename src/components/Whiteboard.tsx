@@ -3225,26 +3225,34 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
       {objectChip}
       {buildingChip}
-      {/* Maßstab — trust chip: shows whether the active plan is calibrated; tap to (re)calibrate.
-          Never a hidden assumption — a plan with no scale says so. Hidden for the OSM live outline /
-          blank sheet (no printed reference to measure against). A locked surface keeps the chip
-          READING (its metres are only as good as the calibration behind them) but can't arm it. */}
+      {/* Maßstab — trust chip: shows where the active plan's scale comes from. A manually
+          calibrated scale remains a control because tapping it edits that calibration. An
+          automatic scale is different: it is DERIVED from the Karte link and must therefore be
+          a reading, never a shortcut into a second, competing manual calibration. The separate
+          Verknüpft control beside it opens the Passung and its explicit correction actions.
+          Hidden for the OSM live outline / blank sheet (no printed reference to measure against).
+          A locked surface keeps the reading but cannot arm a manual calibration. */}
       {(!readOnly || slimRail) && !osm && !blank && (
-        <button
-          className={`wb-scale-chip ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
-          title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
-          disabled={readOnly}
-          onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
-        >
-          <Icon id="measure" />
-          <span>{
-            tool === 'scale' ? appConfig.copy.whiteboard.scale.calibrateHint
-              : scaleStale ? appConfig.copy.whiteboard.scale.stale
-              : scaleAuto ? appConfig.copy.whiteboard.scale.chipAuto
-              : calibrated ? fillTemplate(appConfig.copy.whiteboard.scale.chipCalibrated, { m: String(activeScale!.refM) })
-              : appConfig.copy.whiteboard.scale.chipUncalibrated
-          }</span>
-        </button>
+        scaleAuto
+          ? <div className="wb-scale-chip wb-scale-status on" role="status"
+              title={appConfig.copy.whiteboard.scale.chipAutoHint}>
+              <Icon id="measure" />
+              <span>{appConfig.copy.whiteboard.scale.chipAuto}</span>
+            </div>
+          : <button
+              className={`wb-scale-chip ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
+              title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
+              disabled={readOnly}
+              onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
+            >
+              <Icon id="measure" />
+              <span>{
+                tool === 'scale' ? appConfig.copy.whiteboard.scale.calibrateHint
+                  : scaleStale ? appConfig.copy.whiteboard.scale.stale
+                  : calibrated ? fillTemplate(appConfig.copy.whiteboard.scale.chipCalibrated, { m: String(activeScale!.refM) })
+                  : appConfig.copy.whiteboard.scale.chipUncalibrated
+              }</span>
+            </button>
       )}
       {/* «⌖ Karte» — the third fact about a plan that no page of it states: whether this sheet is
           tied to the world, and how well. Same recipe and same corner as the Massstab beside it,

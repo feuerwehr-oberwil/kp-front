@@ -609,6 +609,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wb-scale-chip:hover { border-color: var(--blue); color: var(--ink); }
 .wb-scale-chip.on { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
+/* A scale derived from the Karte link is a source/status, not another calibration affordance.
+   It deliberately has no expanded touch pad or hover reaction; correction lives behind the
+   adjacent Verknüpft control so there can never be two scale authorities for one sheet. */
+.wb-scale-status { cursor: default; }
+.wb-botleft > .wb-scale-status::after { display: none; }
+.wb-scale-status:hover { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 /* --warn was never declared, so this rendered the DAY amber literal in both themes */
 .wb-scale-chip.stale { color: var(--amber-strong); border-color: var(--amber-strong); }
 /* #3: persist-a-calibration bar, sits just above the Maßstab chip after a fresh calibration */
