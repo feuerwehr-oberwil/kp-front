@@ -68,7 +68,7 @@ export function useReminders(
     if (fresh.length === 0) return
     for (const r of fresh) {
       fired.current.add(r.id)
-      if (typeof document !== 'undefined' && document.hidden) void notify(copy.dueTitle, { body: r.text, tag: r.id, target: 'journal' })
+      if (typeof document !== 'undefined' && document.hidden) void notify(copy.dueTitle, { body: r.text, tag: `reminder-${r.id}`, target: 'journal' })
     }
     startAlarm('warn')
     if (toneTimer.current) clearTimeout(toneTimer.current)

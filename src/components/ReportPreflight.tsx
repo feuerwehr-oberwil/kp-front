@@ -22,7 +22,7 @@ import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } f
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import {
-  defaultReportOptions, einsatzleiterFromScene, formatDateTime, krokiStandLabel, missingTranscriptCount, pendenzRows, proofLabel,
+  defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
 import { missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'

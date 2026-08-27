@@ -70,7 +70,6 @@ describe('resolveHotkey — bare tool/panel/view keys', () => {
     expect(resolve('j')).toEqual({ type: 'panel', panel: 'journal' })
     expect(resolve('e')).toEqual({ type: 'panel', panel: 'composer' })
     expect(resolve('b')).toEqual({ type: 'panel', panel: 'layers' })
-    expect(resolve('o')).toEqual({ type: 'panel', panel: 'picker' })
   })
   it('maps the view keys', () => {
     expect(resolve('g')).toEqual({ type: 'view', view: 'locate' })

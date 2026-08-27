@@ -8,7 +8,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
-import { Icon } from '../lib/icons'
 import { fmtDayShort } from '../lib/zeitplanFormat'
 import w from './WheelPicker.module.css'
 

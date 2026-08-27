@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { railPlanTiles, buildPlanInfo, extraModuleDoc, BUILDING_PICK_ID } from './useObjectPlans'
+import { railPlanTiles, buildPlanInfo, extraModuleDoc, objectPlanGeorefKey, BUILDING_PICK_ID } from './useObjectPlans'
 import { planGlyph } from './navRail'
 import { appConfig } from '../config/appConfig'
 import type { PlanDocument } from '../types'
@@ -16,6 +16,17 @@ const tafel = doc({ id: 'tafel', code: 'Tafel', icon: 'pen' })
 
 const wb = appConfig.copy.whiteboard
 const glyph = (d: PlanDocument) => planGlyph(d)
+
+describe('objectPlanGeorefKey', () => {
+  it('isolates the same Modul slot for two Einsatzobjekte', () => {
+    expect(objectPlanGeorefKey('obj-a', 'modul2')).toBe('object:obj-a:plan:modul2')
+    expect(objectPlanGeorefKey('obj-b', 'modul2')).not.toBe(objectPlanGeorefKey('obj-a', 'modul2'))
+  })
+
+  it('keeps separate modules of one object separate', () => {
+    expect(objectPlanGeorefKey('obj-a', 'modul2')).not.toBe(objectPlanGeorefKey('obj-a', 'modul3'))
+  })
+})
 
 // The outline picker and the floor stack are ONE tile in the rail, and two documents everywhere
 // else. Both halves of that sentence are load-bearing, so both are pinned here.

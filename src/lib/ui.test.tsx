@@ -66,6 +66,32 @@ describe('toast with an action (confirm-with-undo)', () => {
   })
 })
 
+describe('toast timing', () => {
+  it('announces through one shared live region instead of nesting status regions', () => {
+    render(<Overlays />)
+    let id!: number
+    act(() => { id = toast('Einmal ansagen') })
+
+    const host = document.querySelector('.toaster')!
+    const item = screen.getByText('Einmal ansagen').closest('.toast')!
+    expect(host.getAttribute('aria-live')).toBe('polite')
+    expect(item.getAttribute('role')).toBeNull()
+    act(() => dismissToast(id))
+  })
+
+  it('keeps a long message visible long enough to read', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    const message = `Server: ${'Eine ausführliche Fehlermeldung. '.repeat(4)}`.trim()
+    act(() => { toast(message) })
+
+    act(() => vi.advanceTimersByTime(3000))
+    expect(screen.getByText(message)).toBeTruthy()
+    act(() => vi.advanceTimersByTime(7001))
+    expect(screen.queryByText(message)).toBeNull()
+  })
+})
+
 describe('sticky/updatable toast (live print status)', () => {
   it('a sticky toast stays put, then updateToast patches it in place', () => {
     vi.useFakeTimers()
@@ -127,8 +153,7 @@ describe('sticky/updatable toast (live print status)', () => {
   })
 })
 
-// ⚠️ The pill passes taps through (pointer-events: none) — the ACTION is the one part that cannot,
-// so it is the one part that can be in the way of the FAB or the phone rail underneath it.
+// Action toasts can be dismissed immediately when their bounded stack is in the way.
 describe('getting a confirm-with-undo toast out of the way', () => {
   /** the toast just raised — the store is module-level, so a previous test's pill may still stand */
   const last = (sel: string) => [...document.querySelectorAll(`.toast ${sel}`)].pop() as HTMLElement

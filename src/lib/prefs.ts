@@ -106,6 +106,19 @@ export interface Prefs {
    *  compass menu and off again when that Einsatz ends — so nobody's phone starts broadcasting
    *  because of something they agreed to months ago. */
   sharePosition?: SharePositionPref
+  /** Georeferenz twin layers that have been switched OFF on this device, keyed by their Ebenen
+   *  row id (lib/georefTwins · twinPlanLayerId / TWIN_MAP_*). Absent or `true` = shown, which is
+   *  the default: a georeference exists because somebody deliberately made one, and seeing both
+   *  pictures at once is what they made it for.
+   *
+   *  A DEVICE pref, exactly like the map's own layer visibility — that rides the workspace blob
+   *  but `mergeWorkspace` keeps `layerState` local, so «which layers am I looking at» has never
+   *  been something one device imposes on another. Same rule, kept in the same place a twin row
+   *  can actually reach: the plan ids are per object and would have no home in the fixed
+   *  `LayerDef` list `layerState` is reconciled against (lib/workspace · deriveInitial). */
+  twinLayers?: Record<string, boolean>
+  /** Transparency (0..100) of opt-in georeferenced plan rasters on the Lage map. */
+  twinLayerOpacity?: Record<string, number>
 }
 
 export interface SharePositionPref {

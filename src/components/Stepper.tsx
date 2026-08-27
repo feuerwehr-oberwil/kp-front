@@ -3,6 +3,11 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 
+/** Keep a typed value numeric while it is being typed — digits plus ONE leading minus, so a
+ *  Untergeschoss can be written straight in («-1»). A minus that is out of the field's range is
+ *  no special case: `commit` clamps it like any other number. */
+const numericDraft = (s: string) => (s.startsWith('-') ? '-' : '') + s.replace(/\D/g, '')
+
 /**
  * The canonical compact ±stepper (global `.step` chrome). Three behaviours, consistent everywhere:
  *  - press-and-HOLD the ±buttons to repeat fast (reach e.g. 40 without 40 taps)
@@ -10,16 +15,22 @@ import { useHoldRepeat } from '../lib/useHoldRepeat'
  *  - the reset ✕ is ALWAYS rendered (no layout shift); it just greys out when there's nothing
  *    to reset (`canClear` false), instead of appearing/disappearing.
  *
- * `value` may be null for OPTIONAL fields (no badge yet): the display shows `placeholder`, − is
- * disabled, and + seeds `seed ?? min`. `onChange` always receives a concrete clamped number.
+ * `value` may be null for OPTIONAL fields (no badge yet): the display shows `placeholder` and the
+ * first tap on + seeds `seed ?? min` — on − too when `seedOnDec` is set. `onChange` always
+ * receives a concrete clamped number.
  */
-export function Stepper({ value, min, max, step = 1, seed, format, placeholder = '–', onChange, onClear, canClear, readOnly, over, ariaLabel }: {
+export function Stepper({ value, min, max, step = 1, seed, seedOnDec, format, placeholder = '–', onChange, onClear, canClear, readOnly, over, ariaLabel }: {
   value: number | null
   min: number
   max: number
   step?: number
   /** value to seed when stepping up from an empty (null) optional field; defaults to `min` */
   seed?: number
+  /** − on an EMPTY field seeds too, instead of doing nothing. For fields whose `seed` is a neutral
+   *  origin one steps down from as readily as up — a Geschoss: the first tap either way lands on
+   *  EG (0), and the next − is the first Untergeschoss. Off ⇒ − stays disabled while empty (a
+   *  count has nothing below its seed). */
+  seedOnDec?: boolean
   /** format the numeric value for display (e.g. signed floor "+2", "47 m") */
   format?: (v: number) => string
   placeholder?: string
@@ -35,8 +46,12 @@ export function Stepper({ value, min, max, step = 1, seed, format, placeholder =
 }) {
   const clamp = (v: number) => Math.max(min, Math.min(max, v))
   const has = value != null
-  const dec = useHoldRepeat(() => { if (has) onChange(clamp(value - step)) })
-  const inc = useHoldRepeat(() => onChange(has ? clamp(value + step) : (seed ?? min)))
+  const seedVal = clamp(seed ?? min)
+  const dec = useHoldRepeat(() => {
+    if (has) onChange(clamp(value - step))
+    else if (seedOnDec) onChange(seedVal)
+  })
+  const inc = useHoldRepeat(() => onChange(has ? clamp(value + step) : seedVal))
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
@@ -51,11 +66,12 @@ export function Stepper({ value, min, max, step = 1, seed, format, placeholder =
 
   return (
     <span className="step" role="group" aria-label={ariaLabel}>
-      <button className="step-btn" disabled={readOnly || !has || value <= min} {...dec} aria-label={st.less}>−</button>
+      <button className="step-btn" disabled={readOnly || (has ? value <= min : !seedOnDec)} {...dec} aria-label={st.less}>−</button>
       {editing ? (
         <input
-          className="step-val step-input" autoFocus value={draft} inputMode="numeric" type="text"
-          onChange={(e) => setDraft(e.target.value)} onBlur={commit}
+          className="step-val step-input" autoFocus value={draft} inputMode="numeric" type="text" aria-label={ariaLabel}
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => setDraft(numericDraft(e.target.value))} onBlur={commit}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); else if (e.key === 'Escape') setEditing(false) }}
         />
       ) : (

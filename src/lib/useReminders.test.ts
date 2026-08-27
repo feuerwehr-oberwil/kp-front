@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('./alarm', () => ({ notify: vi.fn(), startAlarm: vi.fn(), stopAlarm: vi.fn() }))
 
 import { useReminders } from './useReminders'
+import { notify } from './alarm'
 import type { TimelineEvent } from '../types'
 
 const copy = { dueTitle: 'fällig', doneLog: '{text}', pendenzDoneLog: 'p {text}', snoozeLog: '{mins} {text}' }
@@ -17,6 +18,22 @@ beforeEach(() => { vi.useFakeTimers() })
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks() })
 
 describe('useReminders — overdue recompute on resume', () => {
+  it('uses the Web-Push tag so foreground and killed-app alerts coalesce', () => {
+    const t0 = Date.parse('2026-06-30T03:00:00.000Z')
+    vi.setSystemTime(t0)
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+
+    renderHook(() => useReminders(
+      [createdRow('r1', new Date(t0 - 1_000).toISOString(), new Date(t0 - 2_000).toISOString())],
+      () => {}, copy, true,
+    ))
+
+    expect(notify).toHaveBeenCalledWith('fällig', {
+      body: 'Keller prüfen', tag: 'reminder-r1', target: 'journal',
+    })
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+  })
+
   it('surfaces an overdue reminder immediately on visibilitychange, not only on the 10s tick', () => {
     const t0 = Date.parse('2026-06-30T03:00:00.000Z')
     vi.setSystemTime(t0)

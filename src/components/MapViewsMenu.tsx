@@ -42,7 +42,8 @@ export interface ViewsApi {
     note?: string | null
     /** dimmed and inert, but still readable — see above */
     disabled?: boolean
-    onToggle: () => void
+    /** true when the action opened a child sheet and this menu should stay suspended beneath it */
+    onToggle: () => boolean
   }
 }
 
@@ -102,7 +103,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
             className={cx(s.row, s.north, api.share.on && s.on, api.share.disabled && s.rowOff)}
             aria-pressed={api.share.on}
             disabled={!!api.share.disabled}
-            onClick={() => { api.share!.onToggle(); onClose() }}
+            onClick={() => { if (!api.share!.onToggle()) onClose() }}
           >
             {/* NOT the «locate» crosshair: this row sits directly under «Mein Standort», and
                 giving two adjacent rows the same glyph is how an eye slides straight past the

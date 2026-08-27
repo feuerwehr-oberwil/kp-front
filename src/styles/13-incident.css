@@ -44,16 +44,25 @@
 /* THE ACTIVE EINSATZ AS A CARD — the heaviest object in the menu, and the only one with a
    surface of its own: green status edge, Titel, Adresse, two status pills, and the Einsatz's
    own actions along its bottom. Everything below it is deliberately lighter, so one look
-   sorts the menu into «jetzt» / «läuft auch» / «vorbei» (field feedback 2026-08-25: every row
-   carried the same weight). Replaces the old flat .ip-menu-head + the two action rows. */
+   sorts the menu into «jetzt» and «läuft auch» (field feedback 2026-08-25: every row carried the
+   same weight). Replaces the old flat .ip-menu-head + the two action rows. */
 /* the fill is a soft tile with a breath of the status green in it — over the white day surface
    `--surface-2` alone was invisible, and the tint says «läuft» in the same colour as the edge */
 .ip-card { display: flex; flex-direction: column; gap: 3px; margin: 2px 2px 6px;
   padding: 10px 12px; border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--green) 6%, var(--fill-soft));
   border: 1px solid var(--glass-edge); border-left: 4px solid var(--green); }
-.ip-card-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
-.ip-card-name { font: 700 15px var(--body); color: var(--ink); overflow-wrap: anywhere; }
+/* Title row: Einsatzname · ÜBUNG · Sync, in that order of who gives way. It does NOT wrap —
+   the marker and the button would drop to a line of their own and the button would stop being
+   «top right» — so the NAME is the flexible one and everything else is `flex: none`. */
+.ip-card-title { display: flex; align-items: flex-start; flex-wrap: nowrap; gap: 8px; min-width: 0; }
+/* two lines, then ellipsis. Not one: on a phone this card is the only place the full
+   Einsatzname is shown at all (the bar's title is hidden ≤600px), and «Zimmerbrand
+   Hauptstrasse 24» does not fit one 180px line beside a badge and a button. */
+.ip-card-name { flex: 1 1 auto; min-width: 0; font: 700 15px var(--body); color: var(--ink);
+  overflow-wrap: anywhere; overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.ip-card-title > .ip-badge { flex: none; margin-top: 2px; }
 .ip-card-sub { font: 500 12.5px var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
 /* the pills WRAP instead of clipping: on a 360px phone «Gespeichert um 20:14» and
    «Einsatzbeginn 20:14 · 1 h 32» never fit on one line, and both are read, not glanced at */
@@ -69,8 +78,8 @@
 .ip-card-pill.ip-status-pending { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 16%, transparent); }
 .ip-card-pill.ip-status-error, .ip-card-pill.ip-status-storage {
   color: var(--red-strong); background: color-mix(in srgb, var(--red) 14%, transparent); }
-/* the Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen, with the icon-only
-   Sync at the right edge. Wraps rather than overflows on a narrow phone. */
+/* the Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen (Sync lives up in the
+   title row). Wraps rather than overflows on a narrow phone. */
 .ip-card-acts { display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
   margin: 8px -6px -4px; padding-top: 6px; border-top: 1px solid var(--glass-edge); }
 .ip-card-act { display: inline-flex; align-items: center; gap: 6px; min-height: 40px;
@@ -78,10 +87,15 @@
   color: var(--ink); cursor: pointer; font: 600 12.5px var(--body); }
 .ip-card-act:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
 .ip-card-act svg { width: 15px; height: 15px; opacity: .65; flex: none; }
-/* Sync keeps its own 40px icon target and its blue, at the card's right edge */
-.ip-card-sync { margin-left: auto; width: 40px; padding: 0; justify-content: center;
-  color: var(--blue-strong); }
-.ip-card-sync svg { opacity: 1; }
+/* «Jetzt synchronisieren» at the title row's right edge — pinned there at every width, so the
+   Einsatz's connection state and the button that refreshes it sit on the same line. Pulled
+   slightly out of the card's padding so the ICON, not the button's box, lines up with the
+   right edge of the text below it. */
+.ip-card-sync { flex: none; display: grid; place-items: center; width: 32px; height: 32px;
+  margin: -3px -4px 0 0; padding: 0; border: none; border-radius: var(--r-sm);
+  background: none; color: var(--blue-strong); cursor: pointer; }
+.ip-card-sync:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.ip-card-sync svg { width: 16px; height: 16px; opacity: 1; }
 .ip-card-sync:disabled { cursor: default; }
 /* Spinner → tick, as ONE circle rather than two icons swapped: r=9 ⇒ circumference ≈ 56.5, and
    every dash length below is cut to that. Busy draws a ~quarter arc and rotates it; done closes
@@ -117,21 +131,25 @@
 }
 .ip-menu-act svg { width: 16px; height: 16px; opacity: .65; }
 /* incident row — pure switch target (no destructive actions in this menu; closing another
-   incident lives in «Alle Einsätze» / the Rapport). The leading FIXED-WIDTH column is what
-   makes the two lists scan: laufende Zeit for a running Einsatz, Datum for a früherer one,
-   both on the same edge. */
-.ip-menu-row { display: flex; align-items: baseline; gap: 10px; width: 100%; min-width: 0;
-  text-align: left; padding: 6px 12px; min-height: 38px; border: none; background: none;
-  border-radius: var(--r-ctl); cursor: pointer; color: var(--ink-dim); font: 500 13px var(--body); }
-.ip-menu-when { flex: none; width: 62px; font: 600 11.5px var(--body); font-variant-numeric: tabular-nums;
-  color: var(--ink-faint); }
-/* a running Einsatz is a real alternative to the one on screen: full ink, and the green says
-   «läuft». --accent is the brand red and would say something else entirely. */
-.ip-menu-row-run { min-height: 44px; color: var(--ink); font-weight: 700; font-size: 13.5px; }
-.ip-menu-row-run .ip-menu-when { color: var(--green-strong); }
+   incident lives in «Alle Einsätze» / the Rapport). The leading FIXED-WIDTH column carries the
+   laufende Zeit, so the list scans down one edge: how long has THAT one been going. */
+.ip-menu-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-width: 0;
+  text-align: left; padding: 7px 12px; min-height: 44px; border: none; background: none;
+  border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); font: 700 13.5px var(--body); }
+/* the green says «läuft» — every row in this list is a running Einsatz. --accent is the brand
+   red and would say something else entirely. The 1px nudges the smaller type onto the same
+   baseline as the title beside it (align-items is flex-start, for the two-line rows). */
+.ip-menu-when { flex: none; width: 62px; padding-top: 1px; font: 600 11.5px var(--body);
+  font-variant-numeric: tabular-nums; color: var(--green-strong); }
 .ip-menu-row:hover, .ip-menu-act:hover, .ip-menu-more:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+/* Two lines at most: WHAT it is, and WHERE — «Ölspur» tells two Einsätze apart from each other
+   only with the street under it, the same way the card carries its address. */
+.ip-menu-rowmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ip-menu-titleline { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ip-menu-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* the way into the full archive, under the four «Frühere» rows — a link, not a sixth row */
+.ip-menu-rowsub { font: 500 11.5px var(--body); color: var(--ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the way into the archive, under the running rows — a link, not another row */
 .ip-menu-more { width: 100%; text-align: left; padding: 7px 12px; min-height: 40px; border: none;
   background: none; border-radius: var(--r-ctl); cursor: pointer; color: var(--blue-strong);
   font: 600 12.5px var(--body); }
@@ -409,9 +427,10 @@
 /* «2 offen» — the same amber, named after what it means rather than after the Übung it borrows
    from: something is outstanding and the operator is about to act as if it were not. */
 .ip-badge-todo { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); text-transform: none; }
-/* the badge sits INSIDE the row title (which ellipsises), so it needs its own gap; the card's
-   title is a flex line and spaces it itself */
-.ip-menu-title .ip-badge { margin-left: 6px; vertical-align: 1px; }
+/* the ÜBUNG marker rides BESIDE the row title, never inside it — the title is the part that
+   ellipsises, and a drill must never lose the word that says so (the card's title line spaces
+   its own badge via flex gap) */
+.ip-menu-row .ip-badge { flex: none; }
 .ip-hist-sub, .ip-ds-sub { font: 500 12px var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* rapport lifecycle badges (derived, lib/rapportStatus) */
 /* Alle Einsätze: search + time-group headers — the list grows by one row per Einsatz

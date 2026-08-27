@@ -420,8 +420,19 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 /* <Overlay>: backdrop is .modal-backdrop; the composer owns its own positioning. Desktop = top-
    anchored 11vh, horizontally centred (a mode switch that changes height keeps a stable top);
    phones flip it to a keyboard-lifting bottom sheet (see the ≤600px rule). */
+/* ⚠️ …AND NEVER PAST THE KEYBOARD, on every pointer. The cap used to be a flat `88dvh - 11vh`
+   here, with the `--jc-kb` subtraction living only in the `(pointer: coarse)` rule below — so an
+   iPad with a keyboard case or a trackpad, which reports `pointer: fine`, was capped against the
+   whole screen while a software keyboard ate the bottom third of it. Everything still «fitted»
+   its own cap, so the sheet neither scrolled nor stepped down the ladder — and then iOS scrolled
+   the layout viewport to keep
+   the caret visible, which carried the top of a fixed card off the top of the screen: the head,
+   the field and the whole predictive band gone, the rows below sitting comfortably. Measured at
+   1180×820 with a 380px keyboard: 35px of the card under it, and at 740×620 with 260px: 93px.
+   `min()` of the two, so with no keyboard the number is exactly the old one and nothing moves. */
 .journal-composer { position: fixed; left: 50%; top: 11vh; transform: translateX(-50%); z-index: 81;
-  width: min(460px, 92vw); max-height: calc(88dvh - 11vh); overflow-y: auto; overscroll-behavior: contain;
+  width: min(460px, 92vw); overflow-y: auto; overscroll-behavior: contain;
+  max-height: min(calc(88dvh - 11vh), calc(100dvh - 11vh - 12px - var(--jc-kb, 0px)));
   /* no backdrop-filter: --surface is opaque in BOTH themes (#fff / #232c3a), so the blur painted
      nothing — it only made the compositor re-blur the map behind the card on every frame of the
      open animation, which is the other half of the desktop jank. Same for .sym-modal/.confirm-card. */
@@ -442,7 +453,14 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
    nothing — the Textbausteine were «cut off» while every other row kept its height.
    Now the rows keep theirs too and the sheet scrolls, which is what `overflow-y: auto` is for.
    (Was phone-only in 15-mobile.css; the desktop/tablet card is the same capped flex column and
-   the keyboard makes the cap bite hardest exactly there.) */
+   the keyboard makes the cap bite hardest exactly there.)
+   ⚠️ AND THE ROWS HAVE TO BE THE CARD'S OWN CHILDREN for this rule to reach them. They were not:
+   the sheet's markup wrapped all of them in a `display: contents` div (it carried the paste
+   handler), and an element with no box is still an element — `> *` matched THAT and nothing else,
+   so every row kept `flex-shrink: 1` and the band went on being squeezed to 0 exactly as
+   described above. The rule looked right, the comment described a fix that was not happening, and
+   it took driving the real app at 744×400 to see it (JournalComposer · the paste listener). Any
+   `> *` rule on this card carries the same condition. */
 .journal-composer > * { flex: none; }
 
 /* ── the degradation ladder: today's layout → one compact row → scrolling ──────────────────
@@ -454,12 +472,13 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
      1. by default nothing changes, and the predictive row is never what gives way;
      2. `.is-compact` — the Art strip and the media strip become ONE row of symbols
         («I · A · S», the clock, the ring, mic · upload · camera). Worth 44px of row plus the
-        8px gap that went with it = 52px, which is `COMPACT_SAVES` in JournalComposer.tsx;
+        8px gap that went with it = 52px, which is `COMPACT_SAVES` in lib/composerFit.ts;
      3. only then `overflow-y: auto` above does what it has always done.
-   ⚠️ Rung 2 is switched by MEASURING the card, not by a height media query: on iOS the layout
-   viewport does not shrink for the keyboard (which is why the cap has to subtract `--jc-kb` at
-   all), so `@media (max-height: …)` reports the full screen at exactly the moment half of it is
-   gone. See JournalComposer · nextCompact.
+   ⚠️ Rung 2 is switched by MEASURING, not by a height media query: on iOS the layout viewport
+   does not shrink for the keyboard (which is why the caps have to subtract `--jc-kb` at all), so
+   `@media (max-height: …)` reports the full screen at exactly the moment half of it is gone. The
+   sheet's content height is weighed against BOTH the used cap above and the visible viewport —
+   the second is what catches a cap that is itself too big. See lib/composerFit.
    The numbers behind the rungs, measured in the app's own Sora at 320 · 360 · 390 · 460 with an
    empty sheet: 16+16 padding · 38 head · 92 field · 44 predictive band · 44 Art · 44 media ·
    44 «Erfassen» · 5×8 gaps = 386px, and 334px compact. On a phone with the keyboard up the field

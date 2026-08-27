@@ -38,7 +38,7 @@ interface AttachedPhoto { id: string; blob: Blob; url: string }
  *  it rides the direct route only, because the clipboard and a mailto: URL hold text. */
 export function FeedbackSheet({ trouble, onClose }: {
   trouble?: TroubleEvent
-  onClose: () => void
+  onClose: (reason: 'cancel' | 'complete') => void
 }) {
   const cp = appConfig.copy.feedback
   // Restored, not empty: the sheet is dismissable by Esc and by a backdrop tap, and what was
@@ -106,11 +106,11 @@ export function FeedbackSheet({ trouble, onClose }: {
   // back on the next launch and the prompt becomes the nag we set out not to build. The DRAFT
   // deliberately does not follow that rule: the cooldown is about how often we ask, the draft
   // is about not destroying someone's words, and only one of those should survive a stray tap.
-  const finish = () => { markTroubleAsked(); onClose() }
+  const finish = (reason: 'cancel' | 'complete') => { markTroubleAsked(); onClose(reason) }
 
   /** Exit after the text has actually gone somewhere — then, and only then, it stops being a
    *  draft. The photos go with it: they were attached to this report, not to the next one. */
-  const finishSent = () => { clearDraft(); dropPhotos(); finish() }
+  const finishSent = () => { clearDraft(); dropPhotos(); finish('complete') }
 
   const onMessage = (text: string) => { setMessage(text); writeDraft(text) }
 
@@ -175,7 +175,7 @@ export function FeedbackSheet({ trouble, onClose }: {
 
   if (state === 'sent') {
     return (
-      <Modal title={cp.title} onClose={finish} fit>
+      <Modal title={cp.title} onClose={() => finish('complete')} fit>
         <div className="fb-sheet">
           <p className="fb-q"><Icon id="check" /> {cp.sentTitle}</p>
           <p className="fb-intro">{cp.sentBody}</p>
@@ -188,7 +188,7 @@ export function FeedbackSheet({ trouble, onClose }: {
             <p className="fb-tech-note">{cp.sentEcho}</p>
           </details>
           <div className="fb-actions">
-            <button type="button" className="ip-btn primary" onClick={finish}>{cp.close}</button>
+            <button type="button" className="ip-btn primary" onClick={() => finish('complete')}>{cp.close}</button>
           </div>
         </div>
       </Modal>
@@ -196,7 +196,7 @@ export function FeedbackSheet({ trouble, onClose }: {
   }
 
   return (
-    <Modal title={cp.title} onClose={finish} fit>
+    <Modal title={cp.title} onClose={() => finish('cancel')} fit>
       <div className="fb-sheet">
         {trouble && <p className="fb-q">{cp.promptFor[trouble.kind]}</p>}
         <p className="fb-intro">{cp.intro}</p>
@@ -301,7 +301,7 @@ export function FeedbackSheet({ trouble, onClose }: {
         )}
 
         <div className="fb-actions">
-          <button type="button" className="ip-btn" onClick={finish}>{cp.close}</button>
+          <button type="button" className="ip-btn" onClick={() => finish('cancel')}>{cp.close}</button>
           {sendFailed ? (
             /* Once sending has demonstrably failed, mail is promoted to the primary route —
                the same escalation ErrorBoundary makes when reloading didn't work. */

@@ -40,8 +40,8 @@ void requestPersistentStorage()
 // PWA: register the service worker (precaches the app shell + runtime-caches map tiles
 // and reference data so the tool launches and renders offline on station/vehicle tablets).
 // registerType 'prompt' → a new build installs and WAITS (no silent mid-incident reload); the
-// UpdateBanner surfaces it and the operator applies it. swUpdate also polls hourly so always-on
-// tablets that never reload still discover a fresh deploy.
+// UpdateBanner announces that it will activate on the next full app start. swUpdate also polls
+// every five minutes so always-on tablets that never reload still discover a fresh deploy.
 initServiceWorker()
 
 // "Als App installieren": capture Chromium's beforeinstallprompt BEFORE React mounts (it can

@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { fmtMMSS } from '../lib/geo'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { HoldTargets } from './HoldTargets'
+import { useGeorefMode } from '../lib/georefMode'
 
 // Mobile field-capture FAB. Same tap / long-hold gesture as the TopBar "Eintrag": tap opens
 // the composer, hold offers Sprachnotiz · Foto, tap-while-recording stops it. The hold acts on
@@ -25,6 +26,12 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
   }, [recording])
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
   const { pressing, latched, hover, anchor, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto })
+  // ⚠️ Gone while «Karte verknüpfen» is armed. On a phone the mode's bar takes the foot of the
+  // screen and this circle floats ON its right end, over «Deckung prüfen» / «Fertig» — a button
+  // that opens the journal, parked on top of the two that finish what you are doing. The
+  // subscription lives HERE rather than in the shell, so one small component re-renders per
+  // tap instead of the whole workspace.
+  const georefArmed = !!useGeorefMode().planId
 
   // The circle steps back while something under it is being scrolled, so the row / curve it
   // covers can be read during the gesture. Scroll does not bubble, hence the capture listener:
@@ -46,6 +53,8 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
       window.removeEventListener('scroll', onScroll, { capture: true })
     }
   }, [])
+
+  if (georefArmed) return null
 
   return (
     <button

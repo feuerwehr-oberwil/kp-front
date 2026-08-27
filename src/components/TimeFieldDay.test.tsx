@@ -7,6 +7,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TimeField } from './TimeField'
 import { TimeBlockSheet } from './TimeBlockSheet'
+import { AnwesenheitView } from './AnwesenheitView'
+import { PersonShiftSheet } from './PersonShiftSheet'
+import { BandGrid } from './BandGrid'
+import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
+import type { AttendanceState, Person, Shift, ShiftBand } from '../types'
 
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
@@ -100,5 +106,93 @@ describe('TimeField · the day a stamp lands on', () => {
     render(<TimeField ariaLabel="Ende" value="" nowLabel="Jetzt" onCommit={onCommit} />)
     fireEvent.click(screen.getByRole('button', { name: 'Jetzt' }))
     expect(onCommit).toHaveBeenCalledWith('09:00', undefined)
+  })
+})
+
+// ── and the three surfaces that hand the day down ──────────────────────────────────────────
+//
+// The wiring above is pinned on TimeBlockSheet in isolation, which is one layer short of the
+// bug: what actually reached the workspace was each caller's own onCommit, and every one of
+// them has to CHOOSE between the day the picker hands back and its own fallback rule. A caller
+// that forwards the right day into the field and then ignores it on the way out is exactly as
+// broken as one that never passed it. So each of the three is driven the way an operator drives
+// it — open, tap the field, confirm without touching a wheel — on a Wednesday morning, with the
+// value sitting on Monday night.
+describe('correcting a stamp from an earlier day, on a multi-day Einsatz', () => {
+  /** an ISO instant on one of the days above, in local time — the clock the field will show */
+  const at = (day: Date, h: number, mi = 0) =>
+    new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, mi, 0, 0).toISOString()
+  const wednesdayMorning = () => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 7, 12, 9, 0)) }
+  const person: Person = { id: 'p1', displayName: 'Meier Anna', active: true, updatedAt: at(MON, 22) }
+  /** confirm the picker without moving anything: the correction is to the CLOCK, not to the day */
+  const confirmPicker = (fieldLabel: string) => {
+    fireEvent.click(screen.getByRole('button', { name: fieldLabel }))
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+  }
+  const dayOf = (iso?: string) => (iso ? new Date(iso).toDateString() : undefined)
+
+  it('Anwesenheit: a recorded block stays on the night it was recorded', () => {
+    wednesdayMorning()
+    const onSetTimes = vi.fn()
+    const attendance = {
+      p1: {
+        status: 'left', displayNameSnapshot: person.displayName,
+        intervals: [{ from: at(MON, 22, 15), to: at(TUE, 6) }],
+      },
+    } as unknown as AttendanceState
+    render(
+      <AnwesenheitView
+        people={[person]} attendance={attendance} canEdit loading={false} error={false}
+        blockedIds={new Set()} truppOfPerson={new Map()} startedAt={at(MON, 22)}
+        onMarkPresent={() => {}} onMarkLeft={() => {}} onClear={() => {}}
+        onJumpToTrupp={() => {}} onReload={() => {}} onSetTimes={onSetTimes} />,
+    )
+    fireEvent.click(screen.getByRole('button', {
+      name: fillTemplate(appConfig.copy.anwesenheit.openBlocks, { name: person.displayName }),
+    }))
+    confirmPicker(`${appConfig.copy.anwesenheit.von} – ${person.displayName}`)
+    expect(onSetTimes).toHaveBeenCalledTimes(1)
+    expect(dayOf(onSetTimes.mock.calls[0][1].from)).toBe(MON.toDateString())
+  })
+
+  // ⚠️ The «bis», not the «von», on both planning surfaces: a start that lands on the wrong day
+  // is caught downstream by keepStartBeforeEnd, which walks it back a day at a time until it sits
+  // before its own end — so the «von» would pass here with no day wiring at all. The END has no
+  // such net (an end two days late is simply a longer shift), which is also why the bug was
+  // reproduced by hand on that field.
+  it('Zeitplan: a planned shift keeps the night it was planned for', () => {
+    wednesdayMorning()
+    const onSetTime = vi.fn()
+    const shift: Shift = { id: 'sh1', personId: person.id, from: at(MON, 22, 15), to: at(TUE, 6) }
+    render(
+      <PersonShiftSheet
+        person={person} shifts={[shift]} blocks={[]} canEdit startedAt={at(MON, 22)}
+        conflicts={new Set()} onAdd={() => {}} onSetTime={onSetTime} onToggle={() => {}}
+        onRemove={() => {}} onClose={() => {}} />,
+    )
+    confirmPicker(`${appConfig.copy.anwesenheit.bis} – ${person.displayName}`)
+    expect(onSetTime).toHaveBeenCalledTimes(1)
+    expect(dayOf(onSetTime.mock.calls[0][1].to)).toBe(TUE.toDateString())
+  })
+
+  it('Schichten: re-timing a band does not drag the whole column to today', () => {
+    wednesdayMorning()
+    const onSaveBand = vi.fn()
+    const S = appConfig.copy.schichten
+    const band: ShiftBand = { id: 'bd1', label: 'Nacht', from: at(MON, 22), to: at(TUE, 6) }
+    render(
+      <BandGrid
+        people={[person]} shifts={[]} bands={[band]} canEdit startedAt={at(MON, 22)}
+        attendance={{}} onAddShift={() => {}} onSetShiftTime={() => {}} onReplaceShift={() => {}}
+        onRemoveShift={() => {}} onCreateBand={() => {}} onSaveBand={onSaveBand}
+        onRemoveBand={() => {}} onCycleCell={() => {}} onSetCellState={() => {}}
+        onPutCellState={() => {}} />,
+    )
+    fireEvent.click(screen.getByText(band.label).closest('button')!)
+    confirmPicker(`${appConfig.copy.zeitplan.to} – ${band.label}`)
+    fireEvent.click(screen.getByRole('button', { name: S.save }))
+    expect(onSaveBand).toHaveBeenCalledTimes(1)
+    // (id, label, von, bis) — the bis is the one that went through the picker
+    expect(dayOf(onSaveBand.mock.calls[0][3])).toBe(TUE.toDateString())
   })
 })

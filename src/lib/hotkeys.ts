@@ -29,7 +29,7 @@
 export type ToolCmd =
   | 'select' | 'lasso' | 'symbol' | 'line' | 'area' | 'circle' | 'note' | 'team' | 'measure'
 export type SurfaceCmd = 'map' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
-export type PanelCmd = 'journal' | 'composer' | 'layers' | 'picker' | 'settings' | 'help'
+export type PanelCmd = 'journal' | 'composer' | 'layers' | 'settings' | 'help'
 export type ViewCmd = 'zoomIn' | 'zoomOut' | 'locate' | 'coord'
 
 export type HotkeyCommand =
@@ -66,7 +66,7 @@ const TOOL_KEYS: Record<string, ToolCmd> = {
   v: 'select', w: 'lasso', s: 'symbol', l: 'line', f: 'area', u: 'circle', n: 'note', t: 'team', d: 'measure',
 }
 const PANEL_KEYS: Record<string, PanelCmd> = {
-  j: 'journal', e: 'composer', b: 'layers', o: 'picker',
+  j: 'journal', e: 'composer', b: 'layers',
 }
 // (no `r: 'north'` anymore — see the header: the compass is the north control, R is the Rapport)
 const VIEW_KEYS: Record<string, ViewCmd> = {

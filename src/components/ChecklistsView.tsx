@@ -8,7 +8,7 @@ import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { useIsPhone, useMediaQuery } from '../lib/useIsPhone'
+import { useMediaQuery } from '../lib/useIsPhone'
 import s from './Checklists.module.css'
 
 const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
@@ -67,7 +67,6 @@ export function ChecklistsView({
   // Phones were never the problem; the band just above them was, and the collapse mechanism that
   // fixes it already existed and simply stopped 160px short.
   const railNarrow = useMediaQuery('(max-width: 760px)')
-  const isPhone = useIsPhone()
   const [railOpen, setRailOpen] = useState(true)
   const pick = (v: { kind: 'tpl' | 'entry'; id: string }) => { setSel(v); if (railNarrow) setRailOpen(false) }
 

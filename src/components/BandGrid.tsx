@@ -7,7 +7,7 @@ import { cx } from '../lib/cx'
 import { ContextMenu } from '../lib/overlays'
 import { useIsPhone } from '../lib/useIsPhone'
 import { rankAbbr, rankLabel } from '../lib/rank'
-import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
+import { fmtDayShort, incidentDays } from '../lib/zeitplanFormat'
 import {
   bandCell, bandCellNeedsResolve, bandCellWindow, bandCounts, bandSplitPlan, conflictingShiftIds,
   draftBand, isAssignedCell, shiftsFor, sortBands, unshownShifts,
@@ -49,9 +49,8 @@ function fmtRange(from: string, to: string): string {
  * Three ways out and no fourth. «Abbrechen» matters as much as the other two — the cell is not
  * broken, and somebody who opened this by mistake must be able to leave it exactly as it was.
  */
-function ResolveSheet({ person, band, bandTitle: title, cell, split, onPick, onClose }: {
+function ResolveSheet({ person, bandTitle: title, cell, split, onPick, onClose }: {
   person: Person
-  band: ShiftBand
   bandTitle: string
   cell: BandCell
   /** stretches that run past the watch and will be CUT at its edges — shown before anything moves */
@@ -538,7 +537,7 @@ export function BandGrid({
       )}
 
       {resolve && (
-        <ResolveSheet person={resolve.person} band={resolve.band} bandTitle={bandTitle(resolve.band)}
+        <ResolveSheet person={resolve.person} bandTitle={bandTitle(resolve.band)}
           cell={bandCell(shifts, resolve.person.id, resolve.band)}
           split={bandSplitPlan(shifts, resolve.person.id, resolve.band)}
           onPick={(state) => onSetCellState(resolve.band, resolve.person, state)}

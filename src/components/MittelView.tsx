@@ -157,10 +157,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
   // and removed from the pencil dialog, and a line that disappears under your thumb takes those
   // handles with it. Removal is explicit and lives in that dialog (it used to be «step to 0» plus
   // an undo toast, which put a destructive act one mis-tap from «−» at 1).
-  /** The remark of one recorded line, and the writer for it. Only offered where something was
-   *  actually logged: an input under every catalogue row would be a wall of empty fields, and
-   *  the sentence («an Werkhof übergeben») only exists once the material does. */
-  const noteOf = (probe: MatProbe) => currentLineFor(entries, probe)?.note ?? ''
   /** A PENCIL, not a field in the row: an input beside the ±stepper squeezed the material name
    *  down to «Auff…», and the name is what the row is for. The pencil carries a dot when a
    *  remark exists and opens a small dialog, where a sentence has room to be written — and, on a

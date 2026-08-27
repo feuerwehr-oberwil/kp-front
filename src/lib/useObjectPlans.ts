@@ -24,6 +24,11 @@ export const isSelectOnlySurface = (p: Pick<PlanDocument, 'osm'> | undefined) =>
 /** the plan id of the live OSM outline picker — one of the two faces of the Gebäude rail tile */
 export const BUILDING_PICK_ID = 'osm'
 
+/** Station-data identity for one concrete object's module sheet. Module ids are catalog slots
+ *  reused by every object, so `modul2` alone is never a georeference key. Exported because the
+ *  isolation rule is important enough to pin without mounting the async object hook. */
+export const objectPlanGeorefKey = (objectId: string, planId: string) => `object:${objectId}:plan:${planId}`
+
 /**
  * The RAIL's version of the plan list: the OSM outline picker and the Gebäude floor-stack are ONE
  * tile that morphs, so the rail lists one entry where the catalog holds two documents.
@@ -177,10 +182,11 @@ export function useObjectPlans(
   /** persist a new pick (or undefined to reset) into the synced workspace blob. */
   onPick: (objectId: string | undefined) => void,
 ) {
-  const [autoInfo, setAutoInfo] = useState<{ plans: Record<string, string>; titles: Record<string, string>; name?: string; address?: string | null }>({ plans: {}, titles: {} })
+  const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; name?: string; address?: string | null }>({ plans: {}, titles: {} })
   const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; plans: Record<string, string>; titles: Record<string, string> } | null>(null)
   const backendPlans = manualObject?.plans ?? autoInfo.plans
   const backendTitles = manualObject?.titles ?? autoInfo.titles
+  const activeObjectId = manualObject?.id ?? autoInfo.id
 
   // Plan docs for THIS incident:
   //  - module PDFs (modul1/2/3/6) only appear when a near Einsatzobjekt actually provides them — so a
@@ -200,18 +206,18 @@ export function useObjectPlans(
       // module tiles: only those the near Einsatzobjekt actually provides
       const moduleDocs = catalogModules
         .filter((p) => !!backendPlans[p.id] && !combined.has(p.id))
-        .map((p) => ({ ...p, imageUrl: backendPlans[p.id], viewer: moduleViewer(p.id) }))
+        .map((p) => ({ ...p, imageUrl: backendPlans[p.id], viewer: moduleViewer(p.id), georefKey: activeObjectId ? objectPlanGeorefKey(activeObjectId, p.id) : p.id }))
       // Modul 4 / Modul-5 sub-slots the backend provides but the catalog has no tile for
       const known = new Set(catalogModules.map((p) => p.id))
       const extras = Object.keys(backendPlans)
         .filter((id) => !known.has(id) && /^modul\d/.test(id) && !combined.has(id))
         .sort()
-        .map((id) => ({ ...extraModuleDoc(id, backendPlans[id], backendTitles[id]), viewer: moduleViewer(id) }))
+        .map((id) => ({ ...extraModuleDoc(id, backendPlans[id], backendTitles[id]), viewer: moduleViewer(id), georefKey: activeObjectId ? objectPlanGeorefKey(activeObjectId, id) : id }))
       // non-module surfaces (OSM «Umrisse», «Tafel») ALWAYS after the modules, in catalog order
       const surfaceDocs = surfaces.map((p) => (p.osm ? { ...p, osm: { ...p.osm, center } } : p))
       return [...moduleDocs, ...extras, ...surfaceDocs]
     },
-    [backendPlans, backendTitles, center],
+    [backendPlans, backendTitles, center, activeObjectId],
   )
 
   // surface the nearest Einsatzobjekt's module plans (served from the backend) onto the
@@ -222,7 +228,7 @@ export function useObjectPlans(
       .then((objs) => {
         if (!alive) return
         const nearest = objs[0]
-        setAutoInfo(nearest ? { ...buildPlanInfo(nearest.plans), name: nearest.name, address: nearest.address } : { plans: {}, titles: {} })
+        setAutoInfo(nearest ? { id: nearest.id, ...buildPlanInfo(nearest.plans), name: nearest.name, address: nearest.address } : { plans: {}, titles: {} })
       })
       .catch(() => { /* no object reachable → Umrisse + Tafel only */ })
     return () => { alive = false }
@@ -270,5 +276,5 @@ export function useObjectPlans(
   // stays the label everywhere the object is CHOSEN (the picker, the toast), where it is what
   // you search for. Falls back to the name when an object carries no address.
   const activeObjectAddress = manualObject?.address ?? autoInfo.address ?? null
-  return { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, pickObject, resetObject }
+  return { backendPlans, resolvedPlanDocs, manualObject, activeObjectId, activeObjectName, activeObjectAddress, pickObject, resetObject }
 }

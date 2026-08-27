@@ -176,6 +176,7 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         "contactIntervalMin": 5,
         "contactGraceSec": 60,
         "alarmBar": 100,
+        "alarmBarRueckzug": 50,
     },
     "roster": {
         "source": "manual",

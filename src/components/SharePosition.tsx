@@ -141,7 +141,7 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
  * somebody's location must let them end that from wherever they are looking, without first
  * finding the right menu.
  */
-export function SharePositionPill({ share, onChangeName }: { share: ShareApi; onChangeName: () => void }) {
+export function SharePositionPill({ share, onChangeName }: { share: ShareApi; onChangeName: (restore: () => void) => void }) {
   const C = appConfig.copy.sharePosition
   const [open, setOpen] = useState(false)
   if (share.state === 'off') return null
@@ -187,7 +187,7 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
               <button
                 type="button"
                 className={s.ghost}
-                onClick={() => { setOpen(false); onChangeName() }}
+                onClick={() => { setOpen(false); onChangeName(() => setOpen(true)) }}
               >
                 {C.change}
               </button>

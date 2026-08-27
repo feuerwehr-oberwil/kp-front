@@ -105,6 +105,77 @@ describe('ContextPanel — basic wiring', () => {
   })
 })
 
+describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergeschosse)', () => {
+  const floorOnly = new Set<SymbolControl>(['floor'])
+  // one stepper on screen ⇒ the ±buttons are unambiguous
+  const tapLess = () => fireEvent.pointerDown(screen.getByLabelText('weniger'))
+
+  it('the first tap on − sets EG (0), not nothing', () => {
+    // ⚠️ − used to be dead on an unset Geschoss, so a Kellerbrand could only be reached by
+    // stepping UP to 0 first and back down again.
+    const p = setup({ controls: floorOnly, entity: { id: 's1' } })
+    tapLess()
+    expect(p.onFloor).toHaveBeenCalledWith(0)
+  })
+
+  it('the first tap on + sets EG (0) too', () => {
+    const p = setup({ controls: floorOnly, entity: { id: 's1' } })
+    fireEvent.pointerDown(screen.getByLabelText('mehr'))
+    expect(p.onFloor).toHaveBeenCalledWith(0)
+  })
+
+  it('steps on down into the Untergeschosse', () => {
+    const p = setup({ controls: floorOnly, entity: { id: 's1', floor: 0 } })
+    tapLess()
+    expect(p.onFloor).toHaveBeenCalledWith(-1)
+  })
+
+  it('takes a typed Untergeschoss', () => {
+    const p = setup({ controls: floorOnly, entity: { id: 's1' } })
+    fireEvent.click(screen.getByTitle('Tippen zum Eingeben'))
+    const input = screen.getByRole('textbox') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '-2' } })
+    fireEvent.blur(input)
+    expect(p.onFloor).toHaveBeenCalledWith(-2)
+  })
+
+  it('clears back to unset', () => {
+    const p = setup({ controls: floorOnly, entity: { id: 's1', floor: -2 } })
+    fireEvent.click(screen.getByLabelText('zurücksetzen'))
+    expect(p.onFloor).toHaveBeenCalledWith(null)
+  })
+
+  it('has nothing to clear while unset', () => {
+    setup({ controls: floorOnly, entity: { id: 's1' } })
+    expect((screen.getByLabelText('zurücksetzen') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('steps both ends of a von/bis span independently', () => {
+    const p = setup({
+      controls: new Set<SymbolControl>(['floorRange']),
+      entity: { id: 's1', floorFrom: 0, floorTo: 2 },
+      onFloorFrom: vi.fn(), onFloorTo: vi.fn(),
+    })
+    const less = screen.getAllByLabelText('weniger')  // [Von, Bis]
+    fireEvent.pointerDown(less[0])
+    expect(p.onFloorFrom).toHaveBeenCalledWith(-1)
+    expect(p.onFloorTo).not.toHaveBeenCalled()
+    fireEvent.pointerDown(less[1])
+    expect(p.onFloorTo).toHaveBeenCalledWith(1)
+  })
+
+  it('seeds each end of an empty von/bis span on the first − tap', () => {
+    const p = setup({
+      controls: new Set<SymbolControl>(['floorRange']),
+      entity: { id: 's1' },
+      onFloorFrom: vi.fn(), onFloorTo: vi.fn(),
+    })
+    screen.getAllByLabelText('weniger').forEach((b) => fireEvent.pointerDown(b))
+    expect(p.onFloorFrom).toHaveBeenCalledWith(0)
+    expect(p.onFloorTo).toHaveBeenCalledWith(0)
+  })
+})
+
 describe('ContextPanel — preset fields always surface', () => {
   // an Offizier placed before «Funktion» existed stores only { Name } — the panel must still
   // show the missing preset field (seeded empty), in canonical order (Funktion before Name).
@@ -140,13 +211,14 @@ describe('ContextPanel — preset fields always surface', () => {
     expect(keys).toEqual(['EL', 'Stv. EL'])
   })
 
-  it('does not seed blank rows on a read-only entity', () => {
+  it('keeps blank preset rows in the read-only version of the same sidebar', () => {
     setup({
       entity: { id: 'o3', symbol: 'FW Offizier', fields: { Name: 'Hans' } },
       protectedKeys: new Set(['Funktion', 'Name']),
       readOnly: true,
     })
-    expect(screen.queryByText('Funktion')).toBeNull()
+    expect(screen.getByText('Funktion')).toBeTruthy()
+    expect(screen.getAllByText('–').length).toBeGreaterThan(0)
   })
 })
 

@@ -169,6 +169,17 @@ interface Props {
   onClose: () => void
   /** recenter the surface on this object — absent where the surface can't (yet) recenter */
   onCenter?: () => void
+  /** «Zum Original» — this panel MIRRORS an object that lives on the OTHER surface (a
+   *  Georeferenz twin, see components/GeorefTwinPanel). Such a panel is read-only throughout,
+   *  and this is the one row that leaves it: the jump to the surface the thing actually lives
+   *  on, where it can be edited. Absent everywhere else. */
+  onOriginal?: () => void
+  originalLabel?: string
+  /** Move ownership of a projected object onto the surface currently being viewed. */
+  onTransferHere?: () => void
+  /** The inverse of «Zum Original»: show this source object on its linked surface. */
+  onProjection?: () => void
+  projectionLabel?: string
   /** commit the final label on blur (folds the whole edit into one undo step / audit event) */
   onTitle: (label: string) => void
   /** stream the label on every keystroke so the on-surface glyph/note updates live while
@@ -291,7 +302,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onCaptureMittel, mittelCountFor }: Props) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onCaptureMittel, mittelCountFor }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -345,10 +356,11 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // we render the preset fields FIRST in that order (missing ones seeded empty, stored ones
   // carrying their value), then any extra custom stored rows. Ordering by the preset — not by
   // "missing leads" — keeps a trailing preset field trailing (Einsatzleiter: Name before Stv.,
-  // not Stv. hoisted above Name just because it was blank). Read-only left untouched (no blanks).
+  // not Stv. hoisted above Name just because it was blank). Read-only uses the same rows: an
+  // empty Fahrer field is still part of the literal source object's sidebar, shown as «–».
   const [rows, setRows] = useState<Row[]>(() => {
     const base = toRows(entity.fields)
-    if (readOnly || !protectedKeys?.size) return base
+    if (!protectedKeys?.size) return base
     const byKey = new Map(base.map((r) => [r.k.trim(), r]))
     const preset = [...protectedKeys].filter(Boolean).map((k) => byKey.get(k) ?? { k, v: '' })
     const extra = base.filter((r) => !protectedKeys.has(r.k.trim()))
@@ -444,7 +456,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   const showRotate = onRotate && allow('rotation')
   const showRotate2 = onRotate2 && allow('rotation2')   // composite Grosslüfter: body + fan
   const showAirflow = onAirflow && allow('airflow')     // mobile Lüfter: Einblasen / Absaugen
-  const showSpread = onSpread && allow('spread') && !readOnly
+  const showSpread = onSpread && allow('spread')
   // live ADR hazard readout — derived from the current UN-Nr row, so it updates as you
   // type. Only present when this symbol carries a UN-Nr field with a value.
   const unValue = findVal(rows, UN_KEY).trim()
@@ -488,14 +500,14 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // (the old "Standard" option): an untouched symbol simply shows the effective default as active,
   // and picking any button pins that mode on this symbol.
   const capMode = entity.caption ?? captionDefault
-  const caprow = onCaption && !readOnly && (
+  const caprow = onCaption && (
     <div className="ctx-caprow">
       <span className="ctx-caprow-lbl">{C.caption}</span>
       <Segmented ariaLabel={C.caption} value={capMode}
         options={[
-          { value: 'off' as const, label: C.captionOff },
-          { value: 'auto' as const, label: C.captionAuto },
-          { value: 'all' as const, label: C.captionAll },
+          { value: 'off' as const, label: C.captionOff, disabled: readOnly },
+          { value: 'auto' as const, label: C.captionAuto, disabled: readOnly },
+          { value: 'all' as const, label: C.captionAll, disabled: readOnly },
         ]}
         onChange={(v) => onCaption(v)} />
     </div>
@@ -504,6 +516,11 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
   const actions = (
     <div className="ctx-actions">
+      {/* first, and in the link tone: on a twin's panel it is the only thing that DOES anything,
+          and what it does is leave for the real object. */}
+      {onOriginal && <button className="btn link" onClick={onOriginal}><Icon id="external" />{originalLabel ?? C.toOriginal}</button>}
+      {onTransferHere && <button className="btn" onClick={onTransferHere}><Icon id="move" />{C.transferHere}</button>}
+      {onProjection && <button className="btn link" onClick={onProjection}><Icon id="external" />{projectionLabel ?? C.toProjection}</button>}
       {onCenter && <button className="btn" onClick={onCenter}><Icon id="cross" />{C.center}</button>}
       {/* «GPS» (reset a vehicle's manual override) and «Löschen» are alternatives, and a live
           entity gets neither — `readOnly` is already true for anything externally sourced.
@@ -634,9 +651,9 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
           </div>
         )}
         {showDetails && <>
-          {/* the glyph-affecting steppers — grouped, only the ones this symbol declares.
-              View state: no stepper chrome at all (a disabled ± row still reads as editable);
-              set values render as plain fields instead. */}
+          {/* The glyph-affecting steppers — grouped, only the ones this symbol declares. View
+              state keeps the literal same row/chrome and disables it: removing unset controls
+              made the mirrored object's sidebar a different, mostly empty object. */}
           {driver && (
             <label className="kv-driver">
               <span>{C.driverLabel}</span>
@@ -657,32 +674,26 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               />
             </label>
           )}
-          {readOnly && (
-            <div className="ctx-steps">
-              {entity.floor != null && <div className="field"><span>{C.floor}</span><b>{floorStr(entity.floor)}</b></div>}
-              {entity.floorFrom != null && <div className="field"><span>{C.floorFrom}</span><b>{floorStr(entity.floorFrom)}</b></div>}
-              {entity.floorTo != null && <div className="field"><span>{C.floorTo}</span><b>{floorStr(entity.floorTo)}</b></div>}
-              {(entity.count ?? 1) > 1 && <div className="field"><span>{countLabel}</span><b>{entity.count}</b></div>}
-              {(entity.rotation ?? 0) !== 0 && <div className="field"><span>{showRotate2 ? C.rotationVehicle : C.rotation}</span><b>{entity.rotation}°</b></div>}
-              {entity.extract && <div className="field"><span>{C.airflow}</span><b>{C.airflowExtract}</b></div>}
-            </div>
-          )}
           {/* ⚠️ `showFloorRange` belongs in this gate — it was the one stepper left out, so a
               symbol whose preset lists ONLY 'floorRange' (the Lift) rendered the row of
               steppers not at all and its von/bis storeys were unreachable on both surfaces. */}
-          {!readOnly && (showFloor || showFloorRange || showCount || showRotate || showAirflow) && (
+          {(showFloor || showFloorRange || showCount || showRotate || showAirflow) && (
             <div className="ctx-steps">
+              {/* Untergeschosse are as easy as Obergeschosse: `seedOnDec` makes the FIRST tap on
+                  either − or + land on EG (0), so a Kellerbrand is one further tap on − instead of
+                  an unreachable stepper. Typing works the same way — the readout is an input and
+                  takes «-1» directly. Both ends of the von/bis span step independently. */}
               {showFloor && (
-                <LabeledStepper label={C.floor} value={entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0}
+                <LabeledStepper label={C.floor} value={entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
                   onChange={(v) => onFloor!(v)} onClear={() => onFloor!(null)} canClear={entity.floor != null}
                   min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floor} />
               )}
               {showFloorRange && (
                 <>
-                  <LabeledStepper label={C.floorFrom} value={entity.floorFrom ?? null} format={floorStr} placeholder={C.floorNone} seed={0}
+                  <LabeledStepper label={C.floorFrom} value={entity.floorFrom ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
                     onChange={(v) => onFloorFrom!(v)} onClear={() => onFloorFrom!(null)} canClear={entity.floorFrom != null}
                     min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floorFrom} />
-                  <LabeledStepper label={C.floorTo} value={entity.floorTo ?? null} format={floorStr} placeholder={C.floorNone} seed={0}
+                  <LabeledStepper label={C.floorTo} value={entity.floorTo ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
                     onChange={(v) => onFloorTo!(v)} onClear={() => onFloorTo!(null)} canClear={entity.floorTo != null}
                     min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floorTo} />
                 </>
@@ -714,7 +725,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                 <div className="field">
                   <span>{C.airflow}</span>
                   <Segmented ariaLabel={C.airflow} value={entity.extract ?? false}
-                    options={[{ value: false, label: C.airflowBlow }, { value: true, label: C.airflowExtract }]}
+                    options={[{ value: false, label: C.airflowBlow, disabled: readOnly }, { value: true, label: C.airflowExtract, disabled: readOnly }]}
                     onChange={(v) => onAirflow!(v)} />
                 </div>
               )}
@@ -742,13 +753,13 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                     {dirs.map((d) => (
                       <span className="spread-unit" key={d}>
                         <button className={`spread-btn dir ${sp[d] ? 'on' : ''}`} title={C.spreadDirTitles[d]}
-                          onClick={() => toggleDir(d)}>{SPREAD_GLYPH[d]}</button>
+                          disabled={readOnly} onClick={() => toggleDir(d)}>{SPREAD_GLYPH[d]}</button>
                         {/* the bar itself, not the word: on paper the Grenze IS the stroke across
                             the arrow tip (→|), so the button shows what it draws — and it is
                             perpendicular to its own arrow, like the printed symbol */}
                         <button className={`spread-btn grenze ${sp[boundedKey(d)] ? 'on' : ''}`}
                           title={C.spreadBoundedTitle} aria-label={`${C.spreadBounded} ${C.spreadDirTitles[d]}`}
-                          onClick={() => toggleBounded(d)}>{GRENZE_GLYPH[d]}</button>
+                          disabled={readOnly} onClick={() => toggleBounded(d)}>{GRENZE_GLYPH[d]}</button>
                       </span>
                     ))}
                   </div>
@@ -759,7 +770,9 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
 
           {/* The generic Fahrzeug's own name. It used to be the header input; here it reads like
               every other field, keeps its type list, and leaves the header free to be dragged. */}
-          {labelled && !readOnly && (
+          {labelled && (readOnly ? (
+            <div className="field"><span>{C.labelField}</span><b className="kv-val-ro">{title || '–'}</b></div>
+          ) : (
             <label className="field">
               <span>{C.labelField}</span>
               <Combo
@@ -768,7 +781,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                 onChange={(v) => { changeTitle(v); onTitle(v) }}
               />
             </label>
-          )}
+          ))}
 
           {/* labelled key/value detail rows (the symbol's preset, freely edited) */}
           {/* ⚠️ NO section title. A «Fahrer» row is a label and a value selector — exactly what the
@@ -780,7 +793,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               the Leitungen. */}
           {(!readOnly || rows.length > 0) && (
             <div className="ctx-rows">
-              {rows.filter((r) => !readOnly || r.v.trim()).map((r, i) => {
+              {rows.map((r, i) => {
                 const fixed = readOnly || !!protectedKeys?.has(r.k.trim())
                 const field = (
                   <>
@@ -806,7 +819,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                   <Fragment key={i}>
                     <div className="field">
                       <span className="kv-key-ro">{rowLabel(r.k)}</span>
-                      {readOnly ? <b className="kv-val-ro">{r.v}</b> : field}
+                      {readOnly ? <b className="kv-val-ro">{r.v || '–'}</b> : field}
                     </div>
                     {swap && (
                       <button type="button" className="kv-swap" onClick={swapEl}
@@ -909,10 +922,10 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
 
           {/* one general free-text notes field — static text in view state (a readOnly
               textarea still takes focus), and only when there ARE notes */}
-          {readOnly ? (notes.trim() && (
+          {readOnly ? ((onNotes || notes.trim()) && (
             <div className="ctx-section ctx-notes">
               <span className="ctx-section-label">{C.notes}</span>
-              <p className="ctx-notes-ro">{notes}</p>
+              <p className="ctx-notes-ro">{notes || '–'}</p>
             </div>
           )) : (onNotes || notes) && (
             <div className="ctx-section ctx-notes">

@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode, RefObject } from 'react'
+import type { CSSProperties, ReactNode, Ref, RefObject } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { useDismissGrace } from './dismissGrace'
 
@@ -42,10 +42,18 @@ export interface OverlayProps {
   dismissEscape?: boolean
   /** Inline style for the popup frame — e.g. a keyboard-inset `marginBottom` on a bottom sheet. */
   style?: CSSProperties
+  /**
+   * The popup element itself, for a surface that has to MEASURE its own frame (the journal
+   * composer weighs its height against the room it has). Without it the only way in is a
+   * `display: contents` wrapper inside the popup — which is a box the layout does not have, so
+   * every `> *` rule on the frame silently addresses the wrapper instead of the rows. That cost
+   * the composer its «nothing shrinks» rule for weeks (see 10-journal.css).
+   */
+  popupRef?: Ref<HTMLDivElement>
   children: ReactNode
 }
 
-export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, children }: OverlayProps) {
+export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, popupRef, children }: OverlayProps) {
   const isOpeningEcho = useDismissGrace(open)
   return (
     <Dialog.Root
@@ -63,7 +71,7 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
     >
       <Dialog.Portal>
         <Dialog.Backdrop className={backdropClassName} />
-        <Dialog.Popup className={className} style={style} aria-label={ariaLabel} initialFocus={initialFocus}>
+        <Dialog.Popup ref={popupRef} className={className} style={style} aria-label={ariaLabel} initialFocus={initialFocus}>
           {children}
         </Dialog.Popup>
       </Dialog.Portal>

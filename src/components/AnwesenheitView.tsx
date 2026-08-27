@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import { Icon } from '../lib/icons'
-import type { AttendanceEntry, AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
+import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
 import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
 import { fmtDistance, haversineM } from '../lib/geo'
 import type { ZeitplanSheet } from '../lib/zeitplanPrint'
