@@ -2,12 +2,27 @@ import { Fragment, useEffect, useRef } from 'react'
 import type { LayerDef } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import type { TwinLayerRow } from '../lib/georefTwins'
 
 interface Props {
   layers: LayerDef[]
   onToggle: (id: LayerDef['id']) => void
   onOpacity: (id: LayerDef['id'], v: number) => void
+  /** Georeferenz twin layers (lib/georefTwins): on the Karte one row per georeferenced plan, on
+   *  a Plan the two things the map lends the sheet. Rendered as ordinary layer rows in their own
+   *  groups — a projection is switched exactly like anything else on this panel — with one extra
+   *  quiet line naming the fit it mirrors through. The symbol rows carry NO opacity slider —
+   *  a mirrored symbol is either shown or it is not; only the raster backdrop rows (a plan's
+   *  own sheet under the map) bring an `opacity`, and those get the same slider as any overlay.
+   *  ⚠️ They persist elsewhere than `layers` does (device pref, not the workspace blob), so the
+   *  toggle routes by id — see IncidentWorkspace · toggleLayer. */
+  twins?: TwinLayerRow[]
+  /** the group the twin rows belong BEHIND, by name. On the Karte that is «Lage»: a mirrored
+   *  plan symbol is a tactical symbol like the ones in that group, and the panel reads
+   *  Lage → Pläne → the deployment's own overlays instead of hiding the twins past Wasser and
+   *  Gefahren. Absent ⇒ the twin groups go last, which is right on the Plan surface (where the
+   *  only other groups are the sheet's own). */
+  twinsAfterGroup?: string
   /** open the Offline-Bereitschaft sheet — the one place that owns offline. The Ebenen panel
    *  used to run its own download here, which meant two unrelated screens both claimed to
    *  handle offline and neither showed what the other had already stored. */
@@ -16,12 +31,51 @@ interface Props {
   onClose?: () => void
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, onOfflineReadiness, onClose }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onOfflineReadiness, onClose }: Props) {
   const bases = layers.filter((l) => l.base)
   const groups = layers.filter((l) => !l.base).reduce<Record<string, LayerDef[]>>((acc, l) => {
     (acc[l.group] ??= []).push(l)
     return acc
   }, {})
+  const twinGroups = twins.reduce<Record<string, TwinLayerRow[]>>((acc, t) => {
+    (acc[t.group] ??= []).push(t)
+    return acc
+  }, {})
+  /* the Georeferenz twins — same row, same eye, same keyboard path as every layer above; the
+     second line names the fit, because «gespiegelt» without «wie gut» is a claim without a
+     measurement (see georefTwins · twinFitNote). Built once and dropped in wherever
+     `twinsAfterGroup` says they belong. */
+  const twinBlocks = Object.entries(twinGroups).map(([group, rows]) => (
+    <Fragment key={`twin:${group}`}>
+      <div className="lgroup">{group}</div>
+      {rows.map((t) => (
+        <Fragment key={t.id}>
+          <button
+            type="button"
+            className={`lrow ${t.visible ? '' : 'off'}`}
+            style={{ appearance: 'none', WebkitAppearance: 'none', border: 'none', width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
+            aria-pressed={t.visible}
+            aria-label={`${t.label} – ${t.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}`}
+            onClick={() => onToggle(t.id)}
+          >
+            <span className="ic"><Icon id={t.icon} /></span>
+            <span className="name">{t.label}{t.sub && <small>{t.sub}</small>}</span>
+            <span className="eye"><Icon id={t.visible ? 'eye' : 'eyeoff'} /></span>
+          </button>
+          {t.opacity !== undefined && t.visible && (
+            <div className="opacity" onClick={(e) => e.stopPropagation()}>
+              <input type="range" min={0} max={100} value={t.opacity}
+                onChange={(e) => onOpacity(t.id, Number(e.target.value))} />
+              <span>{t.opacity}%</span>
+            </div>
+          )}
+        </Fragment>
+      ))}
+    </Fragment>
+  ))
+  /* …unless the anchor group is not on this panel at all (a deployment without it, or the Plan
+     surface): then they still have to appear, so they go last. */
+  const twinsAnchored = !!twinsAfterGroup && twinBlocks.length > 0 && twinsAfterGroup in groups
 
   // opening the panel (e.g. via the [[B]] shortcut) drops focus onto the first layer row so the
   // whole list is immediately Tab/Enter navigable from the keyboard — the rows are real buttons.
@@ -95,8 +149,11 @@ export function LayerPanel({ layers, onToggle, onOpacity, onOfflineReadiness, on
               )}
             </Fragment>
           ))}
+          {twinsAnchored && group === twinsAfterGroup && twinBlocks}
         </Fragment>
       ))}
+
+      {!twinsAnchored && twinBlocks}
 
       {onOfflineReadiness && (
         <>

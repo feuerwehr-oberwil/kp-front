@@ -527,7 +527,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
 
   // Pasting a copied Voice Memo (or photo) is the easier mobile path than the Files detour —
   // handled on the composer root so a paste into the textarea bubbles here too.
-  const onPaste = (e: React.ClipboardEvent) => {
+  const onPaste = (e: ClipboardEvent) => {
     const files = Array.from(e.clipboardData?.files ?? [])
     const audio = files.find((f) => f.type.startsWith('audio/') || /\.m4a$/i.test(f.name))
     const image = files.find((f) => f.type.startsWith('image/'))
@@ -626,10 +626,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // the keyboard up this card is regularly taller than what is left of the screen, and it used to
   // answer that by scrolling — which, with the field focused, scrolled the CARET into view and
   // pushed the head, the field and the whole predictive band off the top edge.
-  // ⚠️ The CARD is what is measured, not the viewport: it is the scrollport, so its own overflow
-  // is the question. `wrapRef` carries `display: contents` and has no box of its own, hence the
-  // `closest` — the element that scrolls is the sheet around it.
-  const wrapRef = useRef<HTMLDivElement>(null)
+  // ⚠️ Measured against BOTH the card's own cap and the screen: a cap that is itself too big —
+  // which is what the `pointer: fine` card had (see 10-journal.css) — hides the overflow from the
+  // first limit but not from the second. The element measured is the popup itself — `cardRef` is
+  // filled by the `setCard` callback ref handed to `<Overlay popupRef>` below, so it is the box
+  // that carries the cap and does the scrolling, with no boxless wrapper to climb out of.
+  const cardRef = useRef<HTMLDivElement | null>(null)
   const [compact, setCompact] = useState(false)
   const frameRef = useRef(0)
   const remeasure = useCallback(() => {
@@ -638,8 +640,18 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     if (frameRef.current) return
     frameRef.current = requestAnimationFrame(() => {
       frameRef.current = 0
-      const card = wrapRef.current?.closest('.journal-composer')
-      if (card) setCompact((cur) => nextCompact(cur, card.scrollHeight, card.clientHeight))
+      const card = cardRef.current
+      if (!card) return
+      // ⚠️ `visualViewport.height`, not `innerHeight`: it is the screen MINUS the keyboard, which
+      // is the only number that says how much room the sheet actually has. `innerHeight` does not
+      // move for a keyboard on iOS at all (see useKeyboardInset).
+      const screen = window.visualViewport?.height ?? window.innerHeight
+      // …and the card's USED cap, not the height it happens to have right now: «would the full
+      // layout fit» has to answer the same from either rung, or the sheet flips between them.
+      const cap = parseFloat(getComputedStyle(card).maxHeight)
+      setCompact((cur) => nextCompact(cur, {
+        needed: card.scrollHeight, cap: Number.isNaN(cap) ? Infinity : cap, screen,
+      }))
     })
   }, [])
   // after every render — a photo, a memo, a longer sentence all change what has to fit
@@ -651,11 +663,41 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     vv?.addEventListener('resize', remeasure)
     window.addEventListener('resize', remeasure)
     return () => {
+      // ⚠️ …and CLEAR it, not just cancel it. The id doubles as «a measure is already pending»,
+      // so a cancelled one left behind latched the guard shut: every later call returned early
+      // and the ladder never measured again. React's StrictMode mounts, cleans up and mounts
+      // again — which is exactly this sequence, on every dev boot, in the app rather than in a
+      // test. The rungs were dead in the real app while every unit test passed.
       if (frameRef.current) cancelAnimationFrame(frameRef.current)
+      frameRef.current = 0
       vv?.removeEventListener('resize', remeasure)
       window.removeEventListener('resize', remeasure)
     }
   }, [remeasure])
+  // ── paste (a copied Voice Memo or photo) ──────────────────────────────────────────────────
+  // ⚠️ A NATIVE listener on the card, where React's `onPaste` used to sit on a `display: contents`
+  // wrapper around the whole sheet. That wrapper is gone: an element with no box between a flex
+  // container and its items makes every `.journal-composer > *` rule address the wrapper instead
+  // of the rows — which is what quietly disabled «nothing shrinks» (see 10-journal.css) and let
+  // the predictive band be squeezed to 0 again.
+  const pasteRef = useRef(onPaste)
+  // …kept current after each commit rather than during render (the one ref this file writes in
+  // render is a documented exception, not a habit), so the listener below never re-subscribes.
+  useEffect(() => { pasteRef.current = onPaste })
+  const onPasteEvent = useCallback((e: ClipboardEvent) => pasteRef.current(e), [])
+  // ⚠️ A CALLBACK ref, not an effect reading `.current`. Base UI mounts this popup through a
+  // portal, so the element is NOT there on the first commit: an effect with `[]` runs once, finds
+  // null and attaches nothing — which is precisely how the paste handler was lost for a while
+  // (the sheet took a pasted photo everywhere except where it was pasted). This fires the moment
+  // the element exists, and again when it goes; measuring is kicked off from the same place, so
+  // the ladder does not have to wait for a second render to see the card either.
+  const setCard = useCallback((el: HTMLDivElement | null) => {
+    cardRef.current?.removeEventListener('paste', onPasteEvent)
+    cardRef.current = el
+    if (!el) return
+    el.addEventListener('paste', onPasteEvent)
+    remeasure()
+  }, [onPasteEvent, remeasure])
   return (
     // <Overlay> (Base UI) owns focus-trap + scroll-lock + backdrop-close; its pointerdown-based
     // outside-press already ignores the opening tap, so the old Android `armed` delay is gone.
@@ -670,8 +712,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     // but «does the card still fit», measured (see lib/composerFit · 10-journal.css).
     <Overlay open onClose={onClose} className={`journal-composer ${kbInset > 0 ? 'is-kb' : ''}${compact ? ' is-compact' : ''}`} backdropClassName="modal-backdrop"
       ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef}
-      style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}>
-      <div onPaste={onPaste} ref={wrapRef} style={{ display: 'contents' }}>
+      style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}
+      popupRef={setCard}>
         {/* What this sheet is, and the ✕ beside it.
             ⚠️ There is no «Eintrag · Erinnerung» switch here any more (17.08.). It asked which KIND
             of row this would be BEFORE the sentence was written — and the answer stripped the
@@ -1104,7 +1146,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             <Icon id="check" />{uploading ? C.audioUploading : C.send}
           </button>
         </div>
-      </div>
       {/* «Uhrzeit …» — the one answer that is not a row in a menu. A dialog rather than a strip
           unfolding inside the sheet: the composer is already fighting the keyboard for its rows,
           and this is the rare path. It carries the SAME ± stepper the imported memo uses. */}

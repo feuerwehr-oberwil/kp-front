@@ -134,3 +134,29 @@ describe('read-only (viewer / Führungsansicht)', () => {
     expect(screen.getByText('628 m')).toBeTruthy()
   })
 })
+
+// A Leitung goes into a Keller as often as up a Treppe — the storey stepper reads the same as
+// the Geschoss rows in the symbol panel (ContextPanel · Stepper `seedOnDec`).
+describe('Stockwerk on a Leitung', () => {
+  const line = { kind: 'line' as const }
+
+  it('seeds EG (0) on the first tap of −, then steps into the Untergeschosse', () => {
+    const onFloorTag = vi.fn()
+    const { rerender } = render(<DrawEditor {...base} drawing={line} onFloorTag={onFloorTag} />)
+    fireEvent.pointerDown(screen.getByLabelText('weniger'))
+    expect(onFloorTag).toHaveBeenCalledWith(0)
+    rerender(<DrawEditor {...base} drawing={{ ...line, floorTag: 0 }} onFloorTag={onFloorTag} />)
+    fireEvent.pointerDown(screen.getByLabelText('weniger'))
+    expect(onFloorTag).toHaveBeenLastCalledWith(-1)
+  })
+
+  it('takes a typed Untergeschoss', () => {
+    const onFloorTag = vi.fn()
+    render(<DrawEditor {...base} drawing={line} onFloorTag={onFloorTag} />)
+    fireEvent.click(screen.getByTitle(appConfig.copy.stepper.typeToEnter))
+    const input = screen.getByRole('textbox', { name: appConfig.copy.drawingEditor.floorTag }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '-1' } })
+    fireEvent.blur(input)
+    expect(onFloorTag).toHaveBeenCalledWith(-1)
+  })
+})

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import { StrictMode } from 'react'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { JournalComposer, type JournalDraft } from './JournalComposer'
 import { clearAllDrafts } from '../lib/draftKeep'
@@ -354,23 +355,29 @@ describe('JournalComposer · the half-written draft', () => {
 })
 
 // ── the sheet gives things up in a decided order ──────────────────────────────────────────
-// jsdom has no layout, so the two numbers the ladder reads are stood in for. What is tested here
-// is the WIRING — that the card's own overflow is what flips the class; the rule itself is
-// lib/composerFit.
+// jsdom has no layout, so the numbers the ladder reads are stood in for. What is tested here is
+// the WIRING — that the sheet's own height against the room it has is what flips the class; the
+// rule itself is lib/composerFit.
 describe('JournalComposer · what gives way when the room runs out', () => {
-  const layout = (scrollH: number, clientH: number) => {
-    for (const [prop, v] of [['scrollHeight', scrollH], ['clientHeight', clientH]] as const) {
-      Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, get: () => v })
-    }
+  const sheetHeight = (px: number) =>
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get: () => px })
+  const screenHeight = (px: number) => { window.innerHeight = px }
+  /** a keyboard: it takes the VISUAL viewport and leaves `innerHeight` alone, the way iOS does */
+  const keyboard = (visible: number) => {
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: { height: visible, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+    })
   }
+  const original = window.innerHeight
   afterEach(() => {
-    for (const prop of ['scrollHeight', 'clientHeight']) {
-      Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, value: 0 })
-    }
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, value: 0 })
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: undefined })
+    window.innerHeight = original
   })
 
   it('collapses Art and media into one symbol row rather than scrolling the sheet', async () => {
-    layout(386, 340) // the full sheet in what a keyboard leaves of a small screen
+    sheetHeight(386); screenHeight(340) // the full sheet in what a keyboard leaves of a small screen
     setup()
     await waitFor(() => expect(document.querySelector('.journal-composer')?.className).toContain('is-compact'))
     // …and the words are still what the row is CALLED, whatever it now shows
@@ -378,8 +385,61 @@ describe('JournalComposer · what gives way when the room runs out', () => {
     expect(screen.getByRole('button', { name: 'Foto' })).toBeTruthy()
   })
 
+  // ⚠️ The regression this exists for: on a `pointer: fine` tablet the card was capped against the
+  // whole screen while the keyboard ate the bottom of it. Nothing overflowed anything, so a rule
+  // that only watched the card's own overflow stayed silent — and the sheet ran under the
+  // keyboard until iOS scrolled its top off the screen.
+  it('…including when only the VISUAL viewport shrank, which is all a keyboard does', async () => {
+    sheetHeight(386); screenHeight(820); keyboard(400)
+    setup()
+    await waitFor(() => expect(document.querySelector('.journal-composer')?.className).toContain('is-compact'))
+  })
+
+  // ⚠️ Rendered the way the APP renders it. Both of the rungs' failures in the field were invisible
+  // to a plain render: the measure's «one frame is already pending» guard held a cancelled frame
+  // id, and StrictMode's mount → clean up → mount is exactly the sequence that leaves one behind,
+  // so the ladder never measured again in the real app while every test here passed.
+  it('…and still measures after a StrictMode mount, clean-up and mount again', async () => {
+    sheetHeight(386); screenHeight(340)
+    render(<StrictMode><JournalComposer onSubmit={vi.fn()} onClose={vi.fn()} /></StrictMode>)
+    await waitFor(() => expect(document.querySelector('.journal-composer')?.className).toContain('is-compact'))
+  })
+
+  // ⚠️ The rows have to BE the frame's children. They sat inside a `display: contents` wrapper —
+  // an element the layout does not give a box, so `.journal-composer > * { flex: none }` addressed
+  // the wrapper and nothing else: the predictive band was flex-squeezed to 0 in the real app for
+  // as long as that rule has existed, which is «the chips are cut off» as reported.
+  it('hangs its rows straight off the card, so a `> *` rule reaches them', () => {
+    setup()
+    for (const row of ['.jc-mode', '.jc-text-wrap', '.jc-phrases', '.jc-controls', '.jc-foot']) {
+      expect(document.querySelector(`.journal-composer > ${row}`)).toBeTruthy()
+    }
+  })
+
+  // ⚠️ Where the paste handler LIVES is the other half of that: it used to ride on the wrapper,
+  // and moving it onto the card was silently a no-op at first — Base UI portals this popup, so an
+  // effect that reads the ref once finds nothing to attach to. The sheet then took a pasted photo
+  // everywhere except in the sheet.
+  it('takes a pasted photo — the handler is on the card itself', async () => {
+    const createObjectURL = URL.createObjectURL
+    URL.createObjectURL = vi.fn(() => 'blob:pasted')
+    try {
+      setup()
+      const card = document.querySelector('.journal-composer') as HTMLElement
+      const ev = new Event('paste', { bubbles: true, cancelable: true })
+      Object.defineProperty(ev, 'clipboardData', {
+        value: { files: [new File(['x'], 'shot.png', { type: 'image/png' })] },
+      })
+      card.dispatchEvent(ev)
+      await waitFor(() => expect(document.querySelector('.jc-photo')).toBeTruthy())
+      expect(ev.defaultPrevented).toBe(true)
+    } finally {
+      URL.createObjectURL = createObjectURL
+    }
+  })
+
   it('leaves the sheet alone while it fits', async () => {
-    layout(386, 420)
+    sheetHeight(386); screenHeight(900)
     setup()
     await waitFor(() => expect(document.querySelector('.jc-controls')).toBeTruthy())
     expect(document.querySelector('.journal-composer')?.className).not.toContain('is-compact')

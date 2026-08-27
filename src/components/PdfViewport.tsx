@@ -227,6 +227,46 @@ export function prewarmPlans(urls: string[], vw: number, vh: number) {
   }
 }
 
+// A georeferenced sheet can be shown as an ordinary raster layer on the Lage map. Reuse the
+// exact baked bitmap the whiteboard already owns; rendering the PDF again would double both the
+// wait and the memory. Data URLs are cached because MapLibre may rebuild its image source after
+// a WebGL recovery, while the underlying sheet has not changed.
+// Keyed by url AND bake size, not by url alone: `bake` re-renders when a LARGER viewport is
+// asked for, so a url-only key froze every later caller at the resolution of whichever one
+// happened to run first (a preview requested from a narrow window stayed blurry after rotating).
+// Capped small because these are full-size JPEG data URLs (up to 1800px, ~0.5–2 MB of base64
+// each) and the only caller keeps at most a couple alive: one per plan whose Ebenen backdrop row
+// is on, and a rotation adds a second key per plan. 4 covers two visible sheets in both
+// orientations; anything older is cheaper to re-bake than to hold.
+const PREVIEW_CAP = 4
+const previewCache = new Map<string, Promise<string>>()
+export function planPreviewUrl(url: string, vw: number, vh: number): Promise<string> {
+  const bw = Math.max(vw, 900), bh = Math.max(vh, 900)
+  const key = `${url}@${bw}x${bh}`
+  const cached = previewCache.get(key)
+  // touch for LRU — an entry still being asked for is the last one that should be dropped
+  if (cached) { previewCache.delete(key); previewCache.set(key, cached); return cached }
+  const p = bake(url, bw, bh).then((b) => {
+    const maxSide = 1800
+    const k = Math.min(1, maxSide / Math.max(b.bitmap.width, b.bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(b.bitmap.width * k))
+    canvas.height = Math.max(1, Math.round(b.bitmap.height * k))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('no 2d ctx')
+    ctx.drawImage(b.bitmap, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL('image/jpeg', 0.86)
+  })
+  p.catch(() => { if (previewCache.get(key) === p) previewCache.delete(key) })
+  previewCache.set(key, p)
+  while (previewCache.size > PREVIEW_CAP) {
+    const oldest = previewCache.keys().next().value
+    if (oldest === undefined) break
+    previewCache.delete(oldest) // the data URL is GC'd once no map source holds it
+  }
+  return p
+}
+
 // Two board-child canvases (they pan/zoom with the board via CSS — instant, no
 // per-gesture re-raster). BASE blits the cached page bitmap (rasterized once,
 // reused forever). REFINE re-renders only the visible region at full resolution

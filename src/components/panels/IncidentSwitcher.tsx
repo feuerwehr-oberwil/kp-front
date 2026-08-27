@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { initials, roleLabel, fillTemplate, fmtSpanShort } from '../../lib/format'
 import { buildLabel } from '../../lib/buildInfo'
-import { useIsPhone } from '../../lib/useIsPhone'
 import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
-import { fmtDayShort } from '../../lib/zeitplanFormat'
-import { switcherLists } from '../../lib/switcherLists'
-import { listIncidents, type IncidentMeta, type SyncStatus } from '../../lib/incidents'
+import { shortAddress } from '../../lib/deploymentConfig'
+import { runningOthers } from '../../lib/switcherLists'
+import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
 function fmtClock(ms: number): string {
@@ -36,14 +35,9 @@ function SyncGlyph({ done, label }: { done: boolean; label: string }) {
   )
 }
 
-/** How many archived Einsätze the menu pulls for its «Frühere» rows. Four are shown; the rest
- *  of the page only serves the «Alle Einsätze (n)» count — and once the archive outgrows it the
- *  count is no longer whole, so the row drops the number rather than stating a wrong one. */
-const ARCHIVE_FETCH = 100
-
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -83,6 +77,11 @@ export function IncidentSwitcher({
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
   navKey?: string
+  /** A child sheet launched from this menu is visible. The menu stays logically open but is
+   *  suspended — unrendered, so its higher z-index cannot overlap the child — on every form
+   *  factor. Cancelling the sheet therefore reveals the exact parent state; the rows that
+   *  NAVIGATE close the menu deliberately instead (see `navKey`). */
+  sheetOpen?: boolean
 }) {
   const cp = appConfig.copy.incidentSwitcher
   // «Jetzt synchronisieren» reports what it did on the button itself: the ring spins for the
@@ -125,24 +124,11 @@ export function IncidentSwitcher({
     const t = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(t)
   }, [open])
-  // «Frühere» comes from the ARCHIVE, which nothing else in the app keeps client-side: the list
-  // the app polls every 30 s is the running one (listIncidentsResilient · archived=false).
-  // Fetched lazily, the first time the menu is opened — the rows only matter while it is open —
-  // and never polled. A failed fetch (offline) resets the latch, so the next open tries again.
-  const [archived, setArchived] = useState<{ list: IncidentMeta[]; whole: boolean } | null>(null)
-  const archiveTried = useRef(false)
-  useEffect(() => {
-    // no «Alle Einsätze» ⇒ an Einsatz-Link session, which may only ever see its own Einsatz
-    if (!open || archiveTried.current || !onHistory) return
-    archiveTried.current = true
-    listIncidents(true, ARCHIVE_FETCH)
-      .then((list) => setArchived({ list, whole: list.length < ARCHIVE_FETCH }))
-      .catch(() => { archiveTried.current = false })
-  }, [open, onHistory])
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    // clicks inside an overlay sheet/dialog don't count as "outside": on phones the menu
-    // deliberately stays open underneath a sheet it opened (see openSheet below)
+    // clicks inside an overlay sheet/dialog don't count as "outside": a sheet opened FROM this
+    // menu suspends it via `sheetOpen` rather than closing it, so cancelling that sheet has to
+    // reveal the menu exactly as it was — a press inside it must not have closed it meanwhile.
     const onDoc = (e: MouseEvent) => {
       const t = e.target as Element
       if (ref.current && !ref.current.contains(t) && !t.closest?.('.ip-sheet, .ui-backdrop, .help-scrim, .confirm-backdrop, .toaster')) setOpen(false)
@@ -150,13 +136,7 @@ export function IncidentSwitcher({
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
-  // On phones a sheet opened from the menu keeps the menu open underneath (the overlay
-  // covers it), so closing the sheet lands back in the menu instead of on the map — no
-  // re-tapping the dropdown between two lookups. Desktop closes as usual (the floating
-  // menu would sit beside the sheet there). Incident switch/eröffnen/logout always close.
-  const isPhone = useIsPhone()
-  const openSheet = (fn: () => void) => { fn(); if (!isPhone) setOpen(false) }
-  // …but a sheet action that NAVIGATES (Rapport → Anwesenheit/Mittel/Verlauf) must not
+  // A sheet action that NAVIGATES (Rapport → Anwesenheit/Mittel/Verlauf) must not
   // leave the menu sitting on the new surface — any surface change closes it
   useEffect(() => { setOpen(false) }, [navKey])
 
@@ -171,18 +151,38 @@ export function IncidentSwitcher({
     : syncStatus === 'error' || syncStatus === 'storage'
       ? <Icon id="warn" />
       : <span className="ip-status-dot" />
-  const lists = switcherLists(incidents, archived?.list ?? [], active?.id ?? null)
-  // the count is only shown while it is TRUE: before the archive is loaded, and once it is
-  // deeper than one page, «Alle Einsätze» stands without a number
-  const allIncidentsLabel = archived?.whole
-    ? fillTemplate(cp.allIncidentsN, { n: lists.total })
-    : cp.allIncidents
-  const showIncidents = lists.running.length > 0 || lists.past.length > 0 || isEditor || !!onHistory
-    || (incidents.length === 0 && !active)
+  // Only the RUNNING Einsätze are listed. Everything that is over lives behind «Alle Einsätze»,
+  // where it can be searched and grouped — a handful of recent ones in the menu turned out to be
+  // neither (feedback 2026-08-26): you either switch to something that is running, or you go
+  // looking for a specific old Einsatz, and the second one is not a four-row list.
+  const running = runningOthers(incidents, active?.id ?? null)
+  const showIncidents = running.length > 0 || isEditor || !!onHistory || (incidents.length === 0 && !active)
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
+  /**
+   * «Jetzt synchronisieren» — always offered, not only on offline/error: it forces a push AND an
+   * immediate pull, the "make everything fresh right now" action when things feel stale. It has
+   * to LOOK like it ran, because on an already-synced Einsatz — the normal case — the status
+   * says the same thing before and after the tap; so the ring spins for the round trip and then
+   * closes into a tick on the button itself.
+   *
+   * It sits in the CARD's title row, at the Einsatzname's right edge: the action belongs to that
+   * one Einsatz, so it belongs to the line that names it — not to the app's own header bar
+   * (which on a phone has no room to spare anyway, see 15-mobile.css), and not down among
+   * «Bearbeiten»/«Abschliessen», which are things you do to the Einsatz rather than to the
+   * connection. Same place on every screen width.
+   */
+  const syncButton = (
+    <button className={`ip-card-sync sync-${syncPhase}`} disabled={syncPhase === 'busy'}
+      aria-busy={syncPhase === 'busy'} onClick={() => { void runSyncNow() }}
+      aria-label={cp.syncNow} title={cp.syncNow}>
+      {syncPhase === 'idle'
+        ? <Icon id="rotate" />
+        : <SyncGlyph done={syncPhase === 'done'} label={syncPhase === 'done' ? cp.syncDone : cp.syncNow} />}
+    </button>
+  )
   return (
     <div className="ip-switch" ref={ref}>
-      <button className="ip-switch-btn" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+      <button className="ip-switch-btn" onClick={() => setOpen((v) => !v)} aria-expanded={open && !sheetOpen}>
         {/* phones: the title is CSS-hidden (a one-letter stump helped nobody) — a doc glyph
             marks the button; the full title heads the dropdown instead */}
         <span className="ip-switch-glyph" aria-hidden><Icon id="doc" /></span>
@@ -215,14 +215,15 @@ export function IncidentSwitcher({
         )}
         <Icon id="chevron-down" />
       </button>
-      {open && (
+      {open && !sheetOpen && (
         <div className="ip-menu">
-          {/* Three weights, so one look sorts the menu (field feedback: everything carried the
-              same weight and «läuft gerade» was indistinguishable from «vorbei»): ① THIS Einsatz
-              as a CARD — green status edge, Titel, Adresse, zwei Status-Pills — carrying its OWN
-              actions inside it; ② the other RUNNING Einsätze as strong rows led by their laufende
-              Zeit; ③ «Frühere» as quiet rows led by a fixed date column, four at most. The card
-              needs no label — it names itself.
+          {/* The menu is about what is RUNNING, in two weights (field feedback: every row carried
+              the same one): ① THIS Einsatz as a CARD — green status edge, Titel, Adresse, zwei
+              Status-Pills — carrying its OWN actions inside it; ② the other running Einsätze as
+              rows led by their laufende Zeit. The card needs no label — it names itself.
+              Nothing that is OVER is listed here (a «Frühere» section was tried and dropped on
+              2026-08-26): you either switch to something that is still running, or you go looking
+              for one particular old Einsatz — and that is a search, which «Alle Einsätze» is.
               The round-4 rule was "no destructive actions in this menu" (a stray per-row ✕ closed
               old incidents in one tap); «abschliessen» is the sanctioned exception (field request
               2026-07-12), and only ever for the Einsatz whose card it sits in: it runs the SAME
@@ -236,8 +237,11 @@ export function IncidentSwitcher({
           {active && (
             <div className="ip-card">
               <div className="ip-card-title">
-                <span className="ip-card-name">{active.title}</span>
+                {/* the name gives way first — it clamps to two lines and then ellipsises, so
+                    neither the ÜBUNG marker nor the Sync button is ever what gets cut off */}
+                <span className="ip-card-name" title={active.title}>{active.title}</span>
                 {active.is_exercise && exerciseBadge}
+                {syncButton}
               </div>
               {active.address && <span className="ip-card-sub">{active.address}</span>}
               <div className="ip-card-pills">
@@ -254,36 +258,26 @@ export function IncidentSwitcher({
                   wording rides along as the button's title/aria-label.
                   A wrong ADDRESS is noticed while looking at the map, long before anybody opens
                   the Rapport — whose «Bearbeiten» link was once the only way into the mask. */}
-              <div className="ip-card-acts">
-                {onEditMeta && (
-                  <button className="ip-card-act" title={cp.editMeta} aria-label={cp.editMeta}
-                    onClick={() => { setOpen(false); onEditMeta() }}>
-                    <Icon id="pen" />{cp.editMetaShort}
-                  </button>
-                )}
-                {onArchive && (
-                  <button className="ip-card-act" title={cp.archive} aria-label={cp.archive}
-                    onClick={() => { setOpen(false); onArchive() }}>
-                    <Icon id="archive" />{cp.archiveShort}
-                    {/* the counter BEFORE the press, not only in the dialog after it */}
-                    {archiveOpenCount > 0 && (
-                      <span className="ip-badge ip-badge-todo">{fillTemplate(cp.archiveOpen, { n: archiveOpenCount })}</span>
-                    )}
-                  </button>
-                )}
-                {/* always offered (not only on offline/error): forces a push AND an immediate
-                    pull, the "make everything fresh right now" action when things feel stale.
-                    It has to LOOK like it ran — on an already-synced Einsatz, the normal case,
-                    the pill above reads «Gespeichert um …» before and after the tap, so the ring
-                    spins for the round trip and then closes into a tick on the button itself. */}
-                <button className={`ip-card-act ip-card-sync sync-${syncPhase}`} disabled={syncPhase === 'busy'}
-                  aria-busy={syncPhase === 'busy'} onClick={() => { void runSyncNow() }}
-                  aria-label={cp.syncNow} title={cp.syncNow}>
-                  {syncPhase === 'idle'
-                    ? <Icon id="rotate" />
-                    : <SyncGlyph done={syncPhase === 'done'} label={syncPhase === 'done' ? cp.syncDone : cp.syncNow} />}
-                </button>
-              </div>
+              {(onEditMeta || onArchive) && (
+                <div className="ip-card-acts">
+                  {onEditMeta && (
+                    <button className="ip-card-act" title={cp.editMeta} aria-label={cp.editMeta}
+                      onClick={onEditMeta}>
+                      <Icon id="pen" />{cp.editMetaShort}
+                    </button>
+                  )}
+                  {onArchive && (
+                    <button className="ip-card-act" title={cp.archive} aria-label={cp.archive}
+                      onClick={onArchive}>
+                      <Icon id="archive" />{cp.archiveShort}
+                      {/* the counter BEFORE the press, not only in the dialog after it */}
+                      {archiveOpenCount > 0 && (
+                        <span className="ip-badge ip-badge-todo">{fillTemplate(cp.archiveOpen, { n: archiveOpenCount })}</span>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
           {/* The Einsätze group is about moving BETWEEN Einsätze. When nothing in it can
@@ -298,25 +292,30 @@ export function IncidentSwitcher({
                   what it is. */}
               {!active && <div className="ip-menu-label">{cp.incidents}</div>}
               {incidents.length === 0 && !active && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
-              {lists.running.map((i) => (
-                <button key={i.id} className="ip-menu-row ip-menu-row-run" onClick={() => { onSwitch(i); setOpen(false) }}>
-                  <span className="ip-menu-when">{fmtSpanShort(now - Date.parse(i.started_at))}</span>
-                  <span className="ip-menu-title">{i.title}{i.is_exercise && exerciseBadge}</span>
-                </button>
-              ))}
-              {lists.past.length > 0 && <div className="ip-menu-label">{cp.earlier}</div>}
-              {lists.past.map((i) => (
+              {running.map((i) => (
                 <button key={i.id} className="ip-menu-row" onClick={() => { onSwitch(i); setOpen(false) }}>
-                  <span className="ip-menu-when">{fmtDayShort(new Date(i.started_at))}</span>
-                  <span className="ip-menu-title">{i.title}{i.is_exercise && exerciseBadge}</span>
+                  <span className="ip-menu-when">{fmtSpanShort(now - Date.parse(i.started_at))}</span>
+                  <span className="ip-menu-rowmain">
+                    <span className="ip-menu-titleline">
+                      <span className="ip-menu-title">{i.title}</span>
+                      {/* beside the title, not inside it: a long Einsatzname ellipsises, and the
+                          marker that says «Übung» must not be the part that gets cut off */}
+                      {i.is_exercise && exerciseBadge}
+                    </span>
+                    {/* WHERE it is, the way the card says it for the active Einsatz — «Ölspur» is
+                        not an Einsatz you can tell apart from another «Ölspur» without it. Same
+                        shortened form as everywhere else: the own Gemeinde is left off. */}
+                    {shortAddress(i.address) && <span className="ip-menu-rowsub">{shortAddress(i.address)}</span>}
+                  </span>
                 </button>
               ))}
-              {/* the rest of the archive — the four rows above are only the recent end of it */}
-              {onHistory && <button className="ip-menu-more" onClick={() => openSheet(onHistory)}>{allIncidentsLabel}</button>}
+              {/* the door to everything that is over — searchable and grouped by month there,
+                  which is what finding an old Einsatz actually takes */}
+              {onHistory && <button className="ip-menu-more" onClick={onHistory}>{cp.allIncidents}</button>}
               {isEditor && (
                 <>
                   <div className="ip-menu-sep" />
-                  <button className="ip-menu-act" onClick={() => { onDivera(); setOpen(false) }}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>
+                  <button className="ip-menu-act" onClick={onDivera}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>
                 </>
               )}
             </div>
@@ -325,10 +324,10 @@ export function IncidentSwitcher({
           {/* «App»: device + installation, not this Einsatz. It always has rows — Hilfe is
               unconditional — so the label never heads an empty group the way «Einsätze» can. */}
           <div className="ip-menu-label">{cp.app}</div>
-          {onSettings && <button className="ip-menu-act" onClick={() => openSheet(onSettings)}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
-          {active && <button className="ip-menu-act" onClick={() => openSheet(onOfflineReadiness)}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
-          <button className="ip-menu-act" onClick={() => openSheet(onHelp)}><Icon id="info" /> {appConfig.copy.help.menu}</button>
-          {onInstall && <button className="ip-menu-act" onClick={() => openSheet(onInstall)}><Icon id="share-ios" /> {appConfig.copy.install.menu}</button>}
+          {onSettings && <button className="ip-menu-act" onClick={onSettings}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
+          {active && <button className="ip-menu-act" onClick={onOfflineReadiness}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
+          <button className="ip-menu-act" onClick={onHelp}><Icon id="info" /> {appConfig.copy.help.menu}</button>
+          {onInstall && <button className="ip-menu-act" onClick={onInstall}><Icon id="share-ios" /> {appConfig.copy.install.menu}</button>}
           <div className="ip-menu-sep" />
           <div className="ip-menu-user">
             <span className="ip-menu-av" style={{ background: user.color ?? 'var(--ink-faint)' }}>{initials(user.display_name)}</span>

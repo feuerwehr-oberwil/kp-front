@@ -5,6 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { useHoldToDrag } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
+import { MenuPick } from './MenuPick'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
 import { ShapeGlyph } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -174,17 +175,6 @@ interface Props {
    *  selected team toggles just that team's lines + breadcrumb dots */
   hiddenTrails?: ReadonlySet<string>
   onToggleTrail?: (id: string) => void
-}
-
-/** One menu row with a leading tick when it is the current pick — the same row the line editor's
- *  «Gehört zu Trupp …» draws (DrawEditor · MenuPick), so the two pickers read as one control. */
-function TruppPick({ label, on }: { label: string; on: boolean }) {
-  return (
-    <>
-      <span className={`de-menu-tick${on ? ' on' : ''}`} aria-hidden><Icon id="check" /></span>
-      <span>{label}</span>
-    </>
-  )
 }
 
 /**
@@ -760,9 +750,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       </button>
                     }
                     items={[
-                      { label: <TruppPick label={appConfig.copy.atemschutz.markerNone} on={!e.truppId} />, onClick: () => onTeamTrupp(e.id, undefined) },
+                      { label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={!e.truppId} />, onClick: () => onTeamTrupp(e.id, undefined) },
                       ...(trupps ?? []).filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === e.truppId)).map((t) => ({
-                        label: <TruppPick label={t.name} on={t.id === e.truppId} />,
+                        label: <MenuPick label={t.name} on={t.id === e.truppId} />,
                         onClick: () => onTeamTrupp(e.id, t.id),
                       })),
                     ]}

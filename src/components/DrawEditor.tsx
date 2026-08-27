@@ -10,6 +10,7 @@ import { floorBadge } from '../lib/symbolRender'
 import { useLineProfile } from '../lib/useLineProfile'
 import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Stepper } from './Stepper'
+import { MenuPick } from './MenuPick'
 import { Menu } from '../lib/overlays'
 import { Segmented } from './Segmented'
 import type { LineAttachment, LineEndpoint, LngLat, LineRoutingMode } from '../types'
@@ -143,17 +144,6 @@ interface Props {
 }
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
-
-/** One menu row with a leading tick when it is the current pick (the native select drew one; the
- *  app's menu has no built-in selected state). */
-function MenuPick({ label, on }: { label: string; on: boolean }) {
-  return (
-    <>
-      <span className={`de-menu-tick${on ? ' on' : ''}`} aria-hidden><Icon id="check" /></span>
-      <span>{label}</span>
-    </>
-  )
-}
 
 export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
@@ -337,9 +327,12 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                 </span>
               </div>
             )}
+            {/* `seedOnDec`: a Leitung goes into a Keller as often as up a Treppe, so the first tap
+                on − seeds EG (0) exactly like +, and the next − is −1. Same stepper as the
+                Geschoss rows in the symbol panel (ContextPanel). */}
             {onFloorTag && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.floorTag}</span>
-                <Stepper value={drawing.floorTag ?? null} min={-9} max={40} seed={0} format={floorBadge} placeholder="–"
+                <Stepper value={drawing.floorTag ?? null} min={-9} max={40} seed={0} seedOnDec format={floorBadge} placeholder="–"
                   onChange={(v) => onFloorTag(v)} onClear={() => onFloorTag(undefined)} canClear={drawing.floorTag != null}
                   ariaLabel={appConfig.copy.drawingEditor.floorTag} />
               </div>
