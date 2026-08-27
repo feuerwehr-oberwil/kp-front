@@ -9,7 +9,7 @@ import { truppNeverDeployed } from './atemschutz'
 import { formatElapsed } from './audioPlayer'
 import { attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
-import { repeatRuns, rowPhotos } from './verlauf'
+import { repeatRuns, rowPhotos, rowText } from './verlauf'
 import { linkMarkup, type JournalLink } from './journalLinks'
 
 export interface KrokiView {
@@ -309,11 +309,12 @@ export function journalRows(
         iso,
         timeLabel: iso ? formatDateTime(iso) : e.t,
         area: journalArea(e, plans),
-        text: withoutAreaPrefix(e.text),
+        // …and through `rowText` first, so a picture on paper carries no «Foto» caption either
+        text: withoutAreaPrefix(rowText(e)),
         // the same links the app marks, as bold on paper — the Rapport has no colour to spend,
         // and bold is what a reader already reads as «this is a name» (lib/journalLinks)
         markup: opts?.vocab?.length
-          ? linkMarkup(withoutAreaPrefix(e.text), opts.vocab, escapeXml)
+          ? linkMarkup(withoutAreaPrefix(rowText(e)), opts.vocab, escapeXml)
           : undefined,
         kind: e.kind,
         photoUrls: rowPhotos(e),

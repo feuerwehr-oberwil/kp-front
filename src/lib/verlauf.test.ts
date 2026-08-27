@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay, isHandWritten, isNachtrag, rowTime, rowPhotos, swapUrl, repeatRuns } from './verlauf'
+import { groupByDay, isHandWritten, isNachtrag, rowText, rowTime, rowPhotos, swapUrl, repeatRuns } from './verlauf'
 import type { TimelineEvent } from '../types'
 
 const row = (id: string, at?: string): TimelineEvent =>
@@ -145,5 +145,29 @@ describe('repeatRuns', () => {
       row('b', '2026-08-19T20:00:04.000Z', 'Wasser marsch', { kind: 'journal', icon: 'type' }),
     ]
     expect(repeatRuns(rows).hidden.size).toBe(0)
+  })
+})
+
+// A picture with the word «Foto» over it says the one thing the reader can already see — and on
+// a phone it costs the row its whole text column.
+describe('rowText — a photo row carries no «Foto» caption', () => {
+  const photoRow = (text: string, photoUrls?: string[]) =>
+    ({ id: 'e1', t: '10:00', icon: 'photo', text, photoUrls }) as TimelineEvent
+
+  it('drops the placeholder when the picture is actually there', () => {
+    expect(rowText(photoRow('Foto', ['/api/media/1']))).toBe('')
+  })
+
+  it('keeps a caption somebody actually typed', () => {
+    expect(rowText(photoRow('Fotos vom Dachstock', ['/api/media/1']))).toBe('Fotos vom Dachstock')
+  })
+
+  // the one thing left saying a picture was meant, on a row whose upload never arrived
+  it('keeps the placeholder when there is no picture to see', () => {
+    expect(rowText(photoRow('Foto'))).toBe('Foto')
+  })
+
+  it('reads the old single-photo shape too', () => {
+    expect(rowText({ id: 'e1', t: '10:00', icon: 'photo', text: 'Foto', photoUrl: '/api/media/1' } as TimelineEvent)).toBe('')
   })
 })

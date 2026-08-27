@@ -1801,7 +1801,11 @@ export function IncidentWorkspace({
     const body = d.text
       || (imported
         ? fillTemplate(appConfig.copy.journal.audioImportedNote, { duration: d.audioMeta?.durationSec != null ? formatAudioDuration(d.audioMeta.durationSec) : '–' })
-        : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs}s)` : ''}` : photoUrls.length ? appConfig.copy.journal.photoNote : appConfig.copy.log.journalNote)
+        // ⚠️ A picture needs no caption saying «Foto» — the row shows the picture. A Sprachnotiz
+        // is the opposite case and keeps its label: audio has nothing to look at, so without the
+        // words the row would be a blank line with a play button. (Rows already written with the
+        // placeholder are cleaned at render — lib/verlauf · rowText.)
+        : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs}s)` : ''}` : photoUrls.length ? '' : appConfig.copy.log.journalNote)
     const rowId = `e${Date.now()}-j`
     // ── Pendenz / Meldung ────────────────────────────────────────────────────────────────────
     // ⚠️ The lifecycle event rides on THIS row — the entry IS the Pendenz. «Auftrag · Trupp 2

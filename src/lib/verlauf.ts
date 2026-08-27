@@ -59,6 +59,27 @@ export function rowPhotos(e: { photoUrl?: string; photoUrls?: string[] }): strin
   return e.photoUrls?.length ? e.photoUrls : e.photoUrl ? [e.photoUrl] : []
 }
 
+/**
+ * The text a photo row should SHOW — which, for a row that is only a photo, is nothing.
+ *
+ * ⚠️ A picture with the word «Foto» over it says the one thing the reader can already see, and
+ * it costs the row its whole text column on a phone. The composer writes that word as the body
+ * when somebody attaches a picture without typing anything, so every wordless photo in the
+ * Verlauf and on the Rapport carried a caption that was pure duplication.
+ *
+ * ⚠️ Suppressed at RENDER, not removed from the record — the same rule (and the same reason) as
+ * `withoutAreaPrefix` in lib/report: the Verlauf is append-only and hash-chained, so a row that
+ * was written with that word keeps it. Only rows that ACTUALLY have a picture are affected: the
+ * placeholder on a row whose photo never arrived is the only thing left saying one was meant.
+ *
+ * Reads the label from the live copy, so it answers in whatever locale wrote the row — and new
+ * rows simply carry no text at all (IncidentWorkspace · addJournal).
+ */
+export function rowText(e: { text: string; photoUrl?: string; photoUrls?: string[] }): string {
+  if (!rowPhotos(e).length) return e.text
+  return e.text.trim() === appConfig.copy.journal.photoNote ? '' : e.text
+}
+
 /** Replace one URL in a row's photo list, keeping the others and the order. Used when one of
  *  several attached pictures finishes uploading: the row's other photos (still local blob:
  *  URLs, or already uploaded) must survive that patch untouched. */

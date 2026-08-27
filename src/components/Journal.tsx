@@ -7,7 +7,7 @@ import { Overlay } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, formatTime } from '../lib/format'
-import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowTime } from '../lib/verlauf'
+import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowText, rowTime } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
 import { formatElapsed } from '../lib/audioPlayer'
 import type { OpenReminder } from '../lib/reminders'
@@ -651,7 +651,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     with while they were being typed — and the job after a name on its first
                     mention («Widmer Céline (EL)»), because a Verlauf full of surnames tells a
                     reader who was talking only if they already know the Wehr. */}
-                <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(e.text)}</span>
+                {/* ⚠️ `rowText`, not `e.text`: a row that is only a picture shows no caption at
+                    all — «Foto» over a photo says the one thing the reader can already see. The
+                    RECORD keeps its wording (lib/verlauf · rowText). */}
+                <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e))}</span>
                 <span className="jr-trail">
                   {/* Footnotes ABOUT the row — «Nachtrag», «korrigiert HH:MM», «6×». They say
                       that the append-only record holds more than the row shows, which is worth
