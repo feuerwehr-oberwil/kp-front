@@ -9,6 +9,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { symPx } from '../lib/mapView'
+import { ROTATABLE } from '../lib/symbols'
 import { MARKER_Z } from '../lib/labelPass'
 import type { MapTwin } from '../lib/georefTwins'
 import { TwinMark } from './GeorefTwinMark'
@@ -68,7 +69,9 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
         const veh = a.symbol === appConfig.symbols.vehicleName
         // Plan rotation is paper-relative. Plan-up points at bearing −fit.rotationDeg, then the
         // live map bearing is removed so the projected glyph stays pinned to the ground.
-        const rot = (a.rotation ?? 0) - t.fit.rotationDeg - bearing
+        // ⚠️ Only for DIRECTIONAL glyphs — an upright badge (no rotation control) stays upright,
+        // as it does on both source surfaces (see GeorefTwinsBoard).
+        const rot = veh || (!!a.symbol && ROTATABLE.has(a.symbol)) ? (a.rotation ?? 0) - t.fit.rotationDeg - bearing : 0
         const svg = veh ? vehicleSymbolSvg(name, rot) : glyphFor(a, byName)
         const rawCaption = symbolCaptionText(a, captionMode)
         return (
