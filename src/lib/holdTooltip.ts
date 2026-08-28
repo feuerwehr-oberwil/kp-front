@@ -2,8 +2,8 @@
 // mockups/atemschutz-kopf-beschriftung.html): every icon-only button in the app already carries
 // its word as `aria-label`/`title`, and on a mouse the hover tooltip shows it — but the primary
 // devices are tablets, where `title` never appears and an untrained operator is left guessing
-// what 👣 or 💧 does. Holding such a button ~500 ms now shows that word as a bubble and does NOT
-// fire the action; releasing early taps as always.
+// what 👣 or 💧 does. Holding such a button ~350 ms now shows that word as a bubble (with the
+// short arm buzz) and does NOT fire the action; releasing early taps as always.
 //
 // ONE document-level listener rather than a hook per button: the rule is app-wide by design
 // («every icon-only button explains itself the same way»), and threading a hook through dozens
@@ -21,7 +21,11 @@
 // pointerup is swallowed by a one-shot capture listener; Android's long-press contextmenu is
 // suppressed for the same press.
 
-const HOLD_MS = 500
+import { buzz } from './haptics'
+
+// 350, not 500 (28.08. field feedback: «takes too long») — the same window the Eintrag hold
+// (useHoldEntry · HOLD_MS) uses, so every still hold in the app answers on one beat.
+const HOLD_MS = 350
 const MOVE_TOL_PX = 8
 const LINGER_MS = 1100
 
@@ -84,6 +88,7 @@ export function installHoldTooltip(): () => void {
       bubble = showBubble(press.el, press.label)
       bubbleFor = press.el
       press = null
+      buzz() // the hold latched into an answer — same cue as every other armed hold
     }, HOLD_MS)
     press = { ...hit, x: e.clientX, y: e.clientY, timer }
   }

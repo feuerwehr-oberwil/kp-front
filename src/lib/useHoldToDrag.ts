@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { buzz } from './haptics'
 
 const DELAY_MS = 180     // touch: hold this long (still) before a drag arms — a quick flick stays a map pan
 // Shared drag deadzone: movement must pass this before a drag begins — on the map (here) AND on
@@ -134,6 +135,7 @@ export function useHoldToDrag(opts?: { delayMs?: number; moveTolerancePx?: numbe
           const s = st.current
           if (!s || s.phase !== 'pending') return
           s.phase = 'drag'
+          buzz() // the still hold armed the drag — the finger learns it holds the object now
           s.cbs.onHoldStart?.()
         }, delayMs)
       : 0
