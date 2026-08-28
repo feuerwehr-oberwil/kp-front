@@ -12,7 +12,7 @@ import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { isVehicleSym } from '../lib/mapView'
 import type { BoardTwin } from '../lib/georefTwins'
 import { TwinMark } from './GeorefTwinMark'
-import { glyphFor, twinName } from '../lib/twinGlyph'
+import { glyphFor, overlayFor, twinName } from '../lib/twinGlyph'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import type { CaptionMode } from '../types'
@@ -88,6 +88,7 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
             floor={e.floor} floorFrom={e.floorFrom} floorTo={e.floorTo}
             // the arrows are surface-up-relative; the fit's frame change keeps them on the ground
             spread={e.spread} spreadRotation={t.fit.rotationDeg}
+            overlay={veh ? undefined : overlayFor(e, byName, t.fit.rotationDeg)}
             caption={sourceSuppressedCaptions?.has(e.id) ? null : rawCaption ? softHyphenateText(rawCaption) : rawCaption}
             title={fillTemplate(C.twinFromMap, { name })}
             onOpen={() => onOpen(t)}

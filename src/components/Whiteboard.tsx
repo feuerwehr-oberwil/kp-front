@@ -2105,11 +2105,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           ref={setCanvas}
           className={`wb-canvas tool-${tool} ${pending || pendingShape ? 'placing' : ''}`}
           // capture-phase bookkeeping FIRST — it sees the fingers a chip's own handler
-          // swallows, which is what makes the two-finger gesture work on a busy board
-          onPointerDownCapture={(e) => { setTwinView(null); trackDown(e) }}
+          // swallows, which is what makes the two-finger gesture work on a busy board.
+          // ⚠️ The twin-panel dismissal must NOT fire for a press on a twin mark itself: capture
+          // runs before TwinMark can stop anything, so an unguarded setTwinView(null) here
+          // deselected the twin at the exact pointerdown that was meant to DRAG it — the halo
+          // vanished, `onMove` was withdrawn mid-gesture, and «twins cannot be moved» was the
+          // whole visible story. A press starting on the mark keeps the selection; any other
+          // press still dismisses (that is what makes tapping empty paper close the panel).
+          onPointerDownCapture={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) setTwinView(null); trackDown(e) }}
           onPointerUpCapture={trackUp}
           onPointerCancelCapture={trackUp}
-          onPointerDown={(e) => { setTwinView(null); stageDown(e) }}
+          onPointerDown={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) setTwinView(null); stageDown(e) }}
           onPointerMove={stageMove}
           onPointerUp={stageUp}
           onPointerCancel={stageUp}

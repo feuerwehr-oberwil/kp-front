@@ -44,7 +44,7 @@ import s from './GeorefTwins.module.css'
  *  fingertip's own wobble on a glove would move the object on every tap. */
 const DRAG_SLOP_PX = 4
 
-export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, spreadRotation, caption, title, onOpen, onMove, nativeDrag = false, interactive = true, selected = false, style, className }: {
+export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, spreadRotation, overlay, caption, title, onOpen, onMove, nativeDrag = false, interactive = true, selected = false, style, className }: {
   svg: string
   sizePx: number
   rotation: number
@@ -56,6 +56,9 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
   /** the source's Entwicklung arrows, turned through the fit by `spreadRotation` */
   spread?: SymbolProps['spread']
   spreadRotation?: number
+  /** a composite's fan/ladder over the base body, already aimed by the caller (lib/twinGlyph ·
+   *  overlayFor) — without it a mirrored Grosslüfter was just a bare vehicle body */
+  overlay?: { svg: string; rotation?: number; scale?: number }
   /** Exactly the caption the source surface gives this symbol. Null means neither source nor
    *  projection invents a name plaque merely because it crossed the georeference. */
   caption?: string | null
@@ -134,6 +137,11 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
   return (
     <button
       type="button"
+      // The marker the surfaces' outside-tap dismissal keys off: a press that STARTS here must
+      // not be read as «tapped elsewhere, close the twin panel» — the surrounding canvas sees
+      // every pointerdown in the CAPTURE phase, before this component can stop anything, and
+      // deselecting at that moment is what killed the drag on the very object wearing the halo.
+      data-twin=""
       className={`${s.twin} ${interactive ? '' : s.inert} ${movable ? s.grab : ''} ${className ?? ''}`}
       style={{ width: sizePx, height: sizePx, '--hbox': `${sizePx}px`, ...style } as React.CSSProperties}
       title={title}
@@ -151,7 +159,7 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
       {selected && <span className="sel-halo" aria-hidden />}
       <TacticalSymbol svg={svg} sizePx={sizePx} rotation={rotation} count={count}
         floor={floor} floorFrom={floorFrom} floorTo={floorTo}
-        spread={spread} spreadRotation={spreadRotation} caption={caption} />
+        spread={spread} spreadRotation={spreadRotation} overlay={overlay} caption={caption} />
     </button>
   )
 }

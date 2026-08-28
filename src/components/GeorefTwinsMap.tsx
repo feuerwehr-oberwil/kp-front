@@ -12,7 +12,7 @@ import { symPx } from '../lib/mapView'
 import { MARKER_Z } from '../lib/labelPass'
 import type { MapTwin } from '../lib/georefTwins'
 import { TwinMark } from './GeorefTwinMark'
-import { glyphFor, twinName } from '../lib/twinGlyph'
+import { glyphFor, overlayFor, twinName } from '../lib/twinGlyph'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import type { CaptionMode, LngLat } from '../types'
@@ -86,6 +86,7 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
               // ⚠️ `storey`, never `anno.floor` — that one is the floor-stack tile index
               floor={a.storey} floorFrom={a.floorFrom} floorTo={a.floorTo}
               spread={a.spread} spreadRotation={-t.fit.rotationDeg - bearing}
+              overlay={veh ? undefined : overlayFor(a, byName, -t.fit.rotationDeg - bearing)}
               caption={rawCaption ? softHyphenateText(rawCaption) : rawCaption}
               title={fillTemplate(C.twinFromPlan, { name, plan: t.planCode })}
               onOpen={() => { if (!dragged.current) onOpen(t); dragged.current = false }}
