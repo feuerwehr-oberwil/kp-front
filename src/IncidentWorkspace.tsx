@@ -96,6 +96,7 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
+import { isStorageDegraded } from './lib/idb'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
@@ -583,7 +584,7 @@ export function IncidentWorkspace({
   // tactical-symbol size (Karte / standalone Module; linked Module follow Karte), captions, offline cache radius,
   // keep-screen-on — device prefs shared with the landing Einstellungen (see useDevicePrefs;
   // lazy loadPrefs seed). Their persistence rides the mode/activePlanId effect below.
-  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
+  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   // "Mein Standort": bumping this takes a single GPS fix + flies to it. On-demand (no continuous
   // watch) so the GPS chip isn't powered all shift — see MapView.locateNonce.
   const [locateReq, setLocateReq] = useState(0)
@@ -707,7 +708,11 @@ export function IncidentWorkspace({
   const online = useOnline()
 
   const [offlineProgress, setOfflineProgress] = useState<{ done: number; total: number } | null>(null)
-  const downloadOffline = useCallback(async () => {
+  // `quiet` = the automatic self-warm (Offline-Vorbereitung, see the effect below): no dialogs,
+  // no toasts — the Offline-Bereitschaft sheet is where the resulting truth is read. A tight
+  // storage budget silently takes the reduced download instead of asking; the manual button
+  // remains the place where that trade is offered as a question.
+  const downloadOffline = useCallback(async ({ quiet = false } = {}) => {
     const map = mapRef.current?.getMap()
     if (!map) return
     const base = layers.find((l) => l.base && l.visible)
@@ -734,18 +739,20 @@ export function IncidentWorkspace({
       const reduced = fittedTileCap(budget, HARD_CAP, extraBytes)
       if (reduced === 0) {
         // not even the plans fit — nothing useful to offer but the honest refusal
-        toast(fillTemplate(co.dlNoSpace, { free: fmtBytes(budget.free) }), { icon: 'map', tone: 'warn' })
+        if (!quiet) toast(fillTemplate(co.dlNoSpace, { free: fmtBytes(budget.free) }), { icon: 'map', tone: 'warn' })
         return
       }
-      const ok = await confirmDialog({
-        title: co.dlTightTitle,
-        message: fillTemplate(co.dlTightMsg, {
-          need: fmtBytes(fit.needBytes), free: fmtBytes(budget.free), pct: String(Math.round((reduced / tileCount) * 100)),
-        }),
-        confirmLabel: co.dlTightConfirm,
-        cancelLabel: appConfig.copy.cancel,
-      })
-      if (!ok) return
+      if (!quiet) {
+        const ok = await confirmDialog({
+          title: co.dlTightTitle,
+          message: fillTemplate(co.dlTightMsg, {
+            need: fmtBytes(fit.needBytes), free: fmtBytes(budget.free), pct: String(Math.round((reduced / tileCount) * 100)),
+          }),
+          confirmLabel: co.dlTightConfirm,
+          cancelLabel: appConfig.copy.cancel,
+        })
+        if (!ok) return
+      }
       cap = reduced
     }
     setOfflineProgress({ done: 0, total: 1 })
@@ -780,6 +787,7 @@ export function IncidentWorkspace({
       const co = appConfig.copy.offline
       const got = res.fetched + res.warmFetched
       const retry = { label: co.dlRetry, onClick: () => { void downloadOfflineRef.current() } }
+      if (quiet) return // self-warm: the Offline-Bereitschaft sheet reports the resulting truth
       if (got === 0 && res.failed > 0) {
         toast(co.dlNone, { icon: 'map', tone: 'warn', action: retry })
       } else if (got === 0 && res.notFound > 0) {
@@ -793,7 +801,7 @@ export function IncidentWorkspace({
         toast(fillTemplate(res.capped ? co.dlDoneCapped : co.dlDone, { n: res.fetched }), { icon: 'map', tone: 'success' })
       }
     } catch {
-      toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
+      if (!quiet) toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
     } finally {
       setOfflineProgress(null)
     }
@@ -802,6 +810,26 @@ export function IncidentWorkspace({
   // on a toast that outlives the render it was made in, and the callback cannot name itself.
   const downloadOfflineRef = useRef(downloadOffline)
   useEffect(() => { downloadOfflineRef.current = downloadOffline }, [downloadOffline])
+  // ── Offline-Vorbereitung: the device prepares ITSELF (28.08. field feedback) ──
+  // The button relied on someone remembering it before losing coverage. Now, ~30 s after an
+  // Einsatz is open (long enough for the map, plans and layer list to have settled), the same
+  // download runs quietly — installed app only, exactly like the sheet's own reasoning: a
+  // browser tab's cache is evicted too readily to call it «bereit». Re-armed when what there is
+  // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
+  // incident still gets pulled; the signature keeps one warm per state, not one per minute.
+  // «Nur manuell» (device pref) switches all of this off; the button always stays.
+  const offlineWarmSig = `${incidentMeta.id}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson).map((l) => l.id).join(',')}`
+  const offlineWarmed = useRef('')
+  useEffect(() => {
+    if (!offlineAuto || !isStandalone()) return
+    if (offlineWarmed.current === offlineWarmSig) return
+    const t = setTimeout(() => {
+      if (!navigator.onLine || isStorageDegraded()) return // this round stays owed — the ref is only stamped on a start
+      offlineWarmed.current = offlineWarmSig
+      void downloadOfflineRef.current({ quiet: true })
+    }, 30_000)
+    return () => clearTimeout(t)
+  }, [offlineAuto, offlineWarmSig])
   // the Gebäude (floor-stack) document only exists once a building is picked; it sits
   // directly after «Umrisse» (the OSM outline you pick the building from) in the CATALOG —
   // the rail shows the two as one morphing tile (railPlanDocs below).
@@ -1400,7 +1428,7 @@ export function IncidentWorkspace({
   }, [resolvedPlanDocs])
 
   // remember the active surface + plan document in a cookie (preserve incidentId)
-  useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels }) }, [mode, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels])
+  useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [mode, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
 
   // bake every plan's bitmap into memory at app load (on idle, sized to the
   // window) so the very first time the Plan tab is opened the page appears
@@ -4761,6 +4789,8 @@ export function IncidentWorkspace({
           onRailLabels={setRailLabels}
           offlineRadiusM={offlineRadiusM}
           onOfflineRadius={setOfflineRadiusM}
+          offlineAuto={offlineAuto}
+          onOfflineAuto={setOfflineAuto}
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}

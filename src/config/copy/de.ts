@@ -2338,6 +2338,12 @@ export const de = {
     captionsAll: 'Alle',
     offlineRadius: 'Offline-Umkreis',
     offlineRadiusSub: 'Karte & Leitungen um den Einsatz',
+    // Offline-Vorbereitung: automatic self-warm shortly after opening an Einsatz (installed app
+    // only). Two states — see lib/prefs · offlineAuto for why there is no «nur WLAN» tier.
+    offlineAuto: 'Offline-Vorbereitung',
+    offlineAutoSub: 'Lädt Karte & Pläne von selbst kurz nach dem Öffnen',
+    offlineAutoOn: 'Automatisch',
+    offlineAutoOff: 'Nur manuell',
     keepScreenOn: 'Display anlassen',
     keepScreenOnSub: 'Bildschirm nicht abdunkeln im Einsatz',
     keepScreenOnOn: 'Ein',

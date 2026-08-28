@@ -47,7 +47,7 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
  *  /admin, where whoever set it up changes it — not under the finger of an unknowing operator
  *  at 3am (per-incident overrides already written keep working; the doctrine is the source). */
 export function SettingsSheet({
-  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, keepScreenOn, onKeepScreenOn, themeCoord, elView, onElView, onFeedback,
+  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, themeCoord, elView, onElView, onFeedback,
   shareAs, onSharePosition,
 }: {
   onClose: () => void
@@ -64,6 +64,10 @@ export function SettingsSheet({
   /** radius (m) cached around the incident for offline + scope of the Leitungskataster layers */
   offlineRadiusM: number
   onOfflineRadius: (m: number) => void
+  /** quiet self-warm shortly after opening an Einsatz (lib/prefs · offlineAuto). Default true;
+   *  false = «Nur manuell» — the button in the Offline-Bereitschaft sheet stays either way. */
+  offlineAuto: boolean
+  onOfflineAuto: (v: boolean) => void
   /** keep the screen awake while an incident is open — device pref, default on */
   keepScreenOn: boolean
   onKeepScreenOn: (v: boolean) => void
@@ -165,6 +169,11 @@ export function SettingsSheet({
             <div className="set-row">
               <span className="set-row-l">{cp.offlineRadius}<small>{cp.offlineRadiusSub}</small></span>
               <Stepper value={offlineRadiusM} min={500} max={3000} step={250} format={(v) => (v < 1000 ? `${v} m` : `${v / 1000} km`)} onChange={onOfflineRadius} ariaLabel={cp.offlineRadius} />
+            </div>
+            <div className="set-row">
+              <span className="set-row-l">{cp.offlineAuto}<small>{cp.offlineAutoSub}</small></span>
+              <Segmented<boolean> ariaLabel={cp.offlineAuto} value={offlineAuto} onChange={onOfflineAuto}
+                options={[{ value: true, label: cp.offlineAutoOn }, { value: false, label: cp.offlineAutoOff }]} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.keepScreenOn}<small>{cp.keepScreenOnSub}</small></span>
