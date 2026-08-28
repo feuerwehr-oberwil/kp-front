@@ -586,9 +586,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* Touch, tablet and up: the composer opens with the text field already focused, so the OS
    keyboard is up before the card has finished animating in — and an iPad keyboard is close to
    half the screen. Anchored at 11vh the media row and «Speichern» sat behind it. Ride up to the
-   top edge and cap the height against the measured keyboard (--jc-kb): on iOS the layout
-   viewport does NOT shrink for the keyboard, so dvh alone cannot see it. Phones keep the
-   bottom-sheet rule below (they lift by margin instead). */
+   top edge and cap the height against the measured keyboard (--jc-kb): the layout viewport
+   does NOT shrink for the keyboard (iOS never did; Android since `overlays-content`), so dvh
+   alone cannot see it. Phones keep the bottom-sheet rule below (they lift by margin instead). */
 @media (pointer: coarse) and (min-width: 601px) and (min-height: 521px), (pointer: coarse) and (min-width: 1001px) {
   .journal-composer { top: max(12px, env(safe-area-inset-top));
     max-height: calc(100dvh - 24px - var(--jc-kb, 0px)); }

@@ -55,9 +55,9 @@
    exact NEGATION of the phone condition every block below carries («≤600px wide, OR landscape
    and ≤520px tall and ≤1000px wide»). A phone turned sideways is 800–960px wide and would
    otherwise land in this tablet band; the comma-OR `(min-width: 1001px)` half keeps a WIDE
-   tablet in the band even while the software keyboard has shortened its layout viewport below
-   521px (`interactive-widget=resizes-content` — see lib/useIsPhone). Change these here and in
-   the phone blocks together. ---- */
+   tablet in the band even if something shortens its layout viewport below 521px (the old
+   `resizes-content` keyboard shrink did exactly that — see lib/useIsPhone). Change these here
+   and in the phone blocks together. ---- */
 @media (min-width: 601px) and (min-height: 521px) and (max-width: 1024px), (min-width: 1001px) and (max-width: 1024px) {
   /* `.layers-card` needs no narrowing here any more: 264px IS its base width (05-navrail), and
      it tracks --vrail-w on its own — the rule that used to sit here said nothing the base did

@@ -2,7 +2,14 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <!-- interactive-widget=overlays-content (Android only; iOS ignores it): the keyboard slides
+         OVER the app instead of shrinking the layout viewport. resizes-content reflowed the whole
+         UI on every keyboard open/close — top bar, rails and map all jumped (28.08. field
+         feedback), and the Atemschutz board reflow pushed the very field being edited off screen.
+         Overlaying makes Android behave exactly like iOS, where all the keyboard handling this
+         app has already lives: visualViewport pan + chrome pinning (lib/useViewportPan · --vv-pan)
+         and keyboard-aware caps/lifts on the sheets that hold text (useKeyboardInset · --jc-kb). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=overlays-content" />
     <meta name="theme-color" content="#1b2330" />
     <meta name="description" content="Operative Lagekarte der Feuerwehr — Einsätze, Pläne, Fahrzeuge." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

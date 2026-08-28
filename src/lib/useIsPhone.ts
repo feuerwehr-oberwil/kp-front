@@ -26,13 +26,14 @@ export function useMediaQuery(query: string): boolean {
 // 400px tall, which is the one shape they cannot work in. So a short landscape viewport counts
 // as a phone — up to 1000px wide.
 //
-// ⚠️ The 1000px bound is what keeps a TABLET out of the clause. `interactive-widget=
-// resizes-content` (index.html) makes the software keyboard shrink the LAYOUT viewport, so an
-// iPad in landscape with a field focused is a 1180×440 viewport — short, landscape, and for
-// exactly as long as the keyboard stands, a «phone»: every modal snapped to the full-width
-// bottom-sheet layout the moment the Journaleintrag or the symbol search took focus, and
-// snapped back on blur. Width is the one dimension the keyboard cannot touch; the largest
-// phones are ~960px sideways, the smallest tablets 1024.
+// ⚠️ The 1000px bound is what keeps a TABLET out of the clause. Under the old `interactive-
+// widget=resizes-content` (index.html, until 28.08.) the software keyboard shrank the LAYOUT
+// viewport, so a tablet in landscape with a field focused was a 1180×440 viewport — short,
+// landscape, and for exactly as long as the keyboard stood, a «phone»: every modal snapped to
+// the full-width bottom-sheet layout the moment the Journaleintrag or the symbol search took
+// focus, and snapped back on blur. `overlays-content` ended that shrink, but the width bound
+// keeps its job: the largest phones are ~960px sideways, the smallest tablets 1024, and width
+// is the dimension that separates them regardless of what the keyboard does.
 //
 // ⚠️ This string is the JS half of a rule the stylesheets carry too — the same trio of
 // conditions heads every phone `@media` block in src/styles and the CSS modules. They decide the
