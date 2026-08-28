@@ -2765,7 +2765,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             )}
             {!georefArmed && georefFit && (twinContent.length > 0 || twinDrawings.length > 0) && (
               <GeorefContentBoard entities={twinContent} drawings={twinDrawings} fit={georefFit}
-                planAspect={measureAR} sW={sW} sH={sH} byName={sym.byName} />
+                planAspect={measureAR} sW={sW} sH={sH} byName={sym.byName}
+                trupps={trupps} truppSeverities={truppSeverities} />
             )}
             {/* …and the Karte's own objects, mirrored ONTO this sheet. In the board so they pan
                 and zoom with it, and clipped to the sheet (lib/georefTwins · onSheet) so a

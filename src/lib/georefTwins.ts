@@ -287,6 +287,14 @@ export function boardDrawingTwins(drawings: Drawing[], fit: GeorefFit, margin = 
     const kind: BoardAnno['kind'] = drawing.kind === 'line' ? 'draw' : 'area'
     const mid = pts[Math.floor((pts.length - 1) / 2)]
     const labelAt = drawing.labelAt ? fit.toPlan({ lng: drawing.labelAt[0], lat: drawing.labelAt[1] }) : null
+    // The FKS end tag's dragged anchor crosses over the same way the label's does: as an offset
+    // from the default spot (72 % along the last segment — the one rule both surfaces draw with),
+    // so the tag sits where the operator moved it clear of other symbols.
+    const n = pts.length
+    const tagBase = kind === 'draw' && n >= 2
+      ? [pts[n - 2][0] + (pts[n - 1][0] - pts[n - 2][0]) * 0.72, pts[n - 2][1] + (pts[n - 1][1] - pts[n - 2][1]) * 0.72]
+      : null
+    const endAt = drawing.endLabelAt ? fit.toPlan({ lng: drawing.endLabelAt[0], lat: drawing.endLabelAt[1] }) : null
     out.push({
       key: `drawing:${drawing.id}`,
       drawingId: drawing.id,
@@ -298,8 +306,10 @@ export function boardDrawingTwins(drawings: Drawing[], fit: GeorefFit, margin = 
         label: drawing.label, fillOpacity: drawing.fillOpacity,
         labelDx: labelAt && mid ? labelAt.x - mid[0] : undefined,
         labelDy: labelAt && mid ? labelAt.y - mid[1] : undefined,
+        endDx: endAt && tagBase ? endAt.x - tagBase[0] : undefined,
+        endDy: endAt && tagBase ? endAt.y - tagBase[1] : undefined,
         teilstueck: drawing.teilstueck, content: drawing.content, lineNo: drawing.lineNo,
-        floorTag: drawing.floorTag,
+        floorTag: drawing.floorTag, truppId: drawing.truppId,
       },
     })
   }

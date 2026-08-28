@@ -39,4 +39,21 @@ describe('broader Plan content on the Karte', () => {
     expect(container.querySelector('.shape-glyph')).toBeTruthy()
     expect(screen.getAllByTestId('source')).toHaveLength(1)
   })
+
+  it('keeps a mirrored Leitung its FKS voice on the Karte too', () => {
+    const twins: MapContentTwin[] = [{
+      ...point({
+        id: 'ltg', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.1]],
+        arrow: true, teilstueck: true, content: 'W', lineNo: 2, floorTag: -1, marker: 'R', showDistance: true,
+      }),
+      coords: [[7.5, 47.5], [7.501, 47.5]],
+    }]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} />)
+    expect(container.querySelector('.line-fork')).toBeTruthy()
+    expect(screen.getByText('2 · W · -1')).toBeTruthy()        // the end tag
+    expect(screen.getAllByText('R').length).toBeGreaterThan(0) // the —R— rhythm
+    expect(container.querySelector('.draw-label')?.textContent).toMatch(/m ·/)
+    // the arrowhead rides the map's own registered icon in its own symbol source
+    expect(screen.getAllByTestId('source').length).toBe(2)
+  })
 })

@@ -3,8 +3,15 @@
  * Derived, pointer-inert and below the sheet's own annotations: there is still exactly one
  * editable source object. Tactical symbols/live vehicles keep using GeorefTwinsBoard because
  * those twins already have selection, source-jump and drag semantics of their own.
+ *
+ * A mirrored Leitung keeps its whole FKS voice — arrowhead, Teilstück-Gabel, marker letters,
+ * end tag and distance read-out. The strokes come from WbInkLayer; the decorations are drawn
+ * here in board px with the same helpers the sheet's own lines use (lib/lineStyle,
+ * lib/lineDecor), because the ink SVG is stretched 1×1 and would distort them. Distances are
+ * measured on the SOURCE geometry (geodesic, lib/geo) — the map already knows the truth, so a
+ * mirrored line reads its Länge even on a sheet that was never calibrated.
  */
-import type { CSSProperties } from 'react'
+import { Fragment, type CSSProperties } from 'react'
 import type { GeorefFit } from '../lib/georef'
 import type { BoardDrawingTwin, BoardEntityTwin } from '../lib/georefTwins'
 import { WbInkLayer } from './WbControls'
@@ -12,11 +19,15 @@ import { ShapeGlyph } from '../lib/shapes'
 import { TacticalSymbol } from '../lib/symbolRender'
 import { glyphFor } from '../lib/twinGlyph'
 import { noteScale, noteWPx } from '../lib/notes'
+import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
+import { lerpPoint, lookbackPoint, markerParamsAlong } from '../lib/lineStyle'
+import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
+import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { appConfig } from '../config/appConfig'
-import type { BoardAnno } from '../types'
+import type { BoardAnno, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
-export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName }: {
+export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities }: {
   entities: BoardEntityTwin[]
   drawings: BoardDrawingTwin[]
   fit: GeorefFit
@@ -25,6 +36,9 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   sW: number
   sH: number
   byName: Record<string, string>
+  /** the Atemschutz board, so a mirrored Leitung's tag carries its Trupp and clock tone */
+  trupps?: Trupp[]
+  truppSeverities?: Record<string, 1 | 2>
 }) {
   if (!sW || !sH || (!entities.length && !drawings.length)) return null
 
@@ -46,16 +60,86 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
     <div className={s.contentBoard} aria-hidden>
       <WbInkLayer annos={ink} draft={null} draftFloor={0} color="#1f6feb" width={5} dashed={false}
         hiddenTrails={new Set()} mapY={(_floor, y) => y} />
-      {drawings.flatMap(({ key, anno }) => {
-        if (!anno.label || !anno.pts?.length) return []
-        const points = anno.pts.map(([x, y]) => [x * sW, y * sH] as const)
-        const anchor = anno.kind === 'area'
-          ? [points.reduce((sum, p) => sum + p[0], 0) / points.length, points.reduce((sum, p) => sum + p[1], 0) / points.length]
-          : points[Math.floor((points.length - 1) / 2)]
-        return [<span key={`label-${key}`} className={`wb-line-label${anno.kind === 'area' ? ' wb-area-label' : ''}`}
-          style={{ left: 0, top: 0, transform: `translate(${anchor[0] + (anno.labelDx ?? 0) * sW}px, ${anchor[1] + (anno.labelDy ?? 0) * sH}px) translate(-50%, ${anno.kind === 'area' ? '-50%' : '-100%'})` }}>
-          {anno.label}
-        </span>]
+      {/* line/area decorations — the same feature set the sheet's own annotations render
+          (Whiteboard's decor pass), minus every drag affordance: this layer is a projection. */}
+      {drawings.flatMap(({ key, anno, drawing }) => {
+        if (!anno.pts?.length) return []
+        const bpx = anno.pts.map(([x, y]) => [x * sW, y * sH] as [number, number])
+        const color = anno.color || '#1f6feb'
+        const isArea = anno.kind === 'area'
+        const out: React.ReactNode[] = []
+
+        // labels: Länge/Fläche from the source geometry + the free text, at midpoint/centroid
+        const anchor = isArea
+          ? [bpx.reduce((sum, p) => sum + p[0], 0) / bpx.length, bpx.reduce((sum, p) => sum + p[1], 0) / bpx.length]
+          : bpx[Math.floor((bpx.length - 1) / 2)]
+        const lines: string[] = []
+        if (anno.showDistance && !isArea) {
+          const len = pathLengthM(drawing.coords)
+          lines.push(`${fmtDistance(len)} · ${hoseLengthHint(len)}`)
+        }
+        if (anno.showDistance && isArea && drawing.kind !== 'circle') lines.push(fmtArea(polygonAreaM2(drawing.coords)))
+        if (anno.label) lines.push(anno.label)
+        if (lines.length) {
+          out.push(<span key={`label-${key}`} className={`wb-line-label${isArea ? ' wb-area-label' : ''}`}
+            style={{ left: 0, top: 0, transform: `translate(${anchor[0] + (anno.labelDx ?? 0) * sW}px, ${anchor[1] + (anno.labelDy ?? 0) * sH}px) translate(-50%, ${isArea ? '-50%' : '-100%'})` }}>
+            {lines.map((t, j) => <div key={j}>{t}</div>)}
+          </span>)
+        }
+        // an Absperrkreis states its radius at the ring's top edge, exactly as the map does
+        if (drawing.kind === 'circle' && (drawing.radiusM ?? 0) > 0) {
+          const top = bpx.reduce((best, p) => (p[1] < best[1] ? p : best), bpx[0])
+          out.push(<span key={`radius-${key}`} className="wb-line-label"
+            style={{ left: 0, top: 0, transform: `translate(${top[0]}px, ${top[1]}px) translate(-50%, -100%)` }}>
+            {fmtDistance(drawing.radiusM!)}
+          </span>)
+        }
+        if (isArea || bpx.length < 2 || !(anno.arrow || anno.marker || hasLineDecor(anno))) return out
+
+        // arrowhead at the tip, sized to the line weight — same maths as the sheet's own pass
+        const end = bpx[bpx.length - 1]
+        const ahw = Math.max(7, (anno.width ?? 5) * 1.7)
+        const ahl = ahw * 2.1
+        const ref = lookbackPoint(bpx, Math.max(ahl, 16))
+        const dxr = end[0] - ref[0], dyr = end[1] - ref[1]
+        const dlen = Math.hypot(dxr, dyr) || 1
+        const ang = Math.atan2(dyr, dxr) * 180 / Math.PI
+        if (anno.arrow) {
+          const fwd = (anno.width ?? 5) * 0.6 + 6
+          const tip: [number, number] = [end[0] + (dxr / dlen) * fwd, end[1] + (dyr / dlen) * fwd]
+          out.push(<svg key={`arrow-${key}`} className="wb-arrowhead" width="80" height="80" viewBox="-40 -40 80 80" aria-hidden
+            style={{ left: 0, top: 0, color, transform: `translate(${tip[0]}px, ${tip[1]}px) translate(-50%, -50%)` }}>
+            <path transform={`rotate(${ang})`} d={`M0,0 L${-ahl},${-ahw} L${-ahl},${ahw} Z`} fill="currentColor" />
+          </svg>)
+        }
+        if (anno.teilstueck) {
+          out.push(<span key={`fork-${key}`} className="wb-line-deco" style={{ transform: `translate(${end[0]}px, ${end[1]}px) translate(-50%, -50%)` }}>
+            <TeilstueckFork angleDeg={ang} color={color} width={anno.width ?? 5} />
+          </span>)
+        }
+        const lineTrupp = truppForLine(anno, trupps)
+        if (anno.content || anno.lineNo != null || anno.floorTag != null || lineTrupp) {
+          const pe = bpx[bpx.length - 1]
+          const pp = bpx[bpx.length - 2] ?? pe
+          const ax = pp[0] + (pe[0] - pp[0]) * 0.72 + (anno.endDx ?? 0) * sW
+          const ay = pp[1] + (pe[1] - pp[1]) * 0.72 + (anno.endDy ?? -0.02) * sH
+          out.push(<span key={`tag-${key}`} className="wb-line-deco" style={{ transform: `translate(${ax}px, ${ay}px) translate(-50%, -50%)` }}>
+            <EndTag
+              lineNo={anno.lineNo} content={anno.content} floorTag={anno.floorTag}
+              trupp={lineTrupp ? truppTagText(lineTrupp) : undefined}
+              tone={lineTrupp ? truppLineTone(lineTrupp, truppSeverities?.[lineTrupp.id] ?? 0) : 'idle'}
+              color={color}
+            />
+          </span>)
+        }
+        if (anno.marker) {
+          const mps = markerParamsAlong(bpx).map(({ seg, t }) => lerpPoint(bpx[seg], bpx[seg + 1], t))
+          for (const [i, mp] of (mps.length ? mps : [anchor]).entries()) {
+            out.push(<span key={`mk-${key}-${i}`} className="wb-line-marker"
+              style={{ left: 0, top: 0, color, transform: `translate(${mp[0]}px, ${mp[1]}px) translate(-50%, -50%)` }}>{anno.marker}</span>)
+          }
+        }
+        return out
       })}
       {entities.map(({ key, entity, pt }) => {
         const pos: CSSProperties = { left: pt.x * sW, top: pt.y * sH }

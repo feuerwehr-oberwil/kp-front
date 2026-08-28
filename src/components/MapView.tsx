@@ -1377,7 +1377,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       ))}
 
       {!georefOn && georefPlanContent.length > 0 && (
-        <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing} />
+        <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing}
+          trupps={trupps} truppSeverities={truppSeverities} />
       )}
 
       {/* «Karte verknüpfen»: the numbered reference crosses, drag-to-fine-tune, tap-to-re-place */}
