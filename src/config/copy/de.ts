@@ -1658,6 +1658,8 @@ export const de = {
       barMany: '{n} Paare',
       // offene Punkte: auf dem Plan gesetzt, auf der Karte noch nicht zugeordnet
       barOpen: '{n} offen',
+      // Reihenfolge je Fläche: jeder Tipp zählt auf genau der Fläche weiter, auf der er geschah
+      sideProgress: 'Karte {map} · Modul {plan}',
       // ⚠️ `cancel` gehört noch der Rückfrage vor «Alle Punkte zurücksetzen» – dort bricht es
       // wirklich etwas ab. Der Ausstieg aus dem Modus heisst `closeMode`: er verwirft nichts.
       cancel: 'Abbrechen',

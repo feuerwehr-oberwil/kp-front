@@ -16,6 +16,7 @@ import {
   georefPointNo,
   georefQueueNo,
   georefMapQueueNo,
+  georefSideCount,
   georefReduce,
   georefSnapshot,
   georefWantsMap,
@@ -153,12 +154,12 @@ describe('georefReduce · placing a pair', () => {
     expect(s.mapQueue).toEqual([])
   })
 
-  it('the map tap completes the pair and re-arms for the next point', () => {
+  it('the map tap completes the pair and stays on the map for its next point', () => {
     let s = georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.3 } })
     s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } })
     expect(s.pairs).toEqual([{ plan: { x: 0.2, y: 0.3 }, lngLat: { lng: 7.5, lat: 47.5 }, kind: 'gesetzt' }])
     expect(s.queue).toEqual([])
-    expect(s.want).toBe('plan')
+    expect(s.want).toBe('map')
     // ⚠️ still armed: the third point is what earns a residual, so it has to be cheap
     expect(s.planId).toBe('modul2')
     expect(georefPointNo(s)).toBe(2)
@@ -179,7 +180,7 @@ describe('georefReduce · placing a pair', () => {
     s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.5005, lat: 47.4995 } })
     expect(s.pairs.map((p) => p.plan)).toEqual([{ x: 0.2, y: 0.3 }, { x: 0.6, y: 0.3 }, { x: 0.4, y: 0.8 }])
     expect(s.queue).toEqual([])
-    expect(s.want).toBe('plan') // …and only now back to the sheet
+    expect(s.want).toBe('map') // …and remains where the operator deliberately went
   })
 
   it('keeps existing map crosses draggable while unmatched plan points wait', () => {
@@ -579,6 +580,30 @@ describe('a pair may be started on either surface', () => {
     expect(s.pairs).toHaveLength(1)
     expect(s.queue).toHaveLength(1)
     expect(s.mapQueue).toHaveLength(0)
+  })
+
+  it('counts each surface independently and never navigates away after a match', () => {
+    let s = run(armed(), [
+      { type: 'goMap' },
+      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
+      { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } },
+    ])
+    expect(georefSideCount(s, 'map')).toBe(2)
+    expect(georefSideCount(s, 'plan')).toBe(0)
+
+    s = georefReduce(s, { type: 'goPlan' })
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.2, y: 0.2 } })
+    expect(s.want).toBe('plan')
+    expect(georefSideCount(s, 'map')).toBe(2)
+    expect(georefSideCount(s, 'plan')).toBe(1)
+    expect(georefPointNo(s)).toBe(2)
+
+    s = georefReduce(s, { type: 'goMap' })
+    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.7, lat: 47.7 } })
+    expect(s.want).toBe('map')
+    expect(georefSideCount(s, 'map')).toBe(3)
+    expect(georefSideCount(s, 'plan')).toBe(1)
+    expect(georefPointNo(s)).toBe(4)
   })
 })
 

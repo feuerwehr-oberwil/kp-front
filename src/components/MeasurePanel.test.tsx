@@ -45,6 +45,24 @@ describe('MeasurePanel · Als Linie übernehmen', () => {
   })
 })
 
+describe('MeasurePanel · automatic Kartenverknüpfung', () => {
+  const base = { profile: null, profileLoading: false, showProfile: false } as const
+
+  it('opens an empty linked Plan with only the automatic reference source', () => {
+    const note = appConfig.copy.whiteboard.scale.chipAutoHint
+    render(<MeasurePanel {...base} mode="line" coords={[]} scaleNote={note} />)
+    expect(screen.getByRole('status').textContent).toBe(note)
+    expect(screen.queryByText(C.hintLine)).toBeNull()
+  })
+
+  it('restores the point instruction once the first point has been placed', () => {
+    const note = appConfig.copy.whiteboard.scale.chipAutoHint
+    render(<MeasurePanel {...base} mode="line" coords={[strecke[0]]} scaleNote={note} />)
+    expect(screen.getByText(C.hintLine)).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toBe(note)
+  })
+})
+
 // «Als Fläche übernehmen» — the twin of the line adopt, on the measure tool's area mode: the
 // measured ring becomes a drawn Fläche. Same panel, so again both surfaces at once.
 describe('MeasurePanel · Als Fläche übernehmen', () => {

@@ -1168,6 +1168,7 @@ export const en: Localizable<Copy> = {
       barOne: '1 pair',
       barMany: '{n} pairs',
       barOpen: '{n} open',
+      sideProgress: 'Map {map} · Module {plan}',
       cancel: 'Cancel',
       closeMode: 'Close',
       done: 'Done',

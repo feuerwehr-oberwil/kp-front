@@ -10,7 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { confirmDialog, toast } from '../lib/ui'
-import { beginTap, georefDispatch, georefLamp, type GeorefLamp, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefPlacing, georefPointNo, georefQueueNo, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type TapGesture } from '../lib/georefMode'
+import { beginTap, georefDispatch, georefLamp, type GeorefLamp, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefPlacing, georefPointNo, georefQueueNo, georefSideCount, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type TapGesture } from '../lib/georefMode'
 import { fitSimilarity } from '../lib/georef'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { GeorefPair, PlanPt } from '../lib/georef'
@@ -450,13 +450,12 @@ function georefPrompt(mode: GeorefModeState) {
     //    lines of prose standing between the operator and the buttons.
     hint: mode.edit ? C.subRe : undefined,
     explain: mode.edit ? undefined : C.promptBoth,
-    // «3 Paare gesetzt · 2 offen» — what stands, and what is still waiting to be matched
-    status: [
-      mode.pairs.length === 0 ? C.barNone
-        : mode.pairs.length === 1 ? C.barOne
-        : fillTemplate(C.barMany, { n: String(mode.pairs.length) }),
-      ...(mode.queue.length + mode.mapQueue.length ? [fillTemplate(C.barOpen, { n: String(mode.queue.length + mode.mapQueue.length) })] : []),
-    ].join(' · '),
+    // Two independent counts make the ordering explicit. «2 Paare · 1 offen» did not say
+    // WHICH surface was ahead, precisely when that was the next thing the operator needed.
+    status: fillTemplate(C.sideProgress, {
+      map: String(georefSideCount(mode, 'map')),
+      plan: String(georefSideCount(mode, 'plan')),
+    }),
   }
 }
 
@@ -576,6 +575,7 @@ export function GeorefInstrument({ mode }: { mode: GeorefModeState }) {
             for hiding it there is room — five lines of card between the operator and the
             buttons — and this bar has a whole screen of width. Same sentence, same source. */}
         {(p.hint ?? p.explain) && <span className={s.promptHint}>{p.hint ?? p.explain}</span>}
+        {!mode.check && <span className={s.sideProgress}>{p.status}</span>}
         {/* ⚠️ VISIBLE, not a `title=`. This is the one sentence that says what the next point
             buys — and a hover tooltip never fires on the iPad this bar was built for, so on the
             primary field device it said nothing at all while the phone card printed it in full.
@@ -691,14 +691,14 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
           its card, immediately below the status that says which point is being worked on. */}
       {!mode.check && <div className={s.surfaceSwitch} role="group" aria-label={C.title}>
         <button type="button" className={shownSurface === 'map' ? s.surfaceOn : ''}
-          aria-pressed={shownSurface === 'map'} disabled={!mapEnabled}
+          aria-label={appConfig.copy.navRail.map} aria-pressed={shownSurface === 'map'} disabled={!mapEnabled}
           onClick={() => georefDispatch({ type: 'goMap' })}>
-          <Icon id="map" />{appConfig.copy.navRail.map}
+          <Icon id="map" />{appConfig.copy.navRail.map}<span>{georefSideCount(mode, 'map')}</span>
         </button>
         <button type="button" className={shownSurface === 'plan' ? s.surfaceOn : ''}
-          aria-pressed={shownSurface === 'plan'} disabled={!planEnabled}
+          aria-label={planLabel ?? C.checkPlan} aria-pressed={shownSurface === 'plan'} disabled={!planEnabled}
           onClick={() => georefDispatch({ type: 'goPlan' })}>
-          <Icon id="doc" />{planLabel ?? C.checkPlan}
+          <Icon id="doc" />{planLabel ?? C.checkPlan}<span>{georefSideCount(mode, 'plan')}</span>
         </button>
       </div>}
       {/* ── the one big action ── on its own row, and it NAMES the point it is about to set.

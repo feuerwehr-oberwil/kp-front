@@ -240,9 +240,11 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
         ...s,
         pairs: replacePair(s.pairs, { plan: open, lngLat: a.lngLat, kind: 'gesetzt' }),
         queue: rest,
-        // stay on the map while points are still open — that is what «zuordnen» is; the phone
-        // goes back to the sheet by itself once the last one is matched
-        want: rest.length ? 'map' : 'plan',
+        // Stay on the surface the operator chose. A map tap advances the MAP sequence, just as
+        // a plan tap advances the PLAN sequence; completing the last open counterpart must not
+        // silently navigate away before another point can be placed here. On a phone the two
+        // explicit surface buttons are the only navigation inside this mode.
+        want: 'map',
       }
     }
     case 'pick': {
@@ -399,8 +401,14 @@ export function georefMatching(s: GeorefModeState): boolean {
  */
 export function georefPointNo(s: GeorefModeState): number {
   if (s.edit) return s.edit.pending ? s.pairs.length + s.edit.idx + 1 : s.edit.idx + 1
-  if (s.want === 'map') return s.pairs.length + (s.queue.length ? 1 : s.mapQueue.length + 1)
-  return s.pairs.length + (s.mapQueue.length ? 1 : s.queue.length + 1)
+  return georefSideCount(s, s.want) + 1
+}
+
+/** How many numbered marks stand on ONE surface, paired or still waiting. Keeping this as the
+ *  source for labels/progress makes the ordering visible and symmetric: tapping Karte advances
+ *  Karte, tapping Modul advances Modul, regardless of which side started or ends the sequence. */
+export function georefSideCount(s: GeorefModeState, side: GeorefSide): number {
+  return s.pairs.length + (side === 'plan' ? s.queue.length : s.mapQueue.length)
 }
 
 /** The number a queued point carries on the sheet: pairs first, then the queue in order. */
@@ -712,10 +720,11 @@ export function startGeorefMode(planId: string, aspect: number, opts?: { storage
 /**
  * The phone's surface hop, wired in ONE place (IncidentWorkspace owns `mode`).
  *
- * On a phone there is no room for the two-pane split, so the app follows the mode: tap on the
- * plan → the Karte comes up for the map half → back to the plan for the next point. Nobody goes
- * looking for the other surface. On anything wider both halves are on screen at once and `want`
- * is deliberately ignored.
+ * On a phone there is no room for the two-pane split, so the app follows the explicit surface
+ * switch in the mode card. Placement itself never navigates: somebody may mark three points on
+ * the Karte, switch once, then mark the same three on the Modul — or do the exact reverse. On
+ * anything wider both halves are on screen at once and `want` only drives the shared prompt and
+ * loupe.
  */
 export function useGeorefSurfaceBridge(go: (surface: 'map' | 'plans') => void) {
   const isPhone = useIsPhone()

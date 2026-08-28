@@ -72,6 +72,26 @@ const notify = () => listeners.forEach((l) => l())
  *  land on top of it with the server's older answer. */
 let writeSeq = 0
 
+/** The endpoint replaces the WHOLE document. Keep writes in call order so linking several
+ *  Modules in quick succession cannot let a slower, older PUT land after the newer aggregate
+ *  and erase it. Rejections are swallowed only by the chain itself; each caller still receives
+ *  its own failure, while the next queued write remains able to run. */
+let writeTail: Promise<void> = Promise.resolve()
+
+/** Serialize the read-modify-write as one transaction too. Serializing only the PUT is not
+ *  enough: two callers can otherwise both read the same base before either has added its Modul,
+ *  producing two perfectly ordered writes whose second body still omits the first change. */
+let updateTail: Promise<void> = Promise.resolve()
+
+function updateStationPlanScales(change: (current: StationPlanScales) => StationPlanScales): Promise<void> {
+  const update = updateTail.catch(() => {}).then(async () => {
+    const current = await baseForWrite()
+    await saveStationPlanScales(change(current))
+  })
+  updateTail = update
+  return update
+}
+
 export async function loadStationPlanScales(): Promise<StationPlanScales> {
   try {
     const next = normalize(await apiGet<StationPlanScales>('/api/plan-scales'))
@@ -101,7 +121,9 @@ export async function saveStationPlanScales(next: StationPlanScales): Promise<vo
   resolved = next
   void idbSet(CACHE_KEY, next)
   notify()
-  await apiPut('/api/plan-scales', next)
+  const write = writeTail.catch(() => {}).then(() => apiPut('/api/plan-scales', next).then(() => undefined))
+  writeTail = write
+  await write
 }
 
 /**
@@ -160,13 +182,12 @@ async function baseForWrite(): Promise<StationPlanScales> {
 
 /** Save the given calibration as the station default (all uncalibrated plans). */
 export async function saveStationDefault(scale: PlanScale): Promise<void> {
-  return saveStationPlanScales({ ...(await baseForWrite()), default: scale })
+  return updateStationPlanScales((cur) => ({ ...cur, default: scale }))
 }
 
 /** Save a persistent per-plan override (this plan, every incident). */
 export async function saveStationPlanOverride(planId: string, scale: PlanScale): Promise<void> {
-  const cur = await baseForWrite()
-  return saveStationPlanScales({ ...cur, byPlan: { ...cur.byPlan, [planId]: scale } })
+  return updateStationPlanScales((cur) => ({ ...cur, byPlan: { ...cur.byPlan, [planId]: scale } }))
 }
 
 /**
@@ -206,9 +227,10 @@ export function georefForPlan(georefKey: string): Georef | null {
  *  `baseForWrite`, which is where the never-loaded trap is handled: this REJECTS rather than
  *  writing a georeference over a station document it could not read. */
 export async function saveGeoref(georefKey: string, georef: Georef): Promise<void> {
-  const cur = await baseForWrite()
-  const georefByPlan = { ...cur.georefByPlan }
-  if (georef.pairs.length) georefByPlan[georefKey] = georef
-  else delete georefByPlan[georefKey]
-  return saveStationPlanScales({ ...cur, georefByPlan })
+  return updateStationPlanScales((cur) => {
+    const georefByPlan = { ...cur.georefByPlan }
+    if (georef.pairs.length) georefByPlan[georefKey] = georef
+    else delete georefByPlan[georefKey]
+    return { ...cur, georefByPlan }
+  })
 }
