@@ -40,6 +40,14 @@ import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsM
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
+
+// Every edit handle of a SELECTED drawing (node pads, «+» midpoints, grow arrows, the hub, the
+// move grip, detach chips — and the marquee group's) rides at MARKER_Z.selected: a react-map-gl
+// marker defaults to z-auto, which paints BELOW every resting symbol/team (MARKER_Z 4–8), so the
+// very handles a selection exists for disappeared behind the symbols the line ran under — the
+// endpoint could not be grabbed to extend it (28.08. field feedback). One stacking table for all
+// of it (lib/labelPass), like the end tags directly below.
+const handleZ: React.CSSProperties = { zIndex: MARKER_Z.selected }
 // The pass measures a label before it exists in the DOM, so the chrome around its text has to
 // be mirrored here. When a label's CSS changes, these change with it — each is named for the
 // rule it comes from.
@@ -1569,6 +1577,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={p[0]}
           latitude={p[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDrag={(e) => { vertexPress.cancel(); onDraftDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}
           onDragEnd={(e) => onDraftDrag?.(i, [e.lngLat.lng, e.lngLat.lat])}
@@ -1591,7 +1600,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           const a = measurePoints[i], b = measurePoints[(i + 1) % n]
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
-            <Marker key={`mi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
+            <Marker key={`mi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={handleZ}>
               <NewNodeHandle title={appConfig.copy.measure.insertPoint}
                 onInsert={(ev) => {
                   onMeasureInsert(i + 1, mid)
@@ -1614,6 +1623,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={p[0]}
           latitude={p[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDragStart={() => setMeasureDragNode(i)}
           onDrag={(e) => { vertexPress.cancel(); onMeasureDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}
@@ -1767,7 +1777,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {/* selected drawing — on-canvas edit handles: a move grip at the centre, a delete
           ✕ above it, and (for non-huge shapes) a draggable handle on every vertex */}
       {editDraw && editHubAt && (
-        <Marker longitude={editHubAt[0]} latitude={editHubAt[1]} anchor="center">
+        <Marker longitude={editHubAt[0]} latitude={editHubAt[1]} anchor="center" style={handleZ}>
           <div className="draw-edit-hub">
             {onDrawingEdit && !editCircle && (
               <div className="draw-rotor">
@@ -1801,6 +1811,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={editHubAt[0]}
           latitude={editHubAt[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDragStart={() => { beginSheetPeek(); moveRef.current = { start: editHubAt, coords: editDraw.coords }; onDrawingEdit(editDraw.id, editDraw.coords, 'start') }}
           onDrag={(e) => { const m = moveRef.current; if (!m) return; const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, bodyMovedCoords(editDraw.id, dx, dy), 'move') }}
@@ -1819,7 +1830,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           const a = editDraw.coords[i], b = editDraw.coords[(i + 1) % n]
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
-            <Marker key={`di${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
+            <Marker key={`di${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={handleZ}>
               <NewNodeHandle title={appConfig.copy.measure.insertPoint}
                 onInsert={(ev) => {
                   onDrawingVertexInsert(editDraw.id, i + 1, mid)
@@ -1846,6 +1857,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={p[0]}
           latitude={p[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDragStart={() => { beginSheetPeek(); endpoint && onDrawingAttachment ? beginEndpointDrag(editDraw.id, endpoint, p) : onDrawingEdit(editDraw.id, editDraw.coords, 'start') }}
           onDrag={(e) => { vertexPress.cancel(); endpoint && onDrawingAttachment ? moveEndpointDrag([e.lngLat.lng, e.lngLat.lat]) : onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'move') }}
@@ -1902,7 +1914,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const idx = ep === 'start' ? 0 : coords.length
         const grown = ep === 'start' ? [at, ...coords] : [...coords, at]
         return (
-          <Marker key={`grow-${ep}`} longitude={at[0]} latitude={at[1]} anchor="center">
+          <Marker key={`grow-${ep}`} longitude={at[0]} latitude={at[1]} anchor="center" style={handleZ}>
             <NewNodeHandle
               className="draw-grow" icon="arrow"
               title={appConfig.copy.measure.extendLine}
@@ -1933,7 +1945,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           return [ll.lng, ll.lat]
         }
         return (
-          <Marker key={`detach-${ep}`} longitude={pt[0]} latitude={pt[1]} anchor="center" offset={[18, -18]}>
+          <Marker key={`detach-${ep}`} longitude={pt[0]} latitude={pt[1]} anchor="center" offset={[18, -18]} style={handleZ}>
             <span className="line-detach-chip" role="button" title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
               onPointerDown={(ev) => ev.stopPropagation()}
               onClick={(ev) => { ev.stopPropagation(); onDrawingAttachment(editDraw.id, ep, undefined, detachAt()) }}><Icon id="close" /></span>
@@ -1943,7 +1955,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* marquee group (≥2 drawings + entities): one move grip + delete at the combined centre */}
       {groupCentroid && (
-        <Marker longitude={groupCentroid[0]} latitude={groupCentroid[1]} anchor="center">
+        <Marker longitude={groupCentroid[0]} latitude={groupCentroid[1]} anchor="center" style={handleZ}>
           <div className="draw-edit-hub">
             {onGroupDelete && (
               <button
@@ -1962,6 +1974,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={groupCentroid[0]}
           latitude={groupCentroid[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDragStart={() => { beginSheetPeek(); groupMoveRef.current = { start: groupCentroid }; onGroupMove(selectedDrawIds, selectedEntityIds, 0, 0, 'start') }}
           onDrag={(e) => { const s = groupMoveRef.current; if (!s) return; onGroupMove(selectedDrawIds, selectedEntityIds, e.lngLat.lng - s.start[0], e.lngLat.lat - s.start[1], 'move') }}
