@@ -41,7 +41,7 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
    *  thing being placed, and a tap during «Karte verknüpfen» is half of a reference pair. */
   interactive?: boolean
   selectedKey?: string | null
-  /** tap: open this twin's details, read-only (never edit — see GeorefTwinPanel) */
+  /** tap: open the source-backed editor on this surface */
   onOpen: (twin: MapTwin) => void
   /**
    * Drag a projection to move the plan annotation it mirrors.
@@ -66,7 +66,9 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
         const movable = interactive && selected && !!onMove
         const name = twinName(a)
         const veh = a.symbol === appConfig.symbols.vehicleName
-        const rot = (a.rotation ?? 0) - bearing
+        // Plan rotation is paper-relative. Plan-up points at bearing −fit.rotationDeg, then the
+        // live map bearing is removed so the projected glyph stays pinned to the ground.
+        const rot = (a.rotation ?? 0) - t.fit.rotationDeg - bearing
         const svg = veh ? vehicleSymbolSvg(name, rot) : glyphFor(a, byName)
         const rawCaption = symbolCaptionText(a, captionMode)
         return (

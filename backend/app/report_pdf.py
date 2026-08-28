@@ -96,6 +96,9 @@ class ReportMetaIn(BaseModel):
     remarks: str | None = None
     lehren: str | None = None
     kontaktperson: str | None = None
+    #: their phone number — printed beside the name so the callback in the Nachbearbeitung
+    #: (the owner who has to be reached tomorrow) is on the paper, not in someone's memory
+    kontaktpersonTelefon: str | None = None
     #: «Entfällt» — the Kontaktperson was ANSWERED, not left open (src/lib/workspace.ts). The
     #: Fehlalarm in an empty Altersheim and the Ölspur on a Kantonsstrasse have nobody to name,
     #: and on a signed sheet that must not read like a field somebody forgot: the row then prints
@@ -559,6 +562,7 @@ L = {
     "address": "Adresse / Objekt",
     "einsatzleiter": "Einsatzleiter",
     "kontaktperson": "Kontaktperson",
+    "kontaktpersonTelefon": "Telefon",
     "alarmierung": "Alarmierung",
     "ausgerueckt": "Ausgerückt",
     "incidentEnd": "Einsatzende",
@@ -1294,6 +1298,16 @@ def compose_report_pdf(
     # second one — which is exactly what the app's «Entfällt» exists to say (lib/workspace.ts).
     kontaktperson = m.kontaktperson or (L["entfaellt"] if m.kontaktpersonNone else None)
     rueckmeldung = m.rueckmeldungElz or (L["entfaellt"] if m.rueckmeldungNone else None)
+    # Name and Telefon share the row (one person, one line) — except under «Entfällt», where a
+    # separate empty Telefon rule would read as a second field somebody forgot to fill in.
+    kontakt_row = (
+        [{"label": L["kontaktperson"], "w": 1.0, "value": kontaktperson}]
+        if m.kontaktpersonNone
+        else [
+            {"label": L["kontaktperson"], "w": 0.6, "value": kontaktperson},
+            {"label": L["kontaktpersonTelefon"], "w": 0.4, "value": m.kontaktpersonTelefon},
+        ]
+    )
     half = 0.5
     story.append(
         _FormRows(
@@ -1312,7 +1326,7 @@ def compose_report_pdf(
                     {"label": L["einsatzleiter"], "w": half, "value": m.einsatzleiter},
                     {"label": L["gerettete"], "w": half, "value": m.gerettete},
                 ],
-                [{"label": L["kontaktperson"], "w": 1.0, "value": kontaktperson}],
+                kontakt_row,
                 [{"label": L["rueckmeldungElz"], "w": 1.0, "value": rueckmeldung}],
             ],
             boxed=True,

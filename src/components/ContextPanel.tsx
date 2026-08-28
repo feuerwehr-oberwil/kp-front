@@ -163,16 +163,15 @@ export interface SymbolView extends SymbolProps {
   badge?: string
 }
 
-interface Props {
+export interface ContextPanelProps {
   entity: SymbolView
   svg?: string
   onClose: () => void
   /** recenter the surface on this object — absent where the surface can't (yet) recenter */
   onCenter?: () => void
   /** «Zum Original» — this panel MIRRORS an object that lives on the OTHER surface (a
-   *  Georeferenz twin, see components/GeorefTwinPanel). Such a panel is read-only throughout,
-   *  and this is the one row that leaves it: the jump to the surface the thing actually lives
-   *  on, where it can be edited. Absent everywhere else. */
+   *  Georeferenz twin, see components/GeorefTwinPanel). Editing may write through to that one
+   *  source in place; this optional row remains the explicit way to inspect it on its own surface. */
   onOriginal?: () => void
   originalLabel?: string
   /** Move ownership of a projected object onto the surface currently being viewed. */
@@ -302,7 +301,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onCaptureMittel, mittelCountFor }: Props) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onCaptureMittel, mittelCountFor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -371,6 +370,16 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // vehicle override), and naming one puts that person on the Anwesenheit — so the draft stays
   // here until the field is left and exactly one name is committed. null = nothing being typed.
   const [driverDraft, setDriverDraft] = useState<string | null>(null)
+  // A tap on the header title of a labelled Fahrzeug falls through to its «Bezeichnung» field:
+  // the header is where the name SHOWS, so it is where people tap to change it — and whoever
+  // does not spot the field further down was stuck. The tap brings the field into view and
+  // pops its menu (Combo · openTick).
+  const bezRef = useRef<HTMLLabelElement>(null)
+  const [bezTick, setBezTick] = useState(0)
+  const openBezeichnung = () => {
+    bezRef.current?.scrollIntoView?.({ block: 'center' })
+    setBezTick((t) => t + 1)
+  }
   // a note edits its content in a textarea; every other symbol's header is read-only now
   const noteTextRef = useRef<HTMLTextAreaElement>(null)
   // Follow the label when it changes OUTSIDE this panel. A note is the case that needs it: its
@@ -563,10 +572,19 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               one symbol, that is what Notizen is for. The one real exception is the generic
               Fahrzeug, whose label IS its identity; that moved to a «Bezeichnung» field below,
               where it reads like every other field and does not fight the header's drag on a
-              phone (components/SheetGrip · useSheetDrag). */}
-          <span className="ctx-title-input ctx-title-ro">
-            {isNote ? N.section : labelled ? (title || C.titlePlaceholder) : (symbolName || title || C.titlePlaceholder)}
-          </span>
+              phone (components/SheetGrip · useSheetDrag). Its header title stays a BUTTON that
+              falls through to that field (openBezeichnung) — the header is where the name
+              shows, so it is where people tap to change it. */}
+          {labelled && !readOnly ? (
+            <button type="button" className="ctx-title-input ctx-title-btn" title={C.labelField}
+              onClick={openBezeichnung}>
+              {title || C.titlePlaceholder}
+            </button>
+          ) : (
+            <span className="ctx-title-input ctx-title-ro">
+              {isNote ? N.section : labelled ? (title || C.titlePlaceholder) : (symbolName || title || C.titlePlaceholder)}
+            </span>
+          )}
           {/* a note's subtitle IS «Notiz», which the title above already says — one word is enough */}
           {entity.subtitle && !isNote && <p>{entity.subtitle}</p>}
         </div>
@@ -655,8 +673,12 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               state keeps the literal same row/chrome and disables it: removing unset controls
               made the mirrored object's sidebar a different, mostly empty object. */}
           {driver && (
-            <label className="kv-driver">
-              <span>{C.driverLabel}</span>
+            // The SAME row as the placed vehicle's preset «Fahrer» (label left, picker right —
+            // .field): it used to be its own full-width block, so the one field a live vehicle
+            // offers looked like a different kind of thing than the identical field next door.
+            // A <label>, so tapping the word opens the picker.
+            <label className="field">
+              <span className="kv-key-ro">{C.driverLabel}</span>
               {/* ⚠️ The SAME picker as every other roster field (sweep, 10.08.). This one had no
                   Dienstgrad, no «unter AS / Magazin / nicht anwesend» and no rank ordering — on
                   the one field where naming somebody who is already under Atemschutz is the
@@ -773,11 +795,12 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
           {labelled && (readOnly ? (
             <div className="field"><span>{C.labelField}</span><b className="kv-val-ro">{title || '–'}</b></div>
           ) : (
-            <label className="field">
+            <label className="field" ref={bezRef}>
               <span>{C.labelField}</span>
               <Combo
                 value={title} options={titleOptions ?? []} placeholder={C.titlePlaceholder}
                 allowCustom customLabel={C.labelCustom}
+                openTick={bezTick}
                 onChange={(v) => { changeTitle(v); onTitle(v) }}
               />
             </label>

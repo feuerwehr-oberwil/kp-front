@@ -13,7 +13,7 @@ const props = {
   title: 'Brandherd – gespiegelt',
 }
 
-describe('a read-only Georeferenz twin', () => {
+describe('a Georeferenz twin mark', () => {
   it('opens its details on a tap', () => {
     const onOpen = vi.fn()
     const { getByRole } = render(<TwinMark {...props} onOpen={onOpen} />)

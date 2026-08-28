@@ -19,7 +19,11 @@ import type { BoardTwin } from '../lib/georefTwins'
 afterEach(cleanup)
 
 const tlf = { id: 'e1', kind: 'symbol', layer: 'lage', coord: [8.0005, 47.0005], label: 'TLF Oberwil' } as Entity
-const twinAt = (x: number, y: number): BoardTwin => ({ key: 'modul2:e1', kind: 'symbol', entityId: 'e1', pt: { x, y }, entity: tlf })
+const TWIN_FIT = fitSimilarity([
+  { plan: { x: 0, y: 0 }, lngLat: { lng: 8, lat: 47 } },
+  { plan: { x: 1, y: 0 }, lngLat: { lng: 8.001, lat: 47 } },
+], 1)!
+const twinAt = (x: number, y: number): BoardTwin => ({ key: 'modul2:e1', kind: 'symbol', entityId: 'e1', pt: { x, y }, entity: tlf, fit: TWIN_FIT })
 
 const SW = 1000, SH = 500
 const renderBoard = (onMove?: typeof vi.fn extends never ? never : ((t: BoardTwin, p: { x: number; y: number }, ph: 'start' | 'move' | 'end') => void)) =>

@@ -109,8 +109,9 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   // sheet is written on one — the header fields, the roster clocks, the Rückmeldung and the
   // Alarmierungs-/Ausrückzeiten grid. There is no `__:__` left in either document.
   // Details box — the full paper-form header (canonical form, stats-integration.md
-  // Table A). Long-hand fields (Einsatz, Adresse, Kontaktperson, Eigentümer) get FULL
-  // lines; date/times/EL/Gerettete are short. 8 mm row pitch = space to actually write.
+  // Table A). Long-hand fields (Einsatz, Adresse, Eigentümer) get FULL lines; the
+  // Kontaktperson shares theirs with the Telefon (one person, one line — mirrors the app
+  // and the Rapport); date/times/EL/Gerettete are short. 8 mm row pitch = space to write.
   const wFull = A4.w - 2 * M - 6
   const wThird = (A4.w - 2 * M - 18) / 3
   // ⚠️ The frame is hung 6mm above the FIRST BASELINE, not 4. A 9.5pt cap is 3.4mm tall, so at
@@ -122,7 +123,8 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   field(C.sheetDate, M + 3, wThird, y + 17)
   field(C.sheetAlarm, M + 6 + wThird, wThird, y + 17)
   field(C.sheetEnde, M + 9 + 2 * wThird, wThird, y + 17)
-  field(C.sheetKontakt, M + 3, wFull, y + 25)
+  field(C.sheetKontakt, M + 3, colW - 3, y + 25)
+  field(C.sheetKontaktTelefon, col2X, colW - 3, y + 25)
   field(C.sheetEigentuemer, M + 3, wFull, y + 33)
   field(C.sheetEl, M + 3, colW - 3, y + 41)
   field(C.sheetGerettete, col2X, colW - 3, y + 41)

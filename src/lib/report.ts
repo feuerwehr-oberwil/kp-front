@@ -670,6 +670,7 @@ export function spanAwareClock(bounds?: IncidentBounds): (iso?: string | null) =
 /** Human names for the Rapportangaben, for the Verlaufszeile that records a change to them. */
 const META_FIELD_LABELS: Record<string, string> = {
   einsatzleiter: 'Einsatzleiter', kontaktperson: 'Kontaktperson', kommandant: 'Kommandant',
+  kontaktpersonTelefon: 'Telefon Kontaktperson',
   summary: 'Kurzbericht', remarks: 'Bemerkungen', lehren: 'Lehren',
   endedAt: 'Einsatzende', ausgeruecktAt: 'Ausgerückt', alarmiertAt: 'Alarmierung',
   gerettete: 'Gerettete', rueckmeldungElz: 'Rückmeldung ELZ',
@@ -696,7 +697,8 @@ const META_QUIET = new Set(['erfasser', 'krokiPrint', 'linksDone', 'printJob'])
  *  Bemerkung is a paragraph — quoting it would turn the log into a second copy of the rapport,
  *  so those report only THAT they were written (see `_prose`). */
 const META_SHORT = new Set([
-  'einsatzleiter', 'kontaktperson', 'kommandant', 'endedAt', 'ausgeruecktAt', 'alarmiertAt',
+  'einsatzleiter', 'kontaktperson', 'kontaktpersonTelefon', 'kommandant', 'endedAt',
+  'ausgeruecktAt', 'alarmiertAt',
 ])
 
 /** Free-text fields: say what happened to them, never what they now say. */

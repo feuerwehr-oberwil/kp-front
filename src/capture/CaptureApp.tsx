@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { scrollBehavior } from '../lib/reducedMotion'
-import { fillTemplate, hhmm, stripUnprintable } from '../lib/format'
+import { fillTemplate, hhmm, stripUnprintable, telHref } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { currentLineFor, visibleMittel } from '../lib/mittel'
@@ -159,7 +159,7 @@ function AccHead({ open, label, sub, onToggle }: { open: boolean; label: string;
 // incident+field — a phone lock mid-sentence must not lose the Kurzbericht. The draft clears
 // once the server accepted the text; a restored draft is unsaved by definition (drafts clear
 // on success), so it flushes right after mount.
-function DraftField({ incidentId, field, saved, commit, textarea, number, className, placeholder, ariaLabel, autoCapitalize, enterKeyHint }: {
+function DraftField({ incidentId, field, saved, commit, textarea, number, tel, className, placeholder, ariaLabel, autoCapitalize, enterKeyHint }: {
   incidentId: string
   field: string
   /** current server value ('' = unset) */
@@ -168,6 +168,7 @@ function DraftField({ incidentId, field, saved, commit, textarea, number, classN
   commit: (raw: string) => Promise<boolean>
   textarea?: boolean
   number?: boolean
+  tel?: boolean
   className: string
   placeholder: string
   ariaLabel: string
@@ -203,8 +204,8 @@ function DraftField({ incidentId, field, saved, commit, textarea, number, classN
       onChange={(e) => onChange(e.target.value)} />
   }
   return (
-    <input {...shared} type={number ? 'number' : 'text'} min={number ? 0 : undefined}
-      inputMode={number ? 'numeric' : undefined}
+    <input {...shared} type={number ? 'number' : tel ? 'tel' : 'text'} min={number ? 0 : undefined}
+      inputMode={number ? 'numeric' : tel ? 'tel' : undefined}
       autoCapitalize={autoCapitalize} autoCorrect="off" autoComplete="off" spellCheck={false}
       enterKeyHint={enterKeyHint} onChange={(e) => onChange(e.target.value)} />
   )
@@ -458,6 +459,7 @@ export default function CaptureApp() {
 
   const endedAt = rm?.endedAt
   const kontaktperson = rm?.kontaktperson
+  const kontaktTel = rm?.kontaktpersonTelefon
   const presentCount = Object.values(attendance).filter((a) => a.status === 'present').length
 
   const savedToast = () => toast(C.savedOk, { icon: 'check', tone: 'success', duration: 1600 })
@@ -1150,16 +1152,35 @@ export default function CaptureApp() {
               </div>
               <div className="cv-row" data-step="kontaktperson">
                 <span>{C.kontaktperson}</span>
-                <DraftField key={`${incident.id}:kontaktperson`} incidentId={incident.id} field="kontaktperson"
-                  saved={kontaktperson ?? ''} className="cv-input" placeholder={C.kontaktpersonPlaceholder}
-                  ariaLabel={C.kontaktperson} autoCapitalize="words" enterKeyHint="done"
-                  commit={async (raw) => {
-                    const v = raw.trim()
-                    if (v === (kontaktperson ?? '')) return true
-                    const ok = await flushMeta({ kontaktperson: v })
-                    if (ok) savedToast()
-                    return ok
-                  }} />
+                <div className="cv-row-controls cv-kontakt">
+                  <DraftField key={`${incident.id}:kontaktperson`} incidentId={incident.id} field="kontaktperson"
+                    saved={kontaktperson ?? ''} className="cv-input cv-kontakt-name" placeholder={C.kontaktpersonPlaceholder}
+                    ariaLabel={C.kontaktperson} autoCapitalize="words" enterKeyHint="done"
+                    commit={async (raw) => {
+                      const v = raw.trim()
+                      if (v === (kontaktperson ?? '')) return true
+                      const ok = await flushMeta({ kontaktperson: v })
+                      if (ok) savedToast()
+                      return ok
+                    }} />
+                  <DraftField key={`${incident.id}:kontaktpersonTelefon`} incidentId={incident.id} field="kontaktpersonTelefon"
+                    saved={kontaktTel ?? ''} className="cv-input cv-kontakt-tel" placeholder={C.kontaktpersonTelefonPlaceholder}
+                    ariaLabel={C.kontaktpersonTelefon} tel enterKeyHint="done"
+                    commit={async (raw) => {
+                      const v = raw.trim()
+                      if (v === (kontaktTel ?? '')) return true
+                      const ok = await flushMeta({ kontaktpersonTelefon: v })
+                      if (ok) savedToast()
+                      return ok
+                    }} />
+                  {/* dials the SAVED number — this surface lives on the phone in someone's hand */}
+                  {telHref(kontaktTel) && (
+                    <a className="cv-call" href={telHref(kontaktTel)}
+                      aria-label={C.kontaktpersonCall} title={C.kontaktpersonCall}>
+                      <Icon id="phone" />
+                    </a>
+                  )}
+                </div>
               </div>
               <div className="cv-row">
                 <span>{C.gerettete}</span>

@@ -268,6 +268,7 @@ def _record(inc: Incident, alarm_ref: str | None = None) -> dict:
         "endedAt": rm.get("endedAt"),
         "einsatzleiter": rm.get("einsatzleiter"),
         "kontaktperson": rm.get("kontaktperson"),
+        "kontaktpersonTelefon": rm.get("kontaktpersonTelefon"),
         "summary": rm.get("summary"),
         "partner": [
             {"org": p.get("org"), "name": p.get("name")}

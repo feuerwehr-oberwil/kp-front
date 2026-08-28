@@ -16,7 +16,7 @@ import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
-import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
+import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, type DeploymentMittelItem } from './lib/deploymentConfig'
@@ -68,9 +68,9 @@ import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
 import {
-  georefPlans, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
+  georefPlans, mapContentTwins as projectMapContentTwins, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
   twinPlanImageLayerId, twinPlanImageVisible, twinPlanLayerId, twinVisible, isTwinLayerId, TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardSymbolToEntity, entityToBoardSymbol, onSheet, revealTwinLayer, type MapTwin,
+  boardSymbolToEntity, entityToBoardSymbol, onSheet, revealTwinLayer, type MapContentTwin, type MapTwin,
 } from './lib/georefTwins'
 import { glyphFor, twinName } from './lib/twinGlyph'
 import { GeorefTwinPanel } from './components/GeorefTwinPanel'
@@ -109,6 +109,7 @@ import { Whiteboard } from './components/Whiteboard'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
 import { pushBoardPast, type BoardHistory } from './components/useBoardDoc'
+import { deleteBoardTwinSource, patchBoardTwinSource } from './lib/georefTwinEdit'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
@@ -969,12 +970,14 @@ export function IncidentWorkspace({
   // a note stays quiet — it is placed mid-sentence and a panel sliding in on every tap would be
   // in the way. Only the ⚙ handle sets this.
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
-  // which Georeferenz twin has its (read-only) details open — a linked plan's symbol, mirrored
+  // which Georeferenz twin has its source-backed editor open — a linked plan's symbol mirrored
   // onto the map. Selection belongs to the shared source object; the projection carries its halo.
   const [twinView, setTwinView] = useState<MapTwin | null>(null)
+  // Title input in the map-side editor for a plan-owned twin. The source plan is not mounted,
+  // so this brackets its live keystrokes into one caller-owned per-plan undo step.
+  const planTwinTitleLive = useRef<string | null>(null)
   // A detail sidebar has one owner. Opening a projection first drops every real selection so
-  // the read-only and editable versions can never stack, compete for Escape, or leave two
-  // objects looking active at once.
+  // two editors can never stack, compete for Escape, or leave two objects looking active.
   const openTwinView = (twin: MapTwin) => {
     setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
     setNotePanelId(null); setEditNoteId(null)
@@ -1490,6 +1493,14 @@ export function IncidentWorkspace({
     const shown = linkedPlans.filter((p) => twinVisible(twinLayers, twinPlanLayerId(p.id)))
     return shown.length ? projectMapTwins(shown, board) : []
   }, [replayActive, linkedPlans, twinLayers, board])
+  const mapContentTwinList = useMemo<MapContentTwin[]>(() => {
+    if (replayActive) return []
+    const shown = linkedPlans.filter((p) => twinVisible(twinLayers, twinPlanLayerId(p.id)))
+    return shown.length ? projectMapContentTwins(shown, board) : []
+  }, [replayActive, linkedPlans, twinLayers, board])
+  // Selection stores a stable twin key; derive the live source snapshot after every board edit so
+  // the mirrored editor and its map marker update together while the panel stays open.
+  const viewedMapTwin = twinView ? mapTwinList.find((t) => t.key === twinView.key) ?? twinView : null
   const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})
   useEffect(() => {
     if (replayActive) return
@@ -1540,8 +1551,15 @@ export function IncidentWorkspace({
       symbols: twinVisible(twinLayers, TWIN_MAP_SYMBOLS)
         ? doc.entities.filter((e) => e.kind === 'symbol' && isVisible(effectiveLayer(e)))
         : [],
+      // Notes, ground shapes, Atemschutz markers and shared responder positions share the Lage
+      // content row with drawings. Photos remain source-only for now (the requested rollout is
+      // operational markings, not media overlays).
+      content: twinVisible(twinLayers, TWIN_MAP_SYMBOLS)
+        ? entities.filter((e) => (e.kind === 'note' || e.kind === 'shape' || e.kind === 'team' || e.kind === 'person') && isVisible(effectiveLayer(e)))
+        : [],
+      drawings: twinVisible(twinLayers, TWIN_MAP_SYMBOLS) && isVisible(appConfig.defaults.drawingLayerId) ? doc.drawings : [],
     }
-  }, [replayActive, activeLinkedPlan, twinLayers, liveVehicles, doc.entities, isVisible])
+  }, [replayActive, activeLinkedPlan, twinLayers, liveVehicles, doc.entities, doc.drawings, entities, isVisible])
 
   // The journal is append-only: every action pushes a row, and nothing ever edits
   // or removes one — undo/redo log their own lines. So the stream stays a faithful
@@ -2313,22 +2331,22 @@ export function IncidentWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDrawingId, mode])
 
-  // Projections open the same detail geometry as real objects and therefore obey the same calm
-  // visibility rule. A twin near an edge used to disappear behind its own read-only panel.
+  // Projections open the same editor geometry as real objects and therefore obey the same calm
+  // visibility rule. A twin near an edge must not disappear behind its own panel.
   useEffect(() => {
-    if (!twinView || mode !== 'map') return
+    if (!viewedMapTwin || mode !== 'map') return
     const raf = requestAnimationFrame(() => {
       const m = mapRef.current?.getMap()
       const panelEl = document.querySelector('.ctx')
       if (!m || !panelEl) return
       const work = mapWorkRect(m.getContainer().getBoundingClientRect(), panelEl)
       if (!work) return
-      const pt = m.project(twinView.coord)
+      const pt = m.project(viewedMapTwin.coord)
       const nudge = nudgePointIntoRect(pt, work)
       if (nudge) m.panBy(nudge, { duration: motionDuration(350) })
     })
     return () => cancelAnimationFrame(raf)
-  }, [twinView?.key, mode]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewedMapTwin?.key, mode]) // eslint-disable-line react-hooks/exhaustive-deps
   // a marquee selects a SET of drawings: one falls back to the single-edit path, several
   // become a group (move/delete together). Empty box clears any selection. The lasso is a
   // one-shot tool: drop back to plain navigate (select) after the box so a stray next
@@ -2646,10 +2664,10 @@ export function IncidentWorkspace({
     setPlanFocus({ x: t.target.x, y: t.target.y, floor: t.target.floor, annoId: t.target.annoId, nonce: Date.now() })
   }
   const deleteEntity = async (id: string) => {
-    if (tacticalLocked) return
+    if (tacticalLocked) return false
     const ent = entities.find((e) => e.id === id)
     // a trail-carrying team stays: clear the trail deliberately first (plan-board parity)
-    if (teamEntityLocked(ent)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'warn', tone: 'warn' }); return }
+    if (teamEntityLocked(ent)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'warn', tone: 'warn' }); return false }
     const connected = drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id))
     // Written notes and any indirectly detached lines ask once before the structural change.
     if ((ent?.kind === 'note' && (ent.label ?? '').trim()) || connected.length) {
@@ -2658,7 +2676,7 @@ export function IncidentWorkspace({
         message: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: connected.length }) : appConfig.copy.notes.deleteMsg,
         confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
       })
-      if (!ok) return
+      if (!ok) return false
     }
     commit((d) => ({
       ...d,
@@ -2678,6 +2696,7 @@ export function IncidentWorkspace({
         emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
       }
     })
+    return true
   }
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
@@ -3125,6 +3144,80 @@ export function IncidentWorkspace({
       assignTypedName(v, role, note)
     }
   }
+
+  /** Edit a Karte-owned symbol through the projection shown on a linked Modul. This is the map
+   *  editor's normal mutation path, including its single-step live title edit and roster side
+   *  effects; only the pointer happened to start on the plan. */
+  const editMapTwinSource = (id: string, patch: Partial<Entity>, phase: 'live' | 'commit' = 'commit') => {
+    if (tacticalLocked || liveIds.has(id)) return
+    const before = doc.entities.find((e) => e.id === id)
+    if (!before) return
+    if (phase === 'live') {
+      if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
+      setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, ...patch } : e)) }))
+      return
+    }
+    if (patch.label != null && titleLiveRef.current) {
+      titleLiveRef.current = false
+      endDrag()
+      emit('entity.edit', { id, patch })
+    } else patchEntity(id, patch)
+    if (patch.fields) linkRosterFields(before, patch.fields)
+    if (patch.label != null) linkRosterFields({ ...before, label: patch.label }, before.fields ?? {}, { force: true })
+  }
+
+  /** Edit a plan-owned symbol through its Lage projection. The plan's history lives above the
+   *  unmounted Whiteboard, so this is the same checkpoint/raw-write/audit split as useBoardDoc. */
+  const editPlanTwinSource = (t: MapTwin, patch: Partial<BoardAnno>, phase: 'live' | 'commit' = 'commit') => {
+    if (tacticalLocked) return
+    const current = (board[t.planId] ?? []).find((a) => a.id === t.annoId)
+    if (!current) return
+    const liveKey = `${t.planId}:${t.annoId}`
+    if (phase === 'live') {
+      if (planTwinTitleLive.current !== liveKey) {
+        setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
+        planTwinTitleLive.current = liveKey
+      }
+      setBoard((all) => ({ ...all, [t.planId]: patchBoardTwinSource(all[t.planId] ?? [], t.annoId, patch) }))
+      return
+    }
+    const wasLive = planTwinTitleLive.current === liveKey
+    planTwinTitleLive.current = null
+    if (!wasLive) setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
+    setBoard((all) => ({ ...all, [t.planId]: patchBoardTwinSource(all[t.planId] ?? [], t.annoId, patch) }))
+    emit('board.edit', { planId: t.planId, id: t.annoId, patch })
+    const source = { ...current, kind: 'symbol' as const, layer: appConfig.defaults.operationalLayerId, coord: t.coord, floor: current.storey } as Entity
+    if (patch.fields) linkRosterFields(source, patch.fields)
+    if (patch.label != null) linkRosterFields({ ...source, label: patch.label }, current.fields ?? {}, { force: true })
+  }
+
+  /** Delete a plan-owned source without navigating away. Attached plan lines are detached and
+   *  frozen at the symbol's current plan coordinate, so no dangling object id survives. */
+  const deletePlanTwinSource = async (t: MapTwin) => {
+    if (tacticalLocked) return
+    const annos = board[t.planId] ?? []
+    const target = annos.find((a) => a.id === t.annoId)
+    if (!target) return
+    const affected = annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === target.id))
+    if (affected.length) {
+      const ok = await confirmDialog({
+        title: fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: target.label ?? appConfig.copy.drawingEditor.drawing }),
+        message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }),
+        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      })
+      if (!ok) return
+    }
+    setPlanHistory((m) => pushBoardPast(m, t.planId, annos))
+    const result = deleteBoardTwinSource(annos, target.id)
+    if (!result) return
+    setBoard((all) => ({ ...all, [t.planId]: result.next }))
+    setTwinView(null)
+    emit('board.delete', { planId: t.planId, id: t.annoId })
+    result.affectedIds.forEach((id) => {
+      const changed = result.next.find((n) => n.id === id)
+      if (changed) emit('board.edit', { planId: t.planId, id, patch: { pts: changed.pts, startAttachment: changed.startAttachment, endAttachment: changed.endAttachment } })
+    })
+  }
   /**
    * The roster's spelling of every name on a Trupp, applied ON THE WAY IN.
    *
@@ -3247,6 +3340,7 @@ export function IncidentWorkspace({
           // and never part of `entities` — a twin must not be selectable, printable or countable
           // anywhere (see components/GeorefTwinMark).
           twins={mapTwinList}
+          georefPlanContent={mapContentTwinList}
           onTwinOpen={openTwinView}
           onTwinMove={moveMapTwinSource}
           selectedTwinKey={twinView?.key}
@@ -3749,23 +3843,48 @@ export function IncidentWorkspace({
         />
       )}
 
-      {/* a Zwilling's details — a linked plan's symbol, mirrored onto the map and read-only
-          throughout. «Zum Original» is the one row that leaves (see GeorefTwinPanel for why a
-          twin is never editable). Gone with the projection itself: no map UI, no panel. */}
-      {mapUI && !journalOpen && panel === null && !viewsOpen && twinView && (
+      {/* A plan-owned source edited through its Lage projection. «Gespiegelt» remains visible in
+          the subtitle; every mutation writes the one BoardAnno in its source plan. */}
+      {mapUI && !journalOpen && panel === null && !viewsOpen && viewedMapTwin && (
         <GeorefTwinPanel
           // ⚠️ `floor` is remapped, exactly as the plan's own panel does it: on a BoardAnno that
           // name is the floor-stack TILE INDEX, while the panel's `floor` is the signed Stockwerk
           // badge (types · BoardAnno.storey).
-          entity={{ ...twinView.anno, floor: twinView.anno.storey }}
-          svg={twinView.anno.symbol === appConfig.symbols.vehicleName
-            ? vehicleSymbolSvg(twinName(twinView.anno), twinView.anno.rotation ?? 0)
-            : glyphFor(twinView.anno, sym.byName)}
-          subtitle={fillTemplate(appConfig.copy.whiteboard.georef.twinPanelFromPlan, { plan: twinView.planCode })}
+          entity={{ ...viewedMapTwin.anno, floor: viewedMapTwin.anno.storey }}
+          svg={viewedMapTwin.anno.symbol === appConfig.symbols.vehicleName
+            ? vehicleSymbolSvg(twinName(viewedMapTwin.anno), viewedMapTwin.anno.rotation ?? 0)
+            : glyphFor(viewedMapTwin.anno, sym.byName)}
+          subtitle={fillTemplate(appConfig.copy.whiteboard.georef.twinPanelFromPlan, { plan: viewedMapTwin.planCode })}
+          readOnly={tacticalLocked}
           onClose={() => setTwinView(null)}
-          onOriginal={() => { const t = twinView; setTwinView(null); goToTwinSource(t) }}
-          originalLabel={fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: twinView.planCode })}
-          onTransferHere={tacticalLocked ? undefined : () => transferPlanTwinToMap(twinView)}
+          onCenter={() => flyToMapVisible(viewedMapTwin.coord, 18.4)}
+          onOriginal={() => { const t = viewedMapTwin; setTwinView(null); goToTwinSource(t) }}
+          originalLabel={fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: viewedMapTwin.planCode })}
+          onTransferHere={tacticalLocked ? undefined : () => transferPlanTwinToMap(viewedMapTwin)}
+          onTitleLive={(v) => editPlanTwinSource(viewedMapTwin, { label: v }, 'live')}
+          onTitle={(v) => editPlanTwinSource(viewedMapTwin, { label: v }, 'commit')}
+          onFields={(fields) => editPlanTwinSource(viewedMapTwin, { fields })}
+          onNotes={(v) => editPlanTwinSource(viewedMapTwin, { notes: v || undefined })}
+          onFloor={(f) => editPlanTwinSource(viewedMapTwin, { storey: f ?? undefined })}
+          onFloorFrom={(f) => editPlanTwinSource(viewedMapTwin, { floorFrom: f ?? undefined })}
+          onFloorTo={(f) => editPlanTwinSource(viewedMapTwin, { floorTo: f ?? undefined })}
+          onSpread={(spread) => editPlanTwinSource(viewedMapTwin, { spread: spread ?? undefined })}
+          onCount={(count) => editPlanTwinSource(viewedMapTwin, { count: count && count > 1 ? count : undefined })}
+          onRotate={(rotation) => editPlanTwinSource(viewedMapTwin, { rotation: rotation ?? undefined })}
+          onRotate2={(rotation2) => editPlanTwinSource(viewedMapTwin, { rotation2: rotation2 ?? undefined })}
+          onCaption={(caption) => editPlanTwinSource(viewedMapTwin, { caption })}
+          captionDefault={symbolCaptions ?? 'auto'}
+          onAirflow={(extract) => editPlanTwinSource(viewedMapTwin, { extract: extract || undefined })}
+          controls={symbolControls(viewedMapTwin.anno.symbol, sym.symbols.find((x) => x.name === viewedMapTwin.anno.symbol)?.cat)}
+          titleOptions={symbolTitleOptions(viewedMapTwin.anno.symbol, sym.symbols.find((x) => x.name === viewedMapTwin.anno.symbol)?.cat)}
+          fieldOptions={symbolFieldOptions(viewedMapTwin.anno.symbol, sym.symbols.find((x) => x.name === viewedMapTwin.anno.symbol)?.cat, rosterNames)}
+          rosterRank={rosterRank}
+          personStatus={personStatus}
+          fieldHints={rosterFieldHints({ kind: 'symbol', symbol: viewedMapTwin.anno.symbol, label: viewedMapTwin.anno.label, fields: viewedMapTwin.anno.fields } as Entity)}
+          protectedKeys={new Set(symbolPresetFieldKeys(viewedMapTwin.anno.symbol, sym.symbols.find((x) => x.name === viewedMapTwin.anno.symbol)?.cat))}
+          onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
+          mittelCountFor={mittelCountForSymbol}
+          onDelete={() => { void deletePlanTwinSource(viewedMapTwin) }}
         />
       )}
 
@@ -4116,6 +4235,8 @@ export function IncidentWorkspace({
           onTwinTransferHere={transferMapTwinToPlan}
           onPlanProjection={showPlanSourceOnMap}
           onTwinMove={moveTwinSource}
+          onTwinEdit={editMapTwinSource}
+          onTwinDelete={deleteEntity}
           layersOn={panel === 'layers'}
           // the Ebenen button appears only on a linked sheet: with no fit the map lends it
           // nothing, and the panel would be an empty room

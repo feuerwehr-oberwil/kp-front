@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueClock, fillTemplate, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable } from './format'
+import { dueClock, fillTemplate, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -179,5 +179,20 @@ describe('stripUnprintable', () => {
     expect(stripUnprintable('Polizei ← EL')).toBe('Polizei ← EL')
     expect(stripUnprintable('Trupp 2 ⇒ Keller')).toBe('Trupp 2 Keller')
     expect(stripUnprintable('nach ↑ oben')).toBe('nach oben')
+  })
+})
+
+describe('telHref (the Kontaktperson dial link)', () => {
+  it('dials the number as typed, Swiss formatting stripped', () => {
+    expect(telHref('079 123 45 67')).toBe('tel:0791234567')
+    expect(telHref('+41 61 401 12 34')).toBe('tel:+41614011234')
+    expect(telHref('061/401 12 34')).toBe('tel:0614011234')
+  })
+
+  it('offers no link where there is nothing dialable', () => {
+    expect(telHref('')).toBeUndefined()
+    expect(telHref(undefined)).toBeUndefined()
+    expect(telHref('-')).toBeUndefined()
+    expect(telHref('kommt noch')).toBeUndefined()
   })
 })

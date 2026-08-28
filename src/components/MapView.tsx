@@ -34,7 +34,8 @@ import { reportClientError } from '../lib/reportError'
 import { QuietAttributionControl } from './MapAttribution'
 import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { GeorefTwinsMap } from './GeorefTwinsMap'
-import type { MapTwin } from '../lib/georefTwins'
+import { GeorefContentMap } from './GeorefContentMap'
+import type { MapContentTwin, MapTwin } from '../lib/georefTwins'
 import { georefDispatch, georefPhoneTargetPoint, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
@@ -279,11 +280,13 @@ interface Props {
   selectedEntityIds?: string[]
   onGroupMove?: (ids: string[], entIds: string[], dLng: number, dLat: number, phase: 'start' | 'move' | 'end') => void
   onGroupDelete?: (ids: string[], entIds: string[]) => void
-  /** Georeferenz twins: the tactical symbols of every georeferenced plan, already projected onto
-   *  the map (lib/georefTwins · mapTwins). They own no state and are read-only projections.
-   *  Empty during replay and whenever their Ebenen row is off. */
+  /** Georeferenz twins: tactical symbols use the interactive point-twin path below; broader
+   *  Modul content travels separately through `georefPlanContent`. Both are derived and empty
+   *  during replay or whenever their Ebenen row is off. */
   twins?: MapTwin[]
-  /** tap on a twin → open its details, read-only (components/GeorefTwinPanel) */
+  /** Non-symbol content from linked plans: lines, areas, notes, shapes and Atemschutz markers. */
+  georefPlanContent?: MapContentTwin[]
+  /** tap on a twin → open its source-backed editor (components/GeorefTwinPanel) */
   onTwinOpen?: (twin: MapTwin) => void
   /** drag a projection of a plan annotation — writes the SOURCE anno through the twin's own
    *  fit, so every other projection of it follows from that one write (see MapTwin · fit) */
@@ -304,7 +307,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], onTwinOpen, onTwinMove, selectedTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, selectedTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -1372,6 +1375,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
             paint={{ 'raster-opacity': p.opacity, 'raster-fade-duration': 0 }} />
         </Source>
       ))}
+
+      {!georefOn && georefPlanContent.length > 0 && (
+        <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing} />
+      )}
 
       {/* «Karte verknüpfen»: the numbered reference crosses, drag-to-fine-tune, tap-to-re-place */}
       {!georef.check && <GeorefMapMarks mode={georef} map={mapInst.current} />}

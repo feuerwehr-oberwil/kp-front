@@ -1,51 +1,61 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, afterEach } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { GeorefTwinPanel } from './GeorefTwinPanel'
 
 afterEach(cleanup)
 
-// The one rule this component exists to enforce: a Zwilling is a PROJECTION, so its panel shows
-// everything and changes nothing. Dual-edit through a mirror is a merge case the workspace's
-// per-object last-write-wins cannot resolve honestly (see the component header).
-describe('a Zwilling\'s details', () => {
+describe('a Zwilling\'s source-backed editor', () => {
   const entity = {
     id: 'e1',
-    symbol: 'VKF Feuer',
-    label: 'Brandherd',
-    fields: { Stockwerk: '2. OG' },
-    notes: 'brennt im Estrich',
-    count: 3,
+    symbol: 'VKF Fahrzeug',
+    label: 'TLF 1',
+    fields: { Fahrer: 'Muster Max' },
+    notes: 'Bereitstellung Nord',
   }
 
-  it('shows what the source says and offers not one control that would change it', () => {
-    const { container } = render(<GeorefTwinPanel entity={entity} subtitle="Gespiegelt von der Karte – nur zum Lesen"
-      onClose={() => {}} onOriginal={() => {}} />)
-    // Read-only is content behavior, not a second visual component: both source and twin use
-    // exactly the same sidebar shell, dimensions, colour and mobile sheet rules.
-    expect(container.querySelector('.ctx')?.className).toBe('ctx')
-    expect(screen.getByText('Gespiegelt von der Karte – nur zum Lesen')).toBeTruthy()
-    expect(screen.getByText('2. OG')).toBeTruthy()
-    expect(screen.getByText('brennt im Estrich')).toBeTruthy()
-    // nothing typeable, nothing to delete — the panel is a read-out
-    expect(document.querySelectorAll('input, textarea, select')).toHaveLength(0)
-    expect(screen.queryByRole('button', { name: 'Löschen' })).toBeNull()
+  const setup = (over: Partial<React.ComponentProps<typeof GeorefTwinPanel>> = {}) => {
+    const props: React.ComponentProps<typeof GeorefTwinPanel> = {
+      entity,
+      subtitle: 'Gespiegelt von der Karte',
+      onClose: vi.fn(),
+      onOriginal: vi.fn(),
+      onTitle: vi.fn(),
+      onFields: vi.fn(),
+      onDelete: vi.fn(),
+      titleOptions: ['TLF 1', 'TLF 2'],
+      ...over,
+    }
+    render(<GeorefTwinPanel {...props} />)
+    return props
+  }
+
+  it('keeps the mirrored provenance and exposes the normal editing controls', () => {
+    const props = setup()
+    expect(screen.getByText('Gespiegelt von der Karte')).toBeTruthy()
+    fireEvent.click(document.querySelector('.ctx-title-btn')!)
+    fireEvent.click(screen.getByText('TLF 2'))
+    expect(props.onTitle).toHaveBeenCalledWith('TLF 2')
+    expect(screen.getAllByRole('button', { name: 'Löschen' })).toHaveLength(2)
   })
 
-  it('leaves for the real object, and that is the only thing it does', () => {
-    const onOriginal = vi.fn()
-    render(<GeorefTwinPanel entity={entity} subtitle="Gespiegelt von Modul 2"
-      onClose={() => {}} onOriginal={onOriginal} />)
-    // the actions row is rendered twice (pinned + inline for phones; CSS shows exactly one)
+  it('still offers navigation to the source without making it a prerequisite for editing', () => {
+    const props = setup()
     screen.getAllByRole('button', { name: /Zum Original/ })[0].click()
-    expect(onOriginal).toHaveBeenCalledTimes(1)
+    expect(props.onOriginal).toHaveBeenCalledTimes(1)
   })
 
-  it('can transfer ownership onto the viewed surface without unlocking a second copy', () => {
+  it('can transfer ownership onto the viewed surface', () => {
     const onTransferHere = vi.fn()
-    render(<GeorefTwinPanel entity={entity} subtitle="Gespiegelt von Modul 2"
-      onClose={() => {}} onOriginal={() => {}} onTransferHere={onTransferHere} />)
+    setup({ onTransferHere })
     screen.getAllByRole('button', { name: /Hierher übertragen/ })[0].click()
     expect(onTransferHere).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a genuinely locked session read-only while retaining the indicator', () => {
+    setup({ readOnly: true })
+    expect(screen.getByText('Gespiegelt von der Karte')).toBeTruthy()
+    expect(document.querySelectorAll('input, textarea, select')).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: 'Löschen' })).toBeNull()
   })
 })

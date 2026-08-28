@@ -98,6 +98,30 @@ describe('ContextPanel — basic wiring', () => {
     expect(screen.getAllByText('TLF').length).toBeGreaterThan(1)
   })
 
+  it('tapping the header title opens the Bezeichnung menu (people rename where the name shows)', () => {
+    setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
+    // menu closed: the alternative type is nowhere on screen
+    expect(screen.queryByText('MTF')).toBeNull()
+    fireEvent.click(document.querySelector('.ctx-title-btn')!)
+    expect(screen.getByText('MTF')).toBeTruthy()
+  })
+
+  it('keeps the read-only (viewer) Fahrzeug header a plain name, not a button', () => {
+    setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'], readOnly: true })
+    expect(document.querySelector('.ctx-title-btn')).toBeNull()
+  })
+
+  it("a live vehicle's Fahrer sits in the same label+picker row as a placed vehicle's", () => {
+    // it used to be its own full-width block — the one field a GPS vehicle offers looked like
+    // a different kind of thing than the identical preset field next door
+    setup({
+      entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' },
+      readOnly: true,
+      driver: { value: '', options: ['Müller Hans'], onChange: vi.fn() },
+    })
+    expect(screen.getByText('Fahrer').closest('.field')).toBeTruthy()
+  })
+
   it('stepping rotation up commits via onRotate', () => {
     const p = setup({ controls: new Set<SymbolControl>(['rotation']), entity: { id: 's1', rotation: 0 } })
     fireEvent.pointerDown(screen.getByLabelText('mehr')) // hold-to-repeat: first step fires on pointer-down

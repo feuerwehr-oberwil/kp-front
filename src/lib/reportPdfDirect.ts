@@ -257,7 +257,8 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     },
     meta: {
       alarmText: meta.alarmText, summary: meta.summary, lehren: meta.lehren, remarks: meta.remarks,
-      kontaktperson: meta.kontaktperson, einsatzleiter: meta.einsatzleiter,
+      kontaktperson: meta.kontaktperson, kontaktpersonTelefon: meta.kontaktpersonTelefon,
+      einsatzleiter: meta.einsatzleiter,
       // «Entfällt» travels as the answer it is: the sheet prints the word on the line, where a
       // field nobody filled in gets an empty write-in rule (backend/app/report_pdf.py). Without
       // it the deliberate «gibt es nicht» and the forgotten field looked identical on paper.

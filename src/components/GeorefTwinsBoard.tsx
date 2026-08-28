@@ -40,7 +40,7 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
   /** the sheet is at rest (the pan tool, no pairing) — only then may a twin answer a tap. */
   interactive?: boolean
   selectedKey?: string | null
-  /** tap: open this twin's details, read-only (never edit — see GeorefTwinPanel) */
+  /** tap: open the source-backed editor on this surface */
   onOpen: (twin: BoardTwin) => void
   /**
    * Drag a projection to move the object it mirrors.
@@ -73,7 +73,9 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
         const selected = selectedKey === t.key
         const name = twinName(e)
         const veh = t.kind === 'vehicle' || isVehicleSym(e)
-        const rot = e.rotation ?? 0
+        // Map rotation is north-referenced; on a turned sheet it must be expressed relative to
+        // paper-up. `fit.rotationDeg` is exactly that frame change (georef · GeorefFit).
+        const rot = (e.rotation ?? 0) + t.fit.rotationDeg
         const svg = veh ? vehicleSymbolSvg(name, rot, e.directed ?? true) : glyphFor(e, byName)
         const rawCaption = symbolCaptionText(e, captionMode)
         return (

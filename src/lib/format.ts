@@ -157,3 +157,13 @@ export function stripUnprintable(s: string): string {
     // a removed emoji between two words leaves «Brand  im 2. OG» — one space, not two
     .replace(/ {2,}/g, ' ')
 }
+
+/**
+ * `tel:` URI for a phone number as typed — «079 123 45 67» dials as `tel:0791234567`, a leading
+ * «+41» survives. The display keeps the operator's formatting; only the link normalizes.
+ * Undefined when what remains is too short to be a number, so no call button appears on «-».
+ */
+export function telHref(raw?: string): string | undefined {
+  const dial = (raw ?? '').replace(/[^\d+]/g, '')
+  return dial.replace(/\D/g, '').length >= 3 ? `tel:${dial}` : undefined
+}

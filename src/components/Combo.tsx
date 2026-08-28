@@ -14,7 +14,7 @@ import { matchesQuery, searchQuery } from '../lib/search'
  * `value=""` + a non-empty placeholder makes it a pure prefill picker (it shows the placeholder and
  * never retains a selection, since the parent keeps value empty).
  */
-export function Combo({ value, options, groups, placeholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, onInput, onChange }: {
+export function Combo({ value, options, groups, placeholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, openTick, onInput, onChange }: {
   value: string
   options: string[]
   /** optional grouped rendering: section headers with their own options. When set, the menu
@@ -32,6 +32,9 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
    *  «nicht anwesend». A picker that lists sixty names and says nothing about any of them makes
    *  the operator pick first and find out afterwards — which is what the toast used to do. */
   statusOf?: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
+  /** Imperative open: bump the number and the menu opens as if the trigger had been tapped.
+   *  The Fahrzeug header title falls through to its «Bezeichnung» field this way (ContextPanel). */
+  openTick?: number
   /** Free typing, keystroke by keystroke — `onChange` then fires ONCE, when the field is left.
    *  ⚠️ Without it every letter is a finished value, which is fine for a text field and wrong
    *  for a person: a typed Gast is recorded on the Anwesenheit the moment the name is committed,
@@ -75,6 +78,10 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { if (typing) inputRef.current?.focus() }, [typing])
+
+  // opened from OUTSIDE (openTick): same entry as a tap on the trigger, leaving free-type mode
+  // if that is where the field happened to be
+  useEffect(() => { if (openTick) { setTyping(false); setSearch(''); setOpen(true) } }, [openTick])
 
   // position the portalled menu under (or above, near the viewport bottom) the trigger
   useEffect(() => {
