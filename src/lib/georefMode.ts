@@ -41,7 +41,7 @@
  *  «aus 2 Punkten» into a measured residual, and it has to be cheap to add.
  */
 import { useEffect, useRef, useSyncExternalStore } from 'react'
-import { BASELINE_WARN_M, replacePair, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt } from './georef'
+import { BASELINE_WARN_M, rematchPairs, replacePair, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt } from './georef'
 import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './stationPlanScale'
 import { useIsPhone } from './useIsPhone'
 import { appConfig } from '../config/appConfig'
@@ -190,6 +190,11 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
       // On the split layout the pointer may cross back to the plan while several plan halves
       // are still queued. Follow the surface being aimed at; a picked MAP half remains map-only.
       return s.planId && !s.edit && s.want !== 'plan' ? { ...s, want: 'plan' } : s
+    // The operator may queue the two sides in different orders; once a completed set fits
+    // TERRIBLY but the same points fit well under a different assignment, adopt that assignment
+    // (lib/georef · rematchPairs — guarded so honest-but-imprecise taps are left alone). Run on
+    // every pairing completion: the crosses renumber themselves and the Passung turns green
+    // instead of the operator re-doing twelve points by hand.
     case 'planTap': {
       if (!s.planId) return s
       const edit = s.edit
@@ -212,7 +217,7 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
           // would leave two pairs on one plan point holding different positions — the
           // self-contradiction replacePair exists to make impossible, dragging the least-squares
           // fit towards whichever of the two taps was worse.
-          pairs: replacePair(s.pairs, { plan: a.pt, lngLat: mapOpen, kind: 'gesetzt' }),
+          pairs: autoRematch(replacePair(s.pairs, { plan: a.pt, lngLat: mapOpen, kind: 'gesetzt' }), s.aspect),
           mapQueue: mapRest,
           want: 'plan',
         }
@@ -238,7 +243,7 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
       if (!open) return { ...s, mapQueue: [...s.mapQueue, a.lngLat], want: 'map' }
       return {
         ...s,
-        pairs: replacePair(s.pairs, { plan: open, lngLat: a.lngLat, kind: 'gesetzt' }),
+        pairs: autoRematch(replacePair(s.pairs, { plan: open, lngLat: a.lngLat, kind: 'gesetzt' }), s.aspect),
         queue: rest,
         // Stay on the surface the operator chose. A map tap advances the MAP sequence, just as
         // a plan tap advances the PLAN sequence; completing the last open counterpart must not
@@ -776,4 +781,9 @@ export function useGeorefEscape(active: boolean, checking = false, picked = fals
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [active, checking, picked])
-}
+}/** The pairing completions run their result through the automatic re-matcher — see the note at
+ *  `planTap`. A no-op unless the assignment is clearly wrong and clearly fixable. */
+const autoRematch = (pairs: GeorefPair[], aspect: number): GeorefPair[] =>
+  rematchPairs(pairs, aspect)?.pairs ?? pairs
+
+
