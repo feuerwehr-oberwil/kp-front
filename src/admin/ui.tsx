@@ -305,11 +305,13 @@ export function Select({ value, onChange, options, ariaLabel, mono }: {
   useEffect(() => {
     if (!open) return
     setActive(Math.max(0, options.findIndex((o) => o.value === value)))
-    const onDoc = (e: MouseEvent) => {
+    // 'pointerdown', not 'mousedown': touch synthesizes mousedown late or not at all,
+    // so tapping outside would not reliably close the listbox
+    const onDoc = (e: PointerEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    document.addEventListener('pointerdown', onDoc)
+    return () => document.removeEventListener('pointerdown', onDoc)
   }, [open, options, value])
 
   const choose = (v: string) => { onChange(v); setOpen(false) }
@@ -354,7 +356,12 @@ export function Select({ value, onChange, options, ariaLabel, mono }: {
               aria-selected={o.value === value}
               className={`adm-select-opt${o.value === value ? ' sel' : ''}${i === active ? ' active' : ''}`}
               onMouseEnter={() => setActive(i)}
-              onMouseDown={(e) => { e.preventDefault(); choose(o.value) }}
+              // choose on pointerdown: same blur-guard as the old onMouseDown (preventDefault
+              // keeps focus on the trigger), but it fires reliably for touch too
+              onPointerDown={(e) => { e.preventDefault(); choose(o.value) }}
+              // …and on click for drivers that never send pointerdown (jsdom's fireEvent).
+              // No double-fire in a browser: choosing unmounts the row, so its click never lands.
+              onClick={() => choose(o.value)}
             >
               <span className="adm-select-opt-label">{o.label}</span>
               {o.value === value && <Icon id="check" className="adm-select-tick" />}

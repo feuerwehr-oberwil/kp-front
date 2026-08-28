@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Shift } from '../types'
 import { type DragEdge, type Span, dragShift, timeAtFraction } from './shifts'
 
@@ -58,6 +58,8 @@ export function useLaneGesture(opts: {
   const clearHold = () => {
     if (holdTimer.current != null) { clearTimeout(holdTimer.current); holdTimer.current = null }
   }
+
+  useEffect(() => clearHold, [])  // drop a pending hold if the row unmounts mid-press (same as useLongPress)
 
   /** fraction 0..1 of a clientX inside the lane; 0 when the lane has no measurable width or the
    *  event carries no coordinate, so a stray press can never produce an invalid time */

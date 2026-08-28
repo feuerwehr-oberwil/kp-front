@@ -119,7 +119,7 @@ describe('Kartenzentrum — one value in two boxes', () => {
 /** Choose an option of the (non-native) CRS listbox by its label. */
 const pickCrs = async (label: string) => {
   await act(async () => { fireEvent.click(screen.getByLabelText(C.pickCrs)) })
-  await act(async () => { fireEvent.mouseDown(screen.getByText(label)) })
+  await act(async () => { fireEvent.click(screen.getByText(label)) })
 }
 
 describe('Kartenzentrum — WGS84 oder LV95, nie beides', () => {

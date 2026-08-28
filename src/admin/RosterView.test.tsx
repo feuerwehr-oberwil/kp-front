@@ -91,7 +91,7 @@ const primary = () => screen.getByRole('button', { name: /importieren$/i }) as H
 /** Choose an option in one row's «Wird zu» picker. */
 function choose(rowValue: string, optionLabel: string) {
   fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.mapTargetFor, { value: rowValue }) }))
-  fireEvent.mouseDown(screen.getByRole('option', { name: optionLabel }))
+  fireEvent.click(screen.getByRole('option', { name: optionLabel }))
 }
 
 describe('CSV-Import · Grade zuordnen', () => {

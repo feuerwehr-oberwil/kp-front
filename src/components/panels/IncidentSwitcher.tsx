@@ -129,12 +129,14 @@ export function IncidentSwitcher({
     // clicks inside an overlay sheet/dialog don't count as "outside": a sheet opened FROM this
     // menu suspends it via `sheetOpen` rather than closing it, so cancelling that sheet has to
     // reveal the menu exactly as it was — a press inside it must not have closed it meanwhile.
-    const onDoc = (e: MouseEvent) => {
+    // 'pointerdown', not 'mousedown': on touch the compat mousedown fires late or not at all,
+    // so tapping outside would not reliably dismiss (same pattern as Combo/PersonField).
+    const onDoc = (e: PointerEvent) => {
       const t = e.target as Element
       if (ref.current && !ref.current.contains(t) && !t.closest?.('.ip-sheet, .ui-backdrop, .help-scrim, .confirm-backdrop, .toaster')) setOpen(false)
     }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    document.addEventListener('pointerdown', onDoc)
+    return () => document.removeEventListener('pointerdown', onDoc)
   }, [])
   // A sheet action that NAVIGATES (Rapport → Anwesenheit/Mittel/Verlauf) must not
   // leave the menu sitting on the new surface — any surface change closes it

@@ -131,12 +131,13 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
             <div className={cx(s.head, TONE[b.head.tone])}>
               {b.head.onToggle ? (
                 <button type="button" className={s.headMain} onClick={b.head.onToggle}
-                  title={b.head.toggleHint} aria-label={`${b.head.label} – ${subject}`}>
+                  title={b.head.toggleHint} aria-label={`${b.head.label} – ${subject} – ${labels.flip}`}>
                   <span className={s.swatch} aria-hidden />
                   <b>{b.head.label}</b>
-                  {/* the head looks like a heading, so on a desktop it says once, on approach,
-                      that it is a switch. On a touch screen the colour and the word do that. */}
-                  <span className={s.flip}>{labels.flip}</span>
+                  {/* the always-visible ⇄, at the head's right edge beside the duration – the
+                      number is the thing that flips, so the sign sits on it. `labels.flip`
+                      («umschalten») lives on in the aria-label above. */}
+                  <Icon id="swap" className={s.flip} />
                 </button>
               ) : (
                 <span className={s.headMain}>
