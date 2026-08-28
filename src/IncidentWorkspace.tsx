@@ -70,7 +70,7 @@ import { LayerPanel } from './components/LayerPanel'
 import {
   georefPlans, mapContentTwins as projectMapContentTwins, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
   twinPlanImageLayerId, twinPlanImageVisible, twinPlanLayerId, twinVisible, isTwinLayerId, TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardSymbolToEntity, entityToBoardSymbol, onSheet, revealTwinLayer, type MapContentTwin, type MapTwin,
+  boardSymbolToEntity, entityToBoardSymbol, onSheet, planGroundWidthM, revealTwinLayer, type MapContentTwin, type MapTwin,
 } from './lib/georefTwins'
 import { glyphFor, twinName } from './lib/twinGlyph'
 import { GeorefTwinPanel } from './components/GeorefTwinPanel'
@@ -110,6 +110,7 @@ import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
 import { pushBoardPast, type BoardHistory } from './components/useBoardDoc'
 import { deleteBoardTwinSource, patchBoardTwinSource } from './lib/georefTwinEdit'
+import type { GeorefFit } from './lib/georef'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
@@ -2551,18 +2552,40 @@ export function IncidentWorkspace({
     })
     emit('board.edit', { planId: t.planId, id: t.annoId, patch: { x, y } })
   }
+  /** Ground width of a linked sheet in metres — converts the Hubretter reach across the
+   *  Entity⇄BoardAnno boundary (georefTwins · planGroundWidthM). */
+  const planWidthMFor = (planId: string, fit: GeorefFit) => {
+    const planDoc = planDocs.find((p) => p.id === planId)
+    return planDoc ? planGroundWidthM(fit, planAspect(planDoc, stationScales, planScale[planId])) : undefined
+  }
   const transferPlanTwinToMap = (t: MapTwin) => {
     if (tacticalLocked || doc.entities.some((e) => e.id === t.annoId)) return
-    const entity = boardSymbolToEntity(t.anno, t.coord, appConfig.defaults.operationalLayerId)
+    const entity = boardSymbolToEntity(t.anno, t.coord, appConfig.defaults.operationalLayerId, planWidthMFor(t.planId, t.fit))
     if (!entity) return
-    setBoard((all) => ({ ...all, [t.planId]: (all[t.planId] ?? []).filter((a) => a.id !== t.annoId) }))
+    const annos = board[t.planId] ?? []
+    // The object is leaving this sheet, so plan Leitungen anchored to it are let go exactly as a
+    // DELETE lets them go: the endpoint stays pinned where the symbol stood and the attachment is
+    // cleared. Filtering the anno out alone left lines pointing at an id no longer on the board —
+    // «Verbunden mit» printed the raw id and trace-routing silently stopped (lib/georefTwinEdit).
+    const removal = deleteBoardTwinSource(annos, t.annoId)
+    if (!removal) return
+    const detachedOriginals = annos.filter((a) => removal.affectedIds.includes(a.id))
+    setPlanHistory((m) => pushBoardPast(m, t.planId, annos))
+    setBoard((all) => ({ ...all, [t.planId]: removal.next }))
     setDocRaw((d) => ({ ...d, entities: [...d.entities, entity] }))
     setTwinView(null); setSelectedId(entity.id)
     // A transfer is a committed domain action — the object is somewhere else now — so it leaves a
     // Verlauf row and an audit event like every other one. Without them a symbol could move
     // between Modul and Karte and appear in NO record: not the Verlauf, not the Rapport, not the
     // hash chain. See AGENTS.md on what the event log is for.
+    // ⚠️ BOTH halves are that record: replay folds board.* and entity.* alike, and with only the
+    // `entity.add` the reconstructed picture kept the symbol on the plan beside its new map copy.
     log('move', fillTemplate(appConfig.copy.log.twinTransferredToMap, { name: twinName(t.anno) }), 'symbol', undefined, entity.id)
+    emit('board.delete', { planId: t.planId, id: t.annoId })
+    removal.affectedIds.forEach((id) => {
+      const changed = removal.next.find((n) => n.id === id)
+      if (changed) emit('board.edit', { planId: t.planId, id, patch: { pts: changed.pts, startAttachment: changed.startAttachment, endAttachment: changed.endAttachment } })
+    })
     emit('entity.add', { entity })
     toast(fillTemplate(appConfig.copy.contextPanel.transferredHere, { name: twinName(t.anno) }), {
       icon: 'move',
@@ -2570,16 +2593,28 @@ export function IncidentWorkspace({
         label: appConfig.copy.undo,
         onClick: () => {
           setDocRaw((d) => ({ ...d, entities: d.entities.filter((e) => e.id !== entity.id) }))
-          setBoard((all) => ({ ...all, [t.planId]: [...(all[t.planId] ?? []).filter((a) => a.id !== t.annoId), t.anno] }))
+          // the symbol comes back AND so do its Leitungen — an undo that restored the anno but
+          // left the hose lines detached would be a different sheet from the one before the tap
+          setBoard((all) => ({
+            ...all,
+            [t.planId]: [
+              ...(all[t.planId] ?? []).filter((a) => a.id !== t.annoId)
+                .map((a) => detachedOriginals.find((o) => o.id === a.id) ?? a),
+              t.anno,
+            ],
+          }))
           setSelectedId(null)
           emit('entity.delete', { id: entity.id })
+          emit('board.add', { id: t.annoId, anno: t.anno, planId: t.planId })
+          detachedOriginals.forEach((o) => emit('board.edit', { planId: t.planId, id: o.id, patch: { pts: o.pts, startAttachment: o.startAttachment, endAttachment: o.endAttachment } }))
         },
       },
     })
   }
   const transferMapTwinToPlan = (entity: Entity, planId: string, pt: { x: number; y: number }) => {
     if (tacticalLocked || entity.live || (board[planId] ?? []).some((a) => a.id === entity.id)) return
-    const anno = entityToBoardSymbol(entity, pt)
+    const targetFit = linkedPlans.find((p) => p.id === planId)?.fit
+    const anno = entityToBoardSymbol(entity, pt, targetFit ? planWidthMFor(planId, targetFit) : undefined)
     if (!anno) return
     // ⚠️ Leitungen anchored to this object have to be let go, exactly as `deleteEntity` lets them
     // go: the object is leaving the Karte, so an attachment pointing at it would name an id that
@@ -2587,6 +2622,7 @@ export function IncidentWorkspace({
     // not jump. Without this the «Verbunden mit» row fell back to printing the raw id
     // (DrawEditor · attachmentLabels) and trace-routing silently stopped working for good.
     const connected = drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === entity.id))
+    setPlanHistory((m) => pushBoardPast(m, planId, board[planId] ?? []))
     setDocRaw((d) => ({
       ...d,
       entities: d.entities.filter((e) => e.id !== entity.id),
@@ -2595,7 +2631,10 @@ export function IncidentWorkspace({
     setBoard((all) => ({ ...all, [planId]: [...(all[planId] ?? []), anno] }))
     setSelectedId(null); setTwinView(null)
     log('move', fillTemplate(appConfig.copy.log.twinTransferredToPlan, { name: twinName(entity) }), 'symbol', undefined, entity.id)
+    // ⚠️ Both halves, for the same reason as transferPlanTwinToMap: with only the `entity.delete`
+    // the replayed picture had the symbol on NEITHER surface after a transfer.
     emit('entity.delete', { id: entity.id })
+    emit('board.add', { id: anno.id, anno, planId })
     connected.forEach((dr) => {
       const next = detachDrawingFrom(dr, entity)
       emit('draw.edit', { id: dr.id, patch: { coords: next.coords, startAttachment: next.startAttachment, endAttachment: next.endAttachment } })
@@ -2615,6 +2654,8 @@ export function IncidentWorkspace({
             drawings: d.drawings.map((dr) => connected.find((c) => c.id === dr.id) ?? dr),
           }))
           emit('entity.add', { entity })
+          emit('board.delete', { planId, id: anno.id })
+          connected.forEach((dr) => emit('draw.edit', { id: dr.id, patch: { coords: dr.coords, startAttachment: dr.startAttachment, endAttachment: dr.endAttachment } }))
         },
       },
     })

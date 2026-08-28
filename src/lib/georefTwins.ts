@@ -349,18 +349,27 @@ const BOARD_PLAN_ONLY = [
 ] as const satisfies readonly (keyof BoardAnno)[]
 type _BoardKeysAccounted = Assert<Exclude<keyof BoardAnno, (typeof BOARD_PLAN_ONLY)[number]> extends keyof Entity ? true : false>
 
+/** Ground width of the fitted sheet in metres — the one factor that converts the map's
+ *  metre-scaled geometry (`reachM`) into plan-width fractions (`reachN`) and back. PlanScale /
+ *  georef units are aspect-corrected: one normalized sheet width is ar·mPerU metres. */
+export const planGroundWidthM = (fit: GeorefFit, aspect: number) => Math.max(0.001, fit.scaleMPerU * aspect)
+
 /** Move the one source object from Lage ownership to a Modul document. Projection is not copied:
- *  the same id and SymbolProps cross the boundary, then the georeference derives its map twin. */
-export function entityToBoardSymbol(entity: Entity, pt: PlanPt): BoardAnno | null {
+ *  the same id and SymbolProps cross the boundary, then the georeference derives its map twin.
+ *  `widthM` (planGroundWidthM) converts the Hubretter reach into the sheet's own unit — without
+ *  it the metre value is dropped rather than smuggled across as a wrong number. */
+export function entityToBoardSymbol(entity: Entity, pt: PlanPt, widthM?: number): BoardAnno | null {
   if (entity.kind !== 'symbol' || entity.live) return null
-  return { ...omit(entity, ENTITY_MAP_ONLY), id: entity.id, kind: 'symbol', x: pt.x, y: pt.y, storey: entity.floor }
+  const reachN = entity.reachM != null && widthM ? entity.reachM / widthM : undefined
+  return { ...omit(entity, ENTITY_MAP_ONLY), id: entity.id, kind: 'symbol', x: pt.x, y: pt.y, storey: entity.floor, ...(reachN != null ? { reachN } : null) }
 }
 
 /** The reverse ownership transfer. Map-only location/layer fields are supplied by the caller;
  *  no duplicate survives on the plan. */
-export function boardSymbolToEntity(anno: BoardAnno, coord: LngLat, layer: Entity['layer']): Entity | null {
+export function boardSymbolToEntity(anno: BoardAnno, coord: LngLat, layer: Entity['layer'], widthM?: number): Entity | null {
   if (anno.kind !== 'symbol') return null
-  return { ...omit(anno, BOARD_PLAN_ONLY), id: anno.id, kind: 'symbol', layer, coord, floor: anno.storey }
+  const reachM = anno.reachN != null && widthM ? anno.reachN * widthM : undefined
+  return { ...omit(anno, BOARD_PLAN_ONLY), id: anno.id, kind: 'symbol', layer, coord, floor: anno.storey, ...(reachM != null ? { reachM } : null) }
 }
 
 // --- the Ebenen rows -------------------------------------------------------------------------
