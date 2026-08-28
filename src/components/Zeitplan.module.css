@@ -17,6 +17,7 @@
    name cell (.who::before) and the space past the end of the axis are then all literally the same
    colour, so an arc has nothing left to give away. */
 .zeitplan {
+  position: relative; /* anchors the .dragReadout corner pill */
   --name-w: 210px;
   /* the flat board behind the rows. Named here rather than used inline so the row mask and the
      scroll backdrop can never drift to two different colours — that drift IS the bug. */
@@ -556,3 +557,11 @@
      hour of an axis that scrolls anyway: you can always pull the curve out from under the button.
      Two fewer people on a Mannschaft overview is the more expensive of the two. */
 }
+
+/* ── the span being swept or dragged, in numbers ──
+   Fixed at the block's top-right corner, where nothing moves while the value changes: the lane
+   under the finger shows only geometry, and the bars' `title` times never fire on touch.
+   Written imperatively by ZeitplanView (textContent + hidden) — no per-frame React state. */
+.dragReadout { position: absolute; top: 6px; right: 16px; z-index: 5; pointer-events: none;
+  background: var(--ink-fill); color: var(--on-accent-ink); border-radius: 9px; padding: 6px 11px;
+  font: 700 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--shadow-sm); }

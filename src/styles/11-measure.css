@@ -284,3 +284,19 @@
 }
 .wb-pa-move:active { cursor: grabbing; }
 
+
+/* ── the number, while a node is in the hand ──
+   The cumulative label hangs 12px over its vertex — i.e. under the fingertip of the very drag
+   that changes it. While a measure vertex is being dragged (Lage · MapView, Plan · Whiteboard)
+   the label under the finger steps aside and the tool's number — total distance or area —
+   stands HERE instead: fixed top-centre, where nothing moves while it changes. Same reasoning
+   as the offset .node-del chip above and the georef corner loupe. Display-only. */
+.measure-readout { position: absolute; top: calc(14px + env(safe-area-inset-top)); left: 50%; translate: -50% 0;
+  z-index: var(--z-map-util); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--shadow);
+  padding: 9px 16px; font: 700 15px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
+  pointer-events: none; white-space: nowrap; }
+/* below 860px the TopBar spans the full width (see MapUtility · .toputil) — drop under it */
+@media (max-width: 860px) {
+  .measure-readout { top: calc(66px + env(safe-area-inset-top)); }
+}

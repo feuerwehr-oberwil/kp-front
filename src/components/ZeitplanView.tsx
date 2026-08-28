@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from '../lib/format'
@@ -62,7 +62,7 @@ const clock = (iso?: string): string => {
  * sheet. That is why the row carries no «+» and no time chips: they crowded the name out and put
  * every edit two taps away from the thing it edits.
  */
-function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, nowLine, onAddSpan, onReplace, onRemove, onOpen, noMenu }: {
+function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, nowLine, onAddSpan, onReplace, onRemove, onOpen, noMenu, onLiveSpan }: {
   person: Person
   shifts: Shift[]
   blocks: PresenceInterval[]
@@ -79,6 +79,10 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
    *  gestures this lane already uses */
   noMenu: boolean
   onOpen: () => void
+  /** the span the hand is sweeping/dragging RIGHT NOW, or null when it lets go — feeds the
+   *  block-corner readout (the lane itself shows only geometry, and the bars' `title` times
+   *  never fire on touch) */
+  onLiveSpan: (sp: { from: number; to: number } | null) => void
 }) {
   const Z = appConfig.copy.zeitplan
   const g = useLaneGesture({
@@ -96,6 +100,15 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
       return !!sp && t >= sp.from && t < sp.to
     }) ?? null,
   })
+
+  // what the hand is doing right now, in numbers. A sweep's ends may cross; order them.
+  const live = g.draw
+    ? { from: Math.min(g.draw.from, g.draw.to), to: Math.max(g.draw.from, g.draw.to) }
+    : g.preview ? shiftSpan(g.preview) : null
+  const liveKey = live ? `${live.from}:${live.to}` : ''
+  useEffect(() => { onLiveSpan(live) }, [liveKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // a row that unmounts mid-gesture must not leave a stale readout standing
+  useEffect(() => () => onLiveSpan(null), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const barStyle = (from: number, to: number) => {
     const b = barGeometry(from, to, span)
@@ -323,9 +336,23 @@ export function ZeitplanView({
 
   const person = people.find((p) => p.id === openPerson)
 
+  const readoutRef = useRef<HTMLSpanElement>(null)
+  /** Imperative on purpose: the rows already re-render per pointermove during a drag, but
+   *  echoing the live span through parent STATE would re-render every lane per frame — the
+   *  shape of the media-queue battery bug. One textContent write, no state. */
+  const onLiveSpan = useCallback((sp: { from: number; to: number } | null) => {
+    const el = readoutRef.current
+    if (!el) return
+    if (sp) { el.textContent = `${hhmm(new Date(sp.from))}–${hhmm(new Date(sp.to))}`; el.hidden = false }
+    else el.hidden = true
+  }, [])
+
 
   return (
     <div className={s.zeitplan}>
+      {/* the span being swept or dragged, said in numbers while it happens — fixed in the
+          block's top-right corner, where nothing moves while it changes (mockup 03-B) */}
+      <span className={s.dragReadout} ref={readoutRef} hidden aria-hidden />
       {/* said in words, ABOVE the grid. The red outline and the sign on the bar point at where;
           they cannot say what or what to do, and on a touch screen their `title` never appears. */}
       <ShiftConflictNotice shifts={shifts} people={people} className={s.conflictNotice} />
@@ -366,6 +393,7 @@ export function ZeitplanView({
               onReplace={onReplace}
               onRemove={onRemove}
               onOpen={() => setOpenPerson(p.id)}
+              onLiveSpan={onLiveSpan}
               noMenu={isPhone}
             />
           ))}

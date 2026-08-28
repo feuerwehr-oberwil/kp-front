@@ -301,6 +301,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // on the selection-only Umrisse sheet — with no rail left to disarm it. Forcing the rest tool
   // there closes every create path at once (they all gate on `tool`) instead of gating each.
   const [armedTool, setTool] = useState<BoardTool>('pan')
+  /** measure node currently in the hand — its cumulative label (25px over the fingertip) steps
+   *  aside and the fixed .measure-readout carries the number instead (mirrors MapView) */
+  const [measDragNode, setMeasDragNode] = useState<number | null>(null)
+  // released ANYWHERE ends the readout — the node drag itself is window-tracked (usePlanMeasure),
+  // so the button that started it never reliably sees the up
+  useEffect(() => {
+    if (measDragNode == null) return
+    const clear = () => setMeasDragNode(null)
+    window.addEventListener('pointerup', clear, true)
+    window.addEventListener('pointercancel', clear, true)
+    return () => {
+      window.removeEventListener('pointerup', clear, true)
+      window.removeEventListener('pointercancel', clear, true)
+    }
+  }, [measDragNode])
   const tool: BoardTool = selectOnly ? 'pan' : armedTool
   const [pending, setPending] = useState<string | null>(null)
   // a generic shape (Pfeil / Rauch / Rechteck) armed from the palette — mirror of the map's pendingShape
@@ -2330,10 +2345,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       <div className="wb-meas-node" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -50%)` }}>
                         <button className={`measure-handle ${measPress.armed?.key === `m${i}` ? 'doomed' : ''}`}
                           title={appConfig.copy.measure.deleteNode} aria-label={appConfig.copy.measure.deleteNode}
-                          onPointerDown={(e) => { measPress.press(`m${i}`, () => measDelete(i)).onPointerDown(e); measNodeDown(i, e) }}
+                          onPointerDown={(e) => { measPress.press(`m${i}`, () => measDelete(i)).onPointerDown(e); measNodeDown(i, e); setMeasDragNode(i) }}
                         >{measPress.armed?.key === `m${i}` && <NodeDeleteChip progress={measPress.armed.progress} />}</button>
                       </div>
-                      {measMode === 'line' && cum != null && (
+                      {measMode === 'line' && cum != null && measDragNode !== i && (
                         <span className="wb-line-label wb-meas-label" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -150%)` }}>{fmtDistance(cum)}</span>
                       )}
                     </Fragment>
@@ -2769,6 +2784,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               with the rail present, zoom/fit lives in its pinned footer (mirrors the map's
               ToolRail). The phone keeps it either way: there the rail is a bottom bar whose
               footer cluster is CSS-hidden, so this is the plan's only zoom control. */}
+          {/* the tool's number while a measure node is in the hand — fixed top-centre, where
+              nothing moves while it changes; the label under the finger is suppressed above.
+              Same class and reasoning as the Lage's readout (11-measure.css). */}
+          {measDragNode != null && calibrated && measPath.length >= 2 && (
+            <div className="measure-readout" aria-hidden>
+              {measMode === 'line' ? fmtDistance(measLenM) : fmtArea(measAreaM2)}
+            </div>
+          )}
           {readOnly && (!slimRail || isPhone) && (
             <div className="wb-zoom wb-zoom-float" onPointerDown={(e) => e.stopPropagation()}>
               <button onClick={() => zoom(1 / 1.3)} disabled={scale <= MIN_SCALE} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><Icon id="minus" /></button>

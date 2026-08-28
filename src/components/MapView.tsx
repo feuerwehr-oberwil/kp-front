@@ -311,6 +311,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // team's action bar hides only THAT team's trail; mirrors the plan board's per-team
   // hiddenTrails. The record itself is never touched here.
   const [hiddenTrails, setHiddenTrails] = useState<ReadonlySet<string>>(new Set())
+  /** measure vertex currently in the hand — while set, the cumulative label under that finger
+   *  steps aside and the tool's number stands fixed at the top edge instead (mockup 03-B: a
+   *  rapidly changing value is read where it stands still, never under the fingertip) */
+  const [measureDragNode, setMeasureDragNode] = useState<number | null>(null)
   const toggleTrail = (id: string) => setHiddenTrails((prev) => {
     const next = new Set(prev)
     next.has(id) ? next.delete(id) : next.add(id)
@@ -1544,7 +1548,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
                 onInsert={(ev) => {
                   onMeasureInsert(i + 1, mid)
                   // …and the same press keeps dragging the point it just made (see NewNodeHandle)
-                  if (ev && onMeasureDrag) handOffNodeDrag(ev, (ll) => { if (ll) onMeasureDrag(i + 1, ll) })
+                  if (ev && onMeasureDrag) handOffNodeDrag(ev, (ll, phase) => {
+                    if (phase === 'start') setMeasureDragNode(i + 1)
+                    if (phase === 'end') setMeasureDragNode(null)
+                    if (ll) onMeasureDrag(i + 1, ll)
+                  })
                 }} />
             </Marker>
           )
@@ -1559,8 +1567,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           latitude={p[1]}
           anchor="center"
           draggable
+          onDragStart={() => setMeasureDragNode(i)}
           onDrag={(e) => { vertexPress.cancel(); onMeasureDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}
-          onDragEnd={(e) => onMeasureDrag?.(i, [e.lngLat.lng, e.lngLat.lat])}
+          onDragEnd={(e) => { setMeasureDragNode(null); onMeasureDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}
         >
           <div
             className={`measure-handle ${vertexPress.armed?.key === `measure:${i}` ? 'doomed' : ''}`}
@@ -1571,11 +1580,16 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         </Marker>
       ))}
 
-      {/* measurement readouts pinned to the path (cumulative distance / area), above the handles */}
+      {/* measurement readouts pinned to the path (cumulative distance / area), above the handles.
+          While a vertex is in the hand its own label is 12px under the fingertip — that one is
+          suppressed (decided BEFORE the <Marker>, per the null-child trap below) and the fixed
+          .measure-readout at the top edge carries the number instead. */}
       {measureLabels.map((l, i) => (
+        (measureDragNode != null && measureKind === 'line' && i === measureDragNode - 1) ? null : (
         <Marker key={`ml${i}`} longitude={l.coord[0]} latitude={l.coord[1]} anchor="bottom" offset={[0, -12]}>
           <div className={`measure-label ${l.strong ? 'strong' : ''}`}>{l.text}</div>
         </Marker>
+        )
       ))}
 
       {/* annotated-line readouts (auto distance + hose-length helper / free-text label),
@@ -1957,6 +1971,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       />
 
     </Map>
+    {/* the tool's number, fixed at the top edge while a measure vertex is being dragged — the
+        per-vertex label sits under the very fingertip that changes it (the .node-del chip is
+        offset for the same reason), so during the drag the total/area is read where nothing
+        moves: the georef corner-loupe answer. Display-only; gone the moment the finger lifts. */}
+    {measureDragNode != null && measureLabels.length > 0 && (
+      <div className="measure-readout" aria-hidden>{measureLabels[measureLabels.length - 1].text}</div>
+    )}
     {/* the pairing mode's magnifier — base-map tiles, no second GL context (GeorefMapLayer).
         ⚠️ On a phone TOO, since it moved into the corner: what made the old centred one wrong
         there was that it sat under the finger, and an inset does not. Without it the map half
