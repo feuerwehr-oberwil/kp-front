@@ -45,7 +45,7 @@ import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog } from './lib/ui'
 import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
-import { loadPrefs, savePrefs } from './lib/prefs'
+import { loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useMittelActions } from './lib/useMittelActions'
@@ -578,7 +578,7 @@ export function IncidentWorkspace({
   // primary surface for, an invisible gesture that jumps the whole workspace to another section
   // is a thing you trigger by accident, never on purpose. The NavRail and the `nav` hotkey are
   // the two ways to change section.)
-  // tactical-symbol size PER SURFACE (Karte / Module), captions, offline cache radius,
+  // tactical-symbol size (Karte / standalone Module; linked Module follow Karte), captions, offline cache radius,
   // keep-screen-on — device prefs shared with the landing Einstellungen (see useDevicePrefs;
   // lazy loadPrefs seed). Their persistence rides the mode/activePlanId effect below.
   const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
@@ -4104,7 +4104,9 @@ export function IncidentWorkspace({
           objectName={activeObjectName}
           objectAddress={activeObjectAddress}
           onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
-          symMul={symbolScale.board}
+          // A georeferenced Modul has the Karte's real scale, so its tactical symbols follow the
+          // Karte setting too. Standalone sheets keep the independent Modul preference.
+          symMul={planSymbolScale(symbolScale, !!activeLinkedPlan)}
           captionMode={symbolCaptions}
           mapSuppressedCaptions={mapSuppressedCaptions}
           // the other half of the mirror: the Karte's vehicles + symbols, offered to this sheet.

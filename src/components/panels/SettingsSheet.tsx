@@ -159,9 +159,9 @@ export function SettingsSheet({
               <Segmented<ThemeMode> ariaLabel={cp.colorScheme} value={themeMode} onChange={setTheme}
                 options={themeOpts.map(({ m, label }) => ({ value: m, label }))} />
             </div>
-            {/* Two sliders, not one S/M/L segment: the map and the Modul boards never wanted the
-                same size — on a Modul-2/3 sheet even the old «S» was too big, on the map the old
-                «L» was already too big. */}
+            {/* Two sliders, not one S/M/L segment: an unlinked Modul sheet and the Lage never
+                wanted the same size. Once the sheet is georeferenced it follows Karte instead;
+                the subtitles make that automatic hand-off visible before somebody drags. */}
             <ScaleRow surface="map" label={cp.symbolSizeMap} sub={cp.symbolSizeMapSub}
               value={symbolScale.map} onChange={onSymbolScale} />
             <ScaleRow surface="board" label={cp.symbolSizeBoard} sub={cp.symbolSizeBoardSub}

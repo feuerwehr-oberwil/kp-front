@@ -92,7 +92,8 @@ interface Props {
   plans: PlanDocument[]
   activeId: string
   annos: BoardAnno[]
-  /** per-device board symbol-size multiplier (lib/prefs · symbolScales, Einstellungen slider) — scales the plan symbol base */
+  /** effective per-device symbol-size multiplier selected by the app shell: Modul for a
+   *  standalone sheet, Karte once the sheet is georeferenced (lib/prefs · planSymbolScale) */
   symMul?: number
   /** device default for on-canvas symbol captions (lib/prefs · symbolCaptions). The Plan has no
    *  zoom, so captions show whenever the mode is on; the Lage map runs them through its label
