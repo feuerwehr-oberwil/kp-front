@@ -3511,7 +3511,11 @@ export function IncidentWorkspace({
         // surfaces (Checklisten, Mittel, Atemschutz, Rapport) it would still be the map's document
         // being changed invisibly, so the pair and its separator stay hidden there.
         showHistory={!tacticalLocked && (mode === 'map' || mode === 'plans' || mode === 'anwesenheit')}
-        weather={mapUI ? displayWeather : null}
+        // On EVERY surface, not only the Karte: which way the smoke goes matters exactly as much
+        // on the Atemschutz board and a Modul as on the map, and the chip vanishing on a surface
+        // switch read as «the weather indicator is broken» in the field. Phones keep their
+        // map-only float (.phone-wx) — that bar is genuinely too narrow everywhere else.
+        weather={displayWeather}
         onOpenWeather={openWeatherDetails}
         bearing={view.bearing}
         azAlarm={azAlarm}

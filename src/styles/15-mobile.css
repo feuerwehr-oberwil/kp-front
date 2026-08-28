@@ -89,11 +89,13 @@
      row that logs a Verlauf entry. Icon-only and full size go together at every width. */
   .tb-actions .tb-act { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
   .tb-act-add { min-width: var(--tap); }
-  /* the weather goes to its SHORT form here too, not only on a phone: the wind arrow and its
-     speed are the operational half (which way the smoke goes, how fast) — the condition
-     glyph and the temperature are context, and this is the width where the bar runs out. */
+  /* The weather goes to a SHORTER form here, not only on a phone: the condition glyph is the
+     one part that is pure context, so it goes first. The TEMPERATURE stays — an iPad in
+     portrait is 820px wide, and hiding it here is why «the temperature indicator is missing on
+     prod» got reported from exactly that device. Wind arrow + speed stay always: which way the
+     smoke goes, how fast. */
   .tb-weather { gap: 4px; padding: 6px 6px; }
-  .tb-weather-cond, .tb-weather-temp { display: none; }
+  .tb-weather-cond { display: none; }
 }
 /* …and the reservation is only owed while that cluster EXISTS. It floats top-right solely as the
    tool rail's stand-in during replay (`.map-util`); every other map — editor, Viewer, Einsatz-
