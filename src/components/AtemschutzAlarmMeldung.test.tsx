@@ -97,9 +97,38 @@ describe('the published rows', () => {
       </>,
     )
     fireEvent.click(document.querySelector('button.ml-open')!)
-    expect(document.querySelectorAll('.ml-act button')).toHaveLength(1)
-    fireEvent.click(document.querySelector('.ml-act button')!)
-    expect(went).toEqual(['a', 'a'])
-    expect(acknowledged).toEqual(['mute', 'mute'])
+    expect(went).toEqual(['a'])
+    expect(acknowledged).toEqual(['mute'])
+    // …and the jump IS the dismissal now (28.08.): the operator stands on the board that shows
+    // the alarm in full, and the strip was covering the controls they need next
+    expect(document.querySelector('.ml-act button')).toBeNull()
+  })
+
+  it('a dismissed row returns when a NEW emergency starts', () => {
+    const base = { intervalMin: 5, graceSec: 60, onGoToTrupp: () => {} }
+    const overdue = trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) })
+    const { rerender } = render(
+      <>
+        <AtemschutzAlarmMeldungen trupps={[overdue]} severities={{ a: 2 }} {...base} />
+        <Meldeleiste />
+      </>,
+    )
+    fireEvent.click(document.querySelector('button.ml-open')!)
+    expect(document.querySelector('.ml-open')).toBeNull() // dismissed by the jump
+    // the alarm CLEARS (contact recorded) …
+    rerender(
+      <>
+        <AtemschutzAlarmMeldungen trupps={[trupp({ id: 'a', name: 'Meier', lastContactTime: ago(10) })]} severities={{}} {...base} />
+        <Meldeleiste />
+      </>,
+    )
+    // …and a fresh crossing publishes a fresh row
+    rerender(
+      <>
+        <AtemschutzAlarmMeldungen trupps={[overdue]} severities={{ a: 2 }} {...base} />
+        <Meldeleiste />
+      </>,
+    )
+    expect(document.querySelector('.ml-open')).not.toBeNull()
   })
 })

@@ -65,6 +65,8 @@
 @media (hover: hover) {
   .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
 }
+/* the quiet lead: «Kontakt fällig» in amber, no pulse — the pulse is the alarm's voice */
+.tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
 @media (hover: hover) {
   .tb-az.crit:hover { background: color-mix(in srgb, var(--red) 26%, transparent); }

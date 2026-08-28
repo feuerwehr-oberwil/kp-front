@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { deriveTruppLive, truppAlarm } from '../lib/atemschutz'
@@ -20,9 +21,12 @@ import type { Trupp } from '../types'
 //    same day: a collapsed row's button acts on something the row does not name, and here the
 //    two Trupps can be in alarm for DIFFERENT reasons — one out of contact, one out of air.
 //    One row can only carry one of those words, and either choice is a lie about the other.
-//  · NO ✕. A Trupp that is überfällig cannot be waved away; the row goes when a Funkkontakt or
-//    a Druckmeldung makes it go. «Zum Trupp» acknowledges and silences the device, but the visual
-//    row deliberately remains: navigation is not evidence that the safety condition was fixed.
+//  · NO ✕. A Trupp that is überfällig cannot be waved away with nothing done. «Zum Trupp» is
+//    the one dismissal (28.08., field feedback): it acknowledges, silences the device AND takes
+//    the row down — the operator is now standing on the very board that shows the alarm in
+//    full, and the strip was covering the controls they need next (the mute bell among them).
+//    The row returns the moment a NEW emergency starts: the tier clearing and re-crossing, or
+//    the reason changing (a Trupp out of contact whose air then also runs out).
 //  · Only tier 2 — the tier that sounds. The amber «Kontakt fällig» lead is silent and
 //    board-only by doctrine, and a row for it would make the strip nag before anything is wrong.
 //    That keeps the invariant this file exists for: tone ⇔ row.
@@ -81,7 +85,7 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
   /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec) */
   intervalMin: number
   graceSec: number
-  /** silence this device's audible/OS alarm before navigating; visual rows remain */
+  /** silence this device's audible/OS alarm before navigating */
   onAcknowledge?: () => void
   /** open the Atemschutz board with this Trupp's card pointed at */
   onGoToTrupp: (id: string) => void
@@ -95,7 +99,22 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
   // which is why the impure read is fine where it stands.
   // eslint-disable-next-line react-hooks/purity -- justified directly above
   const rows = atemschutzAlarmRows(trupps, severities, Date.now(), intervalMin, graceSec, atemschutzDoctrine())
-  return <>{rows.map((r) => <AtemschutzAlarmMeldung key={r.id} row={r} onAcknowledge={onAcknowledge} onGo={onGoToTrupp} />)}</>
+  // «Zum Trupp» took the operator to the alarm — the row goes with it (see the header). Keyed by
+  // id AND reason, so the same emergency stays acknowledged while a different one resurfaces.
+  const [visited, setVisited] = useState<Record<string, AtemschutzAlarmRow['reason']>>({})
+  const liveKey = rows.map((r) => `${r.id}:${r.reason}`).join('|')
+  useEffect(() => {
+    // an entry whose alarm ended is forgotten, so the NEXT crossing publishes a fresh row
+    setVisited((v) => {
+      const kept = Object.fromEntries(Object.entries(v).filter(([id, reason]) => rows.some((r) => r.id === id && r.reason === reason)))
+      return Object.keys(kept).length === Object.keys(v).length ? v : kept
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rows is derived; liveKey IS its identity
+  }, [liveKey])
+  return <>{rows.filter((r) => visited[r.id] !== r.reason).map((r) => (
+    <AtemschutzAlarmMeldung key={r.id} row={r} onAcknowledge={onAcknowledge}
+      onGo={(id) => { setVisited((v) => ({ ...v, [r.id]: r.reason })); onGoToTrupp(id) }} />
+  ))}</>
 }
 
 function AtemschutzAlarmMeldung({ row, onAcknowledge, onGo }: { row: AtemschutzAlarmRow; onAcknowledge?: () => void; onGo: (id: string) => void }) {
