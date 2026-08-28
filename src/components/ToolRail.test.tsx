@@ -83,3 +83,25 @@ describe('the Beschriftung device preference', () => {
       .toBe('Messen')
   })
 })
+
+// The Karte and every Modul mount their own ToolRail, but the operator reads them as ONE
+// sidebar — an expansion made on one surface survives the remount on the next.
+it('keeps its expanded state across a remount (surface switch)', () => {
+  const props = () => ({
+    className: 'tool-rail',
+    primary: appConfig.copy.primarySymbol,
+    tools: slimTools(appConfig.copy.mapTools, MAP_READONLY_TOOLS),
+    active: 'select',
+    onPick: vi.fn(),
+    footer: <button>{appConfig.copy.nav.zoomIn}</button>,
+  })
+  const first = render(<ToolRail {...props()} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Ausklappen' }))
+  expect(document.querySelector('.vrail.expanded')).toBeTruthy()
+  first.unmount()
+  render(<ToolRail {...props()} />)
+  expect(document.querySelector('.vrail.expanded')).toBeTruthy()
+  // …and collapsing writes back, so the next mount starts closed again
+  fireEvent.click(screen.getByRole('button', { name: 'Einklappen' }))
+  expect(document.querySelector('.vrail.expanded')).toBeNull()
+})

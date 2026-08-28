@@ -623,9 +623,13 @@ def _lookback(pts: list[tuple[float, float]], dist: float) -> tuple[float, float
     return pts[0]
 
 
-def _arrow_head(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], color: str, width: int) -> None:
+def _arrow_head(
+    draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], color: str, width: int, stop: bool = False
+) -> None:
     """Filled triangle terminating the line: its BASE sits on the last vertex and the tip
-    extends beyond it, so the stroke visibly ends in the arrow (not under it)."""
+    extends beyond it, so the stroke visibly ends in the arrow (not under it). ``stop`` adds
+    the Entwicklungsgrenze bar just past the tip — the same statement the fire's bounded
+    spread arrow prints, on a line (client Drawing.arrowStop)."""
     end = pts[-1]
     back = _lookback(pts, max(12.0, width * 3.5))
     ang = math.atan2(end[1] - back[1], end[0] - back[0])
@@ -633,6 +637,15 @@ def _arrow_head(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], color
     tip = (end[0] + ln * math.cos(ang), end[1] + ln * math.sin(ang))
     nx, ny = -math.sin(ang), math.cos(ang)
     draw.polygon([tip, (end[0] + half * nx, end[1] + half * ny), (end[0] - half * nx, end[1] - half * ny)], fill=color)
+    if stop:
+        gap = max(3.0, width * 0.8)
+        bar = max(7.0, half * 1.3)
+        bx, by = tip[0] + gap * math.cos(ang), tip[1] + gap * math.sin(ang)
+        draw.line(
+            [(bx + bar * nx, by + bar * ny), (bx - bar * nx, by - bar * ny)],
+            fill=color,
+            width=max(3, round(width * 0.9)),
+        )
 
 
 def _marker_points(pts: list[tuple[float, float]], spacing: float) -> list[tuple[float, float]]:
@@ -1067,7 +1080,7 @@ def render_kroki(
             else:
                 draw.line(pts, fill=color, width=w, joint="curve")
             if d.get("arrow"):
-                _arrow_head(draw, pts, color, w)
+                _arrow_head(draw, pts, color, w, stop=bool(d.get("arrowStop")))
             if d.get("marker"):
                 # repeated inline letter (—R—R—) at the client's 46px screen rhythm
                 for mp in _marker_points(pts, 46 * u * ss):

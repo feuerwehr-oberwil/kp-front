@@ -36,13 +36,14 @@ function makeSync() {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mount(sync: any) {
+function mount(sync: any, opts?: { alarmUrgent?: boolean }) {
   const blob = {} as unknown as Saved
   return renderHook(
     ({ bp }) => useIncidentSync({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sync: sync as any, readOnly: false, incidentId: 'i1', buildPayload: bp,
       applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+      alarmUrgent: opts?.alarmUrgent,
     }),
     { initialProps: { bp: () => blob } },
   )
@@ -113,6 +114,22 @@ describe('useIncidentSync — live-follow loop', () => {
     await vi.advanceTimersByTimeAsync(LONG_POLL_SPACING_MS)
     expect(pollWorkspaceSince).toHaveBeenCalledTimes(1) // still asleep
     await vi.advanceTimersByTimeAsync(appConfig.sync.hiddenPollMs)
+    expect(pollWorkspaceSince).toHaveBeenCalledTimes(2)
+  })
+
+  it('polls fast while hidden if THIS device is sounding the Atemschutz alarm', async () => {
+    pollWorkspaceSince.mockResolvedValue(null)
+    setHidden(true)
+    const sync = makeSync()
+    mount(sync, { alarmUrgent: true })
+
+    await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
+    expect(pollWorkspaceSince).toHaveBeenCalledTimes(1)
+    expect(pollWorkspaceSince.mock.calls[0][2].wait).toBe(false) // still no held connection
+
+    // …but the next round comes at the alarm cadence, not after 60 s: the Funkkontakt that
+    // ends the ringing is entered on another device and arrives via this poll
+    await vi.advanceTimersByTimeAsync(appConfig.sync.hiddenAlarmPollMs)
     expect(pollWorkspaceSince).toHaveBeenCalledTimes(2)
   })
 

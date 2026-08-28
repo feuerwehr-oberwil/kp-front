@@ -255,7 +255,7 @@ export const de = {
           { kind: 'list', items: [
             'Der **Katalog** kommt aus der Verwaltung, mit Einheit und Bestand («auf dem TLF», «Pio»). **+** erhöht die Menge, die Zeile bleibt stehen.',
             '**Anderes Material** erfasst etwas, das der Katalog nicht kennt – Bezeichnung und Menge genügen.',
-            'Wo ein Symbol auf der Lage für ein Material steht (Lüfter, Ölbinder), bietet seine Karte **«Als Material erfassen»** an: einmal tippen, statt dieselbe Sache zweimal zu erfassen.',
+            'Steht auf Lage oder Plan ein Symbol für ein Material (Lüfter, Ölbinder), das noch nicht erfasst ist, sagt es eine **Leiste über der Liste**: «Gesetzt, aber nicht erfasst». **Übernehmen** erfasst alles Fehlende mit der Quelle aus dem Bestand – einmal tippen, statt dieselbe Sache zweimal zu erfassen.',
             'Eine Menge auf **0** zu setzen entfernt die Zeile nicht aus dem Protokoll – der Rapport zeigt, was eingesetzt und was zurückgenommen wurde.',
           ] },
         ],
@@ -2030,6 +2030,7 @@ export const de = {
     ending: 'Abschluss',
     endingNone: 'Keiner',
     endingArrow: 'Pfeil',
+    endingArrowStop: 'Pfeil mit Stopp',
     endingTeilstueck: 'Teilstück',
     // Dreht die Punktreihenfolge um – der Abschluss (Pfeil bzw. Teilstück-«E») sitzt danach am
     // anderen Ende. Die Linie selbst bleibt, wo sie ist.
@@ -2337,6 +2338,12 @@ export const de = {
     captionsAll: 'Alle',
     offlineRadius: 'Offline-Umkreis',
     offlineRadiusSub: 'Karte & Leitungen um den Einsatz',
+    // Offline-Vorbereitung: automatic self-warm shortly after opening an Einsatz (installed app
+    // only). Two states — see lib/prefs · offlineAuto for why there is no «nur WLAN» tier.
+    offlineAuto: 'Offline-Vorbereitung',
+    offlineAutoSub: 'Lädt Karte & Pläne von selbst kurz nach dem Öffnen',
+    offlineAutoOn: 'Automatisch',
+    offlineAutoOff: 'Nur manuell',
     keepScreenOn: 'Display anlassen',
     keepScreenOnSub: 'Bildschirm nicht abdunkeln im Einsatz',
     keepScreenOnOn: 'Ein',
@@ -3713,15 +3720,14 @@ export const de = {
     stockLabel: 'Bestand',
     stockPlaceholder: 'optional',
     deleteLine: 'Eintrag löschen',
-    // Symbol→Mittel: toast offer after placing a matching tactical symbol
-    // ⚠️ A ROW in the symbol's own panel, not a toast (11.08.). As a toast the offer sat beside
-    // every other toast, was missed constantly, and recorded with no Quelle — which is how the
-    // Rapport filled up with «Ohne Zuordnung». A row can be found again ten minutes later.
-    captureOffer: 'Als Material erfassen',
-    captureAction: 'Erfassen',
-    captureFrom: 'ab',
-    captureNoSource: 'ohne Quelle',
-    captured: '{label}: {menge} {unit} erfasst',
+    // Symbol→Mittel: the reconciliation strip above the list. Third home of this offer
+    // (28.08.): as a toast it was missed, as a row in the symbol's card it was only seen by
+    // whoever re-opened the symbol. Now the SHEET says what stands on Lage/Plan and is not
+    // recorded yet — one sentence, one button, gone once the counts agree (or dismissed).
+    // {list} = «2× Lüfter mobil · Ölbinder»
+    lageStrip: 'Gesetzt, aber nicht erfasst: {list}',
+    lageStripTake: 'Übernehmen',
+    lageStripHide: 'Vorschläge ausblenden',
     // Retablierung per equipment row (consumable Mittel end up in the resupply list)
   },
   // Checkliste surface (ChecklistsView · ChecklistRunner · ChecklistReference)

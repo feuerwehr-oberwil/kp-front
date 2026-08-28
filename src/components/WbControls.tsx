@@ -212,6 +212,8 @@ interface DocksProps {
   onFinish: () => void
   onCancelDraft: () => void
   recolorTeam: (c: string) => void
+  /** the selected chip belongs to a REGISTERED Trupp — its colour is edited on the Trupp form */
+  resourceBound?: boolean
   /** the SELECTED team's trail visibility — the dock eye toggles just that team */
   trailsShown: boolean
   onToggleTrails: () => void
@@ -236,7 +238,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   const NOTES = appConfig.copy.notes
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
@@ -319,10 +321,13 @@ export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive,
 
       {/* selected team — recolour (grid, since the palette is now larger) + trail visibility.
           Trail CLEARING moved behind the pill bar's lock button (confirmed) — a one-tap ✕
-          here silently wiped the recorded Truppverfolgung. */}
+          here silently wiped the recorded Truppverfolgung.
+          ⚠️ No colour grid on a chip bound to a REGISTERED Trupp: its colour is the Trupp's
+          identity and is edited on the Trupp's own form — a second palette here said the same
+          thing twice and buried the trail toggle behind ten swatches. */}
       {selResource && tool === 'pan' && (
         <ToolDock groups={[
-          [{ type: 'colorGrid', value: selResource.color ?? '', onChange: recolorTeam, colors: TEAM_COLORS, title: appConfig.copy.whiteboard.teamColor }],
+          ...(resourceBound ? [] : [[{ type: 'colorGrid' as const, value: selResource.color ?? '', onChange: recolorTeam, colors: TEAM_COLORS, title: appConfig.copy.whiteboard.teamColor }]]),
           [{ type: 'toggle', icon: trailsShown ? 'eye' : 'eyeoff', label: trailsShown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn, on: trailsShown, disabled: !selResource.trail?.length, onClick: onToggleTrails }],
         ]} />
       )}

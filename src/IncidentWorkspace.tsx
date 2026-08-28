@@ -11,7 +11,7 @@ import { usePersonPositions } from './lib/usePersonPositions'
 import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, changedSafetySettings, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type IncidentSettings, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
@@ -19,7 +19,7 @@ import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays 
 import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
-import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, type DeploymentMittelItem } from './lib/deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
@@ -96,6 +96,7 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
+import { isStorageDegraded } from './lib/idb'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
@@ -153,7 +154,7 @@ import { markerOptions, placedTrupps, type PlacedTrupp } from './lib/placedTrupp
 import { annotatedPlans, changedReportMetaFields } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
-import { currentMengeFor, mittelLineCount, symbolCaptureConfigured } from './lib/mittel'
+import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { prepareUploadImage } from './lib/imagePrep'
 
@@ -583,7 +584,7 @@ export function IncidentWorkspace({
   // tactical-symbol size (Karte / standalone Module; linked Module follow Karte), captions, offline cache radius,
   // keep-screen-on — device prefs shared with the landing Einstellungen (see useDevicePrefs;
   // lazy loadPrefs seed). Their persistence rides the mode/activePlanId effect below.
-  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
+  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   // "Mein Standort": bumping this takes a single GPS fix + flies to it. On-demand (no continuous
   // watch) so the GPS chip isn't powered all shift — see MapView.locateNonce.
   const [locateReq, setLocateReq] = useState(0)
@@ -707,7 +708,11 @@ export function IncidentWorkspace({
   const online = useOnline()
 
   const [offlineProgress, setOfflineProgress] = useState<{ done: number; total: number } | null>(null)
-  const downloadOffline = useCallback(async () => {
+  // `quiet` = the automatic self-warm (Offline-Vorbereitung, see the effect below): no dialogs,
+  // no toasts — the Offline-Bereitschaft sheet is where the resulting truth is read. A tight
+  // storage budget silently takes the reduced download instead of asking; the manual button
+  // remains the place where that trade is offered as a question.
+  const downloadOffline = useCallback(async ({ quiet = false } = {}) => {
     const map = mapRef.current?.getMap()
     if (!map) return
     const base = layers.find((l) => l.base && l.visible)
@@ -734,18 +739,20 @@ export function IncidentWorkspace({
       const reduced = fittedTileCap(budget, HARD_CAP, extraBytes)
       if (reduced === 0) {
         // not even the plans fit — nothing useful to offer but the honest refusal
-        toast(fillTemplate(co.dlNoSpace, { free: fmtBytes(budget.free) }), { icon: 'map', tone: 'warn' })
+        if (!quiet) toast(fillTemplate(co.dlNoSpace, { free: fmtBytes(budget.free) }), { icon: 'map', tone: 'warn' })
         return
       }
-      const ok = await confirmDialog({
-        title: co.dlTightTitle,
-        message: fillTemplate(co.dlTightMsg, {
-          need: fmtBytes(fit.needBytes), free: fmtBytes(budget.free), pct: String(Math.round((reduced / tileCount) * 100)),
-        }),
-        confirmLabel: co.dlTightConfirm,
-        cancelLabel: appConfig.copy.cancel,
-      })
-      if (!ok) return
+      if (!quiet) {
+        const ok = await confirmDialog({
+          title: co.dlTightTitle,
+          message: fillTemplate(co.dlTightMsg, {
+            need: fmtBytes(fit.needBytes), free: fmtBytes(budget.free), pct: String(Math.round((reduced / tileCount) * 100)),
+          }),
+          confirmLabel: co.dlTightConfirm,
+          cancelLabel: appConfig.copy.cancel,
+        })
+        if (!ok) return
+      }
       cap = reduced
     }
     setOfflineProgress({ done: 0, total: 1 })
@@ -780,6 +787,7 @@ export function IncidentWorkspace({
       const co = appConfig.copy.offline
       const got = res.fetched + res.warmFetched
       const retry = { label: co.dlRetry, onClick: () => { void downloadOfflineRef.current() } }
+      if (quiet) return // self-warm: the Offline-Bereitschaft sheet reports the resulting truth
       if (got === 0 && res.failed > 0) {
         toast(co.dlNone, { icon: 'map', tone: 'warn', action: retry })
       } else if (got === 0 && res.notFound > 0) {
@@ -793,7 +801,7 @@ export function IncidentWorkspace({
         toast(fillTemplate(res.capped ? co.dlDoneCapped : co.dlDone, { n: res.fetched }), { icon: 'map', tone: 'success' })
       }
     } catch {
-      toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
+      if (!quiet) toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
     } finally {
       setOfflineProgress(null)
     }
@@ -802,6 +810,26 @@ export function IncidentWorkspace({
   // on a toast that outlives the render it was made in, and the callback cannot name itself.
   const downloadOfflineRef = useRef(downloadOffline)
   useEffect(() => { downloadOfflineRef.current = downloadOffline }, [downloadOffline])
+  // ── Offline-Vorbereitung: the device prepares ITSELF (28.08. field feedback) ──
+  // The button relied on someone remembering it before losing coverage. Now, ~30 s after an
+  // Einsatz is open (long enough for the map, plans and layer list to have settled), the same
+  // download runs quietly — installed app only, exactly like the sheet's own reasoning: a
+  // browser tab's cache is evicted too readily to call it «bereit». Re-armed when what there is
+  // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
+  // incident still gets pulled; the signature keeps one warm per state, not one per minute.
+  // «Nur manuell» (device pref) switches all of this off; the button always stays.
+  const offlineWarmSig = `${incidentMeta.id}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson).map((l) => l.id).join(',')}`
+  const offlineWarmed = useRef('')
+  useEffect(() => {
+    if (!offlineAuto || !isStandalone()) return
+    if (offlineWarmed.current === offlineWarmSig) return
+    const t = setTimeout(() => {
+      if (!navigator.onLine || isStorageDegraded()) return // this round stays owed — the ref is only stamped on a start
+      offlineWarmed.current = offlineWarmSig
+      void downloadOfflineRef.current({ quiet: true })
+    }, 30_000)
+    return () => clearTimeout(t)
+  }, [offlineAuto, offlineWarmSig])
   // the Gebäude (floor-stack) document only exists once a building is picked; it sits
   // directly after «Umrisse» (the OSM outline you pick the building from) in the CATALOG —
   // the rail shows the two as one morphing tile (railPlanDocs below).
@@ -1081,6 +1109,13 @@ export function IncidentWorkspace({
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
   }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, intakeReviewedAt])
 
+  // SCBA contact-clock alarm runs app-wide (not just on the Atemschutz surface) so an überfällig
+  // Trupp alerts no matter which page is open. Paused during replay (read-only past view).
+  // Hosted in a null-rendering child (see AtemschutzAlarmHost): its 1 Hz tick must NOT re-render
+  // App — that repainted the whole tree every second a Trupp was in the field (battery drain).
+  // Declared up here (not with the Atemschutz block) because the sync loop below reads it.
+  const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null, severities: {} })
+
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
   const { syncStatus, lastSyncedAt, syncNow } = useIncidentSync({
@@ -1088,6 +1123,9 @@ export function IncidentWorkspace({
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     appendJournal: journal.append,
+    // a ringing device polls fast even when hidden — the Funkkontakt that ends its alarm is
+    // usually entered on another device and arrives via this very poll
+    alarmUrgent: azAlarm.peak >= 2,
   })
 
   // Publish this device's «Einsatzdaten geprüft» to the crew. The question belongs to the Einsatz,
@@ -1107,53 +1145,9 @@ export function IncidentWorkspace({
   // and save battery. No-ops on browsers without the Wake Lock API.
   useWakeLock(keepScreenOn)
 
-  /**
-   * Atemschutz safety values with a Verlaufszeile.
-   *
-   * `contactIntervalMin` and `contactGraceSec` decide when a Trupp counts as fällig and as
-   * überfällig — moving one mid-Einsatz moves every clock on the board at once. That left no
-   * trace of any kind, so a reconstruction could see that a Trupp went overdue but not that the
-   * threshold had been moved under it. The row carries the OLD and NEW values: «geändert» alone
-   * does not say whether the limit got stricter or looser.
-   */
-  // A safety value applies the instant it is tapped; its Verlauf row waits for the operator to
-  // stop tapping. Shorter than the Rapportangaben settle — this is a stepper, not a sentence.
-  const SAFETY_LOG_SETTLE_MS = 2500
-  const safetyLogBase = useRef<IncidentSettings | null>(null)
-  const safetyLogTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveIncidentSettings = useCallback((next: IncidentSettings) => {
-    setIncidentSettings((prev) => {
-      // The steppers write straight through on every tap (the value has to apply live — the
-      // contact clock is running on it), so 10 → 20 min used to be ten «geändert» rows, and a
-      // held ±button twenty. The VALUE still lands immediately; only its row waits for the
-      // number to settle, and is then written against where the burst started.
-      if (!safetyLogBase.current) safetyLogBase.current = prev
-      if (safetyLogTimer.current) clearTimeout(safetyLogTimer.current)
-      safetyLogTimer.current = setTimeout(() => {
-        const base = safetyLogBase.current
-        safetyLogBase.current = null
-        safetyLogTimer.current = null
-        if (!base) return
-        const dz = atemschutzDoctrine()
-        const moved = changedSafetySettings(base, next, {
-          contactIntervalMin: dz.contactIntervalMin,
-          contactGraceSec: dz.contactGraceSec,
-          defaultFunkkanal: dz.defaultFunkkanal,
-        })
-        if (!moved.length) return
-        const AZ = appConfig.copy.atemschutz
-        const tpl: Record<string, string> = {
-          contactIntervalMin: AZ.logSafetyInterval,
-          contactGraceSec: AZ.logSafetyGrace,
-          defaultFunkkanal: AZ.logSafetyFunkkanal,
-        }
-        const changes = moved.map((m) => fillTemplate(tpl[m.key], { from: String(m.from), to: String(m.to) })).join(', ')
-        log('warn', fillTemplate(AZ.logSafety, { changes }), 'team')
-      }, SAFETY_LOG_SETTLE_MS)
-      return next
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
-  }, [])
+  // (The Einstellungen sheet no longer writes the Atemschutz safety values — 28.08., they are
+  // /admin doctrine now. `incidentSettings` overrides already stored in workspaces keep applying;
+  // the settle-and-log machinery that guarded their edits left with the editor.)
 
   /**
    * Rapportangaben with a Verlaufszeile. The printed rapport's own content — Einsatzleiter,
@@ -1434,7 +1428,7 @@ export function IncidentWorkspace({
   }, [resolvedPlanDocs])
 
   // remember the active surface + plan document in a cookie (preserve incidentId)
-  useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels }) }, [mode, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels])
+  useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [mode, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
 
   // bake every plan's bitmap into memory at app load (on idle, sized to the
   // window) so the very first time the Plan tab is opened the page appears
@@ -1597,7 +1591,7 @@ export function IncidentWorkspace({
     commit, setDocRaw, beginDrag, endDrag, emit, log,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
   })
-  const changeMapEnding = async (ending: 'none' | 'arrow' | 'teilstueck') => {
+  const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => {
     if (!selectedDrawing) return
     const incoming = selectedDrawing.teilstueck && ending !== 'teilstueck'
       ? drawings.flatMap((d) => (['start', 'end'] as const).filter((endpoint) => {
@@ -1611,7 +1605,7 @@ export function IncidentWorkspace({
     const resolvedTarget = resolvedMapDrawings.find((d) => d.id === selectedDrawing.id)
     const fallback = resolvedTarget?.coords[resolvedTarget.coords.length - 1] ?? selectedDrawing.coords[selectedDrawing.coords.length - 1]
     commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
-      if (d.id === selectedDrawing.id) return { ...d, arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      if (d.id === selectedDrawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       let next = d
       for (const endpoint of ['start', 'end'] as const) {
         const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
@@ -2537,7 +2531,9 @@ export function IncidentWorkspace({
    * here for exactly this reason — see useBoardDoc · BoardDocDeps), so the move is waiting to be
    * undone when the plan is next opened, checkpointed by the same rule the board itself uses.
    */
-  const moveMapTwinSource = (t: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => {
+  // …for symbol twins AND the mirrored Trupp chips (MapContentTwin): both name the one source
+  // annotation the same way, and both write it through the same fold-back.
+  const moveMapTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId' | 'fit'> & { anno: BoardAnno }, coord: LngLat, phase: 'start' | 'move' | 'end') => {
     if (tacticalLocked) return
     // one checkpoint for the whole drag, on the first movement — the map's own model
     if (phase === 'start') { setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? [])); return }
@@ -2820,12 +2816,6 @@ export function IncidentWorkspace({
     if (!linePickTrupp) return
     if (linkTruppLine(linePickTrupp, lineId)) setLinePickTrupp(null)
   }
-  // SCBA contact-clock alarm runs app-wide (not just on the Atemschutz surface) so an überfällig
-  // Trupp alerts no matter which page is open. Paused during replay (read-only past view).
-  // Hosted in a null-rendering child (see AtemschutzAlarmHost): its 1 Hz tick must NOT re-render
-  // App — that repainted the whole tree every second a Trupp was in the field (battery drain).
-  const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null, severities: {} })
-
   // --- Anwesenheit (attendance over the Divera Mannschaft) ---
   // Roster is session-loaded; attendance rides the per-incident workspace blob. Marking
   // is append-only in spirit: a no-op tap never logs, "Gegangen" keeps the earlier presence,
@@ -2920,21 +2910,16 @@ export function IncidentWorkspace({
     log('people', fillTemplate(dir === 'undo' ? A.undone : A.redone, { names: names.join(', ') || '–' }), 'team')
     emit(dir)
   }
-  const { saveMittel, captureMittelForSymbol } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
-  // The gate for the symbol→Mittel row: «has this station mapped anything at all». Not a setting
-  // anybody has to discover, and a Wehr that never configured it never sees an offer.
-  const mittelCaptureOn = symbolCaptureConfigured(getDeploymentConfig().mittel?.catalogue ?? appConfig.mittel.catalogue)
-  /** What is ALREADY on the Material sheet for this material from this Quelle — the number the
-   *  capture row shows. One function, handed to the Lage's symbol panel and the Plan's alike: a
-   *  TLF placed on Modul 1 and one placed on the Karte book into the same sheet, so they must
-   *  count from it identically. */
-  const mittelCountForSymbol = (item: DeploymentMittelItem, sourceId?: string) => currentMengeFor(mittel, {
-    materialId: item.id,
-    label: item.label,
-    unit: item.unit || appConfig.mittel.defaultUnit,
-    sourceId,
-    sourceLabel: (getDeploymentConfig().mittel?.sources ?? appConfig.mittel.sources).find((x) => x.id === sourceId)?.label,
-  })
+  const { saveMittel } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
+  // Symbol→Mittel moved OUT of the symbol's card (28.08.): the Material surface itself now shows
+  // the «Gesetzt, aber nicht erfasst» strip, fed with every symbol standing on Lage + all plans.
+  // The «has this station mapped anything» gate lives inside mittelRecommendations.
+  const placedSymbols = useMemo(
+    () => [...doc.entities, ...Object.values(board).flat()]
+      .filter((x) => !!x.symbol && !(x as { live?: boolean }).live)
+      .map((x) => ({ symbol: x.symbol as string, fields: x.fields, extract: x.extract })),
+    [doc.entities, board],
+  )
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
   const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
   // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
@@ -3391,6 +3376,7 @@ export function IncidentWorkspace({
           onTwinOpen={openTwinView}
           onTwinMove={moveMapTwinSource}
           onContentTwinOpen={goToTwinSource}
+          onContentTwinMove={moveMapTwinSource}
           selectedTwinKey={twinView?.key}
           georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}
@@ -3508,7 +3494,11 @@ export function IncidentWorkspace({
         // surfaces (Checklisten, Mittel, Atemschutz, Rapport) it would still be the map's document
         // being changed invisibly, so the pair and its separator stay hidden there.
         showHistory={!tacticalLocked && (mode === 'map' || mode === 'plans' || mode === 'anwesenheit')}
-        weather={mapUI ? displayWeather : null}
+        // On EVERY surface, not only the Karte: which way the smoke goes matters exactly as much
+        // on the Atemschutz board and a Modul as on the map, and the chip vanishing on a surface
+        // switch read as «the weather indicator is broken» in the field. Phones keep their
+        // map-only float (.phone-wx) — that bar is genuinely too narrow everywhere else.
+        weather={displayWeather}
         onOpenWeather={openWeatherDetails}
         bearing={view.bearing}
         azAlarm={azAlarm}
@@ -3820,8 +3810,6 @@ export function IncidentWorkspace({
           }}
           // Symbol→Mittel: only where the station mapped at least one material to a symbol.
           // No switch to find — a Wehr that has not configured it never gets an offer.
-          onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
-          mittelCountFor={mittelCountForSymbol}
           onFields={(fields) => { patchEntity(selected.id, { fields }); linkRosterFields(selected, fields) }}
           onNotes={!selected.live ? (v) => patchEntity(selected.id, { notes: v || undefined }) : undefined}
           onFloor={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: f ?? undefined }) : undefined}
@@ -3930,8 +3918,6 @@ export function IncidentWorkspace({
           personStatus={personStatus}
           fieldHints={rosterFieldHints({ kind: 'symbol', symbol: viewedMapTwin.anno.symbol, label: viewedMapTwin.anno.label, fields: viewedMapTwin.anno.fields } as Entity)}
           protectedKeys={new Set(symbolPresetFieldKeys(viewedMapTwin.anno.symbol, sym.symbols.find((x) => x.name === viewedMapTwin.anno.symbol)?.cat))}
-          onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
-          mittelCountFor={mittelCountForSymbol}
           onDelete={() => { void deletePlanTwinSource(viewedMapTwin) }}
         />
       )}
@@ -4410,8 +4396,6 @@ export function IncidentWorkspace({
           fieldHints={(symbol, label, fields) => rosterFieldHints({ kind: 'symbol', symbol, label, fields } as Entity)}
           // Symbol→Mittel on the plan, with the Lage's exact gate and the shared count: a TLF
           // placed on Modul 1 books onto the Material sheet like one placed on the Karte
-          onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
-          mittelCountFor={mittelCountForSymbol}
           onRecent={addRecent}
           log={logPlan}
           emit={emit}
@@ -4578,6 +4562,7 @@ export function IncidentWorkspace({
           canEdit={canEditIncident}
           onSave={saveMittel}
           captureUsage={captureUsage}
+          placedSymbols={placedSymbols}
         />
       )}
 
@@ -4804,12 +4789,11 @@ export function IncidentWorkspace({
           onRailLabels={setRailLabels}
           offlineRadiusM={offlineRadiusM}
           onOfflineRadius={setOfflineRadiusM}
+          offlineAuto={offlineAuto}
+          onOfflineAuto={setOfflineAuto}
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
-          settings={incidentSettings}
-          onSettings={saveIncidentSettings}
-          canEdit={canEditIncident}
           elView={elView}
           onElView={isEditor ? setElView : undefined}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it

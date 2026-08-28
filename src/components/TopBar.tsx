@@ -206,12 +206,19 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             data-hold-target="cancel"
             {...handlers}
           >
-            {pressing && !recording && pressedSince != null && <HoldChargeRing since={pressedSince} />}
             {/* below: this button lives in the TOP bar, so the targets open downward */}
             {latched && <HoldTargets hover={hover} placement="below" anchor={anchor} />}
             {recording
               ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
-              : <><Icon id="plus" /><span className="tb-act-label">{appConfig.copy.journal.add}</span></>}
+              : <>
+                {/* the charge ring rings the + icon — anchored at the right edge it sat ON the
+                    label's last letters and read as clutter over the word it was charging */}
+                <span className="tb-act-ic">
+                  <Icon id="plus" />
+                  {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
+                </span>
+                <span className="tb-act-label">{appConfig.copy.journal.add}</span>
+              </>}
           </button>
         )}
         {/* wrapped in a stable class so the phone rule can lift it out of the bar — see
@@ -237,21 +244,23 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             )}
           </span>
         )}
-        {/* Atemschutz alarm chip — pinned at the far right so it never shifts the other controls.
-            Only present once a Trupp is ÜBERFÄLLIG (red); the amber "fällig" lead stays on the
-            board only. Taps through to the Atemschutz surface. */}
-        {azAlarm && azAlarm.peak >= 2 && azAlarm.urgent && (() => {
-          // ⚠️ TWO reasons this chip is red, and it has to say which. Out of contact ticks a
+        {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.
+            AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first
+            the top bar said anything was the red alarm), RED once a Trupp is überfällig or at
+            its Alarmdruck. Taps through to the Atemschutz surface. */}
+        {azAlarm && azAlarm.peak >= 1 && azAlarm.urgent && (() => {
+          // ⚠️ TWO reasons this chip can be red, and it has to say which. Out of contact ticks a
           // clock; at or below the Alarmdruck it shows the bar. A chip that showed a contact
           // clock for a Trupp whose air is gone would name the wrong emergency.
           const u = azAlarm.urgent
+          const crit = azAlarm.peak >= 2
           const lowPressure = u.reason === 'pressure'
           const what = lowPressure
             ? fillTemplate(appConfig.copy.atemschutz.alarmNote, { bar: String(u.bar ?? '') })
-            : appConfig.copy.atemschutz.clockOverdue
+            : crit ? appConfig.copy.atemschutz.clockOverdue : appConfig.copy.atemschutz.clockWarn
           return (
             <button
-              className="tb-az crit"
+              className={`tb-az ${crit ? 'crit' : 'warn'}`}
               onClick={onOpenAtemschutz}
               title={appConfig.copy.atemschutz.chipHint}
               aria-label={`${appConfig.copy.modes.atemschutz}: ${what} — ${u.name}`}

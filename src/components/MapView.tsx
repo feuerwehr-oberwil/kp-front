@@ -293,6 +293,8 @@ interface Props {
   onTwinMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   /** tap on a mirrored Trupp chip (plan resource twin): jump to its source chip on the Modul */
   onContentTwinOpen?: (twin: MapContentTwin) => void
+  /** drag a mirrored Trupp chip: move its one source chip through the fit */
+  onContentTwinMove?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   selectedTwinKey?: string | null
   /** Opt-in literal plan sheets from Ebenen, already rasterized and projected by their fit. */
   georefPlanRasters?: {
@@ -309,7 +311,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, selectedTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, selectedTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -771,20 +773,30 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // the arrowheads silently vanished (the Pfeil preset "did nothing"). Re-add it on every
     // styledata when it's gone, so the tip survives theme/base switches.
     const ensureArrow = () => {
-      if (map.hasImage('draw-arrow')) return
+      if (map.hasImage('draw-arrow') && map.hasImage('draw-arrow-stop')) return
       const S = 48 // render at a higher resolution so the arrowhead stays crisp when scaled up
-      const cv = document.createElement('canvas'); cv.width = S; cv.height = S
-      const ctx = cv.getContext('2d'); if (!ctx) return
-      ctx.fillStyle = '#fff'
-      ctx.beginPath()
-      ctx.moveTo(S / 2, 4)            // tip (top)
-      ctx.lineTo(S - 6, S - 8)        // bottom-right
-      ctx.lineTo(S / 2, S - 16)       // notch
-      ctx.lineTo(6, S - 8)            // bottom-left
-      ctx.closePath()
-      ctx.fill()
-      const data = ctx.getImageData(0, 0, S, S)
-      map.addImage('draw-arrow', { width: S, height: S, data: data.data }, { sdf: true, pixelRatio: 2 })
+      const head = (stop: boolean) => {
+        const cv = document.createElement('canvas'); cv.width = S; cv.height = S
+        const ctx = cv.getContext('2d'); if (!ctx) return null
+        ctx.fillStyle = '#fff'
+        // the «Stopp» variant carries the Entwicklungsgrenze bar just past the tip — the same
+        // statement the fire's bounded spread arrow makes, on a line
+        const top = stop ? 10 : 4
+        if (stop) ctx.fillRect(8, 0, S - 16, 5)
+        ctx.beginPath()
+        ctx.moveTo(S / 2, top)          // tip (top)
+        ctx.lineTo(S - 6, S - 8)        // bottom-right
+        ctx.lineTo(S / 2, S - 16)       // notch
+        ctx.lineTo(6, S - 8)            // bottom-left
+        ctx.closePath()
+        ctx.fill()
+        return ctx.getImageData(0, 0, S, S)
+      }
+      for (const [name, stop] of [['draw-arrow', false], ['draw-arrow-stop', true]] as const) {
+        if (map.hasImage(name)) continue
+        const data = head(stop)
+        if (data) map.addImage(name, { width: S, height: S, data: data.data }, { sdf: true, pixelRatio: 2 })
+      }
       map.triggerRepaint()
     }
     ensureArrow()
@@ -832,7 +844,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const cosL = Math.cos((bLat * Math.PI) / 180) || 1e-6
       const dx = (bLng - aLng) * cosL, dy = bLat - aLat
       const bearing = (Math.atan2(dx, dy) * 180) / Math.PI // 0 = north, +clockwise
-      return { type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[n - 1] }, properties: { id: d.id, color: d.color || '#1f6feb', bearing } }
+      return { type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[n - 1] }, properties: { id: d.id, color: d.color || '#1f6feb', bearing, icon: d.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' } }
     })
   const arrowFC = fc(arrowFeats)
 
@@ -1330,8 +1342,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // coord readout just settle on release instead of tracking every frame.
       onRotate={(e) => setBearing(e.viewState.bearing)}
       // MapLibre says a genuine pan began: that settles the gesture as a drag whatever the raw
-      // travel looked like, so an armed mode never turns a pan into a reference point
-      onDragStart={georefOn ? () => georefTap.panned() : undefined}
+      // travel looked like, so an armed mode never turns a pan into a reference point.
+      // ⚠️ MOUSE gestures only. MapLibre arms its touch drag-pan after ~3px, which every finger
+      // tap exceeds by pure wobble — with this unconditional, a tablet could not place a map
+      // reference point AT ALL: each tap «began a pan» and died. Touch keeps the tap/pan
+      // distinction from its own travel instead (trackTap · GEOREF_TAP_SLOP_PX): a real pan
+      // moves far past the slop before release, a tap does not.
+      onDragStart={georefOn ? (e) => { if (!(e.originalEvent && 'touches' in e.originalEvent)) georefTap.panned() } : undefined}
       // North-snap: a GESTURE (originalEvent set — programmatic easeTo/flyTo carry none, so
       // «Nach Norden», saved views and the snap's own ease never re-trigger it) that releases
       // within a few degrees of north eases back to exactly 0. Accidental rotation from a
@@ -1381,7 +1398,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {!georefOn && georefPlanContent.length > 0 && (
         <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing}
           trupps={trupps} truppSeverities={truppSeverities}
-          interactive={!placing} onOpenResource={onContentTwinOpen} />
+          interactive={!placing} onOpenResource={onContentTwinOpen}
+          onMoveResource={readOnly ? undefined : onContentTwinMove}
+          project={(c) => mapInst.current?.project(c as [number, number])}
+          unproject={(p) => { const m = mapInst.current; if (!m) return undefined; const ll = m.unproject([p.x, p.y]); return [ll.lng, ll.lat] }}
+          setDragPan={(on) => { const dp = mapInst.current?.dragPan; if (!dp) return; if (on) dp.enable(); else dp.disable() }} />
       )}
 
       {/* «Karte verknüpfen»: the numbered reference crosses, drag-to-fine-tune, tap-to-re-place */}
@@ -1439,7 +1460,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           SDF icon rotated to the final-segment bearing */}
       <Source id="s-draw-arrow" type="geojson" data={arrowFC}>
         <Layer id="l-draw-arrow" type="symbol"
-          layout={{ 'icon-image': 'draw-arrow', 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1, ...vis(drawingsVisible && !georefOn) } as any}
+          layout={{ 'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1, ...vis(drawingsVisible && !georefOn) } as any}
           paint={{ 'icon-color': ['get', 'color'] } as any} />
       </Source>
       {/* team trails — dashed path through the recorded positions, in the team's colour

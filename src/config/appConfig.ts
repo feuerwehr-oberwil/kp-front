@@ -152,6 +152,12 @@ const base = {
     // catches up immediately on the visibility-return. See lib/pollBackoff.
     livePollMaxMs: 15000,
     hiddenPollMs: 60000,
+    // …EXCEPT while this device is sounding the Atemschutz alarm: the event that ends the tone
+    // (a Funkkontakt or Druckmeldung, usually entered on ANOTHER device) arrives via this very
+    // poll, so a backgrounded tablet ringing at the 60 s cadence keeps alarming long after the
+    // Trupp was handled. While alarming, a hidden tab polls at this rate — the battery argument
+    // does not apply to a device that is actively making noise.
+    hiddenAlarmPollMs: 5000,
   },
   // The weather badge's detail target (MeteoSwiss radar) is locale-dependent and lives in
   // the copy catalogues: appConfig.copy.weather.detailsUrl.

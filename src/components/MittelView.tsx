@@ -14,7 +14,8 @@ import { EmptyState } from './EmptyState'
 import type { MittelEntry, MittelStatus } from '../types'
 import {
   visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
-  type CurrentMittel, type MittelListCell, type MittelListRow,
+  mittelRecommendations, defaultSourceFor,
+  type CurrentMittel, type MittelListCell, type MittelListRow, type SymbolMatch,
 } from '../lib/mittel'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import s from './Mittel.module.css'
@@ -91,12 +92,15 @@ function StockDots({ remaining, total, label }: { remaining: number; total: numb
 // stocked on several vehicles expand to per-source stepper sub-rows. Free-typed lines live
 // in a trailing «Weitere» group (the composer exists only for those). «nach Quelle» stays as
 // the second view — the Nachschub question (what does the TLF need back).
-export function MittelView({ entries, canEdit, onSave, captureUsage }: {
+export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbols }: {
   entries: MittelEntry[]
   canEdit: boolean
   onSave: (d: MittelDraft) => void
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
   captureUsage?: CaptureUsage | null
+  /** every symbol standing on Lage + all plans — feeds the «Gesetzt, aber nicht erfasst»
+   *  reconciliation strip (lib/mittel · mittelRecommendations) */
+  placedSymbols?: readonly SymbolMatch[]
 }) {
   const M = appConfig.copy.mittel
   const cfg = getDeploymentConfig().mittel
@@ -228,6 +232,32 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
   // «nach Quelle» has nothing to group while nothing is recorded — it falls back to the list
   const sourceView = view === 'source' && lines > 0
 
+  // ── «Gesetzt, aber nicht erfasst» — the symbol→Mittel reconciliation strip ──
+  // The offer's third home (28.08.): as a toast it was missed, as a row in the symbol's card it
+  // was only seen by whoever re-opened the symbol. The sheet itself now says what stands on
+  // Lage/Plan and is missing here; recording the material ANY way makes its line disappear
+  // (mittelRecommendations counts every source and label-equal hand-typed lines).
+  const recommended = useMemo(
+    () => (canEdit && placedSymbols?.length ? mittelRecommendations(placedSymbols, entries, catalogue) : []),
+    [canEdit, placedSymbols, entries, catalogue],
+  )
+  // ✕ hides the CURRENT suggestion set («something isn't right» — a symbol that only plans).
+  // Keyed by content, not a boolean: a new placement changes the signature and the strip is
+  // back, because it is then talking about a new fact, not the dismissed one.
+  const [recHiddenSig, setRecHiddenSig] = useState('')
+  const recSig = recommended.map((r) => `${r.item.id}:${r.missing}`).join('|')
+  const showRecs = recommended.length > 0 && recSig !== recHiddenSig
+  /** book everything missing onto its Bestand's default source, as the running total each line
+   *  would then show — the same write path as the steppers, so the Verlauf rows read the same */
+  const takeRecommended = () => {
+    for (const r of recommended) {
+      const src = sources.find((x) => x.id === defaultSourceFor(r.item))
+      const unit = r.item.unit || appConfig.mittel.defaultUnit
+      const key = { materialId: r.item.id, label: r.item.label, unit, sourceId: src?.id, sourceLabel: src?.label }
+      onSave({ ...key, menge: currentMengeFor(entries, key) + r.missing })
+    }
+  }
+
   return (
     <>
       {/* opaque backdrop so the Mittel surface reads as its own screen, not a card over the map */}
@@ -310,6 +340,21 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
               <Icon id="plus" />
             </button>
           )}
+        </div>
+      )}
+
+      {showRecs && (
+        <div className={s.recStrip} role="status">
+          <span className={s.recText}>
+            {fillTemplate(M.lageStrip, {
+              list: recommended.map((r) => (r.missing > 1 ? `${r.missing}× ${r.item.label}` : r.item.label)).join(' · '),
+            })}
+          </span>
+          <button type="button" className={s.recTake} onClick={takeRecommended}>{M.lageStripTake}</button>
+          <button type="button" className={s.recHide} onClick={() => setRecHiddenSig(recSig)}
+            title={M.lageStripHide} aria-label={M.lageStripHide}>
+            <Icon id="close" />
+          </button>
         </div>
       )}
 

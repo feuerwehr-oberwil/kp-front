@@ -65,6 +65,8 @@
 @media (hover: hover) {
   .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
 }
+/* the quiet lead: «Kontakt fällig» in amber, no pulse — the pulse is the alarm's voice */
+.tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
 @media (hover: hover) {
   .tb-az.crit:hover { background: color-mix(in srgb, var(--red) 26%, transparent); }
@@ -182,7 +184,11 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    said «fertig» 130ms early — and under prefers-reduced-motion the global zero-duration rule
    made it full on the first frame while the timer still ran, the exact lie nodeHold.ts:118
    documents fixing for the node-delete ring. One clock now; this CSS only paints. */
-.tb-hold-ring { position: absolute; right: 9px; top: 50%; translate: 0 -50%; width: 18px; height: 18px;
+/* The ring RINGS the + icon (its wrapper anchors it), instead of hanging at the button's right
+   edge where it sat on the label's last letters. Bigger than the 18px glyph, so it reads as a
+   halo charging around the affordance being held — and nothing reflows under the finger. */
+.tb-act-ic { position: relative; display: inline-flex; align-items: center; }
+.tb-hold-ring { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 30px; height: 30px;
   z-index: 0; pointer-events: none; }
 .tb-hold-ring circle { fill: none; stroke: currentColor; stroke-width: 2.5; }
 .tb-hold-ring .tb-hold-track { opacity: .3; }
@@ -580,9 +586,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* Touch, tablet and up: the composer opens with the text field already focused, so the OS
    keyboard is up before the card has finished animating in — and an iPad keyboard is close to
    half the screen. Anchored at 11vh the media row and «Speichern» sat behind it. Ride up to the
-   top edge and cap the height against the measured keyboard (--jc-kb): on iOS the layout
-   viewport does NOT shrink for the keyboard, so dvh alone cannot see it. Phones keep the
-   bottom-sheet rule below (they lift by margin instead). */
+   top edge and cap the height against the measured keyboard (--jc-kb): the layout viewport
+   does NOT shrink for the keyboard (iOS never did; Android since `overlays-content`), so dvh
+   alone cannot see it. Phones keep the bottom-sheet rule below (they lift by margin instead). */
 @media (pointer: coarse) and (min-width: 601px) and (min-height: 521px), (pointer: coarse) and (min-width: 1001px) {
   .journal-composer { top: max(12px, env(safe-area-inset-top));
     max-height: calc(100dvh - 24px - var(--jc-kb, 0px)); }

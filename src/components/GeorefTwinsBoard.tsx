@@ -9,7 +9,7 @@ import { memo, useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
-import { isVehicleSym } from '../lib/mapView'
+import { isRotatableSym, isVehicleSym } from '../lib/mapView'
 import type { BoardTwin } from '../lib/georefTwins'
 import { TwinMark } from './GeorefTwinMark'
 import { glyphFor, overlayFor, twinName } from '../lib/twinGlyph'
@@ -75,7 +75,10 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
         const veh = t.kind === 'vehicle' || isVehicleSym(e)
         // Map rotation is north-referenced; on a turned sheet it must be expressed relative to
         // paper-up. `fit.rotationDeg` is exactly that frame change (georef · GeorefFit).
-        const rot = (e.rotation ?? 0) + t.fit.rotationDeg
+        // ⚠️ Only for DIRECTIONAL glyphs. A symbol with no rotation control (the Offizier, the
+        // BMA …) is an upright badge on both source surfaces — turning it by the frame change
+        // tilted exactly the glyphs whose text/insignia must stay readable.
+        const rot = veh || isRotatableSym(e) ? (e.rotation ?? 0) + t.fit.rotationDeg : 0
         const svg = veh ? vehicleSymbolSvg(name, rot, e.directed ?? true) : glyphFor(e, byName)
         const rawCaption = symbolCaptionText(e, captionMode)
         return (

@@ -42,6 +42,7 @@ import { Meldeleiste } from './components/Meldeleiste'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
 import { HelpOverlay } from './components/HelpOverlay'
+import { installHoldTooltip } from './lib/holdTooltip'
 
 
 // ---------------------------------------------------------------------------------
@@ -60,11 +61,11 @@ function rebaseDemoSeed(ws: Saved, incidentId: string): Saved {
 }
 
 function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback?: () => void }) {
-  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
+  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   useEffect(() => {
     // the legacy `symbolSize` key rides along in the spread untouched — see prefs · symbolScales
-    savePrefs({ ...loadPrefs(), symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels })
-  }, [symbolScale, symbolCaptions, offlineRadiusM, keepScreenOn, railLabels])
+    savePrefs({ ...loadPrefs(), symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels })
+  }, [symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
   return (
     <SettingsSheet
       onClose={onClose}
@@ -76,6 +77,8 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
       onSymbolCaptions={setSymbolCaptions}
       offlineRadiusM={offlineRadiusM}
       onOfflineRadius={setOfflineRadiusM}
+      offlineAuto={offlineAuto}
+      onOfflineAuto={setOfflineAuto}
       keepScreenOn={keepScreenOn}
       onKeepScreenOn={setKeepScreenOn}
       themeCoord={null}
@@ -102,6 +105,9 @@ export default function App() {
   // permission is already granted AND the deployment has VAPID keys) — killed-app alarms.
   // Never on a link session: /api/push/subscriptions writes rows tied to a user and 403s.
   useEffect(() => { if (!linkScoped) void ensurePushSubscription() }, [linkScoped])
+
+  // hold an icon-only button to read its word — the tablet's title-tooltip (lib/holdTooltip)
+  useEffect(() => installHoldTooltip(), [])
 
   const [incidents, setIncidents] = useState<IncidentMeta[] | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)

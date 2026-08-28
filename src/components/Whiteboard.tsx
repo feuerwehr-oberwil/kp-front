@@ -29,7 +29,6 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { MenuPick } from './MenuPick'
 import { LockChip } from './LockChip'
-import type { DeploymentMittelItem } from '../lib/deploymentConfig'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
@@ -148,14 +147,6 @@ interface Props {
    *  · roleConflictHint) — printed under the field itself. Same call the Lage makes, just from a
    *  BoardAnno's parts, since a plan symbol is not an Entity. */
   fieldHints?: (symbol: string | undefined, label: string | undefined, fields: Record<string, string> | undefined) => Record<string, string | undefined> | undefined
-  /** Symbol→Mittel on a PLAN symbol: book what this glyph IS onto the Material sheet, the same
-   *  row the Lage's panel offers (ContextPanel · MittelCaptureRow). A TLF placed on Modul 1 is
-   *  the same TLF placed on the Karte — it books identically. Omitted ⇒ no row (the station has
-   *  mapped no material to a symbol, or the surface is read-only). */
-  onCaptureMittel?: (item: DeploymentMittelItem, sourceId?: string) => void
-  /** how much of that material is already booked from that Quelle — the row shows a COUNT, not a
-   *  bare +, so the second tap knows about the first. */
-  mittelCountFor?: (item: DeploymentMittelItem, sourceId?: string) => number
   onRecent: (name: string) => void
   /** append to the unified journal with plan context (team link, plan coords). */
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
@@ -279,7 +270,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onCaptureMittel, mittelCountFor, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -757,6 +748,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (readOnly || !georefFit || !onTwinMove) return
     const c = georefFit.toMap(pt)
     onTwinMove(twin.entityId, [c.lng, c.lat], phase)
+  }, [readOnly, georefFit, onTwinMove])
+  // …and the mirrored Trupp chips take the same road: the write lands on the one map entity.
+  const moveContentTeam = useCallback((entity: Entity, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => {
+    if (readOnly || !georefFit || !onTwinMove) return
+    const c = georefFit.toMap(pt)
+    onTwinMove(entity.id, [c.lng, c.lat], phase)
   }, [readOnly, georefFit, onTwinMove])
   const openBoardTwin = useCallback((twin: BoardTwin) => {
     setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null)
@@ -1921,7 +1918,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     flip.incoming.forEach((i) => emit('board.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }, planId: activeId }))
   }
 
-  const changePlanEnding = async (ending: 'none' | 'arrow' | 'teilstueck') => {
+  const changePlanEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => {
     if (!selDraw) return
     const incoming = selDraw.teilstueck && ending !== 'teilstueck' ? annos.flatMap((a) => (['start', 'end'] as const).filter((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
@@ -1934,7 +1931,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const resolved = renderAnnos.find((a) => a.id === selDraw.id)?.pts
     const fallback = resolved?.[resolved.length - 1] ?? selDraw.pts?.[selDraw.pts.length - 1]
     commit(annos.map((a) => {
-      if (a.id === selDraw.id) return { ...a, arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      if (a.id === selDraw.id) return { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       let next = a
       for (const endpoint of ['start', 'end'] as const) {
         if (!fallback || !incoming.some((x) => x.id === a.id && x.endpoint === endpoint) || !next.pts?.length) continue
@@ -1943,7 +1940,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       }
       return next
     }))
-    emit('board.edit', { id: selDraw.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined }, planId: activeId })
+    emit('board.edit', { id: selDraw.id, patch: { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }, planId: activeId })
     incoming.forEach(({ id, endpoint }) => {
       const line = annos.find((a) => a.id === id)
       if (!line?.pts || !fallback) return
@@ -2143,16 +2140,31 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       the screen and the two printed pages carried three different north marks.
                       The N sits INSIDE the ring and the needle is a dart in ink, which is the
                       one that survived print review. */}
-                  {idx === 0 && fpView && (
-                    <svg viewBox="-25 -25 50 50" className="wb-north-dial" aria-hidden>
-                      <title>{appConfig.copy.whiteboard.northTitle}</title>
-                      <circle r="24" className="wb-north-ring" />
-                      <g style={{ transform: `rotate(${viewAngle}deg)`, transformOrigin: '0px 0px' }}>
-                        <text y="-13" className="wb-north-n">{appConfig.copy.whiteboard.northLabel}</text>
-                        <path d="M0 -8 L10 16 L0 7 L-10 16 Z" className="wb-north-needle" />
-                      </g>
-                    </svg>
-                  )}
+                  {/* …and the dial IS the orientation toggle where one exists: the compass is
+                      what the eye consults about the building's rotation, so it is where the
+                      finger goes to change it. The rail-footer button stays — two doors, one
+                      room. Read-only / unrotated footprints keep the plain read-out. */}
+                  {idx === 0 && fpView && (() => {
+                    const dial = (
+                      <svg viewBox="-25 -25 50 50" className={canOrient && !readOnly ? undefined : 'wb-north-dial'} aria-hidden>
+                        <title>{appConfig.copy.whiteboard.northTitle}</title>
+                        <circle r="24" className="wb-north-ring" />
+                        <g style={{ transform: `rotate(${viewAngle}deg)`, transformOrigin: '0px 0px' }}>
+                          <text y="-13" className="wb-north-n">{appConfig.copy.whiteboard.northLabel}</text>
+                          <path d="M0 -8 L10 16 L0 7 L-10 16 Z" className="wb-north-needle" />
+                        </g>
+                      </svg>
+                    )
+                    if (!(canOrient && !readOnly)) return dial
+                    const label = building?.northUp ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp
+                    return (
+                      <button type="button" className="wb-north-dial wb-north-btn" title={label} aria-label={label}
+                        aria-pressed={!!building?.northUp}
+                        onPointerDown={(e) => e.stopPropagation()} onClick={reorient}>
+                        {dial}
+                      </button>
+                    )
+                  })()}
                   <div className="wb-floor-fp" style={{ width: fpBox?.w, height: fpBox?.h }}>
                     <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="wb-floor-svg">
                       {(fpView?.rings ?? building.rings ?? [building.ring]).map((ring, ri) => (
@@ -2265,6 +2277,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     <svg className="wb-arrowhead" width="80" height="80" viewBox="-40 -40 80 80" aria-hidden
                       style={{ left: 0, top: 0, color, transform: `translate(${last[0]}px, ${last[1]}px) translate(-50%, -50%)` }}>
                       <path transform={`rotate(${ang})`} d={`M0,0 L${-ahl},${-ahw} L${-ahl},${ahw} Z`} fill="currentColor" />
+                      {/* the «Stopp»: the Entwicklungsgrenze bar just past the tip, like the fire's */}
+                      {a.arrowStop && <path transform={`rotate(${ang})`} d={`M4,${-ahw * 1.3} L4,${ahw * 1.3}`} stroke="currentColor" strokeWidth={Math.max(3, (a.width ?? 5) * 0.9)} strokeLinecap="round" fill="none" />}
                     </svg>
                   )}
                   {/* FKS Teilstück fork at the tip (rotated to the line's screen angle) */}
@@ -2779,7 +2793,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               <GeorefContentBoard entities={twinContent} drawings={twinDrawings} fit={georefFit}
                 planAspect={measureAR} sW={sW} sH={sH} byName={sym.byName}
                 trupps={trupps} truppSeverities={truppSeverities}
-                interactive={tool === 'pan'} onOpenTeam={onTwinJump} />
+                interactive={tool === 'pan'} onOpenTeam={onTwinJump}
+                onMoveTeam={readOnly ? undefined : moveContentTeam} />
             )}
             {/* …and the Karte's own objects, mirrored ONTO this sheet. In the board so they pan
                 and zoom with it, and clipped to the sheet (lib/georefTwins · onSheet) so a
@@ -2853,6 +2868,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onFinish={finishShape}
           onCancelDraft={cancelShape}
           recolorTeam={recolorTeam}
+          resourceBound={!!selResource?.truppId && trupps.some((t) => t.id === selResource.truppId && !t.removedAt)}
           trailsShown={!!selResource && !hiddenTrails.has(selResource.id)}
           onToggleTrails={() => { if (selResource) toggleTrail(selResource.id) }}
           measMode={measMode}
@@ -3024,8 +3040,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // Symbol→Mittel, identical to the map: a placed TLF books onto the Material sheet from
           // here too. Only where the station mapped material to symbols (the prop is absent
           // otherwise), and never read-only.
-          onCaptureMittel={readOnly ? undefined : onCaptureMittel}
-          mittelCountFor={mittelCountFor}
           protectedKeys={new Set(symbolPresetFieldKeys(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat))}
           connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: lineLabel(a) }))}
           onFocusLine={(id) => setSelId(id)}
@@ -3106,8 +3120,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           personStatus={personStatus}
           fieldHints={fieldHints?.(viewedTwin.entity.symbol, viewedTwin.entity.label, viewedTwin.entity.fields)}
           protectedKeys={new Set(symbolPresetFieldKeys(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat))}
-          onCaptureMittel={!readOnly && !viewedTwin.entity.live ? onCaptureMittel : undefined}
-          mittelCountFor={mittelCountFor}
           onDelete={() => { void Promise.resolve(onTwinDelete?.(viewedTwin.entityId) ?? false).then((deleted) => { if (deleted) setTwinView(null) }) }}
         />
       )}
@@ -3123,7 +3135,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         <DrawEditor
           key={selDraw.id}
           readOnly={readOnly}
-          drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
+          drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}

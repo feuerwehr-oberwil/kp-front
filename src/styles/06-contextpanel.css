@@ -687,25 +687,3 @@
    carries one, so it has to stay quiet. */
 .jr-link-role { font-style: normal; font-weight: 500; color: var(--ink-faint); }
 
-/* «Als Mittel erfassen» — the row that replaced the missable toast (components/ContextPanel ·
-   MittelCaptureRow). Wraps like every other field row, so a long material name plus a Quelle
-   picker plus the + never pushes the panel sideways. */
-.ctx-mittel-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ctx-mittel-name { flex: 1 1 auto; min-width: 0; font: 700 13.5px var(--body); color: var(--ink); }
-.ctx-mittel-src { display: flex; align-items: center; gap: 6px; flex: 1 1 140px; min-width: 0; }
-.ctx-mittel-src > span { flex: none; font: 600 12px var(--body); color: var(--ink-faint); }
-/* the + is the action; a full tap target, and the one thing on the row that is not a readout */
-.ctx-mittel-add { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
-  color: var(--ink); cursor: pointer; }
-@media (hover: hover) {
-  .ctx-mittel-add:hover { background: var(--hover-strong); }
-}
-.ctx-mittel-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.ctx-mittel-add .i { width: 18px; height: 18px; }
-/* what is already on the sheet for this material FROM THIS SOURCE. Zero is shown too — it is the
-   starting state, and a counter that appears only after the first tap makes the first tap look
-   like it did something different from the second. */
-.ctx-mittel-count { flex: none; font: 600 12.5px var(--body); color: var(--ink-faint); white-space: nowrap; }
-.ctx-mittel-count b { font-size: 15px; font-weight: 800; }
-.ctx-mittel-count.on { color: var(--ink); }

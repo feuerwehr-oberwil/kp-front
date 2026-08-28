@@ -188,6 +188,9 @@ export function useHoldEntry(opts: {
       onPointerCancel,
       onClick,
       onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+      // holding IS this control's gesture (slide to Sprachnotiz/Foto) — the global hold-tooltip
+      // (lib/holdTooltip) must never claim it
+      'data-holdaction': true as const,
     },
   }
 }

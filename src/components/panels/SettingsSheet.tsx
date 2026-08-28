@@ -4,9 +4,8 @@ import { toast } from '../../lib/ui'
 import { loadPrefs, savePrefs, applyTheme, resolveTheme, SYMBOL_SCALE, type ThemeMode, type RailLabels, type SymbolSurface } from '../../lib/prefs'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
-import type { IncidentSettings } from '../../lib/workspace'
 import type { CaptionMode } from '../../types'
-import { atemschutzDoctrine, getDeploymentConfig } from '../../lib/deploymentConfig'
+import { getDeploymentConfig } from '../../lib/deploymentConfig'
 import { listPersonnel } from '../../lib/incidents'
 import { Modal } from './_shared'
 import { Segmented } from '../Segmented'
@@ -42,14 +41,13 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
   )
 }
 
-/** Einstellungen: device prefs (theme, symbol size — local cookie) in one section, and
- *  synced per-incident settings (Atemschutz interval — stored in the workspace blob, so
- *  every device sees the same value) in another. The split is intentional: device prefs may
- *  differ per device without harm; the synced safety threshold must not (see IncidentSettings).
- *  Also opens from the landing card with no incident: omit settings/onSettings and the
- *  synced section disappears (device prefs need no workspace). */
+/** Einstellungen: device prefs only (theme, symbol size, rail words, offline radius, screen
+ *  wake — local cookie) plus per-device utilities. The «Einsatz» doctrine values (Funkkontakt-
+ *  Intervall, Nachfrist, Funkkanal) left this sheet 28.08.: station configuration belongs in
+ *  /admin, where whoever set it up changes it — not under the finger of an unknowing operator
+ *  at 3am (per-incident overrides already written keep working; the doctrine is the source). */
 export function SettingsSheet({
-  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, keepScreenOn, onKeepScreenOn, themeCoord, settings, onSettings, canEdit, elView, onElView, onFeedback,
+  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, themeCoord, elView, onElView, onFeedback,
   shareAs, onSharePosition,
 }: {
   onClose: () => void
@@ -66,15 +64,14 @@ export function SettingsSheet({
   /** radius (m) cached around the incident for offline + scope of the Leitungskataster layers */
   offlineRadiusM: number
   onOfflineRadius: (m: number) => void
+  /** quiet self-warm shortly after opening an Einsatz (lib/prefs · offlineAuto). Default true;
+   *  false = «Nur manuell» — the button in the Offline-Bereitschaft sheet stays either way. */
+  offlineAuto: boolean
+  onOfflineAuto: (v: boolean) => void
   /** keep the screen awake while an incident is open — device pref, default on */
   keepScreenOn: boolean
   onKeepScreenOn: (v: boolean) => void
   themeCoord: [number, number] | null
-  /** synced per-incident settings — undefined (landing, no incident) hides the section */
-  settings?: IncidentSettings
-  onSettings?: (next: IncidentSettings) => void
-  /** only the Einsatzleiter may change the synced section */
-  canEdit?: boolean
   /** Führungsansicht device toggle — undefined hides the row (viewers: their whole
    *  session is read-only anyway, the toggle would be meaningless). Stays operable in EL
    *  view itself (it must — it's the way back out). */
@@ -96,13 +93,6 @@ export function SettingsSheet({
     applyTheme(resolveTheme(m, themeCoord, new Date()))
   }
   const sp = appConfig.copy.sharePosition
-  const az = atemschutzDoctrine() // deployment override → appConfig defaults
-  const intervalMin = settings?.contactIntervalMin ?? az.contactIntervalMin
-  const graceSec = settings?.contactGraceSec ?? az.contactGraceSec
-  const setIntervalMin = (v: number) => { if (settings && onSettings) onSettings({ ...settings, contactIntervalMin: Math.max(1, Math.min(60, v)) }) }
-  const setGraceSec = (v: number) => { if (settings && onSettings) onSettings({ ...settings, contactGraceSec: Math.max(0, Math.min(300, v)) }) }
-  const funkkanal = settings?.defaultFunkkanal ?? az.defaultFunkkanal
-  const setFunkkanal = (v: number) => { if (settings && onSettings) onSettings({ ...settings, defaultFunkkanal: Math.max(az.funkkanalMin, Math.min(az.funkkanalMax, v)) }) }
 
   const themeOpts: { m: ThemeMode; label: string }[] = [
     { m: 'auto', label: appConfig.copy.nav.autoMode },
@@ -181,6 +171,11 @@ export function SettingsSheet({
               <Stepper value={offlineRadiusM} min={500} max={3000} step={250} format={(v) => (v < 1000 ? `${v} m` : `${v / 1000} km`)} onChange={onOfflineRadius} ariaLabel={cp.offlineRadius} />
             </div>
             <div className="set-row">
+              <span className="set-row-l">{cp.offlineAuto}<small>{cp.offlineAutoSub}</small></span>
+              <Segmented<boolean> ariaLabel={cp.offlineAuto} value={offlineAuto} onChange={onOfflineAuto}
+                options={[{ value: true, label: cp.offlineAutoOn }, { value: false, label: cp.offlineAutoOff }]} />
+            </div>
+            <div className="set-row">
               <span className="set-row-l">{cp.keepScreenOn}<small>{cp.keepScreenOnSub}</small></span>
               <Segmented<boolean> ariaLabel={cp.keepScreenOn} value={keepScreenOn} onChange={onKeepScreenOn}
                 options={[{ value: true, label: cp.keepScreenOnOn }, { value: false, label: cp.keepScreenOnOff }]} />
@@ -210,28 +205,10 @@ export function SettingsSheet({
           <p className="set-group-foot">{cp.deviceFoot}</p>
         </section>
 
-        {settings && onSettings && (
-        <section className="set-group">
-          <h3 className="set-group-t">{cp.incidentGroup}</h3>
-          <div className="set-card">
-            <div className="set-row">
-              <span className="set-row-l">{cp.contactInterval}<small>{cp.contactIntervalSub}</small></span>
-              <Stepper value={intervalMin} min={1} max={60} format={(v) => `${v} min`} onChange={setIntervalMin} readOnly={!canEdit} ariaLabel={cp.contactIntervalAria} />
-            </div>
-            <div className="set-row">
-              <span className="set-row-l">{cp.grace}<small>{cp.graceSub}</small></span>
-              <Stepper value={graceSec} min={0} max={300} step={15} format={(v) => `${v} s`} onChange={setGraceSec} readOnly={!canEdit} ariaLabel={cp.grace} />
-            </div>
-            <div className="set-row">
-              <span className="set-row-l">{cp.funkkanal}<small>{cp.funkkanalSub}</small></span>
-              <Stepper value={funkkanal} min={az.funkkanalMin} max={az.funkkanalMax} format={(v) => `K ${v}`} onChange={setFunkkanal} readOnly={!canEdit} ariaLabel={cp.funkkanal} />
-            </div>
-          </div>
-          <p className="set-group-foot">
-            {cp.syncedFoot}{!canEdit ? cp.syncedFootViewer : ''}.
-          </p>
-        </section>
-        )}
+        {/* The «Einsatz» group (Funkkontakt-Intervall, Nachfrist, Funkkanal) left this sheet
+            28.08.: station doctrine belongs in /admin, where whoever set it up changes it — not
+            under the finger of an unknowing operator at 3am. The per-incident override plumbing
+            (IncidentSettings) stays for values already written; the doctrine is the source. */}
 
         <section className="set-group">
           <h3 className="set-group-t">{cp.utilityGroup}</h3>

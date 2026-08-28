@@ -762,12 +762,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     ]}
                   />
                 )}
-                {/* Farbe, where the Trupp is: the same palette the plan chip and the Trupp form
-                    offer. On a marker bound to a Trupp the pick lands on the TRUPP, so card, chip
-                    and marker agree; a loose team marker (placed with the Trupp tool, never
-                    registered on the board) recolours itself. A colour someone else already wears
-                    is allowed — «alle Löschtrupps rot». */}
-                {onTeamColor && (
+                {/* Farbe — for the LOOSE team marker only (placed with the Trupp tool, never
+                    registered on the board): it has no other place to be recoloured. A marker
+                    bound to a registered Trupp does — the Trupp's own form — and its colour is
+                    the Trupp's identity, so a second palette here said the same thing twice.
+                    A colour someone else already wears is allowed — «alle Löschtrupps rot». */}
+                {onTeamColor && !(e.truppId && trupps?.some((t) => t.id === e.truppId && !t.removedAt)) && (
                   <Popover
                     ariaLabel={appConfig.copy.atemschutz.colorLabel}
                     popupClassName="wb-pa-colors"

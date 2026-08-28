@@ -21,12 +21,14 @@ export function useDevicePrefs() {
   }, [])
   const [symbolCaptions, setSymbolCaptions] = useState<CaptionMode>(() => loadPrefs().symbolCaptions ?? appConfig.symbols.captionDefault as CaptionMode)
   const [offlineRadiusM, setOfflineRadiusM] = useState<number>(() => loadPrefs().offlineRadiusM ?? 1200)
+  const [offlineAuto, setOfflineAuto] = useState<boolean>(() => loadPrefs().offlineAuto ?? true)
   const [keepScreenOn, setKeepScreenOn] = useState<boolean>(() => loadPrefs().keepScreenOn ?? true)
   const [railLabels, setRailLabels] = useState<RailLabels>(() => loadPrefs().railLabels ?? 'off')
   return {
     symbolScale, setSymbolScale,
     symbolCaptions, setSymbolCaptions,
     offlineRadiusM, setOfflineRadiusM,
+    offlineAuto, setOfflineAuto,
     keepScreenOn, setKeepScreenOn,
     railLabels, setRailLabels,
   }

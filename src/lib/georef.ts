@@ -315,3 +315,97 @@ export function replacePair(pairs: GeorefPair[], pair: GeorefPair, eps = PAIR_EP
   next[i] = pair
   return next
 }
+
+// ── automatic re-matching of mismatched pair ORDER ─────────────────────────────────────────────
+
+/** A fit this bad is not a fit — start looking for the assignment the operator actually meant. */
+const REMATCH_BAD_M = 10
+/** …and only adopt a candidate that lands at least this good, */
+const REMATCH_GOOD_M = 3
+/** at least this many times better than what stands, */
+const REMATCH_FACTOR = 4
+/** with every point finding a counterpart within this much under the trial transform. */
+const REMATCH_TOL_M = 8
+
+/**
+ * Re-derive WHICH map mark belongs to WHICH plan mark when the two sides were marked in
+ * different orders.
+ *
+ * The pairing mode deliberately lets the operator queue freely on either surface — mark three
+ * corners on the sheet, then the same three on the map. Queue them in a DIFFERENT order and
+ * every pair holds two different physical features: the numbers disagree, the least-squares fit
+ * is garbage, and re-doing twelve points by hand is exactly the punishment the free queueing
+ * exists to avoid. But the information is all there — the two point CLOUDS still have the same
+ * shape — so this solves the correspondence instead of asking for it again:
+ *
+ *   base:   the two plan points farthest apart, tried against every ordered pair of map points
+ *           (an exact two-point similarity each — n·(n−1) candidates);
+ *   match:  under each trial transform, greedily pair every plan point with its nearest unused
+ *           map point (globally, closest first), requiring every point to land within
+ *           REMATCH_TOL_M;
+ *   accept: the best full assignment only if its refitted residual is genuinely good AND far
+ *           better than what stands — a bad-but-honest set of taps is left alone.
+ *
+ * Null when there is nothing to fix (n < 3, the current fit is fine, or no assignment clears
+ * the bar). Each returned pair keeps its plan half's `kind` — the plan marks are the identity,
+ * only their map counterparts are re-dealt.
+ */
+export function rematchPairs(pairs: GeorefPair[], planAspect: number): { pairs: GeorefPair[]; fit: GeorefFit } | null {
+  const n = pairs.length
+  if (n < 3) return null
+  const current = fitSimilarity(pairs, planAspect)
+  if (current && current.meanResidualM <= REMATCH_BAD_M) return null
+
+  // the two plan points farthest apart carry the trial transform (longest lever = most stable)
+  let bi = 0, bj = 1, bd = -1
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const dx = (pairs[i].plan.x - pairs[j].plan.x) * planAspect
+      const dy = pairs[i].plan.y - pairs[j].plan.y
+      const d = dx * dx + dy * dy
+      if (d > bd) { bd = d; bi = i; bj = j }
+    }
+  }
+
+  let best: { pairs: GeorefPair[]; fit: GeorefFit } | null = null
+  for (let k = 0; k < n; k++) {
+    for (let l = 0; l < n; l++) {
+      if (k === l) continue
+      const base = fitSimilarity([
+        { plan: pairs[bi].plan, lngLat: pairs[k].lngLat, kind: 'gesetzt' },
+        { plan: pairs[bj].plan, lngLat: pairs[l].lngLat, kind: 'gesetzt' },
+      ], planAspect)
+      if (!base) continue
+      // all plan↔map distances in metres under the trial transform, then greedy global matching
+      const projected = pairs.map((p) => base.toPlan(p.lngLat))
+      const cand: { i: number; m: number; d: number }[] = []
+      for (let i = 0; i < n; i++) {
+        for (let m = 0; m < n; m++) {
+          const dx = (pairs[i].plan.x - projected[m].x) * planAspect
+          const dy = pairs[i].plan.y - projected[m].y
+          const d = Math.hypot(dx, dy) * base.scaleMPerU
+          if (d <= REMATCH_TOL_M) cand.push({ i, m, d })
+        }
+      }
+      cand.sort((a, b) => a.d - b.d)
+      const planTaken = new Array<boolean>(n).fill(false)
+      const mapTaken = new Array<boolean>(n).fill(false)
+      const match = new Array<number>(n).fill(-1)
+      let matched = 0
+      for (const c of cand) {
+        if (planTaken[c.i] || mapTaken[c.m]) continue
+        planTaken[c.i] = true; mapTaken[c.m] = true; match[c.i] = c.m; matched++
+      }
+      if (matched < n) continue
+      const permuted: GeorefPair[] = pairs.map((p, i) => ({ ...p, lngLat: pairs[match[i]].lngLat }))
+      const fit = fitSimilarity(permuted, planAspect)
+      if (!fit) continue
+      if (!best || fit.meanResidualM < best.fit.meanResidualM) best = { pairs: permuted, fit }
+    }
+  }
+
+  if (!best || best.fit.meanResidualM > REMATCH_GOOD_M) return null
+  if (current && best.fit.meanResidualM > current.meanResidualM / REMATCH_FACTOR) return null
+  if (best.pairs.every((p, i) => p.lngLat === pairs[i].lngLat)) return null
+  return best
+}

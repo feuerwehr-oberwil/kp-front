@@ -261,6 +261,9 @@ export interface Drawing {
   //     creation; every one stays editable in the DrawEditor afterwards. ---
   /** draw an arrowhead at the LAST coord, pointing along the final segment. */
   arrow?: boolean
+  /** the Entwicklungsgrenze bar across the arrowhead — «bis hier, und dort gestoppt», the same
+   *  statement the fire's bounded spread arrow makes (lines with `arrow` only). */
+  arrowStop?: boolean
   /** a single letter (e.g. "R") repeated inline along the line (—R— look). */
   marker?: string
   /** show an auto geodesic-length label at the polyline midpoint. */
@@ -595,6 +598,7 @@ export interface BoardAnno extends SymbolProps {
   width?: number             // draw stroke width
   dashed?: boolean           // draw: render dashed instead of solid (mirrors Drawing.dashed). Absent = solid.
   arrow?: boolean            // draw: an arrowhead at the last vertex (Messpfeil / Rettungsachse line presets)
+  arrowStop?: boolean        // draw: the Entwicklungsgrenze bar across the arrowhead (Drawing.arrowStop)
   marker?: string            // draw: a letter repeated along the line (e.g. 'R' for Rettungsachse)
   // ⚠️ NO LONGER inert on a plan (the comment here said it was): once the sheet is calibrated
   // against its printed Maßstab, a line prints its Länge and an area its Fläche, exactly as the

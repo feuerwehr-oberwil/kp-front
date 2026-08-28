@@ -10,8 +10,9 @@
  * was dragged clear of other symbols on the sheet (label / end-tag offsets, in board fractions)
  * is projected through the same fit as the line itself.
  */
-import { Fragment, type CSSProperties } from 'react'
+import { Fragment, useRef, type CSSProperties } from 'react'
 import { Layer, Marker, Source } from 'react-map-gl/maplibre'
+import { useHoldToDrag } from '../lib/useHoldToDrag'
 import type { MapContentTwin } from '../lib/georefTwins'
 import { ShapeGlyph } from '../lib/shapes'
 import { noteScale } from '../lib/notes'
@@ -32,7 +33,7 @@ const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
 
 const INERT: CSSProperties = { pointerEvents: 'none' }
 
-export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, onOpenResource }: {
+export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, onOpenResource, onMoveResource, project, unproject, setDragPan }: {
   twins: MapContentTwin[]
   zoom: number
   bearing: number
@@ -44,7 +45,20 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
   /** tap on a mirrored Trupp chip: jump to its one source chip on the Modul. Everything else in
    *  this layer stays pointer-inert. */
   onOpenResource?: (twin: MapContentTwin) => void
+  /** Drag a mirrored Trupp chip to move its one source chip on the Modul — the ground coordinate
+   *  is folded back through the twin's fit by the caller. Same gesture grammar as the map's own
+   *  team markers (useHoldToDrag): mouse press-drags at once, touch holds still first, a tap
+   *  stays the jump. Without it a drag on the chip panned the map — «cannot be moved». */
+  onMoveResource?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
+  /** the live map transform + pan switch, for the drag above (same trio MapMarkers uses) */
+  project?: (c: LngLat) => { x: number; y: number } | undefined
+  unproject?: (p: { x: number; y: number }) => LngLat | undefined
+  setDragPan?: (on: boolean) => void
 }) {
+  const hold = useHoldToDrag()
+  /** the live chip drag — re-anchored from the LAST written coord on every move, so a map
+   *  transform change under the finger cannot teleport the chip (MapMarkers does the same) */
+  const resDrag = useRef<{ lx: number; ly: number; last: LngLat } | null>(null)
   if (!twins.length) return null
   // Arrowheads ride the map's own registered SDF icon in ONE symbol layer, exactly like the
   // Lage's lines — geographic bearing from the final segment, dimmed to the projection tone.
@@ -60,7 +74,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       return {
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: t.coords![n - 1] },
-        properties: { color: t.anno.color || appConfig.drawing.colors[0], bearing: arrowBearing },
+        properties: { color: t.anno.color || appConfig.drawing.colors[0], bearing: arrowBearing, icon: t.anno.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' },
       }
     })
   return (
@@ -68,7 +82,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       {arrowFeats.length > 0 && (
         <Source id="s-georef-content-arrows" type="geojson" data={{ type: 'FeatureCollection', features: arrowFeats }}>
           <Layer id="l-georef-content-arrows" type="symbol"
-            layout={{ 'icon-image': 'draw-arrow', 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1 } as never}
+            layout={{ 'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1 } as never}
             paint={{ 'icon-color': ['get', 'color'], 'icon-opacity': 0.72 } as never} />
         </Source>
       )}
@@ -193,17 +207,51 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
             {(() => {
               const style = { '--team': a.color || appConfig.drawing.teamColors[0] } as CSSProperties
               const jump = interactive && onOpenResource ? () => onOpenResource(t) : undefined
-              return (
-                <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={jump ? undefined : INERT}>
-                  {jump ? (
-                    <button type="button" className={`${s.contentMap} ${s.contentTap} team-dot`} style={style}
-                      title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromPlan, { name: a.text ?? '', plan: t.planCode })}
-                      onClick={jump}>
-                      <i /><b>{a.text}</b>
-                    </button>
-                  ) : (
+              const movable = interactive && !!onMoveResource && !!project && !!unproject
+              if (!jump && !movable) {
+                return (
+                  <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>
                     <span className={`${s.contentMap} team-dot`} style={style}><i /><b>{a.text}</b></span>
-                  )}
+                  </Marker>
+                )
+              }
+              return (
+                <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center">
+                  <button type="button" className={`${s.contentMap} ${s.contentTap} team-dot`}
+                    style={{ ...style, ...(movable ? { touchAction: 'none' } : null) }}
+                    title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromPlan, { name: a.text ?? '', plan: t.planCode })}
+                    data-twin=""
+                    // a keyboard «click» (detail 0) keeps the jump; pointer taps go through onTap
+                    onClick={(ev) => { if (ev.detail === 0) jump?.() }}
+                    onPointerDown={(ev) => {
+                      ev.stopPropagation()
+                      hold.begin({ clientX: ev.clientX, clientY: ev.clientY, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
+                        onTap: jump,
+                        onHoldStart: () => {
+                          setDragPan?.(false)
+                          resDrag.current = { lx: ev.clientX, ly: ev.clientY, last: t.coord! }
+                          onMoveResource?.(t, t.coord!, 'start')
+                        },
+                        onDragMove: (mx, my) => {
+                          const st = resDrag.current
+                          if (!st) return
+                          const base = project!(st.last)
+                          if (!base) return
+                          const nc = unproject!({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
+                          if (!nc) return
+                          st.lx = mx; st.ly = my; st.last = nc
+                          onMoveResource?.(t, nc, 'move')
+                        },
+                        onDragEnd: () => {
+                          const st = resDrag.current
+                          resDrag.current = null
+                          setDragPan?.(true)
+                          if (st) onMoveResource?.(t, st.last, 'end')
+                        },
+                      }, { mode: ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: movable })
+                    }}>
+                    <i /><b>{a.text}</b>
+                  </button>
                 </Marker>
               )
             })()}

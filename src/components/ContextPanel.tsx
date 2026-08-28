@@ -12,7 +12,6 @@ import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
 import { getDeploymentConfig, type DeploymentMittelItem } from '../lib/deploymentConfig'
-import { defaultSourceFor, materialForSymbol } from '../lib/mittel'
 import { compositeSpec } from '../lib/symbolRender'
 
 // detail-field controls: short fixed lists render as directly-tappable segmented tabs (they
@@ -69,76 +68,6 @@ function FieldControl({ fieldKey, value, options, placeholder, officerFilter, ra
       // a roster field records whoever is named on it as present (a Gast, if the roster has
       // never heard of them), and a commit per keystroke would record every prefix of the name.
       statusOf={isRoster ? statusOf : undefined} onInput={onInput} onChange={onCommit} />
-  )
-}
-
-/**
- * «Als Mittel erfassen» for the material this symbol stands for.
- *
- * The match reads the symbol's own fields, not just its pack name, because one symbol is
- * routinely several materials — a station has Lüfter, Hochleistungslüfter and Exhauster in its
- * catalogue and exactly ONE «VKF Luefter mobil» to place, told apart by the `Typ` it already
- * configures. The airflow flag joins in as a pseudo-field: a Lüfter set to saugen IS an
- * Exhauster whatever its Typ says. See lib/mittel · materialForSymbol.
- *
- * The Quelle is pre-selected from the material's Bestand (the catalogue knows the Exhauster
- * rides on the Pio) and stays changeable in one tap — right without asking in the common case,
- * which is what stops the sheet filling with «Ohne Zuordnung».
- */
-function MittelCaptureRow({ entity, onCapture, countFor }: {
-  entity: SymbolProps & { symbol?: string; extract?: boolean; fields?: Record<string, string> }
-  onCapture: (item: DeploymentMittelItem, sourceId?: string) => void
-  countFor?: (item: DeploymentMittelItem, sourceId?: string) => number
-}) {
-  const M = appConfig.copy.mittel
-  const cfg = getDeploymentConfig().mittel
-  const catalogue = cfg?.catalogue ?? appConfig.mittel.catalogue
-  const sources = cfg?.sources ?? appConfig.mittel.sources
-  const item = entity.symbol
-    ? materialForSymbol(catalogue, { symbol: entity.symbol, fields: entity.fields, extract: entity.extract })
-    : undefined
-  // the Bestand's answer, chosen once per material — and re-chosen when the symbol's own fields
-  // change it into a different material (a Lüfter switched to Exhauster moves from TLF to Pio)
-  const [source, setSource] = useState<string | undefined>(undefined)
-  const preset = item ? defaultSourceFor(item) : undefined
-  const chosen = source ?? preset
-  useEffect(() => { setSource(undefined) }, [item?.id])
-  if (!item) return null
-  const already = countFor?.(item, chosen) ?? 0
-  const unit = item.unit || appConfig.mittel.defaultUnit
-  return (
-    <div className="ctx-section ctx-mittel">
-      <span className="ctx-section-label">{M.captureOffer}</span>
-      {/* ⚠️ A COUNT, not a + and a sentence. The row used to pair a bare + with «schon 1 Stk.
-          erfasst» underneath, which reads as a contradiction: the line says something is already
-          recorded while the control still looks like nothing has happened. The number IS the
-          state — it shows what is on the sheet for this material from this source, and pressing +
-          raises it. Same stepper idiom as the Mittel surface itself, so one thing is counted one
-          way in both places. `clearable={false}`: the ✕ offered «no source at all», which is
-          never the better answer when the Bestand already names one. */}
-      <div className="ctx-mittel-row">
-        <span className="ctx-mittel-name">{item.label}</span>
-        {sources.length > 0 && (
-          <label className="ctx-mittel-src">
-            <span>{M.captureFrom}</span>
-            <Combo
-              value={sources.find((x) => x.id === chosen)?.label ?? ''}
-              options={sources.map((x) => x.label)}
-              placeholder={M.captureNoSource}
-              clearable={false}
-              onChange={(v) => setSource(sources.find((x) => x.label === v)?.id)}
-            />
-          </label>
-        )}
-        <span className={`ctx-mittel-count${already > 0 ? ' on' : ''}`}>
-          <b>{already}</b> {unit}
-        </span>
-        <button type="button" className="ctx-mittel-add" onClick={() => onCapture(item, chosen)}
-          title={M.captureAction} aria-label={`${M.captureAction}: ${item.label}`}>
-          <Icon id="plus" />
-        </button>
-      </div>
-    </div>
   )
 }
 
@@ -274,11 +203,6 @@ export interface ContextPanelProps {
   /** recolour a placed Atemschutz-Trupp (null = back to automatic). Present only for a team
    *  marker that is bound to a Trupp — it writes the TRUPP's colour, not just this marker. */
   onTeamColor?: (color: string | null) => void
-  /** Record the material this symbol stands for. Absent = this station has not mapped any
-   *  material to a symbol, and the row does not exist (lib/mittel · symbolCaptureConfigured). */
-  onCaptureMittel?: (item: DeploymentMittelItem, sourceId?: string) => void
-  /** what is already on the Mittel sheet for a material, so the row can say «schon 2 erfasst» */
-  mittelCountFor?: (item: DeploymentMittelItem, sourceId?: string) => number
 }
 
 // signed storey label for the badge / stepper readout: +2, -1, 0 (EG)
@@ -301,7 +225,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onCaptureMittel, mittelCountFor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -754,12 +678,8 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
             </div>
           )}
 
-          {/* WHAT THIS SYMBOL IS, on the Material sheet. A row rather than the old toast: the
-              toast sat beside every other toast, was missed constantly, and booked with no
-              Quelle — which is how the Rapport filled up with «Ohne Zuordnung» lines. */}
-          {onCaptureMittel && !readOnly && (
-            <MittelCaptureRow entity={entity} onCapture={onCaptureMittel} countFor={mittelCountFor} />
-          )}
+          {/* («Als Material erfassen» left this card 28.08. — the Material surface itself now
+              shows the «Gesetzt, aber nicht erfasst» strip; see MittelView.) */}
 
           {/* FKS Entwicklung — horizontal (one cardinal) + vertical (↑/↓) spread arrows */}
           {showSpread && (
