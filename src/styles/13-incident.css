@@ -1233,7 +1233,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    covered its own title — neither a sidebar layout nor a bottom-bar one. One breakpoint governs
    the lot now: above it the rail is at the left and the surfaces leave room for it, below it the
    rail is a bottom bar and the surfaces take the full width. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .report-preflight-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
     calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
 }
@@ -1260,7 +1260,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    never sees it. Declared BEFORE the media query below, which turns it back on. */
 .rp-tabs { display: none; }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .rp-head { padding: 10px 14px; gap: 10px 12px; }
   .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
   .report-pre-section { padding: 12px 13px; }

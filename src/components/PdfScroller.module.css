@@ -24,7 +24,7 @@
 }
 /* phone: the rails are bottom BARS, so the lanes to keep clear are the top bar and the two
    stacked bars at the foot */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .pages {
     padding: calc(76px + env(safe-area-inset-top)) 10px
       calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)) 10px;

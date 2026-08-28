@@ -76,7 +76,7 @@
    is always under the circle — a 44px target that cannot be hit. Reserving the FAB's own column
    moves the pair out from under it at every scroll position. --fab-safe is exactly the width the
    FAB claims over this surface, and 0px when there is no FAB. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) { .kf-controls { padding-right: var(--fab-safe, 0px); } }
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) { .kf-controls { padding-right: var(--fab-safe, 0px); } }
 /* The Stand slider keeps a line of its own. The panel is never much wider than the ~460px column
    it sits in, and a track squeezed in beside «Auf Einsatz zoomen» and the ± pair is a track that
    cannot be aimed — which is the whole point of the activity ticks under it. */
@@ -138,7 +138,7 @@
 /* Phone: the crop gives up height. It is opened deliberately here (the fold starts closed below
    the two-column breakpoint), and what it is opened FOR is to check the framing — a picture that
    fills the screen would leave nothing of the rapport it belongs to visible around it. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .kf-panel { --kf-map-h: min(38vh, 300px); }
 }
 

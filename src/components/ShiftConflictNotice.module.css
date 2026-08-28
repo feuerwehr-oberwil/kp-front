@@ -17,7 +17,7 @@
    it — and this one has a one-tap answer, so it says it. */
 .fix { margin: 2px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .notice { margin: 0 12px; }
 }
 

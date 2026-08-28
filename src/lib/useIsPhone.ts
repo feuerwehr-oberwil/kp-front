@@ -21,16 +21,24 @@ export function useMediaQuery(query: string): boolean {
 // the live Lage and add journal entries / photos / voice memos.
 // Reactive to resize + orientation change.
 //
-// ⚠️ TWO conditions, not one width. A phone TURNED SIDEWAYS is 800–950px wide and used to fall
+// ⚠️ TWO conditions, not one width. A phone TURNED SIDEWAYS is 800–960px wide and used to fall
 // straight through to the desktop layout — the full top bar and both rails on a viewport barely
 // 400px tall, which is the one shape they cannot work in. So a short landscape viewport counts
-// as a phone whatever its width; an iPad in landscape (768px+ tall) does not.
+// as a phone — up to 1000px wide.
 //
-// ⚠️ This string is the JS half of a rule the stylesheets carry too — the same pair of
+// ⚠️ The 1000px bound is what keeps a TABLET out of the clause. `interactive-widget=
+// resizes-content` (index.html) makes the software keyboard shrink the LAYOUT viewport, so an
+// iPad in landscape with a field focused is a 1180×440 viewport — short, landscape, and for
+// exactly as long as the keyboard stands, a «phone»: every modal snapped to the full-width
+// bottom-sheet layout the moment the Journaleintrag or the symbol search took focus, and
+// snapped back on blur. Width is the one dimension the keyboard cannot touch; the largest
+// phones are ~960px sideways, the smallest tablets 1024.
+//
+// ⚠️ This string is the JS half of a rule the stylesheets carry too — the same trio of
 // conditions heads every phone `@media` block in src/styles and the CSS modules. They decide the
 // same layout from two places and MUST be changed together; a JS/CSS disagreement here means a
 // phone bottom sheet inside a desktop shell.
-export const PHONE_QUERY = '(max-width: 600px), (orientation: landscape) and (max-height: 520px)'
+export const PHONE_QUERY = '(max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px)'
 
 export function useIsPhone(): boolean {
   return useMediaQuery(PHONE_QUERY)

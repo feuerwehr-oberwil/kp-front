@@ -522,7 +522,7 @@
 /* 600px, not 700: that is the house phone breakpoint (19 other surfaces use it). At 700 the band
    from 601 to 700 ran the PHONE grid — 132px name column, 12.5px type — underneath the surface's
    own DESKTOP header, which is one layout wearing another's head. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .zeitplan { padding: 2px 12px 12px; }
   /* The surface already insets itself for the bottom bar (.surface in Anwesenheit.module.css), so
      reserving another --rail-h here counted it twice and left a dead band the height of the nav

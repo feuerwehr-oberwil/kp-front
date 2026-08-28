@@ -122,7 +122,7 @@
   position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
   font-family: var(--mono); font-size: 9px; font-weight: 700; color: var(--ink-faint); }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* replay scrubber → full-width, lifted above the NavRail bottom bar (still lets you
      toggle Lage/Plan during replay); drop the inline subtitle + end label */
   .replay { left: 10px; right: 10px; bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); width: auto; transform: none; }

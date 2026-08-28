@@ -59,7 +59,7 @@
    the nav bar and blocked navigating away from the Gebäude view. Picking exists only while
    editing, where BOTH bars (nav + tools) are up, so the two-bar offset is always right.
    (The bar is portaled to <body>, so it can't key off the .app-scoped .phone-tools class.) */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* ⚠️ ONE rail height, not two (23.08.): this surface is select-only, so it shows no tool bar
      and the phone reserves a single lane for it (IncidentWorkspace · activePlanNoTools). */
   .wb-osm-barwrap { bottom: calc(var(--rail-h) + 62px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }

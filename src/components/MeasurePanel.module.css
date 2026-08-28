@@ -48,7 +48,7 @@
    above the bars on phones — absolute offsets COMPOUND and the calibrate card floated
    mid-screen (same reason .wb-tools/.wb-dock are fixed, see 15-mobile.css). On the Lage map
    the canvas is full-viewport, so fixed and absolute coincide — one rule serves both. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .measure-panel { position: fixed; left: 10px; right: 10px; width: auto; transform: none;
     bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
   /* the Messen tool carries a tool-option dock (its own horizontal bar), so the results panel

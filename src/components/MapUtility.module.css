@@ -22,7 +22,7 @@
 @media (pointer: coarse) {
   .tu-btn { width: 44px; height: 44px; }
 }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* zoom controls drop below the full-width bar so they never overlap it (map only);
      track the safe area so the cluster clears the notch + rounded corner */
   .toputil { top: calc(60px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); }
