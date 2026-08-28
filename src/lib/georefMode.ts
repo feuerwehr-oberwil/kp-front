@@ -316,7 +316,10 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
  * and END points, so a pan of several hundred px that happens to finish where it began still
  * counts as a click. That is why the map does not rely on it here (see MapView · georef tap).
  */
-export const GEOREF_TAP_SLOP_PX = 10
+// 16, not 10: a deliberate finger tap on glass wobbles 10–15px, and at 10 a tablet tap was
+// regularly read as a pan and placed nothing. 16 is the app's own touch tap tolerance
+// (useHoldToDrag · TAP_TOL_PX, «generous for fat fingers»); a real pan travels far past it.
+export const GEOREF_TAP_SLOP_PX = 16
 
 /** A pointer gesture in progress, as far as «was that a tap?» is concerned. */
 export interface TapGesture {
@@ -357,7 +360,7 @@ export function isPlacingTap(g: TapGesture | null): boolean {
  * other gesture on the app's one map, which this mode has no business doing.)
  *
  * So the placement rides on pointer-up with a sticky `moved` flag fed by every move sample, the
- * same discrimination — and the same 10px — as the plan half. Panning, pinching and inertia are
+ * same discrimination — and the same slop — as the plan half. Panning, pinching and inertia are
  * left completely alone: nothing here consumes or cancels a gesture, it only decides afterwards
  * whether that gesture was a tap.
  */

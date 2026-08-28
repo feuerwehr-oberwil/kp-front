@@ -1332,8 +1332,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // coord readout just settle on release instead of tracking every frame.
       onRotate={(e) => setBearing(e.viewState.bearing)}
       // MapLibre says a genuine pan began: that settles the gesture as a drag whatever the raw
-      // travel looked like, so an armed mode never turns a pan into a reference point
-      onDragStart={georefOn ? () => georefTap.panned() : undefined}
+      // travel looked like, so an armed mode never turns a pan into a reference point.
+      // ⚠️ MOUSE gestures only. MapLibre arms its touch drag-pan after ~3px, which every finger
+      // tap exceeds by pure wobble — with this unconditional, a tablet could not place a map
+      // reference point AT ALL: each tap «began a pan» and died. Touch keeps the tap/pan
+      // distinction from its own travel instead (trackTap · GEOREF_TAP_SLOP_PX): a real pan
+      // moves far past the slop before release, a tap does not.
+      onDragStart={georefOn ? (e) => { if (!(e.originalEvent && 'touches' in e.originalEvent)) georefTap.panned() } : undefined}
       // North-snap: a GESTURE (originalEvent set — programmatic easeTo/flyTo carry none, so
       // «Nach Norden», saved views and the snap's own ease never re-trigger it) that releases
       // within a few degrees of north eases back to exactly 0. Accidental rotation from a
