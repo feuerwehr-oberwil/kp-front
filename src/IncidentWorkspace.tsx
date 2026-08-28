@@ -1081,6 +1081,13 @@ export function IncidentWorkspace({
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
   }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, intakeReviewedAt])
 
+  // SCBA contact-clock alarm runs app-wide (not just on the Atemschutz surface) so an überfällig
+  // Trupp alerts no matter which page is open. Paused during replay (read-only past view).
+  // Hosted in a null-rendering child (see AtemschutzAlarmHost): its 1 Hz tick must NOT re-render
+  // App — that repainted the whole tree every second a Trupp was in the field (battery drain).
+  // Declared up here (not with the Atemschutz block) because the sync loop below reads it.
+  const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null, severities: {} })
+
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
   const { syncStatus, lastSyncedAt, syncNow } = useIncidentSync({
@@ -1088,6 +1095,9 @@ export function IncidentWorkspace({
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     appendJournal: journal.append,
+    // a ringing device polls fast even when hidden — the Funkkontakt that ends its alarm is
+    // usually entered on another device and arrives via this very poll
+    alarmUrgent: azAlarm.peak >= 2,
   })
 
   // Publish this device's «Einsatzdaten geprüft» to the crew. The question belongs to the Einsatz,
@@ -2778,12 +2788,6 @@ export function IncidentWorkspace({
     if (!linePickTrupp) return
     if (linkTruppLine(linePickTrupp, lineId)) setLinePickTrupp(null)
   }
-  // SCBA contact-clock alarm runs app-wide (not just on the Atemschutz surface) so an überfällig
-  // Trupp alerts no matter which page is open. Paused during replay (read-only past view).
-  // Hosted in a null-rendering child (see AtemschutzAlarmHost): its 1 Hz tick must NOT re-render
-  // App — that repainted the whole tree every second a Trupp was in the field (battery drain).
-  const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null, severities: {} })
-
   // --- Anwesenheit (attendance over the Divera Mannschaft) ---
   // Roster is session-loaded; attendance rides the per-incident workspace blob. Marking
   // is append-only in spirit: a no-op tap never logs, "Gegangen" keeps the earlier presence,

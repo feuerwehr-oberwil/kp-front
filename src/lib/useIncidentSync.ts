@@ -25,6 +25,11 @@ interface IncidentSyncDeps {
    *  merge saw both sides change the same person's entry. Optional: omitted (or read-only) →
    *  conflicts stay silent, merge behavior is unchanged. */
   appendJournal?: (row: TimelineEvent) => void
+  /** THIS device is sounding the Atemschutz alarm (tier 2). The event that ends the tone — a
+   *  Funkkontakt or Druckmeldung, usually entered on another device — arrives via this poll, so
+   *  a hidden tab drops from hiddenPollMs to hiddenAlarmPollMs while it is true. A device that
+   *  is actively ringing has no battery case for a sleepy radio. */
+  alarmUrgent?: boolean
 }
 
 /**
@@ -35,7 +40,7 @@ interface IncidentSyncDeps {
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
  * hook owns the sync-internal refs (skip/first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, alarmUrgent }: IncidentSyncDeps) {
   // re-hydrate flags one save to skip — otherwise an editor would immediately push the
   // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
   const skipSave = useRef(false)
@@ -133,7 +138,9 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // timers and sockets anyway (so a held request is killed and re-issued on resume, i.e. churn
   // for nothing), and keeping the radio in its high-power state 20 s at a time is precisely the
   // battery cost the old cadence was tuned to avoid. It keeps the flat 60 s no-wait poll and
-  // catches up at once on the visibility return.
+  // catches up at once on the visibility return — unless this device is RINGING (alarmUrgent),
+  // where the hidden cadence drops to hiddenAlarmPollMs so the Funkkontakt that ends the alarm
+  // is not up to a minute late.
   const liveRev = useRef(sync.rev)
   useEffect(() => {
     let stopped = false
@@ -141,6 +148,10 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     let quiet = 0    // consecutive rounds that fetched nothing (failed / dirty-skipped) → ease-off
     let gen = 0      // bumps to invalidate any in-flight async round when we (re)start or tear down
     let inflight: AbortController | null = null // the held request, so a restart can drop it
+    // While this device is sounding the alarm the hidden cadence drops to hiddenAlarmPollMs
+    // (see IncidentSyncDeps · alarmUrgent). `alarmUrgent` is in the effect's deps, so a flip
+    // restarts the loop and the new cadence applies at once — not after the parked 60 s timer.
+    const hiddenMs = () => (alarmUrgent ? appConfig.sync.hiddenAlarmPollMs : appConfig.sync.hiddenPollMs)
 
     const tick = async (myGen: number) => {
       if (stopped || myGen !== gen) return
@@ -183,7 +194,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
       else {
         delay = nextPollDelay({
           baseMs: appConfig.sync.livePollMs, maxMs: appConfig.sync.livePollMaxMs,
-          quietRounds: quiet, hidden, hiddenMs: appConfig.sync.hiddenPollMs,
+          quietRounds: quiet, hidden, hiddenMs: hiddenMs(),
         })
         quiet += 1
       }
@@ -208,7 +219,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     // returning to the foreground: catch up immediately and resume long-polling, so a
     // backgrounded device (which was polling at hiddenPollMs) shows the latest state at once.
     // Going away: drop the held request and fall back to the slow no-wait cadence.
-    const onVis = () => start(document.visibilityState === 'visible' ? 0 : appConfig.sync.hiddenPollMs)
+    const onVis = () => start(document.visibilityState === 'visible' ? 0 : hiddenMs())
     document.addEventListener('visibilitychange', onVis)
 
     return () => {
@@ -219,7 +230,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
       document.removeEventListener('visibilitychange', onVis)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readOnly, incidentId, sync])
+  }, [readOnly, incidentId, sync, alarmUrgent])
 
   // let the sync engine apply an auto-merged conflict result IN PLACE (no remount), so the
   // resolver smoothly gains the other device's edits instead of having the screen rebuilt.
