@@ -18,6 +18,7 @@ import {
   georefMapQueueNo,
   georefSideCount,
   georefReduce,
+  georefTapOnMarker,
   georefSnapshot,
   georefWantsMap,
   georefWarnings,
@@ -767,5 +768,28 @@ describe('tap vs. drag — the same discrimination on both surfaces', () => {
       expect(s.planId).toBe('modul2')
     }
     expect(s.pairs).toHaveLength(3)
+  })
+})
+
+// A gesture that begins on a cross belongs to the cross (pick / drag) — MapLibre listens
+// natively on the canvas container, so the map sees the cross's events too and has to filter
+// them itself (MapView · onMouseDown/onTouchStart).
+describe('georefTapOnMarker — a cross owns its own gesture', () => {
+  // minimal stand-ins: only `closest` is consulted, and the pure tests run without a DOM
+  const inMarker = { closest: (sel: string) => (sel === '.maplibregl-marker' ? inMarker : null) } as unknown as EventTarget
+  const onCanvas = { closest: () => null } as unknown as EventTarget
+
+  it('a press inside a marker never starts a placement gesture', () => {
+    expect(georefTapOnMarker(inMarker)).toBe(true)
+  })
+
+  it('a press on the bare canvas does', () => {
+    expect(georefTapOnMarker(onCanvas)).toBe(false)
+  })
+
+  it('tolerates targets that are no elements at all', () => {
+    expect(georefTapOnMarker(null)).toBe(false)
+    expect(georefTapOnMarker(undefined)).toBe(false)
+    expect(georefTapOnMarker({} as EventTarget)).toBe(false)
   })
 })

@@ -36,7 +36,7 @@ import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapL
 import { GeorefTwinsMap } from './GeorefTwinsMap'
 import { GeorefContentMap } from './GeorefContentMap'
 import type { MapContentTwin, MapTwin } from '../lib/georefTwins'
-import { georefDispatch, georefPhoneTargetPoint, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
+import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
@@ -376,9 +376,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // tap-vs-pan for the pairing mode, tracked by hand — MapLibre's `click` fires on a pan that
   // ends where it began (see GeorefMapLayer · useGeorefMapTap)
   const georefTap = useGeorefMapTap()
-  /** the one place a map half of a pair is placed, or the mode says why it cannot be */
-  const placeGeoref = (lngLat: { lng: number; lat: number }) => {
-    if (georefTurn) { georefDispatch({ type: 'mapTap', lngLat: { lng: lngLat.lng, lat: lngLat.lat } }); georefPoint.current = null }
+  /** the one place a map half of a pair is placed — true when it really was, so the touch path
+   *  knows whether there is a synthetic click trail to cancel (see the note on onTouchEnd) */
+  const placeGeoref = (lngLat: { lng: number; lat: number }): boolean => {
+    if (!georefTurn) return false
+    georefDispatch({ type: 'mapTap', lngLat: { lng: lngLat.lng, lat: lngLat.lat } })
+    georefPoint.current = null
+    return true
   }
   const aimGeorefMap = () => {
     if (georefTurn && georef.want !== 'map') georefDispatch({ type: 'goMap' })
@@ -1358,7 +1362,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           mapInst.current?.easeTo({ bearing: 0, duration: motionDuration(250) })
         }
       }}
-      onMouseDown={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      // ⚠️ A press that begins on a CROSS never starts a placement gesture: the cross's own
+      // handlers (pick / drag) own it, but their native events still bubble to this container —
+      // without the filter, clicking a pending cross also dropped a stray point underneath it.
+      onMouseDown={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       onMouseMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       onMouseUp={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // ⚠️ The pairing aim is deliberately NOT cleared here. The loupe is up for the whole of the
@@ -1367,11 +1374,20 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       onMouseOut={picking ? () => onCursor?.(null) : undefined}
       // mousemove never fires on touch — stream the aim coords from the drag as well,
       // so the crosshair readout tracks the finger on iPhone/iPad
-      onTouchStart={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { aimGeorefMap(); georefTap.start(e.point, e.points.length > 1) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      // same cross filter as onMouseDown — a finger on a cross is a pick, never a placement
+      onTouchStart={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point, e.points.length > 1) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // mousemove never fires on touch — the loupe follows the drag instead, which is exactly the
       // gesture the mock asks for («halten und schieben»)
       onTouchMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point, e.points.length > 1); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onTouchEnd={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      // ⚠️ A placing tap CANCELS its touchend. The browser follows an uncancelled tap with a
+      // synthesized mousedown/mouseup/click at the same position: the mouse pair re-ran this
+      // very machine (one duplicate point per tap), and the click landed on the cross that had
+      // JUST mounted under the finger — picking it up, so the next tap silently re-placed that
+      // point instead of setting the next one. That loop, not finger wobble, is what made
+      // tablet placement «very unreliable». MapLibre registers touchend non-passively, so
+      // preventDefault here is honoured and stops the whole synthetic trail. Pans, pinches and
+      // non-placing taps stay untouched — crosses keep receiving their real taps.
+      onTouchEnd={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped && placeGeoref(e.lngLat)) e.originalEvent?.preventDefault() } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
       cursor={picking || georefTurn ? 'crosshair' : undefined}
       attributionControl={false}
       maxPitch={0}

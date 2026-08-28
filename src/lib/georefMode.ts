@@ -383,6 +383,18 @@ export function useGeorefMapTap() {
   }
 }
 
+/** Did this map gesture BEGIN on one of the mode's own crosses (or any other marker)? Then it
+ *  belongs to that cross — its tap is a pick, its drag a correction — and must never feed the
+ *  placement machine. ⚠️ The cross's React handlers cannot shield it: MapLibre listens natively
+ *  on the canvas container, which sits BELOW the React root, so a `stopPropagation` in the
+ *  button fires long after the map has already seen the event. The map side filters instead. */
+export function georefTapOnMarker(target: EventTarget | null | undefined): boolean {
+  // duck-typed rather than `instanceof Element`: touch targets can come from another document
+  // (and the pure tests run without a DOM), while `closest` is the one capability actually used
+  const el = target as Element | null | undefined
+  return typeof el?.closest === 'function' && !!el.closest('.maplibregl-marker')
+}
+
 /** Is one specific point being re-placed? While it is, EVERY cross goes inert on both surfaces —
  *  the tap that is meant to land that point must not be swallowed by whichever cross happens to
  *  sit under it. ⚠️ Queued points do NOT make the plan inert: on the sheet the operator is free
