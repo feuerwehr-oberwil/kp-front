@@ -201,6 +201,20 @@ describe('ownership transfer keeps one object', () => {
   it('does not transfer a live feed object as incident-owned data', () => {
     expect(entityToBoardSymbol(ent('gps', ORIGIN, { live: true }), { x: 0.5, y: 0.5 })).toBeNull()
   })
+
+  // The Hubretter reach is metre-scaled on the map and a plan-width fraction on the sheet; the
+  // 100 m FIT makes the factor exactly 100. Without the width the value is DROPPED, never
+  // carried across as a number in the wrong unit.
+  it('converts the Hubretter reach across the boundary, both ways', () => {
+    const widthM = FIT.scaleMPerU * 1
+    const toPlan = entityToBoardSymbol(ent('e1', ORIGIN, { reachM: 25 }), { x: 0.3, y: 0.4 }, widthM)
+    expect(toPlan?.reachN).toBeCloseTo(0.25, 5)
+    expect(toPlan).not.toHaveProperty('reachM')
+    const toMap = boardSymbolToEntity(anno('a1', { reachN: 0.25 }), [7.5, 47.5], 'taktisch', widthM)
+    expect(toMap?.reachM).toBeCloseTo(25, 3)
+    expect(toMap).not.toHaveProperty('reachN')
+    expect(entityToBoardSymbol(ent('e2', ORIGIN, { reachM: 25 }), { x: 0.3, y: 0.4 })?.reachN).toBeUndefined()
+  })
 })
 
 describe('the Ebenen rows', () => {

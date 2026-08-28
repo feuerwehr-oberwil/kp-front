@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { fitSimilarity } from '../lib/georef'
 import { boardDrawingTwins, boardEntityTwins } from '../lib/georefTwins'
 import type { Drawing, Entity } from '../types'
@@ -31,5 +31,42 @@ describe('broader Karte content on a Modul', () => {
     expect(screen.getByText('Leitung 1')).toBeTruthy()
     expect(container.querySelector('.shape-glyph')).toBeTruthy()
     expect(container.querySelector('polyline')).toBeTruthy()
+  })
+
+  it('keeps a mirrored Leitung its FKS voice: arrowhead, fork, tag, letters, Länge', () => {
+    const drawings: Drawing[] = [
+      {
+        id: 'ltg', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]],
+        arrow: true, teilstueck: true, content: 'S', lineNo: 1, marker: 'R', showDistance: true,
+      },
+      { id: 'ring', kind: 'circle', coords: [[7.5005, 47.5]], radiusM: 50 },
+    ]
+    const { container } = render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} />)
+    expect(container.querySelector('.wb-arrowhead')).toBeTruthy()
+    expect(container.querySelector('.line-fork')).toBeTruthy()
+    expect(screen.getByText('1 · S')).toBeTruthy()          // the end tag
+    expect(screen.getAllByText('R').length).toBeGreaterThan(0) // the —R— rhythm
+    // the Länge is measured on the SOURCE geodesics — no plan calibration involved
+    expect(container.querySelector('.wb-line-label')?.textContent).toMatch(/m ·/)
+    // …and the Absperrkreis states its radius like the map does
+    expect(screen.getByText('50 m')).toBeTruthy()
+  })
+
+  it('a mirrored Trupp chip answers a tap with the jump to its source marker', () => {
+    const onOpenTeam = vi.fn()
+    const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2' }]
+    render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} />)
+    fireEvent.click(screen.getByRole('button', { name: /Trupp 2/ }))
+    expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 'team' }))
+  })
+
+  it('…but stays inert while a tool is armed', () => {
+    const onOpenTeam = vi.fn()
+    const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2' }]
+    render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive={false} onOpenTeam={onOpenTeam} />)
+    expect(screen.queryByRole('button', { name: /Trupp 2/ })).toBeNull()
   })
 })

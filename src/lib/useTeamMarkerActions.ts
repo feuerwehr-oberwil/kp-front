@@ -2,6 +2,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
 import { toast, confirmDialog } from './ui'
 import { pickTeamColor } from './teamColors'
+import { nextTeamName } from './placedTrupps'
 import type { Doc } from './workspace'
 import type { Entity, LngLat, TimelineEvent } from '../types'
 
@@ -13,6 +14,10 @@ interface TeamMarkerActionsDeps {
   emit: (op_type: string, payload?: Record<string, unknown>) => void
   setSelectedId: (id: string | null) => void
   setSelectedDrawingId: (id: string | null) => void
+  /** Chip names already standing on MIRRORED surfaces (linked Modul resource chips), so a new
+   *  generic team is numbered across both pictures instead of duplicating a mirrored «Team 1».
+   *  Absent/empty where nothing is linked — an unlinked surface keeps its own count. */
+  mirroredTeamNames?: () => string[]
 }
 
 /**
@@ -21,7 +26,7 @@ interface TeamMarkerActionsDeps {
  * Marking is the ONLY way a position is recorded (moving a marker never breadcrumbs), so the
  * recorded dots ARE the Truppverfolgung; clearing them is confirm-gated.
  */
-export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId }: TeamMarkerActionsDeps) {
+export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId, mirroredTeamNames }: TeamMarkerActionsDeps) {
   const placeGenericTeam = (c: LngLat) => {
     const teams = entities.filter((e) => e.kind === 'team')
     const id = `trupp${Date.now()}`
@@ -29,7 +34,8 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     // The old `colors[teams.length]` collided with an Atemschutz Trupp of the same index and
     // repeated itself after a deletion (see teamColors.ts).
     const color = pickTeamColor(undefined, teams.map((e) => e.color))
-    const marker: Entity = { id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: c, label: `${appConfig.copy.whiteboard.team} ${teams.length + 1}`, t: formatTime(new Date()), color, trail: [] }
+    const label = nextTeamName([...teams.map((e) => e.label), ...(mirroredTeamNames?.() ?? [])])
+    const marker: Entity = { id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: c, label, t: formatTime(new Date()), color, trail: [] }
     commit((d) => ({ ...d, entities: [...d.entities, marker] }))
     log('flag', fillTemplate(appConfig.copy.log.teamPlaced, { name: marker.label! }), 'team', undefined, id)
     emit('entity.add', { id, kind: 'team', entity: marker })

@@ -277,7 +277,7 @@
 @media (min-width: 1600px) { .bandgrid { --name-w: 320px; } }
 
 /* 600px is the house phone breakpoint (the Zeitplan and 19 other surfaces use it). */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* Every pixel the columns give back lands here. At 56px cells and a 32px ＋ the name column
      takes 140px on a 390px screen — «Binggeli Michael» instead of «Binggeli …». The Zeitplan can
      afford 168px because the track beside it scrolls anyway; here three columns plus the ＋ have

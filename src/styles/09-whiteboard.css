@@ -110,7 +110,7 @@
    only becomes a bottom BAR at ≤600px — so through the whole 601–720px band (iPad Split View,
    a landscape phone) the chip was pushed to left:8px and landed ON the vertical rail. The row
    tracks --rail-w until the rail is genuinely gone, and only then hugs the edge. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* ⚠️ It has to clear the TOOL rail, not just the nav bar. The bars stack: nav bar at the
      bottom, then `.wb-tools` (bottom: 14px + rail-h, height rail-h) above it. At one rail-h the
      chips sat INSIDE the tool bar's band and were drawn over its buttons. Two rail-h puts them
@@ -178,7 +178,7 @@
   background: var(--surface); cursor: pointer; font: 700 14px var(--body); color: var(--ink-dim); align-items: center; justify-content: center; gap: 8px; }
 .pp-maptoggle .i { width: 16px; height: 16px; }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .pp-body { flex-direction: column; }
   .pp-map { flex: none; height: 220px; }
   .pp-nomap .pp-map { display: none; }
@@ -677,7 +677,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-scale-persist-x:hover { background: var(--fill-soft); color: var(--ink); }
 }
 .wb-scale-persist-x svg { width: 15px; height: 15px; }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* clear the two bottom bars on phones, and hug the left edge (no side rail) */
   .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--rail-h) * 2 + 62px + env(safe-area-inset-bottom));
     max-width: none; flex-wrap: wrap; }
@@ -692,7 +692,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 52px; z-index: 9;
   border-radius: var(--r-surface); border: 1px solid var(--glass-line); background: var(--surface);
   box-shadow: var(--shadow); }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* ⚠️ Its height is NOT fixed — `.qActions` is a 2-column grid of 2 or 3 rows (Neu ausrichten /
      Zurücksetzen / Übertragen), each button a full --tap — so no bottom offset in the toast lane
      table could clear it and a pill (z90) landed on that row. It is therefore listed among the

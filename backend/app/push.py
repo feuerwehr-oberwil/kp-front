@@ -309,7 +309,15 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
     doctrine = ((doctrine_row.config_json if doctrine_row else {}) or {}).get("doctrine") or {}
 
     sent = 0
-    incidents = list((await db.execute(select(Incident).where(Incident.is_archived.is_(False)))).scalars())
+    # Übungen are excluded outright: a drill's Atemschutz clocks and Wiedervorlagen are real
+    # rows in a real workspace, so without this every local test run pushed «Trupp überfällig»
+    # to every subscribed phone in the Wehr. The drill screen itself still shows its alarms —
+    # this silences only the server-side broadcast.
+    incidents = list(
+        (
+            await db.execute(select(Incident).where(Incident.is_archived.is_(False), Incident.is_exercise.is_(False)))
+        ).scalars()
+    )
     for inc in incidents:
         ws = inc.map_workspace_json or {}
         for t in due_trupps(ws, doctrine, now_ms):

@@ -412,7 +412,7 @@
 /* Phone: the bars hug the edges and clear the nav bar / tool lane, the same arithmetic
    `.wb-botleft` does one file over (09-whiteboard.css). FIXED, not absolute — `.whiteboard`'s
    own bottom is already lifted above the bars there, so an absolute offset would compound. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .bar {
     /* ⚠️ A COLUMN, not the 9px|1fr grid it used to be. The instruction no longer shares a row
        with a status dot: the Ampel above it carries its own, and every part of the card is now
@@ -503,7 +503,7 @@
      teach — the example thumbnail and the Ampel's «why» line — are the ones a second run no
      longer needs, so they are what goes; the reading, the instruction and the actions stay.
      (The lamp's body remains readable as the row's title attribute for a pointer device.) */
-  @media (orientation: landscape) and (max-height: 520px) {
+  @media (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
     .bar { gap: 6px; }
     .bar .example { display: none; }
     .bar .lampText i { display: none; }

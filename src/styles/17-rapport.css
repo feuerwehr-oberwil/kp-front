@@ -313,7 +313,7 @@
 .kf-legend.pending .kf-legend-list { opacity: .5; }
 .kf-legend-miss { margin: 4px 0 0; font: 600 11.5px/1.4 var(--body); color: var(--amber-strong); }
 .kf-legend-wait { margin: 3px 0 0; font: 600 11.5px/1.4 var(--body); color: var(--ink-faint); }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) { .kf-legend-list { columns: 1; } }
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) { .kf-legend-list { columns: 1; } }
 
 /* The three plates, in the server's own fractions of the render width (u = Breite/1050). Tiny
    here — the Massstab label is ~5px — and that is the honest size: they are OPAQUE, and what

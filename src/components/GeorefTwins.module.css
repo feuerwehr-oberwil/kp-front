@@ -54,3 +54,6 @@
 .contentBoard { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: .72; overflow: hidden; }
 .contentPoint { position: absolute; display: block; pointer-events: none; }
 .contentMap { opacity: .72; pointer-events: none; }
+/* …except a mirrored TEAM chip: «wo ist Trupp 2» is answered by tapping it — the tap jumps to
+   the one source marker on the other surface. Button chrome stripped; the dot is the button. */
+.contentTap { pointer-events: auto; cursor: pointer; border: 0; background: none; padding: 0; font: inherit; }

@@ -213,6 +213,44 @@ async def test_killed_app_sweep_pushes_confirmed_pressure_with_station_threshold
     assert await push_mod.check_and_push(db_session, NOW + 30_000) == 0
 
 
+async def test_sweep_stays_silent_for_an_uebung(db_session, monkeypatch):
+    """A drill's Atemschutz clocks are real rows in a real workspace — without the gate every
+    local test run pushed «Trupp überfällig» to every subscribed phone in the Wehr."""
+    import app.push as push_mod
+    from app.models import DeploymentConfig, Incident
+
+    push_mod._notified.clear()
+    db_session.add(DeploymentConfig(id=1, config_json={"doctrine": {"alarmBar": 140}}))
+    db_session.add(
+        Incident(
+            title="Übung Zimmerbrand",
+            source="manual",
+            status="offen",
+            is_archived=False,
+            is_exercise=True,
+            map_workspace_json={
+                "trupps": [
+                    trupp(
+                        "a",
+                        "2026-07-02T14:09:30Z",
+                        name="Angriff 1",
+                        entryPressureBar=300,
+                        lastPressureBar=130,
+                        lastPressureTime="2026-07-02T14:09:30Z",
+                    )
+                ]
+            },
+        )
+    )
+    await db_session.commit()
+
+    async def fake_broadcast(_db, **kw):  # pragma: no cover — the gate must keep this unreached
+        raise AssertionError("an Übung must not broadcast")
+
+    monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+    assert await push_mod.check_and_push(db_session, NOW) == 0
+
+
 async def test_subscription_endpoints(client, editor, viewer):
     login = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
     assert login.status_code == 200

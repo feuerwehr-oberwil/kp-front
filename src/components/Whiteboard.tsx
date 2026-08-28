@@ -14,6 +14,7 @@ import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
+import { nextTeamName } from '../lib/placedTrupps'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { Menu, Overlay } from '../lib/overlays'
@@ -1003,7 +1004,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const placeTeamChip = (x: number, y: number, floor: number, trupp?: Trupp) => {
     const teams = annos.filter((a) => a.kind === 'resource').length
     const id = `r${Date.now()}`
-    const name = trupp ? trupp.name : `${appConfig.copy.whiteboard.team} ${teams + 1}`
+    // generic chips are numbered across BOTH pictures once the sheet is linked — the map's
+    // «Team 1» is mirrored right here, and a second «Team 1» read as one duplicated Trupp
+    const name = trupp ? trupp.name : nextTeamName([
+      ...annos.filter((a) => a.kind === 'resource').map((a) => a.text),
+      ...(georefFit ? (mapTwins?.content ?? []).filter((e) => e.kind === 'team').map((e) => e.label) : []),
+    ])
     const color = TEAM_COLORS[teams % TEAM_COLORS.length]
     add({ id, kind: 'resource', x, y, floor, text: name, t: formatTime(new Date()), color, trail: [], truppId: trupp?.id })
     if (trupp) onLinkTrupp?.(id, trupp.id)
@@ -2765,7 +2771,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             )}
             {!georefArmed && georefFit && (twinContent.length > 0 || twinDrawings.length > 0) && (
               <GeorefContentBoard entities={twinContent} drawings={twinDrawings} fit={georefFit}
-                planAspect={measureAR} sW={sW} sH={sH} byName={sym.byName} />
+                planAspect={measureAR} sW={sW} sH={sH} byName={sym.byName}
+                trupps={trupps} truppSeverities={truppSeverities}
+                interactive={tool === 'pan'} onOpenTeam={onTwinJump} />
             )}
             {/* …and the Karte's own objects, mirrored ONTO this sheet. In the board so they pan
                 and zoom with it, and clipped to the sheet (lib/georefTwins · onSheet) so a

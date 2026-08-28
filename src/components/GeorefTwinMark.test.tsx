@@ -93,3 +93,15 @@ describe('a twin the surface lets you move', () => {
     expect(onMove).not.toHaveBeenCalled()
   })
 })
+
+describe('a twin carries the source symbol\'s own state', () => {
+  it('shows the storey badge and the Entwicklung arrows, turned through the fit', () => {
+    const { getByRole } = render(<TwinMark {...props} onOpen={() => {}}
+      floor={2} spread={{ right: true }} spreadRotation={30} />)
+    const mark = getByRole('button')
+    expect(mark.querySelector('.sym-floor')?.textContent).toBe('+2')
+    const arrows = mark.querySelector('.sym-spread') as HTMLElement
+    expect(arrows).toBeTruthy()
+    expect(arrows.style.transform).toBe('rotate(30deg)')
+  })
+})

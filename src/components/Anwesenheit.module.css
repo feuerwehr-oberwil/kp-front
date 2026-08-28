@@ -212,7 +212,7 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 
 
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
      the header sat glued under it); the bottom inset clears the bottom bar */
   .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))

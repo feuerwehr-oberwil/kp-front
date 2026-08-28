@@ -18,7 +18,7 @@
    .layers-card in app.css) — the two open from the same bar and must line up. That also keeps
    the Eintrag FAB, which floats just above the bar, from peeking out beside the dock's own ⓘ
    button, where the two round controls read as a pair. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .dock { top: auto; right: max(10px, env(safe-area-inset-right));
     bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom)); transform: none;
     max-height: calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }

@@ -287,6 +287,14 @@ export function boardDrawingTwins(drawings: Drawing[], fit: GeorefFit, margin = 
     const kind: BoardAnno['kind'] = drawing.kind === 'line' ? 'draw' : 'area'
     const mid = pts[Math.floor((pts.length - 1) / 2)]
     const labelAt = drawing.labelAt ? fit.toPlan({ lng: drawing.labelAt[0], lat: drawing.labelAt[1] }) : null
+    // The FKS end tag's dragged anchor crosses over the same way the label's does: as an offset
+    // from the default spot (72 % along the last segment — the one rule both surfaces draw with),
+    // so the tag sits where the operator moved it clear of other symbols.
+    const n = pts.length
+    const tagBase = kind === 'draw' && n >= 2
+      ? [pts[n - 2][0] + (pts[n - 1][0] - pts[n - 2][0]) * 0.72, pts[n - 2][1] + (pts[n - 1][1] - pts[n - 2][1]) * 0.72]
+      : null
+    const endAt = drawing.endLabelAt ? fit.toPlan({ lng: drawing.endLabelAt[0], lat: drawing.endLabelAt[1] }) : null
     out.push({
       key: `drawing:${drawing.id}`,
       drawingId: drawing.id,
@@ -298,8 +306,10 @@ export function boardDrawingTwins(drawings: Drawing[], fit: GeorefFit, margin = 
         label: drawing.label, fillOpacity: drawing.fillOpacity,
         labelDx: labelAt && mid ? labelAt.x - mid[0] : undefined,
         labelDy: labelAt && mid ? labelAt.y - mid[1] : undefined,
+        endDx: endAt && tagBase ? endAt.x - tagBase[0] : undefined,
+        endDy: endAt && tagBase ? endAt.y - tagBase[1] : undefined,
         teilstueck: drawing.teilstueck, content: drawing.content, lineNo: drawing.lineNo,
-        floorTag: drawing.floorTag,
+        floorTag: drawing.floorTag, truppId: drawing.truppId,
       },
     })
   }
@@ -349,18 +359,27 @@ const BOARD_PLAN_ONLY = [
 ] as const satisfies readonly (keyof BoardAnno)[]
 type _BoardKeysAccounted = Assert<Exclude<keyof BoardAnno, (typeof BOARD_PLAN_ONLY)[number]> extends keyof Entity ? true : false>
 
+/** Ground width of the fitted sheet in metres — the one factor that converts the map's
+ *  metre-scaled geometry (`reachM`) into plan-width fractions (`reachN`) and back. PlanScale /
+ *  georef units are aspect-corrected: one normalized sheet width is ar·mPerU metres. */
+export const planGroundWidthM = (fit: GeorefFit, aspect: number) => Math.max(0.001, fit.scaleMPerU * aspect)
+
 /** Move the one source object from Lage ownership to a Modul document. Projection is not copied:
- *  the same id and SymbolProps cross the boundary, then the georeference derives its map twin. */
-export function entityToBoardSymbol(entity: Entity, pt: PlanPt): BoardAnno | null {
+ *  the same id and SymbolProps cross the boundary, then the georeference derives its map twin.
+ *  `widthM` (planGroundWidthM) converts the Hubretter reach into the sheet's own unit — without
+ *  it the metre value is dropped rather than smuggled across as a wrong number. */
+export function entityToBoardSymbol(entity: Entity, pt: PlanPt, widthM?: number): BoardAnno | null {
   if (entity.kind !== 'symbol' || entity.live) return null
-  return { ...omit(entity, ENTITY_MAP_ONLY), id: entity.id, kind: 'symbol', x: pt.x, y: pt.y, storey: entity.floor }
+  const reachN = entity.reachM != null && widthM ? entity.reachM / widthM : undefined
+  return { ...omit(entity, ENTITY_MAP_ONLY), id: entity.id, kind: 'symbol', x: pt.x, y: pt.y, storey: entity.floor, ...(reachN != null ? { reachN } : null) }
 }
 
 /** The reverse ownership transfer. Map-only location/layer fields are supplied by the caller;
  *  no duplicate survives on the plan. */
-export function boardSymbolToEntity(anno: BoardAnno, coord: LngLat, layer: Entity['layer']): Entity | null {
+export function boardSymbolToEntity(anno: BoardAnno, coord: LngLat, layer: Entity['layer'], widthM?: number): Entity | null {
   if (anno.kind !== 'symbol') return null
-  return { ...omit(anno, BOARD_PLAN_ONLY), id: anno.id, kind: 'symbol', layer, coord, floor: anno.storey }
+  const reachM = anno.reachN != null && widthM ? anno.reachN * widthM : undefined
+  return { ...omit(anno, BOARD_PLAN_ONLY), id: anno.id, kind: 'symbol', layer, coord, floor: anno.storey, ...(reachM != null ? { reachM } : null) }
 }
 
 // --- the Ebenen rows -------------------------------------------------------------------------

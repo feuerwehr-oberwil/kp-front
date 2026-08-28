@@ -755,7 +755,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .teamTypeAdd:disabled { opacity: var(--disabled); cursor: default; }
 .teamTypeAdd :global(.i) { width: 17px; height: 17px; }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
      the header sat glued under it); the bottom inset clears the NavRail bottom bar */
   .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
@@ -966,7 +966,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 /* «+ Trupp anlegen» collapsed to an icon sat at 38px with a 16px glyph beside 44px/18px neighbours
    — the 16px is right when it has a 14px label next to it, wrong once it is a bare icon. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .newBtn { padding: 13px; }
   .newBtn :global(.i) { width: 18px; height: 18px; }
 }
