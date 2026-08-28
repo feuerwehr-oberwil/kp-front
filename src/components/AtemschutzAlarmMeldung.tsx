@@ -36,6 +36,10 @@ export interface AtemschutzAlarmRow {
   id: string
   /** the Trupp's own name — empty for a marker whose name was never typed */
   name: string
+  /** the rest of the crew (Trupp.members). The row prints them after the leader when they fit
+   *  (28.08. field feedback): at 3am «who exactly is overdue» is the question, and the board is
+   *  one tap away, not zero. `.ml-title` ellipsizes, so a narrow screen simply shows less. */
+  members?: string[]
   /** WHY it is in alarm. `contact` is fixed by a radio check, `pressure` is not — the wording
    *  has to distinguish them (lib/atemschutz · TruppAlarm). */
   reason: 'contact' | 'pressure'
@@ -66,10 +70,10 @@ export function atemschutzAlarmRows(
     if (severities[t.id] !== 2) continue
     const live = deriveTruppLive(t, now, intervalMin, graceSec)
     const { reason, line } = truppAlarm(t, live, intervalMin, graceSec, doctrine)
-    if (reason === 'pressure') rows.push({ id: t.id, name: t.name, reason, bar: live.currentBar, line: line ?? undefined })
+    if (reason === 'pressure') rows.push({ id: t.id, name: t.name, members: t.members, reason, bar: live.currentBar, line: line ?? undefined })
     // …anything else that is loud enough to sound is the contact clock: `truppAlarm` only ever
     // answers `pressure`, `contact` or null, and null cannot happen for a Trupp the fold rated 2.
-    else rows.push({ id: t.id, name: t.name, reason: 'contact' })
+    else rows.push({ id: t.id, name: t.name, members: t.members, reason: 'contact' })
   }
   return rows
 }
@@ -121,7 +125,8 @@ function AtemschutzAlarmMeldung({ row, onAcknowledge, onGo }: { row: AtemschutzA
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const az = appConfig.copy.atemschutz
   const pressure = row.reason === 'pressure'
-  const name = row.name || az.truppFallbackName
+  // the whole crew, leader first — the title ellipsizes, so what does not fit falls away
+  const name = [row.name || az.truppFallbackName, ...(row.members ?? [])].filter(Boolean).join(' · ')
   const go = () => { onAcknowledge?.(); onGo(row.id) }
   useMeldung({
     id: `atemschutz:${row.id}`,
