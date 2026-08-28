@@ -4,8 +4,8 @@
    kp-rueck help page, restyled to KP Front's tokens.
    ============================================================ */
 /* <Overlay>: .help-scrim is the Base UI backdrop; .help-modal owns its own fixed centering */
-.help-scrim { position: fixed; inset: 0; z-index: 70; background: rgba(16, 24, 38, .34); backdrop-filter: blur(2px); }
-.help-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 71;
+.help-scrim { position: fixed; inset: 0; z-index: var(--z-help-scrim); background: rgba(16, 24, 38, .34); backdrop-filter: blur(2px); }
+.help-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-help);
   width: min(1040px, calc(100vw - 48px)); height: min(88dvh, 920px); display: flex; flex-direction: column;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--shadow); overflow: hidden;
   animation: pop .16s var(--ease); }

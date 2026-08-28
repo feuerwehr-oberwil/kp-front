@@ -5,7 +5,7 @@
    surface; light "Karte Minimal" style, finger-friendly targets for a tired operator (~44px+). */
 /* left inset clears the NavRail (left:16px + --rail-w), matching .mapctl/.basesw so the
    title isn't hidden behind the rail */
-.surface { position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20; display: flex; flex-direction: column;
+.surface { position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface); display: flex; flex-direction: column;
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow); }
 
 /* THE surface header (tokens · --head-*): the same object as the Anwesenheit, Mittel and
@@ -309,7 +309,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* ⚠️ The SHEET scrolls its body, not itself — the same build as .ip-sheet (styles/13-incident).
    With `overflow-y: auto` on the frame the head scrolled away with the content, so on a long
    form the title and the ✕ were simply gone. Head and foot pin; only .modalBody moves. */
-.modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81;
+.modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-dialog);
   /* A HEIGHT, not just a ceiling: the Mannschaftsliste is the one thing here that should take
      whatever room is left (a ten-person Trupp is a real Trupp), and «what is left» does not
      exist while the frame shrink-wraps its content. 760px is head + foot + what the Auftrag
@@ -589,7 +589,7 @@ button.stepVal:hover { border-color: var(--blue); }
 /* portalled to <body> (mirrors the global Combo): the scrolling modal/sheet the field sits in
    would otherwise clip the menu at its overflow boundary. Keep it above modal sheets (@80/81)
    as well as drawers (.ctx @62), but below the toaster (@90). */
-.comboMenuPortal { position: fixed; right: auto; z-index: 85; }
+.comboMenuPortal { position: fixed; right: auto; z-index: var(--z-dialog-menu); }
 .comboOpt {
   width: 100%; display: flex; align-items: center; gap: 9px; cursor: pointer; text-align: left;
   border: none; background: none; border-radius: var(--r-xs); padding: 9px 10px; min-height: var(--tap);

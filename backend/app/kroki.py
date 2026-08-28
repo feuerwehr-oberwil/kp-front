@@ -771,6 +771,21 @@ def _label_box(
             draw.text((tx, ty), t, font=f, fill=ink, anchor=anchor)
 
 
+#: A board (Objektplan) symbol, in px at the reference width.
+#:
+#: ⚠️ TWO numbers multiplied, and both have a home on the client: the unscaled base a symbol gets
+#: from the sheet's width (`fit.w * 0.085`, ~42 on a single A4 portrait — Whiteboard.tsx ·
+#: symBase) times the DEFAULT of the plan surface's Symbolgrösse (lib/prefs · SYMBOL_SCALE.board).
+#:
+#: ⚠️ The default, NOT the device's slider position. `krokiPayload.ts` sets out at length why a
+#: per-device legibility setting must never reach the paper — two tablets printing one Einsatz
+#: have to produce the same sheet — and none of those reasons applies to the default, which is
+#: the app's own opinion about how big a symbol on a Modul sheet should be. When that opinion
+#: changed (1.0 → 0.7 on 27.08.) and this number did not, the plan page printed its symbols ~43 %
+#: larger than the board showed them, which is precisely the WYSIWYG break that was closed for
+#: the map Kroki on 18.08. `test_board_symbol_scale_mirrors_prefs` fails if they part again.
+_BOARD_SYMBOL_PX = 42 * 0.7
+
 #: A numbered marker is this many px across at the reference width — big enough to read on
 #: paper, small enough not to become the picture. Scaled by `u` like everything else.
 #: ⚠️ 9.5, up from 8.0 (18.08.): these discs ARE the labels on paper, and at 8 they were the
@@ -1183,8 +1198,8 @@ def render_plan_page(
 ) -> Image.Image:
     """Render an annotated Objektplan page: the plan PDF's first page via pdfium, then the
     board annotations (relative 0..1 coords — the Whiteboard's model) drawn on top with the
-    same primitives as the Kroki. Mirrors what the Whiteboard shows on screen (42px symbols,
-    non-scaling ~`width`px strokes).
+    same primitives as the Kroki. Mirrors what the Whiteboard shows on screen
+    (`_BOARD_SYMBOL_PX` symbols, non-scaling ~`width`px strokes).
 
     `legend_out`: like `render_kroki`'s — filled with «1 · 2 · 3 …» for the symbol captions this
     page turned into numbered discs, in placement order. An out-parameter for the same reason:
@@ -1281,7 +1296,7 @@ def _overlay_board_annos(
                 continue
             # symbols print at a fixed 42px; generic shapes carry their size as a
             # fraction of the plan width (sizeN) — mirror of the on-screen sizing
-            size = round(a["sizeN"] * w) if a.get("sizeN") else round(42 * u * ss)
+            size = round(a["sizeN"] * w) if a.get("sizeN") else round(_BOARD_SYMBOL_PX * u * ss)
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
             # ⚠️ Same decor as the Kroki, deliberately: a plan symbol printed BARE until 26.08.
             # — no Entwicklung arrows, no white chip, no storey and no count — so «3 Brände im

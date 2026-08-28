@@ -20,7 +20,7 @@
    the name of the object being picked FOR. */
 /* The wrapper owns the placement so ONE line of context (the existing building is highlighted /
    part of it is missing here) can sit directly above the buttons it qualifies. */
-.wb-osm-barwrap { position: fixed; left: 50%; bottom: 58px; transform: translateX(-50%); z-index: 70;
+.wb-osm-barwrap { position: fixed; left: 50%; bottom: 58px; transform: translateX(-50%); z-index: var(--z-help-scrim);
   display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .wb-osm-bar { display: flex; align-items: center; gap: 8px; padding: 7px 8px; background: var(--glass);
   border: 1px solid var(--glass-line); border-radius: var(--r-pill); box-shadow: var(--shadow); backdrop-filter: blur(16px); }

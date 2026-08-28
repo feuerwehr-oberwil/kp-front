@@ -4410,7 +4410,18 @@ export const de = {
       histBurstShow: 'einzeln zeigen',
       histBurstHide: 'zusammenfassen',
       histUntil: 'bis {time}',
-      histRestoreConfirm: 'Den Stand vom {when} wiederherstellen? Die aktuelle Konfiguration wird vorher aufbewahrt.',
+      // ⚠️ Das stand bis 28.08. in einem `window.confirm()` – dem letzten in der Verwaltung, und
+      // ausgerechnet vor einem VOLLSTÄNDIGEN Ersetzen des Konfigurationsdokuments. Ein
+      // installiertes iOS-PWA darf solche Dialoge spurlos unterdrücken; unterdrückt heisst «nein»,
+      // also passierte gar nichts, und zwar wortlos. Jetzt fragt das eigene Sheet – und es sagt
+      // nicht «ist das ok?», sondern was dabei verschwindet (wie beim Import in «Sicherung»).
+      histRestoreTitle: 'Konfiguration zurücksetzen?',
+      histRestoreLead: 'Die gesamte Konfiguration dieser Wehr wird auf den Stand vom {when} zurückgeschrieben. Alles, was seither geändert wurde, ist danach weg.',
+      histRestoreOverwrites: 'Seither geändert – diese Abschnitte werden überschrieben:',
+      // die eine beruhigende Tatsache, und sie stimmt: die Wiederherstellung legt den bisherigen
+      // Stand als neue Zeile in dieselbe Liste (siehe `load()` nach dem Schreiben)
+      histRestoreKept: 'Der bisherige Stand bleibt als Zeile in dieser Liste und ist genauso wieder herstellbar.',
+      histRestoreGo: 'Zurücksetzen',
       histRestored: 'Stand wiederhergestellt.',
       histRestoreFailed: 'Wiederherstellen fehlgeschlagen',
     },

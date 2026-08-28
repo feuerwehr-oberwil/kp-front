@@ -89,6 +89,72 @@
   --r-pill: 999px;
   /* gloved tap target — small icon controls expand to this via a hit-pad or min-size */
   --tap: 44px;
+
+  /* ── The layer ladder ────────────────────────────────────────────────────────────────────
+     Every z-index an app-level surface uses, in order, named for what the surface IS. Before
+     28.08. these were 91 bare numbers across 20 files, and the ladder existed only in the head
+     of whoever read them all: `.toaster` sat at 90 with fifteen surfaces above it, which put the
+     app's own «Rückgängig» underneath a menu, the Ebenen card and the drawing card. You cannot
+     see that in a stylesheet that says `z-index: 90`.
+
+     ⚠️ THE BOUNDARY. This ladder is for surfaces that compete ACROSS the app — anything
+     positioned against the viewport or floating over another surface. It is deliberately NOT
+     for ordering inside one component: `.marker`'s halo at 0 and its glyph at 1, the georef
+     `.capture` layer at 9 that has to beat a `.wb-vertex` at 7, `.sym-floor` at 6 — those are
+     local stacking contexts, they are documented where they stand, and a token would make them
+     harder to read, not easier. The rough line is 18: below it, stay local.
+
+     ⚠️ Scrim and popup are separate names, not `+ 1`, because Base UI portals them as SIBLINGS
+     (see the overlays note in AGENTS.md) — they are two elements, so they read as two tokens. */
+  --z-surface-veil: 18;      /* the app's own wash under a full-screen surface */
+  --z-surface-scrim: 19;     /* …and the scrim a surface lays over the map */
+  --z-surface: 20;           /* Mittel · Atemschutz · Anwesenheit · Checklists · the whiteboard */
+  --z-side-scrim: 25;        /* the admin's slide-over side panel scrim */
+  --z-dock-scrim: 28;        /* dismiss-layer under an on-canvas dock */
+  --z-dock: 30;              /* tool rail, whiteboard tools, marquee, admin side panel */
+  --z-dock-raised: 31;       /* the plan's own dock, over the rail it shares an edge with */
+  --z-mode-loupe: 33;        /* «Karte verknüpfen»: the magnifier… */
+  --z-mode-pill: 34;         /* …its instrument… */
+  --z-chrome: 35;            /* NavRail · context panel · Messen · the mode's fixed target */
+  --z-chrome-raised: 36;     /* the coordinate read-out, over the chrome it reads out of */
+  --z-map-util: 40;          /* compass · zoom · Standort · wind — the floating glass clusters */
+  --z-map-util-raised: 41;   /* the phone's share pill, over them */
+  --z-replay: 50;            /* Wiedergabe */
+  --z-messages: 54;          /* the message lane (.ml) */
+  --z-fab: 55;               /* the phone's capture button */
+  --z-topbar: 56;            /* the top bar, over everything on the canvas */
+  --z-popover: 60;           /* menus and popovers belonging to one surface */
+  --z-drawer: 61;            /* the Verlauf drawer */
+  --z-drawer-menu: 62;       /* …and a menu opened inside it */
+  --z-help-scrim: 70;
+  --z-help: 71;
+  --z-dialog-scrim: 80;      /* `.ui-backdrop` — the modal scrim */
+  --z-dialog: 81;            /* `.ip-sheet.ui-dialog` — the modal itself */
+  --z-dialog-menu: 85;       /* a Combo opened INSIDE a modal */
+  --z-confirm-scrim: 95;     /* ConfirmCard outranks the sheet that raised it */
+  --z-confirm: 96;
+  --z-admin: 100;            /* the /admin shell — a fixed surface over the whole app */
+  --z-blocking-scrim: 120;   /* «WebGL verloren» · the intake picker */
+  --z-blocking: 121;
+  --z-ribbon: 150;           /* the demo ribbon */
+  --z-tool-card-scrim: 160;  /* the drawing-handle card */
+  --z-tool-card: 161;
+  --z-login: 200;
+  --z-floating-card: 201;    /* Ebenen · the map-views popover */
+  --z-floating-tip: 205;     /* the dock's tap-to-explain bubble */
+  --z-menu: 210;             /* portalled menus and context menus */
+  --z-photo-scrim: 300;
+  --z-photo: 301;            /* the full-screen picture */
+  --z-admin-overlay-scrim: 1200; /* admin.css lifts the app's overlays over `.adm` */
+  --z-admin-overlay: 1201;
+  --z-admin-overlay-menu: 1202;
+  /* ⚠️ ABOVE all of them, and that is the fix, not an accident. The toast is where «Rückgängig»
+     lives — the house rule is confirm-with-undo, no blocking dialog — so a toast that can be
+     covered is an undo that can be lost. It was 90: under the Ebenen card, under a portalled
+     menu, under the drawing card, under the photo viewer and under the whole admin shell. The
+     only thing left over it is the wheel picker, which is a text input the toast must not sit on. */
+  --z-toast: 1250;
+  --z-picker: 1300;          /* the time wheel */
   /* THE surface header — Anwesenheit · Atemschutz · Mittel · Einsatzrapport. Four panels the
      operator switches between with one tap, so their heads have to be the same object: a title,
      one quiet line under it, and the tools on the right. They had drifted to four specs — the

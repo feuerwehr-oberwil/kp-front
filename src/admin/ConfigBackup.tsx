@@ -218,7 +218,7 @@ export function ConfigBackup({ config, onImported }: {
       {/* ⚠️ The product's own overlay, not `window.confirm()`. This is the most destructive
           action in Verwaltung — a FULL-DOCUMENT replace — and it was the one still confirming
           with a browser dialog an installed iOS PWA may suppress without a trace (the same
-          reason the PIN got its own sheet). `.adm` sits at z-index 100; admin.css lifts
+          reason the PIN got its own sheet). `.adm` sits at `--z-admin`; admin.css lifts
           `.ui-backdrop`/`.ip-sheet.ui-dialog` above it, which is why a Sheet is the primitive
           that works here. */}
       {pending && (

@@ -6,7 +6,7 @@
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   /* must clear the Plan whiteboard (.whiteboard z-index 20, inset:0) so the scrubber
      stays visible when replaying over the Plan surface, not just the Lagekarte */
-  width: min(760px, calc(100vw - 32px)); z-index: 50;
+  width: min(760px, calc(100vw - 32px)); z-index: var(--z-replay);
   display: flex; flex-direction: column; gap: 0;
   background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-radius: var(--r-surface); box-shadow: var(--shadow); overflow: hidden;

@@ -1,5 +1,5 @@
 /* results panel — bottom-centre, above the tool rail */
-.measure-panel { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 35; width: 320px;
+.measure-panel { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome); width: 320px;
   display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--glass);
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-surface);
   box-shadow: var(--shadow); animation: panelIn .16s var(--ease); }

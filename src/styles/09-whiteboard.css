@@ -1,7 +1,7 @@
 /* ============================================================
    Whiteboard / Tafel
    ============================================================ */
-.whiteboard { position: absolute; inset: 0; z-index: 20;
+.whiteboard { position: absolute; inset: 0; z-index: var(--z-surface);
   background: var(--app-bg); }
 /* The Plan whiteboard is a full-bleed opaque surface (inset:0, opaque bg) that completely occludes
    the live map, so on every form factor we hide the map's GL canvas while Plan is up — the
@@ -68,7 +68,7 @@
    the row a stacking context, so the bar's own z 34 only ever ordered it inside that row — the
    seam (z 13, same stylesheet as the bar) was painted straight across the bar's text, right
    through «Punkt 3 · mind. 2». Raising the row raises the one thing in it. */
-.wb-georef-armed .wb-botleft { z-index: 35; }
+.wb-georef-armed .wb-botleft { z-index: var(--z-chrome); }
 /* ⚠️ …and while it is armed the sheet shows the SHEET. Every symbol, line, note, Trupp-Pille
    and trail this plan carries is hidden for the duration of the mode, because all of them sit
    exactly where the reference points have to go: a Brandherd painted over the house corner you
@@ -188,7 +188,7 @@
 .wb-stage { position: absolute; inset: 0; display: flex; flex-direction: column; }
 /* floating zoom — top-right of the canvas, matching the map's MapUtility cluster */
 .wb-zoom { display: flex; align-items: center; gap: 2px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; flex: none; }
-.wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: 40; background: var(--glass);
+.wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: var(--z-map-util); background: var(--glass);
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: 4px; }
 .wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink-dim); cursor: pointer; font-family: var(--body); font-size: 12.5px; font-weight: 700; transition: background .14s var(--ease); }
@@ -342,7 +342,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    palette the Trupp form shows (gloved 30px targets, wrapped two rows). */
 .wb-pa-swatch { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .8); }
 .wb-pa-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 232px; padding: 10px;
-  border-radius: var(--r-ctl); background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); z-index: 60; }
+  border-radius: var(--r-ctl); background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); z-index: var(--z-popover); }
 /* the swatch colour rides on an inner span (the popup's close-button takes no inline style) */
 .wb-pa-colors .dh-color { width: 30px; height: 30px; background: transparent; }
 .wb-pa-colors .dh-color > span { display: block; width: 100%; height: 100%; border-radius: 50%; }
@@ -369,7 +369,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    centring has to land on the card itself — `.ui-dialog` alone positions nothing. They are `fixed`
    now, so their sizes read against the viewport rather than the board. */
 .wb-trupp-pick.ui-dialog, .wb-cal-pop.ui-dialog {
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81; }
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-dialog); }
 /* "Welcher Trupp?" quick picker shown when placing a team chip on the plan */
 .wb-trupp-pick { width: min(300px, calc(100vw - 32px)); max-height: 70dvh; overflow-y: auto; background: var(--surface);
   border-radius: var(--r-surface); box-shadow: var(--shadow); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
@@ -439,7 +439,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* vertical tool-option dock — anchored to the right edge beside the rail, so a
    tool's options appear right where you picked it instead of bottom-centre */
 /* top is set inline to the active tool's rail-button level; falls back to 14px */
-.wb-dock { position: absolute; right: 114px; top: calc(14px + env(safe-area-inset-top)); z-index: 31;
+.wb-dock { position: absolute; right: 114px; top: calc(14px + env(safe-area-inset-top)); z-index: var(--z-dock-raised);
   display: flex; flex-direction: column; align-items: center; gap: 9px;
   /* On a short viewport the stack can exceed the available height. Scroll it as ONE column
      (thin scrollbar) instead of flex-wrapping into a lopsided second column — which overflowed
@@ -506,7 +506,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* top-anchored + scroll/pinned-footer split, identical to the map's .tool-rail so
    both surfaces' right edges read as a pair (tools scroll, zoom/fit pinned below) */
 .wb-tools { position: absolute; right: 16px; top: 88px; bottom: 16px; height: max-content; margin-block: auto;
-  z-index: 30; max-height: calc(100dvh - 104px); }
+  z-index: var(--z-dock); max-height: calc(100dvh - 104px); }
 /* (the current-zoom % readout is gone: 100% meant «eingepasst», not a real-world scale, so
    the number read as a precision the plan does not have. «Einpassen» states the one view
    that matters.) */

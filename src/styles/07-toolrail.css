@@ -10,7 +10,7 @@
    stays at 80px (clear of the top bar); only a list taller than the full height scrolls. */
 /* right-edge safe area — see the note on .navrail's `left` (05-navrail.css) */
 .tool-rail { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 88px; bottom: 16px; height: max-content; margin-block: auto;
-  z-index: 30; max-height: calc(100dvh - 104px); }
+  z-index: var(--z-dock); max-height: calc(100dvh - 104px); }
 /* width is driven by --vrail-w (compact 64 / wide 212) so the rail expands like the left
    NavRail — but leftward, since it's anchored to the right edge. apply() sets it on toggle;
    the left-edge grip sets it live per-pixel during a drag. */
@@ -148,7 +148,7 @@
 /* (.toputil / .tu-btn / .tu-divider / .compass migrated → MapUtility.module.css) */
 
 /* coordinate readout — subtle, bottom-centre, shown only while picking/locked */
-.coord-read { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 35;
+.coord-read { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
   display: grid; gap: 2px; padding: 8px 14px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); pointer-events: none; }
 .coord-read.aiming { border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
@@ -159,7 +159,7 @@
 .coord-read.aiming .cr-hint { color: var(--blue); }
 /* when the measure tool is active its results panel also sits bottom-centre (z35);
    lift the readout clear above it and keep it on top so the two never collide */
-.coord-read { z-index: 36; }
+.coord-read { z-index: var(--z-chrome-raised); }
 .coord-read-stacked { bottom: 200px; }
 
 /* locked coordinate reticle on the map */
@@ -225,7 +225,7 @@
 .step-clear .i { width: 14px; height: 14px; }
 
 /* symbol search modal */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(20, 28, 40, .45); backdrop-filter: blur(2px); z-index: 80;
+.modal-backdrop { position: fixed; inset: 0; background: rgba(20, 28, 40, .45); backdrop-filter: blur(2px); z-index: var(--z-dialog-scrim);
   display: grid; place-items: center; animation: fade .12s ease; }
 @keyframes fade { from { opacity: 0; } }
 /* the Eintrag/Erinnerung composer is top-anchored on tablet/desktop so its mode toggle keeps

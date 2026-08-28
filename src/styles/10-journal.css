@@ -194,7 +194,7 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
    none, so with it inherited the hit test could never match and sliding onto «Foto» silently
    did nothing (see lib/useHoldEntry · onPointerMove). Nothing here is ever clicked — the button
    holds the capture — they only have to be FINDABLE by geometry. */
-.hold-targets { z-index: 210;
+.hold-targets { z-index: var(--z-menu);
   display: flex; flex-direction: column; gap: 6px; pointer-events: none; white-space: nowrap; }
 /* ⚠️ column-REVERSE when the chooser opens upward, so DOM order can stay «nearest the button
    first» in both directions. The finger leaves the button in ONE direction and meets Sprachnotiz
@@ -240,7 +240,7 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
    The phone block (below) resets both to a full-width bottom sheet. */
 /* full-width scrim so the right tool rail is also blocked while the Verlauf drawer is open
    (the drawer sits at z61, above this) */
-.journal-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(12, 18, 28, .48); }
+.journal-scrim { position: fixed; inset: 0; z-index: var(--z-popover); background: rgba(12, 18, 28, .48); }
 /* ⚠️ 620px and closer to the rail, up from 440 at right:112px. The Verlauf now carries the
    Pendenzen block as well as the log, and both are lines of prose: an item's text plus its
    Meldungen ellipsised after a handful of words. The 112px gutter was ~30px more than the rail
@@ -251,7 +251,7 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
    ⚠️ The WIDE rail (--vrail-w 212) overlaps this — as it always did, and deliberately: it is a
    transient state you drag open and let go of, and it renders above (z-index 30 vs the drawer's
    61 puts the drawer on top, so nothing is lost behind it). */
-.journal-drawer { position: fixed; top: 88px; right: 84px; bottom: 12px; width: 620px; max-width: calc(100vw - 96px); z-index: 61;
+.journal-drawer { position: fixed; top: 88px; right: 84px; bottom: 12px; width: 620px; max-width: calc(100vw - 96px); z-index: var(--z-drawer);
   display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--shadow); padding: 10px;
   animation: drawerIn .18s var(--ease); }
@@ -430,7 +430,7 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
    the field and the whole predictive band gone, the rows below sitting comfortably. Measured at
    1180×820 with a 380px keyboard: 35px of the card under it, and at 740×620 with 260px: 93px.
    `min()` of the two, so with no keyboard the number is exactly the old one and nothing moves. */
-.journal-composer { position: fixed; left: 50%; top: 11vh; transform: translateX(-50%); z-index: 81;
+.journal-composer { position: fixed; left: 50%; top: 11vh; transform: translateX(-50%); z-index: var(--z-dialog);
   width: min(460px, 92vw); overflow-y: auto; overscroll-behavior: contain;
   max-height: min(calc(88dvh - 11vh), calc(100dvh - 11vh - 12px - var(--jc-kb, 0px)));
   /* no backdrop-filter: --surface is opaque in BOTH themes (#fff / #232c3a), so the blur painted

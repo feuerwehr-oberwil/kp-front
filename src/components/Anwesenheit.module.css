@@ -2,7 +2,7 @@
    dense grid of name buttons. Each button tap-cycles frei → anwesend → gegangen → frei, so
    many crew fit on screen without scrolling and the whole board edits in place. */
 .surface {
-  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20;
+  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
   display: flex; flex-direction: column;
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
 }

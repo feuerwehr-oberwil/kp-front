@@ -5,7 +5,7 @@
    Shared by ChecklistsView / ChecklistRunner / ChecklistReference. */
 /* left inset clears the NavRail (left:16px + --rail-w), matching .mapctl/.basesw so the
    template rail isn't hidden behind the NavRail */
-.cl-surface { position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20; display: flex; gap: 12px;
+.cl-surface { position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface); display: flex; gap: 12px;
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow); }
 
 /* left rail */

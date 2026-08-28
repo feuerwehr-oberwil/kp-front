@@ -4,10 +4,10 @@
 /* opaque full-screen backdrop so the surface reads as its own screen rather than a card floating
    over the live map. Sits above the map (z 19) but below the surface card (z 20), NavRail (35)
    and top bar, so those chrome elements stay visible. */
-.backdrop { position: fixed; inset: 0; background: var(--app-bg); z-index: 19; }
+.backdrop { position: fixed; inset: 0; background: var(--app-bg); z-index: var(--z-surface-scrim); }
 
 .surface {
-  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20;
+  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
   display: flex; flex-direction: column;
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
 }

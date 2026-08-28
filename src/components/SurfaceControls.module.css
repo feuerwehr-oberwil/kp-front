@@ -85,7 +85,7 @@
   max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
   padding: 6px; border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge);
-  z-index: 60;
+  z-index: var(--z-popover);
 }
 .menuItem {
   display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);

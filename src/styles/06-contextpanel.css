@@ -20,7 +20,7 @@
    drag. Same formula as every other rail-tracking dock (.layers-card, .mv-dock, .wb-dock-map,
    PdfScroller): 16px rail inset + --vrail-w + a 10px channel. */
 .ctx { position: absolute; right: calc(var(--vrail-w, 60px) + 26px); top: 88px; width: 360px; background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-hero); z-index: 35;
+  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-hero); z-index: var(--z-chrome);
   box-shadow: var(--shadow); max-height: calc(100dvh - 104px - env(safe-area-inset-bottom));
   display: flex; flex-direction: column; overflow: hidden; }
 /* A Plan's Ebenen list describes the projections in the selected object's detail panel, so both
@@ -216,7 +216,7 @@
    (.ip-ovl @80 — the Einsatz wizard's Kategorie combo rendered BEHIND the modal at 70:
    "category can't be selected"). Below the toaster (@90). The menu is portalled precisely
    so no container can clip it; it must out-stack them all. */
-.combo-menu-portal { position: fixed; right: auto; z-index: 85; }
+.combo-menu-portal { position: fixed; right: auto; z-index: var(--z-dialog-menu); }
 .combo-opt { width: 100%; display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; border: none;
   background: none; border-radius: var(--r-xs); padding: 8px 9px; min-height: var(--tap); font: 600 13px var(--body); color: var(--ink); }
 /* Dienstgrad chip in a roster option — mirrors the Atemschutz PersonField badge */

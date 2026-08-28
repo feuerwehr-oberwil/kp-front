@@ -10,14 +10,14 @@
    (see ShiftConflictNotice). */
 /* Demo deployments: a fixed diagonal "DEMO" ribbon across the top-left corner. Non-interactive
    (taps pass through), so it never blocks a control; amber to read as "not a real incident". */
-.demo-ribbon { position: fixed; top: calc(15px + env(safe-area-inset-top)); left: -36px; width: 132px; z-index: 150; pointer-events: none;
+.demo-ribbon { position: fixed; top: calc(15px + env(safe-area-inset-top)); left: -36px; width: 132px; z-index: var(--z-ribbon); pointer-events: none;
   transform: rotate(-45deg); background: var(--amber); color: var(--on-fill);
   text-align: center; padding: 3px 0; font-size: 11px; font-weight: 800; letter-spacing: 2px;
   box-shadow: 0 1px 5px rgba(20, 28, 40, .35); }
 /* First-visit demo welcome modal (own scrim above the DEMO ribbon so it owns the screen). */
-.dw-scrim { z-index: 160; padding: 24px; }
+.dw-scrim { z-index: var(--z-tool-card-scrim); padding: 24px; }
 /* <Overlay>: backdrop is .modal-backdrop.dw-scrim; the card owns its own fixed centering */
-.dw-card { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 161;
+.dw-card { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-tool-card);
   width: min(440px, 92vw); max-height: 88dvh; overflow-y: auto;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-hero);
   box-shadow: var(--shadow); padding: 22px 22px 20px; animation: panelIn .16s var(--ease); }
@@ -71,7 +71,7 @@
    The rows remain equally direct, but the stack is bounded by the viewport. On a busy incident
    the old unbounded strip could run behind the bottom chrome and make its last actions impossible
    to reach; scrolling the ONE visible list preserves access without adding disclosure. */
-.ml { position: fixed; z-index: 54; overflow-x: hidden; overflow-y: auto;
+.ml { position: fixed; z-index: var(--z-messages); overflow-x: hidden; overflow-y: auto;
   top: calc(92px + env(safe-area-inset-top));
   left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
   right: calc(max(16px, env(safe-area-inset-right)) + var(--rail-w) + 24px);
@@ -179,7 +179,7 @@
    at ~5 pills) hid the pill carrying «Rückgängig» below the fold with nothing saying so. */
 .toaster { position: fixed;
   left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right));
-  bottom: max(28px, calc(16px + env(safe-area-inset-bottom))); z-index: 90;
+  bottom: max(28px, calc(16px + env(safe-area-inset-bottom))); z-index: var(--z-toast);
   display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; pointer-events: none;
   max-height: calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
@@ -298,11 +298,11 @@
 .toast-edge > .i, .toast-edge .toast-step.now .i { color: var(--toast-edge); }
 @keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.96); } }
 
-.confirm-backdrop { z-index: 95; }
+.confirm-backdrop { z-index: var(--z-confirm-scrim); }
 /* Base UI AlertDialog (src/lib/overlays/ConfirmCard.tsx): scrim + card are portal siblings, so
    the card centres itself (the old .modal-backdrop grid parent is gone). Sits just above the
    confirm-backdrop (95). */
-.confirm-card.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 96; }
+.confirm-card.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-confirm); }
 /* ⚠️ `.ui-dialog` alone positions NOTHING — every dialog pairs it with its own sheet class, and
    one that forgets renders unstyled at the top of <body>: present in the DOM, invisible on
    screen («der Stift öffnet nichts»). This is the Mittel remark's sheet. */
@@ -339,7 +339,7 @@
 
 
 /* ⚠️ The in-workspace splash stands in for the MAP, not for the app. It used to be a
-   transparent `position: fixed` sheet at `z-index: 60`, i.e. above everything: while the tiles
+   transparent `position: fixed` sheet at `z-index: var(--z-popover)`, i.e. above everything: while the tiles
    and the symbol pack loaded, the brand pulse and the station wordmark were painted straight
    across the Rapport, the rails and the panels — which were all perfectly usable — with nothing
    behind them to say what they belonged to. A working screen looked broken.
@@ -350,7 +350,7 @@
 /* …until it admits it is wedged. Then it has an ACTION on it («Neu laden»), and an action that
    sits behind an open dialog is not one — so the stuck state comes forward and brings a surface
    with it, because at that point it is addressing the operator rather than filling a hole. */
-.loading.stuck { z-index: 60; background: color-mix(in srgb, var(--map-bg) 82%, transparent); }
+.loading.stuck { z-index: var(--z-popover); background: color-mix(in srgb, var(--map-bg) 82%, transparent); }
 .loading.stuck .loading-card { padding: 26px 30px; border-radius: var(--r-surface);
   background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); }
 .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: fade .3s var(--ease); }
@@ -445,8 +445,8 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 
 /* Full-size picture viewer (lib/ui · openPhoto). Sized to the picture, capped by the viewport:
    a document photo is worth the whole screen, and nothing else on it competes. */
-.photo-scrim { position: fixed; inset: 0; z-index: 300; background: rgba(10, 14, 20, .72); backdrop-filter: blur(3px); }
-.photo-view.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 301; }
+.photo-scrim { position: fixed; inset: 0; z-index: var(--z-photo-scrim); background: rgba(10, 14, 20, .72); backdrop-filter: blur(3px); }
+.photo-view.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-photo); }
 .photo-view { display: flex; flex-direction: column; gap: 10px; max-width: min(96vw, 1200px);
   max-height: 92dvh; padding: 12px; background: var(--glass); backdrop-filter: blur(16px);
   border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); }

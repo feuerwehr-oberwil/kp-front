@@ -6,7 +6,7 @@
      the same one the Atemschutz modals sit on. This card centres itself horizontally and hangs
      from the top rather than centring vertically: the list grows downwards, and a card that
      re-centres as it filters moves the row under the finger. */
-  position: fixed; left: 50%; top: 12vh; transform: translateX(-50%); z-index: 81;
+  position: fixed; left: 50%; top: 12vh; transform: translateX(-50%); z-index: var(--z-dialog);
   width: min(520px, calc(100vw - 32px)); max-height: min(70vh, 640px);
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--glass); backdrop-filter: blur(16px);

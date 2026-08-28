@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { apiUpload, apiDelete, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import type { DeploymentConfig, DeploymentAssets } from '../lib/deploymentConfig'
+import { ConfirmButton } from './ui'
 
 // Logo + favicon uploads (Batch A · A2). Each slot shows a live preview of the current
 // asset, an upload control, and a remove action. On any change the parent is handed the
@@ -49,8 +50,11 @@ function BrandingSlot({ slot, label, hint, url, accept = ACCEPT, onApplied }: {
     }
   }
 
+  // ⚠️ No `window.confirm()`. An installed iOS PWA may suppress one without a trace, and a
+  // suppressed confirm returns false — so the button simply did nothing, for ever, on the device
+  // the Verwaltung is most often opened from. The ask is `ConfirmButton` (admin/ui) like the rest
+  // of the shell; the heavier Sheet is reserved for the full-document writes (ConfigBackup).
   const onRemove = async () => {
-    if (!window.confirm(C.removeConfirm)) return
     setBusy(true)
     setError(null)
     try {
@@ -86,9 +90,8 @@ function BrandingSlot({ slot, label, hint, url, accept = ACCEPT, onApplied }: {
           {busy ? C.uploading : C.upload}
         </button>
         {url && (
-          <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => void onRemove()}>
-            {C.remove}
-          </button>
+          <ConfirmButton label={C.remove} question={C.removeConfirm} disabled={busy}
+            onConfirm={() => void onRemove()} />
         )}
       </div>
       {error && <span className="adm-save-err">{error}</span>}

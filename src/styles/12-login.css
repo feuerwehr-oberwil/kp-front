@@ -12,7 +12,7 @@
    into a sideways-scrolling login instead of an error anyone would notice. The card's own
    `width: min(408px, 100%)` could not help: the TRACK had already grown, so 100% was 359px.
    Explicitly minmax(0, …) lets the track shrink and hands the constraint back to the card. */
-.login { position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: minmax(0, 1fr);
+.login { position: fixed; inset: 0; z-index: var(--z-login); display: grid; grid-template-columns: minmax(0, 1fr);
   justify-items: center; align-items: safe center;
   background: var(--app-bg);
   color: var(--ink); overflow: auto; padding: 24px; }

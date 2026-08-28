@@ -5,7 +5,7 @@
 .adm {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-admin);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -17,7 +17,7 @@
 /* ── header bar ───────────────────────────────────────────────────────────── */
 .adm-header {
   flex: 0 0 auto;
-  z-index: 40;
+  z-index: var(--z-map-util);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -159,7 +159,7 @@
   /* sidebar leaves the flow and slides in as a drawer; main fills the width + scrolls */
   .adm-side {
     position: fixed; top: 0; left: 0; bottom: 0;
-    z-index: 30; flex-basis: auto; width: min(280px, 82vw);
+    z-index: var(--z-dock); flex-basis: auto; width: min(280px, 82vw);
     padding-top: 70px;
     transform: translateX(-100%);
     transition: transform .2s var(--ease);
@@ -167,7 +167,7 @@
   }
   .adm-side.open { transform: translateX(0); }
   .adm-side-scrim {
-    display: block; position: fixed; inset: 0; z-index: 25;
+    display: block; position: fixed; inset: 0; z-index: var(--z-side-scrim);
     border: none; background: color-mix(in srgb, var(--ink) 28%, transparent);
   }
   .adm-main { padding: 22px 16px 56px; }
@@ -490,7 +490,7 @@
 .adm-select-chev { width: 16px; height: 16px; flex: none; color: var(--ink-faint); transition: transform .15s var(--ease); }
 .adm-select.open .adm-select-chev { transform: rotate(180deg); }
 .adm-select-list {
-  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0;
+  position: absolute; z-index: var(--z-dock); top: calc(100% + 4px); left: 0; right: 0;
   margin: 0; padding: 5px; list-style: none; max-height: 264px; overflow-y: auto;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r-ctl); box-shadow: var(--shadow);
@@ -536,7 +536,7 @@
 
 /* ── access denied ────────────────────────────────────────────────────────── */
 .adm-denied {
-  position: fixed; inset: 0; z-index: 100;
+  position: fixed; inset: 0; z-index: var(--z-admin);
   display: grid; place-items: center; padding: 24px;
   background: var(--app-bg); color: var(--ink); font-family: var(--body);
 }
@@ -870,7 +870,7 @@
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(4px);
-  z-index: 20;
+  z-index: var(--z-surface);
   width: max-content; max-width: 248px;
   padding: 9px 11px;
   background: var(--surface); color: var(--ink);
@@ -1138,7 +1138,7 @@
    table's scroll container to scroll.
    ⚠️ Deliberately carries NO z-index. This class lands on Base UI's POPUP, which is
    `position: static` inside a transformed positioner — a z-index here is inert, and on v0.6.0
-   that left every row action painting behind `.adm` (fixed, z-index:100): invisible and
+   that left every row action painting behind `.adm` (fixed, z-index: var(--z-admin)): invisible and
    unclickable. The stacking lives on the positioner (`.ui-menu-pos`, 13-incident.css) plus the
    admin-scoped raise at the end of this file. */
 .adm-menu-item {
@@ -1317,18 +1317,19 @@
 /* the inline edit row caps its fields at 360px — two role cards need more than that */
 .adm-members-editbox .adm-rolefield { max-width: 560px; }
 
-/* ⚠️ The admin shell is a FIXED, z-index:100 surface (`.adm` at the top of this file), while an
-   app Sheet is portalled to <body> at z-index 80 (scrim) / 81 (popup). So a Sheet opened from an
-   admin view is laid out, focus-trapped and completely invisible — it paints BEHIND the admin.
+/* ⚠️ The admin shell is a FIXED `--z-admin` surface (`.adm` at the top of this file), while an
+   app Sheet is portalled to <body> at `--z-dialog-scrim` / `--z-dialog`, both below it. So a
+   Sheet opened from an admin view is laid out, focus-trapped and completely invisible — it
+   paints BEHIND the admin.
    The row menus had the same wound (and an attempted patch that could not work — see
    `.adm-menu-portal` further up); they are lifted the same way, one rule below.
    Scoped to «while the admin is mounted», so returning to the map restores the app's own order. */
-body:has(.adm) .ui-backdrop { z-index: 1200; }
-body:has(.adm) .ip-sheet.ui-dialog { z-index: 1201; }
+body:has(.adm) .ui-backdrop { z-index: var(--z-admin-overlay-scrim); }
+body:has(.adm) .ip-sheet.ui-dialog { z-index: var(--z-admin-overlay); }
 /* …and a row menu goes over BOTH, for the same reason it sits at 210 in the app: it is the
    topmost transient layer of whatever opened it, and one of those things is a sheet opened from
    an admin view. Same scope, so the app's own order returns with the map. */
-body:has(.adm) .ui-menu-pos { z-index: 1202; }
+body:has(.adm) .ui-menu-pos { z-index: var(--z-admin-overlay-menu); }
 
 /* PIN sheet — narrower than the standard 720px frame, because it holds one pinpad */
 .adm-pin-sheet.ip-sheet { width: min(440px, 94vw); }

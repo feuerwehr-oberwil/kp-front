@@ -4,6 +4,7 @@ import type { DeploymentConfig } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { fmtDateTime } from './ui'
+import { Sheet } from '../lib/overlays'
 
 /** One kept configuration, as the API projects it (backend api/config · ConfigHistoryEntry). */
 interface HistoryEntry {
@@ -142,6 +143,7 @@ function EntryRow({ e, nested, busy, onRestore }: {
  */
 export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConfig) => void }) {
   const C = appConfig.copy.admin.backup
+  const Cc = appConfig.copy.admin.common2
   const [rows, setRows] = useState<HistoryEntry[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
@@ -160,6 +162,7 @@ export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConf
 
   useEffect(() => { void load() }, [load])
 
+  const [pending, setPending] = useState<HistoryEntry | null>(null)
   const groups = useMemo(() => groupBursts(rows ?? []), [rows])
 
   const toggle = (id: number) => setOpened((prev) => {
@@ -168,9 +171,23 @@ export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConf
     return next
   })
 
+  /** What a restore of `e` would overwrite: every section touched by a write that landed AFTER
+   *  it. The rows are newest-first from the API, so «after» is «above it in the list».
+   *  ⚠️ Deliberately NOT `e.sections` — that is what the write which REPLACED this document
+   *  changed, i.e. one step of the way back, not the distance being travelled. Naming the wrong
+   *  set on the one screen that says «this disappears» is worse than naming none. */
+  const overwrittenBy = (e: HistoryEntry): string[] => {
+    const newer = (rows ?? []).filter((r) => r.replacedAt > e.replacedAt)
+    return [...new Set(newer.flatMap((r) => r.sections))].sort()
+  }
+
+  // ⚠️ The product's own Sheet, not `window.confirm()` — this was the last browser dialog in the
+  // Verwaltung, in front of a FULL-DOCUMENT replace. An installed iOS PWA may suppress one
+  // without a trace, and a suppressed confirm reads as «no»: the button did nothing, silently,
+  // on the device the Verwaltung is most often opened from. `.adm` sits at `--z-admin` and
+  // admin.css lifts the Sheet above it, which is what makes this the primitive that works here.
   const restore = async (e: HistoryEntry) => {
-    const when = fmtDateTime(e.replacedAt)
-    if (!window.confirm(fillTemplate(C.histRestoreConfirm, { when }))) return
+    setPending(null)
     setBusy(e.id)
     try {
       onRestored(await apiPost<DeploymentConfig>(`/api/config/history/${e.id}/restore`))
@@ -205,7 +222,7 @@ export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConf
           const oldest = group[group.length - 1]
           if (group.length === 1) {
             return (
-              <EntryRow key={newest.id} e={newest} busy={busy !== null} onRestore={(e) => void restore(e)} />
+              <EntryRow key={newest.id} e={newest} busy={busy !== null} onRestore={(e) => setPending(e)} />
             )
           }
           const open = opened.has(newest.id)
@@ -234,18 +251,50 @@ export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConf
                 </span>
                 <button
                   type="button" className="adm-hist-btn" disabled={busy !== null}
-                  onClick={() => void restore(oldest)}
+                  onClick={() => setPending(oldest)}
                 >
                   {C.histRestore}
                 </button>
               </div>
               {open && group.map((e) => (
-                <EntryRow key={e.id} e={e} nested busy={busy !== null} onRestore={(x) => void restore(x)} />
+                <EntryRow key={e.id} e={e} nested busy={busy !== null} onRestore={(x) => setPending(x)} />
               ))}
             </div>
           )
         })}
       </div>
+      {pending && (
+        <Sheet
+          open
+          onClose={() => setPending(null)}
+          title={C.histRestoreTitle}
+          fit
+          modal
+          footer={
+            <>
+              <button type="button" className="ip-btn ghost" onClick={() => setPending(null)}>{Cc.cancel}</button>
+              <button type="button" className="ip-btn ip-btn-danger" onClick={() => void restore(pending)}>
+                {C.histRestoreGo}
+              </button>
+            </>
+          }
+        >
+          <p className="adm-card-cap">{fillTemplate(C.histRestoreLead, { when: fmtDateTime(pending.replacedAt) })}</p>
+          {/* «here is what disappears», not «is that ok?» — the same shape the Sicherung's import
+              sheet uses, and for the same reason: before the fact is the only time it can be
+              acted on. Nothing listed means nothing was changed since, which is worth its own
+              silence rather than an empty heading. */}
+          {overwrittenBy(pending).length > 0 && (
+            <>
+              <p className="adm-card-cap">{C.histRestoreOverwrites}</p>
+              <ul className="adm-import-errs">
+                {overwrittenBy(pending).map((sec) => <li key={sec}>{sec}</li>)}
+              </ul>
+            </>
+          )}
+          <p className="adm-hint">{C.histRestoreKept}</p>
+        </Sheet>
+      )}
     </>
   )
 }

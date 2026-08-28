@@ -6,14 +6,14 @@
    open OVER other sheets, so scrim + popup sit at the old .mp-ovl z-index 120/121 (above the
    .ip-sheet 80/81). Popup is transform-centred (no .mp-ovl grid parent); the width keeps the old
    18px gutter that .mp-ovl's padding used to provide. */
-.mp-backdrop { position: fixed; inset: 0; z-index: 120; background: rgba(10, 14, 20, .5); backdrop-filter: blur(2px); }
-.mp-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 121; width: min(720px, calc(100vw - 36px)); }
+.mp-backdrop { position: fixed; inset: 0; z-index: var(--z-blocking-scrim); background: rgba(10, 14, 20, .5); backdrop-filter: blur(2px); }
+.mp-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-blocking); width: min(720px, calc(100vw - 36px)); }
 
 /* The Mittel remark opens OVER the Mittel sheet, so it borrows the map-picker's scrim/z-pair.
    ⚠️ This MUST stay below `.ip-sheet.ui-dialog` in the file: both selectors weigh the same, so
    the later one wins — declared further up, the sheet's own z-index 81 put the dialog UNDER the
    120 scrim and it read as blurred and dead to the touch. */
-.mv-note-dialog.ui-dialog { z-index: 121; width: min(520px, 92vw); }
+.mv-note-dialog.ui-dialog { z-index: var(--z-blocking); width: min(520px, 92vw); }
 .mv-note-dialog > .ip-actions { padding: 0 20px 18px; }
 /* «Eintrag löschen» sits at the far LEFT, with the auto margin pushing Abbrechen/Speichern
    away from it — a destructive button next to the primary one is a mis-tap waiting to happen */

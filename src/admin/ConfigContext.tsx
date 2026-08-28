@@ -214,7 +214,7 @@ interface ConfigCtx {
   retry: () => void
   /** REPLACE the draft with a fresh server projection — config import / history restore only.
    *  ⚠️ Discards unsaved edits, so it belongs behind the confirm those two flows already ask
-   *  (ConfigBackup · replaceTitle, ConfigHistory · histRestoreConfirm). Anything the server
+   *  (ConfigBackup · replaceTitle, ConfigHistory · histRestoreLead). Anything the server
    *  changed on its own goes through `applyServerAssets`. */
   applyServerConfig: (cfg: DeploymentConfig) => void
   /** Fold the branding slots of a fresh server projection into the draft (logo upload/remove).

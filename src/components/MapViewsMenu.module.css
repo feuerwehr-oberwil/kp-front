@@ -2,7 +2,7 @@
    chrome as the measure/draw ToolDock (solid --ink-fill pill, white controls, a round close
    button and an info ⓘ), so it reads as one of the map tool utilities. Portalled to <body>.
    No backdrop scrim — the map stays draggable/clickable underneath, like the tool docks. */
-.pop { z-index: 201; width: 232px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
+.pop { z-index: var(--z-floating-card); width: 232px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
   background: var(--ink-fill); color: var(--on-accent-ink); border-radius: var(--r-surface);
   box-shadow: var(--shadow); padding: 10px; animation: popIn .15s var(--ease); }
 /* sits in the same place as the measure/draw ToolDock: vertically centred, just left of the

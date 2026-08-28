@@ -121,7 +121,7 @@
 .ip-menu {
   position: absolute; top: calc(100% + 8px); left: 0; min-width: min(300px, 88vw); max-width: min(380px, 92vw);
   background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
-  box-shadow: var(--shadow); padding: 8px; z-index: 62; max-height: calc(100dvh - 104px); overflow: auto;
+  box-shadow: var(--shadow); padding: 8px; z-index: var(--z-drawer-menu); max-height: calc(100dvh - 104px); overflow: auto;
 }
 .ip-menu-empty { padding: 12px; color: var(--ink-faint); font: 500 13px var(--body); }
 .ip-menu-act {
@@ -270,7 +270,7 @@
 
 /* modal sheets */
 .ip-ovl {
-  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+  position: fixed; inset: 0; z-index: var(--z-dialog-scrim); display: grid; place-items: center;
   background: rgba(20,28,40,.32); backdrop-filter: blur(2px); padding: 20px;
 }
 /* ONE standard modal frame — every ip-sheet (Einsatzrapport, Objekt-Picker, Eröffnen,
@@ -294,8 +294,8 @@
    Popup as SIBLINGS — there is no .ip-ovl grid parent — so the scrim moves onto .ui-backdrop
    and the centering onto .ip-sheet.ui-dialog. Values mirror the old .ip-ovl exactly (incl. the
    phone bottom-sheet override at the end of this file) so migrated sheets are pixel-identical. */
-.ui-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(20,28,40,.32); backdrop-filter: blur(2px); }
-.ip-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81; }
+.ui-backdrop { position: fixed; inset: 0; z-index: var(--z-dialog-scrim); background: rgba(20,28,40,.32); backdrop-filter: blur(2px); }
+.ip-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-dialog); }
 .ip-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 8px; }
 /* 800, like EVERY other title in the app — Anwesenheit, Mittel, Atemschutz, Checklists, Hilfe and
    the Rapport all set their h2 at 800/19. At 700 the dialog heads («Weitere Person erfassen»,
@@ -511,7 +511,7 @@
 }
 /* floating way back to the Rapport sheet after a checklist row navigated away */
 .rp-return { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
-  z-index: 56; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 18px;
+  z-index: var(--z-topbar); display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 18px;
   border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
   font: 700 14px var(--body); cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
 .rp-return svg { width: 16px; height: 16px; }
@@ -797,7 +797,7 @@
 .timefield-now:disabled { opacity: var(--disabled); }
 
 /* the wheel popover: snap-scrolling columns under a fixed center band */
-.wheelpop { z-index: 1300; padding: 10px; border-radius: var(--r-ctl);
+.wheelpop { z-index: var(--z-picker); padding: 10px; border-radius: var(--r-ctl);
   background: var(--surface); border: 1px solid var(--glass-line);
   box-shadow: 0 12px 34px color-mix(in srgb, var(--ink) 22%, transparent); }
 .wheelpop-cols { position: relative; display: flex; gap: 4px; }
@@ -917,7 +917,7 @@
    `.cv-modal-ovl` grid parent is gone: Base UI portals Backdrop and Popup as SIBLINGS, which
    puts the centering on the popup itself (same shape as `.ip-sheet.ui-dialog` above). The 18px
    the grid used to pad with survives as the width's viewport margin. */
-.cv-modal.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81; }
+.cv-modal.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-dialog); }
 .cv-modal { width: min(420px, calc(100vw - 36px)); gap: 12px; background: var(--surface); box-shadow: var(--shadow);
   max-height: 90dvh; overflow-y: auto; }
 .cv-modal-warn { color: var(--amber-strong); display: flex; align-items: center; gap: 6px; }
@@ -950,9 +950,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* The Rapport as a SURFACE — same geometry every other full surface uses (Mittel, Anwesenheit,
    Atemschutz), so the rail stays put and the page changes underneath it. It carries the
    .report-preflight rules above by sharing the class, which is why those keep working. */
-.rp-backdrop { position: fixed; inset: 0; background: var(--app-bg); z-index: 19; }
+.rp-backdrop { position: fixed; inset: 0; background: var(--app-bg); z-index: var(--z-surface-scrim); }
 .report-preflight-surface {
-  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20;
+  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
   display: flex; flex-direction: column;
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
 }
@@ -1030,7 +1030,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   border-top-left-radius: 0; border-bottom-left-radius: 0;
   border-left: 1px solid color-mix(in srgb, var(--on-btn-primary) 35%, transparent); }
 .rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: 6px; border-radius: var(--r-ctl);
-  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: 60; }
+  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 .rp-print-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--tap);
   padding: 8px 11px; border-radius: var(--r-sm); cursor: pointer; outline: none;
   font: 600 13.5px var(--body); color: var(--ink); }
@@ -1045,7 +1045,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    to sit HERE, on the positioner, and not on the popup: the popup is `position: static` inside a
    transformed positioner, so a z-index on it is inert (see the ⚠️ in lib/overlays/Menu.tsx).
    The admin raises this while it is mounted — see the scoped block at the end of admin.css. */
-.ui-menu-pos { z-index: 210; }
+.ui-menu-pos { z-index: var(--z-menu); }
 .ui-menu-sep { height: 1px; margin: 5px 8px; background: var(--glass-edge); }
 .ui-menu-head { padding: 6px 10px 3px; font: 700 10.5px var(--body); letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-faint); }
@@ -1084,7 +1084,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    leftwards began off the left of the screen, hard-clipped by the surface's `overflow: hidden`.
    The width stays viewport-relative anyway — collision handling can shift a popup back onto the
    screen, but it cannot shrink one that is wider than the screen to begin with. */
-.rp-control { z-index: 60;
+.rp-control { z-index: var(--z-popover);
   width: min(380px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px;
   padding: 12px 14px; border-radius: var(--r-ctl);
   background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow);

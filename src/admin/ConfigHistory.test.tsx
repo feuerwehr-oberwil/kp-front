@@ -73,11 +73,28 @@ describe('a burst of autosaves is one entry', () => {
   })
 
   it('restores the state BEFORE the burst, not before its last keystroke', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     apiPost.mockResolvedValue({})
     await show(rows())
     fireEvent.click(screen.getByRole('button', { name: C.histRestore }))
+    // ⚠️ The ask is the product's own Sheet. It was a `window.confirm()` until 28.08. — which an
+    // installed iOS PWA may suppress without a trace, in front of a full-document replace.
+    fireEvent.click(await screen.findByRole('button', { name: C.histRestoreGo }))
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/config/history/3/restore'))
+  })
+
+  it('names what the restore overwrites, and asking is not yet doing', async () => {
+    apiPost.mockResolvedValue({})
+    await show(rows())
+    fireEvent.click(screen.getByRole('button', { name: C.histRestore }))
+    expect(await screen.findByRole('heading', { name: C.histRestoreTitle })).toBeTruthy()
+    // ⚠️ Every section touched by a write that landed AFTER the entry being restored — the
+    // distance being travelled back. `map.defaultView` is the restored entry's OWN section, i.e.
+    // one step of the way back rather than something that would be lost, so it must NOT be
+    // listed: naming the wrong set on the one screen that says «this disappears» is worse than
+    // naming none.
+    expect(screen.getByText('fleet.vehicles')).toBeTruthy()
+    expect(screen.queryByText('map.defaultView')).toBeNull()
+    expect(apiPost).not.toHaveBeenCalled()
   })
 
   it('opens into the individual writes, each with its own way back', async () => {

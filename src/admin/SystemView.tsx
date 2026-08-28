@@ -6,7 +6,7 @@ import { useConfig } from './ConfigContext'
 import { SetupChecklist } from './SetupChecklist'
 import { fillTemplate } from '../lib/format'
 import { providerLabel } from '../lib/deploymentConfig'
-import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip } from './ui'
+import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip, ConfirmButton } from './ui'
 import { TelemetryCard } from './TelemetryCard'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
@@ -148,10 +148,10 @@ function OfflineCacheCard() {
 
   const C = appConfig.copy.admin.system
 
+  // ⚠️ No `window.confirm()` — see BrandingFields for why one is worse than useless in an
+  // installed PWA. The ask lives on the button itself now (ConfirmButton · admin/ui).
   const onClear = async () => {
     if (typeof caches === 'undefined') return
-    const ok = window.confirm(C.clearConfirm)
-    if (!ok) return
     setClearing(true)
     setCleared(false)
     try {
@@ -215,14 +215,12 @@ function OfflineCacheCard() {
           </div>
 
           <div className="adm-sys-actions">
-            <button
-              type="button"
-              className="btn adm-int-btn"
-              onClick={() => void onClear()}
+            <ConfirmButton
+              label={clearing ? C.clearing : C.clearCaches}
+              question={C.clearConfirm}
               disabled={clearing || typeof caches === 'undefined'}
-            >
-              {clearing ? C.clearing : C.clearCaches}
-            </button>
+              onConfirm={() => void onClear()}
+            />
             {cleared && (
               <ResultChip key="cleared" tone="ok" onExpire={() => setCleared(false)}>{C.cleared}</ResultChip>
             )}

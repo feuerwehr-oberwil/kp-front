@@ -103,7 +103,7 @@
   right: 16px;
   bottom: 12px;
   /* above the whiteboard (z 20) so it also lies over the borrowed map half */
-  z-index: 34;
+  z-index: var(--z-mode-pill);
   flex-wrap: nowrap;
 }
 /* The mode hides the NavRail on every form factor (09-whiteboard.css), so its own full-width
@@ -276,7 +276,7 @@
   border-radius: 50%;
   overflow: hidden;
   /* app-level chrome: above the split plan (z 20), below the mode bar (z 34) */
-  z-index: 33;
+  z-index: var(--z-mode-loupe);
   pointer-events: none;
   background: var(--canvas-bg);
   border: 3px solid var(--surface);
@@ -323,7 +323,7 @@
   width: 42px;
   height: 42px;
   margin: -21px 0 0 -21px;
-  z-index: 35;
+  z-index: var(--z-chrome);
   color: var(--blue);
   pointer-events: none;
   filter: drop-shadow(0 1px 3px rgb(0 0 0 / .45));
@@ -417,7 +417,7 @@
     left: 8px; right: 8px;
     /* This one card replaces the hidden nav rail during alignment, including its Karte/Modul
        switch. It therefore owns the rail's bottom lane and paints just above the rail z-index. */
-    z-index: 36;
+    z-index: var(--z-chrome-raised);
     bottom: calc(8px + env(safe-area-inset-bottom));
     /* ⚠️ HALF the viewport, at most. The reticle is placed in what is left between the TopBar
        and this card (georefMode · georefPhoneTargetPoint), and that function honestly returns

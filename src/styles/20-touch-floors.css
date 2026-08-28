@@ -65,3 +65,21 @@
      measured against a finger. The glass cluster grows 2px with them; nothing else moves. */
   .tu-btn { width: var(--tap); height: var(--tap); }
 }
+
+/* ---- The drawing controls stay as they are — decided, not overlooked ------------------------
+   A sweep on 28.08. listed the plan dock's own controls as under the floor: the colour swatches
+   at 30px (.wb-sw, .dh-color), the width and line-style buttons at 38×34 (.wb-ww, .wb-ls,
+   .dh-width), the shape stepper at 40×36 (.shape-size-btn), the plan-picker pin at 34
+   (.pp-pin). They are deliberately left alone, and the three ways of «fixing» them were drawn
+   out before that was decided:
+     · grow them to 44 — the dock is a COLUMN with a max-height that already scrolls, so this is
+       paid entirely in the axis it has least of, and the `@media (max-height: 640px)` rule below
+       exists precisely because that axis runs out;
+     · pad them — `02-base.css` warns against exactly this for densely-packed pickers, and at the
+       9px gap two 44px pads overlap by 5px, so the edge of one swatch would answer for its
+       neighbour: worse than a small target, because you tap what you see and get something else;
+     · widen the dock into a 2-column grid — buys the height back, costs ~40px of plan on the
+       side the drawing hand is already on, and breaks groups across row edges.
+   None of them is clearly better than the size that is there, which is judged big enough in the
+   hand. ⚠️ So: not a gap. Do not re-open it from a measurement alone — it takes a report of an
+   actual mis-tap in the field, and then the answer is probably the wider dock, not the pad. */

@@ -42,7 +42,7 @@
 /* Right-click menu on the planning surfaces (lib/overlays/ContextMenu). Base UI's positioner
    owns the placement, so this styles the popup only — same surface vocabulary as .ip-menu,
    without its absolute anchoring. */
-.ui-ctxmenu-pos { z-index: 210; }
+.ui-ctxmenu-pos { z-index: var(--z-menu); }
 .ui-ctxmenu { min-width: 208px; max-width: min(320px, 92vw); padding: 6px;
   background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
   box-shadow: var(--shadow); outline: none; }
