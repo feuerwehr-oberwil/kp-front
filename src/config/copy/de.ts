@@ -2318,12 +2318,12 @@ export const de = {
     title: 'Einstellungen',
     deviceGroup: 'Gerät',
     colorScheme: 'Farbschema',
-    // Two sliders, not one size: a Modul-2/3 sheet is a whole floor on one page and needs
-    // far smaller symbols than the map, where the same size is already at its limit.
+    // Two sliders, not one size: an unlinked Modul-2/3 sheet is a whole floor on one page and
+    // needs far smaller symbols than the map. A georeferenced sheet follows Karte automatically.
     symbolSizeMap: 'Symbolgrösse Karte',
-    symbolSizeMapSub: 'Taktische Zeichen auf der Lagekarte',
+    symbolSizeMapSub: 'Taktische Zeichen auf der Lagekarte und verknüpften Modulplänen',
     symbolSizeBoard: 'Symbolgrösse Module',
-    symbolSizeBoardSub: 'Taktische Zeichen auf den Modulplänen',
+    symbolSizeBoardSub: 'Taktische Zeichen auf nicht verknüpften Modulplänen',
     symbolCaptions: 'Beschriftungen',
     symbolCaptionsSub: 'Kennwert unter dem Symbol',
     railLabels: 'Leisten-Beschriftung',

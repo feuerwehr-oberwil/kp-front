@@ -22,10 +22,10 @@ export type RailLabels = 'off' | 'short'
  *  Read only to migrate an older cookie (see symbolScales); never written any more. */
 export type SymbolSize = 'S' | 'M' | 'L'
 
-/** The two surfaces that size tactical symbols independently: the Lage map and the
- *  Plan/Modul boards. A personal legibility preference like `theme`, so it stays a DEVICE
- *  pref — the tablet at the Kommandoposten and the phone in a pocket want different sizes,
- *  and neither may impose one on the other through the synced workspace. */
+/** The two symbol-size settings: the Lage map (also used by georeferenced Modul boards) and
+ *  standalone Plan/Modul boards. A personal legibility preference like `theme`, so it stays a
+ *  DEVICE pref — the tablet at the Kommandoposten and the phone in a pocket want different
+ *  sizes, and neither may impose one on the other through the synced workspace. */
 export type SymbolSurface = 'map' | 'board'
 
 /** Bounds of one Symbolgrösse slider (multipliers, 1 = the tuned default). */
@@ -61,8 +61,10 @@ export interface Prefs {
   /** tactical-symbol size on the Lage map — a multiplier on the symPx band (lib/mapView · symPx).
    *  Absent → migrated from `symbolSize`, else 1. See SYMBOL_SCALE for the band. */
   symbolScaleMap?: number
-  /** tactical-symbol size on the Plan/Modul boards — a multiplier on the plan symbol base
-   *  (components/Whiteboard · symBase). Absent → migrated from `symbolSize`, else 1. */
+  /** tactical-symbol size on standalone Plan/Modul boards — a multiplier on the plan symbol
+   *  base (components/Whiteboard · symBase). A georeferenced board follows `symbolScaleMap`,
+   *  because it is now another scaled view of the Lage. Absent → migrated from `symbolSize`,
+   *  else the board default. */
   symbolScaleBoard?: number
   /** on-canvas symbol captions (metadata printed under each glyph) — a personal legibility
    *  preference like `symbolSize`. Default falls to appConfig.symbols.captionDefault ('auto'). */
@@ -197,6 +199,13 @@ export function symbolScales(p: Prefs): Record<SymbolSurface, number> {
     map: clampSymbolScale('map', p.symbolScaleMap ?? legacy),
     board: clampSymbolScale('board', p.symbolScaleBoard ?? legacy),
   }
+}
+
+/** The multiplier a Plan surface renders with. Once a Modul is georeferenced, it has the map's
+ *  real scale and becomes another view of the Lage; its symbols therefore follow the Karte
+ *  setting automatically. An unlinked sheet keeps the independently tuned Modul setting. */
+export function planSymbolScale(scales: Record<SymbolSurface, number>, georeferenced: boolean): number {
+  return scales[georeferenced ? 'map' : 'board']
 }
 
 function readCookie(name: string): string | null {

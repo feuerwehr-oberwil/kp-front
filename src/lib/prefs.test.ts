@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SYMBOL_SCALE, clampSymbolScale, legacySymbolMul, symbolScales, type Prefs } from './prefs'
+import { SYMBOL_SCALE, clampSymbolScale, legacySymbolMul, planSymbolScale, symbolScales, type Prefs } from './prefs'
 
 // The Symbolgrösse rework: one global S/M/L pref became one multiplier PER SURFACE (Karte /
 // Module). Two things have to hold — the bands the sliders offer, and that nobody's stored
@@ -77,5 +77,17 @@ describe('symbolScales migration', () => {
     const p: Prefs = { symbolSize: 'S' }
     symbolScales(p)
     expect(p).toEqual({ symbolSize: 'S' })
+  })
+})
+
+describe('planSymbolScale', () => {
+  const scales = { map: 1.25, board: 0.45 }
+
+  it('uses the Modul setting while a plan has no map georeference', () => {
+    expect(planSymbolScale(scales, false)).toBe(0.45)
+  })
+
+  it('automatically follows the Karte setting once the plan is georeferenced', () => {
+    expect(planSymbolScale(scales, true)).toBe(1.25)
   })
 })
