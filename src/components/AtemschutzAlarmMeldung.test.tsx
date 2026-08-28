@@ -44,6 +44,11 @@ describe('atemschutzAlarmRows', () => {
   it('says nothing while the fold is silent — no severities during replay means no rows', () => {
     expect(atemschutzAlarmRows([trupp({ id: 'a', name: 'Meier' })], {}, NOW, 5, 60, DOCTRINE)).toEqual([])
   })
+
+  it('carries the whole crew — the row prints leader · members as far as the title fits', () => {
+    const t = [trupp({ id: 'a', name: 'Meier A.', members: ['Keller B.', 'Weber C.'], lastContactTime: ago(600) })]
+    expect(atemschutzAlarmRows(t, { a: 2 }, NOW, 5, 60, DOCTRINE)[0].members).toEqual(['Keller B.', 'Weber C.'])
+  })
 })
 
 describe('the published rows', () => {

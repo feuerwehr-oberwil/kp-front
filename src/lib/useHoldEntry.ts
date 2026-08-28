@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { buzz } from './haptics'
 
 export const HOLD_MS = 350 // hold longer than this offers the choice instead of opening the composer — the charge ring (HoldChargeRing) fills over exactly this window
 const CUE_MS = 130 // delay the charging cue so a quick tap doesn't flash it
@@ -103,7 +104,7 @@ export function useHoldEntry(opts: {
         const el = hostRef.current
         const r = el?.getBoundingClientRect()
         setAnchor(el && r ? { top: r.top, right: r.right, bottom: r.bottom, width: el.offsetWidth } : null)
-        setLatched(true); setHoverTarget('cancel') // the finger is on the button, i.e. on ✕
+        setLatched(true); setHoverTarget('cancel'); buzz() // the finger is on the button, i.e. on ✕ — and the hold just armed
       }
     }, HOLD_MS)
   }

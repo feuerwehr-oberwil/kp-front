@@ -36,10 +36,18 @@ import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapL
 import { GeorefTwinsMap } from './GeorefTwinsMap'
 import { GeorefContentMap } from './GeorefContentMap'
 import type { MapContentTwin, MapTwin } from '../lib/georefTwins'
-import { georefDispatch, georefPhoneTargetPoint, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
+import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
+
+// Every edit handle of a SELECTED drawing (node pads, «+» midpoints, grow arrows, the hub, the
+// move grip, detach chips — and the marquee group's) rides at MARKER_Z.selected: a react-map-gl
+// marker defaults to z-auto, which paints BELOW every resting symbol/team (MARKER_Z 4–8), so the
+// very handles a selection exists for disappeared behind the symbols the line ran under — the
+// endpoint could not be grabbed to extend it (28.08. field feedback). One stacking table for all
+// of it (lib/labelPass), like the end tags directly below.
+const handleZ: React.CSSProperties = { zIndex: MARKER_Z.selected }
 // The pass measures a label before it exists in the DOM, so the chrome around its text has to
 // be mirrored here. When a label's CSS changes, these change with it — each is named for the
 // rule it comes from.
@@ -376,9 +384,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // tap-vs-pan for the pairing mode, tracked by hand — MapLibre's `click` fires on a pan that
   // ends where it began (see GeorefMapLayer · useGeorefMapTap)
   const georefTap = useGeorefMapTap()
-  /** the one place a map half of a pair is placed, or the mode says why it cannot be */
-  const placeGeoref = (lngLat: { lng: number; lat: number }) => {
-    if (georefTurn) { georefDispatch({ type: 'mapTap', lngLat: { lng: lngLat.lng, lat: lngLat.lat } }); georefPoint.current = null }
+  /** the one place a map half of a pair is placed — true when it really was, so the touch path
+   *  knows whether there is a synthetic click trail to cancel (see the note on onTouchEnd) */
+  const placeGeoref = (lngLat: { lng: number; lat: number }): boolean => {
+    if (!georefTurn) return false
+    georefDispatch({ type: 'mapTap', lngLat: { lng: lngLat.lng, lat: lngLat.lat } })
+    georefPoint.current = null
+    return true
   }
   const aimGeorefMap = () => {
     if (georefTurn && georef.want !== 'map') georefDispatch({ type: 'goMap' })
@@ -1358,7 +1370,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           mapInst.current?.easeTo({ bearing: 0, duration: motionDuration(250) })
         }
       }}
-      onMouseDown={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      // ⚠️ A press that begins on a CROSS never starts a placement gesture: the cross's own
+      // handlers (pick / drag) own it, but their native events still bubble to this container —
+      // without the filter, clicking a pending cross also dropped a stray point underneath it.
+      onMouseDown={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       onMouseMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       onMouseUp={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // ⚠️ The pairing aim is deliberately NOT cleared here. The loupe is up for the whole of the
@@ -1367,11 +1382,20 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       onMouseOut={picking ? () => onCursor?.(null) : undefined}
       // mousemove never fires on touch — stream the aim coords from the drag as well,
       // so the crosshair readout tracks the finger on iPhone/iPad
-      onTouchStart={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { aimGeorefMap(); georefTap.start(e.point, e.points.length > 1) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      // same cross filter as onMouseDown — a finger on a cross is a pick, never a placement
+      onTouchStart={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point, e.points.length > 1) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // mousemove never fires on touch — the loupe follows the drag instead, which is exactly the
       // gesture the mock asks for («halten und schieben»)
       onTouchMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point, e.points.length > 1); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onTouchEnd={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      // ⚠️ A placing tap CANCELS its touchend. The browser follows an uncancelled tap with a
+      // synthesized mousedown/mouseup/click at the same position: the mouse pair re-ran this
+      // very machine (one duplicate point per tap), and the click landed on the cross that had
+      // JUST mounted under the finger — picking it up, so the next tap silently re-placed that
+      // point instead of setting the next one. That loop, not finger wobble, is what made
+      // tablet placement «very unreliable». MapLibre registers touchend non-passively, so
+      // preventDefault here is honoured and stops the whole synthetic trail. Pans, pinches and
+      // non-placing taps stay untouched — crosses keep receiving their real taps.
+      onTouchEnd={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped && placeGeoref(e.lngLat)) e.originalEvent?.preventDefault() } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
       cursor={picking || georefTurn ? 'crosshair' : undefined}
       attributionControl={false}
       maxPitch={0}
@@ -1553,6 +1577,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={p[0]}
           latitude={p[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDrag={(e) => { vertexPress.cancel(); onDraftDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}
           onDragEnd={(e) => onDraftDrag?.(i, [e.lngLat.lng, e.lngLat.lat])}
@@ -1575,7 +1600,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           const a = measurePoints[i], b = measurePoints[(i + 1) % n]
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
-            <Marker key={`mi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
+            <Marker key={`mi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={handleZ}>
               <NewNodeHandle title={appConfig.copy.measure.insertPoint}
                 onInsert={(ev) => {
                   onMeasureInsert(i + 1, mid)
@@ -1598,6 +1623,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={p[0]}
           latitude={p[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDragStart={() => setMeasureDragNode(i)}
           onDrag={(e) => { vertexPress.cancel(); onMeasureDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}
@@ -1751,7 +1777,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {/* selected drawing — on-canvas edit handles: a move grip at the centre, a delete
           ✕ above it, and (for non-huge shapes) a draggable handle on every vertex */}
       {editDraw && editHubAt && (
-        <Marker longitude={editHubAt[0]} latitude={editHubAt[1]} anchor="center">
+        <Marker longitude={editHubAt[0]} latitude={editHubAt[1]} anchor="center" style={handleZ}>
           <div className="draw-edit-hub">
             {onDrawingEdit && !editCircle && (
               <div className="draw-rotor">
@@ -1785,6 +1811,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={editHubAt[0]}
           latitude={editHubAt[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDragStart={() => { beginSheetPeek(); moveRef.current = { start: editHubAt, coords: editDraw.coords }; onDrawingEdit(editDraw.id, editDraw.coords, 'start') }}
           onDrag={(e) => { const m = moveRef.current; if (!m) return; const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, bodyMovedCoords(editDraw.id, dx, dy), 'move') }}
@@ -1803,7 +1830,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           const a = editDraw.coords[i], b = editDraw.coords[(i + 1) % n]
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
-            <Marker key={`di${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
+            <Marker key={`di${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={handleZ}>
               <NewNodeHandle title={appConfig.copy.measure.insertPoint}
                 onInsert={(ev) => {
                   onDrawingVertexInsert(editDraw.id, i + 1, mid)
@@ -1830,6 +1857,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={p[0]}
           latitude={p[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDragStart={() => { beginSheetPeek(); endpoint && onDrawingAttachment ? beginEndpointDrag(editDraw.id, endpoint, p) : onDrawingEdit(editDraw.id, editDraw.coords, 'start') }}
           onDrag={(e) => { vertexPress.cancel(); endpoint && onDrawingAttachment ? moveEndpointDrag([e.lngLat.lng, e.lngLat.lat]) : onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'move') }}
@@ -1886,7 +1914,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const idx = ep === 'start' ? 0 : coords.length
         const grown = ep === 'start' ? [at, ...coords] : [...coords, at]
         return (
-          <Marker key={`grow-${ep}`} longitude={at[0]} latitude={at[1]} anchor="center">
+          <Marker key={`grow-${ep}`} longitude={at[0]} latitude={at[1]} anchor="center" style={handleZ}>
             <NewNodeHandle
               className="draw-grow" icon="arrow"
               title={appConfig.copy.measure.extendLine}
@@ -1917,7 +1945,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           return [ll.lng, ll.lat]
         }
         return (
-          <Marker key={`detach-${ep}`} longitude={pt[0]} latitude={pt[1]} anchor="center" offset={[18, -18]}>
+          <Marker key={`detach-${ep}`} longitude={pt[0]} latitude={pt[1]} anchor="center" offset={[18, -18]} style={handleZ}>
             <span className="line-detach-chip" role="button" title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
               onPointerDown={(ev) => ev.stopPropagation()}
               onClick={(ev) => { ev.stopPropagation(); onDrawingAttachment(editDraw.id, ep, undefined, detachAt()) }}><Icon id="close" /></span>
@@ -1927,7 +1955,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* marquee group (≥2 drawings + entities): one move grip + delete at the combined centre */}
       {groupCentroid && (
-        <Marker longitude={groupCentroid[0]} latitude={groupCentroid[1]} anchor="center">
+        <Marker longitude={groupCentroid[0]} latitude={groupCentroid[1]} anchor="center" style={handleZ}>
           <div className="draw-edit-hub">
             {onGroupDelete && (
               <button
@@ -1946,6 +1974,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           longitude={groupCentroid[0]}
           latitude={groupCentroid[1]}
           anchor="center"
+          style={handleZ}
           draggable
           onDragStart={() => { beginSheetPeek(); groupMoveRef.current = { start: groupCentroid }; onGroupMove(selectedDrawIds, selectedEntityIds, 0, 0, 'start') }}
           onDrag={(e) => { const s = groupMoveRef.current; if (!s) return; onGroupMove(selectedDrawIds, selectedEntityIds, e.lngLat.lng - s.start[0], e.lngLat.lat - s.start[1], 'move') }}

@@ -517,7 +517,11 @@ function GeorefActions({ mode }: { mode: GeorefModeState }) {
             <Icon id="trash" />{C.removePoint}
           </button>
         )
-        : mode.pairs.length > 0 && <button className={`btn warn ${s.resetAction}`} onClick={() => void clearGeorefPoints()}><Icon id="trash" />{C.clearPoints}</button>}
+        // …offered as soon as ANYTHING stands, queued points included. Gated on `pairs` alone,
+        // a mode full of unmatched points (28.08.: nine of them, courtesy of the tap-double-fire
+        // bug) had NO way to start over — only «Punkt löschen», one by one.
+        : (mode.pairs.length > 0 || mode.queue.length > 0 || mode.mapQueue.length > 0)
+          && <button className={`btn warn ${s.resetAction}`} onClick={() => void clearGeorefPoints()}><Icon id="trash" />{C.clearPoints}</button>}
       {/* «Auf der Karte zuordnen» — on a phone the ONLY way across now that a plan tap no longer
           hops by itself; on the split there is nothing to travel to, but pressing it still turns
           the instruction round («Punkt 4 auf der Karte antippen»), which is the same request in
@@ -743,7 +747,9 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
                   <Icon id="trash" />{C.removePoint}
                 </button>
               )
-              : !finished && mode.pairs.length > 0 && (
+              : !finished && (mode.pairs.length > 0 || mode.queue.length > 0 || mode.mapQueue.length > 0) && (
+                // queued points count too — see the desktop bar's note (unmatched points must
+                // not strand the operator without a «start over»)
                 <button type="button" className={`btn link ${s.quietBtn} ${s.quietWarn}`} onClick={() => void clearGeorefPoints()}>
                   <Icon id="trash" />{C.clearPoints}
                 </button>
