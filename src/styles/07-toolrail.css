@@ -208,6 +208,10 @@
   .ctx-title-input:not(.ctx-title-ro):hover { background: var(--fill-soft); border-bottom-color: rgba(30, 45, 70, .3); }
 }
 .ctx-title-input:focus { background: color-mix(in srgb, var(--blue) 9%, transparent); border-bottom-color: var(--blue); }
+/* The labelled Fahrzeug's header title is a BUTTON: a tap falls through to the «Bezeichnung»
+   field below and opens its menu (ContextPanel · openBezeichnung). It keeps the resting
+   underline — here the affordance is honest, the tap does something. */
+.ctx-title-btn { display: block; text-align: left; cursor: pointer; appearance: none; }
 /* keyboard-free stepper (− value +), used for Geschoss + Anzahl. The clear ✕ keeps
    a FIXED slot (visibility toggles, with a gap before it) so the + button never
    shifts under the finger between taps and never sits where clear will appear. */

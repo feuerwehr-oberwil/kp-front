@@ -10,10 +10,7 @@
 .ctx-title-ro { display: block; cursor: default; border-bottom-color: transparent; }
 .ctx-notes-ro { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; }
 .kv-val-ro { font-weight: 500; }
-/* Fahrer of a live vehicle — the one editable thing on an otherwise read-only panel, so it is
-   given the ordinary field look rather than the muted read-out the GPS readings get. */
-.kv-driver { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 8px; }
-.kv-driver > span { font: 700 11px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+/* (the live vehicle's Fahrer row shares .field with the preset rows — no style of its own) */
 /* Inset to the left of the right-edge tool rail, TRACKING its width instead of quoting a sum:
    the rail is 60 / 88 / 216px wide and drag-resizable to 280 (ToolRail), so a frozen 116px meant
    an expanded rail parked itself ON the panel — 116px of it at the labelled width, 180px at full
