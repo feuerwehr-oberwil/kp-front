@@ -9,7 +9,7 @@ import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable } from '../lib/format'
+import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
@@ -366,6 +366,7 @@ export function ReportPreflight({
   // render now, and `useSyncedField` decides per field whether the screen follows it.
   const remoteSummary = reportMeta.summary ?? ''
   const remoteKontaktperson = reportMeta.kontaktperson ?? ''
+  const remoteKontaktTel = reportMeta.kontaktpersonTelefon ?? ''
   // ⚠️ The Kroki fallback belongs in here, not beside it: it is what an EMPTY blob shows, so a
   // field sitting on the seeded name is in agreement with the blob and must not count as an edit
   // this device has to defend (that is what `seededEinsatzleiter` below persists, once).
@@ -473,6 +474,7 @@ export function ReportPreflight({
   // open on the Einsatzleiter's iPad.
   const [summary, setSummary, summaryDirty] = useSyncedField('summary', remoteSummary, normText, blurTick)
   const [kontaktperson, setKontaktperson, kontaktpersonDirty] = useSyncedField('kontaktperson', remoteKontaktperson, normText, blurTick)
+  const [kontaktTel, setKontaktTel, kontaktTelDirty] = useSyncedField('kontaktTel', remoteKontaktTel, normText, blurTick)
   // Seeded from the Kroki when the Rapport has none of its own: the EL was already named on the
   // map (Einsatzleiter glyph / KP Front), so typing it a second time is pure duplication. A
   // pre-fill only — the picker stays editable and the typed value wins from then on.
@@ -545,6 +547,7 @@ export function ReportPreflight({
   const editedMeta = (): Partial<ReportMeta> => ({
     summary: summary.trim() || undefined,
     kontaktperson: kontaktperson.trim() || undefined,
+    kontaktpersonTelefon: kontaktTel.trim() || undefined,
     einsatzleiter: einsatzleiter.trim() || undefined,
     endedAt: dtLocalToIso(endedAt),
     ausgeruecktAt: derivedAus ?? dtLocalToIso(ausgerueckt),
@@ -574,6 +577,7 @@ export function ReportPreflight({
     const out: Partial<ReportMeta> = {}
     if (summaryDirty) out.summary = summary.trim() || undefined
     if (kontaktpersonDirty) out.kontaktperson = kontaktperson.trim() || undefined
+    if (kontaktTelDirty) out.kontaktpersonTelefon = kontaktTel.trim() || undefined
     if (einsatzleiterDirty) out.einsatzleiter = einsatzleiter.trim() || undefined
     if (endedAtDirty) out.endedAt = dtLocalToIso(endedAt)
     // The header «Ausgerückt» is derived from the vehicle grid the moment it holds anything, so
@@ -1696,15 +1700,31 @@ export function ReportPreflight({
                     <button type="button" className="ip-btn" onClick={() => persist({ kontaktpersonNone: undefined })}>{P.entfaelltUndo}</button>
                   </div>
                 ) : (
-                  <div className="rz-none">
+                  <div className="rz-none rz-kontakt">
                     {/* ✕: the Rapport is filled in after the fact and corrected as the picture
                         settles — a name written down from a first guess is normal here. */}
                     <ClearableInput value={kontaktperson} placeholder={P.kontaktpersonPlaceholder}
                       aria-label={P.kontaktpersonLabel}
                       clearLabel={P.kontaktpersonClear}
                       onChange={(raw) => { const v = stripUnprintable(raw); setKontaktperson(v); persist({ kontaktperson: v.trim() || undefined }) }} />
+                    {/* The number beside the name, because it is ONE fact — and the reason it is
+                        recorded at all: the callback in the Nachbearbeitung. Its own data-sync
+                        marker, or a value arriving from the iPad would overwrite mid-typing. */}
+                    <div className="rz-kontakt-tel" data-sync="kontaktTel">
+                      <ClearableInput value={kontaktTel} placeholder={P.kontaktpersonTelefonPlaceholder}
+                        aria-label={P.kontaktpersonTelefon}
+                        clearLabel={P.kontaktpersonTelefonClear}
+                        inputMode="tel" autoComplete="off"
+                        onChange={(raw) => { const v = stripUnprintable(raw); setKontaktTel(v); persist({ kontaktpersonTelefon: v.trim() || undefined }) }} />
+                      {telHref(kontaktTel) && (
+                        <a className="ip-btn rz-call" href={telHref(kontaktTel)}
+                          aria-label={P.kontaktpersonCall} title={P.kontaktpersonCall}>
+                          <Icon id="phone" />
+                        </a>
+                      )}
+                    </div>
                     <button type="button" className="ip-btn"
-                      onClick={() => { setKontaktperson(''); persist({ kontaktperson: undefined, kontaktpersonNone: true }) }}>
+                      onClick={() => { setKontaktperson(''); setKontaktTel(''); persist({ kontaktperson: undefined, kontaktpersonTelefon: undefined, kontaktpersonNone: true }) }}>
                       {P.entfaellt}
                     </button>
                   </div>

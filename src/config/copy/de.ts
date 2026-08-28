@@ -2616,6 +2616,9 @@ export const de = {
     ausgerueckt: 'Ausgerückt',
     kontaktperson: 'Kontaktperson',
     kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortliche(r)',
+    kontaktpersonTelefon: 'Telefon Kontaktperson',
+    kontaktpersonTelefonPlaceholder: 'Telefonnummer',
+    kontaktpersonCall: 'Kontaktperson anrufen',
     von: 'von',
     bis: 'bis',
     ende: 'Einsatzende',
@@ -3077,6 +3080,12 @@ export const de = {
     kontaktpersonLabel: 'Kontaktperson',
     kontaktpersonClear: 'Kontaktperson leeren',
     kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortlicher',
+    // Der Name und die Nummer sind EIN Fakt (dieselbe Zeile, dieselbe Person) – aber die Nummer
+    // ist das, was die Nachbearbeitung braucht: der Rückruf an den Eigentümer am nächsten Tag.
+    kontaktpersonTelefon: 'Telefon Kontaktperson',
+    kontaktpersonTelefonClear: 'Telefon leeren',
+    kontaktpersonTelefonPlaceholder: 'Telefonnummer',
+    kontaktpersonCall: 'Kontaktperson anrufen',
     // Die dritte Antwort auf Kontaktperson und Rückmeldung ELZ. «Nicht ausgefüllt» und «gibt es
     // nicht» sind zwei verschiedene Aussagen: ein Fehlalarm im leeren Altersheim hat niemanden zu
     // nennen, und ohne diesen Ausweg blieb der Schritt für immer offen – vor jedem Druck stand
@@ -3946,6 +3955,7 @@ export const de = {
       sheetAlarm: 'Alarmiert',
       sheetEnde: 'Einsatzende',
       sheetKontakt: 'Kontaktperson',
+      sheetKontaktTelefon: 'Telefon',
       // ⚠️ The section names are the Einsatzrapport's (backend · report_pdf · L) – the sheet is
       // its paper twin, and whoever transfers a filled-in sheet into the app reads both side by
       // side. Instructions like «(abhaken, ggf. von–bis)» only existed here and turned the same

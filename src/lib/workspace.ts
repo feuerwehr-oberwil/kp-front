@@ -29,6 +29,10 @@ export interface ReportMeta {
   lehren?: string
   /** Kontaktperson on scene (owner / Melder / person in charge) */
   kontaktperson?: string
+  /** Kontaktperson's phone number — kept next to the name so the Nachbearbeitung (a callback
+   *  about the damage, the owner who has to be reached tomorrow) does not depend on someone
+   *  having copied it into the Kurzbericht. Free text as typed; dialing normalizes (telHref). */
+  kontaktpersonTelefon?: string
   /** «Entfällt» — the Kontaktperson step ANSWERED rather than left blank.
    *
    *  A Fehlalarm in an empty Altersheim and an Ölspur on a Kantonsstrasse have nobody to name,

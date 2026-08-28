@@ -129,6 +129,16 @@
 .rz-none > .ip-btn, .pf-trail > .ip-btn, .report-meta-end > .ip-btn {
   min-height: var(--tap); border-radius: var(--r-ctl); }
 .rz-none .ci-input { min-height: var(--tap); }
+/* Kontaktperson: name + Telefon share the line (one person, one fact); on a narrow sheet the
+   phone half — number and dial button together — wraps whole onto a second line. */
+.rz-kontakt { flex-wrap: wrap; }
+.rz-kontakt > .ci { flex: 3 1 200px; }
+.rz-kontakt-tel { display: flex; align-items: center; gap: 8px; flex: 2 1 170px; min-width: 0; }
+.rz-kontakt-tel > .ci { flex: 1 1 auto; min-width: 0; }
+/* the dial affordance is a link wearing button clothes — same height rule as «Entfällt» */
+.rz-kontakt-tel > .ip-btn { flex: none; display: inline-flex; align-items: center;
+  justify-content: center; min-height: var(--tap); min-width: var(--tap);
+  border-radius: var(--r-ctl); }
 /* «Entfällt» at the end of the NAME line, the way the Kontaktperson has it — PersonField draws
    its own label, so the trailing button goes beside the combo INSIDE the field, never next to
    the label block (which would centre it against both rows). */

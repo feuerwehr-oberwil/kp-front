@@ -141,6 +141,32 @@ def test_a_field_answered_entfaellt_says_so_on_the_paper():
     assert answered.count("–") == 2  # Kontaktperson and Rückmeldung ELZ, one each
 
 
+def test_the_kontaktperson_row_carries_the_phone_number():
+    """Name and Telefon share the row — the number is why the field exists (the callback in the
+    Nachbearbeitung). Under «Entfällt» there is no person, so no separate empty Telefon rule
+    that would read as a second forgotten field."""
+    base = {
+        "incident": {"title": "Zimmerbrand", "id": "i"},
+        "generatedAt": "28.08.2026 09:00",
+        "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+    }
+    filled = _text(
+        compose_report_pdf(
+            ReportPayload.model_validate(
+                {**base, "meta": {"kontaktperson": "Anna Meier", "kontaktpersonTelefon": "079 123 45 67"}}
+            ),
+            {},
+        )
+    )
+    assert "Anna Meier" in filled
+    assert "079 123 45 67" in filled
+    assert "Telefon" in filled
+    answered = _text(
+        compose_report_pdf(ReportPayload.model_validate({**base, "meta": {"kontaktpersonNone": True}}), {})
+    )
+    assert "Telefon" not in answered
+
+
 def test_the_atemschutz_sheet_numbers_its_adf_the_way_the_form_does():
     """The Trupp form numbers its crew «AdF 1», «AdF 2»; the sheet printed one «AdF: A, B» line.
     Two names for the same three people, and a comma list gives nobody a position to point at
