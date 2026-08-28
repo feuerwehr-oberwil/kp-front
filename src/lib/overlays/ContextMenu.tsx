@@ -43,7 +43,7 @@ export function ContextMenu({ trigger, items, disabled }: {
       <BaseContextMenu.Trigger render={trigger} />
       <BaseContextMenu.Portal>
         <BaseContextMenu.Positioner className="ui-ctxmenu-pos">
-          <BaseContextMenu.Popup className="ui-ctxmenu">
+          <BaseContextMenu.Popup className="ui-pop ui-ctxmenu">
             {items.map((it, i) => (
               <BaseContextMenu.Item
                 key={i}

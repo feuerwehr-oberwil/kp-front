@@ -170,7 +170,8 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
       <BaseMenu.Portal>
         <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding}>
           <BaseMenu.Popup
-            className={popupClassName}
+            // `ui-pop` is the exit hook: 13-incident.css fades every [data-ending-style] popup out
+            className={popupClassName ? `ui-pop ${popupClassName}` : 'ui-pop'}
             // ⚠️ rAF as well as the immediate set: the popup attaches before its own rows have
             // wrapped to their final heights, so a scrollTop written at that moment lands short.
             ref={scrollToEnd

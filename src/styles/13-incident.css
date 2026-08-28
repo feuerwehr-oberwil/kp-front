@@ -318,8 +318,25 @@
    Popup as SIBLINGS — there is no .ip-ovl grid parent — so the scrim moves onto .ui-backdrop
    and the centering onto .ip-sheet.ui-dialog. Values mirror the old .ip-ovl exactly (incl. the
    phone bottom-sheet override at the end of this file) so migrated sheets are pixel-identical. */
-.ui-backdrop { position: fixed; inset: 0; z-index: var(--z-dialog-scrim); background: rgba(20,28,40,.32); backdrop-filter: blur(2px); }
+.ui-backdrop { position: fixed; inset: 0; z-index: var(--z-dialog-scrim); background: rgba(20,28,40,.32); backdrop-filter: blur(2px);
+  transition: opacity .14s var(--ease); }
 .ip-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-dialog); }
+/* ── overlays leave the way they came ──
+   Base UI keeps [data-starting-style]/[data-ending-style] on Backdrop + Popup and delays the
+   unmount until a running transition ends — so these four rules give every shared primitive
+   (Sheet, Overlay, ConfirmCard, Menu, Popover, ContextMenu via the `ui-pop` class) a symmetric
+   exit where before they all animated IN and cut to nothing. Until now the only surface in the
+   app that faded both ways was the admin InfoTip.
+   ⚠️ independent `scale`/`opacity`, never `transform` — the dialogs centre themselves with a
+   translate() that a transform transition would clobber mid-flight (same reason the `pop`
+   keyframe animates bare `scale`). Exits run shorter than the .16s/.22s entrances: leaving
+   must never make the operator wait. */
+.ui-backdrop[data-starting-style], .ui-backdrop[data-ending-style],
+.modal-backdrop[data-ending-style], .photo-scrim[data-ending-style], .mp-backdrop[data-ending-style] { opacity: 0; }
+.modal-backdrop[data-ending-style], .photo-scrim[data-ending-style], .mp-backdrop[data-ending-style] {
+  transition: opacity .13s var(--ease); }
+.ui-dialog[data-ending-style], .ui-pop[data-ending-style] { opacity: 0; scale: .98;
+  transition: opacity .13s var(--ease), scale .13s var(--ease); }
 .ip-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 8px; }
 /* 800, like EVERY other title in the app — Anwesenheit, Mittel, Atemschutz, Checklists, Hilfe and
    the Rapport all set their h2 at 800/19. At 700 the dialog heads («Weitere Person erfassen»,

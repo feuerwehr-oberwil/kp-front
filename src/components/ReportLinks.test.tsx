@@ -35,7 +35,13 @@ beforeAll(() => {
 })
 
 
-afterEach(cleanup)
+afterEach(async () => {
+  // toasts leave in two phases (mark `.out`, drop the node .16s later — lib/ui.tsx) and their
+  // store is module-level: let a previous test's «Erledigt» pill finish leaving, or the
+  // negative assertions below would find the fading leftover
+  await act(async () => { await new Promise((r) => setTimeout(r, 180)) })
+  cleanup()
+})
 
 const INCIDENT = {
   id: 'i1', title: 'Brand Gebäude', address: 'Musterstrasse 3',

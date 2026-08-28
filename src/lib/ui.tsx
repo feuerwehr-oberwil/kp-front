@@ -24,7 +24,7 @@ export interface ToastStep {
   state: 'done' | 'now' | 'future' | 'fail'
   icon?: 'check' | 'warn' | 'printer'
 }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[] }
+interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; leaving?: boolean }
 interface ConfirmReq {
   id: number
   title?: string
@@ -67,10 +67,15 @@ function scheduleDismiss(id: number, ms: number) {
 }
 
 export function dismissToast(id: number) {
+  const t = toasts.find((x) => x.id === id)
+  if (!t || t.leaving) return
   const prev = timers.get(id)
   if (prev) { clearTimeout(prev); timers.delete(id) }
-  toasts = toasts.filter((t) => t.id !== id)
+  // leave the way it came in: `.toast.out` plays (.14s, shorter than the entrance), then the
+  // node goes. The removal timer stays out of `timers` — nothing may cancel the second half.
+  toasts = toasts.map((x) => (x.id === id ? { ...x, leaving: true } : x))
   emit()
+  setTimeout(() => { toasts = toasts.filter((x) => x.id !== id); emit() }, 160)
 }
 
 export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[] }): number {
@@ -86,7 +91,8 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
 /** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it
  * (e.g. once the job reaches done/failed); omit to keep it sticky. Unknown id = no-op. */
 export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction | null; steps?: ToastStep[] | null }) {
-  if (!toasts.some((t) => t.id === id)) return
+  const cur = toasts.find((t) => t.id === id)
+  if (!cur || cur.leaving) return
   toasts = toasts.map((t) => t.id === id
     ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? 'fill', action: opts?.action ?? undefined, steps: opts?.steps ?? undefined }
     : t)
@@ -266,7 +272,14 @@ export function Overlays() {
           burst hides the pill carrying «Rückgängig» below the fold with nothing saying so. */}
       <div className="toaster" aria-live="polite" aria-atomic="false">
         {[...toasts].reverse().map((t) => (
-          <div key={t.id} className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}`}>
+          <div
+            key={t.id}
+            className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${t.leaving ? ' out' : ''}${!t.action && !t.steps ? ' tap' : ''}`}
+            // a pill with no action had NO way off the screen but waiting, while still eating
+            // the taps aimed underneath it — plain toasts dismiss on a tap. Action pills keep
+            // their own controls (button + flick), live step toasts stay until their job ends.
+            onClick={!t.action && !t.steps ? () => dismissToast(t.id) : undefined}
+          >
             {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
               <>
                 {t.icon && <Icon id={t.icon} />}

@@ -39,7 +39,8 @@ export function Popover({ trigger, children, ariaLabel, popupClassName, side = '
       <BasePopover.Trigger render={trigger} />
       <BasePopover.Portal>
         <BasePopover.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding} style={zIndex != null ? { zIndex } : undefined}>
-          <BasePopover.Popup className={popupClassName} aria-label={ariaLabel}>
+          {/* `ui-pop`: shared exit hook — see 13-incident.css [data-ending-style] */}
+          <BasePopover.Popup className={popupClassName ? `ui-pop ${popupClassName}` : 'ui-pop'} aria-label={ariaLabel}>
             {children}
           </BasePopover.Popup>
         </BasePopover.Positioner>

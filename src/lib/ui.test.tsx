@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Overlays, toast, updateToast, dismissToast, confirmDialog } from './ui'
 
 afterEach(() => {
+  // toasts leave in two phases now (mark `.out`, remove .16s later) and the store is
+  // module-level — flush pending exits so no fading pill leaks into the next test
+  if (vi.isFakeTimers()) act(() => { vi.runAllTimers() })
   cleanup()
   vi.useRealTimers()
 })
@@ -37,7 +40,7 @@ describe('confirmDialog (Base UI AlertDialog)', () => {
 })
 
 describe('toast with an action (confirm-with-undo)', () => {
-  it('renders the action button; tapping it runs the handler and dismisses the toast', () => {
+  it('renders the action button; tapping it runs the handler and dismisses the toast', async () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => toast('Geschoss entfernt', { action: { label: 'Rückgängig', onClick } }))
@@ -46,7 +49,8 @@ describe('toast with an action (confirm-with-undo)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Rückgängig' }))
 
     expect(onClick).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText('Geschoss entfernt')).toBeNull()
+    // gone once the exit fade has played (dismissal is two-phase now)
+    await waitFor(() => expect(screen.queryByText('Geschoss entfernt')).toBeNull())
   })
 
   it('gives an actioned toast a longer default lifetime than a plain one', () => {
@@ -67,7 +71,7 @@ describe('toast with an action (confirm-with-undo)', () => {
 })
 
 describe('toast timing', () => {
-  it('announces through one shared live region instead of nesting status regions', () => {
+  it('announces through one shared live region instead of nesting status regions', async () => {
     render(<Overlays />)
     let id!: number
     act(() => { id = toast('Einmal ansagen') })
@@ -77,6 +81,7 @@ describe('toast timing', () => {
     expect(host.getAttribute('aria-live')).toBe('polite')
     expect(item.getAttribute('role')).toBeNull()
     act(() => dismissToast(id))
+    await waitFor(() => expect(screen.queryByText('Einmal ansagen')).toBeNull())
   })
 
   it('keeps a long message visible long enough to read', () => {
@@ -108,7 +113,8 @@ describe('sticky/updatable toast (live print status)', () => {
 
     act(() => updateToast(id, 'Gedruckt', { icon: 'check', duration: 4000 }))
     expect(screen.getByText('Gedruckt')).toBeTruthy()
-    act(() => vi.advanceTimersByTime(4001)) // terminal state auto-dismisses
+    act(() => vi.advanceTimersByTime(4001)) // terminal state auto-dismisses…
+    act(() => vi.advanceTimersByTime(200)) // …and the exit fade carries it out
     expect(screen.queryByText('Gedruckt')).toBeNull()
   })
 
@@ -142,12 +148,15 @@ describe('sticky/updatable toast (live print status)', () => {
     expect(document.querySelector('.toast-step.now .print-feed')).toBeTruthy()
   })
 
-  it('dismissToast removes a sticky toast and updateToast on an unknown id is a no-op', () => {
+  it('dismissToast removes a sticky toast and updateToast on an unknown id is a no-op', async () => {
     render(<Overlays />)
     let id!: number
     act(() => { id = toast('sticky', { sticky: true }) })
     act(() => dismissToast(id))
-    expect(screen.queryByText('sticky')).toBeNull()
+    // a leaving toast must also swallow updates — nothing may revive a pill mid-exit
+    act(() => updateToast(id, 'ghost'))
+    expect(screen.queryByText('ghost')).toBeNull()
+    await waitFor(() => expect(screen.queryByText('sticky')).toBeNull())
     act(() => updateToast(id, 'ghost'))
     expect(screen.queryByText('ghost')).toBeNull()
   })
@@ -164,31 +173,31 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     fireEvent.click(el)
   }
 
-  it('closes on the ✕ without undoing anything', () => {
+  it('closes on the ✕ without undoing anything', async () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => { toast('mit ✕ weg', { action: { label: 'Rückgängig', onClick } }) })
     fireEvent.click(last('.toast-x'))
-    expect(screen.queryByText('mit ✕ weg')).toBeNull()
+    await waitFor(() => expect(screen.queryByText('mit ✕ weg')).toBeNull())
     expect(onClick).not.toHaveBeenCalled()
   })
 
-  it('flicks away without undoing anything — a flick ends on the button, but is not a press', () => {
+  it('flicks away without undoing anything — a flick ends on the button, but is not a press', async () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => { toast('weggewischt', { action: { label: 'Rückgängig', onClick } }) })
     drag(last('.toast-action'), 90)
-    expect(screen.queryByText('weggewischt')).toBeNull()
+    await waitFor(() => expect(screen.queryByText('weggewischt')).toBeNull())
     expect(onClick).not.toHaveBeenCalled()
   })
 
   // …and a shaky press is still a press: the button is a target first and a slider second
-  it('still undoes when the finger barely moved', () => {
+  it('still undoes when the finger barely moved', async () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => { toast('zittrig gedrückt', { action: { label: 'Rückgängig', onClick } }) })
     drag(last('.toast-action'), 6)
     expect(onClick).toHaveBeenCalled()
-    expect(screen.queryByText('zittrig gedrückt')).toBeNull()
+    await waitFor(() => expect(screen.queryByText('zittrig gedrückt')).toBeNull())
   })
 })

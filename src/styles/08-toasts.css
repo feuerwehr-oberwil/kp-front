@@ -229,6 +229,12 @@
   padding: 10px 16px; border-radius: var(--r-cluster); white-space: nowrap;
   box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--on-accent-ink) 24%, transparent);
   animation: toastIn .22s var(--ease); }
+/* out the way it came in, only quicker — dismissToast marks the pill `.out`, lets this play,
+   and removes the node .16s later (lib/ui.tsx). Leaving must never make the app wait. */
+.toast.out { opacity: 0; transform: translateY(8px) scale(.96); pointer-events: none;
+  transition: opacity .14s var(--ease), transform .14s var(--ease); }
+/* a pill with no action dismisses on a tap (lib/ui.tsx puts `.tap` on exactly those) */
+.toast.tap { cursor: pointer; }
 .toast .i { width: 16px; height: 16px; flex: none; }
 /* live job as a chain of stages (printJobToast): reached ones keep their tick and step back, the
    running one carries the label, unreached ones stay visible as pips — «what still has to
