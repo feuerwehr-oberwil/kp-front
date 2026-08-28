@@ -65,11 +65,17 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
       data-hold-target="cancel"
       {...handlers}
     >
-      {pressing && !recording && pressedSince != null && <HoldChargeRing since={pressedSince} />}
       {latched && <HoldTargets hover={hover} placement="above" anchor={anchor} />}
       {recording
         ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
-        : <><Icon id="plus" /><span className="tb-act-label">{appConfig.copy.journal.add}</span></>}
+        : <>
+          {/* ring around the + icon, same as the TopBar Eintrag — never over the label */}
+          <span className="tb-act-ic">
+            <Icon id="plus" />
+            {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
+          </span>
+          <span className="tb-act-label">{appConfig.copy.journal.add}</span>
+        </>}
     </button>
   )
 }

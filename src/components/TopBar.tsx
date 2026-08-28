@@ -206,12 +206,19 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             data-hold-target="cancel"
             {...handlers}
           >
-            {pressing && !recording && pressedSince != null && <HoldChargeRing since={pressedSince} />}
             {/* below: this button lives in the TOP bar, so the targets open downward */}
             {latched && <HoldTargets hover={hover} placement="below" anchor={anchor} />}
             {recording
               ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
-              : <><Icon id="plus" /><span className="tb-act-label">{appConfig.copy.journal.add}</span></>}
+              : <>
+                {/* the charge ring rings the + icon — anchored at the right edge it sat ON the
+                    label's last letters and read as clutter over the word it was charging */}
+                <span className="tb-act-ic">
+                  <Icon id="plus" />
+                  {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
+                </span>
+                <span className="tb-act-label">{appConfig.copy.journal.add}</span>
+              </>}
           </button>
         )}
         {/* wrapped in a stable class so the phone rule can lift it out of the bar — see
