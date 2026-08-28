@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
-import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, Entity, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, Drawing, Entity, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
@@ -49,8 +49,9 @@ import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
 import { fitSimilarity } from '../lib/georef'
 import { georefForPlan, refreshStationPlanScales } from '../lib/stationPlanScale'
 import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
-import { boardTwins, type BoardTwin } from '../lib/georefTwins'
+import { boardDrawingTwins, boardEntityTwins, boardTwins, type BoardTwin } from '../lib/georefTwins'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
+import { GeorefContentBoard } from './GeorefContentBoard'
 import { GeorefTwinPanel } from './GeorefTwinPanel'
 import { glyphFor, twinName } from '../lib/twinGlyph'
 import { MAX_SCALE, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
@@ -230,13 +231,11 @@ interface Props {
   planScale?: PlanScales
   /** persist a plan's calibration (null clears it). Rides the workspace blob via App. */
   onCalibrate?: (planId: string, scale: PlanScale | null) => void
-  /** Georeferenz twins — what the Karte lends a georeferenced sheet (lib/georefTwins).
-   *  Two lists because they are two Ebenen rows: `vehicles` are the live GPS fleet, `symbols`
-   *  the Lage's own tactical symbols. Each is already filtered by its row's visibility; the
-   *  PROJECTION + clip happen here, against this sheet's own fit, so a twin can never disagree
-   *  with the reference crosses drawn beside it. */
-  mapTwins?: { vehicles: Entity[]; symbols: Entity[] }
-  /** tap on a twin → show its read-only source details */
+  /** Georeferenz twins — what the Karte lends a georeferenced sheet (lib/georefTwins). Lists are
+   *  already filtered by their Ebenen visibility; projection + clipping happen here against the
+   *  sheet's measured fit, so content never disagrees with the reference crosses beside it. */
+  mapTwins?: { vehicles: Entity[]; symbols: Entity[]; content: Entity[]; drawings: Drawing[] }
+  /** tap on a twin → show its source-backed editor */
   onTwinJump?: (entity: Entity) => void
   /** Move the map-owned source onto this plan, preserving its id and offering one-step undo. */
   onTwinTransferHere?: (entity: Entity, planId: string, pt: { x: number; y: number }) => void
@@ -251,6 +250,11 @@ interface Props {
    * `phase` mirrors the map's own drag (start ⇒ snapshot for undo, end ⇒ log + emit).
    */
   onTwinMove?: (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => void
+  /** Edit the one Karte-owned source through its projection. `live` streams title keystrokes
+   *  inside one undo step; `commit` finalises it or applies an ordinary discrete patch. */
+  onTwinEdit?: (entityId: string, patch: Partial<Entity>, phase?: 'live' | 'commit') => void
+  /** Delete the Karte-owned source through its projection, using the map's normal safeguards. */
+  onTwinDelete?: (entityId: string) => boolean | Promise<boolean>
   /** the Ebenen panel is open (it lives in the app shell; the plan only owns the button) */
   layersOn?: boolean
   /** Ebenen button in the rail footer — omitted ⇒ no button, which is the state of every sheet
@@ -274,7 +278,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onCaptureMittel, mittelCountFor, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onCaptureMittel, mittelCountFor, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -337,7 +341,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
     { size: 'm', plain: false, color: '' },
   )
-  // which Georeferenz twin has its (read-only) details open — the Karte's object, mirrored onto
+  // which Georeferenz twin has its source-backed editor open — the Karte's object, mirrored onto
   // this sheet. Its open panel gives the projection the source object's normal selection halo.
   const [twinView, setTwinView] = useState<BoardTwin | null>(null)
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
@@ -706,11 +710,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // reference crosses drawn beside it — the app shell resolves a plan's aspect from its stored
   // calibration, while this surface has actually measured the bitmap (usePlanMeasure · measureAR).
   //
-  // ⚠️ The two memos are separate on purpose. The vehicle feed re-renders on every poll that
-  // MOVED something (lib/useVehiclePositions · vehiclesSignature); the Lage symbols change when
-  // somebody edits them. Sharing one memo would re-project the whole Lage every 15 s for a truck
-  // that rolled ten metres. `fit` is a fresh object each render (see georefFit above), so the
-  // deps name its two INPUTS instead — the pairs array identity and the aspect it is solved at.
+  // ⚠️ Separate memos on purpose. Vehicle/person feeds, tactical entities and drawings change on
+  // different clocks; joining them would re-project the whole Lage every time one source moves.
+  // `fit` is a fresh object each render, so deps name its INPUTS instead — the pairs identity and
+  // the aspect it is solved at.
   const twinVehicles = useMemo(
     () => (georefFit && mapTwins?.vehicles.length ? boardTwins(mapTwins.vehicles, georefFit, 'vehicle') : []),
     [mapTwins?.vehicles, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
@@ -719,12 +722,23 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     () => (georefFit && mapTwins?.symbols.length ? boardTwins(mapTwins.symbols, georefFit, 'symbol') : []),
     [mapTwins?.symbols, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
   )
+  const twinContent = useMemo(
+    () => (georefFit && mapTwins?.content.length ? boardEntityTwins(mapTwins.content, georefFit) : []),
+    [mapTwins?.content, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const twinDrawings = useMemo(
+    () => (georefFit && mapTwins?.drawings.length ? boardDrawingTwins(mapTwins.drawings, georefFit) : []),
+    [mapTwins?.drawings, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
+  )
   // ⚠️ Joined ONCE, not in the JSX. `GeorefTwinsBoard` is `memo()`d and its own comment promises
   // it "re-renders only when that list actually moves" — a `[...a, ...b]` literal in the prop is
   // a fresh array identity every render, so the memo could never bail and every twin re-ran its
   // glyph/caption work. This board re-renders on every pan frame (`applyView` is state), while
   // the twins' board-space positions do not move at all during a pan.
   const twins = useMemo(() => [...twinVehicles, ...twinSymbols], [twinVehicles, twinSymbols])
+  // State keeps the stable selection key; the object itself is re-derived so edits made through
+  // the mirrored panel are reflected immediately instead of leaving that panel on its old snapshot.
+  const viewedTwin = twinView ? twins.find((t) => t.key === twinView.key) ?? twinView : null
   // …and the handler with it. Empty deps are correct and not a shortcut: every call here is a
   // `useState` setter, and those identities are stable for the life of the component.
   /**
@@ -1769,21 +1783,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selId, notePanelId])
 
-  // A map-owned twin is a read-only projection, but its details occupy the same .ctx space as a
-  // real annotation. Keep the projected glyph itself inside the padded work area when it opens.
+  // A map-owned twin's editor occupies the same .ctx space as a real annotation. Keep the
+  // projected glyph itself inside the padded work area when it opens.
   useEffect(() => {
-    if (!twinView) return
+    if (!viewedTwin) return
     const raf = requestAnimationFrame(() => {
       const rect = boardRef.current?.getBoundingClientRect()
       const canvas = canvasRef.current?.getBoundingClientRect()
       const panelEl = document.querySelector('.ctx')
       if (!rect?.width || !canvas || !panelEl) return
-      const point = { x: rect.left + twinView.pt.x * rect.width, y: rect.top + twinView.pt.y * rect.height }
+      const point = { x: rect.left + viewedTwin.pt.x * rect.width, y: rect.top + viewedTwin.pt.y * rect.height }
       const nudge = nudgePointIntoRect(point, planWorkRect(canvas, panelEl))
       if (nudge) applyView(scaleRef.current, { x: posRef.current.x - nudge[0], y: posRef.current.y - nudge[1] })
     })
     return () => cancelAnimationFrame(raf)
-  }, [twinView?.key]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewedTwin?.key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // report the current view centre (tile-local x/y + floor) upward so the journal
   // composer can pin an entry to "here" on the plan. Cheap — just a ref write.
@@ -2749,6 +2763,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {canGeoref && (georefArmed || georefQuality) && (
               <GeorefBoardLayer pairs={georefPairs} mode={georef} armed={georefArmed} sW={sW} sH={sH} view={georefView} />
             )}
+            {!georefArmed && georefFit && (twinContent.length > 0 || twinDrawings.length > 0) && (
+              <GeorefContentBoard entities={twinContent} drawings={twinDrawings} fit={georefFit}
+                planAspect={measureAR} sW={sW} sH={sH} byName={sym.byName} />
+            )}
             {/* …and the Karte's own objects, mirrored ONTO this sheet. In the board so they pan
                 and zoom with it, and clipped to the sheet (lib/georefTwins · onSheet) so a
                 vehicle two kilometres away is simply absent rather than smeared along the edge.
@@ -3036,22 +3054,47 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         />
       )}
 
-      {/* a Zwilling's details — the Karte's own object, mirrored onto this sheet and read-only
-          throughout. «Zum Original» is the one row that leaves (see GeorefTwinPanel for why a
-          twin is never editable). */}
-      {detailPanelVisible && twinView && onTwinJump && (
+      {/* A Karte-owned source edited through its projection. The subtitle keeps ownership clear;
+          every mutation below is routed upward to the one map entity. */}
+      {detailPanelVisible && viewedTwin && onTwinJump && (
         <GeorefTwinPanel
-          entity={twinView.entity}
-          svg={twinView.kind === 'vehicle' || twinView.entity.symbol === appConfig.symbols.vehicleName
-            ? vehicleSymbolSvg(twinName(twinView.entity), twinView.entity.rotation ?? 0, twinView.entity.directed ?? true)
-            : glyphFor(twinView.entity, sym.byName)}
+          entity={viewedTwin.entity}
+          svg={viewedTwin.kind === 'vehicle' || viewedTwin.entity.symbol === appConfig.symbols.vehicleName
+            ? vehicleSymbolSvg(twinName(viewedTwin.entity), viewedTwin.entity.rotation ?? 0, viewedTwin.entity.directed ?? true)
+            : glyphFor(viewedTwin.entity, sym.byName)}
           subtitle={appConfig.copy.whiteboard.georef.twinPanelFromMap}
+          readOnly={readOnly || viewedTwin.entity.live || !onTwinEdit}
           onClose={() => setTwinView(null)}
-          onOriginal={() => { const e = twinView.entity; setTwinView(null); onTwinJump(e) }}
+          onCenter={() => centerOnPoint(viewedTwin.pt.x, viewedTwin.pt.y, 0)}
+          onOriginal={() => { const e = viewedTwin.entity; setTwinView(null); onTwinJump(e) }}
           originalLabel={appConfig.copy.contextPanel.showOnMap}
-          onTransferHere={!readOnly && onTwinTransferHere && twinView.kind === 'symbol' && !twinView.entity.live
-            ? () => { const t = twinView; setTwinView(null); onTwinTransferHere(t.entity, activeId, t.pt) }
+          onTransferHere={!readOnly && onTwinTransferHere && viewedTwin.kind === 'symbol' && !viewedTwin.entity.live
+            ? () => { const t = viewedTwin; setTwinView(null); onTwinTransferHere(t.entity, activeId, t.pt) }
             : undefined}
+          onTitleLive={(v) => onTwinEdit?.(viewedTwin.entityId, { label: v }, 'live')}
+          onTitle={(v) => onTwinEdit?.(viewedTwin.entityId, { label: v }, 'commit')}
+          onFields={(fields) => onTwinEdit?.(viewedTwin.entityId, { fields })}
+          onNotes={(v) => onTwinEdit?.(viewedTwin.entityId, { notes: v || undefined })}
+          onFloor={(f) => onTwinEdit?.(viewedTwin.entityId, { floor: f ?? undefined })}
+          onFloorFrom={(f) => onTwinEdit?.(viewedTwin.entityId, { floorFrom: f ?? undefined })}
+          onFloorTo={(f) => onTwinEdit?.(viewedTwin.entityId, { floorTo: f ?? undefined })}
+          onSpread={(spread) => onTwinEdit?.(viewedTwin.entityId, { spread: spread ?? undefined })}
+          onCount={(count) => onTwinEdit?.(viewedTwin.entityId, { count: count && count > 1 ? count : undefined })}
+          onRotate={(rotation) => onTwinEdit?.(viewedTwin.entityId, { rotation: rotation ?? undefined })}
+          onRotate2={(rotation2) => onTwinEdit?.(viewedTwin.entityId, { rotation2: rotation2 ?? undefined })}
+          onCaption={(caption) => onTwinEdit?.(viewedTwin.entityId, { caption })}
+          captionDefault={captionMode}
+          onAirflow={(extract) => onTwinEdit?.(viewedTwin.entityId, { extract: extract || undefined })}
+          controls={symbolControls(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat)}
+          titleOptions={symbolTitleOptions(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat)}
+          fieldOptions={symbolFieldOptions(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat, rosterNames)}
+          rosterRank={rosterRank}
+          personStatus={personStatus}
+          fieldHints={fieldHints?.(viewedTwin.entity.symbol, viewedTwin.entity.label, viewedTwin.entity.fields)}
+          protectedKeys={new Set(symbolPresetFieldKeys(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat))}
+          onCaptureMittel={!readOnly && !viewedTwin.entity.live ? onCaptureMittel : undefined}
+          mittelCountFor={mittelCountFor}
+          onDelete={() => { void Promise.resolve(onTwinDelete?.(viewedTwin.entityId) ?? false).then((deleted) => { if (deleted) setTwinView(null) }) }}
         />
       )}
 

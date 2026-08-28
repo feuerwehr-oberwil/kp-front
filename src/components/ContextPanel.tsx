@@ -163,16 +163,15 @@ export interface SymbolView extends SymbolProps {
   badge?: string
 }
 
-interface Props {
+export interface ContextPanelProps {
   entity: SymbolView
   svg?: string
   onClose: () => void
   /** recenter the surface on this object — absent where the surface can't (yet) recenter */
   onCenter?: () => void
   /** «Zum Original» — this panel MIRRORS an object that lives on the OTHER surface (a
-   *  Georeferenz twin, see components/GeorefTwinPanel). Such a panel is read-only throughout,
-   *  and this is the one row that leaves it: the jump to the surface the thing actually lives
-   *  on, where it can be edited. Absent everywhere else. */
+   *  Georeferenz twin, see components/GeorefTwinPanel). Editing may write through to that one
+   *  source in place; this optional row remains the explicit way to inspect it on its own surface. */
   onOriginal?: () => void
   originalLabel?: string
   /** Move ownership of a projected object onto the surface currently being viewed. */
@@ -302,7 +301,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onCaptureMittel, mittelCountFor }: Props) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onCaptureMittel, mittelCountFor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes

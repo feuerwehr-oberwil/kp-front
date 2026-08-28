@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardSymbolToEntity, boardTwins, entityToBoardSymbol, georefPlans, isTwinLayerId, mapTwinRows, mapTwins, onSheet, planAspect,
+  boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, onSheet, planAspect,
   planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
-import type { BoardAnno, Entity, PlanDocument } from '../types'
+import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
 
 // A square sheet 100 m across, laid north-up over Oberwil: plan (0,0) is its top-left corner and
 // plan (1,0) sits 100 m due east of it. Two pairs solve a similarity exactly, so every expectation
@@ -114,6 +114,25 @@ describe('mapTwins (plan → Karte)', () => {
   })
 })
 
+describe('mapContentTwins (plan → Karte)', () => {
+  const linked = georefPlans([plan('modul2')], () => ({ pairs: PAIRS }), () => 1)
+
+  it('projects lines, areas, notes, shapes and Atemschutz markers while symbols keep their interactive path', () => {
+    const board = { modul2: [
+      anno('line', { kind: 'draw', pts: [[0.1, 0.2], [0.8, 0.2]], x: undefined, y: undefined }),
+      anno('area', { kind: 'area', pts: [[0.1, 0.1], [0.4, 0.1], [0.2, 0.4]], x: undefined, y: undefined }),
+      anno('note', { kind: 'text', text: 'Notiz' }),
+      anno('shape', { kind: 'shape', shape: 'cloud' }),
+      anno('team', { kind: 'resource', text: 'Trupp 1' }),
+      anno('symbol'),
+    ] }
+    const twins = mapContentTwins(linked, board)
+    expect(twins.map((t) => t.annoId)).toEqual(['line', 'area', 'note', 'shape', 'team'])
+    expect(twins.find((t) => t.annoId === 'line')?.coords).toHaveLength(2)
+    expect(twins.find((t) => t.annoId === 'note')?.coord).toBeDefined()
+  })
+})
+
 describe('onSheet / boardTwins (Karte → plan)', () => {
   it('tolerates a hair past the paper edge and nothing more', () => {
     expect(onSheet({ x: 0.5, y: 0.5 })).toBe(true)
@@ -140,6 +159,25 @@ describe('onSheet / boardTwins (Karte → plan)', () => {
   it('carries the source entity through untouched — a twin renders it, it never owns it', () => {
     const e = ent('v1', mEast(10), { kind: 'vehicle', label: 'TLF' })
     expect(boardTwins([e], FIT, 'vehicle')[0].entity).toBe(e)
+  })
+})
+
+describe('broader Karte content → plan', () => {
+  it('projects notes, shapes, Atemschutz markers and shared responder positions, clipping remote points', () => {
+    const near = ['note', 'shape', 'team', 'person'].map((kind, i) => ent(kind, mEast(10 + i * 10), { kind: kind as Entity['kind'] }))
+    const far = ent('far', mEast(2000), { kind: 'note' })
+    expect(boardEntityTwins([...near, far], FIT).map((t) => t.entity.kind)).toEqual(['note', 'shape', 'team', 'person'])
+  })
+
+  it('projects lines and areas and turns a ground-radius circle into an area ring', () => {
+    const drawings: Drawing[] = [
+      { id: 'line', kind: 'line', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(40).lng, ORIGIN.lat]] },
+      { id: 'area', kind: 'area', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat - 0.0001]] },
+      { id: 'circle', kind: 'circle', coords: [[mEast(50).lng, ORIGIN.lat]], radiusM: 10 },
+    ]
+    const twins = boardDrawingTwins(drawings, FIT)
+    expect(twins.map((t) => t.anno.kind)).toEqual(['draw', 'area', 'area'])
+    expect(twins[2].anno.pts).toHaveLength(48)
   })
 })
 
@@ -174,7 +212,7 @@ describe('the Ebenen rows', () => {
       twinPlanLayerId('modul2'), twinPlanImageLayerId('modul2'),
       twinPlanLayerId('modul3'), twinPlanImageLayerId('modul3'),
     ])
-    expect(rows[0].label).toBe('Symbole (MODUL2)')
+    expect(rows[0].label).toBe('Inhalte (MODUL2)')
     // two pairs solve exactly, so the row may not claim a measured residual
     expect(rows[0].sub).toBe('aus 2 Punkten')
     expect(rows.filter((r) => r.id.startsWith('twin:plan:')).every((r) => r.visible)).toBe(true)

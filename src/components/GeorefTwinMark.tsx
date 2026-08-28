@@ -16,8 +16,8 @@
  *  away off the sheet) is lib/georefTwins. This file only draws.
  *
  *  ⚠️ BOUNDARIES, and they are the whole design:
- *   • A twin is never a second editable object. A tap opens its read-only details; while that
- *     panel and its selection halo are visible, dragging the twin repositions the ONE source.
+ *   • A twin is never a second object. A tap opens the shared editor wired to the ONE source;
+ *     dragging the twin likewise repositions that source through the georeference.
  *   • Nothing here writes directly: no workspace document, Verlauf row, clock or placement.
  *   • Nothing here prints. The Kroki payload and the plan pages are built from `entities` /
  *     `board` (lib/krokiPayload, backend kroki.py), and twins exist only in this render tree —
@@ -51,7 +51,7 @@ export function TwinMark({ svg, sizePx, rotation, count, caption, title, onOpen,
    *  projection invents a name plaque merely because it crossed the georeference. */
   caption?: string | null
   title: string
-  /** tap: open this twin's source details, read-only (editing still belongs to the source) */
+  /** tap: open the source details/editor while keeping this surface in place */
   onOpen: () => void
   /**
    * Drag, in CLIENT pixels relative to where the gesture started — the mark has no idea what

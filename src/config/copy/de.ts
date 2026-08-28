@@ -1740,16 +1740,16 @@ export const de = {
       // In den Ebenen bekommt jedes verknüpfte Blatt seine eigene Zeile – der Plan-Code steht
       // drin, damit «welches Blatt spiegelt hier?» keine Rückfrage ist.
       layerGroupPlans: 'Pläne',
-      layerPlanSymbols: 'Symbole ({plan})',
+      layerPlanSymbols: 'Inhalte ({plan})',
       layerPlanImage: 'Plan ({plan})',
       layerGroupMap: 'Karte',
       layerMapVehicles: 'Karte – Fahrzeuge',
-      layerMapSymbols: 'Karte – Symbole',
+      layerMapSymbols: 'Karte – Markierungen',
       twinFromPlan: '{name} – gespiegelt von {plan}. Antippen zeigt die Angaben, Ziehen verschiebt das Original.',
       twinFromMap: '{name} – gespiegelt von der Karte. Antippen zeigt die Angaben, Ziehen verschiebt das Original.',
       // Untertitel im Detailfenster eines Zwillings: sagt, warum hier nichts eingebbar ist
-      twinPanelFromPlan: 'Gespiegelt von {plan} – nur zum Lesen',
-      twinPanelFromMap: 'Gespiegelt von der Karte – nur zum Lesen',
+      twinPanelFromPlan: 'Gespiegelt von {plan}',
+      twinPanelFromMap: 'Gespiegelt von der Karte',
       // Ein Zwilling ohne Namen: das Wort steht im Etikett, damit die Plakette nie leer bleibt.
       twinUnnamed: 'Symbol',
     },

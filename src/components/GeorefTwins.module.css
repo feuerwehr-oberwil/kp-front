@@ -5,10 +5,9 @@
 
    Everything here says ONE thing: this is the SAME object seen on the linked surface. Its own
    glyph and caption are enough; a permanent ⇄ badge repeated that relationship on every object
-   and turned a cluster into blue confetti. The layer row and the read-only detail subtitle carry
-   the provenance when somebody asks for it.
-   A tap opens read-only source details; repositioning happens only after «Zum Original». The
-   mark has no handles or edit state of its own. */
+   and turned a cluster into blue confetti. The layer row and the «Gespiegelt» editor subtitle
+   carry the provenance when somebody asks for it.
+   A tap opens the source-backed editor in place. The mark has no duplicate state of its own. */
 
 /* ── the mark ───────────────────────────────────────────────────────────────────────────── */
 .twin {
@@ -20,7 +19,7 @@
   /* the glyph is the button; the ring below is drawn around it */
   line-height: 0;
   cursor: pointer;
-  /* The read-only projection leaves every movement gesture to the surrounding surface. */
+  /* The projection leaves unrelated movement gestures to the surrounding surface. */
   touch-action: manipulation;
   /* ⚠️ UNDER everything the operator can actually touch — the plan's own annotations sit at 3
      (.wb-anno) and the trail dots at 2, and on the map the lowest real marker is a Leitung's end
@@ -48,3 +47,10 @@
    gesture as a scroll before the first pointermove ever reaches us, and the twin never budges. */
 .grab { cursor: grab; touch-action: none; }
 .grab:active { cursor: grabbing; }
+
+/* The broader content mirror is intentionally quieter and completely pointer-inert. It sits
+   below native annotations (z 3) but above the paper/PDF, so a projected Lage line can never
+   swallow the tap intended for a Modul object drawn over it. */
+.contentBoard { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: .72; overflow: hidden; }
+.contentPoint { position: absolute; display: block; pointer-events: none; }
+.contentMap { opacity: .72; pointer-events: none; }

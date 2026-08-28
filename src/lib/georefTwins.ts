@@ -1,8 +1,8 @@
 /** Automatic map ⇄ plan mirroring — the «Zwillinge».
  *
  *  Once a plan carries a usable georeference (lib/georef · fitSimilarity, ≥2 pairs), the two
- *  surfaces stop being separate pictures: every tactical symbol on that sheet also has a place
- *  on the map, and every vehicle and Lage symbol also has a place on that sheet. This module is
+ *  surfaces stop being separate pictures: operational annotations on either surface also have a
+ *  derived place on the other. This module is
  *  the whole derivation of that — no state, no React, no rendering. It answers three questions:
  *
  *    1. at which `planAspect` is a plan's fit taken (the one number `fitSimilarity` needs and
@@ -31,9 +31,10 @@
 import { fitSimilarity, residualClaim, type Georef, type GeorefFit, type PlanPt } from './georef'
 import type { PlanScale } from './planScale'
 import type { StationPlanScales } from './stationPlanScale'
-import type { BoardAnno, Entity, LngLat, PlanDocument } from '../types'
+import type { BoardAnno, Drawing, Entity, LngLat, PlanDocument } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
+import { circlePolygon } from './geo'
 
 /** How far past the sheet edge a projected map object may sit and still be drawn — 2 % of the
  *  sheet. Enough that a hydrant on the kerb outside the plan frame is not lost to a rounding
@@ -138,9 +139,9 @@ export interface MapTwin {
 /**
  * The tactical symbols of every georeferenced plan, on the map.
  *
- * Symbols only: a Trupp chip is placed on exactly ONE surface by design (see useTruppActions),
- * a hose line's geometry belongs to the sheet it was drawn on, and a note is a sentence about
- * that sheet. Mirroring any of those would be stating something the operator did not.
+ * Tactical symbols only: they keep their existing interactive projection path. Other operational
+ * content is projected by `mapContentTwins`, where its display-only geometry cannot be mistaken
+ * for a second editable object.
  */
 export function mapTwins(plans: GeorefPlan[], board: Record<string, BoardAnno[] | undefined>): MapTwin[] {
   const out: MapTwin[] = []
@@ -172,6 +173,9 @@ export interface BoardTwin {
   entityId: string
   pt: PlanPt
   entity: Entity
+  /** the sheet transform also carries its rotation, needed to express a north-referenced map
+   *  heading in the plan's paper-relative frame. */
+  fit: GeorefFit
 }
 
 /**
@@ -191,7 +195,113 @@ export function boardTwins(
   for (const e of entities) {
     const pt = fit.toPlan({ lng: e.coord[0], lat: e.coord[1] })
     if (!onSheet(pt, margin)) continue
-    out.push({ key: `${kind}:${e.id}`, kind, entityId: e.id, pt, entity: e })
+    out.push({ key: `${kind}:${e.id}`, kind, entityId: e.id, pt, entity: e, fit })
+  }
+  return out
+}
+
+// --- the rest of the operational content ----------------------------------------------------
+
+/** A non-symbol Plan annotation projected onto the Karte. Point annotations carry `coord`,
+ *  path annotations carry `coords`; the source remains the untouched `anno`. */
+export interface MapContentTwin {
+  key: string
+  planId: string
+  planCode: string
+  annoId: string
+  anno: BoardAnno
+  fit: GeorefFit
+  coord?: LngLat
+  coords?: LngLat[]
+}
+
+/** Plan → Karte projections for lines, areas, notes, shapes and Atemschutz resource markers.
+ *  Tactical symbols stay in `mapTwins`, where their existing selection/move behavior lives. */
+export function mapContentTwins(
+  plans: GeorefPlan[],
+  board: Record<string, BoardAnno[] | undefined>,
+): MapContentTwin[] {
+  const out: MapContentTwin[] = []
+  for (const plan of plans) {
+    for (const anno of board[plan.id] ?? []) {
+      if (anno.kind === 'symbol') continue
+      const base = { key: `${plan.id}:${anno.id}`, planId: plan.id, planCode: plan.code, annoId: anno.id, anno, fit: plan.fit }
+      if ((anno.kind === 'draw' || anno.kind === 'area') && anno.pts?.length) {
+        const coords = anno.pts.map(([x, y]) => {
+          const p = plan.fit.toMap({ x, y })
+          return [p.lng, p.lat] as LngLat
+        }).filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
+        const min = anno.kind === 'area' ? 3 : 2
+        if (coords.length >= min) out.push({ ...base, coords })
+        continue
+      }
+      if ((anno.kind === 'text' || anno.kind === 'shape' || anno.kind === 'resource') && anno.x != null && anno.y != null) {
+        const p = plan.fit.toMap({ x: anno.x, y: anno.y })
+        if (Number.isFinite(p.lng) && Number.isFinite(p.lat)) out.push({ ...base, coord: [p.lng, p.lat] })
+      }
+    }
+  }
+  return out
+}
+
+/** A map point projected into one linked sheet. These are deliberately separate from
+ *  `BoardTwin`, whose renderer is the tactical-symbol-specific interactive twin. */
+export interface BoardEntityTwin {
+  key: string
+  entityId: string
+  pt: PlanPt
+  entity: Entity
+}
+
+export function boardEntityTwins(entities: Entity[], fit: GeorefFit, margin = TWIN_CLIP_MARGIN): BoardEntityTwin[] {
+  return entities.flatMap((entity) => {
+    const pt = fit.toPlan({ lng: entity.coord[0], lat: entity.coord[1] })
+    return onSheet(pt, margin) ? [{ key: `content:${entity.id}`, entityId: entity.id, pt, entity }] : []
+  })
+}
+
+/** A Karte drawing projected into plan-normalized geometry. A ground-radius circle becomes an
+ *  area ring because the Plan has no circle primitive; the georeference still preserves its
+ *  actual footprint. Shapes whose bounding box intersects the paper survive even when every
+ *  original vertex lies just outside (the board clips the SVG at its own edge). */
+export interface BoardDrawingTwin {
+  key: string
+  drawingId: string
+  drawing: Drawing
+  anno: BoardAnno
+}
+
+export function boardDrawingTwins(drawings: Drawing[], fit: GeorefFit, margin = TWIN_CLIP_MARGIN): BoardDrawingTwin[] {
+  const out: BoardDrawingTwin[] = []
+  for (const drawing of drawings) {
+    const source = drawing.kind === 'circle'
+      ? circlePolygon(drawing.coords[0], drawing.radiusM ?? 0, 48)[0]?.slice(0, -1).map((p) => p as LngLat) ?? []
+      : drawing.coords
+    const pts = source.map(([lng, lat]) => {
+      const p = fit.toPlan({ lng, lat })
+      return [p.x, p.y] as [number, number]
+    })
+    if (pts.length < (drawing.kind === 'line' ? 2 : 3)) continue
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
+    if (Math.max(...xs) < -margin || Math.min(...xs) > 1 + margin || Math.max(...ys) < -margin || Math.min(...ys) > 1 + margin) continue
+    const kind: BoardAnno['kind'] = drawing.kind === 'line' ? 'draw' : 'area'
+    const mid = pts[Math.floor((pts.length - 1) / 2)]
+    const labelAt = drawing.labelAt ? fit.toPlan({ lng: drawing.labelAt[0], lat: drawing.labelAt[1] }) : null
+    out.push({
+      key: `drawing:${drawing.id}`,
+      drawingId: drawing.id,
+      drawing,
+      anno: {
+        id: `twin-map-${drawing.id}`, kind, pts,
+        color: drawing.color, width: drawing.width, dashed: drawing.dashed,
+        arrow: drawing.arrow, marker: drawing.marker, showDistance: drawing.showDistance,
+        label: drawing.label, fillOpacity: drawing.fillOpacity,
+        labelDx: labelAt && mid ? labelAt.x - mid[0] : undefined,
+        labelDy: labelAt && mid ? labelAt.y - mid[1] : undefined,
+        teilstueck: drawing.teilstueck, content: drawing.content, lineNo: drawing.lineNo,
+        floorTag: drawing.floorTag,
+      },
+    })
   }
   return out
 }
@@ -309,7 +419,7 @@ export function twinFitNote(fit: GeorefFit): string {
   return m == null ? C.chipTwoPoints : fillTemplate(C.chipResidual, { m: m.toFixed(2) })
 }
 
-/** The Karte side: one row per georeferenced plan, named after its rail code. */
+/** The Karte side: one content row per georeferenced plan, plus its optional raster backdrop. */
 export function planTwinRows(
   plans: GeorefPlan[],
   prefs: Record<string, boolean> | undefined,
@@ -337,8 +447,8 @@ export function planTwinRows(
   ])
 }
 
-/** The Plan side: the two things the map lends this sheet. Empty when the sheet has no fit —
- *  there is then nothing to lend it, and a dead row is worse than no row. */
+/** The Plan side: live vehicles plus the Karte's operational markings (symbols, drawings,
+ *  notes, shapes, Atemschutz markers and positions). Empty when the sheet has no fit. */
 export function mapTwinRows(fit: GeorefFit | null, prefs: Record<string, boolean> | undefined): TwinLayerRow[] {
   if (!fit) return []
   const C = appConfig.copy.whiteboard.georef
