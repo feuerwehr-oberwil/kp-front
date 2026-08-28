@@ -168,3 +168,23 @@
 .hasNote::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px;
   border-radius: 50%; background: var(--blue); }
 .rowNoteRo { margin-top: 3px; font: 500 12.5px var(--body); color: var(--ink-dim); }
+
+/* «Gesetzt, aber nicht erfasst» — the symbol→Mittel reconciliation strip between the search row
+   and the list (MittelView · mittelRecommendations). Blue = information with an action, never
+   --accent (that is alarm red by station config). One sentence + one button + ✕: the sentence
+   names what stands on Lage/Plan without a line on the sheet, «Übernehmen» books all of it onto
+   the Bestand's default sources, ✕ dismisses this suggestion set (a new placement resurfaces it). */
+.recStrip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 22px;
+  padding: 9px 12px; background: color-mix(in srgb, var(--blue) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--blue) 32%, transparent); border-radius: var(--r-ctl); }
+.recText { flex: 1 1 240px; min-width: 0; font: 600 13px var(--body); color: var(--ink-dim); }
+.recTake { flex: none; border: none; border-radius: var(--r-sm); padding: 8px 14px; cursor: pointer;
+  font: 700 12.5px var(--body); background: var(--blue); color: var(--on-fill); }
+.recTake:active { background-image: linear-gradient(var(--press), var(--press)); }
+.recHide { flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin: -2px -4px -2px -6px;
+  border: none; border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer; }
+@media (hover: hover) { .recHide:hover { color: var(--ink); } }
+.recHide :global(.i) { width: 15px; height: 15px; }
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .recStrip { margin: 0 14px; }
+}

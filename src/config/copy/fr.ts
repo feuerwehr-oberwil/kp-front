@@ -4024,10 +4024,8 @@ export const fr: Localizable<Copy> = {
     stockLabel: 'Stock',
     stockPlaceholder: 'facultatif',
     deleteLine: 'Supprimer l\'entrée',
-    captureOffer: 'Saisir comme matériel',
-    captureAction: 'Saisir',
-    captureFrom: 'depuis',
-    captureNoSource: 'sans provenance',
-    captured: '{label} : {menge} {unit} saisis',
+    lageStrip: 'Posé, mais pas saisi : {list}',
+    lageStripTake: 'Reprendre',
+    lageStripHide: 'Masquer les suggestions',
   },
 }

@@ -401,3 +401,57 @@ export function defaultSourceFor(item: DeploymentMittelItem): string | undefined
   return best?.source
 }
 
+/** One «this stands on Lage/Plan but the sheet doesn't show it» line of the reconciliation
+ *  strip: the material, how many matching symbols are placed, and how many are still missing
+ *  from the sheet. */
+export interface MittelRecommendation {
+  item: DeploymentMittelItem
+  /** matching symbols placed across Lage + all plans */
+  placed: number
+  /** current total on the sheet, summed over every source AND over hand-typed lines whose
+   *  label spells the same material — a manual entry satisfies the recommendation too */
+  captured: number
+  /** what the strip offers to add: max(0, placed − captured) */
+  missing: number
+}
+
+/**
+ * What the Mittel surface should recommend, given every placed symbol (Lage + all plans).
+ *
+ * Replaces the per-symbol «Als Material erfassen» row (28.08.): the offer lived in the symbol's
+ * card, so whoever never re-opened the symbol never saw it. Here the SHEET knows what stands on
+ * the Lage and says what is missing, where the list is kept anyway. Same configuration gate as
+ * before (symbolCaptureConfigured): a station that mapped nothing gets recommended nothing.
+ *
+ * ⚠️ `captured` counts across ALL sources and also label-equal hand-typed lines — recording the
+ * material any way at all (stepper, composer, QR) must make its recommendation disappear, or the
+ * strip nags about work that is already done.
+ */
+export function mittelRecommendations(
+  placed: readonly (string | SymbolMatch)[],
+  entries: MittelEntry[],
+  catalogue: DeploymentMittelItem[],
+): MittelRecommendation[] {
+  if (!symbolCaptureConfigured(catalogue)) return []
+  const counts = new Map<string, { item: DeploymentMittelItem; placed: number }>()
+  for (const p of placed) {
+    const item = materialForSymbol(catalogue, p)
+    if (!item) continue
+    const cur = counts.get(item.id) ?? { item, placed: 0 }
+    cur.placed += 1
+    counts.set(item.id, cur)
+  }
+  if (!counts.size) return []
+  const lines = recordedMittel(entries)
+  const sameLabel = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+  return [...counts.values()]
+    .map(({ item, placed: n }) => {
+      const captured = lines
+        .filter((l) => l.materialId === item.id || (!l.materialId && sameLabel(l.label, item.label)))
+        .reduce((sum, l) => sum + l.menge, 0)
+      return { item, placed: n, captured, missing: Math.max(0, n - captured) }
+    })
+    .filter((r) => r.missing > 0)
+    .sort((a, b) => a.item.label.localeCompare(b.item.label, 'de'))
+}
+

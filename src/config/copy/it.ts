@@ -4025,10 +4025,8 @@ export const it: Localizable<Copy> = {
     stockLabel: 'Scorta',
     stockPlaceholder: 'facoltativo',
     deleteLine: 'Elimina la voce',
-    captureOffer: 'Registra come materiale',
-    captureAction: 'Registra',
-    captureFrom: 'da',
-    captureNoSource: 'senza provenienza',
-    captured: '{label}: {menge} {unit} registrati',
+    lageStrip: 'Posato, ma non registrato: {list}',
+    lageStripTake: 'Registra',
+    lageStripHide: 'Nascondi i suggerimenti',
   },
 }

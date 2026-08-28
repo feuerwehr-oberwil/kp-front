@@ -29,7 +29,6 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { MenuPick } from './MenuPick'
 import { LockChip } from './LockChip'
-import type { DeploymentMittelItem } from '../lib/deploymentConfig'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
@@ -148,14 +147,6 @@ interface Props {
    *  · roleConflictHint) — printed under the field itself. Same call the Lage makes, just from a
    *  BoardAnno's parts, since a plan symbol is not an Entity. */
   fieldHints?: (symbol: string | undefined, label: string | undefined, fields: Record<string, string> | undefined) => Record<string, string | undefined> | undefined
-  /** Symbol→Mittel on a PLAN symbol: book what this glyph IS onto the Material sheet, the same
-   *  row the Lage's panel offers (ContextPanel · MittelCaptureRow). A TLF placed on Modul 1 is
-   *  the same TLF placed on the Karte — it books identically. Omitted ⇒ no row (the station has
-   *  mapped no material to a symbol, or the surface is read-only). */
-  onCaptureMittel?: (item: DeploymentMittelItem, sourceId?: string) => void
-  /** how much of that material is already booked from that Quelle — the row shows a COUNT, not a
-   *  bare +, so the second tap knows about the first. */
-  mittelCountFor?: (item: DeploymentMittelItem, sourceId?: string) => number
   onRecent: (name: string) => void
   /** append to the unified journal with plan context (team link, plan coords). */
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
@@ -279,7 +270,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onCaptureMittel, mittelCountFor, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -3049,8 +3040,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // Symbol→Mittel, identical to the map: a placed TLF books onto the Material sheet from
           // here too. Only where the station mapped material to symbols (the prop is absent
           // otherwise), and never read-only.
-          onCaptureMittel={readOnly ? undefined : onCaptureMittel}
-          mittelCountFor={mittelCountFor}
           protectedKeys={new Set(symbolPresetFieldKeys(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat))}
           connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: lineLabel(a) }))}
           onFocusLine={(id) => setSelId(id)}
@@ -3131,8 +3120,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           personStatus={personStatus}
           fieldHints={fieldHints?.(viewedTwin.entity.symbol, viewedTwin.entity.label, viewedTwin.entity.fields)}
           protectedKeys={new Set(symbolPresetFieldKeys(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat))}
-          onCaptureMittel={!readOnly && !viewedTwin.entity.live ? onCaptureMittel : undefined}
-          mittelCountFor={mittelCountFor}
           onDelete={() => { void Promise.resolve(onTwinDelete?.(viewedTwin.entityId) ?? false).then((deleted) => { if (deleted) setTwinView(null) }) }}
         />
       )}

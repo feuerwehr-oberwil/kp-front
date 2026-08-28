@@ -19,7 +19,7 @@ import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays 
 import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
-import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, type DeploymentMittelItem } from './lib/deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
@@ -153,7 +153,7 @@ import { markerOptions, placedTrupps, type PlacedTrupp } from './lib/placedTrupp
 import { annotatedPlans, changedReportMetaFields } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
-import { currentMengeFor, mittelLineCount, symbolCaptureConfigured } from './lib/mittel'
+import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { prepareUploadImage } from './lib/imagePrep'
 
@@ -2882,21 +2882,16 @@ export function IncidentWorkspace({
     log('people', fillTemplate(dir === 'undo' ? A.undone : A.redone, { names: names.join(', ') || '–' }), 'team')
     emit(dir)
   }
-  const { saveMittel, captureMittelForSymbol } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
-  // The gate for the symbol→Mittel row: «has this station mapped anything at all». Not a setting
-  // anybody has to discover, and a Wehr that never configured it never sees an offer.
-  const mittelCaptureOn = symbolCaptureConfigured(getDeploymentConfig().mittel?.catalogue ?? appConfig.mittel.catalogue)
-  /** What is ALREADY on the Material sheet for this material from this Quelle — the number the
-   *  capture row shows. One function, handed to the Lage's symbol panel and the Plan's alike: a
-   *  TLF placed on Modul 1 and one placed on the Karte book into the same sheet, so they must
-   *  count from it identically. */
-  const mittelCountForSymbol = (item: DeploymentMittelItem, sourceId?: string) => currentMengeFor(mittel, {
-    materialId: item.id,
-    label: item.label,
-    unit: item.unit || appConfig.mittel.defaultUnit,
-    sourceId,
-    sourceLabel: (getDeploymentConfig().mittel?.sources ?? appConfig.mittel.sources).find((x) => x.id === sourceId)?.label,
-  })
+  const { saveMittel } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
+  // Symbol→Mittel moved OUT of the symbol's card (28.08.): the Material surface itself now shows
+  // the «Gesetzt, aber nicht erfasst» strip, fed with every symbol standing on Lage + all plans.
+  // The «has this station mapped anything» gate lives inside mittelRecommendations.
+  const placedSymbols = useMemo(
+    () => [...doc.entities, ...Object.values(board).flat()]
+      .filter((x) => !!x.symbol && !(x as { live?: boolean }).live)
+      .map((x) => ({ symbol: x.symbol as string, fields: x.fields, extract: x.extract })),
+    [doc.entities, board],
+  )
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
   const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
   // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
@@ -3787,8 +3782,6 @@ export function IncidentWorkspace({
           }}
           // Symbol→Mittel: only where the station mapped at least one material to a symbol.
           // No switch to find — a Wehr that has not configured it never gets an offer.
-          onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
-          mittelCountFor={mittelCountForSymbol}
           onFields={(fields) => { patchEntity(selected.id, { fields }); linkRosterFields(selected, fields) }}
           onNotes={!selected.live ? (v) => patchEntity(selected.id, { notes: v || undefined }) : undefined}
           onFloor={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: f ?? undefined }) : undefined}
@@ -3897,8 +3890,6 @@ export function IncidentWorkspace({
           personStatus={personStatus}
           fieldHints={rosterFieldHints({ kind: 'symbol', symbol: viewedMapTwin.anno.symbol, label: viewedMapTwin.anno.label, fields: viewedMapTwin.anno.fields } as Entity)}
           protectedKeys={new Set(symbolPresetFieldKeys(viewedMapTwin.anno.symbol, sym.symbols.find((x) => x.name === viewedMapTwin.anno.symbol)?.cat))}
-          onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
-          mittelCountFor={mittelCountForSymbol}
           onDelete={() => { void deletePlanTwinSource(viewedMapTwin) }}
         />
       )}
@@ -4377,8 +4368,6 @@ export function IncidentWorkspace({
           fieldHints={(symbol, label, fields) => rosterFieldHints({ kind: 'symbol', symbol, label, fields } as Entity)}
           // Symbol→Mittel on the plan, with the Lage's exact gate and the shared count: a TLF
           // placed on Modul 1 books onto the Material sheet like one placed on the Karte
-          onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
-          mittelCountFor={mittelCountForSymbol}
           onRecent={addRecent}
           log={logPlan}
           emit={emit}
@@ -4545,6 +4534,7 @@ export function IncidentWorkspace({
           canEdit={canEditIncident}
           onSave={saveMittel}
           captureUsage={captureUsage}
+          placedSymbols={placedSymbols}
         />
       )}
 

@@ -5,6 +5,7 @@ import {
   groupBySource, groupByMaterial, mittelReportRows, mittelLineCount,
   availableFor, mittelListGroups, groupCatalogue,
   materialForSymbol, currentLineFor, defaultSourceFor, symbolCaptureConfigured,
+  mittelRecommendations,
 } from './mittel'
 import type { DeploymentMittelItem, DeploymentMittelSource } from './deploymentConfig'
 
@@ -207,6 +208,39 @@ describe('materialForSymbol', () => {
   })
   it('an explicit catalogue symbol key wins over token matching', () => {
     expect(materialForSymbol(CAT, 'FW Kleinloeschgeraet')?.id).toBe('oelsperre')
+  })
+})
+
+describe('mittelRecommendations (the «Gesetzt, aber nicht erfasst» strip)', () => {
+  const CAT: DeploymentMittelItem[] = [
+    { id: 'luefter', label: 'Lüfter', unit: 'Stk', stock: [{ source: 'tlf', qty: 2 }] },
+    // the one explicit symbol mapping — it is what opens the symbolCaptureConfigured gate,
+    // exactly like a real station config; Lüfter then matches by label tokens
+    { id: 'oelbinder', label: 'Ölbinder', unit: 'Sack', symbol: 'FW Oelbinder' },
+  ]
+  it('counts matching symbols and reports what is missing from the sheet', () => {
+    const recs = mittelRecommendations(['VKF Luefter mobil', 'VKF Luefter mobil'], [], CAT)
+    expect(recs).toHaveLength(1)
+    expect(recs[0]).toMatchObject({ placed: 2, captured: 0, missing: 2 })
+    expect(recs[0].item.id).toBe('luefter')
+  })
+  it('a recording from ANY source satisfies the recommendation', () => {
+    const log = [ev(1, { materialId: 'luefter', menge: 2, sourceId: 'pio' })]
+    expect(mittelRecommendations(['VKF Luefter mobil', 'VKF Luefter mobil'], log, CAT)).toHaveLength(0)
+  })
+  it('…and so does a hand-typed line spelling the same material', () => {
+    const log = [ev(1, { label: ' lüfter ', unit: 'Stk', menge: 2 })]
+    expect(mittelRecommendations(['VKF Luefter mobil', 'VKF Luefter mobil'], log, CAT)).toHaveLength(0)
+  })
+  it('partial capture recommends only the remainder', () => {
+    const log = [ev(1, { materialId: 'luefter', menge: 1 })]
+    const recs = mittelRecommendations(['VKF Luefter mobil', 'VKF Luefter mobil'], log, CAT)
+    expect(recs[0]).toMatchObject({ placed: 2, captured: 1, missing: 1 })
+  })
+  it('an unconfigured station (no symbol mapped anywhere) gets no recommendations', () => {
+    const bare = CAT.map(({ id, label, unit }) => ({ id, label, unit }))
+    // token matching would find «Lüfter» — the symbolCaptureConfigured gate must veto it
+    expect(mittelRecommendations(['VKF Luefter mobil'], [], bare)).toHaveLength(0)
   })
 })
 

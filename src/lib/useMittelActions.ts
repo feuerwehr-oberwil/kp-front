@@ -1,9 +1,7 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
-import { getDeploymentConfig, type DeploymentMittelItem } from './deploymentConfig'
 import { fillTemplate } from './format'
-import { toast } from './ui'
-import { currentLineFor, currentMengeFor, mittelKey } from './mittel'
+import { currentLineFor, mittelKey } from './mittel'
 import type { MittelDraft } from '../components/MittelView'
 import type { MittelEntry, TimelineEvent } from '../types'
 
@@ -22,8 +20,8 @@ interface MittelActionsDeps {
 /**
  * Mittel (material-use) domain actions, lifted out of the IncidentWorkspace god-component. The
  * log is append-only: every change is a NEW event carrying the running total; the current
- * picture is derived (lib/mittel). Owns its own `mittelRef` mirror so the symbol-capture toast
- * action (which outlives its render) always reads the fresh log.
+ * picture is derived (lib/mittel). Owns its own `mittelRef` mirror so the settling count-log
+ * writers (which outlive their render) always read the fresh log.
  */
 export function useMittelActions({ mittel, setMittel, authorName, log }: MittelActionsDeps) {
   const M = appConfig.copy.mittel // read per-render so the boot-resolved locale applies
@@ -106,26 +104,5 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     }
   }, [])
 
-  /**
-   * Symbol→Mittel capture: record the material a placed symbol stands for.
-   *
-   * ⚠️ NO TOAST any more (2026-08-11). The offer used to be a transient toast beside every other
-   * toast, so it was missed constantly — and it recorded with no Bezugsquelle, which is how the
-   * Rapport filled up with «Ohne Zuordnung» lines. It is now a permanent row in the symbol's own
-   * detail panel (ContextPanel · MittelCaptureRow), where it can be found ten minutes later, and
-   * it carries the Quelle. This function is what that row calls.
-   *
-   * Never automatic, and deleting a symbol never decrements: symbols are freely redrawn, the log
-   * is the operator's record.
-   */
-  const captureMittelForSymbol = (item: DeploymentMittelItem, sourceId?: string) => {
-    const cfgM = getDeploymentConfig().mittel
-    const unit = item.unit || appConfig.mittel.defaultUnit
-    const src = (cfgM?.sources ?? appConfig.mittel.sources).find((x) => x.id === sourceId)
-    const key = { materialId: item.id, label: item.label, unit, sourceId: src?.id, sourceLabel: src?.label }
-    const menge = currentMengeFor(mittelRef.current, key) + 1
-    saveMittel({ ...key, menge })
-    toast(fillTemplate(M.captured, { label: item.label, menge, unit }), { icon: 'check', tone: 'success' })
-  }
-  return { saveMittel, captureMittelForSymbol }
+  return { saveMittel }
 }
