@@ -112,6 +112,28 @@ describe('station georef', () => {
     expect(m.resolvePlanScale('p1', undefined, AR)?.mPerU).toBe(50)
     expect(m.georefForPlan(KEY)?.pairs).toHaveLength(3)
   })
+
+  it('keeps rapid writes for several Modules in one ordered station document', async () => {
+    const m = await booted({})
+    let releaseFirst!: () => void
+    apiPut
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { releaseFirst = resolve }))
+      .mockResolvedValueOnce(undefined)
+
+    const first = m.saveGeoref('object:o1:plan:modul1', georef(2))
+    const second = m.saveGeoref('object:o1:plan:modul2', georef(3))
+    await vi.waitFor(() => expect(apiPut).toHaveBeenCalledTimes(1))
+    expect((apiPut.mock.calls[0][1] as StationPlanScales).georefByPlan).toHaveProperty('object:o1:plan:modul1')
+
+    releaseFirst()
+    await Promise.all([first, second])
+    expect(apiPut).toHaveBeenCalledTimes(2)
+    const final = apiPut.mock.calls[1][1] as StationPlanScales
+    expect(Object.keys(final.georefByPlan)).toEqual([
+      'object:o1:plan:modul1',
+      'object:o1:plan:modul2',
+    ])
+  })
 })
 
 // ⚠️ The PUT replaces the WHOLE document, the endpoint has no If-Match, and the column has no

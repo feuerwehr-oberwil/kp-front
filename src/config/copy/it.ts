@@ -1170,6 +1170,7 @@ export const it: Localizable<Copy> = {
       barOne: '1 coppia',
       barMany: '{n} coppie',
       barOpen: '{n} in attesa',
+      sideProgress: 'Mappa {map} · Modulo {plan}',
       cancel: 'Annulla',
       closeMode: 'Chiudi',
       done: 'Fatto',

@@ -44,6 +44,11 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
   const perimeterM = metrics ? metrics.perimeterM : mode === 'area' && coords.length >= 3 ? lengthM + (coords[0] && coords.length ? pathLengthM([coords[coords.length - 1], coords[0]]) : 0) : 0
 
   const enough = mode === 'line' ? coords.length >= 2 : coords.length >= 3
+  // A linked Plan already has everything the tool needs to measure in metres. On open, the
+  // useful fact is where that scale comes from — «Ref. automatisch» — not the generic geometry
+  // instruction «Mind. 2 Punkte». Once the first point exists the instruction becomes useful
+  // again, so only the genuinely empty automatic state yields to the source note below.
+  const emptyAutomatic = !blocked && coords.length === 0 && !!scaleNote
   // #1: keep the panel slim — the Höhenprofil (chart + gain/loss) is collapsed by default and
   // opens on the ↕ toggle, so the summary bar barely covers the map.
   const [profileOpen, setProfileOpen] = useState(false)
@@ -51,7 +56,7 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
 
   return (
     <div className={s['measure-panel']}>
-      {blocked || !enough ? (
+      {emptyAutomatic ? null : blocked || !enough ? (
         <div className={s['mp-hint']}>{blocked && hint ? hint : mode === 'line' ? C.hintLine : C.hintArea}</div>
       ) : mode === 'line' ? (
         <>

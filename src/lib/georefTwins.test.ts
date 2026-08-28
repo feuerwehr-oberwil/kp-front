@@ -71,6 +71,21 @@ describe('georefPlans', () => {
     expect(linked).toHaveLength(1)
   })
 
+  it('resolves several linked Modules independently and keeps their rail order', () => {
+    const docs = [
+      plan('modul1', { georefKey: 'object:obj-a:plan:modul1' }),
+      plan('modul2-3', { georefKey: 'object:obj-a:plan:modul2-3' }),
+      plan('modul5-wasser', { georefKey: 'object:obj-a:plan:modul5-wasser' }),
+    ]
+    const stored = new Map([
+      ['object:obj-a:plan:modul1', { pairs: PAIRS }],
+      ['object:obj-a:plan:modul2-3', { pairs: PAIRS }],
+      ['object:obj-a:plan:modul5-wasser', { pairs: PAIRS }],
+    ])
+    const linked = georefPlans(docs, (key) => stored.get(key) ?? null, aspect1)
+    expect(linked.map((p) => p.id)).toEqual(['modul1', 'modul2-3', 'modul5-wasser'])
+  })
+
   it('never georeferences a floor stack or a viewer-only sheet', () => {
     const docs = [plan('gebaeude', { floorStack: true }), plan('pv', { viewer: true })]
     expect(georefPlans(docs, () => ({ pairs: PAIRS }), aspect1)).toEqual([])
