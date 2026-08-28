@@ -302,7 +302,7 @@ export function boardDrawingTwins(drawings: Drawing[], fit: GeorefFit, margin = 
       anno: {
         id: `twin-map-${drawing.id}`, kind, pts,
         color: drawing.color, width: drawing.width, dashed: drawing.dashed,
-        arrow: drawing.arrow, marker: drawing.marker, showDistance: drawing.showDistance,
+        arrow: drawing.arrow, arrowStop: drawing.arrowStop, marker: drawing.marker, showDistance: drawing.showDistance,
         label: drawing.label, fillOpacity: drawing.fillOpacity,
         labelDx: labelAt && mid ? labelAt.x - mid[0] : undefined,
         labelDy: labelAt && mid ? labelAt.y - mid[1] : undefined,
@@ -352,7 +352,7 @@ type _EntityKeysAccounted = Assert<Exclude<keyof Entity, (typeof ENTITY_MAP_ONLY
  *  floor-stack TILE INDEX that must never be read as `Entity.floor`'s signed badge, while `storey`
  *  is the badge and becomes exactly that. */
 const BOARD_PLAN_ONLY = [
-  'kind', 'pts', 'x', 'y', 'text', 'wN', 'sizeN', 'reachN', 'width', 'dashed', 'arrow', 'marker',
+  'kind', 'pts', 'x', 'y', 'text', 'wN', 'sizeN', 'reachN', 'width', 'dashed', 'arrow', 'arrowStop', 'marker',
   'showDistance', 'labelDx', 'labelDy', 'teilstueck', 'content', 'lineNo', 'floorTag',
   'endDx', 'endDy', 'fillOpacity', 't', 'trail', 'truppId', 'floor', 'locked',
   'startAttachment', 'endAttachment', 'storey',

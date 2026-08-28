@@ -170,7 +170,7 @@ export function buildKrokiPayload(args: {
   const drawingsVisible = visible(appConfig.defaults.drawingLayerId)
   const draws = (drawingsVisible ? drawings : []).map((d) => ({
     kind: d.kind, coords: d.coords, color: d.color, width: d.width, dashed: d.dashed,
-    arrow: d.arrow, marker: d.marker, label: d.label, showDistance: d.showDistance,
+    arrow: d.arrow, arrowStop: d.arrowStop, marker: d.marker, label: d.label, showDistance: d.showDistance,
     fillOpacity: d.fillOpacity, radiusM: d.radiusM,
     teilstueck: d.teilstueck, lineNo: d.lineNo, content: d.content, floorTag: d.floorTag,
     // the Atemschutz-Trupp on this Leitung, already resolved + abbreviated: the server draws the

@@ -74,7 +74,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       return {
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: t.coords![n - 1] },
-        properties: { color: t.anno.color || appConfig.drawing.colors[0], bearing: arrowBearing },
+        properties: { color: t.anno.color || appConfig.drawing.colors[0], bearing: arrowBearing, icon: t.anno.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' },
       }
     })
   return (
@@ -82,7 +82,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       {arrowFeats.length > 0 && (
         <Source id="s-georef-content-arrows" type="geojson" data={{ type: 'FeatureCollection', features: arrowFeats }}>
           <Layer id="l-georef-content-arrows" type="symbol"
-            layout={{ 'icon-image': 'draw-arrow', 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1 } as never}
+            layout={{ 'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1 } as never}
             paint={{ 'icon-color': ['get', 'color'], 'icon-opacity': 0.72 } as never} />
         </Source>
       )}

@@ -1927,7 +1927,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     flip.incoming.forEach((i) => emit('board.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }, planId: activeId }))
   }
 
-  const changePlanEnding = async (ending: 'none' | 'arrow' | 'teilstueck') => {
+  const changePlanEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => {
     if (!selDraw) return
     const incoming = selDraw.teilstueck && ending !== 'teilstueck' ? annos.flatMap((a) => (['start', 'end'] as const).filter((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
@@ -1940,7 +1940,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const resolved = renderAnnos.find((a) => a.id === selDraw.id)?.pts
     const fallback = resolved?.[resolved.length - 1] ?? selDraw.pts?.[selDraw.pts.length - 1]
     commit(annos.map((a) => {
-      if (a.id === selDraw.id) return { ...a, arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      if (a.id === selDraw.id) return { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       let next = a
       for (const endpoint of ['start', 'end'] as const) {
         if (!fallback || !incoming.some((x) => x.id === a.id && x.endpoint === endpoint) || !next.pts?.length) continue
@@ -1949,7 +1949,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       }
       return next
     }))
-    emit('board.edit', { id: selDraw.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined }, planId: activeId })
+    emit('board.edit', { id: selDraw.id, patch: { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }, planId: activeId })
     incoming.forEach(({ id, endpoint }) => {
       const line = annos.find((a) => a.id === id)
       if (!line?.pts || !fallback) return
@@ -2271,6 +2271,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     <svg className="wb-arrowhead" width="80" height="80" viewBox="-40 -40 80 80" aria-hidden
                       style={{ left: 0, top: 0, color, transform: `translate(${last[0]}px, ${last[1]}px) translate(-50%, -50%)` }}>
                       <path transform={`rotate(${ang})`} d={`M0,0 L${-ahl},${-ahw} L${-ahl},${ahw} Z`} fill="currentColor" />
+                      {/* the «Stopp»: the Entwicklungsgrenze bar just past the tip, like the fire's */}
+                      {a.arrowStop && <path transform={`rotate(${ang})`} d={`M4,${-ahw * 1.3} L4,${ahw * 1.3}`} stroke="currentColor" strokeWidth={Math.max(3, (a.width ?? 5) * 0.9)} strokeLinecap="round" fill="none" />}
                     </svg>
                   )}
                   {/* FKS Teilstück fork at the tip (rotated to the line's screen angle) */}
@@ -3131,7 +3133,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         <DrawEditor
           key={selDraw.id}
           readOnly={readOnly}
-          drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
+          drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}

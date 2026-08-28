@@ -1426,6 +1426,7 @@ export const en: Localizable<Copy> = {
     ending: 'Ending',
     endingNone: 'None',
     endingArrow: 'Arrow',
+    endingArrowStop: 'Arrow with stop',
     endingTeilstueck: 'Section',
     reverse: 'Reverse direction',
     content: 'Content',

@@ -2030,6 +2030,7 @@ export const de = {
     ending: 'Abschluss',
     endingNone: 'Keiner',
     endingArrow: 'Pfeil',
+    endingArrowStop: 'Pfeil mit Stopp',
     endingTeilstueck: 'Teilstück',
     // Dreht die Punktreihenfolge um – der Abschluss (Pfeil bzw. Teilstück-«E») sitzt danach am
     // anderen Ende. Die Linie selbst bleibt, wo sie ist.

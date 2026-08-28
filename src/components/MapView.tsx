@@ -773,20 +773,30 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // the arrowheads silently vanished (the Pfeil preset "did nothing"). Re-add it on every
     // styledata when it's gone, so the tip survives theme/base switches.
     const ensureArrow = () => {
-      if (map.hasImage('draw-arrow')) return
+      if (map.hasImage('draw-arrow') && map.hasImage('draw-arrow-stop')) return
       const S = 48 // render at a higher resolution so the arrowhead stays crisp when scaled up
-      const cv = document.createElement('canvas'); cv.width = S; cv.height = S
-      const ctx = cv.getContext('2d'); if (!ctx) return
-      ctx.fillStyle = '#fff'
-      ctx.beginPath()
-      ctx.moveTo(S / 2, 4)            // tip (top)
-      ctx.lineTo(S - 6, S - 8)        // bottom-right
-      ctx.lineTo(S / 2, S - 16)       // notch
-      ctx.lineTo(6, S - 8)            // bottom-left
-      ctx.closePath()
-      ctx.fill()
-      const data = ctx.getImageData(0, 0, S, S)
-      map.addImage('draw-arrow', { width: S, height: S, data: data.data }, { sdf: true, pixelRatio: 2 })
+      const head = (stop: boolean) => {
+        const cv = document.createElement('canvas'); cv.width = S; cv.height = S
+        const ctx = cv.getContext('2d'); if (!ctx) return null
+        ctx.fillStyle = '#fff'
+        // the «Stopp» variant carries the Entwicklungsgrenze bar just past the tip — the same
+        // statement the fire's bounded spread arrow makes, on a line
+        const top = stop ? 10 : 4
+        if (stop) ctx.fillRect(8, 0, S - 16, 5)
+        ctx.beginPath()
+        ctx.moveTo(S / 2, top)          // tip (top)
+        ctx.lineTo(S - 6, S - 8)        // bottom-right
+        ctx.lineTo(S / 2, S - 16)       // notch
+        ctx.lineTo(6, S - 8)            // bottom-left
+        ctx.closePath()
+        ctx.fill()
+        return ctx.getImageData(0, 0, S, S)
+      }
+      for (const [name, stop] of [['draw-arrow', false], ['draw-arrow-stop', true]] as const) {
+        if (map.hasImage(name)) continue
+        const data = head(stop)
+        if (data) map.addImage(name, { width: S, height: S, data: data.data }, { sdf: true, pixelRatio: 2 })
+      }
       map.triggerRepaint()
     }
     ensureArrow()
@@ -834,7 +844,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const cosL = Math.cos((bLat * Math.PI) / 180) || 1e-6
       const dx = (bLng - aLng) * cosL, dy = bLat - aLat
       const bearing = (Math.atan2(dx, dy) * 180) / Math.PI // 0 = north, +clockwise
-      return { type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[n - 1] }, properties: { id: d.id, color: d.color || '#1f6feb', bearing } }
+      return { type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[n - 1] }, properties: { id: d.id, color: d.color || '#1f6feb', bearing, icon: d.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' } }
     })
   const arrowFC = fc(arrowFeats)
 
@@ -1450,7 +1460,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           SDF icon rotated to the final-segment bearing */}
       <Source id="s-draw-arrow" type="geojson" data={arrowFC}>
         <Layer id="l-draw-arrow" type="symbol"
-          layout={{ 'icon-image': 'draw-arrow', 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1, ...vis(drawingsVisible && !georefOn) } as any}
+          layout={{ 'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1, ...vis(drawingsVisible && !georefOn) } as any}
           paint={{ 'icon-color': ['get', 'color'] } as any} />
       </Source>
       {/* team trails — dashed path through the recorded positions, in the team's colour

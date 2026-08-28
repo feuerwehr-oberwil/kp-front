@@ -16,11 +16,12 @@ import { Segmented } from './Segmented'
 import type { LineAttachment, LineEndpoint, LngLat, LineRoutingMode } from '../types'
 
 // small glyph for the line-ending picker: plain · arrow · FKS Teilstück "E"-fork
-function EndingGlyph({ kind }: { kind: 'none' | 'arrow' | 'teilstueck' }) {
+function EndingGlyph({ kind }: { kind: 'none' | 'arrow' | 'arrowStop' | 'teilstueck' }) {
   return (
     <svg width="36" height="14" viewBox="0 0 36 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <line x1="2" y1="7" x2={kind === 'none' ? 34 : 24} y2="7" />
-      {kind === 'arrow' && <path d="M25 2 L33 7 L25 12" />}
+      {(kind === 'arrow' || kind === 'arrowStop') && <path d="M25 2 L33 7 L25 12" />}
+      {kind === 'arrowStop' && <line x1="35" y1="2" x2="35" y2="12" />}
       {kind === 'teilstueck' && (
         <>
           <line x1="25" y1="2" x2="25" y2="12" />
@@ -55,6 +56,7 @@ export interface DrawStyle {
   label?: string
   marker?: string
   arrow?: boolean
+  arrowStop?: boolean
   showDistance?: boolean
   fillOpacity?: number
   radiusM?: number
@@ -102,7 +104,7 @@ interface Props {
   onMarker: (marker: string) => void
   onArrow: (arrow: boolean) => void
   /** line end: 'none' | 'arrow' | 'teilstueck' (mutually exclusive). Absent ⇒ only the legacy arrow toggle. */
-  onEnding?: (ending: 'none' | 'arrow' | 'teilstueck') => void
+  onEnding?: (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => void
   /** reverse the point order, so the Abschluss sits at the other end. Absent ⇒ the row is hidden. */
   onReverse?: () => void
   /** FKS device letter at the end (S/W/H/P) or undefined for plain Wasser */
@@ -285,11 +287,12 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
               <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}</span>
                 <Segmented
                   ariaLabel={appConfig.copy.drawingEditor.ending}
-                  value={drawing.teilstueck ? 'teilstueck' : drawing.arrow ? 'arrow' : 'none'}
+                  value={drawing.teilstueck ? 'teilstueck' : drawing.arrow ? (drawing.arrowStop ? 'arrowStop' : 'arrow') : 'none'}
                   onChange={onEnding}
                   options={[
                     { value: 'none', label: <EndingGlyph kind="none" />, title: appConfig.copy.drawingEditor.endingNone },
                     { value: 'arrow', label: <EndingGlyph kind="arrow" />, title: appConfig.copy.drawingEditor.endingArrow },
+                    { value: 'arrowStop', label: <EndingGlyph kind="arrowStop" />, title: appConfig.copy.drawingEditor.endingArrowStop },
                     { value: 'teilstueck', label: <EndingGlyph kind="teilstueck" />, title: appConfig.copy.drawingEditor.endingTeilstueck },
                   ]}
                 />

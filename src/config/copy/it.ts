@@ -1425,6 +1425,7 @@ export const it: Localizable<Copy> = {
     ending: 'Terminazione',
     endingNone: 'Nessuna',
     endingArrow: 'Freccia',
+    endingArrowStop: 'Freccia con stop',
     endingTeilstueck: 'Tratto',
     reverse: 'Inverti il senso',
     content: 'Contenuto',

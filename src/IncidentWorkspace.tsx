@@ -1597,7 +1597,7 @@ export function IncidentWorkspace({
     commit, setDocRaw, beginDrag, endDrag, emit, log,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
   })
-  const changeMapEnding = async (ending: 'none' | 'arrow' | 'teilstueck') => {
+  const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => {
     if (!selectedDrawing) return
     const incoming = selectedDrawing.teilstueck && ending !== 'teilstueck'
       ? drawings.flatMap((d) => (['start', 'end'] as const).filter((endpoint) => {
@@ -1611,7 +1611,7 @@ export function IncidentWorkspace({
     const resolvedTarget = resolvedMapDrawings.find((d) => d.id === selectedDrawing.id)
     const fallback = resolvedTarget?.coords[resolvedTarget.coords.length - 1] ?? selectedDrawing.coords[selectedDrawing.coords.length - 1]
     commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
-      if (d.id === selectedDrawing.id) return { ...d, arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      if (d.id === selectedDrawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       let next = d
       for (const endpoint of ['start', 'end'] as const) {
         const a = endpoint === 'start' ? next.startAttachment : next.endAttachment

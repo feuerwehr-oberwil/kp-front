@@ -178,6 +178,9 @@ describe('broader Karte content → plan', () => {
     const twins = boardDrawingTwins(drawings, FIT)
     expect(twins.map((t) => t.anno.kind)).toEqual(['draw', 'area', 'area'])
     expect(twins[2].anno.pts).toHaveLength(48)
+    // the Pfeil's «Stopp» crosses the mirror with the arrow it belongs to
+    const stopped = boardDrawingTwins([{ id: 's', kind: 'line', coords: drawings[0].coords, arrow: true, arrowStop: true }], FIT)
+    expect(stopped[0].anno.arrowStop).toBe(true)
   })
 })
 

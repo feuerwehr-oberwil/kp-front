@@ -129,6 +129,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           out.push(<svg key={`arrow-${key}`} className="wb-arrowhead" width="80" height="80" viewBox="-40 -40 80 80" aria-hidden
             style={{ left: 0, top: 0, color, transform: `translate(${tip[0]}px, ${tip[1]}px) translate(-50%, -50%)` }}>
             <path transform={`rotate(${ang})`} d={`M0,0 L${-ahl},${-ahw} L${-ahl},${ahw} Z`} fill="currentColor" />
+            {anno.arrowStop && <path transform={`rotate(${ang})`} d={`M4,${-ahw * 1.3} L4,${ahw * 1.3}`} stroke="currentColor" strokeWidth={Math.max(3, (anno.width ?? 5) * 0.9)} strokeLinecap="round" fill="none" />}
           </svg>)
         }
         if (anno.teilstueck) {
