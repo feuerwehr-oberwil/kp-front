@@ -11,7 +11,7 @@ import { usePersonPositions } from './lib/usePersonPositions'
 import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, changedSafetySettings, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type IncidentSettings, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
@@ -1107,53 +1107,9 @@ export function IncidentWorkspace({
   // and save battery. No-ops on browsers without the Wake Lock API.
   useWakeLock(keepScreenOn)
 
-  /**
-   * Atemschutz safety values with a Verlaufszeile.
-   *
-   * `contactIntervalMin` and `contactGraceSec` decide when a Trupp counts as fällig and as
-   * überfällig — moving one mid-Einsatz moves every clock on the board at once. That left no
-   * trace of any kind, so a reconstruction could see that a Trupp went overdue but not that the
-   * threshold had been moved under it. The row carries the OLD and NEW values: «geändert» alone
-   * does not say whether the limit got stricter or looser.
-   */
-  // A safety value applies the instant it is tapped; its Verlauf row waits for the operator to
-  // stop tapping. Shorter than the Rapportangaben settle — this is a stepper, not a sentence.
-  const SAFETY_LOG_SETTLE_MS = 2500
-  const safetyLogBase = useRef<IncidentSettings | null>(null)
-  const safetyLogTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveIncidentSettings = useCallback((next: IncidentSettings) => {
-    setIncidentSettings((prev) => {
-      // The steppers write straight through on every tap (the value has to apply live — the
-      // contact clock is running on it), so 10 → 20 min used to be ten «geändert» rows, and a
-      // held ±button twenty. The VALUE still lands immediately; only its row waits for the
-      // number to settle, and is then written against where the burst started.
-      if (!safetyLogBase.current) safetyLogBase.current = prev
-      if (safetyLogTimer.current) clearTimeout(safetyLogTimer.current)
-      safetyLogTimer.current = setTimeout(() => {
-        const base = safetyLogBase.current
-        safetyLogBase.current = null
-        safetyLogTimer.current = null
-        if (!base) return
-        const dz = atemschutzDoctrine()
-        const moved = changedSafetySettings(base, next, {
-          contactIntervalMin: dz.contactIntervalMin,
-          contactGraceSec: dz.contactGraceSec,
-          defaultFunkkanal: dz.defaultFunkkanal,
-        })
-        if (!moved.length) return
-        const AZ = appConfig.copy.atemschutz
-        const tpl: Record<string, string> = {
-          contactIntervalMin: AZ.logSafetyInterval,
-          contactGraceSec: AZ.logSafetyGrace,
-          defaultFunkkanal: AZ.logSafetyFunkkanal,
-        }
-        const changes = moved.map((m) => fillTemplate(tpl[m.key], { from: String(m.from), to: String(m.to) })).join(', ')
-        log('warn', fillTemplate(AZ.logSafety, { changes }), 'team')
-      }, SAFETY_LOG_SETTLE_MS)
-      return next
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
-  }, [])
+  // (The Einstellungen sheet no longer writes the Atemschutz safety values — 28.08., they are
+  // /admin doctrine now. `incidentSettings` overrides already stored in workspaces keep applying;
+  // the settle-and-log machinery that guarded their edits left with the editor.)
 
   /**
    * Rapportangaben with a Verlaufszeile. The printed rapport's own content — Einsatzleiter,
@@ -4814,9 +4770,6 @@ export function IncidentWorkspace({
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
-          settings={incidentSettings}
-          onSettings={saveIncidentSettings}
-          canEdit={canEditIncident}
           elView={elView}
           onElView={isEditor ? setElView : undefined}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
