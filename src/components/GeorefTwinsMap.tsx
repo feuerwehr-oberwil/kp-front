@@ -83,6 +83,9 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
               sizePx={symPx('symbol', t.coord[1], zoom, symMul)}
               rotation={veh ? 0 : rot}
               count={a.count}
+              // ⚠️ `storey`, never `anno.floor` — that one is the floor-stack tile index
+              floor={a.storey} floorFrom={a.floorFrom} floorTo={a.floorTo}
+              spread={a.spread} spreadRotation={-t.fit.rotationDeg - bearing}
               caption={rawCaption ? softHyphenateText(rawCaption) : rawCaption}
               title={fillTemplate(C.twinFromPlan, { name, plan: t.planCode })}
               onOpen={() => { if (!dragged.current) onOpen(t); dragged.current = false }}

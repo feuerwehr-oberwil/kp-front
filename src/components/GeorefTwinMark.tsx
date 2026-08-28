@@ -28,25 +28,34 @@
  */
 import { TacticalSymbol } from '../lib/symbolRender'
 import { useRef } from 'react'
+import type { SymbolProps } from '../types'
 import s from './GeorefTwins.module.css'
 
 /**
  * The one mark, positioned by its caller.
  *
- * The same symbol renderer carries the source's caption decision across. Spread arrows, storey
- * badges and the Hubretter boom remain source-only details; the aerial boom in particular is
- * metre-scaled geometry that the projection has no honest length for.
+ * The same symbol renderer carries the source's caption decision across — and its storey badge
+ * and Entwicklung spread arrows too (the arrows turned through the fit via `spreadRotation`, so
+ * they keep pointing at the true ground direction on a turned sheet). Only the Hubretter boom
+ * remains source-only: metre-scaled geometry the projection has no honest length for.
  */
 /** Pointer travel that turns a tap into a drag. Small — the operator is aiming at a symbol they
  *  can already see, so the gesture is deliberate from the first millimetre — but not zero, or a
  *  fingertip's own wobble on a glove would move the object on every tap. */
 const DRAG_SLOP_PX = 4
 
-export function TwinMark({ svg, sizePx, rotation, count, caption, title, onOpen, onMove, nativeDrag = false, interactive = true, selected = false, style, className }: {
+export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, spreadRotation, caption, title, onOpen, onMove, nativeDrag = false, interactive = true, selected = false, style, className }: {
   svg: string
   sizePx: number
   rotation: number
   count?: number
+  /** the source's signed storey badge (Entity.floor / BoardAnno.storey — never the tile index) */
+  floor?: number
+  floorFrom?: number
+  floorTo?: number
+  /** the source's Entwicklung arrows, turned through the fit by `spreadRotation` */
+  spread?: SymbolProps['spread']
+  spreadRotation?: number
   /** Exactly the caption the source surface gives this symbol. Null means neither source nor
    *  projection invents a name plaque merely because it crossed the georeference. */
   caption?: string | null
@@ -140,7 +149,9 @@ export function TwinMark({ svg, sizePx, rotation, count, caption, title, onOpen,
       onClick={(e) => { e.stopPropagation(); if (!dragged.current) onOpen(); dragged.current = false }}
     >
       {selected && <span className="sel-halo" aria-hidden />}
-      <TacticalSymbol svg={svg} sizePx={sizePx} rotation={rotation} count={count} caption={caption} />
+      <TacticalSymbol svg={svg} sizePx={sizePx} rotation={rotation} count={count}
+        floor={floor} floorFrom={floorFrom} floorTo={floorTo}
+        spread={spread} spreadRotation={spreadRotation} caption={caption} />
     </button>
   )
 }
