@@ -28,6 +28,7 @@
    top of a rail glyph */
 .nav-more .i { width: 17px; height: 17px; background: var(--app-bg); border-radius: 50%;
   box-shadow: 0 0 0 4px var(--app-bg); }
+.nav-more:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* nudge a handful of times, then rest — a PERPETUAL animation over the backdrop-filtered
    rail keeps the GPU compositing forever (measured battery cost on phones); the keyframes
    end on the base offset, so the settled chevron still reads as "more" */
@@ -55,7 +56,10 @@
   border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700;
   padding: 0; width: 100%; margin-bottom: 2px; transition: background .14s var(--ease), color .14s var(--ease); }
 .navrail:not(.expanded) .nav-exp, .navrail.dragging .nav-exp { justify-content: center; }
-.nav-exp:hover { background: var(--hover); color: var(--ink); }
+@media (hover: hover) {
+  .nav-exp:hover { background: var(--hover); color: var(--ink); }
+}
+.nav-exp:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .nav-exp-ic { width: 46px; min-width: 46px; display: grid; place-items: center; }
 /* ⚠️ 22px, the SAME as .nav-glyph .i. Both sit centred in a shared glyph column (46px
    collapsed, 26px expanded), so an 18px chevron was centred 2px inboard of every icon under
@@ -70,7 +74,10 @@
 .nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-sm);
   cursor: pointer; color: var(--ink); font: inherit; padding: 0; width: 100%; position: relative; transition: background .14s var(--ease); }
 .navrail:not(.expanded) .nav-item, .navrail.dragging .nav-item { justify-content: center; }
-.nav-item:hover { background: var(--hover); }
+@media (hover: hover) {
+  .nav-item:hover { background: var(--hover); }
+}
+.nav-item:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .nav-item.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .nav-glyph { width: 46px; min-width: 46px; height: 46px; display: grid; place-items: center; font-size: 15px; font-weight: 800; position: relative; }
 .nav-glyph .i { width: 22px; height: 22px; }
@@ -173,7 +180,10 @@
 .nav-grip { position: absolute; top: 0; right: -7px; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
   cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
 .nav-grip::after { content: ""; width: 4px; height: 38px; border-radius: 3px; background: var(--border); transition: background .14s var(--ease); }
-.nav-grip:hover::after, .nav-grip.drag::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+.nav-grip.drag::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+@media (hover: hover) {
+  .nav-grip:hover::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+}
 /* ⚠️ Kein Ziehgriff, sobald die Wörter an sind — auf JEDEM Gerät, nicht nur auf Touch.
    Der Ausklapp-Chevron ist in diesem Fall längst weg (siehe `labels !== 'short'` im TSX): mit
    den Wörtern unter den Zeichen gibt es nichts mehr aufzuklappen. Der Griff war der Rest, den
@@ -278,11 +288,12 @@ html.rail-dragging .layers-card { transition: none; }
 .lrow { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; border: none; background: transparent;
   border-radius: var(--r-sm); font-size: 13px; font-weight: 600; color: var(--on-accent-ink); cursor: pointer;
   transition: opacity .14s, background .14s; }
-/* ⚠️ Gated on `(hover: hover)`, like `.nav-key` above. On a touchscreen — the iPad this panel
-   mostly lives on — a tap leaves :hover ON the row it hit until something else is tapped, so the
-   Ebenen list kept one row lit up long after the finger was gone and it read as «diese Ebene ist
-   ausgewählt», which is not a state this list has. Nothing is lost on touch: the tap acts at
-   once, and the eye + the opacity row say what is on. */
+/* ⚠️ Gated on `(hover: hover)` — and since 28.08. that gate is APP-WIDE (every :hover in these
+   stylesheets sits behind it); this block is where the bug was first understood. On a touchscreen
+   — the iPad this panel mostly lives on — a tap leaves :hover ON the row it hit until something
+   else is tapped, so the Ebenen list kept one row lit up long after the finger was gone and it
+   read as «diese Ebene ist ausgewählt», which is not a state this list has. Nothing is lost on
+   touch: the tap acts at once, and the eye + the opacity row say what is on. */
 @media (hover: hover) {
   .lrow:hover { background: color-mix(in srgb, var(--on-accent-ink) 12%, transparent); }
 }

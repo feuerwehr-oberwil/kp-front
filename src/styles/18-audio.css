@@ -21,7 +21,9 @@
   color: var(--ink); display: grid; place-items: center; cursor: pointer; }
 .ap-btn-main { width: 54px; height: 54px; background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
 .ap-btn-main .i { width: 18px; height: 18px; }
-.ap-btn-main:hover { background: var(--btn-primary-hover); }
+@media (hover: hover) {
+  .ap-btn-main:hover { background: var(--btn-primary-hover); }
+}
 .ap-skip { display: grid; place-items: center; line-height: 1; }
 .ap-skip small { font-size: 9px; font-weight: 800; margin-top: 1px; }
 /* --r-sm like every other button (.ip-btn), NOT a 999px pill: «1×» and «Transkribieren» sit
@@ -68,7 +70,9 @@
 .ap-empty { margin: 0; color: var(--ink-faint); font-size: 13px; }
 .ap-row { display: flex; align-items: center; gap: 10px; padding: 8px; border: none; border-radius: 10px; background: none;
   font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-align: left; }
-.ap-row:hover { background: var(--fill-soft); }
+@media (hover: hover) {
+  .ap-row:hover { background: var(--fill-soft); }
+}
 .ap-row.current { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .ap-row.current .ap-row-t { color: var(--accent); font-weight: 700; }
 .ap-row-t { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); width: 38px; flex: none; font-variant-numeric: tabular-nums; }
@@ -116,7 +120,10 @@
    once übernommen — the entry lives on here and stays correctable) */
 .ap-row-edit { width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
   color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; opacity: 0; }
-.ap-row:hover .ap-row-edit, .ap-row:focus-within .ap-row-edit { opacity: 1; }
+.ap-row:focus-within .ap-row-edit { opacity: 1; }
+@media (hover: hover) {
+  .ap-row:hover .ap-row-edit { opacity: 1; }
+}
 @media (hover: none) { .ap-row-edit { opacity: 1; } }
 .ap-row-edit .i { width: 12px; height: 12px; }
 .ap-row-editing { cursor: default; }
@@ -198,9 +205,9 @@
 @media (hover: hover) {
   .jc-phrase:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 }
-/* press = shrink, like every other :active in the app (02-base.css). It is over when the finger
-   is up, which is exactly what «tap, and the word is in the sentence» should feel like. */
-.jc-phrase:active { transform: scale(.96); }
+/* press = the house ink wash, like every other :active in the app (02-base.css). It is over when
+   the finger is up, which is exactly what «tap, and the word is in the sentence» should feel like. */
+.jc-phrase:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ── Von / Art ────────────────────────────────────────────────────────────────────────────
    One quiet strip under the text. Deliberately NOT field-shaped: the sentence is what this
@@ -527,7 +534,9 @@
    <button> now — strip the native chrome and give it a comfortable tap area. */
 .tb-einsatzuhr { color: var(--ink-dim); background: none; border: none; cursor: pointer; font: inherit;
   padding: 6px 4px; margin: -6px 0; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent; }
-.tb-einsatzuhr:hover { color: var(--ink); }
+@media (hover: hover) {
+  .tb-einsatzuhr:hover { color: var(--ink); }
+}
 .tb-einsatzuhr:active { background: var(--fill-soft); }
 .tb-einsatzuhr .i { width: 14px; height: 14px; }
 .tb-uhr-chev { width: 12px; height: 12px; opacity: .5; margin-left: 1px; }
@@ -537,7 +546,9 @@
   border-radius: var(--r-ctl); box-shadow: var(--shadow); padding: 6px; min-width: 236px; }
 .tb-uhr-row { display: flex; align-items: center; gap: 11px; width: 100%; height: 42px; padding: 0 10px; border: 0;
   background: transparent; border-radius: var(--r-sm); cursor: pointer; color: var(--ink); font: inherit; text-align: left; }
-.tb-uhr-row:hover { background: var(--hover); }
+@media (hover: hover) {
+  .tb-uhr-row:hover { background: var(--hover); }
+}
 .tb-uhr-row.on { background: var(--fill-soft); }
 .tb-uhr-row .i { width: 18px; height: 18px; color: var(--ink-dim); flex: none; }
 .tb-uhr-lbl { font-size: 13px; font-weight: 600; flex: 1; }

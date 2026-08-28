@@ -30,7 +30,9 @@
   border-bottom: 1px solid var(--border-soft);
 }
 .adm-slot:last-child { border-bottom: none; }
-.adm-slot:hover { background: color-mix(in srgb, var(--blue) 4%, transparent); }
+@media (hover: hover) {
+  .adm-slot:hover { background: color-mix(in srgb, var(--blue) 4%, transparent); }
+}
 .adm-slot-id { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .adm-slot-title { font-size: 13px; font-weight: 700; color: var(--ink); }
 .adm-slot-state { min-width: 0; font-size: 12px; }

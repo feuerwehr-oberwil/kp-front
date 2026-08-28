@@ -31,6 +31,11 @@
   --r-surface: 20px;
   --r-hero: 22px;
   --ease: cubic-bezier(.2, .7, .3, 1);
+  /* THE app-wide :active wash — layered as a background-image overlay so it composes with
+     any background underneath. Built on --ink, which flips for the night theme, so the wash
+     flips with it: darkens by day, lightens by night. No night override needed — var(--ink)
+     resolves where the wash is used. */
+  --press: color-mix(in srgb, var(--ink) 9%, transparent);
   --mono: 'Spline Sans Mono', ui-monospace, monospace;
   --body: 'Sora', system-ui, sans-serif;
   /* live width of the left nav rail (NavRail writes it on drag/expand); the map

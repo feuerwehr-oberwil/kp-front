@@ -26,7 +26,8 @@
   border: none; background: rgba(255, 255, 255, .22); color: var(--on-accent-ink); cursor: pointer;
   font-family: var(--body); font-weight: 700; font-size: 12.5px; padding: 6px 11px; border-radius: var(--r-sm);
 }
-.replay-exit:hover { background: rgba(255, 255, 255, .34); }
+@media (hover: hover) { .replay-exit:hover { background: rgba(255, 255, 255, .34); } }
+.replay-exit:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .replay-empty { padding: 12px 14px; font-size: 12.5px; color: var(--ink-dim); font-weight: 600; }
 .replay-controls { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
 .replay-transport { display: inline-flex; align-items: center; gap: 6px; flex: none; }
@@ -34,12 +35,14 @@
   flex: none; width: 38px; height: 38px; border-radius: var(--r-sm); border: none; cursor: pointer;
   background: var(--ink-fill); color: var(--on-accent-ink); display: grid; place-items: center; font-size: 15px;
 }
-.replay-play:hover { background: var(--ink-fill-hover); }
+@media (hover: hover) { .replay-play:hover { background: var(--ink-fill-hover); } }
+.replay-play:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .replay-skip {
   flex: none; display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 8px;
   border: 1px solid var(--glass-edge); background: var(--surface-veil); cursor: pointer;
   border-radius: var(--r-sm); color: var(--ink-dim); font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
-.replay-skip:hover { background: var(--hover-strong); color: var(--ink); }
+@media (hover: hover) { .replay-skip:hover { background: var(--hover-strong); color: var(--ink); } }
+.replay-skip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .replay-skip .i { width: 14px; height: 14px; }
 /* the playback-speed picker now uses the shared <Segmented> (.useg) — its old .replay-speeds
    chrome was removed; the inline-flex track keeps its natural width in the transport row. */
@@ -98,7 +101,8 @@
 /* the 3px tick stays the visual; the finger gets the lane's full height and ~24px of width */
 .replay-jr::before { content: ''; position: absolute; left: 50%; top: 50%; width: 24px; height: 22px;
   transform: translate(-50%, -50%); }
-.replay-jr:hover { opacity: 1; background: var(--ink); }
+@media (hover: hover) { .replay-jr:hover { opacity: 1; background: var(--ink); } }
+.replay-jr:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .replay-jr-on { opacity: 1; width: 4px; background: var(--blue); }
 
 .replay-range { display: flex; justify-content: space-between; gap: 8px;
@@ -157,7 +161,8 @@
 .replay-caption-go { flex: none; border: 1px solid var(--border); background: var(--surface);
   color: var(--ink-dim); border-radius: var(--r-xs); padding: 5px 10px; min-height: 32px;
   font: 700 12.5px var(--body); cursor: pointer; }
-.replay-caption-go:hover { color: var(--ink); background: var(--hover-strong); }
+@media (hover: hover) { .replay-caption-go:hover { color: var(--ink); background: var(--hover-strong); } }
+.replay-caption-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* …and the same on a touch screen, where the button grows to the gloved floor and takes the
    row with it */
 @media (pointer: coarse) {

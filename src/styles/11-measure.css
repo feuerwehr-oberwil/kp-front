@@ -28,7 +28,9 @@
 .draw-lock-chip { position: relative; touch-action: none; }
 /* 44px hit pad — the chip is the ONLY tap target on a locked shape */
 .draw-lock-chip::after { content: ''; position: absolute; inset: -7px; border-radius: 50%; }
-.draw-lock-chip:hover { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-line)); }
+@media (hover: hover) {
+  .draw-lock-chip:hover { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-line)); }
+}
 .draw-lock-chip > svg { width: 15px; height: 15px; }
 .draw-lock-chip.holding { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
 /* The hold progress is the shared ring (.node-del, tone-unlock), placed beside the chip by
@@ -54,7 +56,9 @@
   box-shadow: 0 1px 3px rgba(30, 45, 70, .18); }
 .measure-insert::after { content: ''; position: absolute; left: 50%; top: 50%;
   width: 44px; height: 44px; transform: translate(-50%, -50%); }
-.measure-insert:hover { opacity: 1; }
+@media (hover: hover) {
+  .measure-insert:hover { opacity: 1; }
+}
 .measure-insert .i { width: 11px; height: 11px; stroke-width: 3.2; }
 /* ── Magnet: Ring lädt, dann schnappt es ────────────────────────────────────────────────────
    Der Anker ist ein NULL-grosser Punkt genau auf dem Ziel bzw. auf der alten Anschlussstelle;
@@ -124,8 +128,8 @@
   box-shadow: 0 2px 6px rgba(30, 45, 70, .34); cursor: pointer; }
 /* the geometrically-centred close glyph — a text "×" sits off-centre by its font metrics */
 .line-detach-chip .i { width: 20px; height: 20px; stroke-width: 2.6; vertical-align: baseline; }
-/* press = shrink, like every other :active in this sheet — this one alone grew */
-.line-detach-chip:active { transform: scale(.94); }
+/* press = the house ink wash (02-base.css); nothing moves */
+.line-detach-chip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .network-halo { position: absolute; inset: -7px; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 50%; pointer-events: none; }
 .hidden-attachment-marker { width: 14px; height: 14px; border: 2px dashed var(--accent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 80%, transparent); }
 /* Messung — length + Schläuche of an already-drawn line, and the collapsible Höhenprofil. The
@@ -153,7 +157,9 @@
   min-height: 48px; padding: 2px 0; border: 0; border-radius: var(--r-sm);
   background: transparent; color: var(--ink-dim); cursor: pointer;
   font-family: inherit; font-size: 12.5px; font-weight: 700; -webkit-tap-highlight-color: transparent; }
-.draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+@media (hover: hover) {
+  .draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+}
 .draw-editor .de-prof-toggle.on { color: var(--ink); }
 .draw-editor .de-prof-toggle .i { width: 16px; height: 16px; transition: transform .18s var(--ease); }
 .draw-editor .de-prof-toggle.on { color: var(--ink); }
@@ -179,7 +185,9 @@
    than everything above it, and its text started 4px in from the left edge the labels hold. */
 .draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;
   border: 0; background: transparent; color: var(--red); font-family: inherit; font-size: 12.5px; font-weight: 600; }
-.draw-editor .de-conn-detach:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .draw-editor .de-conn-detach:hover { text-decoration: underline; }
+}
 /* Verbundene Linien — flat rows in the sidebar idiom (hairline separators, chevron affordance),
    not floating cards; the row label uses the friendly line name, not the raw id. */
 .ctx-connections button { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -203,8 +211,10 @@
    (.team-dot.raus), so «wer war hier» stays readable without reading as «wer ist hier» */
 .draw-editor .de-menu-trigger .de-trupp-out { color: var(--ink-dim); text-decoration: line-through; }
 .draw-editor .de-menu-trigger .de-trupp-outnote { flex: none; color: var(--ink-dim); font: 600 11.5px/1 var(--body); font-style: normal; }
-.draw-editor .de-menu-trigger:hover,
 .draw-editor .de-menu-trigger[data-popup-open] { border-color: var(--ink-dim); }
+@media (hover: hover) {
+  .draw-editor .de-menu-trigger:hover { border-color: var(--ink-dim); }
+}
 /* max-width beside the min: collision handling shifts a popup back onto the screen, it cannot
    shrink one that is wider than the screen. A long Trupp label is what would grow this past a
    phone's width — same guard the print menu and the context menu already carry. */
@@ -219,7 +229,9 @@
 .de-menu-tick svg { width: 100%; height: 100%; }
 .draw-editor .de-trupp-go { display: grid; place-items: center; width: 32px; min-height: 32px; padding: 0;
   border: 0; background: none; color: var(--ink-dim); cursor: pointer; }
-.draw-editor .de-trupp-go:hover { color: var(--blue); }
+@media (hover: hover) {
+  .draw-editor .de-trupp-go:hover { color: var(--blue); }
+}
 
 /* selected-drawing edit handles (reshape vertices + move grip + delete) — each gets a
    transparent hit pad; kept below 44px because move/delete/rotate cluster around the
@@ -267,6 +279,8 @@
 .wb-group-acts { position: absolute; top: 0; left: 0; z-index: 7;
   display: flex; gap: 6px; background: var(--ink-fill); border-radius: var(--r-ctl); padding: 5px; box-shadow: var(--shadow); }
 .wb-pa-move { background: var(--blue); cursor: grab; touch-action: none; }
-.wb-pa-move:hover { background: var(--blue); filter: brightness(1.08); }
+@media (hover: hover) {
+  .wb-pa-move:hover { background: var(--blue); filter: brightness(1.08); }
+}
 .wb-pa-move:active { cursor: grabbing; }
 

@@ -28,8 +28,12 @@
   font: 700 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 34%, transparent), var(--shadow-sm);
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
-.fab-entry:hover { filter: brightness(1.05); }
-.fab-entry:active { transform: scale(.95); }
+@media (hover: hover) {
+  .fab-entry:hover { filter: brightness(1.05); }
+}
+/* press = the house ink wash (02-base.css) over the dark fill; the transform transition above
+   stays — the «quiet» step-back still scales */
+.fab-entry:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* names the LABEL, not every span — see the note on .tb-act-add in 10-journal.css */
   .fab-entry .i, .fab-entry .tb-act-label { position: relative; z-index: 1; }
 .fab-entry .i { width: 18px; height: 18px; }
@@ -356,8 +360,8 @@
      ⚠️ CHROME ONLY. Translating the box that contains the caret moves the field back under the
      keyboard, iOS pans further to reveal it, and round it goes — the loop useKeyboardInset
      documents. Neither of these two holds a text field.
-     ⚠️ NOT the FAB: it already carries transforms of its own (`:active` scale, the «quiet»
-     step-back while something under it scrolls), and a second `transform` on the same element
+     ⚠️ NOT the FAB: it already carries a transform of its own (the «quiet» step-back while
+     something under it scrolls), and a second `transform` on the same element
      replaces rather than composes — the circle would snap back to the panned position the moment
      a thumb touched it. It is a floating action anyway; those ride above a keyboard in native
      apps too. */

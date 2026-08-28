@@ -30,8 +30,8 @@
   backdrop-filter: blur(16px);
   transition: filter .14s var(--ease);
 }
-.wb-pdf-retry:hover { filter: brightness(1.06); }
-.wb-pdf-retry:active { transform: scale(.97); }
+@media (hover: hover) { .wb-pdf-retry:hover { filter: brightness(1.06); } }
+.wb-pdf-retry:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* failure detail — one actionable sentence plus the code to read out (PdfFailDetail).
    The container above is click-through; the code stays selectable on a desk machine. */
 .wb-pdf-reason {

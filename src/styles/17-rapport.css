@@ -23,16 +23,22 @@
    on --ink-faint, one shade quieter, directly above three headings that did not — same size,
    same weight, same tracking, different colour, stacked in one column. */
 .report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
-.report-meta-editlink { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; margin: -4px -8px -4px 0;
-  font: 600 12px var(--body); color: var(--blue); background: none; border: none; border-radius: var(--r-sm); cursor: pointer; }
+.report-meta-editlink { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; min-height: 36px;
+  font: 600 12px var(--body); color: var(--blue); background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border); border: none; border-radius: var(--r-sm); cursor: pointer; }
+.report-meta-editlink:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the whole dispatch card opens the Einsatzdaten (mirrors an Anwesenheit person row) — the
    target grows from a 12px corner link to the full card, without the card BEING a button:
    the <dl> has to stay readable content rather than become a button's label (see
-   ReportPreflight). «Bearbeiten» is still the real button, and the cue that says so. */
+   ReportPreflight). «Bearbeiten» now LOOKS like the real button it is — on a tablet there is
+   no hover to advertise the card, so the button carries the affordance on its own. */
 .report-meta-dispatch-click { cursor: pointer;
   border: 1px solid transparent; border-radius: var(--r-ctl); padding: 8px; margin: -8px; }
-.report-meta-dispatch-click:hover { background: var(--fill-soft); border-color: var(--glass-edge); }
-.report-meta-dispatch-click:hover .report-meta-editlink { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+@media (hover: hover) {
+  .report-meta-dispatch-click:hover { background: var(--fill-soft); border-color: var(--glass-edge); }
+  .report-meta-dispatch-click:hover .report-meta-editlink { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+}
+.report-meta-dispatch-click:active { background-image: linear-gradient(var(--press), var(--press)); }
 .report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .report-meta-readout > div { display: grid; grid-template-columns: 116px 1fr; gap: 12px; align-items: baseline; }
 .report-meta-readout dt { margin: 0; font: 600 12px var(--body); color: var(--ink-dim); }
@@ -263,9 +269,10 @@
   content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   background: rgba(0, 0, 0, .2); transition: opacity .18s var(--ease);
 }
-[data-theme="night"] .kf-paper:hover::after,
-[data-theme="night"] .kf-paper:active::after,
-[data-theme="night"] .kf-paper:focus-within::after { opacity: 0; }
+[data-theme="night"] .kf-paper:active::after, [data-theme="night"] .kf-paper:focus-within::after { opacity: 0; }
+@media (hover: hover) {
+  [data-theme="night"] .kf-paper:hover::after { opacity: 0; }
+}
 
 /* The numbered disc the sheet draws where a label used to be (kroki.py · _numbered_marker):
    ink fill, white ring, the figure in the mono face the legend numbers share.
@@ -329,7 +336,10 @@
 .report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; cursor: pointer;
   border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
   font: 700 13px var(--body); }
-.report-row-add:hover { border-color: var(--ink-faint); }
+@media (hover: hover) {
+  .report-row-add:hover { border-color: var(--ink-faint); }
+}
+.report-row-add:active { background-image: linear-gradient(var(--press), var(--press)); }
 .report-row-add .i { width: 16px; height: 16px; }
 
 /* Partnerorganisationen, in the Anwesenheit/Mittel block: one row = the organisation (the
@@ -346,7 +356,10 @@
 .report-partner-tick { flex: none; display: flex; align-items: center; gap: 9px; min-width: 170px;
   min-height: 38px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
   background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
-.report-partner-tick:hover { background: var(--hover); }
+@media (hover: hover) {
+  .report-partner-tick:hover { background: var(--hover); }
+}
+.report-partner-tick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* ⚠️ NOT --glass-line: that token is a glass HIGHLIGHT — white at .7 in light mode — so the
    empty box was white on a white sheet and the tick-off list read as plain text. An unticked
    box is the whole affordance; it has to be visible before anything is in it. --ink-faint
@@ -392,9 +405,14 @@
 .rp-link-tick { flex: 1 1 auto; display: flex; align-items: center; gap: 9px; min-width: 0;
   min-height: 38px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
   background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
-.rp-link-tick:hover { background: var(--hover); }
+@media (hover: hover) {
+  .rp-link-tick:hover { background: var(--hover); }
+}
+.rp-link-tick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rp-link-tick:disabled { cursor: default; }
-.rp-link-tick:disabled:hover { background: none; }
+@media (hover: hover) {
+  .rp-link-tick:disabled:hover { background: none; }
+}
 .rp-link-box { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
   border-radius: var(--r-sm); color: var(--ink-dim); }
@@ -409,7 +427,10 @@
 .rp-link-open { flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
   padding: 0 13px; cursor: pointer; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); }
-.rp-link-open:hover { background: var(--hover-strong); }
+@media (hover: hover) {
+  .rp-link-open:hover { background: var(--hover-strong); }
+}
+.rp-link-open:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rp-link-open .i { width: 15px; height: 15px; }
 @media (max-width: 640px) {
   /* «Öffnen» drops UNDER its own title rather than squeezing it to two words. Indented to the
@@ -435,12 +456,18 @@
 .report-att-thumb { flex: none; width: 56px; height: 56px; padding: 0; overflow: hidden; cursor: pointer;
   border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--fill-soft); }
 .report-att-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.report-att-thumb:hover { border-color: var(--ink-faint); }
+@media (hover: hover) {
+  .report-att-thumb:hover { border-color: var(--ink-faint); }
+}
+.report-att-thumb:active { background-image: linear-gradient(var(--press), var(--press)); }
 .report-att-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .report-att-pending { font: 600 11.5px var(--body); color: var(--amber-strong); }
 .report-att-x { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; cursor: pointer;
   border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
-.report-att-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+@media (hover: hover) {
+  .report-att-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+}
+.report-att-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .report-att-x .i { width: 16px; height: 16px; }
 /* the file input itself is invisible — the label IS the button (see .report-row-add) */
 .report-att-add input { display: none; }
@@ -463,7 +490,10 @@
 .report-pre-warn span { flex: 1 1 auto; min-width: 0; }
 .report-pre-fix { flex: none; border: none; cursor: pointer; background: var(--amber); color: var(--on-fill);
   font: 700 12.5px var(--body); padding: 7px 12px; border-radius: var(--r-sm); }
-.report-pre-fix:hover { filter: brightness(.96); }
+@media (hover: hover) {
+  .report-pre-fix:hover { filter: brightness(.96); }
+}
+.report-pre-fix:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* The transcript TEXT (or the field to write it in) wraps onto its own line below the (flex)
    event row, indented to sit under the event text rather than the time/icon columns.
@@ -489,12 +519,17 @@
 .jr-jump { width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
   color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; }
 .jr-jump .i { width: 13px; height: 13px; }
-.jr-jump:hover { color: var(--ink); background: var(--hover-strong); }
+@media (hover: hover) {
+  .jr-jump:hover { color: var(--ink); background: var(--hover-strong); }
+}
+.jr-jump:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* no transcript yet: amber on the FRAME, not a filled amber block. It is a gap in the record
    worth noticing, not a warning that should outshout the entry it hangs off. */
 .jr-jump.jr-jump-miss { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
   border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
-.jr-jump.jr-jump-miss:hover { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber-strong); }
+@media (hover: hover) {
+  .jr-jump.jr-jump-miss:hover { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber-strong); }
+}
 
 /* «noch offen» chips are BUTTONS that jump to the section they name (ReportPreflight ·
    jumpToStep). Same amber pill as before — the chip already looked like a thing you could press,
@@ -502,7 +537,10 @@
 .rp-head-open-go { font: inherit; font-weight: 700; padding: 1px 7px; border: none;
   border-radius: var(--r-pill); cursor: pointer;
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
-.rp-head-open-go:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+@media (hover: hover) {
+  .rp-head-open-go:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+}
+.rp-head-open-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* …and the target says «here» — with the shared ink ring (02-base.css · ui-flash-ring), the same
    one the Atemschutz board and the Verlauf point with. One app, one way of pointing.
    ⚠️ `--r-sm`: `--r-md` is not a token (the scale is xs/sm/pill · ctl/btn/surface/hero), so the
@@ -519,5 +557,8 @@
   padding: 0 12px; border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
   border-radius: var(--r-sm); cursor: pointer; font: 700 13px var(--body);
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
-.rp-head-open-menu:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+@media (hover: hover) {
+  .rp-head-open-menu:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+}
+.rp-head-open-menu:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rp-head-open-menu :global(.i), .rp-head-open-menu .i { width: 15px; height: 15px; flex: none; }

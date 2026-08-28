@@ -29,17 +29,20 @@
 /* The app's own primary token, NOT --accent: a station's accent is its own colour (red here),
    so an accent-filled button turns every affirmative action into what reads as an alarm. */
 .primary { border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); }
-.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+@media (hover: hover) { .primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); } }
+.primary:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 .ghost { border: 1px solid var(--glass-edge); background: transparent; color: var(--ink-dim); }
-.ghost:hover { color: var(--ink); }
+@media (hover: hover) { .ghost:hover { color: var(--ink); } }
+.ghost:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* «Standort nicht mehr teilen». Red-tinted OUTLINE, never a solid fill — the house rule for
    this kind of action (see .ip-btn-danger in app.css). It also must not be the loudest thing
    on a card that is mostly a read-out: on the «kommt nicht an» state the honest advice is to
    wait, so a full-bleed red bar was telling people to do the opposite. */
 .danger { background: transparent; color: var(--red); border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); }
-.danger:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
+@media (hover: hover) { .danger:hover { background: color-mix(in srgb, var(--red) 10%, transparent); } }
+.danger:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* --- the name picker -------------------------------------------------------------------- */
 
@@ -59,7 +62,8 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); color: var(--ink); font: 600 15px var(--body); text-align: left; cursor: pointer;
 }
-.person:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge)); }
+@media (hover: hover) { .person:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge)); } }
+.person:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 .rank { flex: none; font: 800 11px var(--body); letter-spacing: .02em; color: var(--ink-faint); min-width: 34px; }
 .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -84,6 +88,7 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); cursor: pointer;
 }
+.pill:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pill svg { width: 19px; height: 19px; }
 
 /* Reporting. Tinted, not shouting: this is a normal running state, not an alert.

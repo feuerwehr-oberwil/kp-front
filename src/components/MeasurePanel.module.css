@@ -9,7 +9,8 @@
 .mp-prof-toggle { margin-left: auto; flex: none; width: 40px; height: 40px; display: grid; place-items: center;
   border: none; background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm);
   -webkit-tap-highlight-color: transparent; }
-.mp-prof-toggle:hover { color: var(--ink); background: var(--fill-soft); }
+@media (hover: hover) { .mp-prof-toggle:hover { color: var(--ink); background: var(--fill-soft); } }
+.mp-prof-toggle:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .mp-prof-toggle :global(.i) { width: 18px; height: 18px; transition: transform .18s var(--ease); }
 .mp-prof-open :global(.i) { transform: rotate(180deg); }
 .mp-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -29,9 +30,11 @@
 .mp-prof-stats .mp-stat:nth-child(2) .mp-k :global(.i) { transform: rotate(90deg); }
 /* «Als Linie übernehmen» — keep the measured Strecke as a drawn line */
 .mp-adopt-btn { align-self: stretch; justify-content: center; gap: 6px; }
+.mp-adopt-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .mp-adopt-btn :global(.i) { width: 14px; height: 14px; }
 /* Plan-only: start/redo scale calibration straight from the panel */
 .mp-cal-btn { align-self: stretch; justify-content: center; gap: 6px; }
+.mp-cal-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .mp-cal-btn :global(.i) { width: 14px; height: 14px; }
 /* …and its counterpart on a sheet whose metres come from the Kartenverknüpfung: the same slot,
    as a reading rather than a control (there is nothing here to calibrate). */

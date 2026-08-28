@@ -23,7 +23,8 @@
   background: color-mix(in srgb, var(--blue) 10%, transparent);
   color: var(--blue-strong); font: 700 12.5px var(--body); white-space: nowrap;
 }
-.tab:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); }
+@media (hover: hover) { .tab:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); } }
+.tab:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the tab whose state the value currently IS: pressed, not hidden. It used to disappear once it
    applied, which removed the only way back to it after scrolling the wheels. */
 .tabOn {
@@ -46,6 +47,7 @@
   border: 1px solid var(--glass-edge); background: var(--fill-soft); color: var(--ink);
   font: 600 13px var(--body); cursor: pointer;
 }
+.daySel:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* The shortcut row: a one-tap answer to «which time?», offered above the wheels.
    «ab Einsatzbeginn» and «noch da» used to be buttons sitting NEXT to the fields, where they were
@@ -61,7 +63,8 @@
   color: var(--blue-strong); font: 700 12.5px var(--body); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.shortcut:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); }
+@media (hover: hover) { .shortcut:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); } }
+.shortcut:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the time the shortcut would set. «ab Beginn» without a number is a promise you cannot check
    before you tap it. */
 .value { margin-left: auto; font: 700 12.5px var(--mono); opacity: .85; }
@@ -73,7 +76,7 @@
   background: color-mix(in srgb, var(--green) 12%, transparent);
   color: var(--green-strong);
 }
-.green:hover { background: color-mix(in srgb, var(--green) 20%, transparent); }
+@media (hover: hover) { .green:hover { background: color-mix(in srgb, var(--green) 20%, transparent); } }
 
 /* A NAMED clear, replacing the bin glyph. Emptying a «bis» does not delete anything — it says the
    person is still here — and a bin said the opposite of what it did. */

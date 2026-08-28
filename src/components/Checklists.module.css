@@ -18,7 +18,8 @@
   font-family: var(--body); font-size: 13.5px; font-weight: 600; color: var(--ink-dim); text-align: left;
   padding: 10px 11px; border-radius: var(--r-ctl); transition: background .14s var(--ease), color .14s var(--ease); }
 .cl-rail-item :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
-.cl-rail-item:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .cl-rail-item:hover { background: var(--fill-soft); color: var(--ink); } }
+.cl-rail-item:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .cl-rail-item.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .cl-rail-item.on :global(.i) { color: var(--on-accent-ink); }
 .cl-rail-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -32,7 +33,7 @@
 .cl-rail-groups { display: flex; flex-direction: column; gap: 14px; }
 .cl-rail-entry { display: flex; align-items: center; gap: 9px; border: none; background: transparent; cursor: pointer;
   width: 100%; text-align: left; padding: 7px 10px; border-radius: var(--r-ctl); font: 500 13px var(--body); color: var(--ink-dim); }
-.cl-rail-entry:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .cl-rail-entry:hover { background: var(--fill-soft); color: var(--ink); } }
 .cl-rail-entry.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .cl-rail-entry.on .cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
 .cl-rail-entry-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -75,7 +76,8 @@
   background: var(--surface); cursor: pointer; display: grid; place-items: center; color: var(--on-accent-ink); padding: 0;
   transition: background .12s var(--ease), border-color .12s var(--ease); }
 .cl-check :global(.i) { width: 18px; height: 18px; }
-.cl-check:hover:not(:disabled) { border-color: var(--green); }
+@media (hover: hover) { .cl-check:hover:not(:disabled) { border-color: var(--green); } }
+.cl-check:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .cl-item.done .cl-check { background: var(--green); border-color: var(--green); }
 .cl-check:disabled { cursor: default; opacity: var(--disabled); }
 /* gloved field use: ticking is THE action on this surface — full 44px checkbox on touch */
@@ -94,7 +96,8 @@
 .cl-deeplink { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 4px; border: none;
   background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue-strong); cursor: pointer; font-family: var(--body); font-size: 11.5px;
   font-weight: 700; padding: 6px 9px; border-radius: var(--r-sm); }
-.cl-deeplink:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); }
+@media (hover: hover) { .cl-deeplink:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); } }
+.cl-deeplink:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .cl-deeplink :global(.i) { width: 13px; height: 13px; }
 .cl-deeplink :global(.i):last-child { width: 11px; height: 11px; opacity: .6; }
 
@@ -168,7 +171,10 @@
   display: grid; place-items: center; border-radius: 50%; background: var(--glass);
   border: 1px solid var(--glass-edge); backdrop-filter: blur(8px); color: var(--ink-dim); }
 .cl-ref-zoomhint :global(.i) { width: 15px; height: 15px; }
-.cl-ref-figbtn:hover .cl-ref-zoomhint { color: var(--ink); }
+@media (hover: hover) { .cl-ref-figbtn:hover .cl-ref-zoomhint { color: var(--ink); } }
+/* the img fills the button, so the wash lands on the zoom hint too — the visible part */
+.cl-ref-figbtn:active:not(:disabled),
+.cl-ref-figbtn:active:not(:disabled) .cl-ref-zoomhint { background-image: linear-gradient(var(--press), var(--press)); }
 .cl-ref-fig figcaption { margin-top: 6px; font-size: 12px; color: var(--ink-faint); }
 
 
@@ -196,7 +202,8 @@
 /* tappable phone numbers (tel:) in reference text + the Telefonliste page */
 .cl-tel { color: var(--accent-ink, var(--accent)); font-weight: 600; text-decoration: none;
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); white-space: nowrap; }
-.cl-tel:hover { border-bottom-color: var(--accent); }
+@media (hover: hover) { .cl-tel:hover { border-bottom-color: var(--accent); } }
+.cl-tel:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* wide screens: let the reference reader use the empty horizontal space with a 2-column
    flow instead of a narrow centred column with a large dark void to the right (item 15) */

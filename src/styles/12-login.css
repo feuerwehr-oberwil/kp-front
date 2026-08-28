@@ -60,9 +60,12 @@
 .roster-tile { display: flex; flex-direction: row; align-items: center; gap: 14px; padding: 12px 16px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-surface); background: var(--surface-2);
   color: var(--ink); cursor: pointer; font-family: var(--body); text-align: left;
-  transition: background .14s var(--ease), border-color .14s var(--ease), transform .12s var(--ease), box-shadow .16s var(--ease); }
-.roster-tile:hover { background: var(--surface); border-color: rgba(30, 45, 70, .2); box-shadow: var(--shadow-sm); }
-.roster-tile:active { transform: scale(.97); }
+  transition: background .14s var(--ease), border-color .14s var(--ease), box-shadow .16s var(--ease); }
+@media (hover: hover) {
+  .roster-tile:hover { background: var(--surface); border-color: rgba(30, 45, 70, .2); box-shadow: var(--shadow-sm); }
+}
+/* press = the house ink wash (02-base.css); nothing moves */
+.roster-tile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .roster-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; flex: 1; }
 .roster-avatar { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; flex: none;
   font-family: var(--body); font-size: 17px; font-weight: 700; letter-spacing: .02em; color: var(--on-accent-ink);
@@ -83,7 +86,9 @@
 .pin-backuser { display: flex; align-items: center; gap: 11px; align-self: stretch; padding: 9px 14px 9px 8px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface-2);
   color: var(--ink); cursor: pointer; font-family: var(--body); transition: background .14s var(--ease); }
-.pin-backuser:hover { background: var(--surface); }
+@media (hover: hover) {
+  .pin-backuser:hover { background: var(--surface); }
+}
 .pin-backuser .i { width: 18px; height: 18px; transform: rotate(180deg); color: var(--ink-faint); flex: none; }
 .pin-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none;
   font-size: 14px; font-weight: 700; color: var(--on-accent-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); }
@@ -111,11 +116,17 @@
 .pin-key { width: 76px; height: 76px; border-radius: 50%; border: 1px solid var(--glass-edge);
   background: var(--surface-2); color: var(--ink); font-family: var(--body); font-size: 27px; font-weight: 600;
   cursor: pointer; display: grid; place-items: center;
-  transition: background .12s var(--ease), transform .1s var(--ease), box-shadow .14s var(--ease); }
-.pin-key:hover:not(:disabled) { background: var(--surface); box-shadow: var(--shadow-sm); }
-.pin-key:active:not(:disabled) { transform: scale(.92); background: var(--fill-soft); box-shadow: none; }
+  transition: background .12s var(--ease), box-shadow .14s var(--ease); }
+@media (hover: hover) {
+  .pin-key:hover:not(:disabled) { background: var(--surface); box-shadow: var(--shadow-sm); }
+}
+/* press = the house ink wash (02-base.css) over the pressed fill; nothing moves.
+   ⚠️ the wash AFTER the shorthand — `background:` resets background-image */
+.pin-key:active:not(:disabled) { background: var(--fill-soft); box-shadow: none; background-image: linear-gradient(var(--press), var(--press)); }
 .pin-key:disabled { opacity: var(--disabled); cursor: default; }
 .pin-key-fn { background: transparent; border-color: transparent; box-shadow: none; }
-.pin-key-fn:hover:not(:disabled) { box-shadow: none; }
+@media (hover: hover) {
+  .pin-key-fn:hover:not(:disabled) { box-shadow: none; }
+}
 .pin-key-fn .i { width: 22px; height: 22px; color: var(--ink-faint); }
 .pin-key-spacer { width: 76px; height: 76px; }

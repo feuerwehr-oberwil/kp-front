@@ -23,13 +23,15 @@
 .input::placeholder { color: var(--ink-faint); font-weight: 600; }
 .x { flex: none; width: 36px; height: 36px; display: grid; place-items: center; padding: 0;
   border: none; border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer; }
-.x:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .x:hover { background: var(--fill-soft); color: var(--ink); } }
+.x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .x svg { width: 16px; height: 16px; }
 
 .list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 8px; list-style: none; }
 .row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
   min-height: var(--tap); padding: 9px 12px; border: none; border-radius: var(--r-ctl);
   background: none; cursor: pointer; color: var(--ink); }
+.row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* ONE highlight, driven by the keyboard cursor — and the pointer moves that same cursor
    (onMouseEnter) instead of painting a second, competing hover state. */
 .rowOn { background: var(--surface); box-shadow: var(--shadow-sm); }

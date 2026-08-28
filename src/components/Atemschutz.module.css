@@ -27,12 +27,12 @@
   background: var(--btn-primary); color: var(--on-btn-primary); font-family: var(--body); font-size: 14px; font-weight: 700;
   padding: 11px 16px; border-radius: var(--r-sm); }
 .newBtn :global(.i) { width: 16px; height: 16px; }
-.newBtn:hover { background: var(--btn-primary-hover); }
+@media (hover: hover) { .newBtn:hover { background: var(--btn-primary-hover); } }
 /* per-device alarm-sound toggle (visual alarm + wake-lock stay on either way) */
 .muteBtn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer;
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
 .muteBtn :global(.i) { width: 18px; height: 18px; }
-.muteBtn:hover { color: var(--ink); border-color: var(--ink-faint); }
+@media (hover: hover) { .muteBtn:hover { color: var(--ink); border-color: var(--ink-faint); } }
 .muteOn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 35%, var(--glass-edge)); }
 /* the browser has not released audio: the bell is on, and it cannot make a sound. Red, because
    this is the one bell state that needs a tap — see AtemschutzView · bellLabel. */
@@ -43,7 +43,9 @@
 .orderBtn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer;
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
 .orderBtn :global(.i) { width: 18px; height: 18px; }
-.orderBtn:hover, .orderBtn[data-popup-open] { color: var(--ink); border-color: var(--ink-faint); }
+@media (hover: hover) { .orderBtn:hover { color: var(--ink); border-color: var(--ink-faint); } }
+.orderBtn[data-popup-open] { color: var(--ink); border-color: var(--ink-faint); }
+.orderBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* surface-level escalation: an überfällig count badge that's unmissable even if the tone is muted */
 /* A BUTTON that jumps to the Trupp (see AtemschutzView) — so it needs a tap target and a
    pressed state, not just a pill. The 44px floor is the house rule for anything a gloved
@@ -53,7 +55,7 @@
   background: var(--red); color: var(--on-accent-ink); font-size: 13px; font-weight: 800; letter-spacing: .02em;
   font-family: inherit; -webkit-tap-highlight-color: transparent;
   animation: az-pulse 1.2s infinite; }
-.overdueBadge:active { transform: scale(.97); }
+.overdueBadge:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .overdueBadge :global(.i) { width: 15px; height: 15px; }
 
 .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 18px 22px; }
@@ -111,11 +113,11 @@
 .cardBanner .iconBtn { width: 38px; height: 38px; position: relative; }
 .cardBanner .iconBtn::after { content: ''; position: absolute; left: 50%; top: 50%;
   width: 44px; height: 44px; transform: translate(-50%, -50%); }
-.iconBtn:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .iconBtn:hover { background: var(--fill-soft); color: var(--ink); } }
 /* destructive variant (delete card) — extra separation + red hover so it never reads like the
    neutral place/show actions beside it (avoids a mis-tapped delete during a stressful incident) */
 .iconBtn.danger { margin-left: 6px; }
-.iconBtn.danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+@media (hover: hover) { .iconBtn.danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); } }
 
 /* The identity block reserves the height of the NORMAL case — a name, two lines of AdF and one
    row of Auftrag/Leitung chips — whether or not it uses it. Without the reservation every card
@@ -153,13 +155,14 @@
   color: var(--green-strong); padding: 14px 10px; min-height: 50px;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 26%, transparent); }
 .kontaktBtn :global(.i) { width: 19px; height: 19px; }
-.kontaktBtn:hover { background: color-mix(in srgb, var(--green) 17%, var(--surface)); }
+@media (hover: hover) { .kontaktBtn:hover { background: color-mix(in srgb, var(--green) 17%, var(--surface)); } }
+.kontaktBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kontaktWarn { background: color-mix(in srgb, var(--amber) 15%, var(--surface)); color: var(--amber-strong);
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--amber) 42%, transparent); }
-.kontaktWarn:hover { background: color-mix(in srgb, var(--amber) 24%, var(--surface)); }
+@media (hover: hover) { .kontaktWarn:hover { background: color-mix(in srgb, var(--amber) 24%, var(--surface)); } }
 .kontaktCrit { background: color-mix(in srgb, var(--red) 15%, var(--surface)); color: var(--red);
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--red) 46%, transparent); }
-.kontaktCrit:hover { background: color-mix(in srgb, var(--red) 24%, var(--surface)); }
+@media (hover: hover) { .kontaktCrit:hover { background: color-mix(in srgb, var(--red) 24%, var(--surface)); } }
 
 /* flex:1 — the block that absorbs a stretched card's slack, so the action bar lands on the row's
    shared bottom edge instead of leaving a hole beneath it */
@@ -205,13 +208,15 @@
 .pBtn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-edge);
   background: var(--surface); border-radius: var(--r-sm); cursor: pointer; color: var(--ink-dim); }
 .pBtn :global(.i) { width: 16px; height: 16px; }
-.pBtn:hover { border-color: var(--blue); color: var(--blue); }
+@media (hover: hover) { .pBtn:hover { border-color: var(--blue); color: var(--blue); } }
+.pBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pVal { display: inline-flex; align-items: baseline; gap: 4px; justify-content: center;
   font: 800 19px/1 var(--mono); color: var(--ink); }
 .pVal span { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
 /* tap-to-type: the value as a button (reset native chrome) + the inline numeric input */
 button.pValBtn { border: none; background: transparent; cursor: pointer; padding: 2px 4px; border-radius: var(--r-sm); }
-button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
+@media (hover: hover) { button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); } }
+button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pInput { width: 44px; box-sizing: border-box; text-align: center; border: none; background: transparent; outline: none;
   font: 800 19px/1 var(--mono); color: var(--blue); padding: 0; }
 /* pending (unconfirmed) value — visually distinct from the saved reading */
@@ -231,11 +236,13 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .pConfirm { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
   background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); min-height: 44px; border-radius: var(--r-sm); }
 .pConfirm :global(.i) { width: 17px; height: 17px; }
-.pConfirm:hover { background: var(--green-solid-hover); }
+@media (hover: hover) { .pConfirm:hover { background: var(--green-solid-hover); } }
+.pConfirm:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pCancel { display: grid; place-items: center; border: 1px solid var(--glass-edge); background: var(--surface);
   color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; min-height: 44px; }
 .pCancel :global(.i) { width: 16px; height: 16px; }
-.pCancel:hover { color: var(--ink); border-color: var(--ink-faint); }
+@media (hover: hover) { .pCancel:hover { color: var(--ink); border-color: var(--ink-faint); } }
+.pCancel:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* expandable per-Trupp contact/pressure log (collapsed by default) */
 .log { border-top: 1px solid var(--glass-edge); margin-top: 2px; padding-top: 7px; }
@@ -264,24 +271,26 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
   background: var(--surface); font-family: var(--body); font-size: 14px; font-weight: 700; color: var(--ink);
   padding: 14px 10px; min-height: 48px; }
 .actBtn :global(.i) { width: 16px; height: 16px; }
+/* press wash for the whole lifecycle row — every variant below rides on .actBtn */
+.actBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .actEnter { color: var(--on-accent-ink); background: var(--green); }
-.actEnter:hover { background: var(--green-solid-hover); }
+@media (hover: hover) { .actEnter:hover { background: var(--green-solid-hover); } }
 .actRueckzug { color: var(--amber-strong); }
-.actRueckzug:hover { background: color-mix(in srgb, var(--amber) 10%, transparent); }
+@media (hover: hover) { .actRueckzug:hover { background: color-mix(in srgb, var(--amber) 10%, transparent); } }
 /* call off a Rückzug — back into the field (forward/positive) */
 .actContinue { color: var(--green-strong); }
-.actContinue:hover { background: color-mix(in srgb, var(--green) 9%, transparent); }
+@media (hover: hover) { .actContinue:hover { background: color-mix(in srgb, var(--green) 9%, transparent); } }
 /* end monitoring — neutral, not a reassuring green check (green = "in field, contact fresh") */
 .actExit { color: var(--ink-dim); }
-.actExit:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .actExit:hover { background: var(--fill-soft); color: var(--ink); } }
 /* «Nicht eingesetzt» sits beside the green «Eingerückt» and must not compete with it: entering
    the field is the action this card exists for, standing the Trupp down is the quiet one. Same
    weight as «Raus», which is the same kind of decision. */
 .actStandDown { color: var(--ink-dim); }
-.actStandDown:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .actStandDown:hover { background: var(--fill-soft); color: var(--ink); } }
 /* re-deploy an exited Trupp — prominent filled action on the otherwise-quiet raus card */
 .actReenter { color: var(--on-accent-ink); background: var(--green); }
-.actReenter:hover { background: var(--green-solid-hover); }
+@media (hover: hover) { .actReenter:hover { background: var(--green-solid-hover); } }
 .exitedNote { padding: 11px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-faint);
   border-top: 1px solid var(--glass-edge); background: var(--fill-soft); }
 
@@ -374,9 +383,10 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
   min-height: 0; overflow-y: auto; }
 .placeOpt { display: flex; align-items: center; gap: 12px; border: 2px solid var(--glass-edge); background: var(--surface);
   border-radius: var(--r-ctl); cursor: pointer; padding: 14px 16px; font: 700 15px var(--body); color: var(--ink); min-height: 56px; }
-.placeOpt:hover { border-color: var(--blue); color: var(--blue); }
+@media (hover: hover) { .placeOpt:hover { border-color: var(--blue); color: var(--blue); } }
+.placeOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .placeOpt :global(.i) { width: 20px; height: 20px; color: var(--ink-faint); flex: none; }
-.placeOpt:hover :global(.i) { color: var(--blue); }
+@media (hover: hover) { .placeOpt:hover :global(.i) { color: var(--blue); } }
 /* «oder einen Trupp übernehmen, der schon steht» — the second half of «Wohin platzieren?».
    A rule with a word on it, because the two halves answer the same question in different ways:
    above, a surface to put a new symbol on; below, a symbol that is already standing there. */
@@ -386,7 +396,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* the marker rows carry a second line (where it stands / whose it is), so they stack */
 .placeOptMarker { flex-direction: column; align-items: stretch; gap: 3px; text-align: left; }
 .placeOptWhere { font: 600 12.5px var(--body); color: var(--ink-dim); }
-.placeOpt:hover .placeOptWhere { color: inherit; }
+@media (hover: hover) { .placeOpt:hover .placeOptWhere { color: inherit; } }
 .placeOptCap { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px;
   vertical-align: baseline; }
 .placeEmpty { margin: 0; font: 600 13px var(--body); color: var(--ink-dim); }
@@ -406,7 +416,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .tagGo svg { width: 13px; height: 13px; opacity: .7; }
 /* NOT --accent on hover: that token is this deployment's brand red, so the whole chip lit up
    red — which reads as an error, not as "you can tap this". Blue is the app's interactive ink. */
-.tagGo:hover { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+@media (hover: hover) { .tagGo:hover { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); } }
 
 /* Leitung Nr.: stepper and the drawn Leitungen on ONE line, wrapping only when they must */
 .lineRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -415,7 +425,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .lineOptsLabel { font-size: 11.5px; font-weight: 700; color: var(--ink-faint); }
 .lineOpt { border: 1px solid var(--glass-edge); border-radius: 999px; padding: 5px 10px;
   background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
-.lineOpt:hover { border-color: var(--ink-dim); }
+@media (hover: hover) { .lineOpt:hover { border-color: var(--ink-dim); } }
 /* SELECTED — the app's selection blue, not the accent: the accent is this deployment's brand red,
    and a red chip reads as "blocked / not available", which is the opposite of what it means. */
 .lineOpt.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface));
@@ -445,7 +455,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .colorRow > * { flex: none; }
 .colorAuto { border: 1px solid var(--glass-edge); border-radius: 999px;
   padding: 6px 11px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
-.colorAuto:hover { border-color: var(--ink-dim); }
+@media (hover: hover) { .colorAuto:hover { border-color: var(--ink-dim); } }
 .colorAuto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
 .colorDot { position: relative; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--surface);
   box-shadow: 0 0 0 1px var(--glass-edge); cursor: pointer; padding: 0; }
@@ -461,7 +471,8 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* 44px touch pad behind the 26px visible target — gloved-finger sized without bloating the row */
 .slotRemove::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .slotRemove :global(.i) { width: 14px; height: 14px; }
-.slotRemove:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+@media (hover: hover) { .slotRemove:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); } }
+.slotRemove:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .field input { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 12px;
   background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); outline: none; }
 .field input:focus { border-color: var(--ink); }
@@ -509,11 +520,9 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
    angemeldet, grün aktiv, amber Rückzug, rot überfällig — so a blue ring around a blue card
    said «angemeldet» twice and «look here» not at all. It also blinks twice: two beats is a
    gesture, one long fade is just a border somebody might read as a fifth state. */
-@keyframes truppFlash {
-  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
-  11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
-}
-.cardFlash { animation: truppFlash 1.9s ease-out 1; }
+/* ui-flash-ring is the shared two-beat ink ring (02-base.css) — one definition, so the
+   surfaces that point with it cannot drift apart. */
+.cardFlash { animation: ui-flash-ring 1.9s ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
   .cardFlash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
 }
@@ -521,7 +530,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
    the form on the fold that holds it */
 .tagAuftragOpen { color: var(--ink-faint); background: none; cursor: pointer;
   border: 1px dashed var(--glass-edge); padding: 2px 9px; }
-.tagAuftragOpen:hover { color: var(--ink); border-color: var(--ink-faint); }
+@media (hover: hover) { .tagAuftragOpen:hover { color: var(--ink); border-color: var(--ink-faint); } }
 .tagZiel { font-size: 12.5px; font-weight: 600; color: var(--ink-dim); align-self: center;
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -529,13 +538,15 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .stepper { display: grid; grid-template-columns: 64px 1fr 64px; align-items: stretch; gap: 10px; }
 .stepBtn { display: grid; place-items: center; border: 2px solid var(--glass-edge); background: var(--surface);
   border-radius: var(--r-sm); cursor: pointer; color: var(--ink); min-height: 64px; }
-.stepBtn:hover { border-color: var(--blue); color: var(--blue); }
+@media (hover: hover) { .stepBtn:hover { border-color: var(--blue); color: var(--blue); } }
+.stepBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .stepBtn :global(.i) { width: 22px; height: 22px; }
 .stepVal { display: flex; flex-direction: column; align-items: center; justify-content: center;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--fill-soft, rgba(0, 0, 0, .03)); }
 /* the value is a tap-to-type button: reset native button chrome, keep the .stepVal box look */
 button.stepVal { width: 100%; font: inherit; color: inherit; cursor: pointer; padding: 0; }
-button.stepVal:hover { border-color: var(--blue); }
+@media (hover: hover) { button.stepVal:hover { border-color: var(--blue); } }
+button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .stepVal b { font: 800 28px/1 var(--mono); color: var(--ink); }
 .stepVal span { font-size: 11px; font-weight: 700; color: var(--ink-faint); margin-top: 3px; }
 /* inline numeric input shown when typing an exact value (matches the .stepVal b look) */
@@ -564,7 +575,7 @@ button.stepVal:hover { border-color: var(--blue); }
   border-radius: var(--r-sm); }
 /* centred transparent pad — 30px visible ✕, 44px touch target */
 .comboClear::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
-.comboClear:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .comboClear:hover { background: var(--fill-soft); color: var(--ink); } }
 .comboClear :global(.i) { width: 15px; height: 15px; }
 /* roster-first picker: a tap-to-open control styled like the input, no keyboard until the
    user picks "Name eingeben" */
@@ -572,7 +583,8 @@ button.stepVal:hover { border-color: var(--blue); }
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 40px 11px 12px;
   background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); cursor: pointer;
   min-height: var(--tap); }
-.comboPick:hover { border-color: var(--ink-faint); }
+@media (hover: hover) { .comboPick:hover { border-color: var(--ink-faint); } }
+.comboPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .comboPickName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comboPickEmpty .comboPickName { color: var(--ink-faint); }
 .comboChev { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
@@ -595,7 +607,8 @@ button.stepVal:hover { border-color: var(--blue); }
   border: none; background: none; border-radius: var(--r-xs); padding: 9px 10px; min-height: var(--tap);
   font: 600 14px var(--body); color: var(--ink);
 }
-.comboOpt:hover { background: var(--fill-soft); }
+@media (hover: hover) { .comboOpt:hover { background: var(--fill-soft); } }
+.comboOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .comboDot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .comboDotPresent { background: var(--green); }
 .comboDotOff { background: var(--ink-faint); opacity: .4; }
@@ -623,7 +636,7 @@ button.stepVal:hover { border-color: var(--blue); }
   font-family: var(--body); font-size: 14px; color: var(--ink); padding: 6px 0; }
 .comboSearchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
   background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
-.comboSearchClear:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .comboSearchClear:hover { background: var(--fill-soft); color: var(--ink); } }
 .comboSearchClear :global(.i) { width: 14px; height: 14px; }
 
 /* "nur Offiziere" toggle pinned above the roster list */
@@ -674,7 +687,8 @@ button.stepVal:hover { border-color: var(--blue); }
      text with the selection callout — which eats the gesture and leaves a highlighted name */
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .teamPick:disabled { cursor: default; }
-.teamPick:hover:not(:disabled) { background: var(--fill-soft); border-radius: var(--r-ctl); }
+@media (hover: hover) { .teamPick:hover:not(:disabled) { background: var(--fill-soft); border-radius: var(--r-ctl); } }
+.teamPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); border-radius: var(--r-ctl); }
 /* the role, spelled out on the left — «GF» or «AdF». It replaced a star: a symbol that has to
    be learnt, on a row whose whole job is to say who leads. */
 .teamRole { flex: none; width: 30px; font: 800 10.5px var(--body); letter-spacing: .03em;
@@ -691,7 +705,7 @@ button.stepVal:hover { border-color: var(--blue); }
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
 /* «hier, nicht dort» — a tap on an empty slot lands the caret in here and blinks the field once,
    because the slot above looks like something you can type into and is not. Two beats and gone:
-   the same gesture as the card flash (truppFlash), and INK rather than a status colour or
+   the same gesture as the card flash (ui-flash-ring), and INK rather than a status colour or
    --accent — the brand red means «Alarm» everywhere else on this surface.
    ⚠️ The LIST blinks with it. The search field alone answered «where do I type», which is not
    the question somebody tapping an empty slot is asking — they are looking for a name, and the
@@ -710,7 +724,7 @@ button.stepVal:hover { border-color: var(--blue); }
   font-family: var(--body); font-size: 15px; color: var(--ink); padding: 0; }
 .teamSearchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
   background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
-.teamSearchClear:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .teamSearchClear:hover { background: var(--fill-soft); color: var(--ink); } }
 .teamSearchClear :global(.i) { width: 14px; height: 14px; }
 
 /* Bounded, so the Auftrag column beside it stays reachable without scrolling the whole modal.
@@ -726,7 +740,7 @@ button.stepVal:hover { border-color: var(--blue); }
    standing at the Magazin usually cannot go under PA at all. It gets the ink of the Ort chip in
    Anwesenheit, so the two surfaces say the same thing the same way. */
 .teamAtStation { color: var(--blue-strong); font-weight: 700; }
-.teamOptTaken:hover { background: none; }
+@media (hover: hover) { .teamOptTaken:hover { background: none; } }
 
 .teamTypeRow { display: flex; align-items: center; gap: 8px; }
 .teamTypeInput { flex: 1 1 auto; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
@@ -737,7 +751,7 @@ button.stepVal:hover { border-color: var(--blue); }
 .teamTypeAdd { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
   color: var(--ink); cursor: pointer; }
-.teamTypeAdd:hover:not(:disabled) { border-color: var(--ink-faint); }
+@media (hover: hover) { .teamTypeAdd:hover:not(:disabled) { border-color: var(--ink-faint); } }
 .teamTypeAdd:disabled { opacity: var(--disabled); cursor: default; }
 .teamTypeAdd :global(.i) { width: 17px; height: 17px; }
 

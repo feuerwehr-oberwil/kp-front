@@ -99,7 +99,9 @@
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font: 700 12.5px var(--body); color: var(--ink-dim); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
 .useg-btn .i { width: 15px; height: 15px; }
-.useg-btn:hover:not(.on):not(:disabled) { color: var(--ink); }
+@media (hover: hover) {
+  .useg-btn:hover:not(.on):not(:disabled) { color: var(--ink); }
+}
 .useg-btn.on { background: var(--blue); color: var(--on-fill); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
 .useg-btn:disabled { opacity: var(--disabled); cursor: default; }
 /* ⚠️ FIVE OR MORE OPTIONS STOP BEING A TRACK. A segmented control is a track with a pill sliding
@@ -116,7 +118,9 @@
    filter beside the Anwesenheit search sat lower than the search field it belongs to. The chip
    IS the control here, so it carries the whole tap target. */
 .useg:has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); min-height: var(--tap); }
-.useg:has(> :nth-child(5)) > .useg-btn:hover:not(.on):not(:disabled) { border-color: var(--ink-faint); }
+@media (hover: hover) {
+  .useg:has(> :nth-child(5)) > .useg-btn:hover:not(.on):not(:disabled) { border-color: var(--ink-faint); }
+}
 /* ⚠️ The chip rule above sets `background: var(--surface)` at a HIGHER specificity than
    `.useg-btn.on`, so the active chip lost the blue fill but KEPT `color: var(--on-fill)` — white
    text on a white chip. The selected Auftrag («Retten», six options, therefore chips) was a blank
@@ -128,6 +132,9 @@
   border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue);
   background: color-mix(in srgb, var(--blue) 12%, var(--surface)); color: var(--blue);
 }
+/* press wash BELOW the chip rules: their `background:` shorthand resets background-image at the
+   same specificity, so source order is what keeps the wash alive on a chip */
+.useg-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* the glyph-affecting steppers (Geschoss / Anzahl / Drehung) sit in one group;
    the section header below — not a hairline — separates them from the details */
@@ -154,7 +161,10 @@
 .ctx-section > .ctx-note-colors > * { flex: none; }
 .ctx-team-auto { border: 1px solid var(--glass-edge); border-radius: 999px;
   padding: 6px 11px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
-.ctx-team-auto:hover { border-color: var(--ink-dim); }
+@media (hover: hover) {
+  .ctx-team-auto:hover { border-color: var(--ink-dim); }
+}
+.ctx-team-auto:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ctx-team-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
 /* "default note ink" swatch — shows the actual sticky-note colours rather than a generic
    neutral, so it reads as "back to a normal note" instead of "no colour" */
@@ -197,7 +207,10 @@
 .combo-pick { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 6px; text-align: left;
   border: 1px solid var(--border); border-radius: var(--r-sm); padding: 7px 30px 7px 10px; background: var(--fill-soft);
   font: 600 13px var(--body); color: var(--ink); cursor: pointer; min-height: var(--tap); }
-.combo-pick:hover { border-color: var(--ink-faint); }
+@media (hover: hover) {
+  .combo-pick:hover { border-color: var(--ink-faint); }
+}
+.combo-pick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-pick.empty .combo-pick-name { color: var(--ink-faint); }
 .combo-pick-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combo-chev { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; color: var(--ink-faint); pointer-events: none; }
@@ -205,7 +218,10 @@
 /* ≥44px hit area (icon stays small visually) — a fat-fingered clear beats an unreachable one */
 .combo-clear { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
   width: 44px; height: 44px; border: none; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
-.combo-clear:hover { background: var(--surface); color: var(--ink); }
+@media (hover: hover) {
+  .combo-clear:hover { background: var(--surface); color: var(--ink); }
+}
+.combo-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-clear .i { width: 13px; height: 13px; }
 .combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--blue); border-radius: var(--r-sm); padding: 7px 10px;
   font: 600 13px var(--body); color: var(--ink); background: var(--surface); outline: none; }
@@ -222,7 +238,10 @@
 /* Dienstgrad chip in a roster option — mirrors the Atemschutz PersonField badge */
 .combo-rank { flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--ink-dim);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 5px; padding: 2px 5px; }
-.combo-opt:hover { background: var(--fill-soft); }
+@media (hover: hover) {
+  .combo-opt:hover { background: var(--fill-soft); }
+}
+.combo-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-opt.on { background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue); }
 .combo-opt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* What is already known about this person, ON the entry. ⚠️ It was a toast that fired three
@@ -243,7 +262,10 @@
   font-family: var(--body); font-size: 14px; color: var(--ink); padding: 6px 0; }
 .combo-search-clear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
   background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
-.combo-search-clear:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) {
+  .combo-search-clear:hover { background: var(--fill-soft); color: var(--ink); }
+}
+.combo-search-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-search-clear .i { width: 14px; height: 14px; }
 
 /* the contradiction a filled roster field carries — under the field, and it stays.
@@ -282,11 +304,16 @@
 .un-haz-none { margin: 2px 0 2px; font-size: 12px; color: var(--ink-faint); }
 .un-haz-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12px;
   font-weight: 600; color: var(--blue, #1f6feb); text-decoration: none; }
-.un-haz-link:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .un-haz-link:hover { text-decoration: underline; }
+}
 .un-haz-link svg { width: 14px; height: 14px; flex: none; }
 .kv-x { flex: none; width: 32px; height: 32px; border-radius: var(--r-sm); border: none; cursor: pointer; display: grid; place-items: center;
   background: var(--fill-soft); color: var(--ink-faint); }
-.kv-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+@media (hover: hover) {
+  .kv-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+}
+.kv-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-x .i { width: 13px; height: 13px; }
 /* «Führung übergeben» — the ⇄ BETWEEN the Einsatzleiter glyph's two rows, aligned under the
    value column so it reads as belonging to the pair rather than to either row. Quiet at rest
@@ -299,13 +326,19 @@
   border: 1px solid transparent; border-radius: var(--r-sm); background: none;
   color: var(--ink-faint); font: 600 12px var(--body); cursor: pointer;
   transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
-.kv-swap:hover { background: color-mix(in srgb, var(--blue) 7%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 30%, transparent); color: var(--blue); }
+@media (hover: hover) {
+  .kv-swap:hover { background: color-mix(in srgb, var(--blue) 7%, transparent);
+    border-color: color-mix(in srgb, var(--blue) 30%, transparent); color: var(--blue); }
+}
+.kv-swap:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-swap .i { width: 15px; height: 15px; }
 .kv-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; border: 1px dashed var(--glass-edge);
   background: none; color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; font-size: 12.5px; font-weight: 600;
   font-family: var(--body); cursor: pointer; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
-.kv-add:hover { background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); color: var(--blue); }
+@media (hover: hover) {
+  .kv-add:hover { background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); color: var(--blue); }
+}
+.kv-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-add .i { width: 14px; height: 14px; }
 /* FKS Entwicklung (spread) controls — a label + a row of small toggle buttons */
 .spread-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 7px 0; }
@@ -325,7 +358,10 @@
 .spread-btn { min-width: 44px; height: 44px; padding: 0 8px; border-radius: var(--r-sm); border: 1px solid var(--border);
   background: var(--surface-2); color: var(--ink); font-family: var(--mono); font-size: 12.5px; font-weight: 700;
   cursor: pointer; display: grid; place-items: center; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
-.spread-btn:hover:not(:disabled):not(.on) { background: var(--surface); border-color: var(--border); }
+@media (hover: hover) {
+  .spread-btn:hover:not(:disabled):not(.on) { background: var(--surface); border-color: var(--border); }
+}
+.spread-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .spread-btn.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
 .spread-btn:disabled { opacity: var(--disabled); cursor: default; }
 
@@ -356,14 +392,20 @@
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 700;
   padding: 11px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
   cursor: pointer; color: var(--ink); white-space: nowrap; }
-.btn:hover { background: var(--surface); border-color: var(--border); }
+@media (hover: hover) {
+  .btn:hover { background: var(--surface); border-color: var(--border); }
+}
 .btn .i { width: 14px; height: 14px; }
 .btn.warn { color: var(--red); }
-.btn.warn:hover { background: color-mix(in srgb, var(--red) 8%, transparent); border-color: color-mix(in srgb, var(--red) 32%, transparent); }
+@media (hover: hover) {
+  .btn.warn:hover { background: color-mix(in srgb, var(--red) 8%, transparent); border-color: color-mix(in srgb, var(--red) 32%, transparent); }
+}
 /* «Zum Original» on a Georeferenz twin's panel — the link tone (--blue), like every other part
    of «Karte verknüpfen», and never --accent: the station's alarm red is not a hyperlink. */
 .btn.link { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 34%, transparent); }
-.btn.link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 52%, transparent); }
+@media (hover: hover) {
+  .btn.link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 52%, transparent); }
+}
 
 /* overflow-x hidden: with overflow-y:auto the x-axis otherwise computes to `auto` and the
    Verlauf scrolls sideways on a tablet — rows must line-wrap, never scroll horizontally */
@@ -400,8 +442,11 @@
    examined when it had not been written yet. Still tappable, and tapping one seeks FORWARD to it,
    which is the fastest way to «und dann?». */
 .hist-ev.jr-future { opacity: .4; }
-.hist-ev.jr-future.clickable:hover { opacity: .75; }
-.hist-ev.clickable:hover { background: var(--hover); }
+@media (hover: hover) {
+  .hist-ev.jr-future.clickable:hover { opacity: .75; }
+  .hist-ev.clickable:hover { background: var(--hover); }
+}
+.hist-ev.clickable:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* ── the trailing group: footnotes, the Meldung anchor, the row's controls, the chevron ──
    Everything that is not the sentence, on one line at the right margin, in the order it is read:
    what the record says ABOUT the row, then what you can do with it. It is the fourth grid track,
@@ -410,7 +455,9 @@
 /* persistent affordance so touch users can tell a row navigates without hovering */
 .hist-go { color: var(--ink-faint); display: grid; place-items: center; flex: none; opacity: .55; transition: transform .14s var(--ease), opacity .14s var(--ease); }
 .hist-go .i { width: 15px; height: 15px; }
-.hist-ev.clickable:hover .hist-go { opacity: 1; transform: translateX(2px); }
+@media (hover: hover) {
+  .hist-ev.clickable:hover .hist-go { opacity: 1; transform: translateX(2px); }
+}
 .hist-ev .t { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); width: 38px; }
 /* timeline node + connector */
 .hist-ev .ic { position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2);
@@ -455,9 +502,14 @@
 /* ⚠️ No fill on hover. `--hover` is a neutral wash meant for white rows; over the block's amber
    (and over a dringend row's red) it came out as a pale grey tile floating behind the ring. The
    ring itself answers instead — it greens and ghosts its check in, the same thing the Verlauf's
-   own ring does, which is also what a tap here is about to do. */
-.jr-pinned-row .jr-rem:hover:not(:disabled) { color: var(--green); }
-.jr-pinned-row .jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
+   own ring does, which is also what a tap here is about to do. Hover is the POINTER's preview;
+   on a finger, :active below gives the same answer for as long as the press. */
+@media (hover: hover) {
+  .jr-pinned-row .jr-rem:hover:not(:disabled) { color: var(--green); }
+  .jr-pinned-row .jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
+}
+.jr-pinned-row .jr-rem:active:not(:disabled) { color: var(--green); }
+.jr-pinned-row .jr-rem:active:not(:disabled) .jr-rem-box .i { opacity: 1; }
 .jr-pinned-row .jr-rem-box { width: 21px; height: 21px; }
 .jr-pinned-row .jr-rem-box .i { width: 14px; }
 /* …and the Verlauf row keeps only the FACT, unstyled as a control: a timed Erinnerung's
@@ -467,8 +519,13 @@
    surface means «steht noch offen», and überfällig is a step past that, not another word for it.
    Two states painted the same colour is a colour that says nothing. */
 .jr-remstate.overdue { color: var(--red-strong); }
-.jr-rem:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge)); }
-.jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
+@media (hover: hover) {
+  .jr-rem:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge)); }
+  .jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
+}
+/* press = the hover preview said fully: the ring greens and its check comes in for the press */
+.jr-rem:active:not(:disabled) { color: var(--green); border-color: var(--green); }
+.jr-rem:active:not(:disabled) .jr-rem-box .i { opacity: 1; }
 .jr-rem:disabled { cursor: default; }
 .jr-rem-box { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; flex: none; }
 .jr-rem-box .i { width: 13px; height: 13px; opacity: 0; }
@@ -612,7 +669,9 @@
 .jr-when { flex: none; width: 38px; padding: 6px 0 0; border: 0; background: none; cursor: pointer;
   text-align: left; white-space: nowrap; font: 400 12.5px var(--mono); color: var(--ink-faint);
   font-variant-numeric: tabular-nums; }
-.jr-when:hover { color: var(--ink); }
+@media (hover: hover) {
+  .jr-when:hover { color: var(--ink); }
+}
 /* «meldet sich selbst» — the only mark a timed Erinnerung needs in this list. At the right end,
    where nothing competes with it: the ring moved into the icon slot at the front. */
 /* the Fälligkeit, as a clock AND the time it stands for — see Journal.tsx. `align-self` rather
@@ -642,7 +701,10 @@
 .ctx-mittel-add { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
   color: var(--ink); cursor: pointer; }
-.ctx-mittel-add:hover { background: var(--hover-strong); }
+@media (hover: hover) {
+  .ctx-mittel-add:hover { background: var(--hover-strong); }
+}
+.ctx-mittel-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ctx-mittel-add .i { width: 18px; height: 18px; }
 /* what is already on the sheet for this material FROM THIS SOURCE. Zero is shown too — it is the
    starting state, and a counter that appears only after the first tap makes the first tap look

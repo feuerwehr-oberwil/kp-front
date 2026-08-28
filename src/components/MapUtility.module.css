@@ -4,8 +4,8 @@
   border-radius: var(--r-cluster); padding: 5px 6px; box-shadow: var(--shadow); white-space: nowrap; }
 .tu-btn { width: 42px; height: 42px; border: none; background: transparent; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink); cursor: pointer; transition: background .14s var(--ease), transform .12s var(--ease); }
-.tu-btn:hover { background: var(--hover-strong); }
-.tu-btn:active { transform: scale(.94); }
+@media (hover: hover) { .tu-btn:hover { background: var(--hover-strong); } }
+.tu-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tu-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .tu-btn :global(.i) { width: 19px; height: 19px; }
 .tu-divider { width: 1px; height: 22px; background: var(--glass-edge); margin: 0 3px; flex: none; }

@@ -72,9 +72,14 @@
   /* the whole name cell opens that person's own times, exactly as on the Zeitplan */
   border: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.who:hover::before { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+@media (hover: hover) { .who:hover::before { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); } }
+/* the press wash lands on ::before — the visible card layer, like the hover above */
+.who:active:not(:disabled)::before { background-image: linear-gradient(var(--press), var(--press)); }
 .whoHead { cursor: default; }
-.whoHead:hover::before { background: var(--board); }
+@media (hover: hover) { .whoHead:hover::before { background: var(--board); } }
+/* the head is a read-out, not a control — no press feedback either (matches the .who rule's
+   specificity so it actually wins it back) */
+.whoHead:active:not(:disabled)::before { background-image: none; }
 /* rank + name are ONE line, always — they identify the same person */
 .whoMain { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; }
 .who::before {
@@ -136,7 +141,8 @@
   cursor: pointer; -webkit-tap-highlight-color: transparent; text-align: center;
 }
 .band:disabled { cursor: default; }
-.band:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+@media (hover: hover) { .band:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); } }
+.band:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .band b { font: 800 12px var(--body); color: var(--ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .band i { font: 600 10px var(--mono); font-style: normal; color: var(--ink-faint); }
 /* verfügbar / eingeteilt — the two numbers the Deckung curve exists for once time is continuous.
@@ -163,7 +169,8 @@
   transition: background .12s var(--ease);
 }
 .addBand svg { width: 17px; height: 17px; color: var(--blue); position: relative; }
-.addBand:hover::before { background: color-mix(in srgb, var(--blue) 24%, transparent); }
+@media (hover: hover) { .addBand:hover::before { background: color-mix(in srgb, var(--blue) 24%, transparent); } }
+.addBand:active:not(:disabled)::before { background-image: linear-gradient(var(--press), var(--press)); }
 .addBand:focus-visible::before { box-shadow: 0 0 0 2px var(--blue); }
 /* under the ＋, in every person's row: the rows must all end at the same x or the right edge of
    the grid becomes a staircase */
@@ -189,7 +196,10 @@
    above every state rule here (`.cell:hover` outranks `.cellConfirmed`), so hovering a filled blue
    cell turned it pale grey while its text stayed white — the one word on it became unreadable at
    exactly the moment you were pointing at it. Each state now dims its own fill. */
-.cell:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+@media (hover: hover) { .cell:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); } }
+/* the press wash rides every cell state (.cellAvailable/.cellConfirmed set background, not
+   background-image); .cellDeviating re-states it below so the hatch survives the press */
+.cell:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* verfügbar — dashed, like the availability band on the Zeitplan lane: offered, nothing committed */
 .cellAvailable {
@@ -202,8 +212,10 @@
   background: var(--st-planned); border: 1px solid var(--st-planned); color: var(--on-fill);
 }
 /* …and their own hover, stated AFTER the base hover so they win it back */
-.cellAvailable:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 12%, var(--surface)); }
-.cellConfirmed:not(:disabled):hover { background: color-mix(in srgb, #000 14%, var(--st-planned)); }
+@media (hover: hover) {
+  .cellAvailable:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 12%, var(--surface)); }
+  .cellConfirmed:not(:disabled):hover { background: color-mix(in srgb, #000 14%, var(--st-planned)); }
+}
 /* abweichend — in the band, not keeping to it. Hatched in its OWN state's colour and carrying the
    real hours: the person said something specific about themselves and the grid repeats it rather
    than normalising it away. Tapping such a cell never empties it (see useBandActions.cycleCell) —
@@ -215,6 +227,12 @@
   font: 700 10px var(--mono);
 }
 .cellAvailable.cellDeviating { border-style: dashed; }
+/* pressed: the wash stacks OVER the hatch instead of replacing it (.cell:active above would) */
+.cellDeviating:active:not(:disabled) {
+  background-image: linear-gradient(var(--press), var(--press)),
+    repeating-linear-gradient(45deg,
+      color-mix(in srgb, currentColor 30%, transparent) 0 5px, transparent 5px 10px);
+}
 /* red is reserved for a genuine double booking — two CONFIRMED shifts of the same person at the
    same time (conflictingShiftIds). Reported, never refused: at 3am that is a hint to look, not a
    reason to block the plan. An outline, not a fill, so the cell still says which state it is in. */

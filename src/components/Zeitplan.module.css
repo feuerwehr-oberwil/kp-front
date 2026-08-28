@@ -104,7 +104,11 @@
   background: var(--surface);
 }
 
-.who:hover::before { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+@media (hover: hover) { .who:hover::before { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); } }
+/* the press wash lands on ::before — the visible card layer, like the hover above. The head
+   spacer is chrome, not a control, so it wins the wash back off again below. */
+.who:active:not(:disabled)::before { background-image: linear-gradient(var(--press), var(--press)); }
+.whoHead:active:not(:disabled)::before { background-image: none; }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rank {
   flex: none; padding: 1px 5px; border-radius: var(--r-xs);
@@ -188,7 +192,7 @@
 .headRow .track, .coverageRow .track { touch-action: auto; }
 /* neutral, and identical to the name half's hover: blue is «geplant» here, and a hover that
    borrowed a state colour said the lane was already planned. */
-.laneEditable:hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+@media (hover: hover) { .laneEditable:hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); } }
 .rowPlanned .lane { border-color: color-mix(in srgb, var(--st-planned) 45%, var(--edge)); }
 
 /* bars sit ON the lane and are dragged directly, so they take nearly its full height — a gloved
@@ -251,8 +255,10 @@
   background: color-mix(in srgb, var(--ink) 45%, transparent);
   opacity: 0; transition: opacity .12s var(--ease);
 }
-.plannedBar:hover .handle::after { opacity: 1; }
-.handle:hover::after { opacity: 1; background: var(--ink); }
+@media (hover: hover) {
+  .plannedBar:hover .handle::after { opacity: 1; }
+  .handle:hover::after { opacity: 1; background: var(--ink); }
+}
 /* ⚠️ …and on the iPad, which is the primary field device, there IS no hover and no resize
    cursor — so «it fades in on hover, where it can still teach» taught nobody: the ends were
    invisible at rest and stayed that way. Where there is no hover, the grips are simply on. */
@@ -310,6 +316,7 @@
   border: none; background: none; padding: 0; cursor: pointer; z-index: 3;
   display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
 }
+.brokenBar:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .brokenBar svg { width: 15px; height: 15px; color: var(--red); }
 
 /* An end that runs on past the window frays. A clean vertical edge exactly on the border read as
@@ -392,7 +399,8 @@
   font-size: 12.5px; color: var(--ink-faint);
 }
 .covHead svg { width: 14px; height: 14px; margin-left: auto; flex: none; }
-.whoFoot:hover .covHead, .whoFoot:focus-visible .covHead { color: var(--ink); }
+@media (hover: hover) { .whoFoot:hover .covHead { color: var(--ink); } }
+.whoFoot:focus-visible .covHead { color: var(--ink); }
 /* the key, in the track and pinned to the right edge of the name column: it is the ONE piece of
    this surface that must never scroll out of reach, because without it the three colours mean
    nothing. `align-self: flex-start` keeps the sticky box to its own width instead of the whole
@@ -468,7 +476,8 @@
   -webkit-tap-highlight-color: transparent; border-radius: var(--r-sm);
 }
 .del svg { width: 15px; height: 15px; }
-.del:hover { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
+@media (hover: hover) { .del:hover { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); } }
+.del:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ---- foot ---------------------------------------------------------------------------- */
 
@@ -497,7 +506,8 @@
 .editBtn svg { width: 14px; height: 14px; }
 /* neutral: blue means «geplant» on this grid, and a pencil that turned blue on hover read as a
    state change rather than as a way in */
-.editBtn:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); }
+@media (hover: hover) { .editBtn:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); } }
+.editBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* The other end of the same argument as the phone override below: 210px was picked as the width a
    TABLET can spare, and a desk screen is not a tablet. Once the rank badge, the pencil and the

@@ -18,7 +18,10 @@
 .help-head-tt p { margin: 0; font-size: 12.5px; color: var(--ink-dim); line-height: 1.45; }
 .help-x { margin-left: auto; flex: none; width: 34px; height: 34px; border-radius: var(--r-sm); border: none; cursor: pointer;
   background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center; transition: background .14s var(--ease), color .14s var(--ease); }
-.help-x:hover { background: var(--hover-strong); color: var(--ink); }
+@media (hover: hover) {
+  .help-x:hover { background: var(--hover-strong); color: var(--ink); }
+}
+.help-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .help-x .i { width: 16px; height: 16px; }
 /* one search row spanning the full width under the header — it filters BOTH columns, so it
    belongs to neither of them (and the TOC it would otherwise sit in is gone on a phone) */
@@ -32,7 +35,10 @@
 .help-search input::-webkit-search-cancel-button { display: none; }
 .help-search-x { flex: none; width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer;
   border: none; border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); }
-.help-search-x:hover { background: var(--hover-strong); color: var(--ink); }
+@media (hover: hover) {
+  .help-search-x:hover { background: var(--hover-strong); color: var(--ink); }
+}
+.help-search-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .help-search-x .i { width: 14px; height: 14px; }
 .help-empty { padding: 26px 0 0; }
 .help-empty .help-sub { margin-top: 0; }
@@ -44,11 +50,16 @@
 .help-toc-i { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer;
   padding: 8px 10px; border-radius: var(--r-ctl); font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-dim); transition: background .14s var(--ease), color .14s var(--ease); }
 .help-toc-i .i { width: 16px; height: 16px; flex: none; opacity: .85; }
-.help-toc-i:hover { background: var(--hover); color: var(--ink); }
+@media (hover: hover) {
+  .help-toc-i:hover { background: var(--hover); color: var(--ink); }
+}
+.help-toc-i:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .help-toc-i.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .help-toc-i.on .i { opacity: 1; }
 
 .help-content { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 8px 30px 40px; scroll-behavior: smooth; }
+/* reduced motion: jump instead of glide (the smooth scroll is the only motion this pane owns) */
+@media (prefers-reduced-motion: reduce) { .help-content { scroll-behavior: auto; } }
 .help-sec { padding-top: 26px; scroll-margin-top: 12px; }
 .help-sec > h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 16px; font-weight: 800; color: var(--ink); }
 .help-sec > h3 .i { width: 19px; height: 19px; color: var(--blue); }

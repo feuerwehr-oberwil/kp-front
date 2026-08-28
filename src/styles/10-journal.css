@@ -18,9 +18,14 @@
   font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
 .tb-act .i { width: 15px; height: 15px; }
 .tb-act.icon { padding: 7px 9px; min-width: 42px; background: transparent; }
-.tb-act:hover { color: var(--ink); background: var(--fill-soft); }
+@media (hover: hover) {
+  .tb-act:hover { color: var(--ink); background: var(--fill-soft); }
+}
+.tb-act:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tb-act:disabled { opacity: var(--disabled); cursor: default; }
-.tb-act:disabled:hover { background: transparent; color: var(--ink-dim); }
+@media (hover: hover) {
+  .tb-act:disabled:hover { background: transparent; color: var(--ink-dim); }
+}
 .tb-act.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .tb-vr { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
 /* Atemschutz alarm chip — conditional (only rendered while a Trupp is fällig/überfällig).
@@ -57,9 +62,14 @@
   .topbar:has(.tb-az) .tb-act:not(.tb-act-add) { padding: 8px; }
 }
 .tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
-.tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+@media (hover: hover) {
+  .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+}
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
-.tb-az.crit:hover { background: color-mix(in srgb, var(--red) 26%, transparent); }
+@media (hover: hover) {
+  .tb-az.crit:hover { background: color-mix(in srgb, var(--red) 26%, transparent); }
+}
+.tb-az:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* GPS feed chip — only appears when the live feed goes silent. The Fahrzeuge stay put on the
    map (disappearing reads as «it has driven off», not as «the feed is gone»), so the freeze
@@ -83,7 +93,10 @@
   background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber-strong); }
 .tb-mode .i { width: 14px; height: 14px; flex: none; }
 button.tb-mode { cursor: pointer; }
-button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transparent); }
+@media (hover: hover) {
+  button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transparent); }
+}
+button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   /* the phone bar has room for the glyph, not the word — the state stays visible, the sentence
      is one tap away in the chip's own menu */
@@ -94,7 +107,10 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 .tb-wind { display: inline-flex; align-items: center; gap: 4px; border: none; cursor: pointer; background: transparent;
   color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 6px; min-height: 42px; font-family: inherit;
   font-variant-numeric: tabular-nums; transition: background .14s var(--ease), color .14s var(--ease); }
-.tb-wind:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
+@media (hover: hover) {
+  .tb-wind:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
+}
+.tb-wind:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tb-wind:disabled { cursor: default; }
 .tb-wind b { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .tb-wind-arr { width: 16px; height: 16px; display: grid; place-items: center; flex: none; }
@@ -103,7 +119,10 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 .tb-weather { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; background: transparent;
   color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 9px; min-height: 42px; font-family: inherit;
   font-variant-numeric: tabular-nums; white-space: nowrap; transition: background .14s var(--ease), color .14s var(--ease); }
-.tb-weather:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
+@media (hover: hover) {
+  .tb-weather:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
+}
+.tb-weather:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tb-weather:disabled { cursor: default; }
 .tb-weather b { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .tb-weather-cond { display: grid; place-items: center; flex: none; color: var(--ink); }
@@ -136,14 +155,19 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 .wx-pop-link { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin-top: 14px;
   padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--fill-soft);
   color: var(--blue); font: 700 12.5px var(--body); cursor: pointer; }
-.wx-pop-link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+@media (hover: hover) {
+  .wx-pop-link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+}
+.wx-pop-link:active { background-image: linear-gradient(var(--press), var(--press)); }
 .wx-pop-link svg { width: 16px; height: 16px; }
 .tb-act-add { position: relative; background: var(--blue); color: var(--on-fill); touch-action: none; user-select: none; min-width: 96px; }
 /* ⚠️ NOT `--blue-strong` on hover: that token flips LIGHTER in night mode (it is the tint-text
    role), so a hover on the filled button washed it out to pale blue with barely-there ink —
    the one button in the bar that has to look pressable. A hover deepens the fill in both
    themes, and the ink stays the fill's own contrast colour. */
-.tb-act-add:hover { background: color-mix(in srgb, var(--blue) 88%, var(--ink)); color: var(--on-fill); }
+@media (hover: hover) {
+  .tb-act-add:hover { background: color-mix(in srgb, var(--blue) 88%, var(--ink)); color: var(--on-fill); }
+}
 /* ⚠️ Names the LABEL, not every span. It used to read `.tb-act-add span`, which at (0,1,1)
    also out-specified the charging cue's own `.tb-hold { position: absolute }` (0,1,0) — so on
    every press the cue stopped being absolute, became an in-flow flex item, and animated its
@@ -264,13 +288,19 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
   background: var(--amber); color: var(--on-fill); font-family: var(--body); font-weight: 700; font-size: 12px; }
 /* full-height transparent pad — visually compact chip, finger-sized target */
 .journal-replay::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
-.journal-replay:hover { filter: brightness(.96); }
+@media (hover: hover) {
+  .journal-replay:hover { filter: brightness(.96); }
+}
+.journal-replay:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-replay .i { width: 13px; height: 13px; }
 /* with the replay button taking the auto margin, the × just trails it */
 .journal-replay + .journal-x { margin-left: 0; }
 .journal-x { margin-left: auto; width: 28px; height: 28px; border-radius: var(--r-sm); border: none; cursor: pointer;
   background: var(--surface-2); color: var(--ink-dim); display: grid; place-items: center; }
-.journal-x:hover { background: var(--hover-strong); color: var(--ink); }
+@media (hover: hover) {
+  .journal-x:hover { background: var(--hover-strong); color: var(--ink); }
+}
+.journal-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-x .i { width: 14px; height: 14px; }
 
 /* ── the icon legend ──
@@ -284,7 +314,10 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
   display: grid; place-items: center; }
 /* finger-sized target under a 28px chip, the same trick .journal-replay uses */
 .journal-legend-btn::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
-.journal-legend-btn:hover { background: var(--hover-strong); color: var(--ink-dim); }
+@media (hover: hover) {
+  .journal-legend-btn:hover { background: var(--hover-strong); color: var(--ink-dim); }
+}
+.journal-legend-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-legend-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .journal-legend-btn .i { width: 15px; height: 15px; }
 .jr-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px;
@@ -374,10 +407,19 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 .jr-ic-tick .jr-ring::before { content: ""; position: absolute; inset: -11px -5px; border-radius: var(--r-sm); }
 /* ⚠️ No fill on hover — `--hover` is a neutral wash and the row already takes it. The RING
    answers: it greens and ghosts its check in, which is what the tap is about to make true, and
-   which is exactly what `.jr-pinned-row .jr-rem` does in the block. */
+   which is exactly what `.jr-pinned-row .jr-rem` does in the block. Hover is the POINTER's
+   preview (gated below); on a finger, :active gives the same answer for as long as the press. */
 .jr-ic-tick .jr-ring .i { width: 12px; height: 12px; opacity: 0; transition: opacity .12s var(--ease); }
-.jr-ic-tick:hover .jr-ring, .jr-ic-tick:focus-visible .jr-ring { color: var(--green); border-color: var(--green); }
-.jr-ic-tick:hover .jr-ring .i, .jr-ic-tick:focus-visible .jr-ring .i { opacity: var(--disabled); }
+.jr-ic-tick:focus-visible .jr-ring { color: var(--green); border-color: var(--green); }
+@media (hover: hover) {
+  .jr-ic-tick:hover .jr-ring { color: var(--green); border-color: var(--green); }
+}
+.jr-ic-tick:focus-visible .jr-ring .i { opacity: var(--disabled); }
+@media (hover: hover) {
+  .jr-ic-tick:hover .jr-ring .i { opacity: var(--disabled); }
+}
+.jr-ic-tick:active .jr-ring { color: var(--green); border-color: var(--green); }
+.jr-ic-tick:active .jr-ring .i { opacity: 1; }
 /* ── the footnotes, behind the sentence ──
    «Nachtrag» · «korrigiert HH:MM» · «6×». Facts ABOUT the row, in the register of a footnote:
    they were chips in front of the text, where they pushed it off its axis and read as warnings.
@@ -398,7 +440,9 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 .jr-note-on { flex: 0 1 auto; max-width: 150px; min-width: 0; display: inline-flex; align-items: baseline; gap: 5px;
   border: 0; background: none; padding: 0; cursor: pointer; text-align: left;
   font: 600 12.5px var(--body); color: var(--amber-strong); }
-.jr-note-on:hover:not(:disabled) i { text-decoration: underline; }
+@media (hover: hover) {
+  .jr-note-on:hover:not(:disabled) i { text-decoration: underline; }
+}
 .jr-note-on:disabled { cursor: default; }
 /* ⚠️ The truncation lives on the INNER span, and the «›» outside it. On the outer element the
    ellipsis ate the separator too, so a long item name ran straight into the Meldung's own text
@@ -610,7 +654,9 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
   padding: 10px 12px; font-weight: 600; }
 .jc-clip-x { width: 32px; height: 32px; border-radius: var(--r-sm); border: none; cursor: pointer; display: grid; place-items: center;
   background: var(--fill-soft); color: var(--ink-dim); }
-.jc-clip-x:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) {
+  .jc-clip-x:hover { background: var(--fill-soft); color: var(--ink); }
+}
 .jc-clip-x .i { width: 12px; height: 12px; }
 /* imported external voice memo: preview row + required «Aufnahme begann» confirmation */
 .jc-import { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--glass-edge);
@@ -654,7 +700,9 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
   color: var(--ink); border-radius: var(--r-sm); padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
   height: var(--tap); min-width: 0; white-space: nowrap; }
 .jc-due-chip .i { width: 14px; height: 14px; flex: none; }
-.jc-due-chip:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--glass-edge)); }
+@media (hover: hover) {
+  .jc-due-chip:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--glass-edge)); }
+}
 .jc-due-chip.on { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
 /* custom HH:MM stepper (replaces the native time spinner) */
 .jc-time { display: inline-flex; align-items: center; gap: 12px; align-self: flex-start; padding: 8px 14px; border-radius: var(--r-ctl);
@@ -664,12 +712,16 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 /* tap-to-type: the value as a button + the inline numeric input (both match .jc-time-col b) */
 .jc-time-val { font: 800 26px/1 var(--mono); color: var(--ink); min-width: 38px; text-align: center;
   border: none; background: transparent; cursor: pointer; padding: 2px 0; border-radius: var(--r-sm); }
-.jc-time-val:hover { background: var(--fill-soft); }
+@media (hover: hover) {
+  .jc-time-val:hover { background: var(--fill-soft); }
+}
 .jc-time-input { width: 44px; box-sizing: border-box; font: 800 26px/1 var(--mono); color: var(--blue); text-align: center;
   border: none; background: transparent; outline: none; padding: 2px 0; }
 .jc-time-btn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-edge); background: var(--surface);
   color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; touch-action: none; user-select: none; }
-.jc-time-btn:hover { border-color: var(--blue); color: var(--blue); }
+@media (hover: hover) {
+  .jc-time-btn:hover { border-color: var(--blue); color: var(--blue); }
+}
 .jc-time-btn:active { background: var(--fill-soft); }
 .jc-time-btn .i { width: 18px; height: 18px; }
 .jc-time-sep { font: 800 24px/1 var(--mono); color: var(--ink-faint); margin-top: -2px; }
@@ -714,7 +766,9 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
    is what makes «da ist etwas offen» readable without looking for a small number. */
 .tb-act.has-rem { color: var(--amber-strong);
   background: color-mix(in srgb, var(--amber) 16%, transparent); }
-.tb-act.has-rem:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+@media (hover: hover) {
+  .tb-act.has-rem:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+}
 /* …except while the drawer it opens is on screen — then the button's own «on» state is the truth,
    and two fills fighting on one control is how a state stops meaning anything. */
 /* ⚠️ `--on-accent-ink`, NOT `--on-fill`. At night the latter is near-black (#0d1118) and the pair
@@ -746,7 +800,9 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 .ig-install { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px;
   border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm);
   font: 650 15px var(--body); cursor: pointer; }
-.ig-install:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+@media (hover: hover) {
+  .ig-install:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+}
 .ig-install:disabled { opacity: var(--disabled); cursor: default; }
 .ig-install .i { width: 17px; height: 17px; }
 .ig-native-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-dim); text-align: center; }
@@ -770,7 +826,9 @@ button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transpar
 .jc-photo { position: relative; align-self: flex-start; border-radius: var(--r-ctl); overflow: hidden; border: 1px solid var(--glass-edge); }
 .jc-photo img { display: block; max-height: 160px; max-width: 100%; object-fit: cover; }
 .jc-photo .jc-clip-x { position: absolute; top: 6px; right: 6px; background: rgba(20, 28, 40, .6); color: var(--on-accent-ink); }
-.jc-photo .jc-clip-x:hover { background: rgba(20, 28, 40, .85); color: var(--on-accent-ink); }
+@media (hover: hover) {
+  .jc-photo .jc-clip-x:hover { background: rgba(20, 28, 40, .85); color: var(--on-accent-ink); }
+}
 /* a <button> now (it opens the in-app viewer, not a new tab) — reset the UA button chrome */
 .jr-thumb { flex: none; width: 34px; height: 34px; border-radius: var(--r-xs); overflow: hidden; border: 1px solid var(--glass-edge); display: block; padding: 0; background: none; cursor: pointer; }
 .jr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }

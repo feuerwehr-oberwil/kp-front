@@ -72,8 +72,8 @@
   backdrop-filter: blur(16px);
   transition: filter .14s var(--ease);
 }
-.retry:hover { filter: brightness(1.06); }
-.retry:active { transform: scale(.97); }
+@media (hover: hover) { .retry:hover { filter: brightness(1.06); } }
+.retry:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* failure detail — see PdfViewport.module.css for the same two lines on the board */
 .reason {
   max-width: 30ch;

@@ -103,7 +103,9 @@
 /* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
    — it is still the answer to «which building am I looking at», it simply cannot be tapped */
 .wb-object:disabled { cursor: default; opacity: 1; }
-.wb-object:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
+@media (hover: hover) {
+  .wb-object:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
+}
 /* ⚠️ 600px, not 720px. The old chip switched to its phone position at ≤720px while the NavRail
    only becomes a bottom BAR at ≤600px — so through the whole 601–720px band (iPad Split View,
    a landscape phone) the chip was pushed to left:8px and landed ON the vertical rail. The row
@@ -146,7 +148,10 @@
 .pp-list { flex: 1 1 60%; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 13px; border: 1px solid transparent;
   border-radius: var(--r-ctl); background: var(--surface-2); cursor: pointer; font-family: var(--body); text-align: left; color: var(--ink); }
-.pp-row:hover, .pp-row.hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 18%, transparent); }
+.pp-row.hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 18%, transparent); }
+@media (hover: hover) {
+  .pp-row:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 18%, transparent); }
+}
 .pp-row.on { background: color-mix(in srgb, var(--blue) 14%, transparent); border-color: var(--blue); }
 .pp-row-main { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .pp-row-main b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -162,7 +167,11 @@
 .pp-pin { width: 28px; height: 34px; border: none; background: none; padding: 0; cursor: pointer; color: var(--ink-dim);
   display: grid; place-items: center; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
 .pp-pin .i { width: 22px; height: 22px; }
-.pp-pin:hover, .pp-pin.hover { color: var(--blue); transform: scale(1.15); }
+.pp-pin.hover { color: var(--blue); transform: scale(1.15); }
+@media (hover: hover) {
+  .pp-pin:hover { color: var(--blue); transform: scale(1.15); }
+}
+.pp-pin:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pp-pin.on { color: var(--blue); }
 .pp-pin-inc { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--red); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .4); }
 .pp-maptoggle { display: none; margin: 8px 20px 16px; padding: 11px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
@@ -192,7 +201,9 @@
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: 4px; }
 .wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink-dim); cursor: pointer; font-family: var(--body); font-size: 12.5px; font-weight: 700; transition: background .14s var(--ease); }
-.wb-zoom button:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) {
+  .wb-zoom button:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
+}
 .wb-zoom button:disabled { opacity: var(--disabled); cursor: default; }
 .wb-zoom button .i { width: 16px; height: 16px; }
 .wb-zoom span { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); min-width: 42px; text-align: center; }
@@ -232,7 +243,9 @@
 .wb-floor-x { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
   display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
 .wb-floor-x::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
-.wb-floor-x:hover { background: var(--fill-soft); color: var(--red); }
+@media (hover: hover) {
+  .wb-floor-x:hover { background: var(--fill-soft); color: var(--red); }
+}
 .wb-floor-x .i { width: 12px; height: 12px; stroke-width: 2.4; }
 /* add-storey control (mirrors the floating zoom) */
 /* add-storey pills positioned like a real building section: OG above the stack, UG below */
@@ -241,7 +254,9 @@
   border: 1px solid var(--glass-line); background: var(--glass); box-shadow: var(--shadow-sm);
   color: var(--ink-dim); font: 700 12px var(--body); line-height: 1; cursor: pointer;
   user-select: none; -webkit-user-select: none; }
-.wb-floor-add:hover { background: var(--surface); color: var(--ink); }
+@media (hover: hover) {
+  .wb-floor-add:hover { background: var(--surface); color: var(--ink); }
+}
 .wb-floor-add .i { width: 13px; height: 13px; stroke-width: 2.4; }
 .wb-floor-add-up { top: -17px; }     /* straddle the top edge of the stack */
 .wb-floor-add-down { bottom: -17px; } /* straddle the bottom edge of the stack */
@@ -336,7 +351,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   display: flex; gap: 6px; background: var(--ink-fill); border-radius: var(--r-ctl); padding: 5px; box-shadow: var(--shadow); }
 .wb-pa { width: 40px; height: 40px; border-radius: var(--r-sm); border: none; padding: 0; color: var(--on-accent-ink);
   background: rgba(255, 255, 255, .14); display: grid; place-items: center; cursor: pointer; }
-.wb-pa:hover:not(:disabled) { background: rgba(255, 255, 255, .28); }
+@media (hover: hover) {
+  .wb-pa:hover:not(:disabled) { background: rgba(255, 255, 255, .28); }
+}
 .wb-pa .i { width: 16px; height: 16px; }
 /* Truppfarbe on a placed team marker: the trigger wears the current colour, the popup is the same
    palette the Trupp form shows (gloved 30px targets, wrapped two rows). */
@@ -347,16 +364,24 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-pa-colors .dh-color { width: 30px; height: 30px; background: transparent; }
 .wb-pa-colors .dh-color > span { display: block; width: 100%; height: 100%; border-radius: 50%; }
 .wb-pa-mark { background: var(--blue); }
-.wb-pa-mark:hover { background: var(--blue); filter: brightness(1.08); }
+@media (hover: hover) {
+  .wb-pa-mark:hover { background: var(--blue); filter: brightness(1.08); }
+}
 .wb-pa-del { background: var(--red); }
-.wb-pa-del:hover { background: var(--red); filter: brightness(1.06); }
+@media (hover: hover) {
+  .wb-pa-del:hover { background: var(--red); filter: brightness(1.06); }
+}
 .wb-pa-show { background: var(--green); }
-.wb-pa-show:hover { background: var(--green); filter: brightness(1.08); }
+@media (hover: hover) {
+  .wb-pa-show:hover { background: var(--green); filter: brightness(1.08); }
+}
 /* Delete is blocked because the team carries a recorded trail. It stays the SAME trash glyph in
    the same slot, greyed out — a padlock only said "locked" without saying locked out of WHAT.
    Still clickable: it offers the confirmed trail clear, which is the way back to a normal delete. */
 .wb-pa-del-off { background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .45); }
-.wb-pa-del-off:hover { background: rgba(255, 255, 255, .16); }
+@media (hover: hover) {
+  .wb-pa-del-off:hover { background: rgba(255, 255, 255, .16); }
+}
 .wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; transform: translateX(-50%); z-index: 7;
   width: min(290px, 70vw); padding: 9px; border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--shadow-pop); color: var(--ink); }
@@ -376,13 +401,17 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-trupp-pick-head { font-size: 12px; font-weight: 700; color: var(--ink-dim); padding: 4px 6px 6px; }
 .wb-trupp-opt { display: flex; align-items: center; gap: 9px; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff);
   border-radius: var(--r-ctl); cursor: pointer; padding: 12px 12px; font: 700 14px var(--body); color: var(--ink); min-height: 48px; text-align: left; }
-.wb-trupp-opt:hover { border-color: var(--blue); }
+@media (hover: hover) {
+  .wb-trupp-opt:hover { border-color: var(--blue); }
+}
 .wb-trupp-opt b { flex: 1; }
 .wb-trupp-opt i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
 /* already placed on this surface: visible (so you can see WHY it is not offered) but inert —
    picking it would move the existing marker, not add a second one */
 .wb-trupp-opt.placed { opacity: var(--disabled); cursor: default; }
-.wb-trupp-opt.placed:hover { border-color: var(--glass-edge); }
+@media (hover: hover) {
+  .wb-trupp-opt.placed:hover { border-color: var(--glass-edge); }
+}
 .wb-trupp-cap { width: 5px; height: 22px; border-radius: 3px; background: var(--blue); }
 .wb-trupp-generic { color: var(--ink-dim); font-weight: 600; }
 .wb-trupp-generic .i { width: 16px; height: 16px; }
@@ -424,14 +453,17 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-style-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, .2); }
 .wb-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); cursor: pointer; padding: 0; }
 .wb-sw.on { border-color: var(--on-accent-ink); box-shadow: 0 0 0 2px rgba(255, 255, 255, .6); }
+.wb-sw:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-ww { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); border: none; border-radius: var(--r-sm); cursor: pointer; }
 .wb-ww.on { background: rgba(255, 255, 255, .3); }
+.wb-ww:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-ww span { display: block; width: 18px; background: var(--on-accent-ink); border-radius: 4px; }
 /* line-style toggle (solid / dashed) — shares the width-button frame; the preview
    line colour follows --ls-ink so it reads on both the dark draw bar and the light
    DrawEditor panel (overridden below) */
 .wb-ls { --ls-ink: #fff; width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); border: none; border-radius: var(--r-sm); cursor: pointer; padding: 0; }
 .wb-ls.on { background: rgba(255, 255, 255, .3); }
+.wb-ls:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ls-solid, .ls-dashed { display: block; width: 20px; height: 3px; border-radius: 3px; }
 .ls-solid { background: var(--ls-ink); }
 .ls-dashed { background: repeating-linear-gradient(to right, var(--ls-ink) 0 5px, transparent 5px 8px); }
@@ -460,13 +492,19 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-dock-ic .i { width: 18px; height: 18px; }
 .wb-dock-x { width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
   color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; }
-.wb-dock-x:hover { background: rgba(255, 255, 255, .28); }
+@media (hover: hover) {
+  .wb-dock-x:hover { background: rgba(255, 255, 255, .28); }
+}
+.wb-dock-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-dock-x .i { width: 16px; height: 16px; stroke-width: 2.4; }
 /* confirm action inside the dark dock (e.g. area "Fertig") — green check, enabled
    only once the action is valid (≥3 area points) */
 .wb-dock-go { width: 38px; height: 34px; display: grid; place-items: center; background: var(--green);
   border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--on-accent-ink); padding: 0; }
-.wb-dock-go:hover:not(:disabled) { filter: brightness(1.08); }
+@media (hover: hover) {
+  .wb-dock-go:hover:not(:disabled) { filter: brightness(1.08); }
+}
+.wb-dock-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-dock-go:disabled { opacity: var(--disabled); cursor: default; background: rgba(255, 255, 255, .12); }
 .wb-dock-go .i { width: 18px; height: 18px; stroke-width: 2.4; }
 /* (.wb-dock-info / .wb-dock-ibtn / .wb-dock-tip migrated → DockInfo.module.css) */
@@ -475,6 +513,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--on-accent-ink); padding: 0; }
 .wb-dock-tog .i { width: 17px; height: 17px; }
 .wb-dock-tog.on { background: var(--blue); color: var(--on-fill); } /* active mode: blue accent, not stark white */
+.wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* word/letter toggles (note size steps, Zettel↔Klartext) — the dock is narrow, so the label
    shrinks to fit rather than widening the whole column */
 .wb-dock-txt { font: 700 11px var(--body); letter-spacing: .01em; padding: 0 5px; white-space: nowrap; }
@@ -584,14 +623,18 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-cal-chips { display: flex; gap: 8px; }
 .wb-cal-chip { flex: 1; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-sm);
   padding: 9px 0; font: 700 14px var(--body); color: var(--ink); cursor: pointer; }
-.wb-cal-chip:hover { border-color: var(--blue); }
+@media (hover: hover) {
+  .wb-cal-chip:hover { border-color: var(--blue); }
+}
 .wb-cal-chip.on { border-color: var(--blue); background: var(--blue); color: var(--on-fill); }
 
 /* clean −/+ stepper for the real-length entry */
 .wb-cal-stepper { display: flex; align-items: stretch; gap: 8px; }
 .wb-cal-step { width: 46px; flex: none; display: grid; place-items: center; font: 700 24px/1 var(--body);
   border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-sm); color: var(--ink); cursor: pointer; }
-.wb-cal-step:hover:not(:disabled) { border-color: var(--blue); }
+@media (hover: hover) {
+  .wb-cal-step:hover:not(:disabled) { border-color: var(--blue); }
+}
 .wb-cal-step:disabled { opacity: var(--disabled); cursor: default; }
 .wb-cal-num { flex: 1; display: flex; align-items: baseline; justify-content: center; gap: 6px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2, #fff); padding: 8px 12px; }
@@ -607,14 +650,18 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   box-shadow: var(--shadow-sm); color: var(--ink-dim); font: 600 12px var(--body); cursor: pointer; }
 .wb-scale-chip svg { width: 14px; height: 14px; flex: none; }
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wb-scale-chip:hover { border-color: var(--blue); color: var(--ink); }
+@media (hover: hover) {
+  .wb-scale-chip:hover { border-color: var(--blue); color: var(--ink); }
+}
 .wb-scale-chip.on { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 /* A scale derived from the Karte link is a source/status, not another calibration affordance.
    It deliberately has no expanded touch pad or hover reaction; correction lives behind the
    adjacent Verknüpft control so there can never be two scale authorities for one sheet. */
 .wb-scale-status { cursor: default; }
 .wb-botleft > .wb-scale-status::after { display: none; }
-.wb-scale-status:hover { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
+@media (hover: hover) {
+  .wb-scale-status:hover { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
+}
 /* --warn was never declared, so this rendered the DAY amber literal in both themes */
 .wb-scale-chip.stale { color: var(--amber-strong); border-color: var(--amber-strong); }
 /* #3: persist-a-calibration bar, sits just above the Maßstab chip after a fresh calibration */
@@ -626,7 +673,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-persist .btn { padding: 7px 11px; font-size: 12.5px; white-space: nowrap; }
 .wb-scale-persist-x { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border: none;
   background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm); }
-.wb-scale-persist-x:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) {
+  .wb-scale-persist-x:hover { background: var(--fill-soft); color: var(--ink); }
+}
 .wb-scale-persist-x svg { width: 15px; height: 15px; }
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   /* clear the two bottom bars on phones, and hug the left edge (no side rail) */
@@ -658,7 +707,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    ⚠️ Tokens, not frozen literals — both have to survive the day/night swap. */
 .wb-scale-chip.wb-georef-ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
 .wb-scale-chip.wb-georef-warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 50%, var(--glass-edge)); }
-.wb-scale-chip.wb-georef-ok:hover, .wb-scale-chip.wb-georef-warn:hover { border-color: currentColor; }
+@media (hover: hover) {
+  .wb-scale-chip.wb-georef-ok:hover, .wb-scale-chip.wb-georef-warn:hover { border-color: currentColor; }
+}
 /* the chip stays in its own tone while its Passung is open — «open» is a fill, not a recolour,
    so the quality it reports is never overwritten by the state of a panel.
    ⚠️ The fill is mixed INTO `--surface`, never `--fill-soft` on its own: that token is a 4.5 %
@@ -688,5 +739,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   background: var(--surface); border: 2px dashed var(--blue); color: var(--blue); cursor: pointer; touch-action: none; opacity: .72;
   box-shadow: 0 1px 3px rgba(30, 45, 70, .18); }
 .wb-vins::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
-.wb-vins:hover { opacity: 1; }
+@media (hover: hover) {
+  .wb-vins:hover { opacity: 1; }
+}
 .wb-vins .i { width: 11px; height: 11px; stroke-width: 3.2; }

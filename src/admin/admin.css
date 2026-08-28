@@ -41,7 +41,10 @@
   font-size: 13px; font-weight: 600; color: var(--blue); text-decoration: none;
   white-space: nowrap;
 }
-.adm-link:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .adm-link:hover { text-decoration: underline; }
+}
+.adm-link:active { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-logout { flex: 0 0 auto; min-width: 96px; padding: 9px 14px; }
 
 /* hamburger that reveals the sidebar on narrow viewports (hidden on desktop) */
@@ -53,7 +56,10 @@
   background: var(--fill-soft); color: var(--ink-dim); cursor: pointer;
 }
 .adm-navtoggle .i { width: 20px; height: 20px; }
-.adm-navtoggle:hover { color: var(--ink); }
+@media (hover: hover) {
+  .adm-navtoggle:hover { color: var(--ink); }
+}
+.adm-navtoggle:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ── body: sidebar + content fill the viewport under the header ───────────── */
 .adm-body { flex: 1 1 auto; display: flex; align-items: stretch; min-height: 0; }
@@ -87,7 +93,10 @@
   font: 600 13.5px var(--body); text-align: left; cursor: pointer;
   transition: background .14s var(--ease), color .14s var(--ease);
 }
-.adm-side-item:hover { background: color-mix(in srgb, var(--blue) 6%, transparent); color: var(--ink); }
+@media (hover: hover) {
+  .adm-side-item:hover { background: color-mix(in srgb, var(--blue) 6%, transparent); color: var(--ink); }
+}
+.adm-side-item:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-side-item.on {
   background: color-mix(in srgb, var(--blue) 12%, var(--surface));
   border-color: color-mix(in srgb, var(--blue) 28%, var(--border-soft));
@@ -262,7 +271,10 @@
 .adm-formlink-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
   padding: 0; cursor: pointer; border: none; border-radius: var(--r-ctl);
   background: transparent; color: var(--ink-faint); }
-.adm-formlink-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+@media (hover: hover) {
+  .adm-formlink-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+}
+.adm-formlink-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-formlink-x .i { width: 17px; height: 17px; }
 /* a prefill URL is long and its interesting part is at the END (the entry.* pairs) — it wraps
    rather than scrolling sideways, so the placeholders stay findable */
@@ -271,7 +283,10 @@
 .adm-token { padding: 5px 10px; cursor: pointer; border: 1px solid var(--border);
   border-radius: var(--r-pill); background: var(--surface); color: var(--ink-dim);
   font: 600 12px var(--mono); }
-.adm-token:hover { border-color: var(--ink-faint); color: var(--ink); }
+@media (hover: hover) {
+  .adm-token:hover { border-color: var(--ink-faint); color: var(--ink); }
+}
+.adm-token:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* ⚠️ `white-space` has to be said out loud: this <p> sits inside a `<label class="adm-field">`
    and inherits `nowrap` from the label chrome, which pins the line no matter what `break-all`
    asks for — the preview rendered as one unbroken 400-character line with the interesting end
@@ -285,7 +300,10 @@
   min-height: var(--tap); margin-top: 12px; padding: 0 15px; cursor: pointer;
   border: 1px dashed var(--border); border-radius: var(--r-ctl);
   background: transparent; color: var(--ink); font: 700 13px var(--body); }
-.adm-formlink-add:hover { border-color: var(--ink-faint); }
+@media (hover: hover) {
+  .adm-formlink-add:hover { border-color: var(--ink-faint); }
+}
+.adm-formlink-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-formlink-add .i { width: 16px; height: 16px; }
 
 /* color field */
@@ -483,7 +501,10 @@
   font: 600 13.5px var(--body); text-align: left; cursor: pointer;
   transition: border-color .14s var(--ease), background .14s var(--ease);
 }
-.adm-select-btn:hover { background: var(--surface); }
+@media (hover: hover) {
+  .adm-select-btn:hover { background: var(--surface); }
+}
+.adm-select-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-select.open .adm-select-btn { border-color: var(--blue); background: var(--surface); }
 .adm-select-btn.mono .adm-select-val { font-family: var(--mono); font-weight: 500; }
 .adm-select-val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -586,8 +607,10 @@
   color: var(--on-fill); background: var(--blue); border: 1px solid var(--blue);
   transition: background .16s var(--ease), border-color .16s var(--ease), transform .12s var(--ease);
 }
-.adm-save-btn:not(:disabled):hover { background: var(--blue-strong); border-color: var(--blue-strong); }
-.adm-save-btn:not(:disabled):active { transform: translateY(.5px); }
+@media (hover: hover) {
+  .adm-save-btn:not(:disabled):hover { background: var(--blue-strong); border-color: var(--blue-strong); }
+}
+.adm-save-btn:not(:disabled):active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* destructive secondary (Deaktivieren): red-tinted, never the visual primary */
 .adm-danger-btn {
@@ -596,7 +619,9 @@
   background: color-mix(in srgb, var(--red) 8%, transparent);
   transition: background .16s var(--ease), border-color .16s var(--ease), transform .12s var(--ease);
 }
-.adm-danger-btn:not(:disabled):hover { background: color-mix(in srgb, var(--red) 16%, transparent); }
+@media (hover: hover) {
+  .adm-danger-btn:not(:disabled):hover { background: color-mix(in srgb, var(--red) 16%, transparent); }
+}
 
 /* CopyChip: one input-shaped group — mono value with a square icon-only copy button
    flush at the right (the shadcn copy-field pattern); ✓ flashes on success */
@@ -611,7 +636,9 @@
   border: none; border-left: 1px solid var(--border); border-radius: 0;
   background: var(--surface-2); color: var(--ink-dim); cursor: pointer; padding: 0;
   transition: background .14s var(--ease), color .14s var(--ease); }
-.adm-copychip:hover .adm-copy-btn { background: var(--surface); color: var(--ink); }
+@media (hover: hover) {
+  .adm-copychip:hover .adm-copy-btn { background: var(--surface); color: var(--ink); }
+}
 .adm-copy-btn svg { width: 14px; height: 14px; }
 .adm-copychip.copied .adm-copy-btn { color: var(--green, #1a7f37); }
 .adm-copychip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
@@ -688,8 +715,11 @@
 .adm-obj.clickable:focus-visible {
   outline: 2px solid var(--blue); outline-offset: -2px; border-radius: var(--r-xs);
 }
-.adm-obj.clickable:hover,
 .adm-obj.hot { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+@media (hover: hover) {
+  .adm-obj.clickable:hover { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+}
+.adm-obj.clickable:active { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-obj.sel {
   background: color-mix(in srgb, var(--blue) 11%, var(--surface));
   border-color: color-mix(in srgb, var(--blue) 28%, var(--border-soft));
@@ -751,7 +781,9 @@
   font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-sm);
   transition: background .12s var(--ease);
 }
-.adm-obj-fit:hover { background: var(--fill-soft); }
+@media (hover: hover) {
+  .adm-obj-fit:hover { background: var(--fill-soft); }
+}
 .adm-obj-fit .i { width: 14px; height: 14px; color: var(--ink-faint); }
 
 .adm-plan-chips { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -856,9 +888,13 @@
 }
 /* invisible hit pad: the 18px glyph alone is untappable on touch */
 .adm-tip-trigger::before { content: ''; position: absolute; inset: -10px; border-radius: 50%; }
-.adm-tip-trigger:hover { color: var(--blue); }
+@media (hover: hover) {
+  .adm-tip-trigger:hover { color: var(--blue); }
+}
 .adm-tip-trigger.warn { color: var(--amber-strong); }
-.adm-tip-trigger.warn:hover { color: var(--amber); }
+@media (hover: hover) {
+  .adm-tip-trigger.warn:hover { color: var(--amber); }
+}
 .adm-tip-trigger:focus-visible {
   outline: 2px solid var(--blue); outline-offset: 2px;
 }
@@ -914,11 +950,13 @@
 .adm-input:focus-visible { outline-offset: 0; border-color: var(--blue); }
 
 /* ── action button hover / active (calm desktop affordances) ──────────────── */
-.adm-int-btn:not(:disabled):hover {
-  border-color: color-mix(in srgb, var(--blue) 40%, var(--border));
-  background: color-mix(in srgb, var(--blue) 7%, var(--surface));
+@media (hover: hover) {
+  .adm-int-btn:not(:disabled):hover {
+    border-color: color-mix(in srgb, var(--blue) 40%, var(--border));
+    background: color-mix(in srgb, var(--blue) 7%, var(--surface));
+  }
 }
-.adm-int-btn:not(:disabled):active { transform: translateY(.5px); }
+.adm-int-btn:not(:disabled):active { background-image: linear-gradient(var(--press), var(--press)); }
 /* disabled is visibly distinct from "enabled but idle" */
 .adm-int-btn:disabled,
 .adm-save-btn:disabled {
@@ -926,8 +964,10 @@
 }
 
 /* ── Mitglieder: row hover + clearer status/role badges ───────────────────── */
-.adm-members-table tbody tr:not(.adm-members-editrow):hover td {
-  background: color-mix(in srgb, var(--blue) 4%, transparent);
+@media (hover: hover) {
+  .adm-members-table tbody tr:not(.adm-members-editrow):hover td {
+    background: color-mix(in srgb, var(--blue) 4%, transparent);
+  }
 }
 .adm-members-table tbody tr { transition: background .12s var(--ease); }
 .adm-members-role.viewer {
@@ -1119,7 +1159,10 @@
   background: var(--fill-soft); color: var(--ink-dim); cursor: pointer;
   transition: background .14s var(--ease), border-color .14s var(--ease), color .14s var(--ease);
 }
-.adm-menu-btn:hover { background: var(--surface); color: var(--ink); border-color: color-mix(in srgb, var(--blue) 30%, var(--border)); }
+@media (hover: hover) {
+  .adm-menu-btn:hover { background: var(--surface); color: var(--ink); border-color: color-mix(in srgb, var(--blue) 30%, var(--border)); }
+}
+.adm-menu-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* open trigger: Base UI sets [data-popup-open] on the trigger (the old .adm-menu.open class
    is gone with the hand-rolled menu) */
 .adm-menu-btn[data-popup-open] { background: var(--surface); color: var(--ink); border-color: var(--blue); }
@@ -1150,11 +1193,16 @@
 .adm-menu-item-label { font: 600 13px var(--body); }
 /* Base UI Menu.Item is a div with data-disabled / data-highlighted (keyboard nav) attributes,
    not a <button> with :disabled — so hover AND keyboard highlight both light the row. */
-.adm-menu-item:hover:not([data-disabled]),
 .adm-menu-item[data-highlighted]:not([data-disabled]) { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--ink); }
+@media (hover: hover) {
+  .adm-menu-item:hover:not([data-disabled]) { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--ink); }
+}
+.adm-menu-item:active:not([data-disabled]) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-menu-item.danger { color: var(--red); }
-.adm-menu-item.danger:hover:not([data-disabled]),
 .adm-menu-item.danger[data-highlighted]:not([data-disabled]) { background: color-mix(in srgb, var(--red) 8%, transparent); }
+@media (hover: hover) {
+  .adm-menu-item.danger:hover:not([data-disabled]) { background: color-mix(in srgb, var(--red) 8%, transparent); }
+}
 .adm-menu-item[data-disabled] { cursor: default; color: var(--ink-faint); }
 .adm-menu-item:focus-visible { outline: 2px solid var(--blue); outline-offset: -1px; }
 .adm-menu-reason { font-size: 10.5px; font-weight: 500; color: var(--ink-faint); }
@@ -1213,7 +1261,10 @@
 .adm-hist { display: flex; flex-direction: column; gap: 2px; }
 .adm-hist-row { display: flex; align-items: center; gap: 12px; min-height: 52px;
   padding: 8px 10px; border-radius: var(--r-ctl); }
-.adm-hist-row:hover { background: var(--fill-soft); }
+@media (hover: hover) {
+  .adm-hist-row:hover { background: var(--fill-soft); }
+}
+.adm-hist-row:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the live document, marked as such: the newest KEPT entry is the state BEFORE the most recent
    write, and confusing the two is the one mistake somebody restoring under pressure must not make */
 .adm-hist-now { background: color-mix(in srgb, var(--blue) 8%, transparent); }
@@ -1230,7 +1281,10 @@
 .adm-hist-btn { flex: none; min-height: var(--tap); padding: 7px 13px; cursor: pointer;
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); }
-.adm-hist-btn:hover:not(:disabled) { border-color: var(--ink-faint); }
+@media (hover: hover) {
+  .adm-hist-btn:hover:not(:disabled) { border-color: var(--ink-faint); }
+}
+.adm-hist-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-hist-btn:disabled { opacity: .5; cursor: default; }
 /* a collapsed burst: the summary row plus, once opened, its individual writes indented under it */
 .adm-hist-burst { display: flex; flex-direction: column; gap: 2px; }
@@ -1238,7 +1292,10 @@
 .adm-hist-count { margin-left: 8px; font: 600 11.5px var(--body); color: var(--ink-faint); }
 .adm-hist-toggle { align-self: flex-start; margin-top: 2px; padding: 0; cursor: pointer;
   border: 0; background: none; color: var(--blue); font: 600 11.5px var(--body); }
-.adm-hist-toggle:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .adm-hist-toggle:hover { text-decoration: underline; }
+}
+.adm-hist-toggle:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-hist-nested { margin-left: 22px; border-left: 2px solid var(--border); }
 @media (max-width: 620px) {
   .adm-hist-row { flex-wrap: wrap; }
@@ -1253,7 +1310,10 @@
 .adm-setup-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--tap);
   padding: 6px 10px; border: none; border-radius: var(--r-ctl); background: none;
   color: inherit; text-align: left; font: inherit; cursor: pointer; }
-.adm-setup-row:hover { background: var(--fill-soft); }
+@media (hover: hover) {
+  .adm-setup-row:hover { background: var(--fill-soft); }
+}
+.adm-setup-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-setup-dot { flex: none; display: grid; place-items: center; width: 24px; height: 24px;
   border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
   color: var(--ink-faint); font-size: 13px; font-weight: 700; }
@@ -1276,7 +1336,10 @@
 .adm-slist-x { display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
   border: none; border-radius: 50%; background: transparent; color: var(--ink-faint);
   font-size: 15px; line-height: 1; cursor: pointer; }
-.adm-slist-x:hover { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+@media (hover: hover) {
+  .adm-slist-x:hover { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+}
+.adm-slist-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the input is a chip-shaped gap in the row, not a form field under it — it is where the next
    one goes, and it should look like it */
 .adm-slist-add { min-height: 40px; min-width: 200px; flex: 0 1 auto; padding: 0 13px;
@@ -1298,7 +1361,10 @@
   border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--fill-soft); color: var(--ink); font-family: var(--body);
   transition: background .12s var(--ease), border-color .12s var(--ease), box-shadow .14s var(--ease); }
-.adm-rolepick-opt:hover:not(:disabled) { border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+@media (hover: hover) {
+  .adm-rolepick-opt:hover:not(:disabled) { border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+}
+.adm-rolepick-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-rolepick-opt:disabled { opacity: var(--disabled); cursor: not-allowed; }
 .adm-rolepick-opt.on { background: color-mix(in srgb, var(--blue) 12%, var(--surface));
   border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); box-shadow: var(--shadow-sm); }
@@ -1336,7 +1402,9 @@ body:has(.adm) .ui-menu-pos { z-index: var(--z-admin-overlay-menu); }
 .adm-pin-sub { margin: 0 0 2px; font: 500 12.5px var(--body); color: var(--ink-faint); }
 /* the member being changed: the login screen's identity row, minus the "go back" affordance */
 .adm-pin-who { cursor: default; }
-.adm-pin-who:hover { background: var(--surface-2); }
+@media (hover: hover) {
+  .adm-pin-who:hover { background: var(--surface-2); }
+}
 
 @media (max-width: 720px) {
   .adm-rolepick { grid-template-columns: 1fr; }

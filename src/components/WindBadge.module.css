@@ -16,8 +16,8 @@
 /* during time-travel replay the bottom-centre scrubber (z50, up to 760px) can reach this
    corner on narrow widths — lift the badge straight up so they never overlap */
 .lifted { bottom: 150px; }
-.badge:hover:not(:disabled) { background: var(--hover-strong); }
-.badge:active:not(:disabled) { transform: scale(.97); }
+@media (hover: hover) { .badge:hover:not(:disabled) { background: var(--hover-strong); } }
+.badge:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .badge:disabled { cursor: default; opacity: var(--disabled); }
 
 /* single present-weather glyph (clear / cloud / rain / snow / fog / storm) */

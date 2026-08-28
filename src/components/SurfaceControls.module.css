@@ -23,7 +23,8 @@
 .search svg { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
 .search input { flex: 1 1 auto; min-width: 0; border: none; background: none; outline: none; color: var(--ink); font: 500 15px var(--body); padding: 10px 0; }
 .searchClear { border: none; background: none; cursor: pointer; color: var(--ink-faint); padding: 4px; display: grid; place-items: center; }
-.searchClear:hover { color: var(--ink); }
+@media (hover: hover) { .searchClear:hover { color: var(--ink); } }
+.searchClear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .searchClear svg { width: 15px; height: 15px; }
 
 /* a filter button: one glyph, --tap square, opening a Menu */
@@ -37,7 +38,9 @@
    `.iconBtnOn` on specificity, and after a tap the pointer (or, on touch, the sticky hover a
    tap leaves behind) is still on the button: a filter you had just switched on rendered in
    plain ink and only turned blue after a reload. Same rule as the tool rail's .vrail-tool. */
-.iconBtn:hover:not(.iconBtnOn):not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+@media (hover: hover) { .iconBtn:hover:not(.iconBtnOn):not(:disabled) { color: var(--ink); border-color: var(--ink-faint); } }
+/* press wash — .iconBtnOn always rides on .iconBtn, so one rule covers both states */
+.iconBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .iconBtn:disabled { opacity: var(--disabled); cursor: default; }
 .iconBtn svg { width: 16px; height: 16px; }
 /* a filter that is ON must never look like a filter that is off: the list underneath is a SUBSET
@@ -47,9 +50,11 @@
   background: color-mix(in srgb, var(--blue) 14%, transparent);
   color: var(--blue-strong);
 }
-.iconBtnOn:hover {
-  border-color: color-mix(in srgb, var(--blue) 70%, transparent);
-  background: color-mix(in srgb, var(--blue) 20%, transparent);
+@media (hover: hover) {
+  .iconBtnOn:hover {
+    border-color: color-mix(in srgb, var(--blue) 70%, transparent);
+    background: color-mix(in srgb, var(--blue) 20%, transparent);
+  }
 }
 /* ⚠️ A DOT, not a label. Printing the active filter on the button changes its width, which
    shoves every control after it along the line and re-anchors the dropdown — the menu jumped
@@ -70,7 +75,8 @@
   border: 1px dashed var(--glass-edge); background: none; border-radius: var(--r-ctl);
   color: var(--ink-dim);
 }
-.addBtn:hover { border-color: var(--ink-faint); color: var(--ink); background: var(--surface); }
+@media (hover: hover) { .addBtn:hover { border-color: var(--ink-faint); color: var(--ink); background: var(--surface); } }
+.addBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .addBtn svg { width: 18px; height: 18px; }
 
 /* the dropdown each filter button opens */

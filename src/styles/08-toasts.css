@@ -43,7 +43,10 @@
 .dw-sec li { font-size: 13px; line-height: 1.45; color: var(--ink-dim); font-weight: 500; }
 .dw-cta { margin-top: 6px; width: 100%; min-height: 48px; border: none; border-radius: var(--r-sm);
   background: var(--btn-primary); color: var(--on-btn-primary); font-size: 14px; font-weight: 800; cursor: pointer; }
-.dw-cta:hover { background: var(--btn-primary-hover); }
+@media (hover: hover) {
+  .dw-cta:hover { background: var(--btn-primary-hover); }
+}
+.dw-cta:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* Login credential hint on a demo instance. */
 .login-demo-note { margin: 2px 0 14px; padding: 8px 12px; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--ink-dim);
@@ -129,7 +132,10 @@
 .ml-open > .ml-title { min-width: 0; text-decoration: underline; text-underline-offset: 3px;
   text-decoration-thickness: 1px;
   text-decoration-color: color-mix(in srgb, var(--ink) 32%, transparent); }
-.ml-open:hover > .ml-title, .ml-open:focus-visible > .ml-title { text-decoration-color: currentColor; }
+.ml-open:focus-visible > .ml-title { text-decoration-color: currentColor; }
+@media (hover: hover) {
+  .ml-open:hover > .ml-title { text-decoration-color: currentColor; }
+}
 /* the message's OWN actions, at most two. `min-width` is not cosmetic: with every row visible
    the buttons form a column, and «Erledigt» beside «Übernehmen» used to leave a ragged right
    edge that made the shorter row look unfinished. */
@@ -140,16 +146,24 @@
 .ml-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px;
   padding: 0 13px; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface-2);
   color: var(--ink-dim); font: 700 12.5px var(--body); white-space: nowrap; cursor: pointer; }
-.ml-btn:hover { color: var(--ink); background: var(--surface); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); }
+@media (hover: hover) {
+  .ml-btn:hover { color: var(--ink); background: var(--surface); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); }
+}
+.ml-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ml-btn:disabled { opacity: var(--disabled); cursor: default; }
 .ml-btn.prim { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: 800; }
-.ml-btn.prim:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--on-btn-primary); }
+@media (hover: hover) {
+  .ml-btn.prim:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--on-btn-primary); }
+}
 .ml-btn .i { width: 15px; height: 15px; flex: none; }
 /* the ✕ — and, on a row that may not be waved away (a due Wiedervorlage), an invisible stand-in
    holding the same 44px column open, so the buttons of all rows end on one vertical line. */
 .ml-x { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: none; background: none;
   color: var(--ink-faint); border-radius: var(--r-sm); cursor: pointer; }
-.ml-x:hover { background: var(--hover-strong); color: var(--ink); }
+@media (hover: hover) {
+  .ml-x:hover { background: var(--hover-strong); color: var(--ink); }
+}
+.ml-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ml-x.ghost { visibility: hidden; pointer-events: none; }
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
   /* the rails are gone from the sides here (the nav rail is the bottom bar), so the strip takes
@@ -255,7 +269,10 @@
 .toast-x { pointer-events: auto; flex: none; width: 36px; min-height: 44px; display: grid; place-items: center;
   border: none; background: none; color: var(--on-accent-ink); opacity: .55; cursor: pointer;
   border-radius: var(--r-sm); }
-.toast-x:hover { opacity: 1; background: color-mix(in srgb, var(--on-accent-ink) 18%, transparent); }
+@media (hover: hover) {
+  .toast-x:hover { opacity: 1; background: color-mix(in srgb, var(--on-accent-ink) 18%, transparent); }
+}
+.toast-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .toast-x .i { width: 15px; height: 15px; }
 /* inline action (confirm-with-undo): the toaster itself is pointer-events:none, so the
    button re-enables hits; sized to stay a comfortable touch target inside the pill */
@@ -267,8 +284,11 @@
    Sync-Fehler pill, with the near-white label vanishing into it. The pill's own tone is the base
    here, so hovering only deepens the same translucent fill (and needs `.toast` in front of it to
    outrank `.btn:hover`). */
-.toast .toast-action:hover { background: color-mix(in srgb, var(--on-accent-ink) 30%, transparent);
-  color: var(--on-accent-ink); }
+@media (hover: hover) {
+  .toast .toast-action:hover { background: color-mix(in srgb, var(--on-accent-ink) 30%, transparent);
+    color: var(--on-accent-ink); }
+}
+.toast .toast-action:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the fill is overridden, so the ink has to be too — .toast sits on --ink-fill and keeps its
    near-white, which lands at 2.2:1 once the fill turns green */
 .toast-success { background: var(--green); color: var(--on-fill); }
@@ -333,9 +353,13 @@
    press) and using it here is what made the confirm read as another app's dialog. */
 .confirm-actions .ip-btn { flex: 0 0 auto; min-width: 96px; min-height: var(--tap); justify-content: center; }
 .btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
-.btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+@media (hover: hover) {
+  .btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+}
 .btn.warn-solid { background: var(--red); border-color: var(--red); color: var(--on-fill); }
-.btn.warn-solid:hover { background: var(--red-solid-hover); border-color: var(--red-solid-hover); }
+@media (hover: hover) {
+  .btn.warn-solid:hover { background: var(--red-solid-hover); border-color: var(--red-solid-hover); }
+}
 
 
 /* ⚠️ The in-workspace splash stands in for the MAP, not for the app. It used to be a
@@ -542,8 +566,9 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    world uses for it, and the only thing on the row that is not a rounded rectangle should be
    the thing that is not a button-with-a-label. */
 .tl-play { background: var(--green); color: var(--on-fill); border: none; border-radius: 50%; width: 26px; height: 26px;
-  cursor: pointer; display: grid; place-items: center; flex: none; transition: transform .12s var(--ease); }
-.tl-play:active { transform: scale(.9); }
+  cursor: pointer; display: grid; place-items: center; flex: none; }
+/* press = the house ink wash (02-base.css), over the green fill; nothing moves */
+.tl-play:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* while a voice memo is sounding, the button turns blue and pulses so it's obvious */
 .tl-play.playing { background: var(--blue); animation: playPulse 1.3s ease-in-out infinite; }
 @keyframes playPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--blue) 45%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--blue) 0%, transparent); } }

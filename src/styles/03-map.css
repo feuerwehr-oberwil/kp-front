@@ -132,7 +132,9 @@
    keeps coloured arrows legible over any base map. */
 .ts svg.sym-spread { position: absolute; top: -75%; left: -75%; width: 250%; height: 250%; overflow: visible;
   pointer-events: none; z-index: 5; filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, .9)); }
-.marker:hover .ts { transform: scale(1.07); }
+@media (hover: hover) {
+  .marker:hover .ts { transform: scale(1.07); }
+}
 /* selection: no outline — a selected item just pops up larger (and the ContextPanel
    opens / shapes show their edit handles), so nothing covers the symbol itself. It also comes
    FORWARD, above its neighbours, for as long as it stays selected.
@@ -186,22 +188,30 @@
 .shape-rotate { left: 50%; top: calc(50% - var(--hbox, 56px) / 2 - 18px); transform: translate(-50%, -50%);
   background: var(--ink-fill); cursor: grab; touch-action: none; }
 .shape-rotate:active { cursor: grabbing; }
-.shape-rotate:hover { background: var(--ink-fill-hover); }
+@media (hover: hover) {
+  .shape-rotate:hover { background: var(--ink-fill-hover); }
+}
 .shape-resize { left: calc(50% + var(--hbox, 56px) / 2 + 3px); top: calc(50% + var(--hbox, 56px) / 2 + 3px);
   transform: translate(-50%, -50%); border-radius: var(--r-sm); background: var(--ink-fill); cursor: nwse-resize; touch-action: none; }
-.shape-resize:hover { background: var(--ink-fill-hover); }
+@media (hover: hover) {
+  .shape-resize:hover { background: var(--ink-fill-hover); }
+}
 /* Grosslüfter: a SECOND rotor for the fan/airflow, placed on the OPPOSITE (bottom) side of the
    ring from the blue vehicle-body knob and amber-tinted — so the two knobs are always far apart
    and easy to grab independently (rotating the body without catching the fan). */
 .shape-rotor-fan .shape-stem { top: calc(50% + var(--hbox, 56px) / 2); height: 18px; background: var(--amber); }
 .shape-rotor-fan .shape-rotate { top: calc(50% + var(--hbox, 56px) / 2 + 18px); background: var(--amber); }
-.shape-rotor-fan .shape-rotate:hover { background: var(--amber-strong); }
+@media (hover: hover) {
+  .shape-rotor-fan .shape-rotate:hover { background: var(--amber-strong); }
+}
 /* Hubretter cage: a single amber grab handle AT the boom tip (positioned in JS at the truck centre +
    reach·bearing). The boom line is its own tether, so there's no stem. */
 .cage-handle { position: absolute; z-index: 9; }
 .cage-handle .shape-cage { left: 0; top: 0; transform: translate(-50%, -50%); background: var(--amber); cursor: grab; touch-action: none; }
 .cage-handle .shape-cage:active { cursor: grabbing; }
-.cage-handle .shape-cage:hover { background: var(--amber-strong); }
+@media (hover: hover) {
+  .cage-handle .shape-cage:hover { background: var(--amber-strong); }
+}
 
 /* panel + context entrance motion — subtle & quick */
 @keyframes panelIn { from { opacity: 0; transform: translateY(-50%) translateX(-12px); } }
@@ -213,5 +223,7 @@
 @keyframes popIn { from { opacity: 0; transform: translateY(6px) scale(.97); } }
 .layers-card { animation: popIn .15s var(--ease); }  /* dock chrome → dock entrance */
 .ctx { animation: ctxIn .16s var(--ease); }
-@media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+/* delay zeroed too: with only durations cut, the boot splash sat at opacity 0 for its full
+   400ms delay before snapping in — reduced motion should shorten the wait, not add one */
+@media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; animation-delay: 0s !important; transition-duration: .001ms !important; } }
 .ts.photo img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-xs); display: block; }

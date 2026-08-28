@@ -37,7 +37,8 @@
 /* the projection is quieter than the real thing it mirrors — enough to read at a glance and to
    recognise the symbol, never enough to compete with one somebody actually set here */
 .twin :global(.ts) { position: relative; z-index: 1; opacity: .75; }
-.twin:hover :global(.ts), .twin:focus-visible :global(.ts) { opacity: 1; }
+@media (hover: hover) { .twin:hover :global(.ts) { opacity: 1; } }
+.twin:focus-visible :global(.ts) { opacity: 1; }
 
 /* A twin the operator may actually move says so — the same cursor a placed symbol gets on the
    surface underneath, so «kann ich das anfassen» is answered before the finger lands. Set in

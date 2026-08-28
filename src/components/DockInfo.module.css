@@ -9,7 +9,9 @@
 .wb-dock-tip-inline { margin: 0; width: 100%; padding: 0 8px; text-align: left; font-size: 12.5px; line-height: 1.4; color: rgba(255, 255, 255, .72); }
 .wb-dock-ibtn { width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
   color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
-.wb-dock-ibtn:hover, .wb-dock-ibtn.on { background: rgba(255, 255, 255, .28); }
+@media (hover: hover) { .wb-dock-ibtn:hover { background: rgba(255, 255, 255, .28); } }
+.wb-dock-ibtn.on { background: rgba(255, 255, 255, .28); }
+.wb-dock-ibtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (pointer: coarse) { .wb-dock-ibtn { width: 40px; height: 40px; } }
 .wb-dock-ibtn :global(.i) { width: 18px; height: 18px; }
 /* help text always appears at the BOTTOM-centre of the screen (not floating beside the

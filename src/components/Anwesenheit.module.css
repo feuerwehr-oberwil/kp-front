@@ -51,11 +51,12 @@
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
   border-radius: var(--r-sm); padding: 0 13px; font: 700 12.5px var(--body);
 }
-.reload:hover { color: var(--ink); border-color: var(--ink-faint); }
+@media (hover: hover) { .reload:hover { color: var(--ink); border-color: var(--ink-faint); } }
+.reload:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .reload:disabled { opacity: var(--disabled); cursor: default; }
 /* it only appears when something failed, so it says so rather than looking like a spare control */
 .reloadFailed { border-color: color-mix(in srgb, var(--amber-strong) 45%, var(--glass-edge)); color: var(--amber-strong); }
-.reloadFailed:hover { color: var(--amber-strong); border-color: var(--amber-strong); }
+@media (hover: hover) { .reloadFailed:hover { color: var(--amber-strong); border-color: var(--amber-strong); } }
 .reload svg { width: 15px; height: 15px; }
 
 /* (the search line — .controls/.search/.searchClear — lives in SurfaceControls.module.css) */
@@ -120,16 +121,17 @@
   overflow: hidden; font: 700 14px var(--body); color: var(--ink);
   transition: background .1s var(--ease), border-color .1s var(--ease);
 }
-.person:hover:has(.personMain:not(:disabled)) { border-color: var(--ink-faint); }
+@media (hover: hover) { .person:hover:has(.personMain:not(:disabled)) { border-color: var(--ink-faint); } }
 .personMain {
   flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 8px 11px;
   border: none; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit;
 }
+.personMain:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .personMain:disabled { cursor: default; }
 .personMain svg { width: 15px; height: 15px; flex: none; color: var(--amber-strong); margin-left: auto; }
 
 .isPresent { background: color-mix(in srgb, var(--green) 14%, var(--surface)); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
-.isPresent:hover:not(:disabled) { border-color: var(--green); }
+@media (hover: hover) { .isPresent:hover:not(:disabled) { border-color: var(--green); } }
 .isLeft { background: var(--surface); color: var(--ink-faint); opacity: .8; }
 
 .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
@@ -159,7 +161,8 @@
   color: var(--green); -webkit-tap-highlight-color: transparent;
 }
 .backBtn svg { width: 16px; height: 16px; }
-.backBtn:hover { background: color-mix(in srgb, var(--green) 14%, transparent); }
+@media (hover: hover) { .backBtn:hover { background: color-mix(in srgb, var(--green) 14%, transparent); } }
+.backBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* Live-Standort: a MARK beside the name, not a reading. «2.8 km · vor 3 min» behind every name
    was a second column of numbers competing with the one thing the list is read for; the reading
@@ -176,7 +179,8 @@
 .livePos svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 /* at the Einsatzort the mark is the ordinary case — a filled dot would shout the normal state */
 .livePosHere svg { color: var(--ink-dim); }
-.livePos:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+@media (hover: hover) { .livePos:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, transparent); } }
+.livePos:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .livePos:disabled { cursor: default; }
 
 /* ── Vor Ort / Magazin ────────────────────────────────────────────────────────────────────
@@ -198,11 +202,13 @@
 .ort svg { width: 16px; height: 16px; flex: none; }
 /* am Einsatzort = the ordinary case, so it stays the ink of the row and nothing more */
 .ortScene { color: var(--ink-dim); }
-button.ortScene:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { button.ortScene:hover { background: var(--fill-soft); color: var(--ink); } }
+button.ortScene:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* …the Magazin is the one worth SEEING, because it is the answer to the question. It keeps its
    tint when the word is gone — icon-only is exactly when the colour has to carry it. */
 .ortStation { color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 13%, transparent); }
-button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transparent); }
+@media (hover: hover) { button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transparent); } }
+button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 
 
@@ -295,5 +301,6 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
   color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .zoomBtn svg { width: 14px; height: 14px; }
-.zoomBtn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+@media (hover: hover) { .zoomBtn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); } }
+.zoomBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .zoomBtn:disabled { opacity: var(--disabled); cursor: default; }

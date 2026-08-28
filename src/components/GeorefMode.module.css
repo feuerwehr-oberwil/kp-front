@@ -213,6 +213,7 @@
   flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
   border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm);
 }
+.explainBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .explainBtn svg { width: 19px; height: 19px; }
 .explainOn { color: var(--blue); background: color-mix(in srgb, var(--blue) 11%, transparent); }
 .sayText { min-width: 0; }
@@ -346,7 +347,8 @@
   font: 700 11px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
 .qX { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center;
   border: none; background: transparent; color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; }
-.qX:hover { background: var(--fill-soft); color: var(--ink); }
+@media (hover: hover) { .qX:hover { background: var(--fill-soft); color: var(--ink); } }
+.qX:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .qX svg { width: 15px; height: 15px; }
 .qSummary { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
   padding: 2px 2px 4px; color: var(--ink-dim); font: 600 12.5px/1.4 var(--body); }
@@ -382,9 +384,12 @@
   padding: 9px 11px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); color: var(--ink); cursor: pointer; text-align: left;
 }
-.transferRow:hover { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
+@media (hover: hover) {
+  .transferRow:hover { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
+  .transferRow:disabled:hover { border-color: var(--glass-edge); background: var(--surface); }
+}
+.transferRow:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .transferRow:disabled { opacity: var(--disabled); cursor: default; }
-.transferRow:disabled:hover { border-color: var(--glass-edge); background: var(--surface); }
 .transferIcon { width: 34px; height: 34px; flex: none; display: grid; place-items: center;
   border-radius: var(--r-sm); color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
 .transferIcon svg, .transferRow > svg { width: 17px; height: 17px; }
@@ -442,7 +447,8 @@
   }
   .bar .placeAction svg { width: 18px; height: 18px; }
   /* no box, no border — the quiet row is text, or it is a second row of buttons again */
-  .bar .quietBtn, .bar .quietBtn:hover { border-color: transparent; background: transparent; }
+  .bar .quietBtn { border-color: transparent; background: transparent; }
+  @media (hover: hover) { .bar .quietBtn:hover { border-color: transparent; background: transparent; } }
   .bar .finishAction { width: 100%; }
   /* ⚠️ QUIET, not small. The row carries no box and no fill — that is what keeps it from
      competing with «Punkt setzen» — but it is still 44px of pressable height, because
@@ -474,6 +480,7 @@
   }
   .surfaceSwitch button svg { width: 16px; height: 16px; }
   .surfaceSwitch button.surfaceOn { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+  .surfaceSwitch button:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
   .surfaceSwitch button:disabled { opacity: var(--disabled); cursor: default; }
   .fixedTarget { display: block; }
   /* ⚠️ The magnifier is BACK on a phone — as the corner inset (.loupeCorner), never as the
