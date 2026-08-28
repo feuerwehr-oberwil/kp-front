@@ -4,7 +4,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
-import { motionDuration } from '../lib/reducedMotion'
+import { motionDuration, prefersReducedMotion } from '../lib/reducedMotion'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { operationalExtentPoints } from '../lib/report'
@@ -305,7 +305,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- labelsKey IS the labels, stably
   }, [mapReady, labelsKey, landscape])
 
-  const fit = () => mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM })
+  const fit = () => mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM, ...(prefersReducedMotion() ? { duration: 0 } : {}) })
   /** …and go back to following, because «alles zeigen» is a request for exactly that */
   const fitAndFollow = () => { setFollow(true); fit() }
 

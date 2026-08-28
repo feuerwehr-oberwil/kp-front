@@ -10,5 +10,11 @@ export function motionDuration(ms: number): number {
 
 /** Scroll behaviour honouring reduced motion: 'auto' when reduced, else 'smooth'. */
 export function scrollBehavior(): ScrollBehavior {
-  return motionDuration(1) === 0 ? 'auto' : 'smooth'
+  return !prefersReducedMotion() ? 'smooth' : 'auto'
+}
+
+/** For call sites whose normal-motion duration is MapLibre's own computed default: they can't
+ *  pass motionDuration(ms) without changing that default, so they branch on this instead. */
+export function prefersReducedMotion(): boolean {
+  return motionDuration(1) === 0
 }

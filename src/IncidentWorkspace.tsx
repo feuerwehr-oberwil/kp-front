@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
-import { motionDuration } from './lib/reducedMotion'
+import { motionDuration, prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
 import { useVehicleLayer } from './lib/useVehicleLayer'
@@ -2055,7 +2055,7 @@ export function IncidentWorkspace({
     const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
     const minLng = Math.min(...lngs), maxLng = Math.max(...lngs), minLat = Math.min(...lats), maxLat = Math.max(...lats)
     if (maxLng - minLng < 1e-6 && maxLat - minLat < 1e-6) {
-      map.flyTo({ center: incidentView.center, zoom: 17.6 })
+      map.flyTo({ center: incidentView.center, zoom: 17.6, ...(prefersReducedMotion() ? { duration: 0 } : {}) })
     } else {
       map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 96, maxZoom: 17.6, duration: motionDuration(600) })
     }
@@ -2436,7 +2436,7 @@ export function IncidentWorkspace({
       const surface = { minX: 0, maxX: cont.width, minY: 0, maxY: cont.height }
       const work = panelEl ? mapWorkRect(cont, panelEl) : visibleWorkRect(surface, null, false)
       const target = rectCenter(work ?? visibleWorkRect(surface, null, false))
-      m.flyTo({ center, zoom, offset: [target.x - cont.width / 2, target.y - cont.height / 2] })
+      m.flyTo({ center, zoom, offset: [target.x - cont.width / 2, target.y - cont.height / 2], ...(prefersReducedMotion() ? { duration: 0 } : {}) })
     })
   }
 

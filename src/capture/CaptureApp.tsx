@@ -1291,7 +1291,9 @@ export default function CaptureApp() {
                   </ul>
                 )}
                 <label className={`cv-btn cv-btn-add cv-beilagen-add${uploading ? ' busy' : ''}`}>
-                  <Icon id="photo" /><span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
+                  {/* while the upload runs the control eats taps at 60% opacity — the house busy
+                      glyph says WHY instead of leaving a silently dead button (App.tsx idiom) */}
+                  {uploading ? <Icon id="rotate" className="spin" /> : <Icon id="photo" />}<span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
                   <input type="file" accept="image/*" disabled={busy || uploading}
                     onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void addBeilage(f) }} />
                 </label>
