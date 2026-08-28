@@ -32,6 +32,10 @@ export function useTapToType(opts: {
     value: draft,
     inputMode: 'numeric' as const,
     type: 'text' as const,
+    // The seeded value arrives SELECTED, so typing replaces it — nobody deletes «300» digit by
+    // digit to enter a Druck (parity with the canonical Stepper). Backing out stays safe either
+    // way: Escape, or leaving the field empty, commits nothing and the previous value stands.
+    onFocus: (e: React.FocusEvent<HTMLInputElement>) => e.currentTarget.select(),
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
     onBlur: commit,
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
