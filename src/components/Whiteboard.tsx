@@ -758,6 +758,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const c = georefFit.toMap(pt)
     onTwinMove(twin.entityId, [c.lng, c.lat], phase)
   }, [readOnly, georefFit, onTwinMove])
+  // …and the mirrored Trupp chips take the same road: the write lands on the one map entity.
+  const moveContentTeam = useCallback((entity: Entity, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => {
+    if (readOnly || !georefFit || !onTwinMove) return
+    const c = georefFit.toMap(pt)
+    onTwinMove(entity.id, [c.lng, c.lat], phase)
+  }, [readOnly, georefFit, onTwinMove])
   const openBoardTwin = useCallback((twin: BoardTwin) => {
     setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null)
     setTwinView(twin)
@@ -2779,7 +2785,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               <GeorefContentBoard entities={twinContent} drawings={twinDrawings} fit={georefFit}
                 planAspect={measureAR} sW={sW} sH={sH} byName={sym.byName}
                 trupps={trupps} truppSeverities={truppSeverities}
-                interactive={tool === 'pan'} onOpenTeam={onTwinJump} />
+                interactive={tool === 'pan'} onOpenTeam={onTwinJump}
+                onMoveTeam={readOnly ? undefined : moveContentTeam} />
             )}
             {/* …and the Karte's own objects, mirrored ONTO this sheet. In the board so they pan
                 and zoom with it, and clipped to the sheet (lib/georefTwins · onSheet) so a

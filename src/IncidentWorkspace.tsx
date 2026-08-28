@@ -2537,7 +2537,9 @@ export function IncidentWorkspace({
    * here for exactly this reason — see useBoardDoc · BoardDocDeps), so the move is waiting to be
    * undone when the plan is next opened, checkpointed by the same rule the board itself uses.
    */
-  const moveMapTwinSource = (t: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => {
+  // …for symbol twins AND the mirrored Trupp chips (MapContentTwin): both name the one source
+  // annotation the same way, and both write it through the same fold-back.
+  const moveMapTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId' | 'fit'> & { anno: BoardAnno }, coord: LngLat, phase: 'start' | 'move' | 'end') => {
     if (tacticalLocked) return
     // one checkpoint for the whole drag, on the first movement — the map's own model
     if (phase === 'start') { setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? [])); return }
@@ -3391,6 +3393,7 @@ export function IncidentWorkspace({
           onTwinOpen={openTwinView}
           onTwinMove={moveMapTwinSource}
           onContentTwinOpen={goToTwinSource}
+          onContentTwinMove={moveMapTwinSource}
           selectedTwinKey={twinView?.key}
           georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}

@@ -11,8 +11,9 @@
  * measured on the SOURCE geometry (geodesic, lib/geo) — the map already knows the truth, so a
  * mirrored line reads its Länge even on a sheet that was never calibrated.
  */
-import { Fragment, type CSSProperties } from 'react'
+import { Fragment, useRef, type CSSProperties } from 'react'
 import type { GeorefFit } from '../lib/georef'
+import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import type { BoardDrawingTwin, BoardEntityTwin } from '../lib/georefTwins'
 import { WbInkLayer } from './WbControls'
 import { ShapeGlyph } from '../lib/shapes'
@@ -28,7 +29,7 @@ import { fillTemplate } from '../lib/format'
 import type { BoardAnno, Entity, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
-export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, onOpenTeam }: {
+export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, onOpenTeam, onMoveTeam }: {
   entities: BoardEntityTwin[]
   drawings: BoardDrawingTwin[]
   fit: GeorefFit
@@ -46,7 +47,17 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
    *  layer stays pointer-inert — a Trupp chip is the one mark here an operator hunts for by
    *  name («wo ist Trupp 2»), and its mirror used to be a dot that answered nothing. */
   onOpenTeam?: (entity: Entity) => void
+  /** Drag a mirrored team chip to move its one source marker — the point handed back is in the
+   *  SHEET's normalized space, folded through the fit by the Whiteboard exactly like a symbol
+   *  twin's drag. Direct drag past the shared deadzone, no selection first: that is how this
+   *  sheet's OWN chips move (chipDown), and the mirror keeps the surface's grammar. Without it
+   *  a drag on the chip simply panned the board — «Trupp markers cannot be moved». */
+  onMoveTeam?: (entity: Entity, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => void
 }) {
+  /** The live chip gesture. `base` is where the chip STOOD at the press — the twin follows its
+   *  source mid-drag, so the cumulative delta must be added to a FIXED point (GeorefTwinsBoard
+   *  carries the same warning). One ref: only one chip is ever dragged at a time. */
+  const chipDrag = useRef<{ pid: number; x: number; y: number; base: { x: number; y: number }; entity: Entity; moved: boolean } | null>(null)
   if (!sW || !sH || (!entities.length && !drawings.length)) return null
 
   const trailAnnos: BoardAnno[] = entities.flatMap(({ entity }) => {
@@ -170,16 +181,55 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
         if (entity.kind === 'team') {
           const style = { ...pos, transform: 'translate(-50%, -50%)', '--team': entity.color || appConfig.drawing.teamColors[0] } as CSSProperties
           const jump = interactive && onOpenTeam ? () => onOpenTeam(entity) : undefined
-          return jump ? (
-            <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} team-dot`} style={style}
-              title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromMap, { name: entity.label ?? '' })}
-              onClick={jump}>
-              <i /><b>{entity.label}</b>
-            </button>
-          ) : (
-            <span key={key} className={`${s.contentPoint} team-dot`} style={style}>
+          const movable = interactive && !!onMoveTeam
+          if (!jump && !movable) {
+            return <span key={key} className={`${s.contentPoint} team-dot`} style={style}>
               <i /><b>{entity.label}</b>
             </span>
+          }
+          return (
+            <button key={key} type="button"
+              className={`${s.contentPoint} ${s.contentTap} team-dot`}
+              style={{ ...style, ...(movable ? { touchAction: 'none', cursor: 'grab' } : null) }}
+              title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromMap, { name: entity.label ?? '' })}
+              data-twin=""
+              onPointerDown={(ev) => {
+                // the sheet must not ALSO start a pan under the held chip
+                ev.stopPropagation()
+                // tracked even when tap-only, so the release can tell a tap from a slipped drag
+                ev.currentTarget.setPointerCapture?.(ev.pointerId)
+                chipDrag.current = { pid: ev.pointerId, x: ev.clientX, y: ev.clientY, base: pt, entity, moved: false }
+              }}
+              onPointerMove={(ev) => {
+                const d = chipDrag.current
+                if (!movable || !d || d.pid !== ev.pointerId) return
+                const dx = ev.clientX - d.x, dy = ev.clientY - d.y
+                // the shared deadzone every chip drag uses — a tap must never nudge the Trupp
+                if (!d.moved) {
+                  if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
+                  d.moved = true
+                  onMoveTeam!(d.entity, d.base, 'start')
+                }
+                onMoveTeam!(d.entity, {
+                  x: Math.max(0, Math.min(1, d.base.x + dx / sW)),
+                  y: Math.max(0, Math.min(1, d.base.y + dy / sH)),
+                }, 'move')
+              }}
+              onPointerUp={(ev) => {
+                const d = chipDrag.current
+                if (!d || d.pid !== ev.pointerId) return
+                chipDrag.current = null
+                if (d.moved) {
+                  onMoveTeam!(d.entity, {
+                    x: Math.max(0, Math.min(1, d.base.x + (ev.clientX - d.x) / sW)),
+                    y: Math.max(0, Math.min(1, d.base.y + (ev.clientY - d.y) / sH)),
+                  }, 'end')
+                } else if (jump) jump()
+              }}
+              onPointerCancel={() => { const d = chipDrag.current; chipDrag.current = null; if (d?.moved) onMoveTeam!(d.entity, d.base, 'end') }}
+            >
+              <i /><b>{entity.label}</b>
+            </button>
           )
         }
         // Shared responder positions are live map facts, not tactical symbols. Preserve their

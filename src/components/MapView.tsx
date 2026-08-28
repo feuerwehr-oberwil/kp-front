@@ -293,6 +293,8 @@ interface Props {
   onTwinMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   /** tap on a mirrored Trupp chip (plan resource twin): jump to its source chip on the Modul */
   onContentTwinOpen?: (twin: MapContentTwin) => void
+  /** drag a mirrored Trupp chip: move its one source chip through the fit */
+  onContentTwinMove?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   selectedTwinKey?: string | null
   /** Opt-in literal plan sheets from Ebenen, already rasterized and projected by their fit. */
   georefPlanRasters?: {
@@ -309,7 +311,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, selectedTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, selectedTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -1381,7 +1383,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {!georefOn && georefPlanContent.length > 0 && (
         <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing}
           trupps={trupps} truppSeverities={truppSeverities}
-          interactive={!placing} onOpenResource={onContentTwinOpen} />
+          interactive={!placing} onOpenResource={onContentTwinOpen}
+          onMoveResource={readOnly ? undefined : onContentTwinMove}
+          project={(c) => mapInst.current?.project(c as [number, number])}
+          unproject={(p) => { const m = mapInst.current; if (!m) return undefined; const ll = m.unproject([p.x, p.y]); return [ll.lng, ll.lat] }}
+          setDragPan={(on) => { const dp = mapInst.current?.dragPan; if (!dp) return; if (on) dp.enable(); else dp.disable() }} />
       )}
 
       {/* «Karte verknüpfen»: the numbered reference crosses, drag-to-fine-tune, tap-to-re-place */}

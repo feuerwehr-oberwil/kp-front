@@ -58,8 +58,28 @@ describe('broader Karte content on a Modul', () => {
     const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2' }]
     render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
       fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} />)
-    fireEvent.click(screen.getByRole('button', { name: /Trupp 2/ }))
+    const chip = screen.getByRole('button', { name: /Trupp 2/ })
+    fireEvent.pointerDown(chip, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(chip, { pointerId: 1, clientX: 100, clientY: 100 })
     expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 'team' }))
+  })
+
+  it('…and a drag past the deadzone moves the source, in the sheet\'s own space', () => {
+    // dragging the mirrored chip used to pan the board under it — «Trupp markers cannot be moved»
+    const onOpenTeam = vi.fn()
+    const onMoveTeam = vi.fn()
+    const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2' }]
+    render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} onMoveTeam={onMoveTeam} />)
+    const chip = screen.getByRole('button', { name: /Trupp 2/ })
+    fireEvent.pointerDown(chip, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(chip, { pointerId: 1, clientX: 180, clientY: 100 }) // +80px on an 800px sheet = +0.1
+    fireEvent.pointerUp(chip, { pointerId: 1, clientX: 180, clientY: 100 })
+    const [entity, pt, phase] = onMoveTeam.mock.calls[onMoveTeam.mock.calls.length - 1]
+    expect(phase).toBe('end')
+    expect(entity.id).toBe('team')
+    expect(pt.x).toBeCloseTo(0.5 + 0.1, 5)
+    expect(onOpenTeam).not.toHaveBeenCalled() // a drag is not a tap
   })
 
   it('…but stays inert while a tool is armed', () => {

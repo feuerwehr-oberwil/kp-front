@@ -61,7 +61,27 @@ describe('broader Plan content on the Karte', () => {
     const onOpenResource = vi.fn()
     const twins = [point({ id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1' })]
     render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive onOpenResource={onOpenResource} />)
-    fireEvent.click(screen.getByRole('button', { name: /Trupp 1/ }))
+    const chip = screen.getByRole('button', { name: /Trupp 1/ })
+    fireEvent.pointerDown(chip, { pointerId: 1, isPrimary: true, clientX: 50, clientY: 50 })
+    fireEvent.pointerUp(chip, { pointerId: 1, clientX: 50, clientY: 50 })
     expect(onOpenResource).toHaveBeenCalledWith(expect.objectContaining({ annoId: 'team' }))
+  })
+
+  it('…and a mouse press-drag moves the source chip instead of panning the map', () => {
+    const onMoveResource = vi.fn()
+    const twins = [point({ id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1' })]
+    // 1000 px per degree, so +50 px of pointer travel is +0.05° of longitude
+    const project = (c: [number, number]) => ({ x: (c[0] - 7.5) * 1000, y: (c[1] - 47.5) * 1000 })
+    const unproject = (p: { x: number; y: number }) => [7.5 + p.x / 1000, 47.5 + p.y / 1000] as [number, number]
+    render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
+      onOpenResource={() => {}} onMoveResource={onMoveResource} project={project} unproject={unproject} setDragPan={() => {}} />)
+    const chip = screen.getByRole('button', { name: /Trupp 1/ })
+    fireEvent.pointerDown(chip, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 150, clientY: 100 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 150, clientY: 100 })
+    const [twin, coord, phase] = onMoveResource.mock.calls[onMoveResource.mock.calls.length - 1]
+    expect(phase).toBe('end')
+    expect(twin.annoId).toBe('team')
+    expect(coord[0]).toBeCloseTo(point({ id: 'x', kind: 'resource' }).coord![0] + 0.05, 5)
   })
 })
