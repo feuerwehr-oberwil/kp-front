@@ -291,6 +291,8 @@ interface Props {
   /** drag a projection of a plan annotation — writes the SOURCE anno through the twin's own
    *  fit, so every other projection of it follows from that one write (see MapTwin · fit) */
   onTwinMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
+  /** tap on a mirrored Trupp chip (plan resource twin): jump to its source chip on the Modul */
+  onContentTwinOpen?: (twin: MapContentTwin) => void
   selectedTwinKey?: string | null
   /** Opt-in literal plan sheets from Ebenen, already rasterized and projected by their fit. */
   georefPlanRasters?: {
@@ -307,7 +309,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, selectedTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, selectedTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -1378,7 +1380,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {!georefOn && georefPlanContent.length > 0 && (
         <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing}
-          trupps={trupps} truppSeverities={truppSeverities} />
+          trupps={trupps} truppSeverities={truppSeverities}
+          interactive={!placing} onOpenResource={onContentTwinOpen} />
       )}
 
       {/* «Karte verknüpfen»: the numbered reference crosses, drag-to-fine-tune, tap-to-re-place */}

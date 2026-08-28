@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { markerOptions, placedTrupps, resolveMarkerJoin, truppMatches } from './placedTrupps'
+import { markerOptions, nextTeamName, placedTrupps, resolveMarkerJoin, truppMatches } from './placedTrupps'
 import { searchQuery } from './search'
 import type { BoardAnno, BoardDoc, Entity, PlanDocument, Trupp } from '../types'
 
@@ -159,5 +159,18 @@ describe('markerOptions (what a Trupp card offers)', () => {
   it('leaves out the asking Trupp’s own symbol — picking it would change nothing', () => {
     const placed = placedTrupps([ent({ id: 'e2', truppId: 'tr2' })], {}, PLANS, [T2])
     expect(markerOptions(placed, [T2], 'tr2')).toEqual([])
+  })
+})
+
+describe('nextTeamName', () => {
+  it('numbers past every chip it is shown, wherever that chip lives', () => {
+    // both surfaces used to count separately, so a linked Karte and Modul each started at
+    // «Trupp 1» — and the mirror showed the pair as one duplicated Trupp
+    expect(nextTeamName(['Trupp 1', 'Trupp 3'])).toBe('Trupp 4')
+    expect(nextTeamName([])).toBe('Trupp 1')
+  })
+
+  it('ignores renamed chips and real Trupp names — only the generic pattern counts', () => {
+    expect(nextTeamName(['Verkehrsgruppe', 'Trupp Nord', 'Trupp 2', undefined])).toBe('Trupp 3')
   })
 })

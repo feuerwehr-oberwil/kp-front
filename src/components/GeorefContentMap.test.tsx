@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { MapContentTwin } from '../lib/georefTwins'
 import type { BoardAnno } from '../types'
@@ -55,5 +55,13 @@ describe('broader Plan content on the Karte', () => {
     expect(container.querySelector('.draw-label')?.textContent).toMatch(/m ·/)
     // the arrowhead rides the map's own registered icon in its own symbol source
     expect(screen.getAllByTestId('source').length).toBe(2)
+  })
+
+  it('a mirrored Trupp chip answers a tap with the jump to its source chip', () => {
+    const onOpenResource = vi.fn()
+    const twins = [point({ id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1' })]
+    render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive onOpenResource={onOpenResource} />)
+    fireEvent.click(screen.getByRole('button', { name: /Trupp 1/ }))
+    expect(onOpenResource).toHaveBeenCalledWith(expect.objectContaining({ annoId: 'team' }))
   })
 })

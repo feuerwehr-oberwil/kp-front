@@ -2675,7 +2675,9 @@ export function IncidentWorkspace({
    * arriving there leaves behind. A twin is never selected; it can also be dragged in place,
    * and that drag writes its source through the helpers above.
    */
-  const goToTwinSource = (t: MapTwin) => {
+  // …for symbol twins AND the mirrored Trupp chips (MapContentTwin) — both name their source
+  // annotation the same way, and the jump is the same jump.
+  const goToTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId'> & { anno: Pick<BoardAnno, 'x' | 'y' | 'floor'> }) => {
     setPanel(null)
     setMode('plans'); setActivePlanId(t.planId)
     setPlanFocus({ x: t.anno.x ?? 0.5, y: t.anno.y ?? 0.5, floor: t.anno.floor ?? 0, annoId: t.annoId, nonce: Date.now() })
@@ -2740,7 +2742,11 @@ export function IncidentWorkspace({
     return true
   }
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
-  const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
+  const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({
+    entities, commit, log, emit, setSelectedId, setSelectedDrawingId,
+    // linked Modul chips count into the numbering — their mirror stands on this map
+    mirroredTeamNames: () => linkedPlans.flatMap((p) => (board[p.id] ?? []).filter((a) => a.kind === 'resource').map((a) => a.text ?? '')),
+  })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
   const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
     useTruppActions({
@@ -3384,6 +3390,7 @@ export function IncidentWorkspace({
           georefPlanContent={mapContentTwinList}
           onTwinOpen={openTwinView}
           onTwinMove={moveMapTwinSource}
+          onContentTwinOpen={goToTwinSource}
           selectedTwinKey={twinView?.key}
           georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}

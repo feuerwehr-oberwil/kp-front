@@ -24,10 +24,11 @@ import { lerpPoint, lookbackPoint, markerParamsAlong } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { appConfig } from '../config/appConfig'
-import type { BoardAnno, Trupp } from '../types'
+import { fillTemplate } from '../lib/format'
+import type { BoardAnno, Entity, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
-export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities }: {
+export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, onOpenTeam }: {
   entities: BoardEntityTwin[]
   drawings: BoardDrawingTwin[]
   fit: GeorefFit
@@ -39,6 +40,12 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   /** the Atemschutz board, so a mirrored Leitung's tag carries its Trupp and clock tone */
   trupps?: Trupp[]
   truppSeverities?: Record<string, 1 | 2>
+  /** the sheet is at rest (pan tool, no pairing) — only then may a team chip answer a tap */
+  interactive?: boolean
+  /** tap on a mirrored team chip: jump to its one source marker on the Karte. The rest of this
+   *  layer stays pointer-inert — a Trupp chip is the one mark here an operator hunts for by
+   *  name («wo ist Trupp 2»), and its mirror used to be a dot that answered nothing. */
+  onOpenTeam?: (entity: Entity) => void
 }) {
   if (!sW || !sH || (!entities.length && !drawings.length)) return null
 
@@ -57,7 +64,8 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   const planWidthM = Math.max(0.001, fit.scaleMPerU * planAspect)
 
   return (
-    <div className={s.contentBoard} aria-hidden>
+    // not aria-hidden any more: the mirrored team chips answer a tap (onOpenTeam)
+    <div className={s.contentBoard}>
       <WbInkLayer annos={ink} draft={null} draftFloor={0} color="#1f6feb" width={5} dashed={false}
         hiddenTrails={new Set()} mapY={(_floor, y) => y} />
       {/* line/area decorations — the same feature set the sheet's own annotations render
@@ -160,9 +168,19 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           return <span key={key} className={`${s.contentPoint} ${cls}`} style={style}>{entity.label || appConfig.copy.whiteboard.text}</span>
         }
         if (entity.kind === 'team') {
-          return <span key={key} className={`${s.contentPoint} team-dot`} style={{ ...pos, transform: 'translate(-50%, -50%)', '--team': entity.color || appConfig.drawing.teamColors[0] } as CSSProperties}>
-            <i /><b>{entity.label}</b>
-          </span>
+          const style = { ...pos, transform: 'translate(-50%, -50%)', '--team': entity.color || appConfig.drawing.teamColors[0] } as CSSProperties
+          const jump = interactive && onOpenTeam ? () => onOpenTeam(entity) : undefined
+          return jump ? (
+            <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} team-dot`} style={style}
+              title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromMap, { name: entity.label ?? '' })}
+              onClick={jump}>
+              <i /><b>{entity.label}</b>
+            </button>
+          ) : (
+            <span key={key} className={`${s.contentPoint} team-dot`} style={style}>
+              <i /><b>{entity.label}</b>
+            </span>
+          )
         }
         // Shared responder positions are live map facts, not tactical symbols. Preserve their
         // own ringed-initials SVG so a projected phone fix cannot be mistaken for a placed unit.

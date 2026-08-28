@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { fitSimilarity } from '../lib/georef'
 import { boardDrawingTwins, boardEntityTwins } from '../lib/georefTwins'
 import type { Drawing, Entity } from '../types'
@@ -51,5 +51,22 @@ describe('broader Karte content on a Modul', () => {
     expect(container.querySelector('.wb-line-label')?.textContent).toMatch(/m ·/)
     // …and the Absperrkreis states its radius like the map does
     expect(screen.getByText('50 m')).toBeTruthy()
+  })
+
+  it('a mirrored Trupp chip answers a tap with the jump to its source marker', () => {
+    const onOpenTeam = vi.fn()
+    const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2' }]
+    render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} />)
+    fireEvent.click(screen.getByRole('button', { name: /Trupp 2/ }))
+    expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 'team' }))
+  })
+
+  it('…but stays inert while a tool is armed', () => {
+    const onOpenTeam = vi.fn()
+    const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2' }]
+    render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive={false} onOpenTeam={onOpenTeam} />)
+    expect(screen.queryByRole('button', { name: /Trupp 2/ })).toBeNull()
   })
 })

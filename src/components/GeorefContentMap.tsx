@@ -20,6 +20,7 @@ import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from
 import { lerpPoint, markerParamsAlong } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
+import { fillTemplate } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import type { LngLat, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
@@ -31,13 +32,18 @@ const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
 
 const INERT: CSSProperties = { pointerEvents: 'none' }
 
-export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities }: {
+export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, onOpenResource }: {
   twins: MapContentTwin[]
   zoom: number
   bearing: number
   /** the Atemschutz board, so a mirrored Leitung's tag carries its Trupp and clock tone */
   trupps?: Trupp[]
   truppSeverities?: Record<string, 1 | 2>
+  /** the map is at rest (no armed tool, no pairing) — only then may a team chip answer a tap */
+  interactive?: boolean
+  /** tap on a mirrored Trupp chip: jump to its one source chip on the Modul. Everything else in
+   *  this layer stays pointer-inert. */
+  onOpenResource?: (twin: MapContentTwin) => void
 }) {
   if (!twins.length) return null
   // Arrowheads ride the map's own registered SDF icon in ONE symbol layer, exactly like the
@@ -184,9 +190,23 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
             {trail.length >= 2 && <Source id={`s-georef-trail-${i}`} type="geojson" data={trailData}>
               <Layer id={`l-georef-trail-${i}`} type="line" paint={{ 'line-color': a.color || appConfig.drawing.teamColors[0], 'line-width': 2, 'line-opacity': 0.7, 'line-dasharray': [2, 2] }} />
             </Source>}
-            <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>
-              <span className={`${s.contentMap} team-dot`} style={{ '--team': a.color || appConfig.drawing.teamColors[0] } as CSSProperties}><i /><b>{a.text}</b></span>
-            </Marker>
+            {(() => {
+              const style = { '--team': a.color || appConfig.drawing.teamColors[0] } as CSSProperties
+              const jump = interactive && onOpenResource ? () => onOpenResource(t) : undefined
+              return (
+                <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={jump ? undefined : INERT}>
+                  {jump ? (
+                    <button type="button" className={`${s.contentMap} ${s.contentTap} team-dot`} style={style}
+                      title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromPlan, { name: a.text ?? '', plan: t.planCode })}
+                      onClick={jump}>
+                      <i /><b>{a.text}</b>
+                    </button>
+                  ) : (
+                    <span className={`${s.contentMap} team-dot`} style={style}><i /><b>{a.text}</b></span>
+                  )}
+                </Marker>
+              )
+            })()}
           </Fragment>
         }
         return null

@@ -37,6 +37,26 @@ export interface PlacedTrupp {
 
 const truppOf = (trupps: Trupp[], id: string | undefined) => (id ? trupps.find((t) => t.id === id) : undefined)
 
+/**
+ * The next free generic chip name — «Team N» counted across every name handed in.
+ *
+ * Each surface used to count only its own chips, so a linked Karte and Modul both started at
+ * «Team 1» — and the mirror then showed the two same-named chips side by side as what read as
+ * one duplicated Trupp. The caller passes the names of BOTH surfaces' chips when the sheet is
+ * georeferenced; an unlinked surface keeps its own count (two separate pictures naming the same
+ * crew identically was the pre-mirror convention, and still is where nothing is mirrored).
+ */
+export function nextTeamName(taken: Iterable<string | undefined>): string {
+  const word = appConfig.copy.whiteboard.team
+  const re = new RegExp(`^${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\d+)$`, 'i')
+  let max = 0
+  for (const name of taken) {
+    const m = name?.trim().match(re)
+    if (m) max = Math.max(max, parseInt(m[1], 10))
+  }
+  return `${word} ${max + 1}`
+}
+
 /** Everyone in a Trupp, leader first — the order the card and the Kroki print. */
 function membersOf(t: Trupp | undefined): string[] {
   if (!t) return []
