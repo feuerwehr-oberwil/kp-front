@@ -2860,6 +2860,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onFinish={finishShape}
           onCancelDraft={cancelShape}
           recolorTeam={recolorTeam}
+          resourceBound={!!selResource?.truppId && trupps.some((t) => t.id === selResource.truppId && !t.removedAt)}
           trailsShown={!!selResource && !hiddenTrails.has(selResource.id)}
           onToggleTrails={() => { if (selResource) toggleTrail(selResource.id) }}
           measMode={measMode}
