@@ -2149,16 +2149,31 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       the screen and the two printed pages carried three different north marks.
                       The N sits INSIDE the ring and the needle is a dart in ink, which is the
                       one that survived print review. */}
-                  {idx === 0 && fpView && (
-                    <svg viewBox="-25 -25 50 50" className="wb-north-dial" aria-hidden>
-                      <title>{appConfig.copy.whiteboard.northTitle}</title>
-                      <circle r="24" className="wb-north-ring" />
-                      <g style={{ transform: `rotate(${viewAngle}deg)`, transformOrigin: '0px 0px' }}>
-                        <text y="-13" className="wb-north-n">{appConfig.copy.whiteboard.northLabel}</text>
-                        <path d="M0 -8 L10 16 L0 7 L-10 16 Z" className="wb-north-needle" />
-                      </g>
-                    </svg>
-                  )}
+                  {/* …and the dial IS the orientation toggle where one exists: the compass is
+                      what the eye consults about the building's rotation, so it is where the
+                      finger goes to change it. The rail-footer button stays — two doors, one
+                      room. Read-only / unrotated footprints keep the plain read-out. */}
+                  {idx === 0 && fpView && (() => {
+                    const dial = (
+                      <svg viewBox="-25 -25 50 50" className={canOrient && !readOnly ? undefined : 'wb-north-dial'} aria-hidden>
+                        <title>{appConfig.copy.whiteboard.northTitle}</title>
+                        <circle r="24" className="wb-north-ring" />
+                        <g style={{ transform: `rotate(${viewAngle}deg)`, transformOrigin: '0px 0px' }}>
+                          <text y="-13" className="wb-north-n">{appConfig.copy.whiteboard.northLabel}</text>
+                          <path d="M0 -8 L10 16 L0 7 L-10 16 Z" className="wb-north-needle" />
+                        </g>
+                      </svg>
+                    )
+                    if (!(canOrient && !readOnly)) return dial
+                    const label = building?.northUp ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp
+                    return (
+                      <button type="button" className="wb-north-dial wb-north-btn" title={label} aria-label={label}
+                        aria-pressed={!!building?.northUp}
+                        onPointerDown={(e) => e.stopPropagation()} onClick={reorient}>
+                        {dial}
+                      </button>
+                    )
+                  })()}
                   <div className="wb-floor-fp" style={{ width: fpBox?.w, height: fpBox?.h }}>
                     <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="wb-floor-svg">
                       {(fpView?.rings ?? building.rings ?? [building.ring]).map((ring, ri) => (
