@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
+import { scrollBehavior } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
@@ -147,7 +148,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
     if (next.has(key)) next.delete(key)
     else {
       next.add(key)
-      requestAnimationFrame(() => rowRefs.current[key]?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }))
+      requestAnimationFrame(() => rowRefs.current[key]?.scrollIntoView?.({ block: 'nearest', behavior: scrollBehavior() }))
     }
     return next
   })

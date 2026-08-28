@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { fmtDayShort } from '../lib/zeitplanFormat'
+import { scrollBehavior } from '../lib/reducedMotion'
 import w from './WheelPicker.module.css'
 
 const ITEM_H = 44 // px, one wheel row — a full ≥44px tap target; must match .wheel-item/.wheel-pad/.wheelpop-band in app.css
@@ -86,7 +87,7 @@ function Wheel({ items, index, onIndex, ariaLabel, loop = false }: {
           <button
             key={i} type="button" role="option" aria-selected={on}
             className={`wheel-item${on ? ' on' : ''}`}
-            onClick={() => { onIndex(value); const el = ref.current; if (el) el.scrollTo({ top: i * ITEM_H, behavior: 'smooth' }) }}
+            onClick={() => { onIndex(value); const el = ref.current; if (el) el.scrollTo({ top: i * ITEM_H, behavior: scrollBehavior() }) }}
           >{it}</button>
         )
       })}

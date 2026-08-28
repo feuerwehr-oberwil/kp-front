@@ -5,6 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
+import { motionDuration } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML } from '../lib/draw'
@@ -656,7 +657,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const c: LngLat = [p.coords.longitude, p.coords.latitude]
         setUserPos(c)
         const m = mapInst.current
-        if (m) m.flyTo({ center: c, zoom: Math.max(m.getZoom(), 16), duration: 600 })
+        if (m) m.flyTo({ center: c, zoom: Math.max(m.getZoom(), 16), duration: motionDuration(600) })
       },
       () => { /* denied / unavailable — leave the last known dot (if any) as is */ },
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 },
@@ -1328,7 +1329,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // two-finger zoom self-heals; deliberate rotation past the threshold sticks.
       onRotateEnd={(e) => {
         if (e.originalEvent && snapNorth(e.viewState.bearing) != null) {
-          mapInst.current?.easeTo({ bearing: 0, duration: 250 })
+          mapInst.current?.easeTo({ bearing: 0, duration: motionDuration(250) })
         }
       }}
       onMouseDown={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}

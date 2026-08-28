@@ -12,6 +12,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { georefDispatch, georefMapQueueNo, georefMatching, GEOREF_TAP_SLOP_PX, peekGeorefPhoneTarget, useGeorefMode, type GeorefModeState } from '../lib/georefMode'
 import { fitSimilarity } from '../lib/georef'
+import { motionDuration } from '../lib/reducedMotion'
 import s from './GeorefMode.module.css'
 
 /** Zoom levels above the live map the loupe shows. Two levels ≈ 4×, matching the plan loupe. */
@@ -170,7 +171,7 @@ export function GeorefCheckOutline({ mode, map }: { mode: GeorefModeState; map: 
     const resizeFrame = requestAnimationFrame(() => {
       try { map.resize() } catch { return }
       fitFrame = requestAnimationFrame(() => {
-        try { map.fitBounds(bounds, { padding: 56, duration: 280 }) } catch {
+        try { map.fitBounds(bounds, { padding: 56, duration: motionDuration(280) }) } catch {
           /* map is being torn down — the outline still renders on the next open */
         }
       })

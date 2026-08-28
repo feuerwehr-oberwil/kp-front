@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Overlay } from '../lib/overlays'
+import { scrollBehavior } from '../lib/reducedMotion'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { atemschutzDoctrine, getDeploymentConfig } from '../lib/deploymentConfig'
@@ -140,7 +141,7 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
   // unfiltered list and the first hit sits somewhere above the fold
   useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }) }, [q])
 
-  const go = (id: string) => document.getElementById(`help-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const go = (id: string) => document.getElementById(`help-${id}`)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
 
   return (
     <Overlay open onClose={onClose} className="help-modal" backdropClassName="help-scrim" ariaLabel={C.title}>

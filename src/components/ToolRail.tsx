@@ -3,6 +3,7 @@ import { Icon } from '../lib/icons'
 import type { RailLabels } from '../lib/prefs'
 import { appConfig } from '../config/appConfig'
 import { clampRailWidth, snapExpanded } from '../lib/navRail'
+import { scrollBehavior } from '../lib/reducedMotion'
 
 export interface ToolDef {
   id: string
@@ -88,14 +89,14 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
     const page = Math.max(el.clientHeight - 50, 50)
     const rest = dir === 1 ? el.scrollHeight - el.clientHeight - el.scrollTop : el.scrollTop
     const top = rest <= page ? (dir === 1 ? el.scrollHeight : 0) : el.scrollTop + dir * page
-    el.scrollTo({ top, behavior: 'smooth' })
+    el.scrollTo({ top, behavior: scrollBehavior() })
   }
 
   // keep the ACTIVE tool visible — same courtesy as the NavRail: picking a tool from the
   // palette (or a mode change) must never leave its lit button outside the scrolled strip.
   // `nearest` never moves an already-visible item. (Optional call: jsdom has no scrollIntoView.)
   useEffect(() => {
-    scrollRef.current?.querySelector('.vrail-tool.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+    scrollRef.current?.querySelector('.vrail-tool.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: scrollBehavior() })
   }, [active])
 
   // width is published on the document root (like the left rail's --rail-w) so overlays

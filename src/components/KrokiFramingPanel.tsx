@@ -4,6 +4,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
+import { motionDuration } from '../lib/reducedMotion'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { operationalExtentPoints } from '../lib/report'
@@ -319,7 +320,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const boundsKey = bounds.flat().join(',')
   useEffect(() => {
     if (!follow) return
-    mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM, duration: 200 })
+    mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM, duration: motionDuration(200) })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- boundsKey IS the bounds, stably
   }, [follow, boundsKey, landscape])
 
@@ -693,9 +694,9 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             the point. Beside the picture rather than on top of it. */}
         <div className="kf-zoom">
           <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomIn}
-            onClick={() => mapRef.current?.getMap().zoomIn({ duration: 180 })}><Icon id="plus" /></button>
+            onClick={() => mapRef.current?.getMap().zoomIn({ duration: motionDuration(180) })}><Icon id="plus" /></button>
           <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomOut}
-            onClick={() => mapRef.current?.getMap().zoomOut({ duration: 180 })}><Icon id="minus" /></button>
+            onClick={() => mapRef.current?.getMap().zoomOut({ duration: motionDuration(180) })}><Icon id="minus" /></button>
         </div>
       </div>
     </div>

@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
+import { scrollBehavior } from '../lib/reducedMotion'
 import { fillTemplate, hhmm, stripUnprintable } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
@@ -275,7 +276,7 @@ export default function CaptureApp() {
           // scroll margin the opened card's title lands hidden underneath it
           const head = document.querySelector<HTMLElement>('.cv-head')
           el.style.scrollMarginTop = `${(head?.offsetHeight ?? 0) + 8}px`
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
         }))
       }
       return next
@@ -301,7 +302,7 @@ export default function CaptureApp() {
       if (!el) return
       const head = document.querySelector<HTMLElement>('.cv-head')
       el.style.scrollMarginTop = `${(head?.offsetHeight ?? 0) + 8}px`
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
       el.classList.remove('cv-flash')
       void el.offsetWidth // restart the animation when the same chip is tapped twice
       el.classList.add('cv-flash')

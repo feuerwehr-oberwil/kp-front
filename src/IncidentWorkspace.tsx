@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
+import { motionDuration } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
 import { useVehicleLayer } from './lib/useVehicleLayer'
@@ -2056,7 +2057,7 @@ export function IncidentWorkspace({
     if (maxLng - minLng < 1e-6 && maxLat - minLat < 1e-6) {
       map.flyTo({ center: incidentView.center, zoom: 17.6 })
     } else {
-      map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 96, maxZoom: 17.6, duration: 600 })
+      map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 96, maxZoom: 17.6, duration: motionDuration(600) })
     }
   }
 
@@ -2068,7 +2069,7 @@ export function IncidentWorkspace({
   const viewsApi: ViewsApi = {
     list: cameraViews,
     current: view,
-    onGo: (v) => mapRef.current?.flyTo({ center: v.center, zoom: v.zoom, bearing: v.bearing, duration: 600 }),
+    onGo: (v) => mapRef.current?.flyTo({ center: v.center, zoom: v.zoom, bearing: v.bearing, duration: motionDuration(600) }),
     onResetNorth: () => mapRef.current?.resetNorth(),
     onFit: centerIncident,
     onLocate: () => setLocateReq((n) => n + 1),
@@ -2275,7 +2276,7 @@ export function IncidentWorkspace({
       if (!work) return // panel present but CSS-hidden — nothing occludes
       const pt = m.project(selected.coord)
       const nudge = nudgePointIntoRect(pt, work)
-      if (nudge) m.panBy(nudge, { duration: 350 })
+      if (nudge) m.panBy(nudge, { duration: motionDuration(350) })
     })
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2306,7 +2307,7 @@ export function IncidentWorkspace({
       // `e.point` is already container-relative, the same space `box` lives in
       const tap = drawTap?.id === selectedDrawingId ? { x: drawTap.x, y: drawTap.y } : null
       const nudge = nudgeSelectionIntoRect(box, tap, work)
-      if (nudge) m.panBy(nudge, { duration: 350 })
+      if (nudge) m.panBy(nudge, { duration: motionDuration(350) })
     })
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2324,7 +2325,7 @@ export function IncidentWorkspace({
       if (!work) return
       const pt = m.project(twinView.coord)
       const nudge = nudgePointIntoRect(pt, work)
-      if (nudge) m.panBy(nudge, { duration: 350 })
+      if (nudge) m.panBy(nudge, { duration: motionDuration(350) })
     })
     return () => cancelAnimationFrame(raf)
   }, [twinView?.key, mode]) // eslint-disable-line react-hooks/exhaustive-deps
