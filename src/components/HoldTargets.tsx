@@ -1,7 +1,38 @@
 import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { useTimedProgress } from '../lib/nodeHold'
+import { HOLD_MS } from '../lib/useHoldEntry'
 import type { HoldAnchor, HoldTarget } from '../lib/useHoldEntry'
+
+/** Radius of the charge ring in its 20px viewBox. */
+const RING_R = 8
+const RING_LEN = 2 * Math.PI * RING_R
+
+/**
+ * The «Eintrag» hold's charging cue: a small ring beside the label that fills over HOLD_MS.
+ *
+ * JS-driven off the press's own start stamp (useTimedProgress — the nodeHold clock), NOT a CSS
+ * keyframe: the old width bar animated over .22s while the hold latches at 350ms, so it read
+ * «fertig» 130ms early — and under prefers-reduced-motion the global zero-duration rule made it
+ * full on the first frame while the timer still ran. Same fix, same reasoning as the
+ * node-delete ring (lib/nodeHold): the fill and the thing it promises share one clock.
+ */
+export function HoldChargeRing({ since }: { since: number }) {
+  const progress = useTimedProgress(since, HOLD_MS)
+  return (
+    <svg className="tb-hold-ring" viewBox="0 0 20 20" aria-hidden>
+      <circle className="tb-hold-track" cx="10" cy="10" r={RING_R} />
+      <circle
+        className="tb-hold-fill"
+        cx="10" cy="10" r={RING_R}
+        strokeDasharray={RING_LEN}
+        strokeDashoffset={RING_LEN * (1 - progress)}
+        transform="rotate(-90 10 10)"
+      />
+    </svg>
+  )
+}
 
 /**
  * The two slide targets a latched «Eintrag» hold offers: Sprachnotiz and Foto.

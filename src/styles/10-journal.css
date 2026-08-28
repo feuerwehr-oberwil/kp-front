@@ -175,16 +175,18 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    block grew across the button. A blanket span selector inside a button is a trap for every
    span anyone adds later; this one says what it lifts. */
 .tb-act-add .i, .tb-act-add .tb-act-label { position: relative; z-index: 1; }
-/* press-and-hold "charging" cue: a bar fills across the button over the hold
-   window, then the button flips to red (recording) — so the hold reads as doing something */
-/* ⚠️ It rounds its OWN corners (border-radius: inherit) rather than being clipped by the
-   button. The button used to carry `overflow: hidden` purely for this bar — which also
-   swallowed the hold chooser, so at the moment the hold latched a dark fragment of it flashed
-   INSIDE the button before the class that lifted the clip took effect. A cue that clips itself
-   costs one line and lets the button stop clipping anything. */
-.tb-hold { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: 0; background: rgba(255, 255, 255, .28);
-  border-radius: inherit; animation: tbHold .22s linear forwards; }
-@keyframes tbHold { from { width: 0; } to { width: 100%; } }
+/* press-and-hold "charging" cue: a small ring beside the label fills over the hold window,
+   then the button flips to red (recording) — so the hold reads as doing something.
+   ⚠️ The fill is JS-driven (HoldTargets · HoldChargeRing on the nodeHold clock), NOT a CSS
+   keyframe: the old width bar ran .22s against the 350ms latch (useHoldEntry · HOLD_MS), so it
+   said «fertig» 130ms early — and under prefers-reduced-motion the global zero-duration rule
+   made it full on the first frame while the timer still ran, the exact lie nodeHold.ts:118
+   documents fixing for the node-delete ring. One clock now; this CSS only paints. */
+.tb-hold-ring { position: absolute; right: 9px; top: 50%; translate: 0 -50%; width: 18px; height: 18px;
+  z-index: 0; pointer-events: none; }
+.tb-hold-ring circle { fill: none; stroke: currentColor; stroke-width: 2.5; }
+.tb-hold-ring .tb-hold-track { opacity: .3; }
+.tb-hold-ring .tb-hold-fill { stroke-linecap: round; }
 /* ── while the chooser is up, the button IS the cancel ──
    A plus turned 45° is already an ✕, so the button does not swap its icon for a second one: the
    one that is there rotates. Nothing enters or leaves the DOM, nothing can reflow under the

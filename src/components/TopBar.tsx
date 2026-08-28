@@ -9,7 +9,7 @@ import type { Incident, ReactivateResult, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
-import { HoldTargets } from './HoldTargets'
+import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { condition, fromLabel, fromLabelLong, windArrowRotation } from './WindBadge'
 
 type ClockMode = 'elapsed' | 'now' | 'start'
@@ -120,7 +120,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   // unconditionally — hooks can't be skipped — but with the button unrendered nothing ever
   // reaches these handlers, so the no-op fallbacks are only there to satisfy the signature.
   const noop = () => {}
-  const { pressing, latched, hover, anchor, handlers } = useHoldEntry({
+  const { pressing, pressedSince, latched, hover, anchor, handlers } = useHoldEntry({
     recording,
     onTap: onAddEntry ?? noop,
     onHoldStart: onHoldStart ?? noop,
@@ -206,7 +206,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             data-hold-target="cancel"
             {...handlers}
           >
-            {pressing && !recording && <span className="tb-hold" />}
+            {pressing && !recording && pressedSince != null && <HoldChargeRing since={pressedSince} />}
             {/* below: this button lives in the TOP bar, so the targets open downward */}
             {latched && <HoldTargets hover={hover} placement="below" anchor={anchor} />}
             {recording

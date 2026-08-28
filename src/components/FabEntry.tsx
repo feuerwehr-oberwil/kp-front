@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fmtMMSS } from '../lib/geo'
 import { useHoldEntry } from '../lib/useHoldEntry'
-import { HoldTargets } from './HoldTargets'
+import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useGeorefMode } from '../lib/georefMode'
 
 // Mobile field-capture FAB. Same tap / long-hold gesture as the TopBar "Eintrag": tap opens
@@ -25,7 +25,7 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
     return () => clearInterval(t)
   }, [recording])
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
-  const { pressing, latched, hover, anchor, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto })
+  const { pressing, pressedSince, latched, hover, anchor, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto })
   // ⚠️ Gone while «Karte verknüpfen» is armed. On a phone the mode's bar takes the foot of the
   // screen and this circle floats ON its right end, over «Deckung prüfen» / «Fertig» — a button
   // that opens the journal, parked on top of the two that finish what you are doing. The
@@ -65,7 +65,7 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
       data-hold-target="cancel"
       {...handlers}
     >
-      {pressing && !recording && <span className="tb-hold" />}
+      {pressing && !recording && pressedSince != null && <HoldChargeRing since={pressedSince} />}
       {latched && <HoldTargets hover={hover} placement="above" anchor={anchor} />}
       {recording
         ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>

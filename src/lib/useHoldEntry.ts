@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 
-const HOLD_MS = 350 // hold longer than this offers the choice instead of opening the composer
+export const HOLD_MS = 350 // hold longer than this offers the choice instead of opening the composer — the charge ring (HoldChargeRing) fills over exactly this window
 const CUE_MS = 130 // delay the charging cue so a quick tap doesn't flash it
 
 /** What a hold can be released onto. `cancel` is the BUTTON itself: while the chooser is up it
@@ -56,6 +56,9 @@ export function useHoldEntry(opts: {
   /** tears down the window-level release listeners (see onPointerDown) */
   const detach = useRef<(() => void) | null>(null)
   const [pressing, setPressing] = useState(false)
+  /** press start stamp — the charge ring runs on THIS clock (useTimedProgress), so the fill and
+   *  the latch cannot drift apart the way the old .22s CSS bar did against the 350ms timer */
+  const [pressedSince, setPressedSince] = useState<number | null>(null)
   // the targets are only offered where there is somewhere to slide TO
   const targets = !!opts.onHoldPhoto
   const [latched, setLatched] = useState(false)
@@ -90,6 +93,7 @@ export function useHoldEntry(opts: {
     }
 
     if (opts.recording) return // a press while recording just stops it on release
+    setPressedSince(Date.now())
     pressCue.current = window.setTimeout(() => { if (holding.current) setPressing(true) }, CUE_MS)
     holdTimer.current = window.setTimeout(() => {
       if (!holding.current) return
@@ -128,6 +132,7 @@ export function useHoldEntry(opts: {
     holding.current = false
     detach.current?.(); detach.current = null
     setPressing(false)
+    setPressedSince(null)
     if (pressCue.current) { clearTimeout(pressCue.current); pressCue.current = null }
     if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null }
     if (latchedRef.current) {
@@ -168,6 +173,8 @@ export function useHoldEntry(opts: {
 
   return {
     pressing,
+    /** when the current press began — drives the charge ring while `pressing` is true */
+    pressedSince,
     /** the hold has latched — render the two slide targets while this is true */
     latched,
     /** which target the finger is currently over (drives the highlight) */
