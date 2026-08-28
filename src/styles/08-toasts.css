@@ -580,3 +580,15 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 @keyframes playPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--blue) 45%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--blue) 0%, transparent); } }
 .tl-play .i { width: 11px; height: 11px; margin-left: 1px; }
 .tl-play.playing .i { margin-left: 0; }
+
+/* ── the touch hold-tooltip (lib/holdTooltip) ──
+   Hold an icon-only button ~500 ms and its word appears here instead of the action firing —
+   the tablet's answer to the mouse-only `title`. Same dark pill as the tool dock, so it reads
+   as chrome speaking, not as content. `pointer-events: none`: it must never eat the tap it is
+   explaining. */
+.hold-tip { position: fixed; z-index: var(--z-hold-tip); pointer-events: none;
+  max-width: min(280px, calc(100vw - 12px));
+  padding: 6px 11px; border-radius: 9px;
+  background: var(--ink-fill); color: var(--on-accent-ink);
+  font: 600 12.5px/1.35 var(--body);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .35); }

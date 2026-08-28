@@ -49,5 +49,8 @@ export function useHoldRepeat(
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stepRef.current() }
   }
 
-  return { onPointerDown, onKeyDown }
+  // `data-holdaction` opts the button out of the global hold-tooltip (lib/holdTooltip): a press
+  // held here is already an act (the repeat), so a label bubble over it would be noise on top of
+  // a running gesture. Flows to every consumer automatically because these props are spread.
+  return { onPointerDown, onKeyDown, 'data-holdaction': true as const }
 }

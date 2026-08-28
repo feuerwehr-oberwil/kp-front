@@ -160,6 +160,10 @@
      only thing left over it is the wheel picker, which is a text input the toast must not sit on. */
   --z-toast: 1250;
   --z-picker: 1300;          /* the time wheel */
+  --z-hold-tip: 1400;        /* the touch hold-tooltip (lib/holdTooltip) — it answers a question
+                                being asked about a button RIGHT NOW, wherever that button lives
+                                (a modal, the admin shell, a toast's own action), so nothing may
+                                cover it */
   /* THE surface header — Anwesenheit · Atemschutz · Mittel · Einsatzrapport. Four panels the
      operator switches between with one tap, so their heads have to be the same object: a title,
      one quiet line under it, and the tools on the right. They had drifted to four specs — the

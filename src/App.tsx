@@ -42,6 +42,7 @@ import { Meldeleiste } from './components/Meldeleiste'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
 import { HelpOverlay } from './components/HelpOverlay'
+import { installHoldTooltip } from './lib/holdTooltip'
 
 
 // ---------------------------------------------------------------------------------
@@ -104,6 +105,9 @@ export default function App() {
   // permission is already granted AND the deployment has VAPID keys) — killed-app alarms.
   // Never on a link session: /api/push/subscriptions writes rows tied to a user and 403s.
   useEffect(() => { if (!linkScoped) void ensurePushSubscription() }, [linkScoped])
+
+  // hold an icon-only button to read its word — the tablet's title-tooltip (lib/holdTooltip)
+  useEffect(() => installHoldTooltip(), [])
 
   const [incidents, setIncidents] = useState<IncidentMeta[] | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
