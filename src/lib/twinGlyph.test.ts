@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { glyphFor, twinName } from './twinGlyph'
-import { GROSSLUEFTER, GROSSLUEFTER_BODY, LUEFTER, LUEFTER_EXTRACT } from './symbolRender'
+import { glyphFor, overlayFor, twinName } from './twinGlyph'
+import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, LUEFTER, LUEFTER_EXTRACT } from './symbolRender'
 import { appConfig } from '../config/appConfig'
 import type { BoardAnno, Entity } from '../types'
 
 // A Zwilling is drawn from the SAME object as its original, but with less of the machinery around
 // it — so `glyphFor` is a chain of deliberate fallbacks, each there for its own reason: a
-// composite loses its independently-rotating overlay, a Gefahrentafel is drawn from its number
+// composite draws its base body (the part rides on top via overlayFor), a Gefahrentafel is drawn from its number
 // rather than from the empty plate, a live vehicle carries its glyph baked in, and an extract
 // Lüfter has artwork of its own. These pin those choices; the SVG text itself is not the point.
 
@@ -16,6 +16,7 @@ const UN_FIELD = appConfig.copy.contextPanel.unField
 const byName: Record<string, string> = {
   [GROSSLUEFTER]: '<svg id="grosslueft-thumb"/>',
   [GROSSLUEFTER_BODY]: '<svg id="fahrzeug"/>',
+  // ⚠️ no separate fan entry: GROSSLUEFTER_FAN IS the Lüfter glyph (same library name)
   [LUEFTER]: '<svg id="luefter"/>',
   [LUEFTER_EXTRACT]: '<svg id="luefter-saugend"/>',
   [TAFEL]: '<svg id="tafel-leer"/>',
@@ -62,5 +63,19 @@ describe('twinName', () => {
     expect(twinName({ label: '  ', symbol: 'VKF Fahrzeug' })).toBe('VKF Fahrzeug')
     expect(twinName({ text: 'Sammelplatz' })).toBe('Sammelplatz')
     expect(twinName({})).toBe(appConfig.copy.whiteboard.georef.twinUnnamed)
+  })
+})
+
+describe('overlayFor', () => {
+  it('stacks the composite part, aimed by rotation2 plus the caller\'s frame change', () => {
+    const o = overlayFor(entity({ symbol: GROSSLUEFTER, rotation2: 30 }), byName, 15)
+    expect(o?.svg).toBe(byName[GROSSLUEFTER_FAN])
+    expect(o?.rotation).toBe(45)
+  })
+
+  it('honours the Lüfter airflow variant, and stays empty for plain symbols', () => {
+    const saugend = overlayFor(entity({ symbol: GROSSLUEFTER, extract: true }), byName)
+    expect(saugend?.svg).toBe(byName[LUEFTER_EXTRACT])
+    expect(overlayFor(entity({ symbol: 'Hydrant' }), byName)).toBeUndefined()
   })
 })

@@ -105,3 +105,11 @@ describe('a twin carries the source symbol\'s own state', () => {
     expect(arrows.style.transform).toBe('rotate(30deg)')
   })
 })
+
+// The surfaces' outside-tap dismissal (Whiteboard's capture-phase pointerdown) keys off this
+// attribute: without it, pressing the SELECTED twin to drag it deselected it in the same
+// event, and the drag died before the first pointermove.
+it('carries the data-twin marker the outside-tap dismissal is guarded by', () => {
+  const { getByRole } = render(<TwinMark {...props} onOpen={() => {}} />)
+  expect(getByRole('button').hasAttribute('data-twin')).toBe(true)
+})

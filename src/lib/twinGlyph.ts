@@ -6,12 +6,11 @@
  */
 import { appConfig } from '../config/appConfig'
 import { placardSvgForSymbol } from './placard'
-import { compositeSpec, luefterVariant } from './symbolRender'
+import { compositePartGlyph, compositeSpec, luefterVariant } from './symbolRender'
 import type { BoardAnno, Entity } from '../types'
 
-/** The glyph a plan annotation or a map entity draws — the same resolution both surfaces use,
- *  minus the composite overlay (see TwinMark). A composite falls back to its BASE body, which is
- *  the readable half; the fan/ladder it is missing is on the sheet that owns it. */
+/** The glyph a plan annotation or a map entity draws — the same resolution both surfaces use.
+ *  A composite draws its BASE body here; its fan/ladder rides on top via `overlayFor`. */
 export function glyphFor(o: BoardAnno | Entity, byName: Record<string, string>): string {
   const comp = compositeSpec(o.symbol)
   if (comp) return byName[comp.base] ?? ''
@@ -20,6 +19,19 @@ export function glyphFor(o: BoardAnno | Entity, byName: Record<string, string>):
   if ('symbolSvg' in o && o.symbolSvg) return o.symbolSvg
   if (!o.symbol) return ''
   return byName[luefterVariant(o.symbol, o.extract) ?? o.symbol] ?? byName[o.symbol] ?? ''
+}
+
+/** A composite's own part (the Lüfter fan, the Drehleiter ladder) over the twin's base body —
+ *  the same overlay both source surfaces stack (MapMarkers / Whiteboard), aimed by `rotation2`
+ *  plus the caller's frame change (the fit rotation, and on the Karte the live bearing), so the
+ *  part points at the same piece of ground on both pictures. Undefined for plain symbols. */
+export function overlayFor(
+  o: BoardAnno | Entity, byName: Record<string, string>, rotationOffset = 0,
+): { svg: string; rotation: number; scale?: number } | undefined {
+  const comp = compositeSpec(o.symbol)
+  if (!comp) return undefined
+  const svg = byName[compositePartGlyph(comp, o.extract)] ?? byName[comp.part] ?? ''
+  return svg ? { svg, rotation: (o.rotation2 ?? 0) + rotationOffset, scale: comp.scale } : undefined
 }
 
 /** The name on a twin's label — never empty, so the plaque always says what it mirrors. */
