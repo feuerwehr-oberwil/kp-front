@@ -54,8 +54,15 @@ const COMPACT = 60, LABELLED = 88, WIDE = 216, MAXW = 280
 // selection and drawing groups), not pinned at the top. Each surface supplies its
 // own tool list, optional extras, and footer; the shape + look (.vrail) are
 // identical, so the two action sidebars stay in lockstep from one code object.
+/** The rail's open state OUTLIVES its mount. The Karte and every Modul each mount their own
+ *  ToolRail, but the operator reads them as ONE sidebar — expanded on the Karte and suddenly
+ *  collapsed on the Modul read as the setting not sticking. Module-scoped (session) on purpose:
+ *  wanting the words permanently is what the `railLabels` device pref is for. */
+let lastExpanded = false
+
 export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, footer, className, labels }: Props) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpandedState] = useState(lastExpanded)
+  const setExpanded = (v: boolean) => { lastExpanded = v; setExpandedState(v) }
   const [dragging, setDragging] = useState(false)
   const railRef = useRef<HTMLElement>(null)
   const nav = appConfig.copy.navRail
@@ -111,8 +118,9 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
   const apply = (exp: boolean) => { setExpanded(exp); setW(exp ? WIDE : compactW) }
   useEffect(() => {
     // …and an expanded rail collapses when the words come on: its chevron is gone in that mode
-    if (labels === 'short' && expanded) setExpanded(false)
-    setW(compactW)
+    if (labels === 'short' && expanded) { setExpanded(false); setW(compactW); return () => { document.documentElement.style.removeProperty('--vrail-w') } }
+    // a rail remounting already-expanded (surface switch) publishes the WIDE width it shows
+    setW(expanded ? WIDE : compactW)
     return () => { document.documentElement.style.removeProperty('--vrail-w') }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pref-driven; `expanded` is read, not tracked
   }, [compactW, labels])
