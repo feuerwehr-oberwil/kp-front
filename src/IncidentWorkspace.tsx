@@ -70,7 +70,8 @@ import { LayerPanel } from './components/LayerPanel'
 import {
   georefPlans, mapContentTwins as projectMapContentTwins, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
   twinPlanImageLayerId, twinPlanImageVisible, twinPlanLayerId, twinVisible, isTwinLayerId, TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardSymbolToEntity, entityToBoardSymbol, onSheet, planGroundWidthM, revealTwinLayer, type MapContentTwin, type MapTwin,
+  boardSymbolToEntity, contentTwinName, entityToBoardSymbol, movedTwinPath, onSheet, planGroundWidthM, revealTwinLayer,
+  type MapContentTwin, type MapTwin,
 } from './lib/georefTwins'
 import { glyphFor, twinName } from './lib/twinGlyph'
 import { GeorefTwinPanel } from './components/GeorefTwinPanel'
@@ -837,7 +838,11 @@ export function IncidentWorkspace({
   // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
   // incident still gets pulled; the signature keeps one warm per state, not one per minute.
   // «Nur manuell» (device pref) switches all of this off; the button always stays.
-  const offlineWarmSig = `${incidentMeta.id}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson).map((l) => l.id).join(',')}`
+  // …and re-armed when the operator grows the offline radius (29.08.): the readiness probe
+  // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
+  // «nicht geladen» forever. The centre is part of the bbox too, but it only moves with the
+  // incident, which the id already covers.
+  const offlineWarmSig = `${incidentMeta.id}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson).map((l) => l.id).join(',')}`
   const offlineWarmed = useRef('')
   useEffect(() => {
     if (!offlineAuto || !isStandalone()) return
@@ -1028,6 +1033,13 @@ export function IncidentWorkspace({
   // which Georeferenz twin has its source-backed editor open — a linked plan's symbol mirrored
   // onto the map. Selection belongs to the shared source object; the projection carries its halo.
   const [twinView, setTwinView] = useState<MapTwin | null>(null)
+  // …and which mirrored NON-symbol object (line, area, note, shape, Trupp chip) has its in-place
+  // panel open on the Karte. Same rule as twinView: a tap on a projection stays on this surface;
+  // «Zum Original» in the panel is the explicit jump (E8).
+  const [contentTwinView, setContentTwinView] = useState<MapContentTwin | null>(null)
+  // …and which mirrored Karte entity (team chip, note, shape) has its panel open on the PLAN
+  // surface — the other half of the same rule. Stored by id, resolved live below.
+  const [planTwinEntityId, setPlanTwinEntityId] = useState<string | null>(null)
   // Title input in the map-side editor for a plan-owned twin. The source plan is not mounted,
   // so this brackets its live keystrokes into one caller-owned per-plan undo step.
   const planTwinTitleLive = useRef<string | null>(null)
@@ -1041,7 +1053,16 @@ export function IncidentWorkspace({
     // chrome» effect never fires for one — without this, tapping a projected Modul symbol while
     // Ebenen was open stacked a THIRD surface into the same band.
     setPanel(null); setViewsOpen(false)
+    setContentTwinView(null)
     setTwinView(twin)
+  }
+  // the content twins' half of the same discipline: one detail sidebar, one owner
+  const openContentTwinView = (twin: MapContentTwin) => {
+    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+    setNotePanelId(null); setEditNoteId(null)
+    setPanel(null); setViewsOpen(false)
+    setTwinView(null)
+    setContentTwinView(twin)
   }
   // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
   const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
@@ -1427,12 +1448,13 @@ export function IncidentWorkspace({
       else if (tool !== 'select') { setTool('select'); setDraft([]) }
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
       else if (twinView) setTwinView(null)
+      else if (contentTwinView) setContentTwinView(null)
       else if (notePanelId) setNotePanelId(null)
       else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pending, pendingShape, panel, viewsOpen, tool, twinView, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pending, pendingShape, panel, viewsOpen, tool, twinView, contentTwinView, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
@@ -1555,6 +1577,9 @@ export function IncidentWorkspace({
   // Selection stores a stable twin key; derive the live source snapshot after every board edit so
   // the mirrored editor and its map marker update together while the panel stays open.
   const viewedMapTwin = twinView ? mapTwinList.find((t) => t.key === twinView.key) ?? twinView : null
+  // same live re-derivation for the content twins' panel: the board edit lands, the projection
+  // moves, and the open panel follows the same source snapshot
+  const viewedContentTwin = contentTwinView ? mapContentTwinList.find((t) => t.key === contentTwinView.key) ?? contentTwinView : null
   const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})
   useEffect(() => {
     if (replayActive) return
@@ -2054,7 +2079,7 @@ export function IncidentWorkspace({
   const pickShape = (kind: ShapeKind) => { setTool('shape'); setPending(null); setPendingShape(kind); setPaletteOpen(false) }
 
   const onMapClick = (c: LngLat) => {
-    setTwinView(null)
+    setTwinView(null); setContentTwinView(null)
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
     // the panel is map chrome, so tapping the map behind it should just close it
     if (panel !== null) { setPanel(null); return }
@@ -2599,13 +2624,39 @@ export function IncidentWorkspace({
    * here for exactly this reason — see useBoardDoc · BoardDocDeps), so the move is waiting to be
    * undone when the plan is next opened, checkpointed by the same rule the board itself uses.
    */
-  // …for symbol twins AND the mirrored Trupp chips (MapContentTwin): both name the one source
-  // annotation the same way, and both write it through the same fold-back.
+  // …for symbol twins AND the mirrored content marks (MapContentTwin): all name the one source
+  // annotation the same way, and all write it through the same fold-back. A POINT (symbol, note,
+  // shape, Trupp chip) writes x/y; a projected line/area translates every vertex by the drag's
+  // plan-space delta (movedTwinPath) — whole-object only, vertex editing stays with the source.
+  /** the live whole-path drag — anchored at the press, because the projection follows the source
+   *  mid-drag and a delta added to the moving geometry would compound (GeorefTwinsBoard · from) */
+  const twinPathDrag = useRef<{ pts: NonNullable<BoardAnno['pts']>; from: { x: number; y: number } } | null>(null)
   const moveMapTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId' | 'fit'> & { anno: BoardAnno }, coord: LngLat, phase: 'start' | 'move' | 'end') => {
     if (tacticalLocked) return
+    const p = t.fit.toPlan({ lng: coord[0], lat: coord[1] })
+    if ((t.anno.kind === 'draw' || t.anno.kind === 'area') && t.anno.pts?.length) {
+      // one checkpoint + the anchor for the whole drag, on the first movement
+      if (phase === 'start') {
+        setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
+        twinPathDrag.current = { pts: t.anno.pts, from: p }
+        return
+      }
+      const st = twinPathDrag.current
+      if (!st) return
+      const pts = movedTwinPath(st.pts, st.from, p)
+      setBoard((all) => ({ ...all, [t.planId]: (all[t.planId] ?? []).map((a) => (a.id === t.annoId ? { ...a, pts } : a)) }))
+      if (phase !== 'end') return
+      twinPathDrag.current = null
+      const mid = pts[Math.floor((pts.length - 1) / 2)]
+      pushEvent({
+        icon: 'move', kind: 'symbol', surface: 'plan', planId: t.planId, annoId: t.annoId, px: mid[0], py: mid[1], floor: t.anno.floor,
+        text: fillTemplate(appConfig.copy.log.objectMoved, { name: contentTwinName(t.anno) }),
+      })
+      emit('board.edit', { planId: t.planId, id: t.annoId, patch: { pts } })
+      return
+    }
     // one checkpoint for the whole drag, on the first movement — the map's own model
     if (phase === 'start') { setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? [])); return }
-    const p = t.fit.toPlan({ lng: coord[0], lat: coord[1] })
     // clamped to the sheet: a plan point outside the paper is not a place on that document
     const x = Math.max(0, Math.min(1, p.x)), y = Math.max(0, Math.min(1, p.y))
     setBoard((all) => ({ ...all, [t.planId]: (all[t.planId] ?? []).map((a) => (a.id === t.annoId ? { ...a, x, y } : a)) }))
@@ -2739,18 +2790,36 @@ export function IncidentWorkspace({
    * arriving there leaves behind. A twin is never selected; it can also be dragged in place,
    * and that drag writes its source through the helpers above.
    */
-  // …for symbol twins AND the mirrored Trupp chips (MapContentTwin) — both name their source
-  // annotation the same way, and the jump is the same jump.
-  const goToTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId'> & { anno: Pick<BoardAnno, 'x' | 'y' | 'floor'> }) => {
-    setPanel(null)
+  // …for symbol twins AND the mirrored content marks (MapContentTwin) — all name their source
+  // annotation the same way, and the jump is the same jump. It is the panel's explicit «Zum
+  // Original» now, never the tap itself (E8): tapping a projection opens in place.
+  const goToTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId'> & { anno: Pick<BoardAnno, 'x' | 'y' | 'floor' | 'pts'> }) => {
+    setPanel(null); setContentTwinView(null)
     setMode('plans'); setActivePlanId(t.planId)
-    setPlanFocus({ x: t.anno.x ?? 0.5, y: t.anno.y ?? 0.5, floor: t.anno.floor ?? 0, annoId: t.annoId, nonce: Date.now() })
+    // a path annotation has no x/y of its own — point at its middle vertex instead
+    const mid = t.anno.pts?.length ? t.anno.pts[Math.floor((t.anno.pts.length - 1) / 2)] : undefined
+    setPlanFocus({ x: t.anno.x ?? mid?.[0] ?? 0.5, y: t.anno.y ?? mid?.[1] ?? 0.5, floor: t.anno.floor ?? 0, annoId: t.annoId, nonce: Date.now() })
   }
-  const goToTwinOnMap = (e: Entity) => {
+  /** the actual surface swap to a mirrored Karte object's source — the panel's «Zum Original» */
+  const jumpToTwinSourceOnMap = (e: Entity) => {
     const layer = effectiveLayer(e)
     if (!isVisible(layer)) toggleLayer(layer)
-    setPanel(null); setMode('map'); focusEntity(e.id)
+    setPanel(null); setPlanTwinEntityId(null); setMode('map'); focusEntity(e.id)
   }
+  /**
+   * Tap on a mirrored Karte object on the Plan. A content mark (team chip, note, shape) opens
+   * its in-place source-backed panel HERE — the abrupt surface swap read as a bug (E8) — with
+   * «Zum Original» as the explicit jump. Whiteboard's own symbol/vehicle twin panel still calls
+   * this from ITS «Zum Original», so those kinds keep jumping directly.
+   */
+  const goToTwinOnMap = (e: Entity) => {
+    if (e.kind === 'team' || e.kind === 'note' || e.kind === 'shape') { setPanel(null); setPlanTwinEntityId(e.id); return }
+    jumpToTwinSourceOnMap(e)
+  }
+  // the plan-side panel's live source — re-derived per render so edits/deletes follow through
+  const planTwinEntity = planTwinEntityId ? entities.find((e) => e.id === planTwinEntityId) ?? null : null
+  // leaving the Plan surface closes its twin panel; coming back must not resurrect a stale one
+  useEffect(() => { if (mode !== 'plans') setPlanTwinEntityId(null) }, [mode])
   const showMapSourceOnPlan = (entity: Entity, target = selectedPlanProjection) => {
     if (!target) return
     showTwinLayer(entity.kind === 'vehicle' ? TWIN_MAP_VEHICLES : TWIN_MAP_SYMBOLS)
@@ -3266,9 +3335,10 @@ export function IncidentWorkspace({
     if (patch.label != null) linkRosterFields({ ...before, label: patch.label }, before.fields ?? {}, { force: true })
   }
 
-  /** Edit a plan-owned symbol through its Lage projection. The plan's history lives above the
-   *  unmounted Whiteboard, so this is the same checkpoint/raw-write/audit split as useBoardDoc. */
-  const editPlanTwinSource = (t: MapTwin, patch: Partial<BoardAnno>, phase: 'live' | 'commit' = 'commit') => {
+  /** Edit a plan-owned annotation through its Lage projection (a symbol twin's full editor, or
+   *  a mirrored Notiz's text). The plan's history lives above the unmounted Whiteboard, so this
+   *  is the same checkpoint/raw-write/audit split as useBoardDoc. */
+  const editPlanTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId'> & { coord?: LngLat }, patch: Partial<BoardAnno>, phase: 'live' | 'commit' = 'commit') => {
     if (tacticalLocked) return
     const current = (board[t.planId] ?? []).find((a) => a.id === t.annoId)
     if (!current) return
@@ -3286,14 +3356,14 @@ export function IncidentWorkspace({
     if (!wasLive) setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
     setBoard((all) => ({ ...all, [t.planId]: patchBoardTwinSource(all[t.planId] ?? [], t.annoId, patch) }))
     emit('board.edit', { planId: t.planId, id: t.annoId, patch })
-    const source = { ...current, kind: 'symbol' as const, layer: appConfig.defaults.operationalLayerId, coord: t.coord, floor: current.storey } as Entity
+    const source = { ...current, kind: 'symbol' as const, layer: appConfig.defaults.operationalLayerId, coord: t.coord ?? ([0, 0] as LngLat), floor: current.storey } as Entity
     if (patch.fields) linkRosterFields(source, patch.fields)
     if (patch.label != null) linkRosterFields({ ...source, label: patch.label }, current.fields ?? {}, { force: true })
   }
 
   /** Delete a plan-owned source without navigating away. Attached plan lines are detached and
    *  frozen at the symbol's current plan coordinate, so no dangling object id survives. */
-  const deletePlanTwinSource = async (t: MapTwin) => {
+  const deletePlanTwinSource = async (t: Pick<MapTwin, 'planId' | 'annoId'>) => {
     if (tacticalLocked) return
     const annos = board[t.planId] ?? []
     const target = annos.find((a) => a.id === t.annoId)
@@ -3311,7 +3381,7 @@ export function IncidentWorkspace({
     const result = deleteBoardTwinSource(annos, target.id)
     if (!result) return
     setBoard((all) => ({ ...all, [t.planId]: result.next }))
-    setTwinView(null)
+    setTwinView(null); setContentTwinView(null)
     emit('board.delete', { planId: t.planId, id: t.annoId })
     result.affectedIds.forEach((id) => {
       const changed = result.next.find((n) => n.id === id)
@@ -3380,7 +3450,7 @@ export function IncidentWorkspace({
    * the moment Ebenen closes. That is the half of its reasoning which was always right; the half
    * that claimed «nothing becomes unreachable» was not, and this is what makes it true.
    */
-  const detailSlotFree = mapUI && !twinView && !journalOpen && panel === null && !viewsOpen
+  const detailSlotFree = mapUI && !twinView && !contentTwinView && !journalOpen && panel === null && !viewsOpen
 
   const annotatedPlanCount = useMemo(() => annotatedPlans(planDocs, board, false).length, [planDocs, board])
 
@@ -3412,7 +3482,7 @@ export function IncidentWorkspace({
           onNoteEdit={tacticalLocked ? undefined : (id) => { setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id) }}
           // the ⚙ stays on a locked surface — it opens the note READ-ONLY (a long note is
           // truncated on the map, and reading it is not editing it)
-          onNotePanel={(id) => { setTwinView(null); setNotePanelId(id) }}
+          onNotePanel={(id) => { setTwinView(null); setContentTwinView(null); setNotePanelId(id) }}
           onNoteWidth={tacticalLocked ? undefined : noteWidthDrag}
           trupps={effTrupps}
           truppSeverities={azAlarm.severities}
@@ -3443,13 +3513,14 @@ export function IncidentWorkspace({
           georefPlanContent={mapContentTwinList}
           onTwinOpen={openTwinView}
           onTwinMove={moveMapTwinSource}
-          onContentTwinOpen={goToTwinSource}
+          onContentTwinOpen={openContentTwinView}
           onContentTwinMove={moveMapTwinSource}
           selectedTwinKey={twinView?.key}
+          selectedContentTwinKey={contentTwinView?.key}
           georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}
           selectedId={selectedId}
-          onSelect={(e) => { setTwinView(null); setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
+          onSelect={(e) => { setTwinView(null); setContentTwinView(null); setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
           onMapClick={onMapClick}
           drawings={drawings}
           drawingsVisible={isVisible(appConfig.defaults.drawingLayerId)}
@@ -3495,7 +3566,7 @@ export function IncidentWorkspace({
           selectedDrawingId={selectedDrawingId}
           flashDrawingId={flashDrawingId}
           onSelectDrawing={(id, at) => {
-            setTwinView(null)
+            setTwinView(null); setContentTwinView(null)
             // «Leitung wählen» armed → this tap assigns the hose to the waiting Trupp
             if (linePickTrupp) { onLinePicked(id); return }
             // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for
@@ -3504,7 +3575,7 @@ export function IncidentWorkspace({
             setDrawTap(at ? { id, x: at.x, y: at.y } : null)
             setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
           }}
-          onUnlockDrawing={tacticalLocked ? undefined : (id) => { setTwinView(null); patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
+          onUnlockDrawing={tacticalLocked ? undefined : (id) => { setTwinView(null); setContentTwinView(null); patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
           onDelete={deleteEntity}
           selectedDrawing={selectedDrawing}
           onDrawingEdit={editDrawingCoords}
@@ -3847,6 +3918,7 @@ export function IncidentWorkspace({
           entity={selected}
           onColor={(c) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, color: c } : e)) }))}
           onScale={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, sizeM: Math.max(8, Math.min(800, (e.sizeM ?? SHAPE_DEFS[e.shape ?? 'square'].defaultSizeM) * f)) } : e)) }))}
+          onStop={(v) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, stop: v } : e)) }))}
           onCenter={() => flyToMapVisible(selected.coord, 18.4)}
           onDelete={() => deleteEntity(selected.id)}
           onClose={() => setSelectedId(null)}
@@ -3995,6 +4067,51 @@ export function IncidentWorkspace({
           fieldHints={rosterFieldHints({ kind: 'symbol', symbol: viewedMapTwin.anno.symbol, label: viewedMapTwin.anno.label, fields: viewedMapTwin.anno.fields } as Entity)}
           protectedKeys={new Set(symbolPresetFieldKeys(viewedMapTwin.anno.symbol, sym.symbols.find((x) => x.name === viewedMapTwin.anno.symbol)?.cat))}
           onDelete={() => { void deletePlanTwinSource(viewedMapTwin) }}
+        />
+      )}
+
+      {/* A mirrored non-symbol object (line, area, note, shape, Trupp chip) viewed through its
+          Lage projection. Same rule as the symbol twin above: the panel stays on THIS surface,
+          «Gespiegelt von …» carries the provenance, «Zum Original» is the explicit jump. A
+          Notiz gets its one cross-surface edit (its text, via the source anno); the other kinds
+          read name + provenance until their editors exist cross-surface. */}
+      {mapUI && !journalOpen && panel === null && !viewsOpen && viewedContentTwin && (() => {
+        const t = viewedContentTwin
+        const isNote = t.anno.kind === 'text'
+        return (
+          <GeorefTwinPanel
+            key={t.key}
+            entity={{ id: t.annoId, label: contentTwinName(t.anno) }}
+            subtitle={fillTemplate(appConfig.copy.whiteboard.georef.twinPanelFromPlan, { plan: t.planCode })}
+            readOnly={tacticalLocked || !isNote}
+            onClose={() => setContentTwinView(null)}
+            onCenter={t.coord ? () => flyToMapVisible(t.coord!, 18.4) : undefined}
+            onOriginal={() => goToTwinSource(t)}
+            originalLabel={fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: t.planCode })}
+            onTitleLive={isNote ? (v) => editPlanTwinSource(t, { text: v }, 'live') : undefined}
+            onTitle={isNote ? (v) => editPlanTwinSource(t, { text: v }, 'commit') : () => {}}
+            onFields={() => {}}
+            onDelete={() => { void deletePlanTwinSource(t) }}
+          />
+        )
+      })()}
+
+      {/* The same rule on the PLAN surface (E8): a mirrored Karte team chip / Notiz / Form
+          opens in place, source-backed — the tap no longer swaps surfaces. The Notiz edits its
+          map source's text through the map editor's own mutation path. */}
+      {mode === 'plans' && !journalOpen && planTwinEntity && (
+        <GeorefTwinPanel
+          key={planTwinEntity.id}
+          entity={{ id: planTwinEntity.id, label: contentTwinName(planTwinEntity) }}
+          subtitle={appConfig.copy.whiteboard.georef.twinPanelFromMap}
+          readOnly={tacticalLocked || planTwinEntity.kind !== 'note'}
+          onClose={() => setPlanTwinEntityId(null)}
+          onOriginal={() => jumpToTwinSourceOnMap(planTwinEntity)}
+          originalLabel={appConfig.copy.contextPanel.showOnMap}
+          onTitleLive={planTwinEntity.kind === 'note' ? (v) => editMapTwinSource(planTwinEntity.id, { label: v }, 'live') : undefined}
+          onTitle={planTwinEntity.kind === 'note' ? (v) => editMapTwinSource(planTwinEntity.id, { label: v }, 'commit') : () => {}}
+          onFields={() => {}}
+          onDelete={() => { setPlanTwinEntityId(null); void deleteEntity(planTwinEntity.id) }}
         />
       )}
 

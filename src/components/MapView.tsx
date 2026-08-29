@@ -299,11 +299,15 @@ interface Props {
   /** drag a projection of a plan annotation — writes the SOURCE anno through the twin's own
    *  fit, so every other projection of it follows from that one write (see MapTwin · fit) */
   onTwinMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
-  /** tap on a mirrored Trupp chip (plan resource twin): jump to its source chip on the Modul */
+  /** tap on any mirrored content object (line, area, note, shape, Trupp chip): open its
+   *  in-place source-backed panel on this surface (GeorefContentMap) */
   onContentTwinOpen?: (twin: MapContentTwin) => void
-  /** drag a mirrored Trupp chip: move its one source chip through the fit */
+  /** drag a mirrored content object: move its one source annotation through the fit (a point
+   *  writes x/y, a line/area translates every vertex — see IncidentWorkspace · moveMapTwinSource) */
   onContentTwinMove?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   selectedTwinKey?: string | null
+  /** the content twin whose in-place panel is open — its hit target wears the halo */
+  selectedContentTwinKey?: string | null
   /** Opt-in literal plan sheets from Ebenen, already rasterized and projected by their fit. */
   georefPlanRasters?: {
     id: string
@@ -319,7 +323,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, selectedTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -1434,8 +1438,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {!georefOn && georefPlanContent.length > 0 && (
         <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing}
           trupps={trupps} truppSeverities={truppSeverities}
-          interactive={!placing} onOpenResource={onContentTwinOpen}
-          onMoveResource={readOnly ? undefined : onContentTwinMove}
+          interactive={!placing} selectedKey={selectedContentTwinKey}
+          onOpenTwin={onContentTwinOpen}
+          onMoveTwin={readOnly ? undefined : onContentTwinMove}
           project={(c) => mapInst.current?.project(c as [number, number])}
           unproject={(p) => { const m = mapInst.current; if (!m) return undefined; const ll = m.unproject([p.x, p.y]); return [ll.lng, ll.lat] }}
           setDragPan={(on) => { const dp = mapInst.current?.dragPan; if (!dp) return; if (on) dp.enable(); else dp.disable() }} />

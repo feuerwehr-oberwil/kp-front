@@ -89,4 +89,32 @@ describe('broader Karte content on a Modul', () => {
       fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive={false} onOpenTeam={onOpenTeam} />)
     expect(screen.queryByRole('button', { name: /Trupp 2/ })).toBeNull()
   })
+
+  it('a mirrored note answers the same tap and drag grammar as the chip (E7)', () => {
+    const onOpenTeam = vi.fn()
+    const onMoveTeam = vi.fn()
+    const entities: Entity[] = [{ ...base, id: 'note', kind: 'note', label: 'Abschnitt West' }]
+    render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} onMoveTeam={onMoveTeam} />)
+    const note = screen.getByRole('button', { name: /Abschnitt West/ })
+    fireEvent.pointerDown(note, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(note, { pointerId: 1, clientX: 100, clientY: 100 })
+    expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 'note' }))
+    fireEvent.pointerDown(note, { pointerId: 2, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(note, { pointerId: 2, clientX: 180, clientY: 100 })
+    fireEvent.pointerUp(note, { pointerId: 2, clientX: 180, clientY: 100 })
+    const [entity, pt, phase] = onMoveTeam.mock.calls[onMoveTeam.mock.calls.length - 1]
+    expect(phase).toBe('end')
+    expect(entity.id).toBe('note')
+    expect(pt.x).toBeCloseTo(0.5 + 0.1, 5)
+  })
+
+  // GPS semantics: a shared responder position is somebody's self-report — its mirror never
+  // offers a hit target, whatever handlers the surface passes (see the component's comment).
+  it('keeps a shared responder position pointer-inert even on an interactive sheet', () => {
+    const entities: Entity[] = [{ ...base, id: 'p1', kind: 'person', label: 'Muster Max', symbolSvg: '<svg viewBox="0 0 10 10" />', live: true }]
+    render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={() => {}} onMoveTeam={() => {}} />)
+    expect(screen.queryByRole('button')).toBeNull()
+  })
 })

@@ -1,8 +1,13 @@
 /** Non-symbol Modul annotations projected onto the Lage map.
  *
- * This is display-only derived content. It deliberately does not enter MapView's editable
- * `entities`/`drawings` collections, so it cannot be selected, logged, printed or synced as a
- * duplicate. The source remains the annotation on its Modul document.
+ * This is derived content. It deliberately does not enter MapView's editable
+ * `entities`/`drawings` collections, so it cannot be logged, printed or synced as a duplicate —
+ * the source remains the annotation on its Modul document. Since 29.08. the projections are no
+ * longer pointer-dead, though: each one carries a hit target that opens an in-place,
+ * source-backed panel («Gespiegelt von …»), and a whole-object drag that writes the ONE source
+ * through the fit inversion (the same rule the symbol twins follow). Vertex-level editing stays
+ * with the source surface; an FKS Leitung and everything derived from it stays tap-only (its
+ * geometry is anchored to symbols and to the hose ↔ Atemschutz linkage — see `isLeitung`).
  *
  * A mirrored Leitung keeps its whole FKS voice here too — arrowhead (the same registered
  * `draw-arrow` SDF icon the map's own lines use), Teilstück-Gabel, marker letters, end tag and
@@ -10,20 +15,20 @@
  * was dragged clear of other symbols on the sheet (label / end-tag offsets, in board fractions)
  * is projected through the same fit as the line itself.
  */
-import { Fragment, useRef, type CSSProperties } from 'react'
+import { Fragment, useRef, type CSSProperties, type ReactNode } from 'react'
 import { Layer, Marker, Source } from 'react-map-gl/maplibre'
 import { useHoldToDrag } from '../lib/useHoldToDrag'
-import type { MapContentTwin } from '../lib/georefTwins'
-import { ShapeGlyph } from '../lib/shapes'
+import { contentTwinName, type MapContentTwin } from '../lib/georefTwins'
+import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { noteScale } from '../lib/notes'
 import { worldPx } from '../lib/mapView'
 import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
 import { lerpPoint, markerParamsAlong } from '../lib/lineStyle'
-import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
+import { EndTag, TeilstueckFork } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { fillTemplate } from '../lib/format'
 import { appConfig } from '../config/appConfig'
-import type { LngLat, Trupp } from '../types'
+import type { BoardAnno, LngLat, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
 const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
@@ -33,32 +38,85 @@ const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
 
 const INERT: CSSProperties = { pointerEvents: 'none' }
 
-export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, onOpenResource, onMoveResource, project, unproject, setDragPan }: {
+/** An FKS Leitung (or a line already wired into the hose ↔ Atemschutz linkage / anchored to a
+ *  symbol). Its projection answers a tap — «which hose is that» opens the panel — but never a
+ *  whole-object drag: the endpoints are anchored, one Leitung is one Trupp, and a drag that
+ *  silently tore either promise would be worse than no drag at all. */
+const isLeitung = (a: BoardAnno) =>
+  a.kind === 'draw' && (a.truppId != null || a.lineNo != null || !!a.content || !!a.startAttachment || !!a.endAttachment)
+
+export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, selectedKey = null, onOpenTwin, onMoveTwin, project, unproject, setDragPan }: {
   twins: MapContentTwin[]
   zoom: number
   bearing: number
   /** the Atemschutz board, so a mirrored Leitung's tag carries its Trupp and clock tone */
   trupps?: Trupp[]
   truppSeverities?: Record<string, 1 | 2>
-  /** the map is at rest (no armed tool, no pairing) — only then may a team chip answer a tap */
+  /** the map is at rest (no armed tool, no pairing) — only then may a projection answer a tap */
   interactive?: boolean
-  /** tap on a mirrored Trupp chip: jump to its one source chip on the Modul. Everything else in
-   *  this layer stays pointer-inert. */
-  onOpenResource?: (twin: MapContentTwin) => void
-  /** Drag a mirrored Trupp chip to move its one source chip on the Modul — the ground coordinate
-   *  is folded back through the twin's fit by the caller. Same gesture grammar as the map's own
-   *  team markers (useHoldToDrag): mouse press-drags at once, touch holds still first, a tap
-   *  stays the jump. Without it a drag on the chip panned the map — «cannot be moved». */
-  onMoveResource?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
+  /** the twin whose in-place panel is open — its hit target wears the selection halo */
+  selectedKey?: string | null
+  /** tap on any mirrored object: open its in-place, source-backed panel on THIS surface */
+  onOpenTwin?: (twin: MapContentTwin) => void
+  /** Drag a projection to move its one source annotation on the Modul — the ground coordinate
+   *  is folded back through the twin's fit by the caller (per kind: a point writes x/y, a
+   *  line/area translates every vertex). Same gesture grammar as the map's own team markers
+   *  (useHoldToDrag): mouse press-drags at once, touch holds still first, a tap stays a tap. */
+  onMoveTwin?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   /** the live map transform + pan switch, for the drag above (same trio MapMarkers uses) */
   project?: (c: LngLat) => { x: number; y: number } | undefined
   unproject?: (p: { x: number; y: number }) => LngLat | undefined
   setDragPan?: (on: boolean) => void
 }) {
   const hold = useHoldToDrag()
-  /** the live chip drag — re-anchored from the LAST written coord on every move, so a map
-   *  transform change under the finger cannot teleport the chip (MapMarkers does the same) */
-  const resDrag = useRef<{ lx: number; ly: number; last: LngLat } | null>(null)
+  /** the live drag — re-anchored from the LAST written coord on every move, so a map transform
+   *  change under the finger cannot teleport the mark (MapMarkers does the same). One ref for
+   *  the whole layer: only one projection is ever dragged at a time. */
+  const drag = useRef<{ lx: number; ly: number; last: LngLat } | null>(null)
+  const canDragAny = interactive && !!onMoveTwin && !!project && !!unproject
+  /** Shared tap/hold gesture for every hit target in this layer. `anchor` is the ground point
+   *  the drag writes through (the mark itself, or a path's grip). */
+  const beginGesture = (ev: React.PointerEvent, twin: MapContentTwin, anchor: LngLat, movable: boolean) => {
+    ev.stopPropagation()
+    hold.begin({ clientX: ev.clientX, clientY: ev.clientY, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
+      onTap: onOpenTwin ? () => onOpenTwin(twin) : undefined,
+      onHoldStart: () => {
+        setDragPan?.(false)
+        drag.current = { lx: ev.clientX, ly: ev.clientY, last: anchor }
+        onMoveTwin?.(twin, anchor, 'start')
+      },
+      onDragMove: (mx, my) => {
+        const st = drag.current
+        if (!st) return
+        const base = project!(st.last)
+        if (!base) return
+        const nc = unproject!({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
+        if (!nc) return
+        st.lx = mx; st.ly = my; st.last = nc
+        onMoveTwin?.(twin, nc, 'move')
+      },
+      onDragEnd: () => {
+        const st = drag.current
+        drag.current = null
+        setDragPan?.(true)
+        if (st) onMoveTwin?.(twin, st.last, 'end')
+      },
+    }, { mode: ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: movable })
+  }
+  /** One tappable mark. The button replaces the inert span the layer used to render; keyboard
+   *  «click» (detail 0) keeps the open, pointer taps go through the hold gesture's onTap. */
+  const tapTarget = (twin: MapContentTwin, anchor: LngLat, movable: boolean, className: string, children: ReactNode, style?: CSSProperties) => (
+    <button type="button"
+      className={`${s.contentTap} ${s.mapTap} ${className}`}
+      style={{ ...style, ...(movable ? { touchAction: 'none', cursor: 'grab' } : null) }}
+      title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromPlan, { name: contentTwinName(twin.anno), plan: twin.planCode })}
+      data-twin=""
+      onClick={(ev) => { if (ev.detail === 0) onOpenTwin?.(twin) }}
+      onPointerDown={(ev) => beginGesture(ev, twin, anchor, movable)}>
+      {selectedKey === twin.key && <span className="sel-halo" aria-hidden />}
+      {children}
+    </button>
+  )
   if (!twins.length) return null
   // Arrowheads ride the map's own registered SDF icon in ONE symbol layer, exactly like the
   // Lage's lines — geographic bearing from the final segment, dimmed to the projection tone.
@@ -134,6 +192,12 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
               return out.length ? out : [t.coords![Math.floor((t.coords!.length - 1) / 2)]]
             })()
             : []
+          // The path's one hit target: a grip at its midpoint/centroid (before the label's
+          // nudge, so it sits ON the geometry). Tap opens the panel; drag moves the whole
+          // object — except a Leitung, whose anchored geometry stays tap-only (isLeitung).
+          const gripCoord = interactive && !!onOpenTwin && basePlan
+            ? (() => { const c = t.fit.toMap({ x: basePlan[0], y: basePlan[1] }); return [c.lng, c.lat] as LngLat })()
+            : null
           return <Fragment key={t.key}>
             <Source id={`s-${id}`} type="geojson" data={data}>
               {polygon && <Layer id={`f-${id}`} type="fill" paint={{ 'fill-color': color, 'fill-opacity': a.fillOpacity ?? 0.14 }} />}
@@ -169,16 +233,30 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
                 </span>
               </Marker>
             )}
+            {gripCoord && (
+              <Marker longitude={gripCoord[0]} latitude={gripCoord[1]} anchor="center">
+                {tapTarget(t, gripCoord, canDragAny && !isLeitung(a), s.grip, <i style={{ color }} aria-hidden />)}
+              </Marker>
+            )}
           </Fragment>
         }
         if (!t.coord || a.x == null || a.y == null) return null
         if (a.kind === 'shape') {
           const edge = t.fit.toMap({ x: a.x + (a.sizeN ?? 0.1), y: a.y })
           const px = Math.max(12, projectedPx(t.coord, [edge.lng, edge.lat], zoom))
-          return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>
-            <span className={`${s.contentMap} shape-glyph`} style={{ display: 'block', width: px, height: px, transform: `rotate(${(a.rotation ?? 0) - t.fit.rotationDeg - bearing}deg)` }}>
-              <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} />
+          // height follows the source's stretched box (BoardAnno.aspect — height per plan
+          // WIDTH unit, same as the sheet renders it), so the mirror keeps its geometry
+          const kind = a.shape ?? 'square'
+          const glyph = (
+            <span className={`${s.contentMap} shape-glyph`} style={{ display: 'block', width: px, height: px * shapeAspect(kind, a.aspect), transform: `rotate(${(a.rotation ?? 0) - t.fit.rotationDeg - bearing}deg)` }}>
+              <ShapeGlyph kind={kind} color={a.color ?? '#1f6feb'} stop={a.stop} />
             </span>
+          )
+          if (!interactive || !onOpenTwin) {
+            return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>{glyph}</Marker>
+          }
+          return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center">
+            {tapTarget(t, t.coord, canDragAny, '', glyph)}
           </Marker>
         }
         if (a.kind === 'text') {
@@ -190,8 +268,13 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
             width, fontSize: 12 * noteScale(a.noteSize),
             ...(a.color ? (a.notePlain ? { color: a.color } : { '--note-tint': a.color }) : null),
           } as CSSProperties
-          return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>
-            <span className={`${s.contentMap} ${cls}`} style={style}>{a.text || appConfig.copy.whiteboard.text}</span>
+          if (!interactive || !onOpenTwin) {
+            return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>
+              <span className={`${s.contentMap} ${cls}`} style={style}>{a.text || appConfig.copy.whiteboard.text}</span>
+            </Marker>
+          }
+          return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center">
+            {tapTarget(t, t.coord, canDragAny, `${s.contentMap} ${cls}`, a.text || appConfig.copy.whiteboard.text, style)}
           </Marker>
         }
         if (a.kind === 'resource') {
@@ -200,61 +283,21 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
             return [c.lng, c.lat] as LngLat
           })
           const trailData = { type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: trail }, properties: {} }
+          const style = { '--team': a.color || appConfig.drawing.teamColors[0] } as CSSProperties
+          const chip = <><i /><b>{a.text}</b></>
           return <Fragment key={t.key}>
             {trail.length >= 2 && <Source id={`s-georef-trail-${i}`} type="geojson" data={trailData}>
               <Layer id={`l-georef-trail-${i}`} type="line" paint={{ 'line-color': a.color || appConfig.drawing.teamColors[0], 'line-width': 2, 'line-opacity': 0.7, 'line-dasharray': [2, 2] }} />
             </Source>}
-            {(() => {
-              const style = { '--team': a.color || appConfig.drawing.teamColors[0] } as CSSProperties
-              const jump = interactive && onOpenResource ? () => onOpenResource(t) : undefined
-              const movable = interactive && !!onMoveResource && !!project && !!unproject
-              if (!jump && !movable) {
-                return (
-                  <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>
-                    <span className={`${s.contentMap} team-dot`} style={style}><i /><b>{a.text}</b></span>
-                  </Marker>
-                )
-              }
-              return (
-                <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center">
-                  <button type="button" className={`${s.contentMap} ${s.contentTap} team-dot`}
-                    style={{ ...style, ...(movable ? { touchAction: 'none' } : null) }}
-                    title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromPlan, { name: a.text ?? '', plan: t.planCode })}
-                    data-twin=""
-                    // a keyboard «click» (detail 0) keeps the jump; pointer taps go through onTap
-                    onClick={(ev) => { if (ev.detail === 0) jump?.() }}
-                    onPointerDown={(ev) => {
-                      ev.stopPropagation()
-                      hold.begin({ clientX: ev.clientX, clientY: ev.clientY, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
-                        onTap: jump,
-                        onHoldStart: () => {
-                          setDragPan?.(false)
-                          resDrag.current = { lx: ev.clientX, ly: ev.clientY, last: t.coord! }
-                          onMoveResource?.(t, t.coord!, 'start')
-                        },
-                        onDragMove: (mx, my) => {
-                          const st = resDrag.current
-                          if (!st) return
-                          const base = project!(st.last)
-                          if (!base) return
-                          const nc = unproject!({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
-                          if (!nc) return
-                          st.lx = mx; st.ly = my; st.last = nc
-                          onMoveResource?.(t, nc, 'move')
-                        },
-                        onDragEnd: () => {
-                          const st = resDrag.current
-                          resDrag.current = null
-                          setDragPan?.(true)
-                          if (st) onMoveResource?.(t, st.last, 'end')
-                        },
-                      }, { mode: ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: movable })
-                    }}>
-                    <i /><b>{a.text}</b>
-                  </button>
-                </Marker>
-              )
-            })()}
+            {!interactive || !onOpenTwin ? (
+              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>
+                <span className={`${s.contentMap} team-dot`} style={style}>{chip}</span>
+              </Marker>
+            ) : (
+              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center">
+                {tapTarget(t, t.coord, canDragAny, `${s.contentMap} team-dot`, chip, style)}
+              </Marker>
+            )}
           </Fragment>
         }
         return null

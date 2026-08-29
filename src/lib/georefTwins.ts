@@ -35,6 +35,7 @@ import type { BoardAnno, Drawing, Entity, LngLat, PlanDocument } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { circlePolygon } from './geo'
+import { pxPerM } from './mapView'
 
 /** How far past the sheet edge a projected map object may sit and still be drawn — 2 % of the
  *  sheet. Enough that a hydrant on the kerb outside the plan frame is not lost to a rounding
@@ -93,6 +94,9 @@ export interface GeorefPlan {
   title: string
   imageUrl?: string
   fit: GeorefFit
+  /** ground width of the fitted sheet in metres (planGroundWidthM at the fit's own aspect) —
+   *  what turns the sheet's normalized sizes into real distances on the Karte */
+  widthM: number
 }
 
 /**
@@ -114,8 +118,9 @@ export function georefPlans(
     if (p.floorStack || p.viewer) continue
     const pairs = georefOf(p.georefKey ?? p.id)?.pairs
     if (!pairs?.length) continue
-    const fit = fitSimilarity(pairs, aspectOf(p))
-    if (fit) out.push({ id: p.id, code: p.code, title: p.title, imageUrl: p.imageUrl, fit })
+    const aspect = aspectOf(p)
+    const fit = fitSimilarity(pairs, aspect)
+    if (fit) out.push({ id: p.id, code: p.code, title: p.title, imageUrl: p.imageUrl, fit, widthM: planGroundWidthM(fit, aspect) })
   }
   return out
 }
@@ -134,14 +139,17 @@ export interface MapTwin {
   /** inverse transform used when the projected mark is dragged on the Karte: the source
    *  annotation moves in plan space, then every projection follows from that one write. */
   fit: GeorefFit
+  /** the sheet's ground width in metres (GeorefPlan.widthM) — sizes the mark like the ground
+   *  footprint the plan symbol actually covers (twinSymbolPx), not like a native map pin */
+  widthM: number
 }
 
 /**
  * The tactical symbols of every georeferenced plan, on the map.
  *
  * Tactical symbols only: they keep their existing interactive projection path. Other operational
- * content is projected by `mapContentTwins`, where its display-only geometry cannot be mistaken
- * for a second editable object.
+ * content is projected by `mapContentTwins` and rendered by GeorefContentMap, whose hit targets
+ * and whole-object drags likewise write the one source annotation.
  */
 export function mapTwins(plans: GeorefPlan[], board: Record<string, BoardAnno[] | undefined>): MapTwin[] {
   const out: MapTwin[] = []
@@ -150,11 +158,30 @@ export function mapTwins(plans: GeorefPlan[], board: Record<string, BoardAnno[] 
       if (a.kind !== 'symbol' || a.x == null || a.y == null) continue
       const { lng, lat } = plan.fit.toMap({ x: a.x, y: a.y })
       if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue
-      out.push({ key: `${plan.id}:${a.id}`, planId: plan.id, planCode: plan.code, annoId: a.id, coord: [lng, lat], anno: a, fit: plan.fit })
+      out.push({ key: `${plan.id}:${a.id}`, planId: plan.id, planCode: plan.code, annoId: a.id, coord: [lng, lat], anno: a, fit: plan.fit, widthM: plan.widthM })
     }
   }
   return out
 }
+
+/** How much of the sheet's width a plan tactical symbol occupies — the Whiteboard's own symbol
+ *  base is `fit.w · 0.085` (Whiteboard · symBase), so the same fraction of the sheet's GROUND
+ *  width is the footprint that symbol actually claims on the earth (≈ 3–5 m on a Modul sheet). */
+export const TWIN_SYMBOL_FRACTION = 0.085
+/** The twin's own px band. The floor is deliberately LOWER than the native band (mapView ·
+ *  symPx, 28–48): a projection is quieter by design, and the native floor made every mirrored
+ *  mark tower over the building it is drawn in. The ceiling matches the native one, so a twin
+ *  can never outgrow the real symbol standing beside it. */
+const TWIN_SYM_MIN_PX = 15
+const TWIN_SYM_MAX_PX = 48
+
+/** On-map size of a mirrored plan symbol: the ground metres its share of the sheet covers
+ *  (TWIN_SYMBOL_FRACTION × widthM) at the live zoom — a twin is scaled by the BUILDING it sits
+ *  in, not by the map's pin band. A symbol transferred to the Karte (transferPlanTwinToMap)
+ *  becomes a real entity and returns to native `symPx` sizing. `mul` is the global S/M/L
+ *  factor, applied after the clamp exactly as `symPx` applies it. */
+export const twinSymbolPx = (widthM: number, lat: number, zoom: number, mul = 1) =>
+  Math.max(TWIN_SYM_MIN_PX, Math.min(TWIN_SYM_MAX_PX, TWIN_SYMBOL_FRACTION * widthM * pxPerM(lat, zoom))) * mul
 
 // --- the map → a plan board -----------------------------------------------------------------
 
@@ -242,6 +269,36 @@ export function mapContentTwins(
     }
   }
   return out
+}
+
+/** Whole-object translation of a mirrored path (a projected Plan line or area dragged on the
+ *  Karte): every vertex moves by the same plan-space delta. The DELTA — not each vertex — is
+ *  clamped to the sheet, because clamping vertices one by one would squash the shape against
+ *  the paper edge instead of stopping it there. Vertex-level editing stays with the source.
+ *  Generic over the vertex tuple so a `BoardPoint`'s optional per-point floor rides along
+ *  untouched — a drag moves the line on the paper, never between storeys. */
+export function movedTwinPath<P extends readonly [number, number, ...rest: number[]]>(pts: readonly P[], from: PlanPt, to: PlanPt): P[] {
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
+  const dx = Math.max(-Math.min(...xs), Math.min(1 - Math.max(...xs), to.x - from.x))
+  const dy = Math.max(-Math.min(...ys), Math.min(1 - Math.max(...ys), to.y - from.y))
+  return pts.map((p) => { const [x, y, ...rest] = p; return [x + dx, y + dy, ...rest] as unknown as P })
+}
+
+/** The name a mirrored non-symbol object answers to — its own label/text where it has one, else
+ *  its kind's tool name (a nameless mirrored line is «Linie», never «Symbol»). Takes both a plan
+ *  annotation and a map entity, because the same panels serve both directions of the mirror. */
+export function contentTwinName(o: { kind?: string; label?: string; text?: string; shape?: string }): string {
+  const C = appConfig.copy
+  const named = o.label?.trim() || o.text?.trim()
+  if (named) return named
+  switch (o.kind) {
+    case 'text': case 'note': return C.whiteboard.text
+    case 'resource': case 'team': return C.whiteboard.team
+    case 'shape': return C.shapes.names[o.shape ?? ''] ?? C.shapes.kindLabel
+    case 'area': return C.whiteboard.area
+    case 'draw': return C.whiteboard.line
+    default: return C.whiteboard.georef.twinUnnamed
+  }
 }
 
 /** A map point projected into one linked sheet. These are deliberately separate from

@@ -1,8 +1,14 @@
 /** Non-symbol Karte content projected onto a georeferenced Modul.
  *
- * Derived, pointer-inert and below the sheet's own annotations: there is still exactly one
- * editable source object. Tactical symbols/live vehicles keep using GeorefTwinsBoard because
- * those twins already have selection, source-jump and drag semantics of their own.
+ * Derived and below the sheet's own annotations: there is still exactly one editable source
+ * object. Team chips, notes and shapes carry a hit target — tap opens the in-place
+ * source-backed panel, a drag past the deadzone moves the one source marker on the Karte
+ * (both through the generic `onOpenTeam`/`onMoveTeam` pair, which Whiteboard forwards for
+ * every entity kind). Mirrored map DRAWINGS and shared responder positions stay pointer-inert:
+ * the drawings' write-through needs a per-drawing path the Whiteboard does not thread yet, and
+ * a phone's GPS fix is nobody's to move. Tactical symbols/live vehicles keep using
+ * GeorefTwinsBoard because those twins already have selection, source-jump and drag semantics
+ * of their own.
  *
  * A mirrored Leitung keeps its whole FKS voice — arrowhead, Teilstück-Gabel, marker letters,
  * end tag and distance read-out. The strokes come from WbInkLayer; the decorations are drawn
@@ -11,12 +17,12 @@
  * measured on the SOURCE geometry (geodesic, lib/geo) — the map already knows the truth, so a
  * mirrored line reads its Länge even on a sheet that was never calibrated.
  */
-import { Fragment, useRef, type CSSProperties } from 'react'
+import { useRef, type CSSProperties } from 'react'
 import type { GeorefFit } from '../lib/georef'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
-import type { BoardDrawingTwin, BoardEntityTwin } from '../lib/georefTwins'
+import { contentTwinName, type BoardDrawingTwin, type BoardEntityTwin } from '../lib/georefTwins'
 import { WbInkLayer } from './WbControls'
-import { ShapeGlyph } from '../lib/shapes'
+import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { TacticalSymbol } from '../lib/symbolRender'
 import { glyphFor } from '../lib/twinGlyph'
 import { noteScale, noteWPx } from '../lib/notes'
@@ -41,23 +47,63 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   /** the Atemschutz board, so a mirrored Leitung's tag carries its Trupp and clock tone */
   trupps?: Trupp[]
   truppSeverities?: Record<string, 1 | 2>
-  /** the sheet is at rest (pan tool, no pairing) — only then may a team chip answer a tap */
+  /** the sheet is at rest (pan tool, no pairing) — only then may a projection answer a tap */
   interactive?: boolean
-  /** tap on a mirrored team chip: jump to its one source marker on the Karte. The rest of this
-   *  layer stays pointer-inert — a Trupp chip is the one mark here an operator hunts for by
-   *  name («wo ist Trupp 2»), and its mirror used to be a dot that answered nothing. */
+  /** Tap on a mirrored team chip, note or shape: open its in-place source-backed panel (the
+   *  workspace decides — a team chip used to jump surfaces, which read as a bug). The name is
+   *  historic: Whiteboard wires it as `onTwinJump`, generic over every entity kind. */
   onOpenTeam?: (entity: Entity) => void
-  /** Drag a mirrored team chip to move its one source marker — the point handed back is in the
-   *  SHEET's normalized space, folded through the fit by the Whiteboard exactly like a symbol
-   *  twin's drag. Direct drag past the shared deadzone, no selection first: that is how this
-   *  sheet's OWN chips move (chipDown), and the mirror keeps the surface's grammar. Without it
-   *  a drag on the chip simply panned the board — «Trupp markers cannot be moved». */
+  /** Drag a mirrored team chip / note / shape to move its one source marker — the point handed
+   *  back is in the SHEET's normalized space, folded through the fit by the Whiteboard exactly
+   *  like a symbol twin's drag. Direct drag past the shared deadzone, no selection first: that
+   *  is how this sheet's OWN chips move (chipDown), and the mirror keeps the surface's grammar.
+   *  Without it a drag on the chip simply panned the board — «cannot be moved». */
   onMoveTeam?: (entity: Entity, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => void
 }) {
-  /** The live chip gesture. `base` is where the chip STOOD at the press — the twin follows its
-   *  source mid-drag, so the cumulative delta must be added to a FIXED point (GeorefTwinsBoard
-   *  carries the same warning). One ref: only one chip is ever dragged at a time. */
+  /** The live gesture on a mirrored point mark (team chip, note, shape). `base` is where the
+   *  mark STOOD at the press — the twin follows its source mid-drag, so the cumulative delta
+   *  must be added to a FIXED point (GeorefTwinsBoard carries the same warning). One ref: only
+   *  one mark is ever dragged at a time. */
   const chipDrag = useRef<{ pid: number; x: number; y: number; base: { x: number; y: number }; entity: Entity; moved: boolean } | null>(null)
+  /** The shared tap/drag handlers of every interactive point mark in this layer — one grammar
+   *  for the chip, the note and the shape, matching the sheet's own chipDown (deadzone first,
+   *  a tap is never a nudge). */
+  const pointHandlers = (entity: Entity, base: { x: number; y: number }, movable: boolean, jump?: () => void) => ({
+    onPointerDown: (ev: React.PointerEvent<HTMLButtonElement>) => {
+      // the sheet must not ALSO start a pan under the held mark
+      ev.stopPropagation()
+      // tracked even when tap-only, so the release can tell a tap from a slipped drag
+      ev.currentTarget.setPointerCapture?.(ev.pointerId)
+      chipDrag.current = { pid: ev.pointerId, x: ev.clientX, y: ev.clientY, base, entity, moved: false }
+    },
+    onPointerMove: (ev: React.PointerEvent) => {
+      const d = chipDrag.current
+      if (!movable || !d || d.pid !== ev.pointerId) return
+      const dx = ev.clientX - d.x, dy = ev.clientY - d.y
+      // the shared deadzone every chip drag uses — a tap must never nudge the source
+      if (!d.moved) {
+        if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
+        d.moved = true
+        onMoveTeam!(d.entity, d.base, 'start')
+      }
+      onMoveTeam!(d.entity, {
+        x: Math.max(0, Math.min(1, d.base.x + dx / sW)),
+        y: Math.max(0, Math.min(1, d.base.y + dy / sH)),
+      }, 'move')
+    },
+    onPointerUp: (ev: React.PointerEvent) => {
+      const d = chipDrag.current
+      if (!d || d.pid !== ev.pointerId) return
+      chipDrag.current = null
+      if (d.moved) {
+        onMoveTeam!(d.entity, {
+          x: Math.max(0, Math.min(1, d.base.x + (ev.clientX - d.x) / sW)),
+          y: Math.max(0, Math.min(1, d.base.y + (ev.clientY - d.y) / sH)),
+        }, 'end')
+      } else if (jump) jump()
+    },
+    onPointerCancel: () => { const d = chipDrag.current; chipDrag.current = null; if (d?.moved) onMoveTeam!(d.entity, d.base, 'end') },
+  })
   if (!sW || !sH || (!entities.length && !drawings.length)) return null
 
   const trailAnnos: BoardAnno[] = entities.flatMap(({ entity }) => {
@@ -163,11 +209,23 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
       })}
       {entities.map(({ key, entity, pt }) => {
         const pos: CSSProperties = { left: pt.x * sW, top: pt.y * sH }
+        const jump = interactive && onOpenTeam ? () => onOpenTeam(entity) : undefined
+        const movable = interactive && !!onMoveTeam
+        const tappable = !!jump || movable
+        const grabStyle = movable ? { touchAction: 'none' as const, cursor: 'grab' } : null
+        const title = fillTemplate(appConfig.copy.whiteboard.georef.twinFromMap, { name: contentTwinName(entity) })
         if (entity.kind === 'shape') {
           const px = Math.max(12, ((entity.sizeM ?? 40) / planWidthM) * sW)
-          return <div key={key} className={`${s.contentPoint} shape-glyph`} style={{ ...pos, width: px, height: px, transform: `translate(-50%, -50%) rotate(${(entity.rotation ?? 0) + fit.rotationDeg}deg)` }}>
-            <ShapeGlyph kind={entity.shape ?? 'square'} color={entity.color ?? '#1f6feb'} />
-          </div>
+          // sizeM is the WIDTH; the height follows the source's stretched box (Entity.aspect)
+          const kind = entity.shape ?? 'square'
+          const style = { ...pos, width: px, height: px * shapeAspect(kind, entity.aspect), transform: `translate(-50%, -50%) rotate(${(entity.rotation ?? 0) + fit.rotationDeg}deg)` }
+          const glyph = <ShapeGlyph kind={kind} color={entity.color ?? '#1f6feb'} stop={entity.stop} />
+          if (!tappable) {
+            return <div key={key} className={`${s.contentPoint} shape-glyph`} style={style}>{glyph}</div>
+          }
+          return <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} shape-glyph`}
+            style={{ ...style, ...grabStyle }} title={title} data-twin=""
+            {...pointHandlers(entity, pt, movable, jump)}>{glyph}</button>
         }
         if (entity.kind === 'note') {
           const tinted = !entity.notePlain && !!entity.color
@@ -177,13 +235,15 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
             transform: 'translate(-50%, -50%)',
             ...(entity.color ? (entity.notePlain ? { color: entity.color } : { '--note-tint': entity.color }) : null),
           } as CSSProperties
-          return <span key={key} className={`${s.contentPoint} ${cls}`} style={style}>{entity.label || appConfig.copy.whiteboard.text}</span>
+          const text = entity.label || appConfig.copy.whiteboard.text
+          if (!tappable) return <span key={key} className={`${s.contentPoint} ${cls}`} style={style}>{text}</span>
+          return <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} ${cls}`}
+            style={{ ...style, ...grabStyle }} title={title} data-twin=""
+            {...pointHandlers(entity, pt, movable, jump)}>{text}</button>
         }
         if (entity.kind === 'team') {
           const style = { ...pos, transform: 'translate(-50%, -50%)', '--team': entity.color || appConfig.drawing.teamColors[0] } as CSSProperties
-          const jump = interactive && onOpenTeam ? () => onOpenTeam(entity) : undefined
-          const movable = interactive && !!onMoveTeam
-          if (!jump && !movable) {
+          if (!tappable) {
             return <span key={key} className={`${s.contentPoint} team-dot`} style={style}>
               <i /><b>{entity.label}</b>
             </span>
@@ -191,43 +251,10 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           return (
             <button key={key} type="button"
               className={`${s.contentPoint} ${s.contentTap} team-dot`}
-              style={{ ...style, ...(movable ? { touchAction: 'none', cursor: 'grab' } : null) }}
-              title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromMap, { name: entity.label ?? '' })}
+              style={{ ...style, ...grabStyle }}
+              title={title}
               data-twin=""
-              onPointerDown={(ev) => {
-                // the sheet must not ALSO start a pan under the held chip
-                ev.stopPropagation()
-                // tracked even when tap-only, so the release can tell a tap from a slipped drag
-                ev.currentTarget.setPointerCapture?.(ev.pointerId)
-                chipDrag.current = { pid: ev.pointerId, x: ev.clientX, y: ev.clientY, base: pt, entity, moved: false }
-              }}
-              onPointerMove={(ev) => {
-                const d = chipDrag.current
-                if (!movable || !d || d.pid !== ev.pointerId) return
-                const dx = ev.clientX - d.x, dy = ev.clientY - d.y
-                // the shared deadzone every chip drag uses — a tap must never nudge the Trupp
-                if (!d.moved) {
-                  if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
-                  d.moved = true
-                  onMoveTeam!(d.entity, d.base, 'start')
-                }
-                onMoveTeam!(d.entity, {
-                  x: Math.max(0, Math.min(1, d.base.x + dx / sW)),
-                  y: Math.max(0, Math.min(1, d.base.y + dy / sH)),
-                }, 'move')
-              }}
-              onPointerUp={(ev) => {
-                const d = chipDrag.current
-                if (!d || d.pid !== ev.pointerId) return
-                chipDrag.current = null
-                if (d.moved) {
-                  onMoveTeam!(d.entity, {
-                    x: Math.max(0, Math.min(1, d.base.x + (ev.clientX - d.x) / sW)),
-                    y: Math.max(0, Math.min(1, d.base.y + (ev.clientY - d.y) / sH)),
-                  }, 'end')
-                } else if (jump) jump()
-              }}
-              onPointerCancel={() => { const d = chipDrag.current; chipDrag.current = null; if (d?.moved) onMoveTeam!(d.entity, d.base, 'end') }}
+              {...pointHandlers(entity, pt, movable, jump)}
             >
               <i /><b>{entity.label}</b>
             </button>
@@ -235,6 +262,8 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
         }
         // Shared responder positions are live map facts, not tactical symbols. Preserve their
         // own ringed-initials SVG so a projected phone fix cannot be mistaken for a placed unit.
+        // Deliberately NOT tappable/draggable: a GPS fix is somebody's self-report — there is
+        // nothing an operator may honestly move or edit through it.
         if (entity.kind === 'person') {
           return <span key={key} className={s.contentPoint} style={{ ...pos, width: 38, height: 38, transform: 'translate(-50%, -50%)' }}>
             <TacticalSymbol svg={glyphFor(entity, byName)} sizePx={38} rotation={0} caption={entity.label} />
