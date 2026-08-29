@@ -111,6 +111,61 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
 }
 
 /**
+ * Vertex handles for the IN-PROGRESS Punkte draft (node-mode Linie / Fläche) — the same grips and
+ * «+» midpoint inserts a FINISHED shape gets (WbVertexHandles below), so the shape being laid down
+ * is already editable in place instead of only append-only until ✓ (decided 29.08.). Slimmer than
+ * the finished-shape variant on purpose: a draft has no attachments, no Verlängern arrows (the
+ * next tap IS how it grows) and no thinning (node drafts are a handful of deliberate taps).
+ * Positions are board px; classes are the shared `.wb-vertex` / `.wb-vins`, which already sit
+ * above the `.wb-ink` capture overlay (z 6/7 vs 5), so the grips stay tappable mid-tool.
+ */
+export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertexDown, onInsert, onDeleteVertex }: {
+  pts: BoardPoint[]
+  /** area draft: the ring closes visually at ≥3 pts, so the closing edge gets a «+» too */
+  closed: boolean
+  draftFloor: number
+  sW: number
+  sH: number
+  mapY: (floor: number | undefined, ly: number) => number
+  onVertexDown: (idx: number, e: React.PointerEvent) => void
+  onInsert: (idx: number, e: React.PointerEvent) => void
+  onDeleteVertex: (idx: number) => void
+}) {
+  // still hold = delete, movement cancels into the reshape drag — the same gesture (and chip) as
+  // on a finished shape, so the draft never teaches a second vocabulary.
+  const vertexPress = useNodeHold()
+  if (!pts.length) return null
+  const sp: [number, number][] = pts.map(([x, y, floor]) => [x * sW, mapY(floor ?? draftFloor, y) * sH])
+  const segs: number[] = []
+  for (let i = 0; i < sp.length - 1; i++) segs.push(i)
+  if (closed && sp.length >= 3) segs.push(sp.length - 1)
+  return (
+    <>
+      {segs.map((i) => {
+        const a = sp[i], b = sp[(i + 1) % sp.length]
+        return (
+          <button key={`dins-${i}`} className="wb-vins" title={appConfig.copy.whiteboard.insertVertex} aria-label={appConfig.copy.whiteboard.insertVertex}
+            style={{ left: 0, top: 0, transform: `translate(${(a[0] + b[0]) / 2}px, ${(a[1] + b[1]) / 2}px) translate(-50%, -50%)` }}
+            onPointerDown={(e) => onInsert(i, e)}><Icon id="plus" /></button>
+        )
+      })}
+      {sp.map(([x, y], i) => (
+        <button key={`dv-${i}`} className={`wb-vertex ${vertexPress.armed?.key === `d${i}` ? 'doomed' : ''}`}
+          title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex}
+          style={{ left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
+          onPointerDown={(e) => {
+            // deleting is allowed all the way down — a one-point draft deletes into no draft,
+            // which is exactly what the ✕/Esc discard leaves too
+            vertexPress.press(`d${i}`, () => onDeleteVertex(i), true).onPointerDown(e)
+            onVertexDown(i, e)
+          }}
+        >{vertexPress.armed?.key === `d${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</button>
+      ))}
+    </>
+  )
+}
+
+/**
  * On-canvas vertex editing for a selected line/area — ONE code path for both kinds (they're both
  * `pts`): a draggable grip per vertex (press-and-hold to delete) and a "+" at each segment midpoint
  * to insert a node. The closing edge is only offered for an area (`kind === 'area'`). Positions are
@@ -217,12 +272,6 @@ interface DocksProps {
   /** the SELECTED team's trail visibility — the dock eye toggles just that team */
   trailsShown: boolean
   onToggleTrails: () => void
-  /** Messen tool: line/area mode + clear/close, mirroring the Lage map's measure dock */
-  measMode: 'line' | 'area'
-  setMeasMode: (m: 'line' | 'area') => void
-  measCount: number
-  onMeasClear: () => void
-  onMeasClose: () => void
   /** Defaults for the NEXT note, set while the Notiz tool is armed. They live here — before a
    *  note exists — rather than during editing on purpose: a dock button tapped mid-edit blurs
    *  the note's textarea, which commits and unmounts the dock under the finger reaching for it.
@@ -238,7 +287,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, noteDefaults, setNoteDefaults }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   const NOTES = appConfig.copy.notes
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
@@ -272,18 +321,8 @@ export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive,
         ]} />
       )}
 
-      {/* Messen — close + Strecke/Fläche toggle + clear + info (identical to the Lage map dock) */}
-      {tool === 'measure' && (
-        <ToolDock groups={[
-          [{ type: 'close', onClick: onMeasClose }],
-          [
-            { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measMode === 'line', onClick: () => setMeasMode('line') },
-            { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: measMode === 'area', onClick: () => setMeasMode('area') },
-          ],
-          [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, disabled: !measCount, onClick: onMeasClear }],
-          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.measure }],
-        ]} />
-      )}
+      {/* ⚠️ No Messen dock any more: the Messen TOOL left the Plan on 29.08. (deliberate
+          Lage↔Plan divergence — see usePlanMeasure's header). */}
 
       {/* Notiz armed — the quick actions for the note about to be placed. Safe here (nothing has
           focus yet); after placement they live in the note's detail panel instead. */}

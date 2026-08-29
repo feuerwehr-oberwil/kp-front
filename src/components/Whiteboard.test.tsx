@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { BoardAnno, BuildingDoc, PlanDocument, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
@@ -18,6 +18,17 @@ vi.mock('./OsmOutline', () => ({
   },
   prefetchOutlines: () => {},
 }))
+
+// the auto-commit release talks through the global toast pill — recorded here so the tests can
+// read its text and press its «Rückgängig» without mounting the app-level toast host
+const ui = vi.hoisted(() => ({ toasts: [] as { text: string; action?: { label: string; onClick: () => void } }[] }))
+vi.mock('../lib/ui', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../lib/ui')>()
+  return {
+    ...mod,
+    toast: (text: string, opts?: { action?: { label: string; onClick: () => void } }) => { ui.toasts.push({ text, action: opts?.action }); return 1 },
+  }
+})
 
 import { Whiteboard } from './Whiteboard'
 
@@ -293,5 +304,113 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
     act(() => { vi.advanceTimersByTime(NODE_HOLD_FIRE_MS * 2) })
     expect(onChange).not.toHaveBeenCalled()
     vi.useRealTimers()
+  })
+})
+
+// ── The 29.08. Plan decisions ───────────────────────────────────────────────────────────────
+// Messen left the rail (deliberate Lage↔Plan divergence), the floating delete orbs left the
+// canvas (the detail panel is the one delete), a note opens on TAP like a symbol, the Punkte
+// draft carries real vertex handles, and tap-away releases a draft instead of eating it.
+describe('Plan round 3 (29.08.)', () => {
+  const T = appConfig.copy.toolDock
+  const W = appConfig.copy.whiteboard
+  // toNorm and the handle layout need a real board rect, which jsdom never lays out.
+  // ⚠️ The toast log is cleared BEFORE each test, not after: afterEach hooks run LIFO, so the
+  // file-level cleanup() unmounts the previous board AFTER an afterEach here — and an unmount
+  // with a live draft auto-commits and toasts (by design), which would leak into the next test.
+  beforeEach(() => {
+    ui.toasts.length = 0
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  const ink = (c: HTMLElement) => c.querySelector('.wb-ink')!
+  const tapAt = (el: Element, x: number, y: number) => {
+    fireEvent.pointerDown(el, { clientX: x, clientY: y, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: x, clientY: y, pointerId: 1 })
+  }
+  // three area taps, far enough apart that none reads as the double-tap finish
+  const drawAreaDraft = (c: HTMLElement) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Fläche' }))
+    tapAt(ink(c), 100, 100); tapAt(ink(c), 300, 100); tapAt(ink(c), 200, 300)
+  }
+
+  it('offers no Messen tool on the Plan — the deliberate divergence from the Lage', () => {
+    renderPlan([])
+    expect(screen.getByRole('button', { name: 'Linie' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Messen' })).toBeNull()
+  })
+
+  it('keeps the slim read-only rail, now Auswahl alone', () => {
+    renderPlan([], { readOnly: true, slimTools: true })
+    expect(screen.getByRole('button', { name: 'Auswahl' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Messen' })).toBeNull()
+  })
+
+  it('gives the in-progress Punkte draft real vertex grips and «+» inserts', () => {
+    const { container } = renderPlan([])
+    drawAreaDraft(container)
+    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
+    // 2 open segments + the closing edge of the ring
+    const inserts = screen.getAllByRole('button', { name: W.insertVertex })
+    expect(inserts).toHaveLength(3)
+    // pressing a «+» splices a node right there (and hands the same press its drag)
+    fireEvent.pointerDown(inserts[0], { clientX: 200, clientY: 100, pointerId: 2 })
+    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(4)
+  })
+
+  it('auto-commits a committable draft on tap-away — and «Rückgängig» hands the shape back', () => {
+    const { container, onChange } = renderPlan([])
+    drawAreaDraft(container)
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
+    // committed through the ordinary addArea path…
+    const committed = onChange.mock.calls[0][0]
+    expect(committed).toHaveLength(1)
+    expect(committed[0].kind).toBe('area')
+    expect(committed[0].pts).toHaveLength(3)
+    // …with the decided toast
+    const t = ui.toasts.find((x) => x.text === T.autoCommitted.replace('{name}', appConfig.copy.drawingEditor.area))
+    expect(t?.action?.label).toBe(T.autoCommitUndo)
+    // undo returns the shape to the HAND: anno removed, draft + tool re-armed
+    act(() => t!.action!.onClick())
+    expect(onChange.mock.calls[onChange.mock.calls.length - 1][0]).toHaveLength(0)
+    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
+  })
+
+  it('discards a fragment with a toast instead of silently — and commits nothing', () => {
+    const { container, onChange } = renderPlan([])
+    fireEvent.click(screen.getByRole('button', { name: 'Fläche' }))
+    tapAt(ink(container), 100, 100); tapAt(ink(container), 300, 100) // a 2-point Fläche is nothing yet
+    fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(ui.toasts.some((x) => x.text === T.draftDiscarded && !x.action)).toBe(true)
+  })
+
+  it('Escape stays the explicit discard — no commit, no toast', () => {
+    const { container, onChange } = renderPlan([])
+    drawAreaDraft(container)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onChange).not.toHaveBeenCalled()
+    expect(ui.toasts).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
+  })
+
+  it('shows no floating ✕ on a selected symbol — Löschen lives in its panel', () => {
+    const { container } = renderPlan([{ id: 's1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'brand', label: 'Brand' }])
+    fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
+    expect(container.querySelector('.wb-del')).toBeNull()
+    // the ContextPanel opened by the same tap carries the delete
+    expect(screen.getAllByRole('button', { name: appConfig.copy.delete }).length).toBeGreaterThan(0)
+  })
+
+  it('opens a note’s panel on a plain TAP — the symbol grammar, no grips row', () => {
+    const { container } = renderPlan([{ id: 'n1', kind: 'text', x: 0.5, y: 0.5, floor: 0, text: 'Hallo' }])
+    expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+    fireEvent.pointerDown(screen.getByText('Hallo'))
+    expect(container.querySelector('.note-grips')).toBeNull()
+    expect(screen.getAllByRole('button', { name: appConfig.copy.delete }).length).toBeGreaterThan(0)
   })
 })
