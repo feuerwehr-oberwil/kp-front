@@ -186,10 +186,25 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
   }
   const up = (e: React.PointerEvent) => {
     own(e)
+    const wasPinch = pinch.current != null
     ptrs.current.delete(e.pointerId)
     if (ptrs.current.size < 2) pinch.current = null
     if (ptrs.current.size === 0) setPanning(false)
-    const st = tap.current; if (!st || st.id !== e.pointerId) return
+    const st = tap.current; if (!st) return
+    // ⚠️ A pinch that ends while the FIRST finger stays down must re-baseline the gesture.
+    // `down` snapshotted the board's position once, but the pinch has been moving the board via
+    // `zoomTo` — so the continuing `move()` would pan from the stale pre-pinch origin, and the
+    // sheet (crosses and all) snapped visibly on the first sample after the second finger lifted.
+    // New origin: the surviving pointer where it stands, the view as the pinch left it.
+    if (wasPinch && pinch.current == null && st.id !== e.pointerId) {
+      const rest = ptrs.current.get(st.id)
+      if (rest) {
+        st.x = rest.x; st.y = rest.y
+        st.px = view.posRef.current.x; st.py = view.posRef.current.y
+      }
+      return
+    }
+    if (st.id !== e.pointerId) return
     tap.current = null
     // the aim STAYS where the finger left it — the loupe is up for the whole mode, so the last
     // thing looked at is what it keeps showing until something else is pointed at

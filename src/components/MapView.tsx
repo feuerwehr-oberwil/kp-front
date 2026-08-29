@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, useEffect, useRef, useState } from 'react'
+import { forwardRef, Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -423,6 +423,18 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     ro.observe(m.getContainer())
     return () => ro.disconnect()
   }, [mapReady])
+  // ⚠️ …and SYNCHRONOUSLY when the georef layout itself flips. The observer above fires a frame
+  // late (after paint), so entering/leaving the split or «Deckung prüfen» left every DOM marker
+  // projecting through the old transform for a frame or two — a visible jump of all crosses and
+  // symbols. The width flip is React-rendered (Whiteboard's wb-georef-split/-check classes come
+  // from the same georef store snapshot as this component's state), so a layout effect keyed on
+  // that state resizes the map in the same commit, before the browser paints: `map.resize()`
+  // reads the container's NEW size and re-places the markers synchronously. The observer stays
+  // as the backstop for every other way the container can change size.
+  useLayoutEffect(() => {
+    const m = mapInst.current; if (!m || !mapReady) return
+    try { m.resize() } catch { /* map gone */ }
+  }, [georefOn, georef.check, mapReady])
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that
@@ -1488,16 +1500,18 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           paint={{ 'icon-color': ['get', 'color'] } as any} />
       </Source>
       {/* team trails — dashed path through the recorded positions, in the team's colour
-          (same look as the plan board's trail polyline); under the DOM markers by nature */}
+          (same look as the plan board's trail polyline); under the DOM markers by nature.
+          Hidden while «Karte verknüpfen» borrows the map, like every drawing layer above —
+          a dashed breadcrumb reads exactly like a landmark-worthy path during calibration. */}
       <Source id="s-team-trails" type="geojson" data={trailFC}>
-        <Layer id="l-team-trails" type="line" layout={{ 'line-join': 'round' }}
+        <Layer id="l-team-trails" type="line" layout={{ 'line-join': 'round', ...vis(!georefOn) }}
           paint={{ 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2.5, 2.5], 'line-opacity': 0.85 } as any} />
       </Source>
       {/* vehicle tracks (Traccar) — solid, thin and deliberately quiet: this is context behind
           the fleet, not a tactical statement, so it must not read like a drawn hose line. The
           hook returns an empty collection whenever the layer is off, so this costs nothing then. */}
       <Source id="s-vehicle-trails" type="geojson" data={vehicleTrailFC}>
-        <Layer id="l-vehicle-trails" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+        <Layer id="l-vehicle-trails" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round', ...vis(!georefOn) }}
           paint={{ 'line-color': '#00a0ff', 'line-width': 2, 'line-opacity': 0.5 }} />
       </Source>
       {/* live draft (area/line tool) — vertices are draggable handles (rendered below),
