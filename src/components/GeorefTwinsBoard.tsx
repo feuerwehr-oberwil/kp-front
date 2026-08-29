@@ -100,7 +100,7 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
             // it sits on screen. Clamped to the sheet, because a projection dragged off the
             // paper has no plan point to name and would fold back through the fit as a
             // coordinate nobody aimed at.
-            onMove={selected && onMove ? ((phase, dx, dy) => {
+            onMove={onMove ? ((phase, dx, dy) => {
               if (phase === 'start') from.current = t.pt
               const base = from.current ?? t.pt
               if (phase === 'end') from.current = null

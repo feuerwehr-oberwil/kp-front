@@ -89,8 +89,8 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
    *  .inert): a tool is armed, or the pairing mode is running, and the tap belongs to that. */
   interactive?: boolean
   /** The projection whose shared detail panel is open gets the same selection halo as its
-   *  source object. Its container also uses this selection to enable movement; an unselected
-   *  projection remains tap-only, matching the source surfaces' pick-then-drag rule. */
+   *  source object. Movement is available immediately, matching each source surface's direct
+   *  drag grammar; selection changes only the visual state. */
   selected?: boolean
   style?: React.CSSProperties
   className?: string

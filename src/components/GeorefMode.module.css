@@ -311,6 +311,24 @@
   background: repeating-linear-gradient(180deg,
     color-mix(in srgb, var(--blue) 75%, transparent) 0 10px, transparent 10px 18px);
 }
+/* The visible contract between equal numbers. Each surface pans independently, so the React
+   component samples the two cross centres in viewport space; this fixed SVG is their common
+   drawing plane. Thin + dashed keeps the plan/map content readable while a bad pairing remains
+   unmistakable at a glance. */
+.pairLines {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 12;
+  pointer-events: none;
+  overflow: visible;
+}
+.pairLines line {
+  stroke: color-mix(in srgb, var(--blue) 72%, transparent);
+  stroke-width: 1.5px;
+  stroke-dasharray: 6 5;
+}
 /* ── Lupe ────────────────────────────────────────────────────────────────────────────────── */
 /* One shared position for both surfaces. Only the surface named by `mode.want` renders its
    picture, so there is one larger magnifier at the centre instead of two unrelated corner

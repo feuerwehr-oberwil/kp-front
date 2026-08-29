@@ -48,13 +48,22 @@
 .grab { cursor: grab; touch-action: none; }
 .grab:active { cursor: grabbing; }
 
-/* The broader content mirror stays quieter than the real thing, and its DECORATIONS (end tags,
-   marker letters, labels, GL strokes) stay pointer-inert. It sits below native annotations
-   (z 3) but above the paper/PDF, so a projected Lage line can never swallow the tap intended
-   for a Modul object drawn over it. */
+/* The broader content mirror stays quieter than the real thing. Its visual decorations (end
+   tags, marker letters, labels, GL strokes) stay pointer-inert; a separate narrow line hit area
+   carries the source-backed tap/drag grammar. It sits below native annotations (z 3) but above
+   the paper/PDF, so a projected Lage line cannot swallow the tap intended for a Modul object
+   drawn over it. */
 .contentBoard { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: .72; overflow: hidden; }
 .contentPoint { position: absolute; display: block; pointer-events: none; }
 .contentMap { opacity: .72; pointer-events: none; }
+.drawingHits { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.drawingHit { pointer-events: stroke; cursor: grab; touch-action: none; }
+.drawingHit:active { cursor: grabbing; }
+.contentVertex { position: absolute; z-index: 4; width: 18px; height: 18px; padding: 0;
+  transform: translate(-50%, -50%); border-radius: 50%; border: 2px solid var(--surface);
+  background: var(--blue); box-shadow: var(--shadow-sm); pointer-events: auto; touch-action: none; cursor: grab; }
+.contentVertex::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
+  transform: translate(-50%, -50%); }
 /* …but each mirrored OBJECT carries one hit target: tap opens its in-place source-backed panel,
    a hold-drag moves the one source through the fit (GeorefContentMap / GeorefContentBoard).
    Button chrome stripped; the mark itself is the button. */

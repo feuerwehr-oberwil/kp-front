@@ -564,17 +564,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* plan-side wrapper for FKS line decorations (fork / content chip / number badge) in board px */
 .wb-line-deco { position: absolute; left: 0; top: 0; pointer-events: none; }
 .wb-line-deco.draggable { pointer-events: auto; touch-action: none; }
-/* map-side draggable wrapper for the FKS end-tag */
-/* ⚠️ INERT unless its own line is selected. The tag is a drag handle, so it used to claim
-   pointer-events at all times — and it is drawn over the incident point, where the tactical
-   symbols are. Measured with elementFromPoint: 4 of 12 markers did not own the pixel at their own
-   centre, including «2 · in Rettung»; a tap there opened nothing, and a tap at the cluster centre
-   opened the LINE's editor instead of any symbol. What you see was not what you could touch, on
-   the most consequential object on the map.
-   The cost is one tap: to move a tag you now select its Leitung first. Taking the symbol's tap is
-   the worse trade. */
-.line-end-tag-wrap { pointer-events: none; touch-action: none; }
-.line-end-tag-wrap.sel { pointer-events: auto; }
+/* Map-side wrapper for the FKS end tag. Interactive at rest so the tag answers a TAP (opens the
+   line / routes to its überfällig Trupp) — but the DRAG arms only once its line is selected
+   (MapView gates labelDown): f4ad5c3 measured that an always-armed tag stole gestures right at
+   the incident point, and the resting z-index below the tactical symbols still lets an
+   overlapping symbol or Trupp own the contested pixel. */
+.line-end-tag-wrap { pointer-events: auto; touch-action: none; }
 
 /* FKS hose-line decorations — shared by the Lage map (in a Marker) and the Plan (wb-line-deco) */
 .line-fork { display: block; }

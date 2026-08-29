@@ -10,7 +10,7 @@
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
-import { GeorefBoardLayer, type PlanViewApi } from './GeorefMode'
+import { GeorefBoardLayer, georefPairSegment, type PlanViewApi } from './GeorefMode'
 import { GEOREF_OFF, georefDispatch, georefSnapshot, resetGeorefMode, type GeorefModeState } from '../lib/georefMode'
 
 beforeAll(() => {
@@ -86,5 +86,14 @@ describe('the capture layer after a pinch ends', () => {
     fireEvent.pointerDown(capture, { pointerId: 3, clientX: 100, clientY: 100 })
     fireEvent.pointerUp(capture, { pointerId: 3, clientX: 100, clientY: 100 })
     expect(georefSnapshot().slots).toHaveLength(1)
+  })
+})
+
+describe('cross-seam pair lines', () => {
+  it('joins cross centres in viewport space despite independent surface coordinates', () => {
+    expect(georefPairSegment(
+      { left: 90, top: 180, width: 20, height: 20 },
+      { left: 690, top: 380, width: 30, height: 30 },
+    )).toEqual({ x1: 100, y1: 190, x2: 705, y2: 395 })
   })
 })

@@ -116,5 +116,99 @@ describe('broader Karte content on a Modul', () => {
     render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
       fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={() => {}} onMoveTeam={() => {}} />)
     expect(screen.queryByRole('button')).toBeNull()
+    expect(document.querySelector<HTMLElement>('.ts')?.style.width).toBe('28px')
+  })
+
+  it('makes a mirrored line directly clickable and draggable, writing source coordinates', () => {
+    const onOpenDrawing = vi.fn()
+    const onDrawingCoords = vi.fn()
+    const drawings: Drawing[] = [{ id: 'line', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], label: 'Leitung 1' }]
+    render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      onOpenDrawing={onOpenDrawing} onDrawingCoords={onDrawingCoords} />)
+    const line = screen.getByRole('button', { name: /Leitung 1/ })
+    fireEvent.pointerDown(line, { pointerId: 7, clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(line, { pointerId: 7, clientX: 100, clientY: 100 })
+    expect(onOpenDrawing).toHaveBeenCalledWith(expect.objectContaining({ id: 'line' }))
+
+    fireEvent.pointerDown(line, { pointerId: 8, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(line, { pointerId: 8, clientX: 180, clientY: 100 })
+    fireEvent.pointerUp(line, { pointerId: 8, clientX: 180, clientY: 100 })
+    const [id, coords, phase] = onDrawingCoords.mock.calls[onDrawingCoords.mock.calls.length - 1]
+    expect(id).toBe('line')
+    expect(phase).toBe('end')
+    expect(coords[0][0]).toBeGreaterThan(drawings[0].coords[0][0])
+  })
+
+  it('exposes source-backed vertex handles on the selected mirrored line', () => {
+    const onDrawingCoords = vi.fn()
+    const drawings: Drawing[] = [{ id: 'line', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], label: 'Leitung 1' }]
+    render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive selectedDrawingId="line"
+      onDrawingCoords={onDrawingCoords} />)
+    const vertex = screen.getByTestId('twin-vertex-0')
+    fireEvent.pointerDown(vertex, { pointerId: 9, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(vertex, { pointerId: 9, clientX: 140, clientY: 130 })
+    fireEvent.pointerUp(vertex, { pointerId: 9, clientX: 140, clientY: 130 })
+    const [id, coords, phase] = onDrawingCoords.mock.calls[onDrawingCoords.mock.calls.length - 1]
+    expect(id).toBe('line')
+    expect(phase).toBe('end')
+    expect(coords[0]).not.toEqual(drawings[0].coords[0])
+    expect(coords[1]).toEqual(drawings[0].coords[1])
+  })
+
+  it('freezes the overhanging axis instead of teleporting a line wider than the sheet', () => {
+    // twins are kept on mere OVERLAP, so a hose line running past the Modul on both sides is
+    // normal. Its clamp bounds invert — clamping through them used to jump the real Lage line
+    // by half a sheet on the first move. The frozen axis must not leak into the other one.
+    const onDrawingCoords = vi.fn()
+    const drawings: Drawing[] = [{ id: 'wide', kind: 'line', coords: [[7.4994, 47.5], [7.5014, 47.5]], label: 'Leitung 1' }]
+    render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      onDrawingCoords={onDrawingCoords} />)
+    const line = screen.getByRole('button', { name: /Leitung 1/ })
+    fireEvent.pointerDown(line, { pointerId: 11, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(line, { pointerId: 11, clientX: 180, clientY: 160 }) // +80px x, +60px y
+    fireEvent.pointerUp(line, { pointerId: 11, clientX: 180, clientY: 160 })
+    const [, coords, phase] = onDrawingCoords.mock.calls[onDrawingCoords.mock.calls.length - 1]
+    expect(phase).toBe('end')
+    coords.forEach((c: [number, number], i: number) => {
+      expect(c[0]).toBeCloseTo(drawings[0].coords[i][0], 9) // x overhangs → frozen
+      expect(c[1]).not.toBeCloseTo(drawings[0].coords[i][1], 9) // y fits → still moves
+    })
+  })
+
+  it('keeps an attached endpoint pinned through a whole-line drag and offers it no handle', () => {
+    // moveLineBody parity: the endpoint is glued to its Karte target and re-resolves there —
+    // translating its stored coord from the Plan would fork the two surfaces.
+    const onDrawingCoords = vi.fn()
+    const drawings: Drawing[] = [{
+      id: 'att', kind: 'line', coords: [[7.5002, 47.5], [7.5008, 47.5]], label: 'Leitung 1',
+      startAttachment: { target: { kind: 'object', id: 'hydrant' }, routing: 'direct' },
+    }]
+    render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive selectedDrawingId="att"
+      onDrawingCoords={onDrawingCoords} />)
+    expect(screen.queryByTestId('twin-vertex-0')).toBeNull()
+    expect(screen.getByTestId('twin-vertex-1')).toBeTruthy()
+    const line = screen.getByRole('button', { name: 'Leitung 1' })
+    fireEvent.pointerDown(line, { pointerId: 12, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(line, { pointerId: 12, clientX: 180, clientY: 100 })
+    fireEvent.pointerUp(line, { pointerId: 12, clientX: 180, clientY: 100 })
+    const [, coords] = onDrawingCoords.mock.calls[onDrawingCoords.mock.calls.length - 1]
+    expect(coords[0]).toEqual(drawings[0].coords[0]) // pinned
+    expect(coords[1][0]).toBeGreaterThan(drawings[0].coords[1][0]) // body moved
+  })
+
+  it('does not create a source edit for a steady tap on a mirrored vertex', () => {
+    const onDrawingCoords = vi.fn()
+    const drawings: Drawing[] = [{ id: 'line', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], label: 'Leitung 1' }]
+    render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive selectedDrawingId="line"
+      onDrawingCoords={onDrawingCoords} />)
+    const vertex = screen.getByTestId('twin-vertex-0')
+    fireEvent.pointerDown(vertex, { pointerId: 10, clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(vertex, { pointerId: 10, clientX: 100, clientY: 100 })
+    expect(onDrawingCoords).not.toHaveBeenCalled()
   })
 })

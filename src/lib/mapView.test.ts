@@ -14,6 +14,8 @@ import {
   snapNorth,
   symPx,
   vis,
+  nativeDrawingChromeVisible,
+  lineLabelAction,
 } from './mapView'
 import { appConfig } from '../config/appConfig'
 import { VEHICLE_SYMBOLS } from './symbols'
@@ -30,6 +32,22 @@ describe('EMPTY_STYLE / vis', () => {
   it('vis toggles MapLibre visibility', () => {
     expect(vis(true)).toEqual({ visibility: 'visible' })
     expect(vis(false)).toEqual({ visibility: 'none' })
+  })
+})
+
+describe('nativeDrawingChromeVisible', () => {
+  it('hides every native drawing label and decoration during side-by-side georeferencing', () => {
+    expect(nativeDrawingChromeVisible(true, true)).toBe(false)
+    expect(nativeDrawingChromeVisible(true, false)).toBe(true)
+    expect(nativeDrawingChromeVisible(false, false)).toBe(false)
+  })
+})
+
+describe('lineLabelAction', () => {
+  it('opens only an overdue linked Trupp; every other label opens the line details', () => {
+    expect(lineLabelAction('tr1', 'crit')).toEqual({ kind: 'trupp', id: 'tr1' })
+    expect(lineLabelAction('tr1', 'warn')).toEqual({ kind: 'drawing' })
+    expect(lineLabelAction(undefined, 'crit')).toEqual({ kind: 'drawing' })
   })
 })
 

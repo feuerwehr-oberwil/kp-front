@@ -99,16 +99,31 @@ describe('a twin dragged across the sheet', () => {
     expect(mark().className).not.toContain('grab')
   })
 
-  it('is tap-only until its detail panel and halo select it', () => {
+  it('moves immediately without requiring a selection tap first', () => {
     const onOpen = vi.fn()
     const onMove = vi.fn()
     render(<GeorefTwinsBoard twins={[twinAt(0.5, 0.5)]} byName={{}} sW={SW} sH={SH} sizePx={40}
       onOpen={onOpen} onMove={onMove} />)
-    expect(mark().className).not.toContain('grab')
+    expect(mark().className).toContain('grab')
     drag([300, 250])
-    expect(onMove).not.toHaveBeenCalled()
-    fireEvent.click(mark())
-    expect(onOpen).toHaveBeenCalledOnce()
+    expect(onMove).toHaveBeenCalled()
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('keeps automatic floor and count badges upright on a differently oriented Modul', () => {
+    const directional = {
+      ...tlf,
+      symbol: 'VKF Luefter mobil', rotation: 35, floor: 1, count: 2,
+    } as Entity
+    const turned = { ...twinAt(0.5, 0.5), entity: directional, fit: { ...TWIN_FIT, rotationDeg: 40 } }
+    render(<GeorefTwinsBoard twins={[turned]} byName={{ 'VKF Luefter mobil': '<svg viewBox="0 0 10 10" />' }}
+      sW={SW} sH={SH} sizePx={28} onOpen={() => {}} />)
+    const glyph = document.querySelector<HTMLElement>('.ts-rot')!
+    expect(glyph.style.transform).toContain('rotate(75deg)')
+    for (const badge of document.querySelectorAll('.sym-floor, .sym-count')) {
+      expect(badge.closest('.ts-rot')).toBeNull()
+      expect((badge as HTMLElement).style.transform).toBe('')
+    }
   })
 })
 

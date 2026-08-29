@@ -11,7 +11,7 @@ import { LockChip } from './LockChip'
 import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
@@ -38,6 +38,7 @@ import { GeorefTwinsMap } from './GeorefTwinsMap'
 import { GeorefContentMap } from './GeorefContentMap'
 import type { MapContentTwin, MapTwin } from '../lib/georefTwins'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
+import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
@@ -378,6 +379,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // this map takes the second half of a pair, so there is nobody left to thread props through.
   const georef = useGeorefMode()
   const georefOn = !!georef.planId
+  const nativeDrawingChrome = nativeDrawingChromeVisible(drawingsVisible, georefOn)
   const georefTurn = georefWantsMap(georef)
   // where the pairing aim sits. Cleared the moment the map's turn is over, so the shared loupe
   // never stays parked over a surface nobody is aiming at.
@@ -1072,7 +1074,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // editing a selected drawing: show draggable vertex handles + a move handle.
   // read-only never gets handles: the app's edit callbacks are no-ops there, so grabbable-looking
   // vertices would move under the finger and snap back — the worst kind of 3am lie.
-  const editDraw = !readOnly && !picking && !freehand && !draftKind && !measureKind && resolvedSelectedDrawing && Array.isArray(resolvedSelectedDrawing.coords) && resolvedSelectedDrawing.coords.length > 0 ? resolvedSelectedDrawing : null
+  const editDraw = !georefOn && !readOnly && !picking && !freehand && !draftKind && !measureKind && resolvedSelectedDrawing && Array.isArray(resolvedSelectedDrawing.coords) && resolvedSelectedDrawing.coords.length > 0 ? resolvedSelectedDrawing : null
   const editCircle = !!editDraw && editDraw.kind === 'circle'
   const editArea = !!editDraw && editDraw.kind === 'area' && editDraw.coords.length >= 3
   // circle: no per-vertex handles (it's centre + radius, not a polyline) — the centre
@@ -1136,7 +1138,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // (the polyline midpoint, or a dragged `labelAt`). We keep the grab offset between the
   // pointer and that anchor constant, and on each move unproject (pointer − grab) back to a
   // lng/lat — so the label tracks the finger AND stays pinned to the ground at any zoom/bearing.
-  const labelDrag = useRef<{ id: string; gx: number; gy: number; which: 'label' | 'end' } | null>(null)
+  const labelDrag = useRef<{ id: string; gx: number; gy: number; sx: number; sy: number; which: 'label' | 'end' } | null>(null)
+  const labelMoved = useRef(false)
+  /** press origin on a RESTING end tag (no drag armed there) — lets its click handler tell a
+   *  tap from a map pan that happened to start and end on the tag */
+  const tagRestPress = useRef<{ x: number; y: number } | null>(null)
   // pointer → georeferenced [lng,lat], minus the grab offset captured on pointerdown
   const labelAnchorAt = (e: React.PointerEvent): LngLat | null => {
     const m = mapInst.current, st = labelDrag.current; if (!m || !st) return null
@@ -1146,11 +1152,19 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }
   const labelDown = (e: React.PointerEvent, id: string, anchor: LngLat, which: 'label' | 'end' = 'label') => {
     e.stopPropagation(); e.preventDefault()
+    labelMoved.current = false
     const m = mapInst.current
     const r = m?.getContainer().getBoundingClientRect()
     const a = m?.project(anchor as [number, number])
     // grab offset = pointer − the anchor's current screen position, so the label doesn't jump under the finger
-    labelDrag.current = { id, gx: r && a ? e.clientX - r.left - a.x : 0, gy: r && a ? e.clientY - r.top - a.y : 0, which }
+    labelDrag.current = {
+      id,
+      gx: r && a ? e.clientX - r.left - a.x : 0,
+      gy: r && a ? e.clientY - r.top - a.y : 0,
+      sx: e.clientX,
+      sy: e.clientY,
+      which,
+    }
     onLabelMove?.(id, null, 'start', which)
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     // The label is a plain (non-draggable) Marker living INSIDE maplibre's canvas container,
@@ -1163,7 +1177,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const labelMove = (e: React.PointerEvent) => {
     const st = labelDrag.current; if (!st) return
     e.stopPropagation()
-    const at = labelAnchorAt(e); if (at) onLabelMove?.(st.id, at, 'move', st.which)
+    const at = labelAnchorAt(e)
+    if (at) {
+      if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) >= DRAG_DEADZONE_PX) labelMoved.current = true
+      onLabelMove?.(st.id, at, 'move', st.which)
+    }
   }
   const labelUp = (e: React.PointerEvent) => {
     mapInst.current?.dragPan.enable()
@@ -1171,6 +1189,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     e.stopPropagation()
     const at = labelAnchorAt(e); if (at) onLabelMove?.(st.id, at, 'end', st.which)
     labelDrag.current = null
+  }
+  const activateLineLabel = (e: React.SyntheticEvent, id: string, truppId?: string, tone?: ReturnType<typeof truppLineTone>) => {
+    e.stopPropagation()
+    if (labelMoved.current) { labelMoved.current = false; return }
+    const action = lineLabelAction(truppId, tone)
+    if (action.kind === 'trupp' && onShowTrupp) onShowTrupp(action.id)
+    else onSelectDrawing(id)
   }
   const selHighlight: (string | number)[] = selectedDrawIds.length ? selectedDrawIds : (selectedDrawingId ? [selectedDrawingId] : ['__none__'])
   const flashHighlight: (string | number)[] = flashDrawingId ? [flashDrawingId] : ['__none__']
@@ -1704,16 +1729,26 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           which it then keeps for good, label or no label. That is exactly what the field saw:
           teal pins scattered over the Lage next to perfectly readable labels. Filtering here
           means a suppressed label has no marker at all, and gets a fresh one when it fits again. */}
-      {drawingsVisible && drawLabels.filter((l) => !suppressedLabels.has(`dl:${l.id}`)).map((l) => (
+      {nativeDrawingChrome && drawLabels.filter((l) => !suppressedLabels.has(`dl:${l.id}`)).map((l) => (
         <Marker key={`dl${l.id}`} longitude={l.coord[0]} latitude={l.coord[1]} anchor="bottom" offset={[0, -10]}>
           {/* draggable: dragging pins the label to a georeferenced anchor (stays put on zoom/rotate) */}
-          <div
+          <div role="button" tabIndex={0}
             className={`measure-label draw-label draggable${l.id === selectedDrawingId ? ' sel' : ''}`}
             style={{ cursor: onLabelMove ? 'move' : undefined }}
-            onPointerDown={onLabelMove ? (e) => labelDown(e, l.id, l.coord) : undefined}
+            onPointerDown={(e) => onLabelMove ? labelDown(e, l.id, l.coord) : e.stopPropagation()}
             onPointerMove={onLabelMove ? labelMove : undefined}
             onPointerUp={onLabelMove ? labelUp : undefined}
             onPointerCancel={onLabelMove ? labelUp : undefined}
+            onClick={(e) => {
+              const ld = lineDecor.find((d) => d.d.id === l.id)
+              activateLineLabel(e, l.id, ld?.trupp?.id, ld?.tone)
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return
+              e.preventDefault()
+              const ld = lineDecor.find((d) => d.d.id === l.id)
+              activateLineLabel(e, l.id, ld?.trupp?.id, ld?.tone)
+            }}
           >
             {l.lines.map((t, j) => <div key={j}>{t}</div>)}
           </div>
@@ -1722,7 +1757,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* committed Absperrkreis radius readout, pinned just above the circle's top edge */}
       {/* suppressed ⇒ no marker (see the dl labels above: an empty <Marker> becomes a default pin) */}
-      {drawingsVisible && circleLabels.filter((c) => !suppressedLabels.has(`cl:${c.id}`)).map((c) => (
+      {nativeDrawingChrome && circleLabels.filter((c) => !suppressedLabels.has(`cl:${c.id}`)).map((c) => (
         <Marker key={`cl${c.id}`} longitude={c.coord[0]} latitude={c.coord[1]} anchor="bottom" offset={[0, -4]}>
           <div className={`measure-label draw-label${c.id === selectedDrawingId ? ' sel' : ''}`}>{c.text}</div>
         </Marker>
@@ -1731,14 +1766,14 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {/* lock chip on every locked drawing — the click-through shape's only tap target;
           tapping it unlocks + selects the shape (Figma/Miro-style lock affordance). Its only
           job is unlocking, so it stays away when editing is locked anyway. */}
-      {drawingsVisible && !readOnly && onUnlockDrawing && lockChips.map((c) => (
+      {nativeDrawingChrome && !readOnly && onUnlockDrawing && lockChips.map((c) => (
         <Marker key={`lk${c.id}`} longitude={c.coord[0]} latitude={c.coord[1]} anchor="center">
           <LockChip onUnlock={() => onUnlockDrawing(c.id)} />
         </Marker>
       ))}
 
       {/* FKS hose-line decorations: Teilstück fork + content letter at the tip, Druckleitung/storey badge at the start */}
-      {drawingsVisible && lineDecor.map((ld) => (
+      {nativeDrawingChrome && lineDecor.map((ld) => (
         <Fragment key={`ld${ld.d.id}`}>
           {ld.d.teilstueck && (
             <Marker longitude={ld.end[0]} latitude={ld.end[1]} anchor="center">
@@ -1755,33 +1790,48 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null || ld.trupp) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
             <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]}
               // …and ABOVE the resting tactical symbols (MARKER_Z.note…team, 4–8) once its own
-              // line is selected. At rest the tag stays under the symbols, so it can neither cover
-              // nor steal the tap of a Trupp. Selected means «I am working on this Leitung» — then
+              // line is selected. At rest the tag stays under the symbols, so an overlapping
+              // Trupp still owns the tap. Selected means «I am working on this Leitung» — then
               // its handle has to be the thing on top, or it cannot be grabbed where it matters:
               // right at the incident point, which is exactly where lines and symbols pile up.
               // A SELECTED symbol still clears it (MARKER_Z.selected) — only one of the two can
               // be the current selection, and the tapped object is the one that must be visible.
               style={{ zIndex: ld.d.id === selectedDrawingId ? MARKER_Z.tagSelected : MARKER_Z.tag }}>
-              {/* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */}
-              <div className={`line-end-tag-wrap draggable${ld.d.id === selectedDrawingId ? ' sel' : ''}`}
-                style={{ cursor: onLabelMove ? 'move' : undefined }}
-                onPointerDown={onLabelMove ? (e) => labelDown(e, ld.d.id, ld.d.endLabelAt ?? ld.anchor, 'end') : undefined}
-                onPointerMove={onLabelMove ? labelMove : undefined}
-                onPointerUp={onLabelMove ? labelUp : undefined}
-                onPointerCancel={onLabelMove ? labelUp : undefined}>
+              {/* the -14 offset lifts the tag clear of the line end; dragging pins it to a
+                  georeferenced anchor. ⚠️ DRAG only while its line is selected (f4ad5c3's
+                  measured decision stands: at rest a pan starting on the tag must stay a pan) —
+                  but the TAP answers at rest, that is the whole point of the 29.08. rework. The
+                  rest-press ref lets the click handler drop a pan that ended on the tag. */}
+              {(() => { const tagSel = ld.d.id === selectedDrawingId; return (
+              <div role="button" tabIndex={0} className={`line-end-tag-wrap draggable${tagSel ? ' sel' : ''}`}
+                style={{ cursor: onLabelMove && tagSel ? 'move' : undefined }}
+                onPointerDown={(e) => {
+                  if (onLabelMove && tagSel) labelDown(e, ld.d.id, ld.d.endLabelAt ?? ld.anchor, 'end')
+                  else { e.stopPropagation(); tagRestPress.current = { x: e.clientX, y: e.clientY } }
+                }}
+                onPointerMove={onLabelMove && tagSel ? labelMove : undefined}
+                onPointerUp={onLabelMove && tagSel ? labelUp : undefined}
+                onPointerCancel={onLabelMove && tagSel ? labelUp : undefined}
+                onClick={(e) => {
+                  const p = tagRestPress.current; tagRestPress.current = null
+                  if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) >= DRAG_DEADZONE_PX) return
+                  activateLineLabel(e, ld.d.id, ld.trupp?.id, ld.tone)
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateLineLabel(e, ld.d.id, ld.trupp?.id, ld.tone) } }}>
                 <EndTag
                   lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
                   trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone={ld.tone}
                   color={ld.color}
                 />
               </div>
+              ) })()}
             </Marker>
           )}
         </Fragment>
       ))}
 
       {/* inline line marker letter (e.g. R on a Rettungsachse), tinted to the line colour */}
-      {drawingsVisible && drawMarkers.map((m) => (
+      {nativeDrawingChrome && drawMarkers.map((m) => (
         <Marker key={`dm${m.id}`} longitude={m.coord[0]} latitude={m.coord[1]} anchor="center">
           <div className="draw-marker" style={{ color: m.color }}>{m.marker}</div>
         </Marker>

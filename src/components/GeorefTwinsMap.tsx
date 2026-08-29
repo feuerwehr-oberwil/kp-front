@@ -63,9 +63,9 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
       {twins.map((t) => {
         const a = t.anno
         const selected = selectedKey === t.key
-        // Match a source object: the first tap selects and explains it; only the object wearing
-        // the halo may then be moved. Otherwise a casual map pan can silently move a projection.
-        const movable = interactive && selected && !!onMove
+        // Match the source marker: a deliberate drag moves immediately; a tap still opens the
+        // panel and paints the halo. Requiring a selection tap first made the mirror feel inert.
+        const movable = interactive && !!onMove
         const name = twinName(a)
         const veh = a.symbol === appConfig.symbols.vehicleName
         // Plan rotation is paper-relative. Plan-up points at bearing −fit.rotationDeg, then the

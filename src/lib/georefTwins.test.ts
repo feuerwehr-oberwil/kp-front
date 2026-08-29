@@ -3,7 +3,7 @@ import { fitSimilarity, type GeorefPair } from './georef'
 import {
   TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES, TWIN_SYMBOL_FRACTION,
   boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect,
-  planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinSymbolPx, twinVisible,
+  boardTwinSymbolPx, planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinSymbolPx, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
@@ -122,17 +122,24 @@ describe('mapTwins (plan → Karte)', () => {
 
 describe('twinSymbolPx (E9 — footprint-scaled twins)', () => {
   // pxPerM(47.5, z18) ≈ 2.48 → 0.085 · 50 m · 2.48 ≈ 10.5 px, clamped up to the twin floor
-  it('clamps into the twin band: a LOWER floor than natives, the same ceiling', () => {
+  it('clamps into the twin band: a lower floor than natives and their 28 px floor as ceiling', () => {
     expect(twinSymbolPx(50, 47.5, 18)).toBe(15)
-    expect(twinSymbolPx(50, 47.5, 21)).toBe(48)
+    expect(twinSymbolPx(50, 47.5, 21)).toBe(28)
   })
 
   it('tracks the ground between the clamps and scales with the S/M/L factor after them', () => {
-    const mid = twinSymbolPx(50, 47.5, 19.5)
+    const mid = twinSymbolPx(50, 47.5, 19)
     expect(mid).toBeGreaterThan(15)
-    expect(mid).toBeLessThan(48)
-    expect(mid).toBeCloseTo(TWIN_SYMBOL_FRACTION * 50 * (Math.pow(2, 19.5) / (156543.03392 * Math.cos((47.5 * Math.PI) / 180))), 6)
+    expect(mid).toBeLessThan(28)
+    expect(mid).toBeCloseTo(TWIN_SYMBOL_FRACTION * 50 * (Math.pow(2, 19) / (156543.03392 * Math.cos((47.5 * Math.PI) / 180))), 6)
     expect(twinSymbolPx(50, 47.5, 18, 1.3)).toBeCloseTo(15 * 1.3, 6)
+  })
+})
+
+describe('boardTwinSymbolPx (Karte → linked Modul)', () => {
+  it('uses the native map floor instead of growing with the PDF zoom', () => {
+    expect(boardTwinSymbolPx()).toBe(28)
+    expect(boardTwinSymbolPx(1.3)).toBeCloseTo(36.4, 6)
   })
 })
 
@@ -222,6 +229,13 @@ describe('broader Karte content → plan', () => {
     const near = ['note', 'shape', 'team', 'person'].map((kind, i) => ent(kind, mEast(10 + i * 10), { kind: kind as Entity['kind'] }))
     const far = ent('far', mEast(2000), { kind: 'note' })
     expect(boardEntityTwins([...near, far], FIT).map((t) => t.entity.kind)).toEqual(['note', 'shape', 'team', 'person'])
+  })
+
+  it('drops a shared responder whose centre is only in the clip margin, avoiding a white edge crescent', () => {
+    const justOutside = FIT.toMap({ x: -0.01, y: 0.5 })
+    const person = ent('person-edge', justOutside, { kind: 'person', label: 'Degen André', live: true })
+    const note = ent('note-edge', justOutside, { kind: 'note', label: 'Randnotiz' })
+    expect(boardEntityTwins([person, note], FIT).map((t) => t.entity.id)).toEqual(['note-edge'])
   })
 
   it('projects lines and areas and turns a ground-radius circle into an area ring', () => {
