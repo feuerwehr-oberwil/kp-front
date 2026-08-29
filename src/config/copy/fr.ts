@@ -711,6 +711,9 @@ export const fr: Localizable<Copy> = {
     colorGroup: 'Couleur',
     colorName: '{group} {n}',
     widthName: 'Épaisseur {n} px',
+    autoCommitted: '{name} enregistré',
+    autoCommitUndo: 'Annuler',
+    draftDiscarded: 'Dessin incomplet abandonné',
   },
   journal: {
     open: 'Journal',
@@ -1103,7 +1106,6 @@ export const fr: Localizable<Copy> = {
     lookPlain: 'Texte simple',
     color: 'Couleur',
     resizeHint: 'Ajuster la largeur',
-    settings: 'Réglages de la note',
     done: 'Terminé',
     deleteTitle: 'Supprimer la note ?',
     deleteMsg: 'Cette note contient du texte. Vraiment la supprimer ?',
@@ -1143,7 +1145,6 @@ export const fr: Localizable<Copy> = {
       stale: 'revérifier l’échelle',
       saved: 'Échelle calibrée (référence {m} m)',
       needsCalibration: 'Définir l’échelle : touchez les deux extrémités de la barre d’échelle',
-      needsCalibrationViewer: 'La mesure exige d’abord une échelle calibrée',
 
       persistTitle: 'Mémoriser l\'échelle ?',
       saveAll: 'Pour tous les plans',
@@ -2062,6 +2063,9 @@ export const fr: Localizable<Copy> = {
     print: 'Imprimer',
     keyword: 'Mot-clé',
     einsatzleiter: 'Chef d’intervention',
+    // la succession imprimée quand la conduite a changé en cours d’intervention (lib/reportPdfDirect)
+    einsatzleitungBis: '{name} (jusqu’à {t})',
+    einsatzleitungAb: '{name} (dès {t})',
     kontaktperson: 'Personne de contact',
     alarmierung: 'Alarme',
     ausgerueckt: 'Départ',

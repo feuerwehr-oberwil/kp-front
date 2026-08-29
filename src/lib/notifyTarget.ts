@@ -10,6 +10,14 @@ export function extractNotifyTarget(search: string): string | null {
   return v || null
 }
 
+/** Does a target belong to one of the accepted surfaces? A target may carry a payload after the
+ *  surface name — 'atemschutz:t123' points at one Trupp's card — so 'atemschutz' accepts both
+ *  the bare form (old service workers / old pushes still send it) and any 'atemschutz:…'.
+ *  ⚠️ Prefix + ':' only, never a bare startsWith: 'atemschutzXY' is a different target. */
+export function matchesNotifyTarget(target: string, accepted: string[]): boolean {
+  return accepted.some((a) => target === a || target.startsWith(`${a}:`))
+}
+
 let consumed = false
 let bootTarget: string | null = null
 
@@ -30,12 +38,13 @@ function consumeBootNotifyTarget(): string | null {
   return bootTarget
 }
 
-/** One-shot claim by the surface that owns the target: returns the boot target if it is one
- *  of `accepted` and clears it — so a remounting consumer (e.g. IncidentWorkspace on an
- *  incident switch) can never route the same tap twice. */
+/** One-shot claim by the surface that owns the target: returns the boot target if it names one
+ *  of the `accepted` surfaces (bare or with a ':payload' suffix — see matchesNotifyTarget) and
+ *  clears it — so a remounting consumer (e.g. IncidentWorkspace on an incident switch) can
+ *  never route the same tap twice. The FULL target comes back; the claimer parses the suffix. */
 export function claimBootNotifyTarget(accepted: string[]): string | null {
   const t = consumeBootNotifyTarget()
-  if (t && accepted.includes(t)) {
+  if (t && matchesNotifyTarget(t, accepted)) {
     bootTarget = null
     return t
   }

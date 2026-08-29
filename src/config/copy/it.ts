@@ -711,6 +711,9 @@ export const it: Localizable<Copy> = {
     colorGroup: 'Colore',
     colorName: '{group} {n}',
     widthName: 'Spessore {n} px',
+    autoCommitted: '{name} salvato',
+    autoCommitUndo: 'Annulla',
+    draftDiscarded: 'Disegno incompleto scartato',
   },
   journal: {
     open: 'Diario',
@@ -1103,7 +1106,6 @@ export const it: Localizable<Copy> = {
     lookPlain: 'Testo semplice',
     color: 'Colore',
     resizeHint: 'Trascina la larghezza',
-    settings: 'Impostazioni nota',
     done: 'Fatto',
     deleteTitle: 'Eliminare la nota?',
     deleteMsg: 'Questa nota contiene del testo. Eliminarla davvero?',
@@ -1143,7 +1145,6 @@ export const it: Localizable<Copy> = {
       stale: 'ricontrolla la scala',
       saved: 'Scala calibrata ({m} m di riferimento)',
       needsCalibration: 'Imposta la scala: tocca i due estremi della barra di scala',
-      needsCalibrationViewer: 'Per misurare serve prima una scala calibrata',
 
       persistTitle: 'Memorizzare la scala?',
       saveAll: 'Per tutti i piani',
@@ -2062,6 +2063,9 @@ export const it: Localizable<Copy> = {
     print: 'Stampa',
     keyword: 'Parola chiave',
     einsatzleiter: 'Capo intervento',
+    // la successione stampata quando la condotta è cambiata durante l’intervento (lib/reportPdfDirect)
+    einsatzleitungBis: '{name} (fino alle {t})',
+    einsatzleitungAb: '{name} (dalle {t})',
     kontaktperson: 'Persona di contatto',
     alarmierung: 'Allarme',
     ausgerueckt: 'Partenza',

@@ -173,7 +173,11 @@ export function useAtemschutzAlarm({
                 ? fillTemplate(az.alarmRowPressureSub, { bar: l.currentBar, line: line ?? '' })
                 : fillTemplate(az.alarmNotifyBody, { name }),
               tag: `atemschutz-${t.id}`,
-              target: 'atemschutz',
+              // the tap opens the board ON this Trupp's card: the target carries the id, and
+              // the router (IncidentWorkspace · route) parses the suffix. sw-notify.js passes
+              // the string through untouched; a plain 'atemschutz' from an older push keeps
+              // routing to the board without a focus.
+              target: `atemschutz:${t.id}`,
             },
           )
         }

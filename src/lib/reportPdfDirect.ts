@@ -14,7 +14,7 @@ import { buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarIsMeasured, readingKindLabel, truppAuftragLabel, truppStatusLabel,
+  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarIsMeasured, readingKindLabel, spanAwareClock, truppAuftragLabel, truppStatusLabel,
 } from './report'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
@@ -189,6 +189,37 @@ export interface DirectReportArgs {
   transport?: import('./reportPdf').ReportTransport
 }
 
+/**
+ * The «Einsatzleiter» value the sheet prints: the field's own name when the Einsatzleitung never
+ * rotated — and the whole SUCCESSION when it did: «A (bis 14:20), B (ab 14:20)». The rapport
+ * field only holds the latest name, but a handover mid-Einsatz is exactly the kind of fact a
+ * signed record is later read for; the spans come out of the incident's own Verlauf (lib/report
+ * · einsatzleiterSuccession), and the clocks follow the sheet's one midnight rule
+ * (spanAwareClock). The FIELD stays the authority: empty prints the blank write-in rule as
+ * always, and a just-typed name the 4 s log window has not settled yet joins as the newest span.
+ */
+export function einsatzleiterForPdf(
+  current: string | undefined,
+  events: TimelineEvent[],
+  bounds: { alarmedAt?: string | null; endedAt?: string | null },
+  fallbackDate?: string,
+): string | undefined {
+  const name = current?.trim()
+  if (!name) return current
+  const spans = einsatzleiterSuccession(events, fallbackDate)
+  if (spans.length && spans[spans.length - 1].name !== name) spans.push({ name, fromTs: null })
+  if (spans.length < 2) return current
+  const clock = spanAwareClock(bounds)
+  const R = appConfig.copy.report
+  return spans.map((s, i) => {
+    // every span but the last ends where its successor begins — the «bis» of one IS the «ab»
+    // of the next, so a reader sees one continuous Einsatzleitung, never a gap
+    const t = clock(i < spans.length - 1 ? spans[i + 1].fromTs : s.fromTs)
+    if (!t) return s.name // a row without a usable timestamp still names the person
+    return fillTemplate(i < spans.length - 1 ? R.einsatzleitungBis : R.einsatzleitungAb, { name: s.name, t })
+  }).join(', ')
+}
+
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
@@ -258,7 +289,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     meta: {
       alarmText: meta.alarmText, summary: meta.summary, lehren: meta.lehren, remarks: meta.remarks,
       kontaktperson: meta.kontaktperson, kontaktpersonTelefon: meta.kontaktpersonTelefon,
-      einsatzleiter: meta.einsatzleiter,
+      // …the succession when the Einsatzleitung rotated («A (bis 14:20), B (ab 14:20)»),
+      // the plain name when it never did — see einsatzleiterForPdf above
+      einsatzleiter: einsatzleiterForPdf(
+        meta.einsatzleiter, events,
+        { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at },
+        meta.startedAt ?? incident.started_at,
+      ),
       // «Entfällt» travels as the answer it is: the sheet prints the word on the line, where a
       // field nobody filled in gets an empty write-in rule (backend/app/report_pdf.py). Without
       // it the deliberate «gibt es nicht» and the forgotten field looked identical on paper.

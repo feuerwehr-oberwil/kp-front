@@ -151,7 +151,7 @@ import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
-import { annotatedPlans, changedReportMetaFields } from './lib/report'
+import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
 import { mittelLineCount } from './lib/mittel'
@@ -189,6 +189,17 @@ function detachDrawingFrom(dr: Drawing, ent: Entity): Drawing {
  *  it. Shared by the Rapportangaben logger and the Kroki symbol-edit logger — both write on
  *  every keystroke, and both would otherwise produce one row per character. */
 const META_LOG_SETTLE_MS = 4000
+
+/** Is the caret in a free-text Rapportangabe right now? Read off the `[data-sync]` markers the
+ *  ReportPreflight puts on every synced field (its own focus bookkeeping runs on the same
+ *  attribute). Free-TEXT only: a settle window held open by a focused Stepper button or a
+ *  datetime input would never close — those keep the plain 4 s fallback (decided 29.08.). */
+function isTypingMetaField(): boolean {
+  const el = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null)
+  if (!el?.closest?.('[data-sync]')) return false
+  if (el.isContentEditable || el.tagName === 'TEXTAREA') return true
+  return el.tagName === 'INPUT' && ['text', 'tel', 'search', 'email'].includes((el as HTMLInputElement).type)
+}
 // The manually-picked Einsatzobjekt moved from this device cookie into the synced workspace blob
 // (per incident). Keep the value in-memory so deriveInitial can import it once this session, then
 // clear the legacy cookie field so a later reset can't be resurrected from a stale cookie.
@@ -570,6 +581,14 @@ export function IncidentWorkspace({
   useGeorefSurfaceBridge(setMode)
   const georefMode = useGeorefMode()
   const georefActive = !!georefMode.planId
+  // «Karte verknüpfen» must not survive navigation to a surface it cannot run on: a notification
+  // tap (or the nav rail) can land on Atemschutz/Verlauf mid-pairing, and the armed mode then
+  // left a stuck loupe + reticle over a page with no map. `end`, deliberately NOT `dismiss`:
+  // «Fertig» semantics — completed pairs are kept and the debounced save is flushed, only the
+  // open half-points are dropped (lib/georefMode).
+  useEffect(() => {
+    if (georefActive && mode !== 'map' && mode !== 'plans') georefDispatch({ type: 'end' })
+  }, [georefActive, mode])
   const phoneGeoref = isPhone && !!georefMode.planId
   // Demo-only: which surface someone opened, for the public demo's visit statistics. A no-op
   // on every real station (isDemoMode) and in a link session — see lib/visitBeacon.ts.
@@ -877,7 +896,8 @@ export function IncidentWorkspace({
     const d = planDocs.find((p) => p.id === activePlanId)
     return d?.viewer === true || isSelectOnlySurface(d)
   })()
-  // a LOCKED surface now carries a bar too (the slim Auswahl · Messen rail), so it reserves the
+  // a LOCKED surface now carries a bar too (the slim rail: Auswahl · Messen on the map,
+  // Auswahl only on the plan since Messen left it 29.08.), so it reserves the
   // same two lanes as an editor's — only replay, which renders no rail at all, gets one.
   const phoneTools = isPhone && !replayActive && (mode === 'map' || (mode === 'plans' && !activePlanNoTools))
   // the floating top-right map-utility cluster (zoom · compass · Ebenen), which stands in for the
@@ -941,8 +961,14 @@ export function IncidentWorkspace({
   // exists); claim is one-shot so an incident switch can't re-route the same tap.
   useEffect(() => {
     const route = (target: unknown) => {
-      if (target === 'atemschutz') setMode('atemschutz')
-      else if (target === 'journal') setJournalOpen(true)
+      if (typeof target !== 'string') return
+      // 'atemschutz:<truppId>' lands ON the overdue Trupp's card; the bare 'atemschutz' (older
+      // service workers, older server pushes) keeps opening the board without a focus.
+      if (target === 'atemschutz' || target.startsWith('atemschutz:')) {
+        setMode('atemschutz')
+        const truppId = target.startsWith('atemschutz:') ? target.slice('atemschutz:'.length) : ''
+        if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
+      } else if (target === 'journal') setJournalOpen(true)
     }
     route(claimBootNotifyTarget(['atemschutz', 'journal']))
     const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined
@@ -1160,24 +1186,51 @@ export function IncidentWorkspace({
    */
   const metaLogBase = useRef<ReportMeta | null>(null)
   const metaLogTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** the freshest saved meta, for the settle callback — it may re-arm past the save that made it */
+  const metaLogNext = useRef<ReportMeta | null>(null)
+  /** the current Mittel line count for normalizeReportMeta — a ref because saveReportMeta is
+   *  deliberately identity-stable per mount and must not close over stale state */
+  const mittelCountRef = useRef(0)
+  useEffect(() => { mittelCountRef.current = mittelLineCount(mittel) }, [mittel])
 
   const saveReportMeta = useCallback((next: ReportMeta) => {
     setReportMeta((prev) => {
+      // «Entfällt» and a value are two answers to the same question — resolve the contradiction
+      // on EVERY meta write, here where all of them funnel through (lib/report ·
+      // normalizeReportMeta; the QR poster's path does the same in CaptureApp).
+      const clean = normalizeReportMeta(next, prev, { mittelCount: mittelCountRef.current }) as ReportMeta
       // The sheet persists on every KEYSTROKE (the textareas save as you type), so logging each
       // save wrote one Verlauf row per character typed into a Bemerkung. The row is written from
       // the state the editing STARTED in, once the typing stops — one line per edit, naming what
       // actually moved between those two points.
       if (!metaLogBase.current) metaLogBase.current = prev
-      if (metaLogTimer.current) clearTimeout(metaLogTimer.current)
-      metaLogTimer.current = setTimeout(() => {
+      metaLogNext.current = clean
+      const settle = () => {
+        // ⚠️ Mid-typing is not «settled»: the sheet saves per keystroke but a slow, thought-out
+        // sentence pauses past 4 s, and the row then quoted the half-typed value («Einsatzleiter
+        // «Me»»). While the caret sits in a free-text Rapportangabe the window re-arms and only
+        // closes once the field is left — last value wins. Steppers, Combos and time inputs are
+        // not held open (isTypingMetaField) and keep the plain 4 s settle.
+        if (isTypingMetaField()) {
+          metaLogTimer.current = setTimeout(settle, META_LOG_SETTLE_MS)
+          return
+        }
         const base = metaLogBase.current
+        const latest = metaLogNext.current
         metaLogBase.current = null
+        metaLogNext.current = null
         metaLogTimer.current = null
-        if (!base) return
-        const fields = changedReportMetaFields(base, next)
+        if (!base || !latest) return
+        // scalar fields keep the ONE joined «Rapportangaben: …» row; each structured statement
+        // («Partnerorganisation Sanität ergänzt …») is its own row, in diff order — three
+        // decisions are three rows, not three sentences crammed into one (lib/report).
+        const { fields, statements } = changedReportMetaLines(base, latest)
         if (fields.length) log('clipboard', fillTemplate(appConfig.copy.preflight.logMetaChanged, { fields: fields.join(', ') }))
-      }, META_LOG_SETTLE_MS)
-      return next
+        for (const s of statements) log('clipboard', s)
+      }
+      if (metaLogTimer.current) clearTimeout(metaLogTimer.current)
+      metaLogTimer.current = setTimeout(settle, META_LOG_SETTLE_MS)
+      return clean
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
   }, [])
@@ -1368,6 +1421,9 @@ export function IncidentWorkspace({
       // armed placement but leave Messen or Zeichnen running with its dock open over the map,
       // so the one key that is supposed to get you back to a plain map got you most of the way
       // and stopped.
+      // ⚠️ setDraft([]), NOT settleDraft: Escape is the EXPLICIT discard. Every tap-away path
+      // auto-commits a committable draft (see settleDraft), but a deliberate cancel has to keep
+      // cancelling — the one key that means «weg damit» must never save the thing instead.
       else if (tool !== 'select') { setTool('select'); setDraft([]) }
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
       else if (twinView) setTwinView(null)
@@ -1388,7 +1444,10 @@ export function IncidentWorkspace({
   useEffect(() => {
     const changedToSelection = prevSelKey.current !== selKey && (!!selectedId || !!selectedDrawingId || selectedDrawIds.length > 0 || selectedEntityIds.length > 0)
     prevSelKey.current = selKey
-    if (changedToSelection) { setPanel(null); setViewsOpen(false); setTool('select'); setPending(null); setPendingShape(null); setDraft([]) }
+    // settleDraft, not setDraft([]): a selection landing mid-draft used to throw the tapped-out
+    // points away silently — a committable draft now auto-commits (without stealing this new
+    // selection), a fragment says it was discarded (useMapDrawing · settleDraft).
+    if (changedToSelection) { setPanel(null); setViewsOpen(false); setTool('select'); setPending(null); setPendingShape(null); settleDraft() }
   }, [selKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || composerOpen || journalOpen || teamPick) setPanel(null)
@@ -1583,7 +1642,7 @@ export function IncidentWorkspace({
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
     lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
-    commitDraft, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   } = useMapDrawing({
@@ -1604,6 +1663,10 @@ export function IncidentWorkspace({
     }
     const resolvedTarget = resolvedMapDrawings.find((d) => d.id === selectedDrawing.id)
     const fallback = resolvedTarget?.coords[resolvedTarget.coords.length - 1] ?? selectedDrawing.coords[selectedDrawing.coords.length - 1]
+    // the Abschluss is a semantic edit like any DrawEditor field — one settled Verlauf row
+    // («Zeichnung: Abschluss: Teilstück»), same funnel as patchDrawing (useMapDrawing ·
+    // noteDrawingEdit / lib/drawingEdit), which this hand-rolled commit bypasses.
+    noteDrawingEdit(selectedDrawing, { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined })
     commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
       if (d.id === selectedDrawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       let next = d
@@ -1732,7 +1795,10 @@ export function IncidentWorkspace({
    * panel now stands down via `detailSlotFree` while a dock is up — see its note above.
    */
   const clearMapUi = (keep?: 'selection') => {
-    setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setTeamPick(null)
+    // settleDraft, not setDraft([]): leaving the map (or opening a dock) mid-draft used to be a
+    // silent discard — a committable draft auto-commits with an undo toast, a fragment says so
+    // (useMapDrawing · settleDraft; Escape stays the explicit discard).
+    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
     // the palette IS the arming UI for the symbol tool, so it goes with the tool it arms —
     // otherwise leaving the map with it open silently re-opened it on the way back
     setPanel(null); setViewsOpen(false); setPaletteOpen(false)
@@ -1747,7 +1813,9 @@ export function IncidentWorkspace({
   // the tool set the locked rail actually offers. Messen and Auswahl survive untouched.
   useEffect(() => {
     if (!tacticalLocked || isMapReadOnlyTool(tool)) return
-    setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setTeamPick(null)
+    // settleDraft under the lock cannot commit (the create funnel refuses a locked surface) —
+    // but it still SAYS the draft was discarded instead of dropping it silently.
+    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
     setPaletteOpen(false); setEditNoteId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tacticalLocked, tool])
@@ -3502,7 +3570,12 @@ export function IncidentWorkspace({
         onOpenWeather={openWeatherDetails}
         bearing={view.bearing}
         azAlarm={azAlarm}
-        onOpenAtemschutz={() => { setMode('atemschutz'); setPanel(null) }}
+        // …and the chip lands ON the urgent Trupp's card, like every other way in (Meldeleiste,
+        // Anwesenheit, the notification tap) — the chip names a Trupp, so the tap must find it.
+        onOpenAtemschutz={(truppId) => {
+          setMode('atemschutz'); setPanel(null)
+          if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
+        }}
         // Only on the map surface: the chip is a caveat about what the MAP is showing, and on
         // Plan/Atemschutz there are no vehicle symbols for it to qualify. During replay the
         // positions are historical by definition, so a staleness warning would be nonsense.
@@ -3581,6 +3654,9 @@ export function IncidentWorkspace({
         severities={azAlarm.severities}
         intervalMin={azIntervalMin}
         graceSec={azGraceSec}
+        // withheld while the board itself is on screen — it shows the alarm in full and the
+        // strip only covered its controls (see AtemschutzAlarmMeldung's header)
+        onBoard={mode === 'atemschutz'}
         // Reaching the named card is acknowledgement enough to stop the room's tone and tray
         // re-notifications. The row itself stays until a real contact/pressure event clears it.
         onAcknowledge={muteAtemschutz}
@@ -4150,7 +4226,7 @@ export function IncidentWorkspace({
           .journal-scrim), so the rail — and its pinned zoom/fit footer — stays put
           instead of being buried + replaced by a floating cluster. */}
       {/* the rail is the SAME object for everyone — a locked surface just gets the slim tool set
-          (Auswahl · Messen), in the same place, with the same footer. Replay is the exception:
+          (map: Auswahl · Messen; plan: Auswahl), in the same place, with the same footer. Replay is the exception:
           its scrubber owns the bottom band that the Messen readout would land in. */}
       {mapUI && !replayActive && (
         <ToolRail
@@ -4247,8 +4323,8 @@ export function IncidentWorkspace({
           // map), so the rail + its zoom/fit footer stay live. Only a phone still parks
           // the plan read-only while Verlauf is open (there it's a full-width bottom sheet).
           readOnly={tacticalLocked || (isPhone && journalOpen)}
-          // …but a locked plan still offers the tools that change nothing (Auswahl · Messen),
-          // exactly like the map. Not during replay (the scrubber owns the bottom band) and not
+          // …but a locked plan still offers the tool that changes nothing (Auswahl; the plan
+          // lost Messen 29.08.). Not during replay (the scrubber owns the bottom band) and not
           // behind the phone's Verlauf sheet, which parks the plan entirely.
           slimTools={!replayActive && !(isPhone && journalOpen)}
           activeId={activePlanId}

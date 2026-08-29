@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractNotifyTarget } from './notifyTarget'
+import { extractNotifyTarget, matchesNotifyTarget } from './notifyTarget'
 
 describe('extractNotifyTarget', () => {
   it('reads the kpn target from a search string', () => {
@@ -19,5 +19,22 @@ describe('extractNotifyTarget', () => {
 
   it('decodes an encoded target', () => {
     expect(extractNotifyTarget('?kpn=divera%2Dpool')).toBe('divera-pool')
+  })
+})
+
+describe('matchesNotifyTarget', () => {
+  it('accepts the bare surface name — old service workers and old pushes still send it', () => {
+    expect(matchesNotifyTarget('atemschutz', ['atemschutz', 'journal'])).toBe(true)
+    expect(matchesNotifyTarget('journal', ['atemschutz', 'journal'])).toBe(true)
+  })
+
+  it('accepts a payload-carrying target of an accepted surface', () => {
+    expect(matchesNotifyTarget('atemschutz:t1724150000000', ['atemschutz', 'journal'])).toBe(true)
+  })
+
+  it('rejects other surfaces and lookalike prefixes', () => {
+    expect(matchesNotifyTarget('divera', ['atemschutz', 'journal'])).toBe(false)
+    // 'atemschutzXY' is a different target, not a payload form of 'atemschutz'
+    expect(matchesNotifyTarget('atemschutzXY', ['atemschutz'])).toBe(false)
   })
 })

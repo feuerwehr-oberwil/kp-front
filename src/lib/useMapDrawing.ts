@@ -2,10 +2,15 @@ import { type SetStateAction, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { resolveLinePreset } from './lineStyle'
 import { flipLine } from './lineAttachments'
+import { drawingEditChanges, drawingLogName } from './drawingEdit'
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, TimelineEvent } from '../types'
-import { confirmDialog } from './ui'
+import { confirmDialog, toast } from './ui'
 import { fillTemplate } from './format'
+
+// same settle window as the workspace's noteEntityEdit / Rapportangaben logger
+// (IncidentWorkspace · META_LOG_SETTLE_MS) — a burst of taps on the editor is one row
+const DRAW_LOG_SETTLE_MS = 4000
 
 interface MapDrawingDeps {
   drawings: Drawing[]
@@ -69,8 +74,8 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   }
   // create an area from a finished ring — the node-tapped draft, or a measured Fläche taken over
   // from the Messen panel. The twin of createLine: same funnel, same one-shot to Select.
-  const createArea = (coords: LngLat[]) => {
-    if (tacticalLocked) return // same guard as createLine + the edit handlers
+  const createArea = (coords: LngLat[], opts?: { select?: boolean }): Drawing | null => {
+    if (tacticalLocked) return null // same guard as createLine + the edit handlers
     const id = `d${Date.now()}`
     // carry the dock's colour/width/dash so the area-tool style controls actually apply
     // (parity with the line tool + the Plan area tool); still fully editable in the DrawEditor.
@@ -80,15 +85,18 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // drop into Select with the new area active so its reshape/move/rotate handles are
     // immediately usable (mirrors symbol/shape placement). Staying in 'area' would keep
     // draftKind set, which suppresses the edit handles → the area looks uneditable.
-    setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
+    // `select: false` is the tap-away auto-commit's path (settleDraft): there the operator has
+    // ALREADY chosen where to be next, and stealing the selection would undo that choice.
+    if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
+    return drawing
   }
   // annotated-polyline presets: tools that draw like a freehand line but seed the new
   // arrow/marker/distance fields. The fields stay fully editable in the DrawEditor.
   // create a line from a finished path (freehand stroke OR node-tapped draft), applying the
   // sticky line preset. EVERY finished line one-shots to Select with the new line active, so
   // its detail editor opens right away for post-draw tweaks — no extra click needed.
-  const createLine = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => {
-    if (tacticalLocked) return // the funnel every finished line goes through — same guard as the edit handlers
+  const createLine = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }, opts?: { select?: boolean }): Drawing | null => {
+    if (tacticalLocked) return null // the funnel every finished line goes through — same guard as the edit handlers
     const id = `d${Date.now()}`
     // styled presets (Messpfeil/Rettungsachse) carry their own arrow/marker/dash; Freihand falls
     // back to the dock's dash. A new line inherits the last-used preset (post-pick + sticky) — the
@@ -96,7 +104,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     const drawing: Drawing = { id, kind: 'line', coords, color: drawColor, width: drawWidth, ...resolveLinePreset(linePreset, drawDashed), ...attachments }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
     log('pen', appConfig.copy.log.drawingCreated, 'symbol'); emit('draw.add', { id, kind: 'line', drawing })
-    setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
+    // `select: false` = tap-away auto-commit (settleDraft) — see the note on createArea
+    if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
+    return drawing
   }
   const onFreehand = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => createLine(coords, attachments)
   const setDraftPointAttachment = (attachment?: LineAttachment) => {
@@ -117,6 +127,57 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const applyLinePreset = (presetId: string) => {
     setLinePreset(presetId)
     patchDrawing(resolveLinePreset(presetId, selectedDrawing?.dashed)) // SAME bundle the Plan editor applies (lib/lineStyle)
+  }
+
+  /**
+   * Tap-away landed mid-draft — a selection, a mode/surface switch, the tactical lock. The draft
+   * used to be discarded SILENTLY here (decided otherwise 29.08.): work someone tapped out point
+   * by point vanished because they glanced at a symbol or switched to the Verlauf. Now a
+   * committable draft (area ≥3 points, node line ≥2) auto-commits through the same create funnel
+   * the ✓ uses — without stealing the selection the operator just made — and the toast's
+   * «Rückgängig» returns the shape TO THE HAND: committed drawing out, draft points back, tool
+   * re-armed. A fragment below the minimum has nothing to keep and says so in an action-less
+   * toast. Escape is NOT routed through this: a deliberate cancel keeps cancelling.
+   * ⚠️ The Whiteboard implements the identical contract on the Plan side — keep them in step.
+   */
+  const settleDraft = () => {
+    if (!draft.length) return
+    const C = appConfig.copy.toolDock
+    const coords = draft
+    const attachments = draftAttachments
+    const wasTool = tool
+    setDraft([])
+    // ⚠️ `!tacticalLocked` is part of committable: once the surface is locked (replay entered,
+    // tab lock lost, Führungsansicht) this session may no longer write, and createLine/createArea
+    // would rightly refuse — so the honest outcome is the discard toast, never a silent drop.
+    const committable = !tacticalLocked
+      && ((wasTool === 'area' && coords.length >= 3) || (wasTool === 'line' && lineMode === 'nodes' && coords.length >= 2))
+    if (!committable) {
+      toast(C.draftDiscarded, { icon: 'info' })
+      return
+    }
+    const drawing = wasTool === 'line' ? createLine(coords, attachments, { select: false }) : createArea(coords, { select: false })
+    if (!drawing) return
+    toast(fillTemplate(C.autoCommitted, { name: drawingLogName(drawing) }), {
+      icon: 'check',
+      tone: 'success',
+      action: {
+        label: C.autoCommitUndo,
+        onClick: () => {
+          // «not yet», not «never was»: the drawing comes out of the document and the draft
+          // returns editable under the re-armed tool. The record stays truthful — created, then
+          // taken back — the same pair of rows an ordinary create + delete writes.
+          if (tacticalLocked) return
+          commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== drawing.id) }))
+          emit('draw.delete', { id: drawing.id })
+          log('close', appConfig.copy.log.drawingDeleted)
+          setTool(wasTool)
+          if (wasTool === 'line') setLineMode('nodes')
+          setDraftRaw(coords)
+          setDraftAttachments(attachments)
+        },
+      },
+    })
   }
 
   const selectedDrawing = drawings.find((d) => d.id === selectedDrawingId) ?? null
@@ -172,16 +233,45 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     noteDrawingLabel({ ...(drawings.find((dr) => dr.id === id) as Drawing), label: live.before }, { label })
     emit('draw.edit', { id, patch: { label } })
   }
+  /**
+   * The Verlauf row for a SEMANTIC drawing edit — Inhalt (S/W/H/P), Leitung Nr., Stockwerk, the
+   * Abschluss (lib/drawingEdit) — written once the editing settles. Same settle-map pattern and
+   * the same reason as the workspace's noteEntityEdit: the editor writes per tap, and a burst of
+   * taps is ONE edit about one drawing, not a row per tap. Colour/width/dash and geometry stay
+   * silent by doctrine (drawingEditChanges ignores them), the label writes its own row
+   * (noteDrawingLabel), so calling this on every patch is safe.
+   */
+  const drawingLogOpen = useRef(new Map<string, { base: Drawing; timer: ReturnType<typeof setTimeout> }>())
+  const noteDrawingEdit = (before: Drawing | undefined, patch: Partial<Drawing>) => {
+    if (!before) return
+    const after = { ...before, ...patch }
+    const open = drawingLogOpen.current.get(before.id)
+    const base = open?.base ?? before
+    if (open) clearTimeout(open.timer)
+    const timer = setTimeout(() => {
+      drawingLogOpen.current.delete(before.id)
+      const changes = drawingEditChanges(base, after)
+      if (!changes.length) return
+      log('pen', fillTemplate(appConfig.copy.log.entityEdited, {
+        name: drawingLogName(after), changes: changes.join(', '),
+      }), 'symbol')
+    }, DRAW_LOG_SETTLE_MS)
+    drawingLogOpen.current.set(before.id, { base, timer })
+  }
   const patchDrawing = (patch: Partial<Drawing>) => {
     if (tacticalLocked) return
-    noteDrawingLabel(drawings.find((dr) => dr.id === selectedDrawingId), patch)
+    const before = drawings.find((dr) => dr.id === selectedDrawingId)
+    noteDrawingLabel(before, patch)
+    noteDrawingEdit(before, patch)
     emit('draw.edit', { id: selectedDrawingId, patch }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === selectedDrawingId ? { ...dr, ...patch } : dr)) }))
   }
   // patch a specific drawing by id (e.g. unlock from the on-map lock chip, where the locked
   // shape isn't the selected one)
   const patchDrawingById = (id: string, patch: Partial<Drawing>) => {
     if (tacticalLocked) return
-    noteDrawingLabel(drawings.find((dr) => dr.id === id), patch)
+    const before = drawings.find((dr) => dr.id === id)
+    noteDrawingLabel(before, patch)
+    noteDrawingEdit(before, patch)
     emit('draw.edit', { id, patch }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === id ? { ...dr, ...patch } : dr)) }))
   }
 
@@ -311,7 +401,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
     linePreset, setLinePreset, lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
-    commitDraft, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   }

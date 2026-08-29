@@ -709,6 +709,9 @@ export const en: Localizable<Copy> = {
     colorGroup: 'Colour',
     colorName: '{group} {n}',
     widthName: 'Line width {n} px',
+    autoCommitted: '{name} saved',
+    autoCommitUndo: 'Undo',
+    draftDiscarded: 'Incomplete drawing discarded',
   },
   journal: {
     open: 'Log',
@@ -1103,7 +1106,6 @@ export const en: Localizable<Copy> = {
     lookPlain: 'Plain text',
     color: 'Colour',
     resizeHint: 'Drag width',
-    settings: 'Note settings',
     done: 'Done',
   },
   whiteboard: {
@@ -1141,7 +1143,6 @@ export const en: Localizable<Copy> = {
       stale: 'recheck the scale',
       saved: 'Scale calibrated ({m} m reference)',
       needsCalibration: 'Set scale: tap the two ends of the scale bar',
-      needsCalibrationViewer: 'Measuring needs a calibrated scale first',
 
       persistTitle: 'Remember the scale?',
       saveAll: 'For all plans',
@@ -2059,6 +2060,9 @@ export const en: Localizable<Copy> = {
     print: 'Print',
     keyword: 'Keyword',
     einsatzleiter: 'Incident commander',
+    // the printed IC succession when command rotated mid-incident (lib/reportPdfDirect)
+    einsatzleitungBis: '{name} (until {t})',
+    einsatzleitungAb: '{name} (from {t})',
     kontaktperson: 'Contact person',
     alarmierung: 'Alerted',
     ausgerueckt: 'Turned out',

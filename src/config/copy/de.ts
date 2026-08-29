@@ -978,6 +978,13 @@ export const de = {
     colorGroup: 'Farbe',
     colorName: '{group} {n}',
     widthName: 'Linienstärke {n} px',
+    // Tap-away while a node draft is in progress no longer discards silently (29.08.):
+    // a committable draft auto-commits with this toast, whose «Rückgängig» hands the
+    // shape BACK as an editable draft rather than merely deleting it.
+    autoCommitted: '{name} gespeichert',
+    autoCommitUndo: 'Rückgängig',
+    // A fragment below the minimum (1-point line, 2-point area) has nothing to keep.
+    draftDiscarded: 'Unvollständige Zeichnung verworfen',
   },
   journal: {
     open: 'Verlauf',
@@ -1566,7 +1573,6 @@ export const de = {
     lookPlain: 'Klartext',
     color: 'Farbe',
     resizeHint: 'Breite ziehen',
-    settings: 'Notiz einstellen',
     done: 'Fertig',
   },
   whiteboard: {
@@ -1613,9 +1619,6 @@ export const de = {
       savedAll: 'Als Standard-Massstab gespeichert',
       savedThis: 'Massstab für diesen Plan gespeichert',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
-      // read-only (Führungsansicht / viewer): measuring only works once somebody with write
-      // rights has set the Massstab – never show a button that would fail
-      needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
     },
     // «Karte verknüpfen» – die Paarung markanter Punkte, die den Plan auf die Karte legt
     // (lib/georef · fitSimilarity, lib/georefMode). Zwei Punkte genügen; erst der dritte misst.
@@ -2982,6 +2985,11 @@ export const de = {
     // Haupt-Rapport form rows (value or write-in line)
     keyword: 'Stichwort',
     einsatzleiter: 'Einsatzleiter',
+    // the printed EL SUCCESSION when the Einsatzleitung rotated mid-Einsatz — one continuous
+    // chain, «Meier (bis 14:20), Huber (ab 14:20)» (lib/reportPdfDirect · einsatzleiterForPdf).
+    // Fragments in brackets, so they read inside the field's own line.
+    einsatzleitungBis: '{name} (bis {t})',
+    einsatzleitungAb: '{name} (ab {t})',
     kontaktperson: 'Kontaktperson',
     gerettete: 'Gerettete (Personen / Tiere)',
     gerettetePersonen: 'Personen',

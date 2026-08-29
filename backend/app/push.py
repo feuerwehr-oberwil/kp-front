@@ -330,7 +330,10 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
                     title=title,
                     body=body,
                     tag=f"atemschutz-{t['id']}",
-                    target="atemschutz",
+                    # the tap opens the board ON this Trupp's card — the frontend router parses
+                    # the ':<truppId>' suffix (sw-notify.js passes the target through opaquely);
+                    # a Trupp without an id falls back to the bare surface target.
+                    target=f"atemschutz:{t['id']}" if t.get("id") else "atemschutz",
                 )
         # journal rows (seq order) + any pre-migration blob rows still carrying reminders
         rows = [

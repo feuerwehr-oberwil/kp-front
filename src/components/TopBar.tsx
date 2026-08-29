@@ -67,8 +67,9 @@ interface Props {
   gpsStale?: boolean
   /** Age of the last successful GPS poll, for the chip's readout. */
   gpsAgeMs?: number | null
-  /** jump to the Atemschutz surface (chip tap) */
-  onOpenAtemschutz?: () => void
+  /** jump to the Atemschutz surface (chip tap) — carries the urgent Trupp's id so the board
+   *  can land ON the card the chip names, not merely near it */
+  onOpenAtemschutz?: (truppId?: string) => void
   /** «Standort teilen» indicator, when THIS device is reporting its holder's position. It
    *  belongs in the bar rather than behind a menu: a device sharing somebody's location has to
    *  say so on the screen they are already looking at, and it is the only such control a
@@ -214,7 +215,10 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
                 {/* the charge ring rings the + icon — anchored at the right edge it sat ON the
                     label's last letters and read as clutter over the word it was charging */}
                 <span className="tb-act-ic">
-                  <Icon id="plus" />
+                  {/* inline path, not a sprite <use> — same defence as FabEntry (29.08.): the
+                      field-logging + must never render as an empty circle when a sprite fails
+                      to resolve across remounts */}
+                  <svg className="i" viewBox="0 0 24 24" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
                   {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
                 </span>
                 <span className="tb-act-label">{appConfig.copy.journal.add}</span>
@@ -261,7 +265,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           return (
             <button
               className={`tb-az ${crit ? 'crit' : 'warn'}`}
-              onClick={onOpenAtemschutz}
+              // the chip names ONE Trupp, so the tap lands on that Trupp's card
+              onClick={() => onOpenAtemschutz?.(u.id)}
               title={appConfig.copy.atemschutz.chipHint}
               aria-label={`${appConfig.copy.modes.atemschutz}: ${what} — ${u.name}`}
             >
