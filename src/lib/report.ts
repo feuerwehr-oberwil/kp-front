@@ -706,6 +706,19 @@ const META_PROSE = new Set(['summary', 'remarks', 'lehren'])
 
 const _hasText = (v: unknown) => typeof v === 'string' && v.trim().length > 0
 
+/** What a Rapportangaben change produces, in the two shapes it comes in — see
+ *  changedReportMetaLines. */
+export interface ReportMetaLines {
+  /** the scalar fields — label + quoted value / «geschrieben» verbs — alphabetical, like the
+   *  one-row form always was */
+  fields: string[]
+  /** the structured blocks' complete standalone sentences («Partnerorganisation Sanität
+   *  ergänzt …»), in DIFF order — adds before remark changes before removals — and NEVER
+   *  re-sorted: each is its own statement, and alphabetising them scrambled the story
+   *  («entfernt» before «ergänzt») when several landed in one row */
+  statements: string[]
+}
+
 /**
  * Which Rapportangaben actually changed between two versions, AS THE VERLAUF PRINTS THEM — the
  * content of the printed rapport (Einsatzleiter, Endezeit, Gerettete, Partnerorganisationen …)
@@ -714,12 +727,15 @@ const _hasText = (v: unknown) => typeof v === 'string' && v.trim().length > 0
  * to something, which is the least a log can say.
  *
  * A short field now carries its new value; a free-text one says whether it was written,
- * rewritten or cleared. Empty when nothing worth a line moved, so the caller stays silent.
+ * rewritten or cleared. Both lists empty when nothing worth a line moved, so the caller stays
+ * silent. Fields and statements come back SEPARATELY so a caller can give each statement its
+ * own Verlauf row instead of cramming three sentences into one.
  */
-export function changedReportMetaFields(prev: ReportMeta, next: ReportMeta): string[] {
+export function changedReportMetaLines(prev: ReportMeta, next: ReportMeta): ReportMetaLines {
   const P = appConfig.copy.preflight
   const keys = new Set([...Object.keys(prev), ...Object.keys(next)])
-  const out: string[] = []
+  const fields: string[] = []
+  const statements: string[] = []
   // ⚠️ The header Ausrückzeit is DERIVED from the Fahrzeug grid (deriveAusgerueckt), and one tap
   // in that grid persists both. Logged separately they printed the same fact twice in one row —
   // «Ausgerückt «10.08.2026, 14:05», Fahrzeugzeiten» — so when the vehicles moved, the vehicles
@@ -735,24 +751,104 @@ export function changedReportMetaFields(prev: ReportMeta, next: ReportMeta): str
     if (JSON.stringify(a ?? null) === JSON.stringify(b ?? null)) continue
     // the structured fields write their own sentences — see `_structuredMetaLines`
     const structured = _structuredMetaLines(k, a, b)
-    if (structured) { out.push(...structured); continue }
+    if (structured) { statements.push(...structured); continue }
     const label = META_FIELD_LABELS[k]
     // A key with no human name is an internal one (`startedAt`, `alarmText`) — printing the
     // identifier put «startedAt» on the signed rapport, which is worse than saying nothing.
     if (!label) continue
     if (META_PROSE.has(k)) {
       const verb = !_hasText(b) ? P.metaCleared : _hasText(a) ? P.metaRewritten : P.metaWritten
-      out.push(`${label} ${verb}`)
+      fields.push(`${label} ${verb}`)
     } else if (META_SHORT.has(k) && _hasText(b)) {
       const shown = k.endsWith('At') ? (formatDateTime(b as string) || String(b)) : String(b).trim()
-      out.push(fillTemplate(P.metaValue, { label, value: shown }))
+      fields.push(fillTemplate(P.metaValue, { label, value: shown }))
     } else if (META_SHORT.has(k)) {
-      out.push(`${label} ${P.metaCleared}`)
+      fields.push(`${label} ${P.metaCleared}`)
     } else {
-      out.push(label)
+      fields.push(label)
     }
   }
-  return out.sort((x, y) => x.localeCompare(y, 'de'))
+  return { fields: fields.sort((x, y) => x.localeCompare(y, 'de')), statements }
+}
+
+/** The one-array view of changedReportMetaLines, for the callers that join everything into a
+ *  single «Rapportangaben: …» row — everything sorted together, exactly as before the split. */
+export function changedReportMetaFields(prev: ReportMeta, next: ReportMeta): string[] {
+  const { fields, statements } = changedReportMetaLines(prev, next)
+  return [...fields, ...statements].sort((x, y) => x.localeCompare(y, 'de'))
+}
+
+/**
+ * Clears an «entfällt» flag the moment its answer arrives. «Entfällt» and a value are two
+ * answers to the same question, and the sheet let both stand at once: type the Kontaktperson
+ * after ticking «entfällt» and the record said «there is nobody to name — here is her name».
+ *
+ * Pure: takes the patch a save is about to apply and the state it applies to, and returns the
+ * patch with the contradicted flags resolved — falsed when the flag was already ON (so the
+ * Verlauf records the Widerruf), silently dropped when the same patch tried to set both.
+ * The Mittel list lives outside ReportMeta, so its count comes in as context.
+ */
+export function normalizeReportMeta(
+  patch: Partial<ReportMeta>,
+  prev: ReportMeta,
+  ctx: { mittelCount?: number } = {},
+): Partial<ReportMeta> {
+  const next = { ...prev, ...patch }
+  const out = { ...patch }
+  let changed = false
+  const clear = (flag: 'kontaktpersonNone' | 'rueckmeldungNone' | 'mittelConfirmedNone') => {
+    if (!next[flag]) return
+    if (prev[flag]) { out[flag] = false; changed = true }
+    else if (flag in out) { delete out[flag]; changed = true }
+  }
+  if (_hasText(next.kontaktperson) || _hasText(next.kontaktpersonTelefon)) clear('kontaktpersonNone')
+  const rk = next.rueckmeldungElz
+  if (rk && (_hasText(rk.name) || _hasText(rk.at))) clear('rueckmeldungNone')
+  if ((ctx.mittelCount ?? 0) > 0) clear('mittelConfirmedNone')
+  return changed ? out : patch
+}
+
+/** One stretch of the Einsatzleitung: who, and since when (`null` on a row without a usable
+ *  timestamp). The «bis» of one span is the «ab» of the next — the caller renders that. */
+export interface EinsatzleiterSpan {
+  name: string
+  fromTs: string | null
+}
+
+/** Matches the «Einsatzleiter «Name»» fragment a Rapportangaben row carries (the META_SHORT
+ *  quoting above) — built from the LIVE metaValue template, so it reads rows in whatever locale
+ *  wrote them, the same reasoning as startsWithTemplate. */
+function _einsatzleiterPattern(): RegExp {
+  const marker = '\u0000'
+  const filled = fillTemplate(appConfig.copy.preflight.metaValue, { label: META_FIELD_LABELS.einsatzleiter, value: marker })
+  const escaped = filled.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(escaped.replace(marker, '(.+?)'), 'g')
+}
+
+/**
+ * The Einsatzleiter SUCCESSION, read out of the incident's own Verlauf — the rapport field only
+ * holds the latest name, but a handover mid-Einsatz is exactly the kind of fact a signed record
+ * is later read for. Every Rapportangaben row that quotes an Einsatzleiter (tablet and QR poster
+ * both write the same metaValue fragment) contributes a span; oldest first, and re-saving the
+ * unchanged name is no handover, so consecutive repeats fold away. A later return of an earlier
+ * name stays — that IS a handover. Structured data only; the caller renders
+ * «Einsatzleitung: A (bis 14:20), B (ab 14:20)».
+ */
+export function einsatzleiterSuccession(events: TimelineEvent[], fallbackDate?: string): EinsatzleiterSpan[] {
+  const pattern = _einsatzleiterPattern()
+  const out: EinsatzleiterSpan[] = []
+  // oldest → newest, same iteration as pendenzRows — the Verlauf array is newest-first
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]
+    let name: string | undefined
+    pattern.lastIndex = 0
+    // the LAST mention in a row wins — one debounced row can carry several joined fields
+    for (const m of e.text.matchAll(pattern)) name = m[1]?.trim() || name
+    if (!name) continue
+    if (out.length && out[out.length - 1].name === name) continue
+    out.push({ name, fromTs: eventIso(e, fallbackDate) })
+  }
+  return out
 }
 
 /** hh:mm for a Verlauf line about a Rapport time; the raw value if it will not parse. */
@@ -809,39 +905,54 @@ function _geretteteText(g?: { personen?: number; tiere?: number }): string {
   ].filter(Boolean).join(' · ')
 }
 
+/** «Partnerorganisation {org} ergänzt – Bemerkung: {note}» — the arrival and its remark as ONE
+ *  statement. Composed from the two existing templates (metaPartnerAdded + the part of
+ *  metaPartnerNote after its {org}), so every locale that translated those two says this the
+ *  same way; a locale whose note template carries no {org} falls back to two lines. */
+function _partnerAddedWithNote(org: string, note: string): string[] {
+  const P = appConfig.copy.preflight
+  const tail = P.metaPartnerNote.split('{org}')[1]
+  if (!tail) return [fillTemplate(P.metaPartnerAdded, { org }), fillTemplate(P.metaPartnerNote, { org, note })]
+  return [fillTemplate(P.metaPartnerAdded, { org }) + fillTemplate(tail, { note })]
+}
+
 /** Partnerorganisationen, diffed BY ORGANISATION: who was added, who was removed, whose remark
- *  changed. Blank rows (the two the block always keeps ready) are not organisations and are
- *  skipped, or opening the sheet would log two arrivals nobody recorded. */
+ *  changed — in that order, adds first, so the lines tell the edit the way it happened rather
+ *  than the way it alphabetises. Blank rows (the two the block always keeps ready) are not
+ *  organisations and are skipped, or opening the sheet would log two arrivals nobody recorded. */
 function _partnerLines(before: PartnerContact[], after: PartnerContact[]): string[] {
   const P = appConfig.copy.preflight
   const key = (p: PartnerContact) => (p.org ?? '').trim().toLowerCase()
   const named = (xs: PartnerContact[]) => xs.filter((p) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim()))
   const A = new Map(named(before).map((p) => [key(p), p]))
   const B = new Map(named(after).map((p) => [key(p), p]))
-  const out: string[] = []
+  const adds: string[] = []
+  const changes: string[] = []
   for (const [k, p] of B) {
     const org = (p.org ?? '').trim()
     const note = (p.note ?? '').trim()
     const was = (A.get(k)?.note ?? '').trim()
     // ⚠️ An organisation arriving WITH its remark used to log only the arrival: «Sanität ergänzt»,
     // while «Ölwehr avisiert, ETA 20 min» — the operational half — never reached the Verlauf and
-    // therefore never reached the printed journal either. Both lines now.
+    // therefore never reached the printed journal either. ONE merged statement (two rows for one
+    // tap read as two events; it is one arrival, remark and all).
     if (!A.has(k)) {
-      out.push(org ? fillTemplate(P.metaPartnerAdded, { org }) : P.metaPartnerUnnamed)
-      if (note && org) out.push(fillTemplate(P.metaPartnerNote, { org, note }))
+      if (org && note) adds.push(..._partnerAddedWithNote(org, note))
+      else adds.push(org ? fillTemplate(P.metaPartnerAdded, { org }) : P.metaPartnerUnnamed)
       continue
     }
     if (note === was) continue
     // …and CLEARING one is a change too. `&& note` skipped it, so deleting a remark was the one
     // edit on this block that left no trace at all.
-    out.push(note
+    changes.push(note
       ? fillTemplate(P.metaPartnerNote, { org, note })
       : fillTemplate(P.metaPartnerNoteCleared, { org }))
   }
+  const removals: string[] = []
   for (const [k, p] of A) {
-    if (!B.has(k)) out.push(fillTemplate(P.metaPartnerRemoved, { org: (p.org ?? '').trim() }))
+    if (!B.has(k)) removals.push(fillTemplate(P.metaPartnerRemoved, { org: (p.org ?? '').trim() }))
   }
-  return out
+  return [...adds, ...changes, ...removals]
 }
 
 /** Alarmzeit per Gruppe, named by its configured label — «g2» means nothing on paper. */

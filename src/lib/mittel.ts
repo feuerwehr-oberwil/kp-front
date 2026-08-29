@@ -364,17 +364,36 @@ export function materialForSymbol(
   catalogue: DeploymentMittelItem[],
   symbol: string | SymbolMatch,
 ): DeploymentMittelItem | undefined {
+  return materialsForSymbol(catalogue, symbol)[0]
+}
+
+/**
+ * EVERY catalogue material a placed symbol could mean, most specific first: `when`-clause
+ * matches, then the bare symbol mapping, then the loose token matches — deduplicated, so
+ * `materialsForSymbol(...)[0]` is exactly what materialForSymbol always answered.
+ *
+ * The single answer is a guess whenever a station keeps variants («Lüfter» beside a
+ * `when: {Typ: 'Exhauster'}` Exhauster) or several labels share a symbol's tokens; the full
+ * list is what lets a surface ASK instead of booking the first hit.
+ */
+export function materialsForSymbol(
+  catalogue: DeploymentMittelItem[],
+  symbol: string | SymbolMatch,
+): DeploymentMittelItem[] {
   const m: SymbolMatch = typeof symbol === 'string' ? { symbol } : symbol
   const name = m.symbol.trim()
   const named = catalogue.filter((c) => c.symbol && c.symbol.trim() === name)
-  return named.find((c) => whenHolds(c.when, m))
-    ?? named.find((c) => !c.when)
-    ?? tokenMatch(catalogue, name)
+  const out: DeploymentMittelItem[] = []
+  const push = (c: DeploymentMittelItem) => { if (!out.includes(c)) out.push(c) }
+  for (const c of named) if (whenHolds(c.when, m)) push(c)
+  for (const c of named) if (!c.when) push(c)
+  for (const c of tokenMatches(catalogue, name)) push(c)
+  return out
 }
 
-function tokenMatch(catalogue: DeploymentMittelItem[], symbolName: string): DeploymentMittelItem | undefined {
+function tokenMatches(catalogue: DeploymentMittelItem[], symbolName: string): DeploymentMittelItem[] {
   const symTokens = new Set(tokens(symbolName))
-  return catalogue.find((c) => {
+  return catalogue.filter((c) => {
     const t = tokens(c.label)
     return t.length > 0 && t.every((x) => symTokens.has(x))
   })
@@ -401,9 +420,27 @@ export function defaultSourceFor(item: DeploymentMittelItem): string | undefined
   return best?.source
 }
 
+/** Every source that actually CARRIES this material (qty > 0), biggest stock first — the same
+ *  order defaultSourceFor picks its winner from. More than one entry means «booked from where?»
+ *  is a real question rather than a default. */
+export function stockedSourcesFor(item: DeploymentMittelItem): string[] {
+  return [...(item.stock ?? [])]
+    .filter((s) => (s.qty ?? 0) > 0)
+    .sort((a, b) => (b.qty ?? 0) - (a.qty ?? 0))
+    .map((s) => s.source)
+}
+
 /** One «this stands on Lage/Plan but the sheet doesn't show it» line of the reconciliation
  *  strip: the material, how many matching symbols are placed, and how many are still missing
  *  from the sheet. */
+/** One way a recommendation COULD be booked: a catalogue material plus the sources that stock
+ *  it (stockedSourcesFor's order — the biggest first, so `sources[0]` is defaultSourceFor's
+ *  pick whenever any stock is configured). */
+export interface MittelCandidate {
+  item: DeploymentMittelItem
+  sources: string[]
+}
+
 export interface MittelRecommendation {
   item: DeploymentMittelItem
   /** matching symbols placed across Lage + all plans */
@@ -413,6 +450,12 @@ export interface MittelRecommendation {
   captured: number
   /** what the strip offers to add: max(0, placed − captured) */
   missing: number
+  /** every material the placed symbols could mean, most specific first (materialsForSymbol),
+   *  each with its stocked sources — `candidates[0].item` is always `item` */
+  candidates: MittelCandidate[]
+  /** more than one way to book this — several candidate materials, or the first candidate is
+   *  carried on several sources. One-tap capture is only honest when this is false. */
+  ambiguous: boolean
 }
 
 /**
@@ -433,23 +476,32 @@ export function mittelRecommendations(
   catalogue: DeploymentMittelItem[],
 ): MittelRecommendation[] {
   if (!symbolCaptureConfigured(catalogue)) return []
-  const counts = new Map<string, { item: DeploymentMittelItem; placed: number }>()
+  const counts = new Map<string, { item: DeploymentMittelItem; placed: number; alternatives: DeploymentMittelItem[] }>()
   for (const p of placed) {
-    const item = materialForSymbol(catalogue, p)
+    // the full fan-out, not just the winner: the strip groups by the most specific match, but
+    // what the OTHER readings were is exactly the ambiguity the recommendation has to carry
+    const matches = materialsForSymbol(catalogue, p)
+    const item = matches[0]
     if (!item) continue
-    const cur = counts.get(item.id) ?? { item, placed: 0 }
+    const cur = counts.get(item.id) ?? { item, placed: 0, alternatives: [] }
     cur.placed += 1
+    for (const c of matches) if (c !== item && !cur.alternatives.includes(c)) cur.alternatives.push(c)
     counts.set(item.id, cur)
   }
   if (!counts.size) return []
   const lines = recordedMittel(entries)
   const sameLabel = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
   return [...counts.values()]
-    .map(({ item, placed: n }) => {
+    .map(({ item, placed: n, alternatives }) => {
       const captured = lines
         .filter((l) => l.materialId === item.id || (!l.materialId && sameLabel(l.label, item.label)))
         .reduce((sum, l) => sum + l.menge, 0)
-      return { item, placed: n, captured, missing: Math.max(0, n - captured) }
+      const candidates = [item, ...alternatives].map((c) => ({ item: c, sources: stockedSourcesFor(c) }))
+      return {
+        item, placed: n, captured, missing: Math.max(0, n - captured),
+        candidates,
+        ambiguous: candidates.length > 1 || candidates[0].sources.length > 1,
+      }
     })
     .filter((r) => r.missing > 0)
     .sort((a, b) => a.item.label.localeCompare(b.item.label, 'de'))
