@@ -70,7 +70,8 @@ import { LayerPanel } from './components/LayerPanel'
 import {
   georefPlans, mapContentTwins as projectMapContentTwins, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
   twinPlanImageLayerId, twinPlanImageVisible, twinPlanLayerId, twinVisible, isTwinLayerId, TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardSymbolToEntity, entityToBoardSymbol, onSheet, planGroundWidthM, revealTwinLayer, type MapContentTwin, type MapTwin,
+  boardSymbolToEntity, contentTwinName, entityToBoardSymbol, movedTwinPath, onSheet, planGroundWidthM, revealTwinLayer,
+  type MapContentTwin, type MapTwin,
 } from './lib/georefTwins'
 import { glyphFor, twinName } from './lib/twinGlyph'
 import { GeorefTwinPanel } from './components/GeorefTwinPanel'
@@ -151,7 +152,7 @@ import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
-import { annotatedPlans, changedReportMetaFields } from './lib/report'
+import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
 import { mittelLineCount } from './lib/mittel'
@@ -189,6 +190,17 @@ function detachDrawingFrom(dr: Drawing, ent: Entity): Drawing {
  *  it. Shared by the Rapportangaben logger and the Kroki symbol-edit logger — both write on
  *  every keystroke, and both would otherwise produce one row per character. */
 const META_LOG_SETTLE_MS = 4000
+
+/** Is the caret in a free-text Rapportangabe right now? Read off the `[data-sync]` markers the
+ *  ReportPreflight puts on every synced field (its own focus bookkeeping runs on the same
+ *  attribute). Free-TEXT only: a settle window held open by a focused Stepper button or a
+ *  datetime input would never close — those keep the plain 4 s fallback (decided 29.08.). */
+function isTypingMetaField(): boolean {
+  const el = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null)
+  if (!el?.closest?.('[data-sync]')) return false
+  if (el.isContentEditable || el.tagName === 'TEXTAREA') return true
+  return el.tagName === 'INPUT' && ['text', 'tel', 'search', 'email'].includes((el as HTMLInputElement).type)
+}
 // The manually-picked Einsatzobjekt moved from this device cookie into the synced workspace blob
 // (per incident). Keep the value in-memory so deriveInitial can import it once this session, then
 // clear the legacy cookie field so a later reset can't be resurrected from a stale cookie.
@@ -570,6 +582,14 @@ export function IncidentWorkspace({
   useGeorefSurfaceBridge(setMode)
   const georefMode = useGeorefMode()
   const georefActive = !!georefMode.planId
+  // «Karte verknüpfen» must not survive navigation to a surface it cannot run on: a notification
+  // tap (or the nav rail) can land on Atemschutz/Verlauf mid-pairing, and the armed mode then
+  // left a stuck loupe + reticle over a page with no map. `end`, deliberately NOT `dismiss`:
+  // «Fertig» semantics — completed pairs are kept and the debounced save is flushed, only the
+  // open half-points are dropped (lib/georefMode).
+  useEffect(() => {
+    if (georefActive && mode !== 'map' && mode !== 'plans') georefDispatch({ type: 'end' })
+  }, [georefActive, mode])
   const phoneGeoref = isPhone && !!georefMode.planId
   // Demo-only: which surface someone opened, for the public demo's visit statistics. A no-op
   // on every real station (isDemoMode) and in a link session — see lib/visitBeacon.ts.
@@ -818,7 +838,11 @@ export function IncidentWorkspace({
   // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
   // incident still gets pulled; the signature keeps one warm per state, not one per minute.
   // «Nur manuell» (device pref) switches all of this off; the button always stays.
-  const offlineWarmSig = `${incidentMeta.id}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson).map((l) => l.id).join(',')}`
+  // …and re-armed when the operator grows the offline radius (29.08.): the readiness probe
+  // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
+  // «nicht geladen» forever. The centre is part of the bbox too, but it only moves with the
+  // incident, which the id already covers.
+  const offlineWarmSig = `${incidentMeta.id}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson).map((l) => l.id).join(',')}`
   const offlineWarmed = useRef('')
   useEffect(() => {
     if (!offlineAuto || !isStandalone()) return
@@ -877,7 +901,8 @@ export function IncidentWorkspace({
     const d = planDocs.find((p) => p.id === activePlanId)
     return d?.viewer === true || isSelectOnlySurface(d)
   })()
-  // a LOCKED surface now carries a bar too (the slim Auswahl · Messen rail), so it reserves the
+  // a LOCKED surface now carries a bar too (the slim rail: Auswahl · Messen on the map,
+  // Auswahl only on the plan since Messen left it 29.08.), so it reserves the
   // same two lanes as an editor's — only replay, which renders no rail at all, gets one.
   const phoneTools = isPhone && !replayActive && (mode === 'map' || (mode === 'plans' && !activePlanNoTools))
   // the floating top-right map-utility cluster (zoom · compass · Ebenen), which stands in for the
@@ -941,8 +966,14 @@ export function IncidentWorkspace({
   // exists); claim is one-shot so an incident switch can't re-route the same tap.
   useEffect(() => {
     const route = (target: unknown) => {
-      if (target === 'atemschutz') setMode('atemschutz')
-      else if (target === 'journal') setJournalOpen(true)
+      if (typeof target !== 'string') return
+      // 'atemschutz:<truppId>' lands ON the overdue Trupp's card; the bare 'atemschutz' (older
+      // service workers, older server pushes) keeps opening the board without a focus.
+      if (target === 'atemschutz' || target.startsWith('atemschutz:')) {
+        setMode('atemschutz')
+        const truppId = target.startsWith('atemschutz:') ? target.slice('atemschutz:'.length) : ''
+        if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
+      } else if (target === 'journal') setJournalOpen(true)
     }
     route(claimBootNotifyTarget(['atemschutz', 'journal']))
     const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined
@@ -1002,6 +1033,13 @@ export function IncidentWorkspace({
   // which Georeferenz twin has its source-backed editor open — a linked plan's symbol mirrored
   // onto the map. Selection belongs to the shared source object; the projection carries its halo.
   const [twinView, setTwinView] = useState<MapTwin | null>(null)
+  // …and which mirrored NON-symbol object (line, area, note, shape, Trupp chip) has its in-place
+  // panel open on the Karte. Same rule as twinView: a tap on a projection stays on this surface;
+  // «Zum Original» in the panel is the explicit jump (E8).
+  const [contentTwinView, setContentTwinView] = useState<MapContentTwin | null>(null)
+  // …and which mirrored Karte entity (team chip, note, shape) has its panel open on the PLAN
+  // surface — the other half of the same rule. Stored by id, resolved live below.
+  const [planTwinEntityId, setPlanTwinEntityId] = useState<string | null>(null)
   // Title input in the map-side editor for a plan-owned twin. The source plan is not mounted,
   // so this brackets its live keystrokes into one caller-owned per-plan undo step.
   const planTwinTitleLive = useRef<string | null>(null)
@@ -1015,7 +1053,16 @@ export function IncidentWorkspace({
     // chrome» effect never fires for one — without this, tapping a projected Modul symbol while
     // Ebenen was open stacked a THIRD surface into the same band.
     setPanel(null); setViewsOpen(false)
+    setContentTwinView(null)
     setTwinView(twin)
+  }
+  // the content twins' half of the same discipline: one detail sidebar, one owner
+  const openContentTwinView = (twin: MapContentTwin) => {
+    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+    setNotePanelId(null); setEditNoteId(null)
+    setPanel(null); setViewsOpen(false)
+    setTwinView(null)
+    setContentTwinView(twin)
   }
   // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
   const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
@@ -1160,24 +1207,51 @@ export function IncidentWorkspace({
    */
   const metaLogBase = useRef<ReportMeta | null>(null)
   const metaLogTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** the freshest saved meta, for the settle callback — it may re-arm past the save that made it */
+  const metaLogNext = useRef<ReportMeta | null>(null)
+  /** the current Mittel line count for normalizeReportMeta — a ref because saveReportMeta is
+   *  deliberately identity-stable per mount and must not close over stale state */
+  const mittelCountRef = useRef(0)
+  useEffect(() => { mittelCountRef.current = mittelLineCount(mittel) }, [mittel])
 
   const saveReportMeta = useCallback((next: ReportMeta) => {
     setReportMeta((prev) => {
+      // «Entfällt» and a value are two answers to the same question — resolve the contradiction
+      // on EVERY meta write, here where all of them funnel through (lib/report ·
+      // normalizeReportMeta; the QR poster's path does the same in CaptureApp).
+      const clean = normalizeReportMeta(next, prev, { mittelCount: mittelCountRef.current }) as ReportMeta
       // The sheet persists on every KEYSTROKE (the textareas save as you type), so logging each
       // save wrote one Verlauf row per character typed into a Bemerkung. The row is written from
       // the state the editing STARTED in, once the typing stops — one line per edit, naming what
       // actually moved between those two points.
       if (!metaLogBase.current) metaLogBase.current = prev
-      if (metaLogTimer.current) clearTimeout(metaLogTimer.current)
-      metaLogTimer.current = setTimeout(() => {
+      metaLogNext.current = clean
+      const settle = () => {
+        // ⚠️ Mid-typing is not «settled»: the sheet saves per keystroke but a slow, thought-out
+        // sentence pauses past 4 s, and the row then quoted the half-typed value («Einsatzleiter
+        // «Me»»). While the caret sits in a free-text Rapportangabe the window re-arms and only
+        // closes once the field is left — last value wins. Steppers, Combos and time inputs are
+        // not held open (isTypingMetaField) and keep the plain 4 s settle.
+        if (isTypingMetaField()) {
+          metaLogTimer.current = setTimeout(settle, META_LOG_SETTLE_MS)
+          return
+        }
         const base = metaLogBase.current
+        const latest = metaLogNext.current
         metaLogBase.current = null
+        metaLogNext.current = null
         metaLogTimer.current = null
-        if (!base) return
-        const fields = changedReportMetaFields(base, next)
+        if (!base || !latest) return
+        // scalar fields keep the ONE joined «Rapportangaben: …» row; each structured statement
+        // («Partnerorganisation Sanität ergänzt …») is its own row, in diff order — three
+        // decisions are three rows, not three sentences crammed into one (lib/report).
+        const { fields, statements } = changedReportMetaLines(base, latest)
         if (fields.length) log('clipboard', fillTemplate(appConfig.copy.preflight.logMetaChanged, { fields: fields.join(', ') }))
-      }, META_LOG_SETTLE_MS)
-      return next
+        for (const s of statements) log('clipboard', s)
+      }
+      if (metaLogTimer.current) clearTimeout(metaLogTimer.current)
+      metaLogTimer.current = setTimeout(settle, META_LOG_SETTLE_MS)
+      return clean
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
   }, [])
@@ -1368,15 +1442,19 @@ export function IncidentWorkspace({
       // armed placement but leave Messen or Zeichnen running with its dock open over the map,
       // so the one key that is supposed to get you back to a plain map got you most of the way
       // and stopped.
+      // ⚠️ setDraft([]), NOT settleDraft: Escape is the EXPLICIT discard. Every tap-away path
+      // auto-commits a committable draft (see settleDraft), but a deliberate cancel has to keep
+      // cancelling — the one key that means «weg damit» must never save the thing instead.
       else if (tool !== 'select') { setTool('select'); setDraft([]) }
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
       else if (twinView) setTwinView(null)
+      else if (contentTwinView) setContentTwinView(null)
       else if (notePanelId) setNotePanelId(null)
       else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pending, pendingShape, panel, viewsOpen, tool, twinView, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pending, pendingShape, panel, viewsOpen, tool, twinView, contentTwinView, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
@@ -1388,7 +1466,10 @@ export function IncidentWorkspace({
   useEffect(() => {
     const changedToSelection = prevSelKey.current !== selKey && (!!selectedId || !!selectedDrawingId || selectedDrawIds.length > 0 || selectedEntityIds.length > 0)
     prevSelKey.current = selKey
-    if (changedToSelection) { setPanel(null); setViewsOpen(false); setTool('select'); setPending(null); setPendingShape(null); setDraft([]) }
+    // settleDraft, not setDraft([]): a selection landing mid-draft used to throw the tapped-out
+    // points away silently — a committable draft now auto-commits (without stealing this new
+    // selection), a fragment says it was discarded (useMapDrawing · settleDraft).
+    if (changedToSelection) { setPanel(null); setViewsOpen(false); setTool('select'); setPending(null); setPendingShape(null); settleDraft() }
   }, [selKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || composerOpen || journalOpen || teamPick) setPanel(null)
@@ -1496,6 +1577,9 @@ export function IncidentWorkspace({
   // Selection stores a stable twin key; derive the live source snapshot after every board edit so
   // the mirrored editor and its map marker update together while the panel stays open.
   const viewedMapTwin = twinView ? mapTwinList.find((t) => t.key === twinView.key) ?? twinView : null
+  // same live re-derivation for the content twins' panel: the board edit lands, the projection
+  // moves, and the open panel follows the same source snapshot
+  const viewedContentTwin = contentTwinView ? mapContentTwinList.find((t) => t.key === contentTwinView.key) ?? contentTwinView : null
   const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})
   useEffect(() => {
     if (replayActive) return
@@ -1583,7 +1667,7 @@ export function IncidentWorkspace({
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
     lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
-    commitDraft, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   } = useMapDrawing({
@@ -1604,6 +1688,10 @@ export function IncidentWorkspace({
     }
     const resolvedTarget = resolvedMapDrawings.find((d) => d.id === selectedDrawing.id)
     const fallback = resolvedTarget?.coords[resolvedTarget.coords.length - 1] ?? selectedDrawing.coords[selectedDrawing.coords.length - 1]
+    // the Abschluss is a semantic edit like any DrawEditor field — one settled Verlauf row
+    // («Zeichnung: Abschluss: Teilstück»), same funnel as patchDrawing (useMapDrawing ·
+    // noteDrawingEdit / lib/drawingEdit), which this hand-rolled commit bypasses.
+    noteDrawingEdit(selectedDrawing, { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined })
     commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
       if (d.id === selectedDrawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       let next = d
@@ -1732,7 +1820,10 @@ export function IncidentWorkspace({
    * panel now stands down via `detailSlotFree` while a dock is up — see its note above.
    */
   const clearMapUi = (keep?: 'selection') => {
-    setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setTeamPick(null)
+    // settleDraft, not setDraft([]): leaving the map (or opening a dock) mid-draft used to be a
+    // silent discard — a committable draft auto-commits with an undo toast, a fragment says so
+    // (useMapDrawing · settleDraft; Escape stays the explicit discard).
+    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
     // the palette IS the arming UI for the symbol tool, so it goes with the tool it arms —
     // otherwise leaving the map with it open silently re-opened it on the way back
     setPanel(null); setViewsOpen(false); setPaletteOpen(false)
@@ -1747,7 +1838,9 @@ export function IncidentWorkspace({
   // the tool set the locked rail actually offers. Messen and Auswahl survive untouched.
   useEffect(() => {
     if (!tacticalLocked || isMapReadOnlyTool(tool)) return
-    setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setTeamPick(null)
+    // settleDraft under the lock cannot commit (the create funnel refuses a locked surface) —
+    // but it still SAYS the draft was discarded instead of dropping it silently.
+    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
     setPaletteOpen(false); setEditNoteId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tacticalLocked, tool])
@@ -1986,7 +2079,7 @@ export function IncidentWorkspace({
   const pickShape = (kind: ShapeKind) => { setTool('shape'); setPending(null); setPendingShape(kind); setPaletteOpen(false) }
 
   const onMapClick = (c: LngLat) => {
-    setTwinView(null)
+    setTwinView(null); setContentTwinView(null)
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
     // the panel is map chrome, so tapping the map behind it should just close it
     if (panel !== null) { setPanel(null); return }
@@ -2531,13 +2624,39 @@ export function IncidentWorkspace({
    * here for exactly this reason — see useBoardDoc · BoardDocDeps), so the move is waiting to be
    * undone when the plan is next opened, checkpointed by the same rule the board itself uses.
    */
-  // …for symbol twins AND the mirrored Trupp chips (MapContentTwin): both name the one source
-  // annotation the same way, and both write it through the same fold-back.
+  // …for symbol twins AND the mirrored content marks (MapContentTwin): all name the one source
+  // annotation the same way, and all write it through the same fold-back. A POINT (symbol, note,
+  // shape, Trupp chip) writes x/y; a projected line/area translates every vertex by the drag's
+  // plan-space delta (movedTwinPath) — whole-object only, vertex editing stays with the source.
+  /** the live whole-path drag — anchored at the press, because the projection follows the source
+   *  mid-drag and a delta added to the moving geometry would compound (GeorefTwinsBoard · from) */
+  const twinPathDrag = useRef<{ pts: NonNullable<BoardAnno['pts']>; from: { x: number; y: number } } | null>(null)
   const moveMapTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId' | 'fit'> & { anno: BoardAnno }, coord: LngLat, phase: 'start' | 'move' | 'end') => {
     if (tacticalLocked) return
+    const p = t.fit.toPlan({ lng: coord[0], lat: coord[1] })
+    if ((t.anno.kind === 'draw' || t.anno.kind === 'area') && t.anno.pts?.length) {
+      // one checkpoint + the anchor for the whole drag, on the first movement
+      if (phase === 'start') {
+        setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
+        twinPathDrag.current = { pts: t.anno.pts, from: p }
+        return
+      }
+      const st = twinPathDrag.current
+      if (!st) return
+      const pts = movedTwinPath(st.pts, st.from, p)
+      setBoard((all) => ({ ...all, [t.planId]: (all[t.planId] ?? []).map((a) => (a.id === t.annoId ? { ...a, pts } : a)) }))
+      if (phase !== 'end') return
+      twinPathDrag.current = null
+      const mid = pts[Math.floor((pts.length - 1) / 2)]
+      pushEvent({
+        icon: 'move', kind: 'symbol', surface: 'plan', planId: t.planId, annoId: t.annoId, px: mid[0], py: mid[1], floor: t.anno.floor,
+        text: fillTemplate(appConfig.copy.log.objectMoved, { name: contentTwinName(t.anno) }),
+      })
+      emit('board.edit', { planId: t.planId, id: t.annoId, patch: { pts } })
+      return
+    }
     // one checkpoint for the whole drag, on the first movement — the map's own model
     if (phase === 'start') { setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? [])); return }
-    const p = t.fit.toPlan({ lng: coord[0], lat: coord[1] })
     // clamped to the sheet: a plan point outside the paper is not a place on that document
     const x = Math.max(0, Math.min(1, p.x)), y = Math.max(0, Math.min(1, p.y))
     setBoard((all) => ({ ...all, [t.planId]: (all[t.planId] ?? []).map((a) => (a.id === t.annoId ? { ...a, x, y } : a)) }))
@@ -2671,18 +2790,36 @@ export function IncidentWorkspace({
    * arriving there leaves behind. A twin is never selected; it can also be dragged in place,
    * and that drag writes its source through the helpers above.
    */
-  // …for symbol twins AND the mirrored Trupp chips (MapContentTwin) — both name their source
-  // annotation the same way, and the jump is the same jump.
-  const goToTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId'> & { anno: Pick<BoardAnno, 'x' | 'y' | 'floor'> }) => {
-    setPanel(null)
+  // …for symbol twins AND the mirrored content marks (MapContentTwin) — all name their source
+  // annotation the same way, and the jump is the same jump. It is the panel's explicit «Zum
+  // Original» now, never the tap itself (E8): tapping a projection opens in place.
+  const goToTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId'> & { anno: Pick<BoardAnno, 'x' | 'y' | 'floor' | 'pts'> }) => {
+    setPanel(null); setContentTwinView(null)
     setMode('plans'); setActivePlanId(t.planId)
-    setPlanFocus({ x: t.anno.x ?? 0.5, y: t.anno.y ?? 0.5, floor: t.anno.floor ?? 0, annoId: t.annoId, nonce: Date.now() })
+    // a path annotation has no x/y of its own — point at its middle vertex instead
+    const mid = t.anno.pts?.length ? t.anno.pts[Math.floor((t.anno.pts.length - 1) / 2)] : undefined
+    setPlanFocus({ x: t.anno.x ?? mid?.[0] ?? 0.5, y: t.anno.y ?? mid?.[1] ?? 0.5, floor: t.anno.floor ?? 0, annoId: t.annoId, nonce: Date.now() })
   }
-  const goToTwinOnMap = (e: Entity) => {
+  /** the actual surface swap to a mirrored Karte object's source — the panel's «Zum Original» */
+  const jumpToTwinSourceOnMap = (e: Entity) => {
     const layer = effectiveLayer(e)
     if (!isVisible(layer)) toggleLayer(layer)
-    setPanel(null); setMode('map'); focusEntity(e.id)
+    setPanel(null); setPlanTwinEntityId(null); setMode('map'); focusEntity(e.id)
   }
+  /**
+   * Tap on a mirrored Karte object on the Plan. A content mark (team chip, note, shape) opens
+   * its in-place source-backed panel HERE — the abrupt surface swap read as a bug (E8) — with
+   * «Zum Original» as the explicit jump. Whiteboard's own symbol/vehicle twin panel still calls
+   * this from ITS «Zum Original», so those kinds keep jumping directly.
+   */
+  const goToTwinOnMap = (e: Entity) => {
+    if (e.kind === 'team' || e.kind === 'note' || e.kind === 'shape') { setPanel(null); setPlanTwinEntityId(e.id); return }
+    jumpToTwinSourceOnMap(e)
+  }
+  // the plan-side panel's live source — re-derived per render so edits/deletes follow through
+  const planTwinEntity = planTwinEntityId ? entities.find((e) => e.id === planTwinEntityId) ?? null : null
+  // leaving the Plan surface closes its twin panel; coming back must not resurrect a stale one
+  useEffect(() => { if (mode !== 'plans') setPlanTwinEntityId(null) }, [mode])
   const showMapSourceOnPlan = (entity: Entity, target = selectedPlanProjection) => {
     if (!target) return
     showTwinLayer(entity.kind === 'vehicle' ? TWIN_MAP_VEHICLES : TWIN_MAP_SYMBOLS)
@@ -3198,9 +3335,10 @@ export function IncidentWorkspace({
     if (patch.label != null) linkRosterFields({ ...before, label: patch.label }, before.fields ?? {}, { force: true })
   }
 
-  /** Edit a plan-owned symbol through its Lage projection. The plan's history lives above the
-   *  unmounted Whiteboard, so this is the same checkpoint/raw-write/audit split as useBoardDoc. */
-  const editPlanTwinSource = (t: MapTwin, patch: Partial<BoardAnno>, phase: 'live' | 'commit' = 'commit') => {
+  /** Edit a plan-owned annotation through its Lage projection (a symbol twin's full editor, or
+   *  a mirrored Notiz's text). The plan's history lives above the unmounted Whiteboard, so this
+   *  is the same checkpoint/raw-write/audit split as useBoardDoc. */
+  const editPlanTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId'> & { coord?: LngLat }, patch: Partial<BoardAnno>, phase: 'live' | 'commit' = 'commit') => {
     if (tacticalLocked) return
     const current = (board[t.planId] ?? []).find((a) => a.id === t.annoId)
     if (!current) return
@@ -3218,14 +3356,14 @@ export function IncidentWorkspace({
     if (!wasLive) setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
     setBoard((all) => ({ ...all, [t.planId]: patchBoardTwinSource(all[t.planId] ?? [], t.annoId, patch) }))
     emit('board.edit', { planId: t.planId, id: t.annoId, patch })
-    const source = { ...current, kind: 'symbol' as const, layer: appConfig.defaults.operationalLayerId, coord: t.coord, floor: current.storey } as Entity
+    const source = { ...current, kind: 'symbol' as const, layer: appConfig.defaults.operationalLayerId, coord: t.coord ?? ([0, 0] as LngLat), floor: current.storey } as Entity
     if (patch.fields) linkRosterFields(source, patch.fields)
     if (patch.label != null) linkRosterFields({ ...source, label: patch.label }, current.fields ?? {}, { force: true })
   }
 
   /** Delete a plan-owned source without navigating away. Attached plan lines are detached and
    *  frozen at the symbol's current plan coordinate, so no dangling object id survives. */
-  const deletePlanTwinSource = async (t: MapTwin) => {
+  const deletePlanTwinSource = async (t: Pick<MapTwin, 'planId' | 'annoId'>) => {
     if (tacticalLocked) return
     const annos = board[t.planId] ?? []
     const target = annos.find((a) => a.id === t.annoId)
@@ -3243,7 +3381,7 @@ export function IncidentWorkspace({
     const result = deleteBoardTwinSource(annos, target.id)
     if (!result) return
     setBoard((all) => ({ ...all, [t.planId]: result.next }))
-    setTwinView(null)
+    setTwinView(null); setContentTwinView(null)
     emit('board.delete', { planId: t.planId, id: t.annoId })
     result.affectedIds.forEach((id) => {
       const changed = result.next.find((n) => n.id === id)
@@ -3312,7 +3450,7 @@ export function IncidentWorkspace({
    * the moment Ebenen closes. That is the half of its reasoning which was always right; the half
    * that claimed «nothing becomes unreachable» was not, and this is what makes it true.
    */
-  const detailSlotFree = mapUI && !twinView && !journalOpen && panel === null && !viewsOpen
+  const detailSlotFree = mapUI && !twinView && !contentTwinView && !journalOpen && panel === null && !viewsOpen
 
   const annotatedPlanCount = useMemo(() => annotatedPlans(planDocs, board, false).length, [planDocs, board])
 
@@ -3344,7 +3482,7 @@ export function IncidentWorkspace({
           onNoteEdit={tacticalLocked ? undefined : (id) => { setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id) }}
           // the ⚙ stays on a locked surface — it opens the note READ-ONLY (a long note is
           // truncated on the map, and reading it is not editing it)
-          onNotePanel={(id) => { setTwinView(null); setNotePanelId(id) }}
+          onNotePanel={(id) => { setTwinView(null); setContentTwinView(null); setNotePanelId(id) }}
           onNoteWidth={tacticalLocked ? undefined : noteWidthDrag}
           trupps={effTrupps}
           truppSeverities={azAlarm.severities}
@@ -3375,13 +3513,14 @@ export function IncidentWorkspace({
           georefPlanContent={mapContentTwinList}
           onTwinOpen={openTwinView}
           onTwinMove={moveMapTwinSource}
-          onContentTwinOpen={goToTwinSource}
+          onContentTwinOpen={openContentTwinView}
           onContentTwinMove={moveMapTwinSource}
           selectedTwinKey={twinView?.key}
+          selectedContentTwinKey={contentTwinView?.key}
           georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}
           selectedId={selectedId}
-          onSelect={(e) => { setTwinView(null); setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
+          onSelect={(e) => { setTwinView(null); setContentTwinView(null); setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
           onMapClick={onMapClick}
           drawings={drawings}
           drawingsVisible={isVisible(appConfig.defaults.drawingLayerId)}
@@ -3427,7 +3566,7 @@ export function IncidentWorkspace({
           selectedDrawingId={selectedDrawingId}
           flashDrawingId={flashDrawingId}
           onSelectDrawing={(id, at) => {
-            setTwinView(null)
+            setTwinView(null); setContentTwinView(null)
             // «Leitung wählen» armed → this tap assigns the hose to the waiting Trupp
             if (linePickTrupp) { onLinePicked(id); return }
             // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for
@@ -3436,7 +3575,7 @@ export function IncidentWorkspace({
             setDrawTap(at ? { id, x: at.x, y: at.y } : null)
             setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
           }}
-          onUnlockDrawing={tacticalLocked ? undefined : (id) => { setTwinView(null); patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
+          onUnlockDrawing={tacticalLocked ? undefined : (id) => { setTwinView(null); setContentTwinView(null); patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
           onDelete={deleteEntity}
           selectedDrawing={selectedDrawing}
           onDrawingEdit={editDrawingCoords}
@@ -3502,7 +3641,12 @@ export function IncidentWorkspace({
         onOpenWeather={openWeatherDetails}
         bearing={view.bearing}
         azAlarm={azAlarm}
-        onOpenAtemschutz={() => { setMode('atemschutz'); setPanel(null) }}
+        // …and the chip lands ON the urgent Trupp's card, like every other way in (Meldeleiste,
+        // Anwesenheit, the notification tap) — the chip names a Trupp, so the tap must find it.
+        onOpenAtemschutz={(truppId) => {
+          setMode('atemschutz'); setPanel(null)
+          if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
+        }}
         // Only on the map surface: the chip is a caveat about what the MAP is showing, and on
         // Plan/Atemschutz there are no vehicle symbols for it to qualify. During replay the
         // positions are historical by definition, so a staleness warning would be nonsense.
@@ -3581,6 +3725,9 @@ export function IncidentWorkspace({
         severities={azAlarm.severities}
         intervalMin={azIntervalMin}
         graceSec={azGraceSec}
+        // withheld while the board itself is on screen — it shows the alarm in full and the
+        // strip only covered its controls (see AtemschutzAlarmMeldung's header)
+        onBoard={mode === 'atemschutz'}
         // Reaching the named card is acknowledgement enough to stop the room's tone and tray
         // re-notifications. The row itself stays until a real contact/pressure event clears it.
         onAcknowledge={muteAtemschutz}
@@ -3771,6 +3918,7 @@ export function IncidentWorkspace({
           entity={selected}
           onColor={(c) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, color: c } : e)) }))}
           onScale={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, sizeM: Math.max(8, Math.min(800, (e.sizeM ?? SHAPE_DEFS[e.shape ?? 'square'].defaultSizeM) * f)) } : e)) }))}
+          onStop={(v) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, stop: v } : e)) }))}
           onCenter={() => flyToMapVisible(selected.coord, 18.4)}
           onDelete={() => deleteEntity(selected.id)}
           onClose={() => setSelectedId(null)}
@@ -3919,6 +4067,51 @@ export function IncidentWorkspace({
           fieldHints={rosterFieldHints({ kind: 'symbol', symbol: viewedMapTwin.anno.symbol, label: viewedMapTwin.anno.label, fields: viewedMapTwin.anno.fields } as Entity)}
           protectedKeys={new Set(symbolPresetFieldKeys(viewedMapTwin.anno.symbol, sym.symbols.find((x) => x.name === viewedMapTwin.anno.symbol)?.cat))}
           onDelete={() => { void deletePlanTwinSource(viewedMapTwin) }}
+        />
+      )}
+
+      {/* A mirrored non-symbol object (line, area, note, shape, Trupp chip) viewed through its
+          Lage projection. Same rule as the symbol twin above: the panel stays on THIS surface,
+          «Gespiegelt von …» carries the provenance, «Zum Original» is the explicit jump. A
+          Notiz gets its one cross-surface edit (its text, via the source anno); the other kinds
+          read name + provenance until their editors exist cross-surface. */}
+      {mapUI && !journalOpen && panel === null && !viewsOpen && viewedContentTwin && (() => {
+        const t = viewedContentTwin
+        const isNote = t.anno.kind === 'text'
+        return (
+          <GeorefTwinPanel
+            key={t.key}
+            entity={{ id: t.annoId, label: contentTwinName(t.anno) }}
+            subtitle={fillTemplate(appConfig.copy.whiteboard.georef.twinPanelFromPlan, { plan: t.planCode })}
+            readOnly={tacticalLocked || !isNote}
+            onClose={() => setContentTwinView(null)}
+            onCenter={t.coord ? () => flyToMapVisible(t.coord!, 18.4) : undefined}
+            onOriginal={() => goToTwinSource(t)}
+            originalLabel={fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: t.planCode })}
+            onTitleLive={isNote ? (v) => editPlanTwinSource(t, { text: v }, 'live') : undefined}
+            onTitle={isNote ? (v) => editPlanTwinSource(t, { text: v }, 'commit') : () => {}}
+            onFields={() => {}}
+            onDelete={() => { void deletePlanTwinSource(t) }}
+          />
+        )
+      })()}
+
+      {/* The same rule on the PLAN surface (E8): a mirrored Karte team chip / Notiz / Form
+          opens in place, source-backed — the tap no longer swaps surfaces. The Notiz edits its
+          map source's text through the map editor's own mutation path. */}
+      {mode === 'plans' && !journalOpen && planTwinEntity && (
+        <GeorefTwinPanel
+          key={planTwinEntity.id}
+          entity={{ id: planTwinEntity.id, label: contentTwinName(planTwinEntity) }}
+          subtitle={appConfig.copy.whiteboard.georef.twinPanelFromMap}
+          readOnly={tacticalLocked || planTwinEntity.kind !== 'note'}
+          onClose={() => setPlanTwinEntityId(null)}
+          onOriginal={() => jumpToTwinSourceOnMap(planTwinEntity)}
+          originalLabel={appConfig.copy.contextPanel.showOnMap}
+          onTitleLive={planTwinEntity.kind === 'note' ? (v) => editMapTwinSource(planTwinEntity.id, { label: v }, 'live') : undefined}
+          onTitle={planTwinEntity.kind === 'note' ? (v) => editMapTwinSource(planTwinEntity.id, { label: v }, 'commit') : () => {}}
+          onFields={() => {}}
+          onDelete={() => { setPlanTwinEntityId(null); void deleteEntity(planTwinEntity.id) }}
         />
       )}
 
@@ -4150,7 +4343,7 @@ export function IncidentWorkspace({
           .journal-scrim), so the rail — and its pinned zoom/fit footer — stays put
           instead of being buried + replaced by a floating cluster. */}
       {/* the rail is the SAME object for everyone — a locked surface just gets the slim tool set
-          (Auswahl · Messen), in the same place, with the same footer. Replay is the exception:
+          (map: Auswahl · Messen; plan: Auswahl), in the same place, with the same footer. Replay is the exception:
           its scrubber owns the bottom band that the Messen readout would land in. */}
       {mapUI && !replayActive && (
         <ToolRail
@@ -4247,8 +4440,8 @@ export function IncidentWorkspace({
           // map), so the rail + its zoom/fit footer stay live. Only a phone still parks
           // the plan read-only while Verlauf is open (there it's a full-width bottom sheet).
           readOnly={tacticalLocked || (isPhone && journalOpen)}
-          // …but a locked plan still offers the tools that change nothing (Auswahl · Messen),
-          // exactly like the map. Not during replay (the scrubber owns the bottom band) and not
+          // …but a locked plan still offers the tool that changes nothing (Auswahl; the plan
+          // lost Messen 29.08.). Not during replay (the scrubber owns the bottom band) and not
           // behind the phone's Verlauf sheet, which parks the plan entirely.
           slimTools={!replayActive && !(isPhone && journalOpen)}
           activeId={activePlanId}

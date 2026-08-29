@@ -182,6 +182,16 @@ export function symbolCaptionText(props: SymbolProps, globalMode: CaptionMode): 
     const lines = [label, ...allFilled, notes].filter((v): v is string => !!v && !seen.has(v) && !!seen.add(v))
     return lines.length ? lines.join('\n') : null
   }
+  // Officer symbols (preset carries BOTH 'Funktion' and 'Name') compose the pair when both are
+  // filled — «Front · Meier»: the glyph is one generic figure for many roles, so the Funktion
+  // alone answers "what" without the who, and the Name alone the reverse. With only one filled,
+  // fall through to the normal single-value rule below.
+  const presetFields = props.symbol ? presets.byName[props.symbol]?.fields : undefined
+  if (presetFields?.includes('Funktion') && presetFields.includes('Name')) {
+    const funktion = fields['Funktion']?.trim()
+    const name = fields['Name']?.trim()
+    if (funktion && name) return `${funktion} · ${name}`
+  }
   // 'auto': the primary discriminating value, else the first filled field, else a custom label
   const primaryKey = captionPrimaryKey(props.symbol)
   const primary = primaryKey ? fields[primaryKey]?.trim() : undefined

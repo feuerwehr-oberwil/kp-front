@@ -6,6 +6,7 @@ import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { runningOthers } from '../../lib/switcherLists'
+import { SyncGlyph } from '../SyncGlyph'
 import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
@@ -17,23 +18,8 @@ function fmtClock(ms: number): string {
   }
 }
 
-/**
- * The sync glyph: one SVG that spins as an open arc and then closes into a full ring with a
- * tick drawn through it. Deliberately ONE element rather than a spinner swapped for a check —
- * the ring is the same circle throughout, so the eye follows it from "working" to "done"
- * instead of seeing two unrelated icons flash past.
- *
- * The circle is r=9 → circumference ≈ 56.5; the dash values in .sync-ring/.sync-tick are cut
- * to that, so changing the radius means re-cutting them (see app.css).
- */
-function SyncGlyph({ done, label }: { done: boolean; label: string }) {
-  return (
-    <svg className={`sync-glyph${done ? ' on' : ''}`} viewBox="0 0 24 24" role="img" aria-label={label}>
-      <circle className="sync-ring" cx="12" cy="12" r="9" />
-      <path className="sync-tick" d="M7.8 12.4l2.9 2.9 5.6-6.1" />
-    </svg>
-  )
-}
+// (the SyncGlyph — the spinning-arc-closes-into-tick vocabulary this button speaks — now lives
+// in ../SyncGlyph, shared with the Offline-Bereitschaft load and the Anwesenheit reload)
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({

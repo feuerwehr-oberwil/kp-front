@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MutableRefObject, type RefObject } from 'react'
 import type { BuildingDoc, PlanDocument } from '../types'
 import type { PlanScale } from '../lib/planScale'
+import { activeViewDeg } from '../lib/footprint'
 import { TOP_INSET } from '../lib/whiteboard'
 
 /**
@@ -57,7 +58,8 @@ export const boardViewSignature = (
   plan?.osm ? `${plan.osm.center.join(',')}@${plan.osm.radiusM}` : '',
   // the floor stack is drawn from the building — a storey added or the footprint re-oriented
   // redraws the whole sheet under the saved pan
-  plan?.floorStack && building ? `${[...building.floors].sort((a, b) => a - b).join('/')}@${(building.orientDeg ?? 0).toFixed(1)}${building.northUp ? 'N' : ''}` : '',
+  // the ACTIVE view angle (dialled or binary) — a reorient redraws the sheet under the view
+  plan?.floorStack && building ? `${[...building.floors].sort((a, b) => a - b).join('/')}@${activeViewDeg(building).toFixed(1)}` : '',
   scale ? `${scale.mPerU}:${scale.ar}` : '',
 ].join('|')
 

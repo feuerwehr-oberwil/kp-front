@@ -177,6 +177,17 @@ def test_render_plan_page_with_annotations():
         {"kind": "draw", "pts": [[0.1, 0.1], [0.5, 0.5]], "color": "#1f6feb", "width": 4},
         {"kind": "area", "pts": [[0.6, 0.1], [0.9, 0.1], [0.9, 0.4]], "label": "Sektor"},
         {"kind": "symbol", "x": 0.3, "y": 0.7, "symbol": "VKF Feuer"},
+        # a stretched generic shape (client planAnnosForPdf: kind 'symbol' + sizeN + aspect)
+        {
+            "kind": "symbol",
+            "x": 0.5,
+            "y": 0.3,
+            "sizeN": 0.1,
+            "aspect": 2.0,
+            "rotation": 15,
+            "symbolSvg": '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" '
+            'preserveAspectRatio="none"><rect width="100" height="100" fill="#e8392b"/></svg>',
+        },
         {"kind": "text", "x": 0.7, "y": 0.7, "text": "EL"},
         {"kind": "resource", "x": 0.5, "y": 0.85, "text": "Trupp 1"},
     ]
@@ -195,6 +206,62 @@ def test_pack_and_dynamic_svg_raster():
         32,
     )
     assert inline.size == (32, 32)
+
+
+def test_raster_svg_stretches_to_an_explicit_height():
+    # generic shapes carry preserveAspectRatio="none" + an aspect (height/width) — the client
+    # glyph stretches, so the printed one must too (Rechteck mit freiem Seitenverhältnis)
+    svg = (
+        '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">'
+        '<rect x="0" y="0" width="100" height="100" fill="#ff0000"/></svg>'
+    )
+    img = kk.raster_svg(svg, 40, 120)
+    assert img.size == (40, 120)
+    # the artwork fills the stretched box — not a square letterboxed into it
+    assert img.getpixel((20, 110))[3] > 0
+
+
+def test_place_symbol_paints_a_stretched_shape_box():
+    svg = (
+        '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">'
+        '<rect x="0" y="0" width="100" height="100" fill="#ff0000"/></svg>'
+    )
+    overlay = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
+    kk._place_symbol(overlay, kk.ImageDraw.Draw(overlay), svg, (150, 150), 60, None, None, height=180)
+    left, top, right, bottom = overlay.getbbox()
+    assert (right - left, bottom - top) == (60, 180)
+
+
+def test_render_kroki_draws_an_aspect_shape_and_the_arrow_stop_bar():
+    # the payload the client builds for Item A1/A2: a stretched Rechteck + a Pfeil whose
+    # Stopp-Balken is baked into the client-resolved SVG (krokiPayload.shapeSvgString)
+    arrow_stop = (
+        '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">'
+        '<path d="M50 6 L80 50 L60 50 L60 94 L40 94 L40 50 L20 50 Z" fill="#1f6feb" stroke="#fff"'
+        ' stroke-width="4" stroke-linejoin="round"/>'
+        '<path d="M14 7 L86 7" stroke="#fff" stroke-width="11" stroke-linecap="round"/>'
+        '<path d="M14 7 L86 7" stroke="#1f6feb" stroke-width="6" stroke-linecap="round"/></svg>'
+    )
+    scene = kk.KrokiScene(
+        entities=[
+            {
+                "coord": [7.556, 47.5139],
+                "symbolSvg": '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" '
+                'preserveAspectRatio="none"><rect width="100" height="100" fill="#e8392b" '
+                'fill-opacity="0.18" stroke="#e8392b" stroke-width="5"/></svg>',
+                "kind": "shape",
+                "sizeM": 40,
+                "aspect": 2.5,
+                "rotation": 30,
+            },
+            {"coord": [7.5566, 47.514], "symbolSvg": arrow_stop, "kind": "shape", "sizeM": 45},
+        ],
+        drawings=[],
+    )
+    img = kk.render_kroki(scene, PACK, NO_TILES, width=640, height=400)
+    assert img.size == (640, 400)
+    colors = {c for _, c in img.getcolors(maxcolors=1_000_000)}
+    assert len(colors) > 10
 
 
 def test_hose_math_matches_client_rules():

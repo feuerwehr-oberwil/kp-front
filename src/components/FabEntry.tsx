@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fmtMMSS } from '../lib/geo'
 import { useHoldEntry } from '../lib/useHoldEntry'
@@ -71,7 +70,14 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
         : <>
           {/* ring around the + icon, same as the TopBar Eintrag — never over the label */}
           <span className="tb-act-ic">
-            <Icon id="plus" />
+            {/* ⚠️ The + is an INLINE path, not a sprite <use> (29.08.). This button was seen in
+                the field as a bare dark circle — glyph missing. A `<use href="#plus">` depends
+                on the IconSprite's symbol being resolvable in the live document, and WebKit is
+                flaky about re-resolving <use> targets across remounts (the FAB itself mounts and
+                unmounts with every composer/panel open, and several sprites coexist). The one
+                control that logs from the field must not be able to render empty, so it carries
+                its own path — same `.i` class, so sizing/stroke are unchanged. */}
+            <svg className="i" viewBox="0 0 24 24" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
             {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
           </span>
           <span className="tb-act-label">{appConfig.copy.journal.add}</span>

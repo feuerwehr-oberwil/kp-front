@@ -8,10 +8,9 @@ import { Marker } from 'react-map-gl/maplibre'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
-import { symPx } from '../lib/mapView'
 import { ROTATABLE } from '../lib/symbols'
 import { MARKER_Z } from '../lib/labelPass'
-import type { MapTwin } from '../lib/georefTwins'
+import { twinSymbolPx, type MapTwin } from '../lib/georefTwins'
 import { TwinMark } from './GeorefTwinMark'
 import { glyphFor, overlayFor, twinName } from '../lib/twinGlyph'
 import { symbolCaptionText } from '../lib/symbols'
@@ -23,10 +22,12 @@ import type { CaptionMode, LngLat } from '../types'
 /**
  * Every georeferenced plan's tactical symbols, drawn on the map as twins.
  *
- * Sized exactly like the map's own symbols (`symPx` at the live zoom), so the projection is the
- * literal same visual object. Provenance lives in its detail subtitle and layer row. Memoised:
- * the projection itself is done once per board/fit change by the caller, and this tree then
- * re-renders only when that list, the zoom or the bearing actually moves.
+ * Sized by the BUILDING, not by the map's pin band: a plan symbol occupies ~8.5 % of its sheet,
+ * so its projection covers those same ground metres at the live zoom (`twinSymbolPx`, with a
+ * lower px floor than natives — a projection is quieter by design). Native symbols and
+ * ownership-transferred ones keep `symPx`. Provenance lives in its detail subtitle and layer
+ * row. Memoised: the projection itself is done once per board/fit change by the caller, and
+ * this tree then re-renders only when that list, the zoom or the bearing actually moves.
  */
 export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', interactive = true, selectedKey, onOpen, onMove }: {
   twins: MapTwin[]
@@ -83,7 +84,7 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
             onDragEnd={(e) => onMove?.(t, [e.lngLat.lng, e.lngLat.lat], 'end')}>
             <TwinMark
               svg={svg}
-              sizePx={symPx('symbol', t.coord[1], zoom, symMul)}
+              sizePx={twinSymbolPx(t.widthM, t.coord[1], zoom, symMul)}
               rotation={veh ? 0 : rot}
               count={a.count}
               // ⚠️ `storey`, never `anno.floor` — that one is the floor-stack tile index

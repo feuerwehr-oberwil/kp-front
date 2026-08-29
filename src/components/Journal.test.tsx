@@ -272,35 +272,41 @@ describe('Journal · correcting a line (append-only)', () => {
     id: 's1', t: '', at: new Date(1_050_000).toISOString(),
     text: 'Trupp 2 eingerückt', icon: 'people', kind: 'team',
   }
-  const pen = () => screen.queryAllByLabelText('Text bearbeiten')
+  // the pen lives in the row's detail sheet since 29.08. (variant 2): tap the row, then the action
+  const penInSheet = () => screen.queryByRole('button', { name: 'Text bearbeiten' })
 
-  it('offers the pen on what a person typed', () => {
+  it('offers the pen — in the row’s detail sheet — on what a person typed', () => {
     setup({ onEditText: vi.fn() })
-    expect(pen()).toHaveLength(events.length)
+    fireEvent.click(screen.getByText('Feuer aus'))
+    expect(penInSheet()).toBeTruthy()
   })
 
   // ⚠️ The whole point of the rule: rewriting «Trupp 2 eingerückt» would make the record state
-  // an action that never happened that way.
+  // an action that never happened that way. A system row opens no detail sheet at all.
   it('never offers it on a row the app wrote about an action', () => {
     setup({ events: [sysRow, ...events], onEditText: vi.fn() })
-    expect(pen()).toHaveLength(events.length)
+    fireEvent.click(screen.getByText('Trupp 2 eingerückt'))
+    expect(penInSheet()).toBeNull()
   })
 
   it('is absent entirely for a viewer (no handler)', () => {
     setup()
-    expect(pen()).toHaveLength(0)
+    fireEvent.click(screen.getByText('Feuer aus'))
+    expect(penInSheet()).toBeNull()
   })
 
   it('patches the row instead of editing it, and drops an empty correction', () => {
     const onEditText = vi.fn()
     setup({ onEditText })
-    fireEvent.click(pen()[0])
+    fireEvent.click(screen.getByText('Feuer aus'))
+    fireEvent.click(penInSheet()!)
     const box = screen.getByRole('textbox')
     fireEvent.change(box, { target: { value: '   ' } })
     fireEvent.click(screen.getByText('Speichern'))
     expect(onEditText).not.toHaveBeenCalled()
 
-    fireEvent.click(pen()[0])
+    fireEvent.click(screen.getByText('Feuer aus'))
+    fireEvent.click(penInSheet()!)
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Feuer aus, Nachkontrolle läuft' } })
     fireEvent.click(screen.getByText('Speichern'))
     expect(onEditText).toHaveBeenCalledWith('r3', 'Feuer aus, Nachkontrolle läuft')
@@ -311,6 +317,44 @@ describe('Journal · correcting a line (append-only)', () => {
     const at = new Date(1_060_000).toISOString()
     setup({ events: [{ ...events[0], correctedAt: at }, ...events.slice(1)] })
     expect(screen.getByText(/^korrigiert \d{1,2}:\d{2}$/)).toBeTruthy()
+  })
+})
+
+// ── the audio row (variant 2, 29.08.) ───────────────────────────────────────────────────────
+// Durchhören and Transkript were ~30px icons beside the play circle — three equal-weight
+// targets where only playback is time-critical. The row keeps ONLY the play circle inline;
+// the paperwork actions live in the detail sheet the row's tap opens, and the amber
+// missing-transcript state stays visible on the row itself.
+describe('Journal · the audio row', () => {
+  const memo: TimelineEvent = {
+    id: 'm1', t: '', at: new Date(1_050_000).toISOString(), text: 'Audionotiz (6s)',
+    icon: 'mic', kind: 'audio', audioUrl: 'blob:memo',
+    audioMeta: { source: 'recorded', startedAt: new Date(1_044_000).toISOString(), durationSec: 6 },
+  }
+
+  it('keeps ONLY the play circle inline — Durchhören + Transkript moved into the sheet', () => {
+    setup({ events: [memo], onTranscript: vi.fn(), onOpenPlayer: vi.fn() })
+    const row = document.querySelector('[data-ev="m1"]')!
+    expect(row.querySelector('.tl-play')).toBeTruthy()
+    expect(row.querySelector('.jr-jump')).toBeNull()
+    // the missing transcript keeps its amber ON the row, now as a chip on the row meta
+    expect(row.querySelector('.jr-tx-miss')).toBeTruthy()
+    fireEvent.click(screen.getByText('Audionotiz (6s)'))
+    expect(screen.getByRole('button', { name: 'Durchhören' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Transkript ergänzen' })).toBeTruthy()
+  })
+
+  it('…and the chip goes once the memo has words', () => {
+    setup({ events: [{ ...memo, transcript: 'Sanität eingetroffen' }], onTranscript: vi.fn() })
+    expect(document.querySelector('[data-ev="m1"] .jr-tx-miss')).toBeNull()
+  })
+
+  it('hands Durchhören over to the player sheet', () => {
+    const onOpenPlayer = vi.fn()
+    setup({ events: [memo], onOpenPlayer })
+    fireEvent.click(screen.getByText('Audionotiz (6s)'))
+    fireEvent.click(screen.getByRole('button', { name: 'Durchhören' }))
+    expect(onOpenPlayer).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }))
   })
 })
 

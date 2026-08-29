@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, useEffect, useRef, useState } from 'react'
+import { forwardRef, Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -10,6 +10,7 @@ import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -299,11 +300,15 @@ interface Props {
   /** drag a projection of a plan annotation — writes the SOURCE anno through the twin's own
    *  fit, so every other projection of it follows from that one write (see MapTwin · fit) */
   onTwinMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
-  /** tap on a mirrored Trupp chip (plan resource twin): jump to its source chip on the Modul */
+  /** tap on any mirrored content object (line, area, note, shape, Trupp chip): open its
+   *  in-place source-backed panel on this surface (GeorefContentMap) */
   onContentTwinOpen?: (twin: MapContentTwin) => void
-  /** drag a mirrored Trupp chip: move its one source chip through the fit */
+  /** drag a mirrored content object: move its one source annotation through the fit (a point
+   *  writes x/y, a line/area translates every vertex — see IncidentWorkspace · moveMapTwinSource) */
   onContentTwinMove?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   selectedTwinKey?: string | null
+  /** the content twin whose in-place panel is open — its hit target wears the halo */
+  selectedContentTwinKey?: string | null
   /** Opt-in literal plan sheets from Ebenen, already rasterized and projected by their fit. */
   georefPlanRasters?: {
     id: string
@@ -319,7 +324,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, selectedTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -423,6 +428,18 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     ro.observe(m.getContainer())
     return () => ro.disconnect()
   }, [mapReady])
+  // ⚠️ …and SYNCHRONOUSLY when the georef layout itself flips. The observer above fires a frame
+  // late (after paint), so entering/leaving the split or «Deckung prüfen» left every DOM marker
+  // projecting through the old transform for a frame or two — a visible jump of all crosses and
+  // symbols. The width flip is React-rendered (Whiteboard's wb-georef-split/-check classes come
+  // from the same georef store snapshot as this component's state), so a layout effect keyed on
+  // that state resizes the map in the same commit, before the browser paints: `map.resize()`
+  // reads the container's NEW size and re-places the markers synchronously. The observer stays
+  // as the backstop for every other way the container can change size.
+  useLayoutEffect(() => {
+    const m = mapInst.current; if (!m || !mapReady) return
+    try { m.resize() } catch { /* map gone */ }
+  }, [georefOn, georef.check, mapReady])
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that
@@ -968,6 +985,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         : e.kind === 'note' ? noteWPx(e.noteW)
         : e.kind === 'team' ? TEAM_DOT_PX
         : symPx(e.kind, e.coord[1], zoom, symMul)
+      // a stretched Rechteck/Rauch is g wide but g × aspect tall — seed the real box, or a
+      // label happily lands on the lower half of a tall shape it believes is square
+      const gh = e.kind === 'shape' ? g * shapeAspect(e.shape ?? 'square', e.aspect) : g
       const isSel = e.id === selectedId || selectedEntityIds.includes(e.id)
       if (e.kind === 'team') {
         // a resting Trupp marker is `[dot][gap][name]` centred on the coord, so the dot is NOT
@@ -985,7 +1005,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         }
         continue
       }
-      occupied.push({ x: p.x - g / 2, y: p.y - g / 2, w: g, h: g })
+      occupied.push({ x: p.x - g / 2, y: p.y - gh / 2, w: g, h: gh })
       // only the glyph branch prints a caption (MapMarkers) — a note's own text is its body,
       // not a caption, and asking symbolCaptionText for one would invent a phantom box
       if (e.kind === 'shape' || e.kind === 'note' || e.kind === 'photo') continue
@@ -1422,8 +1442,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {!georefOn && georefPlanContent.length > 0 && (
         <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing}
           trupps={trupps} truppSeverities={truppSeverities}
-          interactive={!placing} onOpenResource={onContentTwinOpen}
-          onMoveResource={readOnly ? undefined : onContentTwinMove}
+          interactive={!placing} selectedKey={selectedContentTwinKey}
+          onOpenTwin={onContentTwinOpen}
+          onMoveTwin={readOnly ? undefined : onContentTwinMove}
           project={(c) => mapInst.current?.project(c as [number, number])}
           unproject={(p) => { const m = mapInst.current; if (!m) return undefined; const ll = m.unproject([p.x, p.y]); return [ll.lng, ll.lat] }}
           setDragPan={(on) => { const dp = mapInst.current?.dragPan; if (!dp) return; if (on) dp.enable(); else dp.disable() }} />
@@ -1488,16 +1509,18 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           paint={{ 'icon-color': ['get', 'color'] } as any} />
       </Source>
       {/* team trails — dashed path through the recorded positions, in the team's colour
-          (same look as the plan board's trail polyline); under the DOM markers by nature */}
+          (same look as the plan board's trail polyline); under the DOM markers by nature.
+          Hidden while «Karte verknüpfen» borrows the map, like every drawing layer above —
+          a dashed breadcrumb reads exactly like a landmark-worthy path during calibration. */}
       <Source id="s-team-trails" type="geojson" data={trailFC}>
-        <Layer id="l-team-trails" type="line" layout={{ 'line-join': 'round' }}
+        <Layer id="l-team-trails" type="line" layout={{ 'line-join': 'round', ...vis(!georefOn) }}
           paint={{ 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2.5, 2.5], 'line-opacity': 0.85 } as any} />
       </Source>
       {/* vehicle tracks (Traccar) — solid, thin and deliberately quiet: this is context behind
           the fleet, not a tactical statement, so it must not read like a drawn hose line. The
           hook returns an empty collection whenever the layer is off, so this costs nothing then. */}
       <Source id="s-vehicle-trails" type="geojson" data={vehicleTrailFC}>
-        <Layer id="l-vehicle-trails" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+        <Layer id="l-vehicle-trails" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round', ...vis(!georefOn) }}
           paint={{ 'line-color': '#00a0ff', 'line-width': 2, 'line-opacity': 0.5 }} />
       </Source>
       {/* live draft (area/line tool) — vertices are draggable handles (rendered below),
@@ -1568,6 +1591,29 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           <div className="pick-reticle" />
         </Marker>
       )}
+
+      {/* a «+» at each draft segment's midpoint — the same affordance the Messung and the
+          selected drawing carry. Inserting into the in-progress shape used to work only through
+          the line's invisible 18px hit band (l-draft-hit · segInsertIndex), with no sign it was
+          possible at all; the segments now say so, and both routes insert at the same index.
+          Rendered BEFORE the vertices so a node handle wins wherever the two overlap. */}
+      {draftKind && onDraftInsert && draft.length >= 2 && (() => {
+        const n = draft.length
+        return Array.from({ length: pathSegmentCount(n, draftKind === 'area') }, (_, i) => {
+          const a = draft[i], b = draft[(i + 1) % n]
+          const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+          return (
+            <Marker key={`dfi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={handleZ}>
+              <NewNodeHandle title={appConfig.copy.measure.insertPoint}
+                onInsert={(ev) => {
+                  onDraftInsert(i + 1, mid)
+                  // …and the same press keeps dragging the node it just made (see NewNodeHandle)
+                  if (ev && onDraftDrag) handOffNodeDrag(ev, (ll) => { if (ll) onDraftDrag(i + 1, ll) })
+                }} />
+            </Marker>
+          )
+        })
+      })()}
 
       {/* draggable draft vertices (area/line tool) — drag to move, right-click to delete,
           identical to the measurement handles so the in-progress shape edits the same way */}

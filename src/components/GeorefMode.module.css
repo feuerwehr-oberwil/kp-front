@@ -40,9 +40,21 @@
 .cross svg { width: 26px; height: 26px; display: block; filter: drop-shadow(0 1px 3px rgb(0 0 0 / .45)); }
 /* the half that has no counterpart yet — amber, because it does not count yet */
 .pending { color: var(--amber-strong); }
-/* the half currently being re-placed: it stays visible (it is what you are correcting) but steps
-   back, so the eye goes to the surface it has to tap rather than to the old position */
+/* the half currently being re-placed («Verschieben» armed): it stays visible (it is what you
+   are correcting) but steps back, so the eye goes to where the new tap has to land */
 .picked { opacity: .35; }
+/* the SELECTED half: an unmistakable halo, not a dimming — selection is a state you are meant
+   to see and act on (the popover), never something that looks half gone */
+.selHalo { color: var(--ink); }
+.selHalo .badge { background: var(--ink); }
+.selHalo::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--ink) 35%, transparent);
+  background: color-mix(in srgb, var(--surface) 35%, transparent);
+}
 .badge {
   position: absolute;
   left: 17px;
@@ -136,12 +148,9 @@
 .promptHint {
   display: block; font: 500 11.5px var(--body); color: var(--ink-dim); margin-top: 2px;
 }
-.sideProgress {
-  display: block; margin-top: 3px; color: var(--ink-faint); font: 700 10.5px/1.3 var(--body);
-}
 /* The Ampel as a LINE, for the bar that has no room for a band. Same reading as the phone card's
-   `.lamp`, same source (georefMode · georefLamp) — only the shape differs, because the desktop
-   instrument is one row of chrome and a tinted block would turn it into a panel.
+   status row, same source (georefMode · georefLamp) — only the shape differs, because the
+   desktop instrument is one row of chrome and a tinted block would turn it into a panel.
    ⚠️ The `-strong` tones, never the bare ones: this is TEXT on a light surface by day and on a
    dark one at night, which is exactly the pair those tokens exist for (01-tokens.css). Bare
    --red on white is 4.0:1 at 11.5px — not enough for the one line carrying the warning. */
@@ -161,70 +170,106 @@
   border-color: var(--blue);
 }
 
-/* ── the Ampel ──────────────────────────────────────────────────────────────────────────── */
-/* ⚠️ It is a READING, not a control, and it is up for the whole mode. The bar used to count
-   pairs («2 Paare») — a number nobody can have an opinion about — while the sentence that says
-   whether two is enough («zwei lösen exakt, erst der dritte misst») sat in the Passung panel,
-   one tap away: precisely where somebody about to stop at two will never look. Tone carries the
-   verdict, the head carries the count, the body carries what the next point buys.
-   Colours through tokens, never a frozen rgba — day and night both have to be right. */
-.lamp {
-  display: flex; align-items: flex-start; gap: 9px;
-  padding: 8px 10px; border-radius: var(--r-sm);
-  font: 500 11.5px/1.4 var(--body);
-}
-.lampDot { width: 10px; height: 10px; border-radius: 50%; flex: none; margin-top: 3px; }
-.lampText { min-width: 0; }
-.lampText b { display: block; font: 700 12.5px var(--body); }
-.lampText i { display: block; font-style: normal; margin-top: 1px; opacity: .88; }
-/* ⚠️ --red / --amber / --green, NEVER --accent. --accent is the station's own brand colour and
-   means «Alarm» everywhere in this app; a georeference is a state of a drawing, not an alarm. */
-.lamp_red { background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--ink); }
-.lamp_red .lampDot { background: var(--red); }
-.lamp_amber { background: color-mix(in srgb, var(--amber) 14%, transparent); color: var(--ink); }
-.lamp_amber .lampDot { background: var(--amber); }
-.lamp_green { background: color-mix(in srgb, var(--green) 11%, transparent); color: var(--ink); }
-.lamp_green .lampDot { background: var(--green); }
 /* the desktop instrument has no room for a band, so its existing pulse dot carries the tone.
-   Green stops pulsing: the fit is measured, there is nothing left to ask for. */
+   Green stops pulsing: the fit is measured, there is nothing left to ask for.
+   ⚠️ --red / --amber / --green, NEVER --accent. --accent is the station's own brand colour and
+   means «Alarm» everywhere in this app; a georeference is a state of a drawing, not an alarm. */
 .dot_red { background: var(--red); }
 .dot_amber { background: var(--amber); }
 .dot_green { background: var(--green); animation: none; }
 
-/* ── the example ────────────────────────────────────────────────────────────────────────── */
-/* «Markanter Punkt» is a phrase nobody reads twice; 52×40 px of drawing says «the corner, not
-   the wall» without a word. Drawn, not photographed — a photo of one station's house teaches
-   that house. Tokens again, so it is not a white card on a night screen. */
-.example { width: 60px; height: 40px; flex: none; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); }
-/* the hairline between the two halves — they are two pictures of ONE place, not two examples */
-.exSeam { stroke: var(--glass-edge); stroke-width: 1; stroke-dasharray: 2 2; }
-.exPaper { fill: var(--board-bg); }
-.exGround { fill: color-mix(in srgb, var(--green) 12%, var(--board-bg)); }
-.exWall { fill: none; stroke: var(--ink-faint); stroke-width: 2.4; }
-.exRoad { stroke: var(--surface); stroke-width: 6; }
-.exHouse { fill: color-mix(in srgb, var(--ink) 12%, transparent); stroke: var(--ink-faint); stroke-width: .8; }
-.exMark { fill: none; stroke: var(--blue); stroke-width: 1.8; }
-
-/* the instruction: picture, heading, and the lesson one tap away */
-.say { display: flex; align-items: center; gap: 10px; }
-/* ⚠️ The (i) is a 44px target that LOOKS like nothing — no box, no fill. It carries the one
-   thing on this card that is teaching rather than instruction, and teaching may not take three
-   lines of room from somebody placing their fifth point. Sticky while open (GeorefModeBars):
-   whoever opened it is having trouble, and snapping it shut per point would be the app deciding
-   they had learned. */
-.explainBtn {
-  flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
+/* ── the status line ────────────────────────────────────────────────────────────────────── */
+/* ⚠️ It is a READING, not a control, and it is up for the whole mode: the Ampel head, the
+   per-surface counts, and — because the amber cross saying so may stand on the surface a phone
+   is not showing — the one open half NAMED. The quality detail and the (instruction-shaped)
+   warning live behind the (i); the amber dot is what makes the fold findable without being
+   open. Colours through tokens, never a frozen rgba — day and night both have to be right. */
+.statusRow { display: flex; align-items: center; gap: 9px; min-height: 24px; }
+.sdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.sdot_red { background: var(--red); }
+.sdot_amber { background: var(--amber); }
+.sdot_green { background: var(--green); }
+.stext { min-width: 0; flex: 1 1 auto; }
+.stext b { display: block; font: 700 13px var(--body); color: var(--ink); }
+.stext i {
+  display: block; font-style: normal; font: 500 11.5px/1.35 var(--body);
+  color: var(--ink-dim); margin-top: 1px;
+}
+/* the (i): a 44px target that LOOKS like nothing — no box, no fill. Sticky while open
+   (GeorefModeBars): whoever opened it is deciding whether the fit can be trusted, and snapping
+   it shut after every point would be the app deciding they were done reading. */
+.infoBtn {
+  flex: none; width: var(--tap); height: var(--tap); margin: -10px -8px -10px 0;
+  display: grid; place-items: center;
   border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm);
 }
-.explainBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.explainBtn svg { width: 19px; height: 19px; }
-.explainOn { color: var(--blue); background: color-mix(in srgb, var(--blue) 11%, transparent); }
-.sayText { min-width: 0; }
-.sayText b { display: block; font: 700 13.5px/1.3 var(--body); color: var(--ink); }
-.sayText i {
-  display: block; font-style: normal; font: 500 11.5px/1.35 var(--body);
-  color: var(--ink-dim); margin-top: 2px;
+.infoBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.infoBtn svg { width: 19px; height: 19px; }
+.infoOn { color: var(--blue); background: color-mix(in srgb, var(--blue) 11%, transparent); }
+/* the folded-out quality detail: pair count, claimable ⌀, one sentence of what to DO next */
+.qfold {
+  border-radius: var(--r-sm); background: var(--fill-soft); padding: 9px 10px;
+  font: 500 11.5px/1.45 var(--body); color: var(--ink-dim);
 }
+.qrow {
+  display: flex; justify-content: space-between; gap: 12px;
+  font: 600 12px var(--body); color: var(--ink); margin-bottom: 5px;
+}
+.qrow strong { font: 700 12px var(--mono); }
+/* the one line of guidance under «Punkt setzen» — where the button acts, nothing more */
+.subline {
+  font: 500 11.5px/1.4 var(--body); color: var(--ink-dim); text-align: center; margin-top: -3px;
+}
+
+/* ── the marker popover ─────────────────────────────────────────────────────────────────── */
+/* The visible replacement for the old invisible «picked up» state: a tapped cross gets a halo
+   and this card — Verschieben / Punkt löschen / Behalten — instead of silently arming a mode
+   whose only exits were Esc, delete, or re-placing the point. On the map it rides a Marker; on
+   the plan `.popAnchor` fixes it over the cross and follows per frame (PlanMarkerPopover). */
+.popAnchor {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  margin-top: -20px;
+  z-index: var(--z-mode-pill);
+}
+.popAnchor.popBelow { transform: translate(-50%, 0); margin-top: 22px; }
+.pop {
+  background: var(--surface);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-ctl);
+  box-shadow: var(--shadow);
+  padding: 8px;
+  min-width: 200px;
+  max-width: min(78vw, 260px);
+}
+.popHead {
+  display: flex; gap: 6px; align-items: baseline;
+  padding: 2px 6px 7px; font: 700 12px var(--body); color: var(--ink); white-space: nowrap;
+}
+.popHead i { font: 500 11px var(--body); font-style: normal; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
+.popActs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.popActs button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: var(--tap); border-radius: var(--r-sm); border: 1px solid var(--border);
+  background: var(--surface); font: 700 12.5px var(--body); color: var(--ink); cursor: pointer;
+}
+@media (hover: hover) { .popActs button:hover { background: var(--fill-soft); } }
+.popActs button:active { background-image: linear-gradient(var(--press), var(--press)); }
+.popActs svg { width: 15px; height: 15px; }
+/* red never fills — it marks the destructive choice apart from the harmless one beside it */
+.popWarn { color: var(--red-strong); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.popActs button.popWarn { color: var(--red-strong); }
+/* how an OPEN half becomes a pair by hand — one quiet line, only where it applies */
+.popHint {
+  padding: 7px 6px 2px; font: 500 11px/1.35 var(--body); color: var(--ink-dim);
+}
+/* the do-nothing exit, full width and quiet: Esc must never be the only way out on touch */
+.popKeep {
+  width: 100%; min-height: 38px; margin-top: 6px; border: 0; border-radius: var(--r-sm);
+  background: transparent; font: 600 12.5px var(--body); color: var(--ink-dim); cursor: pointer;
+}
+@media (hover: hover) { .popKeep:hover { background: var(--fill-soft); } }
+.popKeep:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ── the quiet row ──────────────────────────────────────────────────────────────────────── */
 /* ⚠️ NOTHING here is the same weight as «Punkt setzen». «Zurücksetzen» used to sit a thumb's
@@ -440,9 +485,9 @@
   /* «Deckung prüfen» keeps the old two-up action row — it is its own one-line mode. */
   .bar .acts { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bar .acts > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  /* ⚠️ 54px and alone on its row. It is the only thing on this card that ADDS something, and
-     it names the point it is about to set — «Punkt 3 setzen», not «Punkt setzen», so the count
-     is on the button somebody is actually looking at. */
+  /* ⚠️ 54px and alone on its row. It is the only thing on this card that ADDS something.
+     Deliberately WITHOUT a number: the button acts on the visible surface and the pairing
+     decides the number, so a printed one would occasionally lie (copy · georef.placePoint). */
   .bar .placeAction {
     width: 100%; min-height: 48px; border-radius: var(--r-sm);
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -499,15 +544,13 @@
      under the finger and read as a second drag surface; an inset in the empty corner is
      neither, and it is the only way to see what the reticle is actually on. */
   .loupe { display: block; }
-  /* ⚠️ A phone TURNED SIDEWAYS is ~400px tall and this card is five bands. The two parts that
-     teach — the example thumbnail and the Ampel's «why» line — are the ones a second run no
-     longer needs, so they are what goes; the reading, the instruction and the actions stay.
-     (The lamp's body remains readable as the row's title attribute for a pointer device.) */
+  /* ⚠️ A phone TURNED SIDEWAYS is ~400px tall and this card is five bands. What goes is the
+     teaching — the status sub-line and the free-order helper — while the reading, the switch
+     and the actions stay. The open-half sentence is still one (i) away in the fold. */
   @media (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
     .bar { gap: 6px; }
-    .bar .example { display: none; }
-    .bar .lampText i { display: none; }
-    .bar .sayText i:last-child { display: none; }
+    .bar .stext i { display: none; }
+    .bar .subline { display: none; }
     .surfaceSwitch { height: auto; }
     .surfaceSwitch button { min-height: 38px; }
     /* ⚠️ the ACTIONS keep their 44px here too — a landscape phone is still a gloved thumb.

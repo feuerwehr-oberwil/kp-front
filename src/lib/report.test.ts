@@ -16,8 +16,11 @@ vi.mock('./deploymentConfig', () => ({
 import {
   annotatedPlans,
   changedReportMetaFields,
+  changedReportMetaLines,
   einsatzleiterFromScene,
+  einsatzleiterSuccession,
   eventIso,
+  normalizeReportMeta,
   hasVisiblePlanAnnotation,
   journalArea,
   journalDisc,
@@ -718,13 +721,28 @@ describe('Partnerorganisationen in the Verlauf', () => {
   const lines = (before: unknown, after: unknown) =>
     changedReportMetaFields({ partnerContacts: before } as never, { partnerContacts: after } as never)
 
-  it('logs the remark an organisation arrives with, not just the arrival', () => {
-    // …both lines; the caller decides the order they land in the Verlauf (each becomes its own
-    // row with its own clock, so it is the timestamps that order them, not this array)
-    expect(lines([], [{ org: 'Sanität', note: 'avisiert, ETA 20 min' }]).sort()).toEqual([
+  it('logs an arrival WITH its remark as one merged statement — one tap, one event', () => {
+    // …used to be two lines, which read as two events; the remark is part of the arrival
+    expect(lines([], [{ org: 'Sanität', note: 'avisiert, ETA 20 min' }])).toEqual([
+      'Partnerorganisation Sanität ergänzt – Bemerkung: avisiert, ETA 20 min',
+    ])
+  })
+
+  it('keeps a remark-less arrival on the bare template', () => {
+    expect(lines([], [{ org: 'Polizei' }])).toEqual(['Partnerorganisation Polizei ergänzt'])
+  })
+
+  it('orders a mixed edit as it happened: adds, then remark changes, then removals', () => {
+    // the split form — the one-array wrapper re-sorts everything for its single row
+    const before = [{ org: 'Polizei', note: 'Zufahrt' }, { org: 'Werkhof' }]
+    const after = [{ org: 'Polizei', note: 'Zufahrt gesperrt' }, { org: 'Sanität' }]
+    const { statements } = changedReportMetaLines(
+      { partnerContacts: before } as never, { partnerContacts: after } as never)
+    expect(statements).toEqual([
       'Partnerorganisation Sanität ergänzt',
-      'Partnerorganisation Sanität – Bemerkung: avisiert, ETA 20 min',
-    ].sort())
+      'Partnerorganisation Polizei – Bemerkung: Zufahrt gesperrt',
+      'Partnerorganisation Werkhof entfernt',
+    ])
   })
 
   it('logs a remark that was cleared — the one edit that used to leave no trace', () => {
@@ -735,5 +753,138 @@ describe('Partnerorganisationen in the Verlauf', () => {
   it('says nothing when nothing about the remark changed', () => {
     const same = [{ org: 'Polizei', note: 'Strasse gesperrt' }]
     expect(lines(same, [{ ...same[0] }])).toEqual([])
+  })
+})
+
+// The split form: scalar fields keep their alphabetical one-row shape, but the structured
+// blocks' sentences come back separately and in DIFF order, so a caller can give each its own
+// Verlauf row instead of alphabetising three statements into one.
+describe('changedReportMetaLines (fields vs statements)', () => {
+  const base = { einsatzleiter: 'Widmer Céline' } as Parameters<typeof changedReportMetaLines>[0]
+
+  it('separates scalar fields from standalone statements', () => {
+    const out = changedReportMetaLines(base, {
+      ...base,
+      einsatzleiter: 'Meier Hans',
+      partnerContacts: [{ org: 'Polizei' }],
+    })
+    expect(out.fields).toEqual(['Einsatzleiter «Meier Hans»'])
+    expect(out.statements).toEqual(['Partnerorganisation Polizei ergänzt'])
+  })
+
+  it('keeps statements in diff order, never alphabetical', () => {
+    const before = { ...base, partnerContacts: [{ org: 'Ambulanz' }] }
+    const after = { ...base, partnerContacts: [{ org: 'Werkhof' }] }
+    // alphabetically «Ambulanz entfernt» would come first — the diff puts the arrival first
+    expect(changedReportMetaLines(before, after).statements).toEqual([
+      'Partnerorganisation Werkhof ergänzt',
+      'Partnerorganisation Ambulanz entfernt',
+    ])
+  })
+
+  it('the one-array wrapper is exactly the sorted union of the two lists', () => {
+    const next = {
+      ...base,
+      einsatzleiter: 'Meier Hans',
+      endedAt: '2026-08-29T14:00:00Z',
+      partnerContacts: [{ org: 'Werkhof' }],
+      gerettete: { personen: 1 },
+    }
+    const split = changedReportMetaLines(base, next)
+    expect(changedReportMetaFields(base, next))
+      .toEqual([...split.fields, ...split.statements].sort((x, y) => x.localeCompare(y, 'de')))
+  })
+})
+
+// «Entfällt» and a value are two answers to the same question — the flag has to fall the moment
+// the answer arrives, or the record says «there is nobody to name — here is her name».
+describe('normalizeReportMeta («entfällt» clears when the answer arrives)', () => {
+  it('falses a standing kontaktpersonNone when a name arrives — so the Widerruf is logged', () => {
+    const out = normalizeReportMeta({ kontaktperson: 'Huber Res' }, { kontaktpersonNone: true })
+    expect(out).toEqual({ kontaktperson: 'Huber Res', kontaktpersonNone: false })
+  })
+
+  it('…and when only the phone arrives', () => {
+    const out = normalizeReportMeta({ kontaktpersonTelefon: '079 111 22 33' }, { kontaktpersonNone: true })
+    expect(out.kontaktpersonNone).toBe(false)
+  })
+
+  it('drops a flag the same patch tries to raise beside its value — nothing to widerrufen', () => {
+    const out = normalizeReportMeta({ kontaktperson: 'Huber Res', kontaktpersonNone: true }, {})
+    expect(out).toEqual({ kontaktperson: 'Huber Res' })
+  })
+
+  it('clears rueckmeldungNone when the ELZ Rückmeldung gets a name or a time', () => {
+    expect(normalizeReportMeta({ rueckmeldungElz: { name: 'Widmer Céline' } }, { rueckmeldungNone: true }))
+      .toEqual({ rueckmeldungElz: { name: 'Widmer Céline' }, rueckmeldungNone: false })
+    expect(normalizeReportMeta({ rueckmeldungElz: { at: '2026-08-29T14:12:00Z' } }, { rueckmeldungNone: true }).rueckmeldungNone)
+      .toBe(false)
+  })
+
+  it('clears mittelConfirmedNone once the Mittel list carries a row', () => {
+    expect(normalizeReportMeta({}, { mittelConfirmedNone: true }, { mittelCount: 1 }))
+      .toEqual({ mittelConfirmedNone: false })
+    // no rows yet — the confirmed «keine» stands
+    expect(normalizeReportMeta({}, { mittelConfirmedNone: true }, { mittelCount: 0 }))
+      .toEqual({})
+  })
+
+  it('leaves an unrelated patch untouched — same reference, so callers can no-op cheaply', () => {
+    const patch = { summary: 'Brand im Keller' }
+    expect(normalizeReportMeta(patch, { kontaktpersonNone: true })).toBe(patch)
+  })
+
+  it('does not resurrect a flag that was never set (a false would log a phantom Widerruf)', () => {
+    const out = normalizeReportMeta({ kontaktperson: 'Huber Res' }, {})
+    expect('kontaktpersonNone' in out).toBe(false)
+  })
+})
+
+// The rapport field only holds the LATEST Einsatzleiter; the Verlauf holds every one that was
+// named. This reads the succession back out of the rows both writers (tablet + QR poster) quote
+// the name into.
+describe('einsatzleiterSuccession (who led, since when)', () => {
+  // newest-first, like the Verlauf array everywhere else in the app
+  const row = (id: string, at: string, text: string): TimelineEvent =>
+    ({ id, t: at.slice(11, 16), at, icon: 'clipboard', text })
+
+  it('reads the handover out of the Rapportangaben rows, oldest first', () => {
+    const events = [
+      row('e3', '2026-08-29T14:20:00.000Z', 'Rapportangaben: Einsatzleiter «Meier Hans»'),
+      row('e2', '2026-08-29T13:10:00.000Z', 'Notiz ohne Bezug'),
+      row('e1', '2026-08-29T12:00:00.000Z', 'Rapportangaben: Einsatzleiter «Widmer Céline»'),
+    ]
+    expect(einsatzleiterSuccession(events)).toEqual([
+      { name: 'Widmer Céline', fromTs: '2026-08-29T12:00:00.000Z' },
+      { name: 'Meier Hans', fromTs: '2026-08-29T14:20:00.000Z' },
+    ])
+  })
+
+  it('folds a re-save of the same name — that is bookkeeping, not a handover', () => {
+    const events = [
+      row('e2', '2026-08-29T13:00:00.000Z', 'Rapportangaben: Einsatzleiter «Widmer Céline», Einsatzende «29.08.2026 13:00»'),
+      row('e1', '2026-08-29T12:00:00.000Z', 'Rapportangaben: Einsatzleiter «Widmer Céline»'),
+    ]
+    expect(einsatzleiterSuccession(events)).toEqual([
+      { name: 'Widmer Céline', fromTs: '2026-08-29T12:00:00.000Z' },
+    ])
+  })
+
+  it('keeps a RETURN of an earlier name — that IS a handover', () => {
+    const events = [
+      row('e3', '2026-08-29T15:00:00.000Z', 'Rapportangaben: Einsatzleiter «Widmer Céline»'),
+      row('e2', '2026-08-29T14:00:00.000Z', 'Rapportangaben: Einsatzleiter «Meier Hans»'),
+      row('e1', '2026-08-29T12:00:00.000Z', 'Rapportangaben: Einsatzleiter «Widmer Céline»'),
+    ]
+    expect(einsatzleiterSuccession(events).map((s) => s.name))
+      .toEqual(['Widmer Céline', 'Meier Hans', 'Widmer Céline'])
+  })
+
+  it('ignores rows that only mention the word, and cleared fields', () => {
+    const events = [
+      row('e2', '2026-08-29T13:00:00.000Z', 'Rapportangaben: Einsatzleiter geleert'),
+      row('e1', '2026-08-29T12:00:00.000Z', 'Einsatzleiter noch nicht bestimmt'),
+    ]
+    expect(einsatzleiterSuccession(events)).toEqual([])
   })
 })

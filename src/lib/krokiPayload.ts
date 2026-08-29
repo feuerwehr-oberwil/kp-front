@@ -10,7 +10,7 @@ import { isVehicleSym } from './mapView'
 import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { LUEFTER, LUEFTER_EXTRACT, compositeSpec, compositePartGlyph, composeCompositeSvg, isHubretter, composeHubretterSvg } from './symbolRender'
-import { SHAPE_DEFS } from './shapes'
+import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { operationalExtentPoints, type KrokiView } from './report'
 import { resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
@@ -30,6 +30,9 @@ export interface KrokiEntityOut {
   spread?: Entity['spread']
   caption?: string
   sizeM?: number
+  /** generic shapes: height/width ratio of the glyph box (absent = 1). ⚠️ Mirrored in
+   *  backend/app/report_pdf.py · KrokiEntityIn — a field pydantic doesn't know is dropped. */
+  aspect?: number
   color?: string
   // note styling — noteW is what makes a note a wrapping text box, so the sheet breaks the
   // lines where the screen did. Absent on every other kind, and absent on legacy notes.
@@ -72,11 +75,17 @@ export interface KrokiPayloadOut {
 export const krokiSymbolMul = (zoom: number): number =>
   Math.max(0.85, 1 - Math.max(0, zoom - 17) * 0.1)
 
-/** The same silhouettes as lib/shapes.tsx ShapeGlyph, as plain SVG strings for resvg. */
-export function shapeSvgString(kind: ShapeKind, color: string): string {
+/** The same silhouettes as lib/shapes.tsx ShapeGlyph, as plain SVG strings for resvg.
+ *  `stop` (arrow only) adds the «→|» Stopp-Balken across the tip — identical artwork to the
+ *  live glyph, so the print says exactly what the screen said. */
+export function shapeSvgString(kind: ShapeKind, color: string, stop = false): string {
   const open = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">'
   if (kind === 'arrow') {
-    return `${open}<path d="M50 6 L80 50 L60 50 L60 94 L40 94 L40 50 L20 50 Z" fill="${color}" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg>`
+    const bar = stop
+      ? '<path d="M14 7 L86 7" stroke="#fff" stroke-width="11" stroke-linecap="round"/>'
+        + `<path d="M14 7 L86 7" stroke="${color}" stroke-width="6" stroke-linecap="round"/>`
+      : ''
+    return `${open}<path d="M50 6 L80 50 L60 50 L60 94 L40 94 L40 50 L20 50 Z" fill="${color}" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>${bar}</svg>`
   }
   if (kind === 'square') {
     return `${open}<rect x="6" y="6" width="88" height="88" rx="6" fill="${color}" fill-opacity="0.18" stroke="${color}" stroke-width="5"/></svg>`
@@ -107,7 +116,13 @@ export function krokiEntity(e: Entity, byName: Record<string, string>, captionMo
   if (e.kind === 'shape') {
     const kind = e.shape ?? 'square'
     const color = e.color ?? SHAPE_DEFS[kind].defaultColor
-    return { ...base, symbolSvg: shapeSvgString(kind, color), sizeM: e.sizeM ?? SHAPE_DEFS[kind].defaultSizeM }
+    const aspect = shapeAspect(kind, e.aspect)
+    return {
+      ...base,
+      symbolSvg: shapeSvgString(kind, color, kind === 'arrow' && !!e.stop),
+      sizeM: e.sizeM ?? SHAPE_DEFS[kind].defaultSizeM,
+      aspect: aspect !== 1 ? aspect : undefined,
+    }
   }
   // live vehicles carry their resolved glyph already (name + heading baked in — upright text)
   if (e.symbolSvg) return { ...base, symbolSvg: e.symbolSvg, rotation: undefined }

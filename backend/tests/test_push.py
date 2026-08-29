@@ -206,7 +206,8 @@ async def test_killed_app_sweep_pushes_confirmed_pressure_with_station_threshold
             "title": "Alarmdruck erreicht – Angriff 1",
             "body": "130 bar, Grenze 140 bar – Rückzug anordnen.",
             "tag": "atemschutz-a",
-            "target": "atemschutz",
+            # the target carries the Trupp id so the tapped notification lands on the card
+            "target": "atemschutz:a",
         }
     ]
     # Same confirmed reading is one crossing, not a new push on every 30 s sweep.

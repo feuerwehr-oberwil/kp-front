@@ -94,13 +94,16 @@ describe('the «Karte verknüpfen» chip', () => {
     expect(screen.queryByText(/aus 2 Punkten/)).toBeNull()
   })
 
-  it('uses the finished georeference as a non-interactive scale status', () => {
+  // «Ref. auto» is a reading, not a second calibration path — but a TAPPABLE one (29.08.): the
+  // hover title never fires on the field iPad, so the chip explains itself the way «Verknüpft»
+  // does, by opening the Passung. What it must never do is arm the manual scale calibration.
+  it('uses the finished georeference as a scale reading that opens the Passung', () => {
     store.pairs = TWO
     renderBoard()
-    const status = screen.getByRole('status')
-    expect(status.textContent).toContain('Ref. auto')
-    expect(status.getAttribute('title')).toContain('Ref. automatisch')
-    expect(screen.getByText('Ref. auto').closest('button')).toBeNull()
+    const chip = screen.getByRole('button', { name: /Ref\. auto/ })
+    expect(chip.getAttribute('title')).toContain('Ref. automatisch')
+    fireEvent.click(chip)
+    expect(screen.getByText('Passung')).toBeTruthy()
     expect(screen.queryByText('Zwei Punkte des Massstabs antippen')).toBeNull()
   })
 
@@ -131,8 +134,9 @@ describe('the «Karte verknüpfen» chip', () => {
     renderBoard()
     fireEvent.click(screen.getByRole('button', { name: /Karte verknüpfen/ }))
     expect(georefSnapshot().planId).toBe('modul2')
-    // the instruction has taken the chip's place — ONE indicator, where the finger already was
-    expect(screen.getByText('Punkt 1 · Plan')).toBeTruthy()
+    // the instruction has taken the chip's place — ONE indicator, where the finger already was.
+    // The free-order sentence IS the instruction now: no per-point prompt, no fixed order.
+    expect(screen.getByText(/Dieselbe Stelle auf Modul und Karte antippen/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Karte verknüpfen/ })).toBeNull()
     // ⚠️ «Schliessen», NOT «Abbrechen». Points are saved as they are placed, so leaving the mode
     // discards nothing — the word that promised otherwise is the bug this pins (27.08.).
@@ -239,7 +243,7 @@ describe('an idle georeference never intercepts the board', () => {
 
     act(() => georefDispatch({ type: 'check', on: false }))
     act(() => georefDispatch({ type: 'planTap', pt: { x: 0.4, y: 0.4 } }))
-    expect(georefSnapshot().queue).toHaveLength(1)
+    expect(georefSnapshot().slots.filter((sl) => !sl.map)).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Deckung prüfen' })).toBeTruthy()
   })
 })
@@ -266,18 +270,17 @@ describe('the phone can start a pair on either surface', () => {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
       const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.45, y: 0.35 }))
       render(<GeorefModeBars planLabel="Modul 2" />)
-      fireEvent.click(screen.getByRole('button', { name: 'Punkt 1 setzen' }))
-      expect(georefSnapshot().queue).toEqual([{ x: 0.45, y: 0.35 }])
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      expect(georefSnapshot().slots).toEqual([{ plan: { x: 0.45, y: 0.35 }, kind: 'gesetzt' }])
       unregister()
     } finally {
       window.matchMedia = previous
     }
   })
 
-  // ⚠️ The lesson is behind the (i), and only the lesson. By point five «eine Stelle, die auf
-  // beiden Bildern sicher wiederzufinden ist …» is three lines of prose standing between the
-  // operator and the buttons — but a first-timer must still be able to ask for it.
-  it('keeps the landmark lesson behind the (i), and the picture beside the heading', () => {
+  // ⚠️ The quality detail is behind the (i) — the status line stays one line, and the folded
+  // card carries the pair count, the claimable ⌀ and the one instruction-shaped sentence.
+  it('keeps the quality detail behind the (i), sticky once opened', () => {
     const previous = window.matchMedia
     window.matchMedia = ((q: string) => ({
       matches: q === PHONE_QUERY, media: q, onchange: null,
@@ -286,12 +289,10 @@ describe('the phone can start a pair on either surface', () => {
     try {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
       render(<GeorefModeBars planLabel="Modul 2" />)
-      expect(screen.queryByText(/auf beiden Bildern sicher wiederzufinden/)).toBeNull()
-      // the drawing stays — it is the reminder the collapsed card is built around
-      expect(screen.getByRole('img', { name: /dieselbe Hausecke/ })).toBeTruthy()
+      expect(screen.queryByText('Zwei Punkte legen den Plan auf die Karte.')).toBeNull()
 
-      fireEvent.click(screen.getByRole('button', { name: 'Was ist ein guter Punkt?' }))
-      expect(screen.getByText(/auf beiden Bildern sicher wiederzufinden/)).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Details zur Passung' }))
+      expect(screen.getByText('Zwei Punkte legen den Plan auf die Karte.')).toBeTruthy()
     } finally {
       window.matchMedia = previous
     }
@@ -311,7 +312,7 @@ describe('the phone can start a pair on either surface', () => {
       render(<GeorefModeBars planLabel="Modul 2" />)
       // …and adding a fourth is still there, one tap away, simply not what is being asked for
       const finish = screen.getByRole('button', { name: 'Fertig' })
-      const add = screen.getByRole('button', { name: 'Punkt 4 setzen' })
+      const add = screen.getByRole('button', { name: 'Punkt setzen' })
       expect(finish.className).toContain('primary')
       expect(add.className).not.toContain('primary')
     } finally {
@@ -332,8 +333,8 @@ describe('the phone can start a pair on either surface', () => {
       fireEvent.click(within(switcher).getByRole('button', { name: 'Karte' }))
       expect(georefSnapshot().want).toBe('map')
       const unregister = registerGeorefPhoneTarget('map', () => ({ lng: 7.5, lat: 47.5 }))
-      fireEvent.click(screen.getByRole('button', { name: 'Punkt 1 setzen' }))
-      expect(georefSnapshot().mapQueue).toEqual([{ lng: 7.5, lat: 47.5 }])
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      expect(georefSnapshot().slots).toEqual([{ map: { lng: 7.5, lat: 47.5 }, kind: 'gesetzt' }])
       unregister()
     } finally {
       window.matchMedia = previous
@@ -362,7 +363,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
     const { capture } = arm()
     fireEvent.pointerDown(capture, at(400, 300))
     fireEvent.pointerUp(capture, at(401, 301))
-    expect(georefSnapshot().queue).toEqual([{ x: 401 / 800, y: 301 / 600 }])
+    expect(georefSnapshot().slots).toEqual([{ plan: { x: 401 / 800, y: 301 / 600 }, kind: 'gesetzt' }])
     // ⚠️ NOT 'map'. The mode used to send the phone to the map after every single plan tap;
     // the queue is what replaced that, and the hop is a button now (copy · georef.goMap).
     expect(georefSnapshot().want).toBe('plan')
@@ -378,8 +379,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
       const { capture } = arm()
       fireEvent.pointerDown(capture, at(400, 300))
       fireEvent.pointerUp(capture, at(400, 300))
-      expect(georefSnapshot().queue).toEqual([])
-      expect(screen.queryByText(/Punkt \d+ setzen/)).toBeNull() // app-shell action tested separately
+      expect(georefSnapshot().slots).toEqual([])
     } finally {
       cleanup()
       window.matchMedia = previous
@@ -391,7 +391,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
     fireEvent.pointerDown(capture, at(400, 300))
     for (const x of [430, 520, 640, 700, 520, 400]) fireEvent.pointerMove(capture, at(x, 300))
     fireEvent.pointerUp(capture, at(400, 300))
-    expect(georefSnapshot().queue).toEqual([])
+    expect(georefSnapshot().slots).toEqual([])
     expect(georefSnapshot().planId).toBe('modul2') // …and the mode is still armed
   })
 
@@ -401,7 +401,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
     fireEvent.pointerDown(capture, { pointerId: 2, clientX: 500, clientY: 300 })
     fireEvent.pointerUp(capture, { pointerId: 2, clientX: 500, clientY: 300 })
     fireEvent.pointerUp(capture, at(400, 300))
-    expect(georefSnapshot().queue).toEqual([])
+    expect(georefSnapshot().slots).toEqual([])
   })
 
   it('places point after point without re-arming — the third one has to be cheap', () => {
@@ -409,7 +409,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
     for (const x of [200, 600, 400]) {
       fireEvent.pointerDown(capture, at(x, 300))
       fireEvent.pointerUp(capture, at(x, 300))
-      expect(georefSnapshot().queue).toHaveLength(1)
+      expect(georefSnapshot().slots.filter((sl) => !sl.map)).toHaveLength(1)
       // the map half of the pair, dispatched the way the map surface would
       georefDispatch({ type: 'mapTap', lngLat: { lng: 7.5 + x / 100000, lat: 47.5 } })
     }
@@ -421,6 +421,6 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
     const { capture } = arm()
     fireEvent.pointerDown(capture, at(900, 300))
     fireEvent.pointerUp(capture, at(900, 300))
-    expect(georefSnapshot().queue).toEqual([])
+    expect(georefSnapshot().slots).toEqual([])
   })
 })

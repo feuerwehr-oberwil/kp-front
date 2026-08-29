@@ -14,41 +14,63 @@
  *  So the state lives outside React, both surfaces subscribe to it, and the persistence lives
  *  here too — the save must not be the responsibility of a component that may not be alive.
  *
- *  ## The machine
+ *  ## The machine: numbered SLOTS, not queues
  *
- *  Three flags carry the whole mode:
- *    `planId`  — set ⇒ the mode is armed on that plan. null ⇒ off.
- *    `queue`   — plan points waiting for their map counterpart, OLDEST FIRST.
- *    `edit`    — one half of an EXISTING pair was picked up and is being re-placed. Replaces,
- *                never appends (see georef · replacePair).
- *  `want` says which surface has to be in front of the operator; the phone follows it, the
- *  tablet/desktop split ignores it because both halves are already visible.
+ *  `planId` set ⇒ the mode is armed on that plan; null ⇒ off. The points live in `slots`: one
+ *  slot per landmark, holding an optional plan half and an optional map half. Slot index + 1 is
+ *  the number BOTH surfaces print, so a mispairing is something the eye catches — the numbers on
+ *  the sheet and on the map either agree or they visibly don't.
  *
- *  ## Why a QUEUE and not one open half
+ *  ⚠️ Until 29.08. the two halves were two implicit FIFO queues and a tap on the far surface
+ *  always completed the OLDEST open half — order was the pairing. That silently welded together
+ *  halves the operator never meant as one landmark, and the only fix was delete-and-redo. Now
+ *  the pairing is `settleSlots`: while the geometry says nothing (fewer than three measured
+ *  pairs) halves still merge conservatively in capture order — the natural walk-the-plan flow is
+ *  untouched — but once a credible fit stands, a new half only merges with the open half it
+ *  actually LANDS ON under that fit. Halves that match nothing stay open, amber, on either or
+ *  both surfaces, until their true partner arrives («set somewhat random points on both places;
+ *  when they match we're good»). On top of that, `rematchPairs` (lib/georef) re-deals a
+ *  completed set whose assignment is clearly wrong and clearly fixable — except slots the
+ *  operator paired BY HAND (`fixed`), which survive every automatic re-deal.
  *
- *  ⚠️ Until 26.08. the mode enforced strict alternation: one plan point, then its map point,
- *  then the next. On a phone that is a surface hop per HALF pair — plan, map, plan, map — and
- *  the operator is thrown off the sheet mid-thought every time. The natural way to work is to
- *  walk the plan and mark the corners you recognise (1, 2, 3 …), then go to the map once and
- *  match them in the same order. So plan taps QUEUE, and a map tap always completes the OLDEST
- *  open point — which makes strict alternation a special case of the queue (one in, one out)
- *  rather than a rule, and it still feels exactly as it did.
+ *  A half without a counterpart is not a pair and never persists: only `pairs` (the complete
+ *  slots, derived) is saved. «Fertig» keeps every complete pair and drops the open halves.
  *
- *  A queued point is not a pair and never persists: «Abbrechen» drops the open ones and keeps
- *  every pair that is complete.
+ *  ## Selection, not a modal pick
  *
- *  The mode stays armed after a completed pair on purpose — the third point is what turns
- *  «aus 2 Punkten» into a measured residual, and it has to be cheap to add.
+ *  Tapping a cross SELECTS it (`sel`): a halo plus a small popover — Verschieben / Punkt löschen
+ *  / Behalten. Nothing goes inert while something is selected; tapping beside the popover simply
+ *  puts it away. Only «Verschieben» (`move`) arms a re-place, and even that owns nothing but its
+ *  own surface: the next tap THERE re-places the half, taps on the other surface still place
+ *  points, and Esc/«Behalten» put the cross back down untouched.
  */
 import { useEffect, useRef, useSyncExternalStore } from 'react'
-import { BASELINE_WARN_M, rematchPairs, replacePair, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt } from './georef'
+import { BASELINE_WARN_M, fitSimilarity, rematchPairs, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt } from './georef'
 import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './stationPlanScale'
 import { useIsPhone } from './useIsPhone'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 
-/** Which surface the mode is waiting on. */
+/** Which surface a half (or the operator's attention) belongs to. */
 export type GeorefSide = 'plan' | 'map'
+
+/** One numbered landmark: complete once both halves stand. */
+export interface GeorefSlot {
+  /** the sheet half — absent while the point only exists on the map */
+  plan?: PlanPt
+  /** the map half — absent while the point only exists on the sheet */
+  map?: GeoPt
+  kind?: 'gesetzt' | 'korrigiert'
+  /** paired BY HAND (two halves tapped in sequence) — the automatic re-matcher and the
+   *  fit-guided merge must never re-deal an assignment the operator made explicitly */
+  fixed?: true
+}
+
+/** One half, addressed: the selected cross, or the one being re-placed. */
+export interface GeorefHalfRef {
+  idx: number
+  side: GeorefSide
+}
 
 export interface GeorefModeState {
   /** the plan being georeferenced — null means the mode is off */
@@ -56,17 +78,18 @@ export interface GeorefModeState {
   /** station-storage key for this concrete object's sheet. `planId` is only the reusable
    *  Modul slot; keeping both prevents Modul 2 of object A from overwriting Modul 2 of object B. */
   storageKey: string | null
-  /** the pairs as they stand this instant: every cross, the live fit and the chip read from here */
+  /** every numbered point, complete or half — slot index + 1 is the badge on both surfaces */
+  slots: GeorefSlot[]
+  /** DERIVED from `slots` on every change: the complete pairs in slot order. This is what the
+   *  fit solves from and the ONLY thing that persists. Identity-stable — the array only changes
+   *  when a complete pair actually changed, which is what the store's save trigger compares. */
   pairs: GeorefPair[]
-  /** plan points still waiting for their map counterpart, OLDEST FIRST — the next map tap
-   *  completes `queue[0]`. Discarded on cancel: half a pair is not a pair. */
-  queue: PlanPt[]
-  /** Map points placed before their plan counterparts, oldest first. Exactly one pending queue
-   *  is populated: a tap on the opposite surface completes the oldest numbered half. */
-  mapQueue: GeoPt[]
-  /** a cross was tapped: exactly THIS half is being re-placed. `pending` distinguishes an
-   *  unmatched half from a completed pair without changing the long-standing pair edit shape. */
-  edit: { idx: number; side: GeorefSide; pending?: true } | null
+  /** a cross was tapped: halo + popover (Verschieben / Punkt löschen / Behalten). Selection
+   *  makes NOTHING inert — a tap beside the popover puts it away, everything else still works. */
+  sel: GeorefHalfRef | null
+  /** «Verschieben» armed: the next tap on that half's own surface re-places it. The other
+   *  surface stays fully live; Esc / «Behalten» puts the cross back down unchanged. */
+  move: GeorefHalfRef | null
   /** the surface that must be in front of the operator (the phone hops to it) */
   want: GeorefSide
   /** the sheet's aspect (width / height) the fit is solved at, handed over when the mode is
@@ -92,60 +115,55 @@ export interface GeorefModeState {
   previewUrl: string | null
 }
 
-export const GEOREF_OFF: GeorefModeState = { planId: null, storageKey: null, pairs: [], queue: [], mapQueue: [], edit: null, want: 'plan', aspect: 1, check: false, checkReturn: null, returnToQuality: false, checkOpacity: 0.58, previewUrl: null }
+export const GEOREF_OFF: GeorefModeState = { planId: null, storageKey: null, slots: [], pairs: [], sel: null, move: null, want: 'plan', aspect: 1, check: false, checkReturn: null, returnToQuality: false, checkOpacity: 0.58, previewUrl: null }
 
 export type GeorefAction =
   | { type: 'start'; planId: string; storageKey?: string; pairs: GeorefPair[]; aspect: number; check?: boolean; returnToQuality?: boolean; previewUrl?: string | null }
-  /** «Fertig» / Esc / «Abbrechen» — every point still waiting for its map half is dropped */
+  /** «Fertig» / Esc / «Abbrechen» — every half still waiting for its counterpart is dropped */
   | { type: 'end' }
   /** Hard teardown after a parent return has been restored, or when its document disappeared. */
   | { type: 'dismiss' }
-  /** «Auf der Karte zuordnen» — the phone's explicit hop to the map, once points are queued.
-   *  ⚠️ The ONLY way there now: a hop per plan tap is what made the mode unusable one-handed. */
+  /** The phone's explicit surface hops — placement itself never navigates. */
   | { type: 'goMap' }
   | { type: 'goPlan' }
   | { type: 'planTap'; pt: PlanPt }
   | { type: 'mapTap'; lngLat: GeoPt }
-  /** a cross was tapped (not dragged): pick up that ONE half to re-place it */
-  | { type: 'pick'; idx: number; side: GeorefSide }
-  /** an unmatched cross was tapped: make that otherwise ephemeral half correctable/removable */
-  | { type: 'pickPending'; idx: number; side: GeorefSide }
-  /** «Punkt löschen» on a picked-up cross: drop that PAIR and refit from what is left */
-  | { type: 'removePair'; idx: number }
-  /** «Punkt löschen» on a picked-up unmatched half */
-  | { type: 'removePending'; idx: number; side: GeorefSide }
-  /** «Punkte zurücksetzen» in the armed bar: drop every pair but STAY armed */
-  | { type: 'clear' }
-  /** Esc / «Abbrechen» on a picked-up cross: PUT IT BACK DOWN, unchanged.
-   *  ⚠️ The only way out of `edit` that neither moves the point nor deletes it. Without it a
-   *  mis-tapped cross pins the operator to that one surface — `goMap`/`goPlan` both refuse while
-   *  `edit` is set, so on a phone the opposite-surface button is dead until the point is placed
-   *  somewhere or thrown away. */
+  /** a cross was tapped (not dragged): halo + popover. Selecting the open half OPPOSITE an
+   *  already-selected open half pairs the two by hand (`fixed`). */
+  | { type: 'select'; idx: number; side: GeorefSide }
+  /** «Verschieben» in the popover: arm the re-place for the selected half */
+  | { type: 'beginMove' }
+  /** «Behalten» / Esc: cancel the move if one is armed, else put the popover away.
+   *  ⚠️ The only way out of `move` that neither moves the point nor deletes it. */
   | { type: 'unpick' }
+  /** «Punkt löschen»: drop that WHOLE slot — its pair, or its dangling half — and refit */
+  | { type: 'remove'; idx: number }
+  /** «Punkte zurücksetzen» in the armed bar: drop every point but STAY armed */
+  | { type: 'clear' }
   /** «Deckung prüfen» on / off — the sheet's outline on the map, for as long as nobody edits */
   | { type: 'check'; on: boolean; previewUrl?: string | null }
   /** Leave coverage without confusing it with «Fertig» for the alignment itself. */
   | { type: 'finishCheck' }
   | { type: 'checkOpacity'; opacity: number }
-  /** live drag of an existing cross — refits on every frame, so it is its own action */
+  /** live drag of any placed half — paired or open — refits on every frame */
   | { type: 'dragPlan'; idx: number; pt: PlanPt }
   | { type: 'dragMap'; idx: number; lngLat: GeoPt }
 
-/**
- * The whole mode as one pure function — armed / half-pair / complete / cancel / replace.
- *
- * Returns the SAME object when an action changes nothing, so a caller can compare by reference
- * (the store does, to decide whether to notify and whether to persist).
- */
 /** The actions that move NOTHING the outline is drawn from: the check's own controls, arming
- *  (the Passung's check button arms the mode WITH the look already on), a surface hop, and
- *  putting a picked-up cross back down.
+ *  (the Passung's check button arms the mode WITH the look already on), a surface hop, and the
+ *  selection dance around a cross that stays where it is.
  *  ⚠️ Typed against `GeorefAction['type']` rather than a bare `string[]`: an untyped list stops
  *  matching the moment an action is renamed, and it does so SILENTLY — «Deckung prüfen» would
  *  simply start closing itself on every hop between the sheet and the Karte, with nothing to
  *  point at. Its sibling `EDITS_PAIRS` is typed for the same reason. */
-const KEEPS_CHECK: ReadonlySet<GeorefAction['type']> = new Set(['check', 'checkOpacity', 'finishCheck', 'start', 'goMap', 'goPlan', 'unpick'])
+const KEEPS_CHECK: ReadonlySet<GeorefAction['type']> = new Set(['check', 'checkOpacity', 'finishCheck', 'start', 'goMap', 'goPlan', 'unpick', 'beginMove'])
 
+/**
+ * The whole mode as one pure function — armed / halves / pairing / correction / cancel.
+ *
+ * Returns the SAME object when an action changes nothing, so a caller can compare by reference
+ * (the store does, to decide whether to notify and whether to persist).
+ */
 export function georefReduce(s: GeorefModeState, a: GeorefAction): GeorefModeState {
   const next = fold(s, a)
   // ⚠️ «Deckung prüfen» is a LOOK, not a layer: the moment anything moves — a point placed, a
@@ -156,10 +174,121 @@ export function georefReduce(s: GeorefModeState, a: GeorefAction): GeorefModeSta
     : next
 }
 
+// --- pairing: when do two halves become one point? -------------------------------------------
+
+/** A fit no better than this has no say in which halves belong together — the same bar
+ *  `rematchPairs` uses to call a fit «not a fit» (georef · REMATCH_BAD_M). */
+const AUTOPAIR_TRUST_M = 10
+/** Under a credible fit, a plan half and a map half are the SAME landmark only when they land
+ *  within this of each other, in metres. Farther apart they stay open — on both surfaces. */
+export const AUTOPAIR_TOL_M = 20
+
+/** The complete slots, as the pair list every fit solves from. */
+function pairsOf(slots: GeorefSlot[]): GeorefPair[] {
+  const out: GeorefPair[] = []
+  for (const sl of slots) if (sl.plan && sl.map) out.push({ plan: sl.plan, lngLat: sl.map, kind: sl.kind })
+  return out
+}
+
+/** Metres between a plan half and a map half under a fit — the same plan-side arithmetic
+ *  `rematchPairs` uses, so «close» means one thing throughout. */
+function halfDistanceM(fit: GeorefFit, plan: PlanPt, map: GeoPt, aspect: number): number {
+  const q = fit.toPlan(map)
+  return Math.hypot((plan.x - q.x) * aspect, plan.y - q.y) * fit.scaleMPerU
+}
+
+/**
+ * Fold loose halves into points. Runs after every placement and every hand-pairing:
+ *
+ *  1. MERGE — while both surfaces hold open halves: with fewer than three measured pairs (or a
+ *     fit too bad to trust) the oldest halves merge in capture order, exactly the old queue
+ *     feel; under a credible fit only halves that coincide (≤ AUTOPAIR_TOL_M) merge, closest
+ *     first, and the rest stay open on both surfaces until their real partner arrives.
+ *  2. ONE LANDMARK, ONE POINT — a completed pair standing on the same plan spot as an older one
+ *     replaces it in place (georef · replacePair's rule, so a re-tap corrects instead of
+ *     contradicting). The old number survives; the fit never sees two pairs on one corner.
+ *  3. RE-DEAL — `rematchPairs` over the slots NOT paired by hand: a completed set whose
+ *     assignment is clearly wrong and clearly fixable renumbers itself instead of asking for
+ *     twelve points again. `fixed` slots keep the operator's explicit decision.
+ */
+export function settleSlots(slots: GeorefSlot[], aspect: number): GeorefSlot[] {
+  let out = slots
+  // 1 — merge open halves
+  for (;;) {
+    const planOpen = out.map((sl, i) => ({ sl, i })).filter((x) => x.sl.plan && !x.sl.map)
+    const mapOpen = out.map((sl, i) => ({ sl, i })).filter((x) => x.sl.map && !x.sl.plan)
+    if (!planOpen.length || !mapOpen.length) break
+    const fit = fitSimilarity(pairsOf(out), aspect)
+    let pi = planOpen[0].i
+    let mi = mapOpen[0].i
+    if (fit && fit.n >= 3 && fit.meanResidualM <= AUTOPAIR_TRUST_M) {
+      let best: { pi: number; mi: number; d: number } | null = null
+      for (const p of planOpen) {
+        for (const m of mapOpen) {
+          const d = halfDistanceM(fit, p.sl.plan!, m.sl.map!, aspect)
+          if (d <= AUTOPAIR_TOL_M && (!best || d < best.d)) best = { pi: p.i, mi: m.i, d }
+        }
+      }
+      if (!best) break // nothing coincides — the halves stay open, visibly, on both surfaces
+      pi = best.pi; mi = best.mi
+    }
+    const lo = Math.min(pi, mi), hi = Math.max(pi, mi)
+    const merged: GeorefSlot = { plan: out[pi].plan, map: out[mi].map, kind: 'gesetzt' }
+    out = out.map((sl, i) => (i === lo ? merged : sl)).filter((_, i) => i !== hi)
+  }
+  // 2 — a new pair on an already-referenced plan spot replaces the old pair, in place
+  for (let j = out.length - 1; j > 0; j--) {
+    const sj = out[j]
+    if (!sj.plan || !sj.map) continue
+    const i = out.findIndex((si, k) => k < j && !!si.plan && !!si.map && samePlanPt(si.plan!, sj.plan!))
+    if (i >= 0) out = out.map((sl, k) => (k === i ? sj : sl)).filter((_, k) => k !== j)
+  }
+  // 3 — automatic re-deal of a clearly mis-assigned set, sparing hand-made pairs
+  const free = out.map((sl, i) => ({ sl, i })).filter((x) => x.sl.plan && x.sl.map && !x.sl.fixed)
+  if (free.length >= 3) {
+    const re = rematchPairs(free.map((x) => ({ plan: x.sl.plan!, lngLat: x.sl.map!, kind: x.sl.kind })), aspect)
+    if (re) {
+      out = out.map((sl, i) => {
+        const k = free.findIndex((x) => x.i === i)
+        return k >= 0 && re.pairs[k].lngLat !== sl.map ? { ...sl, map: re.pairs[k].lngLat } : sl
+      })
+    }
+  }
+  return out
+}
+
+/** Rebuild the state around a new slot list, keeping `pairs` identity-stable so the store's
+ *  «did a completed pair change?» comparison (and everything memoized on `pairs`) stays honest. */
+function withSlots(s: GeorefModeState, slots: GeorefSlot[], extra: Partial<GeorefModeState>): GeorefModeState {
+  const next = pairsOf(slots)
+  const same = next.length === s.pairs.length
+    && next.every((p, i) => p.plan === s.pairs[i].plan && p.lngLat === s.pairs[i].lngLat && p.kind === s.pairs[i].kind)
+  return { ...s, ...extra, slots, pairs: same ? s.pairs : next }
+}
+
+/** Is this slot's given half placed but still without its counterpart? */
+function danglingHalf(sl: GeorefSlot | undefined, side: GeorefSide): boolean {
+  return !!sl && (side === 'plan' ? !!sl.plan && !sl.map : !!sl.map && !sl.plan)
+}
+
 function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
   switch (a.type) {
     case 'start':
-      return { planId: a.planId, storageKey: a.storageKey ?? a.planId, pairs: a.pairs, queue: [], mapQueue: [], edit: null, want: 'plan', aspect: a.aspect, check: !!a.check, checkReturn: a.check ? 'quality' : null, returnToQuality: !!a.returnToQuality, checkOpacity: s.checkOpacity, previewUrl: a.previewUrl ?? null }
+      return {
+        planId: a.planId,
+        storageKey: a.storageKey ?? a.planId,
+        slots: a.pairs.map((p) => ({ plan: p.plan, map: p.lngLat, kind: p.kind })),
+        pairs: a.pairs,
+        sel: null,
+        move: null,
+        want: 'plan',
+        aspect: a.aspect,
+        check: !!a.check,
+        checkReturn: a.check ? 'quality' : null,
+        returnToQuality: !!a.returnToQuality,
+        checkOpacity: s.checkOpacity,
+        previewUrl: a.previewUrl ?? null,
+      }
     case 'check':
       return s.planId && (s.check !== a.on || (!!a.previewUrl && a.previewUrl !== s.previewUrl))
         ? { ...s, check: a.on, checkReturn: a.on ? 'alignment' : null, previewUrl: a.previewUrl ?? s.previewUrl }
@@ -174,138 +303,115 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
     case 'end':
       return s.planId
         ? s.returnToQuality
-          ? { ...s, queue: [], mapQueue: [], edit: null, want: 'plan', check: false, checkReturn: 'quality' }
+          // half a pair never persists: only the complete slots survive the return to Passung
+          ? withSlots(s, s.slots.filter((sl) => sl.plan && sl.map), { sel: null, move: null, want: 'plan', check: false, checkReturn: 'quality' })
           : GEOREF_OFF
         : s
     case 'dismiss':
       return s.planId ? GEOREF_OFF : s
+    // The hops follow the operator, always — an armed `move` no longer pins the phone to one
+    // surface (that stranding is what the old modal pick state did); the selection also
+    // survives, so two open halves can be paired by hand across a hop.
     case 'goMap':
-      // ⚠️ Not while a cross is picked up: that correction has a surface of its own (`edit.side`),
-      // and sending the phone to the map with a PLAN half outstanding leaves the operator on a
-      // map whose every tap is ignored, reading an instruction about the sheet they just left.
-      // Nothing queued ⇒ nothing to match either, except during «Deckung prüfen»: there the map
-      // itself is the job and the phone must be able to show the overlay.
-      return s.planId && !s.edit && s.want !== 'map' ? { ...s, want: 'map' } : s
+      return s.planId && s.want !== 'map' ? { ...s, want: 'map' } : s
     case 'goPlan':
-      // On the split layout the pointer may cross back to the plan while several plan halves
-      // are still queued. Follow the surface being aimed at; a picked MAP half remains map-only.
-      return s.planId && !s.edit && s.want !== 'plan' ? { ...s, want: 'plan' } : s
-    // The operator may queue the two sides in different orders; once a completed set fits
-    // TERRIBLY but the same points fit well under a different assignment, adopt that assignment
-    // (lib/georef · rematchPairs — guarded so honest-but-imprecise taps are left alone). Run on
-    // every pairing completion: the crosses renumber themselves and the Passung turns green
-    // instead of the operator re-doing twelve points by hand.
+      return s.planId && s.want !== 'plan' ? { ...s, want: 'plan' } : s
     case 'planTap': {
       if (!s.planId) return s
-      const edit = s.edit
-      // re-placing the plan half of an existing pair: correct it and stay where the finger is
-      if (edit?.side === 'plan' && edit.pending) {
-        const queue = s.queue.map((pt, i) => (i === edit.idx ? a.pt : pt))
-        return { ...s, queue, edit: null, want: 'plan' }
+      // «Verschieben» armed for a plan half: this tap is its new place
+      if (s.move?.side === 'plan') {
+        const idx = s.move.idx
+        const cur = s.slots[idx]
+        if (!cur?.plan) return { ...s, move: null }
+        if (s.slots.some((sl, i) => i !== idx && sl.plan && samePlanPt(sl.plan, a.pt))) return s
+        const slots = s.slots.map((sl, i) => (i === idx ? { ...sl, plan: a.pt, kind: sl.map ? ('korrigiert' as const) : sl.kind } : sl))
+        return withSlots(s, slots, { move: null, sel: null, want: 'plan' })
       }
-      if (edit?.side === 'plan') {
-        const pairs = s.pairs.map((p, i) => (i === edit.idx ? { ...p, plan: a.pt, kind: 'korrigiert' as const } : p))
-        return { ...s, pairs, edit: null, want: 'plan' }
-      }
-      if (edit) return s // the MAP half is the one being waited on — the plan is inert
-      const [mapOpen, ...mapRest] = s.mapQueue
-      if (mapOpen) {
-        return {
-          ...s,
-          // ⚠️ `replacePair`, exactly like the mirror branch in `mapTap`. Mark the map first,
-          // then tap a landmark on the sheet that ALREADY carries a pair, and a bare append
-          // would leave two pairs on one plan point holding different positions — the
-          // self-contradiction replacePair exists to make impossible, dragging the least-squares
-          // fit towards whichever of the two taps was worse.
-          pairs: autoRematch(replacePair(s.pairs, { plan: a.pt, lngLat: mapOpen, kind: 'gesetzt' }), s.aspect),
-          mapQueue: mapRest,
-          want: 'plan',
-        }
-      }
-      // ⚠️ QUEUES, never replaces. Marking three corners in a row and matching them afterwards
-      // is the whole point (see the header); `want` deliberately stays on the plan, so a phone
-      // is not thrown onto the map after every single tap.
-      return { ...s, queue: [...s.queue, a.pt], want: 'plan' }
+      // popover open on this surface: a tap beside it puts it away, and places nothing
+      if (s.sel?.side === 'plan') return { ...s, sel: null }
+      return withSlots(s, settleSlots([...s.slots, { plan: a.pt, kind: 'gesetzt' }], s.aspect), { sel: null, want: 'plan' })
     }
     case 'mapTap': {
       if (!s.planId) return s
-      const edit = s.edit
-      if (edit?.side === 'map' && edit.pending) {
-        const mapQueue = s.mapQueue.map((pt, i) => (i === edit.idx ? a.lngLat : pt))
-        return { ...s, mapQueue, edit: null, want: 'map' }
+      if (s.move?.side === 'map') {
+        const idx = s.move.idx
+        const cur = s.slots[idx]
+        if (!cur?.map) return { ...s, move: null }
+        const slots = s.slots.map((sl, i) => (i === idx ? { ...sl, map: a.lngLat, kind: sl.plan ? ('korrigiert' as const) : sl.kind } : sl))
+        return withSlots(s, slots, { move: null, sel: null, want: 'map' })
       }
-      if (edit?.side === 'map') {
-        const pairs = s.pairs.map((p, i) => (i === edit.idx ? { ...p, lngLat: a.lngLat, kind: 'korrigiert' as const } : p))
-        return { ...s, pairs, edit: null, want: 'map' }
+      if (s.sel?.side === 'map') return { ...s, sel: null }
+      return withSlots(s, settleSlots([...s.slots, { map: a.lngLat, kind: 'gesetzt' }], s.aspect), { sel: null, want: 'map' })
+    }
+    case 'select': {
+      const sl = s.slots[a.idx]
+      if (!s.planId || !sl) return s
+      if (!(a.side === 'plan' ? sl.plan : sl.map)) return s
+      // tapping the matching OPEN half on the other surface pairs the two by hand — `fixed`,
+      // so no automatic re-deal ever overrides what the operator just decided explicitly
+      if (s.sel && s.sel.side !== a.side && danglingHalf(s.slots[s.sel.idx], s.sel.side) && danglingHalf(sl, a.side)) {
+        const planIdx = a.side === 'plan' ? a.idx : s.sel.idx
+        const mapIdx = a.side === 'plan' ? s.sel.idx : a.idx
+        const lo = Math.min(planIdx, mapIdx), hi = Math.max(planIdx, mapIdx)
+        const merged: GeorefSlot = { plan: s.slots[planIdx].plan, map: s.slots[mapIdx].map, kind: 'gesetzt', fixed: true }
+        const slots = s.slots.map((x, i) => (i === lo ? merged : x)).filter((_, i) => i !== hi)
+        return withSlots(s, settleSlots(slots, s.aspect), { sel: null, move: null })
       }
-      if (edit) return s
-      const [open, ...rest] = s.queue
-      if (!open) return { ...s, mapQueue: [...s.mapQueue, a.lngLat], want: 'map' }
-      return {
-        ...s,
-        pairs: autoRematch(replacePair(s.pairs, { plan: open, lngLat: a.lngLat, kind: 'gesetzt' }), s.aspect),
-        queue: rest,
-        // Stay on the surface the operator chose. A map tap advances the MAP sequence, just as
-        // a plan tap advances the PLAN sequence; completing the last open counterpart must not
-        // silently navigate away before another point can be placed here. On a phone the two
-        // explicit surface buttons are the only navigation inside this mode.
-        want: 'map',
-      }
+      // the same cross again toggles the popover away
+      if (s.sel && s.sel.idx === a.idx && s.sel.side === a.side) return { ...s, sel: null }
+      return { ...s, sel: { idx: a.idx, side: a.side }, move: null, want: a.side }
     }
-    case 'pick': {
-      if (!s.planId || !s.pairs[a.idx]) return s
-      // ⚠️ The queue SURVIVES: those points are work the operator did, and re-placing one cross
-      // is not a reason to throw it away. Only `edit` is exclusive — one correction at a time.
-      return { ...s, edit: { idx: a.idx, side: a.side }, want: a.side }
-    }
-    case 'pickPending': {
-      const pending = a.side === 'plan' ? s.queue[a.idx] : s.mapQueue[a.idx]
-      if (!s.planId || !pending) return s
-      return { ...s, edit: { idx: a.idx, side: a.side, pending: true }, want: a.side }
-    }
+    case 'beginMove':
+      return s.planId && s.sel ? { ...s, move: s.sel, sel: null, want: s.sel.side } : s
     case 'unpick':
-      // ⚠️ `want` deliberately stays where it is: the operator is looking at this surface, and
-      // yanking them to the other one is precisely what the picked-up cross was doing to them.
-      // Nothing else changes — a cross put back down is a cross that was never touched.
-      return s.planId && s.edit ? { ...s, edit: null } : s
-    case 'removePair': {
-      // A pair the operator can see is wrong has to be REMOVABLE, not only re-placeable: the
+      // Esc peels ONE layer at a time: an armed move first (the cross goes back down,
+      // untouched), then the popover. `want` stays — nobody gets yanked to the other surface.
+      if (!s.planId) return s
+      if (s.move) return { ...s, move: null }
+      if (s.sel) return { ...s, sel: null }
+      return s
+    case 'remove': {
+      // A point the operator can see is wrong has to be REMOVABLE, not only re-placeable: the
       // landmark itself can turn out to be the mistake («that is not the same corner»), and
       // re-placing it somewhere else only moves the error. Dropping it refits from the rest —
       // below two pairs there is no fit at all, which is the honest state and exactly what the
       // chip then says (fitSimilarity returns null, the twins disappear).
-      if (!s.planId || !s.pairs[a.idx]) return s
-      return { ...s, pairs: s.pairs.filter((_, i) => i !== a.idx), edit: null }
-    }
-    case 'removePending': {
-      const pending = a.side === 'plan' ? s.queue[a.idx] : s.mapQueue[a.idx]
-      if (!s.planId || !pending) return s
-      return a.side === 'plan'
-        ? { ...s, queue: s.queue.filter((_, i) => i !== a.idx), edit: null, want: 'plan' }
-        : { ...s, mapQueue: s.mapQueue.filter((_, i) => i !== a.idx), edit: null, want: 'map' }
+      if (!s.planId || !s.slots[a.idx]) return s
+      return withSlots(s, s.slots.filter((_, i) => i !== a.idx), { sel: null, move: null })
     }
     case 'clear': {
       // ⚠️ STAYS armed. «Punkte zurücksetzen» is «start over», not «leave» — the next thing
       // that happens is always a fresh first point. «Abbrechen» beside it is the one that keeps
       // what already stands.
-      if (!s.planId || (!s.pairs.length && !s.queue.length && !s.mapQueue.length && !s.edit)) return s
-      // the same empty array back when there was nothing to clear — the store persists on a
+      if (!s.planId || (!s.slots.length && !s.sel && !s.move)) return s
+      // the same empty arrays back when there was nothing to clear — the store persists on a
       // CHANGED `pairs` identity, and a write that deletes an entry that never existed is noise
-      return { ...s, pairs: s.pairs.length ? [] : s.pairs, queue: [], mapQueue: [], edit: null, want: 'plan' }
+      return {
+        ...s,
+        slots: s.slots.length ? [] : s.slots,
+        pairs: s.pairs.length ? [] : s.pairs,
+        sel: null,
+        move: null,
+        want: 'plan',
+      }
     }
     case 'dragPlan': {
-      const cur = s.pairs[a.idx]; if (!cur) return s
+      const cur = s.slots[a.idx]
+      if (!cur?.plan) return s
       // ⚠️ Never ONTO another cross. Two plan points closer than PAIR_EPS_N are the same landmark
       // (georef · samePlanPt), and references without plan-side spread have no fit at all — so
       // the whole sheet would come unstuck the moment a dragged finger passed over a neighbour.
       // Refusing the move leaves the cross where the operator last saw it, which is the only
       // outcome here they can act on.
-      if (s.pairs.some((p, i) => i !== a.idx && samePlanPt(p.plan, a.pt))) return s
-      return { ...s, pairs: s.pairs.map((p, i) => (i === a.idx ? { ...p, plan: a.pt, kind: 'korrigiert' as const } : p)) }
+      if (s.slots.some((sl, i) => i !== a.idx && sl.plan && samePlanPt(sl.plan, a.pt))) return s
+      const slots = s.slots.map((sl, i) => (i === a.idx ? { ...sl, plan: a.pt, kind: sl.map ? ('korrigiert' as const) : sl.kind } : sl))
+      return withSlots(s, slots, {})
     }
     case 'dragMap': {
-      const cur = s.pairs[a.idx]; if (!cur) return s
-      return { ...s, pairs: s.pairs.map((p, i) => (i === a.idx ? { ...p, lngLat: a.lngLat, kind: 'korrigiert' as const } : p)) }
+      const cur = s.slots[a.idx]
+      if (!cur?.map) return s
+      const slots = s.slots.map((sl, i) => (i === a.idx ? { ...sl, map: a.lngLat, kind: sl.plan ? ('korrigiert' as const) : sl.kind } : sl))
+      return withSlots(s, slots, {})
     }
   }
 }
@@ -384,7 +490,7 @@ export function useGeorefMapTap() {
 }
 
 /** Did this map gesture BEGIN on one of the mode's own crosses (or any other marker)? Then it
- *  belongs to that cross — its tap is a pick, its drag a correction — and must never feed the
+ *  belongs to that cross — its tap is a select, its drag a correction — and must never feed the
  *  placement machine. ⚠️ The cross's React handlers cannot shield it: MapLibre listens natively
  *  on the canvas container, which sits BELOW the React root, so a `stopPropagation` in the
  *  button fires long after the map has already seen the event. The map side filters instead. */
@@ -395,49 +501,71 @@ export function georefTapOnMarker(target: EventTarget | null | undefined): boole
   return typeof el?.closest === 'function' && !!el.closest('.maplibregl-marker')
 }
 
-/** Is one specific point being re-placed? While it is, EVERY cross goes inert on both surfaces —
- *  the tap that is meant to land that point must not be swallowed by whichever cross happens to
- *  sit under it. ⚠️ Queued points do NOT make the plan inert: on the sheet the operator is free
- *  to keep marking corners, to fine-tune a cross or to pick one up, all in the same breath. */
+/** Is a PLAN half being re-placed? Only then do the plan's crosses go inert — the tap that is
+ *  meant to land that half must not be swallowed by whichever cross happens to sit under it.
+ *  ⚠️ A mere selection (popover up) makes nothing inert: marking, fine-tuning and picking other
+ *  crosses all keep working in the same breath. */
 export function georefPlacing(s: GeorefModeState): boolean {
-  return !!s.planId && !!s.edit
+  return !!s.planId && s.move?.side === 'plan'
 }
 
-/** The MAP's paired crosses stay draggable while unmatched points are queued. An intentional
- *  press on an existing landmark is a correction, and making it inert forced phone users to
- *  delete and recreate the pair. Only an actively picked-up half makes every cross inert: its
- *  landing tap must belong to the map beneath it. A queued point cannot validly be placed on an
- *  existing cross anyway (`replacePair` would replace that landmark), so the cross may own its
- *  own hit target without creating two references at one place. */
+/** …and the map-side mirror: only an armed re-place of a MAP half makes the map's crosses inert
+ *  while its landing tap belongs to the map beneath them. */
 export function georefMatching(s: GeorefModeState): boolean {
-  return !!s.planId && !!s.edit
+  return !!s.planId && s.move?.side === 'map'
 }
 
 /**
- * 1-based number of the point the current step is about — the cross's badge and the prompt.
+ * 1-based number of the point the current step is about — the popover head and the prompts.
  *
- * On the plan that is the point about to be QUEUED (behind every pair and every open point); on
- * the map it is the OLDEST open one, because that is the one a tap over there completes.
+ * While a half is selected or being re-placed that is ITS number; otherwise it is the number the
+ * next tap on the fronted surface will most likely carry: the oldest open counterpart it would
+ * complete, or one past the end when nothing is waiting.
  */
 export function georefPointNo(s: GeorefModeState): number {
-  if (s.edit) return s.edit.pending ? s.pairs.length + s.edit.idx + 1 : s.edit.idx + 1
-  return georefSideCount(s, s.want) + 1
+  if (s.move) return s.move.idx + 1
+  if (s.sel) return s.sel.idx + 1
+  const opposite = s.slots.findIndex((sl) => danglingHalf(sl, s.want === 'plan' ? 'map' : 'plan'))
+  return opposite >= 0 ? opposite + 1 : s.slots.length + 1
 }
 
-/** How many numbered marks stand on ONE surface, paired or still waiting. Keeping this as the
- *  source for labels/progress makes the ordering visible and symmetric: tapping Karte advances
- *  Karte, tapping Modul advances Modul, regardless of which side started or ends the sequence. */
+/** How many numbered marks stand on ONE surface, paired or still waiting — «Karte n · Modul m». */
 export function georefSideCount(s: GeorefModeState, side: GeorefSide): number {
-  return s.pairs.length + (side === 'plan' ? s.queue.length : s.mapQueue.length)
+  return s.slots.filter((sl) => (side === 'plan' ? sl.plan : sl.map)).length
 }
 
-/** The number a queued point carries on the sheet: pairs first, then the queue in order. */
-export function georefQueueNo(s: GeorefModeState, i: number): number {
-  return s.pairs.length + i + 1
+/** How many halves still wait for their counterpart, on either surface. */
+export function georefOpenCount(s: GeorefModeState): number {
+  return s.slots.filter((sl) => !sl.plan || !sl.map).length
 }
 
-export function georefMapQueueNo(s: GeorefModeState, i: number): number {
-  return s.pairs.length + i + 1
+/** Where a complete slot sits in the derived `pairs` list — the fit's residuals are per-pair,
+ *  and the popover wants to print THIS point's rest. Null for an open half. */
+export function georefPairIndex(s: GeorefModeState, idx: number): number | null {
+  const sl = s.slots[idx]
+  if (!sl?.plan || !sl.map) return null
+  return s.slots.slice(0, idx).filter((x) => x.plan && x.map).length
+}
+
+/**
+ * The status line's second half: which halves are still open, as one sentence.
+ *
+ * The panel says WHERE the dangling half is («Punkt 3 fehlt noch auf dem Modul») because the
+ * amber cross saying so sits on a surface the phone may not even be showing.
+ */
+export function georefOpenHint(s: GeorefModeState): string | null {
+  const C = appConfig.copy.whiteboard.georef
+  if (s.sel) return fillTemplate(C.statusSelected, { n: String(s.sel.idx + 1) })
+  const planOnly = s.slots.map((sl, i) => ({ sl, i })).filter((x) => danglingHalf(x.sl, 'plan'))
+  const mapOnly = s.slots.map((sl, i) => ({ sl, i })).filter((x) => danglingHalf(x.sl, 'map'))
+  if (!planOnly.length && !mapOnly.length) return null
+  if (planOnly.length && mapOnly.length) return C.statusOpenBoth
+  // a plan-only half is missing its KARTE counterpart, and vice versa
+  const open = planOnly.length ? planOnly : mapOnly
+  const tpl = planOnly.length
+    ? open.length === 1 ? C.statusOpenMap : C.statusOpenMapMany
+    : open.length === 1 ? C.statusOpenPlan : C.statusOpenPlanMany
+  return fillTemplate(tpl, { n: String(open[0].i + 1), k: String(open.length) })
 }
 
 // --- what the chip says ---------------------------------------------------------------------
@@ -490,8 +618,8 @@ export interface GeorefLamp {
   tone: 'red' | 'amber' | 'green'
   /** the state, in three or four words — «2 Punkte – exakt, aber ungeprüft» */
   head: string
-  /** why that is, and what one more point buys. The sentence the operator is missing when they
-   *  decide to stop at two. */
+  /** why that is, and what one more point buys — the instruction behind the (i). The sentence
+   *  the operator is missing when they decide to stop at two. */
   body: string
 }
 
@@ -510,7 +638,7 @@ export interface GeorefLamp {
 export function georefLamp(fit: GeorefFit | null, mode: GeorefModeState): GeorefLamp {
   const C = appConfig.copy.whiteboard.georef
   const n = mode.pairs.length
-  const open = mode.queue.length + mode.mapQueue.length
+  const open = georefOpenCount(mode)
   const withOpen = (head: string) => (open ? `${head} · ${fillTemplate(C.barOpen, { n: String(open) })}` : head)
   if (!fit || n < 2) {
     return n === 0
@@ -589,11 +717,12 @@ function settleSave(georefKey: string): Promise<void> {
   return Promise.resolve()
 }
 
-/** The actions that genuinely EDIT the reference. ⚠️ Everything else is deliberately excluded,
- *  and `end` above all: leaving the mode moves the pairs from the live list to the empty one, so
- *  a naive «pairs changed ⇒ save» would have written an EMPTY georeference every time somebody
- *  pressed «Fertig» — the one button whose whole job is to keep what was just built. */
-const EDITS_PAIRS: ReadonlySet<GeorefAction['type']> = new Set(['planTap', 'mapTap', 'dragPlan', 'dragMap', 'removePair', 'clear'])
+/** The actions that can genuinely EDIT the reference — `select` is here because pairing two
+ *  halves by hand completes a pair. ⚠️ Everything else is deliberately excluded, and `end`
+ *  above all: leaving the mode moves the pairs from the live list to the empty one, so a naive
+ *  «pairs changed ⇒ save» would have written an EMPTY georeference every time somebody pressed
+ *  «Fertig» — the one button whose whole job is to keep what was just built. */
+const EDITS_PAIRS: ReadonlySet<GeorefAction['type']> = new Set(['planTap', 'mapTap', 'dragPlan', 'dragMap', 'remove', 'clear', 'select'])
 
 export function georefDispatch(a: GeorefAction) {
   const prev = state
@@ -635,6 +764,9 @@ export function peekGeorefPhoneTarget(side: GeorefSide): PlanPt | GeoPt | null {
 export function placeGeorefPhoneTarget(side: GeorefSide): boolean {
   const target = phoneTargetResolvers[side]?.()
   if (!target) return false
+  // an open popover consumes the next surface tap as its dismissal — the explicit button must
+  // still PLACE on the first press, so the selection is put away beforehand
+  if (state.sel && !state.move) georefDispatch({ type: 'unpick' })
   if (side === 'plan') georefDispatch({ type: 'planTap', pt: target as PlanPt })
   else georefDispatch({ type: 'mapTap', lngLat: target as GeoPt })
   return true
@@ -760,13 +892,14 @@ export function useGeorefSurfaceBridge(go: (surface: 'map' | 'plans') => void) {
   }, [isPhone, planId, want, check])
 }
 
-/** Is the MAP the surface being waited on right now? The map side asks this to decide whether a
- *  click is a placement or a mis-timed tap, and whether to raise the crosshair + loupe. */
+/** May a map tap place or re-place right now? The map side asks this to decide whether a click
+ *  is a placement or a mis-timed tap, and whether to raise the crosshair + loupe. Free order
+ *  means the answer is «whenever the mode is armed» — with one exception: */
 export function georefWantsMap(s: GeorefModeState): boolean {
   // Coverage is inspection, never placement. Without this guard a still tap used to append a
   // fresh map half, which immediately dismissed «Deckung prüfen» and dropped the operator back
   // into the point setter. Pan/zoom remain MapLibre's ordinary gestures while the check is up.
-  return !!s.planId && !s.check && (s.edit ? s.edit.side === 'map' : true)
+  return !!s.planId && !s.check
 }
 
 /** Esc follows the visible exit action everywhere — including on the Karte surface, where the
@@ -782,20 +915,13 @@ export function useGeorefEscape(active: boolean, checking = false, picked = fals
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
       e.stopPropagation()
-      // Escape peels ONE layer at a time, and a picked-up cross is the innermost one. Without
-      // this rung there was no non-destructive way to put a cross back down: `planTap`/`mapTap`
-      // move it, `removePair` deletes it, and `goMap`/`goPlan` refuse outright while `edit` is
-      // set — so a mis-tap on a phone pinned the operator to that surface with the other one's
-      // button greyed out, and «raus hier» meant abandoning the whole mode.
+      // Escape peels ONE layer at a time: an armed «Verschieben» or an open popover first
+      // (`unpick` — the cross goes back down untouched), then coverage, then the mode. Esc is
+      // never the ONLY exit: «Behalten» in the popover and the visible bar buttons do the same.
       georefDispatch({ type: picked ? 'unpick' : checking ? 'finishCheck' : 'end' })
     }
     // capture, so the mode backs out before the board's own Escape drops a selection
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [active, checking, picked])
-}/** The pairing completions run their result through the automatic re-matcher — see the note at
- *  `planTap`. A no-op unless the assignment is clearly wrong and clearly fixable. */
-const autoRematch = (pairs: GeorefPair[], aspect: number): GeorefPair[] =>
-  rematchPairs(pairs, aspect)?.pairs ?? pairs
-
-
+}

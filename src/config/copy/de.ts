@@ -117,7 +117,7 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
           { kind: 'list', items: [
-            '[[V]] Auswahl · [[W]] Mehrfach wählen · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[U]] Umkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen.',
+            '[[V]] Auswahl · [[W]] Mehrfach wählen · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[U]] Umkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen (nur Karte).',
           ] },
           { kind: 'sub', text: 'Bearbeiten' },
           { kind: 'list', items: [
@@ -190,7 +190,8 @@ export const de = {
             '**Stockwerke** als Stapel: mit den **OG/UG**-Knöpfen am Plan ein Geschoss darüber/darunter hinzufügen.',
             '**Zoom/Einpassen** unten in der Werkzeugleiste, wie auf der Karte.',
             '**Trupps** als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Trupp-Chips, deren Trupp «raus» ist, werden ausgegraut/durchgestrichen.',
-            '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien mit «Länge» und das **Messen** echte Meter.',
+            '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien und Flächen echte Meter (Messen als eigenes Werkzeug gibt es nur auf der Karte).',
+            '**Schnelle Handnotiz?** Der Plan ist die Skizzenfläche: frei zeichnen, durchstreichen, kritzeln. Die Lage bleibt strukturiert (Symbole, Linien, Notizen), damit Rapport und Verlauf sauber bleiben.',
           ] },
           { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Stockwerkstapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
         ],
@@ -916,6 +917,8 @@ export const de = {
     sizeBigger: 'Grösser',
     rotateHint: 'Griff ziehen zum Drehen',
     resizeHint: 'Ecke ziehen zum Skalieren',
+    // Pfeil-Ende «->|»: der Stopp-Balken quer zur Spitze (Entwicklungsgrenze)
+    stopLabel: 'Stopp-Balken',
     moveHint: 'Korb ziehen – Richtung und Reichweite',
     names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck' } as Record<string, string>,
   },
@@ -978,6 +981,13 @@ export const de = {
     colorGroup: 'Farbe',
     colorName: '{group} {n}',
     widthName: 'Linienstärke {n} px',
+    // Tap-away while a node draft is in progress no longer discards silently (29.08.):
+    // a committable draft auto-commits with this toast, whose «Rückgängig» hands the
+    // shape BACK as an editable draft rather than merely deleting it.
+    autoCommitted: '{name} gespeichert',
+    autoCommitUndo: 'Rückgängig',
+    // A fragment below the minimum (1-point line, 2-point area) has nothing to keep.
+    draftDiscarded: 'Unvollständige Zeichnung verworfen',
   },
   journal: {
     open: 'Verlauf',
@@ -1394,12 +1404,27 @@ export const de = {
     pressureRose: 'Höher als zuletzt ({from} bar) – vertippt?',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
+    // Tap zones on the card (29.08.): the corner cues are TEXT, not icons, and the zones only
+    // show/hide — logging stays behind the explicit buttons.
+    zoneTimes: 'Zeiten',
+    zoneDruck: 'Druckmeldung',
+    // the folded timing rows behind the Kontaktuhr zone
+    lastContactAt: 'Letzter Kontakt',
+    nextContactDue: 'Nächster fällig',
+    contactIntervalLabel: 'Kontakt-Intervall',
+    contactIntervalValue: '{min} min',
+    // on the collapsed Druck zone: when the shown value was logged
+    pressureLastAt: 'zuletzt {time}',
+    // Verlauf footer preview — {what} = readingKind label, plus the bar for measured kinds
+    verlaufLatest: 'zuletzt: {time} {what}',
+    verlaufEntryOne: '1 Eintrag',
+    verlaufEntries: '{n} Einträge',
     // ⚠️ «Alarmdruck» and «Rückzug» are the two rows the printed Atemschutz-Journal is read for.
     // Both used to be indistinguishable on it — the Alarmdruck as one «Druck» among a column of
     // them, the Rückzug as a plain «Kontakt».
     readingKind: {
       registered: 'Angemeldet', entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck',
-      alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Ausgerückt', resume: 'Wiedereinstieg',
+      alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Draussen', resume: 'Wiedereinstieg',
     } as Record<string, string>,
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
@@ -1566,7 +1591,6 @@ export const de = {
     lookPlain: 'Klartext',
     color: 'Farbe',
     resizeHint: 'Breite ziehen',
-    settings: 'Notiz einstellen',
     done: 'Fertig',
   },
   whiteboard: {
@@ -1600,6 +1624,8 @@ export const de = {
       chipCalibrated: 'Ref. {m} m',
       chipAuto: 'Ref. auto',
       chipAutoHint: 'Ref. automatisch – Massstab aus der Kartenverknüpfung',
+      // the Gebäude floor-stack (A7): the scale comes from the footprint's ground size, not a fit
+      chipAutoStackHint: 'Ref. automatisch – Massstab aus dem Gebäudegrundriss',
       chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
       calibrate: 'Massstab kalibrieren',
@@ -1613,9 +1639,6 @@ export const de = {
       savedAll: 'Als Standard-Massstab gespeichert',
       savedThis: 'Massstab für diesen Plan gespeichert',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
-      // read-only (Führungsansicht / viewer): measuring only works once somebody with write
-      // rights has set the Massstab – never show a button that would fail
-      needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
     },
     // «Karte verknüpfen» – die Paarung markanter Punkte, die den Plan auf die Karte legt
     // (lib/georef · fitSimilarity, lib/georefMode). Zwei Punkte genügen; erst der dritte misst.
@@ -1636,30 +1659,27 @@ export const de = {
       // ⚠️ Die Naht trägt KEINE Beschriftung mehr – weder «KARTE VERKNÜPFEN» noch «Karte
       // geliehen». Beides war Erklärung des Layouts statt Anweisung; die Leiste am Fuss sagt,
       // welcher Modus läuft und was als Nächstes zu tippen ist. Die gestrichelte Linie genügt.
-      // Anweisungsleiste (die einzige Einführung, die es gibt – kein separates Tutorial)
-      promptPlanNo: 'Punkt {n} · Plan',
-      // ⚠️ EINE Beschreibung für beide Flächen. Sie stand vorher je Fläche anders da, womit die
-      // zwei Hälften EINES Punktes wie zwei verschiedene Aufgaben mit zwei Regeln aussahen. Es ist
-      // eine Aufgabe: eine Stelle finden, auf die man zweimal zeigen kann — auf dem Blatt und
-      // draussen. Der Satz gilt auf beiden Seiten, also steht er auf beiden.
-      promptBoth: 'Eine Stelle, die auf beiden Bildern sicher wiederzufinden ist: Hausecke, Hydrant, Wegkreuzung',
-      // die Lektion selbst steht hinter dem (i) – ab Punkt fünf sind drei Zeilen Prosa nur noch
-      // etwas, das zwischen dem Bediener und den Tasten steht. Das Bild bleibt: EIN Kartenstrich
-      // erinnert an dieselbe Sache und kostet eine Zeile.
-      explainTitle: 'Was ist ein guter Punkt?',
-      promptMap: 'Derselbe Punkt · Karte',
-      // sobald mehr als ein Punkt offen ist, zählt die Nummer – «denselben» stimmt dann nicht mehr
-      promptMapNo: 'Punkt {n} · Karte',
-      promptRePlan: 'Punkt {n} neu · Plan',
-      promptReMap: 'Punkt {n} neu · Karte',
+      // Die eine Anweisung des minimalen Panels (kein Tutorial, keine Lektion hinter einem (i)):
+      // freie Reihenfolge ist das Modell, also sagt der Satz genau das – einmal, konkret.
+      freeOrderTap: 'Dieselbe Stelle auf Modul und Karte antippen – Hausecke, Hydrant, Wegkreuzung; Reihenfolge egal',
+      // die Kurzform unter «Punkt setzen» auf dem Telefon: wohin die Taste wirkt
+      freeOrderPlace: 'Wirkt auf der sichtbaren Fläche – Karte oder Modul, Reihenfolge egal',
+      // «Verschieben» ist bewaffnet: der nächste Tipp auf dieser Fläche setzt genau diese Hälfte
+      moveMap: 'Punkt {n} verschieben – neue Stelle auf der Karte antippen, der alte verschwindet.',
+      movePlan: 'Punkt {n} verschieben – neue Stelle auf dem Modul antippen, der alte verschwindet.',
       title: 'Karte verknüpfen',
-      barNone: 'Noch kein Paar',
-      barOne: '1 Paar',
-      barMany: '{n} Paare',
-      // offene Punkte: auf dem Plan gesetzt, auf der Karte noch nicht zugeordnet
+      // offene Hälften: gesetzt, aber noch ohne Gegenstück auf der anderen Fläche
       barOpen: '{n} offen',
-      // Reihenfolge je Fläche: jeder Tipp zählt auf genau der Fläche weiter, auf der er geschah
+      // Zähler je Fläche – die Statuszeile «Karte 3 · Modul 2»
       sideProgress: 'Karte {map} · Modul {plan}',
+      // Statuszeile, zweite Hälfte: WO die offene Hälfte fehlt. Das bernsteinfarbene Kreuz, das
+      // dasselbe sagt, steht unter Umständen auf der Fläche, die das Telefon gerade nicht zeigt.
+      statusOpenMap: 'Punkt {n} fehlt noch auf der Karte.',
+      statusOpenPlan: 'Punkt {n} fehlt noch auf dem Modul.',
+      statusOpenMapMany: '{k} Punkte fehlen noch auf der Karte.',
+      statusOpenPlanMany: '{k} Punkte fehlen noch auf dem Modul.',
+      statusOpenBoth: 'Offene Punkte auf Karte und Modul – gleiche Stellen finden sich automatisch.',
+      statusSelected: 'Punkt {n} ausgewählt – daneben tippen wählt ab.',
       // ⚠️ `cancel` gehört noch der Rückfrage vor «Alle Punkte zurücksetzen» – dort bricht es
       // wirklich etwas ab. Der Ausstieg aus dem Modus heisst `closeMode`: er verwirft nichts.
       cancel: 'Abbrechen',
@@ -1669,9 +1689,8 @@ export const de = {
       // verknüpft. Zum Wegwerfen gibt es «Alle Punkte zurücksetzen», mit Rückfrage.
       closeMode: 'Schliessen',
       done: 'Fertig',
-      // Der Sprung zur Karte passiert NUR auf Wunsch (Telefon): pro Punkt hin und her war der
-      // Grund, warum niemand mehr als zwei Punkte gesetzt hat.
-      goMap: 'Auf der Karte zuordnen',
+      // ⚠️ OHNE Nummer. Die Taste wirkt auf der sichtbaren Fläche, und welche Nummer der Tipp
+      // bekommt, entscheidet die Zuordnung – die Zahl stünde also gelegentlich falsch da.
       placePoint: 'Punkt setzen',
       targetOutside: 'Fadenkreuz zuerst auf die sichtbare Fläche bewegen',
       // Sichtprüfung nach dem Ausrichten: der Blattumriss liegt auf der Karte, man sieht sofort,
@@ -1680,8 +1699,18 @@ export const de = {
       checkOpacity: 'Sichtbarkeit der Modul-Deckung',
       checkMap: 'Karte',
       checkPlan: 'Modul',
-      crossTitle: 'Punkt {n} – ziehen zum Feinjustieren, antippen zum Korrigieren oder Löschen',
-      pendingCrossTitle: 'Punkt {n} – antippen zum Korrigieren oder Löschen',
+      crossTitle: 'Punkt {n} – ziehen verschiebt, antippen zeigt Optionen',
+      pendingCrossTitle: 'Punkt {n} offen – ziehen verschiebt, antippen zeigt Optionen',
+      // das kleine Popover eines angetippten Kreuzes – ersetzt den unsichtbaren Aufnehm-Zustand,
+      // dessen einzige Ausgänge Esc (auf Touch unsichtbar), Löschen oder Neu-Setzen waren
+      pointN: 'Punkt {n}',
+      popMove: 'Verschieben',
+      popKeep: 'Behalten',
+      popResidual: 'Rest {m} m',
+      popOpen: 'offen',
+      // steht im Popover einer OFFENEN Hälfte: so entsteht ein Paar von Hand (bleibt fix)
+      popPairHint: 'Zum Zuordnen den offenen Punkt auf der anderen Fläche antippen',
+      detailsTitle: 'Details zur Passung',
       saveFailed: 'Verknüpfung speichern fehlgeschlagen',
       // Passungs-Anzeige. ⚠️ EINE Zeile zur Güte, mehr nicht: Blattbreite, Drehung und die
       // Restfehler je Punkt standen hier, weil sie sich rechnen liessen – gelesen hat sie
@@ -1690,9 +1719,12 @@ export const de = {
       pairs: 'Paare',
       // aus 3 Paaren gemessen; bei 2 Paaren steht stattdessen chipTwoPoints (georef · residualClaim)
       qualityDeviation: 'Abweichung ⌀ {m} m',
+      // ⚠️ Anweisungen, keine Vorhaltungen (29.08.): zuerst, was zu TUN ist – fett auf der
+      // Karte –, nach dem Gedankenstrich der Grund. «kleine Tippfehler wirken über den ganzen
+      // Plan» war die Folge ohne den Ausweg.
       warnTwoPoints: 'Zwei Paare lösen exakt – erst ein dritter Punkt zeigt, wie gut die Passung wirklich ist.',
-      warnCollinear: 'Die Punkte liegen fast auf einer Linie – quer dazu ist die Lage schlecht bestimmt. Ein dritter Punkt abseits davon hilft.',
-      warnBaseline: 'Die Punkte liegen nur {m} m auseinander – kleine Tippfehler wirken über den ganzen Plan.',
+      warnCollinear: 'Den nächsten Punkt abseits der Linie setzen – die bisherigen liegen fast auf einer Linie, quer dazu ist die Lage unbestimmt.',
+      warnBaseline: 'Den nächsten Punkt weiter weg setzen – die Punkte liegen erst {m} m auseinander, grössere Abstände machen die Passung stabiler.',
       // ── Ampel (lib/georefMode · georefLamp) ────────────────────────────────────────────────
       // ⚠️ Sie steht die ganze Zeit im Balken, nicht erst in der Passung. Der Balken zählte
       // bisher Paare («2 Paare») – eine Zahl, zu der niemand eine Meinung haben kann. Was fehlt,
@@ -1706,14 +1738,6 @@ export const de = {
       lampGoodHead: '{n} Punkte · ⌀ {m} m',
       // Die Zahl bekommt ihren Satz. «⌀ 1.4 m» allein sagt nicht, ob man weitermachen soll.
       lampGoodBody: 'Genau genug, um Symbole zwischen Plan und Karte zu spiegeln.',
-      // Beispielbild neben der Anweisung: «markanter Punkt» ist ein Wort, das niemand zweimal
-      // liest – die Ecke, nicht die Wand.
-      // EIN Bild, kein Bild je Fläche: dieselbe Ecke, links auf dem Blatt, rechts auf der Karte
-      exampleAlt: 'Beispiel: dieselbe Hausecke auf dem Plan und auf der Karte',
-      // die eine Zeile, die doch abweicht: eine Korrektur ist eine andere Regel
-      subRe: 'Der alte Punkt verschwindet dabei.',
-      // die grosse Taste nennt den Punkt, den sie setzt
-      placePointNo: 'Punkt {n} setzen',
       addThird: 'Dritten Punkt setzen',
       // ab dem dritten Paar: es gibt keinen «vierten Punkt» zu lehren, nur noch einen weiteren
       addMore: 'Punkte hinzufügen',
@@ -2622,7 +2646,7 @@ export const de = {
     missingNote: 'Wird als Leerfeld gedruckt.',
     ausgerueckt: 'Ausgerückt',
     kontaktperson: 'Kontaktperson',
-    kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortliche(r)',
+    kontaktpersonPlaceholder: 'Eigentümer / Melder',
     kontaktpersonTelefon: 'Telefon Kontaktperson',
     kontaktpersonTelefonPlaceholder: 'Telefonnummer',
     kontaktpersonCall: 'Kontaktperson anrufen',
@@ -2982,6 +3006,11 @@ export const de = {
     // Haupt-Rapport form rows (value or write-in line)
     keyword: 'Stichwort',
     einsatzleiter: 'Einsatzleiter',
+    // the printed EL SUCCESSION when the Einsatzleitung rotated mid-Einsatz — one continuous
+    // chain, «Meier (bis 14:20), Huber (ab 14:20)» (lib/reportPdfDirect · einsatzleiterForPdf).
+    // Fragments in brackets, so they read inside the field's own line.
+    einsatzleitungBis: '{name} (bis {t})',
+    einsatzleitungAb: '{name} (ab {t})',
     kontaktperson: 'Kontaktperson',
     gerettete: 'Gerettete (Personen / Tiere)',
     gerettetePersonen: 'Personen',
@@ -3086,7 +3115,7 @@ export const de = {
     einsatzleiterPlaceholder: 'Wählen oder eingeben',
     kontaktpersonLabel: 'Kontaktperson',
     kontaktpersonClear: 'Kontaktperson leeren',
-    kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortlicher',
+    kontaktpersonPlaceholder: 'Eigentümer / Melder',
     // Der Name und die Nummer sind EIN Fakt (dieselbe Zeile, dieselbe Person) – aber die Nummer
     // ist das, was die Nachbearbeitung braucht: der Rückruf an den Eigentümer am nächsten Tag.
     kontaktpersonTelefon: 'Telefon Kontaktperson',
@@ -3728,6 +3757,23 @@ export const de = {
     lageStrip: 'Gesetzt, aber nicht erfasst: {list}',
     lageStripTake: 'Übernehmen',
     lageStripHide: 'Vorschläge ausblenden',
+    // Ambiguous set (several catalogue candidates for a symbol and/or several stocked sources):
+    // one-tap would book a guess, so the button announces the intermediate step («…») and opens
+    // the picker sheet instead. Fully unambiguous sets keep the one-tap «Übernehmen».
+    lageStripCapture: 'Erfassen …',
+    // The picker sheet: one group per open symbol (radio rows: Typ + Quelle + Restbestand), the
+    // unambiguous rest pre-ticked below, a counting footer button that books everything at once.
+    lagePickTitle: 'Gesetzt, aber nicht erfasst',
+    lagePickSub: '{n} Symbole auf Lage/Plan sind noch nicht im Material. Welche waren es?',
+    lagePickSubOne: 'Ein Symbol auf Lage/Plan ist noch nicht im Material. Welches war es?',
+    lagePickGroupHint: 'Symbol auf Lage/Plan',
+    lagePickGroupSourceHint: 'Quelle?',
+    lagePickUnambiguous: 'Eindeutig',
+    lagePickUnambiguousSub: 'wird ohne Rückfrage erfasst',
+    lagePickOpen: 'Noch {n} Fragen offen',
+    lagePickOpenOne: 'Noch 1 Frage offen',
+    lagePickConfirm: '{n} Positionen erfassen',
+    lagePickConfirmOne: '1 Position erfassen',
     // Retablierung per equipment row (consumable Mittel end up in the resupply list)
   },
   // Checkliste surface (ChecklistsView · ChecklistRunner · ChecklistReference)

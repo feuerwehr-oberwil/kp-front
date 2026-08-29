@@ -109,7 +109,9 @@
 /* Spinner → tick, as ONE circle rather than two icons swapped: r=9 ⇒ circumference ≈ 56.5, and
    every dash length below is cut to that. Busy draws a ~quarter arc and rotates it; done closes
    the arc to a full ring and strokes the tick through it, so the eye follows the same shape from
-   «working» to «erledigt» and no words are needed for the most boring outcome there is. */
+   «working» to «erledigt» and no words are needed for the most boring outcome there is.
+   The component is src/components/SyncGlyph.tsx — shared by the Einsatz sync button, the
+   Offline-Bereitschaft load (.or-done below) and the Anwesenheit reload. */
 .sync-glyph { display: block; overflow: visible; fill: none; stroke: currentColor;
   stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .sync-ring { stroke-dasharray: 14 43; transform-origin: 50% 50%; animation: spin .75s linear infinite; }
@@ -231,11 +233,21 @@
 .or-row { display: flex; align-items: center; gap: 11px; min-height: var(--tap); padding: 6px 4px;
   border-bottom: 1px solid var(--border-soft); }
 .or-row:last-child { border-bottom: none; }
-.or-dot { flex: none; width: 18px; text-align: center; font-size: 15px; line-height: 1; }
+/* The dot EASES between its states instead of flipping: the character itself has to swap
+   (○/◐/●), but the colour and a slight grow from the probing «·» carry the change so a row
+   resolving to «bereit» reads as settling, not as blinking. Deliberately a transition and not a
+   pop keyframe — the sheet opens with nine rows at once, and nine simultaneous pops on a sheet
+   used under stress is noise (transitions don't fire on mount, so opening stays still). */
+.or-dot { flex: none; width: 18px; text-align: center; font-size: 15px; line-height: 1;
+  transform: scale(1); transition: color .3s var(--ease), opacity .3s var(--ease), transform .3s var(--ease); }
 .or-dot.or-ready { color: var(--green); }
 .or-dot.or-online { color: var(--amber-strong); }
 .or-dot.or-missing { color: var(--ink-faint); }
-.or-dot.or-unknown { color: var(--ink-faint); opacity: .6; }
+.or-dot.or-unknown { color: var(--ink-faint); opacity: .6; transform: scale(.8); }
+/* reduced motion: the states (colour, size) stay, the easing between them goes */
+@media (prefers-reduced-motion: reduce) {
+  .or-dot { transition: none; }
+}
 .or-label { flex: 1 1 auto; min-width: 0; font: 600 14px var(--body); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .or-note { flex: none; font: 600 12.5px var(--body); color: var(--ink-faint); }
@@ -268,6 +280,24 @@
   transition: width .25s var(--ease); min-width: 10px; }
 .or-prog-meta { display: flex; align-items: center; justify-content: space-between; font: 600 12.5px var(--body); color: var(--ink-dim); }
 .or-prog-pct { font-family: var(--mono); font-weight: 700; color: var(--blue-strong); font-variant-numeric: tabular-nums; }
+/* a finished load: the bar's place closes into the sync vocabulary — ring + tick + «bereit» —
+   for a moment before the button returns (component · justLoaded). Same 44px slot as the button
+   and roughly the bar block's height, so nothing under it jumps. */
+.or-done { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap);
+  color: var(--green-strong); font: 700 13.5px var(--body); animation: fade .3s var(--ease); }
+.or-done .sync-glyph { width: 18px; height: 18px; }
+/* It mounts already done, so the .on transitions (13-incident · .sync-glyph.on) never fire —
+   keyframes replay the same story here: ring closes first, tick draws in behind it. Scoped
+   3-deep to outrank `.sync-glyph.on .sync-ring`'s `animation: none`. */
+.or-done .sync-glyph.on .sync-ring { animation: orRingClose .26s var(--ease); }
+.or-done .sync-glyph.on .sync-tick { animation: orTickDraw .3s var(--ease) .14s backwards; }
+@keyframes orRingClose { from { stroke-dasharray: 14 43; } to { stroke-dasharray: 57 57; } }
+@keyframes orTickDraw { from { stroke-dashoffset: 14; } to { stroke-dashoffset: 0; } }
+/* reduced motion: closed ring + tick appear as states, nothing draws or fades */
+@media (prefers-reduced-motion: reduce) {
+  .or-done { animation: none; }
+  .or-done .sync-glyph.on .sync-ring, .or-done .sync-glyph.on .sync-tick { animation: none; }
+}
 .or-foot { margin: 0 2px; font: 500 12px var(--body); color: var(--ink-faint); line-height: 1.45; }
 
 /* signed-in user + logout, docked at the foot of the incident menu */
@@ -522,8 +552,10 @@
 @media (hover: hover) {
   .rp-check:has(.rp-check-main:not(:disabled)):hover { border-color: var(--ink-faint); }
 }
+/* ONE press wash, at card level only. The stretched ::after (below) makes the whole card the
+   button, so a second wash on `.rp-check-main:active` painted the header row twice — pressed
+   cards showed a darker title band over a lighter body. */
 .rp-check:has(.rp-check-main:not(:disabled)):active { background-image: linear-gradient(var(--press), var(--press)); }
-.rp-check-main:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rp-check-main { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 11px 16px;
   border: none; background: none; text-align: left; color: var(--ink); cursor: pointer; width: 100%; }
 .rp-check-main:disabled { cursor: default; }

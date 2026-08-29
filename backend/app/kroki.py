@@ -225,9 +225,13 @@ def render_base(
 # ----------------------------------------------------------------------------- symbols
 
 
-def raster_svg(svg: str, size_px: int) -> Image.Image:
-    """Rasterise an SVG string to a square RGBA image (resvg — same renderer for pack
+def raster_svg(svg: str, size_px: int, height_px: int | None = None) -> Image.Image:
+    """Rasterise an SVG string to an RGBA image (resvg — same renderer for pack
     symbols and the client-resolved dynamic glyphs like vehicles/placards).
+    Square by default; `height_px` stretches it (generic shapes with an `aspect`). resvg
+    itself keeps the SVG's intrinsic ratio whatever target box it is given, so the stretch
+    is done as a PIL resize of a square render at the LARGER side — never an upscale, and
+    anisotropic exactly like the client's preserveAspectRatio="none" CSS box.
 
     The pack's letters use `font-family="Arial,sans-serif"`. The Linux container has no
     Arial, and resvg's built-in generic-family defaults don't exist there either — the
@@ -236,18 +240,23 @@ def raster_svg(svg: str, size_px: int) -> Image.Image:
     first, so the pin is inert there."""
     import resvg_py
 
+    h = height_px or size_px
+    s = max(size_px, h)
     png = bytes(
         resvg_py.svg_to_bytes(
             svg_string=svg,
-            width=size_px,
-            height=size_px,
+            width=s,
+            height=s,
             font_family="DejaVu Sans",
             sans_serif_family="DejaVu Sans",
             serif_family="DejaVu Serif",
             monospace_family="DejaVu Sans Mono",
         )
     )
-    return Image.open(io.BytesIO(png)).convert("RGBA")
+    img = Image.open(io.BytesIO(png)).convert("RGBA")
+    if (size_px, h) != (s, s):
+        img = img.resize((size_px, h), Image.Resampling.LANCZOS)
+    return img
 
 
 class SymbolPack:
@@ -407,23 +416,28 @@ def _place_symbol(
     size: int,
     rotation: float | None,
     spread: dict | None,
+    height: int | None = None,
 ) -> None:
     """Paint one tactical glyph with the decor that belongs to the glyph itself: the FKS
     Entwicklung arrows outside it (client `.sym-spread`, a 250% box), the white legibility chip
     behind outline symbols, then the rotated glyph on top.
 
     Shared by the Kroki and the plan pages — a symbol carries the same decor wherever it was
-    placed, which is also what the two screens show.
+    placed, which is also what the two screens show. `height` stretches the glyph box
+    (generic shapes with an `aspect`); symbols stay square.
     """
     x, y = xy
-    glyph = raster_svg(svg, size)
+    h = height or size
+    glyph = raster_svg(svg, size, h)
     if spread:
         osize = int(size * 2.5)
         oimg = raster_svg(spread_overlay_svg(spread, sym_color(svg)), osize)
         overlay.alpha_composite(oimg, (int(x - osize / 2), int(y - osize / 2)))
     if needs_white(svg):
         draw.rounded_rectangle(
-            [x - size / 2, y - size / 2, x + size / 2, y + size / 2], radius=size * 0.14, fill=(255, 255, 255, 235)
+            [x - size / 2, y - h / 2, x + size / 2, y + h / 2],
+            radius=min(size, h) * 0.14,
+            fill=(255, 255, 255, 235),
         )
     if rotation:
         glyph = glyph.rotate(-rotation, expand=True, resample=Image.Resampling.BICUBIC)
@@ -1144,20 +1158,24 @@ def render_kroki(
                     box_w=nbox,
                 )
             continue
-        # shapes are sized in real-world metres (client shapePx); symbols use the band
+        # shapes are sized in real-world metres (client shapePx) and may be stretched
+        # (aspect = height/width, same 0.2..5 clamp as lib/shapes · shapeAspect);
+        # symbols use the band and stay square
         if e.get("sizeM"):
             size = round(max(24.0, min(900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss)
+            gh = round(size * max(0.2, min(5.0, float(e.get("aspect") or 1))))
         else:
             size = round(sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u * ss)
+            gh = size
         x, y = x0_, y0_
-        _place_symbol(overlay, draw, svg, (x, y), size, e.get("rotation"), e.get("spread"))
+        _place_symbol(overlay, draw, svg, (x, y), size, e.get("rotation"), e.get("spread"), height=gh)
         _symbol_badges(draw, (x, y), size, u * ss, e.get("floor"), e.get("floorFrom"), e.get("floorTo"), e.get("count"))
         # metadata caption under the glyph (the map's .sym-caption) — DEFERRED into the same
         # collision pass the drawing labels go through: on the 08.08. Kroki two of these
         # («Kurmann Thomas» over «Lüfter Akku 3. OG») printed straight on top of one another,
         # and a chip drawn inline cannot know what is coming after it.
         if e.get("caption"):
-            captions.append(((x, y + size / 2 + 3 * u * ss), str(e["caption"]).split("\n"), int(11.5 * u * ss)))
+            captions.append(((x, y + gh / 2 + 3 * u * ss), str(e["caption"]).split("\n"), int(11.5 * u * ss)))
 
     # marker letters over the lines, then the end tags over THOSE, label chips on top of all
     for xy, letter, fs, color in markers:
@@ -1308,13 +1326,20 @@ def _overlay_board_annos(
             if not svg:
                 continue
             # symbols print at a fixed 42px; generic shapes carry their size as a
-            # fraction of the plan width (sizeN) — mirror of the on-screen sizing
-            size = round(a["sizeN"] * w) if a.get("sizeN") else round(_BOARD_SYMBOL_PX * u * ss)
+            # fraction of the plan width (sizeN) — mirror of the on-screen sizing —
+            # and may be stretched (aspect = height/width, clamp as lib/shapes · shapeAspect).
+            # `gh`, not `h` — `h` is this function's page height.
+            if a.get("sizeN"):
+                size = round(a["sizeN"] * w)
+                gh = round(size * max(0.2, min(5.0, float(a.get("aspect") or 1))))
+            else:
+                size = round(_BOARD_SYMBOL_PX * u * ss)
+                gh = size
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
             # ⚠️ Same decor as the Kroki, deliberately: a plan symbol printed BARE until 26.08.
             # — no Entwicklung arrows, no white chip, no storey and no count — so «3 Brände im
             # 2. OG», drawn once on the board, came off the printer as one nameless flame.
-            _place_symbol(overlay, draw, svg, (x, y), size, a.get("rotation"), a.get("spread"))
+            _place_symbol(overlay, draw, svg, (x, y), size, a.get("rotation"), a.get("spread"), height=gh)
             # `storey`, never `floor`: on a plan anno that name is the floor-stack's tile index.
             # On the Gebäude floor-stack `storey` is always absent — the sheet the symbol sits on
             # IS the storey, so the client never offers the control there (Whiteboard · onFloor)
@@ -1332,7 +1357,7 @@ def _overlay_board_annos(
             # would be a second answer to «what does this symbol say», and the two sheets of one
             # rapport would eventually disagree.
             if (a.get("caption") or "").strip():
-                captions.append(((x, y + size / 2 + 3 * u * ss), str(a["caption"]).split("\n")))
+                captions.append(((x, y + gh / 2 + 3 * u * ss), str(a["caption"]).split("\n")))
         elif kind in ("text", "resource") and (a.get("text") or "").strip():
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
             dark = kind == "resource"  # resource chips are ink-on-dark like the app

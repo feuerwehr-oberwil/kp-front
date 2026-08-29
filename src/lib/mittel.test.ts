@@ -4,8 +4,8 @@ import {
   mittelKey, deriveCurrentMittel, visibleMittel, recordedMittel, currentMengeFor,
   groupBySource, groupByMaterial, mittelReportRows, mittelLineCount,
   availableFor, mittelListGroups, groupCatalogue,
-  materialForSymbol, currentLineFor, defaultSourceFor, symbolCaptureConfigured,
-  mittelRecommendations,
+  materialForSymbol, materialsForSymbol, currentLineFor, defaultSourceFor, stockedSourcesFor,
+  symbolCaptureConfigured, mittelRecommendations,
 } from './mittel'
 import type { DeploymentMittelItem, DeploymentMittelSource } from './deploymentConfig'
 
@@ -241,6 +241,64 @@ describe('mittelRecommendations (the «Gesetzt, aber nicht erfasst» strip)', ()
     const bare = CAT.map(({ id, label, unit }) => ({ id, label, unit }))
     // token matching would find «Lüfter» — the symbolCaptureConfigured gate must veto it
     expect(mittelRecommendations(['VKF Luefter mobil'], [], bare)).toHaveLength(0)
+  })
+
+  it('the unambiguous fast path carries itself as its only candidate — existing fields untouched', () => {
+    const recs = mittelRecommendations(['VKF Luefter mobil', 'VKF Luefter mobil'], [], CAT)
+    expect(recs[0]).toMatchObject({ placed: 2, captured: 0, missing: 2, ambiguous: false })
+    expect(recs[0].candidates).toEqual([{ item: CAT[0], sources: ['tlf'] }])
+  })
+})
+
+// A symbol can mean SEVERAL catalogue materials (variants behind `when`, shared tokens) and be
+// carried on several sources — the single-answer helpers guessed, the plural forms let a
+// surface ask.
+describe('materialsForSymbol / candidate + source fan-out', () => {
+  const cat: DeploymentMittelItem[] = [
+    { id: 'exhauster', label: 'Exhauster', unit: 'Stk', symbol: 'VKF Luefter mobil', when: { Typ: 'Exhauster' } },
+    { id: 'luefter', label: 'Lüfter', unit: 'Stk', symbol: 'VKF Luefter mobil', stock: [{ source: 'tlf', qty: 2 }, { source: 'pio', qty: 1 }] },
+  ]
+
+  it('lists every reading, most specific first — [0] is what materialForSymbol answers', () => {
+    const withTyp = { symbol: 'VKF Luefter mobil', fields: { Typ: 'Exhauster' } }
+    expect(materialsForSymbol(cat, withTyp).map((c) => c.id)).toEqual(['exhauster', 'luefter'])
+    expect(materialForSymbol(cat, withTyp)?.id).toBe('exhauster')
+    // the plain Lüfter reads only as the bare mapping — the when-variant does not apply
+    expect(materialsForSymbol(cat, 'VKF Luefter mobil').map((c) => c.id)).toEqual(['luefter'])
+  })
+
+  it('token matches trail the explicit mappings and never duplicate them', () => {
+    const mixed: DeploymentMittelItem[] = [
+      { id: 'tp', label: 'Tauchpumpe', unit: 'Stk', symbol: 'FW Tauchpumpe' },
+      // a second catalogue row spelling the same material — matches by label tokens alone
+      { id: 'tp2', label: 'Tauchpumpe', unit: 'Stk' },
+    ]
+    expect(materialsForSymbol(mixed, 'FW Tauchpumpe').map((c) => c.id)).toEqual(['tp', 'tp2'])
+  })
+
+  it('stockedSourcesFor lists carrying sources biggest-first and skips zero-stock entries', () => {
+    expect(stockedSourcesFor(cat[1])).toEqual(['tlf', 'pio'])
+    expect(stockedSourcesFor({ id: 'x', label: 'X', stock: [{ source: 'tlf', qty: 0 }] })).toEqual([])
+    expect(stockedSourcesFor({ id: 'y', label: 'Y' })).toEqual([])
+  })
+
+  it('a recommendation carries its candidates and flags the variant ambiguity', () => {
+    const recs = mittelRecommendations([{ symbol: 'VKF Luefter mobil', fields: { Typ: 'Exhauster' } }], [], cat)
+    expect(recs).toHaveLength(1)
+    // existing consumers read these unchanged
+    expect(recs[0]).toMatchObject({ placed: 1, captured: 0, missing: 1 })
+    expect(recs[0].item.id).toBe('exhauster')
+    expect(recs[0].candidates.map((c) => c.item.id)).toEqual(['exhauster', 'luefter'])
+    expect(recs[0].ambiguous).toBe(true)
+  })
+
+  it('…and flags multi-source ambiguity even with a single candidate', () => {
+    const single: DeploymentMittelItem[] = [
+      { id: 'luefter', label: 'Lüfter', unit: 'Stk', symbol: 'VKF Luefter mobil', stock: [{ source: 'tlf', qty: 2 }, { source: 'pio', qty: 1 }] },
+    ]
+    const recs = mittelRecommendations(['VKF Luefter mobil'], [], single)
+    expect(recs[0].candidates).toEqual([{ item: single[0], sources: ['tlf', 'pio'] }])
+    expect(recs[0].ambiguous).toBe(true)
   })
 })
 

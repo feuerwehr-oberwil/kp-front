@@ -7,7 +7,7 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
 import { MenuPick } from './MenuPick'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
-import { ShapeGlyph } from '../lib/shapes'
+import { SHAPE_FREE_ASPECT, ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
@@ -22,11 +22,12 @@ import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer } 
 // pointerdown) never starts alongside it. React's onPointerDown stopPropagation is delegated at
 // the document root and runs too late — by then the marker is already dragging. Using the capture
 // (setPointerCapture) keeps the move/up events on this element for the whole gesture.
-function TransformHandle({ className, icon, title, onStart, onMove, onEnd }: {
+function TransformHandle({ className, icon, title, onStart, onMove, onEnd, style }: {
   className: string; icon: string; title: string
   onStart: (clientX: number, clientY: number, el: HTMLElement) => void
   onMove: (clientX: number, clientY: number) => void
   onEnd: () => void
+  style?: React.CSSProperties
 }) {
   const ref = useRef<HTMLButtonElement>(null)
   // re-bind each render so the closures see the latest callbacks; it's a single element/listener
@@ -61,7 +62,7 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd }: {
       el.removeEventListener('touchstart', block)
     }
   })
-  return <button ref={ref} className={className} title={title} aria-label={title} onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
+  return <button ref={ref} className={className} style={style} title={title} aria-label={title} onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
 }
 
 // once a hold has armed, the finger must still travel this far (screen px) before the symbol
@@ -119,7 +120,9 @@ interface Props {
    *  name. Their owners paint the 6px ink dot instead. The SELECTED entity is never in here. */
   suppressedLabels?: ReadonlySet<string>
   /** tactical editing is locked (viewer / Führungsansicht / replay): a tap still selects
-   *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView). */
+   *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView).
+   *  Not read in here since the note grips row went (29.08.) — the panel handles read-only
+   *  itself — but the prop stays declared: MapView passes it, and a future grip needs it. */
   readOnly?: boolean
   draggable: boolean
   /** project lng/lat → container px, through the map's LIVE transform (re-anchors a hold-drag on
@@ -135,7 +138,7 @@ interface Props {
   onMarkerDragEnd: (id: string, c: LngLat) => void
   onDelete: (id: string) => void
   onRotate?: (id: string, deg: number) => void
-  onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
+  onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number; aspect?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
   /** which note is in raw inline-text edit mode (mirrors the Plan whiteboard's text notes) */
   editNoteId?: string | null
   /** stream a note's text live as it's typed */
@@ -144,8 +147,8 @@ interface Props {
   onNoteCommit?: (id: string, text: string) => void
   /** enter inline edit on a note (double-click; placement enters edit via editNoteId) */
   onNoteEdit?: (id: string) => void
-  /** open a note's detail panel (the ⚙ handle). Absent ⇒ no ⚙ — selecting a note never opens
-   *  the panel on its own, unlike a symbol; see the handle block below. */
+  /** open a note's detail panel. Since 29.08. this rides on the SELECT tap itself (see
+   *  selectEntity) — tap = panel, drag = move, the same grammar as a symbol. */
   onNotePanel?: (id: string) => void
   /** drag the note text box's width (screen px). 'start'/'end' carry no width — they only
    *  bracket the gesture so it folds into one undo step. */
@@ -182,7 +185,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)
@@ -232,7 +235,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // a rename never survives selecting something else — leaving the pill IS the commit/abort
   useEffect(() => { setEditTeamId((cur) => (cur && cur !== selectedId ? null : cur)) }, [selectedId])
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
-  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage' } | null>(null)
+  // `rot` = the shape's SCREEN rotation at grab time and `free` = per-axis resize allowed —
+  // both captured on pointer-down so the corner drag can be resolved in the shape's own frame
+  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage'; rot: number; free: boolean } | null>(null)
   // Press-and-hold to move a placed symbol. Markers are NOT react-map-gl-draggable (that would
   // claim every pan/zoom that starts on a symbol and drag it instead of the map); instead a still
   // hold past the delay arms a drag — a quick flick to pan/zoom passes straight through to the map.
@@ -320,7 +325,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     const glyph = marker?.querySelector('.shape-glyph, .ts') as HTMLElement | null
     if (!glyph) return
     const r = glyph.getBoundingClientRect() // rotated/scaled AABB — centre is unchanged
-    shapeRef.current = { id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, lat, mode }
+    const ent = entities.find((x) => x.id === id)
+    shapeRef.current = {
+      id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, lat, mode,
+      rot: (ent?.rotation ?? 0) - bearing,
+      free: mode === 'resize' && ent?.kind === 'shape' && SHAPE_FREE_ASPECT[ent.shape ?? 'square'],
+    }
     onShapeTransform?.(id, {}, 'start')
   }
   const shapeMove = (clientX: number, clientY: number) => {
@@ -342,6 +352,19 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       const off = st.mode === 'rotate2' ? -90 : 90
       const val = Math.round((((deg + off + bearing) % 360) + 360) % 360)
       onShapeTransform?.(st.id, st.mode === 'rotate2' ? { rotation2: val } : { rotation: val }, 'move')
+    } else if (st.free) {
+      // free-aspect corner drag (Rechteck / Rauch): the pointer offset, rotated into the
+      // shape's own frame, sets width from |dx| and height from |dy| independently. Same
+      // maths as the Plan's resize (Whiteboard · rotMove), so the two surfaces feel identical.
+      const rad = (-st.rot * Math.PI) / 180
+      const dx = clientX - st.cx, dy = clientY - st.cy
+      const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
+      const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
+      const ppm = pxPerM(st.lat, zoom)
+      const sizeM = Math.max(5, Math.min(500, Math.round((2 * Math.abs(lx)) / ppm)))
+      const heightM = Math.max(5, Math.min(500, Math.round((2 * Math.abs(ly)) / ppm)))
+      const aspect = Math.max(0.2, Math.min(5, Math.round((heightM / sizeM) * 100) / 100))
+      onShapeTransform?.(st.id, { sizeM, aspect }, 'move')
     } else {
       const dist = Math.hypot(clientX - st.cx, clientY - st.cy)
       const sizeM = (dist * Math.SQRT2) / pxPerM(st.lat, zoom) // corner handle = half-diagonal
@@ -369,6 +392,14 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   }
   const noteWUp = () => { const st = noteWRef.current; if (!st) return; noteWRef.current = null; onNoteWidth?.(st.id, undefined, 'end') }
 
+  // ONE select path for every tap that means «this one». A NOTE opens its panel on that same
+  // tap (decided 29.08.) — the symbol grammar, unified: tap = panel, drag = move. The panel
+  // carries edit + Löschen, and a read-only surface opens it read-only.
+  const selectEntity = (ent: Entity) => {
+    onSelect(ent)
+    if (ent.kind === 'note') onNotePanel?.(ent.id)
+  }
+
   // entity markers — guard against malformed entities (e.g. a server workspace
   // missing a coord) so one bad row can't white-screen the whole map
   return (
@@ -377,7 +408,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // the glyph's on-screen pixel size — drives the selection halo + handle ring so
         // they sit a fixed distance OUTSIDE the glyph at any zoom (small glyphs push the
         // handles out to a comfortable minimum via --hbox in CSS, big ones track the edge).
-        const gpx = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom)
+        // a shape's box is width × (width · aspect) — the halo/handle anchor (--gpx → --hbox)
+        // takes the LARGER side so the ring always encloses the rectangle
+        const shpW = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom) : 0
+        const shpH = e.kind === 'shape' ? shpW * shapeAspect(e.shape ?? 'square', e.aspect) : 0
+        const gpx = e.kind === 'shape' ? Math.max(shpW, shpH)
           : e.kind === 'note' || e.kind === 'photo' || e.kind === 'team' ? 56
           : symPx(e.kind, e.coord[1], zoom, symMul)
         // this marker's offset while its pile is fanned open — and the hairline back to where
@@ -427,11 +462,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   hold.begin({ clientX: cx, clientY: cy, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
                     onTap: () => {
                       // already fanned: the spokes ARE the choice, so this tap is the answer
-                      if (fanned) { setFan(null); onSelect(e); return }
+                      if (fanned) { setFan(null); selectEntity(e); return }
                       // more than one candidate under the finger → fan them out instead of
                       // guessing. One candidate → select it straight away, exactly as before.
                       if (pile.length > 1) { openFan(fanOffsets(pile)); return }
-                      onSelect(near)
+                      selectEntity(near)
                     },
                     onHoldStart: () => {
                       // a rotor / shape-transform gesture owns the pointer — never also translate
@@ -470,7 +505,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       setDraggingId(null) // drop the halo once it stops moving
                       endSheetPeek() // …and the sheet comes back to the height it had
                       if (st?.moved && st.last) onMarkerDragEnd(near.id, st.last)
-                      else if (selectedId !== near.id) onSelect(near) // held but never dragged → treat as a select (open the panel)
+                      else if (selectedId !== near.id) selectEntity(near) // held but never dragged → treat as a select (open the panel)
                     },
                     // An already-selected symbol (panel open) drags INSTANTLY like a mouse — move
                     // on the first travel, no hold delay. Unselected touch still needs the deliberate
@@ -543,9 +578,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
             })() : e.kind === 'shape' ? (
               <div
                 className="shape-glyph"
-                style={{ width: shapePx(e.sizeM, e.coord[1], zoom), height: shapePx(e.sizeM, e.coord[1], zoom), transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
+                style={{ width: shpW, height: shpH, transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
               >
-                <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} />
+                <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} stop={e.stop} />
               </div>
             ) : e.kind === 'note' ? (() => {
               // every note is a wrapping box; a stored note with no width falls back to the
@@ -661,41 +696,14 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 </>
               )
             })()}
-            {/* Inline delete is kept ONLY for notes — a note's detail panel opens from the ⚙
-                rather than from selection (it is placed mid-sentence; a panel on every tap would
-                be in the way), so the ✕ stays its everyday delete. A note with text asks before
-                deleting. Symbols / shapes / photos drop the field ✕ (too many accidental deletes)
-                and are deleted from their dashboard panel instead. */}
+            {/* ⚠️ The inline ✕ (and the pen/⚙ grips row) is GONE — decided 29.08. The row existed
+                because a note's panel only opened from the ⚙, so the ✕ was its everyday delete;
+                now the panel opens on the TAP itself (see selectEntity above), same grammar as
+                every symbol, and Löschen/edit live in the panel like everywhere else. What a
+                selected note keeps is drag-only: the width grip below (the body moves by
+                hold-drag, as before). Double-tap stays the desktop shortcut into inline edit. */}
             {selectedId === e.id && !e.live && e.kind === 'note' && (
               <>
-                {/* one tidy row ABOVE the note rather than orbs pinned to its corners: a note's
-                    pill is short and often narrow, so corner orbs sat on top of the very text
-                    they belong to — unreadable, and a mis-tap away from deleting. */}
-                {editNoteId !== e.id && (
-                  <div className="note-grips" onPointerDown={(ev) => ev.stopPropagation()}>
-                    {/* double-tap is unreliable on iOS, so a selected note keeps an explicit
-                        edit handle — dblclick stays as the desktop shortcut. Absent when the
-                        surface is read-only: ⚙ then opens the note read-only instead. */}
-                    {onNoteEdit && (
-                      <button className="note-grip ng-edit" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
-                        onClick={(ev) => { ev.stopPropagation(); onNoteEdit(e.id) }}>
-                        <Icon id="pen" />
-                      </button>
-                    )}
-                    {onNotePanel && (
-                      <button className="note-grip ng-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
-                        onClick={(ev) => { ev.stopPropagation(); onNotePanel(e.id) }}>
-                        <Icon id="gear" />
-                      </button>
-                    )}
-                    {!readOnly && (
-                      <button className="note-grip ng-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
-                        onClick={(ev) => { ev.stopPropagation(); onDelete(e.id) }}>
-                        <Icon id="close" />
-                      </button>
-                    )}
-                  </div>
-                )}
                 {/* right-edge width grip — a text box only. A one-line note has nothing to drag;
                     its width IS its text. Native listeners (TransformHandle) so the drag beats
                     react-map-gl's marker drag, same as the shape handles. */}
@@ -819,14 +827,19 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 onEnd={rotUp}
               />
             )}
-            {selectedId === e.id && e.kind === 'shape' && onShapeTransform && (
-              // rotor rotates with the shape so the handles stay attached to it:
-              // a tethered knob (top) for rotation, a corner grip for resize
+            {selectedId === e.id && e.kind === 'shape' && onShapeTransform && (() => {
+              // rotor rotates with the shape so the handles stay attached to it: a tethered
+              // knob (top) for rotation, a corner grip for resize. The CSS anchors assume a
+              // SQUARE --hbox; a stretched shape overrides them inline so the knob rides the
+              // real top edge and the grip the real corner (same floors as .marker.sel --hbox).
+              const hbW = Math.max(shpW, 56), hbH = Math.max(shpH, 56)
+              return (
               <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
-                <span className="shape-stem" />
+                <span className="shape-stem" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} />
                 <TransformHandle
                   className="handle shape-rotate"
                   icon="rotate"
+                  style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }}
                   title={appConfig.copy.shapes.rotateHint}
                   onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'rotate')}
                   onMove={shapeMove}
@@ -835,13 +848,15 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 <TransformHandle
                   className="handle shape-resize"
                   icon="resize"
+                  style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }}
                   title={appConfig.copy.shapes.resizeHint}
                   onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'resize')}
                   onMove={shapeMove}
                   onEnd={shapeUp}
                 />
               </div>
-            )}
+              )
+            })()}
             {selectedId === e.id && isRotatableSym(e) && !compositeSpec(e.symbol) && onShapeTransform && (
               // directional symbol: rotate-only handle (no resize — symbols keep their
               // real-world scale). Tethered knob rotates with the symbol.

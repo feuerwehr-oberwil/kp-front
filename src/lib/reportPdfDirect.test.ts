@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { floorStackPages, forPaper, planAnnosForPdf } from './reportPdfDirect'
+import { einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf } from './reportPdfDirect'
 import { TILE_AR } from './whiteboard'
-import type { BoardAnno, BuildingDoc, PlanDocument } from '../types'
+import type { BoardAnno, BuildingDoc, PlanDocument, TimelineEvent } from '../types'
 
 describe('planAnnosForPdf', () => {
   it('resolves a plan shape to a client-rendered svg glyph with its plan-relative size', () => {
@@ -53,6 +53,21 @@ describe('planAnnosForPdf', () => {
     const [out] = planAnnosForPdf([{ id: 'sh2', kind: 'shape', shape: 'arrow', x: 0.1, y: 0.1 }], {})
     expect(String(out.symbolSvg)).toContain('<svg')
     expect(typeof out.sizeN).toBe('number')
+  })
+
+  it('sends a stretched shape\'s aspect, and only when it stretches', () => {
+    const [rect] = planAnnosForPdf([{ id: 'sh3', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.2, aspect: 0.5 }], {})
+    expect(rect.aspect).toBe(0.5)
+    // absent / 1 stays off the wire; the aspect-locked Pfeil never stretches on paper
+    expect(planAnnosForPdf([{ id: 'sh4', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.2 }], {})[0].aspect).toBeUndefined()
+    expect(planAnnosForPdf([{ id: 'sh5', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5, sizeN: 0.2, aspect: 3 }], {})[0].aspect).toBeUndefined()
+  })
+
+  it('bakes the arrow\'s Stopp-Balken into the printed glyph', () => {
+    const [out] = planAnnosForPdf([{ id: 'sh6', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5, stop: true }], {})
+    expect(String(out.symbolSvg)).toContain('M14 7 L86 7')
+    const [plain] = planAnnosForPdf([{ id: 'sh7', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5 }], {})
+    expect(String(plain.symbolSvg)).not.toContain('M14 7')
   })
 })
 
@@ -120,5 +135,51 @@ describe('forPaper', () => {
   it('leaves everything else exactly as it was — numbers, nulls, plain text', () => {
     const payload = { n: 3, ok: true, nothing: null, s: 'Hauptstrasse 4 – 2. OG', list: ['a', 'b'] }
     expect(forPaper(payload)).toEqual(payload)
+  })
+})
+
+// The rapport field only holds the LATEST Einsatzleiter; a mid-Einsatz handover is read out of
+// the Verlauf's own Rapportangaben rows (lib/report · einsatzleiterSuccession) and printed as
+// one continuous chain — the «bis» of one span is the «ab» of the next.
+describe('einsatzleiterForPdf', () => {
+  // local ISO (no Z), so the printed hh:mm is timezone-independent in the test
+  const row = (id: string, at: string, name: string): TimelineEvent =>
+    ({ id, t: at.slice(11, 16), at, text: `Rapportangaben: Einsatzleiter «${name}»` }) as TimelineEvent
+  const bounds = { alarmedAt: '2026-08-29T12:50:00', endedAt: '2026-08-29T16:00:00' }
+  // newest first, like the Verlauf array
+  const rotated = [
+    row('e2', '2026-08-29T14:20:00', 'Huber Beat'),
+    row('e1', '2026-08-29T13:00:00', 'Meier Anna'),
+  ]
+
+  it('single span → the field value, unchanged', () => {
+    expect(einsatzleiterForPdf('Meier Anna', [rotated[1]], bounds)).toBe('Meier Anna')
+    expect(einsatzleiterForPdf('Meier Anna', [], bounds)).toBe('Meier Anna')
+  })
+
+  it('a rotation prints the succession: «A (bis t), B (ab t)» on the shared handover instant', () => {
+    expect(einsatzleiterForPdf('Huber Beat', rotated, bounds))
+      .toBe('Meier Anna (bis 14:20), Huber Beat (ab 14:20)')
+  })
+
+  it('re-saving the unchanged name is no handover', () => {
+    const events = [row('e3', '2026-08-29T15:00:00', 'Meier Anna'), row('e1', '2026-08-29T13:00:00', 'Meier Anna')]
+    expect(einsatzleiterForPdf('Meier Anna', events, bounds)).toBe('Meier Anna')
+  })
+
+  it('a just-typed name the log window has not settled yet joins as the newest span', () => {
+    expect(einsatzleiterForPdf('Neu Nina', rotated, bounds))
+      .toBe('Meier Anna (bis 14:20), Huber Beat, Neu Nina')
+  })
+
+  it('the field stays the authority — empty prints the blank write-in rule as always', () => {
+    expect(einsatzleiterForPdf(undefined, rotated, bounds)).toBeUndefined()
+  })
+
+  it('spans days → the clocks carry their date (the sheet’s one midnight rule)', () => {
+    const overnight = { alarmedAt: '2026-08-29T22:00:00', endedAt: '2026-08-30T03:00:00' }
+    const events = [row('e2', '2026-08-30T00:15:00', 'Huber Beat'), row('e1', '2026-08-29T22:30:00', 'Meier Anna')]
+    expect(einsatzleiterForPdf('Huber Beat', events, overnight))
+      .toBe('Meier Anna (bis 30.08. 00:15), Huber Beat (ab 30.08. 00:15)')
   })
 })

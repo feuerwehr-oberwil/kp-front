@@ -20,7 +20,7 @@ import { scrollBehavior } from '../lib/reducedMotion'
 import { fillTemplate, hhmm, stripUnprintable, telHref } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
-import { currentLineFor, visibleMittel } from '../lib/mittel'
+import { currentLineFor, mittelLineCount, visibleMittel } from '../lib/mittel'
 import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd, missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
@@ -406,12 +406,22 @@ export default function CaptureApp() {
     }
   }
 
+  /** «Entfällt» and a value are two answers to the same question — resolve the contradiction on
+   *  every meta write, the same invariant the tablet's saveReportMeta applies (lib/report ·
+   *  normalizeReportMeta). Dynamically imported like this file's other lib/report callers, so
+   *  the poster bundle keeps its lazy split. */
+  const normalizedMetaPatch = async (patch: Partial<ReportMeta>): Promise<Partial<ReportMeta>> => {
+    const { normalizeReportMeta } = await import('../lib/report')
+    return normalizeReportMeta(patch, rm ?? {}, { mittelCount: mittelLineCount(mittel) })
+  }
+
   const run = async (action: CaptureAction): Promise<Workspace | null> => {
     if (!token || !incident || busy) return null
     setBusy(true)
     setSaveError(null)
     try {
-      const { workspace } = await saveAction(token, incident.id, action)
+      const send = action.kind === 'setMeta' ? { ...action, patch: await normalizedMetaPatch(action.patch) } : action
+      const { workspace } = await saveAction(token, incident.id, send)
       setWs(workspace)
       setLastFailed(null)
       return workspace
@@ -475,7 +485,8 @@ export default function CaptureApp() {
   const flushMeta = async (patch: Partial<ReportMeta>): Promise<boolean> => {
     if (!token || !incident) return false
     try {
-      const { workspace } = await saveAction(token, incident.id, { kind: 'setMeta', patch })
+      // same «entfällt» normalization as run() — this is the second of the two meta funnels
+      const { workspace } = await saveAction(token, incident.id, { kind: 'setMeta', patch: await normalizedMetaPatch(patch) })
       setWs(workspace)
       setSaveError(null)
       return true

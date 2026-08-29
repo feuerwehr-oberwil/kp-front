@@ -48,12 +48,24 @@
 .grab { cursor: grab; touch-action: none; }
 .grab:active { cursor: grabbing; }
 
-/* The broader content mirror is intentionally quieter and completely pointer-inert. It sits
-   below native annotations (z 3) but above the paper/PDF, so a projected Lage line can never
-   swallow the tap intended for a Modul object drawn over it. */
+/* The broader content mirror stays quieter than the real thing, and its DECORATIONS (end tags,
+   marker letters, labels, GL strokes) stay pointer-inert. It sits below native annotations
+   (z 3) but above the paper/PDF, so a projected Lage line can never swallow the tap intended
+   for a Modul object drawn over it. */
 .contentBoard { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: .72; overflow: hidden; }
 .contentPoint { position: absolute; display: block; pointer-events: none; }
 .contentMap { opacity: .72; pointer-events: none; }
-/* …except a mirrored TEAM chip: «wo ist Trupp 2» is answered by tapping it — the tap jumps to
-   the one source marker on the other surface. Button chrome stripped; the dot is the button. */
+/* …but each mirrored OBJECT carries one hit target: tap opens its in-place source-backed panel,
+   a hold-drag moves the one source through the fit (GeorefContentMap / GeorefContentBoard).
+   Button chrome stripped; the mark itself is the button. */
 .contentTap { pointer-events: auto; cursor: pointer; border: 0; background: none; padding: 0; font: inherit; }
+/* map-side hit targets: positioned so the shared .sel-halo ring can centre on them (the board
+   side gets that from .contentPoint's absolute positioning). --hbox feeds the halo's size. */
+.mapTap { position: relative; --hbox: 44px; }
+/* the halo'd mark stays readable above its ring — same raise .marker.sel gives its glyph */
+.mapTap :global(.shape-glyph), .mapTap :global(.note-pill), .mapTap > i, .mapTap > b { position: relative; z-index: 1; }
+/* The one hit target of a mirrored line/area: a small round grip at its midpoint/centroid —
+   round like every piece of on-canvas furniture. The button is bigger than the dot it draws
+   (gloved-finger pad); the dot takes the line's own colour, dimmed to the projection tone. */
+.grip { width: 34px; height: 34px; display: grid; place-items: center; }
+.grip i { display: block; width: 13px; height: 13px; border-radius: 50%; background: currentColor; opacity: .78; border: 2px solid var(--surface); box-sizing: content-box; }

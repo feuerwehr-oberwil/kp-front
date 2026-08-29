@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
-  TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, onSheet, planAspect,
-  planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinVisible,
+  TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES, TWIN_SYMBOL_FRACTION,
+  boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect,
+  planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinSymbolPx, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
@@ -111,6 +111,61 @@ describe('mapTwins (plan → Karte)', () => {
 
   it('skips an annotation with no anchor rather than putting it at the sheet corner', () => {
     expect(mapTwins(linked, { modul2: [anno('nowhere', { x: undefined, y: undefined })] })).toEqual([])
+  })
+
+  it('carries the sheet’s ground width, so the mark can size by the building footprint', () => {
+    // the 100 m FIT at aspect 1 makes the ground width exactly 100
+    expect(linked[0].widthM).toBeCloseTo(100, 3)
+    expect(mapTwins(linked, { modul2: [anno('a1')] })[0].widthM).toBeCloseTo(100, 3)
+  })
+})
+
+describe('twinSymbolPx (E9 — footprint-scaled twins)', () => {
+  // pxPerM(47.5, z18) ≈ 2.48 → 0.085 · 50 m · 2.48 ≈ 10.5 px, clamped up to the twin floor
+  it('clamps into the twin band: a LOWER floor than natives, the same ceiling', () => {
+    expect(twinSymbolPx(50, 47.5, 18)).toBe(15)
+    expect(twinSymbolPx(50, 47.5, 21)).toBe(48)
+  })
+
+  it('tracks the ground between the clamps and scales with the S/M/L factor after them', () => {
+    const mid = twinSymbolPx(50, 47.5, 19.5)
+    expect(mid).toBeGreaterThan(15)
+    expect(mid).toBeLessThan(48)
+    expect(mid).toBeCloseTo(TWIN_SYMBOL_FRACTION * 50 * (Math.pow(2, 19.5) / (156543.03392 * Math.cos((47.5 * Math.PI) / 180))), 6)
+    expect(twinSymbolPx(50, 47.5, 18, 1.3)).toBeCloseTo(15 * 1.3, 6)
+  })
+})
+
+describe('movedTwinPath (whole-object drag of a mirrored line/area)', () => {
+  const pts: [number, number][] = [[0.1, 0.2], [0.5, 0.2], [0.5, 0.6]]
+
+  it('translates every vertex by the same plan-space delta', () => {
+    const out = movedTwinPath(pts, { x: 0.3, y: 0.3 }, { x: 0.4, y: 0.35 })
+    const want = [[0.2, 0.25], [0.6, 0.25], [0.6, 0.65]]
+    out.forEach((p, i) => { expect(p[0]).toBeCloseTo(want[i][0], 9); expect(p[1]).toBeCloseTo(want[i][1], 9) })
+  })
+
+  it('keeps a per-point floor untouched — the drag moves paper position, never storeys', () => {
+    const out = movedTwinPath([[0.1, 0.2, 2], [0.5, 0.2, 3]], { x: 0, y: 0 }, { x: 0.1, y: 0 })
+    expect(out.map((p) => p[2])).toEqual([2, 3])
+  })
+
+  it('clamps the DELTA to the sheet, so the shape stops at the edge instead of squashing', () => {
+    const out = movedTwinPath(pts, { x: 0.3, y: 0.3 }, { x: 2, y: -2 })
+    expect(out.map((p) => p[0].toFixed(3))).toEqual(['0.600', '1.000', '1.000'])
+    expect(out.map((p) => p[1].toFixed(3))).toEqual(['0.000', '0.000', '0.400'])
+  })
+})
+
+describe('contentTwinName', () => {
+  it('uses the object’s own words first, then the kind’s tool name', () => {
+    expect(contentTwinName({ kind: 'draw', label: 'Zufahrt' })).toBe('Zufahrt')
+    expect(contentTwinName({ kind: 'text', text: 'Abschnitt Ost' })).toBe('Abschnitt Ost')
+    expect(contentTwinName({ kind: 'draw' })).toBe('Linie')
+    expect(contentTwinName({ kind: 'area' })).toBe('Fläche')
+    expect(contentTwinName({ kind: 'note' })).toBe('Notiz')
+    expect(contentTwinName({ kind: 'shape', shape: 'cloud' })).toBe('Rauch')
+    expect(contentTwinName({ kind: 'team' })).toBe('Trupp')
   })
 })
 

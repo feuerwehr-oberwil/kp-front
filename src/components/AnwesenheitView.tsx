@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import { Icon } from '../lib/icons'
 import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
@@ -25,6 +25,7 @@ import { Menu, Overlay, Sheet } from '../lib/overlays'
 import { TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
+import { SyncGlyph } from './SyncGlyph'
 import { ZeitplanView } from './ZeitplanView'
 import { BandGrid } from './BandGrid'
 import s from './Anwesenheit.module.css'
@@ -454,6 +455,30 @@ export function AnwesenheitView({
     const t = setInterval(() => setNowMs(Date.now()), 30_000)
     return () => clearInterval(t)
   }, [view])
+  // «Erneut versuchen» reports on itself, the same way «Jetzt synchronisieren» does
+  // (IncidentSwitcher): the ring spins while the roster loads, and on success it closes into a
+  // tick — which has to be shown HERE, because success also clears `error` and with it the
+  // button's reason to exist. So the button stays for the tick's 2.5s, then leaves. `floorDone`
+  // is the same 420ms floor as the sync button: a LAN round trip can settle in ~50ms, and an arc
+  // that flicks past reads as a glitch rather than as work done.
+  const [reloadPhase, setReloadPhase] = useState<'idle' | 'busy' | 'done'>('idle')
+  const [reloadFloorDone, setReloadFloorDone] = useState(true)
+  const reloadTimers = useRef<ReturnType<typeof setTimeout>[]>([])
+  useEffect(() => () => { reloadTimers.current.forEach(clearTimeout) }, [])
+  const runReload = () => {
+    if (reloadPhase === 'busy' || loading) return
+    setReloadPhase('busy')
+    setReloadFloorDone(false)
+    reloadTimers.current.push(setTimeout(() => setReloadFloorDone(true), 420))
+    onReload()
+  }
+  useEffect(() => {
+    if (reloadPhase !== 'busy' || loading || !reloadFloorDone) return
+    // the fetch settled: still failing → back to the retry face; cleared → tick, then leave
+    if (error) { setReloadPhase('idle'); return }
+    setReloadPhase('done')
+    reloadTimers.current.push(setTimeout(() => setReloadPhase('idle'), 2500))
+  }, [reloadPhase, loading, reloadFloorDone, error])
   const A = appConfig.copy.anwesenheit
   // …and whether this is a phone, which is the only place the head carries a ↶ (see below)
   const isPhone = useIsPhone()
@@ -653,10 +678,14 @@ export function AnwesenheitView({
               trigger={
                 <button className={c.iconBtn} aria-label={appConfig.copy.zeitplan.paperMenu}
                   title={appConfig.copy.zeitplan.paperMenu}>
-                  <Icon id="printer" />
-                  {onPrintZeitplan && (
-                    <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
-                  )}
+                  {/* icon + relay dot side by side, like the Rapport's print button — .iconBtn is
+                      inline-grid, so as two loose children they stacked (printer OVER the dot) */}
+                  <span className="print-send-main">
+                    <Icon id="printer" />
+                    {onPrintZeitplan && (
+                      <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
+                    )}
+                  </span>
                 </button>
               }
               popupClassName={c.menuPop}
@@ -679,11 +708,17 @@ export function AnwesenheitView({
               during an incident — only an admin's Divera sync moves it, and usePersonnel now picks
               that up in the background. What is left means what it says: that did not load, try
               again. */}
-          {error && (
-            <button className={cx(s.reload, s.reloadFailed)} onClick={onReload} disabled={loading}
-              aria-label={A.reload} title={A.loadFailedHint}>
-              <Icon id={loading ? 'rotate' : 'warn'} />
-              <span className={s.reloadLabel}>{loading ? A.loading : A.retry}</span>
+          {(error || reloadPhase === 'done') && (
+            <button className={cx(s.reload, error && s.reloadFailed)} onClick={runReload}
+              disabled={loading || reloadPhase !== 'idle'}
+              aria-label={A.reload} title={error ? A.loadFailedHint : undefined}>
+              {loading || reloadPhase !== 'idle'
+                ? <SyncGlyph done={reloadPhase === 'done'}
+                    label={reloadPhase === 'done' ? appConfig.copy.incidentSwitcher.syncDone : A.loading} />
+                : <Icon id="warn" />}
+              {reloadPhase !== 'done' && (
+                <span className={s.reloadLabel}>{loading || reloadPhase === 'busy' ? A.loading : A.retry}</span>
+              )}
             </button>
           )}
         </div>

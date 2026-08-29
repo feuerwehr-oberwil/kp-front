@@ -175,7 +175,14 @@ export interface Entity extends SymbolProps {
   directed?: boolean
   // --- kind 'shape' ---
   shape?: ShapeKind
-  sizeM?: number        // shape size on the ground, in metres
+  sizeM?: number        // shape WIDTH on the ground, in metres (height = sizeM × aspect)
+  /** height/width ratio of the shape's box — absent = 1 (the original square proportions), so
+   *  stored incidents render unchanged. Only free-aspect kinds stretch (see lib/shapes ·
+   *  SHAPE_FREE_ASPECT); the Pfeil stays proportional. The Plan mirror is `BoardAnno.aspect`. */
+  aspect?: number
+  /** arrow shape only: the «→|» Stopp-Balken across the tip — the same Entwicklungsgrenze
+   *  statement a line's `arrowStop` makes. The Plan mirror is `BoardAnno.stop`. */
+  stop?: boolean
   /** aerial-appliance boom reach in metres (Hubretter) — the ground distance from the truck
    *  (`coord`) to the rescue cage; the cage is the draggable tip and `rotation2` its bearing.
    *  Metre-scaled like `sizeM` so the cage stays over its ground spot as the map zooms. The Plan
@@ -533,6 +540,12 @@ export interface BuildingDoc {
   /** active view: true = "Norden oben" (unrotated), false/absent = oriented (default).
    *  `rings`/`ring`/`ringAspect` always mirror the ACTIVE view for back-compat renderers. */
   northUp?: boolean
+  /** active view angle in degrees when the operator has DIALLED a custom rotation (A8, 29.08.).
+   *  Absent = the binary behaviour above (`northUp ? 0 : orientDeg`) — resolve through
+   *  lib/footprint · activeViewDeg, never by hand. Writers keep `northUp` in sync
+   *  (viewDeg === 0 ⇔ northUp) and the ring mirrors on the active view, so documents read by
+   *  pre-dial clients still render a coherent (if binary-angled) picture. */
+  viewDeg?: number
   /** where this footprint sits on the ground, recorded at pick time from the picker's own square
    *  metre-bbox (lib/buildingTransfer · georefFromPick).
    *
@@ -590,8 +603,14 @@ export interface BoardAnno extends SymbolProps {
   wN?: number
   // --- kind 'shape' (Pfeil / Rauch / Rechteck — the plan mirror of Entity kind 'shape') ---
   shape?: ShapeKind
-  /** shape size as a fraction of the plan width (0..1) — the plan-space analogue of Entity.sizeM */
+  /** shape WIDTH as a fraction of the plan width (0..1) — the plan-space analogue of Entity.sizeM.
+   *  The box height is sizeN × aspect (of the same plan width, so a square stays square). */
   sizeN?: number
+  /** height/width ratio of the shape's box — the plan-space twin of `Entity.aspect`.
+   *  Absent = 1; only free-aspect kinds stretch (lib/shapes · SHAPE_FREE_ASPECT). */
+  aspect?: number
+  /** arrow shape only: the «→|» Stopp-Balken across the tip (twin of `Entity.stop`). */
+  stop?: boolean
   /** aerial-appliance boom reach as a fraction of the plan width (0..1) — the plan-space analogue of
    *  Entity.reachM (the Hubretter cage distance from the truck; bearing = `rotation2`). */
   reachN?: number

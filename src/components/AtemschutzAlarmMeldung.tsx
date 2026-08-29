@@ -29,7 +29,11 @@ import type { Trupp } from '../types'
 //    the reason changing (a Trupp out of contact whose air then also runs out).
 //  · Only tier 2 — the tier that sounds. The amber «Kontakt fällig» lead is silent and
 //    board-only by doctrine, and a row for it would make the strip nag before anything is wrong.
-//    That keeps the invariant this file exists for: tone ⇔ row.
+//    That keeps the invariant this file exists for: tone ⇔ row — with ONE deliberate exception:
+//    while the operator is STANDING on the Atemschutz board (`onBoard`), the rows are withheld.
+//    The board shows the alarm in full and the strip only covered its controls (the same reason
+//    «Zum Trupp» dismisses). The tone logic is untouched by this — the device still sounds until
+//    acknowledged, and the withheld rows return the moment the operator leaves the board.
 
 /** One alarming Trupp, reduced to what the row has to say about it. */
 export interface AtemschutzAlarmRow {
@@ -82,7 +86,7 @@ export function atemschutzAlarmRows(
  * Publish one Meldeleiste row per Trupp in alarm. Renders nothing itself (the strip paints) —
  * mount it wherever the alarm state lives, beside the other publishers.
  */
-export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, graceSec, onAcknowledge, onGoToTrupp }: {
+export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, graceSec, onAcknowledge, onGoToTrupp, onBoard = false }: {
   trupps: readonly Trupp[]
   /** per-Trupp tier from the alarm fold; only `2` is published (see the header) */
   severities: Record<string, 1 | 2>
@@ -93,6 +97,11 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
   onAcknowledge?: () => void
   /** open the Atemschutz board with this Trupp's card pointed at */
   onGoToTrupp: (id: string) => void
+  /** the Atemschutz board is the active surface — withhold the rows while it is (see the
+   *  header's tone ⇔ row exception). Withhold ONLY: `visited` keeps its bookkeeping so leaving
+   *  the board mid-alarm brings the rows straight back, and nothing here acknowledges (that
+   *  would mute the device behind the operator's back). */
+  onBoard?: boolean
 }) {
   // No 1 Hz tick here, deliberately: the row carries no running clock (that is the TopBar chip's
   // job). The wall clock is only re-read when something about the Trupps changes, and every event
@@ -115,6 +124,10 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rows is derived; liveKey IS its identity
   }, [liveKey])
+  // withheld, not acknowledged: the publishers below simply unmount, so their rows retract —
+  // and remount unchanged when the operator leaves the board (after the hooks, so the visited
+  // pruning above never skips a beat)
+  if (onBoard) return null
   return <>{rows.filter((r) => visited[r.id] !== r.reason).map((r) => (
     <AtemschutzAlarmMeldung key={r.id} row={r} onAcknowledge={onAcknowledge}
       onGo={(id) => { setVisited((v) => ({ ...v, [r.id]: r.reason })); onGoToTrupp(id) }} />

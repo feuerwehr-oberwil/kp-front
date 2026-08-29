@@ -304,8 +304,10 @@ const base = {
         'VKF Gefaehrliche Stoffe': { controls: ['floor', 'spread'], fields: ['Stoff'] },
         'VKF Wasser': { controls: ['floor', 'spread'] },
         'FW Gefahr Ex': { controls: ['floor'] },
-        // ── Gefahren ── floor badge; hazmat seeds just the substance.
-        'FW Gefahr allgemein': { controls: ['floor'] },
+        // ── Gefahren ── floor badge; hazmat seeds just the substance. The generic hazard
+        // seeds a 'Gefahr' row (caption via fields[0]): the glyph alone says only «something
+        // dangerous here» — WHAT it is («Einsturz», «Dachlawine») is the map's actual message.
+        'FW Gefahr allgemein': { controls: ['floor'], fields: ['Gefahr'] },
         'FW Gefahr G': { controls: ['floor'], fields: ['Stoff'] },
         'FW Gefahr C': { controls: ['floor'], fields: ['Stoff'] },
         // Gefahrentafel = orange UN placard; UN-Nr first (future lookup UN→Stoff fills the rest),

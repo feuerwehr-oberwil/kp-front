@@ -1,4 +1,4 @@
-import { buildView, fpBoxFrac, type Pt, type Ring } from './footprint'
+import { activeViewDeg, buildView, fpBoxFrac, type Pt, type Ring } from './footprint'
 import { TILE_AR } from './whiteboard'
 import type { BoardAnno, BoardPoint, BuildingDoc, LngLat, SrcGeoref } from '../types'
 
@@ -293,7 +293,7 @@ export function amendBuilding(
   const floors = prev.floors.length ? prev.floors : [0]
   const layout = stackLayout(floors.length)
   const from: BuildingFrame = {
-    src, angleDeg: prev.northUp ? 0 : (prev.orientDeg ?? 0), geo: prev.geo, floors: floors.length,
+    src, angleDeg: activeViewDeg(prev), geo: prev.geo, floors: floors.length,
   }
   // a fresh pick is always stored ORIENTED (northUp: false), so its active view is `orientDeg`
   const to: BuildingFrame = { src: next.src, angleDeg: next.orientDeg, geo: next.geo, floors: floors.length }

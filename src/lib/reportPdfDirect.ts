@@ -10,18 +10,18 @@
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { TILE_AR, floorLabel } from './whiteboard'
-import { buildView, fpBoxFrac } from './footprint'
+import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarIsMeasured, readingKindLabel, truppAuftragLabel, truppStatusLabel,
+  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarIsMeasured, readingKindLabel, spanAwareClock, truppAuftragLabel, truppStatusLabel,
 } from './report'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, shapeSvgString } from './krokiPayload'
 import { symbolCaptionText } from './symbols'
-import { SHAPE_DEFS } from './shapes'
+import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
@@ -70,11 +70,15 @@ export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, stri
     }
     if (a.kind === 'shape') {
       // a plan shape prints as a client-resolved glyph (like map shapes); sizeN scales it
-      // to the plan width server-side instead of the fixed symbol size
+      // to the plan width server-side instead of the fixed symbol size. The arrow's
+      // Stopp-Balken is baked into the SVG; the box aspect rides along as its own field
+      // (⚠️ mirrored in backend/app/report_pdf.py · PlanAnnoIn).
       const kind = a.shape ?? 'square'
+      const aspect = shapeAspect(kind, a.aspect)
       out.kind = 'symbol'
-      out.symbolSvg = shapeSvgString(kind, a.color ?? SHAPE_DEFS[kind].defaultColor)
+      out.symbolSvg = shapeSvgString(kind, a.color ?? SHAPE_DEFS[kind].defaultColor, kind === 'arrow' && !!a.stop)
       out.sizeN = a.sizeN ?? SHAPE_DEFS[kind].defaultSizeN
+      if (aspect !== 1) out.aspect = aspect
       out.label = undefined // the shape's implicit name (Rauch/Pfeil/…) is not an on-plan label
     }
     return out
@@ -97,7 +101,8 @@ export function floorStackPages(
 ): { label: string; blankAspect: number; annos: Record<string, unknown>[] }[] {
   const floorsTTB = [...building.floors].sort((a, b) => b - a)
   if (!floorsTTB.length) return []
-  const viewAngle = building.northUp ? 0 : building.orientDeg ?? 0
+  // the ACTIVE view — an operator-dialled `viewDeg` (A8) prints exactly as the screen shows it
+  const viewAngle = activeViewDeg(building)
   const fp = building.src?.length
     ? buildView(building.src, viewAngle)
     : { rings: building.rings ?? [building.ring], aspect: building.ringAspect || 1 }
@@ -189,6 +194,37 @@ export interface DirectReportArgs {
   transport?: import('./reportPdf').ReportTransport
 }
 
+/**
+ * The «Einsatzleiter» value the sheet prints: the field's own name when the Einsatzleitung never
+ * rotated — and the whole SUCCESSION when it did: «A (bis 14:20), B (ab 14:20)». The rapport
+ * field only holds the latest name, but a handover mid-Einsatz is exactly the kind of fact a
+ * signed record is later read for; the spans come out of the incident's own Verlauf (lib/report
+ * · einsatzleiterSuccession), and the clocks follow the sheet's one midnight rule
+ * (spanAwareClock). The FIELD stays the authority: empty prints the blank write-in rule as
+ * always, and a just-typed name the 4 s log window has not settled yet joins as the newest span.
+ */
+export function einsatzleiterForPdf(
+  current: string | undefined,
+  events: TimelineEvent[],
+  bounds: { alarmedAt?: string | null; endedAt?: string | null },
+  fallbackDate?: string,
+): string | undefined {
+  const name = current?.trim()
+  if (!name) return current
+  const spans = einsatzleiterSuccession(events, fallbackDate)
+  if (spans.length && spans[spans.length - 1].name !== name) spans.push({ name, fromTs: null })
+  if (spans.length < 2) return current
+  const clock = spanAwareClock(bounds)
+  const R = appConfig.copy.report
+  return spans.map((s, i) => {
+    // every span but the last ends where its successor begins — the «bis» of one IS the «ab»
+    // of the next, so a reader sees one continuous Einsatzleitung, never a gap
+    const t = clock(i < spans.length - 1 ? spans[i + 1].fromTs : s.fromTs)
+    if (!t) return s.name // a row without a usable timestamp still names the person
+    return fillTemplate(i < spans.length - 1 ? R.einsatzleitungBis : R.einsatzleitungAb, { name: s.name, t })
+  }).join(', ')
+}
+
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
@@ -258,7 +294,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     meta: {
       alarmText: meta.alarmText, summary: meta.summary, lehren: meta.lehren, remarks: meta.remarks,
       kontaktperson: meta.kontaktperson, kontaktpersonTelefon: meta.kontaktpersonTelefon,
-      einsatzleiter: meta.einsatzleiter,
+      // …the succession when the Einsatzleitung rotated («A (bis 14:20), B (ab 14:20)»),
+      // the plain name when it never did — see einsatzleiterForPdf above
+      einsatzleiter: einsatzleiterForPdf(
+        meta.einsatzleiter, events,
+        { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at },
+        meta.startedAt ?? incident.started_at,
+      ),
       // «Entfällt» travels as the answer it is: the sheet prints the word on the line, where a
       // field nobody filled in gets an empty write-in rule (backend/app/report_pdf.py). Without
       // it the deliberate «gibt es nicht» and the forgotten field looked identical on paper.

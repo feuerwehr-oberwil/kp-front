@@ -1,4 +1,4 @@
-/** The PLAN half of «Karte verknüpfen» — crosses, tap capture, loupe, prompt and action bar.
+/** The PLAN half of «Karte verknüpfen» — crosses, tap capture, loupe, popover and mode panel.
  *
  *  The map half lives in GeorefMapLayer (inside MapView); the state both sides share lives in
  *  lib/georefMode. Nothing here owns state that has to survive: on a phone this whole component
@@ -10,8 +10,8 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { confirmDialog, toast } from '../lib/ui'
-import { beginTap, georefDispatch, georefLamp, type GeorefLamp, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefPlacing, georefPointNo, georefQueueNo, georefSideCount, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type TapGesture } from '../lib/georefMode'
-import { fitSimilarity } from '../lib/georef'
+import { beginTap, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
+import { fitSimilarity, residualClaim } from '../lib/georef'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { GeorefPair, PlanPt } from '../lib/georef'
 import s from './GeorefMode.module.css'
@@ -54,7 +54,8 @@ const crossSvg = (
  * the chip open (crosses only, so a reference can be found again months later).
  */
 export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
-  /** the crosses to draw: the LIVE pairs while armed, the stored ones when merely showing them */
+  /** the STORED pairs, drawn when the layer only shows a finished reference (Passung open).
+   *  While armed the layer draws `mode.slots` instead — pairs and open halves alike. */
   pairs: GeorefPair[]
   mode: GeorefModeState
   /** the mode is armed on THIS plan — only then is anything placeable */
@@ -77,7 +78,7 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
   const tap = useRef<(TapGesture & { id: number; px: number; py: number }) | null>(null)
   const ptrs = useRef<Map<number, { x: number; y: number }>>(new Map())
   const pinch = useRef<number | null>(null)
-  // dragging an existing cross: idx + whether it has passed the tap threshold yet
+  // dragging an existing cross: slot index + whether it has passed the tap threshold yet
   const drag = useRef<{ id: number; idx: number; x: number; y: number; moved: boolean } | null>(null)
 
   const placing = georefPlacing(mode)
@@ -186,10 +187,25 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
   }
   const up = (e: React.PointerEvent) => {
     own(e)
+    const wasPinch = pinch.current != null
     ptrs.current.delete(e.pointerId)
     if (ptrs.current.size < 2) pinch.current = null
     if (ptrs.current.size === 0) setPanning(false)
-    const st = tap.current; if (!st || st.id !== e.pointerId) return
+    const st = tap.current; if (!st) return
+    // ⚠️ A pinch that ends while the FIRST finger stays down must re-baseline the gesture.
+    // `down` snapshotted the board's position once, but the pinch has been moving the board via
+    // `zoomTo` — so the continuing `move()` would pan from the stale pre-pinch origin, and the
+    // sheet (crosses and all) snapped visibly on the first sample after the second finger lifted.
+    // New origin: the surviving pointer where it stands, the view as the pinch left it.
+    if (wasPinch && pinch.current == null && st.id !== e.pointerId) {
+      const rest = ptrs.current.get(st.id)
+      if (rest) {
+        st.x = rest.x; st.y = rest.y
+        st.px = view.posRef.current.x; st.py = view.posRef.current.y
+      }
+      return
+    }
+    if (st.id !== e.pointerId) return
     tap.current = null
     // the aim STAYS where the finger left it — the loupe is up for the whole mode, so the last
     // thing looked at is what it keeps showing until something else is pointed at
@@ -201,7 +217,7 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
     georefDispatch({ type: 'planTap', pt: { x: n[0], y: n[1] } })
   }
 
-  // --- an existing cross: drag = fine-tune with a live refit, tap = pick this half up ---
+  // --- an existing cross: drag = fine-tune with a live refit, tap = select (halo + popover) ---
   const crossDown = (idx: number) => (e: React.PointerEvent) => {
     e.stopPropagation()
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -222,38 +238,52 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
     const d = drag.current; if (!d || d.id !== e.pointerId) return
     drag.current = null
     aimAt(e.clientX, e.clientY)
-    // a cross that was tapped, not dragged, hands THIS half back to be re-placed
-    if (!d.moved && e.type === 'pointerup') georefDispatch({ type: 'pick', idx: d.idx, side: 'plan' })
+    // a cross that was tapped, not dragged, gets the halo and its little popover
+    if (!d.moved && e.type === 'pointerup') georefDispatch({ type: 'select', idx: d.idx, side: 'plan' })
   }
 
+  const C = appConfig.copy.whiteboard.georef
   return (
     <>
       {showCapture && (
         <div className={`${s.capture} ${panning ? s.capturePan : ''}`}
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} />
       )}
-      {pairs.map((p, i) => {
-        const label = fillTemplate(appConfig.copy.whiteboard.georef.crossTitle, { n: String(i + 1) })
-        const cls = `${s.cross} ${mode.edit?.idx === i && mode.edit.side === 'plan' ? s.picked : ''}`
-        // ⚠️ A cross is only a CONTROL while the mode is armed and no placement is mid-flight.
-        // Otherwise it is a mark: a plain, inert span. It is a 26px glyph with a 44px touch pad
-        // above every annotation, so a «button» here swallows taps meant for the symbol
-        // underneath it — which is exactly what opening the Passung on a linked plan did before
-        // 26.08., leaving the plan's own symbols dead anywhere near a reference.
-        if (!armed || placing) {
+      {/* NOT armed: the stored reference, as plain marks. ⚠️ A cross is only a CONTROL while the
+          mode is armed — it is a 26px glyph with a 44px touch pad above every annotation, so a
+          «button» here swallows taps meant for the symbol underneath it, which is exactly what
+          opening the Passung on a linked plan did before 26.08. */}
+      {!armed && pairs.map((p, i) => (
+        <span key={i} className={`${s.cross} ${s.inert}`} style={{ left: p.plan.x * sW, top: p.plan.y * sH }} aria-hidden>
+          {crossSvg}
+          <span className={s.badge}>{i + 1}</span>
+        </span>
+      ))}
+      {/* ARMED: every slot's plan half — paired ones blue, open halves amber, the numbers shared
+          with the map so a mispairing is something the eye catches. Selection halo and the
+          stepped-back «being re-placed» look ride on top; only an armed re-place of a PLAN half
+          makes the crosses inert, because that landing tap belongs to the sheet beneath them. */}
+      {armed && mode.slots.map((sl, i) => {
+        if (!sl.plan) return null
+        const open = !sl.map
+        const isSel = mode.sel?.side === 'plan' && mode.sel.idx === i
+        const isMove = mode.move?.side === 'plan' && mode.move.idx === i
+        const cls = `${s.cross} ${open ? s.pending : ''} ${isMove ? s.picked : ''} ${isSel ? s.selHalo : ''}`
+        if (placing) {
           return (
-            <span key={i} className={`${cls} ${s.inert}`} style={{ left: p.plan.x * sW, top: p.plan.y * sH }} aria-hidden>
+            <span key={i} className={`${cls} ${s.inert}`} style={{ left: sl.plan.x * sW, top: sl.plan.y * sH }} aria-hidden>
               {crossSvg}
               <span className={s.badge}>{i + 1}</span>
             </span>
           )
         }
+        const label = fillTemplate(open ? C.pendingCrossTitle : C.crossTitle, { n: String(i + 1) })
         return (
           <button
             key={i}
             type="button"
             className={cls}
-            style={{ left: p.plan.x * sW, top: p.plan.y * sH }}
+            style={{ left: sl.plan.x * sW, top: sl.plan.y * sH }}
             title={label}
             aria-label={label}
             onPointerDown={crossDown(i)}
@@ -266,27 +296,11 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
           </button>
         )
       })}
-      {/* the OPEN points — plan halves with no counterpart yet. Amber, in the order they will be
-          matched on the map, each carrying the number it WILL get. There can be several: the
-          mode no longer forces a hop to the map after every tap (lib/georefMode · the queue). */}
-      {mode.queue.map((pt, i) => {
-        const number = georefQueueNo(mode, i)
-        const cls = `${s.cross} ${s.pending} ${mode.edit?.pending && mode.edit.side === 'plan' && mode.edit.idx === i ? s.picked : ''}`
-        if (placing) return (
-          <span key={`open${i}`} className={`${cls} ${s.inert}`} style={{ left: pt.x * sW, top: pt.y * sH }} aria-hidden>
-            {crossSvg}<span className={s.badge}>{number}</span>
-          </span>
-        )
-        const label = fillTemplate(appConfig.copy.whiteboard.georef.pendingCrossTitle, { n: String(number) })
-        return (
-          <button key={`open${i}`} type="button" className={cls}
-            style={{ left: pt.x * sW, top: pt.y * sH }} title={label} aria-label={label}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); georefDispatch({ type: 'pickPending', idx: i, side: 'plan' }) }}>
-            {crossSvg}<span className={s.badge}>{number}</span>
-          </button>
-        )
-      })}
+      {/* the marker popover — Verschieben / Punkt löschen / Behalten, anchored over the selected
+          cross. Portalled and rAF-followed: the board moves under it without a React render. */}
+      {armed && mode.sel?.side === 'plan' && createPortal(
+        <PlanMarkerPopover mode={mode} boardRef={view.boardRef} />, document.body,
+      )}
       {armed && mode.want === 'plan' && aim && !panning && !isPhone && createPortal(
         <PlanLoupe aim={aim} sW={sW} sH={sH} boardRef={view.boardRef} />, document.body,
       )}
@@ -299,6 +313,77 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
         <PhonePlanLoupe sW={sW} sH={sH} boardRef={view.boardRef} />, document.body,
       )}
     </>
+  )
+}
+
+/**
+ * The tapped cross's popover — the visible replacement for the old invisible «picked up» state,
+ * whose only exits were Esc (invisible on touch), delete, or re-placing the point somewhere.
+ * Three named ways out: «Verschieben» arms the re-place, «Punkt löschen» drops this ONE point,
+ * «Behalten» (or a tap beside) changes nothing. Shared by both surfaces; each anchors it itself.
+ */
+export function GeorefPopoverCard({ mode, idx, side }: { mode: GeorefModeState; idx: number; side: GeorefSide }) {
+  const C = appConfig.copy.whiteboard.georef
+  const sl = mode.slots[idx]
+  if (!sl) return null
+  const open = side === 'plan' ? !sl.map : !sl.plan
+  const fit = fitSimilarity(mode.pairs, mode.aspect)
+  const pairIdx = georefPairIndex(mode, idx)
+  // this point's own rest — only from three pairs on (georef · residualClaim's honesty rule)
+  const r = !open && fit && fit.n >= 3 && pairIdx != null ? fit.residuals[pairIdx] : null
+  const detail = open ? C.popOpen : r != null ? fillTemplate(C.popResidual, { m: r < 10 ? r.toFixed(1) : String(Math.round(r)) }) : null
+  return (
+    <div className={s.pop}>
+      <div className={s.popHead}>
+        {fillTemplate(C.pointN, { n: String(idx + 1) })}
+        <i>· {side === 'plan' ? C.checkPlan : C.checkMap}{detail ? ` · ${detail}` : ''}</i>
+      </div>
+      <div className={s.popActs}>
+        <button type="button" onClick={() => georefDispatch({ type: 'beginMove' })}>
+          <Icon id="move" />{C.popMove}
+        </button>
+        <button type="button" className={s.popWarn} onClick={() => georefDispatch({ type: 'remove', idx })}>
+          <Icon id="trash" />{C.removePoint}
+        </button>
+      </div>
+      {/* an open half can be paired BY HAND: this popover plus a tap on its counterpart */}
+      {open && <div className={s.popHint}>{C.popPairHint}</div>}
+      <button type="button" className={s.popKeep} onClick={() => georefDispatch({ type: 'unpick' })}>{C.popKeep}</button>
+    </div>
+  )
+}
+
+/**
+ * Anchors the popover over the selected PLAN cross, in screen space.
+ *
+ * ⚠️ Its own rAF, like the phone loupe: the board pans and zooms through direct style writes
+ * (PlanViewApi · applyView), so nothing re-renders when the cross moves under the card. Only
+ * this little anchor repaints, once per frame, while it is open.
+ */
+function PlanMarkerPopover({ mode, boardRef }: { mode: GeorefModeState; boardRef: React.RefObject<HTMLDivElement | null> }) {
+  const sel = mode.sel
+  const pt = sel ? mode.slots[sel.idx]?.plan : undefined
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      const r = boardRef.current?.getBoundingClientRect()
+      const next = pt && r && r.width ? { x: r.left + pt.x * r.width, y: r.top + pt.y * r.height } : null
+      // same place ⇒ same object, so an idle board costs no re-render per frame
+      setPos((prev) => (prev && next && prev.x === next.x && prev.y === next.y ? prev : next))
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [boardRef, pt])
+  if (!sel || !pos) return null
+  const x = Math.min(Math.max(pos.x, 116), window.innerWidth - 116)
+  // near the top edge the card flips below the cross instead of sliding off screen
+  const below = pos.y < 170
+  return (
+    <div className={`${s.popAnchor} ${below ? s.popBelow : ''}`} style={{ left: x, top: pos.y }}>
+      <GeorefPopoverCard mode={mode} idx={sel.idx} side="plan" />
+    </div>
   )
 }
 
@@ -378,96 +463,29 @@ export function GeorefSplitSeam() {
   return <div className={s.seam} />
 }
 
-/** What the mode is asking for right now, in words — the one derivation both form factors use.
- *  It is also the mode's ONLY teaching: no tutorial, and deliberately no «first use» variant, so
- *  the instruction reads the same on the fiftieth Einsatz as on the first. */
-/**
- * The Ampel, drawn. One line that is always there: how good the reference is, and — the sentence
- * that used to be a tap away in the Passung — what the next point changes about it.
- */
-function GeorefLampRow({ lamp }: { lamp: GeorefLamp }) {
-  return (
-    <div className={`${s.lamp} ${s[`lamp_${lamp.tone}`]}`} role="status">
-      <span className={s.lampDot} />
-      <span className={s.lampText}><b>{lamp.head}</b><i>{lamp.body}</i></span>
-    </div>
-  )
-}
-
-/**
- * «Markanter Punkt» is a phrase nobody reads twice — so the card shows one instead.
- *
- * ⚠️ ONE picture, not one per surface. It used to swap between a sheet and a basemap depending
- * on which half was being placed, which made the two halves look like two different tasks. They
- * are one: the SAME corner, once here and once there. So the thumbnail says exactly that — the
- * sheet on the left, the map on the right, the same mark on the same corner of both — and it
- * does not change when the surface does.
- *
- * Drawn, not photographed: a photo of one station's house teaches that house.
- */
-function GeorefExample() {
+/** The status the panel leads with: the Ampel line, plus «Karte n · Modul m» and — because the
+ *  amber cross saying so may be on the surface a phone is not even showing — WHICH half is still
+ *  open, or what the armed «Verschieben» is waiting for. One derivation for both form factors. */
+function georefStatus(mode: GeorefModeState) {
   const C = appConfig.copy.whiteboard.georef
-  return (
-    <svg className={s.example} viewBox="0 0 60 40" role="img" aria-label={C.exampleAlt}>
-      {/* the sheet */}
-      <rect width="29" height="40" className={s.exPaper} />
-      <path d="M6 33 V15 H24" className={s.exWall} />
-      <g className={s.exMark}><circle cx="6" cy="15" r="4.2" /><path d="M6 8.5v2.3M6 19.2v2.3M0 15h2.3M9.7 15h2.3" /></g>
-      {/* the map */}
-      <rect x="31" width="29" height="40" className={s.exGround} />
-      <path d="M33 30h27" className={s.exRoad} />
-      <rect x="37" y="8" width="18" height="14" className={s.exHouse} />
-      <g className={s.exMark}><circle cx="37" cy="22" r="4.2" /><path d="M37 15.5v2.3M37 26.2v2.3M31 22h2.3M40.7 22h2.3" /></g>
-      {/* the seam, so the two halves read as two pictures of one place */}
-      <path d="M30 3 V37" className={s.exSeam} />
-    </svg>
-  )
+  const fit = fitSimilarity(mode.pairs, mode.aspect)
+  const lamp = georefLamp(fit, mode)
+  const counts = fillTemplate(C.sideProgress, {
+    map: String(georefSideCount(mode, 'map')),
+    plan: String(georefSideCount(mode, 'plan')),
+  })
+  const sub = mode.move
+    ? fillTemplate(mode.move.side === 'plan' ? C.movePlan : C.moveMap, { n: String(mode.move.idx + 1) })
+    : (() => { const hint = georefOpenHint(mode); return hint ? `${counts} – ${hint}` : counts })()
+  // the folded quality detail behind the (i): the pair count, the claimable ⌀, and the one
+  // instruction-shaped sentence (georefLamp body — what the next point should do)
+  const claim = residualClaim(fit)
+  const foldValue = fit
+    ? claim == null ? C.chipTwoPoints : fillTemplate(C.chipResidual, { m: claim.toFixed(1) })
+    : null
+  return { lamp, sub, foldPairs: `${mode.pairs.length} ${C.pairs}`, foldValue, foldBody: lamp.body }
 }
 
-function georefPrompt(mode: GeorefModeState) {
-  const C = appConfig.copy.whiteboard.georef
-  const n = georefPointNo(mode)
-  const onMap = mode.want === 'map'
-  if (mode.check) return { n, title: C.checkFit, hint: undefined, status: '' }
-  return {
-    n,
-    title: mode.edit
-      ? fillTemplate(mode.edit.side === 'plan' ? C.promptRePlan : C.promptReMap, { n: String(n) })
-      // ⚠️ On the map the NUMBER matters as soon as more than one point is open — «denselben
-      // Punkt» is a lie when three are waiting. With exactly one it is the better sentence, so
-      // both survive and the queue length picks.
-      : onMap ? fillTemplate(C.promptMapNo, { n: String(n) })
-      : fillTemplate(C.promptPlanNo, { n: String(n) }),
-    // The examples teach the first two pairs; by point eight they are repeated prose between
-    // the operator and the buttons. Once the gesture is established, keep only destination +
-    // progress in the mode bar.
-    // ⚠️ Two DIFFERENT kinds of line, and only one of them may ever be hidden.
-    //  · `hint` is a consequence of the action about to be taken — «der alte Punkt verschwindet
-    //    dabei». It is not teaching, it is a warning, so it is always on the card.
-    //  · `explain` is the lesson: what makes a good landmark. One sentence, the SAME on both
-    //    surfaces (it used to differ per surface, which made the two halves of one landmark read
-    //    as two jobs with two rules), and it lives behind the (i) — by point five it is three
-    //    lines of prose standing between the operator and the buttons.
-    hint: mode.edit ? C.subRe : undefined,
-    explain: mode.edit ? undefined : C.promptBoth,
-    // Two independent counts make the ordering explicit. «2 Paare · 1 offen» did not say
-    // WHICH surface was ahead, precisely when that was the next thing the operator needed.
-    status: fillTemplate(C.sideProgress, {
-      map: String(georefSideCount(mode, 'map')),
-      plan: String(georefSideCount(mode, 'plan')),
-    }),
-  }
-}
-
-/** «Abbrechen», and «Fertig» once there is something finished to keep. Before the second pair
- *  those two would be the same button wearing two different words, so only one is offered.
- *
- *  Two more appear where they mean something, and nowhere else:
- *   • «Punkt löschen» ONLY while a cross is picked up — that is the one moment there is a
- *     «this point» to talk about. A landmark can turn out to be the mistake itself, and
- *     re-placing it somewhere else only moves the error.
- *   • «Zurücksetzen» once at least one pair stands. It clears them and STAYS armed:
- *     «start over», not «leave» — «Abbrechen» beside it is the one that keeps what stands. */
 /** «Alle Punkte zurücksetzen» — the one destructive action inside the running mode, behind the
  *  app's confirm. Shared by the desktop instrument and the phone bar, so the two cannot end up
  *  asking differently (or one of them not asking at all). */
@@ -507,32 +525,27 @@ function GeorefActions({ mode }: { mode: GeorefModeState }) {
       </>
     )
   }
+  const done = mode.pairs.length >= 2 && georefOpenCount(mode) === 0
   return (
     <>
-      {mode.edit
+      {/* «Verschieben» armed: the visible way to put the cross back down — Esc alone is not an
+          exit on the tablet this mode was built for. Deleting the point stays in the popover. */}
+      {mode.move
         ? (
-          <button className={`btn warn ${s.resetAction}`} onClick={() => georefDispatch(mode.edit!.pending
-            ? { type: 'removePending', idx: mode.edit!.idx, side: mode.edit!.side }
-            : { type: 'removePair', idx: mode.edit!.idx })}>
-            <Icon id="trash" />{C.removePoint}
+          <button className={`btn ${s.resetAction}`} onClick={() => georefDispatch({ type: 'unpick' })}>
+            <Icon id="close" />{C.popKeep}
           </button>
         )
-        // …offered as soon as ANYTHING stands, queued points included. Gated on `pairs` alone,
+        // …offered as soon as ANYTHING stands, open halves included. Gated on `pairs` alone,
         // a mode full of unmatched points (28.08.: nine of them, courtesy of the tap-double-fire
         // bug) had NO way to start over — only «Punkt löschen», one by one.
-        : (mode.pairs.length > 0 || mode.queue.length > 0 || mode.mapQueue.length > 0)
+        : mode.slots.length > 0
           && <button className={`btn warn ${s.resetAction}`} onClick={() => void clearGeorefPoints()}><Icon id="trash" />{C.clearPoints}</button>}
-      {/* «Auf der Karte zuordnen» — on a phone the ONLY way across now that a plan tap no longer
-          hops by itself; on the split there is nothing to travel to, but pressing it still turns
-          the instruction round («Punkt 4 auf der Karte antippen»), which is the same request in
-          the one place the operator is already reading. */}
       {/* «Deckung prüfen» — the sheet's own outline, laid on the map. The check belongs HERE
           because this is the one screen where both pictures are up at once. */}
-      {!mode.edit && mode.pairs.length >= 2 && (
-        <>
-          <button className={`btn link ${s.checkAction}${mode.check ? ' on' : ''}`} aria-pressed={mode.check}
-            onClick={() => georefDispatch({ type: 'check', on: !mode.check })}><Icon id="eye" />{C.checkFit}</button>
-        </>
+      {!mode.move && mode.pairs.length >= 2 && (
+        <button className={`btn link ${s.checkAction}${mode.check ? ' on' : ''}`} aria-pressed={mode.check}
+          onClick={() => georefDispatch({ type: 'check', on: !mode.check })}><Icon id="eye" />{C.checkFit}</button>
       )}
       {/* One way out, with the word matching what it does. Once a usable fit stands it says so
           («Fertig»); before that it is «Schliessen».
@@ -540,10 +553,10 @@ function GeorefActions({ mode }: { mode: GeorefModeState }) {
           they are placed (georefMode · the debounced save), so leaving keeps every one of them.
           Somebody who pressed it to get rid of a crooked alignment found the plan georeferenced
           anyway. Throwing the points away is «Alle Punkte zurücksetzen», and that one asks. */}
-      <button className={`btn ${s.finishAction} ${mode.pairs.length >= 2 && !mode.queue.length && !mode.mapQueue.length ? 'primary' : ''}`}
+      <button className={`btn ${s.finishAction} ${done ? 'primary' : ''}`}
         onClick={() => georefDispatch({ type: 'end' })}>
-        <Icon id={mode.pairs.length >= 2 && !mode.queue.length && !mode.mapQueue.length ? 'check' : 'close'} />
-        {mode.pairs.length >= 2 && !mode.queue.length && !mode.mapQueue.length ? C.done : C.closeMode}
+        <Icon id={done ? 'check' : 'close'} />
+        {done ? C.done : C.closeMode}
       </button>
     </>
   )
@@ -552,12 +565,11 @@ function GeorefActions({ mode }: { mode: GeorefModeState }) {
 /**
  * The armed mode ON A TABLET OR DESKTOP: one bar across the whole foot of the screen.
  *
- * ⚠️ ONE indicator, and it looks like the mode it is. This started life as a chip in the corner
- * PLUS an instruction bar across the top — two things saying «a mode is running», so the eye had
- * to pick one — and then as a single corner-sized pill, which read as one more read-out among
- * the read-outs rather than as a mode that has taken over both surfaces. It now spans the
- * plan half AND the borrowed map half (`.pill` is fixed; see the stylesheet), because that is
- * exactly the extent of what the mode currently owns.
+ * ⚠️ ONE indicator, and it is a STATUS line first (the decided «minimal» panel, 29.08.): the
+ * Ampel head with the per-surface counts and the one open half named, a single free-order
+ * instruction, and the quality detail folded behind the (i) — the amber dot is what makes the
+ * fold findable without being open. It spans the plan half AND the borrowed map half (`.pill`
+ * is fixed; see the stylesheet), because that is exactly the extent of what the mode owns.
  *
  * It is rendered INSIDE the plan's `.wb-botleft` row — the row the chip that armed it lives in,
  * which shows nothing else while the mode runs — and positioned out of it. The phone does the
@@ -565,31 +577,30 @@ function GeorefActions({ mode }: { mode: GeorefModeState }) {
  */
 export function GeorefInstrument({ mode }: { mode: GeorefModeState }) {
   const C = appConfig.copy.whiteboard.georef
-  const p = georefPrompt(mode)
-  // ⚠️ The lamp REPLACES the pair count that used to sit here. «2 Paare» is a fact nobody can
-  // have an opinion about; «2 Punkte – exakt, aber ungeprüft» is the same fact plus the reason
-  // to place a third. The count is still in the lamp's own head, so nothing was lost.
-  const lamp = georefLamp(fitSimilarity(mode.pairs, mode.aspect), mode)
+  const [detail, setDetail] = useState(false)
+  const st = georefStatus(mode)
   return (
     <div className={s.pill} role="status" aria-label={C.title}>
-      <span className={`${s.dot} ${s[`dot_${lamp.tone}`]}`} />
+      <span className={`${s.dot} ${s[`dot_${st.lamp.tone}`]}`} />
       <span className={s.pillText}>
-        <span className={s.promptText}>{p.title}</span>
-        {/* ⚠️ The lesson stands OPEN here, where the phone keeps it behind the (i). The reason
-            for hiding it there is room — five lines of card between the operator and the
-            buttons — and this bar has a whole screen of width. Same sentence, same source. */}
-        {(p.hint ?? p.explain) && <span className={s.promptHint}>{p.hint ?? p.explain}</span>}
-        {!mode.check && <span className={s.sideProgress}>{p.status}</span>}
-        {/* ⚠️ VISIBLE, not a `title=`. This is the one sentence that says what the next point
-            buys — and a hover tooltip never fires on the iPad this bar was built for, so on the
-            primary field device it said nothing at all while the phone card printed it in full.
-            Toned, because «exakt, aber ungeprüft» is a warning and reads as one. */}
+        {/* the one instruction. No per-point prompt: the free order means the app no longer
+            knows better than the operator which surface is «next». */}
+        <span className={s.promptText}>{mode.check ? C.checkFit : mode.move ? st.sub : C.freeOrderTap}</span>
         {!mode.check && (
-          <span className={`${s.lampLine} ${s[`lampLine_${lamp.tone}`]}`}>
-            <b>{lamp.head}</b>{' · '}<i>{lamp.body}</i>
+          <span className={`${s.lampLine} ${s[`lampLine_${st.lamp.tone}`]}`}>
+            <b>{st.lamp.head}</b>{!mode.move && <>{' · '}<i>{st.sub}</i></>}
           </span>
         )}
+        {/* the quality detail + the (rewritten, instruction-shaped) warning live behind the (i) */}
+        {!mode.check && detail && <span className={s.promptHint}>{st.foldBody}</span>}
       </span>
+      {!mode.check && (
+        <button
+          type="button" className={`${s.infoBtn} ${detail ? s.infoOn : ''}`}
+          aria-expanded={detail} title={C.detailsTitle} aria-label={C.detailsTitle}
+          onClick={() => setDetail((v) => !v)}
+        ><Icon id="info" /></button>
+      )}
       <span className={s.acts}><GeorefActions mode={mode} /></span>
     </div>
   )
@@ -610,15 +621,15 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   const isPhone = useIsPhone()
   // Esc lives here too, for the same reason: on the Karte surface the plan's own keyboard
   // handler is not mounted, and «the way out» must not depend on which half you are in.
-  useGeorefEscape(!!mode.planId, mode.check, !!mode.edit)
+  useGeorefEscape(!!mode.planId, mode.check, !!mode.move || !!mode.sel)
   const C = appConfig.copy.whiteboard.georef
   const shownSurface = mode.check ? 'map' : mode.want
   const barRef = useRef<HTMLDivElement | null>(null)
   const [fixedTarget, setFixedTarget] = useState<{ x: number; y: number } | null>(null)
-  // ⚠️ Sticky, not a peek: somebody who opens the lesson is having trouble, and having it snap
-  // shut after every point would be the app deciding they had learned. It stays until they
-  // close it, and it starts closed on every fresh arming.
-  const [explain, setExplain] = useState(false)
+  // The quality detail behind the (i). ⚠️ Sticky while open: whoever opened it is deciding
+  // whether the fit can be trusted, and having it snap shut after every point would be the app
+  // deciding they were done reading. It starts closed on every fresh arming.
+  const [detail, setDetail] = useState(false)
 
   useEffect(() => {
     if (!mode.planId || !isPhone || mode.check) return
@@ -649,17 +660,14 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   }, [isPhone, mode.check, mode.planId, shownSurface])
 
   if (!mode.planId || !isPhone) return null
-  const p = georefPrompt(mode)
-  const mapEnabled = !mode.edit || mode.edit.side === 'map'
-  const planEnabled = !mode.edit || mode.edit.side === 'plan'
-  const done = mode.pairs.length >= 2 && !mode.queue.length && !mode.mapQueue.length
+  const st = georefStatus(mode)
+  const done = mode.pairs.length >= 2 && georefOpenCount(mode) === 0
   // ⚠️ MEASURED and good, with nothing outstanding. Then the card stops asking for work: the big
   // row becomes «Fertig» and «Punkt setzen» drops to the quiet one. Placing another point stayed
   // the loud action all the way through a fit that was already green with a measured ⌀ — the app
   // pushing for a fifth point it has no reason to want, next to a «Fertig» in small text. A green
   // lamp is precisely the moment there is nothing left to ask for, so it is the moment to say so.
-  const lamp = georefLamp(fitSimilarity(mode.pairs, mode.aspect), mode)
-  const finished = done && !mode.edit && !mode.check && lamp.tone === 'green'
+  const finished = done && !mode.move && !mode.check && st.lamp.tone === 'green'
   const place = () => {
     if (!placeGeorefPhoneTarget(shownSurface)) toast(C.targetOutside, { icon: 'warn', tone: 'warn' })
   }
@@ -671,45 +679,44 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
       </div>
     )}
     <div ref={barRef} data-georef-controls className={s.bar} role="status" aria-label={C.title}>
-      {/* ── the reading ── always there, never a tap away (georefLamp) */}
-      {!mode.check && <GeorefLampRow lamp={lamp} />}
-      {/* ── the instruction ── a picture of what is meant, and the lesson one tap away.
-          ⚠️ The picture STAYS. It is the cheap reminder — one line of card for the whole idea —
-          and it is what keeps the collapsed state from being a bare heading. */}
-      <div className={s.say}>
-        {!mode.check && <GeorefExample />}
-        <span className={s.sayText}>
-          <b>{p.title}</b>
-          {p.hint && <i>{p.hint}</i>}
-          {explain && p.explain && <i>{p.explain}</i>}
-        </span>
-        {!mode.check && p.explain && (
+      {/* ── the status line ── Ampel + «Karte n · Modul m», and the one open half NAMED, because
+          its amber cross may be standing on the surface this phone is not showing */}
+      {!mode.check && (
+        <div className={s.statusRow}>
+          <span className={`${s.sdot} ${s[`sdot_${st.lamp.tone}`]}`} />
+          <span className={s.stext}><b>{st.lamp.head}</b><i>{st.sub}</i></span>
           <button
-            type="button" className={`${s.explainBtn} ${explain ? s.explainOn : ''}`}
-            aria-expanded={explain} title={C.explainTitle} aria-label={C.explainTitle}
-            onClick={() => setExplain((v) => !v)}
+            type="button" className={`${s.infoBtn} ${detail ? s.infoOn : ''}`}
+            aria-expanded={detail} title={C.detailsTitle} aria-label={C.detailsTitle}
+            onClick={() => setDetail((v) => !v)}
           ><Icon id="info" /></button>
-        )}
-      </div>
+        </div>
+      )}
+      {/* ── the quality detail, folded behind the (i): pair count, claimable ⌀, and the one
+          instruction-shaped sentence about what the next point should fix */}
+      {!mode.check && detail && (
+        <div className={s.qfold}>
+          {st.foldValue && <div className={s.qrow}><span>{st.foldPairs}</span><strong>{st.foldValue}</strong></div>}
+          {st.foldBody}
+        </div>
+      )}
       {/* On a phone the two surfaces are part of this one task, so their switch belongs inside
-          its card, immediately below the status that says which point is being worked on. */}
+          its card. Never disabled — free order means there is no wrong surface to be on. */}
       {!mode.check && <div className={s.surfaceSwitch} role="group" aria-label={C.title}>
         <button type="button" className={shownSurface === 'map' ? s.surfaceOn : ''}
-          aria-label={appConfig.copy.navRail.map} aria-pressed={shownSurface === 'map'} disabled={!mapEnabled}
+          aria-label={appConfig.copy.navRail.map} aria-pressed={shownSurface === 'map'}
           onClick={() => georefDispatch({ type: 'goMap' })}>
           <Icon id="map" />{appConfig.copy.navRail.map}<span>{georefSideCount(mode, 'map')}</span>
         </button>
         <button type="button" className={shownSurface === 'plan' ? s.surfaceOn : ''}
-          aria-label={planLabel ?? C.checkPlan} aria-pressed={shownSurface === 'plan'} disabled={!planEnabled}
+          aria-label={planLabel ?? C.checkPlan} aria-pressed={shownSurface === 'plan'}
           onClick={() => georefDispatch({ type: 'goPlan' })}>
           <Icon id="doc" />{planLabel ?? C.checkPlan}<span>{georefSideCount(mode, 'plan')}</span>
         </button>
       </div>}
-      {/* ── the one big action ── on its own row, and it NAMES the point it is about to set.
-          ⚠️ Nothing that takes something away shares this row. «Zurücksetzen» used to sit a
-          thumb's width from «Fertig», both the same size, one of them red: with a glove on, in
-          the dark, that is a coin toss over half an alignment. Everything else is now the quiet
-          row below, at text weight. */}
+      {/* ── the one big action ── «Punkt setzen» places at the reticle on whichever surface is
+          up — Karte or Modul, in any order; the pairing is the reducer's job, not the button's.
+          ⚠️ Nothing that takes something away shares this row (the coin-toss note of 28.08.). */}
       {!mode.check && (
         finished
           ? (
@@ -718,9 +725,12 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
             </button>
           )
           : (
-            <button type="button" className={`btn primary ${s.placeAction}`} onClick={place}>
-              <Icon id="plus" />{fillTemplate(C.placePointNo, { n: String(p.n) })}
-            </button>
+            <>
+              <button type="button" className={`btn primary ${s.placeAction}`} onClick={place}>
+                <Icon id="plus" />{C.placePoint}
+              </button>
+              {!mode.move && <div className={s.subline}>{C.freeOrderPlace}</div>}
+            </>
           )
       )}
       {mode.check
@@ -729,27 +739,26 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
           <div className={s.quiet}>
             {/* left: harmless and frequent, plus the destructive one — deliberately NOT beside
                 the exit on the right, which is the button somebody reaches for while finishing */}
-            {!mode.edit && mode.pairs.length >= 2 && (
+            {!mode.move && mode.pairs.length >= 2 && (
               <button type="button" className={`btn link ${s.quietBtn}`} aria-pressed={mode.check}
                 onClick={() => georefDispatch({ type: 'check', on: true })}><Icon id="eye" />{C.checkFit}</button>
             )}
             {/* ⚠️ «Alle Punkte zurücksetzen» steps OUT once the fit is finished. Three actions is
-                one too many for this row — the third wrapped onto a line of its own and sat
-                there orphaned — and at a measured, green fit throwing every point away is the
-                one thing nobody is reaching for. It is not lost: «Fertig» leads straight to the
-                Passung, where «Zurücksetzen» is one of the two things on offer. */}
-            {mode.edit
+                one too many for this row — and at a measured, green fit throwing every point away
+                is the one thing nobody is reaching for. It is not lost: «Fertig» leads straight
+                to the Passung, where «Zurücksetzen» is one of the two things on offer. */}
+            {mode.move
               ? (
-                <button type="button" className={`btn link ${s.quietBtn} ${s.quietWarn}`}
-                  onClick={() => georefDispatch(mode.edit!.pending
-                    ? { type: 'removePending', idx: mode.edit!.idx, side: mode.edit!.side }
-                    : { type: 'removePair', idx: mode.edit!.idx })}>
-                  <Icon id="trash" />{C.removePoint}
+                // the visible way to put a picked-up cross back down — Esc must never be the
+                // only exit, least of all on the touch devices this mode exists for
+                <button type="button" className={`btn link ${s.quietBtn}`}
+                  onClick={() => georefDispatch({ type: 'unpick' })}>
+                  <Icon id="close" />{C.popKeep}
                 </button>
               )
-              : !finished && (mode.pairs.length > 0 || mode.queue.length > 0 || mode.mapQueue.length > 0) && (
-                // queued points count too — see the desktop bar's note (unmatched points must
-                // not strand the operator without a «start over»)
+              : !finished && mode.slots.length > 0 && (
+                // open halves count too — a card full of unmatched points must not strand the
+                // operator without a «start over»
                 <button type="button" className={`btn link ${s.quietBtn} ${s.quietWarn}`} onClick={() => void clearGeorefPoints()}>
                   <Icon id="trash" />{C.clearPoints}
                 </button>
@@ -760,7 +769,7 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
             {finished
               ? (
                 <button type="button" className={`btn link ${s.quietBtn}`} onClick={place}>
-                  <Icon id="plus" />{fillTemplate(C.placePointNo, { n: String(p.n) })}
+                  <Icon id="plus" />{C.placePoint}
                 </button>
               )
               : (

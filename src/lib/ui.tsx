@@ -193,6 +193,19 @@ function ToastSteps({ steps, text }: { steps: ToastStep[]; text: string }) {
   )
 }
 
+/** The success toast's tick, drawn in once (~250ms stroke draw, 08-toasts.css) instead of
+ * popping on statically — the toast pill's small cousin of the sync glyph's closing tick
+ * (components/SyncGlyph). Written out rather than `<Icon id="check"/>` because a CSS animation
+ * on a path inside a `<use>` shadow tree is not reliably applied (same reason as
+ * PrinterFeedIcon). Same geometry and box as the sprite's #check, so nothing shifts. */
+function ToastCheck() {
+  return (
+    <svg className="i toast-check" viewBox="0 0 24 24" aria-hidden>
+      <path d="M5 12.5 10 17 19 7" />
+    </svg>
+  )
+}
+
 /**
  * The action cluster of a confirm-with-undo toast — «Rückgängig», and the way to get rid of it.
  *
@@ -282,7 +295,9 @@ export function Overlays() {
           >
             {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
               <>
-                {t.icon && <Icon id={t.icon} />}
+                {/* success + check gets the drawn-in tick; other icons (mic, map, …) stay the
+                    sprite — their strokes can't be draw-animated through <use> anyway */}
+                {t.icon && (t.tone === 'success' && t.icon === 'check' ? <ToastCheck /> : <Icon id={t.icon} />)}
                 <span className="toast-message">{t.text}</span>
               </>
             )}
