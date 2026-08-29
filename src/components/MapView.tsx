@@ -10,6 +10,7 @@ import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -984,6 +985,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         : e.kind === 'note' ? noteWPx(e.noteW)
         : e.kind === 'team' ? TEAM_DOT_PX
         : symPx(e.kind, e.coord[1], zoom, symMul)
+      // a stretched Rechteck/Rauch is g wide but g × aspect tall — seed the real box, or a
+      // label happily lands on the lower half of a tall shape it believes is square
+      const gh = e.kind === 'shape' ? g * shapeAspect(e.shape ?? 'square', e.aspect) : g
       const isSel = e.id === selectedId || selectedEntityIds.includes(e.id)
       if (e.kind === 'team') {
         // a resting Trupp marker is `[dot][gap][name]` centred on the coord, so the dot is NOT
@@ -1001,7 +1005,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         }
         continue
       }
-      occupied.push({ x: p.x - g / 2, y: p.y - g / 2, w: g, h: g })
+      occupied.push({ x: p.x - g / 2, y: p.y - gh / 2, w: g, h: gh })
       // only the glyph branch prints a caption (MapMarkers) — a note's own text is its body,
       // not a caption, and asking symbolCaptionText for one would invent a phantom box
       if (e.kind === 'shape' || e.kind === 'note' || e.kind === 'photo') continue

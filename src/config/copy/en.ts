@@ -91,7 +91,7 @@ export const en: Localizable<Copy> = {
           ] },
           { kind: 'sub', text: 'Tools (identical in Situation and Plan)' },
           { kind: 'list', items: [
-            '[[V]] Select · [[W]] Multi-select · [[S]] Symbol · [[L]] Line · [[F]] Area · [[U]] Cordon · [[N]] Note · [[T]] Team · [[D]] Measure.',
+            '[[V]] Select · [[W]] Multi-select · [[S]] Symbol · [[L]] Line · [[F]] Area · [[U]] Cordon · [[N]] Note · [[T]] Team · [[D]] Measure (map only).',
           ] },
           { kind: 'sub', text: 'Editing' },
           { kind: 'list', items: [
@@ -164,6 +164,7 @@ export const en: Localizable<Copy> = {
             '**Storeys** as a stack: use the **UF/BF** buttons on the plan to add a floor above/below.',
             '**Zoom/Fit** at the bottom of the tool rail, just like on the map.',
             '**Teams** (crews) as coloured markers; toggling **Trails** shows their path. Team chips whose crew is "out" are greyed out/struck through.',
+            '**Quick hand note?** The plan is the sketch surface: draw freely, strike through, scribble. The map stays structured (symbols, lines, notes) so the report and the log stay clean.',
           ] },
         ],
       },
@@ -1147,6 +1148,7 @@ export const en: Localizable<Copy> = {
       chipCalibrated: 'ref. {m} m',
       chipAuto: 'ref. auto',
       chipAutoHint: 'ref. automatic – scale derived from the map link',
+      chipAutoStackHint: 'ref. automatic – scale derived from the building footprint',
       chipUncalibrated: 'not calibrated',
       recalibrate: 'Recalibrate',
       calibrate: 'Calibrate scale',

@@ -25,9 +25,9 @@ interface Args {
   setTool: (t: BoardTool) => void
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
   onCalibrate?: (planId: string, scale: PlanScale | null) => void
-  /** A finished map↔plan fit already contains the same metre factor. It is derived, not stored
-   *  as a second calibration, and sits below an incident-specific manual reference but above a
-   *  station fallback. */
+  /** A DERIVED metre factor — a finished map↔plan fit, or (on a georeferenced Gebäude, A7) the
+   *  footprint's own ground size via lib/footprint · stackScaleMPerU. Never stored as a second
+   *  calibration; sits below an incident-specific manual reference but above a station fallback. */
   autoScale?: PlanScale
 }
 

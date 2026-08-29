@@ -10,7 +10,7 @@
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { TILE_AR, floorLabel } from './whiteboard'
-import { buildView, fpBoxFrac } from './footprint'
+import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
@@ -101,7 +101,8 @@ export function floorStackPages(
 ): { label: string; blankAspect: number; annos: Record<string, unknown>[] }[] {
   const floorsTTB = [...building.floors].sort((a, b) => b - a)
   if (!floorsTTB.length) return []
-  const viewAngle = building.northUp ? 0 : building.orientDeg ?? 0
+  // the ACTIVE view — an operator-dialled `viewDeg` (A8) prints exactly as the screen shows it
+  const viewAngle = activeViewDeg(building)
   const fp = building.src?.length
     ? buildView(building.src, viewAngle)
     : { rings: building.rings ?? [building.ring], aspect: building.ringAspect || 1 }

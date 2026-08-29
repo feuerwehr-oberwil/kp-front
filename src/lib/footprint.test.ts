@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { principalAngleDeg, buildView, northVec, remapPoint, type Ring, type Pt } from './footprint'
+import { activeViewDeg, buildView, fpBoxFrac, northVec, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring, type Pt } from './footprint'
+import { pathMetres } from './planScale'
 
 const rad = (d: number) => (d * Math.PI) / 180
 // rotate a point around a center (matches the lib's screen-space convention)
@@ -85,6 +86,52 @@ describe('northVec', () => {
     const [x, y] = northVec(90)
     expect(x).toBeCloseTo(1, 9) // 90° → north now points to the right
     expect(y).toBeCloseTo(0, 9)
+  })
+})
+
+describe('activeViewDeg', () => {
+  it('falls back to the binary toggle without viewDeg', () => {
+    expect(activeViewDeg({ northUp: true, orientDeg: 30 })).toBe(0)
+    expect(activeViewDeg({ northUp: false, orientDeg: 30 })).toBe(30)
+    expect(activeViewDeg({ orientDeg: 30 })).toBe(30)
+    expect(activeViewDeg({})).toBe(0)
+  })
+  it('lets a dialled viewDeg win over the binary fields', () => {
+    expect(activeViewDeg({ viewDeg: 37, northUp: true, orientDeg: 30 })).toBe(37)
+    expect(activeViewDeg({ viewDeg: 0, northUp: false, orientDeg: 30 })).toBe(0)
+  })
+})
+
+describe('stackScaleMPerU', () => {
+  const measureAR = 1 / 0.72 // mirror of lib/whiteboard · TILE_AR (tile width/height)
+
+  // The invariant that makes the derived Massstab RIGHT: a footprint edge, drawn where the
+  // tile actually draws it (centred fp box, rw of the board width / rh of the tile height),
+  // measures out at exactly its ground length — at any view angle, on any floor count.
+  it('a georeferenced footprint measures its true ground size without calibration', () => {
+    const spanM = 24 // RECT is 1 × 0.5 src units ⇒ the building is 24 m × 12 m on the ground
+    for (const deg of [0, 30, -21]) {
+      const floors = 3
+      const mPerU = stackScaleMPerU(RECT, spanM, deg, floors, measureAR)
+      expect(mPerU).not.toBeNull()
+      const view = buildView(RECT, deg)
+      const { rw, rh } = fpBoxFrac(view.aspect, 1, floors / measureAR, floors)
+      const toTile = ([x, y]: Pt): Pt => [0.5 - rw / 2 + x * rw, 0.5 - rh / 2 + y * rh]
+      const ring = view.rings[0]
+      for (let i = 0; i < ring.length; i++) {
+        const a = RECT[0][i], b = RECT[0][(i + 1) % ring.length]
+        const groundM = Math.hypot(b[0] - a[0], b[1] - a[1]) * spanM
+        const measured = pathMetres([toTile(ring[i]), toTile(ring[(i + 1) % ring.length])], mPerU!, measureAR)
+        expect(measured).toBeCloseTo(groundM, 6)
+      }
+    }
+  })
+
+  it('refuses degenerate input (the caller keeps the manual calibration path)', () => {
+    expect(stackScaleMPerU([], 24, 0, 3, measureAR)).toBeNull()
+    expect(stackScaleMPerU(RECT, 0, 0, 3, measureAR)).toBeNull()
+    expect(stackScaleMPerU(RECT, 24, 0, 0, measureAR)).toBeNull()
+    expect(stackScaleMPerU(RECT, 24, 0, 3, 0)).toBeNull()
   })
 })
 

@@ -90,7 +90,7 @@ export const fr: Localizable<Copy> = {
           ] },
           { kind: 'sub', text: 'Outils (identiques en Situation et en Plan)' },
           { kind: 'list', items: [
-            '[[V]] Sélection · [[W]] Sélection multiple · [[S]] Symbole · [[L]] Ligne · [[F]] Surface · [[U]] Périmètre · [[N]] Note · [[T]] Binôme · [[D]] Mesurer.',
+            '[[V]] Sélection · [[W]] Sélection multiple · [[S]] Symbole · [[L]] Ligne · [[F]] Surface · [[U]] Périmètre · [[N]] Note · [[T]] Binôme · [[D]] Mesurer (carte seulement).',
           ] },
           { kind: 'sub', text: 'Édition' },
           { kind: 'list', items: [
@@ -1149,6 +1149,7 @@ export const fr: Localizable<Copy> = {
       chipCalibrated: 'réf. {m} m',
       chipAuto: 'réf. auto',
       chipAutoHint: 'réf. automatique – échelle issue du lien avec la carte',
+      chipAutoStackHint: 'réf. automatique – échelle issue de l’emprise du bâtiment',
       chipUncalibrated: 'non calibrée',
       recalibrate: 'Recalibrer',
       calibrate: 'Calibrer l’échelle',

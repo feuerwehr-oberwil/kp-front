@@ -117,7 +117,7 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
           { kind: 'list', items: [
-            '[[V]] Auswahl · [[W]] Mehrfach wählen · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[U]] Umkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen.',
+            '[[V]] Auswahl · [[W]] Mehrfach wählen · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[U]] Umkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen (nur Karte).',
           ] },
           { kind: 'sub', text: 'Bearbeiten' },
           { kind: 'list', items: [
@@ -190,7 +190,8 @@ export const de = {
             '**Stockwerke** als Stapel: mit den **OG/UG**-Knöpfen am Plan ein Geschoss darüber/darunter hinzufügen.',
             '**Zoom/Einpassen** unten in der Werkzeugleiste, wie auf der Karte.',
             '**Trupps** als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Trupp-Chips, deren Trupp «raus» ist, werden ausgegraut/durchgestrichen.',
-            '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien mit «Länge» und das **Messen** echte Meter.',
+            '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien und Flächen echte Meter (Messen als eigenes Werkzeug gibt es nur auf der Karte).',
+            '**Schnelle Handnotiz?** Der Plan ist die Skizzenfläche: frei zeichnen, durchstreichen, kritzeln. Die Lage bleibt strukturiert (Symbole, Linien, Notizen), damit Rapport und Verlauf sauber bleiben.',
           ] },
           { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Stockwerkstapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
         ],
@@ -1623,6 +1624,8 @@ export const de = {
       chipCalibrated: 'Ref. {m} m',
       chipAuto: 'Ref. auto',
       chipAutoHint: 'Ref. automatisch – Massstab aus der Kartenverknüpfung',
+      // the Gebäude floor-stack (A7): the scale comes from the footprint's ground size, not a fit
+      chipAutoStackHint: 'Ref. automatisch – Massstab aus dem Gebäudegrundriss',
       chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
       calibrate: 'Massstab kalibrieren',

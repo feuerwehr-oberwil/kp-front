@@ -39,7 +39,7 @@ import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
-import { buildView, remapPoint, type Ring } from '../lib/footprint'
+import { activeViewDeg, buildView, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
 import { GeorefBoardLayer, GeorefInstrument, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
@@ -421,12 +421,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // rendered rings/aspect are derived for the current orientation (oriented by default,
   // or north-up when toggled). Older docs fall back to their stored rings (north-up only).
   const orientDeg = building?.orientDeg ?? 0
-  const viewAngle = building?.northUp ? 0 : orientDeg
+  const viewAngle = building ? activeViewDeg(building) : 0
+  // A8 (29.08.): a DRAG on the north dial rotates the building continuously. While the finger
+  // is down this holds the live preview angle; the commit (one reorientTo, through the same
+  // remap + undo path as the tap) happens on release, so annotations re-glue exactly once.
+  const [dialDragDeg, setDialDragDeg] = useState<number | null>(null)
+  const shownAngle = dialDragDeg ?? viewAngle
   const fpView = useMemo(() => {
     if (!building) return null
-    if (building.src?.length) return buildView(building.src, viewAngle)
+    if (building.src?.length) return buildView(building.src, shownAngle)
     return { rings: building.rings ?? [building.ring], aspect: building.ringAspect }
-  }, [building, viewAngle])
+  }, [building, shownAngle])
   // the align-longest-axis compass only makes sense on the Gebäude floor-stack (whose storeys are
   // drawn from the building footprint). On a module/PDF plan the page is already aligned, so even
   // though a building may be selected at the incident level, the compass must NOT appear there.
@@ -581,9 +586,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const measureARForGeoref = stack ? 1 / TILE_AR : 1 / aspect
   const georefPairs = georefArmed ? georef.pairs : georefForPlan(activeGeorefKey)?.pairs ?? []
   const georefFit = canGeoref ? fitSimilarity(georefPairs, measureARForGeoref) : null
+  // A7 (29.08.): the Gebäude floor-stack is excluded from the georef fit (one similarity can't
+  // mean anything across a column of storey copies), but its scale needs no fit at all — the
+  // footprint's ground size is known since georeferencing shipped (`geo.spanM`), so the Massstab
+  // is derived from geometry alone and a fresh Gebäude measures immediately. Committed view
+  // angle on purpose (not the drag preview): the derived factor must match the document the
+  // measured lines are glued to. Legacy buildings without `geo` keep the manual calibration
+  // path (SrcGeoref's contract: nothing may misbehave without it).
+  const stackMPerU = stack && building?.src?.length && building.geo
+    ? stackScaleMPerU(building.src, building.geo.spanM, viewAngle, N, measureARForGeoref)
+    : null
   const autoScale: PlanScale | undefined = georefFit
     ? { mPerU: georefFit.scaleMPerU, refM: 0, ar: measureARForGeoref }
-    : undefined
+    : stackMPerU
+      ? { mPerU: stackMPerU, refM: 0, ar: measureARForGeoref }
+      : undefined
   const {
     calNodes, setCalNodes, calPrompt, setCalPrompt, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres, resetEphemeral,
@@ -2119,14 +2136,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     return { w, h: hgt }
   })()
 
-  // Flip the Gebäudeview orientation (oriented ⇄ north-up). Re-derives the footprint
-  // view and re-glues every floor-stack annotation (x/y, freehand pts, team trails) so
-  // they stay on the same real-world spot — see lib/footprint · remapPoint.
-  const reorient = () => {
+  // Rotate the Gebäudeview to `toDeg`. Re-derives the footprint view and re-glues every
+  // floor-stack annotation (x/y, freehand pts, team trails) so they stay on the same
+  // real-world spot — see lib/footprint · remapPoint. Serves both doors: the TAP flip
+  // (oriented ⇄ north-up, `reorient` below) and the dial DRAG's arbitrary angle (A8).
+  const reorientTo = (toDeg: number) => {
     if (!building?.src?.length || !onReorient || readOnly || !sW || !sH) return
     const fromDeg = viewAngle
-    const nextNorthUp = !building.northUp
-    const toDeg = nextNorthUp ? 0 : orientDeg
+    if (Math.abs(toDeg - fromDeg) < 0.01) return
     const view = buildView(building.src, toDeg)
     const layout = { boardW: sW, boardH: sH, floors: N }
     const src = building.src as Ring[]
@@ -2139,8 +2156,58 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return next
     })
     commit(remapped) // re-glued annotations go through undo/redo + sync
-    onReorient({ ...building, northUp: nextNorthUp, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
-    emit('building.reorient', { northUp: nextNorthUp, planId: activeId })
+    // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read
+    onReorient({ ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
+    emit('building.reorient', { northUp: toDeg === 0, deg: toDeg, planId: activeId })
+  }
+  // TAP keeps the original flip: north-up when rotated (however far), the long axis when north-up
+  const reorient = () => reorientTo(viewAngle === 0 ? orientDeg : 0)
+
+  // ── dial DRAG (A8) ── the finger's angle around the dial centre, tracked incrementally so a
+  // rotation past ±180° accumulates instead of wrapping. Within ~5° of the two meaningful
+  // angles — north-up and the long axis — the dial snaps, live in the preview so the catch is
+  // visible before release. A press that never travels stays a click (the flip above).
+  const DIAL_SNAP_DEG = 5
+  const normDeg = (d: number) => { let x = d % 360; if (x > 180) x -= 360; if (x <= -180) x += 360; return x }
+  const snapDial = (d: number) => {
+    const n = normDeg(d)
+    if (Math.abs(n) <= DIAL_SNAP_DEG) return 0
+    if (Math.abs(normDeg(n - orientDeg)) <= DIAL_SNAP_DEG) return orientDeg
+    return n
+  }
+  // clockwise-from-up pointer angle around the dial's own centre
+  const dialAngleAt = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    return (Math.atan2(e.clientX - (r.left + r.width / 2), r.top + r.height / 2 - e.clientY) * 180) / Math.PI
+  }
+  const dialDrag = useRef<{ sx: number; sy: number; lastA: number; deg: number; moved: boolean } | null>(null)
+  const dialDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dialDrag.current = { sx: e.clientX, sy: e.clientY, lastA: dialAngleAt(e), deg: viewAngle, moved: false }
+  }
+  const dialMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = dialDrag.current
+    if (!d) return
+    if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 6) d.moved = true
+    const a = dialAngleAt(e)
+    d.deg += normDeg(a - d.lastA)
+    d.lastA = a
+    if (d.moved) setDialDragDeg(snapDial(d.deg))
+  }
+  // a drag's pointerup is still followed by a click — this flag keeps it from ALSO flipping
+  const dialDidDrag = useRef(false)
+  const dialUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = dialDrag.current
+    dialDrag.current = null
+    setDialDragDeg(null)
+    if (!d) return
+    if (d.moved) { e.preventDefault(); dialDidDrag.current = true; reorientTo(snapDial(d.deg)) }
+  }
+  const dialCancel = () => { dialDrag.current = null; setDialDragDeg(null) }
+  const dialClick = () => {
+    if (dialDidDrag.current) { dialDidDrag.current = false; return }
+    reorient()
   }
 
   // WHICH object's plans these are, on the surface the plans are used — the one thing about a
@@ -2290,18 +2357,22 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       <svg viewBox="-25 -25 50 50" className={canOrient && !readOnly ? undefined : 'wb-north-dial'} aria-hidden>
                         <title>{appConfig.copy.whiteboard.northTitle}</title>
                         <circle r="24" className="wb-north-ring" />
-                        <g style={{ transform: `rotate(${viewAngle}deg)`, transformOrigin: '0px 0px' }}>
+                        <g style={{ transform: `rotate(${shownAngle}deg)`, transformOrigin: '0px 0px' }}>
                           <text y="-13" className="wb-north-n">{appConfig.copy.whiteboard.northLabel}</text>
                           <path d="M0 -8 L10 16 L0 7 L-10 16 Z" className="wb-north-needle" />
                         </g>
                       </svg>
                     )
                     if (!(canOrient && !readOnly)) return dial
-                    const label = building?.northUp ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp
+                    const label = viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp
+                    // TAP flips (the label says which way); DRAG rotates continuously (A8).
+                    // touch-action: none, or the first oblique finger movement becomes a scroll
+                    // and the drag never sees its pointermove.
                     return (
                       <button type="button" className="wb-north-dial wb-north-btn" title={label} aria-label={label}
-                        aria-pressed={!!building?.northUp}
-                        onPointerDown={(e) => e.stopPropagation()} onClick={reorient}>
+                        aria-pressed={viewAngle === 0} style={{ touchAction: 'none' }}
+                        onPointerDown={dialDown} onPointerMove={dialMove} onPointerUp={dialUp}
+                        onPointerCancel={dialCancel} onClick={dialClick}>
                         {dial}
                       </button>
                     )
@@ -3033,12 +3104,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 <>
                   <div className="vrail-sep vrail-sep-foot" />
                   <button
-                    className={`vrail-nbtn ${building?.northUp ? 'on' : ''}`}
-                    title={building?.northUp ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}
-                    aria-label={building?.northUp ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}
-                    aria-pressed={!!building?.northUp}
+                    className={`vrail-nbtn ${viewAngle === 0 ? 'on' : ''}`}
+                    title={viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}
+                    aria-label={viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}
+                    aria-pressed={viewAngle === 0}
                     onClick={reorient}
-                  ><span className="vrail-glyph"><Icon id="compass" /></span><span className="vrail-label">{building?.northUp ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}</span></button>
+                  ><span className="vrail-glyph"><Icon id="compass" /></span><span className="vrail-label">{viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}</span></button>
                 </>
               )}
             </>
@@ -3393,11 +3464,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           /* Still a reading, not a second calibration path – but a TAPPABLE one (29.08.): the
              hover title never fires on the field iPad, so the chip explains itself the same
              way as «Verknüpft» beside it – by opening the Passung, where the derived scale,
-             the pair count and the residual sit next to what to do about them. */
+             the pair count and the residual sit next to what to do about them.
+             ⚠️ Only a GEOREF-derived scale has a Passung to open. The Gebäude's scale (A7) is
+             derived from geometry alone — no pairs, no residual — so there the tap says its
+             hint as a toast instead of arming a panel that would come up empty. */
           ? <button className="wb-scale-chip wb-scale-status on"
-              title={appConfig.copy.whiteboard.scale.chipAutoHint}
-              aria-expanded={georefQuality}
-              onClick={() => setQualityFor(georefQuality ? null : activeId)}>
+              title={georefFit ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint}
+              aria-expanded={georefFit ? georefQuality : undefined}
+              onClick={() => georefFit
+                ? setQualityFor(georefQuality ? null : activeId)
+                : toast(appConfig.copy.whiteboard.scale.chipAutoStackHint)}>
               <Icon id="measure" />
               <span>{appConfig.copy.whiteboard.scale.chipAuto}</span>
             </button>

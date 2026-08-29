@@ -10,7 +10,7 @@ import { fillTemplate } from '../lib/format'
 import { operationalExtentPoints } from '../lib/report'
 import { circlePolygon } from '../lib/geo'
 import { TacticalSymbol } from '../lib/symbolRender'
-import { ShapeGlyph } from '../lib/shapes'
+import { SHAPE_DEFS, ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
 import { truppForLine, truppTagText } from '../lib/truppLines'
 import { lerpPoint } from '../lib/lineStyle'
@@ -506,11 +506,17 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                   const printable = krokiEntity(e, scene.byName, captionMode)
                   if (!printable) return null
                   if (e.kind === 'shape') {
-                    const size = shapePx(e.sizeM, e.coord[1], previewZoom)
+                    // WYSIWYG with the sheet: the print stretches a free-aspect Rechteck/Rauch
+                    // (kroki.py, same 0.2..5 clamp) and draws the arrow's «→|» Stopp-Balken
+                    // (krokiPayload · shapeSvgString) — so this preview does too. Default colour
+                    // from SHAPE_DEFS, the same fallback the payload sends.
+                    const kind = e.shape ?? 'square'
+                    const w = shapePx(e.sizeM, e.coord[1], previewZoom)
+                    const h = w * shapeAspect(kind, e.aspect)
                     return (
-                      <div className="kf-print-box" style={{ width: size * printScale, height: size * printScale }}>
-                        <div className="kf-print-inner kf-glyph" style={{ width: size, height: size, transform: `translate(-50%, -50%) scale(${printScale}) rotate(${e.rotation ?? 0}deg)` }}>
-                          <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} />
+                      <div className="kf-print-box" style={{ width: w * printScale, height: h * printScale }}>
+                        <div className="kf-print-inner kf-glyph" style={{ width: w, height: h, transform: `translate(-50%, -50%) scale(${printScale}) rotate(${e.rotation ?? 0}deg)` }}>
+                          <ShapeGlyph kind={kind} color={e.color ?? SHAPE_DEFS[kind].defaultColor} stop={kind === 'arrow' && !!e.stop} />
                         </div>
                       </div>
                     )

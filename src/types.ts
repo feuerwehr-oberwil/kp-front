@@ -540,6 +540,12 @@ export interface BuildingDoc {
   /** active view: true = "Norden oben" (unrotated), false/absent = oriented (default).
    *  `rings`/`ring`/`ringAspect` always mirror the ACTIVE view for back-compat renderers. */
   northUp?: boolean
+  /** active view angle in degrees when the operator has DIALLED a custom rotation (A8, 29.08.).
+   *  Absent = the binary behaviour above (`northUp ? 0 : orientDeg`) — resolve through
+   *  lib/footprint · activeViewDeg, never by hand. Writers keep `northUp` in sync
+   *  (viewDeg === 0 ⇔ northUp) and the ring mirrors on the active view, so documents read by
+   *  pre-dial clients still render a coherent (if binary-angled) picture. */
+  viewDeg?: number
   /** where this footprint sits on the ground, recorded at pick time from the picker's own square
    *  metre-bbox (lib/buildingTransfer · georefFromPick).
    *

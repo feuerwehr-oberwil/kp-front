@@ -90,7 +90,7 @@ export const it: Localizable<Copy> = {
           ] },
           { kind: 'sub', text: 'Strumenti (uguali in Situazione e Piano)' },
           { kind: 'list', items: [
-            '[[V]] Selezione · [[W]] Selezione multipla · [[S]] Simbolo · [[L]] Linea · [[F]] Superficie · [[U]] Perimetro · [[N]] Nota · [[T]] Squadra · [[D]] Misurare.',
+            '[[V]] Selezione · [[W]] Selezione multipla · [[S]] Simbolo · [[L]] Linea · [[F]] Superficie · [[U]] Perimetro · [[N]] Nota · [[T]] Squadra · [[D]] Misurare (solo carta).',
           ] },
           { kind: 'sub', text: 'Modifica' },
           { kind: 'list', items: [
@@ -1149,6 +1149,7 @@ export const it: Localizable<Copy> = {
       chipCalibrated: 'rif. {m} m',
       chipAuto: 'rif. auto',
       chipAutoHint: 'rif. automatico – scala ricavata dal collegamento alla mappa',
+      chipAutoStackHint: 'rif. automatico – scala ricavata dalla pianta dell’edificio',
       chipUncalibrated: 'non calibrata',
       recalibrate: 'Ricalibra',
       calibrate: 'Calibra la scala',

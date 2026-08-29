@@ -154,6 +154,14 @@ function bboxCenter(rings: Ring[]): Pt {
   return [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2]
 }
 
+/** The building's ACTIVE view angle. An operator-dialled `viewDeg` (A8, 29.08.) wins; absent,
+ *  the original binary toggle decides (north-up ⇄ the auto-orientation). One definition,
+ *  because the plan surface, the printed floor pages, the board-view signature and the
+ *  annotation transfer must all agree on what the operator is looking at. */
+export function activeViewDeg(b: { viewDeg?: number; northUp?: boolean; orientDeg?: number }): number {
+  return b.viewDeg ?? (b.northUp ? 0 : b.orientDeg ?? 0)
+}
+
 // ---- views -------------------------------------------------------------------------
 
 export interface FootprintView {
@@ -201,6 +209,29 @@ export function fpBoxFrac(aspect: number, boardW: number, boardH: number, floors
   let w = availW, h = availW * aspect
   if (h > availH) { h = availH; w = availH / aspect }
   return { rw: w / boardW, rh: h / tileH }
+}
+
+/** Derived Massstab for a GEOREFERENCED floor-stack (A7, 29.08.): metres per aspect-corrected
+ *  measure unit, from geometry alone — no calibration tap needed. The footprint's rotated bbox
+ *  width on the ground is (bbox width in src units) × `spanM`, and `fpBoxFrac` says that box
+ *  spans `rw` of the board width; a horizontal segment across it measures `rw · measureAR`
+ *  aspect-corrected units (lib/planScale · unitLen), so mPerU = boxWidthM / (rw · measureAR).
+ *  `measureAR` is the stack's measure-space aspect (tile width/height = 1/TILE_AR) and is also
+ *  the `ar` the resulting PlanScale must carry. Returns null on degenerate input (the caller
+ *  keeps the manual calibration path). */
+export function stackScaleMPerU(src: Ring[], spanM: number, angleDeg: number, floors: number, measureAR: number): number | null {
+  if (!src.length || !(spanM > 0) || !(floors > 0) || !(measureAR > 0)) return null
+  const view = buildView(src, angleDeg)
+  // rotated bbox width in src units: fromNorm undoes a pure rotation (an isometry), so the
+  // normalized box's horizontal edge measures out at exactly the box width
+  const [ax, ay] = view.fromNorm([0, 0])
+  const [bx, by] = view.fromNorm([1, 0])
+  const boxWidthM = Math.hypot(bx - ax, by - ay) * spanM
+  // the tile layout only cares about the board's h/w ratio, which for a board of width 1 in
+  // measure space is floors · TILE_AR = floors / measureAR
+  const { rw } = fpBoxFrac(view.aspect, 1, floors / measureAR, floors)
+  if (!(rw > 0) || !(boxWidthM > 0)) return null
+  return boxWidthM / (rw * measureAR)
 }
 
 // centred box: footprint-local 0..1 maps to the centred fraction [0.5-rw/2, 0.5+rw/2]
