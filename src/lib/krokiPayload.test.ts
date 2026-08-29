@@ -84,12 +84,12 @@ describe('krokiEntity (glyph resolution for the server compositor)', () => {
 
   it('bakes the arrow\'s Stopp-Balken into the printed glyph, arrow-only', () => {
     const stop = krokiEntity(sym({ kind: 'shape', shape: 'arrow', stop: true, symbol: undefined }), {})
-    expect(stop?.symbolSvg).toContain('M14 7 L86 7')
+    expect(stop?.symbolSvg).toContain('M20 7 L80 7')
     const plain = krokiEntity(sym({ kind: 'shape', shape: 'arrow', symbol: undefined }), {})
-    expect(plain?.symbolSvg).not.toContain('M14 7')
+    expect(plain?.symbolSvg).not.toContain('M20 7')
     // a `stop` on a non-arrow shape (impossible via the editor, possible via merge) draws nothing
     const rect = krokiEntity(sym({ kind: 'shape', shape: 'square', stop: true, symbol: undefined }), {})
-    expect(rect?.symbolSvg).not.toContain('M14 7')
+    expect(rect?.symbolSvg).not.toContain('M20 7')
   })
 })
 
@@ -156,7 +156,7 @@ describe('shapeSvgString', () => {
 
   it('draws the arrow\'s Stopp-Balken across the tip in the shape\'s colour', () => {
     const svg = shapeSvgString('arrow', '#123456', true)
-    expect(svg).toContain('<path d="M14 7 L86 7" stroke="#123456"')
+    expect(svg).toContain('<path d="M20 7 L80 7" stroke="#123456" stroke-width="5"')
     // stays stretch-safe: the bar lives in the same preserveAspectRatio="none" viewBox
     expect(svg).toContain('preserveAspectRatio="none"')
   })

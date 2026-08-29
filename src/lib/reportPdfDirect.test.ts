@@ -65,9 +65,9 @@ describe('planAnnosForPdf', () => {
 
   it('bakes the arrow\'s Stopp-Balken into the printed glyph', () => {
     const [out] = planAnnosForPdf([{ id: 'sh6', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5, stop: true }], {})
-    expect(String(out.symbolSvg)).toContain('M14 7 L86 7')
+    expect(String(out.symbolSvg)).toContain('M20 7 L80 7')
     const [plain] = planAnnosForPdf([{ id: 'sh7', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5 }], {})
-    expect(String(plain.symbolSvg)).not.toContain('M14 7')
+    expect(String(plain.symbolSvg)).not.toContain('M20 7')
   })
 })
 
