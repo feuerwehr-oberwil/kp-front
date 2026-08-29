@@ -70,7 +70,7 @@ describe('the capture layer after a pinch ends', () => {
   })
 
   it('never turns the surviving finger’s release into a placement', () => {
-    // the REAL store this time, so a stray planTap would be visible in its queue
+    // the REAL store this time, so a stray planTap would be visible in its slots
     georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 2 })
     const { view } = makeView()
     view.toNorm = () => [0.5, 0.5] // every release is ON the sheet — only the multi flag protects
@@ -81,10 +81,10 @@ describe('the capture layer after a pinch ends', () => {
     // a gesture that was ever a pinch is `multi` for good — lifting the first finger without
     // further travel must not read as a tap
     fireEvent.pointerUp(capture, { pointerId: 1, clientX: 100, clientY: 100 })
-    expect(georefSnapshot().queue).toHaveLength(0)
+    expect(georefSnapshot().slots).toHaveLength(0)
     // …while a genuine fresh tap still places: the guard above is the pinch flag, not a dead layer
     fireEvent.pointerDown(capture, { pointerId: 3, clientX: 100, clientY: 100 })
     fireEvent.pointerUp(capture, { pointerId: 3, clientX: 100, clientY: 100 })
-    expect(georefSnapshot().queue).toHaveLength(1)
+    expect(georefSnapshot().slots).toHaveLength(1)
   })
 })

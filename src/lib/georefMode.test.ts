@@ -3,32 +3,35 @@ import { saveGeoref } from './stationPlanScale'
 import {
   beginTap,
   GEOREF_OFF,
-  GEOREF_TAP_SLOP_PX,
-  isPlacingTap,
-  trackTap,
   georefDispatch,
-  georefPhoneTargetPoint,
-  resetGeorefMode,
   georefChip,
   georefLamp,
   georefMatching,
+  georefOpenCount,
+  georefOpenHint,
+  georefPairIndex,
+  georefPhoneTargetPoint,
   georefPlacing,
   georefPointNo,
-  georefQueueNo,
-  georefMapQueueNo,
-  georefSideCount,
   georefReduce,
-  georefTapOnMarker,
+  georefSideCount,
   georefSnapshot,
+  georefTapOnMarker,
   georefWantsMap,
   georefWarnings,
+  GEOREF_TAP_SLOP_PX,
+  isPlacingTap,
   placeGeorefPhoneTarget,
   registerGeorefPhoneTarget,
+  resetGeorefMode,
   resetGeorefPlan,
+  settleSlots,
+  trackTap,
   transferGeorefPlan,
   type GeorefModeState,
+  type GeorefSlot,
 } from './georefMode'
-import { fitSimilarity, PAIR_EPS_N, type Georef, type GeorefPair } from './georef'
+import { fitSimilarity, PAIR_EPS_N, type GeoPt, type Georef, type GeorefPair, type PlanPt } from './georef'
 
 // The store persists on its own (the surface that completes a pair may be unmounted by then), so
 // the write is stubbed rather than the network.
@@ -49,12 +52,45 @@ vi.mock('./stationPlanScale', () => ({
 
 const AR = 1.5 // plan width / height, the `measureAR` a landscape sheet has
 
+// --- synthetic ground truth -----------------------------------------------------------------
+// An exact similarity (80 m per aspect-corrected unit, rotated 15°) through the same
+// cos(lat)-corrected Web-Mercator the module uses, so `mapOf(p)` is the TRUE map counterpart of
+// plan point `p`. That makes the auto-pairing deterministic to test: residuals of correctly
+// assigned sets are ~zero, of mis-assigned sets tens of metres.
+const R_EARTH = 6378137
+const DEG = Math.PI / 180
+const K = Math.cos(47.5 * DEG) * R_EARTH
+const MERC_X0 = K * 7.5 * DEG
+const MERC_Y0 = K * Math.log(Math.tan(Math.PI / 4 + (47.5 * DEG) / 2))
+const S = 80, TH = 15 * DEG
+const mapOf = (p: PlanPt): GeoPt => {
+  const x = p.x * AR, y = -p.y
+  const mx = MERC_X0 + S * (Math.cos(TH) * x - Math.sin(TH) * y)
+  const my = MERC_Y0 + S * (Math.sin(TH) * x + Math.cos(TH) * y)
+  return { lng: mx / K / DEG, lat: (2 * Math.atan(Math.exp(my / K)) - Math.PI / 2) / DEG }
+}
+const pairAt = (p: PlanPt): GeorefPair => ({ plan: p, lngLat: mapOf(p), kind: 'gesetzt' })
+
 /** Arm the mode on a plan, optionally seeded with pairs the sheet already had. */
 const armed = (pairs: GeorefPair[] = []): GeorefModeState =>
   georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', pairs, aspect: AR })
 
+const run = (start: GeorefModeState, actions: Parameters<typeof georefReduce>[1][]) =>
+  actions.reduce(georefReduce, start)
+
 const pair = (x: number, y: number, lng: number, lat: number): GeorefPair =>
   ({ plan: { x, y }, lngLat: { lng, lat }, kind: 'gesetzt' })
+
+/** the open (single) halves per surface, straight off the slots */
+const openPlan = (s: GeorefModeState) => s.slots.filter((sl) => sl.plan && !sl.map).map((sl) => sl.plan!)
+const openMap = (s: GeorefModeState) => s.slots.filter((sl) => sl.map && !sl.plan).map((sl) => sl.map!)
+
+// A well-spread, clearly scalene triangle — its correctly assigned fit is exact (≈0 m), so the
+// auto-pairing trusts it, and no permutation of it is congruent to itself.
+const T1: PlanPt = { x: 0.2, y: 0.2 }
+const T2: PlanPt = { x: 0.8, y: 0.25 }
+const T3: PlanPt = { x: 0.45, y: 0.8 }
+const TRI: GeorefPair[] = [pairAt(T1), pairAt(T2), pairAt(T3)]
 
 describe('phone fixed reference target', () => {
   beforeEach(() => resetGeorefMode())
@@ -76,7 +112,7 @@ describe('phone fixed reference target', () => {
     georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
     const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.42, y: 0.31 }))
     expect(placeGeorefPhoneTarget('plan')).toBe(true)
-    expect(georefSnapshot().queue).toEqual([{ x: 0.42, y: 0.31 }])
+    expect(openPlan(georefSnapshot())).toEqual([{ x: 0.42, y: 0.31 }])
     unregister()
   })
 
@@ -85,7 +121,7 @@ describe('phone fixed reference target', () => {
     georefDispatch({ type: 'goMap' })
     const unregister = registerGeorefPhoneTarget('map', () => ({ lng: 7.527, lat: 47.516 }))
     expect(placeGeorefPhoneTarget('map')).toBe(true)
-    expect(georefSnapshot().mapQueue).toEqual([{ lng: 7.527, lat: 47.516 }])
+    expect(openMap(georefSnapshot())).toEqual([{ lng: 7.527, lat: 47.516 }])
     unregister()
   })
 
@@ -93,12 +129,24 @@ describe('phone fixed reference target', () => {
     georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
     const unregister = registerGeorefPhoneTarget('plan', () => null)
     expect(placeGeorefPhoneTarget('plan')).toBe(false)
-    expect(georefSnapshot().queue).toEqual([])
+    expect(georefSnapshot().slots).toEqual([])
+    unregister()
+  })
+
+  it('⚠️ places on the FIRST press even while a popover is open', () => {
+    // the tap-beside-dismisses rule must not eat the explicit «Punkt setzen» button
+    georefDispatch({ type: 'start', planId: 'modul2', pairs: TRI, aspect: AR })
+    georefDispatch({ type: 'select', idx: 0, side: 'plan' })
+    expect(georefSnapshot().sel).toEqual({ idx: 0, side: 'plan' })
+    const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.6, y: 0.6 }))
+    expect(placeGeorefPhoneTarget('plan')).toBe(true)
+    expect(openPlan(georefSnapshot())).toEqual([{ x: 0.6, y: 0.6 }])
+    expect(georefSnapshot().sel).toBeNull()
     unregister()
   })
 })
 
-describe('georefReduce · placing a pair', () => {
+describe('georefReduce · placing points as numbered slots', () => {
   it('arms on a plan and asks for the plan first', () => {
     const s = armed()
     expect(s.planId).toBe('modul2')
@@ -107,33 +155,29 @@ describe('georefReduce · placing a pair', () => {
     expect(georefPointNo(s)).toBe(1)
   })
 
-  it('a plan tap opens a point — and does NOT drag the operator to the map', () => {
+  it('a plan tap opens a half — and does NOT drag the operator to the map', () => {
     const s = georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.3 } })
-    // ⚠️ Both surfaces' existing crosses stay directly draggable while points are queued.
-    // A phone correction must not require deleting and recreating a pair.
+    // ⚠️ nothing goes inert: crosses on both surfaces stay live through open halves
     expect(georefPlacing(s)).toBe(false)
     expect(georefMatching(s)).toBe(false)
-    expect(s.queue).toEqual([{ x: 0.2, y: 0.3 }])
-    // ⚠️ the whole point of the queue: the sheet stays in front of you until you say otherwise
+    expect(openPlan(s)).toEqual([{ x: 0.2, y: 0.3 }])
+    // ⚠️ free order: the sheet stays in front of you until you say otherwise
     expect(s.want).toBe('plan')
-    expect(s.pairs).toHaveLength(0) // an open point is not a pair
-    expect(georefWantsMap(s)).toBe(true) // …the map will take it when you get there
+    expect(s.pairs).toHaveLength(0) // an open half is not a pair
+    expect(georefWantsMap(s)).toBe(true) // …the map will take its counterpart when you get there
   })
 
-  it('tapping the plan again QUEUES a second point instead of moving the first', () => {
+  it('tapping the plan again opens a SECOND slot instead of moving the first', () => {
     let s = georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.3 } })
     s = georefReduce(s, { type: 'planTap', pt: { x: 0.4, y: 0.5 } })
-    expect(s.queue).toEqual([{ x: 0.2, y: 0.3 }, { x: 0.4, y: 0.5 }])
+    expect(openPlan(s)).toEqual([{ x: 0.2, y: 0.3 }, { x: 0.4, y: 0.5 }])
     expect(s.pairs).toHaveLength(0)
-    // the numbers a sheet full of open crosses carries, and the one the map is asking for
-    expect(georefQueueNo(s, 0)).toBe(1)
-    expect(georefQueueNo(s, 1)).toBe(2)
-    expect(georefPointNo(s)).toBe(3) // on the plan: the one a further tap would open
+    expect(georefPointNo(s)).toBe(3) // on the plan: the number a further tap would open
   })
 
-  it('may start on the map and gives that half point 1', () => {
+  it('may start on the map and gives that half slot 1', () => {
     const s = georefReduce(armed(), { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } })
-    expect(s.mapQueue).toEqual([{ lng: 7.5, lat: 47.5 }])
+    expect(openMap(s)).toEqual([{ lng: 7.5, lat: 47.5 }])
     expect(s.pairs).toHaveLength(0)
     expect(s.want).toBe('map')
     expect(georefPointNo(s)).toBe(2)
@@ -144,7 +188,7 @@ describe('georefReduce · placing a pair', () => {
     s = georefReduce(s, { type: 'goMap' })
     s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } })
     s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } })
-    expect(s.mapQueue).toHaveLength(2)
+    expect(openMap(s)).toHaveLength(2)
     s = georefReduce(s, { type: 'goPlan' })
     s = georefReduce(s, { type: 'planTap', pt: { x: 0.2, y: 0.3 } })
     s = georefReduce(s, { type: 'planTap', pt: { x: 0.4, y: 0.5 } })
@@ -152,69 +196,51 @@ describe('georefReduce · placing a pair', () => {
       pair(0.2, 0.3, 7.5, 47.5),
       pair(0.4, 0.5, 7.6, 47.6),
     ])
-    expect(s.mapQueue).toEqual([])
+    expect(openMap(s)).toEqual([])
   })
 
   it('the map tap completes the pair and stays on the map for its next point', () => {
     let s = georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.3 } })
     s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } })
     expect(s.pairs).toEqual([{ plan: { x: 0.2, y: 0.3 }, lngLat: { lng: 7.5, lat: 47.5 }, kind: 'gesetzt' }])
-    expect(s.queue).toEqual([])
+    expect(s.slots).toHaveLength(1)
     expect(s.want).toBe('map')
     // ⚠️ still armed: the third point is what earns a residual, so it has to be cheap
     expect(s.planId).toBe('modul2')
     expect(georefPointNo(s)).toBe(2)
   })
 
-  it('the map matches the OLDEST open point first, and stays on the map until they are done', () => {
+  it('under three pairs the map matches the OLDEST open half — capture order is the pairing', () => {
     let s = armed()
-    for (const [x, y] of [[0.2, 0.3], [0.6, 0.3], [0.4, 0.8]] as const) s = georefReduce(s, { type: 'planTap', pt: { x, y } })
-    expect(s.queue).toHaveLength(3)
+    for (const p of [T1, T2, T3]) s = georefReduce(s, { type: 'planTap', pt: p })
+    expect(openPlan(s)).toHaveLength(3)
     s = georefReduce(s, { type: 'goMap' })
     expect(s.want).toBe('map')
     expect(georefPointNo(s)).toBe(1) // over there the number is the OLDEST open point
-    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } })
-    expect(s.pairs[0].plan).toEqual({ x: 0.2, y: 0.3 })
+    s = georefReduce(s, { type: 'mapTap', lngLat: mapOf(T1) })
+    expect(s.pairs[0].plan).toEqual(T1)
     expect(s.want).toBe('map') // two still open — no hop back mid-queue
-    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.501, lat: 47.5 } })
-    expect(s.pairs[1].plan).toEqual({ x: 0.6, y: 0.3 })
-    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.5005, lat: 47.4995 } })
-    expect(s.pairs.map((p) => p.plan)).toEqual([{ x: 0.2, y: 0.3 }, { x: 0.6, y: 0.3 }, { x: 0.4, y: 0.8 }])
-    expect(s.queue).toEqual([])
+    s = georefReduce(s, { type: 'mapTap', lngLat: mapOf(T2) })
+    expect(s.pairs[1].plan).toEqual(T2)
+    s = georefReduce(s, { type: 'mapTap', lngLat: mapOf(T3) })
+    expect(s.pairs.map((p) => p.plan)).toEqual([T1, T2, T3])
+    expect(georefOpenCount(s)).toBe(0)
     expect(s.want).toBe('map') // …and remains where the operator deliberately went
   })
 
   it('keeps existing map crosses draggable while unmatched plan points wait', () => {
     let s = armed([pair(0.2, 0.3, 7.5, 47.5)])
     s = georefReduce(s, { type: 'planTap', pt: { x: 0.7, y: 0.8 } })
-    expect(s.queue).toHaveLength(1)
+    expect(openPlan(s)).toHaveLength(1)
     expect(georefMatching(s)).toBe(false)
     const moved = georefReduce(s, { type: 'dragMap', idx: 0, lngLat: { lng: 7.51, lat: 47.51 } })
     expect(moved.pairs[0].lngLat).toEqual({ lng: 7.51, lat: 47.51 })
-    expect(moved.queue).toEqual(s.queue)
+    expect(openPlan(moved)).toEqual(openPlan(s))
   })
 
   it('may switch to the map before either half has been set', () => {
     const s = georefReduce(armed(), { type: 'goMap' })
     expect(s.want).toBe('map')
-  })
-
-  it('Deckung prüfen may switch to the map without an open point', () => {
-    let s = georefReduce(armed(TWO), { type: 'check', on: true })
-    s = georefReduce(s, { type: 'goMap' })
-    expect(s.want).toBe('map')
-    expect(s.check).toBe(true)
-    expect(georefWantsMap(s)).toBe(false)
-    expect(s.queue).toEqual([])
-  })
-
-  it('the shared loupe follows the aimed surface while queued points stay intact', () => {
-    let s = georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.3 } })
-    s = georefReduce(s, { type: 'goMap' })
-    expect(s.want).toBe('map')
-    s = georefReduce(s, { type: 'goPlan' })
-    expect(s.want).toBe('plan')
-    expect(s.queue).toEqual([{ x: 0.2, y: 0.3 }])
   })
 
   it('re-pairing the SAME plan point replaces it instead of appending a contradiction', () => {
@@ -226,15 +252,267 @@ describe('georefReduce · placing a pair', () => {
   })
 
   it('⚠️ …and the same holds MAP FIRST — the mirror branch must not append either', () => {
-    // map half queued, then the operator recognises a corner on the sheet that ALREADY carries a
+    // map half placed, then the operator recognises a corner on the sheet that ALREADY carries a
     // pair. Two pairs on one plan point holding different positions is the self-contradiction
-    // `replacePair` exists to make impossible, and it drags the fit toward the worse tap.
+    // the one-landmark rule exists to make impossible: it drags the fit toward the worse tap.
     let s = armed([pair(0.2, 0.3, 7.5, 47.5)])
     s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } })
     s = georefReduce(s, { type: 'planTap', pt: { x: 0.2, y: 0.3 } })
     expect(s.pairs).toHaveLength(1)
     expect(s.pairs[0].lngLat).toEqual({ lng: 7.6, lat: 47.6 })
-    expect(s.mapQueue).toEqual([])
+    expect(openMap(s)).toEqual([])
+  })
+})
+
+// ⚠️ THE decided model (29.08.): «just allow setting somewhat random points on both places and
+// when they match we're good.» Under a credible fit a new half only pairs with the open half it
+// actually lands on — capture order stops being the pairing the moment the geometry can speak.
+describe('georefReduce · free order and auto-pairing', () => {
+  it('reaches the identical fit whichever surface went first', () => {
+    const planFirst = run(armed(), [
+      { type: 'planTap', pt: { x: 0.2, y: 0.2 } }, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
+      { type: 'planTap', pt: { x: 0.8, y: 0.8 } }, { type: 'mapTap', lngLat: { lng: 7.5015, lat: 47.4991 } },
+    ])
+    const mapFirst = run(armed(), [
+      { type: 'goMap' },
+      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } }, { type: 'planTap', pt: { x: 0.2, y: 0.2 } },
+      { type: 'goMap' },
+      { type: 'mapTap', lngLat: { lng: 7.5015, lat: 47.4991 } }, { type: 'planTap', pt: { x: 0.8, y: 0.8 } },
+    ])
+    expect(mapFirst.pairs).toEqual(planFirst.pairs)
+  })
+
+  it('⚠️ BOTH surfaces may hold open halves at once — unrelated halves are not welded together', () => {
+    let s = armed(TRI) // a measured, trustworthy fit stands
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.3, y: 0.6 } })
+    // a map tap ~75 m away from that plan half's true position: NOT the same landmark
+    s = georefReduce(s, { type: 'mapTap', lngLat: mapOf({ x: 0.9, y: 0.9 }) })
+    expect(openPlan(s)).toHaveLength(1)
+    expect(openMap(s)).toHaveLength(1) // the old FIFO would have paired these two blindly
+    expect(s.pairs).toHaveLength(3)
+    expect(georefOpenCount(s)).toBe(2)
+  })
+
+  it('…and a half pairs with the open half it LANDS ON, not with the oldest', () => {
+    let s = armed(TRI)
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.3, y: 0.6 } })          // slot 4, open
+    s = georefReduce(s, { type: 'mapTap', lngLat: mapOf({ x: 0.9, y: 0.9 }) }) // slot 5, open
+    // the sheet tap at (0.9, 0.9) coincides with slot 5's map half under the fit — it completes
+    // slot 5 and leaves the OLDER open plan half alone
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.9, y: 0.9 } })
+    expect(s.pairs).toHaveLength(4)
+    expect(openPlan(s)).toEqual([{ x: 0.3, y: 0.6 }])
+    expect(openMap(s)).toEqual([])
+    // …and its counterpart on the map closes the last open half
+    s = georefReduce(s, { type: 'mapTap', lngLat: mapOf({ x: 0.3, y: 0.6 }) })
+    expect(s.pairs).toHaveLength(5)
+    expect(georefOpenCount(s)).toBe(0)
+    expect(fitSimilarity(s.pairs, AR)!.meanResidualM).toBeLessThan(0.5)
+  })
+
+  it('a clearly mis-ordered set re-deals itself once the geometry leaves no doubt', () => {
+    // an irregular quadrilateral, so no permutation of it is congruent to itself
+    const Q: PlanPt[] = [{ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.15 }, { x: 0.75, y: 0.85 }, { x: 0.25, y: 0.7 }]
+    let s = armed()
+    for (const p of Q) s = georefReduce(s, { type: 'planTap', pt: p })
+    // the map side is walked in a DIFFERENT order: 2, 3, 4, 1
+    for (const i of [1, 2, 3, 0]) s = georefReduce(s, { type: 'mapTap', lngLat: mapOf(Q[i]) })
+    expect(s.pairs).toHaveLength(4)
+    // the re-matcher has re-dealt the map halves so every plan point carries its own position
+    const fit = fitSimilarity(s.pairs, AR)!
+    expect(fit.meanResidualM).toBeLessThan(0.5)
+    s.pairs.forEach((p, i) => expect(p.plan).toEqual(Q[i]))
+  })
+
+  it('tapping two open halves in sequence pairs them BY HAND, marked fixed', () => {
+    let s = armed(TRI)
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.3, y: 0.6 } })
+    s = georefReduce(s, { type: 'mapTap', lngLat: mapOf({ x: 0.9, y: 0.9 }) })
+    expect(georefOpenCount(s)).toBe(2)
+    s = georefReduce(s, { type: 'select', idx: 3, side: 'plan' })
+    expect(s.sel).toEqual({ idx: 3, side: 'plan' })
+    s = georefReduce(s, { type: 'select', idx: 4, side: 'map' })
+    expect(s.sel).toBeNull()
+    expect(georefOpenCount(s)).toBe(0)
+    expect(s.slots[3]).toMatchObject({ plan: { x: 0.3, y: 0.6 }, map: mapOf({ x: 0.9, y: 0.9 }), fixed: true })
+    expect(s.pairs).toHaveLength(4)
+  })
+
+  it('⚠️ a hand-made pair survives the automatic re-deal', () => {
+    const Q: PlanPt[] = [{ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.15 }, { x: 0.75, y: 0.85 }, { x: 0.25, y: 0.7 }]
+    // slot 0 was paired BY HAND (deliberately "wrong" by the geometry's lights); 1–3 are
+    // mis-dealt among themselves. The re-deal must fix the free three and leave 0 alone.
+    const wrongMap = mapOf({ x: 0.5, y: 0.5 })
+    const slots: GeorefSlot[] = [
+      { plan: Q[0], map: wrongMap, kind: 'gesetzt', fixed: true },
+      { plan: Q[1], map: mapOf(Q[2]), kind: 'gesetzt' },
+      { plan: Q[2], map: mapOf(Q[3]), kind: 'gesetzt' },
+      { plan: Q[3], map: mapOf(Q[1]), kind: 'gesetzt' },
+    ]
+    const out = settleSlots(slots, AR)
+    expect(out[0].map).toBe(wrongMap) // the operator's explicit decision stands
+    expect(out[1].map).toEqual(mapOf(Q[1]))
+    expect(out[2].map).toEqual(mapOf(Q[2]))
+    expect(out[3].map).toEqual(mapOf(Q[3]))
+  })
+
+  it('counts each surface independently and never navigates away after a match', () => {
+    let s = run(armed(), [
+      { type: 'goMap' },
+      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
+      { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } },
+    ])
+    expect(georefSideCount(s, 'map')).toBe(2)
+    expect(georefSideCount(s, 'plan')).toBe(0)
+
+    s = georefReduce(s, { type: 'goPlan' })
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.2, y: 0.2 } })
+    expect(s.want).toBe('plan')
+    expect(georefSideCount(s, 'map')).toBe(2)
+    expect(georefSideCount(s, 'plan')).toBe(1)
+
+    s = georefReduce(s, { type: 'goMap' })
+    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.7, lat: 47.7 } })
+    expect(s.want).toBe('map')
+    expect(georefSideCount(s, 'map')).toBe(3)
+    expect(georefSideCount(s, 'plan')).toBe(1)
+  })
+})
+
+describe('georefReduce · selection, popover and Verschieben', () => {
+  const seeded = () => armed([pair(0.2, 0.3, 7.5, 47.5), pair(0.8, 0.7, 7.502, 47.499)])
+
+  it('tapping a cross selects it — nothing goes inert, the same tap again puts it away', () => {
+    let s = georefReduce(seeded(), { type: 'select', idx: 0, side: 'plan' })
+    expect(s.sel).toEqual({ idx: 0, side: 'plan' })
+    expect(s.want).toBe('plan')
+    expect(georefPlacing(s)).toBe(false)
+    expect(georefMatching(s)).toBe(false)
+    expect(georefPointNo(s)).toBe(1)
+    s = georefReduce(s, { type: 'select', idx: 0, side: 'plan' })
+    expect(s.sel).toBeNull()
+  })
+
+  it('a tap BESIDE the open popover deselects and places nothing', () => {
+    let s = georefReduce(seeded(), { type: 'select', idx: 0, side: 'plan' })
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.5, y: 0.5 } })
+    expect(s.sel).toBeNull()
+    expect(s.slots).toHaveLength(2) // the dismissal tap did not become a point
+    // …while a tap on the OTHER surface is an ordinary placement (and clears the popover)
+    let m = georefReduce(seeded(), { type: 'select', idx: 0, side: 'plan' })
+    m = georefReduce(m, { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } })
+    expect(m.sel).toBeNull()
+    expect(openMap(m)).toHaveLength(1)
+  })
+
+  it('«Verschieben» arms the re-place; the next tap on that surface moves ONLY that half', () => {
+    let s = georefReduce(seeded(), { type: 'select', idx: 0, side: 'plan' })
+    s = georefReduce(s, { type: 'beginMove' })
+    expect(s.move).toEqual({ idx: 0, side: 'plan' })
+    expect(s.sel).toBeNull()
+    expect(georefPlacing(s)).toBe(true) // plan crosses inert while the landing tap is owed
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.25, y: 0.35 } })
+    expect(s.pairs).toHaveLength(2)
+    expect(s.pairs[0]).toEqual({ plan: { x: 0.25, y: 0.35 }, lngLat: { lng: 7.5, lat: 47.5 }, kind: 'korrigiert' })
+    expect(s.move).toBeNull()
+    expect(georefOpenCount(s)).toBe(0) // a correction is not a new point
+  })
+
+  it('an armed MAP move keeps the map crosses inert and corrects there', () => {
+    let s = georefReduce(seeded(), { type: 'select', idx: 1, side: 'map' })
+    s = georefReduce(s, { type: 'beginMove' })
+    expect(s.want).toBe('map')
+    expect(georefMatching(s)).toBe(true)
+    expect(georefWantsMap(s)).toBe(true)
+    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.51, lat: 47.4 } })
+    expect(s.pairs[1]).toEqual({ plan: { x: 0.8, y: 0.7 }, lngLat: { lng: 7.51, lat: 47.4 }, kind: 'korrigiert' })
+    expect(s.move).toBeNull()
+  })
+
+  it('⚠️ a move never strands the operator: the other surface stays fully live', () => {
+    let s = georefReduce(seeded(), { type: 'select', idx: 0, side: 'plan' })
+    s = georefReduce(s, { type: 'beginMove' })
+    // the hop is never refused — that refusal is what pinned phones under the old pick state
+    const hopped = georefReduce(s, { type: 'goMap' })
+    expect(hopped.want).toBe('map')
+    expect(hopped.move).toEqual({ idx: 0, side: 'plan' })
+    // and a map tap while a PLAN move is armed is an ordinary placement, not swallowed
+    const placed = georefReduce(hopped, { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } })
+    expect(openMap(placed)).toHaveLength(1)
+    expect(placed.move).toEqual({ idx: 0, side: 'plan' })
+  })
+
+  it('«Behalten» / Esc peels one layer at a time: move first, then the popover', () => {
+    let s = georefReduce(seeded(), { type: 'select', idx: 0, side: 'plan' })
+    s = georefReduce(s, { type: 'beginMove' })
+    const back = georefReduce(s, { type: 'unpick' })
+    expect(back.move).toBeNull()
+    expect(back.pairs).toBe(s.pairs) // not moved
+    expect(back.want).toBe(s.want)   // and the operator is not yanked anywhere
+    const selOnly = georefReduce(seeded(), { type: 'select', idx: 1, side: 'map' })
+    expect(georefReduce(selOnly, { type: 'unpick' }).sel).toBeNull()
+    // putting down what was never picked up is a no-op
+    expect(georefReduce(seeded(), { type: 'unpick' })).toEqual(seeded())
+    expect(georefReduce(GEOREF_OFF, { type: 'unpick' })).toBe(GEOREF_OFF)
+  })
+
+  it('an open half can be selected, moved and deleted like any other point', () => {
+    let s = georefReduce(seeded(), { type: 'planTap', pt: { x: 0.5, y: 0.5 } })
+    s = georefReduce(s, { type: 'select', idx: 2, side: 'plan' })
+    s = georefReduce(s, { type: 'beginMove' })
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.55, y: 0.45 } })
+    expect(openPlan(s)).toEqual([{ x: 0.55, y: 0.45 }])
+    expect(s.slots[2].kind).toBe('gesetzt') // moving a half that is not yet a pair corrects nothing
+    s = georefReduce(s, { type: 'remove', idx: 2 })
+    expect(georefOpenCount(s)).toBe(0)
+    expect(s.pairs).toHaveLength(2)
+  })
+
+  it('«Punkt löschen» drops that whole slot and refits from the rest', () => {
+    let s = georefReduce(seeded(), { type: 'select', idx: 0, side: 'plan' })
+    s = georefReduce(s, { type: 'remove', idx: 0 })
+    expect(s.pairs).toHaveLength(1)
+    expect(s.pairs[0].plan).toEqual({ x: 0.8, y: 0.7 })
+    expect(s.sel).toBeNull()
+    // one pair left ⇒ no fit at all, and the surfaces say so rather than pretending
+    expect(fitSimilarity(s.pairs, AR)).toBeNull()
+    // deleting one that isn't there changes nothing
+    expect(georefReduce(s, { type: 'remove', idx: 4 })).toBe(s)
+  })
+
+  it('selecting a cross that does not exist changes nothing', () => {
+    const s = seeded()
+    expect(georefReduce(s, { type: 'select', idx: 7, side: 'plan' })).toBe(s)
+    // …nor selecting the EMPTY half of a slot
+    const withOpen = georefReduce(s, { type: 'planTap', pt: { x: 0.5, y: 0.5 } })
+    expect(georefReduce(withOpen, { type: 'select', idx: 2, side: 'map' })).toBe(withOpen)
+  })
+
+  it('dragging a cross patches that slot live and marks the pair corrected', () => {
+    const plan = georefReduce(seeded(), { type: 'dragPlan', idx: 0, pt: { x: 0.21, y: 0.31 } })
+    expect(plan.pairs[0]).toEqual({ plan: { x: 0.21, y: 0.31 }, lngLat: { lng: 7.5, lat: 47.5 }, kind: 'korrigiert' })
+    const map = georefReduce(seeded(), { type: 'dragMap', idx: 1, lngLat: { lng: 7.503, lat: 47.4985 } })
+    expect(map.pairs[1].plan).toEqual({ x: 0.8, y: 0.7 })
+    expect(map.pairs[1].kind).toBe('korrigiert')
+  })
+
+  it('⚠️ an OPEN half is draggable too — the amber cross is a point, not a ghost', () => {
+    let s = georefReduce(seeded(), { type: 'planTap', pt: { x: 0.5, y: 0.5 } })
+    s = georefReduce(s, { type: 'dragPlan', idx: 2, pt: { x: 0.52, y: 0.55 } })
+    expect(openPlan(s)).toEqual([{ x: 0.52, y: 0.55 }])
+    expect(s.pairs).toHaveLength(2) // nothing was welded together by the drag
+    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } })
+    s = georefReduce(s, { type: 'dragMap', idx: 2, lngLat: { lng: 7.61, lat: 47.61 } })
+    expect(s.pairs[2].lngLat).toEqual({ lng: 7.61, lat: 47.61 })
+  })
+
+  it('⚠️ but never ONTO another cross — coincident references leave the sheet with no fit', () => {
+    const s = seeded()
+    const onto = { x: 0.8 + PAIR_EPS_N / 2, y: 0.7 } // within a fingertip of pair 1
+    expect(georefReduce(s, { type: 'dragPlan', idx: 0, pt: onto })).toBe(s)
+    // a hair further out it is a landmark of its own again, and the drag goes through
+    const clear = georefReduce(s, { type: 'dragPlan', idx: 0, pt: { x: 0.8 + PAIR_EPS_N * 3, y: 0.7 } })
+    expect(clear.pairs[0].plan).toEqual({ x: 0.8 + PAIR_EPS_N * 3, y: 0.7 })
   })
 })
 
@@ -254,12 +532,20 @@ describe('georefReduce · cancelling', () => {
     const placed = georefReduce(checking, { type: 'planTap', pt: { x: 0.5, y: 0.5 } })
     expect(placed.check).toBe(false)
     expect(placed.checkReturn).toBeNull()
-    expect(placed.queue).toEqual([{ x: 0.5, y: 0.5 }]) // …and the tap itself still counted
+    expect(openPlan(placed)).toEqual([{ x: 0.5, y: 0.5 }]) // …and the tap itself still counted
+  })
+
+  it('Deckung prüfen may switch to the map without an open point', () => {
+    let s = georefReduce(armed(TWO), { type: 'check', on: true })
+    s = georefReduce(s, { type: 'goMap' })
+    expect(s.want).toBe('map')
+    expect(s.check).toBe(true)
+    expect(georefWantsMap(s)).toBe(false)
   })
 
   it('leaves Deckung prüfen on the side it opened from without ending alignment', () => {
-    let before = georefReduce(armed(TWO), { type: 'pick', idx: 0, side: 'map' })
-    before = georefReduce(before, { type: 'mapTap', lngLat: { lng: 7.51, lat: 47.51 } })
+    let before = georefReduce(armed(TWO), { type: 'select', idx: 0, side: 'map' })
+    before = georefReduce(before, { type: 'unpick' })
     expect(before.want).toBe('map')
     const checking = georefReduce(before, { type: 'check', on: true })
     const after = georefReduce(checking, { type: 'finishCheck' })
@@ -283,22 +569,22 @@ describe('georefReduce · cancelling', () => {
     expect(returning.planId).toBe('modul2')
     expect(returning.want).toBe('plan')
     expect(returning.checkReturn).toBe('quality')
-    expect(returning.queue).toEqual([])
+    expect(georefOpenCount(returning)).toBe(0)
     expect(georefReduce(returning, { type: 'dismiss' })).toBe(GEOREF_OFF)
   })
 
-  it('«Fertig» / Esc drops the mode and every point still waiting for its map half', () => {
+  it('«Fertig» / Esc drops the mode and every half still waiting for its counterpart', () => {
     let s = georefReduce(armed([pair(0.2, 0.3, 7.5, 47.5)]), { type: 'planTap', pt: { x: 0.7, y: 0.8 } })
-    expect(s.queue).toHaveLength(1)
+    expect(openPlan(s)).toHaveLength(1)
     s = georefReduce(s, { type: 'end' })
     expect(s).toBe(GEOREF_OFF)
   })
 
-  it('«Punkte zurücksetzen» clears pairs AND open points, and stays armed', () => {
+  it('«Punkte zurücksetzen» clears pairs AND open halves, and stays armed', () => {
     let s = georefReduce(armed([pair(0.2, 0.3, 7.5, 47.5)]), { type: 'planTap', pt: { x: 0.7, y: 0.8 } })
     s = georefReduce(s, { type: 'clear' })
+    expect(s.slots).toEqual([])
     expect(s.pairs).toEqual([])
-    expect(s.queue).toEqual([])
     expect(s.planId).toBe('modul2') // ⚠️ «start over», not «leave»
     // …and with nothing left to clear it is a genuine no-op, so no empty write goes out
     expect(georefReduce(s, { type: 'clear' })).toBe(s)
@@ -311,129 +597,6 @@ describe('georefReduce · cancelling', () => {
   it('nothing places while the mode is off', () => {
     expect(georefReduce(GEOREF_OFF, { type: 'planTap', pt: { x: 0.1, y: 0.1 } })).toBe(GEOREF_OFF)
     expect(georefReduce(GEOREF_OFF, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } })).toBe(GEOREF_OFF)
-  })
-})
-
-describe('georefReduce · correcting one half', () => {
-  const seeded = () => armed([pair(0.2, 0.3, 7.5, 47.5), pair(0.8, 0.7, 7.502, 47.499)])
-
-  it('tapping a PLAN cross re-places only that half, and appends nothing', () => {
-    let s = georefReduce(seeded(), { type: 'pick', idx: 0, side: 'plan' })
-    expect(s.edit).toEqual({ idx: 0, side: 'plan' })
-    expect(s.want).toBe('plan')
-    expect(georefWantsMap(s)).toBe(false)
-    s = georefReduce(s, { type: 'planTap', pt: { x: 0.25, y: 0.35 } })
-    expect(s.pairs).toHaveLength(2)
-    expect(s.pairs[0]).toEqual({ plan: { x: 0.25, y: 0.35 }, lngLat: { lng: 7.5, lat: 47.5 }, kind: 'korrigiert' })
-    expect(s.edit).toBeNull()
-    expect(s.queue).toEqual([]) // a correction is not a new point
-  })
-
-  it('tapping a MAP cross sends the operator to the map and corrects there', () => {
-    let s = georefReduce(seeded(), { type: 'pick', idx: 1, side: 'map' })
-    expect(s.want).toBe('map')
-    expect(georefWantsMap(s)).toBe(true)
-    // the plan is inert while the MAP half is the one being waited on
-    expect(georefReduce(s, { type: 'planTap', pt: { x: 0.1, y: 0.1 } })).toBe(s)
-    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.51, lat: 47.4 } })
-    expect(s.pairs[1]).toEqual({ plan: { x: 0.8, y: 0.7 }, lngLat: { lng: 7.51, lat: 47.4 }, kind: 'korrigiert' })
-    expect(s.edit).toBeNull()
-  })
-
-  it('picking a cross keeps the queue — those points are work, not a half-finished gesture', () => {
-    let s = georefReduce(seeded(), { type: 'planTap', pt: { x: 0.5, y: 0.5 } })
-    s = georefReduce(s, { type: 'pick', idx: 0, side: 'plan' })
-    expect(s.queue).toEqual([{ x: 0.5, y: 0.5 }])
-    expect(s.edit).toEqual({ idx: 0, side: 'plan' })
-    // …but only ONE correction at a time: while a cross is picked up every cross goes inert
-    expect(georefPlacing(s)).toBe(true)
-    expect(georefMatching(s)).toBe(true)
-  })
-
-  it('«Punkt löschen» drops that pair and refits from the rest', () => {
-    let s = georefReduce(seeded(), { type: 'pick', idx: 0, side: 'plan' })
-    s = georefReduce(s, { type: 'removePair', idx: 0 })
-    expect(s.pairs).toHaveLength(1)
-    expect(s.pairs[0].plan).toEqual({ x: 0.8, y: 0.7 })
-    expect(s.edit).toBeNull()
-    // one pair left ⇒ no fit at all, and the surfaces say so rather than pretending
-    expect(fitSimilarity(s.pairs, AR)).toBeNull()
-    // deleting one that isn't there changes nothing
-    expect(georefReduce(s, { type: 'removePair', idx: 4 })).toBe(s)
-  })
-
-  it('lets an unmatched plan point be selected, corrected and deleted individually', () => {
-    let s = georefReduce(seeded(), { type: 'planTap', pt: { x: 0.5, y: 0.5 } })
-    s = georefReduce(s, { type: 'planTap', pt: { x: 0.7, y: 0.7 } })
-    s = georefReduce(s, { type: 'pickPending', idx: 0, side: 'plan' })
-    expect(s.edit).toEqual({ idx: 0, side: 'plan', pending: true })
-    expect(georefPointNo(s)).toBe(3)
-    s = georefReduce(s, { type: 'planTap', pt: { x: 0.55, y: 0.45 } })
-    expect(s.queue).toEqual([{ x: 0.55, y: 0.45 }, { x: 0.7, y: 0.7 }])
-    expect(s.edit).toBeNull()
-
-    s = georefReduce(s, { type: 'pickPending', idx: 1, side: 'plan' })
-    s = georefReduce(s, { type: 'removePending', idx: 1, side: 'plan' })
-    expect(s.queue).toEqual([{ x: 0.55, y: 0.45 }])
-    expect(s.pairs).toHaveLength(2)
-    expect(s.edit).toBeNull()
-  })
-
-  it('lets a map-first unmatched point be selected, corrected and deleted in place', () => {
-    let s = georefReduce(seeded(), { type: 'mapTap', lngLat: { lng: 7.55, lat: 47.55 } })
-    s = georefReduce(s, { type: 'pickPending', idx: 0, side: 'map' })
-    expect(georefPointNo(s)).toBe(3)
-    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.56, lat: 47.56 } })
-    expect(s.mapQueue).toEqual([{ lng: 7.56, lat: 47.56 }])
-    expect(s.want).toBe('map')
-
-    s = georefReduce(s, { type: 'pickPending', idx: 0, side: 'map' })
-    s = georefReduce(s, { type: 'removePending', idx: 0, side: 'map' })
-    expect(s.mapQueue).toEqual([])
-    expect(s.pairs).toHaveLength(2)
-    expect(s.want).toBe('map')
-  })
-
-  it('picking a cross that does not exist changes nothing', () => {
-    const s = seeded()
-    expect(georefReduce(s, { type: 'pick', idx: 7, side: 'plan' })).toBe(s)
-  })
-
-  it('dragging a cross patches that pair live and marks it corrected', () => {
-    const plan = georefReduce(seeded(), { type: 'dragPlan', idx: 0, pt: { x: 0.21, y: 0.31 } })
-    expect(plan.pairs[0]).toEqual({ plan: { x: 0.21, y: 0.31 }, lngLat: { lng: 7.5, lat: 47.5 }, kind: 'korrigiert' })
-    const map = georefReduce(seeded(), { type: 'dragMap', idx: 1, lngLat: { lng: 7.503, lat: 47.4985 } })
-    expect(map.pairs[1].plan).toEqual({ x: 0.8, y: 0.7 })
-    expect(map.pairs[1].kind).toBe('korrigiert')
-  })
-
-  it('⚠️ but never ONTO another cross — coincident references leave the sheet with no fit', () => {
-    const s = seeded()
-    const onto = { x: 0.8 + PAIR_EPS_N / 2, y: 0.7 } // within a fingertip of pair 1
-    expect(georefReduce(s, { type: 'dragPlan', idx: 0, pt: onto })).toBe(s)
-    // a hair further out it is a landmark of its own again, and the drag goes through
-    const clear = georefReduce(s, { type: 'dragPlan', idx: 0, pt: { x: 0.8 + PAIR_EPS_N * 3, y: 0.7 } })
-    expect(clear.pairs[0].plan).toEqual({ x: 0.8 + PAIR_EPS_N * 3, y: 0.7 })
-  })
-
-  it('«Abbrechen» on a picked-up cross puts it back down, and nothing else', () => {
-    let s = georefReduce(seeded(), { type: 'planTap', pt: { x: 0.5, y: 0.5 } })
-    s = georefReduce(s, { type: 'pick', idx: 0, side: 'map' })
-    // ⚠️ this is the corner the operator gets stuck in: both surface hops refuse while a cross
-    // is picked up, so on a phone the opposite-surface button is dead
-    expect(georefReduce(s, { type: 'goPlan' })).toBe(s)
-    const back = georefReduce(s, { type: 'unpick' })
-    expect(back.edit).toBeNull()
-    expect(back.pairs).toBe(s.pairs)  // not moved
-    expect(back.queue).toBe(s.queue)  // not thrown away
-    expect(back.want).toBe(s.want)    // and the operator is not yanked to the other surface
-    expect(georefReduce(back, { type: 'goPlan' }).want).toBe('plan')
-  })
-
-  it('putting down a cross that was never picked up is a no-op', () => {
-    const s = seeded()
-    expect(georefReduce(s, { type: 'unpick' })).toBe(s)
-    expect(georefReduce(GEOREF_OFF, { type: 'unpick' })).toBe(GEOREF_OFF)
   })
 })
 
@@ -501,113 +664,6 @@ describe('georefChip', () => {
   })
 })
 
-// The Ampel is the reading the bar never had. It replaces «2 Paare» — a number nobody can have
-// an opinion about — with the sentence that decides whether to place a third point.
-// ⚠️ EITHER surface may start a pair. The Modul and the Karte are two halves of one landmark,
-// not a fixed order, and somebody standing at a house corner with the map already open should
-// not have to go to the sheet first. Only the COUNT and the ORDER have to correspond: the nth
-// point on one surface pairs with the nth on the other.
-describe('a pair may be started on either surface', () => {
-  const run = (start: GeorefModeState, actions: Parameters<typeof georefReduce>[1][]) =>
-    actions.reduce(georefReduce, start)
-
-  it('plan first, then the map — the classic order', () => {
-    const s = run(armed(), [
-      { type: 'planTap', pt: { x: 0.2, y: 0.2 } },
-      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
-    ])
-    expect(s.pairs).toHaveLength(1)
-    expect(s.queue).toEqual([])
-    expect(s.mapQueue).toEqual([])
-  })
-
-  it('MAP first, then the plan — and it lands as the very same pair', () => {
-    const mapFirst = run(armed(), [
-      { type: 'goMap' },
-      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
-    ])
-    // the map half is waiting and it is point 1 — while the prompt has already moved on to the
-    // NEXT one, exactly as it does after a first plan tap: either surface may queue several
-    // halves before crossing over
-    expect(mapFirst.mapQueue).toHaveLength(1)
-    expect(georefMapQueueNo(mapFirst, 0)).toBe(1)
-    expect(georefPointNo(mapFirst)).toBe(2)
-    expect(georefPointNo(georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.2 } }))).toBe(2)
-
-    const paired = georefReduce(mapFirst, { type: 'planTap', pt: { x: 0.2, y: 0.2 } })
-    expect(paired.pairs).toEqual([{ plan: { x: 0.2, y: 0.2 }, lngLat: { lng: 7.5, lat: 47.5 }, kind: 'gesetzt' }])
-    expect(paired.mapQueue).toEqual([])
-  })
-
-  it('reaches the identical fit whichever surface went first', () => {
-    const planFirst = run(armed(), [
-      { type: 'planTap', pt: { x: 0.2, y: 0.2 } }, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
-      { type: 'planTap', pt: { x: 0.8, y: 0.8 } }, { type: 'mapTap', lngLat: { lng: 7.5015, lat: 47.4991 } },
-    ])
-    const mapFirst = run(armed(), [
-      { type: 'goMap' },
-      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } }, { type: 'planTap', pt: { x: 0.2, y: 0.2 } },
-      { type: 'goMap' },
-      { type: 'mapTap', lngLat: { lng: 7.5015, lat: 47.4991 } }, { type: 'planTap', pt: { x: 0.8, y: 0.8 } },
-    ])
-    expect(mapFirst.pairs).toEqual(planFirst.pairs)
-  })
-
-  // the numbering is what «the order has to match» MEANS: the queued half on either surface
-  // carries the number its partner will carry
-  it('numbers a queued half the same on both surfaces', () => {
-    const withOne = run(armed(), [
-      { type: 'planTap', pt: { x: 0.2, y: 0.2 } }, { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
-    ])
-    const planQueued = georefReduce(withOne, { type: 'planTap', pt: { x: 0.8, y: 0.8 } })
-    const mapQueued = run(withOne, [{ type: 'goMap' }, { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } }])
-    // the waiting half carries the same number on either surface…
-    expect(georefQueueNo(planQueued, 0)).toBe(2)
-    expect(georefMapQueueNo(mapQueued, 0)).toBe(2)
-    // …and so does the one the prompt is asking for next
-    expect(georefPointNo(planQueued)).toBe(3)
-    expect(georefPointNo(mapQueued)).toBe(3)
-  })
-
-  // …and only ONE queue is ever open: a tap on the far surface matches the waiting half rather
-  // than starting a second, parallel backlog nobody could pair up afterwards
-  it('never leaves both surfaces holding unmatched halves', () => {
-    const s = run(armed(), [
-      { type: 'goMap' },
-      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
-      { type: 'planTap', pt: { x: 0.2, y: 0.2 } },
-      { type: 'planTap', pt: { x: 0.8, y: 0.8 } },
-    ])
-    expect(s.pairs).toHaveLength(1)
-    expect(s.queue).toHaveLength(1)
-    expect(s.mapQueue).toHaveLength(0)
-  })
-
-  it('counts each surface independently and never navigates away after a match', () => {
-    let s = run(armed(), [
-      { type: 'goMap' },
-      { type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } },
-      { type: 'mapTap', lngLat: { lng: 7.6, lat: 47.6 } },
-    ])
-    expect(georefSideCount(s, 'map')).toBe(2)
-    expect(georefSideCount(s, 'plan')).toBe(0)
-
-    s = georefReduce(s, { type: 'goPlan' })
-    s = georefReduce(s, { type: 'planTap', pt: { x: 0.2, y: 0.2 } })
-    expect(s.want).toBe('plan')
-    expect(georefSideCount(s, 'map')).toBe(2)
-    expect(georefSideCount(s, 'plan')).toBe(1)
-    expect(georefPointNo(s)).toBe(2)
-
-    s = georefReduce(s, { type: 'goMap' })
-    s = georefReduce(s, { type: 'mapTap', lngLat: { lng: 7.7, lat: 47.7 } })
-    expect(s.want).toBe('map')
-    expect(georefSideCount(s, 'map')).toBe(3)
-    expect(georefSideCount(s, 'plan')).toBe(1)
-    expect(georefPointNo(s)).toBe(4)
-  })
-})
-
 describe('georefLamp', () => {
   it('is red with nothing, and says what two points would buy', () => {
     const lamp = georefLamp(null, armed())
@@ -634,17 +690,65 @@ describe('georefLamp', () => {
   })
 
   // a measured fit can still be a bad one — then the residual is the least useful thing on the
-  // bar, and what is wrong with the POINTS takes its place
-  it('stays amber on a collinear fit, and says so instead of boasting the number', () => {
+  // bar, and what to DO about the points takes its place (the 29.08. instruction rewrite)
+  it('stays amber on a collinear fit, and instructs instead of boasting the number', () => {
     const line = [pair(0.2, 0.2, 7.5, 47.5), pair(0.5, 0.5, 7.5008, 47.4995), pair(0.8, 0.8, 7.5015, 47.4991)]
     const lamp = georefLamp(fitSimilarity(line, AR), armed(line))
     expect(lamp.tone).toBe('amber')
-    expect(lamp.body).toContain('fast auf einer Linie')
+    expect(lamp.body).toContain('abseits der Linie setzen')
   })
 
-  it('counts the unmatched halves that are still waiting', () => {
-    const withOpen: GeorefModeState = { ...armed(THREE), queue: [{ x: 0.1, y: 0.1 }] }
+  it('a short baseline reads as an instruction, not a scolding', () => {
+    const tight = [pair(0.2, 0.2, 7.5, 47.5), pair(0.24, 0.22, 7.50004, 47.49997), pair(0.21, 0.24, 7.50002, 47.49999)]
+    const lamp = georefLamp(fitSimilarity(tight, AR), armed(tight))
+    expect(lamp.tone).toBe('amber')
+    expect(lamp.body).toMatch(/^Den nächsten Punkt weiter weg setzen/)
+  })
+
+  it('counts the halves that are still waiting', () => {
+    const withOpen = georefReduce(armed(THREE), { type: 'planTap', pt: { x: 0.1, y: 0.1 } })
     expect(georefLamp(fitSimilarity(THREE, AR), withOpen).head).toContain('1 offen')
+  })
+})
+
+describe('georefOpenHint — the status line names the missing half', () => {
+  it('says nothing while every point is complete', () => {
+    expect(georefOpenHint(armed(TRI))).toBeNull()
+  })
+
+  it('names the ONE open half and the surface it is missing on', () => {
+    const planOnly = georefReduce(armed(TRI), { type: 'planTap', pt: { x: 0.3, y: 0.6 } })
+    expect(georefOpenHint(planOnly)).toBe('Punkt 4 fehlt noch auf der Karte.')
+    const mapOnly = georefReduce(armed(TRI), { type: 'mapTap', lngLat: mapOf({ x: 0.9, y: 0.9 }) })
+    expect(georefOpenHint(mapOnly)).toBe('Punkt 4 fehlt noch auf dem Modul.')
+  })
+
+  it('counts several open halves on one surface', () => {
+    let s = georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.2 } })
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.6, y: 0.6 } })
+    expect(georefOpenHint(s)).toBe('2 Punkte fehlen noch auf der Karte.')
+  })
+
+  it('says so when both surfaces hold open halves', () => {
+    let s = georefReduce(armed(TRI), { type: 'planTap', pt: { x: 0.3, y: 0.6 } })
+    s = georefReduce(s, { type: 'mapTap', lngLat: mapOf({ x: 0.9, y: 0.9 }) })
+    expect(georefOpenHint(s)).toContain('Karte und Modul')
+  })
+
+  it('a selection wins the line — the popover needs its context sentence', () => {
+    const s = georefReduce(armed(TRI), { type: 'select', idx: 1, side: 'plan' })
+    expect(georefOpenHint(s)).toBe('Punkt 2 ausgewählt – daneben tippen wählt ab.')
+  })
+})
+
+describe('georefPairIndex — a slot finds its residual', () => {
+  it('maps slot indices onto the derived pair list, skipping open halves', () => {
+    let s = georefReduce(armed(TRI), { type: 'planTap', pt: { x: 0.3, y: 0.6 } })
+    s = georefReduce(s, { type: 'mapTap', lngLat: mapOf({ x: 0.9, y: 0.9 }) })
+    s = georefReduce(s, { type: 'planTap', pt: { x: 0.9, y: 0.9 } }) // completes the map orphan
+    expect(georefPairIndex(s, 0)).toBe(0)
+    expect(georefPairIndex(s, 3)).toBeNull() // the open plan half claims no residual
+    expect(georefPairIndex(s, 4)).toBe(3)
   })
 })
 
@@ -654,7 +758,7 @@ describe('the store persists exactly the edits — and nothing else', () => {
   it('arming a plan writes nothing', () => {
     georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
     georefDispatch({ type: 'planTap', pt: { x: 0.2, y: 0.2 } })
-    expect(saveGeoref).not.toHaveBeenCalled() // an open point is not a georeference
+    expect(saveGeoref).not.toHaveBeenCalled() // an open half is not a georeference
   })
 
   it('⚠️ «Fertig» keeps the pairs instead of writing an empty reference over them', () => {
@@ -674,6 +778,26 @@ describe('the store persists exactly the edits — and nothing else', () => {
     georefDispatch({ type: 'end' })
     expect(saveGeoref).toHaveBeenCalledTimes(1) // debounced: one write, not one per frame
     expect(vi.mocked(saveGeoref).mock.calls[0][1].pairs[0].plan).toEqual({ x: 0.26, y: 0.36 })
+  })
+
+  it('dragging an OPEN half writes nothing — half a pair still never persists', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: AR })
+    georefDispatch({ type: 'planTap', pt: { x: 0.2, y: 0.2 } })
+    georefDispatch({ type: 'dragPlan', idx: 0, pt: { x: 0.3, y: 0.3 } })
+    georefDispatch({ type: 'end' })
+    expect(saveGeoref).not.toHaveBeenCalled()
+  })
+
+  it('pairing two halves BY HAND persists like any completed pair', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', pairs: TRI, aspect: AR })
+    georefDispatch({ type: 'planTap', pt: { x: 0.3, y: 0.6 } })
+    georefDispatch({ type: 'mapTap', lngLat: mapOf({ x: 0.9, y: 0.9 }) })
+    vi.mocked(saveGeoref).mockClear()
+    georefDispatch({ type: 'select', idx: 3, side: 'plan' })
+    georefDispatch({ type: 'select', idx: 4, side: 'map' })
+    georefDispatch({ type: 'end' })
+    expect(saveGeoref).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(saveGeoref).mock.calls[0][1].pairs).toHaveLength(4)
   })
 
   it('⚠️ «Referenz zurücksetzen» does not race its own debounced write', () => {
@@ -762,16 +886,16 @@ describe('tap vs. drag — the same discrimination on both surfaces', () => {
 
   it('stays armed across tap after tap — a third point has to be cheap', () => {
     let s = armed()
-    for (const [x, y, lng, lat] of [[0.2, 0.2, 7.5, 47.5], [0.8, 0.2, 7.501, 47.5], [0.5, 0.8, 7.5005, 47.4995]] as const) {
-      s = georefReduce(s, { type: 'planTap', pt: { x, y } })
-      s = georefReduce(s, { type: 'mapTap', lngLat: { lng, lat } })
+    for (const p of [T1, T2, T3]) {
+      s = georefReduce(s, { type: 'planTap', pt: p })
+      s = georefReduce(s, { type: 'mapTap', lngLat: mapOf(p) })
       expect(s.planId).toBe('modul2')
     }
     expect(s.pairs).toHaveLength(3)
   })
 })
 
-// A gesture that begins on a cross belongs to the cross (pick / drag) — MapLibre listens
+// A gesture that begins on a cross belongs to the cross (select / drag) — MapLibre listens
 // natively on the canvas container, so the map sees the cross's events too and has to filter
 // them itself (MapView · onMouseDown/onTouchStart).
 describe('georefTapOnMarker — a cross owns its own gesture', () => {

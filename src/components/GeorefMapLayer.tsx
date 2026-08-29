@@ -10,7 +10,8 @@ import type { Map as MlMap } from 'maplibre-gl'
 import type { LayerDef, LayerId } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { georefDispatch, georefMapQueueNo, georefMatching, GEOREF_TAP_SLOP_PX, peekGeorefPhoneTarget, useGeorefMode, type GeorefModeState } from '../lib/georefMode'
+import { georefDispatch, georefMatching, GEOREF_TAP_SLOP_PX, peekGeorefPhoneTarget, useGeorefMode, type GeorefModeState } from '../lib/georefMode'
+import { GeorefPopoverCard } from './GeorefMode'
 import { fitSimilarity } from '../lib/georef'
 import { motionDuration } from '../lib/reducedMotion'
 import s from './GeorefMode.module.css'
@@ -28,11 +29,13 @@ const crossSvg = (
 )
 
 /**
- * The reference crosses on the map, numbered to match the plan.
+ * The reference crosses on the map — every slot's map half, numbered to match the plan.
  *
- * A drag fine-tunes with a live refit; a tap picks that half up to re-place it (replace, never
- * append — see georef · replacePair). Both go through the same threshold as the plan side, so
- * the two surfaces feel like one gesture rather than two.
+ * A drag fine-tunes with a live refit; a tap SELECTS the half — halo plus the small popover
+ * (Verschieben / Punkt löschen / Behalten). Both go through the same threshold as the plan side,
+ * so the two surfaces feel like one gesture rather than two. A half without its plan counterpart
+ * is amber and works exactly the same — and while its popover is open, tapping the matching open
+ * half on the sheet pairs the two by hand (lib/georefMode · select).
  */
 export function GeorefMapMarks({ mode, map }: { mode: GeorefModeState; map: MlMap | null }) {
   // ⚠️ The threshold is measured in SCREEN px via `map.project`, not in degrees: react-map-gl's
@@ -40,10 +43,10 @@ export function GeorefMapMarks({ mode, map }: { mode: GeorefModeState; map: MlMa
   // a different distance at every zoom — forgiving when zoomed out, unusable when zoomed in.
   const drag = useRef<{ start: { lng: number; lat: number }; moved: boolean } | null>(null)
   // MapLibre suppresses a native click after most drags, but not uniformly across mouse/touch
-  // engines. Remember a real drag briefly so its trailing click cannot turn into “pick up”.
+  // engines. Remember a real drag briefly so its trailing click cannot turn into a selection.
   const draggedAt = useRef(0)
-  // Paired crosses remain draggable while unmatched points wait: an intentional press on an
-  // existing landmark is a correction. Only a picked-up half makes them inert while it lands.
+  // Crosses stay live through selections and open halves alike. Only an armed re-place of a MAP
+  // half makes them inert: its landing tap must belong to the map beneath them.
   const placing = georefMatching(mode)
   const C = appConfig.copy.whiteboard.georef
   if (!mode.planId) return null
@@ -52,77 +55,69 @@ export function GeorefMapMarks({ mode, map }: { mode: GeorefModeState; map: MlMa
     const a = map.project([from.lng, from.lat]), b = map.project([to.lng, to.lat])
     return Math.hypot(a.x - b.x, a.y - b.y) > GEOREF_TAP_SLOP_PX
   }
+  const selSlot = mode.sel?.side === 'map' ? mode.slots[mode.sel.idx] : undefined
   return (
     <>
-      {mode.pairs.map((p, i) => (
-        <Marker
-          key={i}
-          longitude={p.lngLat.lng}
-          latitude={p.lngLat.lat}
-          anchor="center"
-          // crosses go inert while a placement is mid-pair: the tap belongs to the map, not to
-          // whatever cross happens to sit under it
-          draggable={!placing}
-          onDragStart={(e) => { drag.current = { start: { lng: e.lngLat.lng, lat: e.lngLat.lat }, moved: false } }}
-          onDrag={(e) => {
-            const d = drag.current; if (!d) return
-            const to = { lng: e.lngLat.lng, lat: e.lngLat.lat }
-            if (!d.moved && !movedFar(d.start, to)) return
-            d.moved = true
-            georefDispatch({ type: 'dragMap', idx: i, lngLat: to })
-          }}
-          onDragEnd={(e) => {
-            const d = drag.current; drag.current = null
-            if (!d) return
-            // never left the tap radius ⇒ that was a tap: hand this half back to be re-placed
-            // instead of nudging it by a pixel
-            if (!d.moved) { georefDispatch({ type: 'pick', idx: i, side: 'map' }); return }
-            draggedAt.current = Date.now()
-            georefDispatch({ type: 'dragMap', idx: i, lngLat: { lng: e.lngLat.lng, lat: e.lngLat.lat } })
-          }}
-        >
-          {placing ? (
-            <span className={`${s.cross} ${s.inert} ${mode.edit?.idx === i && mode.edit.side === 'map' ? s.picked : ''}`}
-              style={{ position: 'relative', margin: 0, display: 'block' }} aria-hidden>
-              {crossSvg}<span className={s.badge}>{i + 1}</span>
-            </span>
-          ) : (
-            <button type="button" className={s.cross}
-              style={{ position: 'relative', margin: 0, display: 'block' }}
-              title={fillTemplate(C.crossTitle, { n: String(i + 1) })}
-              aria-label={fillTemplate(C.crossTitle, { n: String(i + 1) })}
-              onClick={(e) => {
-                e.stopPropagation()
-                if (Date.now() - draggedAt.current < 250) return
-                georefDispatch({ type: 'pick', idx: i, side: 'map' })
-              }}>
-              {crossSvg}<span className={s.badge}>{i + 1}</span>
-            </button>
-          )}
-        </Marker>
-      ))}
-      {mode.mapQueue.map((p, i) => {
-        const number = georefMapQueueNo(mode, i)
-        const cls = `${s.cross} ${s.pending} ${mode.edit?.pending && mode.edit.side === 'map' && mode.edit.idx === i ? s.picked : ''}`
+      {mode.slots.map((sl, i) => {
+        if (!sl.map) return null
+        const open = !sl.plan
+        const isSel = mode.sel?.side === 'map' && mode.sel.idx === i
+        const isMove = mode.move?.side === 'map' && mode.move.idx === i
+        const cls = `${s.cross} ${open ? s.pending : ''} ${isMove ? s.picked : ''} ${isSel ? s.selHalo : ''}`
         const style = { position: 'relative' as const, margin: 0, display: 'block' }
+        const label = fillTemplate(open ? C.pendingCrossTitle : C.crossTitle, { n: String(i + 1) })
         return (
-          <Marker key={`open-map-${i}`} longitude={p.lng} latitude={p.lat} anchor="center">
-            {mode.edit ? (
+          <Marker
+            key={i}
+            longitude={sl.map.lng}
+            latitude={sl.map.lat}
+            anchor="center"
+            draggable={!placing}
+            onDragStart={(e) => { drag.current = { start: { lng: e.lngLat.lng, lat: e.lngLat.lat }, moved: false } }}
+            onDrag={(e) => {
+              const d = drag.current; if (!d) return
+              const to = { lng: e.lngLat.lng, lat: e.lngLat.lat }
+              if (!d.moved && !movedFar(d.start, to)) return
+              d.moved = true
+              georefDispatch({ type: 'dragMap', idx: i, lngLat: to })
+            }}
+            onDragEnd={(e) => {
+              const d = drag.current; drag.current = null
+              if (!d) return
+              // never left the tap radius ⇒ that was a tap: halo + popover for THIS half
+              // instead of nudging it by a pixel
+              if (!d.moved) { georefDispatch({ type: 'select', idx: i, side: 'map' }); return }
+              draggedAt.current = Date.now()
+              georefDispatch({ type: 'dragMap', idx: i, lngLat: { lng: e.lngLat.lng, lat: e.lngLat.lat } })
+            }}
+          >
+            {placing ? (
               <span className={`${cls} ${s.inert}`} style={style} aria-hidden>
-                {crossSvg}<span className={s.badge}>{number}</span>
+                {crossSvg}<span className={s.badge}>{i + 1}</span>
               </span>
             ) : (
               <button type="button" className={cls} style={style}
-                title={fillTemplate(C.pendingCrossTitle, { n: String(number) })}
-                aria-label={fillTemplate(C.pendingCrossTitle, { n: String(number) })}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); georefDispatch({ type: 'pickPending', idx: i, side: 'map' }) }}>
-                {crossSvg}<span className={s.badge}>{number}</span>
+                title={label}
+                aria-label={label}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (Date.now() - draggedAt.current < 250) return
+                  georefDispatch({ type: 'select', idx: i, side: 'map' })
+                }}>
+                {crossSvg}<span className={s.badge}>{i + 1}</span>
               </button>
             )}
           </Marker>
         )
       })}
+      {/* the selected half's popover rides its own Marker, so it pans and zooms with the map.
+          The gesture filter (georefTapOnMarker) already keeps its buttons out of the placement
+          machine — a Marker is a `.maplibregl-marker` like any other. */}
+      {mode.sel?.side === 'map' && selSlot?.map && (
+        <Marker longitude={selSlot.map.lng} latitude={selSlot.map.lat} anchor="bottom" offset={[0, -22]}>
+          <GeorefPopoverCard mode={mode} idx={mode.sel.idx} side="map" />
+        </Marker>
+      )}
     </>
   )
 }
