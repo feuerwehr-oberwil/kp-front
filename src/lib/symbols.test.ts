@@ -102,6 +102,18 @@ describe('symbolCaptionText — metadata printed under a symbol glyph', () => {
     expect(symbolCaptionText({ symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr': '1203', Stoff: '' } }, 'auto')).toBe('1203')
   })
 
+  it('an Offizier composes «Funktion · Name» when both halves are filled (auto)', () => {
+    // one generic glyph for many roles: «Front» alone says what without the who, «Meier» the
+    // reverse — the auto caption carries both
+    expect(symbolCaptionText({ symbol: 'FW Offizier', fields: { Funktion: 'Front', Name: 'Meier' } }, 'auto'))
+      .toBe('Front · Meier')
+  })
+
+  it('an Offizier with only one half filled keeps the single-value rule', () => {
+    expect(symbolCaptionText({ symbol: 'FW Offizier', fields: { Funktion: 'Front', Name: '' } }, 'auto')).toBe('Front')
+    expect(symbolCaptionText({ symbol: 'FW Offizier', fields: { Funktion: '', Name: 'Meier' } }, 'auto')).toBe('Meier')
+  })
+
   it('a per-symbol override opts a single symbol in even when the global default is off', () => {
     expect(symbolCaptionText({ symbol: 'FW Kleinloeschgeraet', fields: { Typ: 'CO2' }, caption: 'auto' }, 'off')).toBe('CO2')
   })
@@ -206,6 +218,13 @@ describe('presets that were silently absent', () => {
     for (const n of ['VKF Drehleiter', 'VKF Hubretter', 'FW Boot', 'VKF Fahrzeug']) {
       expect(symbolControls(n).has('floor'), n).toBe(false)
     }
+  })
+
+  it('the generic hazard can say WHAT the danger is', () => {
+    // «Gefahr allgemein» carried no field at all, so the one symbol whose whole message is
+    // "something dangerous here" could never name it — and its caption stayed empty on the map
+    expect(symbolPresetFieldKeys('FW Gefahr allgemein')).toEqual(['Gefahr'])
+    expect(symbolCaptionText({ symbol: 'FW Gefahr allgemein', fields: { Gefahr: 'Einsturz' } }, 'auto')).toBe('Einsturz')
   })
 
   it('a water source can state its capacity', () => {

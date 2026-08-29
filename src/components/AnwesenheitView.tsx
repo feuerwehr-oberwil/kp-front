@@ -653,10 +653,14 @@ export function AnwesenheitView({
               trigger={
                 <button className={c.iconBtn} aria-label={appConfig.copy.zeitplan.paperMenu}
                   title={appConfig.copy.zeitplan.paperMenu}>
-                  <Icon id="printer" />
-                  {onPrintZeitplan && (
-                    <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
-                  )}
+                  {/* icon + relay dot side by side, like the Rapport's print button — .iconBtn is
+                      inline-grid, so as two loose children they stacked (printer OVER the dot) */}
+                  <span className="print-send-main">
+                    <Icon id="printer" />
+                    {onPrintZeitplan && (
+                      <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
+                    )}
+                  </span>
                 </button>
               }
               popupClassName={c.menuPop}

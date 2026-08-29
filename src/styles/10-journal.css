@@ -185,10 +185,12 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    made it full on the first frame while the timer still ran, the exact lie nodeHold.ts:118
    documents fixing for the node-delete ring. One clock now; this CSS only paints. */
 /* The ring RINGS the + icon (its wrapper anchors it), instead of hanging at the button's right
-   edge where it sat on the label's last letters. Bigger than the 18px glyph, so it reads as a
-   halo charging around the affordance being held — and nothing reflows under the finger. */
+   edge where it sat on the label's last letters. Bigger than the glyph, so it reads as a halo
+   charging around the affordance being held — and nothing reflows under the finger.
+   26px: big enough to halo both glyph sizes (15px here, 18px FAB), small enough to stay inside
+   the 6px icon→label gap — at 30px it overhung the gap and touched «Eintrag». */
 .tb-act-ic { position: relative; display: inline-flex; align-items: center; }
-.tb-hold-ring { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 30px; height: 30px;
+.tb-hold-ring { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 26px; height: 26px;
   z-index: 0; pointer-events: none; }
 .tb-hold-ring circle { fill: none; stroke: currentColor; stroke-width: 2.5; }
 .tb-hold-ring .tb-hold-track { opacity: .3; }

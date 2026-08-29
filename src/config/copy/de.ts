@@ -1399,7 +1399,7 @@ export const de = {
     // them, the Rückzug as a plain «Kontakt».
     readingKind: {
       registered: 'Angemeldet', entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck',
-      alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Ausgerückt', resume: 'Wiedereinstieg',
+      alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Draussen', resume: 'Wiedereinstieg',
     } as Record<string, string>,
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
@@ -2622,7 +2622,7 @@ export const de = {
     missingNote: 'Wird als Leerfeld gedruckt.',
     ausgerueckt: 'Ausgerückt',
     kontaktperson: 'Kontaktperson',
-    kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortliche(r)',
+    kontaktpersonPlaceholder: 'Eigentümer / Melder',
     kontaktpersonTelefon: 'Telefon Kontaktperson',
     kontaktpersonTelefonPlaceholder: 'Telefonnummer',
     kontaktpersonCall: 'Kontaktperson anrufen',
@@ -3086,7 +3086,7 @@ export const de = {
     einsatzleiterPlaceholder: 'Wählen oder eingeben',
     kontaktpersonLabel: 'Kontaktperson',
     kontaktpersonClear: 'Kontaktperson leeren',
-    kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortlicher',
+    kontaktpersonPlaceholder: 'Eigentümer / Melder',
     // Der Name und die Nummer sind EIN Fakt (dieselbe Zeile, dieselbe Person) – aber die Nummer
     // ist das, was die Nachbearbeitung braucht: der Rückruf an den Eigentümer am nächsten Tag.
     kontaktpersonTelefon: 'Telefon Kontaktperson',

@@ -522,8 +522,10 @@
 @media (hover: hover) {
   .rp-check:has(.rp-check-main:not(:disabled)):hover { border-color: var(--ink-faint); }
 }
+/* ONE press wash, at card level only. The stretched ::after (below) makes the whole card the
+   button, so a second wash on `.rp-check-main:active` painted the header row twice — pressed
+   cards showed a darker title band over a lighter body. */
 .rp-check:has(.rp-check-main:not(:disabled)):active { background-image: linear-gradient(var(--press), var(--press)); }
-.rp-check-main:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rp-check-main { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 11px 16px;
   border: none; background: none; text-align: left; color: var(--ink); cursor: pointer; width: 100%; }
 .rp-check-main:disabled { cursor: default; }
