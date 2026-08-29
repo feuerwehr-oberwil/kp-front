@@ -1404,21 +1404,15 @@ export const de = {
     pressureRose: 'Höher als zuletzt ({from} bar) – vertippt?',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
-    // Tap zones on the card (29.08.): the corner cues are TEXT, not icons, and the zones only
-    // show/hide — logging stays behind the explicit buttons.
+    // Tap zones on the card (29.08.): the remaining clock cue is text, not an icon.
     zoneTimes: 'Zeiten',
-    zoneDruck: 'Druckmeldung',
     // the folded timing rows behind the Kontaktuhr zone
     lastContactAt: 'Letzter Kontakt',
     nextContactDue: 'Nächster fällig',
     contactIntervalLabel: 'Kontakt-Intervall',
     contactIntervalValue: '{min} min',
-    // on the collapsed Druck zone: when the shown value was logged
-    pressureLastAt: 'zuletzt {time}',
     // Verlauf footer preview — {what} = readingKind label, plus the bar for measured kinds
     verlaufLatest: 'zuletzt: {time} {what}',
-    verlaufEntryOne: '1 Eintrag',
-    verlaufEntries: '{n} Einträge',
     // ⚠️ «Alarmdruck» and «Rückzug» are the two rows the printed Atemschutz-Journal is read for.
     // Both used to be indistinguishable on it — the Alarmdruck as one «Druck» among a column of
     // them, the Rückzug as a plain «Kontakt».

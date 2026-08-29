@@ -134,7 +134,7 @@ export function AtemschutzView({
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // the shared create / edit / re-deploy form — null when closed
-  const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp } | null>(null)
+  const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp; focus?: 'auftrag' } | null>(null)
   /**
    * «zeig mir den» from THIS surface — the header's überfällig badge. The `focus` prop covers
    * the jump in from somewhere else (a locked Anwesenheit row); this is the same mark set from
@@ -350,7 +350,9 @@ export function AtemschutzView({
 
   // unlock the alarm tone + ask for OS-notification permission on this gesture, so a later
   // überfällig alert can both sound and reach the tray when the app is backgrounded.
-  const openForm = (mode: FormMode, trupp?: Trupp) => { unlockAlarm(); void ensureNotifyPermission(); setForm({ mode, trupp }) }
+  const openForm = (mode: FormMode, trupp?: Trupp, focus?: 'auftrag') => {
+    unlockAlarm(); void ensureNotifyPermission(); setForm({ mode, trupp, focus })
+  }
 
   const submitForm = async (f: TruppFields, standby = false) => {
     if (!form) return
@@ -425,7 +427,7 @@ export function AtemschutzView({
     compact && openRow !== t.id ? (
       <TruppRow
         key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
-        flash={activeFocus?.id === t.id}
+        focusNonce={activeFocus?.id === t.id ? activeFocus.nonce : undefined}
         onContact={(id) => { freezeOrder(); recordContact(id) }}
         onOpen={() => setOpenRow(t.id)}
       />
@@ -440,11 +442,11 @@ export function AtemschutzView({
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
       intervalMin={intervalMin}
-      flash={activeFocus?.id === t.id}
+      focusNonce={activeFocus?.id === t.id ? activeFocus.nonce : undefined}
       onContact={(id) => { freezeOrder(); recordContact(id) }}
       onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
-      onEdit={() => openForm('edit', t)} onReenter={() => openForm('redeploy', t)}
+      onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
       onMove={order === 'manuell' && !compact ? onMove : undefined}
       onPickLine={pickTruppLine}
@@ -578,7 +580,7 @@ export function AtemschutzView({
 
       {form && (
         <TruppForm
-          mode={form.mode} initial={form.trupp} roster={roster} defaultFunkkanal={defaultFunkkanal}
+          mode={form.mode} initial={form.trupp} focusSection={form.focus} roster={roster} defaultFunkkanal={defaultFunkkanal}
           personnel={personnel} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
           assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
           leitungOptions={leitungOptions(form.trupp?.id)}
@@ -678,27 +680,20 @@ function FunkkanalStepper({ value, onChange, compact }: { value: number; onChang
   )
 }
 
-// The DRUCK zone on a live card (29.08. Tapzonen rework). Collapsed it is the readout it always
-// was — «Druck · zuletzt hh:mm · 240 bar» — wearing the zone affordance (hairline tile + a small
-// «Druckmeldung ›» corner cue). ONE tap opens the pending ± control directly, no menu in between,
-// so «wie melde ich Druck?» is answered at the number itself; the zone itself never logs. Once
-// open, ± / tap-to-type adjust a PENDING value and only the explicit "Bestätigen" commits (which
-// is what counts as a Funkkontakt) — a misclick on the zone or on ± never silently logs a reading
-// or resets the contact clock. Confirming an unchanged value is a valid Druckmeldung («Druck
-// unverändert 240») and stays possible.
-function PressureZone({ value, lastAt, onCommit, alarmBar }: {
+// The inline Druck control on a live card: ± is immediately reachable, but changes remain
+// pending until «Bestätigen». This deliberately is not a collapsible card zone — Druckmeldung
+// is a critical operation and must never cost an opening tap.
+// ⚠️ «Bestätigen» exists only while the value is DIRTY (decided 29.08., reversing Wave 3's
+// «Druck unverändert» commit): an unchanged reading is what the big Kontakt button is for.
+function PressureInline({ value, onCommit, alarmBar }: {
   value: number
-  /** when the shown value was logged (Trupp.lastPressureTime) — named on the collapsed zone */
-  lastAt?: string
   onCommit: (bar: number) => void
   /** the line THIS Trupp is held to — lower while it is in Rückzug (lib/atemschutz · alarmBarFor) */
   alarmBar?: number
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
-  // keyed on `value` by the caller, so an external change to the committed pressure remounts this
-  // with a fresh start (collapsed, pending reset) — no sync effect needed
+  // keyed on `value` by the caller, so an external change remounts with a fresh pending value
   const dz = atemschutzDoctrine()
-  const [open, setOpen] = useState(false)
   const [bar, setBar] = useState(value)
   const dirty = bar !== value
   const bump = (d: number) => setBar((b) => snapBar(b + d))
@@ -709,22 +704,6 @@ function PressureZone({ value, lastAt, onCommit, alarmBar }: {
   // while dialling it in – before committing, not after
   // ⚠️ the same line the card uses for this Trupp — a crew in Rückzug is held to the lower one
   const low = pressureAlarm(bar, alarmBar ?? dz.alarmBar)
-  if (!open) {
-    return (
-      <button type="button" className={cx(s.zone, s.zoneDruck)} aria-expanded={false}
-        title={az.pressureConfirmHint} onClick={() => setOpen(true)}>
-        <span className={s.zoneDruckRow}>
-          <span className={s.pressureLbl}>
-            {az.currentPressure}
-            {lastAt && <span className={s.zoneDruckWhen}> {fillTemplate(az.pressureLastAt, { time: fmtTime(lastAt) })}</span>}
-          </span>
-          <b className={cx(s.zoneDruckVal, low && s.metaAlarm)}>{value} bar</b>
-        </span>
-        {/* the cue is a text LABEL (it names what the tap does), so it stays in the a11y name */}
-        <span className={s.zoneCue}>{az.zoneDruck}</span>
-      </button>
-    )
-  }
   return (
     <div className={s.pressureBlock}>
       <div className={s.pressureRow}>
@@ -752,38 +731,37 @@ function PressureZone({ value, lastAt, onCommit, alarmBar }: {
           <Icon id="warn" /><span>{fillTemplate(az.pressureRose, { from: value })}</span>
         </div>
       )}
-      <div className={s.pressureConfirm}>
-        <button type="button" className={s.pConfirm} onClick={() => { setOpen(false); onCommit(bar) }} title={az.pressureConfirmHint}>
-          <Icon id="check" /><span>{az.pressureConfirm}</span>
-        </button>
-        {/* ✕ folds the zone back up and throws the pending value away — nothing was logged */}
-        <button type="button" className={s.pCancel} aria-label={az.cancel} title={az.cancel} onClick={() => { setBar(value); setOpen(false) }}>
-          <Icon id="close" />
-        </button>
-      </div>
+      {dirty && (
+        <div className={s.pressureConfirm}>
+          <button type="button" className={s.pConfirm} onClick={() => onCommit(bar)} title={az.pressureConfirmHint}>
+            <Icon id="check" /><span>{az.pressureConfirm}</span>
+          </button>
+          <button type="button" className={s.pCancel} aria-label={az.cancel} title={az.cancel} onClick={() => setBar(value)}>
+            <Icon id="close" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 // One big glanceable monitoring card. The dominant element is the contact clock (time since last
-// Funkkontakt) with a large Kontakt reset; the Druck zone sits below, the lifecycle actions run
-// along the bottom, and the Verlauf footer (latest event as preview) closes the card. Since the
-// 29.08. Tapzonen rework three readouts are also targets — clock → timing details, Druck →
-// pending stepper, footer → full log — all open-only: nothing a zone does ever logs.
+// Funkkontakt) with a large Kontakt reset. The always-visible Druck stepper sits below, lifecycle
+// actions run along the bottom, and the Verlauf footer (latest event as preview) closes the card.
 /** One Trupp as a single comparable line — see `.rowList` in Atemschutz.module.css for why the
  *  board needs this view at all. The whole row is the button that opens the full card; the only
  *  control that survives onto the row is «Kontakt», because it is the one action the comparison
  *  leads to. Everything else (Druck, Rückzug, Raus, Leitung, Bearbeiten, Entfernen) stays in the
  *  card, one tap deeper — including delete, which is a good place for it to be. */
 function TruppRow({
-  t, live, alarm, now, color, canEdit, onContact, onOpen, flash,
+  t, live, alarm, now, color, canEdit, onContact, onOpen, focusNonce,
 }: {
   t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the card use */
   alarm: TruppAlarm
   onContact: (id: string) => void
   onOpen: () => void
-  flash?: boolean
+  focusNonce?: number
 }) {
   const az = appConfig.copy.atemschutz
   const status = live.status
@@ -804,11 +782,20 @@ function TruppRow({
   // this board: registered, still to come.
   const tone = sev >= 2 ? s.trowCrit : sev === 1 ? s.trowWarn : inField ? '' : status === 'raus' ? s.trowOut : s.trowIdle
   const rowRef = useRef<HTMLButtonElement>(null)
-  // same courtesy the card gets: a Trupp somebody was sent to must land under their eyes
-  useEffect(() => { if (flash) rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [flash])
+  // A nonce, not a boolean: tapping the same alarm again must replay the pointing gesture.
+  useEffect(() => {
+    const el = rowRef.current
+    if (focusNonce == null || !el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.remove(s.cardFlash)
+    void el.offsetWidth
+    el.classList.add(s.cardFlash)
+    const timer = window.setTimeout(() => el.classList.remove(s.cardFlash), 1900)
+    return () => window.clearTimeout(timer)
+  }, [focusNonce])
   const team = (t.members ?? []).filter(Boolean).join(' · ')
   return (
-    <button ref={rowRef} type="button" className={cx(s.trow, tone, flash && s.cardFlash)} onClick={onOpen}
+    <button ref={rowRef} type="button" className={cx(s.trow, tone)} onClick={onOpen}
       aria-label={`${t.name} — ${az.status[status] ?? status}`}>
       <span className={s.trowId}>
         <span className={s.trowName}>
@@ -858,7 +845,7 @@ function TruppRow({
 }
 
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse,
+  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
@@ -872,8 +859,8 @@ function TruppCard({
   onPressure: (id: string, bar: number) => void
   onStatus: (id: string, status: Trupp['status']) => void
   /** this is the card somebody was just sent to — scroll it under their eyes and mark it */
-  flash?: boolean
-  onEdit: () => void
+  focusNonce?: number
+  onEdit: (focus?: 'auftrag') => void
   onReenter: () => void
   onDelete: (id: string) => void
   /** present only while the hand-set order is the one on screen (see AtemschutzView) */
@@ -906,13 +893,19 @@ function TruppCard({
   const [timesOpen, setTimesOpen] = useState(false)
   // ⚠️ The jump has to LAND. Switching to the Überwachung and leaving a wall of cards was the
   // complaint: on a long list the Trupp somebody was sent to was off-screen, so the answer to
-  // «why can I not tick this person» was still a search. `flash` flips false→true per jump
-  // (the nonce upstream), so a repeat tap scrolls again.
+  // «why can I not tick this person» was still a search. The nonce replays both scroll and ring
+  // when the same notification is tapped again while this card remains mounted.
   const cardRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!flash) return
-    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [flash])
+    const el = cardRef.current
+    if (focusNonce == null || !el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.remove(s.cardFlash)
+    void el.offsetWidth
+    el.classList.add(s.cardFlash)
+    const timer = window.setTimeout(() => el.classList.remove(s.cardFlash), 1900)
+    return () => window.clearTimeout(timer)
+  }, [focusNonce])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = auftragTypeLabel(t)
   const sev = alarm.sev
@@ -976,7 +969,7 @@ function TruppCard({
        Alarmdruck is red even while it is «Im Einsatz». The WORD stays the lifecycle state —
        what kind of alarm it is belongs to the clock block, which says so in full. */
     <div ref={cardRef} data-az-open={onCollapse ? "" : undefined}
-      className={cx(s.card, s[`st-${sev >= 2 ? 'ueberfaellig' : status}`], flash && s.cardFlash)}>
+      className={cx(s.card, s[`st-${sev >= 2 ? 'ueberfaellig' : status}`])}>
       <div className={s.cardBanner}>
         {/* ⚠️ NO dot in front of the status. A card already carries one coloured disc — the
             Truppfarbe beside the name, which is the Trupp's identity on the Lage and the plan.
@@ -1003,7 +996,7 @@ function TruppCard({
             </>
           )}
           {canEdit && status !== 'raus' && (
-            <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={onEdit}>
+            <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={() => onEdit()}>
               <Icon id="pen" />
             </button>
           )}
@@ -1064,7 +1057,7 @@ function TruppCard({
                 the Überwacher has to be able to see, not one nobody thinks to ask. */}
             {auftrag
               ? <span className={cx(s.tag, s.tagAuftrag)}>{auftrag}</span>
-              : <button type="button" className={cx(s.tag, s.tagAuftragOpen)} onClick={onEdit}>{az.auftragOpen}</button>}
+              : <button type="button" className={cx(s.tag, s.tagAuftragOpen)} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>}
             {t.ziel && <span className={s.tagZiel}>{t.ziel}</span>}
             {/* the numeric Leitung, else the free text an older record still carries verbatim */}
             {lineTag && (hasLine ? (
@@ -1167,7 +1160,7 @@ function TruppCard({
           </div>
         )}
         {canEdit && inField ? (
-          <PressureZone key={snapBar(live.currentBar)} value={snapBar(live.currentBar)} lastAt={t.lastPressureTime} alarmBar={line} onCommit={(bar) => onPressure(t.id, bar)} />
+          <PressureInline key={snapBar(live.currentBar)} value={snapBar(live.currentBar)} alarmBar={line} onCommit={(bar) => onPressure(t.id, bar)} />
         ) : (
           <div className={s.metaRow}>
             <span>{az.currentPressure}</span>
@@ -1182,9 +1175,7 @@ function TruppCard({
         )}
       </div>
 
-      {/* The lifecycle bar below STAYS as-is beside the tap zones above: the zones are OPEN-ONLY
-          affordances (they show a stepper, a panel, a log — they never commit), so the explicit
-          buttons remain the one path that logs. Redundant paths, accepted (29.08.). */}
+      {/* The lifecycle bar stays explicit: only these buttons commit status changes. */}
       {canEdit && t.status === 'angemeldet' && (
         <div className={s.actions}>
           {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
@@ -1228,10 +1219,8 @@ function TruppCard({
           </button>
         </div>
       )}
-      {/* VERLAUF footer (29.08. Tapzonen) — the replacement for the removed «Draussen: hh:mm»
-          line, and honester than it: the preview always carries the LATEST event (Kontakt, Druck,
-          Ausgerückt, …), not just the one special case after coming out. Tapping expands the full
-          per-Trupp log in place; like the zones above, this only shows/hides. */}
+      {/* The preview always carries the latest event (Kontakt, Druck, Ausgerückt, …), not just
+          the one special case after coming out. Expanding it only shows the per-Trupp log. */}
       {readings.length > 0 && (() => {
         const last = readings[readings.length - 1]
         const lastWhat = (az.readingKind[last.kind] ?? last.kind)
@@ -1242,8 +1231,6 @@ function TruppCard({
               <Icon id="history" /><span className={s.vrowLbl}>{az.verlauf}</span>
               <span className={s.vrowLast}>
                 {fillTemplate(az.verlaufLatest, { time: fmtTime(last.t), what: lastWhat })}
-                {' · '}
-                {readings.length === 1 ? az.verlaufEntryOne : fillTemplate(az.verlaufEntries, { n: readings.length })}
               </span>
               <Icon id={logOpen ? 'chevron-up' : 'chevron-down'} className={s.logChev} />
             </button>
@@ -1283,10 +1270,12 @@ function TruppCard({
 // Kontakt), then the Trupp; the Druck section shows only when a fresh cylinder is involved
 // (create + re-deploy), never on a plain edit where the live pressure must not be disturbed.
 function TruppForm({
-  mode, initial, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, onAddGuest, onCancel, onSubmit,
+  mode, initial, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, onAddGuest, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
+  /** A card gap opened this form — point directly at the field that resolves it. */
+  focusSection?: 'auftrag'
   roster: string[]
   defaultFunkkanal: number
   personnel: Person[]
@@ -1357,6 +1346,13 @@ function TruppForm({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onCancel])
+  const auftragRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (focusSection !== 'auftrag') return
+    const el = auftragRef.current
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
+  }, [focusSection])
 
   // ⚠️ Shown in EVERY mode, including 'edit'. Hiding it there meant a mistyped Eingangsdruck could
   // never be corrected — and it is the number the Verbrauch and the tiefster Druck on the Rapport
@@ -1453,7 +1449,7 @@ function TruppForm({
               <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
             </div>
 
-            <div className={s.field}>
+            <div ref={auftragRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
               <span>{az.auftragLabel}</span>
               <Segmented
                 ariaLabel={az.auftragLabel}

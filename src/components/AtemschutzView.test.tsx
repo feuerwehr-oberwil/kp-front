@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-// The 29.08. Tapzonen rework: three of the Trupp card's readouts are also tap targets — the
-// Druck opens the pending stepper directly, the contact clock folds its timing rows, the
-// Verlauf footer previews the latest event and expands the log. The invariant under test:
-// every zone is OPEN-ONLY. Tapping a zone never logs a reading, never counts as Kontakt —
-// only the explicit buttons commit.
+// The 29.08. card rework, as it stands after the same-day revision: the contact clock folds
+// its timing rows and the Verlauf footer previews the latest event and expands the log — both
+// OPEN-ONLY (showing never logs, never counts as Kontakt). The Druck stepper is back inline
+// (a Druckmeldung must never cost an opening tap); its ± only stages a pending value and the
+// explicit «Bestätigen» commits.
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
+import s from './Atemschutz.module.css'
 import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import type { AttendanceState, Trupp } from '../types'
@@ -39,8 +40,7 @@ const aktivTrupp = (): Trupp => ({
 })
 
 const noop = () => {}
-const mount = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => {
-  const props = {
+const propsFor = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => ({
     trupps: [aktivTrupp()], truppColors: { tr1: '#e8392b' }, canEdit: true,
     personnel: [], attendance: {} as AttendanceState,
     muted: false, onToggleMuted: noop,
@@ -51,33 +51,33 @@ const mount = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => {
     leitungOptions: () => [], showTruppLine: noop, truppsWithLine: new Set<string>(),
     pickTruppLine: noop, unlinkTruppLine: noop,
     ...over,
-  }
+})
+const mount = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => {
+  const props = propsFor(over)
   render(<AtemschutzView {...props} />)
   return props
 }
 
-describe('the Druck zone (tap the readout, land in the Druckmeldung)', () => {
-  it('opens the pending stepper directly — opening logs nothing, «Bestätigen» does', () => {
-    const props = mount()
-    // collapsed: the readout wears the «Druckmeldung ›» cue; the stepper is not on screen
-    expect(screen.queryByRole('button', { name: az.pressureConfirm })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.zoneDruck) }))
-    expect(props.recordPressure).not.toHaveBeenCalled()
-    // …and one explicit confirm logs the (unchanged) value — a valid Druckmeldung
-    fireEvent.click(screen.getByRole('button', { name: az.pressureConfirm }))
-    expect(props.recordPressure).toHaveBeenCalledWith('tr1', 240)
-  })
-
-  it('± adjusts a PENDING value; ✕ folds the zone back up without logging', () => {
+describe('the inline Druckmeldung', () => {
+  it('offers ± immediately and commits only after a changed value is confirmed', () => {
     const props = mount()
     const step = atemschutzDoctrine().pressureStep
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.zoneDruck) }))
-    // hold-to-repeat steppers fire their first step on pointer-down
+    const down = screen.getByLabelText(az.pressureDown.replace('{step}', String(step)))
+    expect(screen.queryByRole('button', { name: az.pressureConfirm })).toBeNull()
+    fireEvent.pointerDown(down)
+    expect(props.recordPressure).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: az.pressureConfirm }))
+    expect(props.recordPressure).toHaveBeenCalledWith('tr1', 240 - step)
+  })
+
+  it('✕ throws away a pending pressure without hiding the immediate controls', () => {
+    const props = mount()
+    const step = atemschutzDoctrine().pressureStep
     fireEvent.pointerDown(screen.getByLabelText(az.pressureDown.replace('{step}', String(step))))
     fireEvent.click(screen.getByRole('button', { name: az.cancel }))
     expect(props.recordPressure).not.toHaveBeenCalled()
-    // collapsed again, still showing the logged value
-    expect(screen.getByRole('button', { name: new RegExp(az.zoneDruck) }).textContent).toContain('240 bar')
+    expect(screen.getByLabelText(az.pressureDown.replace('{step}', String(step)))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: az.pressureConfirm })).toBeNull()
   })
 })
 
@@ -100,10 +100,29 @@ describe('the Verlauf footer (the removed «Draussen: hh:mm» line, generalised)
     mount()
     const row = screen.getByRole('button', { name: new RegExp(`${az.verlauf}.*${az.readingKind.pressure}`) })
     expect(row.textContent).toContain('240 bar')
-    expect(row.textContent).toContain(az.verlaufEntries.replace('{n}', '2'))
+    expect(row.textContent).not.toContain('2 Einträge')
     // the older entry row is behind the fold until the footer is tapped
     expect(screen.queryByText(az.readingKind.entry)).toBeNull()
     fireEvent.click(row)
     expect(screen.getByText(az.readingKind.entry)).toBeTruthy()
+  })
+})
+
+describe('pointing to a Trupp', () => {
+  it('replays the whole-card highlight when the same notification is tapped again', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    const one = propsFor({ focus: { id: 'tr1', nonce: 1 } })
+    const view = render(<AtemschutzView {...one} />)
+    expect(scroll).toHaveBeenCalledTimes(1)
+    view.rerender(<AtemschutzView {...one} focus={{ id: 'tr1', nonce: 2 }} />)
+    expect(scroll).toHaveBeenCalledTimes(2)
+    scroll.mockRestore()
+  })
+
+  it('opens «Auftrag offen» directly on a highlighted Auftrag field', () => {
+    mount({ trupps: [{ ...aktivTrupp(), auftrag: undefined }] })
+    fireEvent.click(screen.getByRole('button', { name: az.auftragOpen }))
+    const art = screen.getByText(az.auftragLabel).closest('div')
+    expect(art?.classList.contains(s.formFlash)).toBe(true)
   })
 })
