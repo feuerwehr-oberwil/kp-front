@@ -35,7 +35,7 @@ import type { BoardAnno, Drawing, Entity, LngLat, PlanDocument } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { circlePolygon } from './geo'
-import { pxPerM } from './mapView'
+import { MAP_SYMBOL_MIN_PX, pxPerM } from './mapView'
 
 /** How far past the sheet edge a projected map object may sit and still be drawn — 2 % of the
  *  sheet. Enough that a hydrant on the kerb outside the plan frame is not lost to a rounding
@@ -169,11 +169,10 @@ export function mapTwins(plans: GeorefPlan[], board: Record<string, BoardAnno[] 
  *  width is the footprint that symbol actually claims on the earth (≈ 3–5 m on a Modul sheet). */
 export const TWIN_SYMBOL_FRACTION = 0.085
 /** The twin's own px band. The floor is deliberately LOWER than the native band (mapView ·
- *  symPx, 28–48): a projection is quieter by design, and the native floor made every mirrored
- *  mark tower over the building it is drawn in. The ceiling matches the native one, so a twin
- *  can never outgrow the real symbol standing beside it. */
+ *  symPx, 28–48): a projection is quieter by design. The ceiling is the native map's 28px
+ *  floor, so fixed-size captions and badges keep the same visual hierarchy on linked modules. */
 const TWIN_SYM_MIN_PX = 15
-const TWIN_SYM_MAX_PX = 48
+const TWIN_SYM_MAX_PX = 28
 
 /** On-map size of a mirrored plan symbol: the ground metres its share of the sheet covers
  *  (TWIN_SYMBOL_FRACTION × widthM) at the live zoom — a twin is scaled by the BUILDING it sits
@@ -182,6 +181,11 @@ const TWIN_SYM_MAX_PX = 48
  *  factor, applied after the clamp exactly as `symPx` applies it. */
 export const twinSymbolPx = (widthM: number, lat: number, zoom: number, mul = 1) =>
   Math.max(TWIN_SYM_MIN_PX, Math.min(TWIN_SYM_MAX_PX, TWIN_SYMBOL_FRACTION * widthM * pxPerM(lat, zoom))) * mul
+
+/** Karte → Modul projections keep the native map's smallest screen size. Unlike sheet-owned
+ *  annotations they are map pins, so zooming the PDF must not inflate them into building-sized
+ *  marks while their fixed captions and badges stay at map scale. */
+export const boardTwinSymbolPx = (mul = 1) => MAP_SYMBOL_MIN_PX * mul
 
 // --- the map → a plan board -----------------------------------------------------------------
 
@@ -313,7 +317,12 @@ export interface BoardEntityTwin {
 export function boardEntityTwins(entities: Entity[], fit: GeorefFit, margin = TWIN_CLIP_MARGIN): BoardEntityTwin[] {
   return entities.flatMap((entity) => {
     const pt = fit.toPlan({ lng: entity.coord[0], lat: entity.coord[1] })
-    return onSheet(pt, margin) ? [{ key: `content:${entity.id}`, entityId: entity.id, pt, entity }] : []
+    // A live-person glyph is a ringed disc. Letting its centre sit in the generic 2 % margin
+    // while the board clips at the paper edge leaves only a white crescent plus the person's
+    // caption — exactly the stray «Trupp marker thing» seen in the field. A phone fix outside
+    // this plan is simply outside; it has no editable projection that needs an edge affordance.
+    const clipMargin = entity.kind === 'person' ? 0 : margin
+    return onSheet(pt, clipMargin) ? [{ key: `content:${entity.id}`, entityId: entity.id, pt, entity }] : []
   })
 }
 

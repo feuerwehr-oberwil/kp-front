@@ -43,8 +43,8 @@ export function ShapeGlyph({ kind, color, stop }: { kind: ShapeKind; color: stri
         <path d="M50 6 L80 50 L60 50 L60 94 L40 94 L40 50 L20 50 Z"
           fill={color} stroke="#fff" strokeWidth={4} strokeLinejoin="round" />
         {stop && <>
-          <path d="M14 7 L86 7" stroke="#fff" strokeWidth={11} strokeLinecap="round" />
-          <path d="M14 7 L86 7" stroke={color} strokeWidth={6} strokeLinecap="round" />
+          <path d="M20 7 L80 7" stroke="#fff" strokeWidth={9} strokeLinecap="round" />
+          <path d="M20 7 L80 7" stroke={color} strokeWidth={5} strokeLinecap="round" />
         </>}
       </svg>
     )

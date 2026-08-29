@@ -56,8 +56,8 @@ export function OfflineReadinessSheet({
 }: {
   onClose: () => void
   /** URLs probed against the SW Cache for real offline presence. tiles = the incident-centre
-   *  tile across all base subdomains (any hit = cached); geojsons = every Leitungs layer. */
-  probeUrls: { tiles: string[]; plan: string | null; geojsons: string[] }
+   *  tile across all base subdomains (any hit = cached); references = every vector/raster layer. */
+  probeUrls: { tiles: string[]; plan: string | null; references: string[] }
   symbolsReady: boolean
   planCount: number
   objectLabel: string | null
@@ -81,7 +81,7 @@ export function OfflineReadinessSheet({
   // Probe the Cache Storage for the runtime-cached resources (tiles/plans/geojson). undefined
   // while probing → 'unknown'; re-run after a load via the nonce so the rows update live.
   const [probe, setProbe] = useState<{ tile?: boolean; plan?: boolean; geo?: { cached: number; total: number } }>({})
-  const geoKey = probeUrls.geojsons.join(',')
+  const referenceKey = probeUrls.references.join(',')
   useEffect(() => {
     if (browserOnly) return // no readiness list is rendered there — don't probe for it
     let alive = true
@@ -96,14 +96,14 @@ export function OfflineReadinessSheet({
       ])
       const tile = probeUrls.tiles.length ? tileHits.some(Boolean) : undefined
       let geo: { cached: number; total: number } | undefined
-      if (probeUrls.geojsons.length) {
-        const hits = await Promise.all(probeUrls.geojsons.map((u) => has(u)))
-        geo = { cached: hits.filter(Boolean).length, total: probeUrls.geojsons.length }
+      if (probeUrls.references.length) {
+        const hits = await Promise.all(probeUrls.references.map((u) => has(u)))
+        geo = { cached: hits.filter(Boolean).length, total: probeUrls.references.length }
       }
       if (alive) setProbe({ tile, plan, geo })
     })()
     return () => { alive = false }
-  }, [probeUrls.tiles.join(','), probeUrls.plan, geoKey, loading, progress?.done])
+  }, [probeUrls.tiles.join(','), probeUrls.plan, referenceKey, loading, progress?.done])
 
   // Free space is itself a readiness fact, and the one nothing used to report: a full device
   // caches NOTHING for offline no matter how green every other row is. Re-probed after a load so
@@ -147,7 +147,7 @@ export function OfflineReadinessSheet({
     ? { s: 'missing' as ReadyState, n: o.noObject }
     : probed(probe.plan, o.ready)
   // every Leitungs/Hydranten layer: all cached → bereit, some → "X/N geladen", none → nicht geladen
-  const geo: { s: ReadyState; n: string } = probeUrls.geojsons.length === 0
+  const geo: { s: ReadyState; n: string } = probeUrls.references.length === 0
     ? { s: 'missing', n: o.noLayer }
     : probe.geo === undefined
       ? { s: 'unknown', n: o.checking }

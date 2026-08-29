@@ -16,7 +16,7 @@ import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
-import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
+import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
@@ -138,7 +138,7 @@ import { PlanPicker } from './components/PlanPicker'
 import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet } from './components/panels'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
-import { predownloadArea, tilesForBounds } from './lib/offlineTiles'
+import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
 import { WARM_BYTES, estimateStorage, fittedTileCap, fmtBytes, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
 import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
@@ -737,6 +737,7 @@ export function IncidentWorkspace({
     if (!map) return
     const base = layers.find((l) => l.base && l.visible)
     const templates = base?.tiles ?? cartoRasterTiles('rastertiles/voyager', ['a'])
+    const rasterOverlays = layers.filter((l) => !l.base && l.tiles?.length).map((l) => l.tiles as string[])
     const bounds = incidentBounds
     // warm: per-object plan PDFs, the symbol library, and the geojson overlays cropped to the box
     const warmUrls = [
@@ -749,14 +750,17 @@ export function IncidentWorkspace({
     // record. Predict the cost and, when it won't fit, offer the reduced download instead of
     // silently starting a doomed one. An unknown budget is never treated as a full one.
     const HARD_CAP = 1200
-    const tileCount = Math.min(tilesForBounds(bounds, 14, 17).length, HARD_CAP)
+    const coverageTileCount = Math.min(tilesForBounds(bounds, 14, 17).length, HARD_CAP)
+    const rasterSourceCount = 1 + rasterOverlays.length
+    const tileCount = coverageTileCount * rasterSourceCount
     const extraBytes = warmUrls.length * WARM_BYTES
     const budget = await estimateStorage()
     const fit = prefetchFit(budget, tileCount, extraBytes)
     let cap = HARD_CAP
     if (!fit.fits && budget) {
       const co = appConfig.copy.offline
-      const reduced = fittedTileCap(budget, HARD_CAP, extraBytes)
+      const reducedTotal = fittedTileCap(budget, HARD_CAP * rasterSourceCount, extraBytes)
+      const reduced = Math.floor(reducedTotal / rasterSourceCount)
       if (reduced === 0) {
         // not even the plans fit — nothing useful to offer but the honest refusal
         if (!quiet) toast(fillTemplate(co.dlNoSpace, { free: fmtBytes(budget.free) }), { icon: 'map', tone: 'warn' })
@@ -766,7 +770,7 @@ export function IncidentWorkspace({
         const ok = await confirmDialog({
           title: co.dlTightTitle,
           message: fillTemplate(co.dlTightMsg, {
-            need: fmtBytes(fit.needBytes), free: fmtBytes(budget.free), pct: String(Math.round((reduced / tileCount) * 100)),
+            need: fmtBytes(fit.needBytes), free: fmtBytes(budget.free), pct: String(Math.round((reduced / coverageTileCount) * 100)),
           }),
           confirmLabel: co.dlTightConfirm,
           cancelLabel: appConfig.copy.cancel,
@@ -782,6 +786,7 @@ export function IncidentWorkspace({
     try {
       const res = await predownloadArea({
         templates,
+        overlayTemplates: rasterOverlays,
         bounds,
         minZoom: 14,
         // z17 (building-level), not 18: z18 ~4× the tiles and OOMs an iPad mid-download
@@ -840,9 +845,9 @@ export function IncidentWorkspace({
   // «Nur manuell» (device pref) switches all of this off; the button always stays.
   // …and re-armed when the operator grows the offline radius (29.08.): the readiness probe
   // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
-  // «nicht geladen» forever. The centre is part of the bbox too, but it only moves with the
-  // incident, which the id already covers.
-  const offlineWarmSig = `${incidentMeta.id}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson).map((l) => l.id).join(',')}`
+  // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected
+  // Einsatz location or newly configured WMS/WMTS layer owes the device another warm pass.
+  const offlineWarmSig = `${incidentMeta.id}|${incidentView.center.join(',')}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson || (!l.base && l.tiles?.length)).map((l) => l.id).join(',')}`
   const offlineWarmed = useRef('')
   useEffect(() => {
     if (!offlineAuto || !isStandalone()) return
@@ -958,6 +963,10 @@ export function IncidentWorkspace({
   // unified journal (Verlauf): a single append-only stream shared by both
   // surfaces, plus its quick-add composer — both reachable from the TopBar.
   const [journalOpen, setJournalOpen] = useState(false)
+  /** «Show me that card»: alarm and attendance routes carry a nonce so tapping the same Trupp
+   *  twice points again. Pointing is a gesture, not durable state; AtemschutzView clears its
+   *  highlight on its own timer. */
+  const [truppFocus, setTruppFocus] = useState<{ id: string; nonce: number } | null>(null)
 
   // a tapped system notification (handled in public/sw-notify.js) posts here to open the
   // relevant tab — an Atemschutz alarm jumps to the Atemschutz view, a due Wiedervorlage
@@ -1675,25 +1684,25 @@ export function IncidentWorkspace({
     commit, setDocRaw, beginDrag, endDrag, emit, log,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
   })
-  const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => {
-    if (!selectedDrawing) return
-    const incoming = selectedDrawing.teilstueck && ending !== 'teilstueck'
+  const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing = selectedDrawing) => {
+    if (!drawing) return
+    const incoming = drawing.teilstueck && ending !== 'teilstueck'
       ? drawings.flatMap((d) => (['start', 'end'] as const).filter((endpoint) => {
         const a = endpoint === 'start' ? d.startAttachment : d.endAttachment
-        return a?.target.kind === 'line' && a.target.id === selectedDrawing.id && a.target.endpoint === 'end'
+        return a?.target.kind === 'line' && a.target.id === drawing.id && a.target.endpoint === 'end'
       }).map((endpoint) => ({ id: d.id, endpoint }))) : []
     if (incoming.length) {
       const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
-    const resolvedTarget = resolvedMapDrawings.find((d) => d.id === selectedDrawing.id)
-    const fallback = resolvedTarget?.coords[resolvedTarget.coords.length - 1] ?? selectedDrawing.coords[selectedDrawing.coords.length - 1]
+    const resolvedTarget = resolvedMapDrawings.find((d) => d.id === drawing.id)
+    const fallback = resolvedTarget?.coords[resolvedTarget.coords.length - 1] ?? drawing.coords[drawing.coords.length - 1]
     // the Abschluss is a semantic edit like any DrawEditor field — one settled Verlauf row
     // («Zeichnung: Abschluss: Teilstück»), same funnel as patchDrawing (useMapDrawing ·
     // noteDrawingEdit / lib/drawingEdit), which this hand-rolled commit bypasses.
-    noteDrawingEdit(selectedDrawing, { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined })
+    noteDrawingEdit(drawing, { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined })
     commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
-      if (d.id === selectedDrawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      if (d.id === drawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       let next = d
       for (const endpoint of ['start', 'end'] as const) {
         const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
@@ -1703,13 +1712,40 @@ export function IncidentWorkspace({
       }
       return next
     }) }))
-    emit('draw.edit', { id: selectedDrawing.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined } })
+    emit('draw.edit', { id: drawing.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined } })
     incoming.forEach(({ id, endpoint }) => {
       const line = drawings.find((d) => d.id === id)
       if (!line) return
       const coords = line.coords.map((p, i) => i === (endpoint === 'start' ? 0 : line.coords.length - 1) ? fallback : p)
       emit('draw.edit', { id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
     })
+  }
+  const editTwinDrawing = (id: string, patch: Partial<Drawing>, phase?: 'live' | 'commit') => {
+    if (phase === 'live' && typeof patch.label === 'string') { patchDrawingLabelLive(id, patch.label); return }
+    if (phase === 'commit' && typeof patch.label === 'string') { commitDrawingLabel(id, patch.label); return }
+    patchDrawingById(id, patch)
+    if (patch.lineNo !== undefined) syncLineNoToTrupp(id, patch.lineNo)
+  }
+  const detachTwinDrawing = (id: string, endpoint: LineEndpoint) => {
+    const drawing = drawings.find((d) => d.id === id)
+    if (!drawing) return
+    const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    if (!a) return
+    const fallback: LngLat = a.target.kind === 'object'
+      ? entities.find((e) => e.id === a.target.id)?.coord ?? (endpoint === 'start' ? drawing.coords[0] : drawing.coords[drawing.coords.length - 1])
+      : (() => {
+          const target = drawings.find((d) => d.id === a.target.id)
+          return target ? (a.target.endpoint === 'start' ? target.coords[0] : target.coords[target.coords.length - 1]) : (endpoint === 'start' ? drawing.coords[0] : drawing.coords[drawing.coords.length - 1])
+        })()
+    setDrawingAttachment(id, endpoint, undefined, fallback)
+  }
+  const focusTwinDrawingAttachment = (id: string, endpoint: LineEndpoint) => {
+    const drawing = drawings.find((d) => d.id === id)
+    const a = endpoint === 'start' ? drawing?.startAttachment : drawing?.endAttachment
+    if (!a) return
+    setMode('map')
+    if (a.target.kind === 'object') focusEntity(a.target.id)
+    else focusDrawing(a.target.id)
   }
   // External GPS movement is safety-guarded per connection. Safe samples update only the small
   // lastSafe field; continuous/Spur samples intentionally edit and simplify the line geometry.
@@ -2975,14 +3011,28 @@ export function IncidentWorkspace({
       const y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z)
       tiles = tpls.map((t) => t.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)))
     }
+    const z = 16
+    const [lng, lat] = incidentView.center
+    const x = Math.floor(((lng + 180) / 360) * 2 ** z)
+    const r = (lat * Math.PI) / 180
+    const y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z)
+    const covered = tilesForBounds(incidentBounds, 14, 17).slice(0, 1200)
+    const centreIndex = covered.findIndex((tile) => tile.z === z && tile.x === x && tile.y === y)
     return {
       tiles,
       plan: Object.values(backendPlans)[0] ?? null,
-      // every reference/Leitungs layer (Wasser/Gas/Strom/Abwasser/Hydranten), cropped to the
-      // incident box — same URLs the warm caches, so the probe reflects real offline presence.
-      geojsons: layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
+      // Every vector and raster reference layer. Raster layers use one representative centre
+      // tile; vector layers use the incident crop. These are exact URLs from the warm pass.
+      references: [
+        ...layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
+        ...layers.filter((l) => !l.base && l.tiles?.length).map((l) => {
+          const templates = l.tiles as string[]
+          const template = templates[Math.max(0, centreIndex) % templates.length]
+          return fillTileTemplate(template, z, x, y)
+        }),
+      ],
     }
-  }, [layers, incidentView.center, backendPlans, withGeoBbox])
+  }, [layers, incidentView.center, incidentBounds, backendPlans, withGeoBbox])
   /** The roster as a PICKER sees it: the Mannschaft plus everybody recorded on this Einsatz who
    *  is not on it (lib/guests). A Gast used to be nameable exactly once — on the Anwesenheit that
    *  created them — and was then invisible to the Trupp form, the Fahrer field and the
@@ -3010,10 +3060,6 @@ export function IncidentWorkspace({
   const linkedTrupps = useMemo(() => linkTrupps(trupps, rosterIdByName, rosterById), [trupps, rosterIdByName, rosterById])
   const blockedAttendanceIds = useMemo(() => assignedPersonIds(linkedTrupps), [linkedTrupps])
   const truppOfPerson = useMemo(() => truppByPersonId(linkedTrupps), [linkedTrupps])
-  /** «show me THAT card»: a locked roster row points at the Trupp it is locked by. Carries a
-   *  nonce so tapping the same person twice points again — pointing is a gesture, not a state,
-   *  and the AtemschutzView clears it on its own timer. */
-  const [truppFocus, setTruppFocus] = useState<{ id: string; nonce: number } | null>(null)
   // ── the Anwesenheit is undoable, like the map ──────────────────────────────────────────────
   // ⚠️ Its own stack, driven by the SAME ↶ ↷ in the TopBar (see showHistory below). The list is
   // the fastest-tapped surface in the app — 60 names, gloves, a neighbouring row half a centimetre
@@ -4464,6 +4510,21 @@ export function IncidentWorkspace({
           onTwinMove={moveTwinSource}
           onTwinEdit={editMapTwinSource}
           onTwinDelete={deleteEntity}
+          onTwinDrawingCoords={editDrawingCoords}
+          onTwinDrawingEdit={editTwinDrawing}
+          onTwinDrawingEnding={(id, ending) => {
+            const drawing = drawings.find((d) => d.id === id)
+            if (drawing) void changeMapEnding(ending, drawing)
+          }}
+          onTwinDrawingReverse={reverseDrawing}
+          onTwinDrawingTrupp={(id, truppId) => (truppId ? linkTruppLine(truppId, id) : unlinkLine(id))}
+          onTwinDrawingRouting={(id, endpoint, routing) => {
+            const drawing = drawings.find((d) => d.id === id)
+            if (drawing) setGpsRouting(drawing, endpoint, routing)
+          }}
+          onTwinDrawingDetach={detachTwinDrawing}
+          onTwinDrawingFocusAttachment={focusTwinDrawingAttachment}
+          onTwinDrawingDelete={(id) => { void deleteDrawing(id) }}
           layersOn={panel === 'layers'}
           // the Ebenen button appears only on a linked sheet: with no fit the map lends it
           // nothing, and the panel would be an empty room

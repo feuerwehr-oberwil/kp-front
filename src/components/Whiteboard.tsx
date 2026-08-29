@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
-import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, Drawing, Entity, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, Drawing, Entity, LineAttachment, LineEndpoint, LineRoutingMode, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
@@ -38,7 +38,7 @@ import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
-import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
+import { fmtDistance, fmtArea, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
 import { activeViewDeg, buildView, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
@@ -48,7 +48,7 @@ import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
 import { fitSimilarity } from '../lib/georef'
 import { georefForPlan, refreshStationPlanScales } from '../lib/stationPlanScale'
 import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
-import { boardDrawingTwins, boardEntityTwins, boardTwins, type BoardTwin } from '../lib/georefTwins'
+import { boardDrawingTwins, boardEntityTwins, boardTwinSymbolPx, boardTwins, type BoardTwin } from '../lib/georefTwins'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
 import { GeorefContentBoard } from './GeorefContentBoard'
 import { GeorefTwinPanel } from './GeorefTwinPanel'
@@ -246,6 +246,16 @@ interface Props {
   onTwinEdit?: (entityId: string, patch: Partial<Entity>, phase?: 'live' | 'commit') => void
   /** Delete the Karte-owned source through its projection, using the map's normal safeguards. */
   onTwinDelete?: (entityId: string) => boolean | Promise<boolean>
+  /** Source-backed Karte drawing controls shown through its projection on this sheet. */
+  onTwinDrawingCoords?: (drawingId: string, coords: LngLat[], phase: 'start' | 'move' | 'end') => void
+  onTwinDrawingEdit?: (drawingId: string, patch: Partial<Drawing>, phase?: 'live' | 'commit') => void
+  onTwinDrawingEnding?: (drawingId: string, ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => void
+  onTwinDrawingReverse?: (drawingId: string) => void
+  onTwinDrawingTrupp?: (drawingId: string, truppId: string | undefined) => void
+  onTwinDrawingRouting?: (drawingId: string, endpoint: LineEndpoint, routing: LineRoutingMode) => void
+  onTwinDrawingDetach?: (drawingId: string, endpoint: LineEndpoint) => void
+  onTwinDrawingFocusAttachment?: (drawingId: string, endpoint: LineEndpoint) => void
+  onTwinDrawingDelete?: (drawingId: string) => void
   /** the Ebenen panel is open (it lives in the app shell; the plan only owns the button) */
   layersOn?: boolean
   /** Ebenen button in the rail footer — omitted ⇒ no button, which is the state of every sheet
@@ -269,7 +279,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -330,6 +340,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // which Georeferenz twin has its source-backed editor open — the Karte's object, mirrored onto
   // this sheet. Its open panel gives the projection the source object's normal selection halo.
   const [twinView, setTwinView] = useState<BoardTwin | null>(null)
+  const [twinDrawingId, setTwinDrawingId] = useState<string | null>(null)
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
   const [color, setColor] = useState<string>(appConfig.drawing.defaultColor)
@@ -752,6 +763,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // State keeps the stable selection key; the object itself is re-derived so edits made through
   // the mirrored panel are reflected immediately instead of leaving that panel on its old snapshot.
   const viewedTwin = twinView ? twins.find((t) => t.key === twinView.key) ?? twinView : null
+  const viewedTwinDrawing = twinDrawingId
+    ? twinDrawings.find((t) => t.drawing.id === twinDrawingId)?.drawing ?? null
+    : null
   // …and the handler with it. Empty deps are correct and not a shortcut: every call here is a
   // `useState` setter, and those identities are stable for the life of the component.
   /**
@@ -777,8 +791,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     onTwinMove(entity.id, [c.lng, c.lat], phase)
   }, [readOnly, georefFit, onTwinMove])
   const openBoardTwin = useCallback((twin: BoardTwin) => {
-    setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null)
+    setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null); setTwinDrawingId(null)
     setTwinView(twin)
+  }, [])
+  const openTwinDrawing = useCallback((drawing: Drawing) => {
+    setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null); setTwinView(null)
+    setTwinDrawingId(drawing.id)
   }, [])
 
   // reset transient state when switching document; seed an aspect from the
@@ -2013,7 +2031,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * selected object and halo. `tool === 'pan'` remains the long-standing selection-only gate.
    */
   const detailPanelVisible = !layersOn || !isPhone
-  const editorSlotFree = !twinView && detailPanelVisible && tool === 'pan'
+  const editorSlotFree = !twinView && !twinDrawingId && detailPanelVisible && tool === 'pan'
   // a selected plan symbol gets the SAME editor as the map (label / fields / notes /
   // count / rotation) — floor is omitted because on the plan it's the tile, not a badge
   const selSymbol = annos.find((a) => a.id === selId && a.kind === 'symbol')
@@ -2030,7 +2048,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // …and the same for a Zwilling's details, plus one more reason: the twin is a projection of
   // ANOTHER sheet's fit, so switching plan or arming the pairing mode makes the panel describe
   // something that is no longer on screen.
-  useEffect(() => { setTwinView(null) }, [tool, activeId, georefArmed])
+  useEffect(() => { setTwinView(null); setTwinDrawingId(null) }, [tool, activeId, georefArmed])
   // a selected stroke / Linie / Fläche — drives the shared DrawEditor (style + presets) panel
   const selDraw = annos.find((a) => a.id === selId && (a.kind === 'draw' || a.kind === 'area'))
   // Explicit detach for a plan line endpoint (the × chip on the canvas + the Verbindung lösen button
@@ -2973,7 +2991,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 planAspect={measureAR} sW={sW} sH={sH} byName={sym.byName}
                 trupps={trupps} truppSeverities={truppSeverities}
                 interactive={tool === 'pan'} onOpenTeam={onTwinJump}
-                onMoveTeam={readOnly ? undefined : moveContentTeam} />
+                onMoveTeam={readOnly ? undefined : moveContentTeam}
+                selectedDrawingId={twinDrawingId} onOpenDrawing={openTwinDrawing}
+                onDrawingCoords={readOnly ? undefined : onTwinDrawingCoords} />
             )}
             {/* …and the Karte's own objects, mirrored ONTO this sheet. In the board so they pan
                 and zoom with it, and clipped to the sheet (lib/georefTwins · onSheet) so a
@@ -2986,7 +3006,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 byName={sym.byName}
                 sW={sW}
                 sH={sH}
-                sizePx={symBase * scale}
+                sizePx={boardTwinSymbolPx(symMul)}
                 captionMode={captionMode}
                 sourceSuppressedCaptions={mapSuppressedCaptions}
                 interactive={tool === 'pan'}
@@ -3287,6 +3307,64 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           fieldHints={fieldHints?.(viewedTwin.entity.symbol, viewedTwin.entity.label, viewedTwin.entity.fields)}
           protectedKeys={new Set(symbolPresetFieldKeys(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat))}
           onDelete={() => { void Promise.resolve(onTwinDelete?.(viewedTwin.entityId) ?? false).then((deleted) => { if (deleted) setTwinView(null) }) }}
+        />
+      )}
+
+      {/* A Karte-owned line/area edited through its projection. The standard DrawEditor writes
+          every field and gesture back to the one map drawing; the sheet never creates a copy. */}
+      {detailPanelVisible && viewedTwinDrawing && (
+        <DrawEditor
+          key={viewedTwinDrawing.id}
+          readOnly={readOnly || !onTwinDrawingEdit}
+          drawing={viewedTwinDrawing}
+          pointCount={viewedTwinDrawing.coords.length}
+          supportsDistance
+          lengthM={viewedTwinDrawing.coords.length >= 2 ? pathLengthM(viewedTwinDrawing.coords) : null}
+          areaM2={viewedTwinDrawing.kind === 'circle' ? Math.PI * (viewedTwinDrawing.radiusM ?? 0) ** 2
+            : viewedTwinDrawing.kind === 'area' && viewedTwinDrawing.coords.length >= 3 ? polygonAreaM2(viewedTwinDrawing.coords) : null}
+          perimeterM={viewedTwinDrawing.kind === 'circle' ? 2 * Math.PI * (viewedTwinDrawing.radiusM ?? 0)
+            : viewedTwinDrawing.kind === 'area' && viewedTwinDrawing.coords.length >= 3
+              ? pathLengthM([...viewedTwinDrawing.coords, viewedTwinDrawing.coords[0]]) : null}
+          profileCoords={viewedTwinDrawing.coords}
+          onPreset={(presetId) => onTwinDrawingEdit?.(viewedTwinDrawing.id, resolveLinePreset(presetId, viewedTwinDrawing.dashed))}
+          onColor={(color) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { color })}
+          onWidth={(width) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { width })}
+          onDashed={(dashed) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { dashed })}
+          onLabel={(label) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { label }, 'live')}
+          onLabelCommit={(label) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { label }, 'commit')}
+          onMarker={(marker) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { marker })}
+          onArrow={(arrow) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { arrow })}
+          onEnding={(ending) => onTwinDrawingEnding?.(viewedTwinDrawing.id, ending)}
+          onReverse={onTwinDrawingReverse ? () => onTwinDrawingReverse(viewedTwinDrawing.id) : undefined}
+          onContent={(content) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { content })}
+          onLineNo={(lineNo) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { lineNo })}
+          onFloorTag={(floorTag) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { floorTag })}
+          onTrupp={onTwinDrawingTrupp ? (truppId) => onTwinDrawingTrupp(viewedTwinDrawing.id, truppId) : undefined}
+          trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
+          usedLineNos={(mapTwins?.drawings ?? []).filter((d) => d.kind === 'line' && d.id !== viewedTwinDrawing.id && d.lineNo != null).map((d) => d.lineNo!)}
+          truppOnLine={truppForLine(viewedTwinDrawing, trupps)?.name}
+          truppOnLineOut={truppIsOut(truppForLine(viewedTwinDrawing, trupps))}
+          onShowTrupp={onShowTrupp && truppForLine(viewedTwinDrawing, trupps) ? () => onShowTrupp(truppForLine(viewedTwinDrawing, trupps)!.id) : undefined}
+          onShowDistance={(showDistance) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { showDistance })}
+          onRadius={(radiusM) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { radiusM })}
+          onFillOpacity={(fillOpacity) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { fillOpacity })}
+          locked={!!viewedTwinDrawing.locked}
+          onToggleLock={readOnly ? undefined : () => {
+            onTwinDrawingEdit?.(viewedTwinDrawing.id, { locked: viewedTwinDrawing.locked ? undefined : true })
+            if (!viewedTwinDrawing.locked) setTwinDrawingId(null)
+          }}
+          attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
+            const a = endpoint === 'start' ? viewedTwinDrawing.startAttachment : viewedTwinDrawing.endAttachment
+            if (!a) return []
+            const targetDrawing = (mapTwins?.drawings ?? []).find((d) => d.id === a.target.id)
+            const targetEntity = [...(mapTwins?.vehicles ?? []), ...(mapTwins?.symbols ?? []), ...(mapTwins?.content ?? [])].find((e) => e.id === a.target.id)
+            return [[endpoint, a.target.kind === 'object' ? targetEntity?.label ?? a.target.id : targetDrawing ? lineLabel(targetDrawing) : appConfig.copy.drawingEditor.line]]
+          }))}
+          onRouting={onTwinDrawingRouting ? (endpoint, routing) => onTwinDrawingRouting(viewedTwinDrawing.id, endpoint, routing) : undefined}
+          onDetach={onTwinDrawingDetach ? (endpoint) => onTwinDrawingDetach(viewedTwinDrawing.id, endpoint) : undefined}
+          onFocusAttachment={onTwinDrawingFocusAttachment ? (endpoint) => onTwinDrawingFocusAttachment(viewedTwinDrawing.id, endpoint) : undefined}
+          onDelete={() => { onTwinDrawingDelete?.(viewedTwinDrawing.id); setTwinDrawingId(null) }}
+          onClose={() => setTwinDrawingId(null)}
         />
       )}
 

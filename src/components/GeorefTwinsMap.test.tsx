@@ -29,10 +29,10 @@ describe('a Plan twin on the Karte', () => {
       onOpen={() => {}} onMove={() => {}} />,
   )
 
-  it('is tap-only before its detail panel selects it', () => {
+  it('is immediately draggable before its detail panel selects it', () => {
     show()
-    expect(screen.getByTestId('marker').dataset.draggable).toBe('false')
-    expect(screen.getByRole('button').className).not.toContain('grab')
+    expect(screen.getByTestId('marker').dataset.draggable).toBe('true')
+    expect(screen.getByRole('button').className).toContain('grab')
   })
 
   it('becomes draggable together with its selection halo', () => {
@@ -41,13 +41,15 @@ describe('a Plan twin on the Karte', () => {
     expect(screen.getByRole('button').querySelector('.sel-halo')).toBeTruthy()
   })
 
-  // E9: a plan symbol is ~8.5 % of its sheet — its projection covers those ground metres, not
-  // the native pin band. At Einsatz zoom that is the LOW clamp; way in it grows with the ground.
-  it('sizes by the building footprint, smaller than any native symbol at Einsatz zoom', () => {
+  // E9 + the 29.08 field correction: the footprint may quiet a twin below the native floor,
+  // but it may never grow past the native map's SMALLEST symbol size. Otherwise the same Feuer
+  // and its fixed-size caption/count badges balloon on a linked Modul while the Lage copy stays
+  // in its compact map band.
+  it('sizes by the building footprint but caps at the native 28 px floor', () => {
     show(undefined, 18)
     expect(parseFloat(screen.getByRole('button').style.width)).toBe(15) // twin floor < native 28
     cleanup()
     show(undefined, 21)
-    expect(parseFloat(screen.getByRole('button').style.width)).toBeGreaterThan(15)
+    expect(parseFloat(screen.getByRole('button').style.width)).toBe(28)
   })
 })

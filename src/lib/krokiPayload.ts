@@ -82,8 +82,8 @@ export function shapeSvgString(kind: ShapeKind, color: string, stop = false): st
   const open = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">'
   if (kind === 'arrow') {
     const bar = stop
-      ? '<path d="M14 7 L86 7" stroke="#fff" stroke-width="11" stroke-linecap="round"/>'
-        + `<path d="M14 7 L86 7" stroke="${color}" stroke-width="6" stroke-linecap="round"/>`
+      ? '<path d="M20 7 L80 7" stroke="#fff" stroke-width="9" stroke-linecap="round"/>'
+        + `<path d="M20 7 L80 7" stroke="${color}" stroke-width="5" stroke-linecap="round"/>`
       : ''
     return `${open}<path d="M50 6 L80 50 L60 50 L60 94 L40 94 L40 50 L20 50 Z" fill="${color}" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>${bar}</svg>`
   }
