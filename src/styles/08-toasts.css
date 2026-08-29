@@ -299,6 +299,17 @@
    near-white, which lands at 2.2:1 once the fill turns green */
 .toast-success { background: var(--green); color: var(--on-fill); }
 .toast-warn { background: var(--red); color: var(--on-fill); }
+/* the success tick draws itself in once (lib/ui · ToastCheck) instead of popping on statically —
+   the pill-sized cousin of the sync glyph's closing tick (13-incident.css). The path measures
+   ≈20.2, the dash is cut to that; the .05s delay lets the pill's own entrance land first. No
+   layout involved: same 16px .i box as the sprite icon it replaces. */
+.toast-check { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.toast-check path { stroke-dasharray: 21; stroke-dashoffset: 21; animation: toastTick .25s var(--ease) .05s forwards; }
+@keyframes toastTick { to { stroke-dashoffset: 0; } }
+/* reduced motion: the state (a tick) stays, the draw-on goes — same branch as .sync-tick */
+@media (prefers-reduced-motion: reduce) {
+  .toast-check path { animation: none; stroke-dashoffset: 0; }
+}
 /* …but a LIVE status (the print job, lib/printJobToast) wears its tone as an EDGE instead. It
    stands on the screen for as long as the job takes, and a saturated pill held for a minute and a
    half reads as an alarm rather than as «läuft» — then flips to a full green that reads as a

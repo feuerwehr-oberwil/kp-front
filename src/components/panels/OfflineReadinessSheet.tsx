@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
+import { SyncGlyph } from '../SyncGlyph'
 import { fillTemplate } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import type { SyncStatus } from '../../lib/incidents'
@@ -120,6 +121,23 @@ export function OfflineReadinessSheet({
   const [degraded, setDegraded] = useState(isStorageDegraded)
   useEffect(() => onStorageDegraded(setDegraded), [])
 
+  // A finished «Alles laden» used to just vanish: the bar hit 100 % and the button was back, with
+  // nothing saying it worked. For a moment the bar's place speaks the sync-glyph vocabulary
+  // instead — closed ring, tick, «bereit» — before the button returns. The rows above stay the
+  // authority on WHAT is ready (a partial download also toasts its own warning); this only closes
+  // the gesture. Not persisted: reopening the sheet later shows the rows, not a stale tick.
+  const [justLoaded, setJustLoaded] = useState(false)
+  const wasLoading = useRef(loading)
+  useEffect(() => {
+    const was = wasLoading.current
+    wasLoading.current = loading
+    if (was && !loading) {
+      setJustLoaded(true)
+      const t = setTimeout(() => setJustLoaded(false), 2500)
+      return () => clearTimeout(t)
+    }
+  }, [loading])
+
   const o = appConfig.copy.offline
   const probed = (v: boolean | undefined, readyNote: string): { s: ReadyState; n: string } =>
     v === undefined ? { s: 'unknown', n: o.checking } : v ? { s: 'ready', n: readyNote } : { s: 'missing', n: o.notLoaded }
@@ -226,6 +244,11 @@ export function OfflineReadinessSheet({
               <span>{o.loadingForOffline}</span>
               <span className="or-prog-pct">{progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0} %</span>
             </div>
+          </div>
+        ) : justLoaded ? (
+          <div className="or-done" role="status">
+            <SyncGlyph done label={o.ready} />
+            <span>{o.ready}</span>
           </div>
         ) : (
           <button className="or-load" onClick={onLoadAll}>
