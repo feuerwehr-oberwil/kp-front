@@ -21,7 +21,7 @@ import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, shapeSvgString } from './krokiPayload'
 import { symbolCaptionText } from './symbols'
-import { SHAPE_DEFS } from './shapes'
+import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
@@ -70,11 +70,15 @@ export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, stri
     }
     if (a.kind === 'shape') {
       // a plan shape prints as a client-resolved glyph (like map shapes); sizeN scales it
-      // to the plan width server-side instead of the fixed symbol size
+      // to the plan width server-side instead of the fixed symbol size. The arrow's
+      // Stopp-Balken is baked into the SVG; the box aspect rides along as its own field
+      // (⚠️ mirrored in backend/app/report_pdf.py · PlanAnnoIn).
       const kind = a.shape ?? 'square'
+      const aspect = shapeAspect(kind, a.aspect)
       out.kind = 'symbol'
-      out.symbolSvg = shapeSvgString(kind, a.color ?? SHAPE_DEFS[kind].defaultColor)
+      out.symbolSvg = shapeSvgString(kind, a.color ?? SHAPE_DEFS[kind].defaultColor, kind === 'arrow' && !!a.stop)
       out.sizeN = a.sizeN ?? SHAPE_DEFS[kind].defaultSizeN
+      if (aspect !== 1) out.aspect = aspect
       out.label = undefined // the shape's implicit name (Rauch/Pfeil/…) is not an on-plan label
     }
     return out

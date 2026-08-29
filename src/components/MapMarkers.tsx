@@ -7,7 +7,7 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
 import { MenuPick } from './MenuPick'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
-import { ShapeGlyph } from '../lib/shapes'
+import { SHAPE_FREE_ASPECT, ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
@@ -22,11 +22,12 @@ import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer } 
 // pointerdown) never starts alongside it. React's onPointerDown stopPropagation is delegated at
 // the document root and runs too late — by then the marker is already dragging. Using the capture
 // (setPointerCapture) keeps the move/up events on this element for the whole gesture.
-function TransformHandle({ className, icon, title, onStart, onMove, onEnd }: {
+function TransformHandle({ className, icon, title, onStart, onMove, onEnd, style }: {
   className: string; icon: string; title: string
   onStart: (clientX: number, clientY: number, el: HTMLElement) => void
   onMove: (clientX: number, clientY: number) => void
   onEnd: () => void
+  style?: React.CSSProperties
 }) {
   const ref = useRef<HTMLButtonElement>(null)
   // re-bind each render so the closures see the latest callbacks; it's a single element/listener
@@ -61,7 +62,7 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd }: {
       el.removeEventListener('touchstart', block)
     }
   })
-  return <button ref={ref} className={className} title={title} aria-label={title} onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
+  return <button ref={ref} className={className} style={style} title={title} aria-label={title} onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
 }
 
 // once a hold has armed, the finger must still travel this far (screen px) before the symbol
@@ -137,7 +138,7 @@ interface Props {
   onMarkerDragEnd: (id: string, c: LngLat) => void
   onDelete: (id: string) => void
   onRotate?: (id: string, deg: number) => void
-  onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
+  onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number; aspect?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
   /** which note is in raw inline-text edit mode (mirrors the Plan whiteboard's text notes) */
   editNoteId?: string | null
   /** stream a note's text live as it's typed */
@@ -234,7 +235,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // a rename never survives selecting something else — leaving the pill IS the commit/abort
   useEffect(() => { setEditTeamId((cur) => (cur && cur !== selectedId ? null : cur)) }, [selectedId])
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
-  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage' } | null>(null)
+  // `rot` = the shape's SCREEN rotation at grab time and `free` = per-axis resize allowed —
+  // both captured on pointer-down so the corner drag can be resolved in the shape's own frame
+  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage'; rot: number; free: boolean } | null>(null)
   // Press-and-hold to move a placed symbol. Markers are NOT react-map-gl-draggable (that would
   // claim every pan/zoom that starts on a symbol and drag it instead of the map); instead a still
   // hold past the delay arms a drag — a quick flick to pan/zoom passes straight through to the map.
@@ -322,7 +325,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     const glyph = marker?.querySelector('.shape-glyph, .ts') as HTMLElement | null
     if (!glyph) return
     const r = glyph.getBoundingClientRect() // rotated/scaled AABB — centre is unchanged
-    shapeRef.current = { id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, lat, mode }
+    const ent = entities.find((x) => x.id === id)
+    shapeRef.current = {
+      id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, lat, mode,
+      rot: (ent?.rotation ?? 0) - bearing,
+      free: mode === 'resize' && ent?.kind === 'shape' && SHAPE_FREE_ASPECT[ent.shape ?? 'square'],
+    }
     onShapeTransform?.(id, {}, 'start')
   }
   const shapeMove = (clientX: number, clientY: number) => {
@@ -344,6 +352,19 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       const off = st.mode === 'rotate2' ? -90 : 90
       const val = Math.round((((deg + off + bearing) % 360) + 360) % 360)
       onShapeTransform?.(st.id, st.mode === 'rotate2' ? { rotation2: val } : { rotation: val }, 'move')
+    } else if (st.free) {
+      // free-aspect corner drag (Rechteck / Rauch): the pointer offset, rotated into the
+      // shape's own frame, sets width from |dx| and height from |dy| independently. Same
+      // maths as the Plan's resize (Whiteboard · rotMove), so the two surfaces feel identical.
+      const rad = (-st.rot * Math.PI) / 180
+      const dx = clientX - st.cx, dy = clientY - st.cy
+      const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
+      const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
+      const ppm = pxPerM(st.lat, zoom)
+      const sizeM = Math.max(5, Math.min(500, Math.round((2 * Math.abs(lx)) / ppm)))
+      const heightM = Math.max(5, Math.min(500, Math.round((2 * Math.abs(ly)) / ppm)))
+      const aspect = Math.max(0.2, Math.min(5, Math.round((heightM / sizeM) * 100) / 100))
+      onShapeTransform?.(st.id, { sizeM, aspect }, 'move')
     } else {
       const dist = Math.hypot(clientX - st.cx, clientY - st.cy)
       const sizeM = (dist * Math.SQRT2) / pxPerM(st.lat, zoom) // corner handle = half-diagonal
@@ -387,7 +408,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // the glyph's on-screen pixel size — drives the selection halo + handle ring so
         // they sit a fixed distance OUTSIDE the glyph at any zoom (small glyphs push the
         // handles out to a comfortable minimum via --hbox in CSS, big ones track the edge).
-        const gpx = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom)
+        // a shape's box is width × (width · aspect) — the halo/handle anchor (--gpx → --hbox)
+        // takes the LARGER side so the ring always encloses the rectangle
+        const shpW = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom) : 0
+        const shpH = e.kind === 'shape' ? shpW * shapeAspect(e.shape ?? 'square', e.aspect) : 0
+        const gpx = e.kind === 'shape' ? Math.max(shpW, shpH)
           : e.kind === 'note' || e.kind === 'photo' || e.kind === 'team' ? 56
           : symPx(e.kind, e.coord[1], zoom, symMul)
         // this marker's offset while its pile is fanned open — and the hairline back to where
@@ -553,9 +578,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
             })() : e.kind === 'shape' ? (
               <div
                 className="shape-glyph"
-                style={{ width: shapePx(e.sizeM, e.coord[1], zoom), height: shapePx(e.sizeM, e.coord[1], zoom), transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
+                style={{ width: shpW, height: shpH, transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
               >
-                <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} />
+                <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} stop={e.stop} />
               </div>
             ) : e.kind === 'note' ? (() => {
               // every note is a wrapping box; a stored note with no width falls back to the
@@ -802,14 +827,19 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 onEnd={rotUp}
               />
             )}
-            {selectedId === e.id && e.kind === 'shape' && onShapeTransform && (
-              // rotor rotates with the shape so the handles stay attached to it:
-              // a tethered knob (top) for rotation, a corner grip for resize
+            {selectedId === e.id && e.kind === 'shape' && onShapeTransform && (() => {
+              // rotor rotates with the shape so the handles stay attached to it: a tethered
+              // knob (top) for rotation, a corner grip for resize. The CSS anchors assume a
+              // SQUARE --hbox; a stretched shape overrides them inline so the knob rides the
+              // real top edge and the grip the real corner (same floors as .marker.sel --hbox).
+              const hbW = Math.max(shpW, 56), hbH = Math.max(shpH, 56)
+              return (
               <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
-                <span className="shape-stem" />
+                <span className="shape-stem" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} />
                 <TransformHandle
                   className="handle shape-rotate"
                   icon="rotate"
+                  style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }}
                   title={appConfig.copy.shapes.rotateHint}
                   onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'rotate')}
                   onMove={shapeMove}
@@ -818,13 +848,15 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 <TransformHandle
                   className="handle shape-resize"
                   icon="resize"
+                  style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }}
                   title={appConfig.copy.shapes.resizeHint}
                   onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'resize')}
                   onMove={shapeMove}
                   onEnd={shapeUp}
                 />
               </div>
-            )}
+              )
+            })()}
             {selectedId === e.id && isRotatableSym(e) && !compositeSpec(e.symbol) && onShapeTransform && (
               // directional symbol: rotate-only handle (no resize — symbols keep their
               // real-world scale). Tethered knob rotates with the symbol.

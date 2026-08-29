@@ -72,6 +72,25 @@ describe('krokiEntity (glyph resolution for the server compositor)', () => {
     expect(out?.symbolSvg).toContain('<path')
     expect(out?.sizeM).toBe(120)
   })
+
+  it('sends a stretched shape\'s aspect, and only when it stretches', () => {
+    const rect = krokiEntity(sym({ kind: 'shape', shape: 'square', sizeM: 60, aspect: 2.5, symbol: undefined }), {})
+    expect(rect?.aspect).toBe(2.5)
+    // absent / 1 stays off the wire — stored incidents keep printing byte-identical payloads
+    expect(krokiEntity(sym({ kind: 'shape', shape: 'square', sizeM: 60, symbol: undefined }), {})?.aspect).toBeUndefined()
+    // the Pfeil is aspect-locked (lib/shapes · SHAPE_FREE_ASPECT) — a stray stored value never prints
+    expect(krokiEntity(sym({ kind: 'shape', shape: 'arrow', sizeM: 60, aspect: 2.5, symbol: undefined }), {})?.aspect).toBeUndefined()
+  })
+
+  it('bakes the arrow\'s Stopp-Balken into the printed glyph, arrow-only', () => {
+    const stop = krokiEntity(sym({ kind: 'shape', shape: 'arrow', stop: true, symbol: undefined }), {})
+    expect(stop?.symbolSvg).toContain('M14 7 L86 7')
+    const plain = krokiEntity(sym({ kind: 'shape', shape: 'arrow', symbol: undefined }), {})
+    expect(plain?.symbolSvg).not.toContain('M14 7')
+    // a `stop` on a non-arrow shape (impossible via the editor, possible via merge) draws nothing
+    const rect = krokiEntity(sym({ kind: 'shape', shape: 'square', stop: true, symbol: undefined }), {})
+    expect(rect?.symbolSvg).not.toContain('M14 7')
+  })
 })
 
 describe('buildKrokiPayload', () => {
@@ -133,6 +152,13 @@ describe('shapeSvgString', () => {
     expect(shapeSvgString('arrow', '#123456')).toContain('fill="#123456"')
     expect(shapeSvgString('square', '#123456')).toContain('<rect')
     expect(shapeSvgString('cloud', '#123456')).toContain('fill-opacity="0.5"')
+  })
+
+  it('draws the arrow\'s Stopp-Balken across the tip in the shape\'s colour', () => {
+    const svg = shapeSvgString('arrow', '#123456', true)
+    expect(svg).toContain('<path d="M14 7 L86 7" stroke="#123456"')
+    // stays stretch-safe: the bar lives in the same preserveAspectRatio="none" viewBox
+    expect(svg).toContain('preserveAspectRatio="none"')
   })
 })
 

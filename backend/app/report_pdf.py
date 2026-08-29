@@ -224,6 +224,9 @@ class KrokiEntityIn(BaseModel):
     spread: dict | None = None  # {h: 'E'|'W', hBounded, up, down, vBounded}
     caption: str | None = None
     sizeM: float | None = None  # generic shapes: ground size in metres (client shapePx)
+    # generic shapes: height/width ratio (client sends it only when != 1); without this
+    # field pydantic would silently drop it and every Rechteck would print square
+    aspect: float | None = None
     color: str | None = None  # team dot colour / note ink
     # free-text note styling. noteW (SCREEN px, since map notes don't scale with zoom) is what
     # makes a note a wrapping text box; absent = the legacy one-line pill.
@@ -312,6 +315,8 @@ class PlanAnnoIn(BaseModel):
     # generic shapes (Pfeil/Rauch/Rechteck) arrive as kind 'symbol' with a client-resolved
     # svg + their size as a fraction of the plan width (overrides the fixed symbol size)
     sizeN: float | None = None
+    # generic shapes: height/width ratio (only sent when != 1, see KrokiEntityIn.aspect)
+    aspect: float | None = None
     # free-text note styling. wN (a fraction of the plan width, like sizeN) is what makes a note
     # a wrapping text box; absent = the legacy one-line pill.
     wN: float | None = None

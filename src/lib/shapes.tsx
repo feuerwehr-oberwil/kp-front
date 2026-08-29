@@ -18,15 +18,34 @@ export const SHAPE_DEFS: Record<ShapeKind, { defaultColor: string; defaultSizeM:
   square: { defaultColor: '#e8392b', defaultSizeM: 45, defaultSizeN: 0.1 },
 }
 
+// Which shapes stretch freely (the corner drag sets width and height separately, stored as
+// `aspect` = height/width). The Pfeil stays proportional: a non-uniformly scaled head reads
+// badly, and «ein längerer Pfeil» is the line-with-arrowhead tool's job.
+export const SHAPE_FREE_ASPECT: Record<ShapeKind, boolean> = { arrow: false, cloud: true, square: true }
+
+// Effective height/width ratio of a placed shape (absent = 1 = the original square box).
+// Clamped so a degenerate stored value can't render a sliver; aspect-locked kinds are always 1.
+// Mirrored server-side in backend/app/kroki.py (same 0.2..5 clamp).
+export function shapeAspect(kind: ShapeKind, aspect: number | undefined): number {
+  if (!SHAPE_FREE_ASPECT[kind]) return 1
+  return Math.max(0.2, Math.min(5, aspect ?? 1))
+}
+
 // SVG silhouettes on a 0..100 viewBox. fillOpacity keeps the square/cloud
 // readable as translucent overlays (a smoke blob / a zone box) while the arrow
-// stays solid for a crisp direction indicator.
-export function ShapeGlyph({ kind, color }: { kind: ShapeKind; color: string }) {
+// stays solid for a crisp direction indicator. `stop` (arrow only) draws the
+// «→|» Stopp-Balken across the tip — keep it identical to shapeSvgString
+// (lib/krokiPayload), which is the same artwork as a plain string for the print path.
+export function ShapeGlyph({ kind, color, stop }: { kind: ShapeKind; color: string; stop?: boolean }) {
   if (kind === 'arrow') {
     return (
       <svg className="shape-svg" viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="none">
         <path d="M50 6 L80 50 L60 50 L60 94 L40 94 L40 50 L20 50 Z"
           fill={color} stroke="#fff" strokeWidth={4} strokeLinejoin="round" />
+        {stop && <>
+          <path d="M14 7 L86 7" stroke="#fff" strokeWidth={11} strokeLinecap="round" />
+          <path d="M14 7 L86 7" stroke={color} strokeWidth={6} strokeLinecap="round" />
+        </>}
       </svg>
     )
   }

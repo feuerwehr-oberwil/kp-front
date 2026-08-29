@@ -54,6 +54,21 @@ describe('planAnnosForPdf', () => {
     expect(String(out.symbolSvg)).toContain('<svg')
     expect(typeof out.sizeN).toBe('number')
   })
+
+  it('sends a stretched shape\'s aspect, and only when it stretches', () => {
+    const [rect] = planAnnosForPdf([{ id: 'sh3', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.2, aspect: 0.5 }], {})
+    expect(rect.aspect).toBe(0.5)
+    // absent / 1 stays off the wire; the aspect-locked Pfeil never stretches on paper
+    expect(planAnnosForPdf([{ id: 'sh4', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.2 }], {})[0].aspect).toBeUndefined()
+    expect(planAnnosForPdf([{ id: 'sh5', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5, sizeN: 0.2, aspect: 3 }], {})[0].aspect).toBeUndefined()
+  })
+
+  it('bakes the arrow\'s Stopp-Balken into the printed glyph', () => {
+    const [out] = planAnnosForPdf([{ id: 'sh6', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5, stop: true }], {})
+    expect(String(out.symbolSvg)).toContain('M14 7 L86 7')
+    const [plain] = planAnnosForPdf([{ id: 'sh7', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5 }], {})
+    expect(String(plain.symbolSvg)).not.toContain('M14 7')
+  })
 })
 
 describe('floorStackPages', () => {

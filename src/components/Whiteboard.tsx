@@ -29,7 +29,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { MenuPick } from './MenuPick'
 import { LockChip } from './LockChip'
-import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
+import { ShapeGlyph, SHAPE_DEFS, SHAPE_FREE_ASPECT, shapeAspect } from '../lib/shapes'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
@@ -394,7 +394,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // each keystroke live into the anno — like the Lage note title)
   const textEditId = useRef<string | null>(null)
   // drag-to-rotate a selected directional symbol — mirrors the map's rotor handle
-  const rotate = useRef<{ id: string; cx: number; cy: number; moved: boolean; mode: 'rotate' | 'rotate2' | 'resize' | 'cage' | 'width' } | null>(null)
+  // `rot` = the shape's rotation at grab time and `free` = per-axis resize allowed — captured
+  // on pointer-down so a corner drag can be resolved in the shape's own rotated frame
+  const rotate = useRef<{ id: string; cx: number; cy: number; moved: boolean; mode: 'rotate' | 'rotate2' | 'resize' | 'cage' | 'width'; rot: number; free: boolean } | null>(null)
   // the group-move drag origin (start client point and the original board-space geometry of
   // every selected anno). Pan/pinch/marquee refs live in useBoardGestures.
   const groupMove = useRef<{ sx: number; sy: number } | null>(null)
@@ -1636,13 +1638,31 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const glyph = (anno?.querySelector('.ts, .shape-glyph') ?? anno) as HTMLElement | null
     if (!glyph) return
     const r = glyph.getBoundingClientRect()
-    rotate.current = { id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, moved: false, mode }
+    const a = annos.find((x) => x.id === id)
+    rotate.current = {
+      id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, moved: false, mode,
+      rot: a?.rotation ?? 0,
+      free: mode === 'resize' && a?.kind === 'shape' && SHAPE_FREE_ASPECT[a.shape ?? 'square'],
+    }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
   const rotMove = (e: React.PointerEvent) => {
     const st = rotate.current; if (!st) return
     if (!st.moved) { pushPast(); st.moved = true } // one checkpoint per rotate/resize gesture
     if (st.mode === 'resize') {
+      if (st.free) {
+        // free-aspect corner drag (Rechteck / Rauch): the pointer offset, rotated into the
+        // shape's own frame, sets width from |dx| and height from |dy| independently —
+        // identical maths to the map's resize (MapMarkers · shapeMove), in plan space
+        const rad = (-st.rot * Math.PI) / 180
+        const dx = e.clientX - st.cx, dy = e.clientY - st.cy
+        const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
+        const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
+        const wN = Math.max(0.03, Math.min(0.9, (2 * Math.abs(lx)) / sW))
+        const hN = Math.max(0.03, Math.min(0.9, (2 * Math.abs(ly)) / sW))
+        patch(st.id, { sizeN: wN, aspect: Math.max(0.2, Math.min(5, Math.round((hN / wN) * 100) / 100)) })
+        return
+      }
       // corner grip = half-diagonal from the glyph centre → full width, normalized to the
       // (scaled) plan width — same maths as the map's shape resize, in plan space
       const dist = Math.hypot(e.clientX - st.cx, e.clientY - st.cy)
@@ -1674,7 +1694,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!st?.moved) return
     const a = annos.find((x) => x.id === st.id)
     if (!a) return
-    const patchOut = st.mode === 'resize' ? { sizeN: a.sizeN }
+    const patchOut = st.mode === 'resize' ? { sizeN: a.sizeN, aspect: a.aspect }
       : st.mode === 'width' ? { wN: a.wN }
       : st.mode === 'cage' ? { rotation2: a.rotation2, reachN: a.reachN }
       : st.mode === 'rotate2' ? { rotation2: a.rotation2 } : { rotation: a.rotation }
@@ -2529,7 +2549,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 // transform positions the anchor at the (scaled) plan point. Symbols
                 // and text scale WITH the plan via numeric sizing below (crisp, since
                 // the board is layout-scaled); team pills stay a constant size.
-                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(-50%, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW : symBase * scale}px` }}
+                // a shape's --gpx (→ halo/handle anchor --hbox) takes the LARGER box side so the
+                // selection ring always encloses a stretched rectangle (width × width·aspect)
+                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(-50%, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase * scale}px` }}
                 onPointerDown={(e) => chipDown(e, a.id)}
                 // double-tap still opens the on-surface textarea; the panel steps aside so the
                 // two editors for one text never stream keystrokes side by side
@@ -2586,9 +2608,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 })()}
                 {a.kind === 'shape' && (
                   // same glyphs + sizing model as the map: the silhouette scales with the
-                  // plan (sizeN × plan width) and rotates as a whole
-                  <div className="shape-glyph" style={{ width: (a.sizeN ?? 0.1) * sW, height: (a.sizeN ?? 0.1) * sW, transform: `rotate(${a.rotation ?? 0}deg)` }}>
-                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} />
+                  // plan (width = sizeN × plan width, height = width × aspect) and rotates as a whole
+                  <div className="shape-glyph" style={{ width: (a.sizeN ?? 0.1) * sW, height: (a.sizeN ?? 0.1) * sW * shapeAspect(a.shape ?? 'square', a.aspect), transform: `rotate(${a.rotation ?? 0}deg)` }}>
+                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} stop={a.stop} />
                   </div>
                 )}
                 {a.kind === 'text' && (() => {
@@ -2755,19 +2777,26 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 )}
                 {/* generic shape: tethered rotor knob + corner resize grip, identical to the
                     Lage map — both rotate with the shape so the handles stay attached */}
-                {a.kind === 'shape' && selId === a.id && tool === 'pan' && !readOnly && (
+                {a.kind === 'shape' && selId === a.id && tool === 'pan' && !readOnly && (() => {
+                  // CSS anchors the knob/grip off a SQUARE --hbox; a stretched shape overrides
+                  // them inline so the knob rides the real top edge and the grip the real
+                  // corner (identical to the Lage map — MapMarkers' shape rotor)
+                  const hbW = Math.max((a.sizeN ?? 0.1) * sW, 56)
+                  const hbH = Math.max((a.sizeN ?? 0.1) * sW * shapeAspect(a.shape ?? 'square', a.aspect), 56)
+                  return (
                   <div className="shape-rotor" style={{ transform: `rotate(${a.rotation ?? 0}deg)` }}>
-                    <span className="shape-stem" />
-                    <button className="handle shape-rotate" title={appConfig.copy.shapes.rotateHint} aria-label={appConfig.copy.shapes.rotateHint}
+                    <span className="shape-stem" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} />
+                    <button className="handle shape-rotate" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} title={appConfig.copy.shapes.rotateHint} aria-label={appConfig.copy.shapes.rotateHint}
                       onPointerDown={(e) => rotDown(e, a.id)} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
                       <Icon id="rotate" />
                     </button>
-                    <button className="handle shape-resize" title={appConfig.copy.shapes.resizeHint} aria-label={appConfig.copy.shapes.resizeHint}
+                    <button className="handle shape-resize" style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }} title={appConfig.copy.shapes.resizeHint} aria-label={appConfig.copy.shapes.resizeHint}
                       onPointerDown={(e) => rotDown(e, a.id, 'resize')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
                       <Icon id="resize" />
                     </button>
                   </div>
-                )}
+                  )
+                })()}
                 {/* directional symbol: tethered rotor knob (rotate-only), identical to
                     the Lage map — rotates with the symbol so the handle stays attached */}
                 {isRotatableSym(a) && !annoComposite(a) && selId === a.id && tool === 'pan' && !readOnly && (
@@ -3289,7 +3318,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           key={selShape.id}
           entity={selShape}
           onColor={(c) => patchCommit(selShape.id, { color: c })}
+          // ±25 % steps scale BOTH axes: sizeN is the width and the height is width × aspect
           onScale={(f) => patchCommit(selShape.id, { sizeN: Math.max(0.03, Math.min(0.9, (selShape.sizeN ?? SHAPE_DEFS[selShape.shape ?? 'square'].defaultSizeN) * f)) })}
+          onStop={(v) => patchCommit(selShape.id, { stop: v })}
           onDelete={() => void removeWithConnections(selShape)}
           onClose={() => setSelId(null)}
         />
@@ -3359,11 +3390,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           A locked surface keeps the reading but cannot arm a manual calibration. */}
       {(!readOnly || slimRail) && !osm && !blank && (
         scaleAuto
-          ? <div className="wb-scale-chip wb-scale-status on" role="status"
-              title={appConfig.copy.whiteboard.scale.chipAutoHint}>
+          /* Still a reading, not a second calibration path – but a TAPPABLE one (29.08.): the
+             hover title never fires on the field iPad, so the chip explains itself the same
+             way as «Verknüpft» beside it – by opening the Passung, where the derived scale,
+             the pair count and the residual sit next to what to do about them. */
+          ? <button className="wb-scale-chip wb-scale-status on"
+              title={appConfig.copy.whiteboard.scale.chipAutoHint}
+              aria-expanded={georefQuality}
+              onClick={() => setQualityFor(georefQuality ? null : activeId)}>
               <Icon id="measure" />
               <span>{appConfig.copy.whiteboard.scale.chipAuto}</span>
-            </div>
+            </button>
           : <button
               className={`wb-scale-chip ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
               title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
