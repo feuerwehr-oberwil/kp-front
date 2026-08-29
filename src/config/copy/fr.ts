@@ -1658,7 +1658,7 @@ export const fr: Localizable<Copy> = {
     noLayer: 'aucune couche',
     rowPlans: 'Plans',
     noObject: 'aucun objet',
-    rowLeitung: 'Cadastre des conduites',
+    rowLeitung: 'Couches de référence',
     geoAllReady: 'les {n} prêts',
     geoSome: '{cached}/{total} chargés',
     rowWeather: 'Météo',

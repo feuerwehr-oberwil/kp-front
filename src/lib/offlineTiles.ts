@@ -1,7 +1,7 @@
 // Pre-download a map area for offline use. We just `fetch()` each tile URL — the service
 // worker's `map-tiles` runtimeCache (see vite.config.ts) stores the responses, so the
-// base map renders later with no signal. Cross-origin raster tiles are opaque (mode
-// 'no-cors', status 0); the SW caches them because we allow status 0.
+// base map renders later with no signal. Downloads stay CORS-only because opaque responses are
+// padded heavily in iOS Cache Storage; supported raster hosts must therefore send CORS headers.
 
 export interface LngLatBounds {
   west: number
@@ -32,8 +32,23 @@ export function tilesForBounds(b: LngLatBounds, minZ: number, maxZ: number): Arr
   return out
 }
 
-function fillTemplate(tpl: string, z: number, x: number, y: number): string {
-  return tpl.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
+const WEB_MERCATOR_HALF_WORLD = 20037508.342789244
+
+/** EPSG:3857 bounds for one XYZ tile, in the order WMS BBOX expects. */
+export function tileBbox3857(z: number, x: number, y: number): string {
+  const span = (WEB_MERCATOR_HALF_WORLD * 2) / 2 ** z
+  const west = -WEB_MERCATOR_HALF_WORLD + x * span
+  const north = WEB_MERCATOR_HALF_WORLD - y * span
+  return `${west},${north - span},${west + span},${north}`
+}
+
+/** Fill both ordinary XYZ/WMTS templates and MapLibre's WMS bbox placeholder. */
+export function fillTileTemplate(tpl: string, z: number, x: number, y: number): string {
+  return tpl
+    .replace('{z}', String(z))
+    .replace('{x}', String(x))
+    .replace('{y}', String(y))
+    .replace('{bbox-epsg-3857}', tileBbox3857(z, x, y))
 }
 
 /**
@@ -69,6 +84,9 @@ export interface PredownloadResult {
 
 export interface PredownloadOpts {
   templates: string[] // base-layer tile URL template(s); cycled per tile to spread hosts
+  /** One template group per raster reference layer. A group's entries are equivalent hosts and
+   *  are cycled; every group is fetched for every covered tile. */
+  overlayTemplates?: string[][]
   bounds: LngLatBounds
   minZoom?: number
   maxZoom?: number
@@ -90,7 +108,11 @@ export async function predownloadArea(opts: PredownloadOpts): Promise<Predownloa
   const capped = tiles.length > cap
   const use = capped ? tiles.slice(0, cap) : tiles
 
-  const tileUrls = use.map((t, i) => fillTemplate(opts.templates[i % opts.templates.length], t.z, t.x, t.y))
+  const urlsFor = (templates: string[]) => use.map((t, i) => fillTileTemplate(templates[i % templates.length], t.z, t.x, t.y))
+  const tileUrls = [
+    ...urlsFor(opts.templates),
+    ...(opts.overlayTemplates ?? []).flatMap((templates) => templates.length ? urlsFor(templates) : []),
+  ]
   const warm = opts.warmUrls ?? []
   // Weight each warm item so the bar reflects real time: tiles (many, fast) fill ~70% and the
   // slow SEQUENTIAL warm phase (few, large) fills the rest — instead of snapping to ~97% on the

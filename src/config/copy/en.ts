@@ -1662,7 +1662,7 @@ export const en: Localizable<Copy> = {
     noLayer: 'no layer',
     rowPlans: 'Plans',
     noObject: 'no object',
-    rowLeitung: 'Utility cadastre',
+    rowLeitung: 'Reference layers',
     geoAllReady: 'all {n} ready',
     geoSome: '{cached}/{total} loaded',
     rowWeather: 'Weather',

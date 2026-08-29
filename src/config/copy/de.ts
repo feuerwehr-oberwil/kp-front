@@ -2495,7 +2495,7 @@ export const de = {
     noLayer: 'keine Ebene',
     rowPlans: 'Pläne',
     noObject: 'kein Objekt',
-    rowLeitung: 'Leitungskataster',
+    rowLeitung: 'Referenzebenen',
     geoAllReady: 'alle {n} bereit',
     geoSome: '{cached}/{total} geladen',
     rowWeather: 'Wetter',

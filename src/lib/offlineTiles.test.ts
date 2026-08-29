@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { predownloadArea, tilesForBounds } from './offlineTiles'
+import { fillTileTemplate, predownloadArea, tileBbox3857, tilesForBounds } from './offlineTiles'
 
 // A one-tile box at the coarsest zoom, so a run is three fetches and not twelve hundred.
 const BOX = { west: 7.5, south: 47.5, east: 7.5001, north: 47.5001 }
@@ -23,6 +23,21 @@ describe('predownloadArea reports HITS, not attempts', () => {
     const res = await predownloadArea({ ...opts, warmUrls: ['/plan.pdf', '/hydranten.geojson'] })
     expect(res).toMatchObject({ fetched: res.total, warmFetched: 2, warmTotal: 2, notFound: 0, failed: 0, capped: false })
     expect(res.total).toBe(tilesForBounds(BOX, 14, 14).length)
+  })
+
+  it('warms every raster reference layer over the same covered tile grid', async () => {
+    stubFetch(() => 'ok')
+    const fetchMock = vi.mocked(fetch)
+    const covered = tilesForBounds(BOX, 14, 14).length
+    const res = await predownloadArea({
+      ...opts,
+      overlayTemplates: [
+        ['https://wms.test/?BBOX={bbox-epsg-3857}'],
+        ['https://wmts-a.test/{z}/{x}/{y}', 'https://wmts-b.test/{z}/{x}/{y}'],
+      ],
+    })
+    expect(res.total).toBe(covered * 3) // base + WMS + WMTS, not one template chosen per tile
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('BBOX=') && !String(url).includes('{bbox'))).toBe(true)
   })
 
   // The reported bug, in one assertion: a device on dead WLAN used to reach 100 % and toast a
@@ -56,5 +71,13 @@ describe('predownloadArea reports HITS, not attempts', () => {
     expect(res.fetched).toBe(0)
     expect(res.failed).toBe(res.total)
     expect(res.notFound).toBe(0)
+  })
+})
+
+describe('raster template expansion', () => {
+  it('fills MapLibre WMS bbox templates in EPSG:3857', () => {
+    expect(tileBbox3857(0, 0, 0)).toBe('-20037508.342789244,-20037508.342789244,20037508.342789244,20037508.342789244')
+    expect(fillTileTemplate('https://wms.test/?BBOX={bbox-epsg-3857}&Z={z}&X={x}&Y={y}', 1, 1, 0))
+      .toBe('https://wms.test/?BBOX=0,0,20037508.342789244,20037508.342789244&Z=1&X=1&Y=0')
   })
 })
