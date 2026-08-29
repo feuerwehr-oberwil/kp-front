@@ -439,6 +439,7 @@ export function AtemschutzView({
     // slot (and those arrows are separately known to move the wrong card).
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
+      intervalMin={intervalMin}
       flash={activeFocus?.id === t.id}
       onContact={(id) => { freezeOrder(); recordContact(id) }}
       onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
@@ -677,19 +678,27 @@ function FunkkanalStepper({ value, onChange, compact }: { value: number; onChang
   )
 }
 
-// The INLINE pressure control on a live card: ± adjust a PENDING value (shown distinct); nothing
-// is committed until "Bestätigen". A misclick on ± therefore never silently logs a reading or
-// resets the contact clock — only an explicit confirm does (which is what counts as a Funkkontakt).
-function PressureInline({ value, onCommit, alarmBar }: {
+// The DRUCK zone on a live card (29.08. Tapzonen rework). Collapsed it is the readout it always
+// was — «Druck · zuletzt hh:mm · 240 bar» — wearing the zone affordance (hairline tile + a small
+// «Druckmeldung ›» corner cue). ONE tap opens the pending ± control directly, no menu in between,
+// so «wie melde ich Druck?» is answered at the number itself; the zone itself never logs. Once
+// open, ± / tap-to-type adjust a PENDING value and only the explicit "Bestätigen" commits (which
+// is what counts as a Funkkontakt) — a misclick on the zone or on ± never silently logs a reading
+// or resets the contact clock. Confirming an unchanged value is a valid Druckmeldung («Druck
+// unverändert 240») and stays possible.
+function PressureZone({ value, lastAt, onCommit, alarmBar }: {
   value: number
+  /** when the shown value was logged (Trupp.lastPressureTime) — named on the collapsed zone */
+  lastAt?: string
   onCommit: (bar: number) => void
   /** the line THIS Trupp is held to — lower while it is in Rückzug (lib/atemschutz · alarmBarFor) */
   alarmBar?: number
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // keyed on `value` by the caller, so an external change to the committed pressure remounts this
-  // with a fresh start — no sync effect needed
+  // with a fresh start (collapsed, pending reset) — no sync effect needed
   const dz = atemschutzDoctrine()
+  const [open, setOpen] = useState(false)
   const [bar, setBar] = useState(value)
   const dirty = bar !== value
   const bump = (d: number) => setBar((b) => snapBar(b + d))
@@ -700,6 +709,22 @@ function PressureInline({ value, onCommit, alarmBar }: {
   // while dialling it in – before committing, not after
   // ⚠️ the same line the card uses for this Trupp — a crew in Rückzug is held to the lower one
   const low = pressureAlarm(bar, alarmBar ?? dz.alarmBar)
+  if (!open) {
+    return (
+      <button type="button" className={cx(s.zone, s.zoneDruck)} aria-expanded={false}
+        title={az.pressureConfirmHint} onClick={() => setOpen(true)}>
+        <span className={s.zoneDruckRow}>
+          <span className={s.pressureLbl}>
+            {az.currentPressure}
+            {lastAt && <span className={s.zoneDruckWhen}> {fillTemplate(az.pressureLastAt, { time: fmtTime(lastAt) })}</span>}
+          </span>
+          <b className={cx(s.zoneDruckVal, low && s.metaAlarm)}>{value} bar</b>
+        </span>
+        {/* the cue is a text LABEL (it names what the tap does), so it stays in the a11y name */}
+        <span className={s.zoneCue}>{az.zoneDruck}</span>
+      </button>
+    )
+  }
   return (
     <div className={s.pressureBlock}>
       <div className={s.pressureRow}>
@@ -727,23 +752,24 @@ function PressureInline({ value, onCommit, alarmBar }: {
           <Icon id="warn" /><span>{fillTemplate(az.pressureRose, { from: value })}</span>
         </div>
       )}
-      {dirty && (
-        <div className={s.pressureConfirm}>
-          <button type="button" className={s.pConfirm} onClick={() => onCommit(bar)} title={az.pressureConfirmHint}>
-            <Icon id="check" /><span>{az.pressureConfirm}</span>
-          </button>
-          <button type="button" className={s.pCancel} aria-label={az.cancel} title={az.cancel} onClick={() => setBar(value)}>
-            <Icon id="close" />
-          </button>
-        </div>
-      )}
+      <div className={s.pressureConfirm}>
+        <button type="button" className={s.pConfirm} onClick={() => { setOpen(false); onCommit(bar) }} title={az.pressureConfirmHint}>
+          <Icon id="check" /><span>{az.pressureConfirm}</span>
+        </button>
+        {/* ✕ folds the zone back up and throws the pending value away — nothing was logged */}
+        <button type="button" className={s.pCancel} aria-label={az.cancel} title={az.cancel} onClick={() => { setBar(value); setOpen(false) }}>
+          <Icon id="close" />
+        </button>
+      </div>
     </div>
   )
 }
 
 // One big glanceable monitoring card. The dominant element is the contact clock (time since last
-// Funkkontakt) with a large Kontakt reset; the inline Druck control + an expandable Verlauf log
-// sit below, and the lifecycle actions run along the bottom.
+// Funkkontakt) with a large Kontakt reset; the Druck zone sits below, the lifecycle actions run
+// along the bottom, and the Verlauf footer (latest event as preview) closes the card. Since the
+// 29.08. Tapzonen rework three readouts are also targets — clock → timing details, Druck →
+// pending stepper, footer → full log — all open-only: nothing a zone does ever logs.
 /** One Trupp as a single comparable line — see `.rowList` in Atemschutz.module.css for why the
  *  board needs this view at all. The whole row is the button that opens the full card; the only
  *  control that survives onto the row is «Kontakt», because it is the one action the comparison
@@ -832,11 +858,13 @@ function TruppRow({
 }
 
 function TruppCard({
-  t, live, alarm, now, color, canEdit, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse,
+  t, live, alarm, now, color, canEdit, intervalMin, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
   alarm: TruppAlarm
+  /** the Funkkontakt-Intervall (min) — the Kontakt zone's folded times name the next due time */
+  intervalMin: number
   /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors) — set for
    *  every Trupp, automatic ones included */
   color?: string
@@ -871,6 +899,11 @@ function TruppCard({
   // one word differs — the state, the section and the actions are the same (truppNeverDeployed).
   const statusLabel = status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)
   const [logOpen, setLogOpen] = useState(false)
+  /* The Kontakt zone's fold (29.08. Tapzonen): the rarely-needed timing rows (letzter Kontakt,
+   * nächster fällig, Intervall) sit behind a tap on the clock itself, collapsed by default —
+   * the countdown always stays visible. Like every zone on this card it only shows/hides;
+   * commits stay on the explicit buttons. */
+  const [timesOpen, setTimesOpen] = useState(false)
   // ⚠️ The jump has to LAND. Switching to the Überwachung and leaving a wall of cards was the
   // complaint: on a long list the Trupp somebody was sent to was off-screen, so the answer to
   // «why can I not tick this person» was still a search. `flash` flips false→true per jump
@@ -1049,15 +1082,49 @@ function TruppCard({
         <div className={s.preEntry}>{az.preEntryHint}</div>
       ) : (
         <div className={s.contactWrap}>
-          <div
-            className={cx(s.contactClock, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
-            role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
-            aria-label={`${clockState} — ${clockValue} ${clockLabel}`}
-          >
-            <div className={s.contactState}>{clockState}</div>
-            <div className={s.contactVal}>{clockValue}</div>
-            <div className={s.contactLbl}>{clockLabel}</div>
-          </div>
+          {/* KONTAKT zone (29.08. Tapzonen): while a contact clock is running, the clock block is
+              also the tap target that folds the timing details in and out. It is an OPEN-ONLY
+              affordance beside the explicit buttons — it never logs a Kontakt (that stays on the
+              big button below). A Trupp with no running clock (raus, –:––) keeps the plain block. */}
+          {live.sinceContactSec != null ? (
+            <button
+              type="button"
+              className={cx(s.contactClock, s.zoneClock, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
+              aria-expanded={timesOpen} title={az.zoneTimes}
+              onClick={() => setTimesOpen((o) => !o)}
+            >
+              <div
+                role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
+                aria-label={`${clockState} — ${clockValue} ${clockLabel}`}
+              >
+                <div className={s.contactState}>{clockState}</div>
+                <div className={s.contactVal}>{clockValue}</div>
+                <div className={s.contactLbl}>{clockLabel}</div>
+              </div>
+              <span className={s.zoneCue}>{az.zoneTimes}</span>
+            </button>
+          ) : (
+            <div
+              className={cx(s.contactClock, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
+              role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
+              aria-label={`${clockState} — ${clockValue} ${clockLabel}`}
+            >
+              <div className={s.contactState}>{clockState}</div>
+              <div className={s.contactVal}>{clockValue}</div>
+              <div className={s.contactLbl}>{clockLabel}</div>
+            </div>
+          )}
+          {timesOpen && live.sinceContactSec != null && (() => {
+            const lastContactAt = now - live.sinceContactSec * 1000
+            const hm = (t: number) => fmtTime(new Date(t).toISOString())
+            return (
+              <div className={s.zonePanel}>
+                <div className={s.zonePanelRow}><span>{az.lastContactAt}</span><b>{hm(lastContactAt)}</b></div>
+                <div className={s.zonePanelRow}><span>{az.nextContactDue}</span><b>{hm(lastContactAt + intervalMin * 60_000)}</b></div>
+                <div className={s.zonePanelRow}><span>{az.contactIntervalLabel}</span><b>{fillTemplate(az.contactIntervalValue, { min: intervalMin })}</b></div>
+              </div>
+            )
+          })()}
           {canEdit && inField && (
             <button className={cx(s.kontaktBtn, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)} onClick={() => onContact(t.id)}>
               <Icon id="radio" /><span>{az.actContact}</span>
@@ -1100,7 +1167,7 @@ function TruppCard({
           </div>
         )}
         {canEdit && inField ? (
-          <PressureInline key={snapBar(live.currentBar)} value={snapBar(live.currentBar)} alarmBar={line} onCommit={(bar) => onPressure(t.id, bar)} />
+          <PressureZone key={snapBar(live.currentBar)} value={snapBar(live.currentBar)} lastAt={t.lastPressureTime} alarmBar={line} onCommit={(bar) => onPressure(t.id, bar)} />
         ) : (
           <div className={s.metaRow}>
             <span>{az.currentPressure}</span>
@@ -1113,40 +1180,11 @@ function TruppCard({
             <b>{live.lowestBar} bar</b>
           </div>
         )}
-        {readings.length > 0 && (
-          <div className={s.log}>
-            <button className={s.logToggle} onClick={() => setLogOpen((o) => !o)} aria-expanded={logOpen}>
-              <Icon id="history" /><span>{az.verlauf}</span>
-              <Icon id={logOpen ? 'chevron-down' : 'chevron'} className={s.logChev} />
-            </button>
-            {logOpen && (() => {
-              // ⚠️ The log spans EVERY deployment since 18.08. («Wieder einrücken» appends rather
-              // than starting a new one, so the first bottle still prints on the Rapport). The card
-              // header, though, is about the crew that is inside NOW — Eingangsdruck, tiefster
-              // Druck. Without a boundary the two contradict each other: «tiefster Druck 300» over
-              // a row saying 120. Everything before the current run is dimmed and gets a line.
-              const from = currentRunStart(readings)
-              return (
-                <ul className={s.logList}>
-                  {[...readings].reverse().map((r, i) => {
-                    const idx = readings.length - 1 - i
-                    return (
-                      <li key={idx} className={cx(s.logRow, idx < from && s.logRowPast, idx === from && from > 0 && s.logRowRunStart)}>
-                        <span className={s.logTime}>{fmtTime(r.t)}</span>
-                        {/* …and the same on the board: a Kontakt shows no bar, because the one it
-                            carries is the last reported value, not a fresh reading */}
-                        <span className={s.logBar}>{readingBarIsMeasured(r.kind) ? `${r.bar} bar` : ''}</span>
-                        <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )
-            })()}
-          </div>
-        )}
       </div>
 
+      {/* The lifecycle bar below STAYS as-is beside the tap zones above: the zones are OPEN-ONLY
+          affordances (they show a stepper, a panel, a log — they never commit), so the explicit
+          buttons remain the one path that logs. Redundant paths, accepted (29.08.). */}
       {canEdit && t.status === 'angemeldet' && (
         <div className={s.actions}>
           {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
@@ -1190,6 +1228,52 @@ function TruppCard({
           </button>
         </div>
       )}
+      {/* VERLAUF footer (29.08. Tapzonen) — the replacement for the removed «Draussen: hh:mm»
+          line, and honester than it: the preview always carries the LATEST event (Kontakt, Druck,
+          Ausgerückt, …), not just the one special case after coming out. Tapping expands the full
+          per-Trupp log in place; like the zones above, this only shows/hides. */}
+      {readings.length > 0 && (() => {
+        const last = readings[readings.length - 1]
+        const lastWhat = (az.readingKind[last.kind] ?? last.kind)
+          + (readingBarIsMeasured(last.kind) ? ` ${last.bar} bar` : '')
+        return (
+          <div className={s.vfoot}>
+            <button type="button" className={s.vrow} aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
+              <Icon id="history" /><span className={s.vrowLbl}>{az.verlauf}</span>
+              <span className={s.vrowLast}>
+                {fillTemplate(az.verlaufLatest, { time: fmtTime(last.t), what: lastWhat })}
+                {' · '}
+                {readings.length === 1 ? az.verlaufEntryOne : fillTemplate(az.verlaufEntries, { n: readings.length })}
+              </span>
+              <Icon id={logOpen ? 'chevron-up' : 'chevron-down'} className={s.logChev} />
+            </button>
+            {logOpen && (() => {
+              // ⚠️ The log spans EVERY deployment since 18.08. («Wieder einrücken» appends rather
+              // than starting a new one, so the first bottle still prints on the Rapport). The card
+              // header, though, is about the crew that is inside NOW — Eingangsdruck, tiefster
+              // Druck. Without a boundary the two contradict each other: «tiefster Druck 300» over
+              // a row saying 120. Everything before the current run is dimmed and gets a line.
+              const from = currentRunStart(readings)
+              return (
+                <ul className={s.logList}>
+                  {[...readings].reverse().map((r, i) => {
+                    const idx = readings.length - 1 - i
+                    return (
+                      <li key={idx} className={cx(s.logRow, idx < from && s.logRowPast, idx === from && from > 0 && s.logRowRunStart)}>
+                        <span className={s.logTime}>{fmtTime(r.t)}</span>
+                        {/* …and the same on the board: a Kontakt shows no bar, because the one it
+                            carries is the last reported value, not a fresh reading */}
+                        <span className={s.logBar}>{readingBarIsMeasured(r.kind) ? `${r.bar} bar` : ''}</span>
+                        <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )
+            })()}
+          </div>
+        )
+      })()}
     </div>
   )
 }
