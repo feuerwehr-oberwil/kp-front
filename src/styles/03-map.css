@@ -64,25 +64,9 @@
    mutually exclusive — a live vehicle has no local delete) */
 .marker-rotate { left: calc(50% - var(--hbox) / 2 - 3px); top: calc(50% - var(--hbox) / 2 - 3px);
   transform: translate(-50%, -50%); }
-/* (a note's handles no longer live on the corners — see .note-grips below) */
+/* (a note carries no corner handles: tap = panel, drag = move — 29.08. grammar unification) */
 .marker-rotate { background: var(--ink-fill); cursor: grab; touch-action: none; }
 .marker-rotate:active { cursor: grabbing; }
-/* ── selected-note handles: ONE ROW ABOVE THE NOTE, on both surfaces ──
-   Corner orbs work on a square glyph, but a note's pill is short and often narrow — a 28px orb
-   centred on its corner covers the text it belongs to, and puts delete a mis-tap from the pen.
-   The row clears the note entirely and keeps 44px touch targets. */
-.note-grips { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
-  margin-bottom: 11px; display: flex; gap: 9px; z-index: 9; }
-.note-grip { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; padding: 0;
-  display: grid; place-items: center; cursor: pointer; position: relative;
-  color: var(--on-accent-ink); box-shadow: 0 2px 7px rgba(30, 45, 70, .32); }
-/* 44px touch pad without growing the visual orb (parity with .wb-del / .handle) */
-.note-grip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
-.note-grip .i { width: 14px; height: 14px; stroke-width: 2.2; }
-.ng-edit { background: var(--blue); }
-/* neutral: the gear OPENS something, it changes nothing by itself */
-.ng-gear { background: var(--ink-fill); }
-.ng-del { background: var(--red); }
 .ts { position: relative; line-height: 0; border-radius: var(--r-xs); transition: transform .14s var(--ease), box-shadow .14s var(--ease); }
 /* storey badge — signed floor (+2, -1) at the icon's top-right corner. Ink on the surface
    colour, so it reads on any glyph and in both themes: tinting it with the symbol's own colour

@@ -3,7 +3,7 @@ import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
-import { Overlay } from '../lib/overlays'
+import { Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, formatTime } from '../lib/format'
@@ -234,6 +234,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     if (v) onEditText?.(editRow.id, v)
     setEditRow(null)
   }
+  // ── the row's detail sheet (decided 29.08., variant 2) ──
+  // The paperwork actions that used to sit as ~30px icons in the row's trail — Durchhören,
+  // Transkript, the typed row's pen, and the jump to the row's place — live behind a tap on
+  // the ROW now (rendered at the bottom). Only the play circle stays inline: of the row's
+  // actions it is the one that happens mid-incident under time pressure, so it keeps (and
+  // grows) its one-tap spot.
+  const [detailId, setDetailId] = useState<string | null>(null)
   // recordings as windows on the incident timeline: a row whose time falls inside one is
   // an annotation of that recording and links back into the player at its moment
   const audioWindows = useMemo(() => events
@@ -584,8 +591,20 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             // somebody remembered to pin — including the ones written before the toggle existed.
             const rowMs = e.at ? Date.parse(e.at) : NaN
             const seekable = onSeekTo != null && Number.isFinite(rowMs)
-            const clickable = seekable || target != null
-            const onRow = seekable ? () => onSeekTo(e) : target != null ? () => onSelect(e) : undefined
+            // sections written in the player count as transcription too — the amber asks
+            // for words that are missing, not for a particular field to be filled
+            const hasTx = !!e.transcript || !!e.transcriptSections?.length
+            // Rows with paperwork actions (Durchhören / Transkript on a memo, the pen on a
+            // hand-written line) open the detail sheet on their tap — variant 2, 29.08. The
+            // jump the tap used to be moves into the sheet with them. NOT during a Wiedergabe:
+            // there the tap keeps setting the moment, which outranks after-action paperwork.
+            const hasDetail = (!!e.audioUrl && ((!!e.audioMeta && !!onOpenPlayer) || !!onTranscript))
+              || (!!onEditText && isHandWritten(e) && !e.audioUrl)
+            const opensDetail = !seekable && hasDetail
+            const clickable = seekable || opensDetail || target != null
+            const onRow = seekable ? () => onSeekTo(e)
+              : opensDetail ? () => setDetailId(e.id)
+              : target != null ? () => onSelect(e) : undefined
             // …and rows the playhead has not reached yet are the future: shown (the Verlauf stays
             // whole and searchable) but visibly not-yet, so nothing on screen claims to be part of
             // the moment being looked at.
@@ -710,29 +729,14 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       <img src={url} alt="" />
                     </button>
                   ))}
-                  {/* ── Der Stift ──
-                      On everything a HUMAN typed, and on nothing else (lib/verlauf · isHandWritten).
-                      A wrong Strassenname or a Trupp number off by one used to be uncorrectable:
-                      the log is append-only, so the only ways out were a second line saying «oben
-                      falsch» or leaving the error standing on the Rapport. The correction is itself
-                      an appended row (a `textEdit` patch) — the original wording and the corrected
-                      one both stay in the record and in the hash chain, and the line says «korrigiert
-                      HH:MM» so nobody reads the new words as the ones spoken at the time.
-                      ⚠️ NEVER on system rows. «Trupp 2 eingerückt» is the app reporting an action;
-                      rewriting that sentence would make the record state something that did not
-                      happen, which is the one thing this journal exists to prevent.
-                      ⚠️ NOT on audio rows either. Their words live in the transcript, and the
-                      transcript icon beside the play circle is the one way to write them — a
-                      second editor for the row's own «Audionotiz (4s)» label stacked under the
-                      transcript field and read as two competing text boxes for the same entry. */}
-                  {onEditText && isHandWritten(e) && !e.audioUrl && editRow?.id !== e.id && (
-                    <button
-                      className="jr-jump"
-                      title={C.editEntry}
-                      aria-label={C.editEntry}
-                      onClick={(ev) => { ev.stopPropagation(); setEditRow({ id: e.id, value: e.text }) }}
-                    ><Icon id="pen" /></button>
-                  )}
+                  {/* ── Der Stift ist von der Zeile gezogen (29.08., Variante 2) ──
+                      Correcting a hand-written line stays exactly what it was — an appended
+                      `textEdit` patch, both wordings in the record and in the hash chain, the
+                      line says «korrigiert HH:MM» — but the pen now lives in the row's detail
+                      sheet (tap the row), not as an inline icon. It is paperwork, not a 3am
+                      action. Still NEVER on system rows («Trupp 2 eingerückt» is the app
+                      reporting an action), and NOT on audio rows (their words live in the
+                      transcript). See the sheet at the bottom of the drawer. */}
                   {!e.audioUrl && e.at && onOpenPlayer && (() => {
                     // annotation of a recording → jump into the player at this moment
                     const t = Date.parse(e.at)
@@ -747,36 +751,20 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       ><Icon id="wave" /></button>
                     )
                   })()}
-                  {/* ── Durchhören + Transkript, IN der Zeile ──
-                      These were two full-width labelled buttons on a line of their own below the
-                      row. On a phone they never fitted side by side, so every voice memo was a
-                      three-line block and the amber «Transkript ergänzen» shouted louder than the
-                      entry it belonged to — two memos in a row and half the Verlauf was button.
-                      As icons beside the play circle an audio row is one row again, like every
-                      other row. The missing-transcript state keeps its amber, on the icon's frame
-                      rather than as a filled block; the transcript TEXT still gets its own line
-                      below (see .jr-transcript) — that is content, not a control. */}
-                  {e.audioUrl && e.audioMeta && onOpenPlayer && (
-                    <button
-                      className="jr-jump"
-                      title={C.playerOpen}
-                      aria-label={C.playerOpen}
-                      onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(e) }}
-                    ><Icon id="wave" /></button>
+                  {/* ── Durchhören + Transkript sind aus der Zeile gezogen (29.08., Variante 2) ──
+                      They stood as ~30px icons beside the play circle: three equal-weight targets
+                      where only playback is time-critical mid-incident. Both live in the row's
+                      detail sheet now (tap the row) and the play circle is the row's ONE inline
+                      control, grown to the tap floor (.hist-ev .tl-play, 10-journal.css). The
+                      missing-transcript state keeps its amber ON the row — as a chip on the row
+                      meta, since the button that carried it is no longer here. The transcript
+                      TEXT still gets its own lines below (see .jr-subs): content, not a control. */}
+                  {e.audioUrl && onTranscript && !hasTx && (
+                    <span className="jr-media-state jr-tx-miss" title={C.transcriptAdd}>
+                      <Icon id="warn" />
+                      <span>{appConfig.copy.report.transcript}</span>
+                    </span>
                   )}
-                  {e.audioUrl && onTranscript && (() => {
-                    // sections written in the player count as transcription too — the amber asks
-                    // for words that are missing, not for a particular field to be filled
-                    const hasTx = !!e.transcript || !!e.transcriptSections?.length
-                    return (
-                      <button
-                        className={`jr-jump ${hasTx ? '' : 'jr-jump-miss'}`}
-                        title={hasTx ? C.transcriptEdit : C.transcriptAdd}
-                        aria-label={hasTx ? C.transcriptEdit : C.transcriptAdd}
-                        onClick={(ev) => { ev.stopPropagation(); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}
-                      ><Icon id={hasTx ? 'type' : 'warn'} /></button>
-                    )
-                  })()}
                   {e.audioUrl && (
                     <button
                       className={`tl-play ${audio.playing === e.id ? 'playing' : ''}`}
@@ -792,7 +780,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       <span>{mediaStatusOf(e.id) === 'failed' ? C.mediaFailed : C.mediaPending}</span>
                     </span>
                   )}
-                  {clickable && <span className="hist-go" aria-hidden><Icon id={e.pinned ? 'coords' : 'chevron'} /></span>}
+                  {/* a detail-opening row is a chevron even when pinned — the tap opens the
+                      sheet, and the jump to the pinned place lives inside it */}
+                  {clickable && <span className="hist-go" aria-hidden><Icon id={e.pinned && !opensDetail ? 'coords' : 'chevron'} /></span>}
                 </span>
                 {/* the words, as SUBTITLE lines under the row — the plain transcript first (the
                     memo's words as one text, no offset), then the player's timed sections with
@@ -851,6 +841,60 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             </Fragment>
           ))}
         </div>
+        {/* ── the row's detail sheet (variant 2, 29.08.) — see `detailId` above ──
+            One modal Sheet per open row, over the drawer (--z-dialog > --z-drawer). Every action
+            hands over to the machinery that already existed: Durchhören opens the player sheet,
+            Transkript/Text open the inline editors under the row, the jump is the row tap of old
+            («zur Stelle springen» lives here now — the located-note trade-off the variant named). */}
+        {(() => {
+          if (!detailId) return null
+          const e = events.find((x) => x.id === detailId)
+          if (!e) return null
+          const hasTx = !!e.transcript || !!e.transcriptSections?.length
+          const target = targetOf(e)
+          return (
+            <Sheet open onClose={() => setDetailId(null)} fit sheetClassName="jr-detail"
+              title={`${rowTime(e)} · ${e.audioUrl ? C.audioClipLabel : C.composerTitle}`}>
+              {/* the row's own words, and — on a memo — what it says (the list's subtitle chrome) */}
+              <p className="jr-detail-text">{marked(rowText(e))}</p>
+              {e.audioUrl && hasTx && (
+                <div className="jr-subs">
+                  {e.transcript && <p><span>{marked(e.transcript)}</span></p>}
+                  {(e.transcriptSections ?? []).map((s, i) => (
+                    <p key={i}><i>{formatElapsed(s.at)}</i><span>{marked(s.text)}</span></p>
+                  ))}
+                </div>
+              )}
+              <div className="jr-detail-acts">
+                {e.audioUrl && e.audioMeta && onOpenPlayer && (
+                  <button type="button" className="btn"
+                    onClick={() => { setDetailId(null); onOpenPlayer(e) }}>
+                    <Icon id="wave" />{C.playerOpen}
+                  </button>
+                )}
+                {e.audioUrl && onTranscript && (
+                  <button type="button" className={`btn${hasTx ? '' : ' jr-da-miss'}`}
+                    onClick={() => { setDetailId(null); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}>
+                    <Icon id={hasTx ? 'type' : 'warn'} />{hasTx ? C.transcriptEdit : C.transcriptAdd}
+                  </button>
+                )}
+                {onEditText && isHandWritten(e) && !e.audioUrl && (
+                  <button type="button" className="btn"
+                    onClick={() => { setDetailId(null); setEditRow({ id: e.id, value: e.text }) }}>
+                    <Icon id="pen" />{C.editEntry}
+                  </button>
+                )}
+                {target != null && (
+                  <button type="button" className="btn"
+                    onClick={() => { setDetailId(null); onSelect(e) }}>
+                    <Icon id={target === 'plan' ? 'flag' : 'pin'} />
+                    {target === 'plan' ? appConfig.copy.atemschutz.showOnPlan : appConfig.copy.atemschutz.showOnMap}
+                  </button>
+                )}
+              </div>
+            </Sheet>
+          )
+        })()}
     </Overlay>
   )
 }

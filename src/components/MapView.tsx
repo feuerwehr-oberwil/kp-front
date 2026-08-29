@@ -1583,6 +1583,29 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         </Marker>
       )}
 
+      {/* a «+» at each draft segment's midpoint — the same affordance the Messung and the
+          selected drawing carry. Inserting into the in-progress shape used to work only through
+          the line's invisible 18px hit band (l-draft-hit · segInsertIndex), with no sign it was
+          possible at all; the segments now say so, and both routes insert at the same index.
+          Rendered BEFORE the vertices so a node handle wins wherever the two overlap. */}
+      {draftKind && onDraftInsert && draft.length >= 2 && (() => {
+        const n = draft.length
+        return Array.from({ length: pathSegmentCount(n, draftKind === 'area') }, (_, i) => {
+          const a = draft[i], b = draft[(i + 1) % n]
+          const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+          return (
+            <Marker key={`dfi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={handleZ}>
+              <NewNodeHandle title={appConfig.copy.measure.insertPoint}
+                onInsert={(ev) => {
+                  onDraftInsert(i + 1, mid)
+                  // …and the same press keeps dragging the node it just made (see NewNodeHandle)
+                  if (ev && onDraftDrag) handOffNodeDrag(ev, (ll) => { if (ll) onDraftDrag(i + 1, ll) })
+                }} />
+            </Marker>
+          )
+        })
+      })()}
+
       {/* draggable draft vertices (area/line tool) — drag to move, right-click to delete,
           identical to the measurement handles so the in-progress shape edits the same way */}
       {draftKind && draft.map((p, i) => (

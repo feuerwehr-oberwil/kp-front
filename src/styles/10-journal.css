@@ -208,7 +208,12 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    No red: the mark sits on the filled accent button, where red reads as a fault rather than as
    a way out. The lit option is the feedback — none lit means the release does nothing. */
 .tb-act-add .i, .fab-entry .i { transition: transform .18s var(--ease); }
-.tb-act-add.cancelling > .i, .fab-entry.cancelling > .i { transform: rotate(45deg); }
+/* ⚠️ Descendant, not `> .i`: since the ring wrapper (da52f1f, 28.08.) the + sits inside
+   `.tb-act-ic`, and the child selector silently stopped matching — a latched hold showed a
+   label-less button with an un-rotated +, i.e. no visible cancel affordance at all. The only
+   `.i` inside either host is the + itself (the ring is `.tb-hold-ring`, the chooser is
+   portalled to <body>), so the descendant form is exact. */
+.tb-act-add.cancelling .i, .fab-entry.cancelling .i { transform: rotate(45deg); }
 .tb-act-add.cancelling .tb-act-label, .fab-entry.cancelling .tb-act-label { display: none; }
 
 .tb-act-add.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
@@ -848,3 +853,22 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber-strong) 14%, transparent); }
 .jr-media-state .i { width: 12px; height: 12px; }
 .jr-media-state.failed { color: var(--red-strong, #d33); background: color-mix(in srgb, var(--red-strong, #d33) 14%, transparent); }
+/* `.jr-tx-miss` (missing transcript, on the row meta) rides the same amber chip — no own rule. */
+
+/* ── the audio row's ONE inline control (29.08., Variante 2) ──
+   Durchhören and Transkript moved into the row's detail sheet, so the play circle no longer
+   shares the trail with equal-weight neighbours and can afford the tap floor: 40px visible
+   (base .tl-play is 26px, 08-toasts.css) with the shared ::after pad widened to 48px
+   effective (02-base.css gives it 44px). The negative margin keeps the row's rhythm. */
+.hist-ev .tl-play { width: 40px; height: 40px; margin: -5px 0; }
+.hist-ev .tl-play .i { width: 15px; height: 15px; }
+.hist-ev .tl-play::after { width: 48px; height: 48px; }
+
+/* ── the row's detail sheet (Sheet · .jr-detail) ── */
+.jr-detail .jr-detail-text { margin: 0 0 6px; font-size: 13.5px; line-height: 1.45; }
+.jr-detail-acts { display: grid; gap: 8px; margin-top: 12px; }
+.jr-detail-acts .btn { justify-content: flex-start; padding-inline: 12px; }
+/* the amber the inline Transkript button used to carry — same tone, now on the sheet action */
+.jr-detail-acts .btn.jr-da-miss { color: var(--amber-strong);
+  border-color: color-mix(in srgb, var(--amber-strong) 45%, transparent);
+  background: color-mix(in srgb, var(--amber-strong) 10%, transparent); }

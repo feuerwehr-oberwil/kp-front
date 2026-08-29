@@ -119,7 +119,9 @@ interface Props {
    *  name. Their owners paint the 6px ink dot instead. The SELECTED entity is never in here. */
   suppressedLabels?: ReadonlySet<string>
   /** tactical editing is locked (viewer / Führungsansicht / replay): a tap still selects
-   *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView). */
+   *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView).
+   *  Not read in here since the note grips row went (29.08.) — the panel handles read-only
+   *  itself — but the prop stays declared: MapView passes it, and a future grip needs it. */
   readOnly?: boolean
   draggable: boolean
   /** project lng/lat → container px, through the map's LIVE transform (re-anchors a hold-drag on
@@ -144,8 +146,8 @@ interface Props {
   onNoteCommit?: (id: string, text: string) => void
   /** enter inline edit on a note (double-click; placement enters edit via editNoteId) */
   onNoteEdit?: (id: string) => void
-  /** open a note's detail panel (the ⚙ handle). Absent ⇒ no ⚙ — selecting a note never opens
-   *  the panel on its own, unlike a symbol; see the handle block below. */
+  /** open a note's detail panel. Since 29.08. this rides on the SELECT tap itself (see
+   *  selectEntity) — tap = panel, drag = move, the same grammar as a symbol. */
   onNotePanel?: (id: string) => void
   /** drag the note text box's width (screen px). 'start'/'end' carry no width — they only
    *  bracket the gesture so it folds into one undo step. */
@@ -182,7 +184,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)
@@ -369,6 +371,14 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   }
   const noteWUp = () => { const st = noteWRef.current; if (!st) return; noteWRef.current = null; onNoteWidth?.(st.id, undefined, 'end') }
 
+  // ONE select path for every tap that means «this one». A NOTE opens its panel on that same
+  // tap (decided 29.08.) — the symbol grammar, unified: tap = panel, drag = move. The panel
+  // carries edit + Löschen, and a read-only surface opens it read-only.
+  const selectEntity = (ent: Entity) => {
+    onSelect(ent)
+    if (ent.kind === 'note') onNotePanel?.(ent.id)
+  }
+
   // entity markers — guard against malformed entities (e.g. a server workspace
   // missing a coord) so one bad row can't white-screen the whole map
   return (
@@ -427,11 +437,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   hold.begin({ clientX: cx, clientY: cy, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
                     onTap: () => {
                       // already fanned: the spokes ARE the choice, so this tap is the answer
-                      if (fanned) { setFan(null); onSelect(e); return }
+                      if (fanned) { setFan(null); selectEntity(e); return }
                       // more than one candidate under the finger → fan them out instead of
                       // guessing. One candidate → select it straight away, exactly as before.
                       if (pile.length > 1) { openFan(fanOffsets(pile)); return }
-                      onSelect(near)
+                      selectEntity(near)
                     },
                     onHoldStart: () => {
                       // a rotor / shape-transform gesture owns the pointer — never also translate
@@ -470,7 +480,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       setDraggingId(null) // drop the halo once it stops moving
                       endSheetPeek() // …and the sheet comes back to the height it had
                       if (st?.moved && st.last) onMarkerDragEnd(near.id, st.last)
-                      else if (selectedId !== near.id) onSelect(near) // held but never dragged → treat as a select (open the panel)
+                      else if (selectedId !== near.id) selectEntity(near) // held but never dragged → treat as a select (open the panel)
                     },
                     // An already-selected symbol (panel open) drags INSTANTLY like a mouse — move
                     // on the first travel, no hold delay. Unselected touch still needs the deliberate
@@ -661,41 +671,14 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 </>
               )
             })()}
-            {/* Inline delete is kept ONLY for notes — a note's detail panel opens from the ⚙
-                rather than from selection (it is placed mid-sentence; a panel on every tap would
-                be in the way), so the ✕ stays its everyday delete. A note with text asks before
-                deleting. Symbols / shapes / photos drop the field ✕ (too many accidental deletes)
-                and are deleted from their dashboard panel instead. */}
+            {/* ⚠️ The inline ✕ (and the pen/⚙ grips row) is GONE — decided 29.08. The row existed
+                because a note's panel only opened from the ⚙, so the ✕ was its everyday delete;
+                now the panel opens on the TAP itself (see selectEntity above), same grammar as
+                every symbol, and Löschen/edit live in the panel like everywhere else. What a
+                selected note keeps is drag-only: the width grip below (the body moves by
+                hold-drag, as before). Double-tap stays the desktop shortcut into inline edit. */}
             {selectedId === e.id && !e.live && e.kind === 'note' && (
               <>
-                {/* one tidy row ABOVE the note rather than orbs pinned to its corners: a note's
-                    pill is short and often narrow, so corner orbs sat on top of the very text
-                    they belong to — unreadable, and a mis-tap away from deleting. */}
-                {editNoteId !== e.id && (
-                  <div className="note-grips" onPointerDown={(ev) => ev.stopPropagation()}>
-                    {/* double-tap is unreliable on iOS, so a selected note keeps an explicit
-                        edit handle — dblclick stays as the desktop shortcut. Absent when the
-                        surface is read-only: ⚙ then opens the note read-only instead. */}
-                    {onNoteEdit && (
-                      <button className="note-grip ng-edit" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
-                        onClick={(ev) => { ev.stopPropagation(); onNoteEdit(e.id) }}>
-                        <Icon id="pen" />
-                      </button>
-                    )}
-                    {onNotePanel && (
-                      <button className="note-grip ng-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
-                        onClick={(ev) => { ev.stopPropagation(); onNotePanel(e.id) }}>
-                        <Icon id="gear" />
-                      </button>
-                    )}
-                    {!readOnly && (
-                      <button className="note-grip ng-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
-                        onClick={(ev) => { ev.stopPropagation(); onDelete(e.id) }}>
-                        <Icon id="close" />
-                      </button>
-                    )}
-                  </div>
-                )}
                 {/* right-edge width grip — a text box only. A one-line note has nothing to drag;
                     its width IS its text. Native listeners (TransformHandle) so the drag beats
                     react-map-gl's marker drag, same as the shape handles. */}
