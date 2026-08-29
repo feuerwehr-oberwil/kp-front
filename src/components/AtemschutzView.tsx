@@ -207,6 +207,21 @@ export function AtemschutzView({
   // a pressure alarm by how far below its line, a contact alarm by how long out of contact —
   // so the badge, the chip and the board's own sort all point at the same card
   const mostOverdue = [...alarmTrupps].sort((a, b) => urgency(b) - urgency(a))[0]
+  /* Arriving on the board DURING an alarm lands on the due card, marked. The TopBar chip, the
+   * NavRail dot and the OS notification all bring the operator here without saying WHICH card
+   * they meant — so the board points itself, with the exact mark the header badge sets: flash +
+   * scroll (activeFocus → TruppCard/TruppRow). Once per mount only — a later crossing must not
+   * yank the board out from under a working hand (the badge is the hand for that) — and never
+   * over an external jump: a `focus` prop present at mount (a locked Anwesenheit row) already
+   * names its card and wins. */
+  const seededFocus = useRef(false)
+  useEffect(() => {
+    if (seededFocus.current) return
+    seededFocus.current = true
+    if (!focus && mostOverdue) setSelfFocus({ id: mostOverdue.id, nonce: Date.now() })
+    // mount-only by design (see above) — `focus`/`mostOverdue` are read as of arrival
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   /**
    * How the board is arranged:
    *   · «wie gesetzt»  — the DEFAULT: the hand-set order (Trupp.order, synced), so a card keeps
@@ -1166,17 +1181,14 @@ function TruppCard({
           </button>
         </div>
       )}
-      {status === 'raus' && (
-        <>
-          {t.exitTime && <div className={s.exitedNote}>{truppStatusLabel(t)}: {fmtTime(t.exitTime)}</div>}
-          {canEdit && (
-            <div className={s.actions}>
-              <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
-                <Icon id="flag" /><span>{az.actReenter}</span>
-              </button>
-            </div>
-          )}
-        </>
+      {/* No exit timestamp line here: the exit event is in the per-Trupp Verlauf and on the
+          Rapport, and what the Überwacher needs NOW is the running break clock above (outFor). */}
+      {status === 'raus' && canEdit && (
+        <div className={s.actions}>
+          <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
+            <Icon id="flag" /><span>{az.actReenter}</span>
+          </button>
+        </div>
       )}
     </div>
   )

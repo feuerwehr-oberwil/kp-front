@@ -109,6 +109,47 @@ describe('the published rows', () => {
     expect(document.querySelector('.ml-act button')).toBeNull()
   })
 
+  // the tone ⇔ row exception (see the component header): standing on the board, the strip only
+  // covered the very controls the alarm points at — withheld, never acknowledged
+  it('withholds the rows on the board itself, without muting, and hands them back on leaving', () => {
+    const acknowledged: string[] = []
+    const base = { intervalMin: 5, graceSec: 60, onGoToTrupp: () => {}, onAcknowledge: () => acknowledged.push('mute') }
+    const overdue = trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) })
+    const { rerender } = render(
+      <>
+        <AtemschutzAlarmMeldungen trupps={[overdue]} severities={{ a: 2 }} {...base} onBoard />
+        <Meldeleiste />
+      </>,
+    )
+    expect(document.querySelector('.ml-row')).toBeNull()
+    expect(acknowledged).toEqual([]) // withheld is not acknowledged — the device keeps sounding
+    // leaving the board mid-alarm brings the row straight back
+    rerender(
+      <>
+        <AtemschutzAlarmMeldungen trupps={[overdue]} severities={{ a: 2 }} {...base} onBoard={false} />
+        <Meldeleiste />
+      </>,
+    )
+    expect(document.querySelector('.ml-row')).not.toBeNull()
+  })
+
+  it('the visited bookkeeping survives a stay on the board — a dismissed row stays dismissed', () => {
+    const base = { intervalMin: 5, graceSec: 60, onGoToTrupp: () => {} }
+    const overdue = trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) })
+    const strip = (onBoard: boolean) => (
+      <>
+        <AtemschutzAlarmMeldungen trupps={[overdue]} severities={{ a: 2 }} {...base} onBoard={onBoard} />
+        <Meldeleiste />
+      </>
+    )
+    const { rerender } = render(strip(false))
+    fireEvent.click(document.querySelector('button.ml-open')!) // «Zum Trupp» dismisses
+    rerender(strip(true))
+    rerender(strip(false))
+    // the SAME emergency does not resurface just because the operator passed through the board
+    expect(document.querySelector('.ml-row')).toBeNull()
+  })
+
   it('a dismissed row returns when a NEW emergency starts', () => {
     const base = { intervalMin: 5, graceSec: 60, onGoToTrupp: () => {} }
     const overdue = trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) })

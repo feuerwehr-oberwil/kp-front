@@ -149,6 +149,27 @@ export function TruppTeam({
     setTyped('')
     setTyping(false)
   }
+  /* A typed name is COMMITTED, never silently dropped. Enter and «+» were the only commits, so
+   * typing a Gast and then tapping «Trupp starten» (or anything else) discarded the name without
+   * a word — the member the operator could see in the field was not in the Trupp they started.
+   * So the field commits when focus leaves it: the blur lands before the tap's click, which is
+   * exactly what lets the form's submit see the member. Tapping «+» is covered by the same blur
+   * (never twice — the commit clears `typed` before the click could re-read it); the row's own
+   * ✕ is the ONE deliberate discard, so its pointerdown (which fires before the blur) raises a
+   * flag the blur respects. */
+  const typedCancel = useRef(false)
+  const onTypedBlur = () => {
+    if (typedCancel.current) { typedCancel.current = false; return }
+    submitTyped()
+  }
+  // …and once more on unmount, for the teardown paths where no blur fires (the modal closing
+  // around a still-focused field). Via a per-render ref so the cleanup sees the latest text;
+  // after a blur commit `typed` is already empty, so this can never double-add.
+  const flushTyped = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    flushTyped.current = () => { if (!typedCancel.current) submitTyped() }
+  })
+  useEffect(() => () => flushTyped.current?.(), [])
 
   return (
     <div className={s.team}>
@@ -266,10 +287,14 @@ export function TruppTeam({
       {typing ? (
         <div className={s.teamTypeRow}>
           <input
-            ref={typedRef} autoFocus onFocus={caretToEnd} className={s.teamTypeInput} value={typed} maxLength={40}
+            ref={typedRef} autoFocus className={s.teamTypeInput} value={typed} maxLength={40}
             placeholder={az.guestNamePlaceholder} aria-label={az.typeName}
+            // focusing also drops a stale cancel flag (a ✕ press that never became a click)
+            onFocus={(e) => { typedCancel.current = false; caretToEnd(e) }}
             onChange={(e) => setTyped(stripUnprintable(e.target.value))}
+            onBlur={onTypedBlur}
             onKeyDown={(e) => {
+              // Escape empties the field first, so neither a blur nor the unmount flush re-adds it
               if (e.key === 'Enter') { e.preventDefault(); submitTyped() }
               else if (e.key === 'Escape') { setTyped(''); setTyping(false) }
             }}
@@ -278,8 +303,10 @@ export function TruppTeam({
             type="button" className={s.teamTypeAdd} disabled={!typed.trim()}
             title={az.teamAdd} aria-label={az.teamAdd} onClick={submitTyped}
           ><Icon id="plus" /></button>
+          {/* the explicit discard — its pointerdown beats the input's blur (see onTypedBlur) */}
           <button type="button" className={s.slotRemove} aria-label={az.cancel} title={az.cancel}
-            onClick={() => { setTyped(''); setTyping(false) }}><Icon id="close" /></button>
+            onPointerDown={() => { typedCancel.current = true }}
+            onClick={() => { typedCancel.current = false; setTyped(''); setTyping(false) }}><Icon id="close" /></button>
         </div>
       ) : (
         <button type="button" className={s.linkBtn} onClick={() => setTyping(true)}>

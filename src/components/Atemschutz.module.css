@@ -291,9 +291,6 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* re-deploy an exited Trupp — prominent filled action on the otherwise-quiet raus card */
 .actReenter { color: var(--on-accent-ink); background: var(--green); }
 @media (hover: hover) { .actReenter:hover { background: var(--green-solid-hover); } }
-.exitedNote { padding: 11px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-faint);
-  border-top: 1px solid var(--glass-edge); background: var(--fill-soft); }
-
 /* status colour coding on the card top-border + banner (the banner's own dot is gone — see
    AtemschutzView: the one disc on a card is the Truppfarbe, and it means identity) */
 .st-aktiv { border-top-color: var(--green); }

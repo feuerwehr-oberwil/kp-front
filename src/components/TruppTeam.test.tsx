@@ -108,6 +108,63 @@ describe('TruppTeam', () => {
     expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }])
   })
 
+  // Enter and «+» used to be the only commits: typing a Gast and then tapping «Trupp starten»
+  // silently discarded the name — the member the operator could SEE was not in the Trupp they
+  // started. The field now commits when focus leaves it, which lands before any tap's click.
+  it('commits a typed name when focus leaves the field', () => {
+    const onChange = setup()
+    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
+    const input = screen.getByLabelText('Name eingeben …')
+    fireEvent.change(input, { target: { value: 'Nachbarwehr Keller' } })
+    fireEvent.blur(input)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }])
+  })
+
+  // tapping «+» blurs the field first — the blur is the commit, and the click that follows must
+  // not add the same name a second time
+  it('does not double-add when the blur and the «+» click race', () => {
+    const onChange = setup()
+    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
+    const input = screen.getByLabelText('Name eingeben …')
+    fireEvent.change(input, { target: { value: 'Nachbarwehr Keller' } })
+    const plus = screen.getByRole('button', { name: 'Hinzufügen' })
+    fireEvent.blur(input, { relatedTarget: plus })
+    fireEvent.click(plus)
+    expect(onChange).toHaveBeenCalledTimes(1)
+  })
+
+  // …the row's own ✕ is the ONE deliberate discard: its pointerdown beats the blur, so the
+  // name the operator is throwing away is not snuck into the Trupp on the way out
+  it('lets the ✕ discard the typed name without the blur committing it', () => {
+    const onChange = setup()
+    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
+    const input = screen.getByLabelText('Name eingeben …')
+    fireEvent.change(input, { target: { value: 'Tippfehler' } })
+    const cancel = screen.getByRole('button', { name: 'Abbrechen' })
+    fireEvent.pointerDown(cancel)
+    fireEvent.blur(input, { relatedTarget: cancel })
+    fireEvent.click(cancel)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  // the modal can be torn down around a still-focused field (no blur fires then) — the typed
+  // Gast must reach the Trupp anyway
+  it('commits a typed name on unmount', () => {
+    const onChange = vi.fn<(next: Slot[]) => void>()
+    const { unmount } = render(
+      <TruppTeam
+        value={[]} onChange={onChange} personnel={personnel} legacyRoster={[]}
+        presentIds={new Set()} assignedIds={new Set()}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
+    fireEvent.change(screen.getByLabelText('Name eingeben …'), { target: { value: 'Nachbarwehr Keller' } })
+    unmount()
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }])
+  })
+
   // an empty slot looks like the field it is not — the tap has to hand the caret on, or the
   // first-time user sits there waiting for a keyboard that never opens
   it('points an empty slot at the search field instead of becoming one', () => {
