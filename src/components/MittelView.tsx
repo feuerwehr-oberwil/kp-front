@@ -15,7 +15,7 @@ import type { MittelEntry, MittelStatus } from '../types'
 import {
   visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
   mittelRecommendations, defaultSourceFor,
-  type CurrentMittel, type MittelListCell, type MittelListRow, type SymbolMatch,
+  type CurrentMittel, type MittelListCell, type MittelListRow, type MittelRecommendation, type SymbolMatch,
 } from '../lib/mittel'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import s from './Mittel.module.css'
@@ -247,16 +247,23 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const [recHiddenSig, setRecHiddenSig] = useState('')
   const recSig = recommended.map((r) => `${r.item.id}:${r.missing}`).join('|')
   const showRecs = recommended.length > 0 && recSig !== recHiddenSig
-  /** book everything missing onto its Bestand's default source, as the running total each line
-   *  would then show — the same write path as the steppers, so the Verlauf rows read the same */
-  const takeRecommended = () => {
-    for (const r of recommended) {
-      const src = sources.find((x) => x.id === defaultSourceFor(r.item))
-      const unit = r.item.unit || appConfig.mittel.defaultUnit
-      const key = { materialId: r.item.id, label: r.item.label, unit, sourceId: src?.id, sourceLabel: src?.label }
-      onSave({ ...key, menge: currentMengeFor(entries, key) + r.missing })
-    }
+  /** append a missing count onto ONE material+source line, as the running total that line would
+   *  then show — the same write path as the steppers, so the Verlauf rows read the same */
+  const book = (item: DeploymentMittelItem, sourceId: string | undefined, missing: number) => {
+    const src = sources.find((x) => x.id === sourceId)
+    const unit = item.unit || appConfig.mittel.defaultUnit
+    const key = { materialId: item.id, label: item.label, unit, sourceId: src?.id, sourceLabel: src?.label }
+    onSave({ ...key, menge: currentMengeFor(entries, key) + missing })
   }
+  /** the fully unambiguous one-tap: book everything onto its Bestand's default source */
+  const takeRecommended = () => {
+    for (const r of recommended) book(r.item, defaultSourceFor(r.item), r.missing)
+  }
+  // ANY recommendation ambiguous (several candidate materials for a symbol, and/or several
+  // stocked sources)? Then one-tap would book a guess — the button reads «Erfassen …» and opens
+  // the picker sheet, which asks all open questions in one go (decision 29.08., mockup 2).
+  const recAmbiguous = recommended.some((r) => r.ambiguous)
+  const [picking, setPicking] = useState(false)
 
   return (
     <>
@@ -350,7 +357,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
               list: recommended.map((r) => (r.missing > 1 ? `${r.missing}× ${r.item.label}` : r.item.label)).join(' · '),
             })}
           </span>
-          <button type="button" className={s.recTake} onClick={takeRecommended}>{M.lageStripTake}</button>
+          <button type="button" className={s.recTake} onClick={recAmbiguous ? () => setPicking(true) : takeRecommended}>
+            {recAmbiguous ? M.lageStripCapture : M.lageStripTake}
+          </button>
           <button type="button" className={s.recHide} onClick={() => setRecHiddenSig(recSig)}
             title={M.lageStripHide} aria-label={M.lageStripHide}>
             <Icon id="close" />
@@ -505,6 +514,14 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
       )}
       </div>
 
+      {picking && (
+        <MittelPickSheet
+          M={M} recommendations={recommended} sources={sources} catalogue={catalogue} entries={entries}
+          onCancel={() => setPicking(false)}
+          onConfirm={(picks) => { for (const p of picks) book(p.item, p.sourceId, p.missing); setPicking(false) }}
+        />
+      )}
+
       {noteFor && (
         <MittelLineDialog
           M={M} target={noteFor} sources={sources} units={units}
@@ -514,6 +531,111 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
         />
       )}
     </>
+  )
+}
+
+/** The «Gesetzt, aber nicht erfasst» picker sheet — opened by the strip's «Erfassen …» whenever
+ *  ANY recommendation is ambiguous (several candidate materials for one symbol — a Lüfter can be
+ *  the Elektrolüfter, the Hochleistungslüfter or the Exhauster — and/or several stocked sources).
+ *  One group per open symbol: big radio rows carrying Typ + Quelle + Restbestand. The unambiguous
+ *  rest stands pre-ticked below — a glance, not a decision. The footer counts the open questions
+ *  and books everything in one go through the same write path as the one-tap «Übernehmen»
+ *  (MittelView · book), just with the chosen targets instead of defaultSourceFor. */
+function MittelPickSheet({ M, recommendations, sources, catalogue, entries, onCancel, onConfirm }: {
+  M: typeof appConfig.copy.mittel
+  recommendations: MittelRecommendation[]
+  sources: DeploymentMittelSource[]
+  catalogue: DeploymentMittelItem[]
+  entries: MittelEntry[]
+  onCancel: () => void
+  onConfirm: (picks: { item: DeploymentMittelItem; sourceId?: string; missing: number }[]) => void
+}) {
+  const srcLabel = (id: string | undefined) => sources.find((x) => x.id === id)?.label
+  // one radio option = one way to book a symbol: a candidate material AT one stocked source.
+  // A candidate stocked nowhere still books — just without a Quelle, like the one-tap would.
+  const optionsFor = (r: MittelRecommendation) => r.candidates.flatMap((c) =>
+    (c.sources.length ? c.sources : [undefined]).map((sourceId) => ({
+      item: c.item, sourceId, key: `${c.item.id}|${sourceId ?? ''}`,
+    })))
+  /** what «noch N» would still stand at this source if the option is picked from it: configured
+   *  stock minus what the sheet already carries on that exact line (display-only arithmetic,
+   *  the same as the list's StockDots) */
+  const remainingFor = (item: DeploymentMittelItem, sourceId: string | undefined) => {
+    const avail = availableFor(catalogue, item.id, sourceId)
+    if (avail === undefined) return undefined
+    const unit = item.unit || appConfig.mittel.defaultUnit
+    const used = currentMengeFor(entries, { materialId: item.id, label: item.label, unit, sourceId, sourceLabel: srcLabel(sourceId) })
+    return Math.max(0, avail - used)
+  }
+  const ambiguous = recommendations.filter((r) => r.ambiguous)
+  const settled = recommendations.filter((r) => !r.ambiguous)
+  // the picked option per ambiguous recommendation (keyed by its lead item), starting EMPTY —
+  // the strip could not answer these questions, so the sheet must not pre-answer them either
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  const openCount = ambiguous.filter((r) => !picked[r.item.id]).length
+  const confirm = () => {
+    onConfirm(recommendations.map((r) => {
+      const opt = r.ambiguous ? optionsFor(r).find((o) => o.key === picked[r.item.id]) : undefined
+      return opt
+        ? { item: opt.item, sourceId: opt.sourceId, missing: r.missing }
+        : { item: r.item, sourceId: defaultSourceFor(r.item), missing: r.missing }
+    }))
+  }
+  // group heading = the strip's wording for the same fact («2× Lüfter» when two are missing)
+  const groupLabel = (r: MittelRecommendation) => (r.missing > 1 ? `${r.missing}× ${r.item.label}` : r.item.label)
+  const missingTotal = recommendations.reduce((sum, r) => sum + r.missing, 0)
+  return (
+    <Sheet open fit title={M.lagePickTitle} onClose={onCancel}
+      footer={<>
+        <button type="button" className="ip-btn" onClick={onCancel}>{M.cancel}</button>
+        {/* the counting footer: while questions are open it SAYS so instead of greying out
+            mutely; answered, it counts what one tap will book (3am tenet — no surprises) */}
+        <button type="button" className="ip-btn primary" disabled={openCount > 0} onClick={confirm}>
+          {openCount > 0
+            ? (openCount === 1 ? M.lagePickOpenOne : fillTemplate(M.lagePickOpen, { n: openCount }))
+            : (recommendations.length === 1 ? M.lagePickConfirmOne : fillTemplate(M.lagePickConfirm, { n: recommendations.length }))}
+        </button>
+      </>}
+    >
+      <p className={s.pickSub}>{missingTotal === 1 ? M.lagePickSubOne : fillTemplate(M.lagePickSub, { n: missingTotal })}</p>
+      {ambiguous.map((r) => (
+        <div key={r.item.id} className={s.pickGroup} role="radiogroup" aria-label={groupLabel(r)}>
+          <h3 className={s.pickGroupHead}>
+            {groupLabel(r)}
+            {/* several candidates → the question is «which one»; one candidate on several
+                sources → the question is only «from where» */}
+            <small>{r.candidates.length > 1 ? M.lagePickGroupHint : `${M.lagePickGroupHint} · ${M.lagePickGroupSourceHint}`}</small>
+          </h3>
+          {optionsFor(r).map((o) => {
+            const on = picked[r.item.id] === o.key
+            const remaining = remainingFor(o.item, o.sourceId)
+            return (
+              <button
+                key={o.key} type="button" role="radio" aria-checked={on}
+                className={cx(s.pickOpt, on && s.pickOptOn)}
+                onClick={() => setPicked((cur) => ({ ...cur, [r.item.id]: o.key }))}
+              >
+                <span className={s.pickRadio} aria-hidden />
+                <span className={s.pickTxt}><b>{o.item.label}</b><small>{srcLabel(o.sourceId) ?? M.noSource}</small></span>
+                {remaining !== undefined && <span className={s.pickStk}>{fillTemplate(M.noch, { n: remaining })}</span>}
+              </button>
+            )
+          })}
+        </div>
+      ))}
+      {settled.length > 0 && (
+        <div className={s.pickGroup}>
+          <h3 className={s.pickGroupHead}>{M.lagePickUnambiguous} <small>{M.lagePickUnambiguousSub}</small></h3>
+          {settled.map((r) => (
+            <div key={r.item.id} className={cx(s.pickOpt, s.pickFixed)}>
+              <span className={s.pickTick} aria-hidden><Icon id="check" /></span>
+              <span className={s.pickTxt}><b>{r.item.label}</b><small>{srcLabel(defaultSourceFor(r.item)) ?? M.noSource}</small></span>
+              <span className={s.pickStk}>{r.missing} {r.item.unit || appConfig.mittel.defaultUnit}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Sheet>
   )
 }
 
