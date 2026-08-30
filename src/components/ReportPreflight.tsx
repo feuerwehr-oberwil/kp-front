@@ -1723,10 +1723,15 @@ export function ReportPreflight({
                         </a>
                       )}
                     </div>
-                    <button type="button" className="ip-btn"
-                      onClick={() => { setKontaktperson(''); setKontaktTel(''); persist({ kontaktperson: undefined, kontaktpersonTelefon: undefined, kontaktpersonNone: true }) }}>
-                      {P.entfaellt}
-                    </button>
+                    {/* only while BOTH halves are empty (30.08.): «Entfällt» beside a typed
+                        name contradicted it — the tap would silently wipe real content. Once
+                        something is typed, the ✕ is the way back to the empty state. */}
+                    {!kontaktperson.trim() && !kontaktTel.trim() && (
+                      <button type="button" className="ip-btn"
+                        onClick={() => { persist({ kontaktperson: undefined, kontaktpersonTelefon: undefined, kontaktpersonNone: true }) }}>
+                        {P.entfaellt}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
