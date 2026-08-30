@@ -1,4 +1,4 @@
-"""Media: upload photos/audio to object storage, stream them back (auth required).
+"""Media: upload photos/audio/generic Beilagen to object storage, stream them back (auth required).
 
 The workspace blob references a media id/URL instead of an inline blob, so history keeps
 the file. Returned URL is same-origin (`/api/media/{id}`).
@@ -46,13 +46,38 @@ _EXT = {
     "audio/mp4": ".m4a",
     "audio/x-m4a": ".m4a",
     "audio/m4a": ".m4a",
+    "application/pdf": ".pdf",
+    "text/plain": ".txt",
+    "text/csv": ".csv",
+    "application/zip": ".zip",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.oasis.opendocument.text": ".odt",
+    "application/vnd.oasis.opendocument.spreadsheet": ".ods",
 }
 
-# Allowlist: only the image/audio types we know how to store and serve back. Anything else
-# (executables, html, octet-stream) is rejected with 415 so a stored blob can't be a vector.
+# Allowlist: only the types we know how to store and serve back. Anything else (executables,
+# html, octet-stream) is rejected with 415 so a stored blob can't be a vector.
 # The M4A trio covers Apple Voice Memos exports across inconsistent browser MIME labelling.
 _ALLOWED_PHOTO = {"image/jpeg", "image/png", "image/webp"}
 _ALLOWED_AUDIO = {"audio/webm", "audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/x-m4a", "audio/m4a"}
+# kind='file' — the generic Beilage the journal's upload button takes (a PDF from the
+# Gebäudeeigentümer, a Stoffdatenblatt, a list). ⚠️ Served back as a DOWNLOAD, never inline
+# (see get_media): these are documents, and an inline document is a rendering engine.
+_ALLOWED_FILE = {
+    "application/pdf",
+    "text/plain",
+    "text/csv",
+    "application/zip",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.spreadsheet",
+}
 _M4A_TYPES = {"audio/mp4", "audio/x-m4a", "audio/m4a"}
 
 # External Voice Memos can be hours long — stream to disk in chunks (never file.read() the
@@ -74,14 +99,14 @@ async def upload_media(
     kind: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    if kind not in ("photo", "audio"):
-        raise HTTPException(status_code=422, detail="kind muss 'photo' oder 'audio' sein")
+    if kind not in ("photo", "audio", "file"):
+        raise HTTPException(status_code=422, detail="kind muss 'photo', 'audio' oder 'file' sein")
     inc = (await db.execute(select(Incident.id).where(Incident.id == incident_id))).scalar_one_or_none()
     if inc is None:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
 
     content_type = file.content_type or "application/octet-stream"
-    allowed = _ALLOWED_PHOTO if kind == "photo" else _ALLOWED_AUDIO
+    allowed = {"photo": _ALLOWED_PHOTO, "audio": _ALLOWED_AUDIO}.get(kind, _ALLOWED_FILE)
     if content_type not in allowed:
         raise HTTPException(
             status_code=415,
@@ -139,14 +164,53 @@ def _deny_media_outside_link_scope(request: Request, media: Media) -> None:
         raise HTTPException(status_code=404, detail="Medium nicht gefunden")
 
 
+# A Content-Disposition filename must survive every OS and every proxy — and it BEATS the
+# client's `download` attribute, so it is the only place the operator's own name can come from.
+_MAX_DISPOSITION_LEN = 150
+
+
+def _disposition_name(given: str | None, media_id: uuid.UUID, ext: str) -> str:
+    """The name a Beilage is saved under: the operator's own, sanitised, or the id fallback.
+
+    The store has no filename column, so the journal row hands its name over as ``?name=``.
+    Path separators and non-printable characters are dropped and the length is capped; the
+    STORED content type stays authoritative for the extension (a name lacking it — or claiming
+    a different one — gets the stored one appended), so the MIME allowlist keeps deciding what
+    the saved file is, never the query string. Anything that sanitises to nothing falls back.
+    """
+    fallback = f"beilage-{media_id}{ext}"
+    cleaned = "".join(c for c in (given or "")[: _MAX_DISPOSITION_LEN * 2] if c.isprintable() and c not in "/\\")
+    stem = cleaned.strip().strip(".")
+    if ext and stem.lower().endswith(ext.lower()):
+        stem = stem[: -len(ext)]
+    stem = stem[: max(_MAX_DISPOSITION_LEN - len(ext), 1)].strip().strip(".")
+    return f"{stem}{ext}" if stem else fallback
+
+
 @router.get("/media/{media_id}")
 async def get_media(
-    media_id: uuid.UUID, request: Request, _user: CurrentUser, db: AsyncSession = Depends(get_db)
+    media_id: uuid.UUID,
+    request: Request,
+    _user: CurrentUser,
+    name: str | None = None,
+    db: AsyncSession = Depends(get_db),
 ) -> FileResponse:
     media = (await db.execute(select(Media).where(Media.id == media_id))).scalar_one_or_none()
     if media is None or not storage.exists(media.storage_key):
         raise HTTPException(status_code=404, detail="Medium nicht gefunden")
     _deny_media_outside_link_scope(request, media)
+    # ⚠️ A generic Beilage goes out as a DOWNLOAD (`filename=` sets Content-Disposition:
+    # attachment), never inline: a stored document must not be rendered by the browser inside
+    # the app's own origin. That header also OVERRIDES the client's `download` attribute, so the
+    # operator's own filename has to arrive here — the journal chip appends `?name=` (Journal.tsx)
+    # and `_disposition_name` sanitises it; without it the row falls back to `beilage-<id><ext>`.
+    if media.kind == "file":
+        ext = _EXT.get(media.content_type or "") or mimetypes.guess_extension(media.content_type or "") or ""
+        return FileResponse(
+            storage.local_path(media.storage_key),
+            media_type=media.content_type or None,
+            filename=_disposition_name(name, media.id, ext),
+        )
     return FileResponse(storage.local_path(media.storage_key), media_type=media.content_type or None)
 
 
@@ -209,7 +273,7 @@ def _build_archive(stored: list[Media], manifest: dict, path: str) -> None:
         for m in stored:
             counts[m.kind] = counts.get(m.kind, 0) + 1
             ext = _EXT.get(m.content_type or "") or mimetypes.guess_extension(m.content_type or "") or ""
-            kind_name = "foto" if m.kind == "photo" else m.kind
+            kind_name = {"photo": "foto", "file": "beilage"}.get(m.kind, m.kind)
             name = f"{kind_name}-{counts[m.kind]:02d}-{m.created_at:%Y%m%d-%H%M%S}{ext}"
             digest = hashlib.sha256()
             with (

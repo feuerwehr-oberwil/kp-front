@@ -2005,6 +2005,9 @@ export function IncidentWorkspace({
       // structured fields travel along for filtering, not for display.
       icon, text: composeJournalText(body, d), kind, entryType: d.entryType, reminder,
       audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
+      // …already SERVER urls (a generic Beilage is uploaded during save, never queued), so
+      // nothing here has to be swapped later the way a photo's blob: URL is
+      files: d.files,
       // an imported memo lands at its confirmed recording start; everything else at composer-open
       at: (imported ? d.audioMeta?.startedAt : undefined) ?? composerOpenedAt.current ?? undefined,
       surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined,
@@ -2131,6 +2134,10 @@ export function IncidentWorkspace({
 
   const pickShape = (kind: ShapeKind) => { setTool('shape'); setPending(null); setPendingShape(kind); setPaletteOpen(false) }
 
+  // A real, stationary tap on the map — MapView drops the click that merely trails a pan or a
+  // pinch before it ever gets here (see its panGesture note), so moving the map neither places
+  // anything nor reaches the deselect at the end of this chain. On a phone that deselect IS the
+  // detail sheet's dismiss, and it used to fire on every pan.
   const onMapClick = (c: LngLat) => {
     setTwinView(null); setContentTwinView(null)
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
@@ -5024,6 +5031,9 @@ export function IncidentWorkspace({
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
+          // generic Beilagen (PDF & Co.) ride the same endpoint under kind 'file' — the server
+          // hands those back as a download, never inline (backend/app/api/media.py)
+          uploadFile={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'file', filename)}
         />
       )}
       {sharePick && (

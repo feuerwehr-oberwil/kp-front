@@ -323,7 +323,7 @@ class Media(Base):
     incident_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # 'photo' | 'audio'
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # 'photo' | 'audio' | 'file'
     storage_key: Mapped[str] = mapped_column(Text, nullable=False)
     content_type: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)

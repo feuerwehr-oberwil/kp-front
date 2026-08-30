@@ -434,6 +434,11 @@ export interface TimelineEvent {
    *  to REPLACE the first. `photoUrl` above is the single-photo shape every row written before
    *  2026-08-06 carries; readers take both (see lib/verlauf · rowPhotos). */
   photoUrls?: string[]
+  /** Beilagen that are neither picture nor recording (PDF, Dokument, Tabelle): the row shows a
+   *  named chip that downloads the file. The URL is ALWAYS a server url — a generic file is
+   *  uploaded during save and never enters the offline queue (same rule as an imported memo,
+   *  see lib/audioImport), so there is no blob: URL to swap here. */
+  files?: { url: string; name: string }[]
   /** which screen the event happened on — shown as a chip, drives the jump target */
   surface?: Surface
   // --- map jump target ---
