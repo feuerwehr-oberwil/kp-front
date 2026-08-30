@@ -571,6 +571,21 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    overlapping symbol or Trupp own the contested pixel. */
 .line-end-tag-wrap { pointer-events: auto; touch-action: none; }
 
+/* Gebäude rotation popover (30.08.) — the one visible control both compass doors open */
+.wb-orient-popup { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); }
+.wb-orient-pop { display: flex; flex-direction: column; gap: 10px; padding: 13px 15px; min-width: 250px; }
+.wb-orient-row { display: flex; align-items: center; gap: 10px; }
+.wb-orient-lbl { font-size: 12px; font-weight: 700; color: var(--ink-dim); flex: none; }
+.wb-orient-row input[type=range] { flex: 1 1 auto; min-width: 0; height: var(--tap); accent-color: var(--blue); cursor: pointer; }
+.wb-orient-val { font-family: var(--mono); font-size: 13px; font-weight: 700; min-width: 42px; text-align: right; }
+.wb-orient-chips { display: flex; gap: 8px; }
+.wb-orient-chip { flex: 1 1 0; min-height: var(--tap); padding: 0 10px; border: none; cursor: pointer;
+  border-radius: var(--r-sm); background: var(--surface-2); font: 700 12.5px var(--body); color: var(--ink); }
+.wb-orient-chip:active { background-image: linear-gradient(var(--press), var(--press)); }
+.wb-orient-chip.on { background: color-mix(in srgb, var(--blue) 14%, var(--surface-2));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 40%, transparent); color: var(--blue-strong); }
+
 /* FKS hose-line decorations — shared by the Lage map (in a Marker) and the Plan (wb-line-deco) */
 .line-fork { display: block; }
 .line-end-tag { display: inline-grid; place-items: center; padding: 2px 6px; border: 1.5px solid currentColor;

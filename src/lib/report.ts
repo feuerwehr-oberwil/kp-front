@@ -1,4 +1,4 @@
-import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
@@ -98,8 +98,11 @@ export function hasVisiblePlanAnnotation(board: BoardDoc, planId: string): boole
   })
 }
 
-export function annotatedPlans(plans: PlanDocument[], board: BoardDoc, includeAll: boolean): PlanDocument[] {
-  return includeAll ? plans : plans.filter((p) => hasVisiblePlanAnnotation(board, p.id))
+/** `twinAnnos` (30.08.): mirrored Karte content projected onto a linked sheet counts as an
+ *  annotation too — the field drew the whole Lage on the map, saw it standing on the Modul,
+ *  and the printed Rapport attached nothing because the sheet itself carried no stroke. */
+export function annotatedPlans(plans: PlanDocument[], board: BoardDoc, includeAll: boolean, twinAnnos?: Record<string, BoardAnno[]>): PlanDocument[] {
+  return includeAll ? plans : plans.filter((p) => hasVisiblePlanAnnotation(board, p.id) || (twinAnnos?.[p.id]?.length ?? 0) > 0)
 }
 
 export function planLabel(plan: PlanDocument | undefined, floor?: number): string {

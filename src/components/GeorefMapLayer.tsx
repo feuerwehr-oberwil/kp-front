@@ -93,15 +93,13 @@ export function GeorefMapMarks({ mode, map }: { mode: GeorefModeState; map: MlMa
           >
             {placing ? (
               <span className={`${cls} ${s.inert}`} style={style}
-                data-georef-cross-side="map" data-georef-cross-slot={i} aria-hidden>
+                aria-hidden>
                 {crossSvg}<span className={s.badge}>{i + 1}</span>
               </span>
             ) : (
               <button type="button" className={cls} style={style}
                 title={label}
                 aria-label={label}
-                data-georef-cross-side="map"
-                data-georef-cross-slot={i}
                 onClick={(e) => {
                   e.stopPropagation()
                   if (Date.now() - draggedAt.current < 250) return

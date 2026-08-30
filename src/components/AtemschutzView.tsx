@@ -1449,6 +1449,8 @@ function TruppForm({
               <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
             </div>
 
+            {/* «Auftrag offen» flashes BOTH halves of the answer — «Art» AND «Auftrag / Ziel»
+                (field decision 30.08.): the gap on the card is the pair, not one field. */}
             <div ref={auftragRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
               <span>{az.auftragLabel}</span>
               <Segmented
@@ -1458,7 +1460,7 @@ function TruppForm({
                 options={cfg.auftrag.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
               />
             </div>
-            <label className={s.field}>
+            <label className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
               <span>{az.zielLabel}</span>
               {/* ✕: a Trupp that comes back and goes in again gets a NEW order, and the old one
                   is not a starting point for typing it — «2. OG Wohnung Nord, 2 Personen

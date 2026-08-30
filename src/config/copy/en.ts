@@ -1263,6 +1263,7 @@ export const en: Localizable<Copy> = {
     trailCleared: '{name}: trail cleared',
     teamColor: 'Color',
     trails: 'Trails',
+    trailCount: '{n} marked positions',
     trailsOn: 'Show trails',
     trailsOff: 'Hide trails',
     deleteLocked: 'Team with recorded history – clear the trail first',
@@ -1312,7 +1313,8 @@ export const en: Localizable<Copy> = {
     northTitle: 'North direction – building rotated to its long axis',
     orientNorthUp: 'North up',
     orientLongAxis: 'Rotate to long axis',
-    orientDragHint: 'Drag to rotate freely',
+    orientMenuTitle: 'Rotate building',
+    orientSliderLabel: 'Rotation',
 
     groupDeletedN: '{n} objects deleted from the plan',
   },

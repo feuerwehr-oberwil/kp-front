@@ -27,7 +27,7 @@ import {
 import { missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { incidentDays } from '../lib/zeitplanFormat'
-import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
 import { PersonField } from './PersonField'
@@ -221,7 +221,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, twinAnnos, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -272,6 +272,9 @@ export function ReportPreflight({
   }
   /** plan whiteboard annotations — server-rendered annotated Objektplan pages */
   board?: BoardDoc
+  /** mirrored Karte content per linked plan (workspace · printTwinAnnos) — printed with the
+   *  sheet's own annos, and enough on its own for a plan to count as annotated */
+  twinAnnos?: Record<string, BoardAnno[]>
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
@@ -795,7 +798,7 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
-        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, twinAnnos, building,
         // the printed journal marks the same terms the app marks (lib/journalLinks)
         vocab: journalVocabulary(personnel, attendance),
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
@@ -828,7 +831,7 @@ export function ReportPreflight({
     if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
     warmedRef.current = true
     const payload = buildDirectReportPayload({
-      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, twinAnnos, building,
       roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
     })
     void prewarmPrint(editorPrintTransport(), incident.id, payload)
@@ -849,7 +852,7 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       const payload = buildDirectReportPayload({
-        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, twinAnnos, building,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
@@ -1723,10 +1726,15 @@ export function ReportPreflight({
                         </a>
                       )}
                     </div>
-                    <button type="button" className="ip-btn"
-                      onClick={() => { setKontaktperson(''); setKontaktTel(''); persist({ kontaktperson: undefined, kontaktpersonTelefon: undefined, kontaktpersonNone: true }) }}>
-                      {P.entfaellt}
-                    </button>
+                    {/* only while BOTH halves are empty (30.08.): «Entfällt» beside a typed
+                        name contradicted it — the tap would silently wipe real content. Once
+                        something is typed, the ✕ is the way back to the empty state. */}
+                    {!kontaktperson.trim() && !kontaktTel.trim() && (
+                      <button type="button" className="ip-btn"
+                        onClick={() => { persist({ kontaktperson: undefined, kontaktpersonTelefon: undefined, kontaktpersonNone: true }) }}>
+                        {P.entfaellt}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

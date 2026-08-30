@@ -1796,6 +1796,7 @@ export const de = {
     trailCleared: '{name}: Spur gelöscht',
     teamColor: 'Farbe',
     trails: 'Spuren',
+    trailCount: '{n} markierte Positionen',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
     deleteLocked: 'Trupp mit erfasstem Verlauf – zuerst Spur löschen',
@@ -1878,9 +1879,9 @@ export const de = {
     northTitle: 'Nordrichtung – Gebäude auf Längsachse gedreht',
     orientNorthUp: 'Norden oben',
     orientLongAxis: 'Auf Längsachse drehen',
-    // appended to BOTH orientation controls' tooltips (dial + rail compass): the tap flips
-    // between the two named angles, the drag is the free rotation nobody would otherwise find
-    orientDragHint: 'Ziehen dreht frei',
+    // the rotation popover both compass doors open (30.08. – replaces the hidden dial drag)
+    orientMenuTitle: 'Gebäude drehen',
+    orientSliderLabel: 'Drehung',
   },
   contextPanel: {
     titlePlaceholder: 'Bezeichnung …',

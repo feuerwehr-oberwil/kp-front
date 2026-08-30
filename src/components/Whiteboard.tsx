@@ -17,7 +17,7 @@ import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/tr
 import { nextTeamName } from '../lib/placedTrupps'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
-import { Menu, Overlay } from '../lib/overlays'
+import { Menu, Overlay, Popover } from '../lib/overlays'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -2178,13 +2178,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     onReorient({ ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
     emit('building.reorient', { northUp: toDeg === 0, deg: toDeg, planId: activeId })
   }
-  // TAP keeps the original flip: north-up when rotated (however far), the long axis when north-up
-  const reorient = () => reorientTo(viewAngle === 0 ? orientDeg : 0)
-
-  // ── dial DRAG (A8) ── the finger's angle around the dial centre, tracked incrementally so a
-  // rotation past ±180° accumulates instead of wrapping. Within ~5° of the two meaningful
-  // angles — north-up and the long axis — the dial snaps, live in the preview so the catch is
-  // visible before release. A press that never travels stays a click (the flip above).
+  // ── rotation popover (30.08., replaces the A8 dial drag) ── a hidden drag on a 44px dial was
+  // «hard to control»; the compass (dial AND rail button) now opens a small popover with a
+  // degree SLIDER instead. Within ~5° of the two meaningful angles — north-up and the long
+  // axis — the slider snaps, live in the preview (shownAngle) so the catch is visible before
+  // release; the two named angles are also one-tap chips.
   const DIAL_SNAP_DEG = 5
   const normDeg = (d: number) => { let x = d % 360; if (x > 180) x -= 360; if (x <= -180) x += 360; return x }
   const snapDial = (d: number) => {
@@ -2193,40 +2191,30 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (Math.abs(normDeg(n - orientDeg)) <= DIAL_SNAP_DEG) return orientDeg
     return n
   }
-  // clockwise-from-up pointer angle around the dial's own centre
-  const dialAngleAt = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const r = e.currentTarget.getBoundingClientRect()
-    return (Math.atan2(e.clientX - (r.left + r.width / 2), r.top + r.height / 2 - e.clientY) * 180) / Math.PI
-  }
-  const dialDrag = useRef<{ sx: number; sy: number; lastA: number; deg: number; moved: boolean } | null>(null)
-  const dialDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.stopPropagation()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    dialDrag.current = { sx: e.clientX, sy: e.clientY, lastA: dialAngleAt(e), deg: viewAngle, moved: false }
-  }
-  const dialMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const d = dialDrag.current
-    if (!d) return
-    if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 6) d.moved = true
-    const a = dialAngleAt(e)
-    d.deg += normDeg(a - d.lastA)
-    d.lastA = a
-    if (d.moved) setDialDragDeg(snapDial(d.deg))
-  }
-  // a drag's pointerup is still followed by a click — this flag keeps it from ALSO flipping
-  const dialDidDrag = useRef(false)
-  const dialUp = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const d = dialDrag.current
-    dialDrag.current = null
-    setDialDragDeg(null)
-    if (!d) return
-    if (d.moved) { e.preventDefault(); dialDidDrag.current = true; reorientTo(snapDial(d.deg)) }
-  }
-  const dialCancel = () => { dialDrag.current = null; setDialDragDeg(null) }
-  const dialClick = () => {
-    if (dialDidDrag.current) { dialDidDrag.current = false; return }
-    reorient()
-  }
+  const commitOrient = (deg: number) => { setDialDragDeg(null); reorientTo(snapDial(deg)) }
+  const orientControls = (
+    <div className="wb-orient-pop">
+      <label className="wb-orient-row">
+        <span className="wb-orient-lbl">{appConfig.copy.whiteboard.orientSliderLabel}</span>
+        <input
+          type="range" min={-180} max={180} step={1}
+          value={Math.round(normDeg(dialDragDeg ?? viewAngle))}
+          aria-label={appConfig.copy.whiteboard.orientSliderLabel}
+          onChange={(e) => setDialDragDeg(snapDial(Number(e.target.value)))}
+          onPointerUp={(e) => commitOrient(Number((e.target as HTMLInputElement).value))}
+          onKeyUp={(e) => { if (e.key.startsWith('Arrow')) commitOrient(Number((e.target as HTMLInputElement).value)) }}
+          onBlur={(e) => { if (dialDragDeg != null) commitOrient(Number(e.target.value)) }}
+        />
+        <b className="wb-orient-val">{Math.round(normDeg(dialDragDeg ?? viewAngle))}°</b>
+      </label>
+      <div className="wb-orient-chips">
+        <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === 0 ? ' on' : ''}`}
+          onClick={() => commitOrient(0)}>{appConfig.copy.whiteboard.orientNorthUp}</button>
+        <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === normDeg(orientDeg) ? ' on' : ''}`}
+          onClick={() => commitOrient(orientDeg)}>{appConfig.copy.whiteboard.orientLongAxis}</button>
+      </div>
+    </div>
+  )
 
   // WHICH object's plans these are, on the surface the plans are used — the one thing about a
   // plan set that cannot be read off any of its pages. It sits at the top-left of the stage,
@@ -2382,17 +2370,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       </svg>
                     )
                     if (!(canOrient && !readOnly)) return dial
-                    const label = `${viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp} – ${appConfig.copy.whiteboard.orientDragHint}`
-                    // TAP flips (the label says which way); DRAG rotates continuously (A8).
-                    // touch-action: none, or the first oblique finger movement becomes a scroll
-                    // and the drag never sees its pointermove.
+                    // TAP opens the rotation popover (slider + the two named-angle chips) —
+                    // the hidden dial drag is gone (30.08.: «hard to control»).
                     return (
-                      <button type="button" className="wb-north-dial wb-north-btn" title={label} aria-label={label}
-                        aria-pressed={viewAngle === 0} style={{ touchAction: 'none' }}
-                        onPointerDown={dialDown} onPointerMove={dialMove} onPointerUp={dialUp}
-                        onPointerCancel={dialCancel} onClick={dialClick}>
-                        {dial}
-                      </button>
+                      <Popover
+                        ariaLabel={appConfig.copy.whiteboard.orientMenuTitle}
+                        popupClassName="wb-orient-popup"
+                        side="bottom" align="start" zIndex={30}
+                        trigger={
+                          <button type="button" className="wb-north-dial wb-north-btn"
+                            title={appConfig.copy.whiteboard.orientMenuTitle}
+                            aria-label={appConfig.copy.whiteboard.orientMenuTitle}>
+                            {dial}
+                          </button>
+                        }
+                      >{orientControls}</Popover>
                     )
                   })()}
                   <div className="wb-floor-fp" style={{ width: fpBox?.w, height: fpBox?.h }}>
@@ -2635,12 +2627,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               <div
                 key={a.id}
                 className={`wb-anno wb-${a.kind}${relationship.objectIds.has(a.id) ? ' network' : ''} ${selId === a.id || selIds.includes(a.id) ? 'sel' : ''}`}
-                // transform positions the anchor at the (scaled) plan point. Symbols
-                // and text scale WITH the plan via numeric sizing below (crisp, since
-                // the board is layout-scaled); team pills stay a constant size.
+                // transform positions the anchor at the (scaled) plan point. SYMBOLS hold a
+                // constant screen size (symBase, zoom-independent — 30.08.: they are pins like
+                // the map's, and «zoomed in» made them comically dwarf the building); shapes
+                // stay sheet-true, text scales with the paper, team pills stay constant.
                 // a shape's --gpx (→ halo/handle anchor --hbox) takes the LARGER box side so the
                 // selection ring always encloses a stretched rectangle (width × width·aspect)
-                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(-50%, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase * scale}px` }}
+                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(-50%, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px` }}
                 onPointerDown={(e) => chipDown(e, a.id)}
                 // double-tap still opens the on-surface textarea; the panel steps aside so the
                 // two editors for one text never stream keystrokes side by side
@@ -2673,7 +2666,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     <>
                       <TacticalSymbol
                         svg={svg}
-                        sizePx={symBase * scale}
+                        // symBase WITHOUT × scale (30.08.): a plan symbol is a pin with a
+                        // constant screen size, exactly like the Lage map's — zooming the sheet
+                        // must not balloon it past the building. Twins share the same number.
+                        sizePx={symBase}
                         rotation={veh ? 0 : (a.rotation ?? 0)}
                         overlay={overlay}
                         // the signed Stockwerk badge, same slot and same glyph as on the Lage.
@@ -3121,27 +3117,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   matters. */}
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= MAX_SCALE} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
-              {/* Gebäude orientation toggle — only on a floor-stack that was auto-rotated.
-                  The SAME two-gesture grammar as the north dial (30.08.): tap flips between the
-                  named angles, drag rotates freely — two doors, one room, one behaviour. The
-                  tooltip names the drag; a drag-only affordance on a rail button is invisible. */}
-              {canOrient && (() => {
-                const orientLabel = `${viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp} – ${appConfig.copy.whiteboard.orientDragHint}`
-                return (
+              {/* Gebäude rotation — only on a floor-stack that was auto-rotated. The SAME
+                  popover the north dial opens (30.08.): slider + named-angle chips; two doors,
+                  one room, one visible control instead of a hidden drag. */}
+              {canOrient && (
                 <>
                   <div className="vrail-sep vrail-sep-foot" />
-                  <button
-                    className={`vrail-nbtn ${viewAngle === 0 ? 'on' : ''}`}
-                    title={orientLabel}
-                    aria-label={orientLabel}
-                    aria-pressed={viewAngle === 0}
-                    style={{ touchAction: 'none' }}
-                    onPointerDown={dialDown} onPointerMove={dialMove} onPointerUp={dialUp}
-                    onPointerCancel={dialCancel} onClick={dialClick}
-                  ><span className="vrail-glyph"><Icon id="compass" /></span><span className="vrail-label">{viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}</span></button>
+                  <Popover
+                    ariaLabel={appConfig.copy.whiteboard.orientMenuTitle}
+                    popupClassName="wb-orient-popup"
+                    side="left" align="end" zIndex={30}
+                    trigger={
+                      <button className="vrail-nbtn"
+                        title={appConfig.copy.whiteboard.orientMenuTitle}
+                        aria-label={appConfig.copy.whiteboard.orientMenuTitle}
+                      ><span className="vrail-glyph"><Icon id="compass" /></span><span className="vrail-label">{appConfig.copy.whiteboard.orientMenuTitle}</span></button>
+                    }
+                  >{orientControls}</Popover>
                 </>
-                )
-              })()}
+              )}
             </>
           }
         />

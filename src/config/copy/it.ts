@@ -1263,6 +1263,7 @@ export const it: Localizable<Copy> = {
     trailCleared: '{name}: traccia cancellata',
     teamColor: 'Colore',
     trails: 'Tracce',
+    trailCount: '{n} posizioni marcate',
     trailsOn: 'Mostra tracce',
     trailsOff: 'Nascondi tracce',
     deleteLocked: 'Squadra con cronologia registrata – cancella prima la traccia',
@@ -1312,7 +1313,8 @@ export const it: Localizable<Copy> = {
     northTitle: 'Direzione nord – edificio ruotato sull’asse maggiore',
     orientNorthUp: 'Nord in alto',
     orientLongAxis: 'Ruota sull’asse maggiore',
-    orientDragHint: 'Trascina per ruotare liberamente',
+    orientMenuTitle: 'Ruota l’edificio',
+    orientSliderLabel: 'Rotazione',
 
     groupDeletedN: '{n} oggetti eliminati dal piano',
     truppPlacedHere: 'già qui',
