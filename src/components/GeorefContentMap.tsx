@@ -5,9 +5,12 @@
  * the source remains the annotation on its Modul document. Since 29.08. the projections are no
  * longer pointer-dead, though: each one carries a hit target that opens an in-place,
  * source-backed panel («Gespiegelt von …»), and a whole-object drag that writes the ONE source
- * through the fit inversion (the same rule the symbol twins follow). Vertex-level editing stays
- * with the source surface; an FKS Leitung and everything derived from it stays tap-only (its
- * geometry is anchored to symbols and to the hose ↔ Atemschutz linkage — see `isLeitung`).
+ * through the fit inversion (the same rule the symbol twins follow). Since round 8 (30.08.,
+ * «full 1:1 equivalence, no exceptions») the SELECTED mirrored drawing also wears the map's
+ * native vertex vocabulary — node pads, «+» midpoints, hold-to-delete, Verlängern — all
+ * writing the one plan annotation. Only a line with an ANCHORED endpoint keeps its
+ * whole-object drag off (translating its stored pts would fork against the plan's
+ * re-resolution); its grips reshape it, detaching the grabbed endpoint.
  *
  * A mirrored Leitung keeps its whole FKS voice here too — arrowhead (the same registered
  * `draw-arrow` SDF icon the map's own lines use), Teilstück-Gabel, marker letters, end tag and
@@ -16,6 +19,10 @@
  * is projected through the same fit as the line itself.
  */
 import { Fragment, useRef, type CSSProperties, type ReactNode } from 'react'
+import { Icon } from '../lib/icons'
+import { useNodeHold } from '../lib/nodeHold'
+import { NodeDeleteChip } from './NodeDeleteChip'
+import { MARKER_Z } from '../lib/labelPass'
 import { Layer, Marker, Source } from 'react-map-gl/maplibre'
 import { useHoldToDrag } from '../lib/useHoldToDrag'
 import { contentTwinName, type MapContentTwin } from '../lib/georefTwins'
@@ -23,11 +30,12 @@ import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { noteScale } from '../lib/notes'
 import { worldPx } from '../lib/mapView'
 import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
-import { lerpPoint, markerParamsAlong } from '../lib/lineStyle'
+import { EXTEND_STEP_PX, lerpPoint, markerParamsAlong } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { fillTemplate } from '../lib/format'
 import { appConfig } from '../config/appConfig'
+import { LINE_DASH_ML } from '../lib/draw'
 import type { BoardAnno, LngLat, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
@@ -38,14 +46,7 @@ const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
 
 const INERT: CSSProperties = { pointerEvents: 'none' }
 
-/** An FKS Leitung (or a line already wired into the hose ↔ Atemschutz linkage / anchored to a
- *  symbol). Its projection answers a tap — «which hose is that» opens the panel — but never a
- *  whole-object drag: the endpoints are anchored, one Leitung is one Trupp, and a drag that
- *  silently tore either promise would be worse than no drag at all. */
-const isLeitung = (a: BoardAnno) =>
-  a.kind === 'draw' && (a.truppId != null || a.lineNo != null || !!a.content || !!a.startAttachment || !!a.endAttachment)
-
-export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, selectedKey = null, onOpenTwin, onMoveTwin, project, unproject, setDragPan }: {
+export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, selectedKey = null, onOpenTwin, onMoveTwin, onEditTwinAnno, project, unproject, setDragPan }: {
   twins: MapContentTwin[]
   zoom: number
   bearing: number
@@ -63,12 +64,17 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
    *  line/area translates every vertex). Same gesture grammar as the map's own team markers
    *  (useHoldToDrag): mouse press-drags at once, touch holds still first, a tap stays a tap. */
   onMoveTwin?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
+  /** vertex-level edits of the SELECTED mirrored drawing — pts (plan space) and, when an
+   *  anchored endpoint is grabbed, the attachment clear, patched onto the one source anno */
+  onEditTwinAnno?: (twin: MapContentTwin, patch: Partial<BoardAnno>, phase: 'live' | 'commit') => void
   /** the live map transform + pan switch, for the drag above (same trio MapMarkers uses) */
   project?: (c: LngLat) => { x: number; y: number } | undefined
   unproject?: (p: { x: number; y: number }) => LngLat | undefined
   setDragPan?: (on: boolean) => void
 }) {
   const hold = useHoldToDrag()
+  // still hold on a node pad = delete, movement cancels into the drag — the map's own grammar
+  const vertexHold = useNodeHold()
   /** the live drag — re-anchored from the LAST written coord on every move, so a map transform
    *  change under the finger cannot teleport the mark (MapMarkers does the same). One ref for
    *  the whole layer: only one projection is ever dragged at a time. */
@@ -119,7 +125,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
   )
   if (!twins.length) return null
   // Arrowheads ride the map's own registered SDF icon in ONE symbol layer, exactly like the
-  // Lage's lines — geographic bearing from the final segment, dimmed to the projection tone.
+  // Lage's lines — geographic bearing from the final segment.
   const arrowFeats = twins
     .filter((t) => t.coords && t.anno.kind === 'draw' && t.anno.arrow && t.coords.length >= 2)
     .map((t) => {
@@ -141,7 +147,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
         <Source id="s-georef-content-arrows" type="geojson" data={{ type: 'FeatureCollection', features: arrowFeats }}>
           <Layer id="l-georef-content-arrows" type="symbol"
             layout={{ 'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1 } as never}
-            paint={{ 'icon-color': ['get', 'color'], 'icon-opacity': 0.72 } as never} />
+            paint={{ 'icon-color': ['get', 'color'] } as never} />
         </Source>
       )}
       {twins.map((t, i) => {
@@ -194,14 +200,15 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
             : []
           // The path's one hit target: a grip at its midpoint/centroid (before the label's
           // nudge, so it sits ON the geometry). Tap opens the panel; drag moves the whole
-          // object — except a Leitung, whose anchored geometry stays tap-only (isLeitung).
+          // object. (The old isLeitung tap-only guard fell to round 8's full equivalence —
+          // only ANCHORED endpoints still block the whole-drag, see the gate below.)
           const gripCoord = interactive && !!onOpenTwin && basePlan
             ? (() => { const c = t.fit.toMap({ x: basePlan[0], y: basePlan[1] }); return [c.lng, c.lat] as LngLat })()
             : null
           return <Fragment key={t.key}>
             <Source id={`s-${id}`} type="geojson" data={data}>
               {polygon && <Layer id={`f-${id}`} type="fill" paint={{ 'fill-color': color, 'fill-opacity': a.fillOpacity ?? 0.14 }} />}
-              <Layer id={`l-${id}`} type="line" paint={{ 'line-color': color, 'line-width': a.width ?? (polygon ? 3 : 5), 'line-opacity': 0.72, ...(a.dashed ? { 'line-dasharray': [2, 1.5] } : {}) }}
+              <Layer id={`l-${id}`} type="line" paint={{ 'line-color': color, 'line-width': a.width ?? (polygon ? 3 : 5), ...(a.dashed ? { 'line-dasharray': LINE_DASH_ML } : {}) }}
                 layout={{ 'line-cap': a.dashed ? 'butt' : 'round', 'line-join': 'round' }} />
             </Source>
             {a.teilstueck && !polygon && (
@@ -235,9 +242,91 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
             )}
             {gripCoord && (
               <Marker longitude={gripCoord[0]} latitude={gripCoord[1]} anchor="center">
-                {tapTarget(t, gripCoord, canDragAny && !isLeitung(a), s.grip, <i style={{ color }} aria-hidden />)}
+                {/* whole-object drag only while NO endpoint is anchored: translating an attached
+                    line's stored pts while the plan re-resolves the endpoint would fork the
+                    mirror. An anchored line reshapes via its vertex grips below (detach-on-grab). */}
+                {tapTarget(t, gripCoord, canDragAny && !a.startAttachment && !a.endAttachment, s.grip, <i style={{ color }} aria-hidden />)}
               </Marker>
             )}
+            {/* ── the map's native vertex vocabulary on the SELECTED mirrored drawing (round 8:
+                full 1:1) — draggable node pads with hold-to-delete, «+» midpoints, Verlängern.
+                Every gesture writes the ONE plan annotation (onEditTwinAnno); grabbing an
+                attached endpoint clears its attachment in the same patch. */}
+            {interactive && onEditTwinAnno && selectedKey === t.key && pts.length >= 2 && (() => {
+              const minPts = polygon ? 3 : 2
+              const clearFor = (idx: number): Partial<BoardAnno> =>
+                !polygon && idx === 0 && a.startAttachment ? { startAttachment: undefined }
+                : !polygon && idx === pts.length - 1 && a.endAttachment ? { endAttachment: undefined } : {}
+              const writePts = (next: typeof pts, phase: 'live' | 'commit', extra: Partial<BoardAnno> = {}) =>
+                onEditTwinAnno(t, { pts: next, ...extra }, phase)
+              const segs = Array.from({ length: polygon ? pts.length : pts.length - 1 }, (_, k) => k)
+              return (
+                <Fragment>
+                  {segs.map((k) => {
+                    const p1 = pts[k], p2 = pts[(k + 1) % pts.length]
+                    const midPlan: [number, number] = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
+                    const c = t.fit.toMap({ x: midPlan[0], y: midPlan[1] })
+                    return (
+                      <Marker key={`ctins-${k}`} longitude={c.lng} latitude={c.lat} anchor="center" style={{ zIndex: MARKER_Z.selected }}>
+                        <button type="button" className="measure-insert" title={appConfig.copy.measure.insertPoint} aria-label={appConfig.copy.measure.insertPoint}
+                          onPointerDown={(ev) => {
+                            ev.stopPropagation(); ev.preventDefault()
+                            writePts([...pts.slice(0, k + 1), midPlan, ...pts.slice(k + 1)], 'commit')
+                          }}><Icon id="plus" /></button>
+                      </Marker>
+                    )
+                  })}
+                  {!polygon && pts.length >= 2 && (['start', 'end'] as const).map((ep) => {
+                    const i0 = ep === 'start' ? 0 : pts.length - 1
+                    const nb = ep === 'start' ? pts[1] : pts[pts.length - 2]
+                    const p0 = pts[i0]
+                    const dxp = p0[0] - nb[0], dyp = p0[1] - nb[1]
+                    const planLen = Math.hypot(dxp, dyp) || 1e-9
+                    const segA = t.fit.toMap({ x: nb[0], y: nb[1] }), segB = t.fit.toMap({ x: p0[0], y: p0[1] })
+                    const screenLen = projectedPx([segA.lng, segA.lat], [segB.lng, segB.lat], zoom) || 1
+                    const step = (EXTEND_STEP_PX * planLen) / screenLen / planLen
+                    const gPlan: [number, number] = [p0[0] + dxp * step, p0[1] + dyp * step]
+                    const g = t.fit.toMap({ x: gPlan[0], y: gPlan[1] })
+                    const deg = (Math.atan2(worldPx([g.lng, g.lat], zoom)[1] - worldPx([segB.lng, segB.lat], zoom)[1], worldPx([g.lng, g.lat], zoom)[0] - worldPx([segB.lng, segB.lat], zoom)[0]) * 180) / Math.PI - bearing
+                    return (
+                      <Marker key={`ctgrow-${ep}`} longitude={g.lng} latitude={g.lat} anchor="center" style={{ zIndex: MARKER_Z.selected }}>
+                        <button type="button" className="draw-grow" title={appConfig.copy.measure.extendLine} aria-label={appConfig.copy.measure.extendLine}
+                          style={{ ['--grow-deg' as string]: `${deg}deg` }}
+                          onPointerDown={(ev) => {
+                            ev.stopPropagation(); ev.preventDefault()
+                            writePts(ep === 'start' ? [gPlan, ...pts] : [...pts, gPlan], 'commit')
+                          }}><Icon id="arrow" /></button>
+                      </Marker>
+                    )
+                  })}
+                  {pts.map((p, i) => {
+                    const c = t.fit.toMap({ x: p[0], y: p[1] })
+                    return (
+                      <Marker key={`ctv-${i}`} longitude={c.lng} latitude={c.lat} anchor="center" style={{ zIndex: MARKER_Z.selected }} draggable
+                        onDragStart={() => setDragPan?.(false)}
+                        onDrag={(e) => {
+                          vertexHold.cancel()
+                          const pp = t.fit.toPlan({ lng: e.lngLat.lng, lat: e.lngLat.lat })
+                          writePts(pts.map((q, j) => (j === i ? [pp.x, pp.y] as typeof q : q)), 'live', clearFor(i))
+                        }}
+                        onDragEnd={(e) => {
+                          setDragPan?.(true)
+                          const pp = t.fit.toPlan({ lng: e.lngLat.lng, lat: e.lngLat.lat })
+                          writePts(pts.map((q, j) => (j === i ? [pp.x, pp.y] as typeof q : q)), 'commit', clearFor(i))
+                        }}>
+                        <div className={`draw-handle ${vertexHold.armed?.key === `ct:${t.key}:${i}` ? 'doomed' : ''}`}
+                          title={appConfig.copy.measure.deleteNode}
+                          {...vertexHold.press(`ct:${t.key}:${i}`, () => {
+                            if (pts.length <= minPts) return
+                            writePts(pts.filter((_, j) => j !== i), 'commit')
+                          }, pts.length > minPts)}
+                        >{vertexHold.armed?.key === `ct:${t.key}:${i}` && <NodeDeleteChip progress={vertexHold.armed.progress} />}</div>
+                      </Marker>
+                    )
+                  })}
+                </Fragment>
+              )
+            })()}
           </Fragment>
         }
         if (!t.coord || a.x == null || a.y == null) return null
@@ -287,7 +376,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
           const chip = <><i /><b>{a.text}</b></>
           return <Fragment key={t.key}>
             {trail.length >= 2 && <Source id={`s-georef-trail-${i}`} type="geojson" data={trailData}>
-              <Layer id={`l-georef-trail-${i}`} type="line" paint={{ 'line-color': a.color || appConfig.drawing.teamColors[0], 'line-width': 2, 'line-opacity': 0.7, 'line-dasharray': [2, 2] }} />
+              <Layer id={`l-georef-trail-${i}`} type="line" paint={{ 'line-color': a.color || appConfig.drawing.teamColors[0], 'line-width': 2, 'line-opacity': 0.85, 'line-dasharray': [2.5, 2.5] }} />
             </Source>}
             {!interactive || !onOpenTwin ? (
               <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>

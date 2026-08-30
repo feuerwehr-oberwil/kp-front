@@ -3578,6 +3578,9 @@ export function IncidentWorkspace({
           onTwinMove={moveMapTwinSource}
           onContentTwinOpen={openContentTwinView}
           onContentTwinMove={moveMapTwinSource}
+          // round 8 (full 1:1): node pads / «+» / hold-delete on a selected mirrored plan
+          // drawing write straight to the one source annotation, with per-plan undo history
+          onContentTwinEdit={(t, patch, phase) => editPlanTwinSource(t, patch, phase)}
           selectedTwinKey={twinView?.key}
           selectedContentTwinKey={contentTwinView?.key}
           georefPlanRasters={georefPlanRasters}
