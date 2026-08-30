@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Guidance for agents and humans working in this repo. Keep it current: when a convention or
 decision changes, update this file in the same change.
@@ -84,13 +84,37 @@ to prod.
   its audit chain, so do not widen this to editors, individual production rows, or a mutable
   history shortcut. Revisit external deletion evidence/retention policy before offering managed
   hosting; the current trust boundary is one station operating its own deployment.
-- **Two kinds of settings:** per-device preferences (cookie/Preferences) vs. synced
-  per-incident state (workspace blob). Both live in the Einstellungen sheet – pick the right
-  one for a new setting.
+- **A setting lives in one of three places – pick by who owns it, not by what is easiest to
+  reach.** (1) *Device preference* – theme, symbol scale, rail words, offline radius, screen
+  wake: cookie via `src/lib/prefs.ts`, surfaced in the **Einstellungen sheet**
+  (`src/components/panels/SettingsSheet.tsx`), which since 28.08. carries device prefs plus
+  per-device utilities and **nothing else**. (2) *Station doctrine* – Funkkontakt-Intervall,
+  Nachfrist, Funkkanal, Auftragsfarben: deployment config `doctrine.*`, edited **only** in
+  `/admin › Doktrin` (`DoctrineSection` in `src/admin/ConfigSections.tsx`) and read **only**
+  through `atemschutzDoctrine()` in `src/lib/deploymentConfig.ts`, never off
+  `appConfig.atemschutz`. These left the sheet on purpose (99c4348): station configuration
+  belongs where whoever set it up changes it, not under the finger of an unknowing operator at
+  3am – do not re-add a doctrine editor to any in-app surface. (3) *Synced per-incident state* –
+  the workspace blob (`IncidentSettings` in `src/lib/workspace.ts`). Overrides already written
+  there keep applying as the layer above doctrine, but no surface offers new ones; add here only
+  when the value must genuinely differ *per Einsatz* and be identical on every device.
 - **Lage and Plan should stay as close as possible in every regard** – same tools, controls,
   and behavior. Only the implementation that *must* differ because of the drawing surface /
   relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`, and
   `src/lib/lineStyle.ts`; the renderers stay separate only for that surface-specific part.
+- **A georef twin is the object itself, seen from the other side.** Once a plan carries a
+  georeference, annotations mirror between the surfaces (`src/lib/georefTwins.ts`,
+  `GeorefTwins*` / `GeorefContent*`). A twin is **interaction- AND presentation-equivalent** to
+  its original: the same capabilities through the same functions (rename, Trupp-Join, Farbe,
+  Position markieren, trail eye, the locked trash), the surface's **native** sizing (map `symPx`
+  band, board `symBase` – never a twin-only band), the original's own chrome and markup (the hit
+  button carries only hit-shell classes, the chip sits in an inner span with its native class),
+  and the source's own spread arrows, bars and labels – never re-aimed through the fit. **No
+  «projection tone»** – no reduced opacity, no dimmed grips or lines; it paints exactly like the
+  native object beside it. The ONE permitted difference is which surface persists it: a twin is a
+  projection, never stored, logged, printed or clocked, and an edit writes the ONE source object.
+  A mechanical exception must be real and documented (an anchored endpoint reshapes instead of
+  translating, on both surfaces); «not built on that surface yet» is not one.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
@@ -218,6 +242,34 @@ to prod.
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
     broken, act now; blue/grey = normal status and in-progress.
   - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
+- **Touch vocabulary – one beat, one buzz, one wash.** The primary devices are gloved tablets;
+  a new gesture reuses these or it teaches a second language. Any new touch interaction must:
+  - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip
+    (`src/lib/holdTooltip.ts` · `HOLD_MS`) and the Eintrag hold (`src/lib/useHoldEntry.ts` ·
+    `HOLD_MS`) share it, so every still hold answers alike. The holds that are not «reveal» keep
+    their own documented numbers: `useHoldToDrag` arms a drag at 180 ms, `nodeHold.ts` arms at
+    250 ms and fires destructively at 825 ms. Reuse a constant; don't invent a third window.
+  - *Buzz on arm, and only on arm* – `buzz()` from `src/lib/haptics.ts`, always 12 ms, at the
+    moment a held gesture becomes something (tooltip appears, drag latches, chooser opens, magnet
+    dwell engages). Never on taps, successes or errors; never a pattern or a second duration
+    (`navigator.vibrate` is Android-only, so anything expressive is inaudible to half the fleet).
+    Older inline `navigator.vibrate?.(12)` sites (MapView/Whiteboard magnets, `nodeHold`) are the
+    same 12 ms – new call sites go through `buzz()`.
+  - *One hold ring, around the icon* – `HoldChargeRing` (`src/components/HoldTargets.tsx`, also
+    `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**. Never a CSS
+    keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the
+    first frame while the timer still runs. The ring haloes the glyph – never strokes across a
+    label, and nothing may reflow under the finger mid-hold.
+  - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
+    var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
+    **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.
+  - *Hover is mouse-only* – every `:hover` rule sits inside `@media (hover: hover)` (app-wide
+    since 28.08.). A tap leaves `:hover` stuck on what it hit, which reads as a selection state
+    the surface does not have. `@media (pointer: coarse)` in `20-touch-floors.css` is the other
+    instrument: it grows a target, it does not style one.
+  - *A control whose press-and-hold IS its own gesture spreads `data-holdaction`* (the shared
+    hooks already do), so the global hold-tooltip never claims it and asking «what is this»
+    can never also do it.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for
