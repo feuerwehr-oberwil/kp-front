@@ -494,12 +494,19 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                               { materialId: row.materialId, label: row.label, unit: row.unit, sourceId: cell.sourceId, sourceLabel: cell.sourceLabel },
                               cell.used, `${row.label} · ${cell.sourceLabel ?? M.noSource}`,
                             )}
+                            {/* the unit trails the sub-row's count exactly as it does on a single
+                                row — without it the sub-rows ended on a right edge 28px further
+                                out than every other row, which moved the stock dots with it */}
                             {canEdit ? (
                               <div className={s.rowEdit}>
                                 <Stepper value={cell.used} min={0} max={9999} over={cellOver} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => saveCell(row, cell, v)} />
+                                <span className={s.rowUnit}>{row.unit}</span>
                               </div>
                             ) : (
-                              <span className={cx(s.rowQty, cellOver && s.over)}>{cell.used}</span>
+                              <>
+                                <span className={cx(s.rowQty, cellOver && s.over)}>{cell.used}</span>
+                                <span className={s.rowUnit}>{row.unit}</span>
+                              </>
                             )}
                           </div>
                             </div>

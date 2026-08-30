@@ -692,17 +692,23 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             of it», and the old action row they were split across is gone with the confirm. */}
         {/* «Auf Einsatz zoomen» AND «folgt der Lage» are the same wish, so they are one control:
             pressing it fits now and keeps fitting, and the first hand-made pan turns it off. */}
-        <button type="button" className={cx('ip-btn kf-ctl-fit', follow && 'kf-ctl-follow')}
-          aria-pressed={follow} title={follow ? P.framingFollowOn : P.framingFollowOff}
-          onClick={fitAndFollow}><Icon id="cross" /> {follow ? P.framingFollows : P.framingFit}</button>
-        {/* ± stays: with gloves on a tablet, pinching a crop into place is the fiddliest
-            gesture the app asks for, and this is the one place where the exact framing IS
-            the point. Beside the picture rather than on top of it. */}
-        <div className="kf-zoom">
-          <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomIn}
-            onClick={() => mapRef.current?.getMap().zoomIn({ duration: motionDuration(180) })}><Icon id="plus" /></button>
-          <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomOut}
-            onClick={() => mapRef.current?.getMap().zoomOut({ duration: motionDuration(180) })}><Icon id="minus" /></button>
+        {/* ⚠️ ONE cluster element, not three loose ones: on a phone the ± pair no longer fitted
+            beside the button (the bar reserves --fab-safe on its right) and wrapped onto a line
+            of its own — two ragged half-rows where the eye expects one row. Nesting them makes
+            the button give up the width instead; the ± targets never shrink. */}
+        <div className="kf-ctl-cluster">
+          <button type="button" className={cx('ip-btn kf-ctl-fit', follow && 'kf-ctl-follow')}
+            aria-pressed={follow} title={follow ? P.framingFollowOn : P.framingFollowOff}
+            onClick={fitAndFollow}><Icon id="cross" /> <span>{follow ? P.framingFollows : P.framingFit}</span></button>
+          {/* ± stays: with gloves on a tablet, pinching a crop into place is the fiddliest
+              gesture the app asks for, and this is the one place where the exact framing IS
+              the point. Beside the picture rather than on top of it. */}
+          <div className="kf-zoom">
+            <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomIn}
+              onClick={() => mapRef.current?.getMap().zoomIn({ duration: motionDuration(180) })}><Icon id="plus" /></button>
+            <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomOut}
+              onClick={() => mapRef.current?.getMap().zoomOut({ duration: motionDuration(180) })}><Icon id="minus" /></button>
+          </div>
         </div>
       </div>
     </div>

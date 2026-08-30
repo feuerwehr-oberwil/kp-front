@@ -147,9 +147,10 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
     <Overlay open onClose={onClose} className="help-modal" backdropClassName="help-scrim" ariaLabel={C.title}>
         <div className="help-head">
           <span className="help-head-ic"><Icon id="info" /></span>
+          {/* title only — the old tagline («… auch um 3 Uhr morgens …») described the app to
+              someone who is already inside it, and cost a line of a phone's help header */}
           <div className="help-head-tt">
             <h2>{C.title}</h2>
-            <p>{C.subtitle}</p>
           </div>
           <button className="help-x" onClick={onClose} aria-label={C.close}><Icon id="close" /></button>
         </div>

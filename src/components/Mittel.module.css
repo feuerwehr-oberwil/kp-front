@@ -151,7 +151,11 @@
      name wrapping to 3 cramped lines beside the controls. */
   .rowMain { flex-wrap: wrap; row-gap: 6px; }
   .rowMain > .rowLabel, .rowMain > .subLabel { flex: 1 1 100%; }
-  .rowMain > .rowEdit, .rowMain > .rowQty { margin-left: auto; }
+  /* ⚠️ the auto margin belongs to whatever comes FIRST after the name, not to the stepper:
+     pinned to .rowEdit/.rowQty it left the stock dots stranded at the left end of the second
+     line, so an expanded sub-row showed its dot in a completely different place from every
+     collapsed row. Readout and controls travel as ONE right-aligned group. */
+  .rowMain > .rowLabel + *, .rowMain > .subLabel + * { margin-left: auto; }
 }
 
 /* per-line remark — the sentence a quantity can't carry («an Werkhof übergeben»). Full width
