@@ -2,7 +2,7 @@
   "name": "kp-front-web",
   "description": "KP Front — Einsatzführungs-app for frontline fire-service command: situation map, plan whiteboard, live documentation, offline-capable.",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.9.0",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "packageManager": "pnpm@10.18.3",
