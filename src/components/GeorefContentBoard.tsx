@@ -452,15 +452,20 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
             </span>
           }
           if (!selected) {
+            // ⚠️ The button is a transparent HIT SHELL and the chip lives in an inner span with
+            // the native class, exactly like the original's markup. Putting `team-dot` on the
+            // button itself made the button the flex container — Safari lays a <button>'s
+            // children out in an anonymous inner box, so align/stretch misplaced the pieces
+            // (the round-9 field screenshot: cap floating beside the pill).
             return (
               <button key={key} type="button"
-                className={`${s.contentPoint} ${s.contentTap} team-dot ${isRaus ? 'raus' : ''}`}
+                className={`${s.contentPoint} ${s.contentTap}`}
                 style={{ ...style, ...grabStyle }}
                 title={title}
                 data-twin=""
                 {...pointHandlers(entity, pt, movable, teamJump)}
               >
-                <i /><b>{entity.label}</b>
+                <span className={`team-dot ${isRaus ? 'raus' : ''}`}><i /><b>{entity.label}</b></span>
               </button>
             )
           }
@@ -472,24 +477,29 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           const boundAlive = !!entity.truppId && trupps.some((t) => t.id === entity.truppId && !t.removedAt)
           return (
             <span key={key} className={s.contentPoint} style={style} data-twin="">
-              <button type="button" className={`${s.contentTap} wb-resource-pill ${isRaus ? 'raus' : ''}`}
-                style={{ '--team': teamCol, ...grabStyle } as CSSProperties} title={title}
+              {/* hit shell again (see the resting dot above): the pill span carries the native
+                  class untouched, so its flex row, padding and background can never lose a
+                  cascade or button-quirk fight */}
+              <button type="button" className={s.contentTap}
+                style={grabStyle ?? undefined} title={title}
                 {...pointHandlers(entity, pt, movable)}>
-                <span className="wb-resource-cap" />
-                <span className="wb-resource-body">
-                  <span className="wb-resource-name">
-                    {renamingTeamId === entity.id
-                      ? <input className="wb-resource-input" autoFocus defaultValue={entity.label ?? ''}
-                          onPointerDown={(ev) => ev.stopPropagation()}
-                          onBlur={(ev) => { acts.rename(entity.id, ev.target.value); setRenamingTeamId(null) }}
-                          onKeyDown={(ev) => {
-                            if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur()
-                            if (ev.key === 'Escape') { ev.stopPropagation(); setRenamingTeamId(null) }
-                          }} />
-                      : <b>{entity.label}</b>}
-                    {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
+                <span className={`wb-resource-pill ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as CSSProperties}>
+                  <span className="wb-resource-cap" />
+                  <span className="wb-resource-body">
+                    <span className="wb-resource-name">
+                      {renamingTeamId === entity.id
+                        ? <input className="wb-resource-input" autoFocus defaultValue={entity.label ?? ''}
+                            onPointerDown={(ev) => ev.stopPropagation()}
+                            onBlur={(ev) => { acts.rename(entity.id, ev.target.value); setRenamingTeamId(null) }}
+                            onKeyDown={(ev) => {
+                              if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur()
+                              if (ev.key === 'Escape') { ev.stopPropagation(); setRenamingTeamId(null) }
+                            }} />
+                        : <b>{entity.label}</b>}
+                      {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
+                    </span>
+                    {entity.t && <i className="wb-resource-time">{entity.t}</i>}
                   </span>
-                  {entity.t && <i className="wb-resource-time">{entity.t}</i>}
                 </span>
               </button>
               <div className="wb-pill-acts" onPointerDown={(ev) => ev.stopPropagation()}>

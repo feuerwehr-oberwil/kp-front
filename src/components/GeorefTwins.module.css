@@ -71,10 +71,10 @@
    the field (30.08.). Centered pad — twins are sparse, overlap is not the failure mode here. */
 .contentTap::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
   transform: translate(-50%, -50%); }
-/* the mirrored team chip is a flex row (dot + name). .contentPoint's display:block used to win
-   the cascade over .team-dot's inline-flex — the <i> dot, back to plain inline, then IGNORED
-   its width and collapsed to a sliver (field find, 30.08.). */
-.contentPoint:global(.team-dot) { display: inline-flex; }
+/* ⚠️ Chips never share an element with the hit shell. team-dot/wb-resource-pill on the BUTTON
+   itself lost cascade fights (display:block ate the flex row → the dot collapsed to a sliver)
+   and hit Safari's anonymous button-box flex quirk (the pill's cap floated loose). The button
+   carries only contentPoint/contentTap; the chip lives in an inner span with its native class. */
 /* the selected team twin's context bar lives INSIDE a pointer-inert .contentPoint wrapper —
    the bar (and the pill button, via .contentTap) must claw its events back */
 .contentPoint :global(.wb-pill-acts) { pointer-events: auto; }

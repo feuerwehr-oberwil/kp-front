@@ -384,7 +384,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
               </Marker>
             ) : (
               <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center">
-                {tapTarget(t, t.coord, canDragAny, `${s.contentMap} team-dot`, chip, style)}
+                {tapTarget(t, t.coord, canDragAny, '', <span className="team-dot">{chip}</span>, style)}
               </Marker>
             )}
           </Fragment>
