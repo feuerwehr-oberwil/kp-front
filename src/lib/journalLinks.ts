@@ -20,6 +20,16 @@ import { rankOrder } from './rank'
  */
 export type LinkKind = 'person' | 'material' | 'partner' | 'vehicle' | 'group'
 
+/**
+ * What a marked stretch of text can be: one of the Einsatz's own words — or an address.
+ *
+ * A URL is the one mark that is not vocabulary. Nobody configures it and nothing completes it;
+ * it is simply what somebody typed or pasted — the Meldung's ticket, a Merkblatt, the
+ * Wetterradar they were reading off — and it should be openable everywhere the entry is read
+ * rather than a string to copy out by hand.
+ */
+export type MarkKind = LinkKind | 'url'
+
 export interface JournalLink {
   /** the canonical spelling — what typing completes to and what gets marked */
   name: string
@@ -143,9 +153,12 @@ function shortRole(note: string): string | undefined {
 export interface LinkRange {
   start: number
   end: number
-  kind: LinkKind
+  kind: MarkKind
   /** the job the named person holds — set on the FIRST mention in this text only */
   role?: string
+  /** the absolute address to open, for a `url` and nothing else. Resolved here rather than at
+   *  every render site, so a bare «www.…» gets its scheme in exactly one place. */
+  href?: string
 }
 
 /**
@@ -154,9 +167,13 @@ export interface LinkRange {
  * Longest first, so «Meier Anna» wins over a «Meier» that is a prefix of it and the two can
  * never overlap. Case-insensitive, because an entry typed at 3am is not typed carefully — but
  * the MATCH is on the canonical spelling, so what gets marked is only ever a real name.
+ *
+ * ⚠️ Addresses are found FIRST and keep what they claim. A Fahrzeug called «TLF» must not bold
+ * up in the middle of a link: it would break the address on paper and split the anchor on
+ * screen, for a match that was never the Fahrzeug in the first place.
  */
 export function linkRanges(text: string, vocab: JournalLink[]): LinkRange[] {
-  const out: LinkRange[] = []
+  const out: LinkRange[] = urlRanges(text)
   const overlaps = (a: number, b: number) => out.some((r) => a < r.end && r.start < b)
   const hay = text.toLowerCase()
   for (const l of [...vocab].sort((a, b) => b.name.length - a.name.length)) {
@@ -188,27 +205,100 @@ function isWordChar(ch: string | undefined): boolean {
   return ch != null && /[\p{L}\p{N}]/u.test(ch)
 }
 
-/** The text split into plain stretches and marked ones — one shape both the composer's
- *  backdrop and the Verlauf render from, so the two can never mark different things. */
-export function linkParts(text: string, vocab: JournalLink[]): { text: string; kind?: LinkKind; role?: string }[] {
+/**
+ * The addresses in a piece of text.
+ *
+ * Two spellings, because those are the two people write: a full `https://…`, and the bare
+ * `www.…` that every browser and every printed Merkblatt still uses. The bare form gets its
+ * `https://` in the `href` and keeps the short form on screen — the entry prints what was said.
+ */
+function urlRanges(text: string): LinkRange[] {
+  // ⚠️ The excluded characters are not cosmetic: `"` is what closes the href attribute in the
+  // printed markup, and `<`/`>` what would open a tag inside it.
+  const re = /(?:https?:\/\/|www\.)[^\s<>"«»]+/gi
+  const out: LinkRange[] = []
+  for (let m = re.exec(text); m !== null; m = re.exec(text)) {
+    // «…undwww.vkf.ch» is a missing space, not an address the writer meant to leave there
+    if (isWordChar(text[m.index - 1])) continue
+    const raw = trimUrlTail(m[0])
+    // a bare scheme, or a «www.» with nothing behind it, is somebody half-way through typing
+    if (!/^(?:https?:\/\/|www\.)[^\s/?#]/i.test(raw)) continue
+    out.push({
+      start: m.index, end: m.index + raw.length, kind: 'url',
+      href: /^www\./i.test(raw) ? `https://${raw}` : raw,
+    })
+  }
+  return out
+}
+
+/** Punctuation that ends a sentence rather than an address — «Merkblatt unter www.vkf.ch.» is a
+ *  full stop, «(www.vkf.ch)» a bracket the writer opened. Both are prose, and neither belongs in
+ *  the href or in the underline. The German quotes are not in this list because the match above
+ *  never takes them in the first place. */
+const URL_TAIL = '.,;:!?)'
+
+/**
+ * …trimmed off the end, with the one exception every link-detector needs: a «)» that closes a
+ * «(» the address itself contains stays part of it (the Wikipedia case,
+ * `…/wiki/Nirvana_(Band)`). Counting brackets over the candidate is what tells the two apart —
+ * a link the writer put in brackets has the closer without an opener.
+ */
+function trimUrlTail(url: string): string {
+  let end = url.length
+  for (; end > 0; end--) {
+    const ch = url[end - 1]
+    if (!URL_TAIL.includes(ch)) break
+    const head = url.slice(0, end)
+    if (ch === ')' && head.split('(').length >= head.split(')').length) break
+  }
+  return url.slice(0, end)
+}
+
+/** One stretch of an entry as it gets rendered — plain, or marked. */
+export interface LinkPart {
+  text: string
+  kind?: MarkKind
+  /** the job the named person holds, on their first mention */
+  role?: string
+  /** where a `url` part points (see LinkRange.href) */
+  href?: string
+}
+
+/** The text split into plain stretches and marked ones — one shape the composer's backdrop, the
+ *  Verlauf and the Wiedergabe all render from, so no two of them can mark different things. */
+export function linkParts(text: string, vocab: JournalLink[]): LinkPart[] {
   const ranges = linkRanges(text, vocab)
-  const parts: { text: string; kind?: LinkKind; role?: string }[] = []
+  const parts: LinkPart[] = []
   let at = 0
   for (const r of ranges) {
     if (r.start > at) parts.push({ text: text.slice(at, r.start) })
-    parts.push({ text: text.slice(r.start, r.end), kind: r.kind, role: r.role })
+    parts.push({ text: text.slice(r.start, r.end), kind: r.kind, role: r.role, href: r.href })
     at = r.end
   }
   if (at < text.length) parts.push({ text: text.slice(at) })
   return parts
 }
 
-/** Marked-up text for the PRINTED journal: every linked term in bold. The Rapport has no
- *  colour to spend, and bold is what a reader already reads as «this is a name». */
-export function linkMarkup(text: string, vocab: JournalLink[], esc: (s: string) => string): string {
-  return linkParts(text, vocab)
+/**
+ * Marked-up text for the PRINTED journal: every named term in bold, every address underlined and
+ * anchored. The Rapport has no colour to spend — bold is what a reader already reads as «this is
+ * a name», and an underline what they read as «this is an address». The PDF's own reader turns
+ * the anchor into a tap; on paper the address is still written out, which is the point of
+ * printing the URL rather than a label.
+ *
+ * `esc` is the caller's XML escaping and is applied to the href as well — an address can carry
+ * an «&» between its query parameters, and one unescaped ampersand costs the whole page.
+ *
+ * ⚠️ Returns `undefined` when the row marked nothing at all, so the backend falls back to its own
+ * escaping of the plain text rather than storing markup that says nothing (see report.ts).
+ */
+export function linkMarkup(text: string, vocab: JournalLink[], esc: (s: string) => string): string | undefined {
+  const parts = linkParts(text, vocab)
+  if (!parts.some((p) => p.kind)) return undefined
+  return parts
     .map((p) => {
       if (!p.kind) return esc(p.text)
+      if (p.kind === 'url') return `<a href="${esc(p.href ?? p.text)}"><u>${esc(p.text)}</u></a>`
       // the job in plain weight after the bold name: it is context for the name, not a second name
       return p.role ? `<b>${esc(p.text)}</b> (${esc(p.role)})` : `<b>${esc(p.text)}</b>`
     })

@@ -402,3 +402,27 @@ describe('Journal · a Plan row jumps back', () => {
     expect(onSelect).not.toHaveBeenCalled()
   })
 })
+
+// An entry that carries an address — the Meldung's ticket, a Merkblatt — should be openable
+// where it is read, not a string somebody retypes into a browser at 3am.
+describe('Journal · an address in an entry', () => {
+  const withUrl = [row('u1', 1_010_000, 'Merkblatt unter www.vkf.ch beachten')]
+
+  it('renders it as a link that opens away from the app', () => {
+    setup({ events: withUrl })
+    const a = screen.getByText('www.vkf.ch')
+    expect(a.tagName).toBe('A')
+    expect(a.getAttribute('href')).toBe('https://www.vkf.ch')
+    expect(a.getAttribute('target')).toBe('_blank')
+    expect(a.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
+  // ⚠️ …and the tap belongs to the link alone. A row seeks the Wiedergabe under the finger, so
+  // without the stop, opening the address would also move the playhead.
+  it('does not also tap the row it sits in', () => {
+    const onSeekTo = vi.fn()
+    setup({ events: withUrl, replayAtMs: 1_060_000, onSeekTo })
+    fireEvent.click(screen.getByText('www.vkf.ch'))
+    expect(onSeekTo).not.toHaveBeenCalled()
+  })
+})

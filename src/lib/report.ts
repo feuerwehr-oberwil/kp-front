@@ -307,18 +307,20 @@ export function journalRows(
     })
     .map((e) => {
       const iso = eventIso(e, fallbackDate)
+      // …and through `rowText` first, so a picture on paper carries no «Foto» caption either
+      const text = withoutAreaPrefix(rowText(e))
       return {
         id: e.id,
         iso,
         timeLabel: iso ? formatDateTime(iso) : e.t,
         area: journalArea(e, plans),
-        // …and through `rowText` first, so a picture on paper carries no «Foto» caption either
-        text: withoutAreaPrefix(rowText(e)),
+        text,
         // the same links the app marks, as bold on paper — the Rapport has no colour to spend,
-        // and bold is what a reader already reads as «this is a name» (lib/journalLinks)
-        markup: opts?.vocab?.length
-          ? linkMarkup(withoutAreaPrefix(rowText(e)), opts.vocab, escapeXml)
-          : undefined,
+        // and bold is what a reader already reads as «this is a name» (lib/journalLinks).
+        // ⚠️ NOT gated on the vocabulary: an address is not vocabulary, so a row whose only mark
+        // is a URL has to reach the PDF as markup too. `linkMarkup` returns undefined when the
+        // row marked nothing, and that is the only case the backend escapes the text itself.
+        markup: linkMarkup(text, opts?.vocab ?? [], escapeXml),
         kind: e.kind,
         photoUrls: rowPhotos(e),
         audioUrl: e.audioUrl,

@@ -54,6 +54,38 @@ describe('linkRanges', () => {
   })
 })
 
+// An entry carries the odd address — the Meldung's ticket, a Merkblatt, the Wetterradar somebody
+// was reading off. It is prose while it is typed and a link everywhere it is read.
+describe('addresses', () => {
+  it('finds both spellings, and gives the bare «www.» its scheme', () => {
+    const urls = linkParts('Merkblatt https://vkf.ch/a und www.wetter.ch', vocab).filter((p) => p.kind === 'url')
+    expect(urls.map((u) => u.text)).toEqual(['https://vkf.ch/a', 'www.wetter.ch'])
+    expect(urls.map((u) => u.href)).toEqual(['https://vkf.ch/a', 'https://www.wetter.ch'])
+  })
+
+  it('leaves the sentence its own punctuation', () => {
+    const one = (text: string) => linkParts(text, vocab).find((p) => p.kind === 'url')?.text
+    expect(one('siehe www.vkf.ch.')).toBe('www.vkf.ch')
+    expect(one('siehe www.vkf.ch, danach Rückzug')).toBe('www.vkf.ch')
+    expect(one('siehe (www.vkf.ch)')).toBe('www.vkf.ch')
+    expect(one('siehe «www.vkf.ch»')).toBe('www.vkf.ch')
+  })
+
+  it('…but keeps a bracket the address itself opened', () => {
+    expect(linkParts('https://de.wikipedia.org/wiki/Nirvana_(Band).', vocab).find((p) => p.kind === 'url')?.text)
+      .toBe('https://de.wikipedia.org/wiki/Nirvana_(Band)')
+  })
+
+  it('ignores a scheme with nothing behind it — somebody half-way through typing', () => {
+    expect(linkRanges('Adresse folgt: https://.', vocab)).toEqual([])
+  })
+
+  it('⚠️ wins against the vocabulary — a Fahrzeug «TLF» must not bold up mid-link', () => {
+    const parts = linkParts('Plan unter https://example.com/TLF/plan', vocab)
+    expect(parts.filter((p) => p.kind).map((p) => p.kind)).toEqual(['url'])
+  })
+})
+
 describe('linkParts', () => {
   it('splits into plain and marked stretches that rebuild the original exactly', () => {
     const text = 'TLF bringt Ölbinder'
@@ -72,6 +104,20 @@ describe('linkMarkup', () => {
   it('⚠️ escapes everything that is not our own markup — a typed «&» must not break the row', () => {
     expect(linkMarkup('TLF & Pio', vocab, (v) => v.replace(/&/g, '&amp;')))
       .toBe('<b>TLF</b> &amp; Pio')
+  })
+
+  it('anchors an address and underlines it — the Rapport has no colour to spend', () => {
+    expect(linkMarkup('Merkblatt www.vkf.ch beachten', vocab, (v) => v))
+      .toBe('Merkblatt <a href="https://www.vkf.ch"><u>www.vkf.ch</u></a> beachten')
+  })
+
+  it('⚠️ escapes the href too — one raw «&» between query parameters costs the whole page', () => {
+    expect(linkMarkup('https://a.ch/x?a=1&b=2', vocab, (v) => v.replace(/&/g, '&amp;')))
+      .toBe('<a href="https://a.ch/x?a=1&amp;b=2"><u>https://a.ch/x?a=1&amp;b=2</u></a>')
+  })
+
+  it('⚠️ says nothing at all when the row marked nothing — the backend escapes the text itself', () => {
+    expect(linkMarkup('Kellerbrand bestätigt', vocab, (v) => v)).toBeUndefined()
   })
 })
 

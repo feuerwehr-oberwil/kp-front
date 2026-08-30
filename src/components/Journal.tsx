@@ -317,14 +317,24 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    */
   // one marking for every piece of prose in the drawer — the row text and the transcript
   // subtitle lines mark the same vocabulary the composer marked while it was being typed
-  const marked = (text: string) => linkParts(text, vocab).map((p, pi) => (p.kind
-    ? (
+  const marked = (text: string) => linkParts(text, vocab).map((p, pi) => {
+    if (!p.kind) return <span key={pi}>{p.text}</span>
+    // ⚠️ An address is the one mark that DOES something, so it is the one that must not also do
+    // what the row does. A row selects, seeks or opens a place under the finger; without the
+    // stop, opening the link would fly the map somewhere at the same time.
+    if (p.kind === 'url') {
+      return (
+        <a key={pi} className="jr-link jr-link-url" href={p.href}
+          target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{p.text}</a>
+      )
+    }
+    return (
       <b key={pi} className={`jr-link jr-link-${p.kind}`}>
         {p.text}
         {p.role && <i className="jr-link-role"> ({p.role})</i>}
       </b>
     )
-    : <span key={pi}>{p.text}</span>))
+  })
 
   const jumpToRow = (id: string, smooth = false) => {
     const list = listRef.current

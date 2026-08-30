@@ -254,7 +254,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     const end = text.trimEnd()
     if (!end || end.endsWith(ARROW) || end.endsWith(ARROW_BACK)) return false
     const last = linkParts(end, vocab).pop()
-    return !!last?.kind
+    // ⚠️ …and only on SOMEBODY. A sentence ending in an address is also ending in a mark, but
+    // «www.vkf.ch → » is nobody talking to anybody — the arrow means «and now the other side».
+    return !!last?.kind && last.kind !== 'url'
   }, [text, vocab])
   // ── and what the sheet offers before a single letter is typed ──
   // ⚠️ Only while the field is EMPTY. The Textbausteine stopped being a permanent strip on

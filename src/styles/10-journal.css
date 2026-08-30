@@ -624,6 +624,17 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jc-text-marks mark.jc-mark-partner { background: color-mix(in srgb, var(--amber) 26%, transparent); }
 .jc-text-marks mark.jc-mark-vehicle { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .jc-text-marks mark.jc-mark-group { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+/* An address is not one of the five — it is not a thing this Einsatz has words for — so it gets
+   no sixth ink, it gets the underline. The backdrop's text is transparent, so the underline has
+   to be coloured on its own; it lands under the real characters in the field above. Written here
+   for both backdrops (18-audio.css paints the Wiedergabe's washes), because it is one rule. */
+.jc-text-marks mark.jc-mark-url,
+.ap-add-marks mark.jc-mark-url {
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--blue) 70%, transparent);
+  text-underline-offset: 2px;
+}
 
 /* …and the same five in the Verlauf, where there is real text to colour rather than a backdrop */
 .jr-link { font-weight: 700; }
@@ -632,6 +643,13 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jr-link-partner { color: var(--amber-strong); }
 .jr-link-vehicle { color: var(--accent); }
 .jr-link-group { color: var(--ink); }
+/* the address in the Verlauf: a real <a>, so it carries the underline that says «this opens»
+   rather than a colour that only says «this is a thing» */
+a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-offset: 2px;
+  overflow-wrap: anywhere; }
+@media (hover: hover) {
+  a.jr-link-url:hover { color: var(--blue-strong); }
+}
 .jc-text { position: relative; display: block;
   width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   padding: 10px 12px; font-family: inherit; font-size: 14px; line-height: normal; color: var(--ink);

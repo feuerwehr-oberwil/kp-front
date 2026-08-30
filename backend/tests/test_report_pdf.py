@@ -5,10 +5,12 @@ with an embedded figure, and that it's robust to edge inputs — visual fidelity
 hand against the print view. Also covers auth (any user, incl. viewer) and the 404/422 paths.
 """
 
+import ctypes
 import io
 import json
 
 import pypdfium2 as pdfium
+import pypdfium2.raw as pdfium_raw
 import pytest
 from PIL import Image as PILImage
 from sqlalchemy import select
@@ -16,6 +18,39 @@ from sqlalchemy import select
 from app.report_pdf import compose_report_pdf
 
 pytestmark = pytest.mark.asyncio
+
+
+def _link_uris(pdf_bytes: bytes) -> list[str]:
+    """URI targets of every Link annotation in the PDF, in on-page order.
+
+    pypdfium2's high-level API has no annotation helpers, so this drops to the raw FPDF_*
+    bindings the library wraps — same approach the journal-link test uses to prove a
+    ``<a href>`` in journal markup actually became a clickable PDF link, not just underlined text.
+    """
+    pdf = pdfium.PdfDocument(pdf_bytes)
+    uris: list[str] = []
+    for page in pdf:
+        raw_page = page.raw
+        for i in range(pdfium_raw.FPDFPage_GetAnnotCount(raw_page)):
+            annot = pdfium_raw.FPDFPage_GetAnnot(raw_page, i)
+            try:
+                if pdfium_raw.FPDFAnnot_GetSubtype(annot) != pdfium_raw.FPDF_ANNOT_LINK:
+                    continue
+                link = pdfium_raw.FPDFAnnot_GetLink(annot)
+                if not link:
+                    continue
+                action = pdfium_raw.FPDFLink_GetAction(link)
+                if not action:
+                    continue
+                buflen = pdfium_raw.FPDFAction_GetURIPath(pdf.raw, action, None, 0)
+                if not buflen:
+                    continue
+                buf = ctypes.create_string_buffer(buflen)
+                pdfium_raw.FPDFAction_GetURIPath(pdf.raw, action, buf, buflen)
+                uris.append(buf.raw[: buflen - 1].decode("utf-8", "replace"))
+            finally:
+                pdfium_raw.FPDFPage_CloseAnnot(annot)
+    return uris
 
 
 def _png(w: int = 12, h: int = 8) -> bytes:
@@ -336,3 +371,61 @@ async def test_journal_photos_print_side_by_side(client, editor):
     doc_four = pdfium.PdfDocument(io.BytesIO(four.content))
     doc_one = pdfium.PdfDocument(io.BytesIO(one.content))
     assert len(doc_four) <= len(doc_one) + 1
+
+
+async def test_journal_link_prints_a_clickable_uri_annotation():
+    """Journal markup now carries ``<a href="…"><u>…</u></a>`` alongside the existing ``<b>``
+    name marks (see ``JournalRowIn.markup``). ReportLab's Paragraph turns ``<a href>`` into a
+    real URI link annotation natively, so this proves the exact href round-trips into the PDF —
+    and, since the markup sets no ``color``/``fg`` on the ``<a>``, that the link prints in the
+    cell's own ink rather than ReportLab's link colour: the Rapport is paper, so a link is
+    underlined (from the sent ``<u>``), not blue.
+    """
+    from xml.sax.saxutils import escape
+
+    from app.report_pdf import ReportPayload
+
+    url = "https://example.com/bericht?ref=42&team=Alpha"
+    markup = f'<a href="{escape(url)}"><u>Bericht</u></a> an <b>Peter Muster</b> übergeben'
+    payload = _minimal_payload("x")
+    payload["journal"] = [
+        {"timeLabel": "21:58", "area": "Lage", "text": "Bericht an Peter Muster übergeben", "markup": markup}
+    ]
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(payload), {})
+    assert _link_uris(pdf_bytes) == [url]
+
+
+async def test_journal_link_with_a_very_long_url_does_not_blow_up_the_table():
+    """A long, space-free URL as the link's own display text is the classic ReportLab table
+    blow-up: an unbreakable word can make a cell demand infinite width and the layout explode
+    into a runaway page count (or raise outright). ``splitLongWords`` (on by default) is
+    supposed to save us even inside ``<a>``/``<u>`` — this proves it actually does for this
+    markup shape, not just for plain text.
+    """
+    from xml.sax.saxutils import escape
+
+    from app.report_pdf import ReportPayload
+
+    long_url = "https://example.com/" + "a1b2c3d4e5f6g7h8i9j0" * 8  # 180 chars, no spaces
+    esc = escape(long_url)
+    markup = f'<a href="{esc}"><u>{esc}</u></a>'
+
+    short_payload = _minimal_payload("x")
+    short_payload["journal"] = [{"timeLabel": "21:59", "area": "Lage", "text": "kurz"}]
+    baseline = compose_report_pdf(ReportPayload.model_validate(short_payload), {})
+
+    long_payload = _minimal_payload("x")
+    long_payload["journal"] = [{"timeLabel": "21:59", "area": "Lage", "text": long_url, "markup": markup}]
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(long_payload), {})
+
+    # splitLongWords wraps the unbreakable word across several lines, and ReportLab annotates
+    # each wrapped fragment with its own Link — so several annotations, all pointing at the
+    # SAME full href (never a truncated piece of it).
+    uris = _link_uris(pdf_bytes)
+    assert uris, "the long-URL entry produced no link annotation at all"
+    assert set(uris) == {long_url}
+    base_pages = len(pdfium.PdfDocument(baseline))
+    long_pages = len(pdfium.PdfDocument(pdf_bytes))
+    # one unbreakable word must not cost more than a page or two over the same journal with a
+    # short entry — a real blow-up runs into dozens/hundreds of pages, not a couple.
+    assert long_pages <= base_pages + 2
