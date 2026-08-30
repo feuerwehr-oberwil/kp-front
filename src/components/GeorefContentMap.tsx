@@ -28,7 +28,7 @@ import { useHoldToDrag } from '../lib/useHoldToDrag'
 import { contentTwinName, type MapContentTwin } from '../lib/georefTwins'
 import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { noteScale } from '../lib/notes'
-import { worldPx } from '../lib/mapView'
+import { worldPx, TEAM_DOT_PX } from '../lib/mapView'
 import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
 import { EXTEND_STEP_PX, lerpPoint, markerParamsAlong } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork } from '../lib/lineDecor'
@@ -378,12 +378,17 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
             {trail.length >= 2 && <Source id={`s-georef-trail-${i}`} type="geojson" data={trailData}>
               <Layer id={`l-georef-trail-${i}`} type="line" paint={{ 'line-color': a.color || appConfig.drawing.teamColors[0], 'line-width': 2, 'line-opacity': 0.85, 'line-dasharray': [2.5, 2.5] }} />
             </Source>}
+            {/* ⚠️ A Trupp marker is a STRIP — [dot][gap][name] — anchored by its LEFT edge with
+                half a dot taken back, so the DOT sits on the coordinate and the name merely hangs
+                off it. Same anchor + offset the Karte's own Trupp markers use (MapMarkers), which
+                is the whole point: on this surface a mirrored chip stands next to the original,
+                and two anchorings side by side put them half a name's width apart. */}
             {!interactive || !onOpenTwin ? (
-              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>
+              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="left" offset={[-TEAM_DOT_PX / 2, 0]} style={INERT}>
                 <span className={`${s.contentMap} team-dot`} style={style}>{chip}</span>
               </Marker>
             ) : (
-              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center">
+              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="left" offset={[-TEAM_DOT_PX / 2, 0]}>
                 {tapTarget(t, t.coord, canDragAny, '', <span className="team-dot">{chip}</span>, style)}
               </Marker>
             )}

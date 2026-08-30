@@ -11,7 +11,7 @@ import { LockChip } from './LockChip'
 import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
@@ -54,9 +54,16 @@ const handleZ: React.CSSProperties = { zIndex: MARKER_Z.selected }
 // be mirrored here. When a label's CSS changes, these change with it — each is named for the
 // rule it comes from.
 const NO_LABELS: ReadonlySet<string> = new Set()
-/** `.team-dot i` and its `gap` (09-whiteboard.css) */
-const TEAM_DOT_PX = 13
-const TEAM_DOT_GAP = 6
+/** How far a press on a RESTING end tag may travel and still count as a tap. The drag deadzone
+ *  (8px) is the wrong ruler for a finger: a gloved 3am tap wanders further than that, and every
+ *  one of those was silently dropped — which is why a tag nobody's marker covered («50 · S · +1 ·
+ *  Müller H.» on a Leitung whose Trupp is out) simply did nothing. Same slop useHoldToDrag gives
+ *  a marker tap (TAP_TOL_PX). */
+const TAG_TAP_TOL_PX = 16
+/** How long after a pan/pinch a `click` still counts as the tail of that gesture. The browser
+ *  synthesizes its mouse trail right after touchend, so the trailing click arrives a few ms AFTER
+ *  MapLibre's dragend — but well inside this window, which no second deliberate tap fits in. */
+const PAN_CLICK_TAIL_MS = 350
 /** `.sym-caption { margin-top }` (03-map.css) */
 const CAPTION_GAP = 3
 /** the end tag's Marker `offset={[0, -14]}` (below) */
@@ -393,6 +400,18 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // tap-vs-pan for the pairing mode, tracked by hand — MapLibre's `click` fires on a pan that
   // ends where it began (see GeorefMapLayer · useGeorefMapTap)
   const georefTap = useGeorefMapTap()
+  // ── a pan is not a tap ──
+  // ⚠️ MapLibre fires `click` after a touch PAN as well, however far the finger travelled: the
+  // browser synthesizes a mousedown/mouseup pair at the release point, and both land on the same
+  // pixel, so the 3px click tolerance is trivially met. That trailing click fell through to
+  // `onMapClick`, whose empty-map branch deselects — which on a phone closed the detail sheet the
+  // operator was reading the moment they panned the map to see what was under it. So the gesture
+  // is remembered for a moment past its own end (the synthetic click arrives after `dragend`) and
+  // the click trailing it is dropped. Real, stationary taps never set the flag and are unaffected.
+  const panGesture = useRef({ active: false, endedAt: 0 })
+  const beginPanGesture = () => { panGesture.current.active = true }
+  const endPanGesture = () => { panGesture.current = { active: false, endedAt: performance.now() } }
+  const clickTrailsPan = () => panGesture.current.active || performance.now() - panGesture.current.endedAt < PAN_CLICK_TAIL_MS
   /** the one place a map half of a pair is placed — true when it really was, so the touch path
    *  knows whether there is a synthetic click trail to cancel (see the note on onTouchEnd) */
   const placeGeoref = (lngLat: { lng: number; lat: number }): boolean => {
@@ -994,18 +1013,17 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const gh = e.kind === 'shape' ? g * shapeAspect(e.shape ?? 'square', e.aspect) : g
       const isSel = e.id === selectedId || selectedEntityIds.includes(e.id)
       if (e.kind === 'team') {
-        // a resting Trupp marker is `[dot][gap][name]` centred on the coord, so the dot is NOT
-        // at the coordinate — the two boxes have to be derived from the whole strip's width
+        // a resting Trupp marker is `[dot][gap][name]` anchored by its LEFT edge (MapMarkers):
+        // the DOT sits on the coordinate and the name hangs off to the right of it, so dropping
+        // the name below moves nothing on screen
         const label = e.label ?? ''
         const s = cachedLabelSize(label, LABEL_STYLE.team)
-        const strip = TEAM_DOT_PX + TEAM_DOT_GAP + (label ? s.w : 0)
-        const left = p.x - strip / 2
-        occupied.push({ x: left, y: p.y - TEAM_DOT_PX / 2, w: TEAM_DOT_PX, h: TEAM_DOT_PX })
+        occupied.push({ x: p.x - TEAM_DOT_PX / 2, y: p.y - TEAM_DOT_PX / 2, w: TEAM_DOT_PX, h: TEAM_DOT_PX })
         // the selected Trupp shows its full pill instead of the bare name — not a candidate,
         // but its footprint still has to push everything else away
         if (label && !isSel) {
           cands.push({ key: `team:${e.id}`, rank: LABEL_RANK.team, dist: near(p),
-            box: { x: left + TEAM_DOT_PX + TEAM_DOT_GAP, y: p.y - s.h / 2, w: s.w, h: s.h } })
+            box: { x: p.x + TEAM_DOT_PX / 2 + TEAM_DOT_GAP, y: p.y - s.h / 2, w: s.w, h: s.h } })
         }
         continue
       }
@@ -1142,9 +1160,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // lng/lat — so the label tracks the finger AND stays pinned to the ground at any zoom/bearing.
   const labelDrag = useRef<{ id: string; gx: number; gy: number; sx: number; sy: number; which: 'label' | 'end' } | null>(null)
   const labelMoved = useRef(false)
-  /** press origin on a RESTING end tag (no drag armed there) — lets its click handler tell a
+  /** press origin on a RESTING end tag (no drag armed there) — lets its release handler tell a
    *  tap from a map pan that happened to start and end on the tag */
-  const tagRestPress = useRef<{ x: number; y: number } | null>(null)
+  const tagRestPress = useRef<{ x: number; y: number; pointerId: number } | null>(null)
+  /** the pointerup already answered that press — swallow the trailing synthetic click */
+  const tagTapped = useRef(false)
   // pointer → georeferenced [lng,lat], minus the grab offset captured on pointerdown
   const labelAnchorAt = (e: React.PointerEvent): LngLat | null => {
     const m = mapInst.current, st = labelDrag.current; if (!m || !st) return null
@@ -1299,6 +1319,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const handleClick = (e: MapLayerMouseEvent) => {
     // swallow the click that trails a long-press vertex delete (keeps the line selected)
     if (suppressClick.current) { suppressClick.current = false; return }
+    // …and the one that trails a pan/pinch (see panGesture): moving the map is not a tap on it,
+    // so it may neither deselect, nor place, nor pick.
+    if (clickTrailsPan()) return
     // The pairing mode owns every click on the map while it runs — including the ones that come
     // too early. Placing a symbol mid-pairing would be a silent mis-hit on a surface the operator
     // is aiming at for something else entirely.
@@ -1400,14 +1423,33 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // fires at the end of the gesture and updates App's view state then — the App-level compass /
       // coord readout just settle on release instead of tracking every frame.
       onRotate={(e) => setBearing(e.viewState.bearing)}
-      // MapLibre says a genuine pan began: that settles the gesture as a drag whatever the raw
-      // travel looked like, so an armed mode never turns a pan into a reference point.
-      // ⚠️ MOUSE gestures only. MapLibre arms its touch drag-pan after ~3px, which every finger
-      // tap exceeds by pure wobble — with this unconditional, a tablet could not place a map
+      // MapLibre says a genuine pan began. That (a) opens the pan gesture the trailing click is
+      // measured against (see panGesture), (b) peeks the phone detail sheet down for as long as
+      // the map moves — the same shrink a dragged object already gets (lib/sheetPeek), for the
+      // same reason: the gesture is about the map, not about the sheet — and (c) settles the
+      // gesture as a drag for the pairing mode, whatever the raw travel looked like, so an armed
+      // mode never turns a pan into a reference point.
+      // ⚠️ (a) is TOUCH gestures only — the same narrowing the onZoomStart/onZoomEnd pair below
+      // makes, for the same reason: only touch leaves a synthesized click behind. A real mouse
+      // drag never produces one (MapLibre's own 3px clickTolerance already eats it), so on the
+      // desktop the window swallowed nothing but genuinely NEW clicks — pan, then click to place
+      // within 350ms, and the placement silently did not happen.
+      // ⚠️ (c) is MOUSE gestures only. MapLibre arms its touch drag-pan after ~3px, which every
+      // finger tap exceeds by pure wobble — unconditional, a tablet could not place a map
       // reference point AT ALL: each tap «began a pan» and died. Touch keeps the tap/pan
       // distinction from its own travel instead (trackTap · GEOREF_TAP_SLOP_PX): a real pan
       // moves far past the slop before release, a tap does not.
-      onDragStart={georefOn ? (e) => { if (!(e.originalEvent && 'touches' in e.originalEvent)) georefTap.panned() } : undefined}
+      onDragStart={(e) => {
+        if (e.originalEvent && 'touches' in e.originalEvent) beginPanGesture()
+        beginSheetPeek()
+        if (georefOn && !(e.originalEvent && 'touches' in e.originalEvent)) georefTap.panned()
+      }}
+      onDragEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) endPanGesture(); endSheetPeek() }}
+      // A pinch that never armed drag-pan (two fingers down together) still moves the map, so it
+      // closes the same gesture. Touch only: a wheel zoom leaves no click behind, and swallowing
+      // one would cost the desktop operator the tap right after a zoom.
+      onZoomStart={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { beginPanGesture(); beginSheetPeek() } }}
+      onZoomEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { endPanGesture(); endSheetPeek() } }}
       // North-snap: a GESTURE (originalEvent set — programmatic easeTo/flyTo carry none, so
       // «Nach Norden», saved views and the snap's own ease never re-trigger it) that releases
       // within a few degrees of north eases back to exactly 0. Accidental rotation from a
@@ -1806,20 +1848,33 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
                   georeferenced anchor. ⚠️ DRAG only while its line is selected (f4ad5c3's
                   measured decision stands: at rest a pan starting on the tag must stay a pan) —
                   but the TAP answers at rest, that is the whole point of the 29.08. rework. The
-                  rest-press ref lets the click handler drop a pan that ended on the tag. */}
+                  rest-press ref lets the release handler drop a pan that ended on the tag. */}
               {(() => { const tagSel = ld.d.id === selectedDrawingId; return (
               <div role="button" tabIndex={0} className={`line-end-tag-wrap draggable${tagSel ? ' sel' : ''}`}
                 style={{ cursor: onLabelMove && tagSel ? 'move' : undefined }}
                 onPointerDown={(e) => {
                   if (onLabelMove && tagSel) labelDown(e, ld.d.id, ld.d.endLabelAt ?? ld.anchor, 'end')
-                  else { e.stopPropagation(); tagRestPress.current = { x: e.clientX, y: e.clientY } }
+                  else { e.stopPropagation(); tagTapped.current = false; tagRestPress.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId } }
                 }}
                 onPointerMove={onLabelMove && tagSel ? labelMove : undefined}
-                onPointerUp={onLabelMove && tagSel ? labelUp : undefined}
-                onPointerCancel={onLabelMove && tagSel ? labelUp : undefined}
-                onClick={(e) => {
+                // ⚠️ The rest tap is answered on pointerUP, not on the click. A tap that let the
+                // map pan a couple of px under the finger often fires no click at all, and one
+                // that wandered past the DRAG deadzone was thrown away — so a tag nobody's marker
+                // covers (a Leitung whose Trupp is out) «did nothing» on a phone. Same reason
+                // useHoldToDrag reports marker taps itself instead of trusting `click`.
+                onPointerUp={onLabelMove && tagSel ? labelUp : (e) => {
                   const p = tagRestPress.current; tagRestPress.current = null
-                  if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) >= DRAG_DEADZONE_PX) return
+                  if (!p || p.pointerId !== e.pointerId) return
+                  if (Math.hypot(e.clientX - p.x, e.clientY - p.y) >= TAG_TAP_TOL_PX) return
+                  tagTapped.current = true
+                  activateLineLabel(e, ld.d.id, ld.trupp?.id, ld.tone)
+                }}
+                onPointerCancel={onLabelMove && tagSel ? labelUp : () => { tagRestPress.current = null }}
+                onClick={(e) => {
+                  // …the trailing click of a tap the pointerup already answered
+                  if (tagTapped.current) { tagTapped.current = false; e.stopPropagation(); return }
+                  const p = tagRestPress.current; tagRestPress.current = null
+                  if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) >= TAG_TAP_TOL_PX) return
                   activateLineLabel(e, ld.d.id, ld.trupp?.id, ld.tone)
                 }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateLineLabel(e, ld.d.id, ld.trupp?.id, ld.tone) } }}>
