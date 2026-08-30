@@ -1441,7 +1441,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // preventDefault here is honoured and stops the whole synthetic trail. Pans, pinches and
       // non-placing taps stay untouched — crosses keep receiving their real taps.
       onTouchEnd={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped && placeGeoref(e.lngLat)) e.originalEvent?.preventDefault() } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      cursor={picking || georefTurn ? 'crosshair' : undefined}
+      // 'default', not maplibre's grab hand: panning is THE ambient gesture on this surface,
+      // and a permanent hand implied a drag mode the operator never chose (field, 30.08.)
+      cursor={picking || georefTurn ? 'crosshair' : 'default'}
       attributionControl={false}
       maxPitch={0}
       maxZoom={20}

@@ -45,24 +45,6 @@ const crossSvg = (
   </svg>
 )
 
-export interface GeorefPairSegment {
-  x1: number
-  y1: number
-  x2: number
-  y2: number
-}
-
-/** Screen-space bridge between a plan cross and its matching map cross. The two surfaces have
- *  independent pan/zoom systems, so the DOM rectangles are the only shared coordinate system. */
-export function georefPairSegment(plan: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>, map: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>): GeorefPairSegment {
-  return {
-    x1: plan.left + plan.width / 2,
-    y1: plan.top + plan.height / 2,
-    x2: map.left + map.width / 2,
-    y2: map.top + map.height / 2,
-  }
-}
-
 /**
  * Everything the mode draws ON the sheet, mounted INSIDE `.wb-board` so the crosses pan and zoom
  * with the plan exactly like an annotation. The loupe is portalled up into the canvas — it must
@@ -290,7 +272,7 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
         if (placing) {
           return (
             <span key={i} className={`${cls} ${s.inert}`} style={{ left: sl.plan.x * sW, top: sl.plan.y * sH }}
-              data-georef-cross-side="plan" data-georef-cross-slot={i} aria-hidden>
+              aria-hidden>
               {crossSvg}
               <span className={s.badge}>{i + 1}</span>
             </span>
@@ -305,8 +287,6 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
             style={{ left: sl.plan.x * sW, top: sl.plan.y * sH }}
             title={label}
             aria-label={label}
-            data-georef-cross-side="plan"
-            data-georef-cross-slot={i}
             onPointerDown={crossDown(i)}
             onPointerMove={crossMove}
             onPointerUp={crossUp}
@@ -479,46 +459,13 @@ function PlanLoupe({ aim, sW, sH, boardRef, corner = false }: { aim: Aim; sW: nu
  * loan»), which is the app talking about its own design: nobody in an Einsatz parses it, and it
  * answers a question the operator never asked. The dashed line says «two surfaces, one job»
  * without a word, and the bar says what to tap.
+ *
+ * ⚠️ No cross-seam pair lines either. One day of them (29.08.) was enough: with 4–5 pairs the
+ * dashed bridges turned the split into a cat's cradle. The numbered badges on the crosses ARE
+ * the pairing statement — «just markers are enough» (field decision 30.08.).
  */
 export function GeorefSplitSeam() {
-  const mode = useGeorefMode()
-  const paired = mode.slots.flatMap((slot, idx) => slot.plan && slot.map ? [idx] : [])
-  const pairedKey = paired.join(',')
-  const [segments, setSegments] = useState<GeorefPairSegment[]>([])
-
-  useEffect(() => {
-    let raf = 0
-    // null, not '': after the LAST pair is deleted the next key is also '' — starting equal
-    // would skip the setSegments that erases the stale line between two dead viewport points
-    let previous: string | null = null
-    const sample = () => {
-      const next = paired.flatMap((idx) => {
-        const plan = document.querySelector<HTMLElement>(`[data-georef-cross-side="plan"][data-georef-cross-slot="${idx}"]`)
-        const map = document.querySelector<HTMLElement>(`[data-georef-cross-side="map"][data-georef-cross-slot="${idx}"]`)
-        if (!plan || !map) return []
-        return [georefPairSegment(plan.getBoundingClientRect(), map.getBoundingClientRect())]
-      })
-      const key = next.map((line) => `${line.x1},${line.y1},${line.x2},${line.y2}`).join('|')
-      if (key !== previous) { previous = key; setSegments(next) }
-      raf = requestAnimationFrame(sample)
-    }
-    sample()
-    return () => cancelAnimationFrame(raf)
-  }, [pairedKey])
-
-  return (
-    <>
-      <div className={s.seam} />
-      {segments.length > 0 && createPortal(
-        <svg className={s.pairLines} aria-hidden>
-          {segments.map((line, i) => (
-            <line key={paired[i]} {...line} vectorEffect="non-scaling-stroke" />
-          ))}
-        </svg>,
-        document.body,
-      )}
-    </>
-  )
+  return <div className={s.seam} />
 }
 
 /** The status the panel leads with: the Ampel line, plus «Karte n · Modul m» and — because the
