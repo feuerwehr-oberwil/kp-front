@@ -10,7 +10,8 @@ import { fillTemplate } from '../lib/format'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { ROTATABLE } from '../lib/symbols'
 import { MARKER_Z } from '../lib/labelPass'
-import { twinSymbolPx, type MapTwin } from '../lib/georefTwins'
+import { type MapTwin } from '../lib/georefTwins'
+import { symPx } from '../lib/mapView'
 import { TwinMark } from './GeorefTwinMark'
 import { glyphFor, overlayFor, twinName } from '../lib/twinGlyph'
 import { symbolCaptionText } from '../lib/symbols'
@@ -22,11 +23,12 @@ import type { CaptionMode, LngLat } from '../types'
 /**
  * Every georeferenced plan's tactical symbols, drawn on the map as twins.
  *
- * Sized by the BUILDING, not by the map's pin band: a plan symbol occupies ~8.5 % of its sheet,
- * so its projection covers those same ground metres at the live zoom (`twinSymbolPx`, with a
- * lower px floor than natives — a projection is quieter by design). Native symbols and
- * ownership-transferred ones keep `symPx`. Provenance lives in its detail subtitle and layer
- * row. Memoised: the projection itself is done once per board/fit change by the caller, and
+ * Sized by the map's own pin band (`symPx`), exactly like a native symbol standing beside it:
+ * twins are fully interaction- AND presentation-equivalent to originals (doctrine 30.08. — the
+ * one twin/original difference is which side persists a broken reference). The earlier
+ * footprint-scaled quieter band read as «different object» in the field. Provenance lives in
+ * the detail subtitle and layer row.
+ * Memoised: the projection itself is done once per board/fit change by the caller, and
  * this tree then re-renders only when that list, the zoom or the bearing actually moves.
  */
 export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', interactive = true, selectedKey, onOpen, onMove }: {
@@ -84,12 +86,12 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
             onDragEnd={(e) => onMove?.(t, [e.lngLat.lng, e.lngLat.lat], 'end')}>
             <TwinMark
               svg={svg}
-              sizePx={twinSymbolPx(t.widthM, t.coord[1], zoom, symMul)}
+              sizePx={symPx(veh ? 'vehicle' : 'symbol', t.coord[1], zoom, symMul)}
               rotation={veh ? 0 : rot}
               count={a.count}
               // ⚠️ `storey`, never `anno.floor` — that one is the floor-stack tile index
               floor={a.storey} floorFrom={a.floorFrom} floorTo={a.floorTo}
-              spread={a.spread} spreadRotation={-t.fit.rotationDeg - bearing}
+              spread={a.spread}
               overlay={veh ? undefined : overlayFor(a, byName, -t.fit.rotationDeg - bearing)}
               caption={rawCaption ? softHyphenateText(rawCaption) : rawCaption}
               title={fillTemplate(C.twinFromPlan, { name, plan: t.planCode })}

@@ -68,6 +68,15 @@
    a hold-drag moves the one source through the fit (GeorefContentMap / GeorefContentBoard).
    Button chrome stripped; the mark itself is the button. */
 .contentTap { pointer-events: auto; cursor: pointer; border: 0; background: none; padding: 0; font: inherit; }
+/* every mirrored mark carries the gloved 44px pad the vertices already wear: a metre-true
+   shape can render 12px on a zoomed-out surface, and a thin rotated Pfeil was untappable in
+   the field (30.08.). Centered pad — twins are sparse, overlap is not the failure mode here. */
+.contentTap::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
+  transform: translate(-50%, -50%); }
+/* the mirrored team chip is a flex row (dot + name). .contentPoint's display:block used to win
+   the cascade over .team-dot's inline-flex — the <i> dot, back to plain inline, then IGNORED
+   its width and collapsed to a sliver (field find, 30.08.). */
+.contentPoint:global(.team-dot) { display: inline-flex; }
 /* map-side hit targets: positioned so the shared .sel-halo ring can centre on them (the board
    side gets that from .contentPoint's absolute positioning). --hbox feeds the halo's size. */
 .mapTap { position: relative; --hbox: 44px; }

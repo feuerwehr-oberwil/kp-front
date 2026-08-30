@@ -35,8 +35,8 @@ import s from './GeorefTwins.module.css'
  * The one mark, positioned by its caller.
  *
  * The same symbol renderer carries the source's caption decision across — and its storey badge
- * and Entwicklung spread arrows too (the arrows turned through the fit via `spreadRotation`, so
- * they keep pointing at the true ground direction on a turned sheet). Only the Hubretter boom
+ * and Entwicklung spread arrows too, drawn exactly as the source draws them (doctrine 30.08.:
+ * presentation-equivalent, never re-aimed through the fit). Only the Hubretter boom
  * remains source-only: metre-scaled geometry the projection has no honest length for.
  */
 /** Pointer travel that turns a tap into a drag. Small — the operator is aiming at a symbol they
@@ -44,7 +44,7 @@ import s from './GeorefTwins.module.css'
  *  fingertip's own wobble on a glove would move the object on every tap. */
 const DRAG_SLOP_PX = 4
 
-export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, spreadRotation, overlay, caption, title, onOpen, onMove, nativeDrag = false, interactive = true, selected = false, style, className }: {
+export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, caption, title, onOpen, onMove, nativeDrag = false, interactive = true, selected = false, style, className }: {
   svg: string
   sizePx: number
   rotation: number
@@ -53,9 +53,8 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
   floor?: number
   floorFrom?: number
   floorTo?: number
-  /** the source's Entwicklung arrows, turned through the fit by `spreadRotation` */
+  /** the source's Entwicklung arrows, exactly as the source draws them */
   spread?: SymbolProps['spread']
-  spreadRotation?: number
   /** a composite's fan/ladder over the base body, already aimed by the caller (lib/twinGlyph ·
    *  overlayFor) — without it a mirrored Grosslüfter was just a bare vehicle body */
   overlay?: { svg: string; rotation?: number; scale?: number }
@@ -159,7 +158,7 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
       {selected && <span className="sel-halo" aria-hidden />}
       <TacticalSymbol svg={svg} sizePx={sizePx} rotation={rotation} count={count}
         floor={floor} floorFrom={floorFrom} floorTo={floorTo}
-        spread={spread} spreadRotation={spreadRotation} overlay={overlay} caption={caption} />
+        spread={spread} overlay={overlay} caption={caption} />
     </button>
   )
 }

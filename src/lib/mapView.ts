@@ -28,11 +28,11 @@ export const lineLabelAction = (truppId: string | undefined, tone: LineTone | un
 const SIZE_M: Record<string, number> = { vehicle: 11, command: 10, hydrant: 6, symbol: 8, area: 8 }
 // the band (px). `mul` is the global S/M/L factor (lib/prefs · symbolMul); it
 // scales the whole band, so the ceiling/floor grow along with it.
-export const MAP_SYMBOL_MIN_PX = 28
+const SYM_MIN = 28
 const SYM_MAX = 48
 export const pxPerM = (lat: number, z: number) => Math.pow(2, z) / (156543.03392 * Math.cos((lat * Math.PI) / 180))
 export const symPx = (kind: string, lat: number, z: number, mul = 1) =>
-  Math.max(MAP_SYMBOL_MIN_PX, Math.min(SYM_MAX, (SIZE_M[kind] ?? 8) * pxPerM(lat, z))) * mul
+  Math.max(SYM_MIN, Math.min(SYM_MAX, (SIZE_M[kind] ?? 8) * pxPerM(lat, z))) * mul
 // shapes are sized in real-world metres so they grow/shrink with zoom like a
 // ground footprint (a smoke cloud covering an area, an arrow spanning a street)
 export const shapePx = (sizeM: number | undefined, lat: number, z: number) => Math.max(24, Math.min(900, (sizeM ?? 40) * pxPerM(lat, z)))
