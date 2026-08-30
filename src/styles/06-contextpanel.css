@@ -687,11 +687,3 @@
    carries one, so it has to stay quiet. */
 .jr-link-role { font-style: normal; font-weight: 500; color: var(--ink-faint); }
 
-
-/* ── Truppmarker rows (30.08.) — the icon bar's capabilities as worded panel controls ── */
-/* the Atemschutz-Trupp join: current pick + chevron, opens the app's own menu (no native select) */
-.ctx-team-join { display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap); }
-.ctx-team-join .i { width: 14px; height: 14px; }
-/* deletion while a trail exists: visibly locked, the tap offers the trail clear instead */
-.ctx-del-locked { opacity: .55; }
-.ctx-lock-hint { flex-basis: 100%; margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-dim); }

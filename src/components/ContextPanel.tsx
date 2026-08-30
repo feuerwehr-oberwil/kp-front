@@ -3,9 +3,7 @@ import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '
 import { Icon } from '../lib/icons'
 import { boundedKey, normalizeSpread, tidySpread, type SpreadDir } from '../lib/spread'
 import { openPhoto } from '../lib/ui'
-import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
-import { Menu } from '../lib/overlays'
-import { MenuPick } from './MenuPick'
+import { formatSymbolName, stripUnprintable } from '../lib/format'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
@@ -205,22 +203,6 @@ export interface ContextPanelProps {
   /** recolour a placed Atemschutz-Trupp (null = back to automatic). Present only for a team
    *  marker that is bound to a Trupp — it writes the TRUPP's colour, not just this marker. */
   onTeamColor?: (color: string | null) => void
-  // ── Truppmarker capabilities (30.08.) — the twin panel carries the full set the map's
-  //    icon bar has, in words. All source-backed: every callback writes the ONE map entity. ──
-  /** rename a LOOSE team marker («Team 1» is a placeholder); a Trupp-bound marker is named by
-   *  the Atemschutz board and gets no rename here */
-  onTeamRename?: (name: string) => void
-  /** «Position markieren» — the only way a position is recorded (moving never breadcrumbs) */
-  onTeamMark?: () => void
-  /** «Im Atemschutz zeigen» — jump to the bound Trupp's card (bound markers only) */
-  onTeamShow?: () => void
-  /** the Atemschutz-Trupp join: «Kein Trupp» + candidates, current one marked */
-  teamTruppOptions?: { id?: string; name: string; on: boolean }[]
-  onTeamTruppPick?: (truppId?: string) => void
-  /** recorded positions — while > 0 they LOCK deletion (the trail is the Truppverfolgung) */
-  teamTrailCount?: number
-  /** confirm-gated wipe of the recorded trail (frees deletion) */
-  onTeamClearTrail?: () => void
 }
 
 // signed storey label for the badge / stepper readout: +2, -1, 0 (EG)
@@ -243,7 +225,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onTeamRename, onTeamMark, onTeamShow, teamTruppOptions, onTeamTruppPick, teamTrailCount = 0, onTeamClearTrail }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -485,20 +467,10 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
       {/* «Festhalten» and «GPS» are the two directions of one thing, so they sit together:
           hold this vehicle where it stands, or give it back to the feed. Only ONE is ever
           live — a pinned vehicle has nothing to pin, a following one has nothing to reset. */}
-      {onTeamMark && !readOnly && <button className="btn" onClick={onTeamMark}><Icon id="flag" />{appConfig.copy.whiteboard.markPosition}</button>}
-      {onTeamShow && <button className="btn" onClick={onTeamShow}><Icon id="people" />{appConfig.copy.whiteboard.showTrupp}</button>}
       {onPinGps && <button className="btn" onClick={onPinGps} title={C.pinGpsTitle}><Icon id="coords" />{C.pinGps}</button>}
       {onResetGps
         ? <button className="btn" disabled={!hasOverride} onClick={onResetGps} title={C.resetGpsTitle}><Icon id="compass" />{C.resetGps}</button>
-        : !readOnly && !onStopSharing && (teamTrailCount > 0 && onTeamClearTrail
-          // the trail is the Truppverfolgung: while it exists, «Löschen» is locked and the tap
-          // offers the confirmed trail clear instead — the sentence below says so in words,
-          // where the icon bar could only grey a trash can
-          ? <>
-              <button className="btn warn ctx-del-locked" title={appConfig.copy.whiteboard.deleteLocked} onClick={onTeamClearTrail}><Icon id="close" />{appConfig.copy.delete}</button>
-              <p className="ctx-lock-hint">{appConfig.copy.whiteboard.deleteLocked}</p>
-            </>
-          : <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>)}
+        : !readOnly && !onStopSharing && <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>}
     </div>
   )
 
@@ -927,50 +899,6 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                 <button key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} style={{ background: c }}
                   aria-pressed={entity.color === c} aria-label={c} onClick={() => onTeamColor(c)} />
               ))}
-            </div>
-          </div>
-        )}
-        {/* ── Truppmarker (30.08.) — the map icon bar's capabilities, in words, so a MIRRORED
-            marker can offer everything the original can. Every callback writes the one map
-            entity; which rows appear is the caller's statement of what THIS marker allows
-            (loose: rename + Farbe; bound: Trupp join + «Im Atemschutz zeigen»). ── */}
-        {onTeamRename && !readOnly && (
-          <div className="ctx-section">
-            <span className="ctx-section-label">{C.labelField}</span>
-            <input
-              className="ctx-title-input" defaultValue={title}
-              onBlur={(e) => onTeamRename(stripUnprintable(e.target.value))}
-              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-            />
-          </div>
-        )}
-        {teamTruppOptions && onTeamTruppPick && !readOnly && (
-          <div className="ctx-section">
-            <span className="ctx-section-label">{appConfig.copy.atemschutz.markerLabel}</span>
-            <Menu
-              popupClassName="de-menu-pop"
-              itemClassName={() => 'de-menu-item'}
-              trigger={
-                <button className="btn ctx-team-join">
-                  {teamTruppOptions.find((o) => o.on)?.name ?? appConfig.copy.atemschutz.markerNone}
-                  <Icon id="chevron-down" />
-                </button>
-              }
-              items={teamTruppOptions.map((o) => ({
-                label: <MenuPick label={o.name} on={o.on} />,
-                onClick: () => onTeamTruppPick(o.id),
-              }))}
-            />
-          </div>
-        )}
-        {teamTrailCount > 0 && (
-          <div className="ctx-section">
-            <span className="ctx-section-label">{appConfig.copy.whiteboard.trails}</span>
-            <div className="field">
-              <span>{fillTemplate(appConfig.copy.whiteboard.trailCount, { n: teamTrailCount })}</span>
-              {onTeamClearTrail && !readOnly && (
-                <button className="btn warn" onClick={onTeamClearTrail}>{appConfig.copy.whiteboard.clearTrail}</button>
-              )}
             </div>
           </div>
         )}

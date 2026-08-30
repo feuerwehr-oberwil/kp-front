@@ -77,6 +77,9 @@
    the cascade over .team-dot's inline-flex — the <i> dot, back to plain inline, then IGNORED
    its width and collapsed to a sliver (field find, 30.08.). */
 .contentPoint:global(.team-dot) { display: inline-flex; }
+/* the selected team twin's context bar lives INSIDE a pointer-inert .contentPoint wrapper —
+   the bar (and the pill button, via .contentTap) must claw its events back */
+.contentPoint :global(.wb-pill-acts) { pointer-events: auto; }
 /* map-side hit targets: positioned so the shared .sel-halo ring can centre on them (the board
    side gets that from .contentPoint's absolute positioning). --hbox feeds the halo's size. */
 .mapTap { position: relative; --hbox: 44px; }
