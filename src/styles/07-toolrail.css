@@ -268,11 +268,27 @@
    was the "janky open" — it was never the timing. The independent `scale` property composes with
    whatever transform the element already carries, so both cards now only grow in place. */
 @keyframes pop { from { scale: .97; opacity: 0; } }
+/* ⚠️ ONE height for the whole header row, and it is --tap. The pill used to take its height from
+   the input's line-box (16px text + 2×14px padding ≈ 47px) while the ✕ beside it was a 40px
+   square — so on a phone the close button read as a smaller control sunk below the search field.
+   Both are var(--tap) tall now, which is also the touch floor, so neither needs a pad to reach it.
+   The radii stay APART on purpose: the pill is a control (--r-ctl), the ✕ is a button (--r-sm) —
+   the house nesting, see the radius scale in 01-tokens.css. */
 .sym-top { display: flex; align-items: center; gap: 10px; }
-.sym-search { flex: 1; display: flex; align-items: center; gap: 10px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 0 14px; color: var(--ink-dim); }
-.sym-search .i { width: 20px; height: 20px; }
-.sym-search input { flex: 1; border: none; background: transparent; outline: none; font-family: var(--body); font-size: 16px; color: var(--ink); padding: 14px 0; }
-.sym-clear, .sym-close { background: var(--fill-soft); border: none; border-radius: var(--r-sm); width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; flex: none; }
+.sym-search { flex: 1; min-width: 0; height: var(--tap); display: flex; align-items: center; gap: 10px;
+  background: var(--fill-soft); border-radius: var(--r-ctl); padding: 0 6px 0 14px; color: var(--ink-dim); }
+.sym-search .i { width: 20px; height: 20px; flex: none; }
+/* the input fills the pill's height instead of setting it — its own padding is what made the two
+   controls disagree in the first place */
+.sym-search input { flex: 1; min-width: 0; align-self: stretch; border: none; background: transparent; outline: none;
+  font-family: var(--body); font-size: 16px; color: var(--ink); padding: 0; }
+/* the ✕ that empties the field sits INSIDE the pill, so it stays smaller than it and carries no
+   box of its own (var(--fill-soft) on var(--fill-soft) was an invisible square anyway); its 44px
+   tap pad comes from 02-base. The dialog's ✕ is the pill's sibling and matches it exactly. */
+.sym-clear { background: none; border: none; border-radius: var(--r-sm); width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; flex: none; }
+.sym-clear .i { width: 17px; height: 17px; }
+.sym-close { background: var(--fill-soft); border: none; border-radius: var(--r-sm); width: var(--tap); height: var(--tap); display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; flex: none; }
+.sym-close .i { width: 18px; height: 18px; }
 .sym-scroll { flex: 1; overflow-y: auto; scrollbar-width: thin; }
 .sym-ghead { position: sticky; top: 0; background: var(--surface); backdrop-filter: blur(4px); z-index: 1;
   font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ink-dim); padding: 8px 4px 5px; }

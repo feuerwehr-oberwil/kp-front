@@ -224,7 +224,7 @@
      a height change and nothing else — the sheet keeps its half/full class, its content, its
      in-progress edits and its scroll position, and springs back on drop through the same
      transition. Beats .sheet-full on specificity, so a full sheet peeks away too. */
-  body.sheet-peek .ctx { height: calc(72px + env(safe-area-inset-bottom)); }
+  body.sheet-peek .ctx { height: calc(76px + env(safe-area-inset-bottom)); }
   /* phone scroll model: the sheet is a fixed flex column. The grip + header are pinned, and so
      is the ACTIONS row — by layout, never position:sticky, because sticky inside a
      backdrop-filtered scroller proved unreliable on iOS and `.ctx` carries a blur.
@@ -239,8 +239,8 @@
      ~72px of body — but only because the basis goes back to `auto` just below, which fits the
      ordinary two-button case («Zentrieren» + «Löschen») in one 44px row.
 
-     It cannot fight the peek state: `body.sheet-peek` gives the sheet a 72px content box, the
-     grip + header already fill 70px of it, `.ctx-body` collapses through `min-height: 0`, and a
+     It cannot fight the peek state: `body.sheet-peek` gives the sheet a 76px content box, the
+     grip + header already fill 74px of it, `.ctx-body` collapses through `min-height: 0`, and a
      `flex: none` footer past that is simply clipped by `.ctx { overflow: hidden }`. */
   .ctx { overflow: hidden; }
   .ctx .ctx-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
@@ -258,12 +258,19 @@
      double-count the home indicator and float the row off the edge. */
   .ctx > .ctx-actions { border-top: 1px solid var(--border-soft); padding: 10px 14px; }
   .ctx > .ctx-actions > .btn { flex: 1 1 auto; }
-  /* compact sheet header: slimmer grip + tighter head so the map/selection keep more room */
-  .sheet-grip { display: flex; align-items: center; justify-content: center; flex: none;
-    height: 20px; border: none; cursor: grab; touch-action: none;
+  /* compact sheet header: ONE handle, then the title row.
+     ⚠️ The bar hangs at the BOTTOM of its band, not in the middle of it. Centred in a 20px band it
+     landed inside the sheet's own 22px top radius (--r-hero) — pinched between the two corner
+     curves and a hair under the top border, where it read as a stray hairline at the edge rather
+     than as a handle, with the header's own border-bottom a few pixels below it as a second line.
+     24px of band with the bar pushed down clears the curve, so the top edge carries the sheet's
+     border, then a gap, then the handle, and the head's rule sits far enough below to separate
+     rather than to double up. The pill shape (--r-pill) is what makes it a grip and not a rule. */
+  .sheet-grip { display: flex; align-items: flex-end; justify-content: center; flex: none;
+    height: 24px; padding: 0 0 5px; border: none; cursor: grab; touch-action: none;
     background: transparent;
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
-  .sheet-grip span { width: 44px; height: 5px; border-radius: 3px; background: var(--border); }
+  .sheet-grip span { width: 40px; height: 5px; border-radius: var(--r-pill); background: var(--border); }
   /* the whole header is a drag target for the sheet (components/SheetGrip · useSheetDrag), so it
      needs the same touch-action as the grip — otherwise the browser claims the vertical gesture
      for scrolling and the sheet never moves. `cursor: grab` says so on a pointer device. */
@@ -554,16 +561,26 @@
   /* Notification lanes. A fixed amount of bottom chrome gets an equally fixed reserve: one nav
      bar normally, two on an editable drawing surface, three while its option dock is open. The
      host is a root sibling of `.app`, so every state selector starts at :root. */
+  /* ⚠️ …and the bars are not the only thing down there. The plan's bottom-left read-out row
+     (09-whiteboard · .wb-botleft: Objekt · Gebäude · Massstab · ⌖ Karte) is pinned to the SAME
+     rail-h baselines as the lanes below — 4px under the pill — so the toast that row's own
+     Massstab chip raises («Ref. automatisch – Massstab aus dem Gebäudegrundriss») landed square
+     on the chips that raised it, wedged between them and the tool bar. It lifts over the row the
+     way it already lifts over each bar. The row publishes no height (its chips wrap to a second
+     line on a narrow phone), so like --ml-reserve below this is a CAP, not a measurement: two
+     ~30px chip rows, their 8px gap and an 8px channel. Over a single row the pill therefore
+     floats a little higher than it strictly must; it is gone in six seconds either way. */
+  :root:has(.wb-botleft) .toaster { --plan-row-reserve: 76px; }
   .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom));
+    --toast-lane-bottom: calc(var(--rail-h) + 24px + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
     bottom: var(--toast-lane-bottom);
     max-height: calc(100dvh - var(--toast-lane-bottom) - 84px - env(safe-area-inset-top));
   }
   :root:has(.phone-tools) .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom));
+    --toast-lane-bottom: calc(var(--rail-h) * 2 + 24px + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
   }
   :root:has(.phone-tools .wb-dock) .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) * 3 + 30px + env(safe-area-inset-bottom));
+    --toast-lane-bottom: calc(var(--rail-h) * 3 + 30px + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
   }
   /* The Meldeleiste is pinned to the SAME 72px baseline as the relocated lane below, at z54
      under the toaster's z90 — so every pill landed square on its first row and on that row's
