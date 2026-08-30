@@ -647,7 +647,10 @@
      pill on the same bottom baseline). The recording state keeps its label/timer so the
      running time stays legible. */
   .fab-entry:not(.rec) { width: 58px; height: 58px; padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
-  .fab-entry:not(.rec) span { display: none; }
+  /* ⚠️ the LABEL, not every span: since the ring wrapper (da52f1f, 28.08.) the + sits inside
+     `span.tb-act-ic`, and `span` here hid the glyph with it — a bare circle, nothing to read
+     (same trap as the `.cancelling` selector, see 10-journal.css) */
+  .fab-entry:not(.rec) .tb-act-label { display: none; }
   /* .cl-main FAB clearance migrated → Checklists.module.css */
 
   /* while a tool-option dock is open it owns the bottom-right corner — the FAB sat ON TOP
