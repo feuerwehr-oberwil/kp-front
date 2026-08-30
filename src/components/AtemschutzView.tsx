@@ -20,7 +20,7 @@ import { ClearableInput } from './ClearableInput'
 import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
 import { ensureNotifyPermission, unlockAlarm } from '../lib/alarm'
-import { atemschutzDoctrine } from '../lib/deploymentConfig'
+import { atemschutzDoctrine, isDemoMode } from '../lib/deploymentConfig'
 import { useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
@@ -30,6 +30,22 @@ const cfg = appConfig.atemschutz // static, non-doctrine parts only (auftrag lis
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
 // at the top of each component/helper below rather than captured here at module-load, so the
 // locale AND the deployment config resolved at boot apply.
+
+/**
+ * The last incoming `focus` nonce this view has already rung the bell for — MODULE scope, not
+ * component state, on purpose (read while deriving `externalFocus`, written once it was shown).
+ *
+ * IncidentWorkspace renders this view behind `mode === 'atemschutz'`, a plain conditional: leaving
+ * the page fully UNMOUNTS it, and its `truppFocus` state (the source of the `focus` prop) is never
+ * cleared once shown — by design, «a repeat tap on the same alarm must replay the mark». But an
+ * un-cleared pointer stays exactly as true across a REMOUNT as it does across a re-render, so the
+ * very next ordinary visit to this page replayed the same ring on a Trupp that had long since come
+ * back — a stale notification, an old locked-row tap, minutes or exercises later. Invisible until
+ * 30.08. (see .cardFlash below): the ring itself silently never fired before that, so nobody saw
+ * the replay happen. Module scope survives the remount the way `seededFocus`'s per-mount ref
+ * deliberately does not — this is the one thing here that must NOT reset with the page.
+ */
+let lastShownFocusNonce: number | null = null
 
 type FormMode = 'create' | 'edit' | 'redeploy'
 
@@ -144,7 +160,34 @@ export function AtemschutzView({
    * The later nonce wins, so whichever pointed last is the one the board obeys.
    */
   const [selfFocus, setSelfFocus] = useState<{ id: string; nonce: number } | null>(null)
-  const activeFocus = (selfFocus?.nonce ?? -1) > (focus?.nonce ?? -1) ? selfFocus : focus
+  // the incoming pointer, minus a nonce this view has already rung the bell for once (module-scope
+  // guard against a REMOUNT replaying a stale one — see `lastShownFocusNonce` above). A genuinely
+  // NEW nonce — an actual repeat tap, or a fresh jump arriving while this page stays mounted —
+  // passes through untouched; TruppRow/TruppCard's own `focusNonce`-keyed effect handles that case
+  // exactly as before.
+  // `shownNonce` — per MOUNT — is the other half of that: the instant the effect below records the
+  // nonce, the bare `!== lastShownFocusNonce` test would turn the pointer stale under its own ring.
+  // The per-second tick re-renders inside the 1.9s flash window, so the mark would be yanked back
+  // mid-gesture. A nonce THIS mount has already accepted therefore stays accepted until it leaves.
+  const shownNonce = useRef<number | null>(null)
+  const externalFocus = focus && (focus.nonce === shownNonce.current || focus.nonce !== lastShownFocusNonce)
+    ? focus
+    : null
+  const activeFocus = (selfFocus?.nonce ?? -1) > (externalFocus?.nonce ?? -1) ? selfFocus : externalFocus
+  // Mark it seen once this view has actually SHOWN it — a later visit then filters it out above,
+  // however long the pointer stays parked upstream. Keyed on the nonce rather than mount-only:
+  // IncidentWorkspace sets `truppFocus` while this view is already mounted too (jumping to the tab
+  // you are already on leaves the view standing), and a mount-only mark recorded none of those —
+  // they were shown and never written down, so the next ordinary visit replayed them, which is
+  // exactly the stale ring this guard exists to stop.
+  // Reads `externalFocus`, not the raw prop: a pointer that arrived already stale showed nothing,
+  // so there is nothing to record — and recording it would let it back in on the next render.
+  useEffect(() => {
+    if (!externalFocus) return
+    shownNonce.current = externalFocus.nonce
+    lastShownFocusNonce = externalFocus.nonce
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.nonce])
   // a Trupp awaiting a Gebäude/Modul-6 placement choice (only when >1 target exists)
   const [placePick, setPlacePick] = useState<string | null>(null)
   const handlePlace = (id: string) => {
@@ -213,13 +256,23 @@ export function AtemschutzView({
    * scroll (activeFocus → TruppCard/TruppRow). Once per mount only — a later crossing must not
    * yank the board out from under a working hand (the badge is the hand for that) — and never
    * over an external jump: a `focus` prop present at mount (a locked Anwesenheit row) already
-   * names its card and wins. */
+   * names its card and wins.
+   *
+   * ⚠️ NOT on the demo (isDemoMode): its incident is frozen in a worked state, so a field Trupp
+   * drifts überfällig purely because real time passes since the last reset — useAtemschutzAlarm
+   * already keeps that visual (the card stays red, honestly), but silences the tone and the OS
+   * notification because it is not a real emergency. A mount-time flash+scroll to that card is
+   * the same false alarm wearing a different costume — a visitor opening the board sees a ring
+   * around a Trupp nobody is actually worried about. Real stations (demoMode off) are unaffected. */
   const seededFocus = useRef(false)
   useEffect(() => {
     if (seededFocus.current) return
     seededFocus.current = true
-    if (!focus && mostOverdue) setSelfFocus({ id: mostOverdue.id, nonce: Date.now() })
-    // mount-only by design (see above) — `focus`/`mostOverdue` are read as of arrival
+    // `externalFocus`, not the raw `focus` prop: a STALE pointer (already shown on an earlier
+    // visit, filtered out above) must not block this board from pointing at a genuine CURRENT
+    // alarm just because something unrelated once pointed here.
+    if (!externalFocus && mostOverdue && !isDemoMode()) setSelfFocus({ id: mostOverdue.id, nonce: Date.now() })
+    // mount-only by design (see above) — `externalFocus`/`mostOverdue` are read as of arrival
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   /**
@@ -791,7 +844,11 @@ function TruppRow({
     void el.offsetWidth
     el.classList.add(s.cardFlash)
     const timer = window.setTimeout(() => el.classList.remove(s.cardFlash), 1900)
-    return () => window.clearTimeout(timer)
+    // ⚠️ the cleanup UNDOES the mark, it does not merely cancel its removal: an interrupted flash
+    // (focusNonce changing — or going away — inside the 1.9s window) would otherwise drop the timer
+    // and leave the class on. Under prefers-reduced-motion `.cardFlash` is a STATIC ring with no
+    // animation to end, so that stuck class is a permanent one.
+    return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
   }, [focusNonce])
   const team = (t.members ?? []).filter(Boolean).join(' · ')
   return (
@@ -904,7 +961,11 @@ function TruppCard({
     void el.offsetWidth
     el.classList.add(s.cardFlash)
     const timer = window.setTimeout(() => el.classList.remove(s.cardFlash), 1900)
-    return () => window.clearTimeout(timer)
+    // ⚠️ same as TruppRow: the cleanup must REMOVE the class, not just clear the timer. A flash cut
+    // short (focusNonce changing or clearing inside the 1.9s window) otherwise leaves the mark on
+    // the card for good — visibly so under prefers-reduced-motion, where `.cardFlash` is a static
+    // ring rather than an animation that ends by itself.
+    return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
   }, [focusNonce])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = auftragTypeLabel(t)

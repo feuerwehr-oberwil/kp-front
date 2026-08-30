@@ -63,7 +63,7 @@ export interface MenuActionItem {
   reason?: ReactNode
 }
 
-export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, alignOffset = 0, collisionPadding = 10, scrollToEnd = false }: {
+export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, alignOffset = 0, collisionPadding = 10, scrollToEnd = false, modal = true }: {
   trigger: ReactElement
   items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuRadioGroup)[]
   popupClassName?: string
@@ -88,6 +88,18 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
    *  the Rapport's print menu did on a tablet. Applies to every Menu in the app on purpose: this
    *  is a property of the surface being finite, not of any one call site. */
   collisionPadding?: number
+  /** ⚠️ OPT-IN non-modal — leave it at the default unless you know what lies UNDER the menu.
+   *  Modal (the default) makes Base UI render an invisible full-screen backdrop the instant the
+   *  menu opens, and that backdrop — not the popup — is what an «outside» tap hits: it dismisses
+   *  the menu AND swallows the tap. The swallowing is a FEATURE nearly everywhere: these menus
+   *  float over the live map (the Trupp menus on MapMarkers / DrawEditor / Whiteboard), where a
+   *  pass-through tap reaches onMapClick and can deselect a Trupp, drop a vertex into a selected
+   *  line or place a symbol with a tool armed — and over lists, where it presses whichever row
+   *  button the finger landed on.
+   *  Pass `false` only where switching between two adjacent triggers in ONE tap is worth more
+   *  than that protection and nothing underneath acts on a stray tap — today: the two Anwesenheit
+   *  filter-bar menus. The dismiss itself (Base UI's useDismiss) and Esc work either way. */
+  modal?: boolean
 }) {
   const renderItem = (it: MenuActionItem | MenuCheckItem | MenuRadioGroup, key: number) => {
     if ('kind' in it && it.kind === 'radio') {
@@ -165,7 +177,9 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
     'sep' in r ? <BaseMenu.Separator key={r.key} className="ui-menu-sep" /> : renderItem(r.it, r.key)
 
   return (
-    <BaseMenu.Root>
+    // MODAL by default — the backdrop that swallows the dismissing tap is what keeps that tap off
+    // the map / the list underneath. Only the callers that ask for it go non-modal (see `modal`).
+    <BaseMenu.Root modal={modal}>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
         <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding}>
