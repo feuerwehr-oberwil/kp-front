@@ -138,11 +138,14 @@
 
 /* PlanPicker modal — searchable object list (primary) + supporting mini-map.
    Frame (size/flex) comes from the standard .ip-sheet — no special width anymore. */
-.pp-search { display: flex; align-items: center; gap: 10px; margin: 0 20px 12px; padding: 0 14px;
+/* Same header rule as the symbol palette (07-toolrail.css · .sym-search): the pill states its
+   own height — var(--tap) — instead of inheriting whatever the input's line-box comes to, and the
+   ✕ inside it carries no box of its own (fill-soft on fill-soft was an invisible square). */
+.pp-search { display: flex; align-items: center; height: var(--tap); gap: 10px; margin: 0 20px 12px; padding: 0 6px 0 14px;
   background: var(--fill-soft); border-radius: var(--r-ctl); color: var(--ink-dim); }
 .pp-search .i { width: 19px; height: 19px; flex: none; }
-.pp-search input { flex: 1; border: none; background: transparent; outline: none; font-family: var(--body); font-size: 16px; color: var(--ink); padding: 13px 0; }
-.pp-clear { border: none; background: var(--fill-soft); border-radius: var(--r-sm); width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; flex: none; }
+.pp-search input { flex: 1; min-width: 0; align-self: stretch; border: none; background: transparent; outline: none; font-family: var(--body); font-size: 16px; color: var(--ink); padding: 0; }
+.pp-clear { border: none; background: none; border-radius: var(--r-sm); width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; flex: none; }
 .pp-clear .i { width: 15px; height: 15px; }
 .pp-body { display: flex; gap: 14px; padding: 0 20px 6px; min-height: 0; flex: 1; }
 .pp-list { flex: 1 1 60%; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -261,17 +264,9 @@
 .wb-floor-add-up { top: -17px; }     /* straddle the top edge of the stack */
 .wb-floor-add-down { bottom: -17px; } /* straddle the bottom edge of the stack */
 
-/* north arrow — drawn on the topmost storey tile (top-right, mirroring the storey
-   label), the trust signal for the auto-rotated Gebäude footprint. */
-.wb-north-dial { position: absolute; top: calc(14px + env(safe-area-inset-top)); right: 18px; z-index: 1; width: 44px; height: 44px;
-  overflow: visible; pointer-events: none; filter: drop-shadow(0 2px 6px rgba(30, 45, 70, .25)); }
-/* the dial as the orientation TOGGLE (rotated footprints, editors): same spot, now a 44px target */
-.wb-north-btn { pointer-events: auto; cursor: pointer; background: none; border: 0; padding: 0; }
-.wb-north-btn > svg { width: 100%; height: 100%; overflow: visible; }
-.wb-north-ring { fill: var(--glass); stroke: var(--glass-line); stroke-width: 1.5; }
-/* ink, not red — the same dart the printed Kroki and the Gebäude page carry */
-.wb-north-needle { fill: var(--ink); }
-.wb-north-n { fill: var(--ink); font: 700 13px var(--body); text-anchor: middle; }
+/* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
+   topmost storey tile, so it panned and zoomed with the paper. It is a fixed chip in the viewport's
+   corner now — PlanCompass.module.css.) */
 /* blank writable sheet */
 .wb-board-blank { box-shadow: 0 6px 24px rgba(30, 45, 70, .18), inset 0 0 0 1px var(--border-soft); }
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
@@ -488,10 +483,22 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-dock .wb-style-sep { width: 22px; height: 1px; } /* horizontal divider in the vertical stack */
 .wb-dock-ic { display: grid; place-items: center; height: 30px; color: rgba(255, 255, 255, .85); }
 .wb-dock-ic .i { width: 18px; height: 18px; }
-.wb-dock-x { width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
+/* ⚠️ The ✕ STAYS on screen while the dock scrolls. It is the first item of the first group, so on
+   a busy tool (line/area, whose colours + widths overflow the port) it scrolled away with the
+   options — off the top of the desktop column, off the left end of the phone's horizontal bar —
+   and the only way out of the mode was to scroll back for it. Sticky at the end it leads: `top`
+   binds in the vertical column, `left` in the phone's row, and each is a no-op in the other
+   orientation because that axis does not scroll there (its overflow is hidden).
+   Its fill has to be OPAQUE — a translucent wash let the options pass THROUGH the ✕ — so it is
+   the same wash mixed INTO the dock's own surface, and a ring of that surface covers the gap and
+   the padding the buttons would otherwise show through beside it (clipped by the scroll port). */
+.wb-dock-x { position: sticky; top: 0; left: 0;
+  width: 34px; height: 34px; border-radius: var(--r-sm); border: none;
+  background: color-mix(in srgb, var(--on-accent-ink) 14%, var(--ink-fill));
+  box-shadow: 0 0 0 10px var(--ink-fill);
   color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; }
 @media (hover: hover) {
-  .wb-dock-x:hover { background: rgba(255, 255, 255, .28); }
+  .wb-dock-x:hover { background: color-mix(in srgb, var(--on-accent-ink) 28%, var(--ink-fill)); }
 }
 .wb-dock-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-dock-x .i { width: 16px; height: 16px; stroke-width: 2.4; }

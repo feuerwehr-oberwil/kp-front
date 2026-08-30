@@ -1,0 +1,46 @@
+/* North dial for the Gebäude floor stack — a fixed HUD chip in the plan viewport's top-right
+   corner (see PlanCompass.tsx for why it left the storey tile). Glass on a round 44px target,
+   the same recipe as the map's floating utilities (MapUtility · WindBadge), so both surfaces put
+   the same kind of thing in the same corner. */
+.chip {
+  position: absolute; top: calc(16px + env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right));
+  z-index: var(--z-map-util); width: 44px; height: 44px; padding: 0;
+  display: grid; place-items: center; color: var(--ink);
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: 50%; box-shadow: var(--shadow);
+}
+.chip > svg { width: 38px; height: 38px; display: block; overflow: visible; }
+/* ink, not red — the same dart the printed Kroki and the Gebäude page carry */
+.needle { fill: var(--ink); }
+.n { fill: var(--ink); font: 700 13px var(--body); text-anchor: middle; }
+
+/* …and where the building can be turned, the dial IS the turn control: one visible door on the
+   surface (the rail footer keeps the other), never a hidden drag. */
+.btn { cursor: pointer; }
+@media (hover: hover) {
+  .btn:hover { background: var(--hover-strong); }
+}
+.btn:active { background-image: linear-gradient(var(--press), var(--press)); }
+
+/* A read-only plan floats its zoom cluster in exactly this corner (09-whiteboard · .wb-zoom-float,
+   rendered just before this chip) — the compass then takes the next line down instead of landing
+   on it. */
+:global(.wb-zoom-float) ~ .chip { top: calc(72px + env(safe-area-inset-top)); }
+
+/* Below 860px the top bar runs the full width (15-mobile · «TopBar ⇄ top-right utilities»), so the
+   chip drops under the bar — what the map's cluster does at the same width. The second half of the
+   query is the landscape phone: wider than 860px, and its bar is full width too.
+   ⚠️ It also steps LEFT of the vertical tool rail here. That rail is `top: 88px` whenever its
+   buttons fill the column (09-whiteboard · .wb-tools), which on a short narrow window — a Split
+   View, a small desktop window — reaches straight into the line the chip just moved to. Same
+   inset the tool dock uses to sit beside it, so an expanded rail pushes the chip along.
+   Beside the rail the chip also clears the floating zoom cluster, so that dodge goes back up. */
+@media (max-width: 860px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .chip { top: calc(80px + env(safe-area-inset-top)); right: calc(var(--vrail-w, 60px) + 26px); }
+  :global(.wb-zoom-float) ~ .chip { top: calc(80px + env(safe-area-inset-top)); }
+}
+/* …and on a phone the tool rail IS the bottom bar, so the corner is free again — 80px already
+   clears the floating zoom cluster that may sit in it. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .chip { right: max(10px, env(safe-area-inset-right)); }
+}
