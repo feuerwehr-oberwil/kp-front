@@ -73,6 +73,12 @@ export const en: Localizable<Copy> = {
             'On the left, the incident name with the **Menu** (switch incident, day/night, this help …) and the clock.',
             'On the right, **Undo/Redo**, **Log** and **+ Entry**.',
           ] },
+          { kind: 'sub', text: 'Message strip' },
+          { kind: 'list', items: [
+            'Directly under the incident bar sits **one** strip for everything that is pending and stays until somebody acts: an overdue SCBA team, a fresh dispatch, a due reminder, unchecked dispatch data, a waiting update. Every message is one row below the next – no more cards covering each other.',
+            'The order is fixed, not by arrival: **SCBA** first, then the **dispatch**, then the **reminder**. What waits for somebody always outranks what goes away by itself.',
+            'Only the labelled buttons act, the **✕** and – where the message has somewhere to go – its **title**. A tap anywhere else on the row does nothing: reading must not be the same as acting. With nothing pending the strip is not there at all.',
+          ] },
           { kind: 'sub', text: 'Right tool rail' },
           { kind: 'list', items: [
             'The drawing and placement tools; pinned at the bottom, map navigation (zoom, fit, coordinates).',
@@ -142,9 +148,10 @@ export const en: Localizable<Copy> = {
           { kind: 'lead', text: 'Tools in the right rail in Situation mode.' },
           { kind: 'list', items: [
             '**Symbol** – the tactical symbol (FKS/VKF). Quick-pick of the most common symbols or search the whole library. Tap to place; use the lock to set several in a row.',
+            '**Shapes** – in the same window, behind the hazards: **Arrow** and **Rectangle**, for everything that has no tactical symbol. The handle rotates, the corner stretches the rectangle (the arrow stays proportional – a distorted head reads badly). On the arrow, **Stop bar** adds the bar across its tip – the spread limit: this far, and stopped there.',
             '**Select** – tap objects, move them, adjust in the editor.',
             '**Multi** – lasso: select several symbols/drawings at once.',
-            '**Line** – drag or tap points; the style is chosen afterwards in the editor: **Freehand**, **Arrow** or **Rescue axis**.',
+            '**Line** – drag or tap points; the style is chosen afterwards in the editor: **Freehand**, **Arrow** or **Rescue axis**. Below it the **Ending** – **None**, **Arrow**, **Arrow with stop** (the same bar across the tip) or **Section**; **Reverse direction** moves it to the other end without moving the line.',
             '**Area** – tap corner points (area shown from 3 points); drag/insert/delete corners.',
             '**Cordon** – drag from the centre to the edge to set the radius in metres (fill adjustable).',
             '**Note** – free text directly on the map.',
@@ -164,8 +171,20 @@ export const en: Localizable<Copy> = {
             '**Storeys** as a stack: use the **UF/BF** buttons on the plan to add a floor above/below.',
             '**Zoom/Fit** at the bottom of the tool rail, just like on the map.',
             '**Teams** (crews) as coloured markers; toggling **Trails** shows their path. Team chips whose crew is "out" are greyed out/struck through.',
+            '**Scale** – tap the two ends of the printed scale bar and enter the real length. After that lines and areas read in real metres (Measure as a tool of its own exists only on the map).',
+            'A sheet **linked to the map** already measures by itself – as does the building floor stack, which knows its size from the footprint. There the chip reads **ref. auto** instead of offering a calibration; tapping it opens the fit, or says where the scale comes from. Only an unlinked sheet is calibrated by hand.',
             '**Quick hand note?** The plan is the sketch surface: draw freely, strike through, scribble. The map stays structured (symbols, lines, notes) so the report and the log stay clean.',
           ] },
+          { kind: 'sub', text: 'Link to map (georeference)' },
+          { kind: 'list', items: [
+            '**Link to map** at the bottom of the plan puts this sheet onto the map: the plan gives up half the surface and the map sits beside it. On a phone there is no room for both – there a **Map / Module** switch moves between them. Tap the same spot on both surfaces – a house corner, a hydrant, a junction. **Order does not matter**: a half that has been set finds its counterpart by itself, and you may switch between the surfaces at will. Two points are enough to lay the sheet down.',
+            'The **traffic light** in the bar says where you stand at all times: two points solve exactly and are therefore **unchecked** – only the third measures the deviation («4 points · ⌀ 1.2 m»). **Check the fit** lays the sheet outline over the map for a visual check.',
+            'Dragging a cross moves it, tapping it opens **Move · Delete point · Keep**. A tap on **linked** opens the **Fit** with pairs and deviation; **Transfer** copies the reference points to another module of the same object, **Reset** deletes them (with a confirmation). **Close** discards nothing – what has been set is saved already.',
+            'From then on the content mirrors: what is on the plan appears on the map, and the other way round – as a **twin**. A twin is no faded copy, it behaves like the original: tap to see the details, drag to move, the same vertices and handles. What gets written is always the one original on the other surface.',
+            '**Transfer here** in a twin’s window makes it the original of **this** surface – the object really is here afterwards and no longer there. The move is logged like any other action.',
+            'In **Layers** every linked sheet gets its own rows («Content (Module 2)», «Plan (Module 2)»), plus «Map – markings» and «Map – vehicles» on the map. So you can hide individually what is mirrored from where.',
+          ] },
+          { kind: 'note', text: '**Which way is the building facing?** The **north arrow** on the floor stack and the **compass** at the bottom of the left rail open the same small window «Rotate building»: a **Rotation** slider with live preview, plus **North up** and **Rotate to long axis** as one tap each. The outline turns with it, the markings stay where they sit on the building – and the printed floor pages show the angle you set.' },
         ],
       },
       {
@@ -322,6 +341,15 @@ export const en: Localizable<Copy> = {
             'Concurrent editing is merged per object (latest change wins).',
             '**Read-only**: viewers and phones see the situation live, without the tactical tools.',
           ] },
+          { kind: 'sub', text: 'Offline' },
+          { kind: 'list', items: [
+            '**Offline preparation** in **Settings** ([[⌘]] [[,]]) is set to **Automatic**: the installed app fetches map, plans, symbols and reference layers by itself shortly after an incident is opened – no dialog, no toast. **Every** configured map layer comes along, including the one currently hidden: experience says it gets switched on once the network is already gone. **Manual only** leaves that to the **Load everything for offline** button.',
+            'How much is loaded is set by the **Offline radius** (Settings as well, this device only): a smaller radius = a faster, smaller download.',
+            'What is actually ready is shown by **Offline readiness** in the incident menu – row by row: map, plans, symbols, hazmat, reference layers, personnel, device storage. **Weather** and **Object search** need a connection and stand there as «online only».',
+            'Only the **installed app** is reliably offline. In a browser tab the storage can be cleared at any time, and the tab would have to still be open at the next incident.',
+            'Without a network everything on the device keeps working: drawing and placing symbols, SCBA, attendance, materiel, log and report. Photos and voice notes stay stored and go out later.',
+            'As soon as there is a network again the changes go out by themselves and are merged with the other devices – per object, latest change wins. While anything is pending, the sync badge on top says so.',
+          ] },
         ],
       },
       {
@@ -331,6 +359,7 @@ export const en: Localizable<Copy> = {
           { kind: 'list', items: [
             'One finger pans the map/plan; two fingers zoom (pinch).',
             'Dragging a lasso with **Multi** selects several objects; selected objects are moved by dragging.',
+            'A button that carries nothing but an icon says its word when you **hold it down** – after a short moment the word appears as a bubble above it, on touch with a short buzz. Letting go does **not** trigger the button: asking what something is must not also do it. With a mouse, hovering is enough.',
           ] },
           { kind: 'sub', text: 'Mouse' },
           { kind: 'list', items: [

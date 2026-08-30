@@ -72,6 +72,12 @@ export const it: Localizable<Copy> = {
             'A sinistra il nome dell’intervento con il **Menu** (cambia intervento, giorno/notte, questo aiuto …) e l’orologio.',
             'A destra **Annulla/Ripeti**, **Diario** e **+ Voce**.',
           ] },
+          { kind: 'sub', text: 'Barra dei messaggi' },
+          { kind: 'list', items: [
+            'Subito sotto la barra dell’intervento c’è **una** striscia per tutto ciò che è in sospeso e resta finché qualcuno non agisce: una squadra di autoprotezione in ritardo, un nuovo allarme, un promemoria scaduto, dati d’allarme non verificati, un aggiornamento pronto. Ogni messaggio è una riga sotto l’altra – niente più schede che si coprono a vicenda.',
+            'L’ordine è fisso, non cronologico: prima l’**autoprotezione**, poi l’**allarme**, poi il **promemoria**. Ciò che aspetta qualcuno sta sempre sopra ciò che sparisce da sé.',
+            'Agiscono solo i pulsanti con etichetta, la **✕** e – se il messaggio porta da qualche parte – il suo **titolo**. Toccare la riga altrove non fa nulla: leggere non deve essere la stessa cosa che agire. Se non c’è nulla in sospeso, la striscia non esiste.',
+          ] },
           { kind: 'sub', text: 'Barra degli strumenti a destra' },
           { kind: 'list', items: [
             'Gli strumenti di disegno e posizionamento; in basso, fissata, la navigazione della carta (zoom, adatta, coordinate).',
@@ -141,9 +147,10 @@ export const it: Localizable<Copy> = {
           { kind: 'lead', text: 'Strumenti della barra destra in modalità Situazione.' },
           { kind: 'list', items: [
             '**Simbolo** – il segno tattico (FKS/VKF). Selezione rapida dei segni più comuni o ricerca in tutta la libreria. Tocca per posizionare; con il lucchetto ne metti più di seguito.',
+            '**Forme** – nella stessa finestra, dopo i pericoli: **Freccia** e **Rettangolo**, per tutto ciò che non ha un segno tattico. La maniglia ruota, l’angolo allunga il rettangolo (la freccia resta proporzionale – una punta deformata si legge male). Sulla freccia, **Barra di arresto** aggiunge la barra di traverso alla punta – il limite di propagazione: fin qui, e lì fermato.',
             '**Selezione** – tocca gli oggetti, spostali, modificali nell’editor.',
             '**Multiplo** – lazo: seleziona più simboli/disegni in una volta.',
-            '**Linea** – trascina o tocca i punti; lo stile si sceglie poi nell’editor: **Mano libera**, **Freccia** o **Asse di salvataggio**.',
+            '**Linea** – trascina o tocca i punti; lo stile si sceglie poi nell’editor: **Mano libera**, **Freccia** o **Asse di salvataggio**. Sotto, la **Terminazione** – **Nessuna**, **Freccia**, **Freccia con stop** (la stessa barra di traverso alla punta) o **Tratto**; **Inverti il senso** la porta all’altra estremità senza spostare la linea.',
             '**Superficie** – tocca i vertici (area indicata da 3 punti in poi); trascina/inserisci/elimina i vertici.',
             '**Perimetro di sicurezza** – trascina dal centro al bordo per impostare il raggio in metri (riempimento regolabile).',
             '**Nota** – testo libero direttamente sulla carta.',
@@ -163,7 +170,20 @@ export const it: Localizable<Copy> = {
             '**Piani** come pila: con i pulsanti **PS/PI** sul piano aggiungi un livello sopra/sotto.',
             '**Zoom/Adatta** in basso nella barra degli strumenti, come sulla carta.',
             '**Squadre** (squadre) come marcatori colorati; mostrare/nascondere le **Tracce** ne rivela il percorso. I tag delle squadre la cui squadra è «uscita» vengono attenuati/barrati.',
+            '**Scala** – tocca le due estremità della scala stampata e inserisci la lunghezza reale. Da lì linee e superfici indicano metri veri (Misura, come strumento a sé, esiste solo sulla carta).',
+            'Un foglio **collegato alla mappa** misura già da sé – così come la pila dei piani dell’edificio, che conosce la propria dimensione dalla pianta. Lì il tag dice **rif. auto** invece di offrire una calibrazione; toccandolo si apre la corrispondenza, oppure dice da dove viene la scala. A mano si calibra solo ciò che non è collegato.',
+            '**Una nota veloce a mano?** Il piano è la superficie da schizzo: disegna liberamente, barra, scarabocchia. La carta resta strutturata (simboli, linee, note), così rapporto e diario restano puliti.',
           ] },
+          { kind: 'sub', text: 'Collega alla mappa (georeferenza)' },
+          { kind: 'list', items: [
+            '**Collega alla mappa**, in basso sul piano, posa questo foglio sulla carta: il piano cede metà della superficie e la mappa si mette accanto. Su un telefono non c’è spazio per entrambe – lì un selettore **Mappa / Modulo** passa dall’una all’altra. Tocca lo stesso punto su entrambe le superfici – uno spigolo di casa, un idrante, un incrocio. **L’ordine non conta**: una metà posata trova da sé la sua controparte, e si può passare da una superficie all’altra a piacere. Due punti bastano per posare il foglio.',
+            'Il **semaforo** nella barra dice in ogni momento a che punto si è: due punti risolvono in modo esatto e quindi **non verificato** – solo il terzo misura lo scarto («4 punti · ⌀ 1.2 m»). **Verifica la sovrapposizione** posa il contorno del foglio sulla carta per un controllo a vista.',
+            'Trascinando una croce la si sposta, toccandola si apre **Sposta · Elimina punto · Mantieni**. Un tocco su **collegato** apre la **Corrispondenza** con coppie e scarto; **Trasferisci** copia i punti di riferimento su un altro modulo dello stesso oggetto, **Reimposta** li elimina (con richiesta di conferma). **Chiudi** non scarta nulla – ciò che è posato è già salvato.',
+            'Da lì i contenuti si rispecchiano: ciò che sta sul piano compare sulla carta, e viceversa – come **gemello**. Un gemello non è una copia sbiadita, si comporta come l’originale: toccarlo mostra i dati, trascinarlo lo sposta, stessi vertici e stesse maniglie. Ciò che viene scritto è sempre l’unico originale sull’altra superficie.',
+            '**Trasferisci qui**, nella finestra di un gemello, lo rende l’originale di **questa** superficie – l’oggetto è poi davvero qui e non più là. Il passaggio viene registrato nel diario come ogni altra azione.',
+            'Nei **Livelli** ogni foglio collegato riceve righe proprie («Contenuti (modulo 2)», «Piano (modulo 2)»), più «Mappa – marcature» e «Mappa – veicoli» sulla carta. Si può così nascondere singolarmente ciò che viene rispecchiato da dove.',
+          ] },
+          { kind: 'note', text: '**Da che parte è girato l’edificio?** La **freccia del nord** sulla pila dei piani e la **bussola** in basso nella barra sinistra aprono la stessa finestrella «Ruota l’edificio»: un cursore **Rotazione** con anteprima, più **Nord in alto** e **Ruota sull’asse maggiore** con un tocco ciascuno. Il contorno gira con essa, le marcature restano dove stanno sull’edificio – e le pagine dei piani stampate mostrano l’angolo impostato.' },
         ],
       },
       {
@@ -320,6 +340,15 @@ export const it: Localizable<Copy> = {
             'La modifica simultanea viene unita per oggetto (vince la modifica più recente).',
             '**Sola lettura**: osservatori e telefoni vedono la situazione in tempo reale, senza gli strumenti tattici.',
           ] },
+          { kind: 'sub', text: 'Offline' },
+          { kind: 'list', items: [
+            'La **Preparazione offline** nelle **Impostazioni** ([[⌘]] [[,]]) è su **Automatico**: l’app installata scarica da sé carta, piani, simboli e livelli di riferimento poco dopo l’apertura di un intervento – senza dialoghi, senza notifiche. Vengono presi **tutti** i livelli cartografici configurati, anche quello ora nascosto: l’esperienza dice che lo si attiva quando la rete è già andata. **Solo manuale** lascia il compito al pulsante **Carica tutto per l’offline**.',
+            'Quanto viene caricato dipende dal **Raggio offline** (anch’esso nelle Impostazioni, vale solo su questo dispositivo): raggio più piccolo = download più rapido e più leggero.',
+            'Che cosa sia davvero pronto lo dice la **Prontezza offline** nel menu dell’intervento – riga per riga: carta, piani, simboli, merci pericolose, livelli di riferimento, personale, memoria del dispositivo. **Meteo** e **Ricerca oggetti** richiedono una connessione e vi figurano come «solo online».',
+            'Affidabile offline è solo l’**app installata**. In una scheda del browser la memoria può essere svuotata in qualsiasi momento, e la scheda dovrebbe essere ancora aperta al prossimo intervento.',
+            'Senza rete continua a funzionare tutto ciò che sta sul dispositivo: disegnare e posare simboli, autoprotezione, presenze, materiale, diario e rapporto. Foto e note vocali restano salvate e partono più tardi.',
+            'Appena la rete torna, le modifiche escono da sé e vengono unite con gli altri dispositivi – per oggetto, vince la modifica più recente. Finché qualcosa è in attesa, lo dice il distintivo di sincronizzazione in alto.',
+          ] },
         ],
       },
       {
@@ -329,6 +358,7 @@ export const it: Localizable<Copy> = {
           { kind: 'list', items: [
             'Un dito sposta la carta/il piano; due dita zoomano (pinch).',
             'Trascinando un lazo con **Multiplo** selezioni più oggetti; gli oggetti selezionati si spostano trascinando.',
+            'Un pulsante che porta solo un segno dice la sua parola se lo **tieni premuto**: dopo un breve istante la parola compare come fumetto sopra di esso, su touch con una breve vibrazione. Rilasciando **non** si attiva il pulsante: chiedere che cosa sia una cosa non deve anche farla. Con il mouse basta passarci sopra.',
           ] },
           { kind: 'sub', text: 'Mouse' },
           { kind: 'list', items: [

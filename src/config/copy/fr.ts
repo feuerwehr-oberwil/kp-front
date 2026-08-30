@@ -72,6 +72,12 @@ export const fr: Localizable<Copy> = {
             'À gauche, le nom de l’intervention avec le **Menu** (changer d’intervention, jour/nuit, cette aide …) et l’horloge.',
             'À droite, **Annuler/Rétablir**, **Journal** et **+ Entrée**.',
           ] },
+          { kind: 'sub', text: 'Bandeau de messages' },
+          { kind: 'list', items: [
+            'Juste sous la barre d’intervention se trouve **un** bandeau pour tout ce qui est en attente et le reste jusqu’à ce que quelqu’un agisse : un binôme ARI en retard, une nouvelle alarme, un rappel échu, des données d’alarme non vérifiées, une mise à jour prête. Chaque message est une ligne sous la précédente – plus de cartes qui se recouvrent.',
+            'L’ordre est fixe, pas chronologique : d’abord l’**ARI**, puis l’**alarme**, puis le **rappel**. Ce qui attend quelqu’un passe toujours avant ce qui disparaît de soi-même.',
+            'Seuls les boutons libellés agissent, le **✕** et – si le message mène quelque part – son **titre**. Toucher la ligne ailleurs ne fait rien : lire ne doit pas être la même chose qu’agir. Si rien n’est en attente, le bandeau n’existe pas.',
+          ] },
           { kind: 'sub', text: 'Barre d’outils (droite)' },
           { kind: 'list', items: [
             'Les outils de dessin et de placement ; épinglée en bas, la navigation de carte (zoom, ajuster, coordonnées).',
@@ -141,9 +147,10 @@ export const fr: Localizable<Copy> = {
           { kind: 'lead', text: 'Outils de la barre de droite en mode Situation.' },
           { kind: 'list', items: [
             '**Symbole** – le symbole tactique (FKS/VKF). Sélection rapide des symboles les plus courants ou recherche dans toute la bibliothèque. Toucher pour placer ; avec le verrou, en poser plusieurs à la suite.',
+            '**Formes** – dans la même fenêtre, après les dangers : **Flèche** et **Rectangle**, pour tout ce qui n’a pas de symbole tactique. La poignée fait pivoter, le coin étire le rectangle (la flèche reste proportionnelle – une pointe déformée se lit mal). Sur la flèche, **Barre d’arrêt** ajoute la barre en travers de la pointe – la limite de propagation : jusqu’ici, et arrêté là.',
             '**Sélection** – toucher des objets, les déplacer, les ajuster dans l’éditeur.',
             '**Multiple** – lasso : sélectionner plusieurs symboles/dessins à la fois.',
-            '**Ligne** – glisser ou toucher des points ; le style se choisit ensuite dans l’éditeur : **Main levée**, **Flèche** ou **Axe de sauvetage**.',
+            '**Ligne** – glisser ou toucher des points ; le style se choisit ensuite dans l’éditeur : **Main levée**, **Flèche** ou **Axe de sauvetage**. En dessous, la **Terminaison** – **Aucune**, **Flèche**, **Flèche avec arrêt** (la même barre en travers de la pointe) ou **Tronçon** ; **Inverser le sens** la place à l’autre bout sans déplacer la ligne.',
             '**Surface** – toucher les sommets (surface affichée dès 3 points) ; tirer/insérer/supprimer des sommets.',
             '**Périmètre de sécurité** – glisser du centre vers le bord fixe le rayon en mètres (remplissage réglable).',
             '**Note** – texte libre directement sur la carte.',
@@ -163,7 +170,20 @@ export const fr: Localizable<Copy> = {
             '**Étages** en pile : avec les boutons **étage sup./sous-sol** sur le plan, ajouter un niveau au-dessus/en dessous.',
             '**Zoom/Ajuster** en bas de la barre d’outils, comme sur la carte.',
             '**Équipes** (binômes) sous forme de marqueurs colorés ; afficher/masquer les **Traces** montre leur trajet. Les pastilles d’équipe dont le binôme est « sorti » sont grisées/barrées.',
+            '**Échelle** – toucher les deux extrémités de l’échelle imprimée et saisir la longueur réelle. Ensuite, lignes et surfaces affichent de vrais mètres (Mesurer, comme outil propre, n’existe que sur la carte).',
+            'Une feuille **liée à la carte** mesure déjà d’elle-même – de même que la pile d’étages du bâtiment, qui connaît sa taille d’après l’emprise. La pastille y indique **réf. auto** au lieu d’une calibration ; la toucher ouvre l’ajustement ou dit d’où vient l’échelle. On ne calibre à la main que ce qui n’est pas lié.',
+            '**Une note rapide à la main ?** Le plan est la surface de croquis : dessiner librement, barrer, griffonner. La carte reste structurée (symboles, lignes, notes) pour que le rapport et le journal restent propres.',
           ] },
+          { kind: 'sub', text: 'Lier à la carte (géoréférence)' },
+          { kind: 'list', items: [
+            '**Lier à la carte**, en bas du plan, pose cette feuille sur la carte : le plan cède la moitié de la surface et la carte se place à côté. Sur un téléphone il n’y a pas de place pour les deux – un sélecteur **Carte / Module** passe alors de l’une à l’autre. Toucher le même endroit sur les deux surfaces – un angle de maison, une borne hydrante, un croisement. **L’ordre n’a pas d’importance** : une moitié posée trouve seule son homologue, et on peut passer d’une surface à l’autre à volonté. Deux points suffisent à poser la feuille.',
+            'Le **feu tricolore** dans la barre dit en permanence où l’on en est : deux points donnent une solution exacte et donc **non vérifiée** – seul le troisième mesure l’écart (« 4 points · ⌀ 1.2 m »). **Vérifier la superposition** pose le contour de la feuille sur la carte pour un contrôle visuel.',
+            'Tirer une croix la déplace, la toucher ouvre **Déplacer · Supprimer le point · Garder**. Toucher **lié** ouvre l’**Ajustement** avec le nombre de paires et l’écart ; **Transférer** copie les points de référence sur un autre module du même objet, **Réinitialiser** les supprime (avec confirmation). **Fermer** n’abandonne rien – ce qui est posé est déjà enregistré.',
+            'Dès lors les contenus se reflètent : ce qui est sur le plan apparaît sur la carte, et inversement – comme **jumeau**. Un jumeau n’est pas une copie pâle, il se comporte comme l’original : le toucher montre les données, le tirer le déplace, mêmes sommets et mêmes poignées. Ce qui est écrit, c’est toujours l’unique original sur l’autre surface.',
+            '**Transférer ici**, dans la fenêtre d’un jumeau, en fait l’original de **cette** surface – l’objet est alors vraiment ici et plus là-bas. Le changement est consigné au journal comme toute autre action.',
+            'Dans les **Couches**, chaque feuille liée reçoit ses propres lignes (« Contenu (module 2) », « Plan (module 2) »), plus « Carte – marquages » et « Carte – véhicules » sur la carte. On peut ainsi masquer individuellement ce qui est reflété depuis où.',
+          ] },
+          { kind: 'note', text: '**Dans quel sens se trouve le bâtiment ?** La **flèche du nord** sur la pile d’étages et la **boussole** en bas de la barre de gauche ouvrent la même petite fenêtre « Pivoter le bâtiment » : un curseur **Rotation** avec aperçu, plus **Nord en haut** et **Pivoter sur le grand axe** en un seul geste. Le contour tourne avec, les marquages restent où ils sont sur le bâtiment – et les pages d’étage imprimées montrent l’angle réglé.' },
         ],
       },
       {
@@ -320,6 +340,15 @@ export const fr: Localizable<Copy> = {
             'Les éditions simultanées sont fusionnées par objet (la modification la plus récente l’emporte).',
             '**Lecture seule** : les observateurs et les téléphones voient la situation en direct, sans les outils tactiques.',
           ] },
+          { kind: 'sub', text: 'Hors ligne' },
+          { kind: 'list', items: [
+            'La **Préparation hors ligne** dans les **Réglages** ([[⌘]] [[,]]) est sur **Automatique** : l’application installée va chercher d’elle-même carte, plans, symboles et couches de référence peu après l’ouverture d’une intervention – sans dialogue, sans notification. **Toutes** les couches cartographiques configurées sont chargées, y compris celle qui est masquée : l’expérience montre qu’on l’active une fois le réseau déjà perdu. **Manuel seulement** laisse cela au bouton **Tout charger pour le hors ligne**.',
+            'La quantité chargée dépend du **Rayon hors ligne** (également dans les Réglages, valable uniquement sur cet appareil) : un rayon plus petit = un téléchargement plus rapide et plus léger.',
+            'Ce qui est réellement prêt est indiqué par la **Préparation hors ligne** du menu d’intervention – ligne par ligne : carte, plans, symboles, matières dangereuses, couches de référence, personnel, stockage de l’appareil. **Météo** et **Recherche d’objets** exigent une connexion et y figurent comme « en ligne seulement ».',
+            'Seule l’**application installée** est fiable hors ligne. Dans un onglet de navigateur, le stockage peut être vidé à tout moment, et l’onglet devrait encore être ouvert à la prochaine intervention.',
+            'Sans réseau, tout ce qui est sur l’appareil continue de fonctionner : dessiner et poser des symboles, ARI, présence, matériel, journal et rapport. Photos et notes vocales restent enregistrées et partent plus tard.',
+            'Dès que le réseau revient, les modifications partent d’elles-mêmes et sont fusionnées avec les autres appareils – par objet, la modification la plus récente l’emporte. Tant que quelque chose est en attente, le badge de synchro en haut le dit.',
+          ] },
         ],
       },
       {
@@ -329,6 +358,7 @@ export const fr: Localizable<Copy> = {
           { kind: 'list', items: [
             'Un doigt déplace la carte/le plan ; deux doigts zooment (pincer).',
             'Tirer un lasso avec **Multiple** sélectionne plusieurs objets ; les objets sélectionnés se déplacent en les tirant.',
+            'Un bouton qui ne porte qu’un pictogramme dit son mot quand on le **maintient enfoncé** : après un court instant, le mot apparaît en bulle au-dessus, avec une brève vibration sur tactile. Relâcher ne déclenche **pas** le bouton : demander ce qu’est une chose ne doit pas la faire en même temps. À la souris, il suffit de survoler.',
           ] },
           { kind: 'sub', text: 'Souris' },
           { kind: 'list', items: [

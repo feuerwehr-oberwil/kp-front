@@ -99,6 +99,12 @@ export const de = {
             'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, Offline-Bereitschaft, diese Hilfe …) und der **Einsatzuhr**.',
             'Rechts **Rückgängig/Wiederholen**, **Verlauf** und **+ Eintrag**.',
           ] },
+          { kind: 'sub', text: 'Meldeleiste' },
+          { kind: 'list', items: [
+            'Direkt unter der Einsatzleiste liegt **ein** Streifen für alles, was ansteht und liegen bleibt, bis jemand etwas tut: ein überfälliger Atemschutztrupp, ein neuer Alarm, eine fällige Erinnerung, ungeprüfte Alarmangaben, ein bereitstehendes Update. Jede Meldung ist eine Zeile untereinander – keine Karten mehr, die sich gegenseitig verdecken.',
+            'Die Reihenfolge ist fest, nicht nach Eingang: zuerst der **Atemschutz**, dann der **Alarm**, dann die **Erinnerung**. Was auf jemanden wartet, steht immer über dem, was von selbst wieder verschwindet.',
+            'Es wirken nur die beschrifteten Knöpfe, das **✕** und – wo die Meldung einen Ort hat – ihr **Titel**. Ein Tipp irgendwo sonst auf die Zeile tut nichts: Lesen darf nicht dasselbe sein wie Handeln. Steht nichts an, ist der Streifen gar nicht da.',
+          ] },
           { kind: 'sub', text: 'Rechte Werkzeugleiste' },
           { kind: 'list', items: [
             'Die Zeichen- und Platzierwerkzeuge; unten angeheftet die Karten-Navigation (Zoom, Einpassen, Koordinaten).',
@@ -168,9 +174,10 @@ export const de = {
           { kind: 'lead', text: 'Werkzeuge der rechten Leiste im Lage-Modus.' },
           { kind: 'list', items: [
             '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit dem Schloss mehrere nacheinander setzen.',
+            '**Formen** – im selben Fenster, hinter den Gefahren: **Pfeil** und **Rechteck**, für alles, wofür es kein taktisches Zeichen gibt. Der Griff dreht, die Ecke zieht das Rechteck in die Länge (der Pfeil bleibt proportional, eine verzerrte Spitze liest sich schlecht). Beim Pfeil schaltet **Stopp-Balken** den Querbalken quer zur Spitze ein – die Entwicklungsgrenze: bis hier, und dort gestoppt.',
             '**Auswahl** – Objekte antippen, verschieben, im Editor anpassen.',
             '**Mehrfach** – Lasso: mehrere Symbole/Zeichnungen auf einmal auswählen.',
-            '**Linie** – ziehen oder Punkte tippen; der Stil wird danach im Editor gewählt: **Freihand**, **Pfeil** oder **Rettungsachse**.',
+            '**Linie** – ziehen oder Punkte tippen; der Stil wird danach im Editor gewählt: **Freihand**, **Pfeil** oder **Rettungsachse**. Darunter der **Abschluss** – **Keiner**, **Pfeil**, **Pfeil mit Stopp** (derselbe Querbalken an der Spitze) oder **Teilstück**; **Richtung umkehren** setzt ihn ans andere Ende, ohne die Linie zu verschieben.',
             '**Fläche** – Eckpunkte tippen (ab 3 Punkten mit Flächeninhalt); Eckpunkte ziehen/einfügen/löschen.',
             '**Absperrkreis** – von der Mitte zum Rand ziehen setzt den Radius in Metern (Füllung einstellbar).',
             '**Notiz** – freier Text direkt auf die Karte.',
@@ -191,9 +198,20 @@ export const de = {
             '**Zoom/Einpassen** unten in der Werkzeugleiste, wie auf der Karte.',
             '**Trupps** als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Trupp-Chips, deren Trupp «raus» ist, werden ausgegraut/durchgestrichen.',
             '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien und Flächen echte Meter (Messen als eigenes Werkzeug gibt es nur auf der Karte).',
+            'Ein Blatt, das mit der Karte **verknüpft** ist, misst schon von selbst – ebenso der Gebäude-Stockwerkstapel, der seine Grösse aus dem Grundriss kennt. Dort steht statt der Kalibrierung **Ref. auto**; ein Tipp darauf öffnet die Passung bzw. sagt, woher der Massstab kommt. Von Hand kalibriert wird nur, was nicht verknüpft ist.',
             '**Schnelle Handnotiz?** Der Plan ist die Skizzenfläche: frei zeichnen, durchstreichen, kritzeln. Die Lage bleibt strukturiert (Symbole, Linien, Notizen), damit Rapport und Verlauf sauber bleiben.',
           ] },
+          { kind: 'sub', text: 'Karte verknüpfen (Georeferenz)' },
+          { kind: 'list', items: [
+            'Der Knopf **Karte verknüpfen** unten am Plan legt dieses Blatt auf die Karte: der Plan gibt die halbe Fläche frei, daneben liegt die Karte. Am Telefon reicht der Platz für beides nicht – dort schaltet ein **Karte / Modul**-Umschalter zwischen ihnen. Dieselbe Stelle auf beiden Flächen antippen – Hausecke, Hydrant, Wegkreuzung. **Die Reihenfolge ist egal**: gesetzte Hälften suchen sich ihr Gegenstück selber, und man darf beliebig zwischen den Flächen wechseln. Zwei Punkte genügen fürs Auflegen.',
+            'Die **Ampel** in der Leiste sagt die ganze Zeit, woran man ist: zwei Punkte lösen exakt und sind damit **ungeprüft** – erst der dritte misst die Abweichung («4 Punkte · ⌀ 1.2 m»). **Deckung prüfen** legt den Blattumriss zur Sichtprüfung auf die Karte.',
+            'Ein gesetztes Kreuz **ziehen** verschiebt es, **antippen** öffnet **Verschieben · Punkt löschen · Behalten**. Ein Tipp auf **Verknüpft** öffnet die **Passung** mit Paaren und Abweichung; **Übertragen** kopiert die Referenzpunkte auf ein anderes Modul desselben Objekts, **Zurücksetzen** löscht sie (mit Rückfrage). **Schliessen** verwirft nichts – Gesetztes ist längst gespeichert.',
+            'Ab da spiegeln sich die Inhalte: Was auf dem Plan steht, erscheint auf der Karte, und umgekehrt – als **Zwilling**. Ein Zwilling ist keine blasse Kopie, sondern verhält sich wie das Original: antippen zeigt die Angaben, ziehen verschiebt, Eckpunkte und Griffe sind dieselben. Geschrieben wird dabei immer das eine Original auf der anderen Fläche.',
+            '**Hierher übertragen** im Fenster eines Zwillings macht ihn zum Original **dieser** Fläche – das Objekt ist danach wirklich hier und nicht mehr dort. Der Wechsel steht im Verlauf wie jede andere Aktion.',
+            'In den **Ebenen** bekommt jedes verknüpfte Blatt eigene Zeilen («Inhalte (Modul 2)», «Plan (Modul 2)»), auf der Karte dazu «Karte – Markierungen» und «Karte – Fahrzeuge». So lässt sich einzeln ausblenden, was von wo gespiegelt wird.',
+          ] },
           { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Stockwerkstapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
+          { kind: 'note', text: '**Wie herum steht das Gebäude?** Der **Nordpfeil** auf dem Stockwerkstapel und der **Kompass** unten in der linken Leiste öffnen dasselbe kleine Fenster «Gebäude drehen»: ein Regler **Drehung** mit Vorschau, dazu **Norden oben** und **Auf Längsachse drehen** als je ein Tipp. Der Umriss dreht sich mit, die Markierungen bleiben, wo sie am Gebäude liegen – und die gedruckten Geschossseiten zeigen den eingestellten Winkel.' },
         ],
       },
       {
@@ -363,6 +381,15 @@ export const de = {
             'Gleichzeitige Bearbeitung wird pro Objekt zusammengeführt (jüngste Änderung gewinnt).',
             '**Nur-Lesen**: Betrachter und Telefone sehen die Lage live, ohne die taktischen Werkzeuge.',
           ] },
+          { kind: 'sub', text: 'Offline' },
+          { kind: 'list', items: [
+            '**Offline-Vorbereitung** in den **Einstellungen** ([[⌘]] [[,]]) steht auf **Automatisch**: die installierte App holt Karte, Pläne, Symbole und Referenzebenen kurz nach dem Öffnen eines Einsatzes von selbst – ohne Dialog, ohne Toast. Mitgeladen wird **jede** eingerichtete Kartenebene, auch die gerade ausgeblendete: eingeblendet wird sie erfahrungsgemäss erst, wenn das Netz schon weg ist. **Nur manuell** überlässt das dem Knopf **Alles für offline laden**.',
+            'Wie viel geladen wird, bestimmt der **Offline-Umkreis** (ebenfalls Einstellungen, gilt nur auf diesem Gerät): kleinerer Umkreis = schnellerer, kleinerer Download.',
+            'Was tatsächlich bereit ist, sagt **Offline-Bereitschaft** im Einsatz-Menü – Zeile für Zeile: Karte, Pläne, Symbole, Gefahrgut, Referenzebenen, Personal, Gerätespeicher. **Wetter** und **Objektsuche** brauchen eine Verbindung und stehen dort als «nur online».',
+            'Verlässlich offline ist nur die **installierte App**. In einem Browser-Tab kann der Speicher jederzeit geleert werden, und der Tab müsste beim nächsten Einsatz noch offen sein.',
+            'Ohne Netz läuft weiter, was auf dem Gerät liegt: zeichnen und Symbole setzen, Atemschutz, Anwesenheit, Material, Verlauf und Rapport. Fotos und Sprachnotizen bleiben gespeichert und gehen später raus.',
+            'Sobald wieder Netz da ist, gehen die Änderungen von selbst hinaus und werden mit den anderen Geräten zusammengeführt – pro Objekt, jüngste Änderung gewinnt. Solange etwas aussteht, sagt es das Sync-Abzeichen oben.',
+          ] },
         ],
       },
       {
@@ -386,6 +413,7 @@ export const de = {
           { kind: 'list', items: [
             'In den **Einstellungen** ([[⌘]] [[,]]) unter «Leisten-Beschriftung»: **Wörter** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr.',
             'Ohne diese Einstellung bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
+            'Überall sonst gilt: einen Knopf, auf dem nur ein Zeichen steht, **gedrückt halten** – nach einem kurzen Moment steht sein Wort als Blase darüber, auf Touch mit einem kurzen Summen. Das Loslassen löst den Knopf dabei **nicht** aus: fragen, was etwas ist, darf es nicht gleich auch tun. An der Maus genügt Draufzeigen.',
           ] },
           { kind: 'sub', text: 'Tag / Nacht' },
           { kind: 'list', items: [
