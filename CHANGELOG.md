@@ -31,16 +31,56 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
-- **Georeferenz – ein Plan und die Karte zeigen dieselbe Stelle.** Ein Modul-Plan wird über
-  gemeinsame Landmarken mit der Karte verknüpft: auf dem Blatt antippen, auf der Karte antippen,
-  fertig. Ab drei Punkten nennt die Passung eine mittlere Abweichung in Metern – bei zwei Punkten
-  steht dort bewusst «aus 2 Punkten» und **keine Zahl**, weil zwei Punkte immer exakt aufgehen und
-  eine 0.0 m dort die selbstbewussteste Lüge der App wäre. Danach spiegeln sich Symbole und
-  Fahrzeuge als *Zwillinge* auf beide Flächen, jede Projektion ist eine gewöhnliche Zeile in
-  «Ebenen», und ein Objekt lässt sich mit «Hierher übertragen» endgültig auf die andere Fläche
-  verschieben – angeschlossene Leitungen werden dabei sauber gelöst, nicht verwaist. Eine fertige
-  Passung überträgt sich auf weitere Module desselben Objekts. Lupe auf beiden Seiten, damit man
-  die Hausecke trifft und nicht das Dach daneben.
+- **Georeferenz – a plan and the map show the same place.** A Modul plan is tied to the map
+  through shared landmarks: tap on the sheet, tap on the map, done. Points may be set in **any
+  order** on either surface – both halves hold numbered open slots, either side may start a pair,
+  and halves merge closest-first once the fit is credible enough to judge distance (20 m
+  tolerance), conservatively in capture order before that. Queueing the two sides in *different*
+  orders used to pair twelve points with twelve wrong ones and the only way out was doing all of
+  them again; the two point clouds still have the same shape, so the mode solves the
+  correspondence itself now, renumbers its crosses and turns the Passung green – and only when
+  the new assignment is genuinely good *and* clearly better than what stands, so honest-but-imprecise
+  taps are left alone. Every half is draggable, and a tap on a cross offers Verschieben · Punkt
+  löschen · Behalten instead of an invisible edit mode. From three points the fit states a mean
+  deviation in metres – at two it deliberately says «aus 2 Punkten» and **no number**, because two
+  points always solve exactly and a 0.0 m there would be the app's most confident lie. Afterwards
+  symbols and vehicles mirror as *twins* onto both surfaces, every projection is an ordinary row
+  in «Ebenen», and an object can be moved across for good with «Hierher übertragen» – attached
+  Leitungen are released cleanly rather than left orphaned, and the move is written to the record
+  as **one** move, so a replay reconstructs the object on exactly one surface. A finished fit
+  carries over to further Module of the same object. A magnifier on both sides, so you hit the
+  corner of the house and not the roof beside it.
+
+- **A twin is the thing itself, not a picture of it.** Settled over three field rounds
+  (29./30.08.) and now doctrine: a mirrored object is fully **interaction- and
+  presentation-equivalent** to its original, and the only difference left is which surface stores
+  it. Interaction: a tap opens the source's own editor in place («Zum Original» is a door, not a
+  detour), a drag moves the one source object through the fit, a selected mirrored drawing wears
+  the **native** vertex vocabulary of the surface it is standing on – grips, «+» midpoints,
+  hold-to-delete, Verlängern – and a mirrored Truppmarker carries the same pill and action bar the
+  map's own marker wears (rename, the Atemschutz-Trupp join menu, Farbe, Position markieren, Spur
+  löschen, «Im Atemschutz zeigen», plus «Auf Karte zeigen» as its one extra door). Presentation: no
+  twin-only tone, no dimmed grips, no separate size band – map twins use the native symbol band,
+  sheet twins the sheet's own, and a Feuer's Ausbreitung arrows point where the source draws them
+  instead of being re-aimed through the fit. A mirrored Leitung keeps its whole FKS voice:
+  arrowhead, Teilstück-Gabel, S/W/H/P letter, marker rhythm, Leitungs-Nr tag, Länge and
+  Absperrkreis radius, measured on the source geodesics so it reads its length even on an
+  uncalibrated sheet. A mirrored symbol carries its Geschoss badge and its Entwicklung arrows, and a
+  composite – a Grosslüfter, a Drehleiter – stacks its part again instead of arriving as a bare
+  vehicle body. Generic Trupp chips are numbered **once across both pictures** while the
+  surfaces are linked, so a Karte and a Modul no longer both start at «Trupp 1». ⚠️ Three
+  mechanical residues are deliberate: an endpoint anchored to a Leitung blocks the whole-object
+  drag (its grip detaches and reshapes instead), a shared GPS position stays inert (a self-report
+  is nobody's to move), and the Hubretter boom stays source-only – the projection has no honest
+  length for metre-scaled geometry.
+
+- **The printed Objektplan shows what the screen's sheet shows.** Draw the whole Lage on the
+  Karte, watch it standing on the linked Modul – and the PDF attached nothing, because the sheet
+  itself carried no stroke and the plan pages printed only sheet-native marks. The mirrored content
+  (symbols, drawings, Notizen, shapes, Trupp chips with their recorded trails) is projected into
+  printable pages under the same visibility gates the screen's mirror uses, and the preflight
+  checkbox seeds *on* for a plan whose only marks are mirrored. Live vehicles and shared responder
+  positions stay off the paper: they are moments, not records.
 
 - **FireHub (Tercero) alarms, without a second integration to learn.** A station on FireHub now
   points its «Einsatzstart» and «Einsatzende» webhooks at `POST /api/firehub/webhook` and gets the
@@ -80,8 +120,86 @@ so this file – not the log – is the record of what shipped up to that point.
   The tier is read from the same fold that plays the tone, so «tone implies row» holds by
   construction. No ✕ (an overdue Trupp is ended by a Funkkontakt or a Druckmeldung, not a tap), and
   deliberately not muted by the bell – this row is exactly what must stay readable after the bell is
-  pressed. ⚠️ Found on the way: a pressure alarm posted «Kontakt herstellen» as its OS notification.
-  Air does not come back on the radio; title and body follow the reason now.
+  pressed. The row **names the whole crew** («Atemschutz überfällig – Meier A. · Keller B. · Weber
+  C.»), because at 3am the question is who exactly is overdue and the board is one tap away, not
+  zero; the OS notification keeps the short name, a tray line has no room to spend. «Zum Trupp»
+  takes the row down along with the tone and lands on the board with the card itself ringing – the
+  strip was covering the mute bell and the controls needed next – and the row comes back the moment
+  a *new* emergency starts, the tier clearing and re-crossing or the reason changing. The TopBar
+  chip no longer waits for red either: it speaks from «Kontakt fällig» on, amber and quiet, with the
+  same ticking clock. ⚠️ Found on the way: a pressure alarm posted «Kontakt herstellen» as its OS
+  notification. Air does not come back on the radio; title and body follow the reason now.
+
+- **The Trupp card answers taps, not only buttons.** Druck is a tap zone straight into the pending
+  Druckmeldung – an always-inline ±, because a Druckmeldung must never cost an opening tap – and
+  only «Bestätigen» commits, appearing once the value is dirty (an unchanged reading is what
+  Funkkontakt is for). The Kontakt clock folds its secondary times away by default while countdown
+  and alarm colours stay visible, and a Verlauf footer previews the latest event («zuletzt: 16:21
+  Draussen») and expands the per-Trupp log in place. Tap zones only ever *open* things – no tap can
+  log – and the action bar stays as the redundant explicit path. The board grid stops stretching
+  rows, so an opened Zeiten- or Verlauf-fold grows only its own card.
+
+- **Offline-Vorbereitung – the device packs its own bags.** «Alles für offline laden» relied on
+  somebody remembering it before losing coverage. The installed app now runs the same download
+  quietly about 30 s after an Einsatz is open, re-armed when the plans, the Absperrkreis radius or
+  the Kartenebenen change. Quiet means quiet: no dialogs, no toasts – a tight storage budget
+  silently takes the reduced download, and the Offline-Bereitschaft sheet stays the one place where
+  the truth is read. The download now expands WMS/WMTS `{bbox-epsg-3857}` templates and takes
+  **every** configured raster overlay into its budget, visible or not, because the field gap was
+  exactly the layer somebody enables only once the net is gone; the readiness row generalises from
+  «Leitungskataster» to «Referenzebenen» in all four locales. Device preference
+  «Offline-Vorbereitung» (Automatisch, default / Nur manuell) in Einstellungen, and the manual
+  button stays either way. ⚠️ Deliberately **no** «nur WLAN» tier: iPadOS exposes no network-type
+  API, so that gate would lie on the primary devices. Accepted cost: one unreachable host among the
+  sources keeps the shared verdict orange.
+
+- **Hold an icon-only button to read its word.** Every icon-only button already carries its word as
+  an `aria-label`, but a title never appears on touch – and the primary devices are tablets, so an
+  untrained operator was left guessing what the footprint icon or the drop on a Trupp card does. A
+  hold of 350 ms now shows that word as a bubble and swallows the release click: asking what a
+  button is must not also press it. The same 350 ms and the same 12 ms arm buzz the drawing magnets
+  already speak now mark **every** held gesture – the tooltip appearing, a touch drag latching under
+  a still finger, the Eintrag hold offering its targets – so a hold answers on one beat everywhere.
+  Buttons whose hold *is* a gesture opt out at the source; buttons with visible text are never
+  claimed; a mouse keeps its native hover tooltip.
+
+- **«Gesetzt, aber nicht erfasst» – the Material sheet says what stands on the Lage.** The
+  symbol-to-Material offer had two homes that did not work: as a toast it was missed, as a row
+  inside the symbol's card it was seen only by whoever re-opened the symbol. The Material surface
+  now derives its recommendations from every placed symbol (Lage plus all plans) and shows one
+  strip. Unambiguous items keep the one-tap «Übernehmen», which books everything missing onto the
+  Bestand's default sources. Anything ambiguous – Lüfter variants, several stocked sources – turns
+  the button into «Erfassen …» and opens a picker: one radio group per open symbol with Typ, Quelle
+  and Restbestand, unambiguous items pre-ticked, and a counting footer that books through the normal
+  path. Recording the material **any** way – stepper, composer, a hand-typed line with the same
+  label – makes its line disappear, and the ✕ dismisses the current suggestion set until a new
+  placement resurfaces it.
+
+- **The Rechteck earns its name, and the Pfeil gets its Stopp-Balken.** Shapes carry an aspect
+  ratio now: Rechteck and Rauch stretch by corner drag on both surfaces (resolved in the rotated
+  frame), while the Pfeil stays aspect-locked because a stretched arrowhead reads badly. And the
+  line-ending picker gains «Pfeil mit Stopp» – the arrowhead with the Entwicklungsgrenze bar just
+  past its tip, literally the statement the fire symbol's bounded spread arrow makes («bis hier, und
+  dort gestoppt»), on a line. One field rides the existing arrow everywhere it is already drawn:
+  Karte, Plan, both georef mirrors and the printed Kroki, offered from the same Ende row in both
+  editors, and drawn at the Feuer glyph's own proportions rather than a heavier lookalike. Print
+  parity end to end – the aspect travels in the payload only when it is not 1, and the renderer
+  rasterises square and stretches, because the SVG rasteriser refuses `preserveAspectRatio` tricks.
+
+- **A Gebäude knows its own size and which way you are standing.** A freshly created Gebäude
+  derives its Massstab from the stored OSM footprint, so it measures **real metres with zero
+  calibration**; older sheets without that reference keep the manual path. The north dial on the
+  sheet stopped being a dead read-out: it is the orientation control, as is the compass button in
+  the rail footer – two doors, one room, and both open the same popover with a degree slider, live
+  preview, ±5° snap at the two meaningful angles and «Norden oben» / «Längsachse» as one-tap chips.
+  The dialled angle persists, annotations re-glue through the existing remap, and the **printed
+  floor pages show the angle that is set** instead of the old either/or.
+
+- **The Kontaktperson gets a phone number – tap to dial.** The number is why the field exists at
+  all: the callback during the Nachbearbeitung. Name and Telefon share one row on the Rapport, the
+  Erfassung mirror, the printed Einsatzrapport and the paper Erfassungsblatt, «Entfällt» answers for
+  the pair, a `tel:` dial button appears beside a filled number on tablet and phone, and the stats
+  export carries it through.
 
 - **One labelling pass decides on the Lage, instead of six that don't.** Captions,
   Trupp names, end tags, readouts and radii were placed by six independent loops with no collision
@@ -149,61 +267,333 @@ so this file – not the log – is the record of what shipped up to that point.
   fixed so much as made impossible: nothing is positioned over anything. ⚠️ Reverses a documented
   decision – the «two scrollbars» objection was about two overlapping ones, which these are not.
 
+- **Every press gets an answer, and hover stops sticking to iPads.** The iOS tap flash has been off
+  since the beginning, but only a handful of controls ever said anything on `:active` – a tap on the
+  app's most common button showed nothing at all. There is one press now: an ink wash that composes
+  with any fill in both themes, on every interactive class in the app, and the six competing
+  `:active` scale values are gone with it. The other half: roughly 300 `:hover` rules were applying
+  on touch, where hover only ever means «the last thing tapped stays lit» – every one of them is
+  behind `(hover: hover)` now, which is the app-wide fix for a phantom selection that had only ever
+  been patched four rules at a time. In the same pass: a value being dragged stands still where it
+  can be read – while a vertex is in the hand its label steps aside and the tool's number, total
+  distance or area, sits fixed at the top of the surface, and a swept Zeitplan block writes its live
+  span into its own corner instead of hiding the times in a `title=` no finger ever sees. Menus and
+  the admin Select dismiss on `pointerdown` rather than a `mousedown` touch may synthesise late or
+  not at all, an iPad with a trackpad keeps its mouse path for freehand and marquee after the first
+  finger touch, and the Zeitblock head's «umschalten» is a visible swap glyph instead of an
+  opacity-0 hover reveal that read as a heading. Three controls that had missed the 44px touch floor
+  reach it, and the base stylesheet now names all three places that floor is implemented, which is
+  why the gap had been invisible. ⚠️ The WheelPicker dropped `aria-modal`: it has no backdrop, no
+  focus trap and no focus restore, so Tab walked out behind it while a screen reader was told the
+  rest of the page was inert. It is a popover and says so now.
+
+- **«Bewegung reduzieren» now reaches the biggest motion in the app.** Every CSS animation already
+  honoured `prefers-reduced-motion`; nothing in JavaScript did – and the single largest movement on
+  screen is a full-viewport map camera flight. All 20 explicit camera durations and smooth scrolls
+  across nine files go through one helper now, including the three that ride the map library's own
+  computed default (the incident fly-to, the centering and the Kroki fit). Duration 0 is a jump,
+  which is exactly what the setting asks for. Alongside it, motion that *carries* meaning is drawn
+  rather than decorated: a success toast ticks itself in once, the offline readiness dots ease
+  between states and close into a ring with a tick, and the Anwesenheit roster reload uses the same
+  sync glyph as the Einsatz switcher.
+
+- **Overlays leave the way they came, and a plain toast answers a tap.** Every surface animated in
+  and cut to nothing on close; the one symmetric overlay in the app was an admin tooltip. Sheet,
+  Overlay, ConfirmCard, Menu, Popover and ContextMenu all have a symmetric exit now, and the backdrop
+  finally gets the entrance fade it never had. Toast dismissal is two-phase, and a pill with **no**
+  action – which had no way off the screen at all while it blocked taps in the bottom lane –
+  dismisses on a tap. Action pills keep their button and their flick.
+
+- **The layer ladder has names, and the last browser dialog leaves the Verwaltung.** There were 91
+  bare `z-index` numbers across 20 files and the ladder existed only in the head of whoever had read
+  them all: the toaster sat at 90 with fifteen surfaces above it, which put the app's own
+  «Rückgängig» underneath them – and the house rule is confirm-with-undo and no blocking dialog, so
+  a toast that can be covered is an undo that can be lost. They are tokens now, named for what the
+  surface *is*, and every relative order is exactly what it was; the one deliberate move is the
+  toast, above everything except the time wheel, which is a text input it must not sit on. Ordering
+  *inside* one component stays a local number, and the token file says where that line runs. In
+  `/admin` the three surviving `window.confirm()` are gone: an installed iOS PWA may suppress one
+  without a trace and a suppressed confirm reads as «no», so the button did nothing at all, silently,
+  on the device the Verwaltung is most often opened from. The config-history restore gets a real
+  sheet, because it is a full-document replace and has to name the sections it would overwrite.
+  ⚠️ Also here: the plan page printed its board symbols about 43 % larger than the board showed
+  them – the screen default moved and the print base had not followed – and a test now fails if the
+  two part again. Only the *default* is mirrored; the device's own Symbolgrösse still deliberately
+  never reaches the paper. And the plan dock's touch targets stay the size they are: three ways of
+  raising them were drawn out, none was better, and that is recorded where the next sweep will find
+  it.
+
+- **Station doctrine leaves the in-app Einstellungen.** Funkkontakt-Intervall, Nachfrist and
+  Funkkanal were editable by any editor from the Einstellungen sheet – station doctrine under the
+  finger of an unknowing operator at 3am. They are `/admin` configuration now, and the sheet carries
+  device preferences and utilities only. Per-incident overrides already stored in workspaces keep
+  applying.
+
+- **The Georeferenz card teaches once, then gets out of the way.** Three lines about picking a
+  landmark are what a first-timer needs at point 1 and what stands between the operator and the
+  buttons at point 5: they move behind a 44px (i) and stay open once opened, because whoever asked
+  for them is having trouble and snapping the card shut per point would be the app deciding they
+  had learned. A consequence is not a lesson and never hides – «der alte Punkt verschwindet dabei»
+  stays on the card while a point is being re-placed. Both halves of a landmark now read the **same**
+  description, because it is one job («find a place you can point at twice»), and the Ampel's
+  explanatory sentence is a visible third line rather than a `title=` tooltip that never fires on the
+  iPad the bar was built for. A green lamp is the moment there is nothing left to ask for, so
+  «Fertig» takes the big row and «Punkt setzen» drops to the quiet one; that row carries two actions,
+  never three. ⚠️ «Abbrechen» never abandoned anything – pairs are saved as they are placed, so
+  somebody pressing it to undo a crooked alignment found the plan georeferenced anyway. It is
+  «Schliessen» until a usable fit stands and «Fertig» after; throwing points away stays «Alle Punkte
+  zurücksetzen», which asks first. The magnifier is a corner inset rather than a circle under the
+  finger, which is what lets it work on the **map** half too – the half where placing blind hurts
+  most, since a house corner on a basemap at phone zoom is a few pixels of grey – and it reproduces
+  the live layer's own raster paint: on the night map it used to be a black disc, because the dark
+  basemap renders buildings near-black and the map lifts them into a legible charcoal that plain
+  image tiles never got.
+
+- **Notizen, drafts and Messen follow one grammar on both surfaces.** A Notiz behaves like a symbol:
+  tap opens its panel, drag moves it, and the grips row is gone. An in-progress node draft shows the
+  same vertex grips and «+» midpoint inserts a finished shape does – on the map the insert band had
+  been invisible – and it **auto-commits on tap-away**, with an undo that hands the shape back as an
+  editable draft; Escape stays the explicit cancel. The floating delete orbs leave the plan
+  annotations and Notizen: deletion lives in the detail panels. ⚠️ Two deliberate divergences:
+  Messen is map-only now (Massstab calibration and the measurement readouts stay on the plan), and
+  the Team-Pill and group delete keep their orbs.
+
+- **A journal audio row is one row again, and its extras live in a sheet.** Only the play circle
+  stays inline at a full 48px; Durchhören, Transkript and the wording pen move into a detail sheet,
+  while the amber missing-transcript chip stays on the row where it does its work. In the same pass
+  the Verlauf drops what it was repeating: a photo attached without a typed word no longer gets
+  «Foto» as its body – a caption naming the one thing the reader can already see, and on a phone it
+  cost the row its whole text column. A Sprachnotiz keeps its label for the opposite reason: audio
+  has nothing to look at. ⚠️ The record keeps its wording; rows already written with the
+  placeholder are cleaned **at render**, and only when the picture really is there.
+
+- **A symbol on a Modul is a pin, not a balloon.** Sheet symbols scaled with the paper, so zooming
+  a Modul in blew the Feuer up past the building it stands in – comically oversized next to its
+  fixed-size twin. Symbols hold a constant screen size now, the same pin model the Lage uses and
+  exactly the number their twins already render at, and the attachment boundary agrees with the glyph
+  at every zoom. Text keeps scaling with the paper and shapes stay sheet-true, both deliberate. The
+  size slider opens at 0.7 rather than the map's 1 (a symbol sized for the Lage covers a room on an
+  A4 building) and reaches further down for anybody who wants it smaller; a stored value still wins
+  and nothing is rewritten. A Modul also gets one more zoom step – at the old ceiling a sheet stopped
+  just short of the zoom that makes a hydrant number readable at arm's length.
+
+- **The map cursor is an arrow, and the reference seam keeps only its markers.** Panning is *the*
+  ambient gesture on the map, so a permanent grab hand implied a drag mode nobody chose; the
+  crosshair while aiming stays. And the dashed pair lines across the split are gone after one day in
+  the field – with four or five pairs they turned the seam into a cat's cradle, and the numbered
+  badges on the crosses are the pairing statement anyway.
+
+- **Field-feedback quick wins across copy, presets and chrome.** A Trupp log exit reads «Draussen»,
+  matching the status word («ausgerückt» means departed the Magazin everywhere else); the
+  Kontaktperson placeholder is short enough to stop clipping, in both apps; the generic Gefahr symbol
+  can say what the danger is; the Offizier glyph captions «Funktion · Name» on map, plan and Kroki;
+  pressed Rapport cards wash once instead of twice; the hold ring clears the «Eintrag» label; and the
+  Zeitplan print trigger lays its icon and relay dot side by side like the Rapport button.
+
 ### Fixed
 
-- **Zwillinge liessen sich nicht verschieben.** Ein «gespiegelt von der Karte» schluckte den
-  Pointerdown und beantwortete nur Tipper – obwohl `startEntityMove` seit dem Georeferenz-Start
-  dokumentiert, dass die Projektion auf einem Modul eine seiner beiden Aufrufstellen ist. Sie ist
-  es jetzt wirklich, in beide Richtungen: Ziehen schreibt **das eine Quellobjekt** durch die
-  Passung, also können Rückgängig, mitgeführte Leitungen, Audit-Eintrag und Verlaufszeile nicht
-  auseinanderlaufen, je nachdem welches Bild gerade vor einem lag. Ein Live-Fahrzeug verhält sich
-  wie auf der Karte: Ziehen heisst «Festhalten», bis «GPS» es dem Feed zurückgibt.
-  ⚠️ Auf der Karte führt der MapLibre-Marker die Geste selbst – ein `stopPropagation()` käme dort
-  zu spät, weil MapLibre am Kartencontainer lauscht und React erst darüber delegiert, die Karte
-  also schon zu schwenken begonnen hätte. Der Fortschritt am Blatt: 1 Blatt-Einheit ist genau das,
-  was die Passung sagt, geklemmt aufs Papier – ein Punkt neben dem Blatt ist kein Ort darauf.
+- **A twin could not be moved – on either side of the mirror.** Four separate causes, found over
+  three rounds in the field. A mirrored mark swallowed the pointerdown and answered taps only; a
+  drag now writes **the one source object** through the fit, so undo, carried Leitungen, the audit
+  entry and the Verlauf row cannot drift apart depending on which picture happened to be in front of
+  you, and a live vehicle behaves as it does on the map (dragging means «hold it here» until «GPS»
+  hands it back to the feed). The sheet then moved the object **several times too far**: the drag
+  delta is cumulative and was being added to a base that the mirror itself had already moved, so four
+  samples of 25px travelled 350px – the factor grew with the sample count, which is why it read as
+  «viel zu weit» rather than as a wrong scale. The base is now the point the twin stood on when the
+  finger went down. Pressing a twin on a Modul *deselected* it in the same event, because the sheet
+  closes its panels on any pointerdown in the capture phase – a press starting on a twin keeps the
+  selection now, and the same presses also dismiss the workspace-level twin plaques, which is what
+  had let a twin panel stack above the sheet's own panels and never close. And a mirrored Trupp chip
+  was display-only, so dragging it panned the surface underneath: the chips move their one source
+  through the fit now, with each surface's own gesture grammar – a direct drag on the Modul, the
+  map's own hold-to-drag on the Karte – while a tap stays the jump to the source. ⚠️ On the map the
+  marker runs the gesture itself; a `stopPropagation()` would come too late there, because the map
+  library listens on the container below the React root and the map would already have started to
+  pan.
 
-- **Vier Halte-Gesten, ein Ring.** «Entsperren» trug als einziges einen 4-px-Balken in einer
-  schwebenden Karte, mit eigener Dauer (700 ms) und ohne die 250 ms Ruhe, die jede andere Halte-Geste
-  abwartet, bevor überhaupt etwas erscheint – ausgerechnet auf dem einzigen Antippfeld einer
-  gesperrten Fläche, das man am ehesten streift. Es trägt jetzt denselben Ring wie Knoten löschen,
-  Verbinden und Lösen, an derselben Uhr (`lib/nodeHold`), blau wie alles, was etwas zurückgibt.
-  ⚠️ Dabei fiel ein echter Fehler auf: der eigene 700-ms-Timer wurde beim Verschwinden des Chips
-  **nicht** abgeräumt – ein Chip, der mitten im Halten wegfiel (Werkzeugwechsel, Sync), entsperrte
-  die Fläche 700 ms später trotzdem.
+- **A reference point could not be placed by tapping on a tablet.** The real cause of «placement is
+  very unreliable», and it was never finger wobble: the browser follows every uncancelled tap with a
+  synthesised mouse pair, which re-ran the placement machine (one duplicate point per tap) and then
+  landed a click on the cross that had *just* mounted under the finger, picking it up – so the next
+  tap re-placed that point instead of setting the next one. A placing tap cancels its touchend now,
+  which suppresses the whole synthetic trail, and a press that begins on a cross never starts a
+  placement gesture. Measured with a strict probe (exactly +1 point, mode not left in edit): 0/10 →
+  10/10 on both engines, clean and wobbly taps alike. Two touch-only killers stacked on top of that:
+  the map arms its touch drag-pan after about 3px, which every finger tap exceeds by pure wobble, and
+  the gesture was then unconditionally settled as a pan – the pan veto is mouse-only now, and the
+  shared tap slop rises from 10 to the app's own 16px, because a deliberate tap on glass routinely
+  wobbles past 10. On a phone, points are placed against a fixed reticle rather than under the
+  finger, and they stay draggable afterwards; «Zurücksetzen» is offered as soon as *anything* stands
+  rather than only once a pair is complete – a mode full of queued points offered no way to start
+  over. Trail layers now gate on the reference mode like every other Lage layer, the surviving
+  pointer is re-baselined when a pinch ends, and the map resizes in the same commit that flips the
+  split layout, so markers reproject before paint.
 
-- **Der Fortschrittsring log unter «Bewegung reduzieren».** Die globale Regel
-  `@media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important } }` schlägt
-  jede lokale Ausnahme – der Verbinden-Ring stand also sofort voll, während die Verweildauer noch
-  350 ms zu laufen hatte. Ein Ring ist keine Zierde, sondern die Aussage «so lange noch»; er wird
-  jetzt in JS getickt und kann von einer Zier-Regel nicht mehr stummgeschaltet werden.
+- **Four hold gestures, one ring.** «Entsperren» was the only one wearing a 4px bar in a floating
+  card, with its own duration (700 ms) and without the 250 ms of stillness every other hold waits
+  before anything appears at all – on the one tap target of a locked surface that a hand is most
+  likely to brush. It wears the same ring as node delete, Verbinden and Lösen now, on the same clock,
+  blue like everything that gives something back. The «Eintrag» hold had the same disease from the
+  other end: a CSS keyframe racing a JavaScript timer said *fertig* 130 ms early on every press. Its
+  fill is driven off the press's own start stamp now, so the ring and the latch share one clock, and
+  it draws as a halo around the + icon instead of striking through the last letters of the word.
+  ⚠️ A real bug surfaced on the way: the 700 ms timer was **not** cleared when the chip disappeared,
+  so a chip that fell away mid-hold (tool change, sync) unlocked the surface 700 ms later anyway.
 
-- **«Ebenen» legte sich auf die Detail-Karte.** Beide belegen denselben Platz rechts neben der
-  Werkzeugleiste – auf dem Telefon dieselbe untere Kante –, und die Ebenen-Karte liegt darüber. Die
-  vergrabene Detail-Karte blieb durch den Hintergrund hindurch antippbar. Jetzt tritt sie zurück,
-  solange ein Dock offen ist, **ohne die Auswahl wegzuwerfen**: der Halo bleibt, die Karte kommt
-  zurück, sobald «Ebenen» zugeht. Gleiches gilt für die Zwillings-Karte.
+- **A progress ring lied under «Bewegung reduzieren».** The global rule
+  `@media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important } }` beats
+  every local exception, so the Verbinden ring stood full immediately while the dwell still had
+  350 ms to run. A ring is not decoration, it is the statement «this much longer»; it is ticked in
+  JavaScript now and no decoration rule can silence it.
 
-- **Die Detail-Karte folgt der ausgeklappten Werkzeugleiste.** Ihr Abstand war eine feste Zahl
-  (`right: 116px`), während jede andere Fläche daneben die Rail-Breite mitliest. Ausgeklappt lagen
-  116 px der Karte unter der Leiste, bei gezogener Leiste bis zu 180 px.
+- **Two pointing rings never rendered at all.** Both highlights added on 29.08. – the ring on an
+  overdue Trupp's card and row, and the «Auftrag offen» flash on the form field – referenced shared
+  global keyframes from inside a CSS module. ⚠️ CSS modules localise animation names, so the built
+  rule pointed at a hashed keyframe that exists nowhere and both rings silently did nothing. The
+  module carries its own copy now, kept in sync with the base sheet by comment.
 
-- **Auf dem Telefon bleiben «Löschen» und «Zentrieren» stehen.** Die Fusszeile scrollte im Sheet mit
-  – auf einer Zwillings-Karte mit fünf Aktionen bis auf drei Reihen ganz unten. Sie ist jetzt
-  angeheftet (durch Layout, nicht `position: sticky` – das ist in einem Blur-Scroller auf iOS
-  unzuverlässig); die Beschriftungs-Zeile scrollt weiter mit, denn sie ist der seltene Griff.
+- **«Ebenen» lay on top of the detail card.** Both occupy the same place beside the tool rail – on
+  a phone the same bottom edge – with the Ebenen card on top, and the buried detail card stayed
+  tappable straight through the background. It steps back while a dock is open now, **without
+  throwing the selection away**: the halo stays, the card returns as soon as «Ebenen» closes. The
+  same holds for a twin's card. Its distance from the rail was also a fixed number while every other
+  surface beside it reads the rail width – expanded, 116px of the card lay under the rail, and up to
+  180px with the rail dragged wider.
 
-- **Die neueste Meldung konnte unter der Faltkante liegen.** Der Toast-Stapel hatte eine Höhe
-  bekommen, aber kein verlässliches Ende: bei einem Schwall begann der Bereich beim ÄLTESTEN, und die
-  Pille mit «Rückgängig» stand unsichtbar darunter. Ausserdem legte sich die verschobene Toast-Spur
-  exakt auf die Meldeleiste – dieselbe Verdeckung, die sie vermeiden sollte, nur oben statt unten.
+- **On a phone, «Löschen» and «Zentrieren» stay put.** The footer scrolled with the sheet – on a
+  twin's card with five actions, three rows down from the bottom. It is pinned now (by layout, not
+  `position: sticky`, which is unreliable inside a blur scroller on iOS); the labelling row keeps
+  scrolling, because it is the rare handle.
 
-- **Ein einziger fehlerhafter Georeferenz-Eintrag löschte alle Massstäbe.** Das Dokument wurde als
-  Ganzes geprüft: eine unbrauchbare Koordinate in *einem* Plan liess die ganze Station auf
-  «kalibrieren» zurückfallen, sichtbar nur im Server-Log. Jetzt fällt genau der defekte Eintrag weg.
+- **The newest message could sit below the fold.** The toast stack had been given a height but no
+  reliable end: in a burst the area started at the OLDEST, and the pill carrying «Rückgängig» stood
+  invisible underneath. The shifted toast lane also landed exactly on the Meldeleiste – the same
+  covering it exists to avoid, only at the top instead of the bottom.
 
-- **Der Rückzugs-Alarm liess sich auf 0 stellen.** Ein geleertes Feld in der Verwaltung nahm den
-  Niederdruck-Alarm still von **beiden** Wegen – Server-Push und Gerät. Das Feld hat jetzt Grenzen.
+- **The keyboard no longer rebuilds the app around itself.** `interactive-widget=resizes-content`
+  made every keyboard open and close on Android reflow the entire layout – top bar, rails and map
+  all jumped, and the Atemschutz board pushed the very field being edited off screen. The keyboard
+  overlays the content now, which makes Android behave exactly like iOS, where all the keyboard
+  handling already lives. ⚠️ The same attribute was doing something worse on an iPad: it shrinks the
+  **layout** viewport, so a landscape iPad with a field focused was 1180×440 – short, landscape, and
+  therefore a «phone» by the breakpoint's landscape clause, for exactly as long as the keyboard
+  stood. Every modal snapped to the full-width bottom sheet the moment the Journaleintrag or the
+  symbol search took focus, and snapped back on blur. Width is the one dimension a keyboard cannot
+  touch, so the phone clause carries `and (max-width: 1000px)` – changed in lockstep across the query
+  and every phone media block, with the not-a-phone negations widened to match. A phone turned
+  sideways still gets the phone layout: it is 800–950px wide and about 400px tall, and used to fall
+  straight through to the desktop shell with the full top bar and both rails on a viewport that
+  cannot hold them.
+
+- **A suppressed label left a stock map pin behind.** ⚠️ `react-map-gl` decides «has children?»
+  once, in a memo at mount, so a `<Marker>` whose only child evaluates to null gets the map library's
+  own default pin – the stock teal drop – and keeps it for good. That is what the field saw: teal
+  pins scattered over the Lage next to perfectly readable labels, and they never went away. The
+  suppression is decided *before* the marker now, in the line readouts, the Absperrkreis radius, the
+  Leitungs-Tag and the Kroki framing preview.
+
+- **A selection's handles ride above the symbols its line runs under.** A marker defaults to
+  automatic stacking, which paints below every resting symbol and team marker – so the very handles a
+  selection exists for disappeared behind the symbols the line passed under, and an endpoint could
+  not be grabbed to extend it. Every edit handle of a selected drawing sits on the named selection
+  layer now, from the same table as the end tags.
+
+- **A single broken Georeferenz entry wiped every Massstab.** The document was validated as a whole:
+  one unusable coordinate in *one* plan dropped the entire station back to «kalibrieren», visible
+  only in the server log. Now exactly the broken entry falls away. In the same area, a Massstab set
+  on one device reaches the others: the station document – plan calibration and the georeference of
+  every sheet – was loaded exactly once at boot into a module singleton nothing polls, so a plan
+  referenced on the KP tablet reached the phone in the same Einsatz only after a restart, which is
+  the opposite of what station data is for. It is re-read on focus and on plan switch; a failed fetch
+  keeps what we have, an identical answer notifies nobody, and a request already in the air when a
+  local save starts cannot land on top of it.
+
+- **A referenced sheet stops offering a second, competing calibration.** A plan whose metres come
+  from the Kartenverknüpfung says so in its Massstab chip («Ref. auto»), and that chip is
+  deliberately a reading rather than a control – but the Messen panel had not learned the rule and
+  still offered «Neu kalibrieren», which reads as «this is not calibrated» on a plan that is. The
+  chip itself is tappable now and opens the Passung, because the hover title it used to rely on never
+  fired on the field iPad.
+
+- **Upright symbols stay upright in the mirror.** The twin renderers applied the fit's frame change
+  to *every* symbol, so a glyph with no rotation control at all – the Offizier, the BMA, every
+  upright badge – arrived tilted on a turned sheet, which is exactly the set of glyphs whose insignia
+  and text have to stay readable. The frame change applies to directional glyphs only now, matching
+  how both source surfaces already draw them. A shared responder position stays upright too: it had
+  been caught by the same test that pins vehicles to the ground, so a disc with somebody's initials in
+  it tilted with the bearing.
+
+- **An Übung never reaches anybody's phone.** The server-side sweep for Atemschutz due-ness and
+  Wiedervorlagen treated a drill like any open Einsatz – its clocks are real rows in a real workspace
+  – so testing something locally pushed «Trupp überfällig» to every subscribed phone in the Wehr.
+  Exercises are excluded from the sweep outright; the drill screen itself keeps showing its alarms,
+  and the intake push for a new Einsatz is untouched, since it only ever fires on a real alarm source.
+
+- **A ringing device polls fast even when it is hidden.** A backgrounded second device kept alarming
+  long after the Trupp was handled: the Funkkontakt that ends the alarm is entered on another device
+  and arrives only through workspace sync, which a hidden tab polls at a flat 60 s. While this device
+  is sounding the tier-2 alarm the hidden cadence drops to 5 s – a device actively making noise has no
+  battery case for a sleepy radio. Visible tabs long-poll and were never affected.
+
+- **Arriving on the Atemschutz board lands on the Trupp that is due.** The board used to open wherever
+  it happened to sit, so the alarm that sent you there still had to be found. It now seeds focus with
+  the most overdue Trupp from every path – chip, rail and notification, which carry the Trupp's own id
+  – and routing rings the whole card as well as the row, replayable by tapping the same alarm again.
+  «Auftrag offen» opens the form scrolled to the gap and flashes **both** halves of the answer, Art and
+  Auftrag / Ziel, instead of leaving the search to the reader. Opening a crew acknowledges its alarm.
+  Tapping an empty Trupp slot blinks the crew list, not just the search field – somebody tapping that
+  row is looking for a name, and typing is only how you narrow it – and the row promotes on a hold as
+  well as a tap, with the trailing click swallowed so the re-ordered list cannot crown the wrong
+  person. A typed guest name commits on blur instead of vanishing, the row's own ✕ staying the one
+  deliberate discard. And «Auftrag angepasst» was the one line on the Trupp-edit row that named
+  nothing: read back an hour later it could mean a new order, a corrected floor or a fixed typo. It
+  prints the words the card carries now («Auftrag Retten – 2OG links») and says «Auftrag entfernt»
+  rather than naming an empty one.
+
+- **The Rückzug alarm could be set to 0.** An emptied field in the Verwaltung silently took the
+  low-pressure alarm off **both** paths – server push and device. The field has bounds now.
+
+- **A merge conflict in the Anwesenheit says what actually differs.** «abweichende Angaben aus
+  QR-Erfassung und KP wurden zusammengeführt – bitte prüfen» handed the reader a name, an instruction
+  and nothing to act on, while the everyday case is perfectly nameable: the same person picked up one
+  Funktion at the QR sheet and another at the KP. The row names the fields that differ and prints both
+  values side by side, neither of them called discarded – which of the two sits in the record is a
+  consequence of the merge order, not the question being asked. The merge itself is unchanged.
+
+- **«Entfällt» is only an answer while the line is empty.** The button stood beside a typed
+  Kontaktperson and phone number, and tapping it would have silently wiped real content in order to
+  say «gibt es nicht». It is offered only while both halves are empty – the rule the Rückmeldung row
+  has carried all along – and once something is typed the ✕ is the way back.
+
+- **A Rapport field logs the value you finished typing.** Field logging held its window on a timer
+  rather than on the field, so a half-typed «+41» could become its own Verlauf row; it holds while the
+  field has focus now. Structured statements get their own rows in the order they changed rather than
+  alphabetically, a partner added with a note merges into one line, an «Entfällt» flag clears when a
+  real value arrives (tablet and capture app alike), and the printed Rapport shows the Einsatzleitung
+  succession when the EL rotated. Semantic drawing edits – Schaum, Geschoss, Leitungs-Nr, the line
+  ending – are journalled the way every other settled edit is.
+
+- **Small controls that behaved unlike their siblings.** A tap-to-type stepper (Atemschutz Druck,
+  Funkkanal, the composer's clock) seeded its current value with the caret at the end, so entering a
+  Druck meant deleting «300» digit by digit first – the value arrives **selected** now, exactly as the
+  canonical stepper already did, and backing out with Escape or an empty field still commits nothing.
+  A marker bound to a registered Trupp no longer repeats the Trupp's colour palette on the map and
+  plan surfaces, where ten swatches buried the actually-local controls: the colour of a bound Trupp is
+  its identity and is edited on the Trupp's own form, while loose markers keep the palette because they
+  have nowhere else. On the Fahrzeug panel the header title is a button that scrolls the «Bezeichnung»
+  field into view and opens it – the header is where the name shows, so it is where people tap to
+  change it – and a live vehicle's Fahrer uses the same label-and-picker row a placed vehicle has. The
+  tool rail's expanded state survives a surface switch (two rails in code, one sidebar in the
+  operator's head). The weather chip rides the top bar on **every** surface and keeps its temperature
+  on an iPad in portrait: which way the smoke goes matters exactly as much on the Atemschutz board and
+  a Modul, and only the condition glyph drops on a narrow bar. And in the Einsatz switcher a lone
+  running Einsatz no longer gets a divider under it that reads as «there is more, and it is hidden»,
+  while the history sits with the creation door it belongs to.
+
+- **The mobile Eintrag button could render as a bare black circle.** ⚠️ A sprite `<use>` reference
+  can drop out; the phone FAB and the TopBar + carry their icon as an inline path now. The latched
+  hold's ✕ rotation matches its selector again as well, which had regressed in the same area.
 
 - **A reviewer with fresh eyes found the places where the app contradicts itself.** An
   external user test read the surface against itself. The Atemschutz hints told the operator to
