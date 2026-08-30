@@ -304,6 +304,40 @@ export function boardEntityTwins(entities: Entity[], fit: GeorefFit, margin = TW
   })
 }
 
+/** Everything the Karte mirrors onto ONE linked sheet, as printable BoardAnnos (30.08.): the
+ *  printed Objektplan page must show what the screen's sheet shows, or the Rapport lies about
+ *  the Lage. Symbols, drawings, notes, shapes and Trupp chips (with their recorded trails)
+ *  cross over; live vehicles and responder positions are moments, not records, and
+ *  entityToBoardSymbol drops them by design. Ids are prefixed so a print anno can never
+ *  collide with a sheet-native one. */
+export function boardTwinAnnosForPrint(plan: GeorefPlan, entities: Entity[], drawings: Drawing[]): BoardAnno[] {
+  const out: BoardAnno[] = []
+  for (const t of boardTwins(entities.filter((e) => e.kind === 'symbol'), plan.fit, 'symbol')) {
+    const a = entityToBoardSymbol(t.entity, t.pt, plan.widthM)
+    if (a) out.push({ ...a, id: `twin-${a.id}` })
+  }
+  for (const d of boardDrawingTwins(drawings, plan.fit)) out.push(d.anno)
+  for (const { entity: e, pt } of boardEntityTwins(entities.filter((e) => e.kind === 'note' || e.kind === 'shape' || e.kind === 'team'), plan.fit)) {
+    if (e.kind === 'note') {
+      out.push({ id: `twin-${e.id}`, kind: 'text', x: pt.x, y: pt.y, text: e.label ?? '', color: e.color, notePlain: e.notePlain, noteSize: e.noteSize })
+    } else if (e.kind === 'shape') {
+      // same frame change the screen mirror applies: metre width → sheet fraction, glyph
+      // rotation carries the fit's turn (GeorefContentBoard renders with exactly these)
+      out.push({
+        id: `twin-${e.id}`, kind: 'shape', shape: e.shape, x: pt.x, y: pt.y,
+        sizeN: (e.sizeM ?? 40) / plan.widthM, aspect: e.aspect,
+        rotation: (e.rotation ?? 0) + plan.fit.rotationDeg, color: e.color, stop: e.stop,
+      })
+    } else {
+      out.push({
+        id: `twin-${e.id}`, kind: 'resource', x: pt.x, y: pt.y, text: e.label ?? '', color: e.color, t: e.t,
+        trail: e.trail?.map(({ coord, t: at }) => { const p = plan.fit.toPlan({ lng: coord[0], lat: coord[1] }); return { x: p.x, y: p.y, t: at } }),
+      })
+    }
+  }
+  return out
+}
+
 /** A Karte drawing projected into plan-normalized geometry. A ground-radius circle becomes an
  *  area ring because the Plan has no circle primitive; the georeference still preserves its
  *  actual footprint. Shapes whose bounding box intersects the paper survive even when every

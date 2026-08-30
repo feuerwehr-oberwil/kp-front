@@ -68,7 +68,7 @@ import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
 import {
-  georefPlans, mapContentTwins as projectMapContentTwins, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
+  boardTwinAnnosForPrint, georefPlans, mapContentTwins as projectMapContentTwins, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
   twinPlanImageLayerId, twinPlanImageVisible, twinPlanLayerId, twinVisible, isTwinLayerId, TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
   boardSymbolToEntity, contentTwinName, entityToBoardSymbol, movedTwinPath, onSheet, planGroundWidthM, revealTwinLayer,
   type MapContentTwin, type MapTwin,
@@ -1583,6 +1583,23 @@ export function IncidentWorkspace({
     const shown = linkedPlans.filter((p) => twinVisible(twinLayers, twinPlanLayerId(p.id)))
     return shown.length ? projectMapContentTwins(shown, board) : []
   }, [replayActive, linkedPlans, twinLayers, board])
+  // The Karte's content standing on each linked sheet, as PRINTABLE annos (30.08.): the
+  // exported Objektplan page shows what the screen's sheet shows. Same visibility gates as
+  // boardTwinSources — a layer hidden on screen must not resurface on paper.
+  const printTwinAnnos = useMemo<Record<string, BoardAnno[]>>(() => {
+    if (replayActive || !linkedPlans.length || !twinVisible(twinLayers, TWIN_MAP_SYMBOLS)) return {}
+    const twinEntities = [
+      ...doc.entities.filter((e) => e.kind === 'symbol' && isVisible(effectiveLayer(e))),
+      ...entities.filter((e) => (e.kind === 'note' || e.kind === 'shape' || e.kind === 'team') && isVisible(effectiveLayer(e))),
+    ]
+    const twinDrawings = isVisible(appConfig.defaults.drawingLayerId) ? doc.drawings : []
+    const out: Record<string, BoardAnno[]> = {}
+    for (const p of linkedPlans) {
+      const annos = boardTwinAnnosForPrint(p, twinEntities, twinDrawings)
+      if (annos.length) out[p.id] = annos
+    }
+    return out
+  }, [replayActive, linkedPlans, twinLayers, doc.entities, doc.drawings, entities, isVisible])
   // Selection stores a stable twin key; derive the live source snapshot after every board edit so
   // the mirrored editor and its map marker update together while the panel stays open.
   const viewedMapTwin = twinView ? mapTwinList.find((t) => t.key === twinView.key) ?? twinView : null
@@ -3498,7 +3515,7 @@ export function IncidentWorkspace({
    */
   const detailSlotFree = mapUI && !twinView && !contentTwinView && !journalOpen && panel === null && !viewsOpen
 
-  const annotatedPlanCount = useMemo(() => annotatedPlans(planDocs, board, false).length, [planDocs, board])
+  const annotatedPlanCount = useMemo(() => annotatedPlans(planDocs, board, false, printTwinAnnos).length, [planDocs, board, printTwinAnnos])
 
   // `maptool-<tool>` on the root drives the map cursor (see .maptool-* in app.css) the way the
   // plan canvas's own `tool-<tool>` does. Gated on mapUI so an armed tool can never leak a
@@ -4879,6 +4896,7 @@ export function IncidentWorkspace({
           presentIds={presentIds}
           events={timeline}
           annotatedPlanCount={annotatedPlanCount}
+          twinAnnos={printTwinAnnos}
           // ⚠️ `allTrupps`, here and on the `trupps` prop below — the two places that print. A Trupp
           // taken off the Tafel was still under PA, and its readings, entry pressure and times are
           // exactly what the Atemschutz page exists to record (types · Trupp.removedAt).

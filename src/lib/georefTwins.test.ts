@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect,
+  boardTwinAnnosForPrint, boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect,
   planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
@@ -121,6 +121,38 @@ describe('mapTwins (plan → Karte)', () => {
 
 // No twin size bands to pin any more (30.08.): twins are presentation-equivalent — each
 // surface sizes them with its own native rule (mapView · symPx, Whiteboard · symBase).
+
+describe('boardTwinAnnosForPrint (mirrored Karte content on the exported Objektplan page)', () => {
+  const gp = { id: 'modul2', code: 'M2', title: 'Modul 2', fit: FIT, widthM: 100 }
+  const mid = mEast(50)
+
+  it('projects symbols, drawings, notes, shapes and Trupp chips into printable annos', () => {
+    const entities: Entity[] = [
+      ent('f', mid, { symbol: 'Feuer' }),
+      ent('n', mid, { kind: 'note', label: 'Abschnitt West' }),
+      ent('s', mid, { kind: 'shape', shape: 'square', sizeM: 20, rotation: 10 }),
+      ent('t', mid, { kind: 'team', label: 'Trupp 1', color: '#e8392b', trail: [{ coord: [mid.lng, mid.lat], t: '15:34' }] }),
+    ]
+    const drawings: Drawing[] = [{ id: 'l', kind: 'line', coords: [[ORIGIN.lng, ORIGIN.lat], [mid.lng, mid.lat]] }]
+    const out = boardTwinAnnosForPrint(gp, entities, drawings)
+    const byKind = Object.fromEntries(out.map((a) => [a.kind, a]))
+    expect(out).toHaveLength(5)
+    expect(byKind.symbol.x).toBeCloseTo(0.5, 3)
+    expect(byKind.symbol.id).toBe('twin-f')                        // never collides with a sheet anno
+    expect(byKind.text.text).toBe('Abschnitt West')
+    expect(byKind.shape.sizeN).toBeCloseTo(0.2, 3)                 // 20 m on a 100 m sheet
+    expect(byKind.resource.trail?.[0]?.x).toBeCloseTo(0.5, 3)      // the Truppverfolgung prints too
+    expect(byKind.draw.pts).toHaveLength(2)
+  })
+
+  it('drops live entities and everything standing off the sheet', () => {
+    const out = boardTwinAnnosForPrint(gp, [
+      ent('v', mid, { live: true, symbol: 'Fahrzeug' }),
+      ent('far', mEast(5000), { symbol: 'Feuer' }),
+    ], [])
+    expect(out).toEqual([])
+  })
+})
 
 describe('movedTwinPath (whole-object drag of a mirrored line/area)', () => {
   const pts: [number, number][] = [[0.1, 0.2], [0.5, 0.2], [0.5, 0.6]]
