@@ -5,7 +5,7 @@ action, and that is deliberate: a journal that records every nudge of a symbol i
 you can no longer find the Funkspruch.
 
 This page pins down **which action lands where**, so nobody relies on something being in the
-Verlauf that was never written there. As of 2026-08-24.
+Verlauf that was never written there. As of 2026-08-30.
 
 ## There are two records, not one
 
@@ -100,6 +100,25 @@ was a gap in the *docs*, not in the Verlauf – this is what the truth looks lik
 Why a real log can still show 0 «Fläche» hits: on the Lage people draw mostly with lines and
 symbols – the row appears the moment somebody drags out a Fläche.
 
+## Georef twins: transferring an object between Plan and Karte is on the record
+
+A georeferenced Plan can hold the same object as the map, as a twin; dragging it across the
+transfer target moves it for real – it leaves one surface and appears on the other, not a copy
+on both. Both directions write a Verlauf row (`src/IncidentWorkspace.tsx`):
+
+- **Plan → Karte** – `transferPlanTwinToMap`: «{name} auf die Karte übertragen»
+  (`twinTransferredToMap`, `src/IncidentWorkspace.tsx:2751`).
+- **Karte → Plan** – `transferMapTwinToPlan`: «{name} auf den Plan übertragen»
+  (`twinTransferredToPlan`, `src/IncidentWorkspace.tsx:2801`).
+
+⚠️ **Both halves of the audit stream are written too, not just one.** A transfer is a committed
+domain action – the object is somewhere else now – so it emits both the `board.delete`/
+`entity.add` (or `entity.delete`/`board.add`) pair and any `board.edit` events for Leitungen
+whose attachment was detached in the move. Replay folds `board.*` and `entity.*` alike; with
+only the arriving half's event, the reconstructed picture kept the symbol on its old surface
+too. Undoing a transfer (the toast action) reverses both halves and re-attaches those
+Leitungen – it does not write its own Verlauf row, the same as every other undo.
+
 ## What a Verlauf row can carry since 17.08.
 
 The row is no longer just text and a timestamp. Four properties have been added, and all four
@@ -146,11 +165,14 @@ tests, `Journal.test.tsx`).
   failed journal write must not make the tap fail, but it is logged loudly.
 - **Rapport details and partner organisations write a row** – one per save, naming
   *which* fields changed (`changedReportMetaFields`, `src/lib/report.ts`).
-- **The Atemschutz safety values write a row, with old and new value**
-  (`changedSafetySettings`, `src/lib/workspace.ts`). Contact interval and grace period decide
-  when a Trupp counts as due and as overdue – whoever moves one of them mid-incident moves
-  every clock on the Atemschutz board at once. «Geändert» alone would not say whether the
-  threshold got stricter or looser.
+
+⚠️ **Superseded 2026-08-28 (commit `99c4348`):** this section used to also list the Atemschutz
+safety values (contact interval, grace period, default Funkkanal) writing a row with old and
+new value when changed from the in-app Einstellungen sheet (`changedSafetySettings`,
+`src/lib/workspace.ts`). That sheet no longer offers those fields at all – they are station
+doctrine, set only from `/admin` › Doktrin, which does not write to the Verlauf. The dead
+`changedSafetySettings` code path stays in `src/lib/workspace.ts` unused; nothing in the app
+calls it any more.
 
 ## Closed since then (2026-08-17 to 2026-08-19)
 

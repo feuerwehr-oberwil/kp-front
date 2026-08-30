@@ -34,9 +34,10 @@ flowchart TB
     TRC["Traccar<br/>vehicle GPS"]
     GEO["swisstopo / geo.admin<br/>geocoder"]
     WX["MeteoSwiss → Open-Meteo<br/>weather / wind"]
+    CARTO["CARTO<br/>basemap tiles, server-side for Rapport/Kroki"]
   end
 
-  TILES["Raster map tiles<br/>swisstopo WMTS · OSM · canton WMS"]
+  TILES["Raster map tiles<br/>swisstopo WMTS · OSM · canton WMS · CARTO"]
   PRIV["Station's private data repo<br/>(hydrants · Leitungskataster · …)"]
 
   UI -->|"/api/* – same-origin, JWT cookie"| API
@@ -44,6 +45,7 @@ flowchart TB
   API --> TRC
   API --> GEO
   API --> WX
+  API --> CARTO
   UI -. "tiles fetched directly by the browser" .-> TILES
   PRIV -. "admin_geodata load / push" .-> FILES
 ```
@@ -54,7 +56,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | Tactical symbols (FKS) | KP-Front-authored (`tools/gen_symbols.py`) | bundled `public/tactical-symbols.json`, also seeded into the reference store | ✅ cached |
 | Hazmat UN-Nr → Stoff (ADR) | UNECE ADR table | bundled `src/data/unHazard.json` | ✅ in-app |
-| Base map tiles | swisstopo WMTS · OSM · canton WMS | **browser fetches tile servers directly** | ⚠️ only pre-cached areas |
+| Base map tiles | swisstopo WMTS · OSM · canton WMS | **browser fetches tile servers directly** | ⚠️ pre-cached areas only – a per-device setting (Offline-Vorbereitung) can pre-cache automatically shortly after an incident opens, instead of relying on the manual «Alles für offline laden» |
 | Geocoding / address search | swisstopo geo.admin | backend proxy `GET /api/geocode` | ✗ online only |
 | Weather / wind | MeteoSwiss → Open-Meteo fallback | backend proxy `GET /api/weather` | last value cached |
 | Alarm + roster | Divera 24/7 | backend proxy `/api/divera`, `/api/personnel` | roster cached |
@@ -100,9 +102,11 @@ flowchart LR
 
 Auth is a PIN-kiosk login issuing JWTs in httpOnly cookies. Product roles are **editor** (FU /
 incident editing) and **viewer** (read-only); the stored backend value was migrated from the
-legacy `commander` name to `editor` on 2026-06-30. Deployment
-administration should be separated behind env-var-backed admin auth instead of piggybacking on the
-incident editor role.
+legacy `commander` name to `editor` on 2026-06-30. Deployment administration is separated
+behind its own `ADMIN_SECRET` env var: the `/admin` UI and admin-write API (config, branding,
+system, user CRUD, geodata/objects) gate on a secret-backed admin-session cookie, never on the
+incident editor role, and it is fail-closed – an unset `ADMIN_SECRET` returns 403 on every
+admin endpoint rather than falling back to the editor PIN.
 Incident state is one workspace blob per incident; the audit trail (`audit.py`) hash-chains
 every change and keeps fold snapshots so an incident can be replayed and verified
 (`GET /api/incidents/{id}/verify`).

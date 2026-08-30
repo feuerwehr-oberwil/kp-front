@@ -1473,4 +1473,7 @@ happen.
 ## 10. Out of scope for this doc
 - **Device preferences** (theme day/night/auto, symbol size) – per-device cookie, not synced.
 - **Per-incident settings** (`IncidentSettings`: `contactIntervalMin`, `contactGraceSec`,
-  `defaultFunkkanal`) – live in the workspace blob, default from `doctrine` above.
+  `defaultFunkkanal`) – live in the workspace blob, default from `doctrine` above. Since
+  commit `99c4348` these three are no longer editable in-app (the Einstellungen sheet lost
+  them – station doctrine under the finger of an unknowing operator at 3am); `/admin` ›
+  Doktrin is the only place to set them. Overrides already stored in a workspace keep applying.

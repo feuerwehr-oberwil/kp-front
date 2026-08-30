@@ -48,7 +48,9 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 ## Highlights
 
 - **Lage:** MapLibre map, tactical symbols, drawing, sectors, radii, notes, photos, and audio.
-- **Plan:** Image-backed whiteboards with symbols, resources, scale calibration, and measurement.
+- **Plan:** Image-backed whiteboards with symbols, resources, scale calibration, measurement,
+  and georeferencing – pairing a plan to the map with reference points, then transferring
+  objects between plan and map as linked twins.
 - **Einsatz-Intake:** Guided incident creation from Divera, an address, an object, or the map.
 - **Checklisten:** The brigade's own command checklists, phase by phase, with direct jumps to
   the plan, the Verlauf, and the tools – loaded from station data like everything else.
@@ -262,12 +264,15 @@ Every external service is proxied by the backend – the one deliberate exceptio
 tiles, which the browser fetches directly so it can cache them (shown in the architecture
 diagram). Each connector is
 **optional** – the app runs fully without any of them, and each one is fail-closed: no
-credential configured means the feature is off, not degraded. Secrets are environment-only; the
-database stores selection and behaviour, never credentials.
+credential configured means the feature is off, not degraded. Server-only secrets
+(`SECRET_KEY`, `ADMIN_SECRET`, …) stay environment-only; integration credentials (Divera,
+Traccar, VAPID, STT, CARTO, webhook secrets, …) are settable from `/admin` and stored encrypted
+at rest (AES-256-GCM under a key derived from `SECRET_KEY`) – never plaintext in the database,
+and never readable back over the API except CARTO's browser tile key.
 
 | Connector | Direction | Works with today | Adding another |
 |-----------|-----------|------------------|----------------|
-| **Alarm intake** | in | **Any** alerting system via the open `POST /api/alarms` webhook (idempotent on source + id, auto-opens an incident); a native [Divera 24/7](https://www.divera247.com/) adapter | Already open – POST the documented JSON, no code needed. See [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) |
+| **Alarm intake** | in | **Any** alerting system via the open `POST /api/alarms` webhook (idempotent on source + id, auto-opens an incident); native [Divera 24/7](https://www.divera247.com/) and FireHub (Tercero) adapters | Already open – POST the documented JSON, no code needed. See [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) |
 | **Incident relay** | out | Any endpoint that accepts the incident JSON. The payload is a nested envelope sent without an auth header, so feeding KP Rück's `/api/alarms` needs a short adapter – it is not drop-in | Point a URL at it; the core knows nothing about the receiver |
 | **Personnel roster** | in | Divera 24/7, including Qualifikationen mapped to Dienstgrad | Synced identities are stored provider-neutrally (`personnel_external_identities`), so a second source can be added |
 | **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific – no abstraction yet. It can be generalised the same way as the alarm connectors |
