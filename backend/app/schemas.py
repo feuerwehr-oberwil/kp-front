@@ -849,14 +849,21 @@ class DoctrineConfig(BaseModel):
     # Zero is a deliberate public-demo escape hatch. DeploymentConfigIn rejects it for
     # ordinary station configs; positive station thresholds stay within the same safety range
     # as the Rückzug line.
-    alarmBar: int | None = Field(default=None, ge=0, le=300)
+    #
+    # ⚠️ The range is enforced in `_pressure_lines_stay_in_range` below, NOT as `Field(le=…)`.
+    # A field constraint runs before every model validator, so it would fire even under
+    # `context={"stored": True}` — and both numbers were UNBOUNDED in earlier releases, so a
+    # row written back then can hold anything. A stored 320 would then take the WHOLE document
+    # down and `get_config` would serve the station an empty config (no name, fleet or roster)
+    # over one doctrine number. Exactly the case `load_stored_config` exists to prevent.
+    alarmBar: int | None = None
     #: The lower Alarmdruck applied while a Trupp is on Rückzug. Bounded like ``cylinderLiters``
     #: below, because on this field an empty-looking value is not «off»: ``app/push.py`` only
     #: alarms while ``line > 0``, and the frontend reads ``alarmBarRueckzug ?? alarmBar``, where
     #: ``0 ?? x`` is ``0`` — so a stored zero silently removes the Rückzug alarm on BOTH paths
     #: instead of falling back to ``alarmBar``. To switch the lower line off, set it EQUAL to
     #: ``alarmBar`` (src/lib/atemschutz.ts documents that as the way back to the old behaviour).
-    alarmBarRueckzug: int | None = Field(default=None, gt=0, le=300)
+    alarmBarRueckzug: int | None = None
     contactIntervalMin: int | None = None
     contactGraceSec: int | None = None
     defaultPressureBar: int | None = None
@@ -876,19 +883,64 @@ class DoctrineConfig(BaseModel):
     auftragColors: dict[str, str] | None = None
 
     @model_validator(mode="after")
-    def _rueckzug_line_stays_below_the_bare_alarm(self) -> "DoctrineConfig":
+    def _pressure_lines_stay_in_range(self, info: ValidationInfo) -> "DoctrineConfig":
+        """Keep both Alarmdruck lines inside the range the app can actually alarm on.
+
+        `alarmBar` accepts 0 (the public-demo «off», which DeploymentConfigIn then refuses for
+        ordinary stations); `alarmBarRueckzug` does not, because on that field a zero is not
+        «unset» but a silently removed alarm — see its comment above. Both cap at the 300 bar a
+        cylinder is filled to.
+
+        ⚠️ Written as a validator rather than `Field(ge=…, le=…)` on purpose: a STORED document
+        is read through this same model, and a field constraint cannot see
+        `context={"stored": True}`. A row from before these bounds existed is therefore dropped
+        to its unset default and logged, not refused — losing a station's whole configuration
+        over one out-of-range number is not a proportionate answer (`load_stored_config`).
+        """
+        stored = bool((info.context or {}).get("stored"))
+        if self.alarmBar is not None and not (0 <= self.alarmBar <= 300):
+            if not stored:
+                raise ValueError(f"doctrine.alarmBar ({self.alarmBar}) must be between 0 and 300")
+            logger.warning("doctrine.alarmBar %r is out of range — serving the station defaults", self.alarmBar)
+            self.alarmBar = None
+            self.alarmBarRueckzug = None
+        if self.alarmBarRueckzug is not None and not (0 < self.alarmBarRueckzug <= 300):
+            if not stored:
+                raise ValueError(f"doctrine.alarmBarRueckzug ({self.alarmBarRueckzug}) must be between 1 and 300")
+            logger.warning(
+                "doctrine.alarmBarRueckzug %r is out of range — serving the shipped Rückzug line",
+                self.alarmBarRueckzug,
+            )
+            self.alarmBarRueckzug = None
+        return self
+
+    @model_validator(mode="after")
+    def _rueckzug_line_stays_below_the_bare_alarm(self, info: ValidationInfo) -> "DoctrineConfig":
         """The Rückzug line is the QUIETER of the two and must stay at or below the bare Alarmdruck.
 
         Its whole point (src/lib/atemschutz.ts) is that a Trupp already ordered out must not have
         the card scream for the entire walk back — it speaks up again only lower down, where the
         crew is genuinely late getting out. Set above `alarmBar` it inverts that: the retreating
-        Trupp would alarm earlier than one still working."""
+        Trupp would alarm earlier than one still working.
+
+        ⚠️ A STORED pair in that order is CLAMPED, not refused — this rule postdates rows that
+        were written without it, and the same reasoning as `_pressure_lines_stay_in_range`
+        applies: an inverted pair costs the station one doctrine number, refusing costs it the
+        whole configuration."""
         if (
             self.alarmBar is not None
             and self.alarmBar > 0
             and self.alarmBarRueckzug is not None
             and self.alarmBarRueckzug > self.alarmBar
         ):
+            if (info.context or {}).get("stored"):
+                logger.warning(
+                    "doctrine.alarmBarRueckzug %r exceeds alarmBar %r — clamping to the bare alarm",
+                    self.alarmBarRueckzug,
+                    self.alarmBar,
+                )
+                self.alarmBarRueckzug = self.alarmBar
+                return self
             raise ValueError(
                 f"doctrine.alarmBarRueckzug ({self.alarmBarRueckzug}) must not exceed "
                 f"doctrine.alarmBar ({self.alarmBar}) — the Rückzug line alarms earlier, not later"

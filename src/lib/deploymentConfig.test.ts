@@ -169,8 +169,28 @@ describe('naming the Alarm-/Personalquelle only where there is one', () => {
   })
 
   it('names whichever provider this station runs, not Divera by default', async () => {
-    await load({ integrations: { alarms: { provider: 'ilias', configured: true, capabilities: [] } } })
+    await load({ integrations: { alarms: { provider: 'ilias', configured: true, capabilities: ['pool', 'take'] } } })
     expect(alarmProviderName()).toBe('Ilias')
+  })
+
+  it('is null for a webhook-only station — its Einsätze open by themselves, nothing to take', async () => {
+    // ⚠️ The sentence this feeds is «übernimm einen X-Alarm», and the generic webhook has no
+    // pool: `admin/DataView` renders no Alarmquelle list for it and the app renders no «Alarm
+    // übernehmen». Naming it pointed the operator at an affordance that does not exist.
+    await load({
+      integrations: {
+        alarms: {
+          provider: 'webhook', configured: true,
+          capabilities: ['generic-webhook', 'auto-open', 'lifecycle'],
+        },
+      },
+    })
+    expect(alarmProviderName()).toBeNull()
+  })
+
+  it('is null for a configured provider that declares no capabilities at all', async () => {
+    await load({ integrations: { alarms: { provider: 'ilias', configured: true, capabilities: [] } } })
+    expect(alarmProviderName()).toBeNull()
   })
 
   it('still answers for an older backend that only sends the legacy flag', async () => {

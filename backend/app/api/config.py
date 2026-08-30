@@ -328,9 +328,14 @@ async def put_config(
     A browser that omits it gets 428 (Precondition Required): the request is not wrong, it is
     missing the one thing that makes it safe, and the fix is to reload the page.
     """
+    # ⚠️ 422, NOT 409. `admin/ConfigContext.persist` reads every 409 as «the stored document
+    # moved on» and renders «Die Änderungen sind gespeichert, aber diese Seite zeigt noch den
+    # Stand von vorher…» — the exact opposite of what happened here, on a refusal no reload can
+    # clear. 422 falls into the generic-rejection branch, which SHOWS this `detail` and halts
+    # the autosave, so the demo admin reads the actual reason.
     if settings.is_public_demo and (body.identity.demoMode is not True or body.doctrine.alarmBar != 0):
         raise HTTPException(
-            status_code=409,
+            status_code=422,
             detail="Die öffentliche Demo muss demoMode=true und Alarmdruck=0 behalten.",
         )
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()

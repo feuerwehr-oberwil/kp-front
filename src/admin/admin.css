@@ -1152,10 +1152,9 @@
   overflow: hidden; margin-top: 2px;
 }
 .adm-sys-bar-fill {
-  position: absolute; inset: 0; height: 100%;
+  position: absolute; inset: 0 auto 0 0; height: 100%;
   border-radius: var(--r-pill); min-width: 2px;
-  transform-origin: left center;
-  transition: transform .2s var(--ease);
+  transition: width .2s var(--ease);
 }
 .adm-sys-bar-fill.blue { background: var(--blue); }
 .adm-sys-bar-fill.amber { background: var(--amber); }

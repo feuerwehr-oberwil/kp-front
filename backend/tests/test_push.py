@@ -241,6 +241,41 @@ async def test_killed_app_sweep_pushes_confirmed_pressure_with_station_threshold
     assert await push_mod.check_and_push(db_session, NOW + 30_000) == 0
 
 
+async def test_sweep_keeps_alarming_on_a_config_row_todays_rules_would_refuse(db_session, monkeypatch):
+    """⚠️ The one config reader whose failure is INVISIBLE.
+
+    A raise here reaches `scheduler._push_sweep`, which rolls back and logs — and the station
+    then gets no «Trupp überfällig» and no low-pressure push at all, with nothing on screen to
+    say so. The sweep therefore reads through `alarms.get_config_model`, which degrades a stored
+    row instead of refusing it. The row below holds an Alarmdruck from before the bounds existed.
+    """
+    import app.push as push_mod
+    from app.models import DeploymentConfig, Incident
+
+    push_mod._notified.clear()
+    db_session.add(DeploymentConfig(id=1, config_json={"doctrine": {"alarmBar": 320}}))
+    db_session.add(
+        Incident(
+            title="Zimmerbrand",
+            source="manual",
+            status="offen",
+            is_archived=False,
+            map_workspace_json={"trupps": [trupp("a", "2026-07-02T14:03:00Z")]},
+        )
+    )
+    await db_session.commit()
+    calls: list[dict] = []
+
+    async def fake_broadcast(_db, **kw):
+        calls.append(kw)
+        return 1
+
+    monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+    # the shipped doctrine applies, so the überfällig alert still goes out
+    assert await push_mod.check_and_push(db_session, NOW) == 1
+    assert [c["tag"] for c in calls] == ["atemschutz-a"]
+
+
 async def test_sweep_stays_silent_for_an_uebung(db_session, monkeypatch):
     """A drill's Atemschutz clocks are real rows in a real workspace — without the gate every
     local test run pushed «Trupp überfällig» to every subscribed phone in the Wehr."""

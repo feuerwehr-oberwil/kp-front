@@ -279,13 +279,20 @@ export interface ProviderRegistration {
  * nothing, entering every Einsatz by hand — was being told to take an alarm from a product it
  * does not have. The neutral sentence is the DEFAULT and the provider variant is the exception,
  * so a new provider costs nothing and an unconfigured station is never sent looking.
+ *
+ * ⚠️ Gated on the `pool` CAPABILITY, not on `configured` alone. The sentence this feeds says
+ * «übernimm einen X-Alarm», and only a source with a pool HAS an alarm to take: a station on
+ * the generic webhook (`generic-webhook · auto-open · lifecycle`) never sees one, because its
+ * Einsätze open by themselves. Naming that source pointed the operator at an affordance the
+ * app does not render — the same mistake as the hard-coded «Divera», one level down.
+ * `admin/DataView` gates its Alarmquelle panel on the identical capability.
  */
 export function alarmProviderName(): string | null {
   const i = getDeploymentConfig().integrations
   const p = i?.alarms
-  if (p?.configured && p.provider) return providerLabel(p.provider)
+  if (p?.configured && p.provider && p.capabilities?.includes('pool')) return providerLabel(p.provider)
   // legacy flag, still served by older backends that predate the provider registry
-  return i?.diveraConfigured ? providerLabel('divera') : null
+  return !p?.provider && i?.diveraConfigured ? providerLabel('divera') : null
 }
 
 /** …the same for the roster's source — «Mannschaft aus X synchronisieren», «Nicht mehr in X». */

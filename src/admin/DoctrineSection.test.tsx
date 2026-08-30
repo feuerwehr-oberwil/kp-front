@@ -211,13 +211,64 @@ describe('Alarmdruck — zero belongs to the public demo only', () => {
     expect(rueckzug().value).toBe('0')
   })
 
-  it('clamps the Rückzug line when the working Alarmdruck is lowered below it', async () => {
+  /** A station that has CHOSEN a Rückzug line, rather than running on the shipped default. */
+  const openWithRueckzug = async (rueckzugBar: number) => {
+    apiGet.mockResolvedValueOnce({
+      ...structuredClone(STATION),
+      doctrine: { ...structuredClone(STATION.doctrine), alarmBarRueckzug: rueckzugBar },
+    })
     await open()
+  }
+
+  it('clamps the Rückzug line when the working Alarmdruck is lowered below it', async () => {
+    await openWithRueckzug(50)
     await type(alarm(), '40')
     await settle()
 
     expect(sent()?.doctrine).toMatchObject({ alarmBar: 40, alarmBarRueckzug: 40 })
     expectAccepted(sent())
+  })
+
+  it('keeps the chosen Rückzug line when the Alarmdruck is RAISED through it', async () => {
+    // ⚠️ The regression this exists for. `onAccepted` fires per KEYSTROKE and every prefix of a
+    // number is a valid number, so typing 150 passes through alarmBar 1 and 15. A clamp that
+    // only ever lowers rewrote the Rückzug line to 1 there and never brought it back: the
+    // document was saved as «150 / 1», which the API accepts and which alarms a retreating
+    // Trupp at a pressure no cylinder reaches.
+    await openWithRueckzug(50)
+    await type(alarm(), '1')
+    await type(alarm(), '15')
+    await type(alarm(), '150')
+    await settle()
+
+    expect(sent()?.doctrine).toMatchObject({ alarmBar: 150, alarmBarRueckzug: 50 })
+    expectAccepted(sent())
+  })
+
+  it('restores the chosen line after the demo zero is lifted again', async () => {
+    apiGet.mockResolvedValueOnce({
+      ...structuredClone(STATION),
+      identity: { appName: 'KP Front Demo', demoMode: true },
+      doctrine: { ...structuredClone(STATION.doctrine), alarmBarRueckzug: 60 },
+    })
+    await open()
+    await type(alarm(), '0')
+    await type(alarm(), '200')
+    await settle()
+
+    expect(sent()?.doctrine).toMatchObject({ alarmBar: 200, alarmBarRueckzug: 60 })
+  })
+
+  it('leaves an UNSET Rückzug line unset — the shipped one is already clamped on both sides', async () => {
+    // deploymentConfig · atemschutzDoctrine and push.py · due_trupps both read it as
+    // min(50, alarmBar), so pinning a number here would only freeze this station to today's
+    // default for no safety gain.
+    await open()
+    await type(alarm(), '40')
+    await settle()
+
+    expect(sent()?.doctrine).toMatchObject({ alarmBar: 40 })
+    expect(sent()?.doctrine?.alarmBarRueckzug).toBeUndefined()
   })
 })
 

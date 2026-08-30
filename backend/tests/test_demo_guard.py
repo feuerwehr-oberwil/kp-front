@@ -113,4 +113,6 @@ async def test_reset_schedule_forces_demo_projection_and_rejects_a_station_confi
         json={"identity": {"demoMode": False}, "doctrine": {"alarmBar": 100}},
         headers={"If-Match": projected.json()["version"]},
     )
-    assert rejected.status_code == 409, rejected.text
+    # 422 so the admin page shows this reason instead of its 409 «already saved, reload» text
+    assert rejected.status_code == 422, rejected.text
+    assert "Alarmdruck=0" in rejected.json()["detail"]

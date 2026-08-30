@@ -28,12 +28,12 @@ async function login(page: Page) {
   await page.goto('/')
   // A station starts on kiosk login; the public demo auto-authenticates and lands directly in
   // its prepared incident. Accept both so the same production-image smoke covers both entryways.
+  // ⚠️ ONE locator, not `Promise.race` over two `waitFor`s: the loser of that race stays
+  // pending and rejects with a TimeoutError ~30 s later, with nobody left to catch it. Playwright
+  // fails the run on an unhandled rejection — typically inside whichever test happens to be
+  // running by then, which is not this one.
   const tile = page.locator('.roster-tile').first()
-  const navrail = page.locator('nav.navrail')
-  await Promise.race([
-    tile.waitFor({ state: 'visible' }),
-    navrail.waitFor({ state: 'visible' }),
-  ])
+  await page.locator('.roster-tile, nav.navrail').first().waitFor({ state: 'visible' })
   if (await tile.isVisible()) {
     await tile.click()
     await expect(page.locator('.pinpad')).toBeVisible()

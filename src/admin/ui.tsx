@@ -106,12 +106,17 @@ export function Metric({ label, value, tip }: { label: string; value: string; ti
   )
 }
 
-/** A labelled usage bar: filled fraction = used/total. */
+/** A labelled usage bar: filled fraction = used/total.
+ *
+ *  ⚠️ Sized by `width`, not `transform: scaleX()`. Scaling collapsed the fill to nothing at
+ *  0 % — where the CSS `min-width: 2px` is meant to leave a sliver saying «this bar is empty»,
+ *  not «this bar is missing» — and it stretched the pill's `border-radius` with the element, so
+ *  the cap came out squashed at every value in between. */
 export function UsageBar({ pctFilled, tone = 'blue' }: { pctFilled: number; tone?: 'blue' | 'amber' }) {
-  const scale = Math.max(0, Math.min(100, pctFilled)) / 100
+  const pct = Math.max(0, Math.min(100, pctFilled))
   return (
     <div className="adm-sys-bar" role="img" aria-label={fillTemplate(appConfig.copy.admin.usageBar.aria, { pct: Math.round(pctFilled) })}>
-      <span className={`adm-sys-bar-fill ${tone}`} style={{ transform: `scaleX(${scale})` }} />
+      <span className={`adm-sys-bar-fill ${tone}`} style={{ width: `${pct}%` }} />
     </div>
   )
 }

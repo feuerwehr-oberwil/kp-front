@@ -37,6 +37,10 @@ so this file – not the log – is the record of what shipped up to that point.
   operational pressure/push alarms, and uses a demo-only `0` Alarmdruck while ordinary stations
   keep the `100`/`50` defaults and cannot disable them. The public site and privacy text now match
   the behavior visitors actually receive.
+  **Upgrade note:** `doctrine.alarmBar: 0` used to mean «threshold off» and was documented as
+  such. A station that stored a `0` now falls back to the shipped `100`/`50` on read — the
+  pressure alarm it had switched off is switched back on — and the next change in Verwaltung
+  persists that. Set the two lines to the values the station wants before the first edit.
 - **A fresh self-hosted station has a finishable setup path.** `/admin` separates deployment
   administration from incident roles, teaches the remaining station data and integration steps,
   treats manual incident creation as a complete operating mode, and makes automatic alarm intake

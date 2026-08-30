@@ -771,6 +771,20 @@ export function DoctrineSection() {
   const effectiveAlarmBar = getPath<number>(draft, ['doctrine', 'alarmBar']) ?? appConfig.atemschutz.alarmBar
   const rueckzugMax = Math.min(300, effectiveAlarmBar)
 
+  // The Rückzug line the operator actually CHOSE, as opposed to the one currently clamped into
+  // the draft.
+  //
+  // ⚠️ Without it, raising the Alarmdruck destroyed that choice. `onAccepted` fires per
+  // KEYSTROKE, and every prefix of a number is itself a valid number: typing 150 over 100 goes
+  // through `alarmBar = 1`, where a plain «clamp down» rewrites the Rückzug line to 1 — and the
+  // clamp only ever lowers, so 15 and 150 never bring it back. The autosave then persisted
+  // «Alarmdruck 150, Rückzug 1», which the API accepts (1 ≤ 150) and which alarms a retreating
+  // Trupp at a pressure no cylinder reaches. Clamping the REMEMBERED value each time instead is
+  // idempotent across the intermediate states: min(50, 1) → min(50, 15) → min(50, 150) = 50.
+  const rueckzugIntentRef = useRef<number | null>(null)
+  const storedRueckzug = getPath<number>(draft, ['doctrine', 'alarmBarRueckzug'])
+  if (rueckzugIntentRef.current === null && storedRueckzug != null) rueckzugIntentRef.current = storedRueckzug
+
   const auftragColors = getPath<Record<string, string>>(draft, ['doctrine', 'auftragColors'])
   const setAuftragColor = (id: string, color: string | null) => {
     if ((auftragColors?.[id] ?? null) === color) return // «Automatisch» on an automatic row writes nothing
@@ -808,14 +822,17 @@ export function DoctrineSection() {
           guard: { kind: 'int', min: isDemo ? 0 : 1, max: 300, nullable: true },
           fallback: appConfig.atemschutz.alarmBar,
           onAccepted: (value) => {
-            if (value === 0) set(['doctrine', 'alarmBarRueckzug'], null)
-            else {
-              const nextAlarmBar = value ?? appConfig.atemschutz.alarmBar
-              const retreat = getPath<number>(draft, ['doctrine', 'alarmBarRueckzug'])
-                ?? appConfig.atemschutz.alarmBarRueckzug
-              if (retreat > nextAlarmBar) {
-                set(['doctrine', 'alarmBarRueckzug'], nextAlarmBar)
-              }
+            // A zero Alarmdruck (demo only) switches both lines off; the intent is remembered,
+            // so raising the Alarmdruck again brings the chosen Rückzug line back.
+            if (value === 0) { set(['doctrine', 'alarmBarRueckzug'], null); return }
+            // An UNSET Rückzug line needs no clamping and must not be written into the
+            // document: the shipped 50 is already read as min(50, alarmBar) on both sides
+            // (docs/CONFIGURATION.md · doctrine.alarmBarRueckzug).
+            const intent = rueckzugIntentRef.current
+            if (intent == null) return
+            const clamped = Math.min(intent, value ?? appConfig.atemschutz.alarmBar)
+            if (getPath<number>(draft, ['doctrine', 'alarmBarRueckzug']) !== clamped) {
+              set(['doctrine', 'alarmBarRueckzug'], clamped)
             }
           },
         })}
@@ -832,6 +849,8 @@ export function DoctrineSection() {
           guard: { kind: 'int', min: 0, exclusiveMin: true, max: rueckzugMax, nullable: true },
           fallback: Math.min(appConfig.atemschutz.alarmBarRueckzug, effectiveAlarmBar),
           message: fillTemplate(C.alarmBarRueckzugInvalid, { max: rueckzugMax }),
+          // Typing here IS the choice — it becomes the value a later Alarmdruck edit restores to.
+          onAccepted: (value) => { rueckzugIntentRef.current = value },
         })}
       </div>
       <div className="adm-row-2">
