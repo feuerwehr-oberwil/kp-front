@@ -48,7 +48,7 @@ import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
 import { fitSimilarity } from '../lib/georef'
 import { georefForPlan, refreshStationPlanScales } from '../lib/stationPlanScale'
 import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
-import { boardDrawingTwins, boardEntityTwins, boardTwinSymbolPx, boardTwins, type BoardTwin } from '../lib/georefTwins'
+import { boardDrawingTwins, boardEntityTwins, boardTwins, type BoardTwin } from '../lib/georefTwins'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
 import { GeorefContentBoard } from './GeorefContentBoard'
 import { GeorefTwinPanel } from './GeorefTwinPanel'
@@ -3006,7 +3006,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 byName={sym.byName}
                 sW={sW}
                 sH={sH}
-                sizePx={boardTwinSymbolPx(symMul)}
+                // the sheet's own symbol size (symBase): a twin renders exactly like a symbol
+                // somebody placed on this sheet — presentation-equivalent, doctrine 30.08.
+                sizePx={symBase}
                 captionMode={captionMode}
                 sourceSuppressedCaptions={mapSuppressedCaptions}
                 interactive={tool === 'pan'}

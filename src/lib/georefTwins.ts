@@ -35,7 +35,6 @@ import type { BoardAnno, Drawing, Entity, LngLat, PlanDocument } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { circlePolygon } from './geo'
-import { MAP_SYMBOL_MIN_PX, pxPerM } from './mapView'
 
 /** How far past the sheet edge a projected map object may sit and still be drawn — 2 % of the
  *  sheet. Enough that a hydrant on the kerb outside the plan frame is not lost to a rounding
@@ -139,9 +138,6 @@ export interface MapTwin {
   /** inverse transform used when the projected mark is dragged on the Karte: the source
    *  annotation moves in plan space, then every projection follows from that one write. */
   fit: GeorefFit
-  /** the sheet's ground width in metres (GeorefPlan.widthM) — sizes the mark like the ground
-   *  footprint the plan symbol actually covers (twinSymbolPx), not like a native map pin */
-  widthM: number
 }
 
 /**
@@ -158,34 +154,16 @@ export function mapTwins(plans: GeorefPlan[], board: Record<string, BoardAnno[] 
       if (a.kind !== 'symbol' || a.x == null || a.y == null) continue
       const { lng, lat } = plan.fit.toMap({ x: a.x, y: a.y })
       if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue
-      out.push({ key: `${plan.id}:${a.id}`, planId: plan.id, planCode: plan.code, annoId: a.id, coord: [lng, lat], anno: a, fit: plan.fit, widthM: plan.widthM })
+      out.push({ key: `${plan.id}:${a.id}`, planId: plan.id, planCode: plan.code, annoId: a.id, coord: [lng, lat], anno: a, fit: plan.fit })
     }
   }
   return out
 }
 
-/** How much of the sheet's width a plan tactical symbol occupies — the Whiteboard's own symbol
- *  base is `fit.w · 0.085` (Whiteboard · symBase), so the same fraction of the sheet's GROUND
- *  width is the footprint that symbol actually claims on the earth (≈ 3–5 m on a Modul sheet). */
-export const TWIN_SYMBOL_FRACTION = 0.085
-/** The twin's own px band. The floor is deliberately LOWER than the native band (mapView ·
- *  symPx, 28–48): a projection is quieter by design. The ceiling is the native map's 28px
- *  floor, so fixed-size captions and badges keep the same visual hierarchy on linked modules. */
-const TWIN_SYM_MIN_PX = 15
-const TWIN_SYM_MAX_PX = 28
-
-/** On-map size of a mirrored plan symbol: the ground metres its share of the sheet covers
- *  (TWIN_SYMBOL_FRACTION × widthM) at the live zoom — a twin is scaled by the BUILDING it sits
- *  in, not by the map's pin band. A symbol transferred to the Karte (transferPlanTwinToMap)
- *  becomes a real entity and returns to native `symPx` sizing. `mul` is the global S/M/L
- *  factor, applied after the clamp exactly as `symPx` applies it. */
-export const twinSymbolPx = (widthM: number, lat: number, zoom: number, mul = 1) =>
-  Math.max(TWIN_SYM_MIN_PX, Math.min(TWIN_SYM_MAX_PX, TWIN_SYMBOL_FRACTION * widthM * pxPerM(lat, zoom))) * mul
-
-/** Karte → Modul projections keep the native map's smallest screen size. Unlike sheet-owned
- *  annotations they are map pins, so zooming the PDF must not inflate them into building-sized
- *  marks while their fixed captions and badges stay at map scale. */
-export const boardTwinSymbolPx = (mul = 1) => MAP_SYMBOL_MIN_PX * mul
+/* ⚠️ No twin-specific size bands. Until 30.08. twins wore their own «quieter» px bands
+   (map: 15–28 footprint-scaled, board: fixed 28) — in the field that read as «different
+   object», not as «projection». Doctrine: twins are presentation-equivalent — each surface
+   sizes a twin with its own native rule (map: mapView · symPx, board: Whiteboard · symBase). */
 
 // --- the map → a plan board -----------------------------------------------------------------
 

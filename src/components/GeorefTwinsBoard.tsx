@@ -89,8 +89,9 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
             rotation={veh ? 0 : rot}
             count={e.count}
             floor={e.floor} floorFrom={e.floorFrom} floorTo={e.floorTo}
-            // the arrows are surface-up-relative; the fit's frame change keeps them on the ground
-            spread={e.spread} spreadRotation={t.fit.rotationDeg}
+            // the arrows are part of the symbol's presentation — a twin shows them exactly as
+            // the source draws them (doctrine 30.08.: presentation-equivalent, never re-aimed)
+            spread={e.spread}
             overlay={veh ? undefined : overlayFor(e, byName, t.fit.rotationDeg)}
             caption={sourceSuppressedCaptions?.has(e.id) ? null : rawCaption ? softHyphenateText(rawCaption) : rawCaption}
             title={fillTemplate(C.twinFromMap, { name })}

@@ -171,14 +171,13 @@ function BlockArrow({ deg, bounded, color }: { deg: number; bounded?: boolean; c
 /** Degrees to rotate the up-pointing arrow onto each edge. */
 const SPREAD_DEG: Record<SpreadDir, number> = { up: 0, right: 90, down: 180, left: 270 }
 
-function SpreadArrows({ spread, color, rotationDeg = 0 }: { spread: Spread; color: string; rotationDeg?: number }) {
+function SpreadArrows({ spread, color }: { spread: Spread; color: string }) {
   // ⚠️ normalized, never read raw: an incident written before 2026-08 carries the old
   // `h`/`hBounded`/`vBounded` shape and would otherwise lose its arrows (lib/spread.ts).
   const s = normalizeSpread(spread)
   if (!hasSpread(s)) return null
   return (
-    <svg className="sym-spread" viewBox="0 0 100 100" aria-hidden="true"
-      style={rotationDeg ? { transform: `rotate(${rotationDeg}deg)` } : undefined}>
+    <svg className="sym-spread" viewBox="0 0 100 100" aria-hidden="true">
       {SPREAD_DIRS.filter((d) => s[d]).map((d) => (
         <BlockArrow key={d} deg={SPREAD_DEG[d]} bounded={s[boundedKey(d)]} color={color} />
       ))}
@@ -190,7 +189,7 @@ function SpreadArrows({ spread, color, rotationDeg = 0 }: { spread: Spread; colo
 const floorRangeBadge = (from?: number, to?: number) =>
   [from, to].filter((f): f is number => f != null).map(floorBadge).join('/')
 
-export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, spreadRotation, caption, className }: {
+export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, className }: {
   svg: string
   /** rendered edge length in px (square) */
   sizePx: number
@@ -212,11 +211,10 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
   floorFrom?: number
   floorTo?: number
   /** FKS Entwicklung spread arrows (Feuer/Wasser/Gefahrstoffe) — see Spread */
+  /** The four dirs are surface-up-relative and render that way EVERYWHERE — a twin shows them
+   *  exactly as the source draws them (doctrine 30.08.: presentation-equivalent, never
+   *  re-aimed through a georef fit). */
   spread?: Spread
-  /** Rotate the WHOLE spread overlay (deg). The four dirs are surface-up-relative, so a twin
-   *  projected onto a turned sheet passes the fit's frame change here — the arrows then point
-   *  at the true ground direction instead of the other surface's «up». 0 on the source. */
-  spreadRotation?: number
   /** metadata caption printed under the glyph (one or more newline-separated lines). The
    *  caller decides the text + visibility (lib/symbols · symbolCaptionText, zoom gate); this
    *  just renders it as a sibling of the glyph so it never rotates with `rotation`. */
@@ -227,7 +225,7 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
   const hasRange = floor == null && (floorFrom != null || floorTo != null)
   return (
     <div className={`ts ${className ?? ''}`} style={{ width: sizePx, height: sizePx }}>
-      {spread && <SpreadArrows spread={spread} color={symColor(svg)} rotationDeg={spreadRotation} />}
+      {spread && <SpreadArrows spread={spread} color={symColor(svg)} />}
       <div
         className={`ts-rot ${needsWhite(svg) ? 'white' : ''}`}
         style={rotation ? { transform: `rotate(${rotation}deg)` } : undefined}

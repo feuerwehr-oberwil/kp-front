@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
-  TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES, TWIN_SYMBOL_FRACTION,
+  TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
   boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect,
-  boardTwinSymbolPx, planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinSymbolPx, twinVisible,
+  planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
@@ -113,35 +113,14 @@ describe('mapTwins (plan → Karte)', () => {
     expect(mapTwins(linked, { modul2: [anno('nowhere', { x: undefined, y: undefined })] })).toEqual([])
   })
 
-  it('carries the sheet’s ground width, so the mark can size by the building footprint', () => {
+  it('carries the sheet’s ground width on the plan record (reach conversion reads it)', () => {
     // the 100 m FIT at aspect 1 makes the ground width exactly 100
     expect(linked[0].widthM).toBeCloseTo(100, 3)
-    expect(mapTwins(linked, { modul2: [anno('a1')] })[0].widthM).toBeCloseTo(100, 3)
   })
 })
 
-describe('twinSymbolPx (E9 — footprint-scaled twins)', () => {
-  // pxPerM(47.5, z18) ≈ 2.48 → 0.085 · 50 m · 2.48 ≈ 10.5 px, clamped up to the twin floor
-  it('clamps into the twin band: a lower floor than natives and their 28 px floor as ceiling', () => {
-    expect(twinSymbolPx(50, 47.5, 18)).toBe(15)
-    expect(twinSymbolPx(50, 47.5, 21)).toBe(28)
-  })
-
-  it('tracks the ground between the clamps and scales with the S/M/L factor after them', () => {
-    const mid = twinSymbolPx(50, 47.5, 19)
-    expect(mid).toBeGreaterThan(15)
-    expect(mid).toBeLessThan(28)
-    expect(mid).toBeCloseTo(TWIN_SYMBOL_FRACTION * 50 * (Math.pow(2, 19) / (156543.03392 * Math.cos((47.5 * Math.PI) / 180))), 6)
-    expect(twinSymbolPx(50, 47.5, 18, 1.3)).toBeCloseTo(15 * 1.3, 6)
-  })
-})
-
-describe('boardTwinSymbolPx (Karte → linked Modul)', () => {
-  it('uses the native map floor instead of growing with the PDF zoom', () => {
-    expect(boardTwinSymbolPx()).toBe(28)
-    expect(boardTwinSymbolPx(1.3)).toBeCloseTo(36.4, 6)
-  })
-})
+// No twin size bands to pin any more (30.08.): twins are presentation-equivalent — each
+// surface sizes them with its own native rule (mapView · symPx, Whiteboard · symBase).
 
 describe('movedTwinPath (whole-object drag of a mirrored line/area)', () => {
   const pts: [number, number][] = [[0.1, 0.2], [0.5, 0.2], [0.5, 0.6]]
