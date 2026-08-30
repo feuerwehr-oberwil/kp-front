@@ -1309,8 +1309,10 @@ def compose_report_pdf(
         [{"label": L["kontaktperson"], "w": 1.0, "value": kontaktperson}]
         if m.kontaktpersonNone
         else [
-            {"label": L["kontaktperson"], "w": 0.6, "value": kontaktperson},
-            {"label": L["kontaktpersonTelefon"], "w": 0.4, "value": m.kontaktpersonTelefon},
+            # half/half like every other two-field row, so «Telefon» aligns with the right
+            # column («Gerettet», «Einsatzende») instead of floating 10% off it
+            {"label": L["kontaktperson"], "w": 0.5, "value": kontaktperson},
+            {"label": L["kontaktpersonTelefon"], "w": 0.5, "value": m.kontaktpersonTelefon},
         ]
     )
     half = 0.5
