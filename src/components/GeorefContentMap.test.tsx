@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { appConfig } from '../config/appConfig'
 import type { ReactNode } from 'react'
 import type { MapContentTwin } from '../lib/georefTwins'
 import type { BoardAnno } from '../types'
@@ -117,20 +118,47 @@ describe('broader Plan content on the Karte', () => {
     expect(coord[0]).toBeCloseTo(point({ id: 'x', kind: 'resource' }).coord![0] + 0.05, 5)
   })
 
-  it('…and a grip drag moves a plain mirrored line whole, while a Leitung stays tap-only', () => {
+  it('…and a grip drag moves ANY unanchored line whole — only an attached endpoint blocks it', () => {
+    // round 8 (full 1:1): the old isLeitung tap-only guard fell — a numbered Leitung drags like
+    // any line. Only a line whose endpoint is ANCHORED keeps its whole-drag off (translating
+    // stored pts would fork against the plan's re-resolution; its grips reshape it instead).
     const onMoveTwin = vi.fn()
     const twins: MapContentTwin[] = [
-      { ...point({ id: 'plain', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.1]] }), coords: [[7.5, 47.5], [7.501, 47.5]] },
-      { ...point({ id: 'ltg', kind: 'draw', pts: [[0.1, 0.3], [0.8, 0.3]], lineNo: 1 }), coords: [[7.5, 47.49], [7.501, 47.49]] },
+      { ...point({ id: 'ltg', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.1]], lineNo: 1 }), coords: [[7.5, 47.5], [7.501, 47.5]] },
+      {
+        ...point({
+          id: 'anchored', kind: 'draw', pts: [[0.1, 0.3], [0.8, 0.3]],
+          startAttachment: { target: { kind: 'object', id: 'hydrant' }, routing: 'direct' },
+        }),
+        coords: [[7.5, 47.49], [7.501, 47.49]],
+      },
     ]
     render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
       onOpenTwin={() => {}} onMoveTwin={onMoveTwin} project={project} unproject={unproject} setDragPan={() => {}} />)
     const grips = screen.getAllByRole('button')
     mouseDrag(grips[0], [100, 100], [150, 100])
-    expect(onMoveTwin.mock.calls.some(([t, , ph]) => t.annoId === 'plain' && ph === 'end')).toBe(true)
+    expect(onMoveTwin.mock.calls.some(([t, , ph]) => t.annoId === 'ltg' && ph === 'end')).toBe(true)
     onMoveTwin.mockClear()
-    // the Leitung's geometry is anchored (symbols, hose ↔ Atemschutz) — its grip never drags
     mouseDrag(grips[1], [100, 100], [150, 100])
     expect(onMoveTwin).not.toHaveBeenCalled()
+  })
+
+  it('the selected mirrored line wears the map\'s native vertex vocabulary', () => {
+    const onEditTwinAnno = vi.fn()
+    const twins: MapContentTwin[] = [
+      { ...point({ id: 'plain', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.1]] }), coords: [[7.5, 47.5], [7.501, 47.5]] },
+    ]
+    render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive selectedKey={twins[0].key}
+      onOpenTwin={() => {}} onEditTwinAnno={onEditTwinAnno} project={project} unproject={unproject} setDragPan={() => {}} />)
+    // node pads + «+» midpoint + Verlängern at both ends — the native chrome
+    expect(document.querySelectorAll('.draw-handle')).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.measure.insertPoint })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.measure.extendLine })).toHaveLength(2)
+    // a tap on the «+» inserts the node at the segment midpoint, committed to the one source
+    fireEvent.pointerDown(screen.getByRole('button', { name: appConfig.copy.measure.insertPoint }), { pointerId: 5, clientX: 10, clientY: 10 })
+    const [, patch, phase] = onEditTwinAnno.mock.calls[0]
+    expect(phase).toBe('commit')
+    expect(patch.pts).toHaveLength(3)
+    expect(patch.pts[1][0]).toBeCloseTo(0.45, 6)
   })
 })
