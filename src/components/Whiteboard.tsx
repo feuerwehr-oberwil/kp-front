@@ -228,6 +228,12 @@ interface Props {
   mapTwins?: { vehicles: Entity[]; symbols: Entity[]; content: Entity[]; drawings: Drawing[] }
   /** tap on a twin → show its source-backed editor */
   onTwinJump?: (entity: Entity) => void
+  /** the mirrored Truppmarker's context-bar actions (GeorefContentBoard · teamActions) —
+   *  absent on a locked surface, where the tap falls back to the read-only plaque */
+  twinTeam?: React.ComponentProps<typeof GeorefContentBoard>['teamActions']
+  /** presses that dismiss the board's own twin selections also close the WORKSPACE-level twin
+   *  panels (note/shape plaque) — without this they floated above everything and never closed */
+  onDismissTwinPanels?: () => void
   /** Move the map-owned source onto this plan, preserving its id and offering one-step undo. */
   onTwinTransferHere?: (entity: Entity, planId: string, pt: { x: number; y: number }) => void
   /** Show a plan-owned source at its projected position on the Lage map. */
@@ -279,7 +285,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -363,6 +369,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // per-team trail visibility (anno ids hidden this session) — the eye on a selected team
   // hides only THAT team's trail; there is no global Spuren toggle anymore
   const [hiddenTrails, setHiddenTrails] = useState<ReadonlySet<string>>(new Set())
+  // the selected mirrored Truppmarker (its context bar shows) — lives HERE beside twinView so
+  // the shared outside-tap dismissal below closes it exactly like every other twin selection
+  const [twinTeamSel, setTwinTeamSel] = useState<string | null>(null)
   const toggleTrail = (id: string) => setHiddenTrails((prev) => {
     const next = new Set(prev)
     next.has(id) ? next.delete(id) : next.add(id)
@@ -2323,10 +2332,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // vanished, `onMove` was withdrawn mid-gesture, and «twins cannot be moved» was the
           // whole visible story. A press starting on the mark keeps the selection; any other
           // press still dismisses (that is what makes tapping empty paper close the panel).
-          onPointerDownCapture={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) setTwinView(null); trackDown(e) }}
+          onPointerDownCapture={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setTwinView(null); setTwinTeamSel(null); onDismissTwinPanels?.() } trackDown(e) }}
           onPointerUpCapture={trackUp}
           onPointerCancelCapture={trackUp}
-          onPointerDown={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) setTwinView(null); stageDown(e) }}
+          onPointerDown={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setTwinView(null); setTwinTeamSel(null); onDismissTwinPanels?.() } stageDown(e) }}
           onPointerMove={stageMove}
           onPointerUp={stageUp}
           onPointerCancel={stageUp}
@@ -2989,7 +2998,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 interactive={tool === 'pan'} onOpenTeam={onTwinJump}
                 onMoveTeam={readOnly ? undefined : moveContentTeam}
                 selectedDrawingId={twinDrawingId} onOpenDrawing={openTwinDrawing}
-                onDrawingCoords={readOnly ? undefined : onTwinDrawingCoords} />
+                onDrawingCoords={readOnly ? undefined : onTwinDrawingCoords}
+                selectedTeamId={twinTeamSel} onSelectTeam={setTwinTeamSel}
+                teamActions={readOnly ? undefined : twinTeam}
+                hiddenTrails={hiddenTrails} onToggleTrail={toggleTrail} />
             )}
             {/* …and the Karte's own objects, mirrored ONTO this sheet. In the board so they pan
                 and zoom with it, and clipped to the sheet (lib/georefTwins · onSheet) so a

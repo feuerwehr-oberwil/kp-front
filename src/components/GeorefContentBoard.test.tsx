@@ -5,6 +5,7 @@ import { fitSimilarity } from '../lib/georef'
 import { boardDrawingTwins, boardEntityTwins } from '../lib/georefTwins'
 import type { Drawing, Entity } from '../types'
 import { GeorefContentBoard } from './GeorefContentBoard'
+import { appConfig } from '../config/appConfig'
 
 afterEach(cleanup)
 
@@ -51,6 +52,36 @@ describe('broader Karte content on a Modul', () => {
     expect(container.querySelector('.wb-line-label')?.textContent).toMatch(/m ·/)
     // …and the Absperrkreis states its radius like the map does
     expect(screen.getByText('50 m')).toBeTruthy()
+  })
+
+  it('a selected Trupp twin wears the ORIGINAL\'s context bar, trail-locked trash included', () => {
+    // round 7: tap selects (the original's grammar) — pill + wb-pill-acts appear in place of
+    // the stacked workspace panel; every action writes the one map entity
+    const onSelectTeam = vi.fn()
+    const clearTrail = vi.fn()
+    const acts = {
+      rename: vi.fn(), pick: vi.fn(), color: vi.fn(), mark: vi.fn(), clearTrail,
+      remove: vi.fn(), showTrupp: vi.fn(), toOriginal: vi.fn(),
+    }
+    const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2', trail: [{ coord: base.coord, t: '15:34' }] }]
+    const { rerender, container } = render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      onOpenTeam={() => {}} teamActions={acts} onSelectTeam={onSelectTeam} selectedTeamId={null} />)
+    const chip = screen.getByRole('button', { name: /Trupp 2/ })
+    fireEvent.pointerDown(chip, { pointerId: 21, clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(chip, { pointerId: 21, clientX: 100, clientY: 100 })
+    expect(onSelectTeam).toHaveBeenCalledWith('team')
+
+    rerender(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      onOpenTeam={() => {}} teamActions={acts} onSelectTeam={onSelectTeam} selectedTeamId="team" />)
+    expect(container.querySelector('.wb-pill-acts')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.markPosition }))
+    expect(acts.mark).toHaveBeenCalledWith('team')
+    // a recorded trail locks deletion — the trash offers the confirmed clear instead
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.deleteLocked }))
+    expect(clearTrail).toHaveBeenCalledWith('team')
+    expect(acts.remove).not.toHaveBeenCalled()
   })
 
   it('a mirrored Trupp chip answers a tap with the jump to its source marker', () => {

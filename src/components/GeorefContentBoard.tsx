@@ -18,7 +18,10 @@
  * measured on the SOURCE geometry (geodesic, lib/geo) — the map already knows the truth, so a
  * mirrored line reads its Länge even on a sheet that was never calibrated.
  */
-import { useRef, type CSSProperties } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
+import { Icon } from '../lib/icons'
+import { Menu, Popover, PopoverClose } from '../lib/overlays'
+import { MenuPick } from './MenuPick'
 import type { GeorefFit } from '../lib/georef'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { contentTwinName, type BoardDrawingTwin, type BoardEntityTwin } from '../lib/georefTwins'
@@ -36,7 +39,7 @@ import { fillTemplate } from '../lib/format'
 import type { BoardAnno, Drawing, Entity, LngLat, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
-export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords }: {
+export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords, selectedTeamId, onSelectTeam, teamActions, hiddenTrails, onToggleTrail }: {
   entities: BoardEntityTwin[]
   drawings: BoardDrawingTwin[]
   fit: GeorefFit
@@ -65,12 +68,35 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   onOpenDrawing?: (drawing: Drawing) => void
   /** Whole-line and vertex drags write WGS84 coordinates to the one map-owned drawing. */
   onDrawingCoords?: (drawingId: string, coords: LngLat[], phase: 'start' | 'move' | 'end') => void
+  /** the selected mirrored Truppmarker (Whiteboard holds it beside its other twin selections,
+   *  so the shared outside-tap dismissal closes it like everything else) */
+  selectedTeamId?: string | null
+  onSelectTeam?: (id: string) => void
+  /** The mirrored Truppmarker's context bar — the SAME bar the original wears on the Karte
+   *  (twin equivalence, round 7: the big panel «looked rather ugly» and stacked wrong). Every
+   *  action writes the ONE map entity; absent on a locked surface (tap then opens the
+   *  read-only plaque via onOpenTeam instead). */
+  teamActions?: {
+    rename: (id: string, name: string) => void
+    pick: (id: string, truppId?: string) => void
+    color: (e: Entity, color: string | null) => void
+    mark: (id: string) => void
+    clearTrail: (id: string) => void
+    remove: (id: string) => void
+    showTrupp: (truppId: string) => void
+    toOriginal: (e: Entity) => void
+  }
+  /** the BOARD's own per-team trail visibility — one surface, one switch (Whiteboard state) */
+  hiddenTrails?: ReadonlySet<string>
+  onToggleTrail?: (id: string) => void
 }) {
   /** The live gesture on a mirrored point mark (team chip, note, shape). `base` is where the
    *  mark STOOD at the press — the twin follows its source mid-drag, so the cumulative delta
    *  must be added to a FIXED point (GeorefTwinsBoard carries the same warning). One ref: only
    *  one mark is ever dragged at a time. */
   const chipDrag = useRef<{ pid: number; x: number; y: number; base: { x: number; y: number }; entity: Entity; moved: boolean } | null>(null)
+  // inline rename on the selected team pill (the bar's pen) — same grammar as the sheet's own chip
+  const [renamingTeamId, setRenamingTeamId] = useState<string | null>(null)
   /** The shared tap/drag handlers of every interactive point mark in this layer — one grammar
    *  for the chip, the note and the shape, matching the sheet's own chipDown (deadzone first,
    *  a tap is never a nudge). */
@@ -205,7 +231,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   if (!sW || !sH || (!entities.length && !drawings.length)) return null
 
   const trailAnnos: BoardAnno[] = entities.flatMap(({ entity }) => {
-    if (entity.kind !== 'team' || (entity.trail?.length ?? 0) < 2) return []
+    if (entity.kind !== 'team' || (entity.trail?.length ?? 0) < 2 || hiddenTrails?.has(entity.id)) return []
     return [{
       id: `twin-trail-${entity.id}`, kind: 'resource', color: entity.color,
       trail: entity.trail!.map(({ coord, t }) => {
@@ -370,22 +396,127 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
             {...pointHandlers(entity, pt, movable, jump)}>{text}</button>
         }
         if (entity.kind === 'team') {
-          const style = { ...pos, transform: 'translate(-50%, -50%)', '--team': entity.color || appConfig.drawing.teamColors[0] } as CSSProperties
+          const teamCol = entity.color || appConfig.drawing.teamColors[0]
+          const style = { ...pos, transform: 'translate(-50%, -50%)', '--team': teamCol } as CSSProperties
+          const isRaus = !!entity.truppId && trupps.some((t) => t.id === entity.truppId && t.status === 'raus')
+          const selected = interactive && !!teamActions && selectedTeamId === entity.id
+          // unlocked: the tap SELECTS (the original's grammar — pill + bar appear); locked:
+          // fall through to the read-only plaque the workspace opens (onOpenTeam)
+          const teamJump = teamActions && onSelectTeam ? () => onSelectTeam(entity.id) : jump
           if (!tappable) {
-            return <span key={key} className={`${s.contentPoint} team-dot`} style={style}>
+            return <span key={key} className={`${s.contentPoint} team-dot ${isRaus ? 'raus' : ''}`} style={style}>
               <i /><b>{entity.label}</b>
             </span>
           }
+          if (!selected) {
+            return (
+              <button key={key} type="button"
+                className={`${s.contentPoint} ${s.contentTap} team-dot ${isRaus ? 'raus' : ''}`}
+                style={{ ...style, ...grabStyle }}
+                title={title}
+                data-twin=""
+                {...pointHandlers(entity, pt, movable, teamJump)}
+              >
+                <i /><b>{entity.label}</b>
+              </button>
+            )
+          }
+          // Selected: the SAME pill + context bar the original wears on the Karte (twin
+          // equivalence) — cap, name (inline rename for a loose marker), timestamp, and the
+          // identical action row, plus one twin-only door: «Auf Karte zeigen».
+          const acts = teamActions!
+          const trailCount = entity.trail?.length ?? 0
+          const boundAlive = !!entity.truppId && trupps.some((t) => t.id === entity.truppId && !t.removedAt)
           return (
-            <button key={key} type="button"
-              className={`${s.contentPoint} ${s.contentTap} team-dot`}
-              style={{ ...style, ...grabStyle }}
-              title={title}
-              data-twin=""
-              {...pointHandlers(entity, pt, movable, jump)}
-            >
-              <i /><b>{entity.label}</b>
-            </button>
+            <span key={key} className={s.contentPoint} style={style} data-twin="">
+              <button type="button" className={`${s.contentTap} wb-resource-pill ${isRaus ? 'raus' : ''}`}
+                style={{ '--team': teamCol, ...grabStyle } as CSSProperties} title={title}
+                {...pointHandlers(entity, pt, movable)}>
+                <span className="wb-resource-cap" />
+                <span className="wb-resource-body">
+                  <span className="wb-resource-name">
+                    {renamingTeamId === entity.id
+                      ? <input className="wb-resource-input" autoFocus defaultValue={entity.label ?? ''}
+                          onPointerDown={(ev) => ev.stopPropagation()}
+                          onBlur={(ev) => { acts.rename(entity.id, ev.target.value); setRenamingTeamId(null) }}
+                          onKeyDown={(ev) => {
+                            if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur()
+                            if (ev.key === 'Escape') { ev.stopPropagation(); setRenamingTeamId(null) }
+                          }} />
+                      : <b>{entity.label}</b>}
+                    {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
+                  </span>
+                  {entity.t && <i className="wb-resource-time">{entity.t}</i>}
+                </span>
+              </button>
+              <div className="wb-pill-acts" onPointerDown={(ev) => ev.stopPropagation()}>
+                {!entity.truppId && (
+                  <button className="wb-pa" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
+                    onClick={() => setRenamingTeamId(entity.id)}><Icon id="pen" /></button>
+                )}
+                {entity.truppId && (
+                  <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp}
+                    onClick={() => acts.showTrupp(entity.truppId!)}><Icon id="warn" /></button>
+                )}
+                {(!!entity.truppId || trupps.some((t) => !t.removedAt && t.status !== 'raus')) && (
+                  <Menu
+                    popupClassName="de-menu-pop"
+                    itemClassName={() => 'de-menu-item'}
+                    trigger={
+                      <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
+                        <Icon id="people" />
+                      </button>
+                    }
+                    items={[
+                      { label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={!entity.truppId} />, onClick: () => acts.pick(entity.id, undefined) },
+                      ...trupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === entity.truppId)).map((t) => ({
+                        label: <MenuPick label={t.name} on={t.id === entity.truppId} />,
+                        onClick: () => acts.pick(entity.id, t.id),
+                      })),
+                    ]}
+                  />
+                )}
+                {!boundAlive && (
+                  <Popover
+                    ariaLabel={appConfig.copy.atemschutz.colorLabel}
+                    popupClassName="wb-pa-colors"
+                    trigger={
+                      <button className="wb-pa" title={appConfig.copy.atemschutz.colorLabel} aria-label={appConfig.copy.atemschutz.colorLabel}>
+                        <span className="wb-pa-swatch" style={{ background: entity.color || 'transparent' }} />
+                      </button>
+                    }
+                  >
+                    <PopoverClose className={`ctx-team-auto${entity.color ? '' : ' on'}`} onClick={() => acts.color(entity, null)}>
+                      {appConfig.copy.atemschutz.colorAuto}
+                    </PopoverClose>
+                    {appConfig.drawing.teamColors.map((c) => (
+                      <PopoverClose key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} onClick={() => acts.color(entity, c)}>
+                        <span style={{ background: c }} />
+                      </PopoverClose>
+                    ))}
+                  </Popover>
+                )}
+                <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition}
+                  onClick={() => acts.mark(entity.id)}><Icon id="flag" /></button>
+                {trailCount > 0 && onToggleTrail && (() => {
+                  const shown = !hiddenTrails?.has(entity.id)
+                  return (
+                    <button className="wb-pa" title={shown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
+                      aria-label={appConfig.copy.whiteboard.trails} aria-pressed={shown} onClick={() => onToggleTrail(entity.id)}>
+                      <Icon id={shown ? 'eye' : 'eyeoff'} />
+                    </button>
+                  )
+                })()}
+                {/* the twin's one extra door: pan the Karte to the original */}
+                <button className="wb-pa" title={appConfig.copy.contextPanel.showOnMap} aria-label={appConfig.copy.contextPanel.showOnMap}
+                  onClick={() => acts.toOriginal(entity)}><Icon id="external" /></button>
+                {trailCount > 0
+                  ? <button className="wb-pa wb-pa-del-off" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked}
+                      onClick={() => acts.clearTrail(entity.id)}><Icon id="trash" /></button>
+                  : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
+                      onClick={() => acts.remove(entity.id)}><Icon id="trash" /></button>}
+              </div>
+            </span>
           )
         }
         // Shared responder positions are live map facts, not tactical symbols. Preserve their
