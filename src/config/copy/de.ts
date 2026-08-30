@@ -1878,6 +1878,9 @@ export const de = {
     northTitle: 'Nordrichtung – Gebäude auf Längsachse gedreht',
     orientNorthUp: 'Norden oben',
     orientLongAxis: 'Auf Längsachse drehen',
+    // appended to BOTH orientation controls' tooltips (dial + rail compass): the tap flips
+    // between the two named angles, the drag is the free rotation nobody would otherwise find
+    orientDragHint: 'Ziehen dreht frei',
   },
   contextPanel: {
     titlePlaceholder: 'Bezeichnung …',

@@ -1312,6 +1312,7 @@ export const it: Localizable<Copy> = {
     northTitle: 'Direzione nord – edificio ruotato sull’asse maggiore',
     orientNorthUp: 'Nord in alto',
     orientLongAxis: 'Ruota sull’asse maggiore',
+    orientDragHint: 'Trascina per ruotare liberamente',
 
     groupDeletedN: '{n} oggetti eliminati dal piano',
     truppPlacedHere: 'già qui',

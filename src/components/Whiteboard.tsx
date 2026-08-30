@@ -2382,7 +2382,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       </svg>
                     )
                     if (!(canOrient && !readOnly)) return dial
-                    const label = viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp
+                    const label = `${viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp} – ${appConfig.copy.whiteboard.orientDragHint}`
                     // TAP flips (the label says which way); DRAG rotates continuously (A8).
                     // touch-action: none, or the first oblique finger movement becomes a scroll
                     // and the drag never sees its pointermove.
@@ -3121,19 +3121,27 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   matters. */}
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= MAX_SCALE} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
-              {/* Gebäude orientation toggle — only on a floor-stack that was auto-rotated */}
-              {canOrient && (
+              {/* Gebäude orientation toggle — only on a floor-stack that was auto-rotated.
+                  The SAME two-gesture grammar as the north dial (30.08.): tap flips between the
+                  named angles, drag rotates freely — two doors, one room, one behaviour. The
+                  tooltip names the drag; a drag-only affordance on a rail button is invisible. */}
+              {canOrient && (() => {
+                const orientLabel = `${viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp} – ${appConfig.copy.whiteboard.orientDragHint}`
+                return (
                 <>
                   <div className="vrail-sep vrail-sep-foot" />
                   <button
                     className={`vrail-nbtn ${viewAngle === 0 ? 'on' : ''}`}
-                    title={viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}
-                    aria-label={viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}
+                    title={orientLabel}
+                    aria-label={orientLabel}
                     aria-pressed={viewAngle === 0}
-                    onClick={reorient}
+                    style={{ touchAction: 'none' }}
+                    onPointerDown={dialDown} onPointerMove={dialMove} onPointerUp={dialUp}
+                    onPointerCancel={dialCancel} onClick={dialClick}
                   ><span className="vrail-glyph"><Icon id="compass" /></span><span className="vrail-label">{viewAngle === 0 ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}</span></button>
                 </>
-              )}
+                )
+              })()}
             </>
           }
         />

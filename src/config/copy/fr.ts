@@ -1312,6 +1312,7 @@ export const fr: Localizable<Copy> = {
     northTitle: 'Direction du nord – bâtiment pivoté sur son grand axe',
     orientNorthUp: 'Nord en haut',
     orientLongAxis: 'Pivoter sur le grand axe',
+    orientDragHint: 'Glisser pour pivoter librement',
 
     groupDeletedN: '{n} objets supprimés du plan',
     truppPlacedHere: 'déjà ici',
