@@ -1312,7 +1312,8 @@ export const en: Localizable<Copy> = {
     northTitle: 'North direction – building rotated to its long axis',
     orientNorthUp: 'North up',
     orientLongAxis: 'Rotate to long axis',
-    orientDragHint: 'Drag to rotate freely',
+    orientMenuTitle: 'Rotate building',
+    orientSliderLabel: 'Rotation',
 
     groupDeletedN: '{n} objects deleted from the plan',
   },
