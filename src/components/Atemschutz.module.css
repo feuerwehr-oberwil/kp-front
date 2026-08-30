@@ -426,7 +426,8 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
   background: color-mix(in srgb, var(--red) 9%, transparent); border-radius: var(--r-ctl); padding: 10px 12px; }
 .formWarn :global(.i) { width: 16px; height: 16px; flex: none; }
 .field { display: flex; flex-direction: column; gap: 5px; }
-.formFlash { border-radius: var(--r-ctl); animation: ui-flash-ring 1.9s ease-out 1; }
+/* flash-ring: the module-local copy of ui-flash-ring — see the .cardFlash comment below */
+.formFlash { border-radius: var(--r-ctl); animation: flash-ring 1.9s ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
   .formFlash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
 }
@@ -545,9 +546,15 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    angemeldet, grün aktiv, amber Rückzug, rot überfällig — so a blue ring around a blue card
    said «angemeldet» twice and «look here» not at all. It also blinks twice: two beats is a
    gesture, one long fade is just a border somebody might read as a fifth state. */
-/* ui-flash-ring is the shared two-beat ink ring (02-base.css) — one definition, so the
-   surfaces that point with it cannot drift apart. */
-.cardFlash { animation: ui-flash-ring 1.9s ease-out 1; }
+/* ⚠️ A LOCAL copy of the shared two-beat ink ring (02-base.css · ui-flash-ring). CSS modules
+   localize animation names, so a bare reference to the global keyframes compiled to a hashed
+   name that exists nowhere — the ring silently never fired (found in the field, 30.08.).
+   Keep the geometry in sync with 02-base.css by hand. */
+@keyframes flash-ring {
+  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
+}
+.cardFlash { animation: flash-ring 1.9s ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
   .cardFlash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
 }
