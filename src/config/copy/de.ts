@@ -1796,6 +1796,7 @@ export const de = {
     trailCleared: '{name}: Spur gelöscht',
     teamColor: 'Farbe',
     trails: 'Spuren',
+    trailCount: '{n} markierte Positionen',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
     deleteLocked: 'Trupp mit erfasstem Verlauf – zuerst Spur löschen',

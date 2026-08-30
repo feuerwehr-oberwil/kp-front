@@ -1263,6 +1263,7 @@ export const fr: Localizable<Copy> = {
     trailCleared: '{name} : trace effacée',
     teamColor: 'Couleur',
     trails: 'Traces',
+    trailCount: '{n} positions marquées',
     trailsOn: 'Afficher les traces',
     trailsOff: 'Masquer les traces',
     deleteLocked: 'Équipe avec historique enregistré – effacez d’abord la trace',

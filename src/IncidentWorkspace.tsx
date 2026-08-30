@@ -4144,22 +4144,47 @@ export function IncidentWorkspace({
 
       {/* The same rule on the PLAN surface (E8): a mirrored Karte team chip / Notiz / Form
           opens in place, source-backed — the tap no longer swaps surfaces. The Notiz edits its
-          map source's text through the map editor's own mutation path. */}
-      {mode === 'plans' && !journalOpen && planTwinEntity && (
-        <GeorefTwinPanel
-          key={planTwinEntity.id}
-          entity={{ id: planTwinEntity.id, label: contentTwinName(planTwinEntity) }}
-          subtitle={appConfig.copy.whiteboard.georef.twinPanelFromMap}
-          readOnly={tacticalLocked || planTwinEntity.kind !== 'note'}
-          onClose={() => setPlanTwinEntityId(null)}
-          onOriginal={() => jumpToTwinSourceOnMap(planTwinEntity)}
-          originalLabel={appConfig.copy.contextPanel.showOnMap}
-          onTitleLive={planTwinEntity.kind === 'note' ? (v) => editMapTwinSource(planTwinEntity.id, { label: v }, 'live') : undefined}
-          onTitle={planTwinEntity.kind === 'note' ? (v) => editMapTwinSource(planTwinEntity.id, { label: v }, 'commit') : () => {}}
-          onFields={() => {}}
-          onDelete={() => { setPlanTwinEntityId(null); void deleteEntity(planTwinEntity.id) }}
-        />
-      )}
+          map source's text through the map editor's own mutation path. A TEAM twin carries the
+          full Truppmarker capability set (30.08.: «all capabilities on mirrored ones») — every
+          action writes the one map entity through the same functions the map's icon bar calls. */}
+      {mode === 'plans' && !journalOpen && planTwinEntity && (() => {
+        const e = planTwinEntity
+        const team = e.kind === 'team'
+        const boundTrupp = team && e.truppId ? effTrupps.find((t) => t.id === e.truppId && !t.removedAt) : undefined
+        // same offer rule as the map bar: a Trupp already out is listed only when it is the one
+        // standing here — it is the record of who was, not somebody to send
+        const truppOpts = team && !tacticalLocked && (e.truppId || effTrupps.some((t) => !t.removedAt && t.status !== 'raus'))
+          ? [
+              { name: appConfig.copy.atemschutz.markerNone, on: !e.truppId },
+              ...effTrupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === e.truppId)).map((t) => ({ id: t.id, name: t.name, on: t.id === e.truppId })),
+            ]
+          : undefined
+        return (
+          <GeorefTwinPanel
+            key={e.id}
+            entity={{ id: e.id, label: contentTwinName(e) }}
+            subtitle={appConfig.copy.whiteboard.georef.twinPanelFromMap}
+            readOnly={tacticalLocked || (e.kind !== 'note' && !team)}
+            onClose={() => setPlanTwinEntityId(null)}
+            onOriginal={() => jumpToTwinSourceOnMap(e)}
+            originalLabel={appConfig.copy.contextPanel.showOnMap}
+            onTitleLive={e.kind === 'note' ? (v) => editMapTwinSource(e.id, { label: v }, 'live') : undefined}
+            onTitle={e.kind === 'note' ? (v) => editMapTwinSource(e.id, { label: v }, 'commit') : () => {}}
+            onFields={() => {}}
+            // loose marker only — a Trupp-bound marker is named by the Atemschutz board
+            onTeamRename={team && !tacticalLocked && !e.truppId ? (name) => renameTeam(e.id, name) : undefined}
+            // …and its colour is the Trupp's identity; only the loose marker recolours here
+            onTeamColor={team && !tacticalLocked && !boundTrupp ? (c) => patchEntity(e.id, { color: c ?? undefined }) : undefined}
+            onTeamMark={team && !tacticalLocked ? () => markTeamPosition(e.id) : undefined}
+            onTeamShow={boundTrupp ? () => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: e.truppId!, nonce: Date.now() }) } : undefined}
+            teamTruppOptions={truppOpts}
+            onTeamTruppPick={truppOpts ? (truppId) => { if (truppId) void adoptTruppMarker(truppId, e.id); else releaseTruppMarker(e.id) } : undefined}
+            teamTrailCount={team ? (e.trail?.length ?? 0) : 0}
+            onTeamClearTrail={team && !tacticalLocked ? () => { void clearTeamTrail(e.id) } : undefined}
+            onDelete={() => { setPlanTwinEntityId(null); void deleteEntity(e.id) }}
+          />
+        )
+      })()}
 
       {/* note detail panel — the same ContextPanel, but opened from the ⚙ handle rather than by
           selecting (see notePanelId above). The note's TEXT is its title, so the panel's title
