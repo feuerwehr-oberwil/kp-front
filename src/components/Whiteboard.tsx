@@ -2635,12 +2635,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               <div
                 key={a.id}
                 className={`wb-anno wb-${a.kind}${relationship.objectIds.has(a.id) ? ' network' : ''} ${selId === a.id || selIds.includes(a.id) ? 'sel' : ''}`}
-                // transform positions the anchor at the (scaled) plan point. Symbols
-                // and text scale WITH the plan via numeric sizing below (crisp, since
-                // the board is layout-scaled); team pills stay a constant size.
+                // transform positions the anchor at the (scaled) plan point. SYMBOLS hold a
+                // constant screen size (symBase, zoom-independent — 30.08.: they are pins like
+                // the map's, and «zoomed in» made them comically dwarf the building); shapes
+                // stay sheet-true, text scales with the paper, team pills stay constant.
                 // a shape's --gpx (→ halo/handle anchor --hbox) takes the LARGER box side so the
                 // selection ring always encloses a stretched rectangle (width × width·aspect)
-                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(-50%, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase * scale}px` }}
+                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(-50%, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px` }}
                 onPointerDown={(e) => chipDown(e, a.id)}
                 // double-tap still opens the on-surface textarea; the panel steps aside so the
                 // two editors for one text never stream keystrokes side by side
@@ -2673,7 +2674,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     <>
                       <TacticalSymbol
                         svg={svg}
-                        sizePx={symBase * scale}
+                        // symBase WITHOUT × scale (30.08.): a plan symbol is a pin with a
+                        // constant screen size, exactly like the Lage map's — zooming the sheet
+                        // must not balloon it past the building. Twins share the same number.
+                        sizePx={symBase}
                         rotation={veh ? 0 : (a.rotation ?? 0)}
                         overlay={overlay}
                         // the signed Stockwerk badge, same slot and same glyph as on the Lage.
