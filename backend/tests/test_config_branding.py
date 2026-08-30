@@ -87,6 +87,53 @@ async def test_branding_upload_sets_asset_and_serves(client, editor, admin_login
     assert meta.json()["updated_by_name"] == editor.display_name
 
 
+async def test_a_branding_upload_keeps_the_config_it_replaced(client, editor, admin_login, session_factory):
+    """A logo upload rewrites the WHOLE document (`_set_asset` normalizes and reassigns it), so it
+    is a config write like any other — and it was one of two paths with no undo, while
+    docs/CONFIGURATION.md promised history on every one of them."""
+    from sqlalchemy import select
+
+    from app.models import DeploymentConfigHistory
+
+    await _login(client, editor)
+    await admin_login(client)
+    await client.put("/api/config", json={"identity": {"appName": "Testwehr"}})  # nothing to keep yet
+    up = await client.post("/api/branding/logo", files={"file": ("logo.png", _PNG, "image/png")})
+    assert up.status_code == 200, up.text
+
+    # ⚠️ through the TEST session factory — app.database.async_session_maker is the app's own engine
+    async with session_factory() as db:
+        kept = (await db.execute(select(DeploymentConfigHistory))).scalars().all()
+    assert [k.source for k in kept] == ["branding"]
+    assert kept[0].config_json["identity"]["appName"] == "Testwehr"
+
+
+async def test_db_direct_branding_load_keeps_the_config_it_replaced(
+    client, editor, admin_login, session_factory, monkeypatch, tmp_path
+):
+    from sqlalchemy import select
+
+    from app import admin_branding, database, storage
+    from app.models import DeploymentConfigHistory
+
+    await _login(client, editor)
+    await admin_login(client)
+    await client.put("/api/config", json={"identity": {"appName": "Testwehr"}})
+
+    logo = tmp_path / "logo.png"
+    logo.write_bytes(_PNG)
+    monkeypatch.setattr(database, "async_session_maker", session_factory)
+    monkeypatch.setattr(storage, "put_bytes", lambda _key, _data: None)
+
+    url = await admin_branding._load("logo", logo)
+
+    assert url == "/api/branding/file/branding/logo.png"
+    async with session_factory() as db:
+        kept = (await db.execute(select(DeploymentConfigHistory))).scalars().all()
+    assert [row.source for row in kept] == ["branding"]
+    assert kept[0].config_json["identity"]["appName"] == "Testwehr"
+
+
 async def test_branding_rejects_non_image_415(client, editor, admin_login):
     await _login(client, editor)
     await admin_login(client)

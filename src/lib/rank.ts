@@ -3,7 +3,7 @@
 // (roster.ranks), falling back to the in-code Swiss default so the app always has a usable
 // list before/without config. Components must go through these helpers — never hard-code a
 // rank list or officer check. Keep SWISS_DEFAULT_RANKS in sync with the backend default in
-// backend/app/admin_config.py (EXAMPLE_CONFIG.roster.ranks).
+// backend/app/ranks.py (SWISS_DEFAULT_RANKS).
 
 import { getDeploymentConfig, type RankConfig } from './deploymentConfig'
 

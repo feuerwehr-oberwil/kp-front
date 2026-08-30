@@ -97,7 +97,7 @@
         "time": "03:40",
         "tag": "Diario",
         "h3": "Tutto sta nel diario.",
-        "p": "Scrivere, oppure semplicemente parlarci dentro – le note vocali diventano testo nel\n            diario da sole. Il diario viene solo integrato, mai riscritto – si corregge con voci\n            nuove, non con la gomma. È questo che rende l’intervento documentabile."
+        "p": "Scrivere, oppure semplicemente parlare – quando è configurato un servizio di\n            trascrizione, le note vocali possono diventare testo; altrimenti restano audio nel\n            diario. Il diario viene solo integrato: si corregge con nuove voci."
       },
       {
         "time": "04:30",
@@ -143,7 +143,7 @@
       {
         "alt": "Diario: voci in ordine cronologico accanto alla carta",
         "title": "Diario",
-        "sub": "Documentazione continua di tutto ciò che conta – le note vocali diventano testo da sole"
+        "sub": "Documentazione continua di tutto ciò che conta – un servizio di trascrizione configurato può convertire le note vocali in testo"
       },
       {
         "alt": "Presenze: elenco degli uomini con gli orari di arrivo",
@@ -308,7 +308,7 @@
       },
       {
         "q": "A chi appartengono i dati?",
-        "a": "A voi. Ogni corpo pompieri gestisce il proprio KP Front – sul proprio computer in\n          rimessa oppure nel cloud. Decidete voi dove stanno carte, piani e dati d’intervento;\n          nulla va a un fornitore o a terzi."
+        "a": "A voi. Carte, piani e dati d’intervento restano sulla vostra installazione. I servizi\n          di cartografia e indirizzi ricevono soltanto la posizione richiesta; gli altri servizi\n          esterni funzionano solo se li configurate. Nulla viene inviato automaticamente al\n          fornitore o al manutentore."
       },
       {
         "q": "Quanto costa?",
@@ -316,7 +316,7 @@
       },
       {
         "q": "Cosa serve per farlo funzionare?",
-        "a": "Meno di quanto molti pensino. Basta un piccolo mini PC o server in rimessa,\n          l’installazione richiede poche ore. Poi il sistema va avanti in gran parte da solo, e\n          gli aggiornamenti sono un gesto. Serve qualcuno che lo metta in piedi una volta – nel\n          corpo, in comune o un’informatica amica. E se non avete nessuno: scriveteci, vi aiutiamo\n          a metterlo in piedi."
+        "a": "Basta un piccolo mini PC o server in rimessa. Installazione, aggiornamenti e backup\n          richiedono qualcuno pratico di Docker e riga di comando – nel corpo, in comune o un\n          contatto informatico. La guida e l’amministrazione accompagnano la configurazione. I dati\n          della stazione e l’esercizio restano responsabilità vostra."
       },
       {
         "q": "Possiamo adattarlo ai nostri processi?",
@@ -328,7 +328,7 @@
       },
       {
         "q": "Come cominciamo?",
-        "a": "Con la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza registrazione – a Musterdorf sta già bruciando. Poi provatela a un’esercitazione.\n          E se va bene: scriveteci, vi aiutiamo a metterla in piedi."
+        "a": "Con la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza registrazione – a Musterdorf sta già bruciando. Poi provatela a un’esercitazione.\n          Se va bene, la <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guida all’installazione</a> porta alla vostra istanza."
       }
     ]
   },

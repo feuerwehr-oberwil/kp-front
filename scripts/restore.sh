@@ -42,7 +42,7 @@ The storage tarball is found next to the dump by its timestamp (db-<stamp>.sql.g
 storage-<stamp>.tar.gz) and restored with it — they are one backup.
 
   --dry-run          Say exactly what would happen and change no data. Do this first.
-                     (It does start the `db` container if it is not running, in order to read
+                     (It does start the 'db' container if it is not running, in order to read
                      the current row counts, and stops it again if it started it.)
   --db-only          Restore the database alone. For the pre-migration dumps written by
                      backend/start.sh, which have no storage half. ⚠️ Read the warning it

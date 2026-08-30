@@ -29,6 +29,26 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Changed
+
+- **The public demo is now a stable front door rather than a station-shaped deployment.** It
+  refreshes session-only configuration after automatic login, introduces the shared/resetting
+  environment in one compact first-visit card, blocks incident lifecycle actions, suppresses
+  operational pressure/push alarms, and uses a demo-only `0` Alarmdruck while ordinary stations
+  keep the `100`/`50` defaults and cannot disable them. The public site and privacy text now match
+  the behavior visitors actually receive.
+- **A fresh self-hosted station has a finishable setup path.** `/admin` separates deployment
+  administration from incident roles, teaches the remaining station data and integration steps,
+  treats manual incident creation as a complete operating mode, and makes automatic alarm intake
+  an optional Divera/webhook upgrade. Setup, deployment, backup and restore documentation were
+  reconciled with the Docker path and verified against an isolated clean install.
+
+### Security
+
+- Rotating `ADMIN_SECRET` now invalidates existing admin sessions, demo lifecycle guards fail
+  closed even when stored configuration is stale, and webhook secrets are created only during
+  the external-system handoff instead of being generated unreadably during installation.
+
 ## [0.9.0] – 2026-08-30
 
 ### Added

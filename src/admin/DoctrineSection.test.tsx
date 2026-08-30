@@ -57,7 +57,7 @@ const STATION = {
   },
 }
 
-/** The doctrine number boxes in DOM order: Funk (3), Druck (4), Kontakt (2), Luft (2). */
+/** The doctrine number boxes in DOM order: Funk (3), Druck (5), Kontakt (2), Luft (2). */
 const nums = () => Array.from(document.querySelectorAll<HTMLInputElement>('input[type="number"]'))
 const autoButtons = () => screen.getAllByText(AUTO)
 
@@ -70,7 +70,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function open() {
   render(<ConfigProvider><DoctrineSection /></ConfigProvider>)
-  await waitFor(() => expect(nums().length).toBe(11))
+  await waitFor(() => expect(nums().length).toBe(12))
 }
 
 describe('Auftrag-Farben — «Automatisch» is the default state, not a null value', () => {
@@ -149,9 +149,81 @@ describe('the doctrine numbers are integers on the backend, so a fraction never 
   })
 })
 
+// The one safety-critical number that was file-only until now: a browser-configured station never
+// got it, a CLI-template one silently adopted an invisible 50 bar. It is also the only doctrine
+// field with a CROSS-FIELD rule — above `alarmBar` the API refuses the WHOLE document, and the
+// autosave for all five Station pages with it.
+describe('Alarmdruck im Rückzug — the lower line, bounded by the bare Alarmdruck', () => {
+  /** the third box in the Druck group */
+  const rueckzug = () => nums()[5]
+
+  it('stores a value at or below the Alarmdruck', async () => {
+    await open()
+    await type(rueckzug(), '60')
+    await settle()
+    expect(sent()?.doctrine?.alarmBarRueckzug).toBe(60)
+    expectAccepted(sent())
+  })
+
+  it('holds a value ABOVE the Alarmdruck back rather than wedging the document', async () => {
+    await open()
+    await type(rueckzug(), '150') // STATION runs alarmBar 100
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+    expect(screen.getByText(
+      appConfig.copy.admin.doctrine.alarmBarRueckzugInvalid.replace('{max}', '100'),
+    )).toBeTruthy()
+  })
+
+  it('refuses 0 — a stored zero removes the Rückzug alarm instead of falling back', async () => {
+    await open()
+    await type(rueckzug(), '0')
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+  })
+})
+
+describe('Alarmdruck — zero belongs to the public demo only', () => {
+  /** the middle box in the Druck group */
+  const alarm = () => nums()[4]
+  const rueckzug = () => nums()[5]
+
+  it('holds 0 back on an ordinary station', async () => {
+    await open()
+    await type(alarm(), '0')
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+    expect(screen.getByText(N.integerRange.replace('{min}', '1').replace('{max}', '300'))).toBeTruthy()
+  })
+
+  it('stores 0 on the public demo and disables the Rückzug line too', async () => {
+    apiGet.mockResolvedValueOnce({
+      ...structuredClone(STATION),
+      identity: { appName: 'KP Front Demo', demoMode: true },
+      doctrine: { ...structuredClone(STATION.doctrine), alarmBarRueckzug: 50 },
+    })
+    await open()
+    await type(alarm(), '0')
+    await settle()
+
+    expect(sent()?.doctrine).toMatchObject({ alarmBar: 0, alarmBarRueckzug: null })
+    expect(rueckzug().disabled).toBe(true)
+    expect(rueckzug().value).toBe('0')
+  })
+
+  it('clamps the Rückzug line when the working Alarmdruck is lowered below it', async () => {
+    await open()
+    await type(alarm(), '40')
+    await settle()
+
+    expect(sent()?.doctrine).toMatchObject({ alarmBar: 40, alarmBarRueckzug: 40 })
+    expectAccepted(sent())
+  })
+})
+
 describe('the air estimate — the two decimals with hard bounds', () => {
   /** cylinderLiters, estConsumptionLPerMin — the last two boxes on the page. */
-  const cylinder = () => nums()[9]
+  const cylinder = () => nums()[10]
 
   it('takes a 9-litre cylinder, which is the point of the field', async () => {
     await open()

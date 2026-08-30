@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import { AtemschutzAlarmHost } from './useAtemschutzAlarm'
 import { notify } from './alarm'
+import * as deploymentConfig from './deploymentConfig'
 import type { AtemschutzAlarmState } from './atemschutz'
 import type { Trupp } from '../types'
 
@@ -195,5 +196,17 @@ describe('AtemschutzAlarmHost · the überfällig line is written once per real 
     // …and staying overdue writes nothing more
     act(() => { vi.advanceTimersByTime(10 * 60_000) })
     expect(logAlarm).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not write passive visitors alarm crossings into the shared demo journal', () => {
+    const demo = vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
+    const logAlarm = vi.fn()
+    render(
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) })
+    expect(logAlarm).not.toHaveBeenCalled()
+    demo.mockRestore()
   })
 })

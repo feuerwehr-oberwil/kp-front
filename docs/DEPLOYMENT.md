@@ -1,40 +1,15 @@
 # DEPLOYMENT – self-hosting KP Front
 
-**Status:** Two supported paths, both tested: **docker-compose on a VPS** (this doc) and
-**Railway** (`railway.json`, one-click from the repo Dockerfile). Same image, same
+**Status:** Two supported paths, both tested: **docker-compose on a VPS** (§3) and
+**Railway** (`railway.json` + the repo Dockerfile – §3a). Same image, same
 auto-migrate-on-boot behaviour – pick by who runs the server. Decisions it encodes: Docker,
 auto-migrate on boot (D8), local-volume storage (D10), one-instance-per-station (D3),
 individual accounts (D5).
 
-> **Railway + non-root (learned the hard way, 2026-07-02):** the image runs as uid 10001, but
-> Railway mounts volumes **root-owned**, so the app can't write media and `/ready` correctly
-> fails the deploy. Set **`RAILWAY_RUN_UID=0`** on the service (documented Railway override –
-> the container then runs as root there, like any pre-non-root deploy). Compose self-hosters
-> keep the non-root user; fresh named volumes inherit the app user's ownership. Note also that
-> a failed Railway healthcheck did **not** keep the previous deployment serving – treat deploys
-> that change the runtime user or healthcheck as maintenance windows.
-
-```bash
-railway variable set RAILWAY_RUN_UID=0 --service <app-service>
-```
-
-Verify `GET /ready` after the deployment; both `database` and `storage` must report `ok`.
-
-> **What the committed `railway.json` sets, and why** (2026-08-08, after a 25-minute outage on
-> 0/1 replicas). `restartPolicyType: ALWAYS` – a station server has no successful exit, so a
-> clean shutdown must be restarted too; `ON_FAILURE` only covers a crash and left production
-> stopped. `numReplicas: 1` remains the supported topology: the local asset volume is not shared
-> replica-safe. Scheduler jobs themselves are protected by a PostgreSQL advisory-lock leader;
-> standby replicas retry every 10 seconds and take over after the leader connection dies, so a
-> transient overlap cannot double-fire Divera polling, push sweeps, resets or heartbeats.
-> `sleepApplication: false` – an app that sleeps is an app that
-> is not there when the pager goes off. `healthcheckTimeout: 300` because migrations run on boot
-> and a long history needs the room. **`region` is deliberately not in the file** – that one is
-> the deployer's choice, set it on the service.
->
-> Two things no committed file can do for you: a Railway setting only takes effect **after the
-> service redeploys**, and a restart policy nobody has tested is a belief – stop the container on
-> a non-production service once and confirm it comes back by itself.
+> **On Railway, read [§3a](#3a-railway-in-order) before you deploy anything.** Two of the
+> platform's defaults are wrong for this image – the volume mount path and the container user –
+> and both fail *before* the app serves a single request, so no screen this app owns can tell
+> you about it. §3a is the procedure in order; everything from §4 onwards applies to both paths.
 
 ---
 
@@ -109,7 +84,7 @@ Everything ships in the repo root: `docker-compose.yml`, `.env.example`, `deploy
 
 ```bash
 # 1. Get the compose file + templates (a tagged release is the safe choice, not main)
-git clone <repo> && cd kp-front
+git clone https://github.com/feuerwehr-oberwil/kp-front.git && cd kp-front
 git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release; pick an older tag if you prefer
 
 # 2. Configure secrets. Use the script – it generates all FOUR required values, and the
@@ -119,9 +94,9 @@ git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest releas
 #                           # note down the ADMIN_SECRET and SEED_PIN it prints – nothing shows them again
 #    …or ./scripts/setup.sh, which asks for the domain, the port and whether to schedule
 #    nightly backups, decides COOKIE_SECURE, APP_BIND, the tls profile and KP_FRONT_TAG from
-#    the answers, starts the stack, and then mints the Web Push pair and the two webhook
-#    secrets into the encrypted credential store (never into .env, which would lock those
-#    fields in /admin). That is the recommended first install – SETUP.md §1.
+#    the answers, starts the stack, and then mints the Web Push pair into the encrypted
+#    credential store (never into .env, which would lock it in /admin). Webhook secrets are
+#    chosen when the external alarm system is connected – SETUP.md §1.
 
 # 3a. Plain HTTP on APP_PORT (LAN / behind your own proxy). Pull + migrate + seed on boot (D8):
 docker compose up -d
@@ -228,6 +203,114 @@ from the incident role**: the `/admin` UI and admin-write API/CLI are unlocked w
 **`ADMIN_SECRET`** env var (not the editor PIN). If `ADMIN_SECRET` is unset the admin surface is
 disabled (fail-closed), so set it before you need to administer the station.
 
+## 3a. Railway, in order
+
+The other supported path. Railway builds this repository's `Dockerfile` and runs **one** service;
+the database and the asset volume are the platform's. Same image, same auto-migrate-on-boot, same
+one-station shape – `docker-compose.yml`, `.env` and `scripts/setup.sh` are the compose path only
+and Railway users can ignore all three. What is different is that two platform defaults do not fit
+this image, and both fail *before* uvicorn binds, so there is no `/ready`, no log page in the app
+and no error screen – only a service that keeps restarting.
+
+Do it in this order. Steps 3 and 4 are the ones people discover afterwards.
+
+1. **Create the service from the repository.** New project → *Deploy from GitHub repo* (or
+   `railway init` and `railway up` from a checkout). The committed `railway.json` already sets the
+   builder, the healthcheck and the restart policy – see *What `railway.json` sets* below. The one
+   thing it deliberately leaves to you is the **region**; pick it on the service.
+2. **Add Postgres to the same project** (New → *Database* → *PostgreSQL*) and reference it from the
+   app service: `DATABASE_URL=${{Postgres.DATABASE_URL}}`. There is no bundled `db` service here.
+3. **Attach a volume and mount it at `/mnt/data`.** Not optional, and not `/data`: the image bakes
+   `MEDIA_STORAGE_DIR=/mnt/data/storage` (`Dockerfile`), and that one directory holds the uploaded
+   plan PDFs, incident photos and voice memos, the reference blobs **and** the pre-migration dumps
+   (§5). Mounted anywhere else, the app writes into the container filesystem, which the next deploy
+   throws away.
+4. **Set `RAILWAY_RUN_UID=0` on the service, before the first deploy.**
+
+   ```bash
+   railway variable set RAILWAY_RUN_UID=0 --service <app-service>
+   ```
+
+   The image runs as uid 10001 (`Dockerfile` · `USER app`), and Railway mounts volumes
+   **root-owned**. The Dockerfile pre-creates `/mnt/data/storage` owned by the app user precisely
+   so an *empty* volume inherits that ownership, but Railway's mount lands on top of it, so the
+   app user cannot create a thing under `/mnt/data`. `RAILWAY_RUN_UID=0` is the documented
+   platform override that runs the container as root there; compose self-hosters keep the non-root
+   user and need none of this.
+
+   > ⚠️ **What this looks like when it is missing is a crash loop with no HTTP surface at all** –
+   > not a `/ready` that reports storage as broken. On a fresh database every migration is pending,
+   > so `backend/start.sh` enters the pre-migration-dump branch, tries `mkdir -p
+   > /mnt/data/storage/backups` as uid 10001, fails on the root-owned mount, and **aborts the boot
+   > deliberately** («cannot create backup dir …») rather than migrating an un-backed-up database.
+   > That happens before `exec uvicorn`, so nothing ever listens, the healthcheck has nothing to
+   > probe, and the deploy dies on `healthcheckTimeout`. The reason is one line in the **deploy
+   > logs** and nowhere else. The restart-branch symptom – a running app whose `/ready` reports
+   > `storage: error` – is the *other* shape of the same cause, and it only appears once there is
+   > nothing left to migrate.
+   >
+   > `ALLOW_MIGRATION_WITHOUT_BACKUP=1` silences the abort and is the wrong fix here: it trades a
+   > loud first boot for a station that has no media storage and no migration safety net. Fix the
+   > mount and the uid.
+5. **Set the variables.** Four are required – the same four the compose path generates into `.env`,
+   for the same reasons – and Railway counts as production (auto-detected from its own injected
+   variables, `backend/app/config.py` · `is_production`), so the two production rules apply
+   in full: `SECRET_KEY` is mandatory and `SEED_PIN` is mandatory while seeding is on.
+
+   | Variable | Value | Missing it means |
+   | --- | --- | --- |
+   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | no database, nothing boots |
+   | `SECRET_KEY` | `openssl rand -hex 32` | **refuses to boot.** Keep it stable – it signs JWTs, peppers PINs and seals the credential store (§6) |
+   | `SEED_PIN` | six digits, not `000000`/`123456` | **refuses to boot** while `SEED_DATABASE` is on (the seed file's PIN is public) |
+   | `ADMIN_SECRET` | `openssl rand -hex 24` | everything runs and `/admin` is disabled, fail-closed, with nothing saying so |
+
+   ```bash
+   railway variable set SECRET_KEY="$(openssl rand -hex 32)" --service <app-service>
+   railway variable set ADMIN_SECRET="$(openssl rand -hex 24)" --service <app-service>
+   railway variable set SEED_PIN=<six digits> --service <app-service>
+   ```
+
+   Nothing else is required. `PORT` is injected by Railway and read by `start.sh`;
+   `ENVIRONMENT`/`APP_ENV` are unnecessary because Railway is detected; `MEDIA_STORAGE_DIR` is
+   already correct as long as step 3 was done. Optional but usually wanted: `PUBLIC_URL` (the
+   deployment's public origin, so outbound webhooks can carry absolute links). **Integration
+   credentials do not belong here** – Divera, Traccar, Web Push, STT, CARTO, the webhook secrets
+   and the monitor ping go into `/admin` → Zugangsdaten, encrypted in the deployment's own
+   database and changeable without a redeploy (§4).
+
+6. **Deploy, then verify two URLs, not one.**
+
+   ```bash
+   curl -s https://<service>.up.railway.app/ready          # {"status":"ok","database":"ok","storage":"ok"}
+   curl -s https://<service>.up.railway.app/api/auth/roster # a non-empty list of accounts
+   ```
+
+   `/ready` green says the database is reachable and the volume is writable. It says **nothing**
+   about whether anybody can log in – that is the roster, and an empty `[]` there means seeding
+   never ran (§8 and [`SETUP.md` §1](SETUP.md)). Then open the app, log in as `fu` with your
+   `SEED_PIN`, and continue at `/admin` exactly like a compose station ([`SETUP.md` §3](SETUP.md)).
+
+> **What `railway.json` sets, and why** (2026-08-08, after a 25-minute outage on 0/1 replicas).
+> `restartPolicyType: ALWAYS` – a station server has no successful exit, so a clean shutdown must
+> be restarted too; `ON_FAILURE` only covers a crash and left production stopped. `numReplicas: 1`
+> remains the supported topology: the local asset volume is not shared replica-safe. Scheduler jobs
+> themselves are protected by a PostgreSQL advisory-lock leader; standby replicas retry every 10
+> seconds and take over after the leader connection dies, so a transient overlap cannot double-fire
+> Divera polling, push sweeps, resets or heartbeats. `sleepApplication: false` – an app that sleeps
+> is an app that is not there when the pager goes off. `healthcheckTimeout: 300` because migrations
+> run on boot and a long history needs the room. **`region` is deliberately not in the file** –
+> that one is the deployer's choice, set it on the service.
+>
+> Two things no committed file can do for you: a Railway setting only takes effect **after the
+> service redeploys**, and a restart policy nobody has tested is a belief – stop the container on
+> a non-production service once and confirm it comes back by itself.
+
+⚠️ **A failed Railway healthcheck does not keep the previous deployment serving.** Treat any deploy
+that changes the runtime user, the volume mount or the healthcheck as a maintenance window. And on
+Railway the database is managed, so the backup story is §6's Railway paragraph – scheduled
+`pg_dump` against `DATABASE_PUBLIC_URL` from a machine you control, plus the automatic
+pre-migration dumps on the volume.
+
 ## 4. Configuration split
 
 | What | Where | Who |
@@ -247,8 +330,9 @@ automatically. For a managed Postgres, set `DATABASE_URL` directly instead. Set 
 
 ### Integration credentials are no longer an `.env`-only story
 
-Sixteen of the optional variables in `.env.example` – every Divera, Traccar, Web Push,
-speech-to-text and webhook setting, plus `PRINT_AGENT_SECRET` and `HEALTHCHECK_PING_URL` – can
+Seventeen of the optional variables in `.env.example` – every Divera, Traccar, Web Push,
+speech-to-text and webhook setting, plus `CARTO_API_KEY`, `PRINT_AGENT_SECRET` and
+`HEALTHCHECK_PING_URL` – can
 instead be set at `/admin` → **Zugangsdaten**, stored encrypted in this deployment's own database
 and applied **without a restart**. `SETUP.md` §5 is the operator's version, including which
 variables deliberately stay env-only and why; `API.md` has the endpoints.
@@ -260,9 +344,10 @@ Three things that matter at deploy time:
   server-set and refuses to save (409). Filling a line in is how you deliberately keep a value out
   of the admin UI's reach; leaving one blank is not "off", it is "whoever administers this station
   decides".
-- **`./scripts/setup.sh` mints the two webhook secrets and the VAPID pair into that store**, not
-  into `.env` (`SETUP.md` §1). `./scripts/setup.sh --credentials` re-runs that one step against an
-  already-installed deployment.
+- **`./scripts/setup.sh` mints the VAPID pair into that store**, not into `.env` (`SETUP.md` §1).
+  `./scripts/setup.sh --credentials` re-runs that one step against an already-installed
+  deployment. Webhook secrets are set when the external alarm system is connected because they
+  are write-only and the same freshly chosen value must be given to both sides.
 - **Rotating `SECRET_KEY` makes every stored credential unreadable** on top of breaking every
   PIN – §6.
 
@@ -313,7 +398,17 @@ is fixes only and always safe; a **MINOR** bump adds features and migrates autom
   older than the server (the client major is baked into the image; a managed host that upgraded
   Postgres under you does this). The container will say which. Override with
   `ALLOW_MIGRATION_WITHOUT_BACKUP=1` only when you have a backup by other means – and take one
-  first (§6).
+  first (§6). ⚠️ On compose that variable has to be handed to the container on the command line;
+  `docker-compose.yml` does not name it, so a line in `.env` reaches interpolation and nothing
+  else:
+
+  ```bash
+  docker compose run --rm -e ALLOW_MIGRATION_WITHOUT_BACKUP=1 app   # same start.sh: migrates, then
+                                                                    # serves in the foreground – Ctrl-C
+  docker compose up -d                                              # …once the migration has landed
+  ```
+
+  On Railway it is an ordinary service variable – set it, deploy, then remove it again.
 - **The whole batch of pending migrations runs in ONE transaction**, so there is no
   half-migrated schema to clean up: either they all land or none do.
 - **Rollback:** set `KP_FRONT_TAG` to the previous version and re-run the two commands.
@@ -513,9 +608,24 @@ producing files. It prints the command that fixes what it finds. It is the same 
   KP Front expects runtime GeoJSON positions in WGS84 (`EPSG:4326`). Convert LV95/LV03 source data
   during import; do not relabel Swiss projected coordinates as latitude/longitude.
 - **Everyone is logged out or PINs stop working after restart:** `SECRET_KEY` changed. Restore the
-  previous stable value if possible; otherwise reset user PINs from an admin/seed path. Check
-  `/admin` → Zugangsdaten in the same pass: the stored credentials are encrypted under a key
-  derived from that same value, and they will be showing «unlesbar» (§6).
+  previous stable value if possible. If it is gone for good, the way back is
+  **`python -m app.reset_roster`** – it rewrites every user in the seed file with a PIN you pass,
+  and deactivates everyone not in it, so run it with the *target* deployment's `SECRET_KEY` and
+  `DATABASE_URL` (`CONFIGURATION.md` §9g has the exact invocation and the caveats). On a
+  Docker-only host it needs no toolchain either:
+  `docker compose exec app uv run python -m app.reset_roster`. Check `/admin` → Zugangsdaten in
+  the same pass: the stored credentials are encrypted under a key derived from that same value,
+  and they will be showing «unlesbar» (§6).
+- **`ADMIN_SECRET` is lost – nobody can open `/admin`:** this one is **not** a
+  never-rotate secret, and it is the exception worth knowing. It encrypts nothing and signs
+  nothing; it is simply the value the admin login is compared against. Put a new one in `.env`
+  (`openssl rand -hex 24`, ≥16 chars) and restart the app – `docker compose up -d`, or set the
+  variable on the Railway service, which redeploys. Nothing else is affected: no PIN, no stored
+  credential, no config version, no incident. Existing admin sessions are revoked immediately:
+  each admin JWT carries a fingerprint of the current `ADMIN_SECRET`, and every protected request
+  checks it (`backend/app/auth/security.py` · `admin_secret_fingerprint`). A browser that was
+  already logged in is sent back to the admin login on its next request. (Compare `SECRET_KEY`
+  above, where the same move is an outage.)
 - **Migration failure on boot.** The app never finishes starting, so nothing it serves can help
   you – this is a terminal procedure by definition. In order:
 

@@ -240,9 +240,9 @@
         <div class="body">
           <p class="tag">Log</p>
           <h3>Everything is in the log.</h3>
-          <p>Type it, or simply speak it – voice memos turn into text in the journal by
-            themselves. The log is only ever added to, never rewritten – corrections are made
-            with new entries, not with an eraser. That is what keeps the incident on record.</p>
+          <p>Type it, or simply speak it – when a transcription service is configured, voice
+            memos can be turned into text; otherwise they stay as audio in the log. The log is
+            only ever added to, never rewritten – corrections use new entries, not an eraser.</p>
         </div>
       </article>
       <article class="entry">
@@ -312,7 +312,7 @@
         <img src="../shots/verlauf.webp" alt="Log: chronological entries next to the map" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Log</div>
-          <div class="cap-s">Running documentation of everything that matters – voice memos turn into text by themselves</div>
+          <div class="cap-s">Running documentation of everything that matters – voice memos can become text with a configured transcription service</div>
         </figcaption>
       </figure>
       <figure class="shot">
@@ -506,9 +506,9 @@
       </div>
       <div class="faq-item">
         <h3>Who owns the data?</h3>
-        <p>You do. Every fire brigade runs its own KP Front – on its own machine at the station
-          or in the cloud. You decide where maps, plans and incident data live; nothing goes to a
-          vendor or to third parties.</p>
+        <p>You do. Maps, plans and incident data live on your own installation. Map and address
+          services receive only the location being requested; other external services run only
+          when you configure them. Nothing is sent automatically to a vendor or the maintainer.</p>
       </div>
       <div class="faq-item">
         <h3>What does it cost?</h3>
@@ -518,11 +518,10 @@
       </div>
       <div class="faq-item">
         <h3>What does it take to run?</h3>
-        <p>Less than most people assume. A small mini PC or server at the station is enough, and
-          setting it up takes a few hours. After that the system largely looks after itself, and
-          updates are one command. You need somebody to set it up once – in the fire brigade, at
-          the municipality, or a friendly IT contact. And if you have nobody: get in touch, we
-          will help you set it up.</p>
+        <p>A small mini PC or server at the station is enough. Setup, updates and backups need
+          someone comfortable with Docker and the command line – in the brigade, municipality, or
+          a friendly IT contact. The guide and admin area lead through setup. We can answer general
+          questions; station data and operation remain your responsibility.</p>
       </div>
       <div class="faq-item">
         <h3>Can we adapt it to how we work?</h3>
@@ -540,8 +539,8 @@
       <div class="faq-item">
         <h3>How do we start?</h3>
         <p>With the <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">demo</a>,
-          no sign-up – Musterdorf is already on fire. Then try it at an exercise. And if it
-          fits: get in touch, we will help you set it up.</p>
+          no sign-up – Musterdorf is already on fire. Then try it at an exercise. If it fits, the
+          <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md" target="_blank" rel="noopener">setup guide</a> leads to your own installation.</p>
       </div>
     </div>
   </section>

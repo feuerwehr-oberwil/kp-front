@@ -23,6 +23,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import audit
+from .config import settings
 from .geocode import geocode
 from .models import DeploymentConfig, Incident
 from .schemas import AlarmsConfig, DeploymentConfigIn, load_stored_config
@@ -85,9 +86,13 @@ async def get_alarms_config(db: AsyncSession) -> AlarmsConfig:
 
 
 async def is_demo_deployment(db: AsyncSession) -> bool:
-    """True on the public demo (deployment config `identity.demoMode`). Single source of truth —
-    the same flag the frontend reads — so no separate env var. Used to block creating NEW incidents
-    while leaving edits to the existing demo incident fully open."""
+    """True on the public demo, even if a stale config publish cleared its display flag.
+
+    The reset schedule is the robust server identity; `identity.demoMode` is also accepted so a
+    local/demo-configured deployment gets the same guards without running an automatic reset.
+    """
+    if settings.is_public_demo:
+        return True
     identity = (await get_config_model(db)).identity
     return bool(identity and identity.demoMode)
 

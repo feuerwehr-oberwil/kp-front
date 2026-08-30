@@ -97,7 +97,7 @@
         "time": "03:40",
         "tag": "Journal",
         "h3": "Tout est dans le journal.",
-        "p": "Écrire, ou simplement parler – les notes vocales deviennent automatiquement du texte\n            dans le journal. Le journal ne fait que s’allonger, il ne se réécrit jamais : on\n            corrige par une nouvelle entrée, pas à la gomme. L’intervention reste ainsi\n            documentée."
+        "p": "Écrire, ou simplement parler – lorsqu’un service de transcription est configuré,\n            les notes vocales peuvent devenir du texte ; sinon elles restent en audio dans le\n            journal. Le journal ne fait que s’allonger : on corrige par une nouvelle entrée."
       },
       {
         "time": "04:30",
@@ -143,7 +143,7 @@
       {
         "alt": "Journal : entrées chronologiques à côté de la carte",
         "title": "Journal",
-        "sub": "Documentation continue de tous les événements importants – les notes vocales deviennent du texte"
+        "sub": "Documentation continue de tous les événements importants – un service de transcription configuré peut convertir les notes vocales en texte"
       },
       {
         "alt": "Présences : liste de l’effectif avec les heures d’arrivée",
@@ -308,7 +308,7 @@
       },
       {
         "q": "À qui appartiennent les données ?",
-        "a": "À vous. Chaque corps exploite son propre KP Front – sur sa propre machine à la caserne ou\n          dans le cloud. Vous décidez où se trouvent les cartes, les plans et les données\n          d’intervention ; rien ne part chez un fabricant ou chez des tiers."
+        "a": "À vous. Les cartes, plans et données d’intervention restent sur votre propre\n          installation. Les services de carte et d’adresse ne reçoivent que la position demandée ;\n          les autres services externes ne fonctionnent que si vous les configurez. Rien n’est\n          envoyé automatiquement au fabricant ou au mainteneur."
       },
       {
         "q": "Combien cela coûte-t-il ?",
@@ -316,7 +316,7 @@
       },
       {
         "q": "Que faut-il pour l’exploiter ?",
-        "a": "Moins qu’on ne le croit. Un petit mini-PC ou serveur à la caserne suffit, l’installation\n          prend quelques heures. Ensuite, le système tourne largement tout seul, et les mises à\n          jour tiennent en un geste. Il faut quelqu’un qui l’installe une fois – dans le corps, à\n          la commune, ou une connaissance de l’informatique. Et si vous n’avez personne :\n          écrivez-nous, nous aidons à l’installation."
+        "a": "Un petit mini-PC ou serveur à la caserne suffit. L’installation, les mises à jour et\n          les sauvegardes demandent une personne à l’aise avec Docker et la ligne de commande –\n          dans le corps, à la commune ou une connaissance informatique. Le guide et\n          l’administration accompagnent la mise en place. Les données et l’exploitation restent\n          sous votre responsabilité."
       },
       {
         "q": "Peut-on l’adapter à nos procédures ?",
@@ -328,7 +328,7 @@
       },
       {
         "q": "Comment commencer ?",
-        "a": "Par la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans inscription – à Musterdorf, le feu est déjà déclaré. Ensuite, l’essayer à un\n          exercice. Et si cela convient : écrivez-nous, nous aidons à l’installation."
+        "a": "Par la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans inscription – à Musterdorf, le feu est déjà déclaré. Ensuite, l’essayer à un\n          exercice. Si cela convient, le <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guide d’installation</a> mène à votre propre instance."
       }
     ]
   },

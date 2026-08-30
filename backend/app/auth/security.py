@@ -84,11 +84,28 @@ def create_refresh_token(data: dict) -> str:
     return _encode(data, token_type="refresh", expires=timedelta(days=settings.refresh_token_expire_days))  # noqa: S106
 
 
+def _admin_secret_fingerprint() -> str:
+    """Opaque version of ADMIN_SECRET, bound to SECRET_KEY and safe to carry in a JWT."""
+    return hmac.new(
+        settings.secret_key.encode("utf-8"),
+        settings.admin_secret.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def admin_token_is_current(payload: dict) -> bool:
+    """Whether an admin JWT was minted under the currently configured ADMIN_SECRET."""
+    if payload.get("type") != "admin" or payload.get("scope") != "admin" or not settings.admin_secret:
+        return False
+    fingerprint = payload.get("admin_key")
+    return isinstance(fingerprint, str) and hmac.compare_digest(fingerprint, _admin_secret_fingerprint())
+
+
 def create_admin_token() -> str:
     """Mint a deployment-admin session token. Carries no user identity — admin authority
     is the shared ADMIN_SECRET, not the incident role (see deps.get_current_admin)."""
     return _encode(
-        {"scope": "admin"},
+        {"scope": "admin", "admin_key": _admin_secret_fingerprint()},
         token_type="admin",  # noqa: S106
         expires=timedelta(minutes=settings.admin_session_expire_minutes),
     )

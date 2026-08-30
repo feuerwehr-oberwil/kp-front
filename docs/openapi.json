@@ -10551,7 +10551,9 @@
           "alarmBar": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 300.0,
+                "minimum": 0.0
               },
               {
                 "type": "null"

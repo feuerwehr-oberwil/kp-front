@@ -12,6 +12,8 @@ from .schemas import ConfigIntegrations, ProviderCapability, ProviderRegistratio
 
 def integrations() -> ConfigIntegrations:
     divera = bool(credential("divera_access_key"))
+    alarm_webhook = bool(credential("alarm_webhook_secret"))
+    alarm_provider = "divera" if divera else "webhook" if alarm_webhook else None
     traccar = bool(credential("traccar_url") and credential("traccar_email") and credential("traccar_password"))
     return ConfigIntegrations(
         diveraConfigured=divera,
@@ -24,9 +26,15 @@ def integrations() -> ConfigIntegrations:
             capabilities=["pull", "preview", "sync"] if divera else [],
         ),
         alarms=ProviderCapability(
-            provider="divera" if divera else None,
-            configured=divera,
-            capabilities=["pool", "refresh", "webhook", "take"] if divera else ["manual", "generic-webhook"],
+            provider=alarm_provider,
+            configured=divera or alarm_webhook,
+            capabilities=(
+                ["pool", "refresh", "webhook", "take"]
+                if divera
+                else ["generic-webhook", "auto-open", "lifecycle"]
+                if alarm_webhook
+                else ["manual"]
+            ),
         ),
         vehicles=ProviderCapability(
             provider="traccar" if traccar else None,
@@ -48,13 +56,9 @@ def integrations() -> ConfigIntegrations:
                 active=divera,
                 capabilities=["pool", "refresh", "webhook", "take"],
             ),
-            # FireHub (Tercero) needs no server-side key: the station points its webhook at us
-            # and authenticates with the shared alarm secret, so there is nothing in the
-            # environment to key `configured`/`active` off — it is a payload adapter over the
-            # generic intake path (start → auto-open, end → stamp Einsatzende), available once a
-            # webhook secret is set. Listed so the alarms domain reads as a choice of dispatch
-            # systems, not just Divera. No `pool` capability (unlike KP Rück's registry entry):
-            # KP Front auto-opens on arrival rather than pooling.
+            # The shared alarm secret enables every webhook adapter, so it cannot prove that
+            # this station actually connected FireHub. Keep the adapter discoverable without
+            # claiming a provider-specific setup or an active connection.
             ProviderRegistration(
                 provider="firehub",
                 domain="alarms",

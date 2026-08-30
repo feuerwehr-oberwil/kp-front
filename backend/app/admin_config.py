@@ -33,7 +33,10 @@ Behaviour:
 - ``load`` persists the NORMALIZED document (defaults filled in) as ``config_json`` so GET
   round-trips consistently. Idempotent; ``updated_by`` is left NULL (out-of-band admin load,
   not a logged-in editor PUT).
-- ``schema``/``example``/``validate``/``diff`` against a file need NO database connection.
+- ``schema``/``example``/``validate`` need NO database connection (``diff`` reads the stored row).
+- Every model is ``extra="ignore"`` — which keeps an old deployment able to read a new file, and
+  makes a typo indistinguishable from an intent. So ``validate``/``load``/``push`` name the keys
+  the schema DROPPED, with a did-you-mean: «ignored: identitiy — did you mean identity?».
 - ``alarmKeywords`` — the station's own alarm vocabulary — is the one block that replaces a
   shipped default rather than filling in a blank, so validate/diff/load each print a line
   naming which vocabulary the file puts in charge. It is NOT in ``example``: the shipped
@@ -43,18 +46,20 @@ Behaviour:
 
 import argparse
 import asyncio
+import difflib
 import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args, get_origin
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 
 from .config_history import emptied_sections, keep_previous
 from .database import async_session_maker
 from .models import DeploymentConfig, DeploymentConfigHistory
+from .ranks import SWISS_DEFAULT_RANKS
 from .schemas import DeploymentConfigIn
 
 # A representative, schema-valid example. Mirrors CONFIGURATION.md §1; edit to taste.
@@ -73,37 +78,22 @@ EXAMPLE_CONFIG: dict[str, Any] = {
             "bboxLv95": "2606000,1258000,2614000,1266000",
         },
     },
-    "referenceLayers": [
-        {
-            "id": "bl-hochwasser",
-            "group": "Gefahren",
-            "label": "Hochwasser",
-            "icon": "drop",
-            "kind": "wms",
-            "tiles": [
-                "https://geowms.example.ch/?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap"
-                "&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857&WIDTH=256&HEIGHT=256"
-                "&LAYERS=hochwasser&BBOX={bbox-epsg-3857}"
-            ],
-            "opacity": 65,
-            "attribution": "© Geodaten Kanton …",
-        },
-        {
-            "id": "hydrant",
-            "group": "Wasser",
-            "label": "Hydranten",
-            "icon": "drop",
-            "kind": "geojson",
-            "geojson": "hydranten.geojson",
-            "vectorKind": "point",
-            "symbol": "SI Ueberflurhydrant",
-            "color": "#0f52b5",
-        },
-    ],
+    # ⚠️ NO `referenceLayers` here, deliberately. It is the one section a config FILE must never
+    # carry: the layers are written at RUNTIME by `admin_geodata` (see `_RUNTIME_SECTIONS`), and
+    # they are only carried over when the incoming file is SILENT about them. An example block
+    # left in the file therefore REPLACES a station's real hydrants on every push — and because
+    # the section then has content, neither `emptied_sections` nor `_carry_runtime_sections`
+    # says a word. Reference layers are authored in a geodata manifest, not here.
+    #
     # Objektplan modules: tile label/order (M1, 2/3, …) + the importer's filename parsing rule
-    # (`match` regex). One config drives both the app's plan tiles and `import_einsatzplaene`.
-    # `combinedWith` = a combined sheet that fills several slots; `family` = generative (the
-    # `match` capture becomes a sub-slot, e.g. "Modul 5 - Wasser" → modul5-wasser).
+    # (`match` regex). `combinedWith` = a combined sheet that fills several slots; `family` =
+    # generative (the `match` capture becomes a sub-slot, e.g. "Modul 5 - Wasser" → modul5-wasser).
+    #
+    # ⚠️ `match` is IMPORTER-ONLY. Nothing in this repo reads it: the app derives its plan tiles
+    # from id/code/title/order/viewer alone (src/lib/deploymentConfig · modulesFromConfig), and
+    # the regex is consumed by the private `scripts/import_einsatzplaene.py` when it decides which
+    # module a scanned PDF's FILENAME belongs to. A station that imports its Objektpläne by hand
+    # can leave every `match` exactly as it stands here.
     "modules": [
         {
             "id": "modul1",
@@ -143,7 +133,11 @@ EXAMPLE_CONFIG: dict[str, Any] = {
             "title": "Spezialpläne",
             "order": 5,
             "family": True,
-            "match": r"modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+))?",
+            # ⚠️ The sub-slot capture takes a TRAILING NUMBER, so «Modul 5 - Wasser 1» and
+            # «Modul 5 - Wasser 2» are two plans rather than one overwriting the other. Must stay
+            # identical to DEFAULT_MODULES in src/lib/deploymentConfig.ts — without `(?:\s+\d+)?`
+            # both sheets collapse into the single `modul5-wasser` slot (tests/test_config_doctrine).
+            "match": r"modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+(?:\s+\d+)?))?",
         },
         {"id": "modul4", "code": "M4", "title": "Spezialplan", "order": 7, "match": r"modul\s*4"},
     ],
@@ -183,22 +177,10 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         # "last-first" = «Müller Hans» (the default, and what Divera delivers); "first-last"
         # for a station whose lists read the other way round.
         "nameOrder": "last-first",
-        # Ordered Dienstgrade, most senior first (position = seniority). Generic Swiss militia
-        # fire-service set — a station overrides this to match its own ranks. `tier` drives the
-        # "nur Offiziere" picker filter + Anwesenheit grouping. Keep in sync with the frontend
-        # fallback in src/lib/rank.ts (SWISS_DEFAULT_RANKS).
-        "ranks": [
-            {"key": "kdt", "label": "Kommandant", "abbr": "Kdt", "tier": "officer"},
-            {"key": "maj", "label": "Major", "abbr": "Maj", "tier": "officer"},
-            {"key": "hptm", "label": "Hauptmann", "abbr": "Hptm", "tier": "officer"},
-            {"key": "oblt", "label": "Oberleutnant", "abbr": "Oblt", "tier": "officer"},
-            {"key": "lt", "label": "Leutnant", "abbr": "Lt", "tier": "officer"},
-            {"key": "fw", "label": "Feldweibel", "abbr": "Fw", "tier": "nco"},
-            {"key": "wm", "label": "Wachtmeister", "abbr": "Wm", "tier": "nco"},
-            {"key": "kpl", "label": "Korporal", "abbr": "Kpl", "tier": "nco"},
-            {"key": "gfr", "label": "Gefreiter", "abbr": "Gfr", "tier": "crew"},
-            {"key": "fwm", "label": "Feuerwehrmann", "abbr": "Fwm", "tier": "crew"},
-        ],
+        # Ordered Dienstgrade, most senior first (position = seniority). A station overrides this
+        # to match its own ranks. The list itself lives in app/ranks.py because it is also the
+        # RUNTIME fallback (personnel · load_roster_ranks_info) and the twin of src/lib/rank.ts.
+        "ranks": [dict(r) for r in SWISS_DEFAULT_RANKS],
     },
     "mittel": {
         # Station catalogue of materials/equipment crews use up OR deploy. `unit` is the default
@@ -251,7 +233,9 @@ EXAMPLE_CONFIG: dict[str, Any] = {
 }
 
 
-def _push(doc_json: dict[str, Any], base: str, admin_secret: str, dry_run: bool, force: bool) -> int:
+def _push(
+    raw: dict[str, Any], doc_json: dict[str, Any], base: str, admin_secret: str, dry_run: bool, force: bool
+) -> int:
     """Publish a config file to a RUNNING deployment over its HTTP API.
 
     The other three station CLIs (`admin_geodata`, `admin_objects`, `admin_checklists`) already
@@ -303,9 +287,10 @@ def _push(doc_json: dict[str, Any], base: str, admin_secret: str, dry_run: bool,
             return 2
 
         if dry_run:
-            print(f"OK (dry-run): authenticated to {base}; would write {_summary(doc_json)}. Nothing written.")
+            print(f"OK (dry-run): authenticated to {base}; would change {_summary(doc_json, remote)}. Nothing written.")
             if carried:
                 print(f"    would keep from the deployment (runtime-written): {', '.join(carried)}")
+            _report_notes(raw, doc_json)
             return 0
 
         headers = {"If-Match": version} if version else {}
@@ -322,6 +307,7 @@ def _push(doc_json: dict[str, Any], base: str, admin_secret: str, dry_run: bool,
     if carried:
         print(f"    kept from the deployment (runtime-written, not in the file): {', '.join(carried)}")
     print(f"    {_vocabulary_line(doc_json)}")
+    _report_notes(raw, doc_json)
     return 0
 
 
@@ -340,8 +326,13 @@ def _format_validation_error(path: Path, err: ValidationError) -> str:
     return "\n".join(lines)
 
 
-def _read_and_validate(path: Path) -> dict[str, Any]:
-    """Read + parse + validate a config file. Returns the NORMALIZED document. Exits on error."""
+def _read_and_validate(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Read + parse + validate a config file. Exits on error.
+
+    Returns ``(raw, normalized)`` — the document as WRITTEN and the document as the schema
+    understood it. The raw half is what makes «this key was ignored» reportable at all: by the
+    time pydantic is done, a misspelled key is simply gone (see :func:`_ignored_keys`).
+    """
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as e:
@@ -356,7 +347,7 @@ def _read_and_validate(path: Path) -> dict[str, Any]:
         doc = DeploymentConfigIn(**data)
     except ValidationError as e:
         _fail(_format_validation_error(path, e))
-    return doc.model_dump(mode="json")
+    return data, doc.model_dump(mode="json")
 
 
 def _diff(old: dict[str, Any] | None, new: dict[str, Any], prefix: str = "") -> list[str]:
@@ -378,16 +369,109 @@ def _diff(old: dict[str, Any] | None, new: dict[str, Any], prefix: str = "") -> 
     return out
 
 
-def _summary(doc_json: dict[str, Any]) -> str:
-    """Concise one-liner: which top-level keys carry non-empty content."""
-    set_keys = []
-    for key, val in doc_json.items():
-        if isinstance(val, dict):
-            if any(v not in (None, {}, [], "") for v in val.values()):
-                set_keys.append(key)
-        elif val not in (None, [], {}, ""):
-            set_keys.append(key)
+def _summary(doc_json: dict[str, Any], baseline: dict[str, Any] | None = None) -> str:
+    """Concise one-liner: which top-level sections differ from the comparison document.
+
+    Validation compares against schema defaults. A load/push dry-run compares against what is
+    stored, because a file normalized from `{}` still carries defaults and may reset a station's
+    non-default values. The summary must name that change rather than reassuring with «empty».
+    """
+    comparison = baseline if baseline is not None else DeploymentConfigIn().model_dump(mode="json")
+    set_keys = [key for key, val in doc_json.items() if val != comparison.get(key)]
     return ", ".join(set_keys) if set_keys else "(none — empty config)"
+
+
+def _object_fields(annotation: Any) -> set[str] | None:
+    """Field names of a section that is itself an OBJECT, else None (lists and scalars).
+
+    Used to check a file's second level. Lists return None on purpose: their entries are
+    ``extra="ignore"`` too, but a typo inside one of fifty layer entries is a different (and much
+    noisier) report than a misspelled section.
+    """
+    if get_origin(annotation) is list:
+        return None
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return set(annotation.model_fields)
+    for arg in get_args(annotation):  # `X | None`
+        if isinstance(arg, type) and issubclass(arg, BaseModel):
+            return set(arg.model_fields)
+    return None
+
+
+def _did_you_mean(name: str, candidates: set[str]) -> str | None:
+    """The one obviously-intended key, or None. Deliberately strict: a wrong suggestion is worse
+    than none, because it reads as confirmation that the file is nearly right."""
+    match = difflib.get_close_matches(name, sorted(candidates), n=1, cutoff=0.7)
+    return match[0] if match else None
+
+
+def _ignored_keys(raw: dict[str, Any]) -> list[str]:
+    """Keys in the FILE that the schema silently drops — ``ignored: identitiy → identity?``.
+
+    Every config model is ``extra="ignore"``, which is what keeps an older deployment able to read
+    a newer file. The price is that a typo is indistinguishable from an intent: ``identitiy`` /
+    ``map.defaultview`` / ``doctrin`` all validate clean and configure NOTHING, and the operator's
+    only feedback was an «OK» . Checked two levels deep — top-level sections and their fields —
+    which is where the config's meaning lives.
+    """
+    known = {name: _object_fields(f.annotation) for name, f in DeploymentConfigIn.model_fields.items()}
+    out: list[str] = []
+    for key, val in raw.items():
+        if key not in known:
+            suggestion = _did_you_mean(key, set(known))
+            out.append(f"{key}{f' — did you mean {suggestion}?' if suggestion else ''}")
+            continue
+        subs = known[key]
+        if subs is None or not isinstance(val, dict):
+            continue
+        for sub in val:
+            if sub in subs:
+                continue
+            suggestion = _did_you_mean(sub, subs)
+            out.append(f"{key}.{sub}{f' — did you mean {key}.{suggestion}?' if suggestion else ''}")
+    return out
+
+
+def _layer_warnings(doc_json: dict[str, Any]) -> list[str]:
+    """Reference layers whose ``geojson`` source cannot resolve on the deployment.
+
+    The frontend hands the string straight to MapLibre as a URL (src/lib/deploymentConfig ·
+    mapReferenceLayers), so only two shapes work: the reference store this deployment serves
+    itself, ``/api/reference/geo:<slug>``, or an absolute ``https://`` source. A bare
+    ``hydranten.geojson`` resolves against the app's own routes and 404s — the layer appears in
+    the Ebenen panel and simply draws nothing.
+
+    Advisory, never fatal, and deliberately NOT a schema rule: ``referenceLayers`` is written by
+    the geodata push and the stored documents of running stations are never re-validated, so a
+    hard constraint here would turn a station's existing config into an unloadable one.
+    """
+    out: list[str] = []
+    for layer in doc_json.get("referenceLayers") or []:
+        if not isinstance(layer, dict):
+            continue
+        url = layer.get("geojson")
+        if not isinstance(url, str) or not url:
+            continue
+        if url.startswith(("/api/reference/geo:", "https://")):
+            continue
+        out.append(
+            f"referenceLayer {layer.get('id')!r}: geojson {url!r} is neither "
+            "«/api/reference/geo:<slug>» (loaded by admin_geodata) nor an absolute https:// URL — "
+            "the layer will draw nothing"
+        )
+    return out
+
+
+def _report_notes(raw: dict[str, Any], doc_json: dict[str, Any]) -> None:
+    """Print the advisory lines every write path owes the operator: keys the schema dropped, and
+    reference layers that cannot resolve. Indented under the command's own OK/REFUSED line."""
+    ignored = _ignored_keys(raw)
+    if ignored:
+        print(f"    ⚠️ {len(ignored)} key(s) IGNORED — the schema keeps only what it knows:")
+        for line in ignored:
+            print(f"       ignored: {line}")
+    for warning in _layer_warnings(doc_json):
+        print(f"    ⚠️ {warning}")
 
 
 def _vocabulary_line(doc_json: dict[str, Any]) -> str:
@@ -580,30 +664,41 @@ async def _amain(argv: list[str]) -> int:
         print(json.dumps(EXAMPLE_CONFIG, indent=2, ensure_ascii=False))
         return 0
     if args.cmd == "validate":
-        doc_json = _read_and_validate(Path(args.file))
+        raw, doc_json = _read_and_validate(Path(args.file))
         print(f"OK: {args.file} is valid. Top-level keys set: {_summary(doc_json)}")
         print(f"    {_vocabulary_line(doc_json)}")
+        _report_notes(raw, doc_json)
         return 0
     if args.cmd == "diff":
-        doc_json = _read_and_validate(Path(args.file))
+        _, doc_json = _read_and_validate(Path(args.file))
         stored = await _show()
+        carried = _carry_runtime_sections(stored, doc_json)
         changes = _diff(stored, doc_json)
         if not changes:
             print("No changes — the file matches the stored config.")
         else:
             print(f"{len(changes)} change(s) vs stored config:")
             print("\n".join(changes))
+        if carried:
+            print(f"    kept from the stored config (runtime-written): {', '.join(carried)}")
         print(_vocabulary_line(doc_json))
         return 0
     if args.cmd == "push":
         if not args.base or not args.admin_secret:
             _fail("ERROR: push needs --base and --admin-secret (or KP_BASE_URL / KP_ADMIN_SECRET).")
-        return _push(_read_and_validate(Path(args.file)), args.base, args.admin_secret, args.dry_run, args.force)
+        raw, doc_json = _read_and_validate(Path(args.file))
+        return _push(raw, doc_json, args.base, args.admin_secret, args.dry_run, args.force)
     if args.cmd == "load":
-        doc_json = _read_and_validate(Path(args.file))
+        raw, doc_json = _read_and_validate(Path(args.file))
+        # A normalized `{}` carries schema defaults and can reset stored non-defaults. Compare
+        # even in dry-run so it never reports «empty config» for a real change.
+        stored, carried = await _prepare(doc_json)
         if args.dry_run:
-            print(f"OK (dry-run): {args.file} is valid; not written. Keys: {_summary(doc_json)}")
+            print(f"OK (dry-run): {args.file} is valid; not written. Would change: {_summary(doc_json, stored)}")
+            if carried:
+                print(f"    would keep from the stored config (runtime-written): {', '.join(carried)}")
             print(f"    {_vocabulary_line(doc_json)}")
+            _report_notes(raw, doc_json)
             return 0
         # ⚠️ REFUSE a load that would empty something that currently has content, unless it is
         # asked for explicitly. This is the shape of every one of these incidents: publishing an
@@ -612,7 +707,6 @@ async def _amain(argv: list[str]) -> int:
         # each time it happened. A file that legitimately clears a section (a station dropping
         # its Partnerliste) passes --force and means it.
         # carry the runtime sections FIRST, then check what the final document would empty
-        stored, carried = await _prepare(doc_json)
         dropped = emptied_sections(stored, doc_json)
         if dropped and not args.force:
             print(
@@ -636,6 +730,7 @@ async def _amain(argv: list[str]) -> int:
             # said out loud: the file did NOT contain these, and they are still there
             print(f"    kept from the stored config (runtime-written, not in the file): {', '.join(carried)}")
         print(f"    {_vocabulary_line(doc_json)}")
+        _report_notes(raw, doc_json)
         return 0
     if args.cmd == "history":
         entries = await _history()

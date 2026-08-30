@@ -110,9 +110,16 @@ describe('Alarmgruppen — what reaches the config document', () => {
     expect(sentGroups()).toEqual([{ ...STORED, color: 'Kdo' }])
   })
 
-  it('removes a group', async () => {
+  // Two taps, not one — same reason as the vehicle bin: the group id is what a milestone
+  // webhook reports an Alarmzeit against, and the page autosaves 700 ms later.
+  it('removes a group only after the confirm', async () => {
     await setup()
     await act(async () => { screen.getByLabelText(C.groupRemove).click() })
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+    expect(screen.getByText(C.groupRemoveConfirm)).toBeTruthy()
+
+    await act(async () => { screen.getByText(appConfig.copy.admin.common.confirmYes).click() })
     await settle()
     expect(sentGroups()).toEqual([])
   })

@@ -65,6 +65,18 @@ async def test_logout_revokes_admin_session(client, admin_login):
     assert (await client.get("/api/system")).status_code == 401
 
 
+async def test_rotating_admin_secret_revokes_existing_sessions(client, admin_login, monkeypatch):
+    from app.config import settings
+
+    await admin_login(client)
+    assert (await client.get("/api/system")).status_code == 200
+
+    monkeypatch.setattr(settings, "admin_secret", "rotated-admin-secret-987654321")
+
+    assert (await client.get("/api/admin/session")).json() == {"configured": True, "authenticated": False}
+    assert (await client.get("/api/system")).status_code == 401
+
+
 async def test_fail_closed_when_secret_unset(client, monkeypatch):
     # Simulate a deployment that never configured ADMIN_SECRET: the surface is OFF.
     from app.config import settings

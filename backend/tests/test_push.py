@@ -119,8 +119,35 @@ class TestDueTrupps:
         assert [(t["id"], t["line"]) for t in alert] == [("working", 140), ("withdraw-due", 70)]
 
     def test_zero_alarmdruck_disables_pressure_alarm(self):
-        ws = {"trupps": [trupp("a", "2026-07-02T14:09:30Z", lastPressureBar=0, entryPressureBar=300)]}
-        assert due_trupps(ws, {"alarmBar": 0}, NOW) == []
+        ws = {
+            "trupps": [
+                trupp(
+                    "working",
+                    "2026-07-02T14:09:30Z",
+                    lastPressureBar=0,
+                    entryPressureBar=300,
+                ),
+                trupp(
+                    "retreating",
+                    "2026-07-02T14:09:30Z",
+                    status="rueckzug",
+                    lastPressureBar=0,
+                    entryPressureBar=300,
+                ),
+            ]
+        }
+        assert due_trupps(ws, {"alarmBar": 0, "alarmBarRueckzug": 50}, NOW) == []
+
+    def test_default_rueckzug_line_never_exceeds_a_lower_active_line(self):
+        doctrine = {"alarmBar": 40}
+        ws = {
+            "trupps": [
+                trupp("safe", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=41),
+                trupp("due", "2026-07-02T14:09:30Z", status="rueckzug", lastPressureBar=40),
+            ]
+        }
+        alert = due_trupps(ws, doctrine, NOW)
+        assert [(t["id"], t["line"]) for t in alert] == [("due", 40)]
 
     def test_contact_notification_matches_foreground_action_copy(self):
         alert = due_trupps({"trupps": [trupp("a", "2026-07-02T14:00:00Z", name="Angriff 1")]}, {}, NOW)[0]
@@ -247,6 +274,36 @@ async def test_sweep_stays_silent_for_an_uebung(db_session, monkeypatch):
 
     async def fake_broadcast(_db, **kw):  # pragma: no cover — the gate must keep this unreached
         raise AssertionError("an Übung must not broadcast")
+
+    monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+    assert await push_mod.check_and_push(db_session, NOW) == 0
+
+
+async def test_sweep_stays_silent_on_the_public_demo(db_session, monkeypatch):
+    """Persisted demo clocks are seed time; browsers rebase them to each visitor's arrival."""
+    import app.push as push_mod
+
+    monkeypatch.setattr(push_mod.settings, "demo_reset_seconds", 7200)
+
+    async def fake_broadcast(_db, **kw):  # pragma: no cover - demo gate must keep this unreached
+        raise AssertionError(f"the public demo must not broadcast: {kw}")
+
+    monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+    assert await push_mod.check_and_push(db_session, NOW) == 0
+
+
+async def test_sweep_stays_silent_for_an_identity_only_demo(db_session, monkeypatch):
+    """A local demo config gets the same guard even without an automatic reset schedule."""
+    import app.push as push_mod
+    from app.models import DeploymentConfig
+
+    monkeypatch.setattr(push_mod.settings, "demo_reset_seconds", 0)
+    monkeypatch.setattr(push_mod.settings, "demo_reset_cron", "")
+    db_session.add(DeploymentConfig(id=1, config_json={"identity": {"demoMode": True}}))
+    await db_session.commit()
+
+    async def fake_broadcast(_db, **kw):  # pragma: no cover - demo gate must keep this unreached
+        raise AssertionError(f"an identity-only demo must not broadcast: {kw}")
 
     monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
     assert await push_mod.check_and_push(db_session, NOW) == 0

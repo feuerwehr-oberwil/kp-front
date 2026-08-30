@@ -16,7 +16,8 @@ import type { VehiclePosition } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { providerLabel } from '../lib/deploymentConfig'
-import { Card, StatusBadge, Table, EmptyState, ResultChip, fmtDate } from './ui'
+import { Icon } from '../lib/icons'
+import { Card, CopyChip, Offer, StatusBadge, Table, EmptyState, ResultChip, fmtDate } from './ui'
 
 // The three read-only "Daten" pages — Integrationen, Objekte & Pläne, Geodaten. Each is
 // its own nav destination (they used to be stacked cards in one DataView). Every fetch is
@@ -150,7 +151,116 @@ function IntStatus({ badge, children }: { badge: ReactNode; children: ReactNode 
   )
 }
 
-export function AlarmProviderView() {
+/** Where an unconfigured integration is actually fixed. Both provider pages otherwise offer
+ *  only «Verbindung testen», which on a fresh instance fails by construction and says nothing
+ *  about where the key goes. */
+function OpenCredentials({ onNavigate }: { onNavigate?: (id: string) => void }) {
+  if (!onNavigate) return null
+  return (
+    <button type="button" className="btn adm-int-btn" onClick={() => onNavigate('zugaenge')}>
+      {appConfig.copy.admin.data.openCredentials}
+    </button>
+  )
+}
+
+/** The two ways an alarm can reach this installation. Not persisted anywhere: which one a
+ *  station ends up on is decided by WHICH credential it sets, so this is a reading choice — it
+ *  only switches which half of the instructions is on screen. */
+type AlarmPath = 'divera' | 'webhook'
+
+/**
+ * «Anbindung einrichten» — the setup surface on the page that reports «nicht konfiguriert».
+ *
+ * That page used to be a dead end: a status badge saying nothing is configured plus a
+ * «Verbindung testen» that, on a fresh instance, can only confirm it. Where a fresh station
+ * actually lands is HERE — so this is where the two paths belong, side by side, rather than
+ * leaving somebody to guess whether Divera is compulsory. Manual incident creation is already
+ * a complete setup; this card therefore presents both integrations as optional automation.
+ *
+ * ⚠️ Only rendered while NO alarm source is configured. After the first alarm this card is in
+ * the way of a working page, and the status view below is the whole answer.
+ *
+ * ⚠️ The secret itself is never shown here, and this component never fetches it — the URLs
+ * carry a PLACEHOLDER, and the button leads to «Zugangsdaten», which is the only surface that
+ * can set it (backend/app/credentials.py · alarm_webhook_secret). FireHub cannot send its own
+ * headers, so its secret has to ride in the query string; the generic intake accepts either
+ * (`?secret=` or `X-Webhook-Secret`) and the copyable form is the one that works for both.
+ */
+function AlarmSetupCard({ onNavigate }: { onNavigate?: (id: string) => void }) {
+  const C = appConfig.copy.admin.data
+  const D = appConfig.copy.admin.docs
+  const [path, setPath] = useState<AlarmPath>('webhook')
+  // Built from the origin the browser is on, like IncidentLinkAdminView — a station behind its
+  // own domain must be able to copy the address it will actually be called on.
+  const origin = window.location.origin
+  const secret = C.secretPlaceholder
+  const paths: { id: AlarmPath; title: string; means: string }[] = [
+    { id: 'divera', title: C.pathDivera, means: C.pathDiveraMeans },
+    { id: 'webhook', title: C.pathWebhook, means: C.pathWebhookMeans },
+  ]
+
+  return (
+    <Card title={C.setupTitle} caption={C.setupCaption}>
+      <div className="adm-pick" role="radiogroup" aria-label={C.setupPick}>
+        {paths.map((p) => {
+          const on = p.id === path
+          return (
+            <button
+              key={p.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              className={`adm-pick-opt${on ? ' on' : ''}`}
+              onClick={() => setPath(p.id)}
+            >
+              <span className="adm-pick-head">
+                <span className="adm-pick-mark" aria-hidden>{on && <Icon id="check" />}</span>
+                {p.title}
+              </span>
+              <span className="adm-pick-sub">{p.means}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {path === 'webhook' ? (
+        <>
+          <div className="adm-cap-rows">
+            <div className="adm-cap-example">
+              <p className="adm-card-cap"><strong>{C.genericLabel}</strong><br />{C.genericHint}</p>
+              <CopyChip value={`${origin}/api/alarms?secret=${secret}`} />
+            </div>
+            <div className="adm-cap-example">
+              <p className="adm-card-cap"><strong>{C.firehubLabel}</strong><br />{C.firehubHint}</p>
+              <CopyChip value={`${origin}/api/firehub/webhook?secret=${secret}`} />
+            </div>
+          </div>
+          <Offer icon="warn" title={C.secretTitle} body={C.secretBody}>
+            {onNavigate && (
+              <button type="button" className="btn adm-save-btn" onClick={() => onNavigate('zugaenge')}>
+                {C.secretGo}
+              </button>
+            )}
+          </Offer>
+        </>
+      ) : (
+        <Offer tone="blue" icon="info" title={C.pathDivera} body={C.diveraNote}>
+          {onNavigate && (
+            <button type="button" className="btn adm-save-btn" onClick={() => onNavigate('zugaenge')}>
+              {C.diveraGo}
+            </button>
+          )}
+        </Offer>
+      )}
+
+      <p className="adm-card-cap">
+        <a href={`${D.repo}${D.alarmIntegrations}`} target="_blank" rel="noreferrer">{C.setupDocs}</a>
+      </p>
+    </Card>
+  )
+}
+
+export function AlarmProviderView({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   // The generic capability identifies the provider. The current pool adapter is Divera.
   const [cfg, setCfg] = useState<Async<ConfigShape>>({ kind: 'loading' })
   const [pool, setPool] = useState<Async<DiveraAlarm[]>>({ kind: 'loading' })
@@ -173,7 +283,10 @@ export function AlarmProviderView() {
         const c = await apiGet<ConfigShape>('/api/config')
         if (!alive) return
         setCfg({ kind: 'ok', data: c })
-        diveraOn = c.integrations?.alarms?.configured ?? !!c.integrations?.diveraConfigured
+        const alarms = c.integrations?.alarms
+        diveraOn = alarms
+          ? (alarms.configured ?? false) && (alarms.capabilities?.includes('pool') ?? false)
+          : !!c.integrations?.diveraConfigured
       } catch (e) {
         if (!alive) return
         setCfg({ kind: classify(e) })
@@ -200,6 +313,9 @@ export function AlarmProviderView() {
   const capability = cfg.kind === 'ok' ? cfg.data.integrations?.alarms : undefined
   const providerName = providerLabel(capability?.provider ?? 'divera')
   const configured = cfg.kind === 'ok' && (capability?.configured ?? !!cfg.data.integrations?.diveraConfigured)
+  const hasPool = cfg.kind === 'ok' && (capability
+    ? capability.capabilities?.includes('pool') ?? false
+    : !!cfg.data.integrations?.diveraConfigured)
   const badge = cfg.kind === 'loading'
     ? <StatusBadge tone="off" label={providerName} state="…" />
     : configured
@@ -211,9 +327,12 @@ export function AlarmProviderView() {
 
   return (
     <div className="adm-editor">
+      {/* Not while the status is still loading — «nicht konfiguriert» is not yet the answer, and
+          a setup card that flashes onto a working station is worse than none. */}
+      {cfg.kind !== 'loading' && !configured && <AlarmSetupCard onNavigate={onNavigate} />}
       <Card>
         <IntStatus badge={badge}>
-          {configured ? (
+          {configured && hasPool ? (
             <>
               <span className="adm-int-stat">
                 {pool.kind === 'loading' && C.poolLoading}
@@ -230,12 +349,16 @@ export function AlarmProviderView() {
               </button>
               <TestButton run={() => apiPost('/api/divera/pool/refresh')} />
             </>
+          ) : configured ? (
+            <span className="adm-int-stat">{C.webhookActive}</span>
           ) : (
+            // No «Zugangsdaten öffnen» here any more: the setup card above IS the way out of
+            // «nicht konfiguriert», and two buttons to the same page on one screen is one too many.
             <TestButton run={() => apiPost('/api/divera/pool/refresh')} />
           )}
         </IntStatus>
 
-        {configured && pool.kind === 'ok' && (
+        {configured && hasPool && pool.kind === 'ok' && (
           <dl className="adm-int-facts">
             <div className="adm-int-fact">
               <dt>{C.lastAlarm}</dt>
@@ -264,7 +387,7 @@ export function AlarmProviderView() {
 
 interface TraccarStatus { configured: boolean; host?: string | null }
 
-export function VehicleProviderView() {
+export function VehicleProviderView({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const [traccar, setTraccar] = useState<Async<TraccarStatus>>({ kind: 'loading' })
   const [positions, setPositions] = useState<Async<VehiclePosition[]>>({ kind: 'loading' })
 
@@ -335,7 +458,9 @@ export function VehicleProviderView() {
               )}
               {(positions.kind === 'unconfigured' || positions.kind === 'error') && C.positionsUnavailable}
             </span>
-          ) : null}
+          ) : traccar.kind === 'loading' ? null : (
+            <OpenCredentials onNavigate={onNavigate} />
+          )}
           <TestButton run={() => apiGet('/api/traccar/positions')} />
         </IntStatus>
 

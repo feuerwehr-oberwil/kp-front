@@ -16,6 +16,7 @@ vi.mock('./authMediaCache', () => ({ syncMediaCacheAuth }))
 
 import { ApiError } from './api'
 import * as deploymentConfig from './deploymentConfig'
+import type { DeploymentConfig } from './deploymentConfig'
 import { AuthProvider, useAuth } from './auth'
 
 const EDITOR = { id: 'ed-1', display_name: 'FU', role: 'editor', color: null }
@@ -60,8 +61,28 @@ describe('AuthProvider — offline user cache', () => {
 })
 
 describe('AuthProvider — demo auto-login', () => {
+  it('refreshes session-only config before mounting the field app', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
+    let releaseConfig!: (cfg: DeploymentConfig) => void
+    const configRefresh = new Promise<DeploymentConfig>((resolve) => { releaseConfig = resolve })
+    const loadConfig = vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockReturnValue(configRefresh)
+    apiGet.mockImplementation((path: string) =>
+      path === '/api/auth/roster' ? Promise.resolve([EDITOR]) : Promise.reject(new ApiError(401, 'unauth')))
+    apiPost.mockResolvedValue(EDITOR_USER)
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(loadConfig).toHaveBeenCalledOnce())
+    // Anonymous /api/config withholds the CARTO browser key. Exposing the user before this
+    // refresh mounts the map with unkeyed, visibly watermarked tiles until a full reload.
+    expect(result.current.user).toBeNull()
+
+    releaseConfig({ integrations: { cartoBasemapKey: 'demo-key' } })
+    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
+  })
+
   it('signs in as the demo editor when there is no session (demo instance → no login screen)', async () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
+    vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockResolvedValue({})
     apiGet.mockImplementation((path: string) =>
       path === '/api/auth/roster' ? Promise.resolve([VIEWER, EDITOR]) : Promise.reject(new ApiError(401, 'unauth')))
     apiPost.mockResolvedValue(EDITOR_USER)

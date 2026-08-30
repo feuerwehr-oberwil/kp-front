@@ -23,7 +23,10 @@ const C = appConfig.copy.admin.setup
 /** A station that has finished everything but the monitor. */
 const DONE_CFG = {
   identity: { appName: 'Feuerwehr Bergmatt', assets: { logo: '/api/branding/file/x.png' } },
-  map: { defaultView: { center: [8.1148, 47.1723] } },
+  map: {
+    defaultView: { center: [8.1148, 47.1723] },
+    geocoder: { defaultLocality: '4104 Musterdorf BL' },
+  },
   fleet: { vehicles: [{ id: 'tlf' }] },
 } as unknown as DeploymentConfig
 const DONE_FACTS: SetupFacts = { users: 4, personnelActive: 9, heartbeatConfigured: false }
@@ -33,21 +36,23 @@ const card = () => document.querySelector('.adm-setup')
 afterEach(cleanup)
 
 describe('«Einrichtung» disappears once every row is done', () => {
-  it('is gone only when Überwachung is done too — it counts like every other row', () => {
+  it('is gone when the browser-finishable setup is done — manual incidents are a valid steady state', () => {
     render(<SetupChecklist cfg={DONE_CFG} facts={DONE_FACTS} onGo={vi.fn()} />)
     expect(card()).not.toBeNull()
-    expect(screen.getByText(C.title.replace('{done}', '6').replace('{n}', '7'))).toBeTruthy()
+    expect(screen.getByText(C.title.replace('{done}', '7').replace('{n}', '8'))).toBeTruthy()
 
     cleanup()
     render(<SetupChecklist cfg={DONE_CFG} facts={{ ...DONE_FACTS, heartbeatConfigured: true }}
       onGo={vi.fn()} />)
+    // No automatic alarm provider is configured. The card still clears because creating
+    // incidents manually is a supported setup, not an unfinished integration.
     expect(card()).toBeNull()
   })
 
   it('counts Überwachung in the total while other rows are open', () => {
     render(<SetupChecklist cfg={{ ...DONE_CFG, fleet: { vehicles: [] } } as unknown as DeploymentConfig}
       facts={DONE_FACTS} onGo={vi.fn()} />)
-    expect(screen.getByText(C.title.replace('{done}', '5').replace('{n}', '7'))).toBeTruthy()
+    expect(screen.getByText(C.title.replace('{done}', '6').replace('{n}', '8'))).toBeTruthy()
     expect(screen.getByText(C.monitoringOpen)).toBeTruthy()
   })
 
@@ -56,14 +61,14 @@ describe('«Einrichtung» disappears once every row is done', () => {
   // and the row used to tick on `center` alone. The card then never cleared, on the landing
   // page, forever. The test that documented the behaviour was the test that missed the bug.
   it('accepts an LV95 centre, so a Swiss station can actually finish the card', () => {
-    const lv95 = { ...DONE_CFG, map: { defaultView: { center: null, centerLv95: [2600000, 1200000] } } }
+    const lv95 = { ...DONE_CFG, map: { ...DONE_CFG.map, defaultView: { center: null, centerLv95: [2600000, 1200000] } } }
     render(<SetupChecklist cfg={lv95 as unknown as DeploymentConfig}
       facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={vi.fn()} />)
     expect(card()).toBeNull()
   })
 
   it('still asks for a centre when neither CRS is set', () => {
-    const none = { ...DONE_CFG, map: { defaultView: { center: null, centerLv95: null } } }
+    const none = { ...DONE_CFG, map: { ...DONE_CFG.map, defaultView: { center: null, centerLv95: null } } }
     render(<SetupChecklist cfg={none as unknown as DeploymentConfig}
       facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={vi.fn()} />)
     expect(screen.getByText(C.mapOpen)).toBeTruthy()
@@ -84,11 +89,42 @@ describe('every row leads somewhere that can finish it', () => {
     render(<SetupChecklist cfg={{ ...DONE_CFG, fleet: { vehicles: [] } } as unknown as DeploymentConfig}
       facts={DONE_FACTS} onGo={vi.fn()} />)
     const rows = document.querySelectorAll('.adm-setup-row')
-    expect(rows.length).toBe(7)
+    expect(rows.length).toBe(8)
     rows.forEach((r) => {
       expect(r.tagName).toBe('BUTTON')
       expect(r.querySelector('.adm-setup-go')).not.toBeNull()
     })
+  })
+})
+
+// The address search is biased by two fields that were CLI-only until recently and appear on no
+// landing page. A Wehr can finish every other row and still be offered a «Hauptstrasse 3» from
+// three cantons away the first time it opens an incident.
+describe('the «Suchbereich» row', () => {
+  const withGeocoder = (geocoder: unknown) =>
+    ({ ...DONE_CFG, map: { ...DONE_CFG.map, geocoder } }) as unknown as DeploymentConfig
+
+  it('stays open while neither Heimatort nor Suchbereich is set, and leads to «Station & Karte»', () => {
+    const onGo = vi.fn()
+    render(<SetupChecklist cfg={withGeocoder(null)}
+      facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={onGo} />)
+    expect(screen.getByText(C.geocoderOpen)).toBeTruthy()
+    fireEvent.click(screen.getByText(C.geocoder).closest('.adm-setup-row') as Element)
+    expect(onGo).toHaveBeenCalledWith('identitaet')
+  })
+
+  // Either field biases the search on its own (geocode.py · _resolve_bias), so demanding both
+  // would keep the card open on a station that is in fact searching in the right place.
+  it('ticks on the bbox alone, exactly as it does on the locality alone', () => {
+    render(<SetupChecklist cfg={withGeocoder({ bboxLv95: '2603745,1256834,2613745,1266834' })}
+      facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={vi.fn()} />)
+    expect(card()).toBeNull()
+  })
+
+  it('does not tick on whitespace', () => {
+    render(<SetupChecklist cfg={withGeocoder({ defaultLocality: '  ', bboxLv95: '' })}
+      facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={vi.fn()} />)
+    expect(screen.getByText(C.geocoderOpen)).toBeTruthy()
   })
 })
 

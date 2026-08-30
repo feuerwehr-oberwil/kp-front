@@ -30,7 +30,10 @@ the latest tagged release (or `main`) and update promptly – see [`docs/DEPLOYM
 ## Security model
 
 - **Auth:** PIN-roster login – pick your name, enter your PIN. PINs are **peppered (with
-  `SECRET_KEY`) and hashed with bcrypt**; they are never stored or logged in plaintext.
+  `SECRET_KEY`) and hashed with bcrypt**; they are never stored or logged in plaintext. The
+  pre-login tile endpoint necessarily exposes active login-account display names, roles and
+  colours; internet-facing deployments should use functional labels where personal-name
+  enumeration is not acceptable. The personnel roster itself is not public.
 - **Sessions:** short-lived JWT access tokens + refresh tokens delivered as **httpOnly
   cookies** (Secure in production), with refresh rotation and revocation.
 - **Roles:** incident users are `editor` (FU / can mutate incident state) and

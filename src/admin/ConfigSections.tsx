@@ -5,7 +5,7 @@ import { listReference, listObjects, type ReferenceDataset, type ObjectWithPlans
 import { geoDatasetId, geoLayerUrl, inspectGeojson, uploadReference } from '../lib/api/reference'
 import { ApiError } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
-import { Card, Field, Select, fmtDate } from './ui'
+import { Card, ConfirmButton, Field, Offer, Select, fmtDate } from './ui'
 import { AVAILABLE_LOCALES } from '../config/copy'
 import { ReferenceLayersViewer } from './ReferenceLayersViewer'
 import { FleetAttributesViewer } from './FleetAttributesViewer'
@@ -113,6 +113,8 @@ function useNumberField() {
     placeholder?: string
     /** a section with its own wording for the refusal (Alarme & Einsätze) */
     message?: string
+    /** Keep coupled fields valid when this accepted value changes their meaning. */
+    onAccepted?: (value: number | null) => void
   }) {
     const key = opts.path.join('.')
     const stored = numStr(getPath<number>(draft, opts.path) ?? opts.fallback)
@@ -133,7 +135,10 @@ function useNumberField() {
               const raw = e.target.value
               setEditing((s) => ({ ...s, [key]: raw }))
               const v = guardedNumber(raw, opts.guard)
-              if (v !== undefined) set(opts.path, v)
+              if (v !== undefined) {
+                set(opts.path, v)
+                opts.onAccepted?.(v)
+              }
               // else: the stored number stays as it is, and the warning below says why
             }}
           />
@@ -508,6 +513,10 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
   const C = appConfig.copy.admin.map
   const stored = getPath<string>(draft, ['map', 'geocoder', 'bboxLv95']) ?? ''
   const [editing, setEditing] = useState<string | null>(null)
+  // «Nicht jetzt» for this visit only. Deliberately NOT persisted: there is nothing to remember
+  // — the offer disappears for good the moment a bbox exists, and an operator who declined it
+  // once and came back to set it anyway should find it waiting, not have to hunt the button.
+  const [dismissed, setDismissed] = useState(false)
   const text = editing ?? stored
   const problem = text.trim() === '' || parseBboxLv95(text) ? null : C.bboxInvalid
 
@@ -519,18 +528,38 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
   }
 
   /** …because nobody knows their own bounding box by heart, and everybody knows where their
-   *  Magazin is. Derived from the centre that is already configured, ±5 km. */
-  const fromCentre = () => {
-    if (!centre) return
-    const [e, n] = wgs84ToLV95(centre[0], centre[1])
-    const box = [e - BBOX_HALF_M, n - BBOX_HALF_M, e + BBOX_HALF_M, n + BBOX_HALF_M]
-      .map((v) => Math.round(v)).join(',')
-    writeBbox(box)
-  }
+   *  Magazin is. Derived from the centre that is already configured, ±5 km. ONE derivation,
+   *  shared by the button below and the offer above it — two would drift. */
+  const derived = centre
+    ? (() => {
+        const [e, n] = wgs84ToLV95(centre[0], centre[1])
+        return [e - BBOX_HALF_M, n - BBOX_HALF_M, e + BBOX_HALF_M, n + BBOX_HALF_M]
+          .map((v) => Math.round(v)).join(',')
+      })()
+    : null
+  const fromCentre = () => { if (derived) writeBbox(derived) }
+
+  // The one moment everything needed is known: a centre is stored, the search area is not.
+  // Offering it here beats a button nobody scrolls to — and the value that would be written
+  // is on screen before it is.
+  const offer = derived && text.trim() === '' && !dismissed
 
   return (
     <Card title={C.groupGeocoder}>
       <p className="adm-hint">{C.geocoderTip}</p>
+      {offer && (
+        <Offer
+          tone="blue" icon="locate"
+          title={C.bboxOfferTitle} body={C.bboxOfferBody} preview={derived}
+        >
+          <button type="button" className="btn adm-save-btn" onClick={fromCentre}>
+            {C.bboxOfferApply}
+          </button>
+          <button type="button" className="btn adm-int-btn" onClick={() => setDismissed(true)}>
+            {C.bboxOfferDismiss}
+          </button>
+        </Offer>
+      )}
       <Field label={C.locality} tip={C.localityTip}>
         <input
           className="adm-input"
@@ -718,6 +747,7 @@ export function DoctrineSection() {
   const { draft, set } = useConfig()
   const numberField = useNumberField()
   const C = appConfig.copy.admin.doctrine
+  const isDemo = getPath<boolean>(draft, ['identity', 'demoMode']) === true
   // ⚠️ `NonNullable`: `doctrine` is optional on the document, and `keyof (T | undefined)` is
   // `never` — which silently made every key below assignable and the type check decorative.
   type DoctrineKey = keyof NonNullable<DeploymentConfig['doctrine']> & keyof typeof appConfig.atemschutz
@@ -736,6 +766,11 @@ export function DoctrineSection() {
   // was the already-active button on every row: one tap on the control that reads as «leave this
   // alone» wedged the autosave for all five Station pages, with no way back that the button
   // itself suggested. The last colour removed leaves `null`, which is how «none» is said here.
+  // The Alarmdruck this station runs on right now — the stored value, or the shipped one while
+  // the box is empty. It is the ceiling of the Rückzug line below it (see there).
+  const effectiveAlarmBar = getPath<number>(draft, ['doctrine', 'alarmBar']) ?? appConfig.atemschutz.alarmBar
+  const rueckzugMax = Math.min(300, effectiveAlarmBar)
+
   const auftragColors = getPath<Record<string, string>>(draft, ['doctrine', 'auftragColors'])
   const setAuftragColor = (id: string, color: string | null) => {
     if ((auftragColors?.[id] ?? null) === color) return // «Automatisch» on an automatic row writes nothing
@@ -754,9 +789,50 @@ export function DoctrineSection() {
       </div>
 
       <h3 className="adm-fieldgroup">{C.groupPressure}</h3>
-      <div className="adm-row-2">
+      {/* The Rückzug line sits BESIDE the Alarmdruck it is bounded by — it was file-only until
+          now (schemas.py · DoctrineConfig), so a browser-configured station never got it and a
+          CLI-template one silently ran on an invisible 50 bar.
+          ⚠️ The only doctrine number with a CROSS-FIELD rule (schemas.py ·
+          _rueckzug_line_stays_below_the_bare_alarm): above `alarmBar` the API refuses the whole
+          document, which stops the autosave on all five Station pages. So the ceiling is the
+          Alarmdruck this station actually runs on — the stored one, or the shipped default while
+          that box is empty — and never above the schema's own 300.
+          A zero Alarmdruck exists only in the public demo: it disables both pressure alarms, so
+          the Rückzug line becomes a read-only 0 there. Station deployments require at least 1. */}
+      <div className="adm-row-3">
         {numField(C.defaultPressure, C.defaultPressureTip, 'defaultPressureBar')}
-        {numField(C.alarmBar, C.alarmBarTip, 'alarmBar')}
+        {numberField({
+          path: ['doctrine', 'alarmBar'],
+          label: C.alarmBar,
+          tip: isDemo ? C.alarmBarDemoTip : C.alarmBarTip,
+          guard: { kind: 'int', min: isDemo ? 0 : 1, max: 300, nullable: true },
+          fallback: appConfig.atemschutz.alarmBar,
+          onAccepted: (value) => {
+            if (value === 0) set(['doctrine', 'alarmBarRueckzug'], null)
+            else {
+              const nextAlarmBar = value ?? appConfig.atemschutz.alarmBar
+              const retreat = getPath<number>(draft, ['doctrine', 'alarmBarRueckzug'])
+                ?? appConfig.atemschutz.alarmBarRueckzug
+              if (retreat > nextAlarmBar) {
+                set(['doctrine', 'alarmBarRueckzug'], nextAlarmBar)
+              }
+            }
+          },
+        })}
+        {effectiveAlarmBar === 0 ? (
+          <Field label={C.alarmBarRueckzug} tip={C.alarmBarRueckzugDisabledTip}>
+            <input className="adm-input adm-input-mono" type="number" value="0" disabled />
+          </Field>
+        ) : numberField({
+          path: ['doctrine', 'alarmBarRueckzug'],
+          label: C.alarmBarRueckzug,
+          tip: fillTemplate(C.alarmBarRueckzugTip, {
+            n: Math.min(appConfig.atemschutz.alarmBarRueckzug, effectiveAlarmBar),
+          }),
+          guard: { kind: 'int', min: 0, exclusiveMin: true, max: rueckzugMax, nullable: true },
+          fallback: Math.min(appConfig.atemschutz.alarmBarRueckzug, effectiveAlarmBar),
+          message: fillTemplate(C.alarmBarRueckzugInvalid, { max: rueckzugMax }),
+        })}
       </div>
       <div className="adm-row-2">
         {numField(C.pressureStep, C.pressureStepTip, 'pressureStep')}
@@ -836,6 +912,9 @@ export function FleetSection() {
       <Card>
         <h3 className="adm-fieldgroup">{C.groupVehicles}</h3>
         <p className="adm-hint">{C.vehiclesTip}</p>
+        {/* once per card group, not per row: the page autosaves 700 ms after a deleted row and
+            nothing else on it says where the previous state went. */}
+        <p className="adm-hint">{appConfig.copy.admin.common.deleteRecovery}</p>
         <FleetVehiclesEditor />
       </Card>
       <h3 className="adm-view-subhead">{C.attributesTitle}</h3>
@@ -925,13 +1004,11 @@ function FleetVehiclesEditor() {
                   onChange={(e) => patch(i, { id: e.target.value })}
                 />
               </Field>
-              <button
-                type="button" className="adm-formlink-x"
-                title={C.vehicleRemove} aria-label={C.vehicleRemove}
-                onClick={() => write(rows.filter((_, j) => j !== i))}
-              >
-                <Icon id="trash" />
-              </button>
+              <ConfirmButton
+                className="adm-formlink-x" ariaLabel={C.vehicleRemove} label={<Icon id="trash" />}
+                question={C.vehicleRemoveConfirm} danger
+                onConfirm={() => write(rows.filter((_, j) => j !== i))}
+              />
             </div>
             {warn && <p className="adm-hint adm-formlink-warn">{warn}</p>}
           </div>
@@ -1014,6 +1091,8 @@ export function LayersSection() {
       <h3 className="adm-view-subhead">{C.geojsonTitle}</h3>
       <Card>
         <p className="adm-hint">{C.geojsonTip}</p>
+        {/* stands once for BOTH editors on this page — the raster card follows directly below */}
+        <p className="adm-hint">{appConfig.copy.admin.common.deleteRecovery}</p>
         <ReferenceGeojsonEditor all={all} write={write} datasets={datasets} onUploaded={reloadDatasets} />
       </Card>
       <h3 className="adm-view-subhead">{C.rasterTitle}</h3>
@@ -1138,13 +1217,11 @@ function ReferenceRasterEditor({ all, write }: {
                   onChange={(e) => patch(i, { id: e.target.value })}
                 />
               </Field>
-              <button
-                type="button" className="adm-formlink-x"
-                title={C.rasterRemove} aria-label={C.rasterRemove}
-                onClick={() => write((prev) => prev.filter((_, j) => j !== i))}
-              >
-                <Icon id="trash" />
-              </button>
+              <ConfirmButton
+                className="adm-formlink-x" ariaLabel={C.rasterRemove} label={<Icon id="trash" />}
+                question={C.rasterRemoveConfirm} danger
+                onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
+              />
             </div>
             <div className="adm-row-2">
               <Field label={C.group}>
@@ -1387,13 +1464,11 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
                   onChange={(e) => patch(i, { id: e.target.value })}
                 />
               </Field>
-              <button
-                type="button" className="adm-formlink-x"
-                title={C.geojsonRemove} aria-label={C.geojsonRemove}
-                onClick={() => write((prev) => prev.filter((_, j) => j !== i))}
-              >
-                <Icon id="trash" />
-              </button>
+              <ConfirmButton
+                className="adm-formlink-x" ariaLabel={C.geojsonRemove} label={<Icon id="trash" />}
+                question={C.geojsonRemoveConfirm} danger
+                onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
+              />
             </div>
             <div className="adm-row-2">
               <Field label={C.group}>
@@ -1719,6 +1794,7 @@ export function AlarmsSection() {
   return (
     <>
       <Card title={C.groupGroups} caption={C.groupsTip}>
+        <p className="adm-hint">{appConfig.copy.admin.common.deleteRecovery}</p>
         <AlarmGroupsEditor />
       </Card>
       <Card>
@@ -1821,13 +1897,11 @@ function AlarmGroupsEditor() {
                   onChange={(e) => patch(i, { id: e.target.value })}
                 />
               </Field>
-              <button
-                type="button" className="adm-formlink-x"
-                title={C.groupRemove} aria-label={C.groupRemove}
-                onClick={() => write(rows.filter((_, j) => j !== i))}
-              >
-                <Icon id="trash" />
-              </button>
+              <ConfirmButton
+                className="adm-formlink-x" ariaLabel={C.groupRemove} label={<Icon id="trash" />}
+                question={C.groupRemoveConfirm} danger
+                onConfirm={() => write(rows.filter((_, j) => j !== i))}
+              />
             </div>
             {/* Own row rather than a third box in the head: two inputs plus the bin already fill
                 that line on a tablet, and this one is the optional field of the three. */}

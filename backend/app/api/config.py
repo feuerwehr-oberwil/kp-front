@@ -51,6 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..alarm_keywords import SHIPPED
 from ..auth.dependencies import CurrentAdmin, OptionalUser, _admin_session_valid
 from ..auth.incident_link import read_link_session
+from ..config import settings
 from ..config_history import changed_sections, emptied_sections, keep_previous
 from ..credentials import load as load_credentials
 from ..database import get_db
@@ -160,6 +161,16 @@ def _projection(
     config the next unrelated edit silently deletes. Hence the flags rather than a blanket drop.
     """
     payload = doc.model_dump()
+    # The reset schedule is the server's robust public-demo identity. A stale config publish
+    # must not remove auto-login/ribbon/client alarm muting until the next reset while the
+    # server continues enforcing demo lifecycle guards.
+    if settings.is_public_demo:
+        payload["identity"] = {**(payload.get("identity") or {}), "demoMode": True}
+        payload["doctrine"] = {
+            **(payload.get("doctrine") or {}),
+            "alarmBar": 0,
+            "alarmBarRueckzug": None,
+        }
     if not include_keywords:
         payload.pop("alarmKeywords", None)
     if not include_links:
@@ -317,6 +328,11 @@ async def put_config(
     A browser that omits it gets 428 (Precondition Required): the request is not wrong, it is
     missing the one thing that makes it safe, and the fix is to reload the page.
     """
+    if settings.is_public_demo and (body.identity.demoMode is not True or body.doctrine.alarmBar != 0):
+        raise HTTPException(
+            status_code=409,
+            detail="Die öffentliche Demo muss demoMode=true und Alarmdruck=0 behalten.",
+        )
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     stored_version = _version(row.config_json if row else None)
     from_browser = sec_fetch_site is not None or origin is not None

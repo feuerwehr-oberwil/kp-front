@@ -18,10 +18,11 @@
 # one that is not derived at all, because it changes the host and not this directory: whether
 # to install the nightly backup line.
 #
-# It also mints the integration secrets a station should never have to generate by hand (Web
-# Push + the two webhook intakes) INTO THE ENCRYPTED CREDENTIAL STORE rather than into .env,
-# so they keep working out of the box and stay changeable from /admin → Zugangsdaten. The
-# reason that distinction matters is spelled out above seed_credentials() below.
+# It also mints the Web Push key pair a station should never have to generate by hand INTO THE
+# ENCRYPTED CREDENTIAL STORE rather than into .env, so it works out of the box and stays
+# changeable from /admin → Zugangsdaten. Webhook secrets are deliberately chosen while the
+# external alarm system is connected: they are write-only and pre-generating an unseen value
+# would make the intake look configured while nobody could call it.
 #
 # Nothing here is implemented twice. Two sourced libraries own the shared parts:
 #   scripts/init-env.sh   secret generation and .env writing
@@ -67,9 +68,9 @@ instead; piped-in answers are not read, and no backup schedule is installed.
   --backup-cron     Install the nightly backup line without asking. Works on its own against
                     an already-installed deployment: ./scripts/setup.sh --backup-cron
   --no-backup-cron  Do not ask about it at all.
-  --credentials     Only mint the missing integration secrets (Web Push + the two webhook
-                    secrets) into an already-installed deployment's credential store, and
-                    stop. Anything the station has set itself is left alone.
+  --credentials     Only mint the missing Web Push key pair into an already-installed
+                    deployment's credential store, and stop. Anything the station has set
+                    itself is left alone.
   --backup-dir <d>  Where the nightly backup writes (default: ./backups).
   -y, --yes         Non-interactive: never prompt. Needs --domain or --lan.
   -h, --help        This text.
@@ -81,7 +82,7 @@ T_STEP_CHECK="Checking prerequisites"
 T_STEP_ASK="Three questions"
 T_STEP_WRITE="Writing the configuration"
 T_STEP_START="Starting the stack"
-T_STEP_CREDS="Integration secrets"
+T_STEP_CREDS="Web Push"
 T_STEP_BACKUP="Backups"
 T_STEP_DONE="Done"
 
@@ -158,8 +159,8 @@ T_STATUS_REACHABLE_FMT="The app answers on %s — it is up."
 T_STATUS_UNREACHABLE_FMT="Nothing answers on %s."
 T_STATUS_NEXT_FMT="To change something, edit %s and run: docker compose up -d
 Integrations (Divera, Traccar, Web Push, STT, webhooks) are NOT in that file — they are set
-in the browser at /admin → «Zugangsdaten». To mint the ones this installer generates, if that
-step was ever missed:  ./scripts/setup.sh --credentials
+in the browser at /admin → «Zugangsdaten». To mint the Web Push pair this installer generates,
+if that step was ever missed:  ./scripts/setup.sh --credentials
 To start over from scratch (WIPES the database and all uploads):
   docker compose down -v && rm %s && ./scripts/setup.sh"
 T_OVERRIDE_WROTE="Copied docker-compose.override.yml.example → docker-compose.override.yml
@@ -236,10 +237,10 @@ T_BACKUP_SKIPPED_NONINTERACTIVE_FMT="No backup schedule was installed: nothing w
   Or paste this into 'crontab -e':
     %s"
 
-# --- the integration secrets ---
+# --- Web Push credential ---
 # ⚠️ They are stored in the DATABASE, never in .env, and the difference is the whole point —
 # see the block above seed_credentials() for why the two are mutually exclusive.
-T_CREDS_INTRO_FMT="Generating this station's integration secrets and storing them encrypted in
+T_CREDS_INTRO_FMT="Generating this station's Web Push key pair and storing it encrypted in
   the database — deliberately NOT in %s. A value in that file outranks the stored one and turns
   its field in «/admin → Zugangsdaten» read-only, so a station whose keys live there can never
   change them from a browser. Minted here, they can be rotated at 03:00 without SSH."
@@ -272,7 +273,7 @@ T_CREDS_WHY_LIST="the admin API did not answer with the credential list"
 # Its own message, because the generic one would send somebody to /admin — and /admin is
 # exactly what an empty ADMIN_SECRET switches off. «Open the page and set it there» is not
 # advice you can follow when the page is the thing that is missing.
-T_CREDS_NO_ADMIN_FMT="No integration secret was stored, and none can be from here: ADMIN_SECRET
+T_CREDS_NO_ADMIN_FMT="No Web Push key was stored, and none can be from here: ADMIN_SECRET
   is empty in %s, so this deployment's whole admin surface is off (fail-closed) — /admin
   included. Everything else about this install is fine.
   Put a secret in that file (openssl rand -hex 24), then:
@@ -280,23 +281,20 @@ T_CREDS_NO_ADMIN_FMT="No integration secret was stored, and none can be from her
 # ⚠️ Never fatal, and the first line says so. A station with no Web Push is a working station;
 # an installer that aborts on the last optional step is not. What it owes the operator instead
 # is the exact browser path — this is the ONE step that can be finished without a terminal.
-T_CREDS_FAIL_FMT="No integration secret was stored: %s.
+T_CREDS_FAIL_FMT="No Web Push key was stored: %s.
   The install itself is FINISHED and this station works. What is missing is Web Push (so
-  Atemschutz and Wiedervorlage alarms only fire while the app is in the foreground) and the two
-  webhook secrets (so the alarm intakes stay shut until you set one).
+  Atemschutz and Wiedervorlage alarms only fire while the app is in the foreground).
   Finish it in a browser — no terminal needed:
     1. open %sadmin and unlock it with the ADMIN_SECRET from %s
     2. «Zugangsdaten» → «Web Push»: that card names the one command that makes a key pair
        (docker compose exec app uv run python -m app.gen_vapid) and takes both halves
-    3. same page, «Webhooks»: put any long random value into Divera-Webhook-Secret and
-       Alarm-Webhook-Secret — they are what the OTHER system sends back to this one
   Or let this script try again against the running stack:
       ./scripts/setup.sh --credentials"
-T_CREDS_PARTIAL_FMT="Not every integration secret was stored. The rest of this install is
-  unaffected. Set what is missing in a browser at %sadmin → «Zugangsdaten», or run
+T_CREDS_PARTIAL_FMT="The Web Push pair was not fully stored. The rest of this install is
+  unaffected. Set both halves in a browser at %sadmin → «Zugangsdaten», or run
   ./scripts/setup.sh --credentials once the app is healthy."
 T_CREDS_PUT_FAILED_FMT="%s: the server refused to store it."
-T_CREDS_NO_START="No integration secret was minted either: they live in the database now, and
+T_CREDS_NO_START="No Web Push key was minted either: the pair lives in the database now, and
   --no-start means there is no running app to write them through. Once the stack is up:
       ./scripts/setup.sh --credentials"
 T_ERR_CREDS_NO_ENV_FMT="--credentials works on an already-installed deployment, and %s does not
@@ -517,21 +515,22 @@ run_with_progress() {
   return "$rc"
 }
 
-# ─── the integration secrets ──────────────────────────────────────────────────────────────
+# ─── Web Push credential ──────────────────────────────────────────────────────────────────
 #
 # WHERE THEY GO, AND WHY IT IS NOT .env
 # -------------------------------------
 # This script used to write VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, DIVERA_WEBHOOK_SECRET and
-# ALARM_WEBHOOK_SECRET into .env. It must not, and the reason is not tidiness:
+# ALARM_WEBHOOK_SECRET into .env. None belongs there, and the reason is not tidiness:
 # backend/app/credentials.py gives the ENVIRONMENT precedence over the encrypted store, and a
 # field the environment supplies reports itself as server-set in «/admin → Zugangsdaten» and
-# refuses to save (409). Minting into .env therefore handed every fresh station four dead
-# fields on the one page built to keep it off SSH — a credential it could never rotate from a
+# refuses to save (409). Minting into .env therefore handed every fresh station dead fields on
+# the one page built to keep it off SSH — credentials it could never rotate from a
 # phone at 03:00, on the day the alerting system changed its key.
 #
-# So they are minted into the store instead, over this deployment's own API, with the
-# ADMIN_SECRET this script generated minutes ago. The station gets working Web Push out of the
-# box AND keeps every one of those four rotatable from a browser.
+# Only the VAPID pair is minted into the store here, over this deployment's own API, with the
+# ADMIN_SECRET this script generated minutes ago. Webhook secrets are created later, during the
+# external-system handoff, because a write-only value nobody received would be unusable. The
+# station gets working Web Push out of the box and keeps the pair rotatable from a browser.
 #
 # ⚠️ Nothing here is fatal. A station with no Web Push is a working station; an install that
 # aborts on its last optional step is not.
@@ -709,8 +708,10 @@ seed_push() {
   esac
 }
 
-# seed_credentials — mint what is missing, touch nothing else, never abort the install.
-# Returns 1 when something is still unset, so the caller can point at the browser.
+# seed_credentials — mint the Web Push pair if it is missing, touch nothing else, never abort
+# the install. Webhook secrets are write-only and must be chosen while the external system is
+# connected, so the same value can be handed to both sides instead of disappearing into this
+# store before anybody has seen it.
 seed_credentials() {
   local rc=0 why=""
   sayf "$T_CREDS_INTRO_FMT" "$ENV_FILE"
@@ -730,11 +731,6 @@ seed_credentials() {
     return 1
   fi
 
-  # Both webhook secrets are the value the OTHER system sends back to this one: read per
-  # request, scheduling nothing, and both intakes stay shut (403) to anyone without them. So
-  # having one costs nothing and not having one costs a terminal session on the evening
-  # somebody connects Divera.
-  #
   # ⚠️ PRINT_AGENT_SECRET is still NOT minted, and the reason has changed: its sweep is
   # registered unconditionally now and returns on the first line when no secret is set
   # (app/scheduler.py), so an unused value no longer costs a background job. What it costs is
@@ -742,8 +738,6 @@ seed_credentials() {
   # would render «An Stationsdrucker» on the Rapport and the capture poster for every station
   # that owns no printer, plus a permanently offline connector on the System card. And it still
   # saves nobody anything: the agent lives on a second machine provisioned at a terminal.
-  seed_one divera_webhook_secret "$(kp_rand_hex 32)" || rc=1
-  seed_one alarm_webhook_secret "$(kp_rand_hex 32)" || rc=1
   seed_push || rc=1
 
   [[ "$rc" -eq 0 ]] || warn "$(sayf "$T_CREDS_PARTIAL_FMT" "$(app_url)")"
@@ -920,7 +914,7 @@ if [[ -e "$ENV_FILE" ]]; then
     apply_backup_cron
     exit 0
   fi
-  # …and the same shape for the integration secrets: `./scripts/setup.sh --credentials` is how
+  # …and the same shape for Web Push: `./scripts/setup.sh --credentials` is how
   # a deployment finishes a step that failed on install day (or was installed before this
   # script could mint anything) without anybody reading a doc. Everything it needs is in the
   # env file already — the port to talk to, the domain to name in a hint, and the admin secret.
@@ -1086,9 +1080,8 @@ kp_env_set COOKIE_SECURE "$COOKIE_SECURE" "$ENV_FILE"
 kp_env_set DOMAIN "$DOMAIN" "$ENV_FILE"
 kp_env_set PUBLIC_URL "$PUBLIC_URL" "$ENV_FILE"
 
-# The integration secrets are NOT written here. They are minted in §6, into the encrypted
-# credential store, once the app answers — see the block above seed_credentials() for why .env
-# is the one place they must not go.
+# Integration credentials are NOT written here. The Web Push pair is minted in §6 into the
+# encrypted credential store once the app answers; the rest are set deliberately in /admin.
 ok "$(sayf "$T_WROTE_FMT" "$ENV_FILE")"
 
 if [[ "$BUILD" -eq 1 ]]; then
@@ -1199,7 +1192,7 @@ else
   ok "$(sayf "$T_READY_FMT" "$READY_SECONDS")"
 fi
 
-# ─── 6. the integration secrets, now that the app can be talked to ────────────────────────
+# ─── 6. Web Push, now that the app can be talked to ───────────────────────────────────────
 #
 # After /ready rather than before it, because these go into the DATABASE: the store needs a
 # migrated schema and a reachable database, which is exactly what /ready has just proved. It

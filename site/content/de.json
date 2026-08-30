@@ -100,7 +100,7 @@
         "time": "03:40",
         "tag": "Verlauf",
         "h3": "Alles steht im Verlauf.",
-        "p": "Tippen oder einfach reinsprechen – Sprachnotizen werden automatisch zu Text im\n            Journal. Der Verlauf wird nur ergänzt, nie umgeschrieben – korrigiert wird mit\n            neuen Einträgen, nicht mit dem Radiergummi. So bleibt der Einsatz belegbar."
+        "p": "Tippen oder einfach reinsprechen – mit einem eingerichteten Transkriptionsdienst\n            lassen sich Sprachnotizen in Text umwandeln; sonst bleiben sie als Audio im Verlauf.\n            Der Verlauf wird nur ergänzt, nie umgeschrieben – korrigiert wird mit neuen Einträgen,\n            nicht mit dem Radiergummi. So bleibt der Einsatz belegbar."
       },
       {
         "time": "04:30",
@@ -157,7 +157,7 @@
         "h": 937,
         "alt": "Verlauf: chronologische Einträge neben der Karte",
         "title": "Verlauf",
-        "sub": "Laufende Dokumentation aller wichtigen Ereignisse – Sprachnotizen werden automatisch zu Text"
+        "sub": "Laufende Dokumentation aller wichtigen Ereignisse – mit eingerichtetem Transkriptionsdienst können Sprachnotizen zu Text werden"
       },
       {
         "file": "anwesenheit.webp",
@@ -337,7 +337,7 @@
       },
       {
         "q": "Wem gehören die Daten?",
-        "a": "Euch. Jede Feuerwehr betreibt ihr eigenes KP Front – auf dem eigenen Rechner im\n          Magazin oder in der Cloud. Ihr entscheidet, wo Karten, Pläne und Einsatzdaten\n          liegen; nichts geht an einen Hersteller oder an Dritte."
+        "a": "Euch. Karten, Pläne und Einsatzdaten liegen auf eurer eigenen Installation.\n          Karten- und Adressdienste erhalten nur die jeweils abgefragte Position; weitere externe\n          Dienste laufen nur, wenn ihr sie selbst einrichtet. Nichts geht automatisch an den\n          Hersteller oder den Maintainer."
       },
       {
         "q": "Was kostet das?",
@@ -345,7 +345,7 @@
       },
       {
         "q": "Was braucht es für den Betrieb?",
-        "a": "Weniger, als viele annehmen. Ein kleiner Mini-PC oder Server im Magazin reicht, die\n          Einrichtung dauert wenige Stunden. Danach läuft das System weitgehend von selbst, und\n          Updates sind ein Handgriff. Es braucht jemanden, der das einmal aufsetzt – in der Feuerwehr, in der\n          Gemeinde oder eine befreundete IT. Und wenn ihr niemanden habt: Meldet euch, wir\n          helfen beim Aufsetzen."
+        "a": "Ein kleiner Mini-PC oder Server im Magazin reicht; für Einrichtung, Updates und\n          Backups braucht es jemanden mit Docker- und Kommandozeilen-Erfahrung – in der Feuerwehr,\n          der Gemeinde oder eine befreundete IT. Anleitung und Verwaltung führen durch den Aufbau.\n          Allgemeine Fragen beantworten wir gern; Stationsdaten und Betrieb bleiben bei euch."
       },
       {
         "q": "Können wir es an unsere Abläufe anpassen?",
@@ -357,7 +357,7 @@
       },
       {
         "q": "Wie fangen wir an?",
-        "a": "Mit der <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Anmeldung – in Musterdorf brennt es schon. Danach an einer Übung ausprobieren.\n          Und wenn es passt: Melde dich, wir helfen beim Aufsetzen."
+        "a": "Mit der <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Anmeldung – in Musterdorf brennt es schon. Danach an einer Übung ausprobieren.\n          Wenn es passt, führt die <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">Einrichtungsanleitung</a> zur eigenen Installation."
       }
     ]
   },

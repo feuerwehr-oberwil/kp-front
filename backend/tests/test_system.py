@@ -109,6 +109,22 @@ async def test_system_shape_as_admin(client, editor, admin_login):
     assert body["monitoring"]["heartbeatConfigured"] is False  # nothing configured in the test env
 
 
+async def test_generic_alarm_webhook_does_not_claim_a_specific_provider(monkeypatch):
+    from app import providers
+
+    values = {"alarm_webhook_secret": "configured"}
+    monkeypatch.setattr(providers, "credential", lambda name: values.get(name, ""))
+
+    result = providers.integrations()
+
+    assert result.alarms.provider == "webhook"
+    assert result.alarms.configured is True
+    assert "pool" not in result.alarms.capabilities
+    firehub = next(p for p in result.providers if p.provider == "firehub")
+    assert firehub.configured is False
+    assert firehub.active is False
+
+
 async def test_system_connector_print_relay_online(client, editor, admin_login, monkeypatch):
     """With the relay secret set and a fresh heartbeat, the connector reports online."""
     from datetime import UTC, datetime

@@ -141,7 +141,7 @@ export function useAtemschutzAlarm({
       // the Verlauf already carries the pressure crossing from recordPressure (logPressureAlarm),
       // so only the contact crossing is recorded here — otherwise one reading writes two lines
       const turnus = t.lastContactTime ?? t.entryTime ?? ''
-      if (justCrossed && !lowPressure && alarmedFor.current.get(t.id) !== turnus) {
+      if (!demo && justCrossed && !lowPressure && alarmedFor.current.get(t.id) !== turnus) {
         alarmedFor.current.set(t.id, turnus)
         logAlarm(t.id, 'ueberfaellig') // crossed into overdue → record once PER TURNUS
       }

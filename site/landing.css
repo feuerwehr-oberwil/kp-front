@@ -674,6 +674,10 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   /* Funktionen/Kontakt are only scroll anchors – GitHub + Demo carry the header.
      The language links stay: a French reader on a phone has no other way over. */
   .top nav a:not(.cta):not(.icon-link):not(.lang) { display: none; }
+  /* Four language targets + GitHub + Demo overflow a 390 px magazine/QR landing. GitHub is in
+     the footer; keep the language switcher and primary Demo door, and reduce the brand to its
+     recognisable mark at phone width. */
+  .top .icon-link, .top .mark span { display: none; }
   .top-in { gap: 12px; }
   .fit-row { grid-template-columns: 1fr; }
   /* 128px Begriffsspalte plus Text passt auf dem Handy nicht – Begriff über die Erklärung */

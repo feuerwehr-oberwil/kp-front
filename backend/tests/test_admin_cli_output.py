@@ -85,6 +85,25 @@ def test_validating_a_shipped_template_says_it_is_a_template(module: str, templa
     assert "examples/demo-data/" in r.stderr
 
 
+def test_the_committed_config_example_is_exactly_what_the_cli_prints():
+    """``backend/config.example.json`` is GENERATED, not authored.
+
+    It began as a copy of ``EXAMPLE_CONFIG`` and then diverged for months, unnoticed because
+    nothing read it: no ``roster.ranks``, no ``modul6.viewer`` (the exact bug
+    ``test_config_doctrine`` pins for the Python template), «Stk» without the dot, a
+    ``defaultFunkkanal`` of 11. Two templates for one document is one template too many, so this
+    file is pinned to the CLI's output — the half a station actually runs.
+
+    Regenerate with::
+
+        uv run python -m app.admin_config example > config.example.json
+    """
+    r = _run("app.admin_config", "example")
+    assert r.returncode == 0, r.stderr
+    committed = (BACKEND / "config.example.json").read_text(encoding="utf-8")
+    assert committed == r.stdout, "config.example.json has drifted from EXAMPLE_CONFIG — regenerate it"
+
+
 def test_a_stations_own_missing_file_gets_the_short_message(tmp_path: Path):
     """The hint is for the shipped templates only — a real manifest's missing export must not
     be told it is an example."""

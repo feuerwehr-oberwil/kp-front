@@ -86,6 +86,7 @@ async def _load(slot: str, path: Path) -> str:
 
     from . import storage
     from .api.branding import _check_icon
+    from .config_history import keep_previous
     from .database import async_session_maker
     from .models import DeploymentConfig
 
@@ -102,6 +103,9 @@ async def _load(slot: str, path: Path) -> str:
     url = f"/api/branding/file/{key}"
     async with async_session_maker() as db:
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        # A whole-document rewrite (the nightly demo reset runs this), so keep what it replaces —
+        # same net as `admin_config load`. Best-effort; it never blocks the write.
+        await keep_previous(db, "branding")
         doc = dict((row.config_json if row else None) or {})
         identity = dict(doc.get("identity") or {})
         assets = dict(identity.get("assets") or {})

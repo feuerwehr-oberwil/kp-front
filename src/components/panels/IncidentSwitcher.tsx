@@ -170,7 +170,8 @@ export function IncidentSwitcher({
   )
   return (
     <div className="ip-switch" ref={ref}>
-      <button className="ip-switch-btn" onClick={() => setOpen((v) => !v)} aria-expanded={open && !sheetOpen}>
+      <button className="ip-switch-btn" onClick={() => setOpen((v) => !v)}
+        aria-label={active ? active.title : cp.noIncident} aria-expanded={open && !sheetOpen}>
         {/* phones: the title is CSS-hidden (a one-letter stump helped nobody) — a doc glyph
             marks the button; the full title heads the dropdown instead */}
         <span className="ip-switch-glyph" aria-hidden><Icon id="doc" /></span>

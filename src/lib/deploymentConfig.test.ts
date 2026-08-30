@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { alarmProviderName, atemschutzDoctrine, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -122,6 +122,24 @@ describe('loadDeploymentConfigBounded — first paint is never held hostage', ()
     fetchMock.mockReturnValueOnce(new Promise(() => {}))
     await expect(loadDeploymentConfigBounded(30)).resolves.toEqual({})
   })
+
+  it('never lets a late anonymous response replace the authenticated demo config', async () => {
+    let resolveAnonymous!: (response: Response) => void
+    let resolveAuthenticated!: (response: Response) => void
+    fetchMock
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveAnonymous = resolve }))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveAuthenticated = resolve }))
+
+    const anonymous = loadDeploymentConfig()
+    const authenticated = loadDeploymentConfig()
+    resolveAuthenticated(json({ identity: { demoMode: true }, integrations: { cartoBasemapKey: 'session-key' } }))
+    await authenticated
+    expect(getDeploymentConfig().integrations?.cartoBasemapKey).toBe('session-key')
+
+    resolveAnonymous(json({ identity: { demoMode: true } }))
+    await anonymous
+    expect(getDeploymentConfig().integrations?.cartoBasemapKey).toBe('session-key')
+  })
 })
 
 // ⚠️ Copy must never hard-code «Divera». Every station saw «übernimm einen Divera-Alarm» — the
@@ -165,6 +183,36 @@ describe('naming the Alarm-/Personalquelle only where there is one', () => {
     await load({ integrations: { personnel: { provider: 'divera', configured: true, capabilities: [] } } })
     expect(personnelProviderName()).toBe('Divera')
     expect(alarmProviderName()).toBeNull()
+  })
+})
+
+describe('Atemschutz pressure-alarm doctrine', () => {
+  const load = async (doctrine: unknown) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ doctrine }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    })))
+    await loadDeploymentConfig()
+  }
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('disables both pressure alarms when the demo uses an Alarmdruck of 0', async () => {
+    await load({ alarmBar: 0, alarmBarRueckzug: 50 })
+    expect(atemschutzDoctrine()).toMatchObject({ alarmBar: 0, alarmBarRueckzug: 0 })
+  })
+
+  it('keeps the shipped Rückzug line for an ordinary Alarmdruck', async () => {
+    await load({ alarmBar: 100 })
+    expect(atemschutzDoctrine()).toMatchObject({ alarmBar: 100, alarmBarRueckzug: 50 })
+  })
+
+  it('clamps the shipped Rückzug line to a lower custom Alarmdruck', async () => {
+    await load({ alarmBar: 40 })
+    expect(atemschutzDoctrine()).toMatchObject({ alarmBar: 40, alarmBarRueckzug: 40 })
+  })
+
+  it('also clamps a stale explicit Rückzug line above the active Alarmdruck', async () => {
+    await load({ alarmBar: 40, alarmBarRueckzug: 60 })
+    expect(atemschutzDoctrine()).toMatchObject({ alarmBar: 40, alarmBarRueckzug: 40 })
   })
 })
 

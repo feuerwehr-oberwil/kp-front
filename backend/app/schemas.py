@@ -846,7 +846,10 @@ class DoctrineConfig(BaseModel):
     defaultFunkkanal: int | None = None
     funkkanalMin: int | None = None
     funkkanalMax: int | None = None
-    alarmBar: int | None = None
+    # Zero is a deliberate public-demo escape hatch. DeploymentConfigIn rejects it for
+    # ordinary station configs; positive station thresholds stay within the same safety range
+    # as the Rückzug line.
+    alarmBar: int | None = Field(default=None, ge=0, le=300)
     #: The lower Alarmdruck applied while a Trupp is on Rückzug. Bounded like ``cylinderLiters``
     #: below, because on this field an empty-looking value is not «off»: ``app/push.py`` only
     #: alarms while ``line > 0``, and the frontend reads ``alarmBarRueckzug ?? alarmBar``, where
@@ -880,7 +883,12 @@ class DoctrineConfig(BaseModel):
         the card scream for the entire walk back — it speaks up again only lower down, where the
         crew is genuinely late getting out. Set above `alarmBar` it inverts that: the retreating
         Trupp would alarm earlier than one still working."""
-        if self.alarmBar is not None and self.alarmBarRueckzug is not None and self.alarmBarRueckzug > self.alarmBar:
+        if (
+            self.alarmBar is not None
+            and self.alarmBar > 0
+            and self.alarmBarRueckzug is not None
+            and self.alarmBarRueckzug > self.alarmBar
+        ):
             raise ValueError(
                 f"doctrine.alarmBarRueckzug ({self.alarmBarRueckzug}) must not exceed "
                 f"doctrine.alarmBar ({self.alarmBar}) — the Rückzug line alarms earlier, not later"
@@ -1283,6 +1291,17 @@ class DeploymentConfigIn(BaseModel):
     # Future asset-upload slice: validate that identity.assets.* reference existing entries in
     # asset storage. Skipped while assets are still provisioned outside this document.
 
+    @model_validator(mode="after")
+    def _zero_alarmdruck_is_demo_only(self, info: ValidationInfo) -> "DeploymentConfigIn":
+        if self.doctrine.alarmBar == 0 and self.identity.demoMode is not True:
+            if (info.context or {}).get("stored"):
+                logger.warning("doctrine.alarmBar is 0 outside demo mode — serving the station defaults")
+                self.doctrine.alarmBar = None
+                self.doctrine.alarmBarRueckzug = None
+                return self
+            raise ValueError("doctrine.alarmBar may be 0 only when identity.demoMode is true")
+        return self
+
 
 class ProviderCapability(BaseModel):
     provider: str | None = None
@@ -1381,7 +1400,8 @@ def load_stored_config(raw: Any) -> DeploymentConfigIn:
 
     Same model as the PUT body, one difference: a stored value that today's rules would REFUSE
     must not take the whole document down with it. A field that has grown a rule since the row
-    was written (`identity.accentColor`) is dropped to its unset default and logged, instead of
+    was written (`identity.accentColor`, or a station-level zero Alarmdruck) is dropped to its
+    unset default and logged, instead of
     raising — because every reader of the stored row falls back to an EMPTY config when
     validation fails, and losing a station's fleet, roster and doctrine is not a proportionate
     answer to one bad colour.

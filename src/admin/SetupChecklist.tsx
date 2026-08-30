@@ -62,6 +62,9 @@ export function SetupChecklist({ cfg, facts, onGo }: {
   const pair = (v: unknown): [number, number] | null =>
     Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number') ? (v as [number, number]) : null
   const centre = pair(cfg.map?.defaultView?.center) ?? pair(cfg.map?.defaultView?.centerLv95)
+  // Either field biases the address search; neither is required for the other to work.
+  const geo = cfg.map?.geocoder
+  const geocoderBiased = !!geo?.defaultLocality?.trim() || !!geo?.bboxLv95?.trim()
 
   const rows: Row[] = [
     {
@@ -94,6 +97,15 @@ export function SetupChecklist({ cfg, facts, onGo }: {
     {
       key: 'fleet', done: vehicles > 0, go: 'fahrzeuge',
       label: C.fleet, sub: vehicles > 0 ? fillTemplate(C.fleetSet, { n: vehicles }) : C.fleetOpen,
+    },
+    {
+      // A Wehr can tick every other row and still be offered «Hauptstrasse 3» from a village
+      // three cantons away when it opens an incident — the two geocoder fields were CLI-only
+      // until recently and appear on no landing page at all. Done on EITHER of them: the
+      // locality alone already keeps the search at home (geocode.py · _resolve_bias), and a row
+      // that demands both would stay open on a station that is in fact biased correctly.
+      key: 'geocoder', done: geocoderBiased, go: 'identitaet',
+      label: C.geocoder, sub: geocoderBiased ? C.geocoderSet : C.geocoderOpen,
     },
     {
       // A station that never learns its instance is down is the failure the whole ops story is

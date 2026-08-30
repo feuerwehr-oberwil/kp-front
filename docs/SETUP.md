@@ -80,28 +80,29 @@ progress counter until the app answers. Migrations run on boot – there is no s
 step. When something fails it says which thing failed and what to type, rather than printing a
 stack trace.
 
-**More than the four required secrets are generated – and the extra ones do not go into
-`.env`.** Once the app answers, the installer logs into this deployment's own admin API with the
-`ADMIN_SECRET` it made minutes ago and mints three things into the **encrypted credential store**
-(§5): a `DIVERA_WEBHOOK_SECRET`, an `ALARM_WEBHOOK_SECRET` – the value the *other* system sends
-back to this one, so connecting an alerting system later is a copy-paste instead of a terminal
-session; both intakes stay closed (403) to anyone without it – and the **VAPID key pair** for Web
-Push, generated inside the container, which is what makes an Atemschutz alarm reach a tablet whose
-screen is off (§8 calls that safety-critical, and a missing pair is the kind of failure nobody
-notices until the night it matters).
+**The Web Push keys do not go into `.env`.** Once the app answers, the installer logs into this
+deployment's own admin API with the `ADMIN_SECRET` it made minutes ago and mints the **VAPID key
+pair** in the encrypted credential store (§5). That is what makes an Atemschutz alarm reach a
+tablet whose screen is off (§8 calls it safety-critical, and a missing pair is the kind of failure
+nobody notices until the night it matters).
+
+Webhook secrets are deliberately **not** generated at install. They are write-only – once saved,
+the app can verify them but never reveal them. Pre-generating an unseen value would make an intake
+look configured while no external alarm system could call it. When you connect Divera, FireHub or
+another alarm system, generate one long random value, paste it into both
+`/admin` → **Zugangsdaten** and the external system, and keep the handoff in that setup session.
 
 They go into the store rather than into `.env` for one reason: **a value in `.env` wins and locks
 its field in the browser** (§5). Minting into `.env` would hand every fresh station a page of dead
-boxes on the one screen built to keep this off SSH – keys it could never rotate at 03:00 on the
-day the alerting system changed one. In the store, every one of them is rotatable at
-`/admin` → **Zugangsdaten**.
+boxes on the one screen built to keep this off SSH – keys it could never rotate at 03:00. In the
+store, the pair is rotatable at `/admin` → **Zugangsdaten**.
 
 This step never fails the install. If it cannot run – no `curl` on the host, an empty
 `ADMIN_SECRET`, an app that did not answer – it says exactly what is now missing and how to finish
 it in the browser, and the rest of the install is unaffected. `--no-start` mints nothing at all,
 because there is no running app to write through. Either way,
-`./scripts/setup.sh --credentials` re-runs just that step against an installed deployment; it
-never overwrites a value the station has since set or rotated, and never one that `.env` owns.
+`./scripts/setup.sh --credentials` re-runs just the Web Push step against an installed deployment;
+it never overwrites a pair the station has since set or rotated, and never one that `.env` owns.
 **One state it does replace: a credential the store can no longer decrypt.** That happens when
 `SECRET_KEY` changed (§7) – the stored bytes are already dead, the app itself asks you to set the
 value again, and the run says which one it replaced.
@@ -159,7 +160,7 @@ otherwise. It says so at the end rather than leaving you to find out.
 | `--no-start` | write `.env` and stop – nothing pulled, built or started, and no credentials minted |
 | `--timeout <sec>` | how long to wait for `/ready` (default 300) |
 | `--env-file <path>` | write somewhere other than `./.env`, for testing. `KP_ENV_FILE` does the same. ⚠️ A backup schedule is then **not offered at all**: `backup.sh` reads `./.env` for the database identity, so a scheduled dump would name the wrong deployment |
-| `--credentials` | mint only the missing integration secrets into an installed deployment, then stop |
+| `--credentials` | mint only the missing Web Push key pair into an installed deployment, then stop |
 | `-y`, `--yes` | never prompt. Needs `--domain` or `--lan` |
 
 `--help` prints the same list. Everything else stays derived: you never script `COOKIE_SECURE`,
@@ -207,6 +208,12 @@ backend refuses to use in production precisely because it is public
 accounts as tiles and you pick a face, then type the PIN. The seeded tile reads
 **«Führungsunterstützung»** – that is the account's *display name*, and it is the only name a
 human ever sees.
+
+That convenience is also a privacy choice: the pre-login roster endpoint exposes each active
+account's display name, role and colour so the tiles can render. On an internet-facing deployment,
+use functional labels such as «FU 1» instead of personal names where roster enumeration is not
+acceptable. This concerns login accounts only; the separate personnel roster remains behind a
+session.
 
 > **`fu` is a username, and you never type it anywhere.** It exists in the database and in the
 > seed file, but no screen asks for it – and neither installer prints it, on purpose: they name
@@ -264,8 +271,8 @@ easier to fix now than after you have data.
 
 This path also skips everything §1 does *after* the four secrets, so on this path they are
 yours to do. Both halves have a one-command version that works against an existing `.env`
-without touching anything else: `./scripts/setup.sh --credentials` mints the **VAPID pair** and
-the **two webhook secrets** into the credential store (§5), and
+without touching anything else: `./scripts/setup.sh --credentials` mints the **VAPID pair** into
+the credential store (§5), and
 `./scripts/setup.sh --backup-cron` installs the **backup schedule** (§6). Or set the credentials
 by hand at `/admin` → **Zugangsdaten** – that page is the point of them.
 
@@ -311,7 +318,7 @@ and tells you why, rather than presenting a login you could fail your way past
 ### Work down «Einrichtung»
 
 The admin lands on **System & Wartung**, and on a fresh deployment the first card there is
-**«Einrichtung»** – seven rows, each naming *what stays broken while it is undone* rather than
+**«Einrichtung»** – eight rows, each naming *what stays broken while it is undone* rather than
 demanding you finish, and each a link straight to the page that fixes it.
 
 | Row | Takes you to | Undone, that means |
@@ -320,16 +327,21 @@ demanding you finish, and each a link straight to the page that fixes it.
 | «Kartenmitte» | Station & Karte | Every new Lage starts somewhere arbitrary |
 | «Brandmark hochladen» | Station & Karte | No logo on the login screen, no letterhead on the printed Rapport |
 | «Eigene Zugänge» | Mitglieder & Zugriff | Only the one seeded account from §2 can log in |
-| «Mannschaft erfassen» | Mannschaft | Anwesenheit and Rapport stay empty lists |
+| «Personal erfassen» | Personal | Anwesenheit and Rapport stay empty lists |
 | «Fahrzeuge hinterlegen» | Fahrzeuge & Symbole | The Rapport has no grid for Ausrückzeiten |
+| «Adresssuche eingrenzen» | Station & Karte | Address suggestions are not biased to the station's own area |
 | «Überwachung» | Zugangsdaten | `HEALTHCHECK_PING_URL` is unset, so an outage is nobody's news (§5, and [`DEPLOYMENT.md` §5.5](DEPLOYMENT.md#55-knowing-when-it-is-down)) |
 
 The card follows one rule, and it is worth knowing because it explains what is *not* on it: **it
 only ever lists things this UI can finish.** «Überwachung» used to be the exception – reported
 below the rows, outside the «x von n» count, because the ping URL was env-only and a row nobody
-could tick would have parked the card at «6 von 7» forever. It is now one of the sixteen
+could tick would have parked the card at «6 von 7» forever. It is now one of the seventeen
 credentials «Zugangsdaten» sets, so it is an ordinary counted row like every other
 ([`SetupChecklist.tsx`](../src/admin/SetupChecklist.tsx) · `SetupChecklist`).
+
+Opening incidents manually is a complete, supported setup, so «Alarmquelle» is deliberately not
+one of these rows. Divera and generic webhook intake remain optional upgrades under
+**Daten › Alarme & Einsätze** and **Zugangsdaten**.
 
 ⚠️ **A card with nothing left on it is not a finished setup.** «Eigene Zugänge» ticks as soon as
 the deployment holds more than one account – it cannot see whether the setup PIN from §2 was ever
@@ -355,7 +367,7 @@ forget.
 | **Objektpläne** | The module catalogue with per-module coverage, and the Einsatzobjekte themselves: create an object, upload or replace its Modul-PDFs. Nobody types a UUID – you give the object a short, retypable key and the page hashes it to the same uuid5 the CLI derives, so a manifest later addresses *this* object instead of creating a twin |
 | **Checklisten** | The FU/EL checklist templates: upload, replace, delete, and their per-page diagram assets |
 | **Mitglieder & Zugriff** | Who may log in, with which role and which PIN; deactivate an account |
-| **Mannschaft** | The crew – hand entry, a CSV import with a downloadable template, or the workbook below |
+| **Personal** | The crew – hand entry, a CSV import with a downloadable template, or the workbook below |
 | **Erfassung** | The capture poster for the Magazin and its secret |
 | **Zugangsdaten** | The keys of every integration – Divera, Traccar, Web Push, speech-to-text, the two webhook intakes, the print relay and the monitor ping. Stored encrypted, live without a restart (§5) |
 | **Arbeitsmappe** | The station's list-shaped data as one `.xlsx`: download, edit, upload back – see below |
@@ -386,7 +398,7 @@ you are running, and on a station server that command needs no toolchain –
   below carries the whole rest of the Mittel-Katalog but not this.
 - **`alarmKeywords`** – the Stichwort table that maps an alerting system's wording onto this
   station's own. It is a paste-a-document, not a fill-a-form, and it is treated as one.
-- **`roster.source`** – whether people come from a provider or are entered by hand. «Mannschaft»
+- **`roster.source`** – whether people come from a provider or are entered by hand. «Personal»
   edits the crew and the name order, not where the crew comes from.
 - **Whole libraries at once** – a geodata manifest, an object-plan library, a set of checklist
   templates, or a config you want reviewed before it lands. Every one of those has a browser
@@ -408,7 +420,9 @@ Set the **locale** on Station & Karte. It is a per-deployment setting resolved o
 per-device preference: one brigade, one language. German, French, Italian and English ship; German
 is the canonical catalogue and anything untranslated falls back to it.
 
-Then the roster – either Divera sync (§5) or manual entry / CSV import on the Mannschaft page.
+Then the roster – either Divera sync (§5) or manual entry / CSV import on the **Personal** page.
+(The `.xlsx` sheet is still called `Mannschaft`, and so is the word for who is on an Einsatz –
+the admin page for the standing crew is «Personal».)
 See [`CONFIGURATION.md` §4](CONFIGURATION.md).
 
 ### The lists, in one spreadsheet
@@ -656,8 +670,9 @@ geodata or checklists above, so an integration is never a substitute for this st
 
 Every integration is fail-closed: no credential means the feature is off, not broken.
 
-**These go in the browser now.** Sixteen settings – the three Divera keys, the Traccar trio, the
-VAPID trio, the four speech-to-text settings, `PRINT_AGENT_SECRET`, `ALARM_WEBHOOK_SECRET` and
+**These go in the browser now.** Seventeen settings – the three Divera keys, the Traccar trio, the
+VAPID trio, the four speech-to-text settings, `CARTO_API_KEY`, `PRINT_AGENT_SECRET`,
+`ALARM_WEBHOOK_SECRET` and
 `HEALTHCHECK_PING_URL` – are set at `/admin` → **Zugangsdaten**. They are stored **encrypted** in
 this deployment's own database (AES-256-GCM under a key derived from `SECRET_KEY`) and take effect
 **without a restart**. Three rules, once:
@@ -685,10 +700,10 @@ Full list and formats in [`.env.example`](../.env.example); the API is in
   works.
 - **Any other alerting system** – `ALARM_WEBHOOK_SECRET` opens `POST /api/alarms`. No vendor
   account, no code. See [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md).
-- ⚠️ **Both webhook secrets already exist** – `./scripts/setup.sh` minted them at install (§1).
-  You cannot read either one back, here or anywhere, so when you connect the other system you
-  **set a new value on «Zugangsdaten» → «Webhooks» and give that value to it**. Rotating is the
-  normal way to use this, not a recovery step.
+- ⚠️ **Webhook secrets are created during the integration handoff, not at install.** You cannot
+  read one back after saving it. Generate a long random value, paste it into
+  «Zugangsdaten» → «Webhooks» and the external alarm system in the same session. If the handoff
+  value is lost, rotate it on both sides.
 - **Traccar** – live vehicle positions on the Lage map.
 - **Web Push** – **`./scripts/setup.sh` already did this one** on a fresh install (§1), and the
   pair is in the credential store, not in `.env`. To make one by hand – an older install, or a
@@ -728,11 +743,10 @@ Otherwise, one command:
 ./scripts/setup.sh --backup-cron     # installs the nightly line, then proves it runs
 ```
 
-⚠️ **Only if there is no `scripts/backup.sh` line in that crontab yet.** If there is one – a line
-you pasted by hand from [`DEPLOYMENT.md` §6](DEPLOYMENT.md#the-schedule), for instance – the
-command says «leaving it alone» and stops there. It does **not** then run your line to prove it
-works, which is the whole value of this command. If you pasted the line yourself, run it once by
-hand under cron's own environment before you trust it:
+If a `scripts/backup.sh` line already exists – one pasted by hand from
+[`DEPLOYMENT.md` §6](DEPLOYMENT.md#the-schedule), for instance – the command leaves the crontab
+unchanged and still runs that existing command once under cron's environment to prove it works.
+To perform the same check explicitly:
 
 ```bash
 env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOME="$HOME" \
@@ -757,12 +771,10 @@ once you have actually recovered it:
 ./scripts/restore.sh           backups/db-<stamp>.sql.gz   # type 'restore' to confirm
 ```
 
-⚠️ **`--dry-run` restores nothing, but it is not read-only on the host.** To tell you what it
-would replace it has to read the live database, so it **starts the `db` container** if it is not
-already up and runs two throwaway containers to count the files in the storage volume. Nothing is
-dropped, written or overwritten, and the app is never started – but on a stopped stack, a dry run
-leaves Postgres running. That is the one thing to know before you type it on a machine you meant
-to leave untouched.
+⚠️ **`--dry-run` restores nothing, but it may briefly start containers.** To tell you what it
+would replace it starts the `db` container when needed and runs throwaway containers to count the
+storage files. Nothing is dropped, written or overwritten, the app is never started, and a
+database container started by the dry-run is stopped again before it exits.
 
 It restores both halves together, refuses a dump whose storage tarball is missing or corrupt,
 takes a safety copy of the current state first, and counts rows and files afterwards instead
@@ -813,8 +825,14 @@ The rest of this section is ordered by how often it catches people.
    you, «Letzte Änderungen» on that page restores the version it overwrote.
 5. **Postgres majors don't upgrade themselves.** A 16 volume will not be read by a 17 server.
    Stay on `postgres:16` for the life of the volume; to move, dump and restore into a fresh one.
-6. **On Railway, set `RAILWAY_RUN_UID=0`.** Railway mounts volumes root-owned, the image runs as
-   uid 10001, and the mismatch fails `/ready` on storage.
+6. **On Railway, mount the volume at `/mnt/data` and set `RAILWAY_RUN_UID=0`.** The image bakes
+   `MEDIA_STORAGE_DIR=/mnt/data/storage`, Railway mounts volumes root-owned, and the image runs
+   as uid 10001. On a **fresh** database that mismatch is not a `/ready` warning: every migration
+   is pending, so `start.sh` tries to write its pre-migration dump under the mount, cannot, and
+   **refuses the boot** – a restart loop with nothing listening and the reason only in the deploy
+   logs. `/ready` reporting `storage: error` is the same cause on a *later* restart, once there
+   is nothing left to migrate. The whole procedure is
+   [`DEPLOYMENT.md` §3a](DEPLOYMENT.md#3a-railway-in-order).
 
 ## 8. Before you rely on it in the field
 

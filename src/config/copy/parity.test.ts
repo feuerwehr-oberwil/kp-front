@@ -26,8 +26,11 @@ import { it as itLoc } from './it'
  *    • contextPanel.unLookupUrl — an address.
  *    • primarySymbol.id / icon — a tool id and a sprite name; «plus-bold» translated renders
  *      no icon at all.
- *    • journal.reminderChips — minute values, not words. */
+ *    • journal.reminderChips — minute values, not words.
+ *    • admin.docs — the repository + paths of the manual /admin links to. One place a fork
+ *      retargets; translating a URL points it at nothing. */
 const INTENTIONALLY_GERMAN = new Set([
+  'admin.docs',
   'intake.kategorien',
   'intake.kategorieGuess',
   'contextPanel.unField',

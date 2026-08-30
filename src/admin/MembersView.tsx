@@ -4,7 +4,7 @@ import { apiGet, apiPost, apiPatch, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
-import { ActionMenu, fmtDate } from './ui'
+import { ActionMenu, EmptyState, fmtDate } from './ui'
 import { RoleChoice, type MemberRole } from './RoleChoice'
 import { PinSheet } from './PinSheet'
 import { PIN_LENGTH } from '../components/PinPad'
@@ -26,6 +26,14 @@ interface AdminUser {
 
 const PIN_LEN = PIN_LENGTH // mirrors backend settings.pin_length
 
+/** The account every fresh deployment boots with (backend/app/seed_users.json). Its PIN comes
+ *  from SEED_PIN — printed by the installer, in the docs for a development install — so it stays
+ *  a working editor login until somebody re-PINs or deactivates it. «Einrichtung» cannot see
+ *  that: it counts accounts, and this one counts. Hence the nudge on the page that fixes it.
+ *  ⚠️ A username, not a flag: the users API exposes no «seeded» marker, so if the seed file's
+ *  username ever changes, this constant has to follow it. */
+const SEEDED_USERNAME = 'fu'
+
 // ─── helpers ───────────────────────────────────────────────────────────────
 
 function isValidPin(pin: string): boolean {
@@ -44,8 +52,14 @@ function roleLabel(role: string): string {
 
 // ─── add-member form ───────────────────────────────────────────────────────
 
-function AddMemberForm({ onCreated }: { onCreated: () => void }) {
-  const [open, setOpen] = useState(false)
+// Open state lives in MembersView: the teaching empty state below the table has to be able to
+// open this form too, and a card that can only be opened from one place is a dead end on the
+// screen a fresh station lands on with nothing in it.
+function AddMemberForm({ open, setOpen, onCreated }: {
+  open: boolean
+  setOpen: (open: boolean) => void
+  onCreated: () => void
+}) {
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
   // NO default: the role is a question the form asks, not a value it pre-fills. Three crew
@@ -179,7 +193,7 @@ function AddMemberForm({ onCreated }: { onCreated: () => void }) {
 
         <div className="adm-members-formbtns">
           {role === null && (
-            <span className="adm-rolepick-why">
+            <span className="adm-pick-why">
               <Icon id="info" />
               {C.rolePickFirst}
             </span>
@@ -319,6 +333,7 @@ export function MembersView() {
   const [busyId, setBusyId] = useState<string | null>(null)
   /** the member whose PIN is being set — the pinpad Sheet is open while this is non-null */
   const [pinFor, setPinFor] = useState<AdminUser | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -358,10 +373,15 @@ export function MembersView() {
     }))
 
   const C = appConfig.copy.admin.members
+  // The shipped account, still a working login. Deliberately not gated on «are there other
+  // accounts yet»: it is the seeded PIN that matters, not how many accounts stand beside it.
+  const seeded = state.kind === 'ok'
+    ? state.data.find((u) => u.username === SEEDED_USERNAME && u.is_active) ?? null
+    : null
 
   return (
     <div className="adm-editor">
-      <AddMemberForm onCreated={() => void load()} />
+      <AddMemberForm open={addOpen} setOpen={setAddOpen} onCreated={() => void load()} />
 
       {/* Setting a PIN goes through the app's own pinpad in a Sheet — window.prompt() can be
           suppressed without a trace on an installed iOS PWA, and this is the first action the
@@ -382,12 +402,41 @@ export function MembersView() {
           </p>
         </header>
         <div className="adm-card-body">
+          {seeded && (
+            <div className="adm-seedwarn" role="status">
+              <p className="adm-seedwarn-title">
+                {fillTemplate(C.seedAccountTitle, { name: seeded.username })}
+              </p>
+              <p className="adm-seedwarn-body">{C.seedAccountBody}</p>
+              <div className="adm-seedwarn-actions">
+                <button type="button" className="btn adm-int-btn" onClick={() => setPinFor(seeded)}>
+                  {C.resetPin}
+                </button>
+                <button
+                  type="button" className="btn adm-int-btn"
+                  disabled={busyId === seeded.id || (seeded.role === 'editor' && activeEditors <= 1)}
+                  title={seeded.role === 'editor' && activeEditors <= 1 ? C.guardLastCmdDeactivate : undefined}
+                  onClick={() => void toggleActive(seeded)}
+                >
+                  {C.deactivate}
+                </button>
+              </div>
+            </div>
+          )}
           {state.kind === 'loading' && <div className="adm-state">{C.loading}</div>}
           {state.kind === 'error' && (
             <div className="adm-state adm-state-err">{state.detail}</div>
           )}
           {state.kind === 'ok' && state.data.length === 0 && (
-            <div className="adm-state">{C.none}</div>
+            <EmptyState
+              message={C.none}
+              hint={C.noneHint}
+              action={
+                <button type="button" className="btn adm-save-btn" onClick={() => setAddOpen(true)}>
+                  {C.add}
+                </button>
+              }
+            />
           )}
           {state.kind === 'ok' && state.data.length > 0 && (
             <div className="adm-table-wrap">

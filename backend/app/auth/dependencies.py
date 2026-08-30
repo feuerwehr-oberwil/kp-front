@@ -13,7 +13,7 @@ from ..config import settings
 from ..database import get_db
 from ..models import User
 from .incident_link import read_link_session
-from .security import decode_token
+from .security import admin_token_is_current, decode_token
 from .token_blocklist import token_blocklist
 
 logger = logging.getLogger(__name__)
@@ -146,7 +146,7 @@ async def get_current_admin(admin_session: Annotated[str | None, Cookie()] = Non
         raise _admin_auth_exc
     try:
         payload = decode_token(admin_session)
-        if payload.get("type") != "admin" or payload.get("scope") != "admin":
+        if not admin_token_is_current(payload):
             raise _admin_auth_exc
         jti = payload.get("jti")
         if jti and await token_blocklist.is_revoked(jti):
@@ -161,7 +161,7 @@ async def _admin_session_valid(admin_session: str | None) -> bool:
         return False
     try:
         payload = decode_token(admin_session)
-        if payload.get("type") != "admin" or payload.get("scope") != "admin":
+        if not admin_token_is_current(payload):
             return False
         jti = payload.get("jti")
         return not (jti and await token_blocklist.is_revoked(jti))

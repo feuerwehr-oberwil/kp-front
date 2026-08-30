@@ -24,6 +24,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [1b. `report.hoursRounding` – Einsatzstunden on the printed rapport](#1b-reporthoursrounding--einsatzstunden-on-the-printed-rapport)
   - [1c. `report.attendanceMergeGapMin` – two ticks that are one arrival](#1c-reportattendancemergegapmin--two-ticks-that-are-one-arrival)
   - [1d. `report.links` – the station's own forms, on the Rapport](#1d-reportlinks--the-stations-own-forms-on-the-rapport)
+  - [`doctrine.alarmBarRueckzug` – the quieter line on Rückzug](#doctrinealarmbarrueckzug--the-quieter-line-for-a-trupp-on-rückzug)
 - [2. Reference / Werkleitungs layers – station-supplied](#2-reference--werkleitungs-layers--station-supplied-nothing-bundled)
   - [2a. Raster layer (WMS / WMTS)](#2a-raster-layer-wms--wmts--paste-a-url-template) ·
     [2b. Vector layer (GeoJSON)](#2b-vector-layer-geojson--for-pointslines-you-own)
@@ -47,7 +48,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [9d. `admin_geodata` – reference layers](#9d-admin_geodata--reference-layers)
   - [9e. `admin_objects` – Einsatzobjekte + Modul-PDFs](#9e-admin_objects--einsatzobjekte--modul-pdfs)
   - [9f. `admin_checklists` – checklist templates](#9f-admin_checklists--checklist-templates)
-  - [9g. Maintenance tools (`reset_roster`, `demo_export`)](#9g-maintenance-tools-reset_roster-demo_export)
+  - [9g. Maintenance tools (`reset_roster`, `demo_export`, `admin_visits`)](#9g-maintenance-tools-reset_roster-demo_export-admin_visits)
   - [9h. The station workbook – one `.xlsx` for the list-shaped data](#9h-the-station-workbook--one-xlsx-for-the-list-shaped-data)
 - [10. Out of scope for this doc](#10-out-of-scope-for-this-doc)
 
@@ -210,9 +211,12 @@ both now have browser pages – §9e and §9f.
   "doctrine": {                                  // FKS defaults shown; override per corps
     "defaultFunkkanal": 11,                       // null = no preset (national default)
     "funkkanalMin": 1, "funkkanalMax": 9999,
-    "alarmBar": 100,                              // pressure alarm threshold (bar). ONE tier
-                                                  // by design – the older 60-bar «Mindestdruck»
-                                                  // second tier was dropped 2026-07-27
+    "alarmBar": 100,                              // Alarmdruck (bar) for a Trupp AT WORK. One line
+                                                  // on the way in – the older 60-bar
+                                                  // «Mindestdruck» tier was dropped 2026-07-27.
+                                                  // 0 is reserved for identity.demoMode deployments
+    "alarmBarRueckzug": 50,                       // …and the quieter line once the Trupp is on
+                                                  // RÜCKZUG. Must not exceed alarmBar – see below
     "contactIntervalMin": 5,                      // SCBA contact interval – "Kontakt fällig" (amber)
     "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm
     "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320,
@@ -321,6 +325,39 @@ both now have browser pages – §9e and §9f.
 > **Validation:** the CLI/backend reject malformed config and CRS ambiguity (both `center` and
 > `centerLv95` set). Asset-reference validation is tied to the asset-upload path; until then,
 > config review should verify referenced files exist in the deployment store.
+
+### `doctrine.alarmBarRueckzug` – the quieter line for a Trupp on Rückzug
+
+`alarmBar` is one line, and it is the line for a Trupp **still working**. `alarmBarRueckzug` is
+the second, *lower* one that applies once a Trupp's status is `rueckzug`: the order to come out
+has been given, so holding the crew to the working Alarmdruck would make the card warn for the
+entire walk back – and a warning that runs for ten minutes is one nobody looks at. Below the
+Rückzug line it speaks up again, which is a crew that is genuinely late getting out. (This is not
+the old 60-bar «Mindestdruck» second tier, which was dropped in 2026-07 and is not coming back;
+that was a second line on the way *in*.)
+
+Both halves of the app read it – the browser card and audible alarm (`src/lib/atemschutz.ts` ·
+`alarmBarFor`) and the **killed-app Web Push** sweep on the server (`backend/app/push.py`), which
+is why it is not a display preference.
+
+| | |
+| --- | --- |
+| Range | integer, `> 0` and `≤ 300`; **must not exceed `alarmBar`** – a document that does is refused with the reason |
+| Unset in the config | the shipped `50` applies, clamped to `alarmBar` if a station chooses a lower working line |
+| Shipped value | `50`, in the CLI template (`admin_config example`) and in the frontend defaults (`src/config/appConfig.ts`) |
+| Turning the distinction off | set it **equal to `alarmBar`** |
+
+`alarmBar = 0` is reserved for deployments with `identity.demoMode = true`. The public demo seed
+uses it, and both effective pressure lines become zero so one visitor's test does not generate
+alarms for somebody else. A normal station configuration with zero is refused and keeps the
+shipped `100`/`50` defaults. This exception applies to the working line only;
+`alarmBarRueckzug` itself remains a positive config value.
+
+Set it on **Station › Doktrin**, next to the Alarmdruck, or in the config file. It was file-only
+until 2026-08-30, so a station configured entirely in the browser before that never set it and ran
+on the fallback while a CLI-template station adopted a 50-bar Rückzug line it never chose – worth
+one look at the field if that describes you. Either way, write the number down in your own
+doctrine: it is a safety threshold, not a preference.
 
 ### ⚠️ `alarms.groups[].color` is not a colour
 
@@ -943,8 +980,11 @@ Four rules, and none of them is optional reading:
    variable, and offers no input; the API answers **409** to a `PUT` or `DELETE`. **Existing
    deployments therefore change behaviour not at all.** "Supplied" means *different from the
    application's own default* – `docker-compose.yml` names all seventeen variables and materialises
-   the default for `STT_MODEL`, `STT_LANGUAGE` and `VAPID_SUBJECT`, and a compose passthrough is
-   not a deployer's decision.
+   the application default for `STT_MODEL` and `STT_LANGUAGE`, and a compose passthrough is
+   not a deployer's decision. (`VAPID_SUBJECT` is passed through **blank** for exactly this
+   reason: a fallback that differed from the declared default would have read as a choice and
+   locked VAPID-Kontakt out of the browser on every compose install. Blank means unset, and unset
+   resolves to `mailto:kp-front@localhost`.)
 2. **Secrets are write-only.** They can be set and rotated over the API, never read back. Seven
    fields are readable because each earns it individually: `TRACCAR_URL` (a hostname the System
    card already prints), `VAPID_PUBLIC_KEY` (already handed to every logged-in browser),
@@ -985,17 +1025,19 @@ and locks the field – see the rule above).
 
 | Env var | Purpose |
 |---------|---------|
+| `ENVIRONMENT` (or `APP_ENV`) | **the switch five other things hang off**, and the one a non-compose self-hoster has to set by hand. `production`/`prod`/`staging` → production; `development`/`dev`/`local`/`test` → not. Unset, it is inferred: production **only** on Railway (detected from its injected `RAILWAY_*` variables), otherwise development (`backend/app/config.py` · `is_production`). Production makes `SECRET_KEY` mandatory and `SEED_PIN` mandatory, turns on Secure cookies, hides `/docs`, and hands schema ownership to Alembic instead of create-from-models. `docker-compose.yml` pins it to `production` and Railway is detected, so only a third path – a bare `uv run uvicorn` behind your own proxy – has to set it, and forgetting it there is a deployment that generates a new `SECRET_KEY` on every restart |
 | `DATABASE_URL` | Postgres connection (`postgresql://…`; auto-upgraded to asyncpg) |
 | `SECRET_KEY` | JWT signing + PIN pepper (≥32 chars; **required in prod**) |
 | `ADMIN_SECRET` | unlocks the `/admin` UI + admin-write API/CLI, separate from the editor PIN (≥16 chars; empty = admin disabled, fail-closed) |
-| `MEDIA_STORAGE_DIR` | local asset/media dir (default `data/storage`). **There is no S3 media backend** – the asset store is a directory on a volume, full stop (`app/storage.py`). The only S3 the app speaks is the optional Objektplan-Pull below. |
+| `MIGRATION_BACKUP_DIR` | where `backend/start.sh` writes the **pre-migration dump** before it lets Alembic run (default `<MEDIA_STORAGE_DIR>/backups`, newest 5 kept). Point it at a different volume if you want the safety dumps off the media disk. ⚠️ This directory is not optional: when a migration is pending and the dump cannot be written, the boot is **refused** rather than migrating an un-backed-up database ([`DEPLOYMENT.md` §5](DEPLOYMENT.md#5-updating); `ALLOW_MIGRATION_WITHOUT_BACKUP=1` overrides deliberately) |
+| `MEDIA_STORAGE_DIR` | local asset/media dir. The application default is `data/storage`, but **the published image bakes `/mnt/data/storage`** (`Dockerfile`) and `docker-compose.yml` overrides it to `/data/storage` for the named `storage` volume – so on Railway the volume must be mounted at **`/mnt/data`** and on compose you leave this alone ([`DEPLOYMENT.md` §3a](DEPLOYMENT.md#3a-railway-in-order)). **There is no S3 media backend** – the asset store is a directory on a volume, full stop (`app/storage.py`). The only S3 the app speaks is the optional Objektplan-Pull below. |
 | `PUBLIC_URL` | this deployment's public origin (e.g. `https://front.example.org`), used to compose absolute links in outbound webhooks (the capture URL on an alarm slip). Empty = those links are omitted |
 | `APP_BIND` | *(read by `docker-compose.yml`, not by the app)* which host address the app's port is published on: `0.0.0.0` (default) for a trusted LAN, `127.0.0.1` as soon as anything terminates TLS in front. ⚠️ A published port is open whatever `ufw` says. The four shapes and why: [`DEPLOYMENT.md` §3](DEPLOYMENT.md#app_port-and-app_bind) |
 | 🔐 `DIVERA_ACCESS_KEY`, `DIVERA_WEBHOOK_SECRET` | if `diveraEnabled` |
 | 🔐 `DIVERA_PERSONNEL_ACCESS_KEY` | optional second Divera key used **only** for the «Personal» pull. It must belong to a user whose read scope includes members' Qualifikationen – the alarm key above usually does not – and it is what makes the roster sync derive a Dienstgrad. Empty = falls back to `DIVERA_ACCESS_KEY` (names only, no rank) |
-| 🔐 `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems – auto-opens an incident per alarm, idempotent on `source`+`source_id` (nothing set anywhere = endpoint disabled, fail-closed). `./scripts/setup.sh` mints this one and `DIVERA_WEBHOOK_SECRET` into the credential store on a fresh install, so a station reads and rotates them at `/admin` → Zugangsdaten – [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §1 |
+| 🔐 `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems – auto-opens an incident per alarm, idempotent on `source`+`source_id` (nothing set anywhere = endpoint disabled, fail-closed). Create it during the integration handoff and paste the same value into `/admin` → Zugangsdaten and the sender; it is write-only and deliberately not pre-generated at install – [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §1 |
 | 🔐 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push. Generate the pair once – on a Docker-only host `docker compose exec app uv run python -m app.gen_vapid`, or `cd backend && uv run python -m app.gen_vapid` where the toolchain is installed – then paste both halves into `/admin` → Zugangsdaten, which takes effect without a restart. `./scripts/setup.sh` does exactly that on a fresh install, into the credential store rather than into `.env`. Nothing set anywhere = push disabled, fail-closed. ⚠️ Generate **once** and keep the pair stable: rotating it invalidates every stored subscription |
-| 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. ⚠️ **Deliberately not minted by the installer**, unlike the two webhook secrets: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. (The old reason – that it would schedule a background job – is wrong: the sweep is registered unconditionally and returns on its first line when no secret is set.) Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Zugangsdaten |
+| 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. It is deliberately not minted by the installer: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Zugangsdaten |
 | 🔐 `HEALTHCHECK_PING_URL` | dead-man's switch: **the job GETs this URL every 60 s** (healthchecks.io or any cron monitor), so the monitor alerts when the pings *stop*. Catches the class an HTTP probe of `/ready` cannot: a container stopped with nothing replacing it, or a wedged event loop. Point it at a check with a **1 min period and ~3 min grace** – matching the 60 s cadence, so two missed pings raise it. Nothing set anywhere = the heartbeat job still runs but returns on its first line, so nothing is pinged; a failed ping is logged and swallowed, so a monitoring outage never disturbs the deployment. The «Einrichtung» card on the admin landing page links straight to this field |
 | 🔐 `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | 🔐 `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments |
@@ -1004,9 +1046,26 @@ and locks the field – see the rule above).
 | `MAX_UPLOAD_MB` | request-body cap for multipart uploads (default 110 – must stay above the media endpoint's 100 MB per-file cap) |
 | `REQUIRE_PLAN_DIGEST` | make `PUT /api/objects/{id}/plans/{module}` **refuse an automated publish** (admin secret, no logged-in user – i.e. `admin_objects push`) that does not declare the SHA-256 of the bytes it carries. A declared digest is verified everywhere, always; this only decides whether one is *mandatory*, and only for machines – a person uploading a PDF in the admin UI is never affected. Unset = auto: on for the public demo (`DEMO_RESET_CRON`/`DEMO_RESET_SECONDS`), off for a station, so an older `admin_objects` keeps working. ⚠️ It is a **wrong-tree** guard, and deliberately server-side: the `sha256` pin in `objects.manifest.json` cannot catch a stale checkout, because such a checkout brings a stale manifest *and* a stale CLI. Turning it on means a publisher too old to name its own bytes is refused – which is precisely the publisher you do not want |
 | `GEOCODER_URL` | address-autocomplete endpoint (default the swisstopo SearchServer – see the caveat below) |
+| `OVERPASS_MIRRORS` | comma-separated https Overpass endpoints behind the «Umrisse» building-outline surface, raced fastest-first. **Privacy-relevant:** the query is a bounding box around the incident, so it leaves the station – and the shipped third mirror is hosted in Russia. Called by the backend, never the browser (`app/overpass.py`), so this one variable is the whole control. Override with your own Overpass to keep it in-house, or set it **empty to switch the surface off**. ⚠️ Empty means off, not "use the default" – so `.env.example` ships the line commented out rather than blank ([`PRIVACY.md`](../PRIVACY.md)) |
 | `EXPOSE_API_DOCS` | serve `/docs`, `/redoc` and `/openapi.json` on a **production** deployment (always on in dev). Default off |
-| `SEED_DATABASE`, `DEV_CREATE_ALL` | dev seeding / auto-create tables (prod uses Alembic) |
+| `SEED_DATABASE`, `DEV_CREATE_ALL` | dev seeding / auto-create tables. `DEV_CREATE_ALL` does nothing in production – it is gated by `not is_production()`, so on compose (which pins `ENVIRONMENT=production`) Alembic owns the schema whatever it says |
 | `SEED_PIN` | **Required in production** when `SEED_DATABASE` is on: the six-digit PIN the seeded account gets. The seed file's own PIN is public, so the backend refuses to boot without this rather than create a login anyone knows |
+
+> ⚠️ **On compose, a variable only exists if `docker-compose.yml` names it.** Compose's `.env` is
+> read for *interpolation*, not handed to the container – so a line in `.env` that the
+> `environment:` block does not reference reaches nothing, silently. `REQUIRE_PLAN_DIGEST` and
+> `DEV_CREATE_ALL` were documented here and missing there until 2026-08-30. Two are still
+> deliberately absent: `MIGRATION_BACKUP_DIR` (a second volume is a compose-file edit anyway) and
+> `ALLOW_MIGRATION_WITHOUT_BACKUP`, which is a one-off override you pass on the command line
+> (`docker compose run -e ALLOW_MIGRATION_WITHOUT_BACKUP=1 …`) rather than a setting a station
+> leaves lying in `.env`.
+>
+> If you add one yourself, note the second half of the trap: compose materialises a named
+> variable as an **empty string** when `.env` does not set it, and only some of these fields
+> tolerate that. `EXPOSE_API_DOCS`, `VISIT_STATS`, `TRACCAR_FAKE` and `KP_TELEMETRY_ENABLED` have
+> an explicit blank-is-false coercion in `app/config.py`; `REQUIRE_PLAN_DIGEST`, `DEV_CREATE_ALL`
+> and every numeric setting do **not**, so a blank fallback for those crashes the boot with a
+> pydantic validation error. Give them a fallback that parses – which is what the file does.
 
 Weather (MeteoSwiss/Open-Meteo) and the swisstopo geocoder need **no** credentials – public
 endpoints, national, work everywhere *in Switzerland*. One honest limitation: the geocoder
@@ -1152,8 +1211,10 @@ A station's config is a JSON file (matching §1) loaded with `backend/app/admin_
 is the preferred path for technical deployment owners and LLM-assisted edits: reviewable config
 file, schema validation, diff, then load.
 
-`schema`/`example`/`validate`/`diff` (against a file) need no DB; `show`/`load`/`history`/
-`restore` hit the configured `DATABASE_URL`; `push` needs neither, only a reachable deployment.
+`schema`/`example`/`validate` need no DB. `diff`/`show`/`load`/`history`/`restore` hit the
+configured `DATABASE_URL` – `diff` included, because the thing it compares your file against is
+the *stored* document, so it opens a session like `show` does. `push` needs neither, only a
+reachable deployment.
 
 ```bash
 # from backend/ – or prefix with `docker compose exec app` on a Docker-only host (§9)
@@ -1318,9 +1379,9 @@ The manifest is the single place a station controls checklist rail ordering (`or
 `load`/`push` **prune** stale `checklists:*` datasets not in the manifest, so renamed or removed
 lists don't linger.
 
-### 9g. Maintenance tools (`reset_roster`, `demo_export`)
+### 9g. Maintenance tools (`reset_roster`, `demo_export`, `admin_visits`)
 
-Two further CLIs that no station meets, but somebody looking after a deployment does. They used
+Three further CLIs that no station meets, but somebody looking after a deployment does. They used
 to be documented only in their own docstrings, which nearly cost them their lives twice during
 clean-ups – a module nothing imports and no document mentions looks like dead code.
 
@@ -1358,6 +1419,20 @@ It only reads; the single thing written is the repo file. The hand-placed keys a
 (`entities`, `drawings`, `building`, `board`, `layerState`, `recent`) – the collections the
 nightly reset recreates anyway (`trupps`, `mittel`, `attendance` …) are dropped, so they do not
 freeze into the seed. Commit the result; the nightly reset reads from it.
+
+**`admin_visits` – read the visit counters from a terminal.** The counterpart to
+`GET /api/admin/visits`: the last 30 days one block per day, `--days N` for another window,
+`--totals` for the window's sums, `--prune` to delete dedup rows past the retention window.
+
+```bash
+# from backend/ – on Railway: railway run uv run python -m app.admin_visits
+DATABASE_URL=<target> uv run python -m app.admin_visits --totals
+```
+
+It reads the two aggregate tables `VISIT_STATS` writes, and that flag is off everywhere except
+the public demo – so **on a station this prints an empty table, permanently and by design**
+(`app/visits.py`, and [`PRIVACY.md`](../PRIVACY.md) § «Counting visitors without recognising
+them»). It is listed here so nobody mistakes it for a station tool, or for dead code.
 
 ### 9h. The station workbook – one `.xlsx` for the list-shaped data
 
