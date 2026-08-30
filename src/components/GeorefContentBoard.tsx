@@ -25,13 +25,13 @@ import { MenuPick } from './MenuPick'
 import type { GeorefFit } from '../lib/georef'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { contentTwinName, type BoardDrawingTwin, type BoardEntityTwin } from '../lib/georefTwins'
-import { WbInkLayer } from './WbControls'
+import { WbInkLayer, WbVertexHandles } from './WbControls'
 import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { TacticalSymbol } from '../lib/symbolRender'
 import { glyphFor } from '../lib/twinGlyph'
 import { noteScale, noteWPx } from '../lib/notes'
 import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
-import { lerpPoint, lookbackPoint, markerParamsAlong } from '../lib/lineStyle'
+import { EXTEND_STEP_PX, lerpPoint, lookbackPoint, markerParamsAlong } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { appConfig } from '../config/appConfig'
@@ -39,7 +39,7 @@ import { fillTemplate } from '../lib/format'
 import type { BoardAnno, Drawing, Entity, LngLat, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
-export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords, selectedTeamId, onSelectTeam, teamActions, hiddenTrails, onToggleTrail }: {
+export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords, onDrawingDetach, selectedTeamId, onSelectTeam, teamActions, hiddenTrails, onToggleTrail }: {
   entities: BoardEntityTwin[]
   drawings: BoardDrawingTwin[]
   fit: GeorefFit
@@ -68,6 +68,9 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   onOpenDrawing?: (drawing: Drawing) => void
   /** Whole-line and vertex drags write WGS84 coordinates to the one map-owned drawing. */
   onDrawingCoords?: (drawingId: string, coords: LngLat[], phase: 'start' | 'move' | 'end') => void
+  /** clear one endpoint's attachment — grabbing an attached endpoint's grip detaches it first
+   *  (the magnet machinery lives on the Karte; dragging the stored coord would fork the mirror) */
+  onDrawingDetach?: (drawingId: string, endpoint: 'start' | 'end') => void
   /** the selected mirrored Truppmarker (Whiteboard holds it beside its other twin selections,
    *  so the shared outside-tap dismissal closes it like everything else) */
   selectedTeamId?: string | null
@@ -192,40 +195,82 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
       if (d?.moved) onDrawingCoords?.(d.drawing.id, d.last, 'end')
     },
   })
-  const vertexDrag = useRef<{ pid: number; x: number; y: number; drawing: Drawing; index: number; moved: boolean; last: LngLat[] } | null>(null)
-  const vertexHandlers = (drawing: Drawing, index: number) => ({
-    onPointerDown: (ev: React.PointerEvent<HTMLButtonElement>) => {
-      ev.stopPropagation(); ev.preventDefault()
-      ev.currentTarget.setPointerCapture?.(ev.pointerId)
-      vertexDrag.current = { pid: ev.pointerId, x: ev.clientX, y: ev.clientY, drawing, index, moved: false, last: drawing.coords }
-    },
-    onPointerMove: (ev: React.PointerEvent<HTMLButtonElement>) => {
-      const d = vertexDrag.current
-      if (!onDrawingCoords || !d || d.pid !== ev.pointerId) return
-      if (!d.moved) {
-        if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) < DRAG_DEADZONE_PX) return
-        d.moved = true
-        onDrawingCoords(d.drawing.id, d.drawing.coords, 'start')
+  /** One live vertex gesture on a mirrored drawing — drag a node, insert-then-drag on a «+»,
+   *  extend-then-drag on a grow arrow. Self-contained (capture + element listeners), because
+   *  WbVertexHandles only hands over the pointerdown: the native surface routes moves through
+   *  its stage, but this layer streams straight to the one map source (onDrawingCoords).
+   *  `immediate` marks insert/extend: the gesture already changed the geometry, so it streams
+   *  from the first event and a plain release still commits the new node (native grammar). */
+  const beginVertexGesture = (drawing: Drawing, coords: LngLat[], index: number, e: React.PointerEvent, immediate: boolean) => {
+    if (!onDrawingCoords) return
+    e.stopPropagation(); e.preventDefault()
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture?.(e.pointerId)
+    const pid = e.pointerId
+    const st = { x: e.clientX, y: e.clientY, moved: immediate, last: coords }
+    const src = coords[index]
+    const p0 = fit.toPlan({ lng: src[0], lat: src[1] })
+    // grabbing an ATTACHED endpoint detaches it (once, on the first real movement): the magnet
+    // lives on the Karte, and dragging the stored coord while the attachment re-resolves there
+    // would fork the two surfaces. A plain tap never detaches.
+    const endpoint = drawing.kind === 'line' && index === 0 && drawing.startAttachment ? 'start' as const
+      : drawing.kind === 'line' && index === coords.length - 1 && drawing.endAttachment ? 'end' as const : null
+    let detached = false
+    const begin = () => {
+      if (endpoint && !detached) { detached = true; onDrawingDetach?.(drawing.id, endpoint) }
+      onDrawingCoords(drawing.id, drawing.coords, 'start')
+    }
+    if (immediate) { begin(); onDrawingCoords(drawing.id, coords, 'move') }
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== pid) return
+      if (!st.moved) {
+        if (Math.hypot(ev.clientX - st.x, ev.clientY - st.y) < DRAG_DEADZONE_PX) return
+        st.moved = true
+        begin()
       }
-      const source = d.drawing.coords[d.index]
-      const p = fit.toPlan({ lng: source[0], lat: source[1] })
       const c = fit.toMap({
-        x: Math.max(0, Math.min(1, p.x + (ev.clientX - d.x) / sW)),
-        y: Math.max(0, Math.min(1, p.y + (ev.clientY - d.y) / sH)),
+        x: Math.max(0, Math.min(1, p0.x + (ev.clientX - st.x) / sW)),
+        y: Math.max(0, Math.min(1, p0.y + (ev.clientY - st.y) / sH)),
       })
-      d.last = d.drawing.coords.map((q, i) => i === d.index ? [c.lng, c.lat] : q)
-      onDrawingCoords(d.drawing.id, d.last, 'move')
+      st.last = coords.map((q, i) => (i === index ? [c.lng, c.lat] as LngLat : q))
+      onDrawingCoords(drawing.id, st.last, 'move')
+    }
+    const finish = (ev: PointerEvent) => {
+      if (ev.pointerId !== pid) return
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', finish)
+      el.removeEventListener('pointercancel', finish)
+      if (st.moved) onDrawingCoords(drawing.id, st.last, 'end')
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', finish)
+    el.addEventListener('pointercancel', finish)
+  }
+  /** The native surface's full vertex vocabulary (WbVertexHandles) on a mirrored drawing —
+   *  grips, «+» midpoints, hold-to-delete, Verlängern arrows. 1:1, doctrine 30.08. round 8. */
+  const twinVertexProps = (drawing: Drawing) => ({
+    onVertexDown: (idx: number, e: React.PointerEvent) => beginVertexGesture(drawing, drawing.coords, idx, e, false),
+    onInsert: (segIdx: number, e: React.PointerEvent) => {
+      const n = drawing.coords.length
+      const a = drawing.coords[segIdx], b = drawing.coords[(segIdx + 1) % n]
+      const coords = [...drawing.coords]
+      coords.splice(segIdx + 1, 0, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2])
+      beginVertexGesture(drawing, coords, segIdx + 1, e, true)
     },
-    onPointerUp: (ev: React.PointerEvent<HTMLButtonElement>) => {
-      const d = vertexDrag.current
-      if (!d || d.pid !== ev.pointerId) return
-      vertexDrag.current = null
-      if (d.moved) onDrawingCoords?.(d.drawing.id, d.last, 'end')
+    onDeleteVertex: (idx: number) => {
+      if (!onDrawingCoords || drawing.coords.length <= (drawing.kind === 'area' ? 3 : 2)) return
+      onDrawingCoords(drawing.id, drawing.coords, 'start')
+      onDrawingCoords(drawing.id, drawing.coords.filter((_, i) => i !== idx), 'end')
     },
-    onPointerCancel: () => {
-      const d = vertexDrag.current
-      vertexDrag.current = null
-      if (d?.moved) onDrawingCoords?.(d.drawing.id, d.last, 'end')
+    onExtend: (ep: 'start' | 'end', e: React.PointerEvent) => {
+      const pts = drawing.coords.map(([lng, lat]) => fit.toPlan({ lng, lat }))
+      const i = ep === 'start' ? 0 : pts.length - 1
+      const nb = ep === 'start' ? pts[1] : pts[pts.length - 2]
+      const dx = (pts[i].x - nb.x) * sW, dy = (pts[i].y - nb.y) * sH
+      const len = Math.hypot(dx, dy) || 1
+      const g = fit.toMap({ x: pts[i].x + (dx / len) * EXTEND_STEP_PX / sW, y: pts[i].y + (dy / len) * EXTEND_STEP_PX / sH })
+      const coords: LngLat[] = ep === 'start' ? [[g.lng, g.lat], ...drawing.coords] : [...drawing.coords, [g.lng, g.lat]]
+      beginVertexGesture(drawing, coords, ep === 'start' ? 0 : coords.length - 1, e, true)
     },
   })
   if (!sW || !sH || (!entities.length && !drawings.length)) return null
@@ -268,16 +313,14 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           })}
         </svg>
       )}
-      {interactive && onDrawingCoords && drawings.flatMap(({ drawing }) => {
-        if (drawing.id !== selectedDrawingId || drawing.kind === 'circle') return []
-        return drawing.coords.map(([lng, lat], index) => {
-          // no handle on an attached endpoint: it is pinned to its Karte target — detach there
-          if (pinnedVertex(drawing, index)) return null
-          const p = fit.toPlan({ lng, lat })
-          return <button key={`${drawing.id}:${index}`} type="button" className={s.contentVertex}
-            data-testid={`twin-vertex-${index}`} aria-label={`${lineLabel(drawing)} · ${index + 1}`}
-            style={{ left: p.x * sW, top: p.y * sH }} {...vertexHandlers(drawing, index)} />
-        })
+      {/* the SELECTED mirrored drawing wears the sheet's full native vertex vocabulary —
+          the same WbVertexHandles the sheet's own lines use (grips, «+» midpoints,
+          hold-to-delete, Verlängern), every gesture writing the one map source. Attached
+          endpoints keep their grips: grabbing one detaches (beginVertexGesture). */}
+      {interactive && onDrawingCoords && drawings.flatMap((t) => {
+        if (t.drawing.id !== selectedDrawingId || t.drawing.kind === 'circle') return []
+        return [<WbVertexHandles key={`vh-${t.key}`} anno={t.anno} sW={sW} sH={sH}
+          mapY={(_f, y) => y} {...twinVertexProps(t.drawing)} />]
       })}
       {/* line/area decorations — the same feature set the sheet's own annotations render
           (Whiteboard's decor pass), minus every drag affordance: this layer is a projection. */}

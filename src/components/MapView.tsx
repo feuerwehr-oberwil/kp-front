@@ -2,7 +2,7 @@ import { forwardRef, Fragment, useEffect, useLayoutEffect, useRef, useState } fr
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
+import type { BoardAnno, CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
@@ -307,6 +307,8 @@ interface Props {
   /** drag a mirrored content object: move its one source annotation through the fit (a point
    *  writes x/y, a line/area translates every vertex — see IncidentWorkspace · moveMapTwinSource) */
   onContentTwinMove?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
+  /** vertex-level edits (pts + attachment clears) of a selected mirrored plan drawing */
+  onContentTwinEdit?: (twin: MapContentTwin, patch: Partial<BoardAnno>, phase: 'live' | 'commit') => void
   selectedTwinKey?: string | null
   /** the content twin whose in-place panel is open — its hit target wears the halo */
   selectedContentTwinKey?: string | null
@@ -325,7 +327,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -1472,6 +1474,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           interactive={!placing} selectedKey={selectedContentTwinKey}
           onOpenTwin={onContentTwinOpen}
           onMoveTwin={readOnly ? undefined : onContentTwinMove}
+          onEditTwinAnno={readOnly ? undefined : onContentTwinEdit}
           project={(c) => mapInst.current?.project(c as [number, number])}
           unproject={(p) => { const m = mapInst.current; if (!m) return undefined; const ll = m.unproject([p.x, p.y]); return [ll.lng, ll.lat] }}
           setDragPan={(on) => { const dp = mapInst.current?.dragPan; if (!dp) return; if (on) dp.enable(); else dp.disable() }} />

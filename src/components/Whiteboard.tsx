@@ -2999,6 +2999,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 onMoveTeam={readOnly ? undefined : moveContentTeam}
                 selectedDrawingId={twinDrawingId} onOpenDrawing={openTwinDrawing}
                 onDrawingCoords={readOnly ? undefined : onTwinDrawingCoords}
+                onDrawingDetach={readOnly ? undefined : onTwinDrawingDetach}
                 selectedTeamId={twinTeamSel} onSelectTeam={setTwinTeamSel}
                 teamActions={readOnly ? undefined : twinTeam}
                 hiddenTrails={hiddenTrails} onToggleTrail={toggleTrail} />
