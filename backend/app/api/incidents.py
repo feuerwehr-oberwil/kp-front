@@ -14,7 +14,7 @@ from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, CurrentUser, EditorOrAdmin, UserOrAdmin, _admin_session_valid
 from ..database import execute_dml, get_db
 from ..geocode import geocode
-from ..models import Incident
+from ..models import INCIDENT_ACTIVE_STATUSES, Incident
 from ..schemas import (
     IncidentCreate,
     IncidentFull,
@@ -253,6 +253,20 @@ async def patch_incident(
 ) -> Incident:
     inc = await _get(db, incident_id)
     data = body.model_dump(exclude_unset=True)
+    # The public demo has exactly one prepared running incident and one prepared archive.
+    # Visitors may edit their contents, but changing either lifecycle leaves the next magazine
+    # reader with no promised entry point (or two running incidents) until the reset. The client
+    # already blocks its own Abschluss paths; this is the server-side boundary for direct API
+    # calls and older clients.
+    if await is_demo_deployment(db):
+        lifecycle_change = (
+            ("is_archived" in data and data["is_archived"] != inc.is_archived)
+            or ("report_done_at" in data and data["report_done_at"] != inc.report_done_at)
+            or ("status" in data and data["status"] != inc.status and data["status"] not in INCIDENT_ACTIVE_STATUSES)
+            or ("is_exercise" in data and data["is_exercise"] != inc.is_exercise)
+        )
+        if lifecycle_change:
+            raise HTTPException(status_code=403, detail="In der Demo kann der Einsatz nicht abgeschlossen werden.")
     status_before = inc.status
     archived_before = inc.is_archived
     exercise_before = inc.is_exercise
@@ -393,6 +407,8 @@ async def delete_incident(
     otherwise record it is one of the things being deleted.
     """
     inc = await _get(db, incident_id)
+    if await is_demo_deployment(db):
+        raise HTTPException(status_code=403, detail="In der Demo können Einsätze nicht gelöscht werden.")
     if not inc.is_exercise:
         if not await _admin_session_valid(admin_session):
             raise HTTPException(

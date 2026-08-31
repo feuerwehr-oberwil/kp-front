@@ -154,9 +154,16 @@ git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest releas
 `setup.sh` is plain bash and docker – **a station server never needs `just`, `uv` or `pnpm`**,
 and the recipes above are the developer toolchain, not the install. It asks for your domain, the
 host port and whether to back the station up nightly, checks the port is free *before* anything
-starts, generates all four secrets, waits until the app answers, and then mints the Web Push pair
-and the two webhook secrets into the encrypted credential store – so they stay rotatable in
-`/admin` instead of frozen in `.env`. `just self-host` runs the identical script.
+starts, generates all four required secrets, waits until the app answers, and then mints the Web
+Push pair into the encrypted credential store – so it stays rotatable in `/admin` instead of
+frozen in `.env`. Webhook secrets are chosen when an alarm system is connected, so the same
+write-only value can be given to both sides. `just self-host` runs the identical script.
+
+**On Railway instead?** Same image, different platform defaults – the volume has to be mounted at
+`/mnt/data` and the service needs `RAILWAY_RUN_UID=0`, and both fail before the app serves
+anything. The procedure in order is
+[`docs/DEPLOYMENT.md` §3a](docs/DEPLOYMENT.md#3a-railway-in-order); `setup.sh` and
+`docker-compose.yml` are the compose path only.
 
 **Getting your data in.** A fresh deployment is meant to be run empty – Carto base map, no
 layers, no plans, no roster, and nothing errors – then filled in whichever way suits you. There are
@@ -291,7 +298,6 @@ New connectors are welcome contributions – the alarm seam is the model to copy
 - Offline persistence requires IndexedDB; restricted browser modes may fall back to less durable
   storage.
 - Simultaneous edits to the same object can overwrite one another.
-- Workspace data has a schema version but is not yet validated and migration-gated on load.
 - There is no SSO. See the tradeoff above – this is deliberate for the incident login, but a
   station whose IT department mandates central identity has no path today.
 - The UI ships in German, French, Italian, and English. All four catalogues are complete and a

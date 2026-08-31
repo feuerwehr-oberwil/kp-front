@@ -1,8 +1,9 @@
 # Privacy
 
-KP Front is self-hosted. Your incident data, your roster, your map cache and your media live on
-**your** server and are never transmitted anywhere by this software. There is no cloud account,
-no licence check, no usage beacon, and no "phone home" on start-up.
+KP Front is self-hosted. Your incident data, roster, map cache and media live on **your** server;
+the app does not send operational records to the maintainer. There is no cloud account, licence
+check, usage beacon or "phone home" on start-up. Map/location lookups and integrations that a
+station explicitly configures can contact their named providers, as documented below.
 
 This document covers the one exception: the two channels through which a station can *choose* to
 send something to the maintainer. Both are off or manual by default. If you never touch them,

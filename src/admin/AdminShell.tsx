@@ -23,6 +23,7 @@ import { StatsAdminView } from './StatsAdminView'
 import { IncidentLinkAdminView } from './IncidentLinkAdminView'
 import { AlarmProviderView, VehicleProviderView } from './DataView'
 import { StationWorkbookView } from './StationWorkbookView'
+import { MaterialView } from './MaterialView'
 import { SystemView } from './SystemView'
 import { BackupView } from './BackupView'
 import { IncidentHistoryView } from './IncidentHistoryView'
@@ -34,7 +35,7 @@ import { CredentialsView } from './CredentialsView'
 // split into five focused "Station" pages that share a single config draft + Save bar
 // (see ConfigContext); everything else is one self-contained page per entry.
 type SectionId =
-  | 'identitaet' | 'doktrin' | 'journal' | 'rapport' | 'alarme' | 'fahrzeuge' | 'ebenen' | 'objektplaene'
+  | 'identitaet' | 'doktrin' | 'journal' | 'rapport' | 'alarme' | 'fahrzeuge' | 'material' | 'ebenen' | 'objektplaene'
   | 'checklisten'
   | 'mitglieder' | 'mannschaft' | 'erfassung'
   | 'einsaetze' | 'divera' | 'traccar' | 'statistik' | 'einsatzlink' | 'arbeitsmappe'
@@ -64,6 +65,9 @@ const NAV: NavGroup[] = [
       { id: 'rapport', icon: 'doc' },
       { id: 'alarme', icon: 'bell' },
       { id: 'fahrzeuge', icon: 'truck' },
+      // Next to Fahrzeuge, not under Daten: the Mittel catalogue is the station's own inventory,
+      // and it is the one list that was reachable from nowhere in /admin (see MaterialView).
+      { id: 'material', icon: 'box' },
       { id: 'ebenen', icon: 'layers' },
       { id: 'objektplaene', icon: 'doc' },
       { id: 'checklisten', icon: 'checklist' },
@@ -123,7 +127,7 @@ function initialSection(): SectionId {
 // Station pages that read the shared config document — they get the ConfigGate (draft-loading state).
 // 'mannschaft' is on the list for ONE config field (the station's name order); the rest of that
 // page talks to the personnel API directly.
-const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'alarme', 'fahrzeuge', 'ebenen', 'objektplaene', 'mannschaft'])
+const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'alarme', 'fahrzeuge', 'material', 'ebenen', 'objektplaene', 'mannschaft'])
 // Of those, only the genuinely-editable pages get the sticky autosave bar. Objektpläne is a
 // read-only viewer — edited via the CLI — so no save bar. 'fahrzeuge' IS on the list: its vehicle
 // list is edited in place (ConfigSections · FleetVehiclesEditor), and a page that autosaves
@@ -132,7 +136,18 @@ const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 
 // above them stays a viewer.
 const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'alarme', 'fahrzeuge', 'ebenen', 'mannschaft'])
 
+/** A page's «go there» callback, narrowed by a real lookup rather than a cast: the pages that
+ *  link out name their target as a plain string (they have no business importing this union),
+ *  and a typo there should do nothing rather than push an id the shell cannot render. */
+function navigator(navigate: (id: SectionId) => void) {
+  return (id: string) => {
+    const hit = ALL_ENTRIES.find((e) => e.id === id)
+    if (hit) navigate(hit.id)
+  }
+}
+
 function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
+  const go = navigator(navigate)
   switch (id) {
     case 'identitaet': return <IdentitySection />
     case 'doktrin': return <DoctrineSection />
@@ -140,6 +155,10 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
     case 'rapport': return <ReportSection />
     case 'alarme': return <AlarmsSection />
     case 'fahrzeuge': return <FleetSection />
+    // A CONFIG_SECTION (it reads `mittel.*` off the shared draft) but NOT an AUTOSAVE_SECTION:
+    // it is a viewer, like Objektpläne. The Mittel catalogue is written by the Arbeitsmappe
+    // alone, so this page only links there — it never forks that write path.
+    case 'material': return <MaterialView onNavigate={go} />
     case 'ebenen': return <LayersSection />
     case 'objektplaene': return <ModulesSection />
     // Not a CONFIG_SECTION: checklist templates are reference datasets, not config-document
@@ -149,8 +168,10 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
     case 'mannschaft': return <RosterView />
     case 'erfassung': return <CaptureAdminView />
     case 'einsaetze': return <IncidentHistoryView />
-    case 'divera': return <AlarmProviderView />
-    case 'traccar': return <VehicleProviderView />
+    // Both report «nicht konfiguriert» on a fresh instance and can do nothing about it
+    // themselves — the key is entered one page further on, so they link there.
+    case 'divera': return <AlarmProviderView onNavigate={go} />
+    case 'traccar': return <VehicleProviderView onNavigate={go} />
     case 'statistik': return <StatsAdminView />
     case 'einsatzlink': return <IncidentLinkAdminView />
     // Not a CONFIG_SECTION: the workbook is parsed and applied SERVER-side, so this page holds
@@ -162,15 +183,7 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
     // round-trip replaces that document wholesale.
     case 'zugaenge': return <CredentialsView />
     // the Einrichtung card links into the pages that fix each row, so this one navigates.
-    // ⚠️ Narrowed by a real lookup rather than cast: SetupChecklist names its targets as plain
-    // strings (it has no business importing this union), and a typo there should do nothing
-    // rather than push an id the shell cannot render.
-    case 'system': return (
-      <SystemView onNavigate={(id) => {
-        const hit = ALL_ENTRIES.find((e) => e.id === id)
-        if (hit) navigate(hit.id)
-      }} />
-    )
+    case 'system': return <SystemView onNavigate={go} />
     case 'sicherung': return <BackupView />
   }
 }
@@ -223,6 +236,12 @@ export function AdminShell() {
             <span className="adm-verwaltung">{C.shell.verwaltung}</span>
           </div>
           <div className="adm-header-right">
+            {/* docs/ is written for exactly this reader and was linked from nowhere in /admin.
+                Persistent rather than per-page: whatever the question is, the answer is in the
+                same manual. Address lives in the copy layer so a fork retargets it once. */}
+            <a className="adm-link" href={`${C.docs.repo}${C.docs.root}`} target="_blank" rel="noreferrer">
+              {C.shell.docs}
+            </a>
             <a className="adm-link" href="/">{C.shell.toLageMap}</a>
             <button type="button" className="btn adm-logout" onClick={() => void fullLogout()}>
               {C.shell.logout}

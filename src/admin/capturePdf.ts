@@ -108,8 +108,8 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   // ⚠️ ONE write-in texture, the Einsatzrapport's: a fine dotted leader. Every time on this
   // sheet is written on one — the header fields, the roster clocks, the Rückmeldung and the
   // Alarmierungs-/Ausrückzeiten grid. There is no `__:__` left in either document.
-  // Details box — the full paper-form header (canonical form, stats-integration.md
-  // Table A). Long-hand fields (Einsatz, Adresse, Eigentümer) get FULL lines; the
+  // Details box — the full paper-form header (canonical form, docs/einsatzrapport-workflow.md).
+  // Long-hand fields (Einsatz, Adresse, Eigentümer) get FULL lines; the
   // Kontaktperson shares theirs with the Telefon (one person, one line — mirrors the app
   // and the Rapport); date/times/EL/Gerettete are short. 8 mm row pitch = space to write.
   const wFull = A4.w - 2 * M - 6

@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from ..auth.cookies import clear_admin_cookie, revoke_token, set_admin_cookie
 from ..auth.pin_limiter import pin_limiter
-from ..auth.security import create_admin_token, decode_token
+from ..auth.security import admin_token_is_current, create_admin_token, decode_token
 from ..auth.token_blocklist import token_blocklist
 from ..config import settings
 
@@ -35,7 +35,7 @@ async def _session_valid(admin_session: str | None) -> bool:
         payload = decode_token(admin_session)
     except Exception:  # noqa: BLE001 — any decode error → not authenticated
         return False
-    if payload.get("type") != "admin" or payload.get("scope") != "admin":
+    if not admin_token_is_current(payload):
         return False
     jti = payload.get("jti")
     return not (jti and await token_blocklist.is_revoked(jti))
@@ -70,8 +70,10 @@ async def admin_login(body: AdminLogin, response: Response) -> dict:
 
     if not secrets.compare_digest(body.secret, settings.admin_secret):
         cooldown = pin_limiter.record_failure(_RATE_KEY)
+        # «Adminschlüssel» — the ONE name for this credential across the whole surface (the
+        # unlock screen and the docs say the same). ADMIN_SECRET stays the env-var name only.
         detail = (
-            "Falsches Admin-Passwort" if cooldown == 0 else f"Falsches Admin-Passwort. Nächster Versuch in {cooldown}s."
+            "Falscher Adminschlüssel" if cooldown == 0 else f"Falscher Adminschlüssel. Nächster Versuch in {cooldown}s."
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 

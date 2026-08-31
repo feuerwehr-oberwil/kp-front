@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.admin_config import EXAMPLE_CONFIG
-from app.schemas import DeploymentConfigIn
+from app.schemas import DeploymentConfigIn, load_stored_config
 
 
 def test_the_air_estimate_numbers_survive_a_save():
@@ -61,3 +61,70 @@ def test_the_rueckzug_line_may_equal_the_bare_alarm():
     then behaves exactly as it did before the setting existed. It must stay accepted."""
     cfg = DeploymentConfigIn.model_validate({"doctrine": {"alarmBar": 100, "alarmBarRueckzug": 100}})
     assert cfg.doctrine.alarmBarRueckzug == 100
+
+
+def test_zero_alarmdruck_is_allowed_only_on_the_public_demo():
+    with pytest.raises(ValidationError):
+        DeploymentConfigIn.model_validate({"doctrine": {"alarmBar": 0}})
+
+    cfg = DeploymentConfigIn.model_validate(
+        {"identity": {"demoMode": True}, "doctrine": {"alarmBar": 0, "alarmBarRueckzug": 50}}
+    )
+    assert cfg.doctrine.alarmBar == 0
+
+
+def test_a_legacy_station_zero_degrades_to_the_safe_defaults_without_losing_config():
+    doc = load_stored_config(
+        {
+            "identity": {"appName": "Feuerwehr Steintal"},
+            "doctrine": {"alarmBar": 0, "alarmBarRueckzug": 75},
+            "fleet": {"vehicles": [{"id": "tlf-31", "label": "TLF 31"}]},
+        }
+    )
+    assert doc.identity.appName == "Feuerwehr Steintal"
+    assert [vehicle.id for vehicle in doc.fleet.vehicles] == ["tlf-31"]
+    assert doc.doctrine.alarmBar is None
+    assert doc.doctrine.alarmBarRueckzug is None
+
+
+@pytest.mark.parametrize("value", [-1, 301])
+def test_alarmdruck_stays_within_its_supported_range(value):
+    with pytest.raises(ValidationError):
+        DeploymentConfigIn.model_validate({"doctrine": {"alarmBar": value}})
+
+
+@pytest.mark.parametrize(
+    ("doctrine", "expected"),
+    [
+        ({"alarmBar": 320, "alarmBarRueckzug": 50}, (None, None)),
+        ({"alarmBar": -1}, (None, None)),
+        ({"alarmBar": 100, "alarmBarRueckzug": 0}, (100, None)),
+        ({"alarmBar": 50, "alarmBarRueckzug": 80}, (50, 50)),
+    ],
+)
+def test_a_stored_pressure_line_out_of_range_never_costs_the_station_its_config(doctrine, expected):
+    """The bounds are validators, not `Field(le=…)`, so `load_stored_config` can degrade them.
+
+    Both numbers were unbounded in earlier releases and the cross-field rule is newer still, so
+    rows predating either exist. A field constraint runs before every model validator and would
+    ignore `context={"stored": True}` — `get_config` would then serve an EMPTY config and the
+    station would lose its name, fleet and roster over one doctrine number.
+    """
+    doc = load_stored_config(
+        {
+            "identity": {"appName": "Feuerwehr Steintal"},
+            "doctrine": doctrine,
+            "fleet": {"vehicles": [{"id": "tlf-31", "label": "TLF 31"}]},
+        }
+    )
+    assert doc.identity.appName == "Feuerwehr Steintal"
+    assert [vehicle.id for vehicle in doc.fleet.vehicles] == ["tlf-31"]
+    assert (doc.doctrine.alarmBar, doc.doctrine.alarmBarRueckzug) == expected
+
+
+@pytest.mark.parametrize("doctrine", [{"alarmBar": 320}, {"alarmBar": -1}, {"alarmBarRueckzug": 0}])
+def test_a_fresh_write_is_still_refused_outright(doctrine):
+    """Degrading is for documents already in the database. A PUT is a value being CHOSEN, and
+    refusing it costs nothing but a corrected keystroke."""
+    with pytest.raises(ValidationError):
+        DeploymentConfigIn.model_validate({"doctrine": doctrine})

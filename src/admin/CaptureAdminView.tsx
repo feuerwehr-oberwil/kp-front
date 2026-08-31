@@ -72,7 +72,7 @@ export function CaptureAdminView() {
         stationName: cfg.identity?.appName ?? 'KP Front',
         names,
         catalogue: cfg.mittel?.catalogue ?? appConfig.mittel.catalogue,
-        // full analog twin of the digital record (stats-integration.md Table A): the
+        // full analog twin of the digital record (docs/einsatzrapport-workflow.md): the
         // config-driven rows mirror the Rapport form, so paper→app transfer is 1:1.
         // (Kategorie deliberately NOT on paper — it's decided at WinFAP/app entry.)
         groups: cfg.alarms?.groups ?? [],

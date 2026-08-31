@@ -84,9 +84,17 @@ describe('Fahrzeuge — what reaches the config document', () => {
     expect(screen.getByText(C.vehicleDuplicate)).toBeTruthy()
   })
 
-  it('removes a vehicle', async () => {
+  // Two taps, not one: the bin arms and names the consequence first (ui · ConfirmButton).
+  // A vehicle is a row of the Ausrückzeiten grid and the key a milestone webhook reports
+  // against, and the page autosaves 700 ms later — there is no undo on the page itself.
+  it('removes a vehicle only after the confirm', async () => {
     await setup()
     await act(async () => { screen.getByLabelText(C.vehicleRemove).click() })
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+    expect(screen.getByText(C.vehicleRemoveConfirm)).toBeTruthy()
+
+    await act(async () => { screen.getByText(appConfig.copy.admin.common.confirmYes).click() })
     await settle()
     expect(sentVehicles()).toEqual([])
   })

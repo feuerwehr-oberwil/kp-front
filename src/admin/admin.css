@@ -266,7 +266,10 @@
 .adm-formlink { border: 1px solid var(--border-soft); border-radius: var(--r-ctl); padding: 14px;
   margin-top: 12px; background: var(--fill-soft); display: flex; flex-direction: column; gap: 10px; }
 /* title takes the row, the bin keeps its size and sits on the input's baseline */
-.adm-formlink-head { display: flex; align-items: flex-end; gap: 8px; }
+/* wrap: the row's bin is a two-step ConfirmButton, and its armed state (question + Ja/Abbrechen)
+   is far wider than the 44 px bin it replaces — it drops onto its own line instead of squeezing
+   the two fields beside it. Nothing wraps while the bin is idle. */
+.adm-formlink-head { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
 .adm-formlink-head .adm-field { flex: 1 1 auto; min-width: 0; }
 .adm-formlink-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
   padding: 0; cursor: pointer; border: none; border-radius: var(--r-ctl);
@@ -554,6 +557,18 @@
   background: var(--surface-2); border: 1px solid var(--border-soft); color: var(--ink-dim);
 }
 .adm-empty-action { margin-top: 4px; }
+
+/* ── seeded first account still active (MembersView) ──────────────────────────
+   Amber, not red: nothing is broken and nothing failed — the installation's own account is
+   simply still a working login. Both ways out sit in the box, so the notice is also the fix. */
+.adm-seedwarn {
+  margin: 0 0 14px; padding: 12px 14px; border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--amber) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent);
+}
+.adm-seedwarn-title { margin: 0; font: 600 13px/1.45 var(--body); color: var(--amber-strong); }
+.adm-seedwarn-body { margin: 4px 0 0; font: 400 12.5px/1.5 var(--body); color: var(--ink-dim); }
+.adm-seedwarn-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 
 /* ── access denied ────────────────────────────────────────────────────────── */
 .adm-denied {
@@ -1028,6 +1043,28 @@
 .adm-cap-actions { padding-top: 16px; border-top: 1px solid var(--border-soft); }
 .adm-cap-actions .adm-danger-btn { margin-left: auto; }
 
+/* ─── `Offer` — a tinted panel that names a CONSEQUENCE and puts the fix next to it ─────
+   (mockups/admin-alarmeingang-b-anbindung.html · mockups/admin-geocoder-b-autoangebot.html)
+   Two callers, one shape: «ohne Secret bleibt der Eingang zu» on the Alarmierung page, and
+   «Kartenmitte gesetzt – Suchbereich daraus übernehmen?» in the Adresssuche card. Blue is an
+   OFFER, amber a consequence that is already in force; neither is red — nothing here is
+   destructive. Quieter than `.adm-card`, louder than `.adm-hint`. */
+.adm-offer { display: flex; gap: 12px; padding: 13px 15px; border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--amber) 9%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--amber) 40%, var(--border-soft)); }
+.adm-offer.blue { background: color-mix(in srgb, var(--blue) 7%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--blue) 30%, var(--border-soft)); }
+.adm-offer-ic { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--amber-strong); }
+.adm-offer.blue .adm-offer-ic { color: var(--blue); }
+.adm-offer-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.adm-offer-t { font: 700 13px var(--body); color: var(--ink); }
+.adm-offer-b { font: 500 12.5px/1.5 var(--body); color: var(--ink-dim); }
+/* the value that WOULD be written, before it is — an offer nobody can read is a dice roll */
+.adm-offer-preview { margin: 8px 0 0; padding: 9px 12px; border-radius: var(--r-sm);
+  background: var(--surface); border: 1px solid var(--border-soft);
+  font: 500 12.5px var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+.adm-offer-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+
 /* ─── Traccar device detail table — slight inset below the Traccar row ────────── */
 .adm-traccar-devices { margin: -2px 0 14px; }
 .adm-traccar-devices .adm-table th,
@@ -1121,6 +1158,9 @@
 }
 .adm-sys-bar-fill.blue { background: var(--blue); }
 .adm-sys-bar-fill.amber { background: var(--amber); }
+@media (prefers-reduced-motion: reduce) {
+  .adm-sys-bar-fill { transition: none; }
+}
 .adm-sys-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .adm-sys-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .adm-sys-toolbar .btn { display: inline-flex; align-items: center; gap: 7px; }
@@ -1353,32 +1393,34 @@
    (mockups/admin-rolle-a-explizite-wahl.html · mockups/admin-pin-a-pinpad-sheet.html)
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* Two cards, nothing preselected. «Gewählt» is BLUE — the brand red means danger in this
-   product and must never stand for "this one is picked". */
-.adm-rolepick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.adm-rolepick-opt { display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+/* Two side-by-side cards, one of them chosen. Named `.adm-pick` rather than after the first
+   surface that used it (Rolle), because it is now also the two ways an alarm can reach this
+   installation (DataView · «Anbindung einrichten»). «Gewählt» is BLUE — the brand red means
+   danger in this product and must never stand for "this one is picked". */
+.adm-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.adm-pick-opt { display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
   padding: 13px 15px; min-height: var(--tap); text-align: left; cursor: pointer;
   border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--fill-soft); color: var(--ink); font-family: var(--body);
   transition: background .12s var(--ease), border-color .12s var(--ease), box-shadow .14s var(--ease); }
 @media (hover: hover) {
-  .adm-rolepick-opt:hover:not(:disabled) { border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+  .adm-pick-opt:hover:not(:disabled) { border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
 }
-.adm-rolepick-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.adm-rolepick-opt:disabled { opacity: var(--disabled); cursor: not-allowed; }
-.adm-rolepick-opt.on { background: color-mix(in srgb, var(--blue) 12%, var(--surface));
+.adm-pick-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.adm-pick-opt:disabled { opacity: var(--disabled); cursor: not-allowed; }
+.adm-pick-opt.on { background: color-mix(in srgb, var(--blue) 12%, var(--surface));
   border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); box-shadow: var(--shadow-sm); }
-.adm-rolepick-head { display: flex; align-items: center; gap: 8px; font: 700 14px var(--body); }
-.adm-rolepick-mark { width: 18px; height: 18px; flex: none; border-radius: 50%;
+.adm-pick-head { display: flex; align-items: center; gap: 8px; font: 700 14px var(--body); }
+.adm-pick-mark { width: 18px; height: 18px; flex: none; border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 60%, transparent);
   display: grid; place-items: center; }
-.adm-rolepick-opt.on .adm-rolepick-mark { border-color: var(--blue); background: var(--blue); color: var(--on-fill); }
-.adm-rolepick-opt.on .adm-rolepick-mark .i { width: 11px; height: 11px; stroke-width: 3; }
-.adm-rolepick-sub { font: 500 12px/1.45 var(--body); color: var(--ink-dim); padding-left: 26px; }
+.adm-pick-opt.on .adm-pick-mark { border-color: var(--blue); background: var(--blue); color: var(--on-fill); }
+.adm-pick-opt.on .adm-pick-mark .i { width: 11px; height: 11px; stroke-width: 3; }
+.adm-pick-sub { font: 500 12px/1.45 var(--body); color: var(--ink-dim); padding-left: 26px; }
 /* the «why is Anlegen off» line, left of the buttons */
-.adm-rolepick-why { display: inline-flex; align-items: center; gap: 7px;
+.adm-pick-why { display: inline-flex; align-items: center; gap: 7px;
   font: 600 12px var(--body); color: var(--ink-faint); }
-.adm-rolepick-why .i { width: 14px; height: 14px; }
+.adm-pick-why .i { width: 14px; height: 14px; }
 .adm-members-formbtns { align-items: center; }
 /* the inline edit row caps its fields at 360px — two role cards need more than that */
 .adm-members-editbox .adm-rolefield { max-width: 560px; }
@@ -1407,5 +1449,5 @@ body:has(.adm) .ui-menu-pos { z-index: var(--z-admin-overlay-menu); }
 }
 
 @media (max-width: 720px) {
-  .adm-rolepick { grid-template-columns: 1fr; }
+  .adm-pick { grid-template-columns: 1fr; }
 }

@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import storage
 from ..auth.dependencies import CurrentAdmin, OptionalUser
 from ..config import settings
+from ..config_history import keep_previous
 from ..database import get_db
 from ..models import DeploymentConfig
 from ..schemas import DeploymentConfigIn, DeploymentConfigOut, load_stored_config
@@ -180,6 +181,9 @@ async def upload_branding(
     storage.put_bytes(key, data)
 
     row = await _load_row(db)
+    # `_set_asset` rewrites the WHOLE document (normalized), so this is a config write like any
+    # other and owes the same undo — see app/config_history.
+    await keep_previous(db, "branding", actor.id if actor else None)
     doc = _set_asset(row, slot, f"/api/branding/file/{key}")
     row.updated_by = actor.id if actor else None
     await db.flush()
@@ -201,6 +205,7 @@ async def delete_branding(
     if slot not in _SLOTS:
         raise HTTPException(status_code=404, detail=f"Unbekannter Slot {slot!r}")
     row = await _load_row(db)
+    await keep_previous(db, "branding", actor.id if actor else None)  # see upload_branding
     doc = _set_asset(row, slot, None)  # leaving the orphaned blob is fine
     row.updated_by = actor.id if actor else None
     await db.flush()

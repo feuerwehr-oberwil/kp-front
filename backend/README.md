@@ -88,11 +88,23 @@ fail-closed, never set in the field – the map would show the fake fleet).
 
 ## Production (Railway, single service)
 Build via the repo-root `Dockerfile` (builds the SPA, then runs this backend serving it).
-Required env: `DATABASE_URL`, `SECRET_KEY` (`openssl rand -hex 32`). Optional: Divera
-(`DIVERA_ACCESS_KEY`, `DIVERA_WEBHOOK_SECRET`), Traccar (`TRACCAR_URL/EMAIL/PASSWORD`),
-`MEDIA_STORAGE_DIR` (Railway volume, default `/mnt/data/storage`). `RAILWAY_ENVIRONMENT`
+
+**Required env – all four**, and the last two are the ones people leave out:
+
+| Variable | Why it is required |
+| --- | --- |
+| `DATABASE_URL` | the database |
+| `SECRET_KEY` | `openssl rand -hex 32`; production refuses to boot without it (`config.py` · `_secret`) |
+| `SEED_PIN` | six digits; production refuses to boot while `SEED_DATABASE` is on, because the seed file's PIN is public (`seed.py` · `resolve_seed_pin`). Missing it is a restart loop, not a warning |
+| `ADMIN_SECRET` | `openssl rand -hex 24`; empty = the whole `/admin` surface answers 403, fail-closed, and nothing says so |
+
+Optional: Divera (`DIVERA_ACCESS_KEY`, `DIVERA_WEBHOOK_SECRET`), Traccar
+(`TRACCAR_URL/EMAIL/PASSWORD`), `MEDIA_STORAGE_DIR` (default `/mnt/data/storage`, baked into the
+image – the Railway **volume must be mounted at `/mnt/data`**). `RAILWAY_ENVIRONMENT`
 forces Secure cookies and disables dev table-creation (Alembic owns the schema).
-```
+
+The step-by-step Railway procedure – volume, `RAILWAY_RUN_UID=0`, variables, verification – is
+[`../docs/DEPLOYMENT.md` §3a](../docs/DEPLOYMENT.md).
 
 ## Migrations
 ```bash

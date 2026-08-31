@@ -2,7 +2,7 @@
 # Railway users don't need this file — that path is driven by railway.json.
 #
 #   ./scripts/setup.sh      # the install: domain, port and nightly backup, then .env, the
-#                           # stack, and the integration secrets into the credential store
+#                           # stack, and the Web Push keys into the credential store
 #   ./scripts/init-env.sh   # or just the .env, with all four required values generated
 #   docker compose up -d    # pulls the published image, runs migrations on boot
 #
@@ -81,6 +81,17 @@ services:
       # boot; the old v0.6.0 image came up green with an empty roster instead
       # (docs/SETUP.md §1 has both shapes).
       SEED_PIN: ${SEED_PIN:-}
+      # Create tables from the models instead of migrating – a DEVELOPMENT convenience, listed
+      # here only so a documented variable is not silently unreachable (compose's .env is
+      # interpolation-only). ⚠️ It changes nothing on this path: `app/main.py` gates it with
+      # `and not settings.is_production`, and this file pins ENVIRONMENT=production above.
+      # Alembic owns the schema here, full stop.
+      #
+      # ⚠️ The fallback repeats the application default (`true`) and must stay a PARSEABLE
+      # boolean. Unlike EXPOSE_API_DOCS / VISIT_STATS / TRACCAR_FAKE, this field has no
+      # blank-is-false validator in app/config.py, so `${DEV_CREATE_ALL:-}` would hand pydantic
+      # an empty string and crash the boot of every compose deployment.
+      DEV_CREATE_ALL: ${DEV_CREATE_ALL:-true}
       # The deployer's telemetry veto (PRIVACY.md). It has to be named here to work at all:
       # compose's .env is interpolation-only, so a KP_TELEMETRY_ENABLED=0 sitting in .env
       # never reaches the process unless it is passed through like this.
@@ -91,7 +102,15 @@ services:
       # deployment instead of merely forwarding the operator's choice.
       KP_TELEMETRY_ENABLED: ${KP_TELEMETRY_ENABLED:-1}
       # Aim the same machinery at your own GlitchTip instead of ours; set it blank to switch
-      # the forwarder off entirely. Default MUST match UPSTREAM_DSN in app/telemetry/dsn.py.
+      # the forwarder off entirely. The fallback MUST match UPSTREAM_DSN in app/telemetry/dsn.py.
+      #
+      # ⚠️ The fallback fires only when the variable is genuinely ABSENT (`-`, not `:-`), and on
+      # most stations it is not: `.env.example` and `./scripts/init-env.sh` both write the line
+      # `KP_TELEMETRY_DSN=` – set, and empty. Empty means OFF, so an installer-created station
+      # has no telemetry destination even after an admin ticks the consent box in System &
+      # Wartung. That is deliberate (opt-in twice, and the deployer's half defaults to «no»);
+      # it is written down here because the fallback below reads as though it were the norm.
+      # To send reports upstream, put the DSN in `.env` explicitly, or delete the line.
       KP_TELEMETRY_DSN: ${KP_TELEMETRY_DSN-https://f8ac2e518d46448d80037de2b4499141@ingest.kp-front.ch/1}
       # Aggregate, cookie-free visit counters are for the public demo only. Keep the
       # self-host default off, but pass an explicit opt-in through: compose's .env is
@@ -163,6 +182,16 @@ services:
       PLANS_S3_SECRET_ACCESS_KEY: ${PLANS_S3_SECRET_ACCESS_KEY:-}
       # (Numeric default here on purpose: an empty value would break int parsing.)
       PLANS_PULL_INTERVAL_MINUTES: ${PLANS_PULL_INTERVAL_MINUTES:-60}
+      # Make an AUTOMATED plan publish (admin secret, no logged-in user) declare the SHA-256 of
+      # the bytes it uploads. The application default is «auto» = on for the public demo, off
+      # for a station – and a compose deployment is never the demo (DEMO_RESET_CRON /
+      # DEMO_RESET_SECONDS are not passed in here at all), so `false` IS what auto resolves to
+      # on this path. Set it to true in .env to require the digest anyway.
+      #
+      # ⚠️ Same missing-validator trap as DEV_CREATE_ALL above: the field is `bool | None` with
+      # no blank-is-off coercion, so the value here must always parse as a boolean. Never
+      # `${REQUIRE_PLAN_DIGEST:-}`.
+      REQUIRE_PLAN_DIGEST: ${REQUIRE_PLAN_DIGEST:-false}
       # Multipart upload cap in MB — keep above the media endpoint's 100 MB per-file cap.
       # (Numeric default here on purpose: an empty value would break int parsing.)
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-110}

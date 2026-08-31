@@ -11,6 +11,8 @@ interface SecretState { configured: boolean; token?: string | null }
 
 export function StatsAdminView() {
   const C = appConfig.copy.admin.statistik
+  // Doc addresses live in the copy layer (admin.docs) — one line for a fork to retarget.
+  const D = appConfig.copy.admin.docs
   const [state, setState] = useState<SecretState | null>(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
@@ -51,7 +53,7 @@ export function StatsAdminView() {
         {state.token && <CopyChip value={state.token} display={`${C.tokenLabel}: ${state.token}`} />}
         {state.token && (
           <div className="adm-cap-example">
-            <p className="adm-card-cap">{C.exampleLabel} — <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/STATS-EXPORT.md" target="_blank" rel="noreferrer">API-Doku</a></p>
+            <p className="adm-card-cap">{C.exampleLabel} — <a href={`${D.repo}${D.statsExport}`} target="_blank" rel="noreferrer">{C.docsLink}</a></p>
             <CopyChip value={curl} />
           </div>
         )}

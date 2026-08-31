@@ -8,6 +8,9 @@ run that dies in between left the demo stripped. Same trap for a station: upload
 config change an hour later, logo gone, nothing said.
 """
 
+import pytest
+
+import app.admin_config as admin_config
 from app.admin_config import _carry_runtime_sections
 
 STORED = {
@@ -52,3 +55,21 @@ def test_empty_slots_are_not_carried_as_if_they_were_set():
     incoming = {"identity": {"appName": "X"}}
     assert _carry_runtime_sections(stored, incoming) == []
     assert "assets" not in incoming["identity"]
+
+
+@pytest.mark.asyncio
+async def test_diff_reports_what_load_will_actually_keep(monkeypatch, capsys):
+    incoming = {"identity": {"appName": "Feuerwehr Musterdorf"}}
+    monkeypatch.setattr(admin_config, "_read_and_validate", lambda _path: ({}, incoming))
+
+    async def stored():
+        return STORED
+
+    monkeypatch.setattr(admin_config, "_show", stored)
+    assert await admin_config._amain(["diff", "station.json"]) == 0
+
+    out = capsys.readouterr().out
+    assert "kept from the stored config (runtime-written):" in out
+    assert "referenceLayers" in out
+    assert "identity.assets" in out
+    assert "referenceLayers:" not in out.split("kept from", 1)[0]

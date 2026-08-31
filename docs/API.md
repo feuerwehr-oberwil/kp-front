@@ -187,7 +187,7 @@ because the PDFs, GeoJSON and checklist JSON they point at are station data:
 
 | Template | `validate` out of the box | What it still needs |
 | --- | --- | --- |
-| `config.example.json` | ✅ passes | nothing – it is a complete document, edit it in place |
+| `config.example.json` | ✅ passes | nothing – but don't edit it in place: it is generated from the built-in template (`admin_config example`) and CI fails on drift. Copy it out of the checkout and edit the copy |
 | `geodata.manifest.example.json` | ❌ `layer 'lk-hydrant' file not found: hydrant.geojson` | a WGS84 GeoJSON next to the manifest, or drop the `geojson` entry and keep the WMS one |
 | `objects.manifest.example.json` | ❌ `plan 'modul1' file not found: plans/dorfmatt/modul1.pdf` | a `plans/dorfmatt/` folder with the four Modul-PDFs it names |
 | `checklists.manifest.example.json` | ❌ `entry 'fu-aktion' template file not found` | three template JSONs under `checklists/` plus the two diagram images |

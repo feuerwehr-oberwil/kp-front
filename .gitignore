@@ -43,8 +43,8 @@ docs/design-concepts/
 
 # Design explorations live here, but the directory is NOT wholesale publishable: the working
 # drafts carry real roster names and real Oberwil objects (they are drawn from station data
-# to look right), and docs/planning/schichtbaender.md already asserts they stay local. That
-# was a promise nothing enforced — one `git add -A` would have published nine of them.
+# to look right), so they must stay local. That was a promise nothing enforced — one `git add -A`
+# would have published nine of them.
 # Ignore the directory, then re-admit the two that are deliberately kept as historical
 # record (docs/README.md and AGENTS.md both point at them).
 # …and the pattern is the whole directory, not just `*.html`: a decision round leaves an

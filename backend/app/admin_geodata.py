@@ -48,6 +48,7 @@ from sqlalchemy import select
 
 from . import storage
 from .admin_manifest import template_hint
+from .config_history import keep_previous
 from .database import async_session_maker
 from .models import DeploymentConfig, ReferenceDataset
 from .schemas import ReferenceLayerConfig, load_stored_config
@@ -265,6 +266,9 @@ async def _write_config(db, ref_layers: list[dict[str, Any]]) -> None:
     """Merge referenceLayers into the config (preserve identity/map/fleet/…), then re-validate
     the whole document so GET /api/config round-trips the normalized form."""
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    # A full-document rewrite like every other writer, so it owes the same undo: keep what is
+    # being replaced (app/config_history). Best-effort — the net never blocks the write.
+    await keep_previous(db, "geodata")
     current = dict(row.config_json) if (row and row.config_json) else {}
     current["referenceLayers"] = ref_layers
     # Everything but `referenceLayers` here is a STORED document (schemas · load_stored_config):
@@ -346,10 +350,13 @@ def _push(
         r = c.post("/api/admin/login", json={"secret": admin_secret})
         if r.status_code != 200:
             _fail(f"ERROR: admin login to {base} failed ({r.status_code}): {r.text[:200]}")
+        cfg_resp = c.get("/api/config")
+        if cfg_resp.status_code != 200:
+            _fail(f"ERROR: GET /api/config failed ({cfg_resp.status_code}): {cfg_resp.text[:200]}")
+        cfg = cfg_resp.json()
+        cfg.pop("integrations", None)  # env-derived, read-only (mirrors ConfigEditor's PUT)
+        version = cfg.pop("version", None)  # response-only field; it belongs in the header
         if dry_run:
-            cfg = c.get("/api/config")
-            if cfg.status_code != 200:
-                _fail(f"ERROR: GET /api/config failed ({cfg.status_code}): {cfg.text[:200]}")
             print(
                 f"OK (dry-run): authenticated to {base}; would upload {len(files)} file(s) and write {len(entries)} layer(s). Nothing written."
             )
@@ -367,13 +374,20 @@ def _push(
                 _fail(f"ERROR: upload geo:{e.slug()} failed ({rr.status_code}): {rr.text[:200]}")
             uploaded += 1
             print(f"  ↑ geo:{e.slug()} ({src.name})")
-        cfg_resp = c.get("/api/config")
-        if cfg_resp.status_code != 200:
-            _fail(f"ERROR: GET /api/config failed ({cfg_resp.status_code}): {cfg_resp.text[:200]}")
-        cfg = cfg_resp.json()
-        cfg.pop("integrations", None)  # env-derived, read-only (mirrors ConfigEditor's PUT)
+        # ⚠️ The version just read, sent back as If-Match. This PUT replaces the WHOLE document
+        # (only `referenceLayers` is ours), and httpx sends no `Sec-Fetch-Site`, so the 428 guard
+        # that forces browsers to prove freshness never fires here — without the header this was
+        # last-writer-wins against whatever an admin saved in the Verwaltung while the GeoJSON
+        # was uploading. Stale → 409 and nothing is written.
         cfg["referenceLayers"] = _to_reference_layers(entries)
-        pc = c.put("/api/config", json=cfg)
+        pc = c.put("/api/config", json=cfg, headers={"If-Match": version} if version else {})
+        if pc.status_code in (409, 412):
+            _fail(
+                f"ERROR: the config on {base} changed while this push was being prepared. "
+                f"{uploaded} GeoJSON file(s) were uploaded, so an existing layer with the same "
+                "dataset id may already serve the new bytes; referenceLayers was not changed. "
+                "Re-run to reconcile the files with the newer document."
+            )
         if pc.status_code != 200:
             _fail(f"ERROR: PUT /api/config failed ({pc.status_code}): {pc.text[:300]}")
     return uploaded, len(entries)

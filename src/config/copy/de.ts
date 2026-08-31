@@ -2170,23 +2170,16 @@ export const de = {
     actionBlocked: 'In der Demo nicht möglich.',
     welcome: {
       title: 'Willkommen bei KP Front',
-      intro: 'Das ist eine Demo mit erfundenen Daten – kein echter Einsatz. Probier alles frei aus.',
-      reloadWarn: 'Alle Besucher bearbeiten gemeinsam denselben Einsatz – deine Änderungen sehen also alle anderen live. Sei nett zu ihnen 🙂 Um Mitternacht und um Mittag wird zurückgesetzt.',
-      canTitle: 'Du kannst …',
+      intro: 'Ein vorbereiteter Einsatz mit erfundenen Daten. Zeichne, führe Trupps und probiere die Lageführung frei aus.',
+      reloadWarn: 'Alle Besucher arbeiten gemeinsam. Die Demo wird um Mitternacht und Mittag zurückgesetzt.',
+      canTitle: 'Das kannst du ausprobieren',
       can: [
-        'Auf Karte und Plan zeichnen und taktische Zeichen setzen',
-        'Atemschutz-Trupps und Material führen',
-        'Zwischen Lage und Plan wechseln und Objektpläne öffnen',
-      ],
-      knowTitle: 'Gut zu wissen',
-      know: [
-        'Ihr bearbeitet alle denselben Einsatz gleichzeitig – bitte nichts von anderen löschen, was ihr nicht selbst gesetzt habt.',
-        'Um Mitternacht und um Mittag wird die Demo auf den Ausgangszustand zurückgesetzt.',
-        'Einen neuen Einsatz kannst du in der Demo nicht eröffnen – aber den laufenden frei bearbeiten.',
-        'KP Front ist eine installierbare App (PWA): am Einsatzort läuft sie im Vollbild, offline-fähig und mit eigenem Symbol.',
-        'Diese Browser-Demo wird nicht installiert – volle Offline-Nutzung und Benachrichtigungen gibt es erst in der App deiner Wehr.',
+        'Karte und Plan bearbeiten',
+        'Atemschutz und Material führen',
+        'Objektpläne und Rapport öffnen',
       ],
       cta: 'Los geht’s',
+      meta: 'Keine echten Einsatzdaten · Neue Einsätze sind gesperrt',
     },
   },
   login: {
@@ -3832,6 +3825,21 @@ export const de = {
       copied: 'Kopiert',
       confirmYes: 'Ja, ausführen',
       confirmNo: 'Abbrechen',
+      // Steht einmal pro Karten-Gruppe, in der eine Zeile gelöscht werden kann – der Weg
+      // zurück ist sonst nirgends erwähnt, und die Konfiguration speichert nach 700 ms von
+      // selbst.
+      deleteRecovery: 'Gelöschte Zeilen holt «Sicherung › Letzte Änderungen» zurück.',
+    },
+    // ⚠️ Adressen, keine Übersetzung: die Links ins Handbuch dieser Verwaltung. Ein Fork zeigt
+    // sie mit EINER Zeile – `repo` – auf sein eigenes Repository um; die Pfade bleiben gleich.
+    // Deshalb stehen sie in der Ausnahmeliste des Parity-Tests (INTENTIONALLY_GERMAN · admin.docs)
+    // und nicht in en/fr/it.
+    docs: {
+      repo: 'https://github.com/feuerwehr-oberwil/kp-front',
+      root: '/tree/main/docs',
+      statsExport: '/blob/main/docs/STATS-EXPORT.md',
+      alarmIntegrations: '/blob/main/docs/ALARM-INTEGRATIONS.md',
+      incidentLink: '/blob/main/docs/ALARM-INTEGRATIONS.md#4-the-einsatz-link-read-only-link-into-one-incident',
     },
     // ⚠️ Warum ein getippter Wert (noch) nicht gespeichert ist. Die ganze Konfiguration wird als
     // EIN Dokument geschrieben – ein einziges abgelehntes Feld stoppt die automatische Speicherung
@@ -3847,6 +3855,9 @@ export const de = {
     shell: {
       verwaltung: 'Verwaltung',
       toLageMap: '← Zur Lagekarte',
+      // Das Handbuch ist für genau diese Leserin geschrieben und war aus der Verwaltung
+      // heraus nirgends verlinkt.
+      docs: 'Anleitung',
       logout: 'Abmelden',
       openSections: 'Bereiche öffnen',
       closeSections: 'Bereiche schliessen',
@@ -3858,7 +3869,7 @@ export const de = {
     },
     unlock: {
       title: 'Verwaltung entsperren',
-      body: 'Die Verwaltung ist mit dem Stations-Adminschlüssel geschützt – getrennt von der Einsatz-PIN. Bitte gib den Schlüssel ein, um fortzufahren.',
+      body: 'Die Verwaltung ist mit dem Adminschlüssel geschützt – getrennt von der Einsatz-PIN. Bitte gib den Schlüssel ein, um fortzufahren.',
       label: 'Adminschlüssel',
       submit: 'Entsperren',
       submitting: 'Wird geprüft …',
@@ -3938,6 +3949,15 @@ export const de = {
         lede: 'Mannschaft, Dienstgrade, Fahrzeuge, Mittel und Partnerorganisationen als eine Excel-Datei herunterladen, bearbeiten und wieder einspielen.',
         tip: 'Vor dem Schreiben zeigt die Vorschau je Blatt, was neu ist, was sich ändert und was wegfällt – benannt, nicht gezählt. Erst «Jetzt übernehmen» schreibt.',
       },
+      // Der Mittel-Katalog war aus der Verwaltung heraus unsichtbar: er entsteht nur in der
+      // Arbeitsmappe, und wer nie eine hochgeladen hat, sah nirgends, dass es ihn gibt. Diese
+      // Seite zeigt ihn – bearbeitet wird er weiterhin ausschliesslich in der Arbeitsmappe.
+      material: {
+        label: 'Material',
+        title: 'Material',
+        lede: 'Der Mittel-Katalog dieser Wehr: was im Einsatz erfasst werden kann, woher es kommt und in welcher Einheit es zählt.',
+        tip: 'Schreibgeschützt. Katalog, Quellen und Bestände schreibt die Arbeitsmappe (Blätter «Mittel», «Quellen», «Mittel-Bestände»).',
+      },
       system: { label: 'System & Wartung', title: 'System & Wartung', lede: 'Status & Wartung: Version, Datenbank, Bestand, Speicher und der Offline-Cache dieses Geräts.' },
       sicherung: { label: 'Sicherung', title: 'Sicherung', lede: 'Konfiguration als Datei sichern oder eine gesicherte Datei einspielen.' },
     },
@@ -3990,6 +4010,28 @@ export const de = {
       // Verwaltung weiterklickt, bekommt einen Konflikt angeboten, dessen «Übernehmen» den Import
       // überschreiben würde. Neu laden ist der einzige Weg, und das muss dastehen.
       reloadHint: 'Die Änderungen sind gespeichert, aber diese Seite zeigt noch den Stand von vorher. Bitte die Seite neu laden, bevor hier weitergearbeitet wird.',
+    },
+    // Verwaltung › Station › Material (admin/MaterialView) – der Mittel-Katalog, schreibgeschützt.
+    // Geschrieben wird er ausschliesslich in der Arbeitsmappe; diese Seite zeigt nur, was drin
+    // steht, damit «leer» überhaupt sichtbar ist.
+    material: {
+      editNote: 'Bearbeitet wird der Katalog in der Arbeitsmappe (Blätter «Mittel», «Quellen», «Mittel-Bestände») – hier steht, was aktuell hinterlegt ist.',
+      openWorkbook: 'Arbeitsmappe öffnen',
+      catalogueTitle: 'Katalog',
+      empty: 'Kein Material im Katalog.',
+      emptyHint: 'Ohne Katalog bietet die Material-Erfassung im Einsatz keine Vorschläge an – jede Person tippt dann ihre eigene Bezeichnung, und der Rapport zählt dieselbe Sache unter drei Namen.',
+      colLabel: 'Bezeichnung',
+      colCategory: 'Kategorie',
+      colUnit: 'Einheit',
+      colKind: 'Art',
+      colStock: 'Bestand',
+      kindConsumable: 'Verbrauch',
+      kindEquipment: 'Gerät',
+      stockNone: 'kein Bestand hinterlegt',
+      sourcesTitle: 'Quellen',
+      sourcesEmpty: 'Keine Quellen hinterlegt – Material wird ohne Herkunft erfasst.',
+      unitsTitle: 'Einheiten',
+      unitsEmpty: 'Keine Einheiten hinterlegt – die Einheit wird im Einsatz frei getippt.',
     },
     erfassung: {
       cardTitle: 'Erfassungs-Poster',
@@ -4066,6 +4108,7 @@ export const de = {
       disabled: 'Export deaktiviert.',
       failed: 'Aktion fehlgeschlagen',
       exampleLabel: 'Abfrage-Beispiel',
+      docsLink: 'API-Doku',
       tokenLabel: 'Token',
       hint: 'Token geheim halten – er gewährt Lesezugriff auf alle Einsatzdaten inkl. Namen. Übergabe an das Auswertungs-Tool als Header X-Stats-Token (oder ?t=).',
     },
@@ -4266,6 +4309,13 @@ export const de = {
       bboxInvalid: 'Suchbereich noch nicht gespeichert – erwartet werden vier LV95-Zahlen in der Reihenfolge minE,minN,maxE,maxN (min kleiner als max).',
       bboxFromCenter: 'Aus Kartenzentrum ableiten (±5 km)',
       bboxFromCenterHint: 'Braucht ein gespeichertes Kartenzentrum weiter oben.',
+      // Das Angebot in dem einen Moment, in dem alles Nötige bekannt ist: die Kartenmitte steht,
+      // der Suchbereich nicht – und der abgeleitete Wert steht darunter, bevor er geschrieben
+      // wird. Der Knopf darunter bleibt; das Angebot ist nur die Abkürzung dorthin.
+      bboxOfferTitle: 'Kartenmitte gesetzt – Suchbereich daraus übernehmen?',
+      bboxOfferBody: 'Ohne Suchbereich sucht die Adresssuche landesweit und bietet «Hauptstrasse 3» aus dem halben Land an. ±5 km um die Kartenmitte deckt das Einzugsgebiet der Wehr und die Nachbarhilfe ab.',
+      bboxOfferApply: 'Suchbereich übernehmen',
+      bboxOfferDismiss: 'Nicht jetzt',
       // Kantonale GIS-Portale, aufgerufen mit den Koordinaten des Einsatzes.
       groupExternal: 'Externe Kartenportale',
       externalTip: 'Erscheinen im Einsatz unter «Datenquellen» als Knöpfe, die das Portal direkt auf dem Einsatzort öffnen. Ohne Eintrag gibt es dort keine Knöpfe.',
@@ -4350,6 +4400,7 @@ export const de = {
       groupPreview: 'Auf dem Rapport: {zeile}',
       groupAdd: 'Alarmgruppe hinzufügen',
       groupRemove: 'Alarmgruppe löschen',
+      groupRemoveConfirm: 'Alarmgruppe löschen? Ihre Zeile im Ausrückzeiten-Raster verschwindet, und gemeldete Zeiten finden ihre Kennung nicht mehr.',
       groupIncomplete: 'Noch nicht gespeichert – Bezeichnung und Kennung müssen ausgefüllt sein.',
       groupDuplicate: 'Diese Kennung gibt es schon – zwei Gruppen mit derselben Kennung würden auf dem Rapport zu einer einzigen Zeile.',
       groupArchive: 'Automatisch archivieren',
@@ -4396,7 +4447,12 @@ export const de = {
       contactGrace: 'Nachfrist (s)',
       contactGraceTip: 'Sekunden nach dem fälligen Kontakt, bis der überfällig-Alarm auslöst.',
       alarmBar: 'Alarmdruck (bar)',
-      alarmBarTip: 'Druck, ab dem der Trupp zurückgeht. Die Truppkarte schlägt ab diesem Wert an – auch wenn erst die Schätzung ihn erreicht. 0 schaltet die Schwelle ab.',
+      alarmBarTip: 'Druck, ab dem der Trupp zurückgeht. Die Truppkarte schlägt ab diesem Wert an – auch wenn erst die Schätzung ihn erreicht.',
+      alarmBarDemoTip: 'Druck, ab dem der Trupp zurückgeht. Nur in der öffentlichen Demo schaltet 0 beide Druckalarme ab.',
+      alarmBarRueckzug: 'Alarmdruck im Rückzug (bar)',
+      alarmBarRueckzugTip: 'Die tiefere Linie für einen Trupp, der bereits auf dem Rückweg ist – sonst warnt die Karte den ganzen Weg hinaus, und eine Warnung, die zehn Minuten läuft, schaut niemand mehr an. Unterhalb dieses Werts meldet sie sich wieder: das ist ein Trupp, der zu lange braucht. Gleich wie der Alarmdruck gesetzt, gibt es keine Unterscheidung. Ohne Eintrag gilt {n} bar.',
+      alarmBarRueckzugDisabledTip: 'In der öffentlichen Demo ausgeschaltet, weil der Alarmdruck auf 0 steht.',
+      alarmBarRueckzugInvalid: 'Wert noch nicht gespeichert – erwartet wird eine ganze Zahl über 0 und höchstens {max} (nicht über dem Alarmdruck; die Rückzugslinie meldet sich früher, nicht später).',
       defaultPressure: 'Eingangsdruck (bar)',
       defaultPressureTip: 'Fülldruck, mit dem der Trupp-Assistent startet (z. B. 300-bar-Flasche im Dienst).',
       pressureStep: 'Druck-Schrittweite (bar)',
@@ -4420,8 +4476,11 @@ export const de = {
       logoSet: 'Gesetzt',
       logoOpen: 'Login-Screen und Rapport-Briefkopf zeigen noch den Standard',
       users: 'Eigene Zugänge',
-      usersSet: '{n} Zugänge',
-      usersOpen: 'Nur das eingerichtete Erstkonto – PIN ändern und eigene erstellen',
+      // ⚠️ Diese Zeile zählt Konten, sie prüft keine PIN – das kann sie auch nicht. Sie darf
+      // deshalb nicht behaupten, das Erstkonto sei erledigt: es zählt mit und bleibt ein
+      // gültiger Login, bis jemand es deaktiviert oder ihm eine neue PIN gibt.
+      usersSet: '{n} Zugänge – das eingerichtete Erstkonto zählt mit',
+      usersOpen: 'Nur das eingerichtete Erstkonto – eigene Zugänge erstellen, dann dessen PIN ändern oder es deaktivieren',
       personnel: 'Personal erfassen',
       personnelSet: '{n} aktive Personen',
       personnelOpen: 'Keine Personen – Anwesenheit und Rapport bleiben leere Listen',
@@ -4431,6 +4490,12 @@ export const de = {
       monitoring: 'Überwachung',
       monitoringSet: 'Eingerichtet – ein Ausfall meldet sich',
       monitoringOpen: 'Keine Ping-Adresse hinterlegt – ein Ausfall fällt niemandem auf',
+      // Eine Wehr kann alle sieben Zeilen darüber abhaken und beim Eröffnen trotzdem die
+      // «Hauptstrasse 3» aus einem Dorf drei Kantone weiter angeboten bekommen. Erledigt ist
+      // die Zeile, sobald EINE der beiden Angaben steht – der Heimatort allein reicht.
+      geocoder: 'Suchbereich für Adresssuche',
+      geocoderSet: 'Gesetzt – die Adresssuche bleibt in der Gegend der Wehr',
+      geocoderOpen: 'Nicht gesetzt – «Hauptstrasse 3» sucht die Adresssuche im ganzen Land',
     },
     backup: {
       title: 'Sicherung',
@@ -4542,6 +4607,7 @@ export const de = {
       vehicleIdPlaceholder: 'tlf-1',
       vehicleAdd: 'Fahrzeug hinzufügen',
       vehicleRemove: 'Fahrzeug löschen',
+      vehicleRemoveConfirm: 'Fahrzeug löschen? Seine Zeile im Ausrückzeiten-Raster verschwindet, und gemeldete Zeiten finden seine Kennung nicht mehr.',
       vehicleIncomplete: 'Unvollständig – die Zeile wird erst mit Bezeichnung und Kennung gespeichert.',
       vehicleDuplicate: 'Diese Kennung gibt es schon – die Zeile wird nicht gespeichert.',
       // ── Symbol-Auswahllisten: hier nur Ansicht, geschrieben wird auf dem Blatt «Symbolfelder» ──
@@ -4614,6 +4680,12 @@ export const de = {
       caption: 'Wer sich anmelden darf und mit welcher Rolle. Mitglieder werden deaktiviert, nie gelöscht (der Verlauf bleibt erhalten).',
       loading: 'Mitglieder werden geladen …',
       none: 'Keine Mitglieder konfiguriert.',
+      noneHint: 'Mitglieder sind Anmeldungen, nicht der Personenstamm: Wer sich am Tablet anmeldet, braucht hier einen Zugang. Die Personen für Anwesenheit und Rapport stehen unter «Personal».',
+      // Das ausgelieferte Erstkonto bleibt ein gültiger Login, bis jemand es anfasst – und die
+      // Einrichtungs-Karte kann das nicht prüfen (sie zählt nur Konten). Deshalb steht der
+      // Hinweis dort, wo beides in zwei Tippern erledigt ist.
+      seedAccountTitle: 'Das eingebaute Erstkonto «{name}» ist aktiv.',
+      seedAccountBody: 'Bewusst entscheiden: als Notfallzugang mit eigener PIN behalten oder deaktivieren. Dieser Hinweis bleibt sichtbar, solange das Konto aktiv ist.',
       colName: 'Name',
       colUsername: 'Benutzername',
       colRole: 'Rolle',
@@ -4679,6 +4751,9 @@ export const de = {
       showInactive: 'Inaktive anzeigen',
       loading: 'Personal wird geladen …',
       none: 'Noch keine Personen erfasst.',
+      // Der schnelle Weg für eine ganze Wehr steht sonst nur unter «Daten › Arbeitsmappe» –
+      // also genau dort nicht, wo jemand mit vierzig Namen vor sich sitzt.
+      noneHint: 'Ohne Personen bleiben Anwesenheit und Rapport leere Listen. Einzeln erfassen oder als CSV importieren – für eine ganze Wehr ist «Daten › Arbeitsmappe» der schnelle Weg: alle Listen als eine Excel-Datei herunterladen, ausfüllen, wieder einspielen.',
       colName: 'Name',
       colRank: 'Grad',
       colSource: 'Quelle',
@@ -4735,10 +4810,39 @@ export const de = {
       stateConnected: 'verbunden',
       stateUnavailable: 'nicht verfügbar',
       stateNotConfigured: 'nicht konfiguriert',
+      // «nicht konfiguriert» plus ein Verbindungstest, der zwangsläufig scheitert, war bisher
+      // eine Sackgasse: Der Schlüssel wird eine Seite weiter eingetragen.
+      openCredentials: 'Zugangsdaten öffnen',
+      // ─── «Anbindung einrichten» ──────────────────────────────────────────────────────
+      // Die Seite, die «nicht konfiguriert» meldet, sagt jetzt auch WIE – denn genau hier
+      // landet eine frische Station, und die beiden Wege liegen nebeneinander, statt dass
+      // jemand raten muss, ob Divera Pflicht ist. Die Karte erscheint nur, solange keine
+      // Alarmquelle läuft; danach stünde sie einer arbeitenden Seite nur im Weg.
+      setupTitle: 'Automatische Alarmübernahme (optional)',
+      setupCaption: 'Einsätze lassen sich ohne Einrichtung jederzeit manuell eröffnen. Optional kann KP Front Alarme automatisch übernehmen – dafür gibt es zwei Wege.',
+      setupPick: 'Weg der Alarmierung',
+      pathDivera: 'Divera 24/7',
+      pathDiveraMeans: 'KP Front holt die Alarme selbst ab. Nötig ist ein Accesskey – sonst nichts. Die Leitstelle muss nichts umstellen.',
+      pathWebhook: 'Webhook-Eingang',
+      pathWebhookMeans: 'Die Leitstelle schickt den Alarm an eine Adresse dieser Installation – FireHub (Tercero), Pager-Gateway oder ein eigenes Skript.',
+      diveraNote: 'Der Accesskey der Wehr wird unter Zugangsdaten eingetragen. Sobald er steht, holt diese Installation die Alarme von selbst ab – hier ist nichts weiter einzurichten.',
+      diveraGo: 'Accesskey in Zugangsdaten hinterlegen',
+      genericLabel: 'Allgemeine Schnittstelle · POST',
+      genericHint: 'Für Leitstellen, Pager-Gateways und eigene Skripte. Jeder angenommene Alarm eröffnet einen Einsatz.',
+      firehubLabel: 'FireHub (Tercero) · Webhook-Ziel',
+      firehubHint: 'In FireHub für «Einsatzstart» und «Einsatzende» hinterlegen. FireHub kann keine eigenen Kopfzeilen senden – das Secret gehört deshalb in die Adresse.',
+      // ⚠️ Platzhalter in einer Adresse, kein Satz: Er wird mitkopiert und in der Leitstelle
+      // durch den echten Wert ersetzt. Das Secret selbst steht hier nie.
+      secretPlaceholder: '<Alarm-Webhook-Secret>',
+      secretTitle: 'Ohne Alarm-Webhook-Secret bleibt dieser Eingang zu.',
+      secretBody: 'Solange es fehlt, weist der Server jeden eingehenden Alarm ab (403) – auch den der richtigen Leitstelle. Gesetzt wird es unter Zugangsdaten; hier steht es nie.',
+      secretGo: 'Secret in Zugangsdaten hinterlegen',
+      setupDocs: 'Feldliste, Beispielaufruf und Wiederholverhalten: ALARM-INTEGRATIONS.md',
       poolLoading: 'Pool wird geladen …',
       poolCount: '{n} Alarm im Pool',
       poolCountPlural: '{n} Alarme im Pool',
       poolUnavailable: 'Pool nicht verfügbar',
+      webhookActive: 'Eingehende Alarme eröffnen automatisch einen Einsatz.',
       refresh: 'Aktualisieren',
       refreshing: 'Wird aktualisiert …',
       lastAlarm: 'Letzter Alarm',
@@ -4996,6 +5100,7 @@ export const de = {
       geojsonCancel: 'Abbrechen',
       geojsonReplace: 'Datei ersetzen',
       geojsonRemove: 'Ebene löschen',
+      geojsonRemoveConfirm: 'Ebene löschen? Die hochgeladene Datei bleibt im Speicher, wird aber auf keiner Karte mehr angezeigt.',
       geojsonIncomplete: 'Noch nicht gespeichert – Datei und Bezeichnung gehören zusammen.',
       geojsonNoId: 'Noch nicht gespeichert – ohne Kennung fehlt der Ebene der Name, unter dem sie geführt wird.',
       geojsonNoLabel: 'Ohne Bezeichnung erscheint auf der Karte die Kennung.',
@@ -5026,6 +5131,7 @@ export const de = {
       rasterAttributionPlaceholder: 'z. B. © Geodaten Kanton Basel-Landschaft',
       rasterAdd: 'Raster-Ebene hinzufügen',
       rasterRemove: 'Ebene löschen',
+      rasterRemoveConfirm: 'Ebene löschen? Adresse, Ebenenname und Parameter dieser Quelle müssen sonst neu eingetragen werden.',
       rasterIncomplete: 'Noch nicht gespeichert – Bezeichnung, Kennung und mindestens eine URL-Vorlage gehören zusammen.',
       rasterDuplicate: 'Diese Kennung ist schon vergeben – jede Ebene braucht eine eigene.',
     },

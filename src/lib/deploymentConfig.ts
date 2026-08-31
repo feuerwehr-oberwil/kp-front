@@ -279,13 +279,20 @@ export interface ProviderRegistration {
  * nothing, entering every Einsatz by hand — was being told to take an alarm from a product it
  * does not have. The neutral sentence is the DEFAULT and the provider variant is the exception,
  * so a new provider costs nothing and an unconfigured station is never sent looking.
+ *
+ * ⚠️ Gated on the `pool` CAPABILITY, not on `configured` alone. The sentence this feeds says
+ * «übernimm einen X-Alarm», and only a source with a pool HAS an alarm to take: a station on
+ * the generic webhook (`generic-webhook · auto-open · lifecycle`) never sees one, because its
+ * Einsätze open by themselves. Naming that source pointed the operator at an affordance the
+ * app does not render — the same mistake as the hard-coded «Divera», one level down.
+ * `admin/DataView` gates its Alarmquelle panel on the identical capability.
  */
 export function alarmProviderName(): string | null {
   const i = getDeploymentConfig().integrations
   const p = i?.alarms
-  if (p?.configured && p.provider) return providerLabel(p.provider)
+  if (p?.configured && p.provider && p.capabilities?.includes('pool')) return providerLabel(p.provider)
   // legacy flag, still served by older backends that predate the provider registry
-  return i?.diveraConfigured ? providerLabel('divera') : null
+  return !p?.provider && i?.diveraConfigured ? providerLabel('divera') : null
 }
 
 /** …the same for the roster's source — «Mannschaft aus X synchronisieren», «Nicht mehr in X». */
@@ -319,7 +326,7 @@ export interface DeploymentModule {
 }
 
 /** The national default Objektplan module catalogue — mirrors the backend's
- *  `DEFAULT_CONFIG['modules']` in `app/admin_config.py`. A deployment that doesn't override
+ *  `EXAMPLE_CONFIG['modules']` in `app/admin_config.py`. A deployment that doesn't override
  *  `modules` runs on exactly these, so the admin viewer shows them as the in-force catalogue
  *  ("die mitgelieferten Standard-Module") rather than an empty "nothing configured" state.
  *  Keep in sync with the backend list. */
@@ -396,6 +403,10 @@ const CACHE_KEY = 'kp-front-deployment-config'
 // this — it stays {} until loadDeploymentConfig() resolves at boot (before first render),
 // so an early read is always safe (every field is optional → callers fall back to appConfig).
 let resolved: DeploymentConfig = {}
+// Config can be loaded twice during demo boot: an anonymous request starts before first paint,
+// then authentication immediately asks again for the session-only capabilities. A slow first
+// response must never overwrite the newer authenticated one.
+let loadGeneration = 0
 
 function readCache(): Promise<DeploymentConfig | null> {
   return idbGet<DeploymentConfig>(CACHE_KEY).then((v) => (v && typeof v === 'object' ? v : null))
@@ -408,15 +419,20 @@ function readCache(): Promise<DeploymentConfig | null> {
  * defaults. On a network error we fall back to the last cached value if present, else `{}`.
  */
 export async function loadDeploymentConfig(): Promise<DeploymentConfig> {
+  const generation = ++loadGeneration
   try {
     const cfg = await apiGet<DeploymentConfig>('/api/config')
-    resolved = cfg && typeof cfg === 'object' ? cfg : {}
-    void idbSet(CACHE_KEY, resolved) // durable copy for offline boot; in-memory singleton is enough this session
-    return resolved
+    const next = cfg && typeof cfg === 'object' ? cfg : {}
+    if (generation === loadGeneration) {
+      resolved = next
+      void idbSet(CACHE_KEY, resolved) // durable copy for offline boot; in-memory singleton is enough this session
+    }
+    return next
   } catch {
     // network / server failure — fall back to the cached value (offline tablets), else empty
-    resolved = (await readCache()) ?? {}
-    return resolved
+    const cached = (await readCache()) ?? {}
+    if (generation === loadGeneration) resolved = cached
+    return cached
   }
 }
 
@@ -435,6 +451,7 @@ export async function loadDeploymentConfig(): Promise<DeploymentConfig> {
  */
 export async function loadDeploymentConfigBounded(budgetMs: number): Promise<DeploymentConfig> {
   const load = loadDeploymentConfig()
+  const bootGeneration = loadGeneration
   let timer: ReturnType<typeof setTimeout> | undefined
   const budget = new Promise<'timeout'>((res) => { timer = setTimeout(() => res('timeout'), budgetMs) })
   const winner = await Promise.race([load, budget])
@@ -442,10 +459,14 @@ export async function loadDeploymentConfigBounded(budgetMs: number): Promise<Dep
   if (winner !== 'timeout') return winner
   // Budget blown. The load is still pending, so `resolved` is necessarily still {} — seed it
   // from the cache so synchronous read sites get the STATION's config from the first render
-  // instead of national defaults. The pending load overwrites it when it lands (fresher wins).
+  // instead of national defaults. Do not overwrite a newer authenticated refresh that may have
+  // started while IndexedDB was answering.
   const cached = (await readCache()) ?? {}
-  resolved = cached
-  return cached
+  if (bootGeneration === loadGeneration) {
+    resolved = cached
+    return cached
+  }
+  return resolved
 }
 
 /** Synchronous accessor returning the resolved singleton ({} until loadDeploymentConfig
@@ -464,12 +485,19 @@ export function getDeploymentConfig(): DeploymentConfig {
 export function atemschutzDoctrine() {
   const d = resolved.doctrine ?? {}
   const a = appConfig.atemschutz
+  const alarmBar = d.alarmBar ?? a.alarmBar
+  // A zero line is reserved for the public demo and disables BOTH pressure alarms. For a
+  // working line, keep the shipped Rückzug default but never let it sit above the active line:
+  // that would make a withdrawing Trupp alarm earlier than one still going in.
+  const alarmBarRueckzug = alarmBar === 0
+    ? 0
+    : Math.min(d.alarmBarRueckzug ?? a.alarmBarRueckzug, alarmBar)
   return {
     pressureStep: d.pressureStep ?? a.pressureStep,
     pressureMax: d.pressureMax ?? a.pressureMax,
     defaultPressureBar: d.defaultPressureBar ?? a.defaultPressureBar,
-    alarmBar: d.alarmBar ?? a.alarmBar,
-    alarmBarRueckzug: d.alarmBarRueckzug ?? a.alarmBarRueckzug,
+    alarmBar,
+    alarmBarRueckzug,
     contactIntervalMin: d.contactIntervalMin ?? a.contactIntervalMin,
     contactGraceSec: d.contactGraceSec ?? a.contactGraceSec,
     defaultFunkkanal: d.defaultFunkkanal ?? a.defaultFunkkanal,

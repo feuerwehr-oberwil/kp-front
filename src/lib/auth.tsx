@@ -79,7 +79,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const roster = await apiGet<RosterEntry[]>('/api/auth/roster')
       const editor = roster.find((r) => r.role === 'editor') ?? roster[0]
       if (!editor) return null
-      return await apiPost<AuthUser>('/api/auth/login', { user_id: editor.id, pin: DEMO_PIN })
+      const demoUser = await apiPost<AuthUser>('/api/auth/login', { user_id: editor.id, pin: DEMO_PIN })
+      // Boot fetched the anonymous config before this session existed. That response deliberately
+      // withholds browser capabilities such as the CARTO key; mount the map only after the
+      // authenticated refresh or a first-time visitor sees watermarked tiles until reloading.
+      try { await loadDeploymentConfig() } catch { /* keep the booted config */ }
+      return demoUser
     } catch { return null }
   }
 

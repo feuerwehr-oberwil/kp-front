@@ -106,11 +106,17 @@ export function Metric({ label, value, tip }: { label: string; value: string; ti
   )
 }
 
-/** A labelled usage bar: filled fraction = used/total. */
+/** A labelled usage bar: filled fraction = used/total.
+ *
+ *  ⚠️ Sized by `width`, not `transform: scaleX()`. Scaling collapsed the fill to nothing at
+ *  0 % — where the CSS `min-width: 2px` is meant to leave a sliver saying «this bar is empty»,
+ *  not «this bar is missing» — and it stretched the pill's `border-radius` with the element, so
+ *  the cap came out squashed at every value in between. */
 export function UsageBar({ pctFilled, tone = 'blue' }: { pctFilled: number; tone?: 'blue' | 'amber' }) {
+  const pct = Math.max(0, Math.min(100, pctFilled))
   return (
     <div className="adm-sys-bar" role="img" aria-label={fillTemplate(appConfig.copy.admin.usageBar.aria, { pct: Math.round(pctFilled) })}>
-      <span className={`adm-sys-bar-fill ${tone}`} style={{ width: `${pctFilled}%` }} />
+      <span className={`adm-sys-bar-fill ${tone}`} style={{ width: `${pct}%` }} />
     </div>
   )
 }
@@ -130,6 +136,39 @@ export function EmptyState({ message, hint, action, tone }: {
       <p className="adm-empty-msg">{message}</p>
       {hint && <p className="adm-empty-hint">{hint}</p>}
       {action && <div className="adm-empty-action">{action}</div>}
+    </div>
+  )
+}
+
+/**
+ * A tinted inline panel that names a CONSEQUENCE and puts the fix right next to it.
+ *
+ * Two callers, deliberately one shape: «ohne Alarm-Webhook-Secret bleibt der Eingang zu» on the
+ * Alarmierung page, and «Kartenmitte gesetzt — Suchbereich daraus übernehmen?» in the Adresssuche
+ * card. Both are the same move: the page knows something the operator does not, and the button
+ * that settles it belongs in the same box as the sentence rather than three cards away.
+ *
+ * `tone='blue'` is an OFFER (one tap and it is done), amber a consequence already in force.
+ * Never red — nothing offered here is destructive. `preview` shows the value that WOULD be
+ * written, because an offer nobody can read before accepting is a dice roll.
+ */
+export function Offer({ tone = 'amber', icon, title, body, preview, children }: {
+  tone?: 'amber' | 'blue'
+  icon: string
+  title: string
+  body: string
+  preview?: string
+  children?: ReactNode
+}) {
+  return (
+    <div className={`adm-offer${tone === 'blue' ? ' blue' : ''}`}>
+      <Icon id={icon} className="adm-offer-ic" />
+      <div className="adm-offer-txt">
+        <span className="adm-offer-t">{title}</span>
+        <span className="adm-offer-b">{body}</span>
+        {preview && <p className="adm-offer-preview">{preview}</p>}
+        {children && <div className="adm-offer-acts">{children}</div>}
+      </div>
     </div>
   )
 }
@@ -202,14 +241,22 @@ export function CopyChip({ value, display }: { value: string; display?: string }
 
 /** Two-step inline confirm — replaces native window.confirm in the admin shell. First
  *  click swaps the button for the QUESTION plus explicit yes/cancel; auto-reverts after
- *  8 s untouched, so a stray click never leaves an armed destructive button behind. */
-export function ConfirmButton({ label, question, danger, primary, disabled, onConfirm }: {
+ *  8 s untouched, so a stray click never leaves an armed destructive button behind.
+ *
+ *  `className` + `ariaLabel` exist for the icon-only bins in the config editors
+ *  (ConfigSections · `.adm-formlink-x`): same two-step, but the trigger has to keep the row's
+ *  own shape and its accessible name, because there is no visible label to read. */
+export function ConfirmButton({ label, question, danger, primary, disabled, className, ariaLabel, onConfirm }: {
   label: ReactNode
   /** one short sentence naming the consequence (shown next to the yes/no pair) */
   question: string
   danger?: boolean
   primary?: boolean
   disabled?: boolean
+  /** replaces the default button classes — for triggers that are not a `.btn` */
+  className?: string
+  /** the trigger's accessible name; required whenever `label` is an icon */
+  ariaLabel?: string
   onConfirm: () => void
 }) {
   const C = appConfig.copy.admin.common
@@ -222,7 +269,8 @@ export function ConfirmButton({ label, question, danger, primary, disabled, onCo
   if (!armed) {
     return (
       <button type="button" disabled={disabled} onClick={() => setArmed(true)}
-        className={`btn ${primary ? 'adm-save-btn' : danger ? 'adm-danger-btn' : 'adm-int-btn'}`}>
+        title={ariaLabel} aria-label={ariaLabel}
+        className={className ?? `btn ${primary ? 'adm-save-btn' : danger ? 'adm-danger-btn' : 'adm-int-btn'}`}>
         {label}
       </button>
     )

@@ -3,46 +3,22 @@
     "appName": "Feuerwehr Musterdorf",
     "locale": "de-CH",
     "accentColor": "#c4161c",
-    "helpIntro": "Digitale Lage- und Einsatzführung der Feuerwehr Musterdorf."
+    "helpIntro": "Digitale Lage- und Einsatzführung der Feuerwehr Musterdorf.",
+    "kommandant": "Maj Hans Muster"
   },
   "map": {
     "defaultView": {
       "center": [
-        7.55604,
-        47.5151
+        7.5662,
+        47.5201
       ],
       "zoom": 16
     },
     "geocoder": {
       "defaultLocality": "4104 Musterdorf BL",
-      "bboxLv95": "2598000,1252000,2625000,1270000"
+      "bboxLv95": "2606000,1258000,2614000,1266000"
     }
   },
-  "referenceLayers": [
-    {
-      "id": "bl-hochwasser",
-      "group": "Gefahren",
-      "label": "Hochwasser",
-      "icon": "drop",
-      "kind": "wms",
-      "tiles": [
-        "https://geowms.example.ch/?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857&WIDTH=256&HEIGHT=256&LAYERS=hochwasser&BBOX={bbox-epsg-3857}"
-      ],
-      "opacity": 65,
-      "attribution": "© Geodaten Kanton …"
-    },
-    {
-      "id": "hydrant",
-      "group": "Wasser",
-      "label": "Hydranten",
-      "icon": "drop",
-      "kind": "geojson",
-      "geojson": "hydranten.geojson",
-      "vectorKind": "point",
-      "symbol": "SI Ueberflurhydrant",
-      "color": "#0f52b5"
-    }
-  ],
   "modules": [
     {
       "id": "modul1",
@@ -83,6 +59,7 @@
       "title": "Gebäudepläne",
       "order": 6,
       "orientation": "portrait",
+      "viewer": true,
       "match": "modul\\s*6"
     },
     {
@@ -91,7 +68,7 @@
       "title": "Spezialpläne",
       "order": 5,
       "family": true,
-      "match": "modul\\s*5(?:\\s*[-–—]\\s*([0-9A-Za-zÄÖÜäöü]+))?"
+      "match": "modul\\s*5(?:\\s*[-–—]\\s*([0-9A-Za-zÄÖÜäöü]+(?:\\s+\\d+)?))?"
     },
     {
       "id": "modul4",
@@ -118,7 +95,8 @@
         "field": "Typ",
         "options": [
           "Überdruck",
-          "Elektro"
+          "Elektro",
+          "Akku"
         ]
       },
       {
@@ -152,17 +130,92 @@
         "options": [
           "Kantonspolizei"
         ]
+      },
+      {
+        "symbol": "FW Offizier",
+        "field": "Funktion",
+        "options": [
+          "Of-Front",
+          "Lüften",
+          "Atemschutz",
+          "Retten",
+          "Logistik"
+        ]
       }
     ]
   },
   "doctrine": {
-    "defaultFunkkanal": 11,
+    "defaultFunkkanal": 1,
     "contactIntervalMin": 5,
     "contactGraceSec": 60,
-    "alarmBar": 100
+    "alarmBar": 100,
+    "alarmBarRueckzug": 50
   },
   "roster": {
-    "source": "manual"
+    "source": "manual",
+    "nameOrder": "last-first",
+    "ranks": [
+      {
+        "key": "kdt",
+        "label": "Kommandant",
+        "abbr": "Kdt",
+        "tier": "officer"
+      },
+      {
+        "key": "maj",
+        "label": "Major",
+        "abbr": "Maj",
+        "tier": "officer"
+      },
+      {
+        "key": "hptm",
+        "label": "Hauptmann",
+        "abbr": "Hptm",
+        "tier": "officer"
+      },
+      {
+        "key": "oblt",
+        "label": "Oberleutnant",
+        "abbr": "Oblt",
+        "tier": "officer"
+      },
+      {
+        "key": "lt",
+        "label": "Leutnant",
+        "abbr": "Lt",
+        "tier": "officer"
+      },
+      {
+        "key": "fw",
+        "label": "Feldweibel",
+        "abbr": "Fw",
+        "tier": "nco"
+      },
+      {
+        "key": "wm",
+        "label": "Wachtmeister",
+        "abbr": "Wm",
+        "tier": "nco"
+      },
+      {
+        "key": "kpl",
+        "label": "Korporal",
+        "abbr": "Kpl",
+        "tier": "nco"
+      },
+      {
+        "key": "gfr",
+        "label": "Gefreiter",
+        "abbr": "Gfr",
+        "tier": "crew"
+      },
+      {
+        "key": "fwm",
+        "label": "Feuerwehrmann",
+        "abbr": "Fwm",
+        "tier": "crew"
+      }
+    ]
   },
   "mittel": {
     "catalogue": [
@@ -181,7 +234,7 @@
       {
         "id": "luefter",
         "label": "Lüfter",
-        "unit": "Stk",
+        "unit": "Stk.",
         "category": "Geräte",
         "stock": [
           {
@@ -210,12 +263,18 @@
       }
     ],
     "units": [
-      "Stk",
+      "Stk.",
       "l",
       "m",
       "Sack",
       "Flasche",
       "kg"
     ]
+  },
+  "alarms": {
+    "autoArchiveDays": 7,
+    "staleIncidentDays": 30,
+    "captureWindowHours": 12,
+    "webhooks": []
   }
 }

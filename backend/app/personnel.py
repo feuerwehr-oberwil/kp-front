@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .credentials import get as credential
 from .divera import check_response
 from .models import DeploymentConfig, Personnel, PersonnelExternalIdentity
+from .ranks import SWISS_DEFAULT_RANKS
 
 logger = logging.getLogger(__name__)
 
@@ -243,13 +244,11 @@ async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool]:
     foreign value like «Sdt» is unknown. Anything that offers to WRITE the rank list has to know
     which of the two lists it is looking at: appending to the fallback without materialising it
     first would replace twelve working ranks with one (see :func:`adopt_ranks`)."""
-    from .admin_config import EXAMPLE_CONFIG  # local import avoids an import cycle
-
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     ranks = ((row.config_json or {}).get("roster", {}) or {}).get("ranks") if row else None
     if ranks:
         return list(ranks), True
-    return list(EXAMPLE_CONFIG["roster"]["ranks"]), False
+    return [dict(r) for r in SWISS_DEFAULT_RANKS], False
 
 
 async def load_roster_ranks(db: AsyncSession) -> list[dict]:

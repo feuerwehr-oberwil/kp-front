@@ -31,16 +31,21 @@ new repository private:
 ```text
 kp-front-data-muster/
   config.json
-  logo.svg                 the brandmark, loaded into the `logo` / `reportLogo` slots
+  report-logo.png          the brandmark, loaded into the `logo` / `reportLogo` slots
   geodata.manifest.json
-  geojson/
+  hydrant.geojson          the GeoJSON the manifest names – flat, next to it
+  wasserleitung.geojson
   objects.manifest.json
   plans/<object-id>/
   checklists.manifest.json
   checklists/
   load.sh                  the whole sequence, in order (copy examples/demo-data/load.sh)
-  scripts/                 optional source-specific importers
+  gen_water.py             optional source-specific importer, beside what it writes
 ```
+
+That is `examples/demo-data/` as it actually is – flat, because every manifest path is relative
+to its own manifest file and a folder buys nothing. Nest them if you prefer; adjust the manifest
+paths to match.
 
 Use the CLI examples and schemas as the authoritative starting point:
 
@@ -95,11 +100,16 @@ Important boundaries:
   coordinates are **rejected**, so convert them in your own importer first.
 - Every manifest path is relative to its manifest file.
 - IDs must remain stable across refreshes so objects and layers update in place.
-- **The two doors address the same Einsatzobjekt.** Nobody types a UUID on either. The browser
+- **The two doors address the same Einsatzobjekt, and you write a `key`, not a UUID.** The browser
   form on **Objektpläne** takes the same human `key` a manifest does (`schulhaus-dorfmatt`) and
   hashes it to the identical uuid5 the CLI derives, showing the derived id live – so an object
   created in the browser is *updated* by a later manifest run carrying the same key, and not
   duplicated. Case and surrounding whitespace are ignored on both sides.
+  ⚠️ A manifest entry may carry an explicit `"id"` UUID instead, and `examples/demo-data/objects.manifest.json`
+  does – that is the shape a **generated** manifest has, where the importer wrote back the uuid5
+  it derived. Never invent one by hand, and never copy the example's: a reused or mistyped UUID
+  creates a second Einsatzobjekt instead of updating the first
+  (`backend/app/admin_objects.py` · `ObjectEntry.id`). Hand-maintained manifests use `key`.
 - Only data that the station may redistribute to its operators should be loaded.
 
 ## Load it – `load` server-side, `push` from anywhere
@@ -117,8 +127,16 @@ this sequence – copy it as the skeleton of your station's own load script:
 3  admin_geodata     geodata.manifest.json
 4  admin_objects     objects.manifest.json
 5  admin_checklists  checklists.manifest.json
-6  seed_personnel    (or a CSV import in /admin – the crew, so Anwesenheit has people)
+6  seed_personnel    ⚠️ demo only – see below
 ```
+
+⚠️ **Step 6 is not a station step.** `app.seed_personnel` inserts the **synthetic Musterdorf
+crew** (`app/demo_reset.py` · `DEMO_PEOPLE`) so a demo or a dev database has people for
+Anwesenheit and Schichtenplanung. It reads nothing from your repository and there is no
+station-data equivalent of it: a real crew arrives from the roster provider, a CSV import on
+**Personal**, or the Arbeitsmappe – [`CONFIGURATION.md` §4](CONFIGURATION.md). It is additive and
+harmless (existing names are left alone, nothing is deleted), but running it against a station
+deployment puts 28 invented people in the roster. Leave it out of your own `load.sh`.
 
 Which verb belongs where is [`CONFIGURATION.md`
 §9a](CONFIGURATION.md#9a-what-all-of-them-share); below is what each one looks like.
@@ -128,8 +146,8 @@ Which verb belongs where is [`CONFIGURATION.md`
 ```bash
 cd backend
 uv run python -m app.admin_config     load ../../kp-front-data-muster/config.json
-uv run python -m app.admin_branding   load logo       ../../kp-front-data-muster/logo.svg
-uv run python -m app.admin_branding   load reportLogo ../../kp-front-data-muster/report-logo.svg
+uv run python -m app.admin_branding   load logo       ../../kp-front-data-muster/report-logo.png
+uv run python -m app.admin_branding   load reportLogo ../../kp-front-data-muster/report-logo.png
 uv run python -m app.admin_geodata    load ../../kp-front-data-muster/geodata.manifest.json
 uv run python -m app.admin_objects    load ../../kp-front-data-muster/objects.manifest.json
 uv run python -m app.admin_checklists load ../../kp-front-data-muster/checklists.manifest.json
@@ -146,14 +164,20 @@ export KP_ADMIN_SECRET='<deployment admin secret>'
 
 cd backend
 uv run python -m app.admin_config     push ../../kp-front-data-muster/config.json
-uv run python -m app.admin_branding   push logo       ../../kp-front-data-muster/logo.svg
-uv run python -m app.admin_branding   push reportLogo ../../kp-front-data-muster/report-logo.svg
+uv run python -m app.admin_branding   push logo       ../../kp-front-data-muster/report-logo.png
+uv run python -m app.admin_branding   push reportLogo ../../kp-front-data-muster/report-logo.png
 uv run python -m app.admin_geodata    push ../../kp-front-data-muster/geodata.manifest.json
 uv run python -m app.admin_objects    push ../../kp-front-data-muster/objects.manifest.json
 uv run python -m app.admin_checklists push ../../kp-front-data-muster/checklists.manifest.json
 ```
 
-`push --dry-run` authenticates and reports without writing. `admin_config` refuses a push that
+`push --dry-run` authenticates and reports without writing – on **four** of the five.
+⚠️ `admin_branding` is the odd one out twice over: it has no `--dry-run` (its input is one image
+file, so there is nothing to preview), and its secret flag is `--secret`, not the
+`--admin-secret` the others take. `KP_ADMIN_SECRET` / `KP_BASE_URL` from the environment work
+for all five, which is why the block above needs neither flag.
+
+`admin_config` refuses a push that
 would **empty** a section that currently has content – that is what publishing a stale file looks
 like – and `--force` is how you say you meant it. Every write keeps the document it replaced;
 `admin_config history` / `restore <id>` is the way back. Details:

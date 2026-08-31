@@ -11,11 +11,11 @@ import { Card, ConfirmButton, CopyChip, ResultChip, StatusBadge } from './ui'
 
 interface SecretState { configured: boolean; token?: string | null }
 
-const DOCS_URL =
-  'https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/ALARM-INTEGRATIONS.md#4-the-einsatz-link-read-only-link-into-one-incident'
-
 export function IncidentLinkAdminView() {
   const C = appConfig.copy.admin.einsatzlink
+  // Doc addresses live in the copy layer (admin.docs) — one line for a fork to retarget.
+  const D = appConfig.copy.admin.docs
+  const docsUrl = `${D.repo}${D.incidentLink}`
   const [state, setState] = useState<SecretState | null>(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
@@ -56,7 +56,7 @@ export function IncidentLinkAdminView() {
         {state.token && <CopyChip value={state.token} display={`${C.keyLabel}: ${state.token}`} />}
         {state.token && (
           <div className="adm-cap-example">
-            <p className="adm-card-cap">{C.exampleLabel} — <a href={DOCS_URL} target="_blank" rel="noreferrer">{C.docsLink}</a></p>
+            <p className="adm-card-cap">{C.exampleLabel} — <a href={docsUrl} target="_blank" rel="noreferrer">{C.docsLink}</a></p>
             <CopyChip value={linkPattern} />
           </div>
         )}

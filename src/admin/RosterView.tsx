@@ -22,7 +22,7 @@ import { rankAbbr, rankDisplay, rankLabel } from '../lib/rank'
 import { Icon } from '../lib/icons'
 import { Sheet } from '../lib/overlays'
 import { InfoTip } from './InfoTip'
-import { ActionMenu, Field, Select } from './ui'
+import { ActionMenu, EmptyState, Field, Select } from './ui'
 import { useConfig, getPath } from './ConfigContext'
 
 // ─── helpers ───────────────────────────────────────────────────────────────────
@@ -640,8 +640,18 @@ export function RosterView() {
         <div className="adm-card-body">
           {state.kind === 'loading' && <div className="adm-state">{C.loading}</div>}
           {state.kind === 'error' && <div className="adm-state adm-state-err">{state.detail}</div>}
+          {/* «Einrichtung» sends a fresh station straight here for «Personal erfassen», and the
+              answer for a whole Wehr is the Arbeitsmappe — which is named nowhere on this page. */}
           {state.kind === 'ok' && state.data.length === 0 && (
-            <div className="adm-state">{C.none}</div>
+            <EmptyState
+              message={C.none}
+              hint={C.noneHint}
+              action={
+                <button type="button" className="btn adm-save-btn" onClick={() => setAddOpen(true)}>
+                  {C.addPerson}
+                </button>
+              }
+            />
           )}
           {state.kind === 'ok' && state.data.length > 0 && (
             <div className="adm-table-wrap">

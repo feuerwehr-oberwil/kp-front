@@ -229,11 +229,13 @@ def _env_value(field: CredentialField) -> str | None:
     """The value ``.env``/compose supplied for this field, or None if it supplied none.
 
     ⚠️ «Supplied none» is not «absent from ``os.environ``». ``docker-compose.yml`` names every
-    one of these variables and materialises the application's own default for three of them
-    (``STT_MODEL``, ``STT_LANGUAGE``, ``VAPID_SUBJECT``), so every compose deployment has them
-    set to a value nobody chose. Treating that as a deployer decision would lock three fields
-    out of the admin UI on every single install. So the test is *differs from the declared
-    default*: a deployer who typed something wins, a compose fallback does not.
+    one of these variables and materialises the application's own default for two of them
+    (``STT_MODEL``, ``STT_LANGUAGE``), so every compose deployment has them set to a value
+    nobody chose. (``VAPID_SUBJECT`` used to be a third; compose now deliberately leaves it
+    blank for exactly this reason.) Treating a materialised fallback as a deployer decision
+    would lock those fields out of the admin UI on every single install. So the test is
+    *differs from the declared default*: a deployer who typed something wins, a compose
+    fallback does not.
     """
     raw = str(getattr(settings, field.name, "") or "").strip()
     return raw if raw and raw != field.default else None

@@ -10562,9 +10562,7 @@
           "alarmBarRueckzug": {
             "anyOf": [
               {
-                "type": "integer",
-                "maximum": 300.0,
-                "exclusiveMinimum": 0.0
+                "type": "integer"
               },
               {
                 "type": "null"

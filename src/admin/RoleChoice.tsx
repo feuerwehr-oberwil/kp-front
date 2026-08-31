@@ -41,7 +41,7 @@ export function RoleChoice({ value, onChange, label, hint, locked }: RoleChoiceP
       <span className="adm-field-label">
         {label} <span className="adm-field-hint">{C.roleRequired}</span>
       </span>
-      <div className="adm-rolepick" role="radiogroup" aria-label={label}>
+      <div className="adm-pick" role="radiogroup" aria-label={label}>
         {roles.map(({ role, title, means }) => {
           const on = value === role
           const isLocked = locked?.role === role && !on
@@ -52,14 +52,14 @@ export function RoleChoice({ value, onChange, label, hint, locked }: RoleChoiceP
               role="radio"
               aria-checked={on}
               disabled={isLocked}
-              className={`adm-rolepick-opt${on ? ' on' : ''}`}
+              className={`adm-pick-opt${on ? ' on' : ''}`}
               onClick={() => onChange(role)}
             >
-              <span className="adm-rolepick-head">
-                <span className="adm-rolepick-mark" aria-hidden>{on && <Icon id="check" />}</span>
+              <span className="adm-pick-head">
+                <span className="adm-pick-mark" aria-hidden>{on && <Icon id="check" />}</span>
                 {title}
               </span>
-              <span className="adm-rolepick-sub">{isLocked ? locked.reason : means}</span>
+              <span className="adm-pick-sub">{isLocked ? locked.reason : means}</span>
             </button>
           )
         })}

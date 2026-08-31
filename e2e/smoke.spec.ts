@@ -26,12 +26,29 @@ async function expectNoCrash(page: Page, where: string) {
 
 async function login(page: Page) {
   await page.goto('/')
-  // Kiosk login: pick a face, then tap the 6-digit PIN (auto-submits on the 6th).
+  // A station starts on kiosk login; the public demo auto-authenticates and lands directly in
+  // its prepared incident. Accept both so the same production-image smoke covers both entryways.
+  // ⚠️ ONE locator, not `Promise.race` over two `waitFor`s: the loser of that race stays
+  // pending and rejects with a TimeoutError ~30 s later, with nobody left to catch it. Playwright
+  // fails the run on an unhandled rejection — typically inside whichever test happens to be
+  // running by then, which is not this one.
   const tile = page.locator('.roster-tile').first()
-  await expect(tile, 'login roster should load (proves SPA + backend roster)').toBeVisible()
-  await tile.click()
-  await expect(page.locator('.pinpad')).toBeVisible()
-  for (const digit of PIN) await page.keyboard.press(digit)
+  await page.locator('.roster-tile, nav.navrail').first().waitFor({ state: 'visible' })
+  if (await tile.isVisible()) {
+    await tile.click()
+    await expect(page.locator('.pinpad')).toBeVisible()
+    for (const digit of PIN) await page.keyboard.press(digit)
+  }
+
+  // The demo's first-visit contract intentionally owns the screen until acknowledged. Read the
+  // deployment flag rather than racing an immediate isVisible() against the async config load.
+  const config = await page.request.get('/api/config')
+  const demoMode = config.ok() && (await config.json()).identity?.demoMode === true
+  if (demoMode) {
+    const demoWelcome = page.locator('.dw-card')
+    await expect(demoWelcome).toBeVisible()
+    await demoWelcome.locator('.dw-cta').click()
+  }
 }
 
 // After login the app shows either the empty state (no open incident) or, if one is

@@ -24,21 +24,24 @@ attends is kept out of the statistics afterwards (`editor_opened_at`,
 
 - **Auth:** the alarm webhook secret, sent as `?secret=` or `X-Webhook-Secret`. Fail-closed:
   unset → 403 for everyone. Setting it is the opt-in.
-  - **Where a station sets and rotates it: `/admin` → Zugangsdaten.** `./scripts/setup.sh`
-    mints it on a fresh install into the **encrypted credential store**, not into `.env`, so a
-    normal deployment already has one and nobody has to generate anything. Rotating it there
-    takes effect **without a restart** – and invalidates every sender still using the old value,
-    so change the alerting system's copy in the same sitting. `./scripts/setup.sh --credentials`
-    re-runs just that step against an already-installed deployment and never clobbers a value
-    that has been rotated.
-  - It is **write-only**: the page can set and rotate it, never show it back. If nobody wrote
-    down what the installer minted, rotate to a value you choose rather than trying to read it.
+  - **Where a station sets and rotates it: `/admin` → Zugangsdaten.** Create one long random
+    value during the integration handoff and paste it into both KP Front and the sending system
+    in the same sitting. It takes effect **without a restart**; rotating it invalidates every
+    sender still using the old value.
+  - It is **write-only**: the page can set and rotate it, never show it back. The installer does
+    not pre-generate an unreadable value. If the handoff value is lost, rotate both sides.
   - `ALARM_WEBHOOK_SECRET` in `.env` still works and **outranks** the stored value, which then
     reports itself as server-set and refuses to save (409). Use it when you want this
     deployment's environment, and nobody with an admin session, to own the secret.
     [`CONFIGURATION.md` §6](CONFIGURATION.md#6-environment-variables-secrets--infra--operator-not-admin).
-- **Idempotent:** one incident per `(source, source_id)` – a retried delivery returns the
-  existing incident (`200`, `"created": false`) instead of duplicating it.
+- **Idempotent when you send `source_id` – and only then.** One incident per
+  `(source, source_id)`: a retried delivery returns the existing incident (`200`,
+  `"created": false`) instead of duplicating it. `source_id` is **optional**
+  (`backend/app/schemas.py` · `AlarmIn`), because KP Rück always allowed it to be and one relay
+  has to feed both. ⚠️ Omit it and there is nothing to dedupe on, so the server does not even
+  look (`api/alarms.py`): every redelivery – a retry, a timeout your side, a webhook fired twice
+  – **creates another incident**. Send the upstream's own alarm id unless you genuinely have
+  none.
 - `type`/`priority` fall back to the same keyword inference the Divera path uses – the alarm
   keyword vocabulary is not vendor-specific, and a station whose dispatch words differ replaces
   it from its deployment config (`alarmKeywords`, [`CONFIGURATION.md §1a`](CONFIGURATION.md)).
@@ -48,9 +51,11 @@ attends is kept out of the statistics afterwards (`editor_opened_at`,
   is recorded as having *unknown* provenance (`started_at_source: null` in the export) so no
   downstream consumer mistakes your delivery time for an alarm time. The Divera integration
   does the same thing with the alarm's own `ts_create`.
-- `source` is a short slug naming the upstream (`leitstelle`, `pager`, …). Reserved, and
-  rejected with `422`: `divera`, `intake`, `manual`, `migrated`, `operator`, `training` — the
-  union with KP Rück's list, so one sender can address both systems (see below).
+- `source` is a short slug naming the upstream (`leitstelle`, `pager`, …). Seven are reserved and
+  rejected with `422`: `divera`, `feld`, `intake`, `manual`, `migrated`, `operator`, `training` –
+  the union with KP Rück's list, so one sender can address both systems (see below). The
+  authoritative copy of that set is [`alarm-intake-conformance.json`](alarm-intake-conformance.json)
+  (`reserved_sources`), which both repositories test against; this prose follows it.
 
 ```bash
 curl -X POST "https://front.example.org/api/alarms?secret=$ALARM_WEBHOOK_SECRET" \
@@ -58,9 +63,9 @@ curl -X POST "https://front.example.org/api/alarms?secret=$ALARM_WEBHOOK_SECRET"
   -d '{
     "source": "leitstelle",
     "source_id": "E-2026-0815",
-    "title": "BMA Alarm Industriestrasse",
-    "address": "Industriestrasse 5, 4104 Oberwil",
-    "lat": 47.514, "lng": 7.558,
+    "title": "BMA Alarm Musterstrasse",
+    "address": "Musterstrasse 5, 9999 Musterdorf",
+    "lat": 47.5, "lng": 7.5,
     "priority": "HIGH",
     "started_at": "2026-07-08T14:32:00+00:00"
   }'
@@ -77,7 +82,8 @@ What a sender can rely on:
 - **A breaking change to this endpoint is a MAJOR release**, with the migration written up in
   [`CHANGELOG.md`](../CHANGELOG.md). It will not happen in a patch.
 - **Idempotency is part of the contract**, not an implementation detail: retrying the same
-  `(source, source_id)` is always safe.
+  `(source, source_id)` is always safe. It is a contract about that *pair*, though – a payload
+  with no `source_id` has no identity to retry under, and duplicates on redelivery by design.
 
 ### Talking to both KP Front and KP Rück
 
@@ -89,14 +95,16 @@ payloads have drifted. If you are writing one sender for both, stay inside the p
 | --- | --- | --- |
 | `title` | ✅ required by both | KP Rück caps it at 255 characters |
 | `source` | ✅ | Keep it ≤16 chars and matching `^[a-z0-9][a-z0-9_-]*$` – KP Front is the stricter of the two |
-| `source_id` | ✅ **always send it** | **Required** by KP Front, optional in KP Rück |
+| `source_id` | ✅ **always send it** | Optional in both since 2026-08 – it used to be required here, which is exactly why one relay could not feed both. Optional is not "skip it": without it neither app can dedupe your retries |
 | `text`, `address` | ✅ | KP Rück caps them at 5000 / 500 characters |
 | `lat` + `lng` | ✅ | WGS84, both or neither |
 | `type`, `priority`, `started_at` | KP Front only | Ignored by KP Rück |
 | `number` | KP Rück only | Ignored by KP Front |
 
-Avoid the union of both reserved `source` slugs: `divera`, `manual`, `migrated`, `operator`,
-`intake`, `training`.
+Avoid the union of both reserved `source` slugs: `divera`, `feld`, `intake`, `manual`,
+`migrated`, `operator`, `training` – the seven in
+[`alarm-intake-conformance.json`](alarm-intake-conformance.json), which is the file both
+repositories' tests read.
 
 **Do not share a response parser.** KP Front answers `{"incident_id": …, "created": …}`;
 KP Rück answers `{"status": …, "created": …, "emergency_id": …, "auto_attached_incident_id": …}`.
@@ -215,10 +223,10 @@ delaying intake:
 {
   "event": "incident.created",
   "incident": {
-    "id": "…", "title": "BMA Alarm Industriestrasse",
+    "id": "…", "title": "BMA Alarm Musterstrasse",
     "type": "BMA / unechte Alarme", "priority": "HIGH",
-    "address": "Industriestrasse 5, 4104 Oberwil",
-    "lat": 47.514, "lng": 7.558,
+    "address": "Musterstrasse 5, 9999 Musterdorf",
+    "lat": 47.5, "lng": 7.5,
     "source": "leitstelle", "source_ref": "X-1",
     "started_at": "2026-07-08T14:32:00+00:00",
     "auto_opened": true

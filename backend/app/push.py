@@ -27,7 +27,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .config import settings
-from .models import DeploymentConfig, Incident, JournalEntry, PushSubscription
+from .models import Incident, JournalEntry, PushSubscription
 from .transaction_hooks import after_commit
 
 logger = logging.getLogger(__name__)
@@ -88,8 +88,11 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
     if alarm_bar is None:
         alarm_bar = DEFAULT_ALARM_BAR
     alarm_bar_rueckzug = doctrine.get("alarmBarRueckzug")
-    if alarm_bar_rueckzug is None:
+    if alarm_bar == 0:
+        alarm_bar_rueckzug = 0
+    elif alarm_bar_rueckzug is None:
         alarm_bar_rueckzug = DEFAULT_ALARM_BAR_RUECKZUG
+    alarm_bar_rueckzug = min(alarm_bar_rueckzug, alarm_bar)
     out = []
     for t in workspace.get("trupps") or []:
         entry = _ms(t.get("entryTime"))
@@ -304,9 +307,20 @@ def _should_send(key: str, now_ms: float) -> bool:
 
 async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
     """One due-ness sweep over all open incidents. Returns alerts sent."""
+    # Demo workspaces are rebased to each visitor's arrival in the browser. The persisted seed
+    # timestamps therefore look stale to this server-side sweep and must never notify demo
+    # subscribers about an alarm that does not exist in their view.
+    from .alarms import get_config_model, is_demo_deployment
+
+    if await is_demo_deployment(db):
+        return 0
     now_ms = now_ms if now_ms is not None else datetime.now(UTC).timestamp() * 1000
-    doctrine_row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    doctrine = ((doctrine_row.config_json if doctrine_row else {}) or {}).get("doctrine") or {}
+    # ⚠️ Through `get_config_model`, never `load_stored_config` bare. This sweep is the ONLY
+    # reader whose failure is invisible: a raise here reaches `scheduler._push_sweep`, which
+    # rolls back and logs — and the station then receives no «Trupp überfällig» and no
+    # low-pressure push at all, with nothing on screen to say so. Falling back to the shipped
+    # doctrine keeps alarming; refusing would silently stop it.
+    doctrine = (await get_config_model(db)).doctrine.model_dump()
 
     sent = 0
     # Übungen are excluded outright: a drill's Atemschutz clocks and Wiedervorlagen are real
