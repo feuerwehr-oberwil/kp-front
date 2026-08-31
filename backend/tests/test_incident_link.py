@@ -887,8 +887,11 @@ async def test_view_link_opens_a_scoped_read_session(client, editor, incident):
     me = (await client.get("/api/auth/me")).json()
     assert me["role"] == "viewer" and me["link_scoped"] is True
     assert (await client.get(f"/api/incidents/{incident.id}/journal")).status_code == 200
-    # …and it is still only a link session: the excluded routes stay excluded
-    assert (await client.get(f"/api/incidents/{incident.id}/report/pdf")).status_code == 403
+    # …and it is still only a link session: the excluded routes stay excluded. POST, because
+    # that is the method report/pdf is mounted under — a GET answers 405 before this guard ever
+    # runs, which proves nothing about the guard.
+    assert (await client.post(f"/api/incidents/{incident.id}/report/pdf", json={})).status_code == 403
+    assert (await client.get(f"/api/media/{uuid.uuid4()}/peaks")).status_code == 403
 
 
 async def test_view_link_survives_the_einsatz_being_closed_and_archived(client, editor, incident, db_session):
