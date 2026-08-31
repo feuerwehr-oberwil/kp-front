@@ -60,24 +60,26 @@ export function rowPhotos(e: { photoUrl?: string; photoUrls?: string[] }): strin
 }
 
 /**
- * The text a photo row should SHOW — which, for a row that is only a photo, is nothing.
+ * The text a photo row should SHOW — its own caption, else the bare word «Foto».
  *
- * ⚠️ A picture with the word «Foto» over it says the one thing the reader can already see, and
- * it costs the row its whole text column on a phone. The composer writes that word as the body
- * when somebody attaches a picture without typing anything, so every wordless photo in the
- * Verlauf and on the Rapport carried a caption that was pure duplication.
+ * ⚠️ REVERSED 31.08. This used to blank the caption on a wordless picture, on the argument that
+ * «Foto» over a photo says the one thing the reader can already see. In the field it read as a
+ * broken row instead: a run of pictures came out as a column of timestamps with nothing beside
+ * them, and neither the Verlauf nor the printed Rapport said what those rows even were. The
+ * duplication is the cheaper mistake — a Rapport is read by people who were not there.
  *
- * ⚠️ Suppressed at RENDER, not removed from the record — the same rule (and the same reason) as
- * `withoutAreaPrefix` in lib/report: the Verlauf is append-only and hash-chained, so a row that
- * was written with that word keeps it. Only rows that ACTUALLY have a picture are affected: the
- * placeholder on a row whose photo never arrived is the only thing left saying one was meant.
+ * Render-only, in both directions — the same rule (and the same reason) as `withoutAreaPrefix`
+ * in lib/report: the Verlauf is append-only and hash-chained, so nothing here writes to the
+ * record. Rows written before 06.08. carry the word themselves and simply keep it; newer ones
+ * carry no text at all (IncidentWorkspace · addJournal) and borrow it from the live copy, so
+ * the placeholder answers in the deployment's own locale.
  *
- * Reads the label from the live copy, so it answers in whatever locale wrote the row — and new
- * rows simply carry no text at all (IncidentWorkspace · addJournal).
+ * A row whose photo never arrived is NOT a photo row here — it keeps whatever it was written
+ * with, which is the only thing left saying a picture was meant.
  */
 export function rowText(e: { text: string; photoUrl?: string; photoUrls?: string[] }): string {
   if (!rowPhotos(e).length) return e.text
-  return e.text.trim() === appConfig.copy.journal.photoNote ? '' : e.text
+  return e.text.trim() || appConfig.copy.journal.photoNote
 }
 
 /** Replace one URL in a row's photo list, keeping the others and the order. Used when one of

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
+import { thumbUrl } from '../lib/mediaUrl'
 import { useHoldToDrag } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
@@ -658,7 +659,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 </div>
               )
             })() : e.kind === 'photo' ? (
-              <div className="ts photo"><img src={e.photoUrl} alt="" /></div>
+              // 56 px on the map — the small copy, for the same reason as the Verlauf chip
+              <div className="ts photo"><img src={thumbUrl(e.photoUrl)} alt="" decoding="async" /></div>
             ) : (() => {
               // the generic vehicle bakes its name + heading into the glyph (text stays
               // upright); every other symbol uses its library/static svg

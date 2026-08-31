@@ -4,6 +4,7 @@ import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
+import { thumbUrl } from '../lib/mediaUrl'
 import { rowPhotos } from '../lib/verlauf'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
@@ -2186,7 +2187,9 @@ export function ReportPreflight({
                           aria-label={P.attachmentsOpen}
                           onClick={() => openPhoto(a.url, { caption: a.caption, filename: `beilage-${a.id}.jpg` })}
                         >
-                          <img src={a.url} alt="" />
+                          {/* the small copy — a Rapport with twenty Beilagen used to decode
+                              twenty full pictures (lib/mediaUrl · thumbUrl) */}
+                          <img src={thumbUrl(a.url)} alt="" loading="lazy" decoding="async" />
                         </button>
                         <div className="report-att-body">
                           <input

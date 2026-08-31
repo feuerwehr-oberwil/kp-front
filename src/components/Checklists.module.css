@@ -28,6 +28,10 @@
   background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red-strong); font-family: var(--body); font-size: 12px; font-weight: 600;
   padding: 8px 10px; border-radius: var(--r-ctl); margin-top: 2px; }
 .cl-rail-hint :global(.i) { width: 14px; height: 14px; flex: none; }
+/* one Stichwort can have several answers — they stack as peers, none of them ranked visually
+   above the others beyond their order (lib/checklists · matchDiveraEntries) */
+.cl-rail-hints { display: flex; flex-direction: column; gap: 3px; }
+.cl-rail-hints .cl-rail-hint { margin-top: 0; }
 .cl-rail-search { margin: 2px 0 4px; padding: 7px 10px; }
 /* all groups (Aufgaben + each reference template) are peers under the search bar */
 .cl-rail-groups { display: flex; flex-direction: column; gap: 14px; }

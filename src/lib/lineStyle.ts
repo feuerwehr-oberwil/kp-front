@@ -42,6 +42,29 @@ export function resolveLinePreset(id: string, currentDashed?: boolean): LinePres
   }
 }
 
+/**
+ * What a finished line should be CALLED — «Rettungsachse», «Pfeil», or nothing.
+ *
+ * The preset id is never stored (only the style bundle it seeded), so this reads the line back:
+ * the last preset whose own arrow/marker/showDistance the line still carries wins. `dashed` is
+ * deliberately NOT part of the match — Freihand doesn't own it and the dock toggles it freely, so
+ * matching on it would rename a Rettungsachse the moment somebody made it solid.
+ *
+ * Returns undefined for the fallback preset (Freihand) and for an operator-styled one-off: both
+ * are just «Zeichnung», and a row that guessed a name for them would be worse than the kind.
+ * Used by the Verlauf rows (lib/drawingEdit · drawingLogName), so Lage and Plan name a line alike.
+ */
+export function linePresetLabel(d: Pick<LinePresetFields, 'arrow' | 'marker' | 'showDistance'>): string | undefined {
+  const presets = appConfig.drawing.linePresets
+  let label: string | undefined
+  for (const p of presets.slice(1)) { // [0] is the fallback — its "defaults" are the absence of any
+    const want = resolveLinePreset(p.id)
+    const owns = (['arrow', 'marker', 'showDistance'] as const).filter((k) => want[k] !== undefined)
+    if (owns.length && owns.every((k) => d[k] === want[k])) label = p.label
+  }
+  return label
+}
+
 /** Repeated inline marker (e.g. —R— on a Rettungsachse): how far apart, in screen/board px, the
  *  letters are dropped along the polyline. Identical rhythm on both surfaces. */
 export const MARKER_SPACING_PX = 46

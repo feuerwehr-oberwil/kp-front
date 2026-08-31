@@ -14,7 +14,7 @@ import { shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
-import { symbolCaptionText } from '../lib/symbols'
+import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { cachedLabelSize, LABEL_RANK, MARKER_Z, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
@@ -1034,7 +1034,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const cap = symbolCaptionText(e, captionMode)
       if (!cap) continue
       const s = cachedLabelSize(softHyphenateText(cap), LABEL_STYLE.caption)
-      cands.push({ key: `cap:${e.id}`, rank: isSel ? LABEL_RANK.selected : LABEL_RANK.caption, dist: near(p),
+      // A person's typed name ranks with the Trupp names, not with the metadata captions — who is
+      // standing there is the same class of fact as which Trupp is there (lib/symbols · isNamedPerson).
+      const rank = isSel ? LABEL_RANK.selected : isNamedPerson(e) ? LABEL_RANK.team : LABEL_RANK.caption
+      cands.push({ key: `cap:${e.id}`, rank, dist: near(p),
         box: { x: p.x - s.w / 2, y: p.y + g / 2 + CAPTION_GAP, w: s.w, h: s.h } })
     }
 

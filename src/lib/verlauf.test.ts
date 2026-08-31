@@ -148,26 +148,32 @@ describe('repeatRuns', () => {
   })
 })
 
-// A picture with the word «Foto» over it says the one thing the reader can already see — and on
-// a phone it costs the row its whole text column.
-describe('rowText — a photo row carries no «Foto» caption', () => {
+// Reversed 31.08.: a wordless picture row reads «Foto» again. Blanking it left the Verlauf — and
+// the printed Rapport, read by people who were not there — as a column of bare timestamps.
+describe('rowText — a wordless photo row falls back to «Foto»', () => {
   const photoRow = (text: string, photoUrls?: string[]) =>
     ({ id: 'e1', t: '10:00', icon: 'photo', text, photoUrls }) as TimelineEvent
 
-  it('drops the placeholder when the picture is actually there', () => {
-    expect(rowText(photoRow('Foto', ['/api/media/1']))).toBe('')
+  it('labels a picture row that carries no caption of its own', () => {
+    expect(rowText(photoRow('', ['/api/media/1']))).toBe('Foto')
   })
 
   it('keeps a caption somebody actually typed', () => {
     expect(rowText(photoRow('Fotos vom Dachstock', ['/api/media/1']))).toBe('Fotos vom Dachstock')
   })
 
+  // rows written before 06.08. carry the word in the record; it must survive verbatim
+  it('keeps the word on an older row that stored it', () => {
+    expect(rowText(photoRow('Foto', ['/api/media/1']))).toBe('Foto')
+  })
+
   // the one thing left saying a picture was meant, on a row whose upload never arrived
-  it('keeps the placeholder when there is no picture to see', () => {
+  it('leaves a row without any picture exactly as written', () => {
+    expect(rowText(photoRow(''))).toBe('')
     expect(rowText(photoRow('Foto'))).toBe('Foto')
   })
 
   it('reads the old single-photo shape too', () => {
-    expect(rowText({ id: 'e1', t: '10:00', icon: 'photo', text: 'Foto', photoUrl: '/api/media/1' } as TimelineEvent)).toBe('')
+    expect(rowText({ id: 'e1', t: '10:00', icon: 'photo', text: '', photoUrl: '/api/media/1' } as TimelineEvent)).toBe('Foto')
   })
 })

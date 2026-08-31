@@ -184,6 +184,13 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/reference/{dataset_id}"),
         ("GET", "/api/personnel"),
         ("GET", "/api/media/{media_id}"),
+        # ⚠️ The thumbnail DOES write a file on first request, which is what keeps
+        # `media/*/peaks` off this list. It is allowed anyway, and the difference is bounded:
+        # one ~20 kB derivative of a picture this caller may already fetch in full, written once
+        # and never again, spawning no job and making no outbound call. Refusing it would send
+        # every link session back to full-size images in 40 px chips — the phone-killing memory
+        # load this route exists to remove (api/media · get_media_thumb).
+        ("GET", "/api/media/{media_id}/thumb"),
         # live display data
         ("GET", "/api/traccar/status"),
         ("GET", "/api/traccar/positions"),

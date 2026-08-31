@@ -59,8 +59,20 @@ describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
 describe('drawingLogName', () => {
   it('prefers the label, else names the kind', () => {
     expect(drawingLogName(line({ label: 'Sammelplatz' }))).toBe('Sammelplatz')
-    expect(drawingLogName(line({}))).toBe('Zeichnung')
+    expect(drawingLogName(line({}))).toBe('Linie')
     expect(drawingLogName({ id: 'a1', kind: 'area', coords: [] })).toBe('Fläche')
     expect(drawingLogName({ id: 'c1', kind: 'circle', coords: [] })).toBe('Absperrkreis')
+  })
+
+  // An unlabelled line reports the preset it was drawn with, so «Rettungsachse gezeichnet» and
+  // «Rettungsachse gelöscht» are the same object — before 31.08. both ends said «Zeichnung».
+  it('names an unlabelled line by its preset', () => {
+    expect(drawingLogName(line({ arrow: true }))).toBe('Pfeil')
+    expect(drawingLogName(line({ arrow: true, marker: 'R' }))).toBe('Rettungsachse')
+    expect(drawingLogName(line({ arrow: true, marker: 'R', dashed: false }))).toBe('Rettungsachse')
+  })
+
+  it('lets a typed label beat the preset', () => {
+    expect(drawingLogName(line({ arrow: true, marker: 'R', label: 'Fluchtweg Ost' }))).toBe('Fluchtweg Ost')
   })
 })

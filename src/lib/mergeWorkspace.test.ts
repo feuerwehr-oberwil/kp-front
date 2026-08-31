@@ -273,3 +273,42 @@ describe('mergeWorkspace — Rapport-Beilagen', () => {
     expect(out.attachments).toEqual([])
   })
 })
+
+// The Alarmierungs-/Ausrückzeiten grid has a writer the app does not control: the alarm
+// pipeline pushes per-vehicle milestones straight into the SERVER's blob. Before 31.08. the
+// two arrays were merged flat — one typed time on the tablet took the whole array with it and
+// the webhook's rows vanished, while the Verlauf still carried the «PIO vor Ort» row the
+// webhook writes only when it actually stores the value.
+describe('mergeWorkspace — reportMeta Zeiten grid', () => {
+  it('keeps a webhook-written vehicle row when the operator types a time for another one', () => {
+    const base = { reportMeta: { fahrzeuge: [] } }
+    const theirs = { reportMeta: { fahrzeuge: [{ id: 'pio', vorOrt: '2026-08-31T20:14:00Z' }] } }
+    const mine = { reportMeta: { fahrzeuge: [{ id: 'tlf', ausgerueckt: '2026-08-31T20:05:00Z', manual: true }] } }
+    const out = mergeWorkspace(base, mine, theirs) as { reportMeta: { fahrzeuge: { id: string }[] } }
+    expect(out.reportMeta.fahrzeuge.map((f) => f.id).sort()).toEqual(['pio', 'tlf'])
+  })
+
+  it('lets the operator’s hand-typed time win on the SAME vehicle', () => {
+    const base = { reportMeta: { fahrzeuge: [{ id: 'pio' }] } }
+    const theirs = { reportMeta: { fahrzeuge: [{ id: 'pio', vorOrt: '2026-08-31T20:14:00Z' }] } }
+    const mine = { reportMeta: { fahrzeuge: [{ id: 'pio', vorOrt: '2026-08-31T20:11:00Z', manual: true }] } }
+    const out = mergeWorkspace(base, mine, theirs) as { reportMeta: { fahrzeuge: { vorOrt: string }[] } }
+    expect(out.reportMeta.fahrzeuge[0].vorOrt).toBe('2026-08-31T20:11:00Z')
+  })
+
+  it('merges the Gruppen rows the same way', () => {
+    const base = { reportMeta: { gruppen: [] } }
+    const theirs = { reportMeta: { gruppen: [{ id: 'g1', alarmedAt: '2026-08-31T20:01:00Z' }] } }
+    const mine = { reportMeta: { gruppen: [{ id: 'g2', alarmedAt: '2026-08-31T20:03:00Z', manual: true }] } }
+    const out = mergeWorkspace(base, mine, theirs) as { reportMeta: { gruppen: { id: string }[] } }
+    expect(out.reportMeta.gruppen.map((g) => g.id).sort()).toEqual(['g1', 'g2'])
+  })
+
+  it('clearing the last field of a row still removes it', () => {
+    const base = { reportMeta: { fahrzeuge: [{ id: 'pio', vorOrt: '2026-08-31T20:14:00Z' }] } }
+    const mine = { reportMeta: { fahrzeuge: [] } } // operator cleared the field
+    const theirs = base
+    const out = mergeWorkspace(base, mine, theirs) as { reportMeta: { fahrzeuge?: unknown[] } }
+    expect(out.reportMeta.fahrzeuge ?? []).toEqual([])
+  })
+})

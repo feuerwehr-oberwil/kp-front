@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   checklistAssetUrl,
   isChecklistTemplateId,
-  matchDiveraEntry,
+  matchDiveraEntries,
   phaseItems,
   phaseProgress,
   searchEntries,
@@ -86,22 +86,43 @@ describe('searchEntries', () => {
   })
 })
 
-describe('matchDiveraEntry', () => {
+describe('matchDiveraEntries', () => {
   const templates: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's', entries }]
   it('matches an alarm title to its tactics entry', () => {
-    expect(matchDiveraEntry(templates, { title: 'Brand Tiefgarage Bahnhofstr.' })?.id).toBe('tg')
+    expect(matchDiveraEntries(templates, { title: 'Brand Tiefgarage Bahnhofstr.' }).map((e) => e.id)).toEqual(['tg'])
   })
   it('matches on incident type too', () => {
-    expect(matchDiveraEntry(templates, { type: 'wespen' })?.id).toBe('wespen')
+    expect(matchDiveraEntries(templates, { type: 'wespen' }).map((e) => e.id)).toEqual(['wespen'])
   })
-  it('returns null with no match', () => {
-    expect(matchDiveraEntry(templates, { title: 'Verkehrsunfall A2' })).toBeNull()
+  it('returns nothing with no match', () => {
+    expect(matchDiveraEntries(templates, { title: 'Verkehrsunfall A2' })).toEqual([])
   })
-  it('prefers the longer (more specific) keyword on overlap', () => {
+  it('leads with the longer (more specific) keyword, keeping the others', () => {
     const t2: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's', entries: [
       { id: 'brand', title: 'Brand', keywords: [], diveraKeywords: ['brand'], content: [] },
       { id: 'tg', title: 'Tiefgarage', keywords: [], diveraKeywords: ['tiefgaragenbrand'], content: [] },
     ] }]
-    expect(matchDiveraEntry(t2, { title: 'Tiefgaragenbrand UG' })?.id).toBe('tg')
+    expect(matchDiveraEntries(t2, { title: 'Tiefgaragenbrand UG' }).map((e) => e.id)).toEqual(['tg', 'brand'])
+  })
+
+  // The reported case: one Stichwort, three answers, none of them derivable from the alarm text.
+  it('offers every page a «VU Strasse» could turn out to need', () => {
+    const t3: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's', entries: [
+      { id: 'vu', title: 'Verkehrsunfall', keywords: [], diveraKeywords: ['vu'], content: [] },
+      { id: 'ea', title: 'E-Autobrand', keywords: [], diveraKeywords: ['vu strasse'], content: [] },
+      { id: 'oel', title: 'Ölspur auf Strasse', keywords: [], diveraKeywords: ['strasse'], content: [] },
+      { id: 'wesp', title: 'Wespen', keywords: [], diveraKeywords: ['wespen'], content: [] },
+    ] }]
+    expect(matchDiveraEntries(t3, { title: 'VU Strasse Hauptstrasse 12' }).map((e) => e.id))
+      .toEqual(['ea', 'oel', 'vu'])
+  })
+
+  it('caps how many it offers, so a broad keyword does not become a second list', () => {
+    const many: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's',
+      entries: Array.from({ length: 9 }, (_, i) => (
+        { id: `e${i}`, title: `E${i}`, keywords: [], diveraKeywords: ['brand'], content: [] } as RefEntry
+      )) }]
+    expect(matchDiveraEntries(many, { title: 'Brand' })).toHaveLength(4)
+    expect(matchDiveraEntries(many, { title: 'Brand' }, 2)).toHaveLength(2)
   })
 })

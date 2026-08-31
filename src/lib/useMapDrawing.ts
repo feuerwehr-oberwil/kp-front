@@ -81,7 +81,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // (parity with the line tool + the Plan area tool); still fully editable in the DrawEditor.
     const drawing: Drawing = { id, kind: 'area', coords, color: drawColor, width: drawWidth, dashed: drawDashed }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
-    log('area', appConfig.copy.log.areaDrawn, 'symbol'); emit('draw.add', { id, kind: 'area', drawing })
+    log('area', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol'); emit('draw.add', { id, kind: 'area', drawing })
     // drop into Select with the new area active so its reshape/move/rotate handles are
     // immediately usable (mirrors symbol/shape placement). Staying in 'area' would keep
     // draftKind set, which suppresses the edit handles → the area looks uneditable.
@@ -103,7 +103,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // SAME resolved bundle the Plan whiteboard bakes (lib/lineStyle), so the surfaces can't drift.
     const drawing: Drawing = { id, kind: 'line', coords, color: drawColor, width: drawWidth, ...resolveLinePreset(linePreset, drawDashed), ...attachments }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
-    log('pen', appConfig.copy.log.drawingCreated, 'symbol'); emit('draw.add', { id, kind: 'line', drawing })
+    // named by drawingLogName, so «Rettungsachse gezeichnet» opens what «Rettungsachse gelöscht»
+    // closes — before 31.08. every line, whatever it was drawn with, opened on «Zeichnung erstellt»
+    log('pen', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol'); emit('draw.add', { id, kind: 'line', drawing })
     // `select: false` = tap-away auto-commit (settleDraft) — see the note on createArea
     if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
     return drawing
@@ -120,7 +122,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     const id = `d${Date.now()}`
     const drawing: Drawing = { id, kind: 'circle', coords: [center], radiusM, color: appConfig.drawing.circleColor, dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
-    log('circle', appConfig.copy.log.circleDrawn, 'symbol'); emit('draw.add', { id, kind: 'circle', drawing })
+    log('circle', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol'); emit('draw.add', { id, kind: 'circle', drawing })
     setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
   }
   // apply a line preset to the selected drawing + remember it for the next new line

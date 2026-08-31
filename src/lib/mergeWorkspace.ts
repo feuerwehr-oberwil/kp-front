@@ -154,7 +154,7 @@ export function mergeRecord<V>(
 }
 
 /**
- * `reportMeta`, with its one NESTED record merged per key instead of as an opaque value.
+ * `reportMeta`, with the three NESTED collections merged per entry instead of as opaque values.
  *
  * ⚠️ `linksDone` (the station's Rapport-Formulare, ticked off per Einsatz) is a
  * `Record<linkId, ISO>`, and the flat merge treats a whole object as one value: the AdFU
@@ -162,6 +162,16 @@ export function mergeRecord<V>(
  * with one of the two ticks gone, silently — while the field's own doc comment promises that
  * whoever opens the Rapport next sees what is already away. Merged per link id it is a union,
  * and an untick still beats a concurrent tick (delete wins, as everywhere else here).
+ *
+ * ⚠️ `gruppen` / `fahrzeuge` (the Alarmierungs-/Ausrückzeiten grid) are id-keyed ARRAYS with a
+ * writer this app does not control: the alarm pipeline pushes per-vehicle Ausrück-/Vor-Ort-/
+ * Zurück-Zeiten straight into the server's blob (backend api/alarms · apply_milestones). Merged
+ * flat, the array is one value — so the moment the operator typed a single time into the grid,
+ * `fahrzeuge` differed from the ancestor, «mine wins» took the whole array, and every row the
+ * webhook had written was gone. That is exactly the report from 31.08.: the Verlauf carried
+ * «PIO vor Ort 20:14» (the webhook only logs a row when it WRITES the value) while the grid
+ * stayed empty. Merged by id, a machine-written row and a hand-typed one survive each other,
+ * and `manual` keeps meaning what it means on the server: human beats machine, per row.
  *
  * Every other reportMeta field is a scalar or a small value object edited as a unit, so the
  * flat merge is right for them and stays.
@@ -179,6 +189,15 @@ function mergeReportMeta(
   )
   if (Object.keys(done).length) out.linksDone = done
   else delete out.linksDone
+  for (const k of ['gruppen', 'fahrzeuge'] as const) {
+    const rows = mergeById(
+      (base[k] ?? []) as HasId[],
+      (mine[k] ?? []) as HasId[],
+      (theirs[k] ?? []) as HasId[],
+    )
+    if (rows.length) out[k] = rows
+    else delete out[k]
+  }
   return out
 }
 

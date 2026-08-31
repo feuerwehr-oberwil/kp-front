@@ -1,5 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
+import { linePresetLabel } from './lineStyle'
 import { floorLabel } from './whiteboard'
 import type { Drawing } from '../types'
 
@@ -62,9 +63,18 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   return out
 }
 
-/** The name a Verlauf row calls this drawing — its own label, else its kind («Fläche»,
- *  «Absperrkreis», «Zeichnung»). Mirror of entityLogName. */
+/** The name a Verlauf row calls this drawing — its own label, else what it IS: a line reports the
+ *  preset it was drawn with («Rettungsachse», «Pfeil») where that is recoverable, otherwise every
+ *  kind falls back to its plain word («Fläche», «Absperrkreis», «Zeichnung»). Mirror of
+ *  entityLogName, and the ONE place create, edit and delete rows take a drawing's name from, so
+ *  «Rettungsachse gezeichnet» can never close on «Zeichnung gelöscht». */
 export function drawingLogName(d: Drawing): string {
   const kinds = appConfig.copy.log.drawKinds
-  return (d.label ?? '').trim() || kinds[d.kind] || kinds.line
+  const own = (d.label ?? '').trim()
+  if (own) return own
+  if (d.kind === 'line') {
+    const preset = linePresetLabel(d)
+    if (preset) return preset
+  }
+  return kinds[d.kind] || kinds.line
 }

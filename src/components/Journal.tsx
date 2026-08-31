@@ -7,6 +7,7 @@ import { Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, formatTime } from '../lib/format'
+import { thumbUrl } from '../lib/mediaUrl'
 import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowText, rowTime } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
 import { formatElapsed } from '../lib/audioPlayer'
@@ -680,9 +681,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     with while they were being typed — and the job after a name on its first
                     mention («Widmer Céline (EL)»), because a Verlauf full of surnames tells a
                     reader who was talking only if they already know the Wehr. */}
-                {/* ⚠️ `rowText`, not `e.text`: a row that is only a picture shows no caption at
-                    all — «Foto» over a photo says the one thing the reader can already see. The
-                    RECORD keeps its wording (lib/verlauf · rowText). */}
+                {/* ⚠️ `rowText`, not `e.text`: a picture row with no caption of its own reads
+                    «Foto» (reversed 31.08. — a run of them was a column of bare timestamps). The
+                    RECORD is untouched either way (lib/verlauf · rowText). */}
                 <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e))}</span>
                 <span className="jr-trail">
                   {/* Footnotes ABOUT the row — «Nachtrag», «korrigiert HH:MM», «6×». They say
@@ -736,7 +737,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       key={url} type="button" className="jr-thumb" title={C.photoOpen} aria-label={C.photoOpen}
                       onClick={(ev) => { ev.stopPropagation(); openPhoto(url, { caption: e.text, filename: `foto-${e.id}-${i + 1}.jpg` }) }}
                     >
-                      <img src={url} alt="" />
+                      {/* the SMALL copy — a 40 px chip pointed at the full picture is what
+                          killed the tab on a phone (lib/mediaUrl · thumbUrl). The viewer the tap
+                          opens still gets `url` itself. */}
+                      <img src={thumbUrl(url)} alt="" loading="lazy" decoding="async" />
                     </button>
                   ))}
                   {/* Beilagen that are not pictures (PDF, Dokument): a named chip that DOWNLOADS

@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
+import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
 import { boundedKey, normalizeSpread, tidySpread, type SpreadDir } from '../lib/spread'
 import { openPhoto } from '../lib/ui'
@@ -482,7 +483,9 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
       {/* the whole header drags the sheet too, not just the 44×5px grip above it */}
       <div className="ctx-head" {...sheetDrag}>
         <div className="ph">
-          {entity.photoUrl ? <img src={entity.photoUrl} alt="" />
+          {/* header chip: the small copy. The full-size preview below (.ctx-photo) is the
+              point of a photo marker's panel and keeps the real picture. */}
+          {entity.photoUrl ? <img src={thumbUrl(entity.photoUrl)} alt="" decoding="async" />
             : svg ? <span dangerouslySetInnerHTML={{ __html: svg }} />
             : (entity.badge ?? <Icon id="type" />)}
         </div>

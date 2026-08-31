@@ -224,25 +224,36 @@ export function allEntries(templates: ChecklistTemplate[]): RefEntry[] {
   return templates.filter((t) => t.kind === 'reference').flatMap((t) => t.entries ?? [])
 }
 
-/** Given an incident's title and/or type, find the reference entry whose
- *  `diveraKeywords` best matches (a token of the keyword appears in the text).
- *  Used to auto-surface the right tactics page for a Divera-sourced alarm. */
-export function matchDiveraEntry(
+/**
+ * Every reference entry whose `diveraKeywords` appear in an incident's title/type, most specific
+ * keyword first — the tactics pages to surface for a Divera-sourced alarm.
+ *
+ * ⚠️ A list, not a single best match (31.08.). One Stichwort routinely has several answers:
+ * «VU Strasse» is Verkehrsunfall AND E-Autobrand AND Ölspur auf Strasse, and which of the three
+ * the Einsatz turns out to need is not knowable from the alarm text. Picking the longest keyword
+ * and hiding the rest made the app look certain about something it cannot know, and the other
+ * two were then only reachable by searching for a word the operator had to think of first.
+ *
+ * Ranked by keyword length (the most specific match leads), then by title so the order is a
+ * property of the data rather than of the template load order. `limit` keeps the rail from
+ * turning into a second list on a broad keyword like «Brand».
+ */
+export function matchDiveraEntries(
   templates: ChecklistTemplate[],
   incident: { title?: string; type?: string },
-): RefEntry | null {
+  limit = 4,
+): RefEntry[] {
   const hay = norm(`${incident.title ?? ''} ${incident.type ?? ''}`)
-  if (!hay.trim()) return null
-  let best: RefEntry | null = null
-  let bestLen = 0
+  if (!hay.trim()) return []
+  const hits: { entry: RefEntry; len: number }[] = []
   for (const e of allEntries(templates)) {
+    let best = 0
     for (const kw of e.diveraKeywords ?? []) {
       const k = norm(kw)
-      if (k && hay.includes(k) && k.length > bestLen) {
-        best = e
-        bestLen = k.length // prefer the longest (most specific) keyword match
-      }
+      if (k && hay.includes(k)) best = Math.max(best, k.length)
     }
+    if (best) hits.push({ entry: e, len: best })
   }
-  return best
+  hits.sort((a, b) => (b.len - a.len) || (a.entry.title < b.entry.title ? -1 : a.entry.title > b.entry.title ? 1 : 0))
+  return hits.slice(0, limit).map((h) => h.entry)
 }

@@ -153,6 +153,23 @@ function customLabel(props: SymbolProps): string | undefined {
   return l
 }
 
+/**
+ * Does this symbol carry the name of a PERSON the operator typed in?
+ *
+ * The two Führung person symbols (Einsatzleiter, Offizier) seed a 'Name' field, and a filled one
+ * is not metadata about a glyph — it is who is standing there. That earns the caption a higher
+ * rank in the map's label pass than «CO₂» or «1200 l/min» (lib/labelPass · LABEL_RANK.team):
+ * before 31.08. an Offizier's name simply vanished whenever another glyph sat under its caption
+ * box, and the only way to read it was to tap the symbol.
+ *
+ * Keyed off the PRESET's field list, not a symbol-name allowlist, so a Gruppenführer sign added
+ * later with a 'Name' field is covered without touching this.
+ */
+export function isNamedPerson(props: SymbolProps): boolean {
+  const fields = props.symbol ? presets.byName[props.symbol]?.fields : undefined
+  return !!fields?.includes('Name') && !!props.fields?.['Name']?.trim()
+}
+
 /** The text to print under a symbol's glyph, or null when there's nothing worth showing.
  *  Value-only (the glyph implies the key). `globalMode` is the device default; a symbol's own
  *  `caption` overrides it. 'auto' = the one discriminating value; 'all' = every filled detail

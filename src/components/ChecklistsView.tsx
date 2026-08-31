@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import type { ChecklistState, ChecklistTemplate, Item, TemplateState } from '../lib/checklists'
-import { allEntries, loadTemplates, matchDiveraEntry, searchEntries, templateProgress } from '../lib/checklists'
+import { allEntries, loadTemplates, matchDiveraEntries, searchEntries, templateProgress } from '../lib/checklists'
 import { ChecklistRunner } from './ChecklistRunner'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { cx } from '../lib/cx'
@@ -48,7 +48,7 @@ export function ChecklistsView({
   const actionTemplates = useMemo(() => templates.filter((t) => t.kind !== 'reference'), [templates])
   const referenceTemplates = useMemo(() => templates.filter((t) => t.kind === 'reference'), [templates])
   const entries = useMemo(() => allEntries(templates), [templates])
-  const autoMatch = useMemo(() => matchDiveraEntry(templates, divera), [templates, divera])
+  const autoMatches = useMemo(() => matchDiveraEntries(templates, divera), [templates, divera])
 
   // selection is either an action template or a tactical entry; defaults once templates arrive
   const [sel, setSel] = useState<{ kind: 'tpl' | 'entry'; id: string } | null>(null)
@@ -108,10 +108,18 @@ export function ChecklistsView({
           <Icon id="search" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
         </div>
-        {autoMatch && (
-          <button className={s['cl-rail-hint']} onClick={() => pick({ kind: 'entry', id: autoMatch.id })}>
-            <Icon id="flag" /><span>{fillTemplate(CL.matching, { title: autoMatch.title })}</span>
-          </button>
+        {/* ⚠️ ALL matches, not the best one (31.08.). «VU Strasse» is Verkehrsunfall AND
+            E-Autobrand AND Ölspur — which of them this Einsatz is cannot be read off the
+            Stichwort, and showing only the longest keyword match made the app look certain
+            about something it does not know. Most specific first (lib/checklists). */}
+        {autoMatches.length > 0 && (
+          <div className={s['cl-rail-hints']}>
+            {autoMatches.map((m) => (
+              <button key={m.id} className={s['cl-rail-hint']} onClick={() => pick({ kind: 'entry', id: m.id })}>
+                <Icon id="flag" /><span>{fillTemplate(CL.matching, { title: m.title })}</span>
+              </button>
+            ))}
+          </div>
         )}
         {/* every group is a peer below the search: the checkable Aufgaben, then each reference
             template (Taktik-Stichworte, Grundlagen-Infos). One scroll region. */}

@@ -327,26 +327,34 @@ def build() -> list[dict]:
         vb=2.6,
     ))
     # ── the smaller Mittel (after the vehicles) ──
-    add("Fahrzeuge / Mittel", "VKF Luefter mobil", svg(
-        [path([(-0.9, -0.4), (-0.6, -0.4), (-0.3, -0.7), (-0.3, 0.7), (-0.6, 0.4), (-0.9, 0.4)],
-              stroke=BLACK, sw=0.06, fill=YELLOW, close=True),
-         path([(-0.15, -0.1), (0.4, -0.1), (0.4, -0.4), (0.9, 0), (0.4, 0.4), (0.4, 0.1), (-0.15, 0.1)],
-              stroke=BLACK, sw=0.06, fill=YELLOW, close=True),
-         line(-0.6, -0.4, -0.6, 0.4, stroke=BLACK, sw=0.06)],
-        viewbox="-1.2 -1.2 2.4 2.4",
+    # Lüfter — FKS Behelf Einsatzführung, Ausbildung, S. 37 (11/2022). Corrected 2026-08-31: the
+    # sign is drawn in Führungs-blau OUTLINE, not the black-on-yellow appliance pictogram this
+    # pack shipped. Two open housing parts (rectangle + cone flaring towards the outflow) and an
+    # airflow arrow that is a DOUBLE SHAFT with a solid head — the shaft is what tells the Lüfter
+    # apart from every other blue arrow on the Lage at a glance.
+    def _luefter(arrow):
+        return svg(
+            [path([(-0.9, -0.42), (-0.55, -0.42), (-0.55, 0.42), (-0.9, 0.42)],
+                  stroke=BLUE, sw=0.1, close=True),
+             path([(-0.55, -0.42), (-0.25, -0.74), (-0.25, 0.74), (-0.55, 0.42)],
+                  stroke=BLUE, sw=0.1, close=True)] + arrow,
+            viewbox="-1.2 -1.2 2.4 2.4",
+        )
+
+    add("Fahrzeuge / Mittel", "VKF Luefter mobil", _luefter(
+        [line(-0.05, -0.17, 0.42, -0.17, stroke=BLUE, sw=0.1),
+         line(-0.05, 0.17, 0.42, 0.17, stroke=BLUE, sw=0.1),
+         path([(0.36, -0.5), (0.95, 0), (0.36, 0.5)], stroke=BLUE, sw=0.1, fill=BLUE, close=True)],
     ))
     # The extract/Absaugen airflow variant of the mobile Lüfter: SAME fan housing, but the airflow
     # arrow reversed to point INTO the fan (air drawn in from the right → sucked out of the space).
     # Reached only via the Lüfter's Luftrichtung toggle (SymbolProps.extract) — NOT a separate palette
     # entry: useSymbols keeps it in `byName` for rendering but filters it out of the picker. The arrow
-    # is the base arrow reflected about its own centre (x'=0.75-x), so it stays in the same box.
-    add("Fahrzeuge / Mittel", "VKF Luefter mobil saugend", svg(
-        [path([(-0.9, -0.4), (-0.6, -0.4), (-0.3, -0.7), (-0.3, 0.7), (-0.6, 0.4), (-0.9, 0.4)],
-              stroke=BLACK, sw=0.06, fill=YELLOW, close=True),
-         path([(0.9, -0.1), (0.35, -0.1), (0.35, -0.4), (-0.15, 0), (0.35, 0.4), (0.35, 0.1), (0.9, 0.1)],
-              stroke=BLACK, sw=0.06, fill=YELLOW, close=True),
-         line(-0.6, -0.4, -0.6, 0.4, stroke=BLACK, sw=0.06)],
-        viewbox="-1.2 -1.2 2.4 2.4",
+    # is the base arrow reflected about its own centre (x'=0.9-x), so it stays in the same box.
+    add("Fahrzeuge / Mittel", "VKF Luefter mobil saugend", _luefter(
+        [line(0.95, -0.17, 0.48, -0.17, stroke=BLUE, sw=0.1),
+         line(0.95, 0.17, 0.48, 0.17, stroke=BLUE, sw=0.1),
+         path([(0.54, -0.5), (-0.05, 0), (0.54, 0.5)], stroke=BLUE, sw=0.1, fill=BLUE, close=True)],
     ))
     add("Fahrzeuge / Mittel", "FW Kleinloeschgeraet", svg(
         [path([(-0.3, 0.6), (0, -0.4), (0.3, 0.6)], stroke=BLUE, sw=0.1, close=True)],

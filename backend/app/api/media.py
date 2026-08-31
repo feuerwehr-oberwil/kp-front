@@ -6,6 +6,7 @@ the file. Returned URL is same-origin (`/api/media/{id}`).
 
 import asyncio
 import hashlib
+import io
 import json
 import logging
 import mimetypes
@@ -19,6 +20,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
+from PIL import Image, ImageOps
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -212,6 +214,68 @@ async def get_media(
             filename=_disposition_name(name, media.id, ext),
         )
     return FileResponse(storage.local_path(media.storage_key), media_type=media.content_type or None)
+
+
+# ─── thumbnails ────────────────────────────────────────────────────────────────────────
+#
+# ⚠️ Not an optimisation — a crash fix (31.08.). The Verlauf paints every picture of an Einsatz
+# as a ~40 px chip and the Lage paints photo markers at 56 px, but both were pointed at the FULL
+# stored image. `imagePrep` caps an upload at 2200 px on the long edge, and a browser decodes
+# that whole thing whatever box it is drawn in: ~2200 × 1650 × 4 B ≈ 14 MB of bitmap per picture.
+# An iPhone's WebKit content process gets a fraction of what an iPad's does, so a Verlauf with a
+# dozen photos in it blew the budget and iOS killed the tab — «A problem repeatedly occurred»,
+# reported from the field on a phone while the same Einsatz was fine on the tablets.
+#
+# 320 px on the long edge covers a 56 px marker at 3× DPR with room to spare, and lands at ~20 kB
+# — so the same dozen pictures now cost about what ONE of them used to.
+#
+# Written next to the original in storage on first request and served from there afterwards:
+# rendering is one PIL decode, the file is tiny, and the incident's own media directory keeps
+# everything belonging to that Einsatz together (a hard delete of the incident removes the
+# original, and an orphaned 20 kB derivative is harmless where a missing one is a broken row).
+THUMB_EDGE = 320
+_THUMB_QUALITY = 78
+
+
+def _thumb_key(storage_key: str) -> str:
+    return f"{storage_key}.thumb{_EXT['image/jpeg']}"
+
+
+def _render_thumb(source_path: str, dest_key: str) -> None:
+    """Decode, downscale and store one thumbnail. Blocking — call it in a worker thread."""
+    with Image.open(source_path) as im:
+        # EXIF orientation is applied here, not in CSS: the chip is square-cropped by the layout,
+        # and a sideways thumbnail next to an upright viewer reads as a different picture.
+        im = ImageOps.exif_transpose(im)
+        im.thumbnail((THUMB_EDGE, THUMB_EDGE))
+        buf = io.BytesIO()
+        im.convert("RGB").save(buf, format="JPEG", quality=_THUMB_QUALITY, optimize=True)
+    storage.put_bytes(dest_key, buf.getvalue())
+
+
+@router.get("/media/{media_id}/thumb")
+async def get_media_thumb(
+    media_id: uuid.UUID,
+    request: Request,
+    _user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    """A small JPEG for list chips and map markers. Photos only — everything else is a 404, so a
+    caller can never make this route decode an arbitrary stored blob."""
+    media = (await db.execute(select(Media).where(Media.id == media_id))).scalar_one_or_none()
+    if media is None or media.kind != "photo" or not storage.exists(media.storage_key):
+        raise HTTPException(status_code=404, detail="Medium nicht gefunden")
+    _deny_media_outside_link_scope(request, media)
+    key = _thumb_key(media.storage_key)
+    if not storage.exists(key):
+        try:
+            await asyncio.to_thread(_render_thumb, storage.local_path(media.storage_key), key)
+        except (OSError, ValueError, Image.DecompressionBombError):
+            # An undecodable image (or one too large to open safely) must not cost the row its
+            # picture: fall back to the original, which is what every caller used to get.
+            logger.warning("thumbnail failed for media %s — serving the original", media_id, exc_info=True)
+            return FileResponse(storage.local_path(media.storage_key), media_type=media.content_type or None)
+    return FileResponse(storage.local_path(key), media_type="image/jpeg")
 
 
 def _ascii_slug(text: str) -> str:

@@ -233,3 +233,76 @@ async def test_media_zip_absent_without_media_and_without_session(client, editor
     assert (await client.get(f"/api/incidents/{inc}/media.zip")).status_code == 404
     await client.post("/api/auth/logout")
     assert (await client.get(f"/api/incidents/{inc}/media.zip")).status_code == 401
+
+
+def _real_jpeg(size: tuple[int, int] = (2200, 1650)) -> bytes:
+    """A decodable JPEG — the fake header above is enough for storage, not for Pillow."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", size, (200, 60, 40)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+# The thumbnail is a crash fix, not an optimisation: the Verlauf paints every picture of an
+# Einsatz at ~40 px, and pointing those chips at the full 2200 px upload cost ~14 MB of decoded
+# bitmap each — enough for iOS to kill the tab on a phone. So what matters here is that the
+# route really returns a SMALL image, that it stays a photos-only route, and that it is
+# idempotent (rendered once, served from storage afterwards).
+async def test_thumb_is_small_and_rendered_once(client, editor):
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    r = await client.post(
+        f"/api/incidents/{inc}/media", files=_photo(data=_real_jpeg()), data={"kind": "photo"}
+    )
+    assert r.status_code == 201, r.text
+    mid = r.json()["id"]
+
+    full = await client.get(f"/api/media/{mid}")
+    thumb = await client.get(f"/api/media/{mid}/thumb")
+    assert thumb.status_code == 200
+    assert thumb.headers["content-type"] == "image/jpeg"
+    assert len(thumb.content) < len(full.content)
+
+    import io
+
+    from PIL import Image
+
+    with Image.open(io.BytesIO(thumb.content)) as im:
+        assert max(im.size) <= media_mod.THUMB_EDGE
+
+    # second call serves the stored derivative — same bytes, no re-render
+    again = await client.get(f"/api/media/{mid}/thumb")
+    assert again.content == thumb.content
+
+
+async def test_thumb_of_a_non_photo_is_404(client, editor):
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    r = await client.post(
+        f"/api/incidents/{inc}/media", files={"file": ("notiz.txt", b"hallo", "text/plain")}, data={"kind": "file"}
+    )
+    assert r.status_code == 201, r.text
+    assert (await client.get(f"/api/media/{r.json()['id']}/thumb")).status_code == 404
+
+
+async def test_undecodable_photo_falls_back_to_the_original(client, editor):
+    """A row must never lose its picture because Pillow could not open the file."""
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    r = await client.post(f"/api/incidents/{inc}/media", files=_photo(), data={"kind": "photo"})
+    assert r.status_code == 201, r.text
+    got = await client.get(f"/api/media/{r.json()['id']}/thumb")
+    assert got.status_code == 200
+    assert got.content == JPEG
+
+
+async def test_thumb_requires_a_session(client, editor):
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    r = await client.post(f"/api/incidents/{inc}/media", files=_photo(data=_real_jpeg()), data={"kind": "photo"})
+    mid = r.json()["id"]
+    client.cookies.clear()
+    assert (await client.get(f"/api/media/{mid}/thumb")).status_code == 401

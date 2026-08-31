@@ -559,8 +559,11 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* line arrowhead — a 0×0 svg (overflow visible) so the path tip sits exactly at the line end;
    the marker letter (e.g. R for Rettungsachse) sits at the line midpoint */
 .wb-arrowhead { position: absolute; overflow: visible; pointer-events: none; }
+/* ⚠️ `--on-accent-ink`, not `--surface` (31.08.) — see .line-end-tag below: letter and ring are the
+   LINE's colour, so the plate has to stay near-white in night mode or an «S» on a blue Leitung is
+   dark-on-dark. Same plate as the tactical-symbol chip. */
 .wb-line-marker { position: absolute; pointer-events: none; font: 800 12px var(--mono); color: currentColor;
-  background: var(--surface); border-radius: 5px; padding: 0 4px; line-height: 1.5; box-shadow: inset 0 0 0 1.5px currentColor; }
+  background: var(--on-accent-ink); border-radius: 5px; padding: 0 4px; line-height: 1.5; box-shadow: inset 0 0 0 1.5px currentColor; }
 /* free-text label pinned to a Linie's midpoint — same chrome as the Lage map's .draw-label, and
    draggable (labelDx/labelDy) to nudge it off the ink */
 .wb-line-label { position: absolute; padding: 2px 7px; border-radius: var(--r-xs); font-size: 11px; font-weight: 700;
@@ -595,8 +598,13 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 
 /* FKS hose-line decorations — shared by the Lage map (in a Marker) and the Plan (wb-line-deco) */
 .line-fork { display: block; }
+/* ⚠️ `--on-accent-ink`, NOT `--surface` (31.08.): text and border are the LINE's own colour, which
+   is chosen to read on a map, not against a night-mode panel — a blue «S» on the dark `--surface`
+   was unreadable at night, on the one tag that says which Leitung this is. The plate is the same
+   near-white the tactical-symbol chip uses (.ts-rot.white), so glyph and tag read alike in both
+   themes and the line keeps its identity colour instead of being flattened to `--ink`. */
 .line-end-tag { display: inline-grid; place-items: center; padding: 2px 6px; border: 1.5px solid currentColor;
-  border-radius: 4px; background: var(--surface); font: 800 11.5px/1 var(--body); white-space: nowrap; }
+  border-radius: 4px; background: var(--on-accent-ink); font: 800 11.5px/1 var(--body); white-space: nowrap; }
 /* ⚠️ `inline-grid` gives every text run its own ROW, so «1 · +2 ·» and the Trupp name stack —
    compact over a live hose, and not what the sheet does: kroki.py joins every part with « · »
    on one line. The print crop asks for the paper's shape. */
@@ -605,8 +613,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    the box filled a little, so the state reads without decoding the colour of a thin line. NO
    animation — a pulsing hose was tried and rejected: the Atemschutz board is the surface that
    raises the alarm, this is the picture telling you WHERE those people are. */
-.line-end-tag.tone-warn { background: color-mix(in srgb, var(--amber) 14%, var(--surface)); }
-.line-end-tag.tone-crit { background: color-mix(in srgb, var(--red) 16%, var(--surface)); }
+.line-end-tag.tone-warn { background: color-mix(in srgb, var(--amber) 14%, var(--on-accent-ink)); }
+.line-end-tag.tone-crit { background: color-mix(in srgb, var(--red) 16%, var(--on-accent-ink)); }
 /* The Trupp is out. The tag stays (it is the record of who worked this Leitung until the next
    Trupp takes it) but steps back to the same read as that Trupp's marker on the map: dashed box,
    dimmed, name struck through. */

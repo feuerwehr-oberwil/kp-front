@@ -955,9 +955,12 @@ export const de = {
     shapePlaced: '{name} platziert',
     notePlaced: 'Notiz gesetzt',
     teamPlaced: '{name} auf der Lage gesetzt',
-    areaDrawn: 'Fläche gezeichnet',
-    circleDrawn: 'Absperrkreis gezeichnet',
-    drawingCreated: 'Zeichnung erstellt',
+    /** Every drawn shape opens on ONE row shape, named by lib/drawingEdit · drawingLogName —
+     *  «Fläche gezeichnet», «Absperrkreis gezeichnet», «Rettungsachse gezeichnet», «Zeichnung
+     *  gezeichnet». Replaced the three separate rows on 31.08.: a line reported «Zeichnung
+     *  erstellt» whatever it had been drawn with, and closed on «… gelöscht», so creation and
+     *  deletion of the same object did not even use the same verb. */
+    shapeDrawn: '{name} gezeichnet',
     objectMoved: '{name} verschoben',
     // ein Zwilling wechselt die Fläche: das Objekt ist danach wirklich dort und nicht mehr hier
     twinTransferredToMap: '{name} auf die Karte übertragen',
@@ -1001,7 +1004,10 @@ export const de = {
      *  row: the Verlauf said a Fläche had been drawn and never what it turned out to be. */
     drawingLabelSet: '{kind} «{value}»',
     drawingLabelCleared: '{kind}: Beschriftung entfernt',
-    drawKinds: { area: 'Fläche', line: 'Zeichnung', circle: 'Absperrkreis' } as Record<string, string>,
+    // ⚠️ `line: 'Linie'`, not 'Zeichnung' (31.08.): the tool is called Linie everywhere else, and
+    // «Zeichnung» named a shape by the fact that somebody drew it — which every row here already
+    // says. A line that carries a preset reports THAT instead (lib/lineStyle · linePresetLabel).
+    drawKinds: { area: 'Fläche', line: 'Linie', circle: 'Absperrkreis' } as Record<string, string>,
   },
   // unified, append-only journal (Verlauf) shared by Lage + Plan
   toolDock: {

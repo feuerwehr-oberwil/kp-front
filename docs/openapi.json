@@ -2198,6 +2198,64 @@
         }
       }
     },
+    "/api/media/{media_id}/thumb": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Get Media Thumb",
+        "description": "A small JPEG for list chips and map markers. Photos only — everything else is a 404, so a\ncaller can never make this route decode an arbitrary stored blob.",
+        "operationId": "get_media_thumb_api_media__media_id__thumb_get",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/media.zip": {
       "get": {
         "tags": [
