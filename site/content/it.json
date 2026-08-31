@@ -1,9 +1,9 @@
 {
   "notice": "Questa traduzione non è ancora stata verificata da una persona italofona dei pompieri – <a href=\"#kontakt\">suggerimenti e correzioni</a> sono benvenuti. La demo è in tedesco.",
   "meta": {
-    "title": "KP Front – condotta d’intervento per i pompieri di milizia",
+    "title": "KP Front – Condotta d’intervento digitale per i pompieri",
     "description": "KP Front è il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto – offline e open source.",
-    "ogTitle": "KP Front – condotta d’intervento per i pompieri di milizia",
+    "ogTitle": "KP Front – Condotta d’intervento digitale per i pompieri",
     "ogDescription": "Il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto – offline e open source."
   },
   "nav": {
@@ -312,11 +312,11 @@
       },
       {
         "q": "Quanto costa?",
-        "a": "Niente. KP Front è open source (AGPL) – <strong>nessuna licenza, nessun abbonamento,\n          nessun costo per dispositivo</strong>. Restano i vostri costi d’esercizio: un piccolo\n          server o un computer in rimessa."
+        "a": "Il software in sé non costa nulla. KP Front è open source (AGPL) – <strong>nessuna\n          licenza, nessun abbonamento, nessun costo per dispositivo</strong>. Restano i costi\n          propri per l’esercizio, l’infrastruttura ed eventualmente il supporto esterno."
       },
       {
         "q": "Cosa serve per farlo funzionare?",
-        "a": "Basta un piccolo mini PC o server in rimessa. Installazione, aggiornamenti e backup\n          richiedono qualcuno pratico di Docker e riga di comando – nel corpo, in comune o un\n          contatto informatico. La guida e l’amministrazione accompagnano la configurazione. I dati\n          della stazione e l’esercizio restano responsabilità vostra."
+        "a": "Basta un piccolo mini-PC o server in rimessa. Per l’installazione, gli aggiornamenti\n          e i backup serve qualcuno con esperienza nell’uso di Docker e della riga di comando, che\n          si trovi nel corpo, in Comune o presso un supporto informatico esterno. La guida e\n          l’area amministrativa accompagnano la configurazione. Rispondiamo volentieri alle\n          domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo."
       },
       {
         "q": "Possiamo adattarlo ai nostri processi?",

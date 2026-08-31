@@ -1,9 +1,9 @@
 {
   "notice": "Cette traduction n’a pas encore été vérifiée par une personne francophone des sapeurs-pompiers – les <a href=\"#kontakt\">suggestions et corrections</a> sont bienvenues. La démo est en allemand.",
   "meta": {
-    "title": "KP Front – conduite d’intervention pour pompiers de milice",
+    "title": "KP Front – Conduite d’intervention numérique pour les sapeurs-pompiers",
     "description": "KP Front est le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport – hors ligne et open source.",
-    "ogTitle": "KP Front – conduite d’intervention pour pompiers de milice",
+    "ogTitle": "KP Front – Conduite d’intervention numérique pour les sapeurs-pompiers",
     "ogDescription": "Le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport – hors ligne et open source."
   },
   "nav": {
@@ -312,11 +312,11 @@
       },
       {
         "q": "Combien cela coûte-t-il ?",
-        "a": "Rien. KP Front est open source (AGPL) – <strong>pas de licence, pas d’abonnement,\n          pas de coût par appareil</strong>. Restent vos propres frais d’exploitation : un petit\n          serveur ou une machine à la caserne."
+        "a": "Le logiciel lui-même ne coûte rien. KP Front est open source (AGPL) – <strong>pas de\n          licence, pas d’abonnement, pas de coût par appareil</strong>. Restent les coûts propres\n          à l’exploitation, à l’infrastructure et, le cas échéant, à une assistance externe."
       },
       {
         "q": "Que faut-il pour l’exploiter ?",
-        "a": "Un petit mini-PC ou serveur à la caserne suffit. L’installation, les mises à jour et\n          les sauvegardes demandent une personne à l’aise avec Docker et la ligne de commande –\n          dans le corps, à la commune ou une connaissance informatique. Le guide et\n          l’administration accompagnent la mise en place. Les données et l’exploitation restent\n          sous votre responsabilité."
+        "a": "Un petit mini-PC ou serveur à la caserne suffit. L’installation, les mises à jour et\n          les sauvegardes nécessitent une personne à l’aise avec Docker et la ligne de commande,\n          que ce soit au sein du corps, de la commune ou auprès d’un prestataire informatique. Le\n          guide et l’espace d’administration accompagnent la mise en place. Nous répondons\n          volontiers aux questions générales ; les données et l’exploitation restent sous la\n          responsabilité de chaque corps."
       },
       {
         "q": "Peut-on l’adapter à nos procédures ?",

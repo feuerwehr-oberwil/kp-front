@@ -1,8 +1,8 @@
 {
   "meta": {
-    "title": "KP Front – incident command for the militia fire brigade",
+    "title": "KP Front – Digital incident command for fire brigades",
     "description": "KP Front is the digital command post at the scene: situation, plans, SCBA, log and report – offline-capable and open source.",
-    "ogTitle": "KP Front – incident command for the militia fire brigade",
+    "ogTitle": "KP Front – Digital incident command for fire brigades",
     "ogDescription": "The digital command post at the scene: situation, plans, SCBA, log and report – offline-capable and open source."
   },
   "nav": {
@@ -311,11 +311,11 @@
       },
       {
         "q": "What does it cost?",
-        "a": "Nothing. KP Front is open source (AGPL) – <strong>no licence, no subscription, no\n          per-device fee</strong>. What remains is your own running costs: a small server, or a\n          machine at the station."
+        "a": "The software itself costs nothing. KP Front is open source (AGPL) – <strong>no\n          licence, no subscription, no per-device fee</strong>. What remains are your own costs\n          for operation, infrastructure and any external support you may need."
       },
       {
         "q": "What does it take to run?",
-        "a": "A small mini PC or server at the station is enough. Setup, updates and backups need\n          someone comfortable with Docker and the command line – in the brigade, municipality, or\n          a friendly IT contact. The guide and admin area lead through setup. We can answer general\n          questions; station data and operation remain your responsibility."
+        "a": "A small mini-PC or server at the station is enough. Setup, updates and backups\n          require someone with Docker and command-line experience, whether in the brigade, the\n          municipality or an IT support provider. The guide and administration area lead through\n          the setup. We are happy to answer general questions; data and operation remain the\n          responsibility of each fire brigade."
       },
       {
         "q": "Can we adapt it to how we work?",

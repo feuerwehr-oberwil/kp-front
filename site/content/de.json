@@ -1,8 +1,8 @@
 {
   "meta": {
-    "title": "KP Front – Einsatzführung für die Milizfeuerwehr",
+    "title": "KP Front – Digitale Einsatzführung für Feuerwehren",
     "description": "KP Front ist der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport – offline-fähig und quelloffen.",
-    "ogTitle": "KP Front – Einsatzführung für die Milizfeuerwehr",
+    "ogTitle": "KP Front – Digitale Einsatzführung für Feuerwehren",
     "ogDescription": "Der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport – offline-fähig und quelloffen."
   },
   "nav": {
@@ -43,7 +43,7 @@
       "Berufsfeuerwehren",
       "Betriebsfeuerwehren"
     ],
-    "whatLabel": "Für was",
+    "whatLabel": "Wofür",
     "what": [
       "Brände",
       "Verkehrsunfälle",
@@ -125,7 +125,7 @@
   "shots": {
     "eyebrow": "Aus der Demo",
     "h2": "So sieht das aus.",
-    "lede": "Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klick auf\n        «Demo öffnen», und du stehst in derselben Lage.",
+    "lede": "Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klickt auf\n        «Demo öffnen», und ihr steht in derselben Lage.",
     "items": [
       {
         "file": "plan.webp",
@@ -341,11 +341,11 @@
       },
       {
         "q": "Was kostet das?",
-        "a": "Nichts. KP Front ist Open Source (AGPL) – <strong>keine Lizenz, kein Abo, keine\n          Kosten pro Gerät</strong>. Was bleibt, sind die eigenen Betriebskosten: ein kleiner\n          Server oder ein Rechner im Magazin."
+        "a": "Für die Software selbst nichts. KP Front ist Open Source (AGPL) – <strong>keine\n          Lizenz, kein Abo, keine Kosten pro Gerät</strong>. Was bleibt, sind die eigenen Kosten\n          für Betrieb, Infrastruktur und allenfalls externe Unterstützung."
       },
       {
         "q": "Was braucht es für den Betrieb?",
-        "a": "Ein kleiner Mini-PC oder Server im Magazin reicht; für Einrichtung, Updates und\n          Backups braucht es jemanden mit Docker- und Kommandozeilen-Erfahrung – in der Feuerwehr,\n          der Gemeinde oder eine befreundete IT. Anleitung und Verwaltung führen durch den Aufbau.\n          Allgemeine Fragen beantworten wir gern; Stationsdaten und Betrieb bleiben bei euch."
+        "a": "Ein kleiner Mini-PC oder Server im Magazin reicht. Für Einrichtung, Updates und\n          Backups braucht es jemanden mit Docker- und Kommandozeilen-Erfahrung, sei es in der\n          Feuerwehr, in der Gemeinde oder bei einer unterstützenden IT. Die Anleitung und der\n          Verwaltungsbereich führen durch den Aufbau. Allgemeine Fragen beantworten wir gerne;\n          Daten und Betrieb bleiben in der Verantwortung der jeweiligen Feuerwehr."
       },
       {
         "q": "Können wir es an unsere Abläufe anpassen?",
@@ -363,16 +363,16 @@
   },
   "contact": {
     "eyebrow": "Kontakt",
-    "h2": "Sag uns, was du denkst.",
-    "p": "Willst du KP Front bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,\n          wie du es erwartest? Melde dich – wir lesen alles.",
+    "h2": "Sagt uns, was ihr denkt.",
+    "p": "Wollt ihr KP Front bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,\n          wie ihr es erwartet? Meldet euch – wir lesen alles.",
     "alt": "Für Fragen und offene Ideen gibt es die\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/discussions\" target=\"_blank\" rel=\"noopener\">GitHub-Diskussionen</a>.",
     "bug": {
       "t": "Fehler melden",
-      "s": "Was ist passiert, was hättest du erwartet? Screenshots ziehst du direkt ins Formular."
+      "s": "Was ist passiert, was hättet ihr erwartet? Screenshots zieht ihr direkt ins Formular."
     },
     "idea": {
       "t": "Etwas wünschen",
-      "s": "Fehlt ein Handgriff, der bei euch zum Ablauf gehört? Beschreib den Fall, nicht die Lösung."
+      "s": "Fehlt ein Handgriff, der bei euch zum Ablauf gehört? Beschreibt den Fall, nicht die Lösung."
     },
     "mail": {
       "t": "Direkt schreiben",
@@ -389,7 +389,7 @@
       "send": "Nachricht senden",
       "sending": "Wird gesendet …",
       "ok": "Danke – die Nachricht ist da. Wir melden uns.",
-      "error": "Das hat nicht geklappt. Schreib bitte direkt an bastian.eichenberger@feuerwehr-oberwil.ch."
+      "error": "Das hat nicht geklappt. Schreibt bitte direkt an bastian.eichenberger@feuerwehr-oberwil.ch."
     }
   },
   "lightbox": {
