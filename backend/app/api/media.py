@@ -243,10 +243,11 @@ def _thumb_key(storage_key: str) -> str:
 
 def _render_thumb(source_path: str, dest_key: str) -> None:
     """Decode, downscale and store one thumbnail. Blocking — call it in a worker thread."""
-    with Image.open(source_path) as im:
+    with Image.open(source_path) as opened:
         # EXIF orientation is applied here, not in CSS: the chip is square-cropped by the layout,
         # and a sideways thumbnail next to an upright viewer reads as a different picture.
-        im = ImageOps.exif_transpose(im)
+        # (Its own name — exif_transpose returns a plain Image, not the ImageFile it was given.)
+        im = ImageOps.exif_transpose(opened) or opened
         im.thumbnail((THUMB_EDGE, THUMB_EDGE))
         buf = io.BytesIO()
         im.convert("RGB").save(buf, format="JPEG", quality=_THUMB_QUALITY, optimize=True)
