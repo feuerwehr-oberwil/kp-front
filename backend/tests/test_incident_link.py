@@ -836,3 +836,128 @@ async def test_a_link_session_receives_the_carto_basemap_key(client, link_key, i
     # …and it goes away again with the link
     _forget_link(client)
     assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] is None
+
+
+# --- the Rapport's view-only link ---------------------------------------------------------
+#
+# The other lifecycle: minted in the app by an editor, handed to somebody outside the station,
+# and alive until it is revoked — including after the Einsatz is closed and archived, which is
+# the normal case for it. Everything the alarm link is contained by still applies; only the
+# liveness rule differs, so that is what these prove.
+
+
+async def _login_editor(client, editor) -> None:
+    r = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    assert r.status_code == 200, r.text
+
+
+async def _mint_view_link(client, editor, incident) -> str:
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/view-link")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["enabled"] is True
+    token = body["token"]
+    assert token.startswith("v")
+    client.cookies.delete(ACCESS_COOKIE)  # from here on we are the outsider holding the URL
+    return token
+
+
+async def test_view_link_is_idempotent_and_readable_again(client, editor, incident):
+    """«Where was that link again» must not be the same gesture as «kill the old one»."""
+    first = await _mint_view_link(client, editor, incident)
+    await _login_editor(client, editor)
+    again = (await client.post(f"/api/incidents/{incident.id}/view-link")).json()["token"]
+    shown = (await client.get(f"/api/incidents/{incident.id}/view-link")).json()
+    assert again == first
+    assert shown == {"enabled": True, "token": first}
+
+
+async def test_view_link_needs_an_editor(client, viewer, incident):
+    r = await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": "135790"})
+    assert r.status_code == 200, r.text
+    assert (await client.post(f"/api/incidents/{incident.id}/view-link")).status_code == 403
+
+
+async def test_view_link_opens_a_scoped_read_session(client, editor, incident):
+    token = await _mint_view_link(client, editor, incident)
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 200, r.text
+    assert r.json()["incident_id"] == str(incident.id)
+    me = (await client.get("/api/auth/me")).json()
+    assert me["role"] == "viewer" and me["link_scoped"] is True
+    assert (await client.get(f"/api/incidents/{incident.id}/journal")).status_code == 200
+    # …and it is still only a link session: the excluded routes stay excluded
+    assert (await client.get(f"/api/incidents/{incident.id}/report/pdf")).status_code == 403
+
+
+async def test_view_link_survives_the_einsatz_being_closed_and_archived(client, editor, incident, db_session):
+    """The whole point: it is handed out to show a FINISHED Einsatz."""
+    token = await _mint_view_link(client, editor, incident)
+    await client.post("/api/incident-link/session", json={"token": token})
+    assert (await client.get(f"/api/incidents/{incident.id}/workspace")).status_code == 200
+
+    inc = await db_session.get(Incident, incident.id)
+    inc.status = "geschlossen"
+    inc.is_archived = True
+    await db_session.commit()
+
+    assert (await client.get(f"/api/incidents/{incident.id}/workspace")).status_code == 200
+    # a fresh tap works too, long after the Einsatz is over
+    _forget_link(client)
+    assert (await client.post("/api/incident-link/session", json={"token": token})).status_code == 200
+
+
+async def test_revoking_kills_the_url_and_the_open_session(client, editor, incident):
+    """A link that cannot expire has to be killable — and killable everywhere at once."""
+    token = await _mint_view_link(client, editor, incident)
+    await client.post("/api/incident-link/session", json={"token": token})
+    assert (await client.get(f"/api/incidents/{incident.id}/workspace")).status_code == 200
+    open_session = client.cookies[LINK_COOKIE]  # what somebody's phone is still holding
+
+    _forget_link(client)
+    await _login_editor(client, editor)
+    r = await client.delete(f"/api/incidents/{incident.id}/view-link")
+    assert r.json() == {"enabled": False, "token": None}
+    client.cookies.delete(ACCESS_COOKIE)
+
+    # that phone, unchanged, on its next request
+    client.cookies.set(LINK_COOKIE, open_session)
+    r = await client.get(f"/api/incidents/{incident.id}/workspace")
+    assert r.status_code == 403
+    _forget_link(client)
+    # and the URL itself
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 401
+    assert r.json()["detail"] == INVALID_TOKEN_DETAIL
+
+
+async def test_revoked_and_unknown_view_links_answer_alike(client, editor, incident):
+    """No probing here either — «revoked», «never existed» and «wrong Einsatz» are one answer."""
+    token = await _mint_view_link(client, editor, incident)
+    await _login_editor(client, editor)
+    await client.delete(f"/api/incidents/{incident.id}/view-link")
+    client.cookies.delete(ACCESS_COOKIE)
+    for probe in (token, "vnope-not-a-real-secret", "v"):
+        r = await client.post("/api/incident-link/session", json={"token": probe})
+        assert r.status_code == 401, probe
+        assert r.json()["detail"] == INVALID_TOKEN_DETAIL
+
+
+async def test_view_link_stays_scoped_to_its_own_incident(client, editor, incident, db_session):
+    other = _incident(title="Anderer Einsatz", source_ref="alarm-other")
+    db_session.add(other)
+    await db_session.commit()
+    await db_session.refresh(other)
+
+    token = await _mint_view_link(client, editor, incident)
+    await client.post("/api/incident-link/session", json={"token": token})
+    assert (await client.get(f"/api/incidents/{other.id}/workspace")).status_code == 403
+
+
+async def test_view_link_does_not_need_the_stations_minting_key(client, editor, incident):
+    """It is not the alerting system's link: no `incident_link_key` is configured here at all,
+    and rotating one later must not touch it either."""
+    token = await _mint_view_link(client, editor, incident)
+    assert (await client.post("/api/incident-link/session", json={"token": token})).status_code == 200
+    assert (await client.get(f"/api/incidents/{incident.id}/journal")).status_code == 200

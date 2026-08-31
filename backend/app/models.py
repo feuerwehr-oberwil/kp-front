@@ -154,6 +154,20 @@ class Incident(Base):
     capture_writes: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
     capture_last_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # The Rapport's view-only link (2026-09-01). A random secret that IS the link: the URL is
+    # `/l/v<this>`, and clearing the column revokes it — including sessions already open.
+    #
+    # Deliberately per-incident and NOT the station's `incident_link_key`. That key belongs to
+    # the alerting system, it is rotated as one, and every session it opens dies with the
+    # Einsatz (`is_open`). This link exists for the opposite case: an Einsatz that is finished,
+    # shown to a Gemeinde, a Nachbarwehr or a Versicherung, weeks later. One incident, revocable
+    # on its own, outliving the incident's closure by design.
+    #
+    # Stored in the clear rather than hashed, and that is a requirement, not laziness: the
+    # Rapport has to be able to SHOW the link again — anything else means «lost it, mint a new
+    # one, tell everybody», which is how a station ends up with five live links per Einsatz.
+    view_link_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+
     details_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     map_workspace_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     workspace_rev: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

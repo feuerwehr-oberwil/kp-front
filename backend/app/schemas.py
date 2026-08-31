@@ -166,6 +166,15 @@ class WorkspacePut(BaseModel):
     base_rev: int
 
 
+class ViewLinkOut(BaseModel):
+    """The Rapport's view-only link. `token` is what goes in the URL (`/l/<token>`) — the
+    client builds the full address from its own origin, so nothing here has to be told what
+    the deployment is reachable under. None whenever `enabled` is False."""
+
+    enabled: bool
+    token: str | None = None
+
+
 # --- Audit events -------------------------------------------------------------------
 class EventIn(BaseModel):
     op_type: str

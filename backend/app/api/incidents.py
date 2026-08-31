@@ -1,6 +1,7 @@
 """Incidents: CRUD and workspace save (optimistic concurrency + snapshots)."""
 
 import logging
+import secrets
 import uuid
 from datetime import UTC, datetime
 
@@ -20,6 +21,7 @@ from ..schemas import (
     IncidentFull,
     IncidentMeta,
     IncidentPatch,
+    ViewLinkOut,
     WorkspaceOut,
     WorkspacePut,
 )
@@ -373,6 +375,81 @@ async def patch_incident(
     return inc
 
 
+# --- the Rapport's view-only link --------------------------------------------------------
+#
+# «So people outside our station can see everything we did, in one go.» The link opens the
+# ordinary read-only viewer on ONE Einsatz — the same surface, the same allowlist and the same
+# scope check as the alarm link (auth/incident_link), with two deliberate differences: it does
+# not die when the Einsatz closes, and it is revoked on its own instead of by rotating the
+# station's minting key.
+#
+# The secret IS the link. Minting is idempotent — asking twice hands back the same URL rather
+# than quietly invalidating the one already sent — because «I can't find the link» must not be
+# the same gesture as «I want the old one dead».
+
+
+def _view_link_token(secret: str) -> str:
+    from .incident_link import VIEW_TOKEN_PREFIX
+
+    return f"{VIEW_TOKEN_PREFIX}{secret}"
+
+
+@router.get("/{incident_id}/view-link", response_model=ViewLinkOut)
+async def get_view_link(
+    incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """What the Rapport shows: the live link, or that there is none."""
+    inc = await _get(db, incident_id)
+    return ViewLinkOut(
+        enabled=bool(inc.view_link_key),
+        token=_view_link_token(inc.view_link_key) if inc.view_link_key else None,
+    )
+
+
+@router.post("/{incident_id}/view-link", response_model=ViewLinkOut)
+async def create_view_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Mint the link, or hand back the one that already exists."""
+    inc = await _get(db, incident_id)
+    if not inc.view_link_key:
+        inc.view_link_key = secrets.token_urlsafe(32)
+        await db.flush()
+        # Worth a row in the chain: this is the moment the Einsatzakte became readable outside
+        # the station. The secret itself never goes in — an audit trail is read by more people
+        # than the link is meant for.
+        await audit.append_event(
+            db,
+            incident_id=inc.id,
+            op_type="meta.change",
+            source="view-link",
+            user_id=user.id,
+            payload={"view_link": True},
+        )
+    return ViewLinkOut(enabled=True, token=_view_link_token(inc.view_link_key))
+
+
+@router.delete("/{incident_id}/view-link", response_model=ViewLinkOut)
+async def revoke_view_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Revoke it. The URL stops working AND every session already open on it ends — checked per
+    request in auth/incident_link, because a link that cannot expire has to be killable."""
+    inc = await _get(db, incident_id)
+    if inc.view_link_key:
+        inc.view_link_key = None
+        await db.flush()
+        await audit.append_event(
+            db,
+            incident_id=inc.id,
+            op_type="meta.change",
+            source="view-link",
+            user_id=user.id,
+            payload={"view_link": False},
+        )
+    return ViewLinkOut(enabled=False, token=None)
+
+
 @router.delete("/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_incident(
     incident_id: uuid.UUID,
@@ -438,5 +515,8 @@ async def delete_incident(
         # Cached waveform peaks ride next to the blob. It is harmless to queue the key for
         # photos/snapshots too: delete is deliberately idempotent for absent files.
         storage.delete_after_commit(db, key + ".peaks.json")
+        # …and the list/marker thumbnail (api/media · _thumb_key). Same reasoning: delete is
+        # idempotent for absent files, so queueing it for audio and snapshots costs nothing.
+        storage.delete_after_commit(db, key + ".thumb.jpg")
     await db.delete(inc)
     await db.flush()

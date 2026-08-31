@@ -22,6 +22,21 @@ link used to be dead until an editor had taken the alarm on a tablet, which put 
 between the responder and the Lage. Opening grants nothing extra — the session that follows
 is the same read-only viewer — and the incident stays unconfirmed (`editor_opened_at` NULL),
 so a link nobody at the station ever worked never reaches the statistics.
+
+THE SECOND KIND OF LINK (2026-09-01)
+------------------------------------
+`/l/v<secret>` is the Rapport's own view link, minted in the app by an editor
+(api/incidents · the `view-link` trio) and handed to somebody OUTSIDE the station: a Gemeinde,
+a Nachbarwehr, an insurer — «so they can see in one go what we did». It lands on the same door
+and opens the same read-only session, and every other rule above still holds: one incident,
+the same allowlist, the same scope check.
+
+Two things differ, and both follow from who it is for:
+  · it does NOT expire with the Einsatz — the Einsatz being over is the normal case for it;
+  · it is revoked ON ITS OWN, per incident, by clearing `Incident.view_link_key`, rather than
+    by rotating the station's minting key, which would take every alarm link with it.
+Because it cannot expire, revoking has to be complete: the check runs on every request, so a
+session already open on somebody's phone dies together with the URL.
 """
 
 import secrets
@@ -36,7 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..alarms import open_pooled_alarm
 from ..auth.cookies import set_link_cookie
 from ..auth.dependencies import CurrentAdmin
-from ..auth.incident_link import LINK_TOKEN_TYPE, create_link_session_token
+from ..auth.incident_link import LINK_TOKEN_TYPE, create_link_session_token, create_view_session_token
 from ..database import get_db
 from ..models import DeploymentConfig, Incident
 
@@ -106,6 +121,39 @@ def _invalid_token() -> HTTPException:
     )
 
 
+#: A Rapport view-link URL carries the incident's own secret, not a signed token — so the two
+#: kinds of link have to be told apart before anything tries to verify a signature. The marker is
+#: the leading character, and it cannot collide: a JWT is three base64url segments and always
+#: starts with `eyJ` (the encoded `{"`), so no alerting-system token begins with this.
+VIEW_TOKEN_PREFIX = "v"  # noqa: S105 — a URL marker, not a credential
+
+
+async def _open_view_session(token: str, response: Response, db: AsyncSession) -> dict:
+    """Trade a Rapport view link for a session on the ONE incident that link belongs to.
+
+    No signature to check and none needed: the secret IS the credential, 32 bytes from
+    `secrets.token_urlsafe`, and it is looked up rather than decoded. Which means there is
+    nothing to expire and exactly one way to end it — the station revoking the link, which
+    clears the column and takes every open session with it (auth/incident_link ·
+    `_view_key_unchanged`).
+
+    Deliberately says nothing about WHY a token failed. An unknown secret, a revoked link and
+    a deleted Einsatz answer alike; telling them apart only helps somebody guessing.
+    """
+    secret = token[len(VIEW_TOKEN_PREFIX):]
+    if not secret:
+        raise _invalid_token()
+    inc = (
+        await db.execute(select(Incident).where(Incident.view_link_key == secret))
+    ).scalar_one_or_none()
+    if inc is None:
+        raise _invalid_token()
+    # NOTE: `is_open` is NOT consulted, and that is the whole point of this link — it is handed
+    # out to show a FINISHED Einsatz to somebody outside the station.
+    set_link_cookie(response, create_view_session_token(str(inc.id), secret))
+    return {"incident_id": str(inc.id)}
+
+
 @router.post("/session")
 async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSession = Depends(get_db)) -> dict:
     """Trade a link token minted by the alerting system for a link-session cookie.
@@ -115,6 +163,11 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
     on. That is what keeps this provider-neutral: nothing here knows what Divera is, and an
     alerting system never has to learn our incident UUIDs to link to one.
     """
+    # One door, two kinds of link — the SPA forwards whatever stood in `/l/<…>` and does not
+    # need to know which it is holding.
+    if body.token.startswith(VIEW_TOKEN_PREFIX):
+        return await _open_view_session(body.token, response, db)
+
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     key = row.incident_link_key if row else None
     if not key:

@@ -272,6 +272,31 @@ async def _minting_key_unchanged(db: AsyncSession, fingerprint: str | None) -> b
     return secrets.compare_digest(fingerprint, key_fingerprint(current))
 
 
+async def _view_key_unchanged(db: AsyncSession, incident_id: str, fingerprint: str | None) -> bool:
+    """False once the Rapport's view link is revoked (or re-minted), which ends every session it
+    ever opened — not just the URL nobody has tapped yet.
+
+    The mirror of ``_minting_key_unchanged``, one incident wide. Revoking is the ONE lever this
+    link has: it outlives the Einsatz on purpose, so «it will expire eventually» is not an
+    answer, and a link that has gone somewhere it should not must stop working everywhere at
+    once — including on the phone that already has it open.
+    """
+    from ..models import Incident
+
+    if not fingerprint:
+        return False
+    try:
+        ident = uuid.UUID(incident_id)
+    except (ValueError, AttributeError, TypeError):
+        return False
+    current = (
+        await db.execute(select(Incident.view_link_key).where(Incident.id == ident))
+    ).scalar_one_or_none()
+    if not current:  # revoked → the link is gone, and so is every session born from it
+        return False
+    return secrets.compare_digest(fingerprint, key_fingerprint(current))
+
+
 async def _incident_still_open(db: AsyncSession, incident_id: str) -> bool:
     """Re-checked on EVERY request, not just at exchange.
 
@@ -340,6 +365,17 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     # in place of the HTML.
     if (request.method.upper(), path) in _LIVENESS_EXEMPT:
         return
+
+    # A Rapport VIEW link is the other lifecycle, and it is the reason that link exists: the
+    # Einsatz is over, and somebody outside the station — a Gemeinde, a Nachbarwehr, an
+    # insurer — is being shown what was done. So «still open» is not asked, and the station's
+    # minting key is none of its business. Its one liveness condition is that the incident's
+    # own view key still says what the session was born from, i.e. nobody revoked it.
+    if claims.get("vk"):
+        if not await _view_key_unchanged(db, str(scoped), claims.get("vk")):
+            raise _Denied()
+        return
+
     if not await _minting_key_unchanged(db, claims.get("kf")):
         raise _Denied()
     if not await _incident_still_open(db, str(scoped)):
@@ -374,6 +410,23 @@ def create_link_session_token(incident_id: str, minting_key: str) -> str:
 
     return _encode(
         {"inc": str(incident_id), "scope": "incident-link", "kf": key_fingerprint(minting_key)},
+        token_type=LINK_TOKEN_TYPE,
+        expires=settings.incident_link_session_ttl,
+    )
+
+
+def create_view_session_token(incident_id: str, view_key: str) -> str:
+    """The same session cookie for a Rapport view link, marked with `vk` instead of `kf`.
+
+    That one claim is what tells ``enforce_link_scope`` which liveness rule applies — this
+    session survives the Einsatz closing and dies when the incident's own link is revoked.
+    The cookie's TTL is unchanged and stays the backstop: the holder re-taps the URL, which is
+    a no-op for as long as the station leaves the link standing.
+    """
+    from .security import _encode
+
+    return _encode(
+        {"inc": str(incident_id), "scope": "incident-link", "vk": key_fingerprint(view_key)},
         token_type=LINK_TOKEN_TYPE,
         expires=settings.incident_link_session_ttl,
     )
