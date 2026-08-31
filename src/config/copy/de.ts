@@ -523,6 +523,20 @@ export const de = {
     'GB Treppe 8': 'Treppe',
     'SI Nordpfeil': 'Nordpfeil',
     'SI Windrichtung': 'Windrichtung',
+    // ── FKS Vegetationsbrand-Handbuch S. 52 und Zivile Signaturen S. 7 (01.09.) ──
+    // Namen explizit statt über den Prefix-Fallback: «ZS» ist kein bekanntes Präfix, und
+    // «Verpflegungsabgabestelle» ist der amtliche Name, nicht der, den man auf einer Palette
+    // lesen will.
+    'FKS Schluesselstelle': 'Schlüsselstelle',
+    'FKS Beobachtungsposten': 'Beobachtungsposten',
+    'FKS Helikopter': 'Helikopter',
+    'FKS Drohnenlandeplatz': 'Drohnenlandeplatz',
+    'FKS Forst': 'Forst',
+    'ZS Fahrzeugplatz': 'Fahrzeugplatz',
+    'ZS Angehoerigensammelstelle': 'Angehörigensammelstelle',
+    'ZS Verpflegungsabgabestelle': 'Verpflegung',
+    'ZS Betriebsstoffabgabestelle': 'Tankstelle',
+    'ZS Dekontaminationsstelle': 'Dekontaminationsstelle',
     'VKF Bereich Polizei': 'Polizei',
     'VKF Bereich Chemiewehr': 'Chemiewehr',
     'VKF Bereich Zivilschutz': 'Zivilschutz',
@@ -609,6 +623,16 @@ export const de = {
     'GB Treppe 8': ['Treppenhaus', 'Stiege', 'Aufgang'],
     'SI Windrichtung': ['Wind', 'Windsack', 'Wetter'],
     'SI Nordpfeil': ['Norden', 'Kompass', 'Orientierung'],
+    'FKS Schluesselstelle': ['Schlüsselstelle', 'Engstelle', 'Vegetationsbrand'],
+    'FKS Beobachtungsposten': ['Beobachtung', 'Sicherungsposten', 'Posten', 'Wache'],
+    'FKS Helikopter': ['Heli', 'Helikopter', 'Luftfahrzeug'],
+    'FKS Drohnenlandeplatz': ['Drohne', 'Landeplatz', 'UAV'],
+    'FKS Forst': ['Förster', 'Forstdienst', 'Waldbrand'],
+    'ZS Fahrzeugplatz': ['Fahrzeuge', 'Abstellplatz', 'Bereitstellungsraum', 'Fz'],
+    'ZS Angehoerigensammelstelle': ['Angehörige', 'Betreuung', 'Care'],
+    'ZS Verpflegungsabgabestelle': ['Verpflegung', 'Essen', 'Kantine', 'Getränke'],
+    'ZS Betriebsstoffabgabestelle': ['Tanken', 'Treibstoff', 'Benzin', 'Diesel'],
+    'ZS Dekontaminationsstelle': ['Deko', 'Dekon', 'Dekontamination', 'Chemiewehr'],
   } as Record<string, string[]>,
   // Symbol-palette category headings, keyed by the German category (the keys of
   // appConfig.symbols.presets.byCat). de = identity; en/fr/it translate. The German key is the

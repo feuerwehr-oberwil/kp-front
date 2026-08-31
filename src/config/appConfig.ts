@@ -162,7 +162,7 @@ const base = {
   // The weather badge's detail target (MeteoSwiss radar) is locale-dependent and lives in
   // the copy catalogues: appConfig.copy.weather.detailsUrl.
   symbols: {
-    namePrefixes: ['VKF', 'FW', 'FWD', 'FKS', 'WV', 'Abw', 'Rettung', 'GVB', 'SI', 'GB', 'fw'],
+    namePrefixes: ['VKF', 'FW', 'FWD', 'FKS', 'WV', 'Abw', 'Rettung', 'GVB', 'SI', 'GB', 'ZS', 'fw'],
     // the generic vehicle glyph — placed copies render their (typed) name baked in,
     // exactly like the live GPS vehicles (see lib/useVehiclePositions · vehicleSymbolSvg)
     vehicleName: 'VKF Fahrzeug',

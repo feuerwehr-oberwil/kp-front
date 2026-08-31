@@ -121,6 +121,28 @@ def person_post(extra):
     return svg([box] + extra, vb=2.6)
 
 
+def _rot(pts, deg):
+    """Rotate points about the origin — for the radially repeated parts of a sign."""
+    import math
+
+    a = math.radians(deg)
+    ca, sa = math.cos(a), math.sin(a)
+    return [(x * ca - y * sa, x * sa + y * ca) for x, y in pts]
+
+
+def gear(color, teeth=8):
+    """FKS Schlüsselstelle: a solid ring with radial teeth (Vegetationsbrand-Handbuch S. 52).
+
+    A stroked circle rather than a filled annulus — the ring width IS the stroke, so the open
+    centre stays open at every size without a fill-rule the renderers would each have to honour.
+    The first tooth points UP, as it does on the sheet."""
+    tooth = [(0.62, -0.21), (1.0, -0.13), (1.0, 0.13), (0.62, 0.21)]
+    return [circle(0, 0, 0.6, stroke=color, sw=0.28)] + [
+        path(_rot(tooth, -90 + i * (360 / teeth)), stroke=color, sw=0.02, fill=color, close=True)
+        for i in range(teeth)
+    ]
+
+
 def basin(fill_color, sw):
     """Open water basin: filled trapezoid with flaring rim lines (Löschweier family)."""
     return [
@@ -166,6 +188,10 @@ def build() -> list[dict]:
     ))
 
     # ── Gefahren
+    # FKS Vegetationsbrand-Handbuch S. 52 — where the fire is decided: the saddle, the road,
+    # the ridge it must not cross. A Schadenlage sign, not a Führung one: it describes the
+    # terrain's behaviour, not a decision somebody took.
+    add("Schadenlage", "FKS Schluesselstelle", svg(gear(BLUE), vb=2.6))
     add("Gefahren", "FW Gefahr Tafel", svg(
         [path([(-1.2, -0.7), (1.2, -0.7), (1.2, 0.7), (-1.2, 0.7)], stroke=ORANGE, sw=0.1, close=True),
          line(-1.2, 0, 1.2, 0, stroke=ORANGE, sw=0.1)],
@@ -234,6 +260,14 @@ def build() -> list[dict]:
         vb=2.6,
     ))
     add("Führung", "VKF Bereich Materialdepot", zone_circle("M"))
+    # FKS Behelf Einsatzführung S. 37 and the Vegetationsbrand-Handbuch S. 52 both carry it —
+    # so it is a general gap, not a Vegetationsbrand one. Somebody posted to watch, at the edge
+    # of the Einsatz: the Rückzugsposten on a Flanke, the eye on a Brandmauer.
+    add("Führung", "FKS Beobachtungsposten", svg(
+        [path([(0, -0.95), (-1, 0.72), (1, 0.72)], stroke=BLUE, sw=0.1, close=True),
+         text("FW", 0.6, fill=BLUE, y=0.34)],
+        viewbox="-1.2 -1.2 2.4 2.4",
+    ))
     add("Führung", "FW Absperrung", svg(
         # plain barrier bar with upturned ends — the unbewachte Absperrung
         # (Behelf Schadenplatz); the überwacht variant below adds the watch flags
@@ -292,12 +326,13 @@ def build() -> list[dict]:
     # — the order the crews asked for: Fahrzeug, Drehleiter, Hubretter, Grosslüfter, Boot, Pumpe, …
     # Boot / Rettungsboot — side profile, bow to the right, with a small wheelhouse (BLUE outline
     # like the other Fahrzeuge). Rotatable so the heading can be aimed on the map.
+    # Redrawn from the Zivile Signaturen (01.09.). The old glyph was a side profile with a
+    # wheelhouse — three shapes' worth of detail that turned to mush at 28 px and read as a
+    # vehicle. The civil sign is a hull and a deck line, and it is legible at any size.
     add("Fahrzeuge / Mittel", "FW Boot", svg(
-        [path([(-0.85, -0.1), (1.05, -0.1), (0.6, 0.45), (-0.55, 0.45)],
-              stroke=BLUE, sw=0.1, fill="none", close=True),
-         path([(-0.5, -0.1), (-0.5, -0.5), (0.05, -0.5), (0.05, -0.1)],
-              stroke=BLUE, sw=0.1, fill="none", close=True),
-         line(-0.55, 0.45, 0.6, 0.45, stroke=BLUE, sw=0.1)],
+        [f'<path d="M -0.8 -0.5 L -0.8 -0.12 A 0.8 0.8 0 0 0 0.8 -0.12 L 0.8 -0.5" '
+         f'fill="none" stroke="{BLUE}" stroke-width="0.11" stroke-linejoin="round"/>',
+         line(-0.8, -0.12, 0.8, -0.12, stroke=BLUE, sw=0.11)],
         vb=2.6,
     ))
     add("Fahrzeuge / Mittel", "VKF Pumpe Typ2", svg(
@@ -387,6 +422,30 @@ def build() -> list[dict]:
          f'<path d="M 0.2 -0.6 L 0.4 -0.7 A 0.21 0.21 0 0 1 0.7 -0.5 A 0.23 0.23 0 0 1 0.4 -0.3 A 0.81 0.81 0 0 1 0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>'],
         vb=2.6,
     ))
+    # Helikopter — FKS Vegetationsbrand S. 52. The lying eight is the rotor disc seen from
+    # above; we had the Helilandeplatz but no sign for the machine itself, which left the
+    # landing site standing there alone.
+    add("Fahrzeuge / Mittel", "FKS Helikopter", svg(
+        [f'<path d="M -0.95 0 C -0.95 -0.5 -0.3 -0.5 0 0 C 0.3 0.5 0.95 0.5 0.95 0 '
+         f'C 0.95 -0.5 0.3 -0.5 0 0 C -0.3 0.5 -0.95 0.5 -0.95 0 Z" '
+         f'fill="none" stroke="{BLUE}" stroke-width="0.09" stroke-linejoin="round"/>'],
+        vb=2.6,
+    ))
+    # …and the mirror of our existing Drohne: we could place the machine but not where it goes
+    # up and down. Same box-with-content grammar as VKF Helilandeplatz beside it.
+    add("Fahrzeuge / Mittel", "FKS Drohnenlandeplatz", svg(
+        [path([(-1, -0.62), (1, -0.62), (1, 0.62), (-1, 0.62)], stroke=BLUE, sw=0.1, close=True),
+         path([(-0.9, -0.5), (0, 0.54), (0.9, -0.5), (0.66, -0.5), (0, 0.2), (-0.66, -0.5)],
+              stroke=BLUE, sw=0.09, close=True)],
+        vb=2.6,
+    ))
+    # Zivile Signaturen S. 7 — the Bereitstellungsraum for VEHICLES. We had Sammelplatz and
+    # Warteraum for people and nothing at all for where the Fahrzeuge are parked.
+    add("Fahrzeuge / Mittel", "ZS Fahrzeugplatz", svg(
+        [path([(-1, -0.62), (1, -0.62), (1, 0.62), (-1, 0.62)], stroke=BLUE, sw=0.1, close=True),
+         text("Fz", 0.8, fill=BLUE)],
+        vb=2.6,
+    ))
     add("Fahrzeuge / Mittel", "FW Entrauchung", svg(
         [path([(-0.5, 0.4), (0.5, 0.4), (-0.5, -0.6)], stroke=BLUE, sw=0.1, fill=BLUE, close=True),
          path([(-0.5, -0.6), (0.5, -0.6), (0.5, 0.4), (-0.5, 0.4)], stroke=BLUE, sw=0.1, close=True),
@@ -433,6 +492,40 @@ def build() -> list[dict]:
          line(-1, 0, 1, 0, stroke=BLUE, sw=0.1)],
         viewbox="-1.7 -1.7 3.4 3.4",
     ))
+    # ── Zivile Signaturen S. 7, drawn as the sheet draws them (decision 01.09.) ──
+    # Faithful rather than in our own Rechteck-plus-Kürzel house form: these are exactly the
+    # signs the partners we share a Lagekarte with — Zivilschutz, Gemeindeführungsorgan — read
+    # without being taught, and that is the whole reason to adopt them at all.
+    #
+    # Angehörige: the face over the question mark. Not the Patienten and not the Toten — the
+    # people asking after them, who need a place to be sent that nobody has to improvise.
+    add("Personen / Sanität", "ZS Angehoerigensammelstelle", person_post([
+        line(-0.4, 0, 0.4, 0, stroke=BLUE, sw=0.07),
+        circle(0, -0.5, 0.24, stroke=BLUE, sw=0.07),
+        circle(-0.09, -0.57, 0.045, stroke=BLUE, sw=0.02, fill=BLUE),
+        circle(0.09, -0.57, 0.045, stroke=BLUE, sw=0.02, fill=BLUE),
+        f'<path d="M -0.1 -0.38 A 0.14 0.14 0 0 1 0.1 -0.38" fill="none" stroke="{BLUE}" stroke-width="0.06"/>',
+        text("?", 0.62, fill=BLUE, y=0.5),
+    ]))
+    # Verpflegung and Betriebsstoff: the two things an Einsatz needs once it stops being short.
+    add("Personen / Sanität", "ZS Verpflegungsabgabestelle", person_post([
+        line(0.12, -1, 0.12, 1, stroke=BLUE, sw=0.07),
+    ]))
+    add("Personen / Sanität", "ZS Betriebsstoffabgabestelle", person_post([
+        path([(-0.25, -0.34), (0.25, -0.34), (0, 0.08)], stroke=BLUE, sw=0.08, close=True),
+        line(0, 0.08, 0, 0.62, stroke=BLUE, sw=0.08),
+    ]))
+    # Dekontaminationsstelle: we could mark the Bereich Chemiewehr but not the one place
+    # everybody coming out of it has to pass through.
+    add("Personen / Sanität", "ZS Dekontaminationsstelle", svg(
+        [circle(0, 0, 1, stroke=BLUE, sw=0.09),
+         circle(-0.42, -0.46, 0.1, stroke=BLUE, sw=0.02, fill=BLUE),
+         circle(0.42, -0.46, 0.1, stroke=BLUE, sw=0.02, fill=BLUE),
+         f'<path d="M -0.42 -0.46 Q -0.1 -0.1 0.34 0.16" fill="none" stroke="{BLUE}" stroke-width="0.08"/>',
+         f'<path d="M 0.42 -0.46 Q 0.1 -0.1 -0.34 0.16" fill="none" stroke="{BLUE}" stroke-width="0.08"/>',
+         text("DECON", 0.34, fill=BLUE, y=0.6)],
+        vb=2.6,
+    ))
     add("Personen / Sanität", "VKF Bereich Sanitaet", zone_circle("SAN"))
 
     # ── Partner
@@ -440,6 +533,11 @@ def build() -> list[dict]:
     add("Partner", "VKF Bereich Polizei", zone_circle("P"))
     add("Partner", "VKF Bereich Chemiewehr", zone_circle("CW"))
     add("Partner", "VKF Bereich Zivilschutz", zone_circle("ZS"))
+    # FKS Vegetationsbrand S. 52 — the Forstdienst, in the same open-circle grammar as the
+    # four Bereiche above it. At a Waldbrand they are the people who know the ground.
+    add("Partner", "FKS Forst", svg(
+        [circle(0, 0, 1, stroke=BLUE, sw=0.1), text("FORST", 0.46, fill=BLUE)], vb=2.6,
+    ))
 
     # ── Wasser
     add("Wasser", "SI Ueberflurhydrant", svg(
