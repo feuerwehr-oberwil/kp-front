@@ -140,12 +140,10 @@ async def _open_view_session(token: str, response: Response, db: AsyncSession) -
     Deliberately says nothing about WHY a token failed. An unknown secret, a revoked link and
     a deleted Einsatz answer alike; telling them apart only helps somebody guessing.
     """
-    secret = token[len(VIEW_TOKEN_PREFIX):]
+    secret = token[len(VIEW_TOKEN_PREFIX) :]
     if not secret:
         raise _invalid_token()
-    inc = (
-        await db.execute(select(Incident).where(Incident.view_link_key == secret))
-    ).scalar_one_or_none()
+    inc = (await db.execute(select(Incident).where(Incident.view_link_key == secret))).scalar_one_or_none()
     if inc is None:
         raise _invalid_token()
     # NOTE: `is_open` is NOT consulted, and that is the whole point of this link — it is handed

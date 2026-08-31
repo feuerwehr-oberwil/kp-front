@@ -254,9 +254,7 @@ def _real_jpeg(size: tuple[int, int] = (2200, 1650)) -> bytes:
 async def test_thumb_is_small_and_rendered_once(client, editor):
     await _login(client, editor)
     inc = await _create_incident(client)
-    r = await client.post(
-        f"/api/incidents/{inc}/media", files=_photo(data=_real_jpeg()), data={"kind": "photo"}
-    )
+    r = await client.post(f"/api/incidents/{inc}/media", files=_photo(data=_real_jpeg()), data={"kind": "photo"})
     assert r.status_code == 201, r.text
     mid = r.json()["id"]
 

@@ -289,9 +289,7 @@ async def _view_key_unchanged(db: AsyncSession, incident_id: str, fingerprint: s
         ident = uuid.UUID(incident_id)
     except (ValueError, AttributeError, TypeError):
         return False
-    current = (
-        await db.execute(select(Incident.view_link_key).where(Incident.id == ident))
-    ).scalar_one_or_none()
+    current = (await db.execute(select(Incident.view_link_key).where(Incident.id == ident))).scalar_one_or_none()
     if not current:  # revoked → the link is gone, and so is every session born from it
         return False
     return secrets.compare_digest(fingerprint, key_fingerprint(current))
