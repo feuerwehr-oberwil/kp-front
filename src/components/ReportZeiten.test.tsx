@@ -59,7 +59,7 @@ describe('Zeiten · «Jetzt» never warns about the time it just wrote', () => {
 
   it('is clean straight after mounting', () => {
     setup()
-    fireEvent.click(jetztFor(/^Ende Einsatz$/))
+    fireEvent.click(jetztFor(/^Einsatzende$/))
     expect(futureWarnings()).toHaveLength(0)
   })
 
@@ -69,7 +69,7 @@ describe('Zeiten · «Jetzt» never warns about the time it just wrote', () => {
     // Einsatzende is stamped at the end of it. The mount-time «now» made this warn «Liegt in
     // der Zukunft» about a time the operator had just stamped as NOW.
     vi.setSystemTime(new Date(2026, 7, 14, 22, 5))
-    fireEvent.click(jetztFor(/^Ende Einsatz$/))
+    fireEvent.click(jetztFor(/^Einsatzende$/))
     expect(futureWarnings()).toHaveLength(0)
   })
 
@@ -82,7 +82,7 @@ describe('Zeiten · «Jetzt» never warns about the time it just wrote', () => {
 
   it('still warns about a time that IS in the future — the check has to keep working', () => {
     setup()
-    fireEvent.click(jetztFor(/^Ende Einsatz$/))
+    fireEvent.click(jetztFor(/^Einsatzende$/))
     expect(futureWarnings()).toHaveLength(0)
     // the clock goes BACKWARDS relative to the stamp: same thing as picking tomorrow by hand
     vi.setSystemTime(new Date(2026, 7, 13, 20, 5))

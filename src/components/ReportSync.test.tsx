@@ -55,7 +55,7 @@ function setup(reportMeta: ReportMeta = {}) {
 }
 
 const field = (label: string) => screen.getByLabelText(label) as HTMLTextAreaElement | HTMLInputElement
-const kurzbericht = () => field('Kurzbeschrieb')
+const kurzbericht = () => field('Kurzbericht')
 const bemerkungen = () => field('Bemerkungen')
 /** the blob as the LAST save left it */
 const saved = (onSaveMeta: ReturnType<typeof vi.fn>) => onSaveMeta.mock.lastCall?.[0] as ReportMeta

@@ -155,6 +155,7 @@ import { markerOptions, placedTrupps, type PlacedTrupp } from './lib/placedTrupp
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
+import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { prepareUploadImage } from './lib/imagePrep'
@@ -2583,10 +2584,15 @@ export function IncidentWorkspace({
     })
     setSelectedDrawIds([]); setSelectedEntityIds([])
     // «Zeichnung entfernt» after a lasso over eleven objects is not vague, it is wrong — the
-    // singular says one thing went. The count is right here; a reconstruction needs it.
+    // singular says one thing went. The count is right here; a reconstruction needs it. A single
+    // deletion is named like its creation row («Fläche gelöscht», «Einsatzleiter gelöscht»).
     const gone = ids.length + ents.length
+    const lone = ids.length === 1 ? drawings.find((d) => d.id === ids[0]) : undefined
+    const loneEnt = ents.length === 1 ? entities.find((e) => e.id === ents[0]) : undefined
     log('close', gone > 1
       ? fillTemplate(appConfig.copy.log.selectionDeleted, { n: gone })
+      : lone ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(lone) })
+      : loneEnt ? fillTemplate(appConfig.copy.log.objectDeleted, { name: entityLogName(loneEnt) })
       : appConfig.copy.log.drawingDeleted)
   }
 

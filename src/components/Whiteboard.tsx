@@ -127,7 +127,7 @@ interface Props {
    *  change nothing. Off for replay (its scrubber owns the bottom band) and for the phone's
    *  Verlauf sheet, where the plan is parked behind a full-width overlay. */
   slimTools?: boolean
-  /** device pref «Leisten-Beschriftung» (lib/prefs · railLabels) — the word under each glyph.
+  /** device pref «Beschriftung der Werkzeugleisten» (lib/prefs · railLabels) — the word under each glyph.
    *  The setting says «in den beiden Leisten», so the plan's rail has to be handed it too. */
   railLabels?: RailLabels
   sym: SymbolsApi
