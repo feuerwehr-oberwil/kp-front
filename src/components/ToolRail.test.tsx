@@ -47,7 +47,7 @@ describe('the read-only tool rail', () => {
   })
 })
 
-// «Einstellungen · Leisten-Beschriftung» says «Wort unter jedem Zeichen in den BEIDEN Leisten».
+// «Einstellungen · Beschriftung der Werkzeugleisten» says «Wort unter jedem Zeichen in den BEIDEN Leisten».
 // It reached the Lage rail and not the Plan's, because Whiteboard rendered this same component
 // without the prop — one setting, two rails, one of them not listening. The class is what the
 // stylesheet keys the words off, so it is what gets pinned here.

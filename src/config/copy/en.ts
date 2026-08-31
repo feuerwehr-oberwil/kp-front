@@ -91,7 +91,7 @@ export const en: Localizable<Copy> = {
           { kind: 'sub', text: 'Switching areas' },
           { kind: 'list', items: [
             'Numbers open the plan module with that number – which ones exist depends on this brigade’s modules: [[1]] module 1, [[2]] or [[3]] the «2/3» module, [[4]] module 4 …',
-            '[[K]] Map · [[C]] Checklist · [[A]] SCBA · [[P]] Personnel · [[M]] Materiel · [[R]] Report – each is the first letter of the GERMAN word, because that is what the key is bound to.',
+            '[[K]] Map · [[C]] Checklist · [[A]] SCBA · [[P]] Attendance · [[M]] Materiel · [[R]] Report – each is the first letter of the GERMAN word, because that is what the key is bound to.',
             '[[⌘]] [[[]] / [[⌘]] [[]]] steps through all areas one at a time (including Surroundings and Building, which have no number).',
           ] },
           { kind: 'sub', text: 'Tools (identical in Situation and Plan)' },
@@ -2190,7 +2190,7 @@ export const en: Localizable<Copy> = {
     alarmMessage: 'Alarm message',
     alarmierung: 'Alerted',
     notRecorded: 'Not recorded',
-    summaryLabel: 'Brief description',
+    summaryLabel: 'Summary',
     summaryPlaceholder: 'What happened / what was found?',
     einsatzleiterLabel: 'Incident commander',
     einsatzleiterPlaceholder: 'Select or type',

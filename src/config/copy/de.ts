@@ -72,8 +72,8 @@ export const de = {
           { kind: 'intro' },
           { kind: 'sub', text: 'Die Arbeitsbereiche (linke Leiste)' },
           { kind: 'list', items: [
-            '**Lage** – die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
-            '**Plan** – die Objektpläne dieser Wehr (Module, Gebäudeumrisse) als Whiteboard, stockwerkweise.',
+            '**Karte** – die taktische Lagekarte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
+            '**Pläne** – Module und Gebäudeansichten dieser Wehr als taktische Arbeitsflächen, stockwerkweise.',
             '**Checkliste** – abarbeitbare Einsatz-Checklisten.',
             '**Atemschutz** – Überwachung der eingesetzten Trupps mit Zeit und Druck.',
             '**Anwesenheit** – wer im Einsatz ist, mit Zeiten und Bemerkung; auch Gäste («Weitere Person»).',
@@ -89,8 +89,8 @@ export const de = {
           { kind: 'lead', text: 'Drei feste Zonen: die Bereichsleiste links, die Einsatzleiste oben, die Werkzeugleiste rechts.' },
           { kind: 'sub', text: 'Linke Leiste' },
           { kind: 'list', items: [
-            'Wechselt den Arbeitsbereich: **Karte** (Lage), die **Pläne** (Module/Gebäude), **Checkliste**, **Atemschutz**, **Personal**, **Material**, **Rapport**. Auf jedem Knopf steht sein Buchstabe – der erste des deutschen Worts.',
-            'Im Lage-Modus sind **Ebenen** und der **Karten**-Umschalter unten angeheftet – immer sichtbar.',
+            'Wechselt den Arbeitsbereich: **Karte**, die **Pläne** (Module/Gebäude), **Checkliste**, **Atemschutz**, **Anwesenheit**, **Material**, **Rapport**. Auf jedem Knopf steht sein Buchstabe – der erste des deutschen Worts (Anwesenheit: P wie Personal).',
+            'Im Kartenbereich sind **Ebenen** und der **Karten**-Umschalter unten angeheftet – immer sichtbar.',
             'Am rechten Rand der Leiste ziehen klappt sie mit Beschriftungen auf bzw. wieder zu.',
           ] },
           { kind: 'sub', text: 'Obere Einsatzleiste' },
@@ -117,7 +117,7 @@ export const de = {
           { kind: 'sub', text: 'Bereiche wechseln' },
           { kind: 'list', items: [
             'Zahlen öffnen das Plan-Modul mit dieser Nummer – welche es gibt, richtet sich nach den Modulen dieser Wehr: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
-            '[[K]] Karte · [[C]] Checkliste · [[A]] Atemschutz · [[P]] Anwesenheit · [[M]] Material · [[R]] Rapport – jeweils der erste Buchstabe des Bereichs.',
+            '[[K]] Karte · [[C]] Checkliste · [[A]] Atemschutz · [[P]] Anwesenheit · [[M]] Material · [[R]] Rapport – jeweils der erste Buchstabe des Bereichs (Anwesenheit: P wie Personal).',
             '[[⌘]] [[[]] / [[⌘]] [[]]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
           { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
@@ -137,9 +137,9 @@ export const de = {
         ],
       },
       {
-        id: 'lage', title: 'Lage – Karte', icon: 'map',
+        id: 'lage', title: 'Karte – taktische Lagekarte', icon: 'map',
         blocks: [
-          { kind: 'lead', text: 'Die taktische Karte über dem realen Kartenhintergrund (Einsatzgebiet und Umgebung).' },
+          { kind: 'lead', text: 'Die taktische Lagekarte über dem realen Kartenhintergrund (Einsatzgebiet und Umgebung).' },
           { kind: 'list', items: [
             '**Basiskarte** (zuoberst im Ebenen-Panel) wechselt den Hintergrund: Carto, OpenStreetMap oder Satellit.',
             '**Vergrössern/Verkleinern**, **Einpassen** und **Koordinaten abgreifen** in der rechten Leiste unten. Beim Abgreifen auf die Karte tippen, um einen Punkt (LV95 + WGS84) festzuhalten; der Kompass richtet wieder nach Norden aus.',
@@ -410,7 +410,7 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Beschriftete Leisten' },
           { kind: 'list', items: [
-            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Leisten-Beschriftung»: **Wörter** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr.',
+            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Wörter** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr.',
             'Ohne diese Einstellung bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
             'Überall sonst gilt: einen Knopf, auf dem nur ein Zeichen steht, **gedrückt halten** – nach einem kurzen Moment steht sein Wort als Blase darüber, auf Touch mit einem kurzen Summen. Das Loslassen löst den Knopf dabei **nicht** aus: fragen, was etwas ist, darf es nicht gleich auch tun. An der Maus genügt Draufzeigen.',
           ] },
@@ -2384,13 +2384,13 @@ export const de = {
     colorScheme: 'Farbschema',
     // Two sliders, not one size: an unlinked Modul-2/3 sheet is a whole floor on one page and
     // needs far smaller symbols than the map. A georeferenced sheet follows Karte automatically.
-    symbolSizeMap: 'Symbolgrösse Karte',
+    symbolSizeMap: 'Symbolgrösse auf der Karte',
     symbolSizeMapSub: 'Taktische Zeichen auf der Lagekarte und verknüpften Modulplänen',
-    symbolSizeBoard: 'Symbolgrösse Module',
+    symbolSizeBoard: 'Symbolgrösse in Modulen',
     symbolSizeBoardSub: 'Taktische Zeichen auf nicht verknüpften Modulplänen',
     symbolCaptions: 'Beschriftungen',
     symbolCaptionsSub: 'Kennwert unter dem Symbol',
-    railLabels: 'Leisten-Beschriftung',
+    railLabels: 'Beschriftung der Werkzeugleisten',
     railLabelsSub: 'Wort unter jedem Zeichen in den beiden Leisten',
     railLabelsOff: 'Aus',
     railLabelsOn: 'Wörter',
@@ -2413,7 +2413,7 @@ export const de = {
     // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
     // identifier stays `elView` so stored device settings keep working.
     elView: 'Führungsansicht',
-    elViewSub: 'Taktik gesperrt – Journal & Symbol-Details bleiben aktiv',
+    elViewSub: 'Sperrt die taktische Bearbeitung – Journal & Symbol-Details bleiben verfügbar',
     elViewOn: 'Ein',
     elViewOff: 'Aus',
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
@@ -2668,7 +2668,7 @@ export const de = {
     beilagenNone: 'keine',
     kurzberichtPlaceholder: 'Was ist passiert, was wurde gemacht?',
     gruppenHead: 'Alarmierung Gruppen',
-    fahrzeugeHead: 'Ausrückzeiten Fahrzeuge',
+    fahrzeugeHead: 'Ausrückzeiten der Fahrzeuge',
     einsatzleiter: 'Einsatzleiter',
     rapportPdf: 'Rapport-PDF',
     pdfFailed: 'PDF fehlgeschlagen – nochmals versuchen',
@@ -3131,7 +3131,7 @@ export const de = {
     // Handy (≤600px): die drei Reiter, die den Rapport in drei Bildschirme statt fünf teilen.
     // Tablet und Desktop sehen sie nie — siehe ReportPreflight · PhoneTab.
     tabsLabel: 'Teil des Rapports',
-    tabs: { bericht: 'Bericht', werwas: 'Wer & Was', beilagen: 'Beilagen' },
+    tabs: { bericht: 'Bericht', werwas: 'Wer & was', beilagen: 'Beilagen' },
     // a «noch offen» chip is a button: it scrolls to the thing it names and flashes it
     headOpenGo: 'Zu «{step}» springen',
     sectionBericht: 'Bericht & Beteiligte',
@@ -3146,7 +3146,7 @@ export const de = {
     alarmMessage: 'Alarmmeldung',
     alarmierung: 'Alarmierung',
     notRecorded: 'Nicht erfasst',
-    summaryLabel: 'Kurzbeschrieb',
+    summaryLabel: 'Kurzbericht',
     summaryPlaceholder: 'Was ist passiert / was wurde angetroffen?',
     einsatzleiterLabel: 'Einsatzleiter',
     einsatzleiterPlaceholder: 'Wählen oder eingeben',
@@ -3166,7 +3166,7 @@ export const de = {
     // Bewusst nur das Wort, ohne erfundene Begründung: die Antwort lautet «gibt es nicht».
     entfaellt: 'Entfällt',
     entfaelltUndo: 'Ändern',
-    incidentEndLabel: 'Ende Einsatz',
+    incidentEndLabel: 'Einsatzende',
     // Plausibility of the Einsatzzeiten — a hint, not a block: printing always happens.
     zeitBeforeAlarm: 'Liegt vor der Alarmierung ({t})',
     zeitBeforeAusgerueckt: 'Liegt vor dem Ausrücken ({t})',
@@ -3194,7 +3194,7 @@ export const de = {
     gerettetePersonen: 'Personen',
     geretteteTiere: 'Tiere',
     gruppenLabel: 'Alarmierung Gruppen',
-    fahrzeugeLabel: 'Ausrückzeiten Fahrzeuge',
+    fahrzeugeLabel: 'Ausrückzeiten der Fahrzeuge',
     ausgeruecktDerived: 'aus den Fahrzeugzeiten übernommen',
     vorOrtShort: 'vor Ort',
     zurueckShort: 'zurück',
@@ -3310,9 +3310,9 @@ export const de = {
     framingFit: 'Auf Einsatz zoomen',
     // Until 09.08. the crop did not follow along: picked once at 22:20, printed unchanged at
     // 01:30 — with everything added since then outside it, and nobody saying so.
-    framingFollows: 'Folgt der Lage',
-    framingFollowOn: 'Der Ausschnitt wächst mit der Lage mit. Verschieben schaltet das ab.',
-    framingFollowOff: 'Ausschnitt an die Lage anpassen – und mitwachsen lassen',
+    framingFollows: 'Folgt der Lagekarte',
+    framingFollowOn: 'Der Ausschnitt wächst mit der Lagekarte mit. Verschieben schaltet das ab.',
+    framingFollowOff: 'Ausschnitt an die Lagekarte anpassen – und mitwachsen lassen',
     // An arrow instead of zooming out: what lies outside is usually a Hydrant two streets away,
     // and shrinking half the picture for that costs more than it gains.
     framingOutside: '{n} ausserhalb – antippen zum Anpassen',

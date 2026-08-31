@@ -90,7 +90,7 @@ export const it: Localizable<Copy> = {
           { kind: 'sub', text: 'Cambiare area' },
           { kind: 'list', items: [
             'I numeri aprono il modulo di piano con quel numero – quali esistono dipende dai moduli del corpo: [[1]] modulo 1, [[2]] o [[3]] il modulo «2/3», [[4]] modulo 4 …',
-            '[[K]] Carta · [[C]] Checklist · [[A]] Protezione respiratoria · [[P]] Personale · [[M]] Materiale · [[R]] Rapporto – ogni tasto è la prima lettera della parola TEDESCA, perché è a quella che la scorciatoia è legata.',
+            '[[K]] Carta · [[C]] Checklist · [[A]] Protezione respiratoria · [[P]] Presenza · [[M]] Materiale · [[R]] Rapporto – ogni tasto è la prima lettera della parola TEDESCA, perché è a quella che la scorciatoia è legata.',
             '[[⌘]] [[[]] / [[⌘]] [[]]] scorre tutte le aree una per una (anche Dintorni ed Edificio, che non hanno numero).',
           ] },
           { kind: 'sub', text: 'Strumenti (uguali in Situazione e Piano)' },
@@ -2193,7 +2193,7 @@ export const it: Localizable<Copy> = {
     alarmMessage: 'Messaggio d’allarme',
     alarmierung: 'Allarme',
     notRecorded: 'Non registrato',
-    summaryLabel: 'Breve descrizione',
+    summaryLabel: 'Rapporto breve',
     summaryPlaceholder: 'Cosa è successo / cosa è stato trovato?',
     einsatzleiterLabel: 'Capo intervento',
     einsatzleiterPlaceholder: 'Scegli o inserisci',

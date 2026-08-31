@@ -1326,7 +1326,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   .report-preflight-body[data-phone-tab="werwas"] [data-tab="beilagen"],
   .report-preflight-body[data-phone-tab="beilagen"] [data-tab="bericht"],
   .report-preflight-body[data-phone-tab="beilagen"] [data-tab="werwas"] { display: none; }
-  /* the QR chip belongs to «Wer & Was» — see the component for why it is hidden here and not
+  /* the QR chip belongs to «Wer & was» — see the component for why it is hidden here and not
      wrapped in an element of its own */
   .report-preflight-body[data-phone-tab="bericht"] .capture-usage-chip,
   .report-preflight-body[data-phone-tab="beilagen"] .capture-usage-chip { display: none; }

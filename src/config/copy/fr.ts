@@ -90,7 +90,7 @@ export const fr: Localizable<Copy> = {
           { kind: 'sub', text: 'Changer de zone' },
           { kind: 'list', items: [
             'Les chiffres ouvrent le module de plan portant ce numéro – ceux qui existent dépendent des modules du corps : [[1]] module 1, [[2]] ou [[3]] le module « 2/3 », [[4]] module 4 …',
-            '[[K]] Carte · [[C]] Checklist · [[A]] Protection respiratoire · [[P]] Personnel · [[M]] Matériel · [[R]] Rapport – chaque touche est la première lettre du mot ALLEMAND, car c’est à elle que le raccourci est lié.',
+            '[[K]] Carte · [[C]] Checklist · [[A]] Protection respiratoire · [[P]] Présence · [[M]] Matériel · [[R]] Rapport – chaque touche est la première lettre du mot ALLEMAND, car c’est à elle que le raccourci est lié.',
             '[[⌘]] [[[]] / [[⌘]] [[]]] parcourt toutes les zones une à une (y compris Environs et Bâtiment, qui n’ont pas de numéro).',
           ] },
           { kind: 'sub', text: 'Outils (identiques en Situation et en Plan)' },
@@ -2193,7 +2193,7 @@ export const fr: Localizable<Copy> = {
     alarmMessage: 'Message d’alarme',
     alarmierung: 'Alarme',
     notRecorded: 'Non saisi',
-    summaryLabel: 'Description brève',
+    summaryLabel: 'Rapport succinct',
     summaryPlaceholder: 'Que s’est-il passé / qu’a-t-on trouvé ?',
     einsatzleiterLabel: 'Chef d’intervention',
     einsatzleiterPlaceholder: 'Sélectionner ou saisir',
