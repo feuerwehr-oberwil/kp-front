@@ -183,6 +183,17 @@
 .rz-counts { display: flex; flex-direction: column; gap: 6px; }
 .rz-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--tap); }
 .rz-count > span { font: 600 13px var(--body); color: var(--ink-dim); }
+/* «Auf der Lage: 2 Personen · 1 Tier — Übernehmen». Same recipe as the Material surface's
+   reconciliation strip (Mittel.module.css · .recStrip), because it is the same promise: the app
+   says what it read and where, and the number only reaches the Rapport on a tap. */
+.rz-lage-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px;
+  padding: 9px 12px; background: color-mix(in srgb, var(--blue) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--blue) 32%, transparent); border-radius: var(--r-ctl); }
+.rz-lage-text { flex: 1 1 180px; min-width: 0; font: 600 13px var(--body); color: var(--ink-dim); }
+.rz-lage-take { flex: none; border: none; border-radius: var(--r-sm); padding: 8px 14px; cursor: pointer;
+  min-height: var(--tap); font: 700 12.5px var(--body); background: var(--btn-primary); color: var(--on-btn-primary); }
+.rz-lage-take:active { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .rz-lage-take:hover { background: var(--btn-primary-hover); } }
 
 /* padding > the gap between the items inside it. At 10px/12px around a 14px stack, the fields
    were further from each other than from the card wall — the classic «content bursting out of

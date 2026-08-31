@@ -176,6 +176,11 @@ const base = {
     // as a real plate with the Gefahrnummer (Kemler) over the UN number baked in (see
     // lib/placard · placardSvgForSymbol), the same way the vehicle bakes its name.
     placardName: 'FW Gefahr Tafel',
+    // the Rettungs-Symbol. Its count stepper reads «Anzahl Personen» and its second field is
+    // «Anzahl Tiere», so it carries both figures the Rapport asks for under «Gerettete» — which
+    // is what lib/gerettete offers back into the form instead of making somebody re-count the
+    // Kroki by eye at the end of an Einsatz.
+    rescueName: 'VKF Rettungen',
     // the Einsatzleiter glyph. Its 'Name' field is the person in charge, so a Kroki that carries
     // one pre-fills the Rapport's Einsatzleiter (lib/report · einsatzleiterFromScene).
     einsatzleiterName: 'VKF Einsatzleiter',

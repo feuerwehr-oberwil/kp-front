@@ -5,6 +5,7 @@ import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { thumbUrl } from '../lib/mediaUrl'
+import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
 import { rowPhotos } from '../lib/verlauf'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
@@ -494,6 +495,18 @@ export function ReportPreflight({
   const [fahrzeuge, setFahrzeuge, fahrzeugeDirty] = useSyncedField<FahrzeugZeit[]>('fahrzeuge', remoteFahrzeuge, normList, blurTick)
   const [geretteteP, setGeretteteP, gerettetePDirty] = useSyncedField('geretteteP', remoteGeretteteP, normCount, blurTick)
   const [geretteteT, setGeretteteT, geretteteTDirty] = useSyncedField('geretteteT', remoteGeretteteT, normCount, blurTick)
+  // ── «Auf der Lage» — the Gerettete already standing on the map, offered into the fields ──
+  // Same shape as the Material surface's «Gesetzt, aber nicht erfasst» strip: it states what it
+  // read and where, one tap fills both fields, and nothing is ever written on its own. The
+  // Rettungs-Symbol carries «Anzahl Personen» in its count and «Anzahl Tiere» in its own field,
+  // so the number the Rapport asks for has been on the Kroki the whole time (lib/gerettete).
+  const geretteteLage = useMemo(
+    () => geretteteFromLage([...(scene?.entities ?? []), ...Object.values(board ?? {}).flat()]),
+    [scene?.entities, board],
+  )
+  const geretteteHint = canEdit
+    ? geretteteOffer(geretteteLage, { personen: numOrU(geretteteP), tiere: numOrU(geretteteT) })
+    : null
   const [rueckName, setRueckName, rueckNameDirty] = useSyncedField('rueckName', remoteRueckName, normText, blurTick)
   // ⚠️ The full ISO, not an HH:MM. The Rückmeldung an die ELZ is regularly given after
   // midnight, or the morning after on a long Einsatz, and a bare clock had to guess which
@@ -1763,6 +1776,28 @@ export function ReportPreflight({
                       onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
                   </div>
                 </div>
+                {/* No ✕ here, unlike the Material strip: this one disappears by itself the moment
+                    the fields agree with the Lage, so «weg damit» and «stimmt» are the same tap. */}
+                {geretteteHint && (
+                  <div className="rz-lage-strip" role="status">
+                    <span className="rz-lage-text">
+                      {fillTemplate(P.geretteteLageStrip, {
+                        list: [
+                          geretteteHint.personen ? fillTemplate(P.geretteteLagePersonen, { n: geretteteHint.personen }) : '',
+                          geretteteHint.tiere ? fillTemplate(P.geretteteLageTiere, { n: geretteteHint.tiere }) : '',
+                        ].filter(Boolean).join(' · '),
+                      })}
+                    </span>
+                    <button type="button" className="rz-lage-take"
+                      onClick={() => {
+                        const p = String(geretteteHint.personen)
+                        const t = String(geretteteHint.tiere)
+                        setGeretteteP(p); setGeretteteT(t); persist(geretteteOver(p, t))
+                      }}>
+                      {P.geretteteLageTake}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </section>

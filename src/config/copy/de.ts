@@ -3197,6 +3197,13 @@ export const de = {
     lehrenLabel: 'Lehren / Sicherheit',
     lehrenPlaceholder: 'Erkenntnisse, Sicherheitshinweise (optional)',
     geretteteLabel: 'Gerettete',
+    // Das Rettungs-Symbol trägt beide Zahlen schon (Anzahl Personen im Zähler, «Anzahl Tiere» im
+    // Feld) – der Streifen sagt, was auf der Lage steht, und füllt auf Tipp. Gleiche Form wie
+    // «Gesetzt, aber nicht erfasst» im Material (mittel.lageStrip).
+    geretteteLageStrip: 'Auf der Lage: {list}',
+    geretteteLagePersonen: '{n} Personen',
+    geretteteLageTiere: '{n} Tiere',
+    geretteteLageTake: 'Übernehmen',
     gerettetePersonen: 'Personen',
     geretteteTiere: 'Tiere',
     gruppenLabel: 'Alarmierung Gruppen',
