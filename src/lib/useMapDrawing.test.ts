@@ -106,8 +106,8 @@ describe('settleDraft (A6)', () => {
     expect(deps.drawings.some((d) => d.kind === 'area')).toBe(false)
     expect(deps.setTool).toHaveBeenCalledWith('area')
     expect(result.current.draft).toEqual(ring)
-    // the record stays truthful — created, then taken back
-    expect(deps.log.mock.calls.map((c) => c[1])).toContain('Zeichnung gelöscht')
+    // the record stays truthful — created, then taken back, named like its creation row
+    expect(deps.log.mock.calls.map((c) => c[1])).toContain('Fläche gelöscht')
   })
 
   it('a fragment below the minimum is discarded OUT LOUD, never silently', () => {

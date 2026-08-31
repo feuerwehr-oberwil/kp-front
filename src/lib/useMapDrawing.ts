@@ -170,7 +170,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
           if (tacticalLocked) return
           commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== drawing.id) }))
           emit('draw.delete', { id: drawing.id })
-          log('close', appConfig.copy.log.drawingDeleted)
+          log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(drawing) }))
           setTool(wasTool)
           if (wasTool === 'line') setLineMode('nodes')
           setDraftRaw(coords)
@@ -376,7 +376,11 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       emit('draw.edit', { id: drawing.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
     })
     if (selectedDrawingId === id) setSelectedDrawingId(null)
-    log('close', appConfig.copy.log.drawingDeleted)
+    // named like its creation row («Fläche gezeichnet» → «Fläche gelöscht»), not the bare kind-blind
+    // «Zeichnung gelöscht» the record used to close on
+    log('close', target
+      ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(target) })
+      : appConfig.copy.log.drawingDeleted)
   }
 
   /** One magnetic attach/detach/retarget gesture = one document checkpoint and one audit event. */
