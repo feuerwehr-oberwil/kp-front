@@ -3301,6 +3301,28 @@ export const de = {
     // «Formulare & Links» – die eigenen Formulare der Wehr (Verwaltung › Rapport). Der ganze
     // Abschnitt fehlt, wo keine konfiguriert sind, darum braucht es keinen leeren Zustand.
     linksHead: 'Formulare & Links',
+    // ── Weitergeben: der Einsatz-Link ──
+    // Eigene Sektion unter der Checkliste (Entscheid 01.09.). Der Link ist ein Ergebnis des
+    // Rapports, kein Häkchen – und die Warnung steht UNTER der Adresse, nicht in einem Tooltip:
+    // sie ist das eine, was jemand gelesen haben muss, bevor er ihn verschickt.
+    shareHead: 'Weitergeben',
+    shareLede: 'Ein Link auf genau diesen Einsatz – Lage, Pläne, Verlauf, Fotos, Zeiten. '
+      + 'Nur lesen, kein Login, nichts lässt sich ändern.',
+    shareLiveLede: 'Gilt, bis du ihn aufhebst – auch nachdem der Einsatz abgeschlossen ist.',
+    shareCreate: 'Link erstellen',
+    shareBusy: 'Link wird erstellt …',
+    shareCreateFailed: 'Link erstellen fehlgeschlagen',
+    shareCopy: 'Adresse kopieren',
+    shareCopied: 'Kopiert',
+    shareWarn: 'Wer den Link hat, sieht den ganzen Einsatz – Namen der Anwesenden, Fotos und den '
+      + 'vollständigen Verlauf.',
+    shareRevoke: 'Link aufheben',
+    shareRevokeTitle: 'Einsatz-Link aufheben?',
+    shareRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer sie gerade offen hat, sieht '
+      + 'ab sofort nichts mehr. Ein neuer Link lässt sich jederzeit erstellen – er ist dann eine '
+      + 'andere Adresse.',
+    shareRevokeConfirm: 'Ja, aufheben',
+    shareRevokeFailed: 'Link aufheben fehlgeschlagen',
     linksCount: '{done} von {n} erledigt',
     linksOpen: 'Öffnen',
     // Der Haken sagt «ich habe das erledigt» – die App sieht nie, ob ein Formular abgeschickt

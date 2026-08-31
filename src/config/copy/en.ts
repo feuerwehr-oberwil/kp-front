@@ -2253,6 +2253,23 @@ export const en: Localizable<Copy> = {
     attachmentsPending: 'not uploaded yet',
     attachmentsFailed: 'Photo {name} could not be uploaded – it will not appear in print.',
     linksHead: 'Forms & links',
+    shareHead: 'Share',
+    shareLede: 'A link to this incident alone – map, plans, journal, photos, times. '
+      + 'Read-only, no login, nothing can be changed.',
+    shareLiveLede: 'Valid until you revoke it – including after the incident is closed.',
+    shareCreate: 'Create link',
+    shareBusy: 'Creating link …',
+    shareCreateFailed: 'Creating the link failed',
+    shareCopy: 'Copy address',
+    shareCopied: 'Copied',
+    shareWarn: 'Anyone holding the link sees the whole incident – the names of everyone present, '
+      + 'the photos and the full journal.',
+    shareRevoke: 'Revoke link',
+    shareRevokeTitle: 'Revoke the incident link?',
+    shareRevokeBody: 'The address stops working. Anyone who has it open right now loses access '
+      + 'immediately. A new link can be created at any time – it will be a different address.',
+    shareRevokeConfirm: 'Yes, revoke',
+    shareRevokeFailed: 'Revoking the link failed',
     linksCount: '{done} of {n} done',
     linksOpen: 'Open',
     linksMarkDone: 'Mark {title} as done',

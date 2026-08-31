@@ -2255,6 +2255,23 @@ export const fr: Localizable<Copy> = {
     attachmentsPending: 'pas encore téléversée',
     attachmentsFailed: 'La photo {name} n’a pas pu être téléversée – elle ne figurera pas à l’impression.',
     linksHead: 'Formulaires & liens',
+    shareHead: 'Transmettre',
+    shareLede: 'Un lien vers cette intervention uniquement – carte, plans, journal, photos, heures. '
+      + 'Lecture seule, sans connexion, rien ne peut être modifié.',
+    shareLiveLede: 'Valable jusqu’à ce que vous le révoquiez – même après la clôture.',
+    shareCreate: 'Créer le lien',
+    shareBusy: 'Création du lien …',
+    shareCreateFailed: 'La création du lien a échoué.',
+    shareCopy: 'Copier l’adresse',
+    shareCopied: 'Copié',
+    shareWarn: 'Toute personne disposant du lien voit l’intervention entière – les noms des '
+      + 'présents, les photos et le journal complet.',
+    shareRevoke: 'Révoquer le lien',
+    shareRevokeTitle: 'Révoquer le lien d’intervention ?',
+    shareRevokeBody: 'L’adresse cessera de fonctionner. Qui l’a ouverte perd l’accès '
+      + 'immédiatement. Un nouveau lien peut être créé à tout moment – ce sera une autre adresse.',
+    shareRevokeConfirm: 'Oui, révoquer',
+    shareRevokeFailed: 'La révocation du lien a échoué.',
     linksCount: '{done} sur {n} faits',
     linksOpen: 'Ouvrir',
     linksMarkDone: 'Marquer {title} comme fait',

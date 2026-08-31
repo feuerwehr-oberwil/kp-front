@@ -6,6 +6,7 @@ import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
+import { createViewLink, fetchViewLink, revokeViewLink, viewLinkUrl, type ViewLink } from '../lib/viewLink'
 import { rowPhotos } from '../lib/verlauf'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
@@ -495,6 +496,34 @@ export function ReportPreflight({
   const [fahrzeuge, setFahrzeuge, fahrzeugeDirty] = useSyncedField<FahrzeugZeit[]>('fahrzeuge', remoteFahrzeuge, normList, blurTick)
   const [geretteteP, setGeretteteP, gerettetePDirty] = useSyncedField('geretteteP', remoteGeretteteP, normCount, blurTick)
   const [geretteteT, setGeretteteT, geretteteTDirty] = useSyncedField('geretteteT', remoteGeretteteT, normCount, blurTick)
+  // ── Der Einsatz-Link ──
+  // One Einsatz, read-only, no login, for somebody OUTSIDE the station. Its own section rather
+  // than a row in the checklist beside it (decision 01.09., mockup 1): the link is a RESULT of
+  // the Rapport, not a thing to tick off — «Einsatz-Link ✓» would read as «weitergegeben» — and
+  // a station has to be able to see at a glance that this Einsatz is open to the outside,
+  // without unfolding anything.
+  const [viewLink, setViewLink] = useState<ViewLink | null>(null)
+  const [viewLinkBusy, setViewLinkBusy] = useState(false)
+  const [viewLinkCopied, setViewLinkCopied] = useState(false)
+  useEffect(() => {
+    if (!canEdit) return // a viewer never mints one, and asking would only 403
+    let alive = true
+    void fetchViewLink(incident.id).then((l) => { if (alive) setViewLink(l) }).catch(() => {})
+    return () => { alive = false }
+  }, [incident.id, canEdit])
+  const runViewLink = async (fn: () => Promise<ViewLink>, failure: string) => {
+    setViewLinkBusy(true)
+    try { setViewLink(await fn()) } catch { toast(failure) } finally { setViewLinkBusy(false) }
+  }
+  const copyViewLink = async () => {
+    if (!viewLink) return
+    try {
+      await navigator.clipboard.writeText(viewLinkUrl(viewLink))
+      setViewLinkCopied(true)
+      window.setTimeout(() => setViewLinkCopied(false), 2000)
+    } catch { /* clipboard blocked (http / permissions) — the address stays selectable */ }
+  }
+
   // ── «Auf der Lage» — the Gerettete already standing on the map, offered into the fields ──
   // Same shape as the Material surface's «Gesetzt, aber nicht erfasst» strip: it states what it
   // read and where, one tap fills both fields, and nothing is ever written on its own. The
@@ -2309,6 +2338,52 @@ export function ReportPreflight({
               </CheckRow>
             )}
           </div>
+
+          {/* ── Weitergeben ─────────────────────────────────────────────────────────────
+              A section of its own, below the checklist. Never on paper: the printed Rapport is
+              the record, and «wer darf das hier lesen» is not part of it. Absent for a viewer —
+              handing the Einsatzakte out of the station is an editor's decision. */}
+          {canEdit && (
+            <section className="report-pre-section rp-share" data-tab="beilagen">
+              <h3>{P.shareHead}</h3>
+              {!viewLink?.enabled ? (
+                <>
+                  <p className="rp-share-lede">{P.shareLede}</p>
+                  <button type="button" className="ip-btn primary" disabled={viewLinkBusy}
+                    onClick={() => void runViewLink(() => createViewLink(incident.id), P.shareCreateFailed)}>
+                    <Icon id="external" />{viewLinkBusy ? P.shareBusy : P.shareCreate}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="rp-share-lede">{P.shareLiveLede}</p>
+                  <div className="rp-share-row">
+                    {/* the whole address is the copy target — a 12px «Kopieren» beside a URL is a
+                        miss waiting to happen with a glove on (same call as the Formular rows) */}
+                    <button type="button" className={cx('rp-share-url', viewLinkCopied && 'copied')}
+                      onClick={() => void copyViewLink()}
+                      title={viewLinkCopied ? P.shareCopied : P.shareCopy} aria-label={P.shareCopy}>
+                      <code>{viewLinkUrl(viewLink)}</code>
+                      <span className="rp-share-copy" aria-hidden><Icon id={viewLinkCopied ? 'check' : 'doc'} /></span>
+                    </button>
+                    <button type="button" className="ip-btn rp-share-revoke" disabled={viewLinkBusy}
+                      onClick={() => void confirmDialog({
+                        title: P.shareRevokeTitle,
+                        message: P.shareRevokeBody,
+                        confirmLabel: P.shareRevokeConfirm,
+                        danger: true,
+                      }).then(async (ok) => { if (ok) await runViewLink(() => revokeViewLink(incident.id), P.shareRevokeFailed) })}>
+                      {P.shareRevoke}
+                    </button>
+                  </div>
+                  {/* Says what the link actually hands over. It is the one thing somebody has to
+                      have read BEFORE sending it, so it stands under the address, not behind a
+                      tooltip. */}
+                  <p className="rp-share-warn"><Icon id="warn" />{P.shareWarn}</p>
+                </>
+              )}
+            </section>
+          )}
 
           {/* The Kroki, on the page. It was a modal that opened on the press of PDF / Ausdrucken,
               so the crop was chosen blind for the whole time the rapport was being written and

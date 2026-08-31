@@ -2255,6 +2255,23 @@ export const it: Localizable<Copy> = {
     attachmentsPending: 'non ancora caricata',
     attachmentsFailed: 'La foto {name} non è stata caricata – non comparirà nella stampa.',
     linksHead: 'Moduli e link',
+    shareHead: 'Condividere',
+    shareLede: 'Un link a questo solo intervento – carta, piani, diario, foto, orari. '
+      + 'Sola lettura, senza login, nulla è modificabile.',
+    shareLiveLede: 'Valido finché non lo revochi – anche dopo la chiusura dell’intervento.',
+    shareCreate: 'Crea link',
+    shareBusy: 'Creazione del link …',
+    shareCreateFailed: 'Creazione del link non riuscita',
+    shareCopy: 'Copia indirizzo',
+    shareCopied: 'Copiato',
+    shareWarn: 'Chi ha il link vede l’intero intervento – i nomi dei presenti, le foto e il '
+      + 'diario completo.',
+    shareRevoke: 'Revoca link',
+    shareRevokeTitle: 'Revocare il link dell’intervento?',
+    shareRevokeBody: 'L’indirizzo smetterà di funzionare. Chi lo ha aperto perde subito l’accesso. '
+      + 'Un nuovo link può essere creato in qualsiasi momento – sarà un altro indirizzo.',
+    shareRevokeConfirm: 'Sì, revoca',
+    shareRevokeFailed: 'Revoca del link non riuscita',
     linksCount: '{done} di {n} fatti',
     linksOpen: 'Apri',
     linksMarkDone: 'Segna {title} come fatto',
