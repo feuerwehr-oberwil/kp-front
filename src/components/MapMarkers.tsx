@@ -15,7 +15,7 @@ import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { fanOffsets, markerZ, pileAt } from '../lib/labelPass'
 import { noteScale, noteWPx, clampNoteWPx } from '../lib/notes'
-import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer } from '../lib/mapView'
+import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
 // stopPropagation, so react-map-gl's marker-drag (a listener on the parent that fires on the same
@@ -257,10 +257,17 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // The view they were computed for is stored with them: a zoom or a rotation re-lays the whole
   // map out under the spokes, so the answer expires by DERIVATION rather than by an effect that
   // would have to race the re-render.
-  const [fanState, setFan] = useState<{ view: string; offsets: Record<string, { dx: number; dy: number }> } | null>(null)
-  const view = `${zoom}|${bearing}`
-  const fan = fanState?.view === view ? fanState.offsets : null
-  const openFan = (offsets: Record<string, { dx: number; dy: number }>) => setFan({ view, offsets })
+  // ⚠️ …and so does a member that has MOVED since. A spoke is a promise — the hairline says «this
+  // glyph really stands there» — and a live position reporting a new fix (or a symbol another
+  // device pushed) broke it: the glyph kept hanging off the old offset while its true point had
+  // gone, which reads as the label coming off its dot. Their coordinates are part of the key.
+  type FanOffsets = Record<string, { dx: number; dy: number }>
+  const fanKey = (offsets: FanOffsets) => `${zoom}|${bearing}|` + Object.keys(offsets).sort()
+    .map((id) => { const e = entities.find((x) => x.id === id); return e ? `${id}@${e.coord[0]},${e.coord[1]}` : id })
+    .join('|')
+  const [fanState, setFan] = useState<{ key: string; offsets: FanOffsets } | null>(null)
+  const fan = fanState && fanState.key === fanKey(fanState.offsets) ? fanState.offsets : null
+  const openFan = (offsets: FanOffsets) => setFan({ key: fanKey(offsets), offsets })
   // A tap anywhere that is not a fanned glyph closes the fan — including a tap on the map, which
   // this component never sees otherwise. Capture phase, and bound only while a fan is open.
   useEffect(() => {
@@ -422,6 +429,15 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // They share the halo AND the raised stacking: tapping a symbol that sits under another
         // one has to bring it out, or the panel opens for something the operator cannot see.
         const raised = selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id
+        // ⚠️ A Trupp marker is a STRIP — [dot][gap][name] — and centring the whole strip put half
+        // the NAME's width between the dot and the point it states: the dot stood off its own
+        // Trupp, and jumped sideways the moment the label pass dropped the name (a symbol dragged
+        // past is enough), which read as the label coming off its dot and the dot moving on its
+        // own. Anchored by its LEFT edge with half a dot taken back, the dot sits ON the
+        // coordinate and the name simply hangs off it — appearing or disappearing moves nothing.
+        // The selected pill does the same with its accent cap, so selecting doesn't shift it
+        // either. Every other marker is centred on its glyph, as before.
+        const teamStrip = e.kind === 'team'
         // Tactical stacking, decided in ONE place (lib/labelPass · MARKER_Z / markerZ). It has to
         // be set HERE, on the marker container: every MapLibre marker is its own stacking context
         // (it carries a transform), so a z-index inside the marker cannot lift it past a sibling.
@@ -431,7 +447,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           key={e.id}
           longitude={e.coord[0]}
           latitude={e.coord[1]}
-          anchor="center"
+          anchor={teamStrip ? 'left' : 'center'}
+          offset={teamStrip ? [selectedId === e.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2, 0] : undefined}
           style={{ zIndex: z }}
           draggable={false}
           // swallow the synthetic click so it can't reach the map (deselect / placement); selection
@@ -452,8 +469,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   // Which marker did the finger MEAN? Not "whichever DOM node happened to be on
                   // top" — that is placement order, and it is how a tap on the Wasserbezugsort
                   // handed you the Kleinlöscher. Resolve the whole pile under the pad by nearest
-                  // centre; the gesture (tap AND hold-drag) then targets that one, so what you
-                  // select and what you move can never be two different symbols.
+                  // centre; a SELECT then targets that one.
+                  // ⚠️ A DRAG does not: it acts on the marker actually pressed. Nearest-centre
+                  // only ever differs from it when the pad covers several markers — and there the
+                  // tap makes no choice either, it fans the pile out and asks. Letting the drag
+                  // guess there moved a neighbour the finger never touched (and, when the neighbour
+                  // was a live person position, silently refused to move anything at all).
                   const pile = pileUnder(ev.currentTarget, cx, cy, e)
                   const near = (pile.length ? entities.find((x) => x.id === pile[0].id) : undefined) ?? e
                   const fanned = !!fan
@@ -471,14 +492,14 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     onHoldStart: () => {
                       // a rotor / shape-transform gesture owns the pointer — never also translate
                       if (rotateRef.current || shapeRef.current) { hold.cancel(); return }
-                      entDrag.current = { id: near.id, cx, cy, lx: cx, ly: cy, moved: false, last: null }
+                      entDrag.current = { id: e.id, cx, cy, lx: cx, ly: cy, moved: false, last: null }
                       // don't select here: a quick hold-drag to reposition shouldn't open the
                       // ContextPanel. The move targets the symbol by id regardless of selection;
                       // selection (→ panel) is deferred to onDragEnd and only if it never moved.
                       setDragPan(false) // stop the map panning under the held symbol
                     },
                     onDragMove: (mx, my) => {
-                      const st = entDrag.current; if (!st || st.id !== near.id) return
+                      const st = entDrag.current; if (!st || st.id !== e.id) return
                       // deadzone: don't move until the finger clears DRAG_DEADZONE_PX from the grab point
                       if (!st.moved && Math.hypot(mx - st.cx, my - st.cy) < DRAG_DEADZONE_PX) return
                       // Re-anchor on EVERY move: project where the symbol is NOW through the LIVE map
@@ -488,24 +509,28 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       // through the new transform then teleports the symbol, which is what «bugs out
                       // when the map resizes» looked like. Incrementally, a changed transform costs
                       // nothing: the symbol simply keeps its screen offset to the finger.
-                      const base = project((st.last ?? near.coord) as LngLat)
+                      const base = project((st.last ?? e.coord) as LngLat)
                       if (!base) return
                       const nc = unproject({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
                       if (!nc) return
                       st.lx = mx; st.ly = my
                       // snapshot for undo + show the selection halo on first real move — and on a
                       // phone let the detail sheet peek away, so the drag has the whole surface
-                      if (!st.moved) { st.moved = true; onMarkerDragStart(near.id); setDraggingId(near.id); beginSheetPeek() }
+                      if (!st.moved) { st.moved = true; onMarkerDragStart(e.id); setDraggingId(e.id); beginSheetPeek() }
                       st.last = nc
-                      onMarkerMove(near.id, nc)
+                      onMarkerMove(e.id, nc)
                     },
                     onDragEnd: () => {
                       const st = entDrag.current; entDrag.current = null
                       setDragPan(true)
                       setDraggingId(null) // drop the halo once it stops moving
                       endSheetPeek() // …and the sheet comes back to the height it had
-                      if (st?.moved && st.last) onMarkerDragEnd(near.id, st.last)
-                      else if (selectedId !== near.id) selectEntity(near) // held but never dragged → treat as a select (open the panel)
+                      if (st?.moved && st.last) onMarkerDragEnd(e.id, st.last)
+                      // held but never dragged → treat as a select (open the panel). A SELECT
+                      // resolves the pile like a tap does — by nearest centre, never by whichever
+                      // node is on top — or a slow gloved tap would hand out the wrong marker
+                      // while a quick one on the same spot got it right.
+                      else if (selectedId !== near.id) selectEntity(near)
                     },
                     // An already-selected symbol (panel open) drags INSTANTLY like a mouse — move
                     // on the first travel, no hold delay. Unselected touch still needs the deliberate
@@ -516,7 +541,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     // a different and unbacked claim from the one the dot makes.
                     // While a pile is fanned nothing drags: the glyphs are standing off their
                     // real positions, so a drag would write back a coordinate nobody chose.
-                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && near.kind !== 'person' && !fanned })
+                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && e.kind !== 'person' && !fanned })
                 }
               : undefined}
           >

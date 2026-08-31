@@ -286,6 +286,24 @@ function withoutAreaPrefix(text: string): string {
   return text
 }
 
+/**
+ * Paper NAMES the Beilagen a row carries.
+ *
+ * ⚠️ A generic Beilage (PDF, Dokument) has no plate in the Rapport the way a photo does — the
+ * file itself travels in the Beilagen-ZIP. Without this, a row whose only content IS a document
+ * printed as an empty timestamped line, and the record lost the one thing it can still say:
+ * which document belonged to that moment. Appended to the text, so it reaches the PDF through
+ * `markup` (and its escaping) like every other word of the row.
+ */
+function withFileNames(text: string, files?: { name: string }[]): string {
+  if (!files?.length) return text
+  const C = appConfig.copy.journal
+  const label = fillTemplate(files.length > 1 ? C.attachPrintMany : C.attachPrint, {
+    names: files.map((f) => f.name).join(', '),
+  })
+  return text.trim() ? `${text} · ${label}` : label
+}
+
 export function journalRows(
   events: TimelineEvent[], plans: PlanDocument[], fallbackDate?: string, closedAt?: string | null,
   opts?: { includeBookkeeping?: boolean; vocab?: JournalLink[] },
@@ -307,8 +325,9 @@ export function journalRows(
     })
     .map((e) => {
       const iso = eventIso(e, fallbackDate)
-      // …and through `rowText` first, so a picture on paper carries no «Foto» caption either
-      const text = withoutAreaPrefix(rowText(e))
+      // …and through `rowText` first, so a picture on paper carries no «Foto» caption either —
+      // then the row's Beilagen by name, so a files-only line is not an empty line
+      const text = withFileNames(withoutAreaPrefix(rowText(e)), e.files)
       return {
         id: e.id,
         iso,

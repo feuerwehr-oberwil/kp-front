@@ -52,7 +52,6 @@ export const de = {
   help: {
     menu: 'Funktionen & Hilfe',
     title: 'Was kann KP Front?',
-    subtitle: 'Alle Funktionen auf einen Blick – gebaut, um auch um 3 Uhr morgens ohne Übung bedienbar zu sein.',
     contents: 'Inhalt',
     close: 'Schliessen',
     // The help is long and gets opened during an Einsatz with a concrete question, not to be
@@ -1035,10 +1034,30 @@ export const de = {
     record: 'Aufnehmen',
     recordStop: 'Aufnahme stoppen',
     discardAudio: 'Aufnahme verwerfen',
-    // external voice-memo import
-    audioUpload: 'Audio hochladen',
+    // ONE upload button for everything that is picked rather than captured: Bild, Aufnahme,
+    // Dokument. What was picked decides where it lands (lib/audioImport · classifyPick).
+    attachUpload: 'Datei hochladen',
     // short form for the phone row, where the three media buttons get a third of the width each
-    audioUploadShort: 'Audio',
+    attachUploadShort: 'Datei',
+    attachLabel: 'Beilage',
+    attachDiscard: 'Beilage entfernen',
+    attachOpen: 'Beilage herunterladen',
+    attachOffline: 'Datei-Upload benötigt eine Verbindung. Datei später erneut auswählen.',
+    attachTooLarge: 'Datei ist zu gross. Maximum: {max} MB.',
+    attachUnsupported: 'Dieser Dateityp wird nicht unterstützt.',
+    attachUploadFailed: 'Datei-Upload fehlgeschlagen. Verbindung prüfen und erneut versuchen.',
+    // ⚠️ Same reason as audioImportDropped below: a picked file cannot be handed back on the
+    // next open, so a composer that closes with one on it says so.
+    attachDropped: 'Beilage «{name}» verworfen – bitte neu auswählen.',
+    // ⚠️ A Beilage has no plate in the Rapport the way a photo does (the file itself travels in
+    // the Beilagen-ZIP), so the printed line NAMES it – otherwise a row that is only a document
+    // prints as an empty timestamped line (lib/report · journalRows).
+    attachPrint: 'Beilage: {names}',
+    attachPrintMany: 'Beilagen: {names}',
+    // one recording per Eintrag – a pick with several audio files keeps the first and says
+    // out loud which ones it did not take (no silent loss)
+    attachAudioExtra: 'Nur eine Aufnahme pro Eintrag – «{names}» nicht übernommen.',
+    // external voice-memo import
     audioClipLabel: 'Sprachnotiz',
     audioImportLabel: 'Externe Audioaufnahme',
     audioStartLabel: 'Aufnahme begann',

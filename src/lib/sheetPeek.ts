@@ -1,5 +1,6 @@
 /**
- * «Peek» the phone detail sheet away while an object is actually being dragged.
+ * «Peek» the phone detail sheet away while the surface underneath it is being moved — an object
+ * dragged across it, or (since 30.08.) the map itself panned/pinched under it.
  *
  * On a phone the shared .ctx editors (ContextPanel / DrawEditor / ShapeEditor) are a bottom
  * sheet at ~46dvh — and a detail-rich symbol (Gefahrstoffe: Geschoss · Entwicklung · Stoff)
@@ -7,6 +8,9 @@
  * symbol itself to MOVE the thing in. So the moment a drag on a placed object clears its
  * deadzone, the sheet shrinks to its grip + header line, and it grows back to whatever
  * height it had the instant the finger comes off. No mode, no button, no state to remember.
+ * A map pan reads the same way and gets the same treatment (MapView · onDragStart): the gesture
+ * is about what is UNDER the sheet, so the sheet steps aside for the length of it — and steps
+ * back. What it must never do is close: the selection survives every map gesture.
  *
  * ⚠️ CSS only, never an unmount: the sheet keeps its DOM, its half↔full class, every
  * in-progress field edit and its body scroll position — all we change is the height the
@@ -34,7 +38,8 @@ const release = () => {
   document.body.classList.remove(PEEK_CLASS)
 }
 
-/** A drag on a placed object has started moving it — get the sheet out of the way. Idempotent. */
+/** The surface under the sheet started moving (an object drag, a map pan/pinch) — get the sheet
+ *  out of the way. Idempotent. */
 export function beginSheetPeek() {
   if (armed) return
   armed = true
@@ -44,7 +49,8 @@ export function beginSheetPeek() {
   document.body.classList.add(PEEK_CLASS)
 }
 
-/** The drag ended (dropped or cancelled) — the sheet returns to its previous height. Idempotent. */
+/** The gesture ended (dropped, cancelled, or the map came to rest) — the sheet returns to its
+ *  previous height. Idempotent. */
 export function endSheetPeek() {
   release()
 }

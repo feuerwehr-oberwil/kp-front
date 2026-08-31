@@ -15,13 +15,26 @@ import { Menu } from '../lib/overlays'
 import { Segmented } from './Segmented'
 import type { LineAttachment, LineEndpoint, LngLat, LineRoutingMode } from '../types'
 
-// small glyph for the line-ending picker: plain · arrow · FKS Teilstück "E"-fork
+// small glyph for the line-ending picker: plain · arrow · arrow with Entwicklungsgrenze · FKS
+// Teilstück "E"-fork.
+// ⚠️ Both arrows are the MAP's own arrowhead (MapView · the `draw-arrow` / `draw-arrow-stop` SDF
+// sprite) scaled into this box: a FILLED, notched head and a SOLID bar just past the tip, in the
+// sprite's proportions — the bar is ~1/7 of the head's length thick and spans ~9/10 of its width.
+// Sketched as an outlined chevron with a hairline tick, the preview promised something far
+// lighter than the Lage actually draws; a picker has to show the picture it will make.
 function EndingGlyph({ kind }: { kind: 'none' | 'arrow' | 'arrowStop' | 'teilstueck' }) {
+  // the head's tip — the «Stopp» variant steps back so its bar gets the edge, as the sprite does
+  const tip = kind === 'arrowStop' ? 31.4 : 35
+  const base = tip - 13     // head length
+  const notch = tip - 10.1  // the concave tail
+  const shaftEnd = kind === 'none' ? 34 : kind === 'teilstueck' ? 24 : base + 1
   return (
     <svg width="36" height="14" viewBox="0 0 36 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="2" y1="7" x2={kind === 'none' ? 34 : 24} y2="7" />
-      {(kind === 'arrow' || kind === 'arrowStop') && <path d="M25 2 L33 7 L25 12" />}
-      {kind === 'arrowStop' && <line x1="35" y1="2" x2="35" y2="12" />}
+      <line x1="2" y1="7" x2={shaftEnd} y2="7" />
+      {(kind === 'arrow' || kind === 'arrowStop') && (
+        <path d={`M${tip},7 L${base},0.5 L${notch},7 L${base},13.5 Z`} fill="currentColor" stroke="none" />
+      )}
+      {kind === 'arrowStop' && <rect x="33.2" y="1.2" width="1.8" height="11.6" fill="currentColor" stroke="none" />}
       {kind === 'teilstueck' && (
         <>
           <line x1="25" y1="2" x2="25" y2="12" />

@@ -30,6 +30,7 @@ import { ShapeEditor } from './ShapeEditor'
 import { MenuPick } from './MenuPick'
 import { LockChip } from './LockChip'
 import { ShapeGlyph, SHAPE_DEFS, SHAPE_FREE_ASPECT, shapeAspect } from '../lib/shapes'
+import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
@@ -58,6 +59,7 @@ import { pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbInkLayer, WbVertexHandles, WbDraftHandles } from './WbControls'
 import { ToolDock } from './ToolDock'
+import { PlanCompass } from './PlanCompass'
 import { ToolRail } from './ToolRail'
 
 const COLORS = appConfig.drawing.colors
@@ -913,15 +915,22 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }, [annos, trupps, truppSeverities])
 
   const resolvedPts = new Map<string, BoardPoint[]>()
+  /** The box a plan object offers an attaching line, in board px. A team chip is a left-anchored
+   *  STRIP — its stored point is the DOT, so its ~76×44 body hangs to the RIGHT of that point
+   *  rather than around it (see the wb-anno transform); `dx` puts the box back over the chip. */
+  const attachBox = (a: BoardAnno) => (a.kind === 'resource'
+    ? { width: 76, height: 44, dx: 76 / 2 - TEAM_DOT_PX / 2 }
+    : { width: symBase, height: symBase, dx: 0 })
   const objectPoint = (id: string, toward: BoardPoint, _a: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
     const target = annos.find((a) => a.id === id && (a.kind === 'symbol' || a.kind === 'resource'))
     if (!target || target.x == null || target.y == null || !sW || !sH) return null
     const floor = target.floor ?? 0
-    const center: [number, number] = [target.x * sW, mapY(floor, target.y) * sH]
+    const box = attachBox(target)
+    const center: [number, number] = [target.x * sW + box.dx, mapY(floor, target.y) * sH]
     const tp: [number, number] = [toward[0] * sW, mapY(toward[2] ?? floor, toward[1]) * sH]
     // negative padding = the endpoint lands just INSIDE the glyph, so the stroke disappears
     // under the symbol instead of stopping short of it (see attachInsetPx)
-    const p = boundaryPoint({ shape: 'rect', center, width: target.kind === 'resource' ? 76 : symBase, height: target.kind === 'resource' ? 44 : symBase, rotation: target.rotation }, tp, -attachInsetPx(source.width))
+    const p = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: target.rotation }, tp, -attachInsetPx(source.width))
     return [p[0] / sW, localY(p[1] / sH, floor), floor]
   }
   const linePoint = (target: AttachableLine<BoardPoint>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: BoardPoint): BoardPoint => {
@@ -941,8 +950,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const objects: MagneticTarget[] = annos
       .filter((a) => (a.kind === 'symbol' || a.kind === 'resource') && a.x != null && a.y != null)
       .map((a) => {
-        const center: [number, number] = [a.x! * sW, mapY(a.floor, a.y!) * sH]
-        const edge = boundaryPoint({ shape: 'rect', center, width: a.kind === 'resource' ? 76 : symBase, height: a.kind === 'resource' ? 44 : symBase, rotation: a.rotation }, pointer)
+        const box = attachBox(a)
+        const center: [number, number] = [a.x! * sW + box.dx, mapY(a.floor, a.y!) * sH]
+        const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: a.rotation }, pointer)
         return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: a.kind === 'resource' ? 'trace' : 'direct' }
       })
     const lines: MagneticTarget[] = renderAnnos
@@ -2165,8 +2175,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   // Rotate the Gebäudeview to `toDeg`. Re-derives the footprint view and re-glues every
   // floor-stack annotation (x/y, freehand pts, team trails) so they stay on the same
-  // real-world spot — see lib/footprint · remapPoint. Serves both doors: the TAP flip
-  // (oriented ⇄ north-up, `reorient` below) and the dial DRAG's arbitrary angle (A8).
+  // real-world spot — see lib/footprint · remapPoint — and the VIEW with them (the pan at the
+  // end). The single commit path for every door: the compass chip's popover, the rail footer's,
+  // the slider and the two named-angle chips inside them.
   const reorientTo = (toDeg: number) => {
     if (!building?.src?.length || !onReorient || readOnly || !sW || !sH) return
     const fromDeg = viewAngle
@@ -2175,6 +2186,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const layout = { boardW: sW, boardH: sH, floors: N }
     const src = building.src as Ring[]
     const mv = (p: [number, number]): [number, number] => remapPoint(src, fromDeg, toDeg, layout, p)
+    // where the view is looking, in tile coordinates, re-glued the same way (see the pan below)
+    const anchor = (() => {
+      const s = scaleRef.current, w = fit.w * s, h = fit.h * s
+      if (!w || !h) return null
+      if (s <= 1 && Math.abs(posRef.current.x) < 1 && Math.abs(posRef.current.y) < 1) return null
+      const nx = clamp01((w / 2 - posRef.current.x) / w), ny = clamp01((h / 2 - posRef.current.y) / h)
+      const floor = floorAt(ny)
+      const [x, y] = mv([nx, localY(ny, floor)])
+      return { x, y, floor }
+    })()
     const remapped = annos.map((a) => {
       const next: BoardAnno = { ...a }
       if (a.x != null && a.y != null) { const [x, y] = mv([a.x, a.y]); next.x = x; next.y = y }
@@ -2186,6 +2207,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read
     onReorient({ ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
     emit('building.reorient', { northUp: toDeg === 0, deg: toDeg, planId: activeId })
+    // …and the VIEW is re-glued too. The board keeps its size through a rotation (a stack's
+    // aspect is the floor count, not the footprint's — see effAspect), so the storey cards stay
+    // centred in their tiles; what moves is the content INSIDE them, around the footprint's own
+    // bbox centre. Zoomed in on one corner of the building, that swings the corner off the
+    // screen. Take the point the operator is looking at, re-glue it exactly like an annotation,
+    // and pan it back under their eyes. At the fitted view there is nothing to hold — the whole
+    // stack is on screen and centred by definition — so that one is left alone.
+    if (anchor) centerOnPoint(anchor.x, anchor.y, anchor.floor)
   }
   // ── rotation popover (30.08., replaces the A8 dial drag) ── a hidden drag on a 44px dial was
   // «hard to control»; the compass (dial AND rail button) now opens a small popover with a
@@ -2357,45 +2386,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="close" /></button>
                     )}
                   </div>
-                  {/* north arrow — drawn on the topmost storey, top-right (mirrors the
-                      label); the needle + N point at true north for the auto-rotated footprint.
-                      ⚠️ Geometry copied from the printed dial (backend · kroki · north_dial_svg):
-                      the screen and the two printed pages carried three different north marks.
-                      The N sits INSIDE the ring and the needle is a dart in ink, which is the
-                      one that survived print review. */}
-                  {/* …and the dial IS the orientation toggle where one exists: the compass is
-                      what the eye consults about the building's rotation, so it is where the
-                      finger goes to change it. The rail-footer button stays — two doors, one
-                      room. Read-only / unrotated footprints keep the plain read-out. */}
-                  {idx === 0 && fpView && (() => {
-                    const dial = (
-                      <svg viewBox="-25 -25 50 50" className={canOrient && !readOnly ? undefined : 'wb-north-dial'} aria-hidden>
-                        <title>{appConfig.copy.whiteboard.northTitle}</title>
-                        <circle r="24" className="wb-north-ring" />
-                        <g style={{ transform: `rotate(${shownAngle}deg)`, transformOrigin: '0px 0px' }}>
-                          <text y="-13" className="wb-north-n">{appConfig.copy.whiteboard.northLabel}</text>
-                          <path d="M0 -8 L10 16 L0 7 L-10 16 Z" className="wb-north-needle" />
-                        </g>
-                      </svg>
-                    )
-                    if (!(canOrient && !readOnly)) return dial
-                    // TAP opens the rotation popover (slider + the two named-angle chips) —
-                    // the hidden dial drag is gone (30.08.: «hard to control»).
-                    return (
-                      <Popover
-                        ariaLabel={appConfig.copy.whiteboard.orientMenuTitle}
-                        popupClassName="wb-orient-popup"
-                        side="bottom" align="start" zIndex={30}
-                        trigger={
-                          <button type="button" className="wb-north-dial wb-north-btn"
-                            title={appConfig.copy.whiteboard.orientMenuTitle}
-                            aria-label={appConfig.copy.whiteboard.orientMenuTitle}>
-                            {dial}
-                          </button>
-                        }
-                      >{orientControls}</Popover>
-                    )
-                  })()}
+                  {/* (the north dial used to be drawn on this tile, top-right. It now floats in
+                      the viewport's corner — see <PlanCompass> below the board: inside the tile
+                      it panned and zoomed away with the paper, taking the rotation control with
+                      it. One compass, one corner, on every device.) */}
                   <div className="wb-floor-fp" style={{ width: fpBox?.w, height: fpBox?.h }}>
                     <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="wb-floor-svg">
                       {(fpView?.rings ?? building.rings ?? [building.ring]).map((ring, ri) => (
@@ -2642,7 +2636,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 // stay sheet-true, text scales with the paper, team pills stay constant.
                 // a shape's --gpx (→ halo/handle anchor --hbox) takes the LARGER box side so the
                 // selection ring always encloses a stretched rectangle (width × width·aspect)
-                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(-50%, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px` }}
+                // ⚠️ A team chip is a STRIP — [dot][gap][name] — and centring the whole strip put
+                // half the NAME's width between the dot and the point it states. It is anchored by
+                // its LEFT edge with half a dot taken back (the selected pill takes its accent cap
+                // back instead, so selecting doesn't shift it) — the same geometry the Karte's
+                // Trupp markers use (MapMarkers · anchor="left" + offset), because a Trupp
+                // transferred between the two surfaces must not visibly jump. Everything else
+                // stays centred on its glyph.
+                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(${a.kind === 'resource' ? `${selId === a.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px` : '-50%'}, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px` }}
                 onPointerDown={(e) => chipDown(e, a.id)}
                 // double-tap still opens the on-surface textarea; the panel steps aside so the
                 // two editors for one text never stream keystrokes side by side
@@ -3048,6 +3049,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               <button onClick={() => zoom(1.3)} disabled={scale >= MAX_SCALE} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><Icon id="plus" /></button>
               <button className="wb-fit" onClick={() => applyView(1, { x: 0, y: 0 })} disabled={scale === 1 && pos.x === 0 && pos.y === 0} title={appConfig.copy.nav.fit}>{appConfig.copy.whiteboard.fit}</button>
             </div>
+          )}
+
+          {/* the Gebäude's north dial — fixed in the viewport's top-right corner, NOT on the
+              paper (PlanCompass). It reads whenever a footprint stack is on screen; where the
+              building was auto-rotated and the surface is editable it is also the one door to
+              turning it — the same popover the rail footer's compass opens, two doors, one room.
+              Rendered AFTER the floating zoom so the chip can step below it (module CSS). */}
+          {stack && fpView && (
+            <PlanCompass deg={shownAngle} controls={canOrient && !readOnly ? orientControls : undefined} />
           )}
 
         </div>

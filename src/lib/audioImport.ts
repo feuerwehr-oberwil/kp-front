@@ -1,8 +1,8 @@
-// External voice-memo import: pure helpers for
-// validating a picked audio file, normalising its MIME type for the backend allowlist, and
-// resolving the operator-confirmed «Aufnahme begann» HH:MM to an absolute timestamp. The
-// upload itself rides the existing media endpoint; nothing here touches the offline queue —
-// large imports are deliberately upload-during-save only (no IndexedDB copy).
+// External media import: pure helpers for validating a PICKED file (voice memo, picture or a
+// generic Beilage), normalising its MIME type for the backend allowlist, and resolving the
+// operator-confirmed «Aufnahme begann» HH:MM to an absolute timestamp. The upload itself rides
+// the existing media endpoint; nothing here touches the offline queue — large imports are
+// deliberately upload-during-save only (no IndexedDB copy).
 
 /** v1 cap, mirrored server-side (backend/app/api/media.py MAX_UPLOAD_BYTES; the multipart
  *  body middleware cap `max_upload_mb` must stay above this). MB value feeds the copy. */
@@ -25,7 +25,70 @@ export function normalizeAudioType(type: string, name: string): string | null {
   return null
 }
 
+// ── generic Beilagen (PDF, Dokument, Tabelle …) ────────────────────────────────────────────
+// The journal's upload button takes ANY file, not just a voice memo: what arrives at 3am is as
+// often a PDF from the Gebäudeeigentümer as a recording. Pictures and audio keep their own
+// paths (thumbnail / player); everything else lands as a named Beilage on the row.
+
+/** Same 100 MB endpoint cap as audio — one number for everything the composer sends. */
+export const MAX_FILE_UPLOAD_MB = MAX_AUDIO_UPLOAD_MB
+export const MAX_FILE_UPLOAD_BYTES = MAX_AUDIO_UPLOAD_BYTES
+
+// Types the server stores as a generic Beilage (media.py _ALLOWED_FILE). Deliberately a list
+// and not «anything»: the blob is served back to a browser, so an allowlist stays the guard
+// even though the server hands generic files out as a download and never inline.
+const ALLOWED_FILE = new Set([
+  'application/pdf', 'text/plain', 'text/csv', 'application/zip',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet',
+])
+// …by extension, for the pickers that hand over an empty or wrong type (iOS Files, Android
+// document providers and every «application/octet-stream» in between).
+const FILE_BY_EXT: Record<string, string> = {
+  pdf: 'application/pdf', txt: 'text/plain', csv: 'text/csv', zip: 'application/zip',
+  doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  odt: 'application/vnd.oasis.opendocument.text', ods: 'application/vnd.oasis.opendocument.spreadsheet',
+}
+
+/** picker hint for the ONE upload button — pictures, recordings and documents in one dialog */
+export const MEDIA_IMPORT_ACCEPT = `image/*,${AUDIO_IMPORT_ACCEPT},${Object.keys(FILE_BY_EXT).map((e) => `.${e}`).join(',')}`
+
+/** Server-compatible MIME type for a picked document, or null if unsupported. */
+export function normalizeFileType(type: string, name: string): string | null {
+  const t = type.toLowerCase().split(';')[0].trim()
+  if (ALLOWED_FILE.has(t)) return t
+  return FILE_BY_EXT[name.toLowerCase().split('.').pop() ?? ''] ?? null
+}
+
 export type AudioImportError = 'type' | 'size'
+
+export function validateFileImport(
+  file: { type: string; name: string; size: number },
+  maxBytes: number = MAX_FILE_UPLOAD_BYTES,
+): { ok: true; contentType: string } | { ok: false; reason: AudioImportError } {
+  const contentType = normalizeFileType(file.type, file.name)
+  if (!contentType) return { ok: false, reason: 'type' }
+  if (file.size > maxBytes) return { ok: false, reason: 'size' }
+  return { ok: true, contentType }
+}
+
+/** Which of the three paths a picked file takes. A picture goes to the photo list, a recording
+ *  to the voice-memo import (one per entry, with its duration probe), the rest to Beilagen. */
+export function classifyPick(file: { type: string; name: string }): 'photo' | 'audio' | 'file' {
+  const t = file.type.toLowerCase()
+  if (t.startsWith('image/')) return 'photo'
+  if (t.startsWith('audio/') || /\.m4a$/i.test(file.name)) return 'audio'
+  return 'file'
+}
+
+/** «2.4 MB» / «812 kB» — the one thing a Beilage chip can say about a file it cannot preview. */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`
+  if (bytes < 1000 * 1000) return `${Math.round(bytes / 1000)} kB`
+  return `${(bytes / (1000 * 1000)).toFixed(1)} MB`
+}
 
 export function validateAudioImport(
   file: { type: string; name: string; size: number },

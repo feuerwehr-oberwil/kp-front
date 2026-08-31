@@ -373,7 +373,13 @@
    «Anderes Objekt») were a visibly lighter cut of Sora than the surface behind them, which reads
    as a different typeface rather than as a smaller heading. */
 .ip-head h2 { margin: 0; font: 800 19px var(--body); color: var(--ink); }
-.ip-x { border: none; background: none; cursor: pointer; color: var(--ink-dim); padding: 6px; border-radius: var(--r-sm); }
+/* ⚠️ `display: grid`, not the default inline flow. The ✕ is an inline SVG in a padding-only box,
+   so it sat on the text BASELINE: the box came out taller than it is wide (the descender space
+   below the glyph) and the ✕ itself rode a couple of pixels high of centre — which is what made
+   it look both smaller and off next to a title or a search pill. The 30px size stays as decided
+   (see .rp-head .ip-x for the one surface that raises it); only the centring changes. */
+.ip-x { border: none; background: none; cursor: pointer; color: var(--ink-dim); padding: 6px; border-radius: var(--r-sm);
+  display: grid; place-items: center; }
 @media (hover: hover) {
   .ip-x:hover { background: var(--hover); }
 }

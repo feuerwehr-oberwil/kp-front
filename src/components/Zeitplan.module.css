@@ -556,6 +556,19 @@
      costs the lane list about a row and a half on a 390px screen, and it buys back only the last
      hour of an axis that scrolls anyway: you can always pull the curve out from under the button.
      Two fewer people on a Mannschaft overview is the more expensive of the two. */
+  /* ⚠️ …but only while it stays FOLDED. `.coverageRow` is pinned to the bottom of `.scroll` (see
+     the rule above), so every px it grows by comes straight out of the person list above it — the
+     one thing this surface is a Mannschaft-overview OF. Collapsed that is the curve's own ~34px,
+     fine on any phone. Opened, it used to add three more rows of numbers (`.covRow` × 3) directly
+     into that pinned footer with nothing capping it, so on a short screen «Deckung» could shrink
+     the list to one or two names. The curve — the thing read at a glance — always shows in full;
+     the numbers — the rarely-needed half (see the block's own opening comment) — get their OWN
+     small scroll instead of taking the list's. `:has()` reaches this without a class the JS side
+     would have to keep in sync with `covOpen`. */
+  /* overflow-x: hidden is stated, not left to default — an unset `visible` next to `overflow-y:
+     auto` is promoted to `auto` by the spec, which would have made `.coverage` its OWN horizontal
+     scroll container and pulled `.covKeys`' sticky `left` off the outer `.scroll` it depends on. */
+  .coverage:has(.covRow) { max-height: 124px; overflow-y: auto; overflow-x: hidden; }
 }
 
 /* ── the span being swept or dragged, in numbers ──

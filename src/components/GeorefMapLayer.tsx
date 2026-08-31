@@ -16,9 +16,22 @@ import { fitSimilarity } from '../lib/georef'
 import { motionDuration } from '../lib/reducedMotion'
 import s from './GeorefMode.module.css'
 
-/** Zoom levels above the live map the loupe shows. Two levels ≈ 4×, matching the plan loupe. */
+/** Zoom levels above the live map the loupe shows.
+ *
+ *  ⚠️ Two levels is 2× on screen, not 4×: the base rasters are 256px tiles on MapLibre's 512px
+ *  zoom grid (MapLayers · tileSize), so one of the two levels is spent catching up with the map
+ *  itself. It stays at two deliberately — at the zooms this mode is aimed from, the base is
+ *  usually already at its `maxzoom`, and a third level would stretch the same pixels further
+ *  rather than show more of them. The plan loupe's 4× (GeorefMode · LOUPE_MUL) magnifies a baked
+ *  bitmap that has no such ceiling. */
 const LOUPE_ZOOM_UP = 2
 const TILE = 256
+
+/** A touch more separation than the map itself carries, on the tiles and BEFORE the black-floor
+ *  veil — so the lifted floor still lands exactly where MapLibre puts it (`loupePaint`). The
+ *  loupe is an instrument, and its whole job is telling a house corner from its own shadow; the
+ *  veil that keeps a night base legible flattens precisely the midtones that job lives in. */
+const LOUPE_SEPARATION = 'contrast(1.09) saturate(1.06)'
 
 const crossSvg = (
   <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
@@ -72,7 +85,11 @@ export function GeorefMapMarks({ mode, map }: { mode: GeorefModeState; map: MlMa
             longitude={sl.map.lng}
             latitude={sl.map.lat}
             anchor="center"
-            draggable={!placing}
+            // ⚠️ …and NOT while a popover is open. The card stands over the cross it is about
+            // to act on, so a thumb reaching for «Verschieben» was dragging the very point the
+            // card was asking about. With the card up, moving a point goes through the action
+            // that names it; the tap that OPENS the card still fine-tunes as before.
+            draggable={!placing && !mode.sel}
             onDragStart={(e) => { drag.current = { start: { lng: e.lngLat.lng, lat: e.lngLat.lat }, moved: false } }}
             onDrag={(e) => {
               const d = drag.current; if (!d) return
@@ -446,7 +463,14 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
   const size = phone ? 124 : 196
 
   const live = map.getZoom()
-  const z = Math.max(0, Math.min(base.maxzoom, Math.round(live) + LOUPE_ZOOM_UP))
+  // ⚠️ CEIL, not round, plus one level on a retina screen — the two halves of «the map loupe is
+  // blurry». `round` regularly handed the plane tiles it then had to blow up by as much as 1.4×,
+  // and a 256px tile painted across 256 CSS px is already a third of the pixels a 3× phone can
+  // show. Both extra levels are given straight back through `k` below, so the magnification does
+  // not change at all: the same picture, with up to four times the data behind it. Past the
+  // source's `maxzoom` there is simply nothing finer to ask for, and the clamp takes over.
+  const fine = (window.devicePixelRatio || 1) >= 1.5 ? 1 : 0
+  const z = Math.max(0, Math.min(base.maxzoom, Math.ceil(live) + LOUPE_ZOOM_UP + fine))
   // scale the integer-zoom tiles back onto the exact magnification we promised, so the loupe is
   // always LOUPE_ZOOM_UP levels over the live map however fractional that map's zoom is
   const k = 2 ** (live + LOUPE_ZOOM_UP - z)
@@ -466,7 +490,7 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
         className={s.plane}
         style={{
           transform: `translate(${size / 2}px, ${size / 2}px) rotate(${-map.getBearing()}deg) scale(${k}) translate(${crop.dx}px, ${crop.dy}px)`,
-          filter: look?.filter,
+          filter: look?.filter ? `${look.filter} ${LOUPE_SEPARATION}` : LOUPE_SEPARATION,
         }}
       >
         {alive.map((t) => (

@@ -21,6 +21,18 @@ export const lineLabelAction = (truppId: string | undefined, tone: LineTone | un
     ? { kind: 'trupp' as const, id: truppId }
     : { kind: 'drawing' as const }
 
+// ── Trupp marker geometry (mirrors `.team-dot` / `.wb-resource-pill`, 09-whiteboard.css) ────
+// A Trupp marker is a STRIP — [dot][gap][name] — so where the strip is anchored decides what the
+// coordinate MEANS. Both halves of the map have to agree on it: MapMarkers anchors the marker,
+// MapView's label pass measures the same boxes without a DOM.
+/** `.team-dot i` — the dot IS the position, so it is what sits on the coordinate. */
+export const TEAM_DOT_PX = 13
+/** `.team-dot` gap — the distance the name hangs off the dot. */
+export const TEAM_DOT_GAP = 6
+/** The selected pill's accent cap, centre-to-left-edge: 1px border + 8px padding + half of the
+ *  4px cap — so selecting a Trupp swaps the chrome without moving the point it states. */
+export const TEAM_PILL_CAP_PX = 11
+
 // Symbol size tied to the real world (m), scaling with zoom — but clamped into a
 // NARROW band: at normal Einsatz zooms a symbol looks almost constant (like a map
 // pin), never grows past the roof (no "Offizier as big as a house") and shrinks

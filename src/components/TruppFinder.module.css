@@ -13,19 +13,24 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-hero); box-shadow: var(--shadow);
 }
 
+/* the row keeps its height — the ✕ grew to 44, so its own box now supplies the padding the
+   header used to add around a 36px button (10 + 44 + 10 = the same 64px row) */
 .head { flex: none; display: flex; align-items: center; gap: 12px;
-  padding: 14px 14px 14px 18px; border-bottom: 1px solid var(--border-soft); }
+  padding: 10px 10px 10px 18px; border-bottom: 1px solid var(--border-soft); }
 .headIcon { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
 .headIcon svg { width: 19px; height: 19px; }
 /* the query is the loudest thing on the card — it is what the whole overlay is for */
 .input { flex: 1; min-width: 0; border: none; background: none; outline: none;
   font: 700 18px var(--body); color: var(--ink); }
 .input::placeholder { color: var(--ink-faint); font-weight: 600; }
-.x { flex: none; width: 36px; height: 36px; display: grid; place-items: center; padding: 0;
+/* var(--tap), like every other dialog ✕ that stands alone in its header: at 36px this one was
+   below the touch floor and read a size smaller than the 18px query beside it. A module class
+   gets no help from the shared 44px pad in 02-base.css, so it has to BE 44. */
+.x { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; padding: 0;
   border: none; border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer; }
 @media (hover: hover) { .x:hover { background: var(--fill-soft); color: var(--ink); } }
 .x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.x svg { width: 16px; height: 16px; }
+.x svg { width: 18px; height: 18px; }
 
 .list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 8px; list-style: none; }
 .row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;

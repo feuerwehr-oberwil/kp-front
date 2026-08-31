@@ -237,7 +237,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
 
   // journal photos: send the server-relative media URL — the composer loads the bytes
   // from its own media store (session-only blob: URLs can't be resolved there and are
-  // simply not yet uploaded — the preflight already warns about pending media)
+  // simply not yet uploaded — the preflight already warns about pending media).
+  // Generic Beilagen have no plate on paper: `journalRows` names them INSIDE the row text
+  // (lib/report · withFileNames), so they need no field of their own here.
   const journal = journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at, { includeBookkeeping: draft.options.detailedAudit, vocab: args.vocab })
     .map((r) => ({
       timeLabel: r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,

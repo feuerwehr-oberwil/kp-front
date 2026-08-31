@@ -78,8 +78,9 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
   const tap = useRef<(TapGesture & { id: number; px: number; py: number }) | null>(null)
   const ptrs = useRef<Map<number, { x: number; y: number }>>(new Map())
   const pinch = useRef<number | null>(null)
-  // dragging an existing cross: slot index + whether it has passed the tap threshold yet
-  const drag = useRef<{ id: number; idx: number; x: number; y: number; moved: boolean } | null>(null)
+  // dragging an existing cross: slot index, whether it has passed the tap threshold yet, and
+  // whether the gesture is allowed to move anything at all (see `crossDown` · locked)
+  const drag = useRef<{ id: number; idx: number; x: number; y: number; moved: boolean; locked: boolean } | null>(null)
 
   const placing = georefPlacing(mode)
   // the mode owns every tap on the sheet while it is armed — leaving the create tools live
@@ -218,17 +219,26 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
   }
 
   // --- an existing cross: drag = fine-tune with a live refit, tap = select (halo + popover) ---
+  // ⚠️ …and NOT while a popover is open. The card stands right over the cross it is about to
+  // act on, so the thumb that reaches for «Verschieben» was regularly dragging the point it
+  // meant to press a button about — silently, because a live refit looks like nothing until
+  // the finger lifts. With the card up there is exactly one way to move a point, and it is the
+  // one the card names. `locked` is snapshotted at pointerdown, so the very gesture that OPENS
+  // a popover (tap on a cross with nothing selected) still fine-tunes as before.
   const crossDown = (idx: number) => (e: React.PointerEvent) => {
     e.stopPropagation()
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    drag.current = { id: e.pointerId, idx, x: e.clientX, y: e.clientY, moved: false }
+    drag.current = { id: e.pointerId, idx, x: e.clientX, y: e.clientY, moved: false, locked: !!mode.sel }
     aimAt(e.clientX, e.clientY)
   }
   const crossMove = (e: React.PointerEvent) => {
     own(e) // the stage must not ALSO pan the sheet under a cross being fine-tuned
     const d = drag.current; if (!d || d.id !== e.pointerId) return
     if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) <= GEOREF_TAP_SLOP_PX) return
+    // the flag is still set past the slop even when locked: a wandering finger is not a tap,
+    // so lifting it must not toggle the popover either
     d.moved = true
+    if (d.locked) return
     const n = view.toNorm(e.clientX, e.clientY); if (!n) return
     setAim({ pt: { x: n[0], y: n[1] } })
     georefDispatch({ type: 'dragPlan', idx: d.idx, pt: { x: n[0], y: n[1] } })
@@ -333,8 +343,10 @@ export function GeorefPopoverCard({ mode, idx, side }: { mode: GeorefModeState; 
   // this point's own rest — only from three pairs on (georef · residualClaim's honesty rule)
   const r = !open && fit && fit.n >= 3 && pairIdx != null ? fit.residuals[pairIdx] : null
   const detail = open ? C.popOpen : r != null ? fillTemplate(C.popResidual, { m: r < 10 ? r.toFixed(1) : String(Math.round(r)) }) : null
+  // `data-georef-pop` is how the outside-tap dismissal (GeorefModeBars) recognises the card's own
+  // buttons — «Verschieben» must never be unpicked out from under itself.
   return (
-    <div className={s.pop}>
+    <div className={s.pop} data-georef-pop>
       <div className={s.popHead}>
         {fillTemplate(C.pointN, { n: String(idx + 1) })}
         <i>· {side === 'plan' ? C.checkPlan : C.checkMap}{detail ? ` · ${detail}` : ''}</i>
@@ -378,7 +390,9 @@ function PlanMarkerPopover({ mode, boardRef }: { mode: GeorefModeState; boardRef
     return () => cancelAnimationFrame(raf)
   }, [boardRef, pt])
   if (!sel || !pos) return null
-  const x = Math.min(Math.max(pos.x, 116), window.innerWidth - 116)
+  // half the card's widest possible width (GeorefMode.module.css · .pop max-width), so a cross
+  // near a screen edge still gets the whole popover rather than a clipped one
+  const x = Math.min(Math.max(pos.x, 152), window.innerWidth - 152)
   // near the top edge the card flips below the cross instead of sliding off screen
   const below = pos.y < 170
   return (
@@ -428,8 +442,13 @@ function PlanLoupe({ aim, sW, sH, boardRef, corner = false }: { aim: Aim; sW: nu
     // the refine canvas that follows it only covers the visible crop.
     const src = boardRef.current?.querySelector('canvas') as HTMLCanvasElement | null | undefined
     const w = out.clientWidth, h = out.clientHeight
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    // ⚠️ The FULL device pixel ratio, not a cap of 2. This inset is 124px across on a phone whose
+    // screen paints 3 device px per CSS px, and half the complaint about «the magnifier is
+    // blurry» was simply a backing store a third short of the panel it sits on.
+    const dpr = Math.min(window.devicePixelRatio || 1, 3)
     out.width = Math.round(w * dpr); out.height = Math.round(h * dpr)
+    // ⚠️ AFTER the resize — setting width/height resets the whole 2D context, this flag included
+    ctx.imageSmoothingQuality = 'high'
     ctx.clearRect(0, 0, out.width, out.height)
     if (!src || !src.width || !src.height || !sW || !sH) return
     // crop side, in bitmap px, that fills the loupe at LOUPE_MUL× the on-screen plan scale
@@ -663,6 +682,26 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
       window.visualViewport?.removeEventListener('resize', measure)
     }
   }, [isPhone, mode.check, mode.planId, shownSurface])
+
+  // ⚠️ On a PHONE nothing puts the marker popover away by itself. The two reducer branches that
+  // do it (georefMode · planTap / mapTap · «popover open on this surface: a tap beside it puts it
+  // away») are never reached here: the plan's capture layer deliberately places nothing on a
+  // phone tap (the fixed reticle commits instead) and the map's tap handler is desktop-only. So
+  // the card sat there — over the very corner somebody was trying to see — with «Behalten» and
+  // Esc as its only exits, and Esc is not a thing on glass.
+  //
+  // Capture phase, because the plan's capture layer stops propagation on `pointerdown`. The card
+  // itself and the crosses own their taps; everything else on the surface dismisses.
+  useEffect(() => {
+    if (!isPhone || !mode.planId || !mode.sel) return
+    const onDown = (e: PointerEvent) => {
+      const el = e.target instanceof Element ? e.target : null
+      if (el?.closest(`[data-georef-pop], .${s.cross}`)) return
+      georefDispatch({ type: 'unpick' })
+    }
+    window.addEventListener('pointerdown', onDown, true)
+    return () => window.removeEventListener('pointerdown', onDown, true)
+  }, [isPhone, mode.planId, mode.sel])
 
   if (!mode.planId || !isPhone) return null
   const st = georefStatus(mode)

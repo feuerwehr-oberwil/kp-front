@@ -30,6 +30,7 @@ import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { TacticalSymbol } from '../lib/symbolRender'
 import { glyphFor } from '../lib/twinGlyph'
 import { noteScale, noteWPx } from '../lib/notes'
+import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
 import { EXTEND_STEP_PX, lerpPoint, lookbackPoint, markerParamsAlong } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork, hasLineDecor, lineLabel } from '../lib/lineDecor'
@@ -440,14 +441,24 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
         }
         if (entity.kind === 'team') {
           const teamCol = entity.color || appConfig.drawing.teamColors[0]
-          const style = { ...pos, transform: 'translate(-50%, -50%)', '--team': teamCol } as CSSProperties
           const isRaus = !!entity.truppId && trupps.some((t) => t.id === entity.truppId && t.status === 'raus')
           const selected = interactive && !!teamActions && selectedTeamId === entity.id
+          // ⚠️ A Trupp marker is a STRIP — [dot][gap][name] — so the whole strip centred put half
+          // the NAME's width between the dot and the point it states. Anchored by its LEFT edge
+          // with half a dot taken back, the dot sits ON the point and the name hangs off it; the
+          // selected pill takes its accent cap back instead, so selecting doesn't shift it. Exactly
+          // the geometry the Karte original uses (MapMarkers · Marker anchor="left" + offset) —
+          // twins must state the same point the same way, or a transferred Trupp visibly jumps.
+          const teamStyle = (pill: boolean) => ({
+            ...pos,
+            transform: `translate(${pill ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px, -50%)`,
+            '--team': teamCol,
+          } as CSSProperties)
           // unlocked: the tap SELECTS (the original's grammar — pill + bar appear); locked:
           // fall through to the read-only plaque the workspace opens (onOpenTeam)
           const teamJump = teamActions && onSelectTeam ? () => onSelectTeam(entity.id) : jump
           if (!tappable) {
-            return <span key={key} className={`${s.contentPoint} team-dot ${isRaus ? 'raus' : ''}`} style={style}>
+            return <span key={key} className={`${s.contentPoint} team-dot ${isRaus ? 'raus' : ''}`} style={teamStyle(false)}>
               <i /><b>{entity.label}</b>
             </span>
           }
@@ -460,7 +471,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
             return (
               <button key={key} type="button"
                 className={`${s.contentPoint} ${s.contentTap}`}
-                style={{ ...style, ...grabStyle }}
+                style={{ ...teamStyle(false), ...grabStyle }}
                 title={title}
                 data-twin=""
                 {...pointHandlers(entity, pt, movable, teamJump)}
@@ -476,7 +487,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           const trailCount = entity.trail?.length ?? 0
           const boundAlive = !!entity.truppId && trupps.some((t) => t.id === entity.truppId && !t.removedAt)
           return (
-            <span key={key} className={s.contentPoint} style={style} data-twin="">
+            <span key={key} className={s.contentPoint} style={teamStyle(true)} data-twin="">
               {/* hit shell again (see the resting dot above): the pill span carries the native
                   class untouched, so its flex row, padding and background can never lose a
                   cascade or button-quirk fight */}

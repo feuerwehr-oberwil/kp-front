@@ -9,6 +9,7 @@ import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { useKeptState } from '../lib/draftKeep'
 import { useIsPhone } from '../lib/useIsPhone'
+import { useKeyboardInset } from '../lib/useKeyboardInset'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
 import { personnelProviderName } from '../lib/deploymentConfig'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
@@ -262,8 +263,19 @@ function GuestDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (
   // from here and losing the name is the more expensive of the two mistakes.
   const [name, setName, clearName] = useKeptState('anwesenheit:guest', '')
   const submit = () => { if (name.trim()) { onSubmit(name); clearName() } }
+  // ⚠️ `initialFocus`, not `autoFocus` — the Overlay's Dialog already picks its own initial focus
+  // on its own schedule (see JournalComposer's caretToEnd note for the same race), so the native
+  // `autoFocus` attribute and Base UI's focus management fought over the same input and whichever
+  // ran last won: flaky on repeated opens. Handing Base UI the ref settles it deterministically —
+  // the same fix TruppFinder/PlanPickers/JournalComposer already use.
+  const nameRef = useRef<HTMLInputElement>(null)
+  // lifts the sheet clear of the keyboard on phones (see JournalComposer's `kbInset` for the same
+  // pattern) — the sheet is bottom-anchored there (15-mobile.css · .ip-sheet), so without this the
+  // keyboard covered the one field the dialog exists for.
+  const kbInset = useKeyboardInset()
   return (
-    <Overlay open onClose={onCancel} className="ip-sheet ip-fit ui-dialog" ariaLabel={A.addGuestTitle}>
+    <Overlay open onClose={onCancel} className="ip-sheet ip-fit ui-dialog" ariaLabel={A.addGuestTitle}
+      initialFocus={nameRef} style={{ marginBottom: kbInset }}>
       <div className="ip-head"><h2>{A.addGuestTitle}</h2>
         <button className="ip-x" onClick={onCancel} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
@@ -272,7 +284,8 @@ function GuestDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (
         <label className="ip-field">
           <span>{A.addGuestName}</span>
           <input
-            className="ip-input" autoFocus onFocus={caretToEnd} value={name} maxLength={80} placeholder={A.addGuestPlaceholder}
+            ref={nameRef}
+            className="ip-input" onFocus={caretToEnd} value={name} maxLength={80} placeholder={A.addGuestPlaceholder}
             onChange={(e) => setName(stripUnprintable(e.target.value))}
             onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
           />
@@ -772,9 +785,14 @@ export function AnwesenheitView({
               glyph for the Dienstgrad, the funnel for the state narrowing.
               Both narrow independently and AND together — «Of» + «anwesend» is one question.
               Neither button PRINTS what it has on (that changed its width and re-anchored the
-              dropdown); each carries a fixed-position dot and names it in its tooltip. */}
+              dropdown); each carries a fixed-position dot and names it in its tooltip.
+              Both are `modal={false}` (the app-wide default is modal): with the backdrop in place
+              a tap on the OTHER filter button first hits that backdrop, so switching between the
+              two — which is the whole point of splitting them — costs two taps. Safe exactly here,
+              because what lies under this bar is the filter row and the list, not the map. */}
           {ranksPresent.length > 1 && (
             <Menu
+              modal={false}
               trigger={
                 <button className={cx(c.iconBtn, rankSel.size > 0 && c.iconBtnOn)}
                   aria-label={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}
@@ -811,6 +829,7 @@ export function AnwesenheitView({
               are about time, and «wer ist im Magazin» is not a question you ask of a Zeitplan. */}
           {view === 'list' && (
             <Menu
+              modal={false} // one-tap switch with the rank filter beside it — see the note above
               trigger={
                 <button className={cx(c.iconBtn, (stateSel.size > 0 || noteOnly) && c.iconBtnOn)}
                   aria-label={stateOn ? `${A.filterLabel} – ${stateOn}` : A.filterLabel}

@@ -739,6 +739,22 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       <img src={url} alt="" />
                     </button>
                   ))}
+                  {/* Beilagen that are not pictures (PDF, Dokument): a named chip that DOWNLOADS
+                      on tap. No in-app viewer — the server hands generic files out as an
+                      attachment on purpose (backend/app/api/media.py · get_media), so the OS
+                      opens it in whatever can read it. ⚠️ The server's Content-Disposition BEATS
+                      the `download` attribute, so the operator's own filename travels as `?name=`
+                      and the route sanitises it there; `download` stays as the same-origin hint. */}
+                  {(e.files ?? []).map((f) => (
+                    <a
+                      key={f.url} className="jr-file" download={f.name}
+                      href={`${f.url}${f.url.includes('?') ? '&' : '?'}name=${encodeURIComponent(f.name)}`}
+                      title={C.attachOpen} aria-label={`${C.attachOpen}: ${f.name}`}
+                      onClick={(ev) => ev.stopPropagation()}
+                    >
+                      <Icon id="attach" /><span>{f.name}</span>
+                    </a>
+                  ))}
                   {/* ── Der Stift ist von der Zeile gezogen (29.08., Variante 2) ──
                       Correcting a hand-written line stays exactly what it was — an appended
                       `textEdit` patch, both wordings in the record and in the hash chain, the

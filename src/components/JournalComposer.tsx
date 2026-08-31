@@ -8,12 +8,16 @@ import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import {
-  AUDIO_IMPORT_ACCEPT,
   MAX_AUDIO_UPLOAD_MB,
+  MAX_FILE_UPLOAD_MB,
+  MEDIA_IMPORT_ACCEPT,
+  classifyPick,
   formatAudioDuration,
+  formatFileSize,
   probeAudioDuration,
   resolveRecordingStart,
   validateAudioImport,
+  validateFileImport,
 } from '../lib/audioImport'
 import type { JournalEntryType, TimelineEvent } from '../types'
 import { acceptName, suggestLinks } from '../lib/journalEntry'
@@ -47,6 +51,9 @@ export interface JournalDraft {
   audioMeta?: TimelineEvent['audioMeta']
   /** several: one damage is rarely one picture (see the composer's photos state) */
   photoUrls?: string[]
+  /** Beilagen that are neither picture nor recording (PDF, Dokument …). ALREADY server urls —
+   *  like the imported memo, a generic file is uploaded during save and never queued offline. */
+  files?: { url: string; name: string }[]
   /** ISO time this entry becomes due — the clock beside the ring. ANY entry can carry one: an
    *  Erinnerung is not a second kind of row, it is an open item that additionally says when it
    *  should come back (see lib/reminders · the dueAt distinction). */
@@ -168,7 +175,7 @@ function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) =
 // coordinate, which is the weak version of what the Wiedergabe does — scrub to the moment and
 // the entire picture is the one from back then. The row still records its surface; that is
 // addJournal's business, not this sheet's.
-export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
+export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
   /** opened from a Pendenz row: everything written here becomes a Meldung ON that item rather
@@ -193,6 +200,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   incidentStartAt?: string
   /** uploads an imported memo during save (large files never enter the offline queue) */
   uploadAudio?: (blob: Blob, filename: string) => Promise<{ url: string }>
+  /** uploads a generic Beilage (PDF, Dokument …) during save — same rule as the memo above */
+  uploadFile?: (blob: Blob, filename: string) => Promise<{ url: string }>
 }) {
   const C = appConfig.copy.journal // read per-render so the resolved locale applies
   // station Textbausteine over the national defaults (deployment config wins when set)
@@ -403,6 +412,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // stay in step with the five states above.
   useEffect(() => { keepDraft<KeptRest>(restKey, { dueSel, openState, entryType, clip, photos }) },
     [restKey, dueSel, openState, entryType, clip, photos])
+  // Generic Beilagen picked with the upload button — anything that is neither picture nor
+  // recording (PDF vom Eigentümer, Stoffdatenblatt, Liste). ⚠️ Deliberately NOT in `KeptRest`,
+  // for the same reason the imported memo is not: these hold a File, which no draft store can
+  // hand back across an unmount. Uploaded during save, never queued offline.
+  const [files, setFiles] = useState<{ file: File; name: string; contentType: string }[]>([])
   // imported external voice memo (Voice Memos → Files → picker); mutually exclusive with `clip`
   const [imported, setImported] = useState<{
     file: File; url: string; name: string; durationSec: number | null; contentType: string
@@ -430,7 +444,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   }
   const recRef = useRef<{ rec: MediaRecorder; startedAt: number } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const audioFileRef = useRef<HTMLInputElement>(null)
+  /** the ONE upload picker: pictures, recordings and documents in a single dialog (the camera
+   *  button beside it stays, because «take a picture now» is a different gesture) */
+  const attachRef = useRef<HTMLInputElement>(null)
   // closing the composer mid-upload means "cancel": the upload may finish server-side (the
   // orphaned blob is harmless) but no journal row is created after unmount. The unmount also
   // revokes the imported preview URL — saves/closes must not pin up to 100 MB per import.
@@ -439,6 +455,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // assignment the component makes during render — one is a documented exception, two is a habit.
   const importedRef = useRef<{ url: string; name: string } | null>(null)
   importedRef.current = imported ? { url: imported.url, name: imported.name } : null
+  // the staged Beilagen, for the same cleanup — they hold a File, so they cannot be kept either
+  const filesRef = useRef<{ name: string }[]>([])
+  useEffect(() => { filesRef.current = files.map((f) => ({ name: f.name })) }, [files])
   // …and whether the row was actually filed. The memo is the one piece of the draft that cannot
   // be kept (see restKey), so closing with one staged loses it — and a loss nobody is told about
   // is exactly the failure the draft guard exists to end. Not after a save, and not after a
@@ -452,6 +471,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       // read here rather than off the render closure, so the resolved locale applies (config/copy)
       const dropped = appConfig.copy.journal.audioImportDropped
       toast(fillTemplate(dropped, { name: pending.name }), { icon: 'warn', tone: 'warn' })
+    }
+    if (!filedRef.current) {
+      for (const f of filesRef.current) {
+        toast(fillTemplate(appConfig.copy.journal.attachDropped, { name: f.name }), { icon: 'warn', tone: 'warn' })
+      }
     }
   }, [])
 
@@ -522,25 +546,80 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     if (seq !== pickSeq.current || !alive.current) { URL.revokeObjectURL(url); return }
     setImported({ file: f, url, name: f.name, durationSec, contentType: v.contentType })
   }
-  const onAudioPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; e.target.value = ''
-    if (f) void importAudioFile(f)
+  /** a picked document — validated against the same allowlist the server holds, so an
+   *  unsupported type is refused HERE and not by a 415 after the sentence was written */
+  const attachFile = (f: File) => {
+    // no upload channel (a surface that renders the composer without one) — refuse the pick
+    // here rather than staging a Beilage that would be dropped silently on save
+    if (!uploadFile) { toast(C.attachUploadFailed, { icon: 'warn', tone: 'warn' }); return }
+    const v = validateFileImport(f)
+    if (!v.ok) {
+      toast(v.reason === 'size' ? fillTemplate(C.attachTooLarge, { max: MAX_FILE_UPLOAD_MB }) : C.attachUnsupported, { icon: 'warn', tone: 'warn' })
+      return
+    }
+    setFiles((list) => [...list, { file: f, name: f.name || 'Beilage', contentType: v.contentType }])
   }
 
-  // Pasting a copied Voice Memo (or photo) is the easier mobile path than the Files detour —
-  // handled on the composer root so a paste into the textarea bubbles here too.
+  /** ONE upload button, three destinations: a picture joins the photo list, a recording becomes
+   *  THE voice memo of the entry (one per row), everything else lands as a named Beilage. What
+   *  was picked decides — the operator picks a file, not a category. */
+  const takePick = (picked: File[]) => {
+    const images = picked.filter((f) => classifyPick(f) === 'photo')
+    const audios = picked.filter((f) => classifyPick(f) === 'audio')
+    if (images.length) setPhotos((ps) => [...ps, ...images.map((f) => URL.createObjectURL(f))])
+    if (audios.length) void importAudioFile(audios[0])
+    // ⚠️ One recording per Eintrag — but a pick that brought several must SAY which ones it did
+    // not take. Silently keeping the first is the loss the composer refuses everywhere else.
+    if (audios.length > 1) {
+      toast(fillTemplate(C.attachAudioExtra, { names: audios.slice(1).map((f) => f.name).join(', ') }), { icon: 'warn', tone: 'warn' })
+    }
+    for (const f of picked) if (classifyPick(f) === 'file') attachFile(f)
+  }
+  const onAttachPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = [...(e.target.files ?? [])]
+    e.target.value = '' // the same file twice in a row must still fire
+    takePick(picked)
+  }
+  // by POSITION, not by name: two «Bericht.pdf» from two folders are two Beilagen, and removing
+  // one of them may not take the other with it
+  const discardFile = (i: number) => setFiles((list) => list.filter((_, n) => n !== i))
+
+  // Pasting a copied Voice Memo (or photo, or PDF) is the easier mobile path than the Files
+  // detour — handled on the composer root so a paste into the textarea bubbles here too.
   const onPaste = (e: ClipboardEvent) => {
-    const files = Array.from(e.clipboardData?.files ?? [])
-    const audio = files.find((f) => f.type.startsWith('audio/') || /\.m4a$/i.test(f.name))
-    const image = files.find((f) => f.type.startsWith('image/'))
-    if (!audio && !image) return // plain text paste stays with the textarea
+    const picked = Array.from(e.clipboardData?.files ?? [])
+    if (!picked.length) return // plain text paste stays with the textarea
     e.preventDefault()
-    if (audio) void importAudioFile(audio)
-    else if (image) setPhotos((ps) => [...ps, URL.createObjectURL(image)])
+    takePick(picked)
   }
 
   // recording start resolved to the most recent past occurrence (no date picker by design)
   const importStartAt = imported ? resolveRecordingStart(startHHMM) : null
+
+  /** Send every staged Beilage and hand back what the row will carry. Upload-during-save, the
+   *  same rule as the imported memo: a generic file has no in-app preview that could stand in
+   *  for it, so the row is only created once its URLs exist. Throws — the caller keeps the
+   *  sheet (and the draft) standing so the save can be retried. */
+  const uploadPickedFiles = async (): Promise<{ url: string; name: string }[]> => {
+    if (!files.length || !uploadFile) return []
+    const out: { url: string; name: string }[] = []
+    for (const f of files) {
+      // re-wrap when the picker's MIME needed normalising (empty / octet-stream out of iOS
+      // Files) so the backend allowlist sees a supported content type
+      const blob = f.file.type === f.contentType ? f.file : new File([f.file], f.name, { type: f.contentType })
+      const { url } = await uploadFile(blob, f.name)
+      out.push({ url, name: f.name })
+    }
+    return out
+  }
+  const sayFileUploadFailed = (e: unknown) => {
+    toast(
+      e instanceof ApiError && e.status === 413 ? fillTemplate(C.attachTooLarge, { max: MAX_FILE_UPLOAD_MB })
+        : e instanceof ApiError && e.status === 415 ? C.attachUnsupported
+          : C.attachUploadFailed,
+      { icon: 'warn', tone: 'warn' },
+    )
+  }
 
   // Upload during save (2026-07-15 decision): the row is only created once the server URL
   // exists — an imported memo never enters the offline IndexedDB queue, so offline is an
@@ -553,6 +632,14 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     if (!startAt) return
     if (!navigator.onLine) { toast(C.audioOffline, { icon: 'warn', tone: 'warn' }); return }
     setUploading(true)
+    // Beilagen first — they are the cheap half, so a refusal comes back fast. Whichever half
+    // fails, the sheet stays open with everything on it and a retry re-sends: an orphaned blob
+    // is harmless (nothing points at it), a lost Beilage is not.
+    let attached: { url: string; name: string }[]
+    try { attached = await uploadPickedFiles() } catch (e) {
+      if (!alive.current) return
+      sayFileUploadFailed(e); setUploading(false); return
+    }
     try {
       // re-wrap when the picker's MIME needed normalising (empty/x-wav) so the backend
       // allowlist sees a supported content type
@@ -575,6 +662,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         assignee: parts.find((p) => p.kind)?.text,
         ...(noteOn ? { noteFor: { id: noteOn.id } } : openState > 0 ? { pendenz: { urgent: openState === 2 } } : {}),
         audioUrl: url, secs: imported.durationSec ?? undefined,
+        files: attached.length ? attached : undefined,
         audioMeta: {
           source: 'imported', startedAt: startAt.toISOString(),
           durationSec: imported.durationSec ?? undefined, originalName: imported.name,
@@ -590,10 +678,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     }
   }
 
+  // the CAMERA button — «take one now», which is a different gesture from picking an existing
+  // file (⚠️ `picked`, not `files`: that name belongs to the staged Beilagen state above)
   const onPhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = [...(e.target.files ?? [])]
+    const picked = [...(e.target.files ?? [])]
     e.target.value = '' // the same file twice in a row must still fire
-    if (files.length) setPhotos((ps) => [...ps, ...files.map((f) => URL.createObjectURL(f))])
+    if (picked.length) setPhotos((ps) => [...ps, ...picked.map((f) => URL.createObjectURL(f))])
   }
   const discardPhoto = (url: string) => {
     URL.revokeObjectURL(url)
@@ -603,13 +693,20 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const canSend = imported != null
     // hard gate: an imported memo saves only with a confirmed, valid start time
     ? startConfirmed && importStartAt != null && !uploading
-    : text.trim().length > 0 || clip != null || photos.length > 0
+    : text.trim().length > 0 || clip != null || photos.length > 0 || files.length > 0
   const submit = () => {
     if (!canSend || uploading) return
     if (imported) { void submitImported(); return } // …which clears the draft once the upload lands
+    if (files.length) { void submitWithFiles(); return } // …ditto, once the Beilagen land
+    submitRow([])
+  }
+  /** the ordinary save — staged Beilagen have already been uploaded when this runs, so the row
+   *  is created with server URLs and nothing here can fail. */
+  const submitRow = (attached: { url: string; name: string }[]) => {
     clearDraft(draftKey); clearDraft(restKey) // filed — the next open starts empty
     onSubmit({
       text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined,
+      files: attached.length ? attached : undefined,
       entryType: entryType ?? undefined,
       dueAt,
       // «Wer»: the first name the sentence marks. No field asks for it — whoever writes «Trupp 2
@@ -621,6 +718,20 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         : openState > 0 ? { pendenz: { urgent: openState === 2 } } : {}),
       audioMeta: clip ? { source: 'recorded', startedAt: clip.startedAt, durationSec: clip.secs } : undefined,
     })
+  }
+  /** save WITH Beilagen: they go up first, and only a complete upload files the row — offline is
+   *  an explicit refusal here (not a queued promise), exactly as it is for an imported memo. */
+  const submitWithFiles = async () => {
+    if (!navigator.onLine) { toast(C.attachOffline, { icon: 'warn', tone: 'warn' }); return }
+    setUploading(true)
+    let attached: { url: string; name: string }[]
+    try { attached = await uploadPickedFiles() } catch (e) {
+      if (!alive.current) return
+      sayFileUploadFailed(e); setUploading(false); return
+    }
+    if (!alive.current) return // closed mid-upload — cancelled, no row
+    filedRef.current = true
+    submitRow(attached)
   }
 
   const kbInset = useKeyboardInset()
@@ -1081,11 +1192,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 ? <><span className="tb-stop" /><span className="jc-rec-time">{elapsed}s</span></>
                 : <><Icon id="mic" /><span className="jc-lbl">{C.record}</span></>}
             </button>
-            {/* the media buttons share one row at a third of the width each — not even a
-                desktop third fits «Audio hochladen», so the short form labels the button and the
-                full one stays as its tooltip. The upload arrow carries the rest. */}
-            <button className="jc-rec" onClick={() => audioFileRef.current?.click()} title={C.audioUpload} aria-label={C.audioUpload}>
-              <Icon id="upload" /><span className="jc-lbl">{C.audioUploadShort}</span>
+            {/* ONE upload button for everything that already exists as a file — a picture from
+                the gallery, an externally recorded memo, the PDF the Eigentümer just sent. It
+                used to accept audio only, so the commonest Beilage of all had no way in at all.
+                What was picked decides where it lands (lib/audioImport · classifyPick).
+                The media buttons share one row at a third of the width each — not even a desktop
+                third fits «Datei hochladen», so the short form labels the button and the full one
+                stays as its tooltip. The upload arrow carries the rest. */}
+            <button className="jc-rec" onClick={() => attachRef.current?.click()} title={C.attachUpload} aria-label={C.attachUpload}>
+              <Icon id="upload" /><span className="jc-lbl">{C.attachUploadShort}</span>
             </button>
             <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo} aria-label={C.photo}><Icon id="cam" /><span className="jc-lbl">{C.photo}</span></button>
             {clip && (
@@ -1107,8 +1222,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             Fixed-positioned, so they are out of the sheet's flow wherever they sit. */}
         <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple
           className="file-picker" tabIndex={-1} onChange={onPhotoPicked} />
-        <input ref={audioFileRef} type="file" accept={AUDIO_IMPORT_ACCEPT}
-          className="file-picker" tabIndex={-1} onChange={(e) => void onAudioPicked(e)} />
+        <input ref={attachRef} type="file" accept={MEDIA_IMPORT_ACCEPT} multiple
+          className="file-picker" tabIndex={-1} onChange={onAttachPicked} />
         {imported && (
           <div className="jc-import">
             <div className="jc-import-row">
@@ -1136,6 +1251,24 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <img src={url} alt="" />
                 <button className="jc-clip-x" title={C.discardPhoto} aria-label={C.discardPhoto} onClick={() => discardPhoto(url)}><Icon id="close" /></button>
               </div>
+            ))}
+          </div>
+        )}
+        {/* staged Beilagen: a document has no thumbnail worth showing, so the chip says the two
+            things that identify it — the name it was picked under and how big it is. Each one
+            keeps its own ✕ (entfernen: nothing has been saved yet). */}
+        {files.length > 0 && (
+          <div className="jc-files">
+            {files.map((f, i) => (
+              <span className="jc-file" key={`${f.name}:${i}`}>
+                <Icon id="attach" />
+                {/* «Beilage / Name · Grösse» — the shape .jc-clip and .jc-import already use */}
+                <span className="jc-file-name">
+                  <strong>{C.attachLabel}</strong>
+                  <em>{f.name} · {formatFileSize(f.file.size)}</em>
+                </span>
+                <button className="jc-clip-x" title={C.attachDiscard} aria-label={C.attachDiscard} onClick={() => discardFile(i)}><Icon id="close" /></button>
+              </span>
             ))}
           </div>
         )}

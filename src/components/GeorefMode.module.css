@@ -240,22 +240,31 @@
   box-shadow: var(--shadow);
   padding: 8px;
   min-width: 200px;
-  max-width: min(78vw, 260px);
+  /* wide enough for the two German action labels side by side, on one line each — see
+     `.popActs`. ⚠️ Half of this is the clamp `PlanMarkerPopover` keeps the card away from the
+     screen edges with; the two numbers move together. */
+  max-width: min(92vw, 304px);
 }
 .popHead {
   display: flex; gap: 6px; align-items: baseline;
   padding: 2px 6px 7px; font: 700 12px var(--body); color: var(--ink); white-space: nowrap;
 }
 .popHead i { font: 500 11px var(--body); font-style: normal; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
-.popActs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+/* ⚠️ Columns sized by the WORDS, not by half the card. `1fr 1fr` gave «Punkt löschen» exactly
+   half of a 260px card, and on a phone the label broke over two lines — a two-line destructive
+   button beside a one-line harmless one, i.e. the wrong one made to look like the bigger target.
+   `minmax(min-content, 1fr)` plus `nowrap` means neither label can ever wrap; the card above is
+   wide enough to hold both. The 44px touch height is untouched. */
+.popActs { display: grid; grid-template-columns: repeat(2, minmax(min-content, 1fr)); gap: 6px; }
 .popActs button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  min-height: var(--tap); border-radius: var(--r-sm); border: 1px solid var(--border);
+  min-height: var(--tap); padding: 0 8px; border-radius: var(--r-sm); border: 1px solid var(--border);
   background: var(--surface); font: 700 12.5px var(--body); color: var(--ink); cursor: pointer;
+  white-space: nowrap;
 }
 @media (hover: hover) { .popActs button:hover { background: var(--fill-soft); } }
 .popActs button:active { background-image: linear-gradient(var(--press), var(--press)); }
-.popActs svg { width: 15px; height: 15px; }
+.popActs svg { width: 15px; height: 15px; flex: none; }
 /* red never fills — it marks the destructive choice apart from the harmless one beside it */
 .popWarn { color: var(--red-strong); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
 .popActs button.popWarn { color: var(--red-strong); }
@@ -346,7 +355,11 @@
 }
 .loupe canvas, .loupe .plane { position: absolute; left: 0; top: 0; }
 /* the lifted black floor of a dark base map — `screen` against a flat grey reproduces MapLibre's
-   `raster-brightness-min`, which no CSS filter can (see GeorefMapLayer · loupePaint) */
+   `raster-brightness-min`, which no CSS filter can (see GeorefMapLayer · loupePaint).
+   ⚠️ It stays, however washed-out it looks: without it the night base magnifies to a black disc,
+   which is the bug it was added for. What answers «low contrast» instead is LOUPE_SEPARATION —
+   a contrast/saturation nudge on the TILES, i.e. under this veil, so the floor still lands
+   exactly where MapLibre puts it. */
 .veil { position: absolute; inset: 0; mix-blend-mode: screen; pointer-events: none; }
 .loupe .plane { transform-origin: 0 0; }
 .loupe .plane img { position: absolute; width: 256px; height: 256px; max-width: none; }

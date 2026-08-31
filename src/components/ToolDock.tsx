@@ -20,6 +20,9 @@ const WIDTHS = appConfig.drawing.widths
  * markup. (Both surfaces share the `.wb-dock` CSS, so this stays purely a renderer.)
  */
 export type DockItem =
+  /** Always the first item of the first group — and it stays put: `.wb-dock-x` is sticky at the
+   *  leading end of the scrolling dock (09-whiteboard.css), so the way out of a tool never
+   *  scrolls away with a busy tool's options. */
   | { type: 'close'; onClick: () => void; title?: string }
   /** `text` renders a short word/letter instead of a glyph — for options that have no honest
    *  icon (the note's S/M/L size steps, Zettel↔Klartext). Exactly one of icon/text is used. */
