@@ -1,4 +1,5 @@
 import type { ShapeKind } from '../types'
+import { DEFAULT_INK } from './lineStyle'
 
 // Generic, reshapeable map shapes (distinct from the FireGIS tactical symbols).
 // Each is placed as an entity and then edited: colour, size (metres on the
@@ -17,13 +18,13 @@ export const FORMEN_ORDER: ShapeKind[] = ['arrow', 'square', 'rotation']
 // defaultSizeM sizes on the map (metres on the ground); defaultSizeN on a plan
 // (fraction of the plan width — a plan has no metric scale). Smoke starts larger.
 export const SHAPE_DEFS: Record<ShapeKind, { defaultColor: string; defaultSizeM: number; defaultSizeN: number; defaultAspect?: number }> = {
-  arrow: { defaultColor: '#1f6feb', defaultSizeM: 45, defaultSizeN: 0.1 },
+  arrow: { defaultColor: DEFAULT_INK, defaultSizeM: 45, defaultSizeN: 0.1 },
   cloud: { defaultColor: '#6b7280', defaultSizeM: 80, defaultSizeN: 0.18 },
   square: { defaultColor: '#e8392b', defaultSizeM: 45, defaultSizeN: 0.1 },
   // A Rotation is a shuttle RUN — it spans from the Wasserbezug to the Brandstelle, so it starts
   // long and flat rather than square, and far bigger than a Formen box. Both are only a starting
   // point: the corner drag is the whole reason it is a shape.
-  rotation: { defaultColor: '#1f6feb', defaultSizeM: 300, defaultSizeN: 0.42, defaultAspect: 0.32 },
+  rotation: { defaultColor: DEFAULT_INK, defaultSizeM: 300, defaultSizeN: 0.42, defaultAspect: 0.32 },
 }
 
 // Which shapes stretch freely (the corner drag sets width and height separately, stored as

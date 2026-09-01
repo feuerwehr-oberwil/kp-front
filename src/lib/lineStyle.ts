@@ -65,6 +65,15 @@ export function linePresetLabel(d: Pick<LinePresetFields, 'arrow' | 'marker' | '
   return label
 }
 
+/** The colour a line, Fläche or Form is born with when nothing picked one for it.
+ *
+ *  ⚠️ A literal, deliberately NOT `var(--blue)`: this is DATA. It is written into the synced
+ *  workspace, printed on paper and re-read years later, so it must not change when the theme,
+ *  the station accent or the day/night flip does — a shape drawn at 3am in night mode has to
+ *  come back the same colour on the Rapport. It happens to equal the light-theme `--blue`
+ *  (01-tokens.css); the chrome around it follows the token, this does not. */
+export const DEFAULT_INK = '#1f6feb'
+
 /** Repeated inline marker (e.g. —R— on a Rettungsachse): how far apart, in screen/board px, the
  *  letters are dropped along the polyline. Identical rhythm on both surfaces. */
 export const MARKER_SPACING_PX = 46

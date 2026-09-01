@@ -34,7 +34,7 @@ import { glyphFor } from '../lib/twinGlyph'
 import { noteScale, noteWPx } from '../lib/notes'
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
-import { EXTEND_STEP_PX, lerpPoint, lookbackPoint, markerGlyph, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
+import { DEFAULT_INK, EXTEND_STEP_PX, lerpPoint, lookbackPoint, markerGlyph, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { appConfig } from '../config/appConfig'
@@ -309,7 +309,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   return (
     // not aria-hidden any more: the mirrored team chips answer a tap (onOpenTeam)
     <div className={s.contentBoard}>
-      <WbInkLayer annos={ink} draft={null} draftFloor={0} color="#1f6feb" width={5} dashed={false}
+      <WbInkLayer annos={ink} draft={null} draftFloor={0} color={DEFAULT_INK} width={5} dashed={false}
         hiddenTrails={new Set()} mapY={(_floor, y) => y} truppTones={truppTones} />
       {interactive && (onOpenDrawing || onDrawingCoords) && (
         <svg className={s.drawingHits} width={sW} height={sH} viewBox={`0 0 ${sW} ${sH}`} aria-hidden={false}>
@@ -367,7 +367,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
       {drawings.flatMap(({ key, anno, drawing }) => {
         if (!anno.pts?.length) return []
         const bpx = anno.pts.map(([x, y]) => [x * sW, y * sH] as [number, number])
-        const color = anno.color || '#1f6feb'
+        const color = anno.color || DEFAULT_INK
         const isArea = anno.kind === 'area'
         const out: React.ReactNode[] = []
 
@@ -462,7 +462,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           // sizeM is the WIDTH; the height follows the source's stretched box (Entity.aspect)
           const kind = entity.shape ?? 'square'
           const style = { ...pos, width: px, height: px * shapeAspect(kind, entity.aspect), transform: `translate(-50%, -50%) rotate(${(entity.rotation ?? 0) + fit.rotationDeg}deg)` }
-          const glyph = <ShapeGlyph kind={kind} color={entity.color ?? '#1f6feb'} stop={entity.stop} aspect={entity.aspect} carrier={entity.carrier} reverse={entity.reverse} strokeW={entity.strokeW} boxPx={px} fillOpacity={entity.fillOpacity} hatch={entity.hatch} sharpCorners={entity.sharpCorners} />
+          const glyph = <ShapeGlyph kind={kind} color={entity.color ?? DEFAULT_INK} stop={entity.stop} aspect={entity.aspect} carrier={entity.carrier} reverse={entity.reverse} strokeW={entity.strokeW} boxPx={px} fillOpacity={entity.fillOpacity} hatch={entity.hatch} sharpCorners={entity.sharpCorners} />
           // a LOCKED Form is click-through, exactly as it is on the Karte (MapMarkers ·
           // lockedShape) — the LockChip above is the only door back in
           if (!tappable || entity.locked) {

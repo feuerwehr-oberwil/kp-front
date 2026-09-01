@@ -4,7 +4,7 @@ import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { HATCH_PERIOD_PX, HatchDefs, LineStylePicker, hatchPatternId } from '../lib/draw'
-import { markerGlyph } from '../lib/lineStyle'
+import { DEFAULT_INK, markerGlyph } from '../lib/lineStyle'
 import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -170,7 +170,7 @@ interface Props {
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
 export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
-  const color = drawing.color ?? '#1f6feb'
+  const color = drawing.color ?? DEFAULT_INK
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
   const isCircle = drawing.kind === 'circle'

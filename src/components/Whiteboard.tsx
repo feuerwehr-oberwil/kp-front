@@ -10,7 +10,7 @@ import { PdfViewport, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
-import { resolveLinePreset, markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { resolveLinePreset, markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { buzz } from '../lib/haptics'
@@ -3168,7 +3168,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   // same glyphs + sizing model as the map: the silhouette scales with the
                   // plan (width = sizeN × plan width, height = width × aspect) and rotates as a whole
                   <div className="shape-glyph" style={{ width: (a.sizeN ?? 0.1) * sW, height: (a.sizeN ?? 0.1) * sW * shapeAspect(a.shape ?? 'square', a.aspect), transform: `rotate(${a.rotation ?? 0}deg)` }}>
-                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} carrier={a.carrier} reverse={a.reverse} strokeW={a.strokeW} boxPx={(a.sizeN ?? 0.1) * sW} fillOpacity={a.fillOpacity} hatch={a.hatch} sharpCorners={a.sharpCorners} />
+                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? DEFAULT_INK} stop={a.stop} aspect={a.aspect} carrier={a.carrier} reverse={a.reverse} strokeW={a.strokeW} boxPx={(a.sizeN ?? 0.1) * sW} fillOpacity={a.fillOpacity} hatch={a.hatch} sharpCorners={a.sharpCorners} />
                   </div>
                 )}
                 {a.kind === 'text' && (() => {

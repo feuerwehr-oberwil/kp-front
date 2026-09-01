@@ -12,6 +12,7 @@ import { MenuPick } from './MenuPick'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
 import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_PX, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
+import { DEFAULT_INK } from '../lib/lineStyle'
 import { ConnectRing } from './NodeDeleteChip'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
@@ -764,7 +765,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   className="shape-glyph"
                   style={{ width: shpW, height: shpH, transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
                 >
-                  <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} stop={e.stop} aspect={e.aspect} carrier={e.carrier} reverse={e.reverse} strokeW={e.strokeW} boxPx={shpW} fillOpacity={e.fillOpacity} hatch={e.hatch} sharpCorners={e.sharpCorners} />
+                  <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? DEFAULT_INK} stop={e.stop} aspect={e.aspect} carrier={e.carrier} reverse={e.reverse} strokeW={e.strokeW} boxPx={shpW} fillOpacity={e.fillOpacity} hatch={e.hatch} sharpCorners={e.sharpCorners} />
                 </div>
                 {/* the click-through ink's only tap target — outside the rotated box, so the
                     chip stays upright (drawings' twin: MapView · lockChips) */}

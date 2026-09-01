@@ -37,7 +37,7 @@ import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { noteScale } from '../lib/notes'
 import { worldPx, TEAM_DOT_PX } from '../lib/mapView'
 import { fmtArea, fmtDistance, haversineM, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
-import { EXTEND_STEP_PX, lerpPoint, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
+import { DEFAULT_INK, EXTEND_STEP_PX, lerpPoint, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { fillTemplate } from '../lib/format'
@@ -397,7 +397,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
           const kind = a.shape ?? 'square'
           const glyph = (
             <span className={`${s.contentMap} shape-glyph`} style={{ display: 'block', width: px, height: px * shapeAspect(kind, a.aspect), transform: `rotate(${(a.rotation ?? 0) - t.fit.rotationDeg - bearing}deg)` }}>
-              <ShapeGlyph kind={kind} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} carrier={a.carrier} reverse={a.reverse} strokeW={a.strokeW} boxPx={px} fillOpacity={a.fillOpacity} hatch={a.hatch} sharpCorners={a.sharpCorners} />
+              <ShapeGlyph kind={kind} color={a.color ?? DEFAULT_INK} stop={a.stop} aspect={a.aspect} carrier={a.carrier} reverse={a.reverse} strokeW={a.strokeW} boxPx={px} fillOpacity={a.fillOpacity} hatch={a.hatch} sharpCorners={a.sharpCorners} />
             </span>
           )
           // a LOCKED shape is click-through, exactly like the map's own locked shape entity

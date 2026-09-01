@@ -60,7 +60,10 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 30%, transparent), 0 2px 12px rgba(30, 45, 70, .28); animation: haloIn .18s var(--ease); }
 @keyframes haloIn { from { opacity: 0; transform: translate(-50%, -50%) scale(.8); } }
 .marker.sel .ts, .marker.sel .shape-glyph, .marker.sel .note-pill { position: relative; z-index: 1; }
-.handle { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff;
+/* ⚠️ The separating ring is `--surface`, not a frozen #fff: in day it is the white rim that lifts
+   a handle off bright imagery, at night it is the dark rim that does the same over a dark basemap
+   — a frozen white there smears into a glow (the same reasoning as --note-halo). */
+.handle { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--surface);
   color: var(--on-accent-ink); display: grid; place-items: center; box-shadow: 0 2px 7px rgba(30, 45, 70, .32); padding: 0; z-index: 8; }
 .handle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .handle .i { width: 16px; height: 16px; stroke-width: 2.3; }
@@ -199,7 +202,7 @@
 /* the first of a Rotation's two points, while the second is still being looked for: a plain ink
    dot in the shape's own blue, big enough to find again after panning across the map */
 .place-anchor { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--blue);
-  border: 2.5px solid #fff; box-shadow: 0 1px 3px rgba(15, 22, 34, .4), 0 3px 8px rgba(30, 45, 70, .25); }
+  border: 2.5px solid var(--surface); box-shadow: 0 1px 3px rgba(15, 22, 34, .4), 0 3px 8px rgba(30, 45, 70, .25); }
 
 /* ── Rotation: die zwei Enden ────────────────────────────────────────────────────────────────
    A Rotation carries no rotate knob and no size grip — it IS its two ends, and each of them sets

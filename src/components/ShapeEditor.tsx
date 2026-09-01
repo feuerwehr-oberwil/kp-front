@@ -6,6 +6,7 @@ import { fmtArea, fmtDistance } from '../lib/geo'
 import { Segmented } from './Segmented'
 import { SHAPE_STROKE_DEFAULT, SQUARE_FILL_DEFAULT, ShapeGlyph } from '../lib/shapes'
 import { HATCH_PERIOD_PX, HatchDefs, hatchPatternId } from '../lib/draw'
+import { DEFAULT_INK } from '../lib/lineStyle'
 
 const COLORS = appConfig.drawing.colors
 const WIDTHS = appConfig.drawing.widths
@@ -60,7 +61,7 @@ interface Props {
 // directly on the map/plan by dragging the shape's corner / top handles, so
 // they're not duplicated here. Reuses the .ctx / .draw-editor look.
 export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, onCarrier, onReverse, onStrokeW, onFill, onCorners, areaM2, boxM, perimeterM, onToggleLock, locked, onCenter, onDelete, onClose }: Props) {
-  const color = entity.color ?? '#1f6feb'
+  const color = entity.color ?? DEFAULT_INK
   const name = appConfig.copy.shapes.names[entity.shape ?? 'square'] ?? appConfig.copy.shapes.kindLabel
 
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the

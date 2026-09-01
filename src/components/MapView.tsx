@@ -10,7 +10,7 @@ import { motionDuration } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML, hatchImageId, hatchTile } from '../lib/draw'
-import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, HUB_NODE_CLEARANCE_PX, HUB_EDGE_MARGIN_PX, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, DEFAULT_INK, HUB_NODE_CLEARANCE_PX, HUB_EDGE_MARGIN_PX, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, GEOREF_CONTENT_PICK_LAYERS, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
@@ -32,6 +32,7 @@ import { useNodeHold } from '../lib/nodeHold'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
+import { uiBlue } from '../lib/themeToken'
 import { useIsPhone } from '../lib/useIsPhone'
 import { reportClientError } from '../lib/reportError'
 import { isTypingTarget } from '../lib/hotkeys'
@@ -413,12 +414,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // under a moving finger read as flicker, so the decision is taken once the map comes to rest.
   const [, bumpLabelFrame] = useState(0)
   // MapLibre paint specs can't read CSS vars, so the two TRANSIENT overlays drawn in the UI blue —
-  // the draft shape and the measure path — pick their literal here instead of freezing the day
-  // value into the paint spec, where they stayed dark-on-dark over a night basemap. These mirror
-  // --blue / --blue's night override in app.css. A drawing's OWN colour is data and never flips:
-  // its `d.color || '#1f6feb'` fallbacks below are deliberately left alone.
+  // the draft shape and the measure path — resolve `--blue` off the live theme (lib/themeToken)
+  // rather than freezing a literal into the paint spec, where they stayed dark-on-dark over a
+  // night basemap. `useNightTheme` is what re-renders this component on the flip, so the read
+  // below lands on the token that is actually in force. A drawing's OWN colour is data and never
+  // flips: its `d.color || DEFAULT_INK` fallbacks below are deliberately left alone.
   const night = useNightTheme()
-  const uiBlue = night ? '#5aa0ff' : '#1f6feb'
+  const blue = uiBlue()
 
   // ── «Karte verknüpfen»: the map half of the pairing mode (components/GeorefMapLayer) ────────
   // The mode is a module store, not a prop chain: on a phone the Plan surface is unmounted while
@@ -1019,7 +1021,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // or überfällig. Resolved here (not per frame) so the paint expression stays a plain lookup.
     const linked = d.kind === 'line' ? truppForLine(d, trupps ?? []) : undefined
     const tone = linked ? truppLineTone(linked, truppSeverities?.[linked.id] ?? 0) : 'idle'
-    const p = { id: d.id, color: d.color || '#1f6feb', width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, hatch: !!d.hatch, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1, truppTone: tone === 'warn' || tone === 'crit' ? tone : '' }
+    const p = { id: d.id, color: d.color || DEFAULT_INK, width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, hatch: !!d.hatch, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1, truppTone: tone === 'warn' || tone === 'crit' ? tone : '' }
     if (d.kind === 'circle') return polyFeat(circleRing(d), p)
     return d.kind === 'area' && d.coords.length >= 3 ? polyFeat(d.coords, p) : lineFeat(d.coords, p)
   }))
@@ -1037,7 +1039,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const cosL = Math.cos((bLat * Math.PI) / 180) || 1e-6
       const dx = (bLng - aLng) * cosL, dy = bLat - aLat
       const bearing = (Math.atan2(dx, dy) * 180) / Math.PI // 0 = north, +clockwise
-      return { type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[n - 1] }, properties: { id: d.id, color: d.color || '#1f6feb', bearing, icon: d.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' } }
+      return { type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[n - 1] }, properties: { id: d.id, color: d.color || DEFAULT_INK, bearing, icon: d.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' } }
     })
   const arrowFC = fc(arrowFeats)
 
@@ -1086,7 +1088,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }
   const drawMarkers = drawings
     .filter((d) => d.kind !== 'area' && !!d.marker && Array.isArray(d.coords) && d.coords.length >= 2)
-    .flatMap((d) => markerPointsAlong(d.coords, d.marker).map(({ coord, deg }, i) => ({ id: `${d.id}-${i}`, coord, deg, marker: d.marker!, color: d.color || '#1f6feb' })))
+    .flatMap((d) => markerPointsAlong(d.coords, d.marker).map(({ coord, deg }, i) => ({ id: `${d.id}-${i}`, coord, deg, marker: d.marker!, color: d.color || DEFAULT_INK })))
   // committed Absperrkreis circles carry their radius at the SCREEN-TOP edge (not the centre,
   // which is the drag handle) so the size reads without sitting in the middle of the action.
   // The edge point tracks the map bearing so it stays at the top of the screen when rotated.
@@ -1127,7 +1129,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // the Atemschutz-Trupp working this Leitung (anchor or number) + how it is doing right now
       const trupp = truppForLine(d, trupps ?? [])
       const tone = trupp ? truppLineTone(trupp, truppSeverities?.[trupp.id] ?? 0) : 'idle'
-      return { d, end, anchor, angleDeg, color: d.color || '#1f6feb', width: d.width || 4, trupp, tone }
+      return { d, end, anchor, angleDeg, color: d.color || DEFAULT_INK, width: d.width || 4, trupp, tone }
     })
   // ── ONE label pass for the whole map ─────────────────────────────────────────────────────
   // Every family above (symbol captions, Trupp names, Leitung end tags, line readouts, radius
@@ -1801,8 +1803,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {/* live draft (area/line tool) — vertices are draggable handles (rendered below),
           so the in-progress shape edits exactly like the measure path */}
       <Source id="s-draft" type="geojson" data={draftFC}>
-        <Layer id="l-draft-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': uiBlue, 'fill-opacity': 0.08 }} />
-        <Layer id="l-draft-line" type="line" paint={{ 'line-color': uiBlue, 'line-width': 2, 'line-dasharray': [1.5, 1] }} />
+        <Layer id="l-draft-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': blue, 'fill-opacity': 0.08 }} />
+        <Layer id="l-draft-line" type="line" paint={{ 'line-color': blue, 'line-width': 2, 'line-dasharray': [1.5, 1] }} />
         {/* fat transparent hit line so segment clicks (insert vertex) are easy to land */}
         <Layer id="l-draft-hit" type="line" paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 }} />
       </Source>
@@ -1833,8 +1835,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         {/* Polygon only. A fill layer closes a LineString into a ring and shades it, so a measured
             Strecke that bends back on itself came out tinted like an area — the same guard the
             draft layer has carried all along. */}
-        <Layer id="l-measure-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': uiBlue, 'fill-opacity': 0.1 }} />
-        <Layer id="l-measure-line" type="line" paint={{ 'line-color': uiBlue, 'line-width': 2.5, 'line-dasharray': [2, 1.2] }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
+        <Layer id="l-measure-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': blue, 'fill-opacity': 0.1 }} />
+        <Layer id="l-measure-line" type="line" paint={{ 'line-color': blue, 'line-width': 2.5, 'line-dasharray': [2, 1.2] }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
         {/* fat transparent hit line so segment clicks (insert vertex) are easy to land */}
         <Layer id="l-measure-hit" type="line" paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 }} />
       </Source>
