@@ -49,6 +49,13 @@ describe('WbVertexHandles · the vertex-handle cap degrades instead of switching
     expect(screen.queryAllByRole('button', { name: M.extendLine })).toHaveLength(2)
   })
 
+  // the hold-to-delete is the node grip's second gesture; the app-wide hold-tooltip must not
+  // claim the same press and swallow its release (lib/holdTooltip · [data-holdaction])
+  it('opts its grips out of the hold-tooltip, so the hold-to-delete keeps its release', () => {
+    render(<WbVertexHandles anno={stroke(5)} {...stage} {...handlers} />)
+    expect(grips().every((g) => g.hasAttribute('data-holdaction'))).toBe(true)
+  })
+
   it('reports the REAL vertex index of a thinned grip, not its position in the shown set', () => {
     const onVertexDown = vi.fn()
     render(<WbVertexHandles anno={stroke(66)} {...stage} {...handlers} onVertexDown={onVertexDown} />)

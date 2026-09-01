@@ -3329,7 +3329,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 {/* right-edge width grip — a text box only. A one-line note has nothing to drag:
                     its width IS its text, and the box shape is what «Zu Textfeld» hands out. */}
                 {a.kind === 'text' && selId === a.id && tool === 'pan' && !readOnly && (
-                  <button className="note-wgrip" title={appConfig.copy.notes.resizeHint} aria-label={appConfig.copy.notes.resizeHint}
+                  <button className="note-wgrip" title={appConfig.copy.notes.resizeHint} aria-label={appConfig.copy.notes.resizeHint} data-holdaction
                     onPointerDown={(e) => rotDown(e, a.id, 'width')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp}
                     onClick={(e) => e.stopPropagation()}><Icon id="resize" /></button>
                 )}
@@ -3389,7 +3389,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         <Icon id="resize-v" />
                       </button>
                     </> : (
-                      <button className="handle shape-resize" style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }} title={appConfig.copy.shapes.resizeHint} aria-label={appConfig.copy.shapes.resizeHint}
+                      <button className="handle shape-resize" style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }} title={appConfig.copy.shapes.resizeHint} aria-label={appConfig.copy.shapes.resizeHint} data-holdaction
                         onPointerDown={(e) => rotDown(e, a.id, 'resize')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
                         <Icon id="resize" />
                       </button>
@@ -3421,14 +3421,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   <>
                     <div className="shape-rotor" style={{ transform: `rotate(${a.rotation ?? 0}deg)` }}>
                       <span className="shape-stem" />
-                      <button className="handle shape-rotate" title={appConfig.copy.contextPanel.rotationVehicle} aria-label={appConfig.copy.contextPanel.rotationVehicle}
+                      <button className="handle shape-rotate" title={appConfig.copy.contextPanel.rotationVehicle} aria-label={appConfig.copy.contextPanel.rotationVehicle} data-holdaction
                         onPointerDown={(e) => rotDown(e, a.id, 'rotate')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
                         <Icon id="rotate" />
                       </button>
                     </div>
                     <div className="shape-rotor shape-rotor-fan" style={{ transform: `rotate(${a.rotation2 ?? 0}deg)` }}>
                       <span className="shape-stem" />
-                      <button className="handle shape-rotate shape-rotate-fan" title={appConfig.copy.contextPanel[annoComposite(a)!.partLabel]} aria-label={appConfig.copy.contextPanel[annoComposite(a)!.partLabel]}
+                      <button className="handle shape-rotate shape-rotate-fan" title={appConfig.copy.contextPanel[annoComposite(a)!.partLabel]} aria-label={appConfig.copy.contextPanel[annoComposite(a)!.partLabel]} data-holdaction
                         onPointerDown={(e) => rotDown(e, a.id, 'rotate2')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
                         <Icon id="rotate" />
                       </button>
@@ -3442,7 +3442,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   const len = Math.max(12, (a.reachN ?? 0.12) * sW)
                   return (
                     <div className="cage-handle" style={{ left: `calc(50% + ${(Math.cos(rad) * len).toFixed(1)}px)`, top: `calc(50% + ${(Math.sin(rad) * len).toFixed(1)}px)` }}>
-                      <button className="handle shape-cage" title={appConfig.copy.shapes.moveHint} aria-label={appConfig.copy.shapes.moveHint}
+                      <button className="handle shape-cage" title={appConfig.copy.shapes.moveHint} aria-label={appConfig.copy.shapes.moveHint} data-holdaction
                         onPointerDown={(e) => rotDown(e, a.id, 'cage')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
                         <Icon id="move" />
                       </button>

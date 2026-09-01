@@ -752,11 +752,17 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   background: color-mix(in srgb, currentColor 10%, var(--surface));
 }
 
-/* vertex-editing handles for a selected line/area (board px, absolute on the board) —
-   small dots visually, but with transparent hit pads (::after) like the map's handles;
-   the vertex pad wins over the smaller midpoint-insert pad on short segments (DOM order) */
-.wb-vertex { position: absolute; z-index: 7; width: 16px; height: 16px; border-radius: 50%; padding: 0;
-  background: var(--surface); border: 2px solid var(--blue); cursor: grab; touch-action: none; box-shadow: var(--shadow-sm); }
+/* Vertex-editing handles for a selected line/area (board px, absolute on the board) — small dots
+   visually, but with transparent hit pads (::after) like the map's handles; the vertex pad wins
+   over the smaller midpoint-insert pad on short segments (DOM order).
+   ⚠️ ONE dot size across both surfaces (01.09.): 24px drawn, exactly the Lage's .draw-handle,
+   white-filled with a 3px blue ring. `box-sizing: border-box` is global (02-base.css), so 24 is
+   the diameter you see and not 24-plus-ring. The plan's dot used to be 16/2 and the map's 18/3 —
+   the same gesture on the same object, two sizes apart, and the smaller one sat UNDER the 20px
+   «+» it is supposed to outrank. The insert and Verlängern grips keep their sizes; they were
+   already pixel-matched. */
+.wb-vertex { position: absolute; z-index: 7; width: 24px; height: 24px; border-radius: 50%; padding: 0;
+  background: var(--on-accent-ink); border: 3px solid var(--blue); cursor: grab; touch-action: none; box-shadow: var(--shadow-sm); }
 .wb-vertex::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-vertex:active { cursor: grabbing; }
 /* Verlängern-Griff auf dem Plan: dieselbe Optik wie auf der Lage (.draw-grow in 11-measure.css),

@@ -195,7 +195,7 @@ export function WbCircleHandle({ anno, sW, sH, mapY, onRadiusDown, onMove, onUp 
   const cx = (anno.x ?? 0) * sW, cy = mapY(anno.floor, anno.y ?? 0) * sH
   const r = Math.max(1, (anno.radiusN ?? 0) * sW)
   return (
-    <button className="wb-vertex" title={appConfig.copy.whiteboard.dragRadius} aria-label={appConfig.copy.whiteboard.dragRadius}
+    <button className="wb-vertex" title={appConfig.copy.whiteboard.dragRadius} aria-label={appConfig.copy.whiteboard.dragRadius} data-holdaction
       style={{ left: 0, top: 0, transform: `translate(${cx + r}px, ${cy}px) translate(-50%, -50%)` }}
       onPointerDown={onRadiusDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
       onClick={(e) => e.stopPropagation()} />
@@ -243,7 +243,7 @@ export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertex
       })}
       {sp.map(([x, y], i) => (
         <button key={`dv-${i}`} className={`wb-vertex ${vertexPress.armed?.key === `d${i}` ? 'doomed' : ''}`}
-          title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex}
+          title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex} data-holdaction
           style={{ left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
           onPointerDown={(e) => {
             // deleting is allowed all the way down — a one-point draft deletes into no draft,
@@ -282,6 +282,12 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   // still hold = delete, movement cancels into the reshape drag — the SAME gesture and the same
   // chip the map uses (lib/nodeHold · NodeDeleteChip); the two surfaces share the feel, not the
   // renderer.
+  //
+  // ⚠️ Every grip below carries `data-holdaction` (01.09.). These are <button>s, where the Lage's
+  // are plain <div>s, and the app-wide hold-tooltip (lib/holdTooltip) only looks at buttons — so
+  // on the plan it popped «Punkt ziehen» at 350 ms INSIDE the 825 ms hold-to-delete and swallowed
+  // the release, which is the one gesture that must survive. The attribute opts them out at the
+  // source and keeps the button's keyboard/aria access, which the map's div never had.
   const vertexPress = useNodeHold()
   const pts = anno.pts ?? []
   if (pts.length < 2) return null
@@ -329,7 +335,7 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
         const [x, y] = sp[i]
         return (
         <button key={`v-${i}`} className={`wb-vertex ${vertexPress.armed?.key === `v${i}` ? 'doomed' : ''}`}
-          title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex}
+          title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex} data-holdaction
           style={{ left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
           onPointerDown={(e) => {
             vertexPress.press(`v${i}`, () => onDeleteVertex(i), pts.length > minPts).onPointerDown(e)

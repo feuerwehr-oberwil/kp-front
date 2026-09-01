@@ -40,7 +40,7 @@
 /* path vertices — small dot, but a 44px transparent hit pad (::after) so a fingertip can
    grab one to drag, or press-and-hold to delete, without a precise aim. touch-action:none
    keeps the press from scrolling/panning before the long-press timer fires. */
-.measure-handle, .draw-handle { position: relative; width: 18px; height: 18px; border-radius: 50%; background: var(--on-accent-ink);
+.measure-handle, .draw-handle { position: relative; width: 24px; height: 24px; border-radius: 50%; background: var(--on-accent-ink);
   border: 3px solid var(--blue); box-shadow: 0 1px 3px rgba(30, 45, 70, .4); cursor: grab; box-sizing: border-box; touch-action: none; }
 .measure-handle::after, .draw-handle::after { content: ''; position: absolute; left: 50%; top: 50%;
   width: 44px; height: 44px; transform: translate(-50%, -50%); }
