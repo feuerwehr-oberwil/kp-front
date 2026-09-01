@@ -495,7 +495,7 @@ export function IncidentWorkspace({
   const planFit = useRef<(() => void) | null>(null)
   // the Plan exposes tool-pick + zoom here so the global keyboard-shortcut layer can drive it
   // while the Plan is the active surface (parity with how it drives the Lage map).
-  const planKeys = useRef<{ pickTool: (tool: string) => void; zoom: (f: number) => void } | null>(null)
+  const planKeys = useRef<{ pickTool: (tool: string) => void; zoom: (f: number) => void; duplicate: () => void } | null>(null)
   // always-fresh keydown dispatcher — assigned every render (below, once all handlers exist) so
   // the single window listener never re-subscribes yet never closes over stale state.
   const hotkeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
@@ -2411,7 +2411,12 @@ export function IncidentWorkspace({
         break
       case 'undo': e.preventDefault(); if (onPlan) planHist.current?.undo(); else undo(); break
       case 'redo': e.preventDefault(); if (onPlan) planHist.current?.redo(); else redo(); break
-      case 'duplicate': if (onMap) { e.preventDefault(); duplicateSelection() } break
+      // both drawing surfaces duplicate their own single selection; every other surface has
+      // nothing Cmd+D could mean (A22 — the key used to resolve and then do nothing on the Plan)
+      case 'duplicate':
+        if (onMap) { e.preventDefault(); duplicateSelection() }
+        else if (onPlan) { e.preventDefault(); planKeys.current?.duplicate() }
+        break
       case 'tool':
         // a locked surface keeps the keys for the tools it still shows (D = Messen, V = Auswahl)
         if (!drawing || (tacticalLocked && !isMapReadOnlyTool(cmd.tool)) || replayActive) break

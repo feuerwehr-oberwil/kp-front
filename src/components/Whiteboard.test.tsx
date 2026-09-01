@@ -741,4 +741,58 @@ describe('the plan’s selection bar', () => {
     press('Delete')
     expect(survives(onChange, 'l1')).toBe(true)
   })
+
+  // ── A22 · Cmd/Ctrl+D ───────────────────────────────────────────────────────────────────────
+  // The key resolved on the Plan and then did nothing (lib/hotkeys decodes it surface-agnostically;
+  // IncidentWorkspace only dispatched it on the Karte). Same semantics as the map's here.
+  type Keys = NonNullable<React.ComponentProps<typeof Whiteboard>['keysRef']>
+  const withKeys = (annos: BoardAnno[], extra: Partial<React.ComponentProps<typeof Whiteboard>> = {}) => {
+    const keysRef: Keys = { current: null }
+    const log = vi.fn()
+    return { ...renderPlan(annos, { keysRef, log, ...extra }), keysRef, log }
+  }
+  const out = (onChange: ReturnType<typeof vi.fn>) => onChange.mock.calls[onChange.mock.calls.length - 1][0] as BoardAnno[]
+
+  it('duplicates the one selected object a visible nudge away, and selects the copy', () => {
+    const { container, onChange, keysRef, log } = withKeys([line])
+    fireEvent.pointerDown(hitShape(container))
+    act(() => { keysRef.current!.duplicate() })
+    const annos = out(onChange)
+    expect(annos).toHaveLength(2)
+    const copy = annos.find((a) => a.id !== 'l1')!
+    expect(copy.kind).toBe('draw')
+    expect(copy.pts![0][0]).toBeCloseTo(0.22) // 0.2 + DUP_OFFSET_N
+    expect(copy.pts![0][1]).toBeCloseTo(0.22)
+    // one «Objekt dupliziert» row, pointing at the COPY — which is also what the selection
+    // moved to (setSelId). ⚠️ `annos` is a controlled prop here, so the copy never comes back
+    // into this render; the journal row is what says which object the surface handed on to.
+    expect(log).toHaveBeenCalledWith('layers', appConfig.copy.log.duplicated, expect.objectContaining({ annoId: copy.id }))
+  })
+
+  // ⚠️ A recorded track belongs to the Trupp that walked it (`teamLocked` refuses to delete one),
+  // so a copy that inherited it would fabricate a movement history AND arrive undeletable.
+  it('never copies a Trupp’s recorded trail', () => {
+    const trupp: BoardAnno = { id: 'r1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: 'A1', trail: [{ x: 0.1, y: 0.1, floor: 0, t: '2026-09-02T08:00:00Z' }] }
+    const { container, onChange, keysRef } = withKeys([trupp])
+    fireEvent.pointerDown(container.querySelector('.wb-anno')!)
+    act(() => { keysRef.current!.duplicate() })
+    const copy = out(onChange).find((a) => a.id !== 'r1')!
+    expect(copy.trail).toBeUndefined()
+  })
+
+  it('stays out of a Mehrfach group and off a read-only sheet — as on the Karte', () => {
+    const { container, onChange, keysRef } = withKeys([line, box])
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+    const stage = container.querySelector('.wb-stage > div')!
+    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    act(() => { keysRef.current!.duplicate() })
+    expect(onChange).not.toHaveBeenCalled()
+
+    cleanup()
+    const ro = withKeys([line], { readOnly: true, focus: { x: 0.5, y: 0.5, floor: 0, annoId: 'l1', nonce: 1 } })
+    act(() => { ro.keysRef.current!.duplicate() })
+    expect(ro.onChange).not.toHaveBeenCalled()
+  })
 })

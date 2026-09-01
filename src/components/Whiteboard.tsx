@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LineMarker } from './LineMarker'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
-import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, Drawing, Entity, LineAttachment, LineEndpoint, LineRoutingMode, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
+import type { BoardAnno, BoardKind, BoardPoint, BoardTool, BuildingDoc, CaptionMode, Drawing, Entity, LineAttachment, LineEndpoint, LineRoutingMode, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
@@ -183,7 +183,7 @@ interface Props {
   fitRef?: React.MutableRefObject<(() => void) | null>
   /** expose tool-pick + zoom so the global keyboard-shortcut layer (App) can drive the Plan
    *  surface, keeping Lage↔Plan shortcut parity. Semantic tool ids map to Plan tools inside. */
-  keysRef?: React.MutableRefObject<{ pickTool: (tool: string) => void; zoom: (f: number) => void } | null>
+  keysRef?: React.MutableRefObject<{ pickTool: (tool: string) => void; zoom: (f: number) => void; duplicate: () => void } | null>
   /** a Verlauf row asked to revisit a plan point — center + select on arrival. */
   /** `flash` shows the anno (a few-second outline) instead of selecting it — see the focus effect */
   focus: { x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; nonce: number } | null
@@ -902,9 +902,42 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   })
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
   useEffect(() => { if (fitRef) fitRef.current = () => applyView(1, { x: 0, y: 0 }); return () => { if (fitRef) fitRef.current = null } })
-  // expose tool-pick + zoom to the keyboard-shortcut layer. Semantic ids (from App) → Plan tools;
-  // the rest tool is 'pan' (the plan pans on empty canvas), 'note'→'text', 'team'→'resource'.
-  // No dep array (mirrors fitRef) so the toggle always closes over the current tool.
+  /**
+   * Cmd/Ctrl+D — duplicate the ONE selected annotation, a small nudge away so the copy is visibly
+   * offset and separately selectable (A22). The Karte's own semantics (IncidentWorkspace ·
+   * duplicateSelection), in plan-width fractions: one object at a time, one undo step, one
+   * «Objekt dupliziert» row, and the selection moves to the copy.
+   *
+   * Deliberately NOT wired for a Mehrfach group or for a mirrored object — neither is on the
+   * Karte either. A group would need a per-item id remap (and, on the Kroki, would have to decide
+   * what a copied attachment points at); a twin's source lives in the other document, and this
+   * surface's `add` writes only its own.
+   *
+   * ⚠️ The copy carries no `trail`. A recorded track belongs to the Trupp that walked it — it is
+   * the very thing `teamLocked` refuses to delete one screen away, so a duplicate that inherited
+   * it would put a fabricated movement history into the record AND arrive undeletable.
+   */
+  const DUP_OFFSET_N = 0.02 // ~2 % of the plan width — the same visible nudge a detached endpoint gets
+  const DUP_PREFIX: Record<BoardKind, string> = { draw: 'l', area: 'a', circle: 'c', text: 't', symbol: 's', shape: 'sh', resource: 'r' }
+  const duplicateSelection = () => {
+    if (readOnly || selIds.length > 1) return
+    const src = annos.find((a) => a.id === selId)
+    if (!src) return
+    const id = `${DUP_PREFIX[src.kind]}${Date.now()}`
+    const copy: BoardAnno = {
+      ...src, id, trail: undefined,
+      ...(src.pts ? { pts: src.pts.map(([x, y, floor]): BoardPoint => [x + DUP_OFFSET_N, y + DUP_OFFSET_N, floor ?? src.floor ?? 0]) } : {}),
+      ...(src.x != null ? { x: src.x + DUP_OFFSET_N } : {}),
+      ...(src.y != null ? { y: src.y + DUP_OFFSET_N } : {}),
+    }
+    add(copy)
+    setSelId(id); setSelIds([]); setSelTwinIds([]); setTwinDrawingId(null)
+    log('layers', appConfig.copy.log.duplicated, { annoId: id, x: copy.x ?? copy.pts?.[0]?.[0], y: copy.y ?? copy.pts?.[0]?.[1], floor: copy.floor })
+  }
+
+  // expose tool-pick + zoom + duplicate to the keyboard-shortcut layer. Semantic ids (from App) →
+  // Plan tools; the rest tool is 'pan' (the plan pans on empty canvas), 'note'→'text',
+  // 'team'→'resource'. No dep array (mirrors fitRef) so the handle always closes over live state.
   useEffect(() => {
     if (!keysRef) return
     // no 'measure' entry: the Messen tool left the Plan on 29.08. (see the rail filter above),
@@ -918,6 +951,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         setTool(tool === id ? 'pan' : id); setPending(null)
       },
       zoom: (f) => zoom(f),
+      duplicate: () => duplicateSelection(),
     }
     return () => { if (keysRef) keysRef.current = null }
   })
