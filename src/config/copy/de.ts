@@ -971,7 +971,7 @@ export const de = {
     // Pfeil-Ende «->|»: der Stopp-Balken quer zur Spitze (Entwicklungsgrenze)
     stopLabel: 'Stopp-Balken',
     moveHint: 'Korb ziehen – Richtung und Reichweite',
-    names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck' } as Record<string, string>,
+    names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck', rotation: 'Rotation' } as Record<string, string>,
   },
   log: {
     audioNote: 'Audionotiz',

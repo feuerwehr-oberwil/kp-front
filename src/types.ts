@@ -33,7 +33,7 @@ export type EntityKind = 'symbol' | 'vehicle' | 'note' | 'photo' | 'shape' | 'te
 
 /** editable generic shapes (not tactical symbols) — placed, then reshaped via
  *  colour / size / rotation. e.g. an arrow for direction, a cloud for smoke. */
-export type ShapeKind = 'arrow' | 'cloud' | 'square'
+export type ShapeKind = 'arrow' | 'cloud' | 'square' | 'rotation'
 
 /**
  * The letter a line carries in its FKS end tag — what KIND of line this is.

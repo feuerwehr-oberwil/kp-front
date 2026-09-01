@@ -4405,7 +4405,7 @@ export function IncidentWorkspace({
       {mapUI && tool === 'shape' && pendingShape && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setTool('select') } }],
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" /> }],
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
           [{ type: 'info', text: appConfig.copy.dockHints.shape }],
         ]} />

@@ -695,7 +695,7 @@ export const en: Localizable<Copy> = {
     rotateHint: 'Drag the handle to rotate',
     stopLabel: 'Stop bar',
     resizeHint: 'Drag the corner to scale',
-    names: { arrow: 'Arrow', cloud: 'Smoke', square: 'Rectangle' },
+    names: { arrow: 'Arrow', cloud: 'Smoke', square: 'Rectangle', rotation: 'Shuttle run' },
 
     size: 'Size',
     sizeSmaller: 'Smaller',

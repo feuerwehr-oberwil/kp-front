@@ -9,7 +9,7 @@ import { motionDuration } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML, hatchImageId, hatchTile } from '../lib/draw'
-import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, HUB_NODE_CLEARANCE_PX, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
@@ -1138,16 +1138,24 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     ? [editDraw.coords.reduce((s, c) => s + c[0], 0) / editDraw.coords.length,
        editDraw.coords.reduce((s, c) => s + c[1], 0) / editDraw.coords.length]
     : null
-  // Where the action hub (move grip · rotate knob) actually hangs. For an area or a
-  // circle that is the centroid; for a LINE the centroid lies on the path, so the hub is lifted
-  // perpendicular off it (lib/lineStyle · hubOffsetPx) — otherwise the move grip parks on top of a
-  // vertex node and the node can neither be seen nor grabbed.
+  // Where the action hub (move grip · rotate knob) actually hangs — the centroid, lifted clear of
+  // the shape's own vertex handles when it would otherwise land on one (lib/lineStyle ·
+  // hubOffsetPx). A grip parked on a node hides it and takes its finger.
+  //
+  // ⚠️ Not lines only (widened 01.09.). A LINE's centroid is on the path by definition, so it was
+  // always lifted; an area was assumed to have an interior to sit in. A thin Absperrung or a
+  // concave Fläche — the shape a freehand fire edge makes — has a centroid right on its own edge,
+  // and the grip landed on a node there too. So the test is now the actual distance to the
+  // nearest vertex, whatever the kind, and a fat convex Fläche is untouched because it passes.
+  // A circle is excluded: its «vertices» are a synthesised ring, not handles anybody can grab.
   const editHubAt: LngLat | null = (() => {
     const map = mapInst.current
     if (!editCentroid || !editDraw) return null
-    if (!map || editDraw.kind !== 'line' || editDraw.coords.length < 2) return editCentroid
+    if (!map || editCircle || editDraw.coords.length < 2) return editCentroid
     const px = editDraw.coords.map((c) => { const q = map.project(c as [number, number]); return [q.x, q.y] as [number, number] })
     const c = map.project(editCentroid as [number, number])
+    const clear = px.every(([vx, vy]) => Math.hypot(c.x - vx, c.y - vy) >= HUB_NODE_CLEARANCE_PX)
+    if (clear) return editCentroid
     const [dx, dy] = hubOffsetPx(px, [c.x, c.y])
     const ll = map.unproject([c.x + dx, c.y + dy])
     return [ll.lng, ll.lat]

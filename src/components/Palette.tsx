@@ -15,7 +15,7 @@ const FORMEN_AFTER_CAT = 'Gefahren'
 function ShapeCell({ kind, onPick }: { kind: ShapeKind; onPick: (k: ShapeKind) => void }) {
   return (
     <button className="sym-cell" title={appConfig.copy.shapes.names[kind]} onClick={() => onPick(kind)} draggable={false}>
-      <span className="sym-shape"><ShapeGlyph kind={kind} color={SHAPE_DEFS[kind].defaultColor} /></span>
+      <span className="sym-shape"><ShapeGlyph kind={kind} color={SHAPE_DEFS[kind].defaultColor} aspect={SHAPE_DEFS[kind].defaultAspect} fit /></span>
       <small>{appConfig.copy.shapes.names[kind]}</small>
     </button>
   )

@@ -2738,7 +2738,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   // same glyphs + sizing model as the map: the silhouette scales with the
                   // plan (width = sizeN × plan width, height = width × aspect) and rotates as a whole
                   <div className="shape-glyph" style={{ width: (a.sizeN ?? 0.1) * sW, height: (a.sizeN ?? 0.1) * sW * shapeAspect(a.shape ?? 'square', a.aspect), transform: `rotate(${a.rotation ?? 0}deg)` }}>
-                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} stop={a.stop} />
+                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} />
                   </div>
                 )}
                 {a.kind === 'text' && (() => {
@@ -3215,7 +3215,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {pendingShape && tool === 'shape' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setTool('pan') } }],
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" /> }],
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
           [{ type: 'info', text: appConfig.copy.dockHints.shape }],
         ]} />

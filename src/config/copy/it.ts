@@ -697,7 +697,7 @@ export const it: Localizable<Copy> = {
     rotateHint: 'Trascina la maniglia per ruotare',
     stopLabel: 'Barra di arresto',
     resizeHint: 'Trascina l’angolo per ridimensionare',
-    names: { arrow: 'Freccia', cloud: 'Fumo', square: 'Rettangolo' },
+    names: { arrow: 'Freccia', cloud: 'Fumo', square: 'Rettangolo', rotation: 'Rotazione' },
 
     size: 'Dimensione',
     sizeSmaller: 'Più piccolo',

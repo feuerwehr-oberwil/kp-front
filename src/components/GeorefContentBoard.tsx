@@ -424,7 +424,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           // sizeM is the WIDTH; the height follows the source's stretched box (Entity.aspect)
           const kind = entity.shape ?? 'square'
           const style = { ...pos, width: px, height: px * shapeAspect(kind, entity.aspect), transform: `translate(-50%, -50%) rotate(${(entity.rotation ?? 0) + fit.rotationDeg}deg)` }
-          const glyph = <ShapeGlyph kind={kind} color={entity.color ?? '#1f6feb'} stop={entity.stop} />
+          const glyph = <ShapeGlyph kind={kind} color={entity.color ?? '#1f6feb'} stop={entity.stop} aspect={entity.aspect} />
           if (!tappable) {
             return <div key={key} className={`${s.contentPoint} shape-glyph`} style={style}>{glyph}</div>
           }

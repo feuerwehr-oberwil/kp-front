@@ -606,7 +606,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 className="shape-glyph"
                 style={{ width: shpW, height: shpH, transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
               >
-                <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} stop={e.stop} />
+                <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} stop={e.stop} aspect={e.aspect} />
               </div>
             ) : e.kind === 'note' ? (() => {
               // every note is a wrapping box; a stored note with no width falls back to the
