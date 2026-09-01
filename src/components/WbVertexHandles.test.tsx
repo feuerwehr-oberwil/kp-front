@@ -63,4 +63,27 @@ describe('WbVertexHandles · the vertex-handle cap degrades instead of switching
     fireEvent.pointerDown(g[g.length - 1])
     expect(onVertexDown).toHaveBeenCalledWith(65, expect.anything())
   })
+
+  // A26 · the Karte has deleted a node on right-click since the beginning (MapView · the node
+  // pads); on the Kroki the 825 ms hold was the only way, on a device that has a second button.
+  it('deletes a node on right-click, at its REAL index', () => {
+    const onDeleteVertex = vi.fn()
+    render(<WbVertexHandles anno={stroke(5)} {...stage} {...handlers} onDeleteVertex={onDeleteVertex} />)
+    fireEvent.contextMenu(grips()[2])
+    expect(onDeleteVertex).toHaveBeenCalledWith(2)
+  })
+
+  // the same floor the hold refuses to arm below: a Linie is 2 points, a Fläche 3
+  it('refuses the right-click once the shape is at its minimum', () => {
+    const onDeleteVertex = vi.fn()
+    render(<WbVertexHandles anno={stroke(2)} {...stage} {...handlers} onDeleteVertex={onDeleteVertex} />)
+    fireEvent.contextMenu(grips()[0])
+    expect(onDeleteVertex).not.toHaveBeenCalled()
+
+    cleanup()
+    const ring: BoardAnno = { id: 'a1', kind: 'area', floor: 0, pts: [[0.2, 0.2, 0], [0.8, 0.2, 0], [0.5, 0.8, 0]] }
+    render(<WbVertexHandles anno={ring} {...stage} {...handlers} onDeleteVertex={onDeleteVertex} />)
+    fireEvent.contextMenu(grips()[0])
+    expect(onDeleteVertex).not.toHaveBeenCalled()
+  })
 })

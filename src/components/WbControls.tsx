@@ -251,6 +251,8 @@ export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertex
             vertexPress.press(`d${i}`, () => onDeleteVertex(i), true).onPointerDown(e)
             onVertexDown(i, e)
           }}
+          // …and the same right-click shorthand a finished shape's grips carry (A26)
+          onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); onDeleteVertex(i) }}
         >{vertexPress.armed?.key === `d${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</button>
       ))}
     </>
@@ -301,6 +303,11 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
     if (closed && sp.length >= 3) segs.push(sp.length - 1)
   }
   const minPts = closed ? 3 : 2
+  /** ONE answer to «may this node go», read by both ways of asking: the hold (which simply never
+   *  arms below the floor — a shape's minimum is a thing not to offer, not a thing to explain
+   *  mid-gesture) and the right-click below. `deleteVertex` upstream enforces it again, together
+   *  with the read-only gate that already keeps these handles off a locked sheet. */
+  const canDeleteNode = pts.length > minPts
   return (
     <>
       {segs.map((i) => {
@@ -338,9 +345,14 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
           title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex} data-holdaction
           style={{ left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
           onPointerDown={(e) => {
-            vertexPress.press(`v${i}`, () => onDeleteVertex(i), pts.length > minPts).onPointerDown(e)
+            vertexPress.press(`v${i}`, () => onDeleteVertex(i), canDeleteNode).onPointerDown(e)
             onVertexDown(i, e)
           }}
+          // A26 · the desktop shorthand for the same hold, as on the Karte (MapView · the node
+          // pads). The mouse has a second button and a right-click on a node means one thing;
+          // making it wait out 825 ms is a touch gesture charged to a hand that isn't touching.
+          // Same `canDeleteNode`, so the shape's floor is never offered and then refused.
+          onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); if (canDeleteNode) onDeleteVertex(i) }}
         >{vertexPress.armed?.key === `v${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</button>
         )
       })}
