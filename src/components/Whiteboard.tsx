@@ -2635,6 +2635,34 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
 
   /**
+   * Delete / Backspace removes the current selection — the Karte's key, now on the Kroki too
+   * (A21). It reaches for exactly what the bar's trash reaches for: a Mehrfach group, a single
+   * Linie/Fläche/Absperrkreis, a Form, and the mirrored members of any of those (which delete
+   * through their one source object). A selected symbol / Notiz / Truppmarker never gets the bar,
+   * so it goes the way its own panel deletes it — `removeWithConnections`, which is also what
+   * keeps a trail-carrying Trupp protected and asks before an attached line is cut loose.
+   *
+   * ⚠️ Never while a field owns the press. On a sheet full of Notiz textareas and Trupp names
+   * Backspace is a character far more often than it is a delete, and the target — not
+   * activeElement — is what still names the field once its own handler has blurred (same reason
+   * as the Escape listener above).
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return
+      const el = e.target instanceof HTMLElement ? e.target : null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      if (readOnly) return
+      if (barIds.length || barTwinKeys.length) { e.preventDefault(); barDelete(); return }
+      const a = annos.find((x) => x.id === selId)
+      if (a) { e.preventDefault(); void removeWithConnections(a) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // `annos` is a dep so the delete closes over the live document, as on the Karte
+  }, [annos, selId, selIds, barIds, barTwinKeys, readOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
    * «Richtung umkehren» on the plan — the twin of the Lage's useMapDrawing · reverseDrawing, built
    * on the SAME rule (lib/lineAttachments · flipLine): the point order turns around so the
    * Abschluss and the end tag move to the other end, the drawn line stays exactly where it is, and

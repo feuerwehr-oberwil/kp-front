@@ -695,4 +695,50 @@ describe('the plan’s selection bar', () => {
     renderPlan([line], { readOnly: true, focus: { x: 0.5, y: 0.5, floor: 0, annoId: 'l1', nonce: 1 } })
     expect(bar()).toBeNull()
   })
+
+  // ── A21 · Delete / Backspace ───────────────────────────────────────────────────────────────
+  // The Karte has bound the key since the beginning; the Kroki had only Escape. Same semantics,
+  // reaching for exactly what the bar's trash reaches for.
+  const press = (key: 'Delete' | 'Backspace', target: Element | Window = window) => fireEvent.keyDown(target, { key })
+  const survives = (onChange: ReturnType<typeof vi.fn>, id: string) =>
+    onChange.mock.calls.length === 0 || onChange.mock.calls[onChange.mock.calls.length - 1][0].some((a: BoardAnno) => a.id === id)
+
+  it('deletes the selection by Delete, and by Backspace', () => {
+    for (const key of ['Delete', 'Backspace'] as const) {
+      const { container, onChange } = renderPlan([line])
+      fireEvent.pointerDown(hitShape(container))
+      press(key)
+      expect(survives(onChange, 'l1')).toBe(false)
+      cleanup()
+    }
+  })
+
+  it('deletes a whole Mehrfach group by the key, exactly as the bar’s trash does', () => {
+    const { container, onChange } = renderPlan([line, box])
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+    const stage = container.querySelector('.wb-stage > div')!
+    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    press('Delete')
+    expect(survives(onChange, 'l1')).toBe(false)
+    expect(survives(onChange, 'f1')).toBe(false)
+  })
+
+  // ⚠️ The one that matters on a sheet full of Notiz textareas and Trupp names: Backspace in a
+  // field is a character, never a delete.
+  it('stays out of the way while a field owns the press', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const field = document.createElement('input')
+    container.appendChild(field)
+    press('Backspace', field)
+    expect(survives(onChange, 'l1')).toBe(true)
+  })
+
+  it('deletes nothing on a read-only surface', () => {
+    const { onChange } = renderPlan([line], { readOnly: true, focus: { x: 0.5, y: 0.5, floor: 0, annoId: 'l1', nonce: 1 } })
+    press('Delete')
+    expect(survives(onChange, 'l1')).toBe(true)
+  })
 })

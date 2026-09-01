@@ -1499,9 +1499,12 @@ export function IncidentWorkspace({
 
   // Delete / Backspace removes the current selection (drawing first, then entity) — but
   // never while typing in a field. `doc` is a dep so the delete closes over fresh state.
+  // ⚠️ Map surface only: the Plan carries the same key on its own selection (Whiteboard, A21),
+  // and this listener lives on the window whether the Karte is on screen or not.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return
+      if (mode !== 'map') return
       const el = document.activeElement as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       if (selectedDrawIds.length || selectedEntityIds.length) { e.preventDefault(); deleteGroup(selectedDrawIds, selectedEntityIds) }
@@ -1510,7 +1513,7 @@ export function IncidentWorkspace({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard shortcuts (see lib/hotkeys + the "Tastaturkürzel" help section). One mount-once
   // listener delegates to hotkeyRef, which is reassigned every render with the live handlers —
