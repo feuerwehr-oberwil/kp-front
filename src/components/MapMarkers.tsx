@@ -8,7 +8,7 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
 import { MenuPick } from './MenuPick'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
-import { ROTATION_MAX_M, SHAPE_DEFS, SHAPE_FREE_ASPECT, ShapeGlyph, shapeAspect } from '../lib/shapes'
+import { ROTATION_MAX_M, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_PX, ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
@@ -434,7 +434,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // handles out to a comfortable minimum via --hbox in CSS, big ones track the edge).
         // a shape's box is width × (width · aspect) — the halo/handle anchor (--gpx → --hbox)
         // takes the LARGER side so the ring always encloses the rectangle
-        const shpW = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom) : 0
+        const shpW = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square']) : 0
         const shpH = e.kind === 'shape' ? shpW * shapeAspect(e.shape ?? 'square', e.aspect) : 0
         const gpx = e.kind === 'shape' ? Math.max(shpW, shpH)
           : e.kind === 'note' || e.kind === 'photo' || e.kind === 'team' ? 56

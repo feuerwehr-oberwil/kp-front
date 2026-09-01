@@ -10,7 +10,7 @@ import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML, hatchImageId, hatchTile } from '../lib/draw'
 import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, HUB_NODE_CLEARANCE_PX, EXTEND_STEP_PX } from '../lib/lineStyle'
-import { shapeAspect } from '../lib/shapes'
+import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -517,7 +517,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       center = guarded.point as LngLat
     }
     const c = map.project(center), t = map.project(toward)
-    const size = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom)
+    const size = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square'])
       : e.kind === 'team' ? 56 : e.kind === 'note' || e.kind === 'photo' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
     // negative padding = the endpoint lands just INSIDE the glyph, so the stroke disappears
     // under the marker instead of stopping short of it (see attachInsetPx)
@@ -1018,7 +1018,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     for (const e of entities) {
       if (!Array.isArray(e.coord) || !isVisible(effectiveLayer(e))) continue
       const p = px(e.coord)
-      const g = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom)
+      const g = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square'])
         : e.kind === 'photo' ? 56
         : e.kind === 'note' ? noteWPx(e.noteW)
         : e.kind === 'team' ? TEAM_DOT_PX

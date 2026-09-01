@@ -29,6 +29,19 @@ export const SHAPE_DEFS: Record<ShapeKind, { defaultColor: string; defaultSizeM:
 // Which shapes stretch freely (the corner drag sets width and height separately, stored as
 // `aspect` = height/width). The Pfeil stays proportional: a non-uniformly scaled head reads
 // badly, and «ein längerer Pfeil» is the line-with-arrowhead tool's job.
+/**
+ * How wide a shape may be drawn ON SCREEN, in px, per kind.
+ *
+ * ⚠️ 900 is the general ceiling and it is what made a long Rotation impossible: the loop's METRES
+ * grew with the drag, but its rendered width stopped at 900 px, so past that the shape simply
+ * stopped following the finger — «rotation hasn't been fixed yet». A run is the one shape meant to
+ * span the map, so it gets a far higher ceiling; every other shape keeps the old one, which is
+ * there to stop a stray value from producing a mile-wide DOM box.
+ */
+export const SHAPE_MAX_PX: Record<ShapeKind, number> = {
+  arrow: 900, cloud: 900, square: 900, rotation: 12000,
+}
+
 /** How long a Rotation may be drawn, in metres. Every other shape is capped at 500 — a
  *  Wasserpendel between the Weiher and the Brandstelle is kilometres, and that cap was the reason
  *  the only way to make the loop long was to make it enormous in both axes. */

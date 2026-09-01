@@ -47,7 +47,9 @@ export const symPx = (kind: string, lat: number, z: number, mul = 1) =>
   Math.max(SYM_MIN, Math.min(SYM_MAX, (SIZE_M[kind] ?? 8) * pxPerM(lat, z))) * mul
 // shapes are sized in real-world metres so they grow/shrink with zoom like a
 // ground footprint (a smoke cloud covering an area, an arrow spanning a street)
-export const shapePx = (sizeM: number | undefined, lat: number, z: number) => Math.max(24, Math.min(900, (sizeM ?? 40) * pxPerM(lat, z)))
+// `maxPx` is the per-kind ceiling (lib/shapes · SHAPE_MAX_PX) — the general 900 stops a stray
+// value producing a mile-wide DOM box, but a Rotation is meant to span the map and needs its own.
+export const shapePx = (sizeM: number | undefined, lat: number, z: number, maxPx = 900) => Math.max(24, Math.min(maxPx, (sizeM ?? 40) * pxPerM(lat, z)))
 // directional tactical symbols that support drag-to-rotate (ladders, fans, vehicles…)
 // — set derived from the symbol presets (lib/symbols · ROTATABLE)
 export const isRotatableSym = (e: Entity) => e.kind === 'symbol' && !!e.symbol && ROTATABLE.has(e.symbol)

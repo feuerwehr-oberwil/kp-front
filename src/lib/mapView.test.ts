@@ -101,6 +101,9 @@ describe('pxPerM / symPx / shapePx — world-scaled sizing', () => {
   it('shapePx clamps to the [24, 900] px range and defaults size to 40 m', () => {
     expect(shapePx(undefined, 47, 1)).toBe(24)
     expect(shapePx(5000, 47, 20)).toBe(900)
+    // …unless the caller hands its own ceiling — a Rotation is meant to span the map, and the
+    // general 900 was what stopped a long run from following the drag (lib/shapes · SHAPE_MAX_PX)
+    expect(shapePx(5000, 47, 20, 12000)).toBeGreaterThan(900)
     // a defined size threads through the same scaling as the 40m default
     expect(shapePx(40, 47, 12)).toBe(shapePx(undefined, 47, 12))
   })

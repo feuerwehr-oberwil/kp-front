@@ -531,8 +531,31 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    tallest control (the 44px stepper) still fits inside it: nothing shrank, nothing lost its tap
    target, and every label now sits 48px below the one above it. Rows that WRAP (a control wider
    than half the panel drops under its own label) grow past it — min-height, not height. */
+.draw-editor { --de-h: 34px; } /* ONE control height for the whole panel — see below */
 .draw-editor .de-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 4px 10px; min-height: 48px; padding: 2px 0; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
+/* ── ONE control height (01.09.) ─────────────────────────────────────────────────────────────
+   The ROWS were already on a 48px rhythm; what was not on any rhythm were the controls inside
+   them. A colour swatch was 30, a width/style button 38×34, a preset chip ~26, the Abschluss
+   segment 40, a ± stepper 44, an input ~28 — six heights stacked down one 360px column, so the
+   panel read as a pile of unrelated widgets rather than one instrument. They are all --de-h now;
+   only their WIDTH still says what kind of control each is.
+   ⚠️ This takes TWO controls below the 44px gloved floor inside this panel: the Abschluss
+   segmented control (app-wide `.useg-btn` is deliberately --tap, see 06-contextpanel) and the ±
+   steppers. Scoped to `.draw-editor` on purpose and nowhere else — this is a dense post-draw
+   settings panel, not a primary action surface, and every chip in it was already at 26px, so the
+   net move is upward for most of them. If the field disagrees, lift these two back first. */
+.draw-editor .dh-color,
+.draw-editor .dh-width,
+.draw-editor .wb-ls { width: var(--de-h); height: var(--de-h); }
+.draw-editor .de-preset { min-height: var(--de-h); display: inline-flex; align-items: center; padding: 0 12px; }
+.draw-editor .de-input { height: var(--de-h); padding: 0 10px; }
+.draw-editor .de-input-short { width: 66px; }
+.draw-editor .de-toggle { min-height: var(--de-h); display: inline-flex; align-items: center; }
+.draw-editor .dh-swatches, .draw-editor .dh-widths { gap: 8px; }
+.draw-editor .useg { border-radius: var(--r-sm); padding: 2px; gap: 2px; }
+.draw-editor .useg-btn { min-height: calc(var(--de-h) - 4px); padding: 0 12px; }
+.draw-editor .step-btn { width: var(--de-h); height: var(--de-h); min-height: var(--de-h); }
 .draw-editor .de-row > span:first-child { flex: 0 1 auto; min-width: 0; }
 /* duplicate-Leitung notice: a warning, never a block — a real incident sometimes needs the wrong
    thing typed for a moment, and the operator is told why it matters instead of being stopped */

@@ -312,6 +312,18 @@ describe('hubOffsetPx — clear of every node, not just the one below', () => {
     expect(clearance(px, [60, 0])).toBeGreaterThanOrEqual(HUB_NODE_CLEARANCE_PX)
   })
 
+  // A freehand Fläche has nodes all the way round: nothing within reach ever clears, and the old
+  // loop ran to its ceiling every time — the hub ended up floating half a screen from the shape
+  // it belonged to (reported 01.09.). Crowded and attached beats clear and orphaned.
+  it('stays close and picks the roomiest spot when nothing can fully clear', () => {
+    const ring: [number, number][] = Array.from({ length: 16 }, (_, i) => {
+      const a = (i / 16) * Math.PI * 2
+      return [Math.cos(a) * 30, Math.sin(a) * 30] as [number, number]
+    })
+    const [dx, dy] = hubOffsetPx(ring, [0, 0])
+    expect(Math.hypot(dx, dy)).toBeLessThanOrEqual(HUB_OFFSET_PX * MAX_HUB_LIFT + 0.01)
+  })
+
   it('gives up rather than flying off — a hub far from its line is the worse question', () => {
     const px: [number, number][] = [[0, 0], [100, 0]]
     const [dx, dy] = hubOffsetPx(px, [50, 0])

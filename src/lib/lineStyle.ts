@@ -291,8 +291,10 @@ export const HUB_OFFSET_PX = 42
  *  competing for the same finger, wherever the node happens to be. Raised from 42 on 01.09. with
  *  the grip itself: the pads were still overlapping by the difference. */
 export const HUB_NODE_CLEARANCE_PX = 48
-/** …and how far the lift may grow before overlap is the lesser evil (multiples of the offset). */
-export const MAX_HUB_LIFT = 2.5
+/** …and how far the lift may grow before overlap is the lesser evil (multiples of the offset).
+ *  Deliberately short: past this the hub reads as belonging to nothing in particular, which is a
+ *  worse problem than a handle that is a little crowded. */
+export const MAX_HUB_LIFT = 1.5
 
 /**
  * Screen-px offset `[dx, dy]` that lifts a selected line's action hub — the move grip, the rotate
@@ -324,15 +326,22 @@ export function hubOffsetPx(px: [number, number][], at: [number, number], distPx
   const nx = (by - ay) / len, ny = -(bx - ax) / len
   const up = ny < 0 || (ny === 0 && nx > 0) ? [nx, ny] : [-nx, -ny]
   // ⚠️ Lifting off the NEAREST segment clears the node under the hub, and can drop it straight
-  // onto a different one — a corner, or the far side of a hairpin, where the path doubles back
-  // under the offset (reported 01.09.). So the lift grows until the grip is clear of EVERY
-  // vertex, in steps, with a hard ceiling: past that the hub is so far from its own line that
-  // «which shape does this belong to» becomes the worse question, and a bit of overlap wins.
+  // onto a different one — a corner, or the far side of a hairpin where the path doubles back
+  // under the offset. So candidate distances are tried in order and the FIRST that clears every
+  // vertex wins.
+  //
+  // ⚠️⚠️ …and when none of them clears, the answer is the BEST of them, not the furthest. A
+  // freehand Fläche has nodes all the way round: nothing within reach ever cleared, the loop ran
+  // to its ceiling every time, and the hub ended up floating half a screen away from the shape it
+  // belonged to (reported 01.09.). Staying close and slightly crowded is the better failure —
+  // «which object is this?» is a worse question than «which handle is this?».
+  let bestDist = distPx
+  let bestGap = -1
   for (let d = distPx; d <= distPx * MAX_HUB_LIFT; d += distPx / 2) {
     const at2: [number, number] = [at[0] + up[0] * d, at[1] + up[1] * d]
-    if (px.every(([vx, vy]) => Math.hypot(at2[0] - vx, at2[1] - vy) >= HUB_NODE_CLEARANCE_PX)) {
-      return [up[0] * d, up[1] * d]
-    }
+    const gap = Math.min(...px.map(([vx, vy]) => Math.hypot(at2[0] - vx, at2[1] - vy)))
+    if (gap >= HUB_NODE_CLEARANCE_PX) return [up[0] * d, up[1] * d]
+    if (gap > bestGap) { bestGap = gap; bestDist = d }
   }
-  return [up[0] * distPx * MAX_HUB_LIFT, up[1] * distPx * MAX_HUB_LIFT]
+  return [up[0] * bestDist, up[1] * bestDist]
 }
