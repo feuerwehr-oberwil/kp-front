@@ -970,6 +970,12 @@ export const de = {
     resizeHint: 'Ecke ziehen zum Skalieren',
     // Pfeil-Ende «->|»: der Stopp-Balken quer zur Spitze (Entwicklungsgrenze)
     stopLabel: 'Stopp-Balken',
+    // FKS Vegetationsbrand S. 52: die Schlaufe wird MIT ihrem Träger gezeichnet
+    // («Rotation-Helikopter», «Rotation TLF»). Ohne Träger bleibt sie eine reine Pendelbahn.
+    carrierLabel: 'Träger',
+    carrierNone: 'Ohne',
+    carrierHeli: 'Heli',
+    carrierTlf: 'TLF',
     moveHint: 'Korb ziehen – Richtung und Reichweite',
     names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck', rotation: 'Rotation' } as Record<string, string>,
   },

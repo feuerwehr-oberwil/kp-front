@@ -9,7 +9,7 @@ import { motionDuration } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML, hatchImageId, hatchTile } from '../lib/draw'
-import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, HUB_NODE_CLEARANCE_PX, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, HUB_NODE_CLEARANCE_PX, HUB_EDGE_MARGIN_PX, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
@@ -1162,8 +1162,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const clear = editDraw.kind !== 'line'
       && px.every(([vx, vy]) => Math.hypot(c.x - vx, c.y - vy) >= HUB_NODE_CLEARANCE_PX)
     if (clear) return editCentroid
+    // ⚠️ The lift is also capped by the SHAPE's own size (01.09.). A fixed 42–72px off the centroid
+    // is sensible for a Leitung across a street and absurd for a 40px blob, where the grip ended
+    // up floating above a shape it visibly did not belong to. Just outside the object's own
+    // extent is as far as a handle should ever sit from it.
+    const reach = Math.max(...px.map(([vx, vy]) => Math.hypot(c.x - vx, c.y - vy)))
     const [dx, dy] = hubOffsetPx(px, [c.x, c.y])
-    const ll = map.unproject([c.x + dx, c.y + dy])
+    const len = Math.hypot(dx, dy) || 1
+    const capped = Math.min(len, reach + HUB_EDGE_MARGIN_PX)
+    const ll = map.unproject([c.x + (dx / len) * capped, c.y + (dy / len) * capped])
     return [ll.lng, ll.lat]
   })()
   const moveRef = useRef<{ start: LngLat; coords: LngLat[] } | null>(null)

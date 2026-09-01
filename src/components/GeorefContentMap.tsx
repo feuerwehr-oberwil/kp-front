@@ -341,7 +341,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
           const kind = a.shape ?? 'square'
           const glyph = (
             <span className={`${s.contentMap} shape-glyph`} style={{ display: 'block', width: px, height: px * shapeAspect(kind, a.aspect), transform: `rotate(${(a.rotation ?? 0) - t.fit.rotationDeg - bearing}deg)` }}>
-              <ShapeGlyph kind={kind} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} />
+              <ShapeGlyph kind={kind} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} carrier={a.carrier} />
             </span>
           )
           if (!interactive || !onOpenTwin) {

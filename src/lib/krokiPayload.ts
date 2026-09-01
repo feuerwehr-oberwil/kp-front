@@ -10,7 +10,7 @@ import { isVehicleSym } from './mapView'
 import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { LUEFTER, LUEFTER_EXTRACT, compositeSpec, compositePartGlyph, composeCompositeSvg, isHubretter, composeHubretterSvg } from './symbolRender'
-import { SHAPE_DEFS, rotationInner, rotationViewBox, shapeAspect } from './shapes'
+import { SHAPE_DEFS, rotationInner, rotationViewBox, shapeAspect, type RotationCarrier } from './shapes'
 import { operationalExtentPoints, type KrokiView } from './report'
 import { resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
@@ -78,13 +78,13 @@ export const krokiSymbolMul = (zoom: number): number =>
 /** The same silhouettes as lib/shapes.tsx ShapeGlyph, as plain SVG strings for resvg.
  *  `stop` (arrow only) adds the «→|» Stopp-Balken across the tip — identical artwork to the
  *  live glyph, so the print says exactly what the screen said. */
-export function shapeSvgString(kind: ShapeKind, color: string, stop = false, aspect?: number): string {
+export function shapeSvgString(kind: ShapeKind, color: string, stop = false, aspect?: number, carrier?: RotationCarrier): string {
   const open = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">'
   // the loop's arrowheads have to be counter-scaled against the SAME aspect the print stretches
   // the box by, or the paper shows flattened wedges where the screen shows arrows
   if (kind === 'rotation') {
     const asp = shapeAspect('rotation', aspect)
-    return `<svg viewBox="${rotationViewBox(asp)}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" overflow="visible">${rotationInner(color, asp)}</svg>`
+    return `<svg viewBox="${rotationViewBox(asp)}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" overflow="visible">${rotationInner(color, asp, carrier)}</svg>`
   }
   if (kind === 'arrow') {
     const bar = stop
@@ -125,7 +125,7 @@ export function krokiEntity(e: Entity, byName: Record<string, string>, captionMo
     const aspect = shapeAspect(kind, e.aspect)
     return {
       ...base,
-      symbolSvg: shapeSvgString(kind, color, kind === 'arrow' && !!e.stop, aspect),
+      symbolSvg: shapeSvgString(kind, color, kind === 'arrow' && !!e.stop, aspect, e.carrier),
       sizeM: e.sizeM ?? SHAPE_DEFS[kind].defaultSizeM,
       aspect: aspect !== 1 ? aspect : undefined,
     }

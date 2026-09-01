@@ -1742,8 +1742,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         if (st.keepHeightN != null) {
           // the Rotation's own rule, mirrored from the map: the drag lengthens the run and the
           // loop stays as wide as it was, rather than the whole form growing
-          const len = Math.max(0.05, Math.min(3, (2 * Math.abs(lx)) / sW))
-          patch(st.id, { sizeN: len, aspect: Math.max(0.02, Math.min(5, Math.round((st.keepHeightN / len) * 1000) / 1000)) })
+          const len = Math.max(st.keepHeightN, Math.min(3, (2 * Math.abs(lx)) / sW))
+          patch(st.id, { sizeN: len, aspect: Math.max(0.02, Math.min(1, Math.round((st.keepHeightN / len) * 1000) / 1000)) })
           return
         }
         const hN = Math.max(0.03, Math.min(0.9, (2 * Math.abs(ly)) / sW))
@@ -2750,7 +2750,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   // same glyphs + sizing model as the map: the silhouette scales with the
                   // plan (width = sizeN × plan width, height = width × aspect) and rotates as a whole
                   <div className="shape-glyph" style={{ width: (a.sizeN ?? 0.1) * sW, height: (a.sizeN ?? 0.1) * sW * shapeAspect(a.shape ?? 'square', a.aspect), transform: `rotate(${a.rotation ?? 0}deg)` }}>
-                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} />
+                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} carrier={a.carrier} />
                   </div>
                 )}
                 {a.kind === 'text' && (() => {
@@ -3548,6 +3548,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // ±25 % steps scale BOTH axes: sizeN is the width and the height is width × aspect
           onScale={(f) => patchCommit(selShape.id, { sizeN: Math.max(0.03, Math.min(0.9, (selShape.sizeN ?? SHAPE_DEFS[selShape.shape ?? 'square'].defaultSizeN) * f)) })}
           onStop={(v) => patchCommit(selShape.id, { stop: v })}
+          onCarrier={(v) => patchCommit(selShape.id, { carrier: v })}
           onDelete={() => void removeWithConnections(selShape)}
           onClose={() => setSelId(null)}
         />

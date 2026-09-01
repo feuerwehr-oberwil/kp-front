@@ -2,13 +2,14 @@ import type { Entity } from '../types'
 import { Icon } from '../lib/icons'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
+import { Segmented } from './Segmented'
 import { ShapeGlyph } from '../lib/shapes'
 
 const COLORS = appConfig.drawing.colors
 
 interface Props {
   // structurally satisfied by a map Entity AND a plan BoardAnno of kind 'shape'
-  entity: Pick<Entity, 'shape' | 'color' | 'stop'>
+  entity: Pick<Entity, 'shape' | 'color' | 'stop' | 'carrier'>
   onColor: (c: string) => void
   /** scale the shape by a factor (>1 bigger, <1 smaller); the parent clamps to its size
    *  space (metres on the map, normalized plan-width on the Plan). The corner drag-handle
@@ -18,6 +19,7 @@ interface Props {
   /** toggle the «→|» Stopp-Balken across the arrow tip — the row only shows for the
    *  arrow kind (the other shapes have no tip to stop at) */
   onStop?: (stop: boolean) => void
+  onCarrier?: (carrier: 'heli' | 'tlf' | undefined) => void
   /** fly the map to the shape — map-only; a plan shape is already on screen */
   onCenter?: () => void
   onDelete: () => void
@@ -27,7 +29,7 @@ interface Props {
 // Editor for a placed generic shape — colour only. Size and rotation are changed
 // directly on the map/plan by dragging the shape's corner / top handles, so
 // they're not duplicated here. Reuses the .ctx / .draw-editor look.
-export function ShapeEditor({ entity, onColor, onScale, onStop, onCenter, onDelete, onClose }: Props) {
+export function ShapeEditor({ entity, onColor, onScale, onStop, onCarrier, onCenter, onDelete, onClose }: Props) {
   const color = entity.color ?? '#1f6feb'
   const name = appConfig.copy.shapes.names[entity.shape ?? 'square'] ?? appConfig.copy.shapes.kindLabel
 
@@ -74,6 +76,25 @@ export function ShapeEditor({ entity, onColor, onScale, onStop, onCenter, onDele
             <button className={`de-toggle ${entity.stop ? 'on' : ''}`} aria-pressed={!!entity.stop} onClick={() => onStop(!entity.stop)}>
               {entity.stop ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}
             </button>
+          </div>
+        )}
+        {onCarrier && entity.shape === 'rotation' && (
+          // Which vehicle runs the shuttle. The FKS sheet draws the loop WITH its carrier
+          // («Rotation-Helikopter», «Rotation TLF», Vegetationsbrand S. 52) — same shape, and the
+          // badge in the middle says who. A plain loop stays possible: not every Pendel is one
+          // of those two.
+          <div className="de-row">
+            <span>{appConfig.copy.shapes.carrierLabel}</span>
+            <Segmented
+              ariaLabel={appConfig.copy.shapes.carrierLabel}
+              value={entity.carrier ?? ''}
+              onChange={(v) => onCarrier(v === '' ? undefined : (v as 'heli' | 'tlf'))}
+              options={[
+                { value: '', label: appConfig.copy.shapes.carrierNone },
+                { value: 'heli', label: appConfig.copy.shapes.carrierHeli },
+                { value: 'tlf', label: appConfig.copy.shapes.carrierTlf },
+              ]}
+            />
           </div>
         )}
         <div className="de-row de-hint">{appConfig.copy.shapes.rotateHint}</div>

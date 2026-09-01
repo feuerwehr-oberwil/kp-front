@@ -380,8 +380,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // ⚠️ A Rotation grows along its LONG axis only, and far past the 500 m every other shape
         // is capped at: a Wasserpendel between the Weiher and the Brandstelle is kilometres, and
         // the cap was the reason the only way to make the loop long was to make it enormous.
-        const sizeM = Math.max(20, Math.min(ROTATION_MAX_M, Math.round((2 * Math.abs(lx)) / ppm)))
-        const aspect = Math.max(0.02, Math.min(5, Math.round((st.keepHeightM / sizeM) * 1000) / 1000))
+        // …and never shorter than it is wide: the loop degenerates into a sliver otherwise
+        const sizeM = Math.max(st.keepHeightM, Math.min(ROTATION_MAX_M, Math.round((2 * Math.abs(lx)) / ppm)))
+        const aspect = Math.max(0.02, Math.min(1, Math.round((st.keepHeightM / sizeM) * 1000) / 1000))
         onShapeTransform?.(st.id, { sizeM, aspect }, 'move')
         return
       }
@@ -622,7 +623,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 className="shape-glyph"
                 style={{ width: shpW, height: shpH, transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
               >
-                <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} stop={e.stop} aspect={e.aspect} />
+                <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} stop={e.stop} aspect={e.aspect} carrier={e.carrier} />
               </div>
             ) : e.kind === 'note' ? (() => {
               // every note is a wrapping box; a stored note with no width falls back to the

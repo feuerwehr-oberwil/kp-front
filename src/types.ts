@@ -193,6 +193,8 @@ export interface Entity extends SymbolProps {
   /** arrow shape only: the «→|» Stopp-Balken across the tip — the same Entwicklungsgrenze
    *  statement a line's `arrowStop` makes. The Plan mirror is `BoardAnno.stop`. */
   stop?: boolean
+  /** Rotation only: which vehicle runs the shuttle (lib/shapes · RotationCarrier) */
+  carrier?: 'heli' | 'tlf'
   /** aerial-appliance boom reach in metres (Hubretter) — the ground distance from the truck
    *  (`coord`) to the rescue cage; the cage is the draggable tip and `rotation2` its bearing.
    *  Metre-scaled like `sizeM` so the cage stays over its ground spot as the map zooms. The Plan
@@ -628,6 +630,8 @@ export interface BoardAnno extends SymbolProps {
   aspect?: number
   /** arrow shape only: the «→|» Stopp-Balken across the tip (twin of `Entity.stop`). */
   stop?: boolean
+  /** Rotation only: which vehicle runs the shuttle (lib/shapes · RotationCarrier) */
+  carrier?: 'heli' | 'tlf'
   /** aerial-appliance boom reach as a fraction of the plan width (0..1) — the plan-space analogue of
    *  Entity.reachM (the Hubretter cage distance from the truck; bearing = `rotation2`). */
   reachN?: number

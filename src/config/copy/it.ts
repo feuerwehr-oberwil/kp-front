@@ -696,6 +696,10 @@ export const it: Localizable<Copy> = {
     color: 'Colore',
     rotateHint: 'Trascina la maniglia per ruotare',
     stopLabel: 'Barra di arresto',
+    carrierLabel: 'Vettore',
+    carrierNone: 'Nessuno',
+    carrierHeli: 'Eli',
+    carrierTlf: 'TLF',
     resizeHint: 'Trascina l’angolo per ridimensionare',
     names: { arrow: 'Freccia', cloud: 'Fumo', square: 'Rettangolo', rotation: 'Rotazione' },
 

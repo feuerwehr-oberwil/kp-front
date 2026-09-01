@@ -291,6 +291,11 @@ export const HUB_OFFSET_PX = 42
  *  competing for the same finger, wherever the node happens to be. Raised from 42 on 01.09. with
  *  the grip itself: the pads were still overlapping by the difference. */
 export const HUB_NODE_CLEARANCE_PX = 48
+/** How far OUTSIDE a shape's own extent the hub may sit. Together with the shape's reach this is
+ *  the real ceiling on the lift: a small object gets a small lift, so the grip always reads as
+ *  belonging to the thing it edits. */
+export const HUB_EDGE_MARGIN_PX = 22
+
 /** …and how far the lift may grow before overlap is the lesser evil (multiples of the offset).
  *  Deliberately short: past this the hub reads as belonging to nothing in particular, which is a
  *  worse problem than a handle that is a little crowded. */

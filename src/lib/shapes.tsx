@@ -29,6 +29,10 @@ export const SHAPE_DEFS: Record<ShapeKind, { defaultColor: string; defaultSizeM:
 // Which shapes stretch freely (the corner drag sets width and height separately, stored as
 // `aspect` = height/width). The Pfeil stays proportional: a non-uniformly scaled head reads
 // badly, and «ein längerer Pfeil» is the line-with-arrowhead tool's job.
+/** The aspect the Rotation is DRAWN AT in a picker cell — stockier than the one it is placed
+ *  with, because a 40px icon has to read as a loop rather than as a hairline. */
+export const ROTATION_PREVIEW_ASPECT = 0.6
+
 /**
  * How wide a shape may be drawn ON SCREEN, in px, per kind.
  *
@@ -54,7 +58,11 @@ export const SHAPE_FREE_ASPECT: Record<ShapeKind, boolean> = { arrow: false, clo
 // Mirrored server-side in backend/app/kroki.py (same 0.2..5 clamp).
 export function shapeAspect(kind: ShapeKind, aspect: number | undefined): number {
   if (!SHAPE_FREE_ASPECT[kind]) return 1
-  return Math.max(0.2, Math.min(5, aspect ?? SHAPE_DEFS[kind].defaultAspect ?? 1))
+  // ⚠️ A Rotation is a RUN and may never be taller than it is long. Dragging the corner back
+  // through the centre used to invert it into a thin vertical sliver with the arrows pointing at
+  // each other — a shape that means nothing (01.09.). Capped at 1, so the worst case is a circle.
+  const hi = kind === 'rotation' ? 1 : 5
+  return Math.max(0.02, Math.min(hi, aspect ?? SHAPE_DEFS[kind].defaultAspect ?? 1))
 }
 
 /**
@@ -76,42 +84,78 @@ export function shapeAspect(kind: ShapeKind, aspect: number | undefined): number
  */
 export const rotationViewBox = (asp: number) => `0 0 100 ${(100 * asp).toFixed(2)}`
 
-export function rotationInner(color: string, asp: number): string {
+export function rotationInner(color: string, asp: number, carrier?: RotationCarrier): string {
   const h = 100 * asp
-  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
-  // ⚠️ Stroke and heads scale off the loop's HEIGHT, not the 100-unit width, and are clamped.
-  // A user unit is width/100 whatever the aspect, so anything sized as a share of the width grew
-  // with the run: a long Rotation came out with a 15 px outline and arrowheads the size of a
-  // vehicle. Off the height they stay proportional to the thing they decorate, and the clamps
-  // stop a near-circular loop from turning into a fat ring.
-  const sw = clamp(h * 0.10, 2, 4)
-  const a = clamp(h * 0.28, 4.5, 9)
-  const inset = sw / 2 + 0.5
-  const r = Math.max(1.5, (h - 2 * inset) / 2)
+  // ⚠️ EVERYTHING here is a fraction of the loop's HEIGHT, with no absolute floor. A user unit is
+  // width/100, and the box's px width grows with the run — so h itself is CONSTANT in px as the
+  // loop lengthens (h_px = W·asp, and asp = width/length). Anything sized as a fixed number of
+  // units therefore grew with the run instead: the clamps this used to carry were exactly that,
+  // and they are why a long Rotation came out with a fat outline and arrowheads the size of a
+  // vehicle (01.09.). Fractions of h stay put, which is «gleiche Strichstärke, nur länger».
+  const sw = h * 0.11
+  const a = h * 0.3
+  const inset = sw / 2 + h * 0.02
+  const r = Math.max(0.5, (h - 2 * inset) / 2)
   const head = (cx: number, cy: number, dir: 1 | -1) =>
-    `<path d="M ${cx - dir * a} ${cy - a} L ${cx + dir * a} ${cy} L ${cx - dir * a} ${cy + a} Z" fill="${color}"/>`
+    `<path d="M ${(cx - dir * a).toFixed(2)} ${(cy - a).toFixed(2)} L ${(cx + dir * a).toFixed(2)} ${cy.toFixed(2)}`
+    + ` L ${(cx - dir * a).toFixed(2)} ${(cy + a).toFixed(2)} Z" fill="${color}"/>`
+  // the heads sit well out towards the ends, which keeps them clear of a carrier badge in the
+  // middle and still on the straight legs at any length
   return `<rect x="${inset.toFixed(2)}" y="${inset.toFixed(2)}" width="${(100 - 2 * inset).toFixed(2)}"`
-    + ` height="${Math.max(1.5, h - 2 * inset).toFixed(2)}" rx="${r.toFixed(2)}" ry="${r.toFixed(2)}"`
+    + ` height="${Math.max(0.5, h - 2 * inset).toFixed(2)}" rx="${r.toFixed(2)}" ry="${r.toFixed(2)}"`
     + ` fill="none" stroke="${color}" stroke-width="${sw.toFixed(2)}"/>`
-    + head(64, inset, 1)          // outbound, on the top leg
-    + head(36, h - inset, -1)     // …and back along the bottom
+    + head(74, inset, 1)          // outbound, on the top leg
+    + head(26, h - inset, -1)     // …and back along the bottom
+    + rotationCarrierGlyph(carrier, color, h)
 }
+
+/** Which vehicle runs the shuttle — the FKS sheet draws the loop with its carrier above it
+ *  («Rotation-Helikopter», «Rotation TLF», Vegetationsbrand S. 52). */
+export type RotationCarrier = 'heli' | 'tlf'
+
+/** The carrier badge, centred over the loop and sized off its height so it neither stretches nor
+ *  grows with the run. Empty for a plain Rotation. */
+function rotationCarrierGlyph(carrier: RotationCarrier | undefined, color: string, h: number): string {
+  if (!carrier) return ''
+  const cy = h / 2
+  if (carrier === 'heli') {
+    // the lying eight, the same rotor disc as the FKS Helikopter sign
+    const w = h * 0.42, k = h * 0.24
+    return `<path d="M ${50 - w} ${cy} C ${50 - w} ${cy - k} ${50 - w * 0.32} ${cy - k} 50 ${cy}`
+      + ` C ${50 + w * 0.32} ${cy + k} ${50 + w} ${cy + k} ${50 + w} ${cy}`
+      + ` C ${50 + w} ${cy - k} ${50 + w * 0.32} ${cy - k} 50 ${cy}`
+      + ` C ${50 - w * 0.32} ${cy + k} ${50 - w} ${cy + k} ${50 - w} ${cy} Z"`
+      + ` fill="none" stroke="${color}" stroke-width="${(h * 0.07).toFixed(2)}" stroke-linejoin="round"/>`
+  }
+  // TLF: the FKS box with its chevron nose, lettered
+  const bw = h * 0.62, bh = h * 0.34
+  return `<g><rect x="${(50 - bw).toFixed(2)}" y="${(cy - bh).toFixed(2)}" width="${(2 * bw).toFixed(2)}"`
+    + ` height="${(2 * bh).toFixed(2)}" fill="#ffffff" fill-opacity="0.85" stroke="${color}"`
+    + ` stroke-width="${(h * 0.06).toFixed(2)}"/>`
+    + `<text x="50" y="${cy.toFixed(2)}" text-anchor="middle" dy="0.35em"`
+    + ` font-family="Arial,sans-serif" font-weight="bold" font-size="${(h * 0.42).toFixed(2)}"`
+    + ` fill="${color}">TLF</text></g>`
+}
+
 
 // SVG silhouettes on a 0..100 viewBox. fillOpacity keeps the square/cloud
 // readable as translucent overlays (a smoke blob / a zone box) while the arrow
 // stays solid for a crisp direction indicator. `stop` (arrow only) draws the
 // «→|» Stopp-Balken across the tip — keep it identical to shapeSvgString
 // (lib/krokiPayload), which is the same artwork as a plain string for the print path.
-export function ShapeGlyph({ kind, color, stop, aspect, fit }: { kind: ShapeKind; color: string; stop?: boolean; aspect?: number; fit?: boolean }) {
+export function ShapeGlyph({ kind, color, stop, aspect, fit, carrier }: { kind: ShapeKind; color: string; stop?: boolean; aspect?: number; fit?: boolean; carrier?: RotationCarrier }) {
   if (kind === 'rotation') {
-    const asp = shapeAspect('rotation', aspect)
+    // ⚠️ `fit` also means «this is an ICON». At the placement aspect (0.32) the loop letterboxes
+    // into a 40px cell as a 13px-tall sliver with a 1px outline — technically right, unreadable
+    // as a picker. The preview is drawn stockier; what gets PLACED is still defaultAspect.
+    const asp = fit ? ROTATION_PREVIEW_ASPECT : shapeAspect('rotation', aspect)
     return (
       // `fit` = keep the proportions inside whatever box the host gives (the palette cell is
       // square, and a loop stretched to fill it would advertise a shape nobody gets). On the map
       // and the plan the box IS the shape, so it paints edge to edge.
       <svg className="shape-svg" viewBox={rotationViewBox(asp)} width="100%" height="100%"
         preserveAspectRatio={fit ? 'xMidYMid meet' : 'none'} style={{ overflow: 'visible' }}>
-        <g dangerouslySetInnerHTML={{ __html: rotationInner(color, asp) }} />
+        <g dangerouslySetInnerHTML={{ __html: rotationInner(color, asp, carrier) }} />
       </svg>
     )
   }

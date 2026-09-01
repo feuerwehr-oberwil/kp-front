@@ -694,6 +694,10 @@ export const en: Localizable<Copy> = {
     color: 'Color',
     rotateHint: 'Drag the handle to rotate',
     stopLabel: 'Stop bar',
+    carrierLabel: 'Carrier',
+    carrierNone: 'None',
+    carrierHeli: 'Heli',
+    carrierTlf: 'TLF',
     resizeHint: 'Drag the corner to scale',
     names: { arrow: 'Arrow', cloud: 'Smoke', square: 'Rectangle', rotation: 'Shuttle run' },
 

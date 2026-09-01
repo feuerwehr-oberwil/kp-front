@@ -24,24 +24,26 @@ import type { LineAttachment, LineContent, LineEndpoint, LngLat, LineRoutingMode
 // Sketched as an outlined chevron with a hairline tick, the preview promised something far
 // lighter than the Lage actually draws; a picker has to show the picture it will make.
 function EndingGlyph({ kind }: { kind: 'none' | 'arrow' | 'arrowStop' | 'teilstueck' }) {
-  // the head's tip — the «Stopp» variant steps back so its bar gets the edge, as the sprite does
-  const tip = kind === 'arrowStop' ? 31.4 : 35
-  const base = tip - 13     // head length
+  // ⚠️ 24px wide, not 36 (01.09.). The shaft is not the subject — the END is, and four long lines
+  // side by side made the Abschluss row twice as wide as anything else in the panel while saying
+  // nothing extra. The stub is just enough to show WHICH end the decoration is on.
+  const tip = kind === 'arrowStop' ? 19.4 : 23
+  const base = tip - 13     // head length — unchanged, it is the thing being chosen
   const notch = tip - 10.1  // the concave tail
-  const shaftEnd = kind === 'none' ? 34 : kind === 'teilstueck' ? 24 : base + 1
+  const shaftEnd = kind === 'none' ? 22 : kind === 'teilstueck' ? 12 : base + 1
   return (
-    <svg width="36" height="14" viewBox="0 0 36 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="24" height="14" viewBox="0 0 24 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <line x1="2" y1="7" x2={shaftEnd} y2="7" />
       {(kind === 'arrow' || kind === 'arrowStop') && (
         <path d={`M${tip},7 L${base},0.5 L${notch},7 L${base},13.5 Z`} fill="currentColor" stroke="none" />
       )}
-      {kind === 'arrowStop' && <rect x="33.2" y="1.2" width="1.8" height="11.6" fill="currentColor" stroke="none" />}
+      {kind === 'arrowStop' && <rect x="21.2" y="1.2" width="1.8" height="11.6" fill="currentColor" stroke="none" />}
       {kind === 'teilstueck' && (
         <>
-          <line x1="25" y1="2" x2="25" y2="12" />
-          <line x1="25" y1="2" x2="33" y2="2" />
-          <line x1="25" y1="7" x2="33" y2="7" />
-          <line x1="25" y1="12" x2="33" y2="12" />
+          <line x1="13" y1="2" x2="13" y2="12" />
+          <line x1="13" y1="2" x2="21" y2="2" />
+          <line x1="13" y1="7" x2="21" y2="7" />
+          <line x1="13" y1="12" x2="21" y2="12" />
         </>
       )}
     </svg>

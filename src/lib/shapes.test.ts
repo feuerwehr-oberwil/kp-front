@@ -34,6 +34,15 @@ describe('SHAPE_ORDER / SHAPE_DEFS', () => {
 // The Rotation loop is a shuttle RUN between two places, so it is a stretchable shape rather than
 // a symbol dropped at a point (FKS Vegetationsbrand S. 52/53, decision 01.09.).
 describe('the Rotation loop', () => {
+  // Dragging the corner back through the centre used to invert the loop into a thin vertical
+  // sliver with the arrows pointing at each other — a shape that means nothing.
+  it('can never be taller than it is long', () => {
+    expect(shapeAspect('rotation', 4)).toBeLessThanOrEqual(1)
+    expect(shapeAspect('rotation', 0.9)).toBe(0.9)
+    // …while the shapes that legitimately stand upright still may
+    expect(shapeAspect('square', 4)).toBe(4)
+  })
+
   it('starts long and flat, and stretches freely', () => {
     expect(SHAPE_FREE_ASPECT.rotation).toBe(true)
     expect(SHAPE_DEFS.rotation.defaultAspect).toBeLessThan(1)
@@ -62,14 +71,25 @@ describe('the Rotation loop', () => {
     expect(rotationViewBox(1)).toBe('0 0 100 100.00')
   })
 
-  // …and everything drawn in it is sized off the loop's HEIGHT, not the 100-unit width: a user
-  // unit is width/100 whatever the aspect, so anything sized as a share of the width grew with
-  // the run — a 15 px outline and arrowheads the size of a vehicle on a long Rotation.
-  it('scales the stroke off the height, clamped at both ends', () => {
+  // ⚠️ Everything inside is a PURE FRACTION of the loop's height, with no absolute floor. A user
+  // unit is width/100, and the box's px width grows with the run — so h is constant in px as the
+  // loop lengthens, and a fraction of h is constant too. An absolute clamp is the opposite: it
+  // pins a number of UNITS, which grows with the run. That is what gave a long Rotation a fat
+  // outline and arrowheads the size of a vehicle («nur länger, gleiche Strichstärke», 01.09.).
+  it('keeps its stroke the same on screen however long the run gets', () => {
     const sw = (svg: string) => Number(/stroke-width="([\d.]+)"/.exec(svg)![1])
-    expect(sw(rotationInner('#1f6feb', 0.16))).toBeLessThan(sw(rotationInner('#1f6feb', 0.32)))
-    expect(sw(rotationInner('#1f6feb', 0.05))).toBeGreaterThanOrEqual(2)   // floor
-    expect(sw(rotationInner('#1f6feb', 5))).toBeLessThanOrEqual(4)         // ceiling
+    // px = units × width/100, and width ∝ 1/asp for a fixed loop height ⇒ sw/asp is the invariant
+    const onScreen = (asp: number) => sw(rotationInner('#1f6feb', asp)) / asp
+    expect(onScreen(0.32)).toBeCloseTo(onScreen(0.08), 6)
+    expect(onScreen(0.08)).toBeCloseTo(onScreen(0.02), 6)
+  })
+
+  it('does the same for the direction heads', () => {
+    const headSpan = (asp: number) => {
+      const m = /<path d="M ([\d.-]+) ([\d.-]+) L ([\d.-]+)/.exec(rotationInner('#1f6feb', asp))!
+      return (Number(m[3]) - Number(m[1])) / asp
+    }
+    expect(headSpan(0.32)).toBeCloseTo(headSpan(0.08), 6)
   })
 
   it('draws the loop and both directions in the shape’s own colour', () => {
