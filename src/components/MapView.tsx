@@ -8,7 +8,7 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
-import { LINE_DASH_ML } from '../lib/draw'
+import { LINE_DASH_ML, hatchImageId, hatchTile } from '../lib/draw'
 import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
@@ -850,6 +850,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const data = head(stop)
         if (data) map.addImage(name, { width: S, height: S, data: data.data }, { sdf: true, pixelRatio: 2 })
       }
+      // …and one Schraffur tile per draw colour. ⚠️ NOT sdf: `fill-pattern` paints the image as
+      // given and cannot tint it, so the colour is baked in and there is one tile per colour.
+      // The palette is fixed (appConfig.drawing.colors), so this is six small images, once.
+      for (const c of appConfig.drawing.colors) {
+        const id = hatchImageId(c)
+        if (map.hasImage(id)) continue
+        const tile = hatchTile(c)
+        if (tile) map.addImage(id, { width: tile.width, height: tile.height, data: tile.data }, { pixelRatio: 2 })
+      }
       map.triggerRepaint()
     }
     ensureArrow()
@@ -879,7 +888,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // or überfällig. Resolved here (not per frame) so the paint expression stays a plain lookup.
     const linked = d.kind === 'line' ? truppForLine(d, trupps ?? []) : undefined
     const tone = linked ? truppLineTone(linked, truppSeverities?.[linked.id] ?? 0) : 'idle'
-    const p = { id: d.id, color: d.color || '#1f6feb', width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1, truppTone: tone === 'warn' || tone === 'crit' ? tone : '' }
+    const p = { id: d.id, color: d.color || '#1f6feb', width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, hatch: !!d.hatch, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1, truppTone: tone === 'warn' || tone === 'crit' ? tone : '' }
     if (d.kind === 'circle') return polyFeat(circleRing(d), p)
     return d.kind === 'area' && d.coords.length >= 3 ? polyFeat(d.coords, p) : lineFeat(d.coords, p)
   }))
@@ -1410,7 +1419,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // must not take the incident down.
       onError={(e) => reportClientError(e.error ?? new Error('map error'), { kind: 'error' })}
       onClick={handleClick}
-      interactiveLayerIds={['l-draw-edit-hit', 'l-measure-hit', 'l-draft-hit', 'l-draw-hit', 'l-draw-line', 'l-draw-line-dash', 'l-draw-fill']}
+      // ⚠️ BOTH fill layers. `l-draw-hit` is line-only, so a polygon's INTERIOR is picked through
+      // its fill — and a hatched Fläche lives in its own layer. Leaving it out made the
+      // Schraffur selectable only by its outline, which is a 4px target around a shape whose
+      // whole inside looks tappable. (A `fill` layer hit-tests by geometry, not by painted
+      // pixels, so the gaps between the hatch lines are live too.)
+      interactiveLayerIds={['l-draw-edit-hit', 'l-measure-hit', 'l-draft-hit', 'l-draw-hit', 'l-draw-line', 'l-draw-line-dash', 'l-draw-fill', 'l-draw-hatch']}
       onLoad={(e) => {
         const m = e.target as MlMap
         mapInst.current = m
@@ -1570,7 +1584,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         <Layer id="l-draw-sel" type="line" filter={['in', ['get', 'id'], ['literal', selHighlight]] as any}
           layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }}
           paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.5 } as any} />
-        <Layer id="l-draw-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} layout={vis(drawingsVisible && !georefOn)} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.14] } as any} />
+        {/* TWO fill layers, not one expression: `fill-pattern` overrides `fill-color` whenever it
+            resolves, and a `case` that yields no image paints nothing at all — so the washed and
+            the hatched Flächen are filtered apart and each gets the paint it can actually use. */}
+        <Layer id="l-draw-fill" type="fill" filter={['all', ['==', ['geometry-type'], 'Polygon'], ['!', ['coalesce', ['get', 'hatch'], false]]] as any} layout={vis(drawingsVisible && !georefOn)} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.14] } as any} />
+        <Layer id="l-draw-hatch" type="fill" filter={['all', ['==', ['geometry-type'], 'Polygon'], ['coalesce', ['get', 'hatch'], false]] as any} layout={vis(drawingsVisible && !georefOn)} paint={{ 'fill-pattern': ['concat', 'hatch-', ['downcase', ['get', 'color']]] } as any} />
         {/* solid + dashed split: line-dasharray can't be data-driven, so dashed lines
             render in their own layer filtered on the feature's `dashed` property */}
         <Layer id="l-draw-line" type="line" filter={['!', ['get', 'dashed']] as any} layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] } as any} />

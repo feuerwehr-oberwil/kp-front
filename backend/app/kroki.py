@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from . import carto
 
@@ -662,6 +662,41 @@ def _arrow_head(
         )
 
 
+# ⚠️ MIRRORS src/lib/draw.tsx · HATCH_PERIOD_PX / HATCH_WIDTH_PX. The FKS draws an affected AREA
+# hatched rather than washed (Brandzone/Flächenbrand); screen and paper have to agree about which
+# Fläche is which, so the geometry is one set of numbers copied here on purpose.
+_HATCH_PERIOD = 12
+_HATCH_WIDTH = 1.6
+
+
+def _hatch_polygon(overlay: Image.Image, pts: list[tuple[float, float]], color: str, scale: float) -> None:
+    """Rule 45° lines through a polygon — the print's half of the Schraffur.
+
+    Drawn onto a scratch layer and pasted through the polygon as its own mask, because PIL has no
+    clip region: ruling the lines straight onto the overlay would hatch the whole bounding box.
+    """
+    if len(pts) < 3:
+        return
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    x0, y0 = int(min(xs)) - 2, int(min(ys)) - 2
+    x1, y1 = int(max(xs)) + 2, int(max(ys)) + 2
+    w, h = max(1, x1 - x0), max(1, y1 - y0)
+    period = max(3.0, _HATCH_PERIOD * scale)
+    lines = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ld = ImageDraw.Draw(lines)
+    step = period * math.sqrt(2)  # spacing measured along the axis, for 45° lines
+    c = float(-h)
+    while c <= w + h:
+        ld.line([(c, 0), (c + h, h)], fill=color, width=max(1, round(_HATCH_WIDTH * scale)))
+        c += step
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).polygon([(x - x0, y - y0) for x, y in pts], fill=255)
+    # the lines' own alpha TIMES the polygon mask = the lines, clipped to the shape
+    lines.putalpha(ImageChops.multiply(lines.getchannel("A"), mask))
+    overlay.alpha_composite(lines, (x0, y0))
+
+
 def _marker_points(pts: list[tuple[float, float]], spacing: float) -> list[tuple[float, float, float]]:
     """Positions for a repeated inline marker, every `spacing` px along the polyline, starting
     half a step in (client markerParamsAlong). Returns (x, y, degrees-of-this-segment) — the
@@ -1111,7 +1146,11 @@ def render_kroki(
                 [pt(a, b) for a, b in _circle_points(lng, lat, d.get("radiusM") or 50)], fill=_hex_alpha(color, alpha)
             )
         elif kind == "area" and len(d.get("coords", [])) >= 3:
-            draw.polygon([pt(a, b) for a, b in d["coords"]], fill=_hex_alpha(color, alpha))
+            poly = [pt(a, b) for a, b in d["coords"]]
+            if d.get("hatch"):
+                _hatch_polygon(overlay, poly, color, u * ss)
+            else:
+                draw.polygon(poly, fill=_hex_alpha(color, alpha))
     for d in scene.drawings:
         color = d.get("color") or "#1f6feb"
         w = max(1, round((d.get("width") or 4) * u * ss))

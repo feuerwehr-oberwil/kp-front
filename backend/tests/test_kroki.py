@@ -717,3 +717,34 @@ def test_spread_overlay_draws_one_arrow_per_direction() -> None:
     # only the bounded one grows a bar
     svg2 = kk.spread_overlay_svg({"left": True, "right": True, "rightBounded": True}, "#f00")
     assert svg2.count("<rect") == 1
+
+
+# The FKS draws an affected AREA hatched rather than washed. The print rules the lines itself
+# (PIL has no clip region), so the one thing worth pinning is that they stay INSIDE the polygon —
+# ruling them onto the overlay directly would hatch the whole bounding box.
+def test_hatch_stays_inside_the_polygon():
+    from PIL import Image
+
+    from app.kroki import _hatch_polygon
+
+    img = Image.new("RGBA", (240, 160), (255, 255, 255, 255))
+    poly = [(30, 20), (200, 40), (180, 140), (60, 120)]
+    _hatch_polygon(img, poly, "#e8392b", 1.0)
+    px = img.load()
+
+    # the corners are outside the shape and must be untouched
+    for corner in ((2, 2), (237, 2), (2, 157), (237, 157)):
+        assert px[corner] == (255, 255, 255, 255), corner
+    # …and the inside actually carries ink
+    inked = sum(1 for x in range(240) for y in range(160) if px[x, y][:3] != (255, 255, 255))
+    assert inked > 500
+
+
+def test_hatch_ignores_a_degenerate_polygon():
+    from PIL import Image
+
+    from app.kroki import _hatch_polygon
+
+    img = Image.new("RGBA", (40, 40), (255, 255, 255, 255))
+    _hatch_polygon(img, [(1, 1), (2, 2)], "#e8392b", 1.0)
+    assert img.load()[20, 20] == (255, 255, 255, 255)

@@ -272,6 +272,8 @@ export interface Drawing {
   radiusM?: number
   /** fill opacity 0..1 for closed shapes (circle / area). Absent = the default fill. */
   fillOpacity?: number
+  /** Fläche schraffiert statt gefüllt — the FKS reading of an AFFECTED area (lib/draw · Schraffur) */
+  hatch?: boolean
   /** render the line dashed instead of solid (lines only). Absent = solid. */
   dashed?: boolean
   // --- annotated-polyline fields (lines only). A tool "preset" just seeds these on
@@ -648,6 +650,7 @@ export interface BoardAnno extends SymbolProps {
   endDx?: number             // draw: screen-space nudge of the FKS end-tag off other symbols
   endDy?: number
   fillOpacity?: number       // area: polygon fill opacity (0..1); absent = a sensible default
+  hatch?: boolean            // area: schraffiert statt gefüllt (lib/draw · Schraffur)
   t?: string                 // resource: HH:MM of last move
   trail?: TrailPoint[]       // resource: breadcrumb history, oldest → newest
   // resource: the linked Atemschutz Trupp this chip REPRESENTS (position tracking).

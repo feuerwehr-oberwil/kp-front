@@ -3412,6 +3412,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onShowDistance={(showDistance) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { showDistance })}
           onRadius={(radiusM) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { radiusM })}
           onFillOpacity={(fillOpacity) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { fillOpacity })}
+          onHatch={(hatch, fillOpacity) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { hatch: hatch || undefined, fillOpacity })}
           locked={!!viewedTwinDrawing.locked}
           onToggleLock={readOnly ? undefined : () => {
             onTwinDrawingEdit?.(viewedTwinDrawing.id, { locked: viewedTwinDrawing.locked ? undefined : true })
@@ -3443,7 +3444,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         <DrawEditor
           key={selDraw.id}
           readOnly={readOnly}
-          drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
+          drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}
@@ -3493,6 +3494,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onShowDistance={(showDistance) => patchCommit(selDraw.id, { showDistance: showDistance || undefined })}
           onRadius={() => {}}
           onFillOpacity={(fillOpacity) => patchCommit(selDraw.id, { fillOpacity })}
+          onHatch={(hatch, fillOpacity) => patchCommit(selDraw.id, { hatch: hatch || undefined, fillOpacity })}
           attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
             const a = endpoint === 'start' ? selDraw.startAttachment : selDraw.endAttachment
             if (!a) return []

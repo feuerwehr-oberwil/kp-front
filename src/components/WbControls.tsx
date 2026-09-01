@@ -1,7 +1,7 @@
 import type { BoardAnno, BoardPoint, BoardTool, NoteSize } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { LINE_DASH_SVG } from '../lib/draw'
+import { HatchDefs, LINE_DASH_SVG, hatchPatternId } from '../lib/draw'
 import { ToolDock } from './ToolDock'
 import { useNodeHold } from '../lib/nodeHold'
 import { vertexHandleIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
@@ -44,13 +44,15 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
   const pointStr = (pts: BoardPoint[], floor: number | undefined) => pts.map((p) => `${p[0]},${mapY(p[2] ?? floor, p[1])}`).join(' ')
   return (
     <svg className="wb-ink-svg" viewBox="0 0 1 1" preserveAspectRatio="none">
+      <HatchDefs colors={COLORS} />
       {/* filled areas (under the lines) */}
       {annos.filter((a) => a.kind === 'area' && a.pts && a.pts.length >= 3).map((a) => {
         const pts = pointStr(a.pts!, a.floor)
         return (
         <g key={a.id}>
           {selId === a.id && <polygon points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 3) + 6} strokeOpacity={0.35} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
-          <polygon points={pts} fill={a.color || COLORS[0]} fillOpacity={a.fillOpacity ?? 0.14}
+          <polygon points={pts} fill={a.hatch ? `url(#${hatchPatternId(a.color || COLORS[0])})` : (a.color || COLORS[0])}
+            fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? 0.14)}
             stroke={a.color || COLORS[0]} strokeWidth={a.width || 3} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
             strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           {onPickDraw && <polygon points={pts} fill="transparent" stroke="transparent" strokeWidth={18}

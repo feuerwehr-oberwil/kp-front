@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { LineStylePicker } from '../lib/draw'
+import { HATCH_PERIOD_PX, HatchDefs, LineStylePicker, hatchPatternId } from '../lib/draw'
 import { markerGlyph } from '../lib/lineStyle'
 import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
@@ -73,6 +73,7 @@ export interface DrawStyle {
   arrowStop?: boolean
   showDistance?: boolean
   fillOpacity?: number
+  hatch?: boolean
   radiusM?: number
   // FKS hose-line annotations
   teilstueck?: boolean
@@ -145,6 +146,8 @@ interface Props {
   onShowDistance: (showDistance: boolean) => void
   onRadius: (radiusM: number) => void
   onFillOpacity: (fillOpacity: number) => void
+  /** pick the fill KIND: hatched, or a flat wash at `fillOpacity`. One row, one answer. */
+  onHatch?: (hatch: boolean, fillOpacity: number) => void
   /** lock the shape against accidental moves (it goes click-through; unlock via the centre
    *  lock chip). Absent → the lock control is hidden (e.g. surfaces without locking). */
   onToggleLock?: () => void
@@ -161,7 +164,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -219,11 +222,24 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
             <div className="de-row"><span>{appConfig.copy.drawingEditor.fill}</span>
               <span className="dh-swatches">
                 {FILL_OPACITIES.map((o) => (
-                  <button key={o} className={`dh-color de-fill ${Math.abs(fillOpacity - o) < 0.001 ? 'on' : ''}`}
+                  <button key={o} className={`dh-color de-fill ${!drawing.hatch && Math.abs(fillOpacity - o) < 0.001 ? 'on' : ''}`}
                     title={`${Math.round(o * 100)} %`} aria-label={`${Math.round(o * 100)} %`}
                     style={{ background: o === 0 ? 'transparent' : color, opacity: o === 0 ? 1 : Math.max(0.25, o + 0.2) }}
-                    onClick={() => onFillOpacity(o)}>{o === 0 ? '∅' : ''}</button>
+                    onClick={() => onHatch?.(false, o)}>{o === 0 ? '∅' : ''}</button>
                 ))}
+                {/* Schraffur is a FILL, so it belongs in this row and not in a control of its own —
+                    «wie ist die Fläche gefüllt» has one answer at a time. The swatch shows the
+                    real pattern, in the shape's own colour (lib/draw · HatchDefs). */}
+                {onHatch && (
+                  <button className={`dh-color de-fill ${drawing.hatch ? 'on' : ''}`}
+                    title={appConfig.copy.drawingEditor.fillHatch} aria-label={appConfig.copy.drawingEditor.fillHatch}
+                    onClick={() => onHatch(true, fillOpacity)}>
+                    <svg viewBox={`0 0 ${HATCH_PERIOD_PX * 2} ${HATCH_PERIOD_PX * 2}`} width="100%" height="100%" aria-hidden>
+                      <HatchDefs colors={[color]} />
+                      <rect width="100%" height="100%" fill={`url(#${hatchPatternId(color)})`} />
+                    </svg>
+                  </button>
+                )}
               </span>
             </div>
           </div>

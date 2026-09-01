@@ -2116,6 +2116,8 @@ export const de = {
     circle: 'Absperrkreis',
     radius: 'Radius',
     fill: 'Füllung',
+    // FKS: eine betroffene Fläche wird schraffiert, nicht gewaschen (Brandzone/Flächenbrand)
+    fillHatch: 'Schraffiert',
     move: 'Verschieben',
     points: 'Punkte',
     preset: 'Stil',
@@ -2132,7 +2134,7 @@ export const de = {
     lineAbwurfzone: 'Wasserabwurfzone',
     label: 'Text',
     labelPlaceholder: 'Beschriftung …',
-    areaLabelPlaceholder: 'z. B. Sektor A / Abschnitt Ost',
+    areaLabelPlaceholder: 'z. B. Sektor A',
     marker: 'Marker',
     markerPlaceholder: 'z. B. R',
     arrow: 'Pfeilspitze',

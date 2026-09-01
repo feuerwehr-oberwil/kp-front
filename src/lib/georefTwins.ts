@@ -432,7 +432,7 @@ type _EntityKeysAccounted = Assert<Exclude<keyof Entity, (typeof ENTITY_MAP_ONLY
 const BOARD_PLAN_ONLY = [
   'kind', 'pts', 'x', 'y', 'text', 'wN', 'sizeN', 'reachN', 'width', 'dashed', 'arrow', 'arrowStop', 'marker',
   'showDistance', 'labelDx', 'labelDy', 'teilstueck', 'content', 'lineNo', 'floorTag',
-  'endDx', 'endDy', 'fillOpacity', 't', 'trail', 'truppId', 'floor', 'locked',
+  'endDx', 'endDy', 'fillOpacity', 'hatch', 't', 'trail', 'truppId', 'floor', 'locked',
   'startAttachment', 'endAttachment', 'storey',
 ] as const satisfies readonly (keyof BoardAnno)[]
 type _BoardKeysAccounted = Assert<Exclude<keyof BoardAnno, (typeof BOARD_PLAN_ONLY)[number]> extends keyof Entity ? true : false>

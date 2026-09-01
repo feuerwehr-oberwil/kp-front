@@ -4269,6 +4269,7 @@ export function IncidentWorkspace({
           onShowDistance={(showDistance) => patchDrawing({ showDistance })}
           onRadius={(radiusM) => patchDrawing({ radiusM })}
           onFillOpacity={(fillOpacity) => patchDrawing({ fillOpacity })}
+          onHatch={(hatch, fillOpacity) => patchDrawing({ hatch: hatch || undefined, fillOpacity })}
           attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
             if (!a) return []
