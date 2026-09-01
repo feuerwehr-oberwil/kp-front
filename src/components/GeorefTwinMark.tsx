@@ -44,7 +44,7 @@ import s from './GeorefTwins.module.css'
  *  fingertip's own wobble on a glove would move the object on every tap. */
 const DRAG_SLOP_PX = 4
 
-export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, caption, title, onOpen, onMove, nativeDrag = false, interactive = true, selected = false, style, className }: {
+export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, caption, title, onOpen, onMove, onGesture, gestureMovable = false, interactive = true, selected = false, style, className }: {
   svg: string
   sizePx: number
   rotation: number
@@ -74,16 +74,21 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
    */
   onMove?: (phase: 'start' | 'move' | 'end', dx: number, dy: number) => void
   /**
-   * The SURROUNDING surface owns the drag — used on the Karte, where a MapLibre `Marker` is
-   * `draggable` and runs the gesture itself.
+   * The SURROUNDING surface owns the whole gesture — used on the Karte, where the press is fed
+   * to the shared hold-to-drag (lib/mapTwinDrag) so a projection behaves exactly like the native
+   * marker beside it: mouse press-drags at once, touch arms only after a still 180 ms hold plus
+   * its buzz, and anything shorter stays a map pan.
    *
-   * ⚠️ It exists because the usual `stopPropagation()` cannot do the job there. MapLibre listens
-   * on the map container, which is an ANCESTOR of this element, while React delegates from the
-   * app root ABOVE that — so by the time this component's handler runs and stops the event, the
-   * map has already begun a drag-pan and the twin would slide with the whole map under it. A
-   * Marker that owns the gesture suppresses the pan itself, which is what it is for.
+   * ⚠️ The map half must NOT run the `onMove` gesture below, and must NOT be a react-map-gl
+   * `draggable` Marker either: that claims the pointer on pointerdown and suppresses the map's
+   * pan, so every pan starting on a twin dragged the twin (the exact failure `useHoldToDrag` was
+   * written to avoid). With the press delegated, the tap arrives through the hold's own onTap —
+   * this element's click then only serves the keyboard (detail 0).
    */
-  nativeDrag?: boolean
+  onGesture?: (ev: React.PointerEvent<HTMLButtonElement>) => void
+  /** with `onGesture`: whether that gesture may actually move the object — the grab cursor is
+   *  the hand's answer to «kann ich das anfassen» and must not promise a move the surface refuses */
+  gestureMovable?: boolean
   /** the surface is in its resting state and the tap may open the details. False ⇒ inert (see
    *  .inert): a tool is armed, or the pairing mode is running, and the tap belongs to that. */
   interactive?: boolean
@@ -99,17 +104,20 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
   const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null)
   // survives past pointerup so the click that follows can tell a drag from a tap
   const dragged = useRef(false)
-  const draggable = interactive && !!onMove && !nativeDrag
+  const draggable = interactive && !!onMove && !onGesture
   // the cursor answers «kann ich das anfassen», which is true in BOTH modes — whether this
-  // component runs the gesture or the surrounding Marker does is an implementation detail the
+  // component runs the gesture or the surrounding surface does is an implementation detail the
   // hand cannot see
-  const movable = interactive && (!!onMove || nativeDrag)
+  const movable = interactive && (!!onMove || gestureMovable)
 
   const down = (e: React.PointerEvent<HTMLButtonElement>) => {
+    // delegated mode: the surface's shared hold gesture takes the press whole, deliberately
+    // WITHOUT stopping it — a pan that starts on a twin has to reach the map, or the projection
+    // steals it (D-03)
+    if (onGesture) { if (interactive) onGesture(e); return }
     // the surrounding surface must not ALSO start a pan under the finger — the same reason the
-    // plan's capture layer stops this event (components/GeorefMode · own). NOT in `nativeDrag`
-    // mode, where the surface is deliberately the one running the gesture.
-    if (!nativeDrag) e.stopPropagation()
+    // plan's capture layer stops this event (components/GeorefMode · own).
+    e.stopPropagation()
     if (!draggable) return
     e.currentTarget.setPointerCapture?.(e.pointerId)
     drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false }
@@ -152,8 +160,14 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
       onPointerCancel={up}
       // ⚠️ A drag must not also open the panel. The click fires after pointerup on the same
       // element, and `drag.current` is already cleared by then, so the "did it travel" answer is
-      // carried by this flag rather than read back off the gesture.
-      onClick={(e) => { e.stopPropagation(); if (!dragged.current) onOpen(); dragged.current = false }}
+      // carried by this flag rather than read back off the gesture. In delegated mode the tap
+      // comes from the hold gesture instead, so only the KEYBOARD's click (detail 0) opens here.
+      onClick={(e) => {
+        e.stopPropagation()
+        if (onGesture) { if (e.detail === 0) onOpen(); return }
+        if (!dragged.current) onOpen()
+        dragged.current = false
+      }}
     >
       {selected && <span className="sel-halo" aria-hidden />}
       <TacticalSymbol svg={svg} sizePx={sizePx} rotation={rotation} count={count}

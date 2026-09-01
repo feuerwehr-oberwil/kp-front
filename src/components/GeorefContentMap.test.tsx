@@ -6,13 +6,21 @@ import type { ReactNode } from 'react'
 import type { MapContentTwin } from '../lib/georefTwins'
 import type { BoardAnno } from '../types'
 
+type Feat = { properties: Record<string, unknown> }
 vi.mock('react-map-gl/maplibre', () => ({
-  Source: ({ children }: { children: ReactNode }) => <div data-testid="source">{children}</div>,
-  Layer: () => <i data-testid="layer" />,
+  Source: ({ children, id, data }: { children: ReactNode; id?: string; data?: { features?: Feat[] } }) => (
+    <div data-testid="source" data-id={id} data-props={JSON.stringify(data?.features?.map((f) => f.properties) ?? [])}>{children}</div>
+  ),
+  Layer: ({ id }: { id?: string }) => <i data-testid="layer" data-id={id} />,
   Marker: ({ children }: { children: ReactNode }) => <div data-testid="marker">{children}</div>,
 }))
 
 import { GeorefContentMap } from './GeorefContentMap'
+import { GEOREF_CONTENT_PICK_LAYERS } from '../lib/mapView'
+
+const layerIds = () => screen.getAllByTestId('layer').map((l) => l.dataset.id)
+const inkProps = (container: HTMLElement): Record<string, unknown>[] =>
+  JSON.parse(container.querySelector<HTMLElement>('[data-id="s-georef-content"]')?.dataset.props ?? '[]')
 
 afterEach(cleanup)
 
@@ -160,5 +168,66 @@ describe('broader Plan content on the Karte', () => {
     expect(phase).toBe('commit')
     expect(patch.pts).toHaveLength(3)
     expect(patch.pts[1][0]).toBeCloseTo(0.45, 6)
+  })
+
+  // ⚠️ D-04 (01.09.): the mirrored ink used to live in a Source PER twin, with generated layer
+  // ids that MapView's `interactiveLayerIds` could never name — so a 40 m mirrored Leitung was
+  // pointer-dead everywhere except its midpoint dot. One collection with fixed ids gives the
+  // projections the native's own 18 px hit band and its selection halo.
+  it('carries the map’s own registered ink layers, hit band included', () => {
+    const twins: MapContentTwin[] = [
+      { ...point({ id: 'line', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.8]] }), coords: [[7.5, 47.5], [7.501, 47.499]] },
+      { ...point({ id: 'flaeche', kind: 'area', pts: [[0.1, 0.1], [0.8, 0.1], [0.8, 0.8]] }), coords: [[7.5, 47.5], [7.501, 47.5], [7.501, 47.499]] },
+    ]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} />)
+    // ONE source for both, not one per object
+    expect(container.querySelectorAll('[data-id="s-georef-content"]')).toHaveLength(1)
+    for (const id of GEOREF_CONTENT_PICK_LAYERS) expect(layerIds()).toContain(id)
+    expect(layerIds()).toContain('l-georef-content-sel')
+  })
+
+  // D-16, safety-relevant: the loudest thing the Lage says about people being overdue has to
+  // cross the mirror — the end tag's tone alone did not.
+  it('gives a mirrored Leitung of an überfällig Trupp the Atemschutz alarm halo', () => {
+    const twins: MapContentTwin[] = [
+      { ...point({ id: 'ltg', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.1]], lineNo: 1 }), coords: [[7.5, 47.5], [7.501, 47.5]] },
+      { ...point({ id: 'plain', kind: 'draw', pts: [[0.1, 0.3], [0.8, 0.3]] }), coords: [[7.5, 47.49], [7.501, 47.49]] },
+    ]
+    const trupps = [{ id: 't1', name: 'Meier Anna', lineNo: 1, status: 'in' }] as never
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0}
+      trupps={trupps} truppSeverities={{ t1: 2 }} />)
+    expect(layerIds()).toContain('l-georef-content-atemschutz')
+    expect(inkProps(container).map((f) => f.truppTone)).toEqual(['crit', ''])
+  })
+
+  // D-07: the lock is a property of the OBJECT, so it has to hold through the mirror too —
+  // otherwise a deliberately locked Sektor-Fläche is still draggable from the other surface.
+  it('a locked source goes click-through here as well, with the LockChip as the only way back', () => {
+    const onUnlockTwin = vi.fn()
+    const twins: MapContentTwin[] = [
+      { ...point({ id: 'sektor', kind: 'area', pts: [[0.1, 0.1], [0.8, 0.1], [0.8, 0.8]], locked: true }), coords: [[7.5, 47.5], [7.501, 47.5], [7.501, 47.499]] },
+    ]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
+      selectedKey={twins[0].key} onOpenTwin={() => {}} onEditTwinAnno={() => {}} onUnlockTwin={onUnlockTwin}
+      project={project} unproject={unproject} setDragPan={() => {}} />)
+    // no grip and no vertex handles, even though it is the SELECTED twin — the LockChip is the
+    // only button the object has left
+    const buttons = container.querySelectorAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0].className).toContain('draw-lock-chip')
+    expect(document.querySelectorAll('.draw-handle')).toHaveLength(0)
+    // the ink itself says so, so MapView skips it when resolving a click
+    expect(inkProps(container)[0].locked).toBe(true)
+  })
+
+  it('a locked mirrored Form takes no tap and no drag', () => {
+    const twins = [point({ id: 'sq', kind: 'shape', x: 0.5, y: 0.5, shape: 'square', sizeN: 0.2, locked: true })]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
+      onOpenTwin={() => {}} onUnlockTwin={() => {}} project={project} unproject={unproject} setDragPan={() => {}} />)
+    expect(container.querySelector('.shape-glyph')).toBeTruthy()
+    // the LockChip is the ONLY button left
+    const buttons = container.querySelectorAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0].className).toContain('draw-lock-chip')
   })
 })

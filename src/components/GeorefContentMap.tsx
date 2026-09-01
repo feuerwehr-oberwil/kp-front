@@ -12,20 +12,26 @@
  * whole-object drag off (translating its stored pts would fork against the plan's
  * re-resolution); its grips reshape it, detaching the grabbed endpoint.
  *
+ * The ink itself lives in ONE data-driven source with fixed layer ids, the way MapView carries
+ * the map's own drawings — so the projections are picked through `interactiveLayerIds` over the
+ * native's full 18 px hit band, wear its selection halo and its Atemschutz alarm outline, and a
+ * LOCKED source goes click-through here exactly as it does on the surface that owns it.
+ *
  * A mirrored Leitung keeps its whole FKS voice here too — arrowhead (the same registered
  * `draw-arrow` SDF icon the map's own lines use), Teilstück-Gabel, marker letters, end tag and
  * the Länge read-out — so «which hose is that» has one answer on both surfaces. Geometry that
  * was dragged clear of other symbols on the sheet (label / end-tag offsets, in board fractions)
  * is projected through the same fit as the line itself.
  */
-import { Fragment, useRef, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, type CSSProperties, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { useNodeHold } from '../lib/nodeHold'
 import { LineMarker } from './LineMarker'
 import { NodeDeleteChip } from './NodeDeleteChip'
 import { MARKER_Z } from '../lib/labelPass'
 import { Layer, Marker, Source } from 'react-map-gl/maplibre'
-import { useHoldToDrag } from '../lib/useHoldToDrag'
+import { useMapTwinDrag } from '../lib/mapTwinDrag'
+import { LockChip } from './LockChip'
 import { contentTwinName, type MapContentTwin } from '../lib/georefTwins'
 import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { noteScale } from '../lib/notes'
@@ -47,7 +53,7 @@ const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
 
 const INERT: CSSProperties = { pointerEvents: 'none' }
 
-export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, selectedKey = null, onOpenTwin, onMoveTwin, onEditTwinAnno, project, unproject, setDragPan }: {
+export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, selectedKey = null, onOpenTwin, onMoveTwin, onEditTwinAnno, onUnlockTwin, project, unproject, setDragPan }: {
   twins: MapContentTwin[]
   zoom: number
   bearing: number
@@ -68,48 +74,20 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
   /** vertex-level edits of the SELECTED mirrored drawing — pts (plan space) and, when an
    *  anchored endpoint is grabbed, the attachment clear, patched onto the one source anno */
   onEditTwinAnno?: (twin: MapContentTwin, patch: Partial<BoardAnno>, phase: 'live' | 'commit') => void
+  /** unlock a mirrored line/area/shape through its projection — the LockChip's only job, and the
+   *  only door back into a locked object on this surface (MapView · lockChips) */
+  onUnlockTwin?: (twin: MapContentTwin) => void
   /** the live map transform + pan switch, for the drag above (same trio MapMarkers uses) */
   project?: (c: LngLat) => { x: number; y: number } | undefined
   unproject?: (p: { x: number; y: number }) => LngLat | undefined
   setDragPan?: (on: boolean) => void
 }) {
-  const hold = useHoldToDrag()
   // still hold on a node pad = delete, movement cancels into the drag — the map's own grammar
   const vertexHold = useNodeHold()
-  /** the live drag — re-anchored from the LAST written coord on every move, so a map transform
-   *  change under the finger cannot teleport the mark (MapMarkers does the same). One ref for
-   *  the whole layer: only one projection is ever dragged at a time. */
-  const drag = useRef<{ lx: number; ly: number; last: LngLat } | null>(null)
-  const canDragAny = interactive && !!onMoveTwin && !!project && !!unproject
-  /** Shared tap/hold gesture for every hit target in this layer. `anchor` is the ground point
-   *  the drag writes through (the mark itself, or a path's grip). */
-  const beginGesture = (ev: React.PointerEvent, twin: MapContentTwin, anchor: LngLat, movable: boolean) => {
-    ev.stopPropagation()
-    hold.begin({ clientX: ev.clientX, clientY: ev.clientY, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
-      onTap: onOpenTwin ? () => onOpenTwin(twin) : undefined,
-      onHoldStart: () => {
-        setDragPan?.(false)
-        drag.current = { lx: ev.clientX, ly: ev.clientY, last: anchor }
-        onMoveTwin?.(twin, anchor, 'start')
-      },
-      onDragMove: (mx, my) => {
-        const st = drag.current
-        if (!st) return
-        const base = project!(st.last)
-        if (!base) return
-        const nc = unproject!({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
-        if (!nc) return
-        st.lx = mx; st.ly = my; st.last = nc
-        onMoveTwin?.(twin, nc, 'move')
-      },
-      onDragEnd: () => {
-        const st = drag.current
-        drag.current = null
-        setDragPan?.(true)
-        if (st) onMoveTwin?.(twin, st.last, 'end')
-      },
-    }, { mode: ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: movable })
-  }
+  /** Shared tap/hold gesture for every hit target in this layer — the same one the symbol twins
+   *  and the map's own markers run (lib/mapTwinDrag). */
+  const { begin: beginGesture, canDrag } = useMapTwinDrag<MapContentTwin>({ project, unproject, setDragPan, onMove: onMoveTwin })
+  const canDragAny = interactive && canDrag
   /** One tappable mark. The button replaces the inert span the layer used to render; keyboard
    *  «click» (detail 0) keeps the open, pointer taps go through the hold gesture's onTap.
    *
@@ -126,12 +104,46 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromPlan, { name: contentTwinName(twin.anno), plan: twin.planCode })}
       data-twin=""
       onClick={(ev) => { if (ev.detail === 0) onOpenTwin?.(twin) }}
-      onPointerDown={(ev) => beginGesture(ev, twin, anchor, movable)}>
+      onPointerDown={(ev) => beginGesture(ev, twin, anchor, { movable, onTap: onOpenTwin ? () => onOpenTwin(twin) : undefined })}>
       {selectedKey === twin.key && <span className="sel-halo" aria-hidden />}
       {children}
     </button>
   )
   if (!twins.length) return null
+  /**
+   * The mirrored ink, as ONE data-driven collection — exactly how the map carries its own
+   * drawings (MapView · drawFC).
+   *
+   * ⚠️ It used to be a Source per twin, with generated layer ids: those could never be named in
+   * MapView's `interactiveLayerIds`, so the mirrored ink was pointer-dead over its whole length
+   * and only the midpoint grip answered a tap. Fixed ids give the projections the native's own
+   * 18 px hit band, its selection halo and its Atemschutz alarm outline (01.09.).
+   */
+  const inkFeats = twins
+    .filter((t) => t.coords && (t.anno.kind === 'draw' || t.anno.kind === 'area'))
+    .map((t) => {
+      const a = t.anno
+      const polygon = a.kind === 'area'
+      // the tone that drives the alarm halo: '' unless a Trupp on this Leitung is fällig or
+      // überfällig. Resolved here so the paint expression stays a plain lookup, as on the map.
+      const lineTrupp = polygon ? undefined : truppForLine(a, trupps)
+      const tone = lineTrupp ? truppLineTone(lineTrupp, truppSeverities?.[lineTrupp.id] ?? 0) : 'idle'
+      return {
+        type: 'Feature' as const,
+        geometry: polygon
+          ? { type: 'Polygon' as const, coordinates: [[...t.coords!, t.coords![0]]] }
+          : { type: 'LineString' as const, coordinates: t.coords! },
+        properties: {
+          twinKey: t.key,
+          color: a.color || appConfig.drawing.colors[0],
+          width: a.width ?? (polygon ? 3 : 5),
+          dashed: !!a.dashed,
+          fillOpacity: a.fillOpacity ?? 0.14,
+          truppTone: tone === 'warn' || tone === 'crit' ? tone : '',
+          locked: !!a.locked,
+        },
+      }
+    })
   // Arrowheads ride the map's own registered SDF icon in ONE symbol layer, exactly like the
   // Lage's lines — geographic bearing from the final segment.
   const arrowFeats = twins
@@ -151,6 +163,36 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
     })
   return (
     <>
+      {inkFeats.length > 0 && (
+        <Source id="s-georef-content" type="geojson" data={{ type: 'FeatureCollection', features: inkFeats }}>
+          {/* Atemschutz halo — the same soft outline in the same alarm tone the map's own
+              Leitungen wear (MapView · l-draw-atemschutz). It is the loudest thing the Lage says
+              about people being overdue, so it has to cross the mirror. */}
+          <Layer id="l-georef-content-atemschutz" type="line" filter={['!=', ['get', 'truppTone'], ''] as never}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': ['match', ['get', 'truppTone'], 'crit', appConfig.drawing.atemschutzTone.crit, appConfig.drawing.atemschutzTone.warn],
+              'line-width': ['+', ['get', 'width'], 8],
+              'line-opacity': 0.45,
+            } as never} />
+          <Layer id="l-georef-content-sel" type="line" filter={['==', ['get', 'twinKey'], selectedKey ?? '__none__'] as never}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.5 } as never} />
+          <Layer id="l-georef-content-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon'] as never}
+            paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': ['get', 'fillOpacity'] } as never} />
+          {/* solid + dashed split: line-dasharray cannot be data-driven (MapView says the same) */}
+          <Layer id="l-georef-content-line" type="line" filter={['!', ['get', 'dashed']] as never}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] } as never} />
+          <Layer id="l-georef-content-line-dash" type="line" filter={['get', 'dashed'] as never}
+            layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
+            paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-dasharray': LINE_DASH_ML } as never} />
+          {/* the native's fat transparent hit line over the WHOLE length, so a 40 m mirrored
+              Leitung answers everywhere and not only at one dot (MapView · l-draw-hit) */}
+          <Layer id="l-georef-content-hit" type="line" filter={['!=', ['geometry-type'], 'Polygon'] as never}
+            paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 } as never} />
+        </Source>
+      )}
       {arrowFeats.length > 0 && (
         <Source id="s-georef-content-arrows" type="geojson" data={{ type: 'FeatureCollection', features: arrowFeats }}>
           <Layer id="l-georef-content-arrows" type="symbol"
@@ -162,12 +204,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
         const a = t.anno
         if (t.coords && (a.kind === 'draw' || a.kind === 'area')) {
           const polygon = a.kind === 'area'
-          const geometry = polygon
-            ? { type: 'Polygon' as const, coordinates: [[...t.coords, t.coords[0]]] }
-            : { type: 'LineString' as const, coordinates: t.coords }
-          const data = { type: 'Feature' as const, geometry, properties: {} }
           const color = a.color || appConfig.drawing.colors[0]
-          const id = `georef-content-${i}`
           // labels anchor where the SHEET says: midpoint/centroid in plan space plus the
           // operator's own nudge (labelDx/Dy, board fractions), projected through the fit
           const pts = a.pts ?? []
@@ -208,19 +245,18 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
               return out.length ? out : [{ coord: mid, deg: 0 }]
             })()
             : []
-          // The path's one hit target: a grip at its midpoint/centroid (before the label's
-          // nudge, so it sits ON the geometry). Tap opens the panel; drag moves the whole
-          // object. (The old isLeitung tap-only guard fell to round 8's full equivalence —
-          // only ANCHORED endpoints still block the whole-drag, see the gate below.)
-          const gripCoord = interactive && !!onOpenTwin && basePlan
+          // The whole-object grip at the midpoint/centroid (before the label's nudge, so it sits
+          // ON the geometry): the drag handle, and the keyboard's way in. The ink itself is
+          // tappable over its full length through the GL hit band above.
+          // ⚠️ A LOCKED source has neither — its ink goes click-through and the LockChip below is
+          // the only door back in, exactly as a locked native Fläche behaves (MapView).
+          const gripCoord = interactive && !!onOpenTwin && basePlan && !a.locked
+            ? (() => { const c = t.fit.toMap({ x: basePlan[0], y: basePlan[1] }); return [c.lng, c.lat] as LngLat })()
+            : null
+          const lockCoord = a.locked && basePlan && onUnlockTwin
             ? (() => { const c = t.fit.toMap({ x: basePlan[0], y: basePlan[1] }); return [c.lng, c.lat] as LngLat })()
             : null
           return <Fragment key={t.key}>
-            <Source id={`s-${id}`} type="geojson" data={data}>
-              {polygon && <Layer id={`f-${id}`} type="fill" paint={{ 'fill-color': color, 'fill-opacity': a.fillOpacity ?? 0.14 }} />}
-              <Layer id={`l-${id}`} type="line" paint={{ 'line-color': color, 'line-width': a.width ?? (polygon ? 3 : 5), ...(a.dashed ? { 'line-dasharray': LINE_DASH_ML } : {}) }}
-                layout={{ 'line-cap': a.dashed ? 'butt' : 'round', 'line-join': 'round' }} />
-            </Source>
             {a.teilstueck && !polygon && (
               <Marker longitude={end[0]} latitude={end[1]} anchor="center" style={INERT}>
                 <span className={s.contentMap}><TeilstueckFork angleDeg={ang} color={color} width={a.width ?? 5} /></span>
@@ -258,11 +294,18 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
                 {tapTarget(t, gripCoord, canDragAny && !a.startAttachment && !a.endAttachment, s.grip, <i style={{ color }} aria-hidden />)}
               </Marker>
             )}
+            {/* the click-through ink's only tap target — a short hold unlocks the ONE plan
+                annotation, the same chip and the same gesture the map's own locked lines wear */}
+            {lockCoord && (
+              <Marker longitude={lockCoord[0]} latitude={lockCoord[1]} anchor="center" onClick={(ev) => ev.originalEvent.stopPropagation()}>
+                <LockChip onUnlock={() => onUnlockTwin?.(t)} />
+              </Marker>
+            )}
             {/* ── the map's native vertex vocabulary on the SELECTED mirrored drawing (round 8:
                 full 1:1) — draggable node pads with hold-to-delete, «+» midpoints, Verlängern.
                 Every gesture writes the ONE plan annotation (onEditTwinAnno); grabbing an
                 attached endpoint clears its attachment in the same patch. */}
-            {interactive && onEditTwinAnno && selectedKey === t.key && pts.length >= 2 && (() => {
+            {interactive && onEditTwinAnno && !a.locked && selectedKey === t.key && pts.length >= 2 && (() => {
               const minPts = polygon ? 3 : 2
               const clearFor = (idx: number): Partial<BoardAnno> =>
                 !polygon && idx === 0 && a.startAttachment ? { startAttachment: undefined }
@@ -351,8 +394,17 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
               <ShapeGlyph kind={kind} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} carrier={a.carrier} reverse={a.reverse} strokeW={a.strokeW} boxPx={px} fillOpacity={a.fillOpacity} hatch={a.hatch} sharpCorners={a.sharpCorners} />
             </span>
           )
-          if (!interactive || !onOpenTwin) {
-            return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>{glyph}</Marker>
+          // a LOCKED shape is click-through, exactly like the map's own locked shape entity
+          // (MapMarkers · lockedShape): no tap, no drag, and the centre LockChip is the way back
+          if (!interactive || !onOpenTwin || a.locked) {
+            return <Fragment key={t.key}>
+              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>{glyph}</Marker>
+              {a.locked && onUnlockTwin && (
+                <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" onClick={(ev) => ev.originalEvent.stopPropagation()}>
+                  <LockChip onUnlock={() => onUnlockTwin(t)} />
+                </Marker>
+              )}
+            </Fragment>
           }
           return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" onClick={(ev) => ev.originalEvent.stopPropagation()}>
             {tapTarget(t, t.coord, canDragAny, '', glyph)}

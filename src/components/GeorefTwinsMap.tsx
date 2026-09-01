@@ -3,9 +3,10 @@
  *  The mark itself is GeorefTwinMark; the derivation (which points cross over) is
  *  lib/georefTwins. This file only places them on the one live map.
  */
-import { memo, useRef } from 'react'
+import { memo } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import { appConfig } from '../config/appConfig'
+import { useMapTwinDrag } from '../lib/mapTwinDrag'
 import { fillTemplate } from '../lib/format'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { ROTATABLE } from '../lib/symbols'
@@ -31,7 +32,7 @@ import type { CaptionMode, LngLat } from '../types'
  * Memoised: the projection itself is done once per board/fit change by the caller, and
  * this tree then re-renders only when that list, the zoom or the bearing actually moves.
  */
-export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', interactive = true, selectedKey, onOpen, onMove }: {
+export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', interactive = true, selectedKey, onOpen, onMove, project, unproject, setDragPan }: {
   twins: MapTwin[]
   byName: Record<string, string>
   zoom: number
@@ -55,19 +56,26 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
    * other projection of it follows from that one write. Omitted ⇒ tap-only.
    */
   onMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
+  /** the live map transform + pan switch the shared hold gesture drags against (the same trio
+   *  MapMarkers and GeorefContentMap take) */
+  project?: (c: LngLat) => { x: number; y: number } | undefined
+  unproject?: (p: { x: number; y: number }) => LngLat | undefined
+  setDragPan?: (on: boolean) => void
 }) {
   const C = appConfig.copy.whiteboard.georef
-  // a Marker drag ends with a click on the mark; without this the details panel would open on
-  // top of the object that was just moved
-  const dragged = useRef(false)
+  // ONE gesture for every twin on this map (lib/mapTwinDrag): tap opens, a still hold (touch) or
+  // a press-move (mouse) drags — identical to the native marker beside it, and a flick across a
+  // twin stays a map pan.
+  const { begin, canDrag } = useMapTwinDrag<MapTwin>({ project, unproject, setDragPan, onMove })
   return (
     <>
       {twins.map((t) => {
         const a = t.anno
         const selected = selectedKey === t.key
-        // Match the source marker: a deliberate drag moves immediately; a tap still opens the
-        // panel and paints the halo. Requiring a selection tap first made the mirror feel inert.
-        const movable = interactive && !!onMove
+        // Match the source marker: no selection tap is needed first (that made the mirror feel
+        // inert) — the press itself decides, through the shared hold. A tap opens the panel and
+        // paints the halo; a hold moves the source.
+        const movable = interactive && canDrag
         const name = twinName(a)
         const veh = a.symbol === appConfig.symbols.vehicleName
         // Plan rotation is paper-relative. Plan-up points at bearing −fit.rotationDeg, then the
@@ -84,10 +92,10 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
             // it — otherwise onMapClick closes the twin panel the tap just opened (the same
             // idiom as MapMarkers; see GeorefContentMap · tapTarget for the full story)
             onClick={(ev) => ev.originalEvent.stopPropagation()}
-            draggable={movable}
-            onDragStart={() => { dragged.current = true; onMove?.(t, t.coord, 'start') }}
-            onDrag={(e) => onMove?.(t, [e.lngLat.lng, e.lngLat.lat], 'move')}
-            onDragEnd={(e) => onMove?.(t, [e.lngLat.lng, e.lngLat.lat], 'end')}>
+            // ⚠️ NEVER `draggable`: a react-map-gl Marker claims the pointer on pointerdown and
+            // suppresses the map's pan, so every pan starting on a twin dragged the twin. The
+            // gesture belongs to the shared hold below, exactly as it does for a native marker.
+            draggable={false}>
             <TwinMark
               svg={svg}
               sizePx={symPx(veh ? 'vehicle' : 'symbol', t.coord[1], zoom, symMul)}
@@ -99,9 +107,10 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
               overlay={veh ? undefined : overlayFor(a, byName, -t.fit.rotationDeg - bearing)}
               caption={rawCaption ? softHyphenateText(rawCaption) : rawCaption}
               title={fillTemplate(C.twinFromPlan, { name, plan: t.planCode })}
-              onOpen={() => { if (!dragged.current) onOpen(t); dragged.current = false }}
-              // the Marker above runs the gesture and hands back ground coordinates directly
-              nativeDrag={movable}
+              onOpen={() => onOpen(t)}
+              // the layer's shared hold gesture runs the press and hands back ground coordinates
+              onGesture={(ev) => begin(ev, t, t.coord, { movable, onTap: () => onOpen(t) })}
+              gestureMovable={movable}
               interactive={interactive}
               selected={selected}
               // the Marker already places the element; the mark only has to centre itself in it

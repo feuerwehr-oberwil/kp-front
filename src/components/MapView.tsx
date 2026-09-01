@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { forwardRef, Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
@@ -12,7 +12,7 @@ import { LockChip } from './LockChip'
 import { LINE_DASH_ML, hatchImageId, hatchTile } from '../lib/draw'
 import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, HUB_NODE_CLEARANCE_PX, HUB_EDGE_MARGIN_PX, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, GEOREF_CONTENT_PICK_LAYERS, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
@@ -336,6 +336,8 @@ interface Props {
   onContentTwinMove?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   /** vertex-level edits (pts + attachment clears) of a selected mirrored plan drawing */
   onContentTwinEdit?: (twin: MapContentTwin, patch: Partial<BoardAnno>, phase: 'live' | 'commit') => void
+  /** unlock a mirrored plan line/area/shape through its LockChip — the twin of onUnlockDrawing */
+  onContentTwinUnlock?: (twin: MapContentTwin) => void
   selectedTwinKey?: string | null
   /** the content twin whose in-place panel is open — its hit target wears the halo */
   selectedContentTwinKey?: string | null
@@ -354,7 +356,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, onContentTwinUnlock, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -375,6 +377,21 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // "facing south" keeps facing south when you spin the map). Streamed on every rotate frame.
   const [bearing, setBearing] = useState(initialBearing)
   const mapInst = useRef<MlMap | null>(null)
+  // The live map transform + pan switch every dragging layer works against (MapMarkers and both
+  // twin layers). Stable identities, so the memoised twin layer is not rebuilt on every render
+  // just because its props are fresh lambdas.
+  const projectLngLat = useCallback((c: LngLat) => mapInst.current?.project(c as [number, number]), [])
+  const unprojectPoint = useCallback((p: { x: number; y: number }): LngLat | undefined => {
+    const m = mapInst.current
+    if (!m) return undefined
+    const ll = m.unproject([p.x, p.y])
+    return [ll.lng, ll.lat]
+  }, [])
+  const setDragPanEnabled = useCallback((on: boolean) => {
+    const dp = mapInst.current?.dragPan
+    if (!dp) return
+    if (on) dp.enable(); else dp.disable()
+  }, [])
   // hold a node to delete it — one gesture for draft, Messung and drawing vertices alike, with
   // the chip appearing only after the hold has armed (lib/nodeHold). Desktop right-click stays
   // as the mouse shortcut.
@@ -1511,13 +1528,28 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // swallowing it (both are polygons in one layer, so render order alone is unreliable).
       // Lines/outlines have ~0 area, keeping thin lines the most specific (selectable) pick.
       // Locked shapes are skipped entirely so they go click-through (unlock via the lock chip).
-      const cands = (e.features ?? []).filter((f) => f?.properties?.id != null && !lockedIds.has(f.properties!.id as string))
+      // ⚠️ Mirrored plan ink is in the SAME resolution, not in a pass of its own: a projection is
+      // the object seen from this side, so a twin drawn over a native Fläche has to win the click
+      // by the same smallest-shape rule the two natives would settle it by. A locked source is
+      // skipped on either side — its ink is click-through until its LockChip is held.
+      const cands = (e.features ?? []).filter((f) => {
+        const p = f?.properties
+        if (!p) return false
+        if (p.twinKey != null) return !p.locked
+        return p.id != null && !lockedIds.has(p.id as string)
+      })
       if (cands.length) {
         let best = cands[0]
         let bestA = featArea(best)
         for (let i = 1; i < cands.length; i++) {
           const a = featArea(cands[i])
           if (a < bestA) { bestA = a; best = cands[i] }
+        }
+        const twinKey = best.properties!.twinKey as string | undefined
+        if (twinKey != null) {
+          const twin = georefPlanContent.find((t) => t.key === twinKey)
+          if (twin) onContentTwinOpen?.(twin)
+          return
         }
         onSelectDrawing(best.properties!.id as string, { x: e.point.x, y: e.point.y }); return
       }
@@ -1559,7 +1591,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Schraffur selectable only by its outline, which is a 4px target around a shape whose
       // whole inside looks tappable. (A `fill` layer hit-tests by geometry, not by painted
       // pixels, so the gaps between the hatch lines are live too.)
-      interactiveLayerIds={['l-draw-edit-hit', 'l-measure-hit', 'l-draft-hit', 'l-draw-hit', 'l-draw-line', 'l-draw-line-dash', 'l-draw-fill', 'l-draw-hatch']}
+      // ⚠️ …and the mirrored plan ink alongside them (`l-georef-content-*`): a twin is
+      // interaction-equivalent to a native, so its line answers over its whole 18 px band and its
+      // Fläche answers through its fill — not only at a midpoint dot (01.09.).
+      interactiveLayerIds={['l-draw-edit-hit', 'l-measure-hit', 'l-draft-hit', 'l-draw-hit', 'l-draw-line', 'l-draw-line-dash', 'l-draw-fill', 'l-draw-hatch',
+        ...GEOREF_CONTENT_PICK_LAYERS]}
       onLoad={(e) => {
         const m = e.target as MlMap
         mapInst.current = m
@@ -1680,9 +1716,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           onOpenTwin={onContentTwinOpen}
           onMoveTwin={readOnly ? undefined : onContentTwinMove}
           onEditTwinAnno={readOnly ? undefined : onContentTwinEdit}
-          project={(c) => mapInst.current?.project(c as [number, number])}
-          unproject={(p) => { const m = mapInst.current; if (!m) return undefined; const ll = m.unproject([p.x, p.y]); return [ll.lng, ll.lat] }}
-          setDragPan={(on) => { const dp = mapInst.current?.dragPan; if (!dp) return; if (on) dp.enable(); else dp.disable() }} />
+          onUnlockTwin={readOnly ? undefined : onContentTwinUnlock}
+          project={projectLngLat} unproject={unprojectPoint} setDragPan={setDragPanEnabled} />
       )}
 
       {/* «Karte verknüpfen»: the numbered reference crosses, drag-to-fine-tune, tap-to-re-place */}
@@ -1697,7 +1732,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {twins.length > 0 && onTwinOpen && !georefOn && (
         <GeorefTwinsMap twins={twins} byName={byName} zoom={zoom} bearing={bearing} symMul={symMul} captionMode={captionMode}
           interactive={!placing} selectedKey={selectedTwinKey} onOpen={onTwinOpen}
-          onMove={readOnly ? undefined : onTwinMove} />
+          onMove={readOnly ? undefined : onTwinMove}
+          project={projectLngLat} unproject={unprojectPoint} setDragPan={setDragPanEnabled} />
       )}
 
       {/* committed drawings (per-feature colour/width) — gated by the markup layer toggle */}
@@ -2354,9 +2390,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         suppressedLabels={suppressedLabels}
         readOnly={readOnly}
         draggable={draggable}
-        project={(c) => mapInst.current?.project(c as [number, number])}
-        unproject={(p) => { const m = mapInst.current; if (!m) return undefined; const ll = m.unproject([p.x, p.y]); return [ll.lng, ll.lat] }}
-        setDragPan={(on) => { const dp = mapInst.current?.dragPan; if (!dp) return; if (on) dp.enable(); else dp.disable() }}
+        project={projectLngLat}
+        unproject={unprojectPoint}
+        setDragPan={setDragPanEnabled}
         onSelect={onSelect}
         onMarkerDragStart={onMarkerDragStart}
         onMarkerMove={onMarkerMove}
