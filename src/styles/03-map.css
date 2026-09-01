@@ -177,6 +177,9 @@
 }
 .shape-resize { left: calc(50% + var(--hbox, 56px) / 2 + 3px); top: calc(50% + var(--hbox, 56px) / 2 + 3px);
   transform: translate(-50%, -50%); border-radius: var(--r-sm); background: var(--ink-fill); cursor: nwse-resize; touch-action: none; }
+/* the Rotation's second grip — the loop's WIDTH, on the right edge at mid-height. Same chrome as
+   the corner one; the two are told apart by where they sit and by their labels. */
+.shape-width { transform: translate(-50%, -50%); }
 @media (hover: hover) {
   .shape-resize:hover { background: var(--ink-fill-hover); }
 }

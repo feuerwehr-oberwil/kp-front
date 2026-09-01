@@ -31,7 +31,7 @@ export const SHAPE_DEFS: Record<ShapeKind, { defaultColor: string; defaultSizeM:
 // badly, and «ein längerer Pfeil» is the line-with-arrowhead tool's job.
 /** The aspect the Rotation is DRAWN AT in a picker cell — stockier than the one it is placed
  *  with, because a 40px icon has to read as a loop rather than as a hairline. */
-export const ROTATION_PREVIEW_ASPECT = 0.6
+export const ROTATION_PREVIEW_ASPECT = 0.42
 
 /**
  * How wide a shape may be drawn ON SCREEN, in px, per kind.
@@ -82,7 +82,20 @@ export function shapeAspect(kind: ShapeKind, aspect: number | undefined): number
  *
  * Shared as a string so `shapeSvgString` (lib/krokiPayload) prints the identical artwork.
  */
-export const rotationViewBox = (asp: number) => `0 0 100 ${(100 * asp).toFixed(2)}`
+/**
+ * The loop's viewBox. `fit` (a picker cell) widens it vertically to include the arrowheads'
+ * overhang, so the whole sign sits INSIDE the icon box.
+ *
+ * ⚠️ On the map the heads deliberately overhang the legs — that is what keeps the direction
+ * legible on a long thin run, and the marker paints with `overflow: visible`. In a 40px cell the
+ * same overhang just spills over the cell's edge and reads as a broken drawing.
+ */
+export const rotationViewBox = (asp: number, fit = false) => {
+  const h = 100 * asp
+  if (!fit) return `0 0 100 ${h.toFixed(2)}`
+  const over = h * 0.3 // = the head's half-height (rotationInner · a)
+  return `-2 ${(-over).toFixed(2)} 104 ${(h + 2 * over).toFixed(2)}`
+}
 
 export function rotationInner(color: string, asp: number, carrier?: RotationCarrier): string {
   const h = 100 * asp
@@ -153,8 +166,8 @@ export function ShapeGlyph({ kind, color, stop, aspect, fit, carrier }: { kind: 
       // `fit` = keep the proportions inside whatever box the host gives (the palette cell is
       // square, and a loop stretched to fill it would advertise a shape nobody gets). On the map
       // and the plan the box IS the shape, so it paints edge to edge.
-      <svg className="shape-svg" viewBox={rotationViewBox(asp)} width="100%" height="100%"
-        preserveAspectRatio={fit ? 'xMidYMid meet' : 'none'} style={{ overflow: 'visible' }}>
+      <svg className="shape-svg" viewBox={rotationViewBox(asp, fit)} width="100%" height="100%"
+        preserveAspectRatio={fit ? 'xMidYMid meet' : 'none'} style={{ overflow: fit ? 'hidden' : 'visible' }}>
         <g dangerouslySetInnerHTML={{ __html: rotationInner(color, asp, carrier) }} />
       </svg>
     )

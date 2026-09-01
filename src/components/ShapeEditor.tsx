@@ -9,13 +9,16 @@ const COLORS = appConfig.drawing.colors
 
 interface Props {
   // structurally satisfied by a map Entity AND a plan BoardAnno of kind 'shape'
-  entity: Pick<Entity, 'shape' | 'color' | 'stop' | 'carrier'>
+  entity: Pick<Entity, 'shape' | 'color' | 'stop' | 'carrier' | 'sizeM' | 'aspect'>
   onColor: (c: string) => void
   /** scale the shape by a factor (>1 bigger, <1 smaller); the parent clamps to its size
    *  space (metres on the map, normalized plan-width on the Plan). The corner drag-handle
    *  stays for tablet/desktop, but on a phone it sits under this sheet — so size lives here.
    *  Scales BOTH axes: the stored size is the width, the height follows via `aspect`. */
   onScale?: (factor: number) => void
+  /** Rotation only: how far the shuttle runs (length), and how wide the loop is drawn. */
+  onScaleLength?: (factor: number) => void
+  onScaleWidth?: (factor: number) => void
   /** toggle the «→|» Stopp-Balken across the arrow tip — the row only shows for the
    *  arrow kind (the other shapes have no tip to stop at) */
   onStop?: (stop: boolean) => void
@@ -29,7 +32,7 @@ interface Props {
 // Editor for a placed generic shape — colour only. Size and rotation are changed
 // directly on the map/plan by dragging the shape's corner / top handles, so
 // they're not duplicated here. Reuses the .ctx / .draw-editor look.
-export function ShapeEditor({ entity, onColor, onScale, onStop, onCarrier, onCenter, onDelete, onClose }: Props) {
+export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onScaleWidth, onStop, onCarrier, onCenter, onDelete, onClose }: Props) {
   const color = entity.color ?? '#1f6feb'
   const name = appConfig.copy.shapes.names[entity.shape ?? 'square'] ?? appConfig.copy.shapes.kindLabel
 
@@ -59,12 +62,33 @@ export function ShapeEditor({ entity, onColor, onScale, onStop, onCarrier, onCen
             {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
           </span>
         </div>
-        {onScale && (
+        {/* A Rotation has TWO sizes and they mean different things — how far the shuttle runs, and
+            how wide the loop is drawn — so it gets a row for each. Every other shape has one size
+            and keeps the single row. The same split is on the canvas: two handles, same two axes. */}
+        {onScale && !(entity.shape === 'rotation' && onScaleLength) && (
           <div className="de-row">
             <span>{appConfig.copy.shapes.size}</span>
             <span className="shape-size-steps">
               <button className="btn shape-size-btn" onClick={() => onScale(1 / 1.25)} title={appConfig.copy.shapes.sizeSmaller} aria-label={appConfig.copy.shapes.sizeSmaller}><Icon id="minus" /></button>
               <button className="btn shape-size-btn" onClick={() => onScale(1.25)} title={appConfig.copy.shapes.sizeBigger} aria-label={appConfig.copy.shapes.sizeBigger}><Icon id="plus" /></button>
+            </span>
+          </div>
+        )}
+        {onScaleLength && entity.shape === 'rotation' && (
+          <div className="de-row">
+            <span>{appConfig.copy.shapes.lengthLabel}</span>
+            <span className="shape-size-steps">
+              <button className="btn shape-size-btn" onClick={() => onScaleLength(1 / 1.25)} title={appConfig.copy.shapes.lengthShorter} aria-label={appConfig.copy.shapes.lengthShorter}><Icon id="minus" /></button>
+              <button className="btn shape-size-btn" onClick={() => onScaleLength(1.25)} title={appConfig.copy.shapes.lengthLonger} aria-label={appConfig.copy.shapes.lengthLonger}><Icon id="plus" /></button>
+            </span>
+          </div>
+        )}
+        {onScaleWidth && entity.shape === 'rotation' && (
+          <div className="de-row">
+            <span>{appConfig.copy.shapes.widthLabel}</span>
+            <span className="shape-size-steps">
+              <button className="btn shape-size-btn" onClick={() => onScaleWidth(1 / 1.25)} title={appConfig.copy.shapes.widthNarrower} aria-label={appConfig.copy.shapes.widthNarrower}><Icon id="minus" /></button>
+              <button className="btn shape-size-btn" onClick={() => onScaleWidth(1.25)} title={appConfig.copy.shapes.widthWider} aria-label={appConfig.copy.shapes.widthWider}><Icon id="plus" /></button>
             </span>
           </div>
         )}

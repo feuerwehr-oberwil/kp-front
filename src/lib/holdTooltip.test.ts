@@ -86,6 +86,28 @@ describe('holdTooltip', () => {
     expect(bubble()?.textContent).toBe('Nasse Haltelinie')
   })
 
+  // Same question, whichever device asks it: a mouse resting on a coded chip gets the same bubble
+  // the tablet gets from a hold. The native `title` was the wrong answer — a second late, unstyled,
+  // and doubled up with ours on a touchscreen laptop.
+  it('a mouse hover explains a [data-holdexplain] chip', () => {
+    const chip = document.createElement('button')
+    chip.setAttribute('aria-label', 'Gegenfeuer')
+    chip.setAttribute('data-holdexplain', '')
+    chip.textContent = 'G'
+    document.body.appendChild(chip)
+    ptr('pointerover', chip, { pointerType: 'mouse' })
+    vi.advanceTimersByTime(400)
+    expect(bubble()?.textContent).toBe('Gegenfeuer')
+    ptr('pointerout', chip, { pointerType: 'mouse' })
+    expect(bubble()).toBeNull()
+  })
+
+  it('an ordinary icon-only button keeps its native tooltip on a mouse', () => {
+    ptr('pointerover', btn, { pointerType: 'mouse' })
+    vi.advanceTimersByTime(400)
+    expect(bubble()).toBeNull()
+  })
+
   it('[data-holdaction] opts out — holding IS that control\'s own gesture', () => {
     btn.setAttribute('data-holdaction', 'true')
     ptr('pointerdown', btn)

@@ -966,6 +966,14 @@ export const de = {
     size: 'Grösse',
     sizeSmaller: 'Kleiner',
     sizeBigger: 'Grösser',
+    // Eine Rotation hat zwei Grössen, und sie bedeuten Verschiedenes: wie weit gependelt
+    // wird, und wie breit die Schlaufe gezeichnet ist.
+    lengthLabel: 'Länge',
+    lengthShorter: 'Kürzer',
+    lengthLonger: 'Länger',
+    widthLabel: 'Breite',
+    widthNarrower: 'Schmaler',
+    widthWider: 'Breiter',
     rotateHint: 'Griff ziehen zum Drehen',
     resizeHint: 'Ecke ziehen zum Skalieren',
     // Pfeil-Ende «->|»: der Stopp-Balken quer zur Spitze (Entwicklungsgrenze)
@@ -2616,7 +2624,6 @@ export const de = {
     wsDropped: '{n} beschädigte Einträge beim Laden übersprungen',
     wsNewer: 'Einsatzdaten stammen von einer neueren App-Version – bitte App aktualisieren.',
     // LayerPanel offline-download button + the App map-download toasts
-    layerGroup: 'Offline',
     // Drei Ergebnisse, drei Nachrichten – nicht eine Nachricht mit unterschiedlichen Zahlen.
     // «Karte offline verfügbar (0 Kacheln)» war grün, mit Haken, für einen Download, der nichts
     // geladen hatte; die Zahl in der Klammer, die alles widerlegte, liest um 03:10 niemand.

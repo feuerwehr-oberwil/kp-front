@@ -16,7 +16,13 @@
 //    letter chips: «S», «N», «G»). Opt-in, so nothing becomes explainable by accident;
 //  · not `[data-holdaction]`: controls whose press-and-hold IS a gesture of their own
 //    (±steppers via useHoldRepeat, the Eintrag hold via useHoldEntry) opt out at the source;
-//  · touch/pen presses only — the mouse keeps its native hover tooltip.
+//  · touch/pen presses only — the mouse keeps its native hover tooltip …
+//
+// …EXCEPT on `[data-holdexplain]`, which also answers a MOUSE hover with the same bubble (01.09.).
+// Those controls are the ones whose visible text is a code — «S», «N», «G» — so the question they
+// raise is identical whichever device is asking, and the native `title` was the wrong answer for
+// it: it takes about a second, it cannot be styled, and on the letter chips it duplicated a bubble
+// the tablet already had. They carry no `title` any more, so there is exactly one explanation.
 //
 // The suppressed tap: once the bubble has shown, the release must not also trigger the button —
 // «I asked what it is» and «I did it» cannot be the same gesture. The click that follows
@@ -30,6 +36,9 @@ import { buzz } from './haptics'
 const HOLD_MS = 350
 const MOVE_TOL_PX = 8
 const LINGER_MS = 1100
+/** Mouse dwell before the same bubble appears on a coded chip. Shorter than the touch hold —
+ *  a pointer resting on a control is already a question, where a finger might just be on its way. */
+const HOVER_MS = 220
 
 function labelOf(el: HTMLElement): string | null {
   const aria = el.getAttribute('aria-label') || el.getAttribute('title')
@@ -84,6 +93,32 @@ export function installHoldTooltip(): () => void {
     if (press) { clearTimeout(press.timer); press = null }
   }
 
+  // ── mouse hover, for the coded chips only ──
+  let hoverTimer = 0
+  let hoverEl: HTMLElement | null = null
+  const cancelHover = () => {
+    if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = 0 }
+    hoverEl = null
+  }
+  const onOver = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse') return
+    const hit = eligible(e.target)
+    // opt-in only: an icon-only button keeps its native tooltip, which is what the mouse already
+    // expects everywhere else in the app. Widening this is a one-word change if it is wanted.
+    if (!hit || !hit.el.hasAttribute('data-holdexplain')) { if (hoverEl) { cancelHover(); dropBubble() } return }
+    if (hit.el === hoverEl) return
+    cancelHover()
+    dropBubble()
+    hoverEl = hit.el
+    hoverTimer = window.setTimeout(() => { bubble = showBubble(hit.el, hit.label) }, HOVER_MS)
+  }
+  const onOut = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse' || !hoverEl) return
+    if (e.relatedTarget instanceof Node && hoverEl.contains(e.relatedTarget)) return
+    cancelHover()
+    dropBubble()
+  }
+
   const onDown = (e: PointerEvent) => {
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return
     const hit = eligible(e.target)
@@ -120,6 +155,8 @@ export function installHoldTooltip(): () => void {
     if ((press || bubble) && eligible(e.target)) e.preventDefault()
   }
 
+  document.addEventListener('pointerover', onOver, true)
+  document.addEventListener('pointerout', onOut, true)
   document.addEventListener('pointerdown', onDown, true)
   document.addEventListener('pointermove', onMove, true)
   document.addEventListener('pointerup', onUp, true)
@@ -127,7 +164,9 @@ export function installHoldTooltip(): () => void {
   document.addEventListener('click', onClick, true)
   document.addEventListener('contextmenu', onContextMenu, true)
   return () => {
-    cancelPress(); dropBubble(); bubbleFor = null
+    cancelPress(); cancelHover(); dropBubble(); bubbleFor = null
+    document.removeEventListener('pointerover', onOver, true)
+    document.removeEventListener('pointerout', onOut, true)
     document.removeEventListener('pointerdown', onDown, true)
     document.removeEventListener('pointermove', onMove, true)
     document.removeEventListener('pointerup', onUp, true)

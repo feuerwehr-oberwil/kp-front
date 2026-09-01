@@ -238,7 +238,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
   // `rot` = the shape's SCREEN rotation at grab time and `free` = per-axis resize allowed —
   // both captured on pointer-down so the corner drag can be resolved in the shape's own frame
-  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage'; rot: number; free: boolean; keepHeightM: number | null } | null>(null)
+  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage'; rot: number; free: boolean; keepHeightM: number | null } | null>(null)
   // Press-and-hold to move a placed symbol. Markers are NOT react-map-gl-draggable (that would
   // claim every pan/zoom that starts on a symbol and drag it instead of the map); instead a still
   // hold past the delay arms a drag — a quick flick to pan/zoom passes straight through to the map.
@@ -327,7 +327,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // drag-to-transform a shape. Both handles measure from the glyph centre, so the maths is
   // rotation-invariant: rotate = angle centre→pointer (+90° so the top handle leads); resize =
   // pointer distance → ground size in metres. A 'start' / 'end' pair folds the gesture into one undo.
-  const shapeDown = (clientX: number, clientY: number, el: HTMLElement, id: string, lat: number, mode: 'rotate' | 'resize' | 'rotate2' | 'cage') => {
+  const shapeDown = (clientX: number, clientY: number, el: HTMLElement, id: string, lat: number, mode: 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage') => {
     hold.cancel() // a handle press takes over from any pending/active marker hold
     const marker = el.closest('.marker')
     const glyph = marker?.querySelector('.shape-glyph, .ts') as HTMLElement | null
@@ -338,13 +338,14 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     shapeRef.current = {
       id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, lat, mode,
       rot: (ent?.rotation ?? 0) - bearing,
-      free: mode === 'resize' && !!shape && SHAPE_FREE_ASPECT[shape],
-      // A Rotation is a RUN: the drag lengthens it and its width stays what it was, so the height
-      // in metres is captured once here and the aspect is recomputed against it on every move.
-      // Without this the only way to make the loop long was to make it enormous in both axes.
-      keepHeightM: shape === 'rotation'
-        ? Math.max(1, (ent?.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM) * shapeAspect('rotation', ent?.aspect))
-        : null,
+      free: (mode === 'resize' || mode === 'width') && !!shape && SHAPE_FREE_ASPECT[shape],
+      // A Rotation has TWO axes and one handle per axis, so what is captured here is whichever one
+      // the drag must LEAVE ALONE: the corner grip lengthens the run and keeps its width, the edge
+      // grip widens the loop and keeps its length. Without this the only way to make the loop long
+      // was to make it enormous in both.
+      keepHeightM: shape !== 'rotation' ? null
+        : mode === 'width' ? Math.max(1, ent?.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM)
+        : Math.max(1, (ent?.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM) * shapeAspect('rotation', ent?.aspect)),
     }
     onShapeTransform?.(id, {}, 'start')
   }
@@ -376,6 +377,18 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
       const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
       const ppm = pxPerM(st.lat, zoom)
+      if (st.keepHeightM != null && st.mode === 'width') {
+        // The OTHER axis: the run stays as long as it was and the loop gets wider or narrower.
+        // `keepHeightM` carries the captured LENGTH in this mode (shapeDown stores whichever axis
+        // the drag must not touch), and the aspect can never exceed 1 — a Rotation taller than it
+        // is long is the degenerate sliver shapeAspect already refuses.
+        const heightM = Math.max(4, Math.min(st.keepHeightM, (2 * Math.abs(ly)) / ppm))
+        onShapeTransform?.(st.id, {
+          sizeM: Math.round(st.keepHeightM),
+          aspect: Math.max(0.02, Math.min(1, Math.round((heightM / st.keepHeightM) * 1000) / 1000)),
+        }, 'move')
+        return
+      }
       if (st.keepHeightM != null) {
         // ⚠️ A Rotation grows along its LONG axis only, and far past the 500 m every other shape
         // is capped at: a Wasserpendel between the Weiher and the Brandstelle is kilometres, and
@@ -893,11 +906,25 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   className="handle shape-resize"
                   icon="resize"
                   style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }}
-                  title={appConfig.copy.shapes.resizeHint}
+                  title={e.shape === 'rotation' ? appConfig.copy.shapes.lengthLabel : appConfig.copy.shapes.resizeHint}
                   onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'resize')}
                   onMove={shapeMove}
                   onEnd={shapeUp}
                 />
+                {/* The second axis, on the shape's own right edge. Only a Rotation has two sizes
+                    that mean different things — how far the shuttle runs, and how wide the loop is
+                    drawn — so only it gets a second grip. The corner one is the length. */}
+                {e.shape === 'rotation' && (
+                  <TransformHandle
+                    className="handle shape-width"
+                    icon="resize"
+                    style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: '50%' }}
+                    title={appConfig.copy.shapes.widthLabel}
+                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'width')}
+                    onMove={shapeMove}
+                    onEnd={shapeUp}
+                  />
+                )}
               </div>
               )
             })()}

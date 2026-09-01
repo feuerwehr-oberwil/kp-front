@@ -85,7 +85,7 @@ import { DrawEditor } from './components/DrawEditor'
 import { ToolDock } from './components/ToolDock'
 import { ShapeEditor } from './components/ShapeEditor'
 import { MeasurePanel } from './components/MeasurePanel'
-import { SHAPE_DEFS, ShapeGlyph } from './lib/shapes'
+import { ROTATION_MAX_M, SHAPE_DEFS, ShapeGlyph, shapeAspect } from './lib/shapes'
 import { Journal } from './components/Journal'
 import { JournalComposer, type JournalDraft } from './components/JournalComposer'
 import { composeJournalText } from './lib/journalEntry'
@@ -3968,7 +3968,6 @@ export function IncidentWorkspace({
           // mirrored plan symbol is one more tactical symbol on this map, not a reference
           // overlay to be found past Wasser and Gefahren.
           twinsAfterGroup={layers.find((l) => l.id === appConfig.defaults.operationalLayerId)?.group}
-          onOfflineReadiness={() => setOfflineReadyOpen(true)}
           onClose={() => setPanel(null)}
         />
       )}
@@ -3997,6 +3996,22 @@ export function IncidentWorkspace({
           entity={selected}
           onColor={(c) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, color: c } : e)) }))}
           onScale={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, sizeM: Math.max(8, Math.min(800, (e.sizeM ?? SHAPE_DEFS[e.shape ?? 'square'].defaultSizeM) * f)) } : e)) }))}
+          // A Rotation's two sizes mean different things, so each has its own control (and its
+          // own handle on the canvas). LENGTH keeps the loop as wide as it was — the aspect is
+          // recomputed against the height — and WIDTH is the other way round.
+          onScaleLength={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => {
+            if (e.id !== selected.id) return e
+            const size = e.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM
+            const heightM = size * shapeAspect('rotation', e.aspect)
+            const next = Math.max(heightM, Math.min(ROTATION_MAX_M, size * f))
+            return { ...e, sizeM: Math.round(next), aspect: Math.round((heightM / next) * 1000) / 1000 }
+          }) }))}
+          onScaleWidth={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => {
+            if (e.id !== selected.id) return e
+            const size = e.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM
+            const next = Math.max(0.02, Math.min(1, shapeAspect('rotation', e.aspect) * f))
+            return { ...e, aspect: Math.round(next * 1000) / 1000, sizeM: size }
+          }) }))}
           onStop={(v) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, stop: v } : e)) }))}
           onCarrier={(v) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, carrier: v } : e)) }))}
           onCenter={() => flyToMapVisible(selected.coord, 18.4)}

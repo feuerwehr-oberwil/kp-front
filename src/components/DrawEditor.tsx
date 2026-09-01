@@ -365,10 +365,11 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                       in a second control nobody would look for. */}
                   {(['S', 'H', 'P', 'N', 'T', 'G'] as const).map((c) => (
                     // `data-holdexplain`: the letter IS the label, and it explains nothing to
-                    // somebody who never learned the sheet — hold it to hear the word
-                    // (lib/holdTooltip). On a mouse the same string is the native tooltip.
+                    // somebody who never learned the sheet. Hold it (touch) or hover it (mouse)
+                    // and lib/holdTooltip answers with the word — ⚠️ deliberately NO `title`, or
+                    // the native tooltip would arrive a second later and say it twice.
                     <button key={c} data-holdexplain className={`de-preset ${drawing.content === c ? 'on' : ''}`}
-                      title={CONTENT_LABELS[c]} aria-label={CONTENT_LABELS[c]} onClick={() => onContent(c)}>{c}</button>
+                      aria-label={CONTENT_LABELS[c]} onClick={() => onContent(c)}>{c}</button>
                   ))}
                 </span>
               </div>
