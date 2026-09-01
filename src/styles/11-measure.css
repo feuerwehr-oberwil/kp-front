@@ -233,14 +233,19 @@
   .draw-editor .de-trupp-go:hover { color: var(--blue); }
 }
 
-/* selected-drawing edit handles (reshape vertices + move grip + delete) — each gets a
-   transparent hit pad; kept below 44px because move/delete/rotate cluster around the
-   drawing centre and full-size pads would overlap onto the destructive ✕ */
-.draw-move { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: var(--on-fill);
+/* Selected-drawing edit handles (reshape vertices + move grip + rotor) — each gets a transparent
+   hit pad.
+   ⚠️ The grip's pad was deliberately kept UNDER the 44px floor, because move/delete/rotate used to
+   cluster around the drawing centre and full-size pads would have overlapped onto the destructive
+   ✕. The ✕ left the canvas on 01.09., so that reason is gone and the constraint went with it: the
+   grip is the one control on the cluster you reach for by hand, and it was reported twice as hard
+   to hit. 34px + a 7px pad = 48, which is also what HUB_NODE_CLEARANCE_PX now keeps clear of the
+   node handles beside it. */
+.draw-move { position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--blue); color: var(--on-fill);
   display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); border: 2px solid #fff; }
-.draw-move::after { content: ''; position: absolute; inset: -5px; }
+.draw-move::after { content: ''; position: absolute; inset: -7px; }
 .draw-move:active { cursor: grabbing; }
-.draw-move .i { width: 16px; height: 16px; }
+.draw-move .i { width: 18px; height: 18px; }
 /* edit hub sits at the drawing's centre: a rotor knob straight up, the delete ✕ to
    the upper-right, with the move grip (separate marker) filling the centre */
 .draw-edit-hub { position: relative; }
@@ -251,8 +256,10 @@
 .draw-del::after { content: ''; position: absolute; inset: -7px; }
 .draw-rotor { position: absolute; left: 0; top: 0; pointer-events: none; }
 .draw-rotor button { pointer-events: auto; }
-.draw-stem { position: absolute; left: 0; bottom: 0; width: 2px; height: 24px; transform: translateX(-50%); background: var(--blue); }
-.draw-rotate { position: absolute; left: 0; bottom: 24px; transform: translateX(-50%);
+/* 34px of stem, not 24: the grip's pad now reaches 24px up and the rotor's 20px down, so at the
+   old distance the two overlapped and a press meant for «verschieben» could land on «drehen». */
+.draw-stem { position: absolute; left: 0; bottom: 0; width: 2px; height: 34px; transform: translateX(-50%); background: var(--blue); }
+.draw-rotate { position: absolute; left: 0; bottom: 34px; transform: translateX(-50%);
   width: 28px; height: 28px; border-radius: 50%; background: var(--blue); color: var(--on-fill); border: 2px solid #fff;
   display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); padding: 0; }
 .draw-rotate:active { cursor: grabbing; }

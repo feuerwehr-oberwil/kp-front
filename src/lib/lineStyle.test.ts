@@ -251,6 +251,18 @@ describe('marker glyphs', () => {
     expect([down.size, down.spacing, down.rotate]).toEqual([up.size, up.spacing, up.rotate])
   })
 
+  // ⚠️ The teeth have to TOUCH, or the chain reads as separate triangles with the line showing
+  // between them — which is what it did until 01.09. Base = 2 × 0.62 of the 2.3-unit box, scaled
+  // to `size`; resizing the tooth without moving the spacing with it re-opens the gaps.
+  it('spaces the teeth by their own base width, so the saw edge is continuous', () => {
+    for (const key of ['▲', '▼'] as const) {
+      const g = markerGlyph(key)!
+      const base = (2 * 0.62 / 2.3) * g.size
+      expect(g.spacing).toBeLessThanOrEqual(base)
+      expect(g.spacing).toBeGreaterThan(base * 0.85) // …but not so tight they pile up
+    }
+  })
+
   it('repeats a chain at its own rhythm, not the letter rhythm', () => {
     expect(markerSpacing('▲')).toBeLessThan(markerSpacing('R'))
     expect(markerSpacing('R')).toBe(MARKER_SPACING_PX)

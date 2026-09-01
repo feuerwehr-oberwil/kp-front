@@ -724,8 +724,8 @@ def _marker_points(pts: list[tuple[float, float]], spacing: float) -> list[tuple
 # Keyed by the character the client stores, sizes as fractions of the client's screen px so the
 # print's own scale factor carries through.
 _CHAIN_GLYPHS: dict[str, dict] = {
-    "▲": {"size": 20, "spacing": 15, "fill": True, "rotate": True},
-    "▼": {"size": 20, "spacing": 15, "fill": True, "rotate": True},
+    "▲": {"size": 30, "spacing": 15, "fill": True, "rotate": True},
+    "▼": {"size": 30, "spacing": 15, "fill": True, "rotate": True},
     "◯": {"size": 29, "spacing": 28, "fill": False, "rotate": False},
 }
 
@@ -742,10 +742,17 @@ def _chain_marker(
         "▼": "M -0.62 0 L 0 1.05 L 0.62 0 Z",
     }.get(marker, "M 0 -0.86 A 0.86 0.86 0 1 1 -0.001 -0.86 Z")
     fill = color if g["fill"] else "none"
-    sw = 0.08 if g["fill"] else 0.16
+    sw = 0 if g["fill"] else 0.16
+    # halo on the OPEN glyph only — see the client's LineMarker: on the filled teeth it outlined
+    # every triangle and let the line show between them.
+    halo = (
+        ""
+        if g["fill"]
+        else f'<path d="{path}" fill="none" stroke="#ffffff" stroke-width="0.22" stroke-linejoin="round" opacity="0.9"/>'
+    )
     svg = (
         f'<svg viewBox="-1.15 -1.15 2.3 2.3" xmlns="http://www.w3.org/2000/svg">'
-        f'<path d="{path}" fill="none" stroke="#ffffff" stroke-width="0.22" stroke-linejoin="round" opacity="0.9"/>'
+        f"{halo}"
         f'<path d="{path}" fill="{fill}" stroke="{color}" stroke-width="{sw}" stroke-linejoin="round"/>'
         f"</svg>"
     )

@@ -163,8 +163,12 @@ export const MARKER_GLYPHS: Record<string, LineMarkerGlyph> = {
   // the geometry, because a line drawn left-to-right and the same line drawn right-to-left are
   // the same Haltelinie. So it is two styles the operator picks between, not a flag hidden
   // behind a second tap (decision 01.09.).
-  '▲': { size: 20, spacing: 15, path: 'M -0.62 0 L 0 -1.05 L 0.62 0 Z', fill: true, rotate: true },
-  '▼': { size: 20, spacing: 15, path: 'M -0.62 0 L 0 1.05 L 0.62 0 Z', fill: true, rotate: true },
+  // ⚠️ `spacing` is the tooth's own BASE width, so consecutive teeth touch and the chain reads as
+  // ONE saw edge rather than a row of separate triangles with the line showing between them
+  // (01.09.). Base = 2 × 0.62 of a 2.3-unit box at `size` px ⇒ 16.2 at size 30; 15 leaves a hair
+  // of overlap so a rounded join can never open a gap. Keep the two in step when resizing.
+  '▲': { size: 30, spacing: 15, path: 'M -0.62 0 L 0 -1.05 L 0.62 0 Z', fill: true, rotate: true },
+  '▼': { size: 30, spacing: 15, path: 'M -0.62 0 L 0 1.05 L 0.62 0 Z', fill: true, rotate: true },
   // Wasserabwurfzone — a chain of rings threaded ON the line, so the line reads through them.
   // Round, so it has no orientation to keep and turning it would only shimmer. Sized up a little
   // from the first cut, which vanished exactly where it is read: zoomed in on the drop run.
@@ -283,9 +287,10 @@ export function lookbackPoint(px: [number, number][], dist: number): [number, nu
 export const HUB_OFFSET_PX = 42
 
 /** How close the lifted hub may come to ANY vertex before it is pushed further out. The move
- *  grip's hit pad (40px ⇒ 20) plus a node handle's (44px ⇒ 22) — at this distance the two stop
- *  competing for the same finger, wherever the node happens to be. */
-export const HUB_NODE_CLEARANCE_PX = 42
+ *  grip's hit pad (48px ⇒ 24) plus a node handle's (44px ⇒ 22) — at this distance the two stop
+ *  competing for the same finger, wherever the node happens to be. Raised from 42 on 01.09. with
+ *  the grip itself: the pads were still overlapping by the difference. */
+export const HUB_NODE_CLEARANCE_PX = 48
 /** …and how far the lift may grow before overlap is the lesser evil (multiples of the offset). */
 export const MAX_HUB_LIFT = 2.5
 

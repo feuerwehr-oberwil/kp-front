@@ -424,7 +424,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // drag-to-rotate a selected directional symbol — mirrors the map's rotor handle
   // `rot` = the shape's rotation at grab time and `free` = per-axis resize allowed — captured
   // on pointer-down so a corner drag can be resolved in the shape's own rotated frame
-  const rotate = useRef<{ id: string; cx: number; cy: number; moved: boolean; mode: 'rotate' | 'rotate2' | 'resize' | 'cage' | 'width'; rot: number; free: boolean } | null>(null)
+  const rotate = useRef<{ id: string; cx: number; cy: number; moved: boolean; mode: 'rotate' | 'rotate2' | 'resize' | 'cage' | 'width'; rot: number; free: boolean; keepHeightN: number | null } | null>(null)
   // the group-move drag origin (start client point and the original board-space geometry of
   // every selected anno). Pan/pinch/marquee refs live in useBoardGestures.
   const groupMove = useRef<{ sx: number; sy: number } | null>(null)
@@ -1714,10 +1714,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!glyph) return
     const r = glyph.getBoundingClientRect()
     const a = annos.find((x) => x.id === id)
+    const shp = a?.kind === 'shape' ? (a.shape ?? 'square') : null
     rotate.current = {
       id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, moved: false, mode,
       rot: a?.rotation ?? 0,
-      free: mode === 'resize' && a?.kind === 'shape' && SHAPE_FREE_ASPECT[a.shape ?? 'square'],
+      free: mode === 'resize' && !!shp && SHAPE_FREE_ASPECT[shp],
+      // a Rotation grows along its LONG axis only — its width stays what it was (MapMarkers)
+      keepHeightN: shp === 'rotation'
+        ? Math.max(0.005, (a?.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN) * shapeAspect('rotation', a?.aspect))
+        : null,
     }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
@@ -1734,6 +1739,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
         const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
         const wN = Math.max(0.03, Math.min(0.9, (2 * Math.abs(lx)) / sW))
+        if (st.keepHeightN != null) {
+          // the Rotation's own rule, mirrored from the map: the drag lengthens the run and the
+          // loop stays as wide as it was, rather than the whole form growing
+          const len = Math.max(0.05, Math.min(3, (2 * Math.abs(lx)) / sW))
+          patch(st.id, { sizeN: len, aspect: Math.max(0.02, Math.min(5, Math.round((st.keepHeightN / len) * 1000) / 1000)) })
+          return
+        }
         const hN = Math.max(0.03, Math.min(0.9, (2 * Math.abs(ly)) / sW))
         patch(st.id, { sizeN: wN, aspect: Math.max(0.2, Math.min(5, Math.round((hN / wN) * 100) / 100)) })
         return

@@ -8,7 +8,7 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
 import { MenuPick } from './MenuPick'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
-import { SHAPE_FREE_ASPECT, ShapeGlyph, shapeAspect } from '../lib/shapes'
+import { ROTATION_MAX_M, SHAPE_DEFS, SHAPE_FREE_ASPECT, ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
@@ -238,7 +238,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
   // `rot` = the shape's SCREEN rotation at grab time and `free` = per-axis resize allowed —
   // both captured on pointer-down so the corner drag can be resolved in the shape's own frame
-  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage'; rot: number; free: boolean } | null>(null)
+  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage'; rot: number; free: boolean; keepHeightM: number | null } | null>(null)
   // Press-and-hold to move a placed symbol. Markers are NOT react-map-gl-draggable (that would
   // claim every pan/zoom that starts on a symbol and drag it instead of the map); instead a still
   // hold past the delay arms a drag — a quick flick to pan/zoom passes straight through to the map.
@@ -334,10 +334,17 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     if (!glyph) return
     const r = glyph.getBoundingClientRect() // rotated/scaled AABB — centre is unchanged
     const ent = entities.find((x) => x.id === id)
+    const shape = ent?.kind === 'shape' ? (ent.shape ?? 'square') : null
     shapeRef.current = {
       id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, lat, mode,
       rot: (ent?.rotation ?? 0) - bearing,
-      free: mode === 'resize' && ent?.kind === 'shape' && SHAPE_FREE_ASPECT[ent.shape ?? 'square'],
+      free: mode === 'resize' && !!shape && SHAPE_FREE_ASPECT[shape],
+      // A Rotation is a RUN: the drag lengthens it and its width stays what it was, so the height
+      // in metres is captured once here and the aspect is recomputed against it on every move.
+      // Without this the only way to make the loop long was to make it enormous in both axes.
+      keepHeightM: shape === 'rotation'
+        ? Math.max(1, (ent?.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM) * shapeAspect('rotation', ent?.aspect))
+        : null,
     }
     onShapeTransform?.(id, {}, 'start')
   }
@@ -369,6 +376,15 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
       const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
       const ppm = pxPerM(st.lat, zoom)
+      if (st.keepHeightM != null) {
+        // ⚠️ A Rotation grows along its LONG axis only, and far past the 500 m every other shape
+        // is capped at: a Wasserpendel between the Weiher and the Brandstelle is kilometres, and
+        // the cap was the reason the only way to make the loop long was to make it enormous.
+        const sizeM = Math.max(20, Math.min(ROTATION_MAX_M, Math.round((2 * Math.abs(lx)) / ppm)))
+        const aspect = Math.max(0.02, Math.min(5, Math.round((st.keepHeightM / sizeM) * 1000) / 1000))
+        onShapeTransform?.(st.id, { sizeM, aspect }, 'move')
+        return
+      }
       const sizeM = Math.max(5, Math.min(500, Math.round((2 * Math.abs(lx)) / ppm)))
       const heightM = Math.max(5, Math.min(500, Math.round((2 * Math.abs(ly)) / ppm)))
       const aspect = Math.max(0.2, Math.min(5, Math.round((heightM / sizeM) * 100) / 100))

@@ -33,11 +33,13 @@ export function LineMarker({ marker, color, deg = 0, className = 'draw-marker' }
     <span className={className} style={{ color, lineHeight: 0 }}>
       <svg width={g.size} height={g.size} viewBox="-1.15 -1.15 2.3 2.3" aria-hidden
         style={{ display: 'block', overflow: 'visible', transform: turn ? `rotate(${turn}deg)` : undefined }}>
-        {/* thin: the halo is there so the mark reads over an aerial photo, not so it erases the
-            line it sits on — at 0.42 the rings chewed the Leitung into dashes. */}
-        <path d={g.path} fill="none" stroke="#fff" strokeWidth={0.22} strokeLinejoin="round" opacity={0.9} />
+        {/* ⚠️ A halo only on the OPEN glyph. On the filled teeth it outlined every single triangle
+            and let the line show between them, so a Haltelinie read as beads on a string instead
+            of one saw edge (01.09.). The rings are hollow and thread ON the line, so there it is
+            what keeps them apart from it over a busy aerial photo. */}
+        {!g.fill && <path d={g.path} fill="none" stroke="#fff" strokeWidth={0.22} strokeLinejoin="round" opacity={0.9} />}
         <path d={g.path} fill={g.fill ? 'currentColor' : 'none'} stroke="currentColor"
-          strokeWidth={g.fill ? 0.08 : 0.16} strokeLinejoin="round" />
+          strokeWidth={g.fill ? 0 : 0.16} strokeLinejoin="round" />
       </svg>
     </span>
   )

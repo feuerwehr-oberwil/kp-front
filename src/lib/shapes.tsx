@@ -29,6 +29,11 @@ export const SHAPE_DEFS: Record<ShapeKind, { defaultColor: string; defaultSizeM:
 // Which shapes stretch freely (the corner drag sets width and height separately, stored as
 // `aspect` = height/width). The Pfeil stays proportional: a non-uniformly scaled head reads
 // badly, and «ein längerer Pfeil» is the line-with-arrowhead tool's job.
+/** How long a Rotation may be drawn, in metres. Every other shape is capped at 500 — a
+ *  Wasserpendel between the Weiher and the Brandstelle is kilometres, and that cap was the reason
+ *  the only way to make the loop long was to make it enormous in both axes. */
+export const ROTATION_MAX_M = 20000
+
 export const SHAPE_FREE_ASPECT: Record<ShapeKind, boolean> = { arrow: false, cloud: true, square: true, rotation: true }
 
 // Effective height/width ratio of a placed shape (absent = 1 = the original square box).

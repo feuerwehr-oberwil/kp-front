@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_ORDER, rotationInner, rotationViewBox, shapeAspect } from './shapes'
+import { ROTATION_MAX_M, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_ORDER, rotationInner, rotationViewBox, shapeAspect } from './shapes'
 import type { ShapeKind } from '../types'
 
 describe('SHAPE_ORDER / SHAPE_DEFS', () => {
@@ -38,6 +38,13 @@ describe('the Rotation loop', () => {
     expect(SHAPE_FREE_ASPECT.rotation).toBe(true)
     expect(SHAPE_DEFS.rotation.defaultAspect).toBeLessThan(1)
     expect(SHAPE_DEFS.rotation.defaultSizeM).toBeGreaterThan(SHAPE_DEFS.cloud.defaultSizeM)
+  })
+
+  // ⚠️ Every other shape is capped at 500 m. A Wasserpendel between the Weiher and the
+  // Brandstelle is kilometres, and that cap was why the only way to make the loop long was to
+  // make it enormous in both axes (MapMarkers · shapeMove keeps the width and stretches this).
+  it('may be drawn far past the 500 m every other shape is capped at', () => {
+    expect(ROTATION_MAX_M).toBeGreaterThan(5000)
   })
 
   it('falls back to its own default aspect, not to square', () => {

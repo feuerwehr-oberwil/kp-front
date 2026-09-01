@@ -1154,7 +1154,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (!map || editCircle || editDraw.coords.length < 2) return editCentroid
     const px = editDraw.coords.map((c) => { const q = map.project(c as [number, number]); return [q.x, q.y] as [number, number] })
     const c = map.project(editCentroid as [number, number])
-    const clear = px.every(([vx, vy]) => Math.hypot(c.x - vx, c.y - vy) >= HUB_NODE_CLEARANCE_PX)
+    // ⚠️ A LINE is lifted unconditionally — its centroid is ON the path by definition, so the grip
+    // lands on the ink itself even when no vertex is near (regression 01.09.: making the lift
+    // conditional on vertex proximity left the grip sitting on a long straight Leitung, where the
+    // line's own hit-band then swallowed the press). For every other kind the question is the one
+    // below: is the centroid actually near a handle.
+    const clear = editDraw.kind !== 'line'
+      && px.every(([vx, vy]) => Math.hypot(c.x - vx, c.y - vy) >= HUB_NODE_CLEARANCE_PX)
     if (clear) return editCentroid
     const [dx, dy] = hubOffsetPx(px, [c.x, c.y])
     const ll = map.unproject([c.x + dx, c.y + dy])
