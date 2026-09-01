@@ -1257,11 +1257,17 @@ def render_kroki(
                 )
             continue
         # shapes are sized in real-world metres (client shapePx) and may be stretched
-        # (aspect = height/width, same 0.2..5 clamp as lib/shapes · shapeAspect);
-        # symbols use the band and stay square
+        # (aspect = height/width); symbols use the band and stay square.
+        #
+        # ⚠️ The limits are PER KIND, mirroring lib/shapes · SHAPE_MAX_PX / shapeAspect. A
+        # Rotation is a shuttle RUN and spans the map: the flat 900 px ceiling truncated a
+        # Wasserpendel on paper the same way it used to stop the drag on screen, and the 0.2
+        # aspect floor fattened it tenfold, because a run's width is capped in metres and a
+        # long one legitimately stores a few thousandths (01.09.).
         if e.get("sizeM"):
-            size = round(max(24.0, min(900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss)
-            gh = round(size * max(0.2, min(5.0, float(e.get("aspect") or 1))))
+            run = e.get("shape") == "rotation"
+            size = round(max(24.0, min(12000.0 if run else 900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss)
+            gh = round(size * max(0.002 if run else 0.02, min(5.0, float(e.get("aspect") or 1))))
         else:
             size = round(sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u * ss)
             gh = size
@@ -1429,7 +1435,10 @@ def _overlay_board_annos(
             # `gh`, not `h` — `h` is this function's page height.
             if a.get("sizeN"):
                 size = round(a["sizeN"] * w)
-                gh = round(size * max(0.2, min(5.0, float(a.get("aspect") or 1))))
+                # per kind, as on the map above: a Rotation is far leaner than any box
+                gh = round(
+                    size * max(0.002 if a.get("shape") == "rotation" else 0.02, min(5.0, float(a.get("aspect") or 1)))
+                )
             else:
                 size = round(_BOARD_SYMBOL_PX * u * ss)
                 gh = size

@@ -4,6 +4,7 @@ import type { Drawing, Entity, LineAttachment, LngLat } from '../types'
 import { haversineM } from '../lib/geo'
 import { rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { isMarqueeTap, marqueeContains, type MarqueeRect } from '../lib/marquee'
+import { isTypingTarget } from '../lib/hotkeys'
 
 type Rect = MarqueeRect
 type Circle = { center: LngLat; radiusM: number }
@@ -137,10 +138,13 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       map.dragPan.enable(); fhActive.current = false; fhPoints.current = []
     }
   }, [freehand, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps -- mapInst stable; onFreehand read via ref so a mid-stroke App re-render can't rebind
-  // desktop: hold Space to pan instead of drawing
+  // desktop: hold Space to pan instead of drawing. Bound to the WINDOW, so it needs the same
+  // typing guard every other bare-key shortcut has (lib/hotkeys): a space typed into a note or a
+  // Trupp name is a word break, not a pan grip. `keyup` stays unguarded so the latch always
+  // clears, even if focus moved into a field while the key was down.
   useEffect(() => {
     if (!freehand) return
-    const down = (e: KeyboardEvent) => { if (e.code === 'Space') spaceHeld.current = true }
+    const down = (e: KeyboardEvent) => { if (e.code === 'Space' && !isTypingTarget(document.activeElement)) spaceHeld.current = true }
     const up = (e: KeyboardEvent) => { if (e.code === 'Space') spaceHeld.current = false }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); spaceHeld.current = false }

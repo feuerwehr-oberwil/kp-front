@@ -160,3 +160,30 @@ describe('Stockwerk on a Leitung', () => {
     expect(onFloorTag).toHaveBeenCalledWith(-1)
   })
 })
+
+
+
+// «Abschluss» is four pictures. A hold used to answer with the NAME, which the picture already
+// gives; the consequence — Entwicklungsgrenze, and a deleted Teilstück letting its lines go — is
+// what a name cannot carry. Delivered through the app's own bubble (data-holdexplain), the same
+// way the Typ letters in this sheet are explained.
+describe('the Abschluss options explain themselves', () => {
+  it('carries the consequence on each option, in the bubble and not as a native title', () => {
+    const C = appConfig.copy.drawingEditor
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onEnding={noop} onMarker={noop} />)
+    const teil = screen.getByRole('button', { name: C.endingTeilstueckWhat })
+    expect(teil.getAttribute('data-holdexplain')).not.toBeNull()
+    // ⚠️ no `title`, or the native tooltip arrives a second later and says it twice
+    expect(teil.getAttribute('title')).toBeNull()
+    // …and it says WHAT the thing is; the delete consequence lives in `removeEMessage`, shown at
+    // the moment a Teilstück is actually deleted
+    expect(C.endingTeilstueckWhat).toMatch(/Anschlüssen/)
+    expect(C.endingArrowStopWhat).toMatch(/Entwicklungsgrenze/)
+    expect(C.removeEMessage).toMatch(/gelöst/)
+
+    // the Strichart pictures answer the same way — «welche Seite zeigen die Zähne»
+    const teeth = screen.getByRole('button', { name: C.lineHalteliniUp })
+    expect(teeth.getAttribute('data-holdexplain')).not.toBeNull()
+    expect(teeth.getAttribute('title')).toBeNull()
+  })
+})

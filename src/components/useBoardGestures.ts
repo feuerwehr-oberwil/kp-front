@@ -71,10 +71,12 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, applyView, 
     const inBox = marqueeContains(r, ({ x, y, floor }: { x: number; y: number; floor: number | undefined }) => ({
       cx: rect.left + x * rect.width, cy: rect.top + mapY(floor, y) * rect.height,
     }))
+    // anything LOCKED is click-through (its LockChip is the only door) — the lasso may neither
+    // move, delete nor select it, exactly as on the Lage map (IncidentWorkspace · onMarquee)
     const ids = annos.filter((a) =>
-      a.kind === 'draw'
+      !a.locked && (a.kind === 'draw'
         ? (a.pts ?? []).some(([x, y]) => inBox({ x, y, floor: a.floor }))
-        : inBox({ x: a.x ?? 0, y: a.y ?? 0, floor: a.floor }),
+        : inBox({ x: a.x ?? 0, y: a.y ?? 0, floor: a.floor })),
     ).map((a) => a.id)
     setSelId(null); setSelIds(ids)
   }

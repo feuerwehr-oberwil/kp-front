@@ -269,6 +269,19 @@ describe('report journal rows', () => {
     expect(row.text).toBe('Trupp 2 sichert das Treppenhaus')
   })
 
+  // ⚠️ A photo-only entry has NO body, so the composer returns the bare tag and the row's whole
+  // text is the word «Sofortmassnahme» — which then printed once here and once in the Bereich
+  // column, on the same line. The column keeps the word; the picture is the content.
+  it('drops a bare entry-type tag, so the word does not print twice on one row', () => {
+    const e: TimelineEvent = {
+      id: 'p', t: '14:20', at: '2026-08-10T12:20:00.000Z', icon: 'photo', kind: 'photo',
+      text: 'Sofortmassnahme', entryType: 'sofort', photoUrls: ['/api/media/1'],
+    }
+    const row = journalRows([e], plans)[0]
+    expect(row.area).toBe('Sofortmassnahme')
+    expect(row.text).toBe('')
+  })
+
   it('leaves an ordinary Info row as «Manuell» — the common case wears no tag anywhere', () => {
     const e: TimelineEvent = {
       id: 'a', t: '14:12', at: '2026-08-10T12:12:00.000Z', icon: 'type', kind: 'journal',
@@ -340,7 +353,7 @@ describe('journalDisc · what the Verlauf’s disc says a row is', () => {
   it('names the map surface the way the screen names it', () => {
     const e: TimelineEvent = { id: 'l', t: '22:00', at, icon: 'hex', text: 'Symbol gesetzt', kind: 'symbol' }
     expect(journalArea(e, plans)).toBe('Kroki')
-    expect(journalDisc(e, plans)).toEqual({ label: 'Lage', surface: 'map' })
+    expect(journalDisc(e, plans)).toEqual({ label: 'Karte', surface: 'map' })
   })
 
   it('tints a plan row green and leaves everything that is not a surface untinted', () => {

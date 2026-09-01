@@ -1,6 +1,7 @@
 import { forwardRef, Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
+import { buzz } from '../lib/haptics'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { BoardAnno, CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
@@ -33,6 +34,7 @@ import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { useIsPhone } from '../lib/useIsPhone'
 import { reportClientError } from '../lib/reportError'
+import { isTypingTarget } from '../lib/hotkeys'
 import { QuietAttributionControl } from './MapAttribution'
 import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { GeorefTwinsMap } from './GeorefTwinsMap'
@@ -40,7 +42,7 @@ import { GeorefContentMap } from './GeorefContentMap'
 import type { MapContentTwin, MapTwin } from '../lib/georefTwins'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
-import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
 
@@ -93,6 +95,15 @@ function endTagText(d: Drawing, trupp?: Trupp): string {
   const name = trupp ? truppTagText(trupp) : ''
   if (!parts.length && !name) return ''
   return [parts.join(' · '), name].filter(Boolean).join('\n')
+}
+
+/** Keep MapLibre's own KeyboardHandler off while a text field owns focus — the map must not
+ *  zoom/pan on a «+», «-» or an arrow that is being TYPED. Idempotent, so it is safe to call
+ *  from a focus event and from every render (see the two effects that use it). */
+function syncMapKeyboard(map: MlMap | null): void {
+  if (!map?.keyboard) return
+  if (isTypingTarget(document.activeElement)) map.keyboard.disable()
+  else map.keyboard.enable()
 }
 
 // The grip that MAKES a node and hands it straight to the finger. Two of them are built on it: the
@@ -245,6 +256,12 @@ interface Props {
   onCursor?: (c: LngLat | null) => void
   onPick?: (c: LngLat) => void
   pickedPoint?: LngLat | null
+  /** a two-point shape (Rotation) is armed: each of its two taps may claim a symbol, and it does
+   *  so by dwelling — press, hold until the ring closes, let go (lib/shapes · SHAPE_TWO_POINT) */
+  placeMagnet?: boolean
+  /** the first of those two points, once it is down — drawn as an anchor so the operator can see
+   *  where the run starts while looking for its other end */
+  placeAnchor?: LngLat | null
   freehand: boolean
   onFreehand: (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => void
   drawColor: string
@@ -260,6 +277,8 @@ interface Props {
   onSelectDrawing: (id: string, at?: { x: number; y: number }) => void
   /** unlock a locked drawing (tap its centre lock chip) → unlocks + selects it */
   onUnlockDrawing?: (id: string) => void
+  /** …and the same door on a locked SHAPE entity (its chip lives in MapMarkers) */
+  onUnlockShape?: (id: string) => void
   onDelete: (id: string) => void
   /** measurement readouts pinned to the live measure path */
   measureLabels?: { coord: LngLat; text: string; strong?: boolean }[]
@@ -332,7 +351,7 @@ interface Props {
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
-    onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
+    onView, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
     twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
@@ -464,6 +483,34 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const m = mapInst.current; if (!m || !mapReady) return
     try { m.resize() } catch { /* map gone */ }
   }, [georefOn, georef.check, mapReady])
+  // ⚠️ Typing «+», «-» or an arrow into a field that sits ON the map used to zoom/pan it as well.
+  // Our own hotkey layer is innocent (lib/hotkeys bails on isTypingTarget) — the culprit is
+  // MapLibre's KeyboardHandler: it is bound to `map.getCanvasContainer()` and never inspects
+  // `e.target`, and react-map-gl appends every <Marker> into exactly that container. The inline
+  // Trupp rename input and the note textarea (MapMarkers) are therefore DOM descendants of it.
+  //
+  // The obvious `onKeyDown={(e) => e.stopPropagation()}` on the field does NOT work: React
+  // delivers synthetic events at the React root, an ANCESTOR of the canvas container, so MapLibre
+  // has already handled the key by then. A native listener on the field would stop it in time but
+  // would also swallow the component's own Enter/Escape handling. So the handler itself is
+  // switched off for as long as a text field owns focus, and switched back on when it leaves.
+  useEffect(() => {
+    if (!mapReady) return
+    const sync = () => syncMapKeyboard(mapInst.current)
+    document.addEventListener('focusin', sync)
+    document.addEventListener('focusout', sync)
+    sync()
+    return () => {
+      document.removeEventListener('focusin', sync)
+      document.removeEventListener('focusout', sync)
+      mapInst.current?.keyboard?.enable() // never leave the map deaf behind us
+    }
+  }, [mapReady])
+  // …and once per render as the backstop, because a focused element that is simply REMOVED fires
+  // no focusout in Chrome — the guest-name input does exactly that, and without this the handler
+  // would stay off for the rest of the session. Every such removal is a render, so this reopens
+  // it; enable/disable are idempotent, so running it every render costs nothing.
+  useEffect(() => { syncMapKeyboard(mapInst.current) })
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that
@@ -593,7 +640,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const o = map.project(st.origin)
       const detach = detachProgress([o.x, o.y], [pointer.x, pointer.y])
       setEndpointDrag({ ...st, coord, detach, attached: detach < 1, candidate: null, dwell: EMPTY_DWELL })
-      if (detach >= 1) navigator.vibrate?.(12)
+      if (detach >= 1) buzz()
       return
     }
     const targets = candidatesAt(st.id, coord)
@@ -608,7 +655,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const cur = endpointDragRef.current
         if (!cur || cur.candidate?.key !== candidate.key) return
         setEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } })
-        navigator.vibrate?.(12)
+        buzz()
       }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - dwell.since)))
     }
   }
@@ -662,11 +709,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         first: coord, coord, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()),
         ...(attachment ? (atStart ? { startAttachment: attachment } : { endAttachment: attachment }) : {}),
       })
-      if (candidate) navigator.vibrate?.(12)
+      if (candidate) buzz()
     } else if (phase === 'move') {
       const cur = draftMagnet.current; if (!cur) return
       const a = map.project(cur.first), b = map.project(coord)
-      const atStart = Math.hypot(b.x - a.x, b.y - a.y) < 10 && !cur.startAttachment
+      const atStart = Math.hypot(b.x - a.x, b.y - a.y) < STROKE_START_RADIUS_PX && !cur.startAttachment
       const targets = candidatesAt('__draft__', coord)
       const candidate = stickyMagneticTarget([b.x, b.y], targets, cur.candidate?.key ?? null)
       // Leaving the start point ends the start's claim: from here the FAR end has to earn its own
@@ -682,7 +729,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const now = draftMagnet.current
         if (!now || now.candidate?.key !== candidate.key) return
         setDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } })
-        navigator.vibrate?.(12)
+        buzz()
       }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - next.dwell.since)))
     } else {
       const cur = draftMagnet.current
@@ -701,6 +748,73 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       return out
     }
   }
+  // ── Rotation legen: der Magnet an jedem der beiden Punkte ─────────────────────────────────
+  //
+  // A Rotation is laid between two PLACES, so each of its two taps may couple to a symbol — and
+  // it couples the way everything else in the app does: press, hold until the ring closes, let go.
+  //
+  // ⚠️ Deliberately NOT the line-START exception above (`updateDraftMagnet` · phase 'start'),
+  // which arms instantly because the finger was already ON the prong it aimed at. Here the very
+  // same press is also the thing that PLACES a point, so an instant claim would silently attach
+  // every point ever dropped near a symbol — the invisible coupling the ring exists to prevent.
+  //
+  // It rides the pointer, not the hover: a mouse crossing a symbol with no button down must not
+  // start filling a ring for a tap that is not happening.
+  const [placeMag, setPlaceMag] = useState<{ coord: LngLat; since: number; armed: boolean } | null>(null)
+  const placeMagRef = useRef<{ key: string; coord: LngLat; since: number; armed: boolean } | null>(null)
+  const placeDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const placeDown = useRef(false)
+  /** dragPan paused while a claim is live: a finger holding still for the 350 ms dwell wobbles
+   *  past MapLibre's 3 px slop, and the pan that started killed the claim AND ate the click —
+   *  on a real device the ring could never be ridden to the end. Paused, the full 32 px magnet
+   *  radius is the wobble budget; leaving it clears the claim and gives the pan back. */
+  const placePanPaused = useRef(false)
+  const clearPlaceMagnet = () => {
+    if (placeDwellTimer.current) { clearTimeout(placeDwellTimer.current); placeDwellTimer.current = null }
+    if (placeMagRef.current) { placeMagRef.current = null; setPlaceMag(null) }
+    if (placePanPaused.current) { placePanPaused.current = false; mapInst.current?.dragPan.enable() }
+  }
+  // The prop can drop mid-claim (Escape, the dock's ×) — at that point every handler that could
+  // clear the ring is unbound, so without this the ring and its pending dwell timer outlive the
+  // gesture until the next pan. Unmount takes the timer with it for the same reason.
+  useEffect(() => {
+    if (!placeMagnet) clearPlaceMagnet()
+  }, [placeMagnet])
+  useEffect(() => () => { if (placeDwellTimer.current) clearTimeout(placeDwellTimer.current) }, [])
+  const trackPlaceMagnet = (at: LngLat) => {
+    const map = mapInst.current
+    if (!map) return
+    const p = map.project(at)
+    let best: { e: Entity; d: number } | null = null
+    for (const e of entities) {
+      if (!['symbol', 'vehicle', 'team'].includes(e.kind) || !Array.isArray(e.coord)) continue
+      if (!isVisible(effectiveLayer(e))) continue
+      const q = map.project(e.coord)
+      const d = Math.hypot(q.x - p.x, q.y - p.y)
+      if (d < MAGNET_RADIUS_PX && (!best || d < best.d)) best = { e, d }
+    }
+    if (!best) { clearPlaceMagnet(); return }
+    if (placeMagRef.current?.key === best.e.id) return
+    clearPlaceMagnet()
+    const st = { key: best.e.id, coord: best.e.coord as LngLat, since: Date.now(), armed: false }
+    placeMagRef.current = st
+    if (placeDown.current) { placePanPaused.current = true; map.dragPan.disable() }
+    setPlaceMag({ coord: st.coord, since: st.since, armed: false })
+    placeDwellTimer.current = setTimeout(() => {
+      const now = placeMagRef.current
+      if (!now || now.key !== st.key) return
+      now.armed = true
+      setPlaceMag({ coord: now.coord, since: now.since, armed: true })
+      buzz()
+    }, MAGNET_DWELL_MS)
+  }
+  /** the coord this tap actually places — the claimed symbol's own spot if its ring closed */
+  const placedCoord = (lc: LngLat): LngLat => {
+    const armed = placeMagRef.current?.armed ? placeMagRef.current.coord : null
+    clearPlaceMagnet()
+    return armed ?? lc
+  }
+
   const nodeMagnetActive = draftKind === 'line' && !freehand && !!onDraftPointAttachment
   const finishDraftNodeMagnet = (coord: LngLat) => {
     const out = updateDraftMagnet('end', coord)
@@ -1408,7 +1522,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onSelectDrawing(best.properties!.id as string, { x: e.point.x, y: e.point.y }); return
       }
     }
-    onMapClick(lc)
+    onMapClick(placeMagnet ? placedCoord(lc) : lc)
   }
   const fhFC = fc(fhPath && fhPath.length >= 2 ? [lineFeat(fhPath)] : [])
   // team trails: the dashed line through a Trupp's RECORDED positions (parity with the plan
@@ -1486,6 +1600,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       onDragStart={(e) => {
         if (e.originalEvent && 'touches' in e.originalEvent) beginPanGesture()
         beginSheetPeek()
+        placeDown.current = false; clearPlaceMagnet() // panning away is not a tap on anything
         if (georefOn && !(e.originalEvent && 'touches' in e.originalEvent)) georefTap.panned()
       }}
       onDragEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) endPanGesture(); endSheetPeek() }}
@@ -1506,9 +1621,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // ⚠️ A press that begins on a CROSS never starts a placement gesture: the cross's own
       // handlers (pick / drag) own it, but their native events still bubble to this container —
       // without the filter, clicking a pending cross also dropped a stray point underneath it.
-      onMouseDown={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onMouseMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onMouseUp={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseDown={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) { placeDown.current = true; trackPlaceMagnet([e.lngLat.lng, e.lngLat.lat]) } if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseMove={(picking || nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet && placeDown.current) trackPlaceMagnet([e.lngLat.lng, e.lngLat.lat]); if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseUp={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) placeDown.current = false; if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // ⚠️ The pairing aim is deliberately NOT cleared here. The loupe is up for the whole of the
       // map's turn and keeps showing the last thing aimed at — clearing it on mouse-out closed
       // the magnifier every time the hand crossed the seam back to the plan.
@@ -1516,10 +1631,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // mousemove never fires on touch — stream the aim coords from the drag as well,
       // so the crosshair readout tracks the finger on iPhone/iPad
       // same cross filter as onMouseDown — a finger on a cross is a pick, never a placement
-      onTouchStart={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point, e.points.length > 1) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onTouchStart={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) { placeDown.current = true; trackPlaceMagnet([e.lngLat.lng, e.lngLat.lat]) } if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point, e.points.length > 1) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // mousemove never fires on touch — the loupe follows the drag instead, which is exactly the
       // gesture the mock asks for («halten und schieben»)
-      onTouchMove={(picking || nodeMagnetActive || georefOn) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point, e.points.length > 1); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onTouchMove={(picking || nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet && placeDown.current) trackPlaceMagnet([e.lngLat.lng, e.lngLat.lat]); if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point, e.points.length > 1); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // ⚠️ A placing tap CANCELS its touchend. The browser follows an uncancelled tap with a
       // synthesized mousedown/mouseup/click at the same position: the mouse pair re-ran this
       // very machine (one duplicate point per tap), and the click landed on the cross that had
@@ -1528,7 +1643,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // tablet placement «very unreliable». MapLibre registers touchend non-passively, so
       // preventDefault here is honoured and stops the whole synthetic trail. Pans, pinches and
       // non-placing taps stay untouched — crosses keep receiving their real taps.
-      onTouchEnd={(nodeMagnetActive || georefOn) ? (e) => { if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped && placeGeoref(e.lngLat)) e.originalEvent?.preventDefault() } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onTouchEnd={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) { placeDown.current = false; if (placeMagRef.current?.armed) { onMapClick(placedCoord([e.lngLat.lng, e.lngLat.lat])); e.originalEvent?.preventDefault() } } if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped && placeGeoref(e.lngLat)) e.originalEvent?.preventDefault() } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      /* ⚠️ an ARMED claim places on the RELEASE itself (above): past the browser's long-press
+         threshold no synthetic click follows a touch, so waiting for handleClick left the ring
+         closed and nothing placed — the same lesson the georef taps learned (28.08.).
+         preventDefault() keeps the odd click that does follow from placing a second time. */
       // 'default', not maplibre's grab hand: panning is THE ambient gesture on this surface,
       // and a permanent hand implied a drag mode the operator never chose (field, 30.08.)
       cursor={picking || georefTurn ? 'crosshair' : 'default'}
@@ -1702,6 +1821,19 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {userPos && (
         <Marker longitude={userPos[0]} latitude={userPos[1]} anchor="center">
           <div className="map-here map-me" title={appConfig.copy.map.youHere} />
+        </Marker>
+      )}
+
+      {/* the first of a Rotation's two points, while the second is still being looked for */}
+      {placeAnchor && (
+        <Marker longitude={placeAnchor[0]} latitude={placeAnchor[1]} anchor="center">
+          <span className="place-anchor" />
+        </Marker>
+      )}
+      {/* …and the «halten, dann verbindet es» ring on the symbol either tap is claiming */}
+      {placeMag && (
+        <Marker key={`placemag:${placeMag.since}`} longitude={placeMag.coord[0]} latitude={placeMag.coord[1]} anchor="center">
+          <span className="magnet-anchor"><ConnectRing since={placeMag.since} armed={placeMag.armed} /></span>
         </Marker>
       )}
 
@@ -1994,8 +2126,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
                 <span className="draw-stem" />
                 <button
                   className="draw-rotate"
-                  title={appConfig.copy.shapes.rotateHint}
-                  aria-label={appConfig.copy.shapes.rotateHint}
+                  aria-label={appConfig.copy.shapes.rotate} data-holdaction
                   onPointerDown={drawRotDown}
                   onPointerMove={drawRotMove}
                   onPointerUp={drawRotUp}
@@ -2114,6 +2245,14 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         // the screen turned an 8-point hose into a 21-point one, 19.08.).
         const idx = ep === 'start' ? 0 : coords.length
         const grown = ep === 'start' ? [at, ...coords] : [...coords, at]
+        // Growing IS an endpoint drag — the appended node becomes the line's new start/end — so
+        // the gesture goes to the magnet path, not to a plain reshape. Without this «Verlängern»
+        // was the one way of moving an endpoint that could never dock (field report 01.09.; the
+        // Plan's grip had the identical hole, Whiteboard · extendLine).
+        // An endpoint that is ALREADY attached keeps the plain reshape: unplugging it is the node
+        // grip's and the × chip's job, and a grow grip that could also detach would promise two
+        // things at once.
+        const magnetic = !!onDrawingAttachment && !(ep === 'start' ? selectedDrawing?.startAttachment : selectedDrawing?.endAttachment)
         return (
           <Marker key={`grow-${ep}`} longitude={at[0]} latitude={at[1]} anchor="center" style={handleZ}>
             <NewNodeHandle
@@ -2123,6 +2262,16 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               onInsert={(ev) => {
                 onDrawingVertexInsert(editDraw.id, idx, at)
                 if (!ev) return
+                if (magnetic) {
+                  // begin/move/finishEndpointDrag own the geometry from here: 'move' only streams
+                  // the live coord into `endpointDrag` (the resolver draws from it), and the
+                  // release writes coord + attachment in one commit.
+                  handOffNodeDrag(ev, (ll, phase) => {
+                    if (phase === 'start') beginEndpointDrag(editDraw.id, ep, at)
+                    else if (ll) { moveEndpointDrag(ll); if (phase === 'end') finishEndpointDrag() }
+                  })
+                  return
+                }
                 handOffNodeDrag(ev, (ll, phase) => onDrawingEdit(editDraw.id,
                   ll ? grown.map((q, j) => (j === idx ? ll : q)) : grown, phase))
               }} />
@@ -2215,6 +2364,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onDelete={onDelete}
         onRotate={onRotate}
         onShapeTransform={onShapeTransform}
+        onUnlockShape={readOnly ? undefined : onUnlockShape}
         editNoteId={editNoteId}
         onNoteText={onNoteText}
         onNoteCommit={onNoteCommit}

@@ -23,12 +23,12 @@ export interface HelpSection { id: string; title: string; icon: string; blocks: 
 
 export const de = {
   loadingSubtitle: 'Karte & Symbolbibliothek werden geladen …',
-  modes: { map: 'Lage', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Atemschutz', anwesenheit: 'Anwesenheit', mittel: 'Material', rapport: 'Rapport' },
+  modes: { map: 'Karte', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Atemschutz', anwesenheit: 'Anwesenheit', mittel: 'Material', rapport: 'Rapport' },
   // the left navigation rail (Karte · Pläne group · Checkliste · Atemschutz)
   // (no «Objekt wählen» any more: the rail is pure navigation, the object sits on the
   //  plan surface – see whiteboard.objectLabel)
   navRail: { map: 'Karte', plansGroup: 'Pläne', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
-  // «Trupp finden» – the one place that answers «wo steht Trupp 2», across Lage UND Pläne.
+  // «Trupp finden» – the one place that answers «wo steht Trupp 2», across Karte UND Pläne.
   // Deliberately the same shape as «Welcher Trupp?»: a short list you tap, no surface of its own.
   truppFinder: {
     title: 'Trupp finden',
@@ -39,7 +39,7 @@ export const de = {
     // shown INSTEAD of the list when nothing is placed anywhere — the honest answer, and it
     // says where a Trupp comes from rather than leaving an empty box
     empty: 'Noch kein Trupp platziert.',
-    emptyHint: 'Trupps werden auf der Lage oder auf einem Plan platziert – über die Atemschutz-Karte oder das Trupp-Werkzeug.',
+    emptyHint: 'Trupps werden auf der Karte oder auf einem Plan platziert – über die Atemschutz-Karte oder das Trupp-Werkzeug.',
     // the row's own status word, when the Atemschutz board says the Trupp has come back out
     raus: 'raus',
   },
@@ -62,7 +62,7 @@ export const de = {
     searchNone: 'Keine Treffer für «{q}».',
     searchHint: 'Anderes Stichwort versuchen – gesucht wird in Überschriften und Text.',
     // Fallback intro when the station has not configured a helpIntro of its own.
-    introFallback: 'KP Front ist die digitale Lage- und Einsatzführung deiner Feuerwehr: taktische Lagekarte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
+    introFallback: 'KP Front ist die digitale Lage- und Einsatzführung deiner Feuerwehr: taktische Karte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
     // Content of the help sections. Inline markup: **bold** for emphasis, [[Taste]] for
     // keyboard chips. blocks: lead/sub/list/note are rendered in HelpOverlay.
     sections: [
@@ -72,7 +72,7 @@ export const de = {
           { kind: 'intro' },
           { kind: 'sub', text: 'Die Arbeitsbereiche (linke Leiste)' },
           { kind: 'list', items: [
-            '**Karte** – die taktische Lagekarte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
+            '**Karte** – die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
             '**Pläne** – Module und Gebäudeansichten dieser Wehr als taktische Arbeitsflächen, stockwerkweise.',
             '**Checkliste** – abarbeitbare Einsatz-Checklisten.',
             '**Atemschutz** – Überwachung der eingesetzten Trupps mit Zeit und Druck.',
@@ -120,7 +120,7 @@ export const de = {
             '[[K]] Karte · [[C]] Checkliste · [[A]] Atemschutz · [[P]] Anwesenheit · [[M]] Material · [[R]] Rapport – jeweils der erste Buchstabe des Bereichs (Anwesenheit: P wie Personal).',
             '[[⌘]] [[[]] / [[⌘]] [[]]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
-          { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
+          { kind: 'sub', text: 'Werkzeuge (Karte & Plan gleich)' },
           { kind: 'list', items: [
             '[[V]] Auswahl · [[W]] Mehrfach wählen · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[U]] Umkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen (nur Karte).',
           ] },
@@ -137,9 +137,9 @@ export const de = {
         ],
       },
       {
-        id: 'lage', title: 'Karte – taktische Lagekarte', icon: 'map',
+        id: 'lage', title: 'Karte – die taktische Karte', icon: 'map',
         blocks: [
-          { kind: 'lead', text: 'Die taktische Lagekarte über dem realen Kartenhintergrund (Einsatzgebiet und Umgebung).' },
+          { kind: 'lead', text: 'Die taktische Karte über dem realen Kartenhintergrund (Einsatzgebiet und Umgebung).' },
           { kind: 'list', items: [
             '**Basiskarte** (zuoberst im Ebenen-Panel) wechselt den Hintergrund: Carto, OpenStreetMap oder Satellit.',
             '**Vergrössern/Verkleinern**, **Einpassen** und **Koordinaten abgreifen** in der rechten Leiste unten. Beim Abgreifen auf die Karte tippen, um einen Punkt (LV95 + WGS84) festzuhalten; der Kompass richtet wieder nach Norden aus.',
@@ -153,7 +153,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Über **Ebenen** blendest du die Werkleitungs- und Gefahren-Daten ein – geordnet nach Typ.' },
           { kind: 'list', items: [
-            '**Lage** – Taktische Zeichen, Fahrzeuge, Skizzen & Notizen.',
+            '**Karte** – Taktische Zeichen, Fahrzeuge, Skizzen & Notizen.',
             'Welche Ebenen es gibt, hängt an den Geodaten dieser Wehr – nichts davon ist mitgeliefert. Üblich sind:',
             '**Abwasser** – Schmutz/Misch, Regen/Rein, Schächte / Gully.',
             '**Gas** – Leitungen.',
@@ -170,7 +170,7 @@ export const de = {
       {
         id: 'zeichnen', title: 'Zeichnen & Symbole', icon: 'pen',
         blocks: [
-          { kind: 'lead', text: 'Werkzeuge der rechten Leiste im Lage-Modus.' },
+          { kind: 'lead', text: 'Werkzeuge der rechten Leiste auf der Karte.' },
           { kind: 'list', items: [
             '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit dem Schloss mehrere nacheinander setzen.',
             '**Formen** – im selben Fenster, hinter den Gefahren: **Pfeil** und **Rechteck**, für alles, wofür es kein taktisches Zeichen gibt. Der Griff dreht, die Ecke zieht das Rechteck in die Länge (der Pfeil bleibt proportional, eine verzerrte Spitze liest sich schlecht). Beim Pfeil schaltet **Stopp-Balken** den Querbalken quer zur Spitze ein – die Entwicklungsgrenze: bis hier, und dort gestoppt.',
@@ -198,7 +198,7 @@ export const de = {
             '**Trupps** als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Trupp-Chips, deren Trupp «raus» ist, werden ausgegraut/durchgestrichen.',
             '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien und Flächen echte Meter (Messen als eigenes Werkzeug gibt es nur auf der Karte).',
             'Ein Blatt, das mit der Karte **verknüpft** ist, misst schon von selbst – ebenso der Gebäude-Stockwerkstapel, der seine Grösse aus dem Grundriss kennt. Dort steht statt der Kalibrierung **Ref. auto**; ein Tipp darauf öffnet die Passung bzw. sagt, woher der Massstab kommt. Von Hand kalibriert wird nur, was nicht verknüpft ist.',
-            '**Schnelle Handnotiz?** Der Plan ist die Skizzenfläche: frei zeichnen, durchstreichen, kritzeln. Die Lage bleibt strukturiert (Symbole, Linien, Notizen), damit Rapport und Verlauf sauber bleiben.',
+            '**Schnelle Handnotiz?** Der Plan ist die Skizzenfläche: frei zeichnen, durchstreichen, kritzeln. Die Karte bleibt strukturiert (Symbole, Linien, Notizen), damit Rapport und Verlauf sauber bleiben.',
           ] },
           { kind: 'sub', text: 'Karte verknüpfen (Georeferenz)' },
           { kind: 'list', items: [
@@ -222,7 +222,7 @@ export const de = {
             '**Wer geht rein**: drei Slots, der oberste ist der **GF** – die ganze Zeile antippen macht jemanden zum Gruppenführer, das **✕** entfernt ihn. Ein grösserer Trupp hängt einfach weitere Zeilen an.',
             'Über die **Personensuche** wird das ganze Personal gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
             '**Eingangsdruck** (bar) und **Funkkanal** stehen rechts daneben.',
-            'Darunter der **Auftrag**: Art (Retten · Löschen · Absuchen · Sichern · Erkunden · Anderes), **Ziel / Ort** in Klartext, **Leitung Nr.** (die bereits gezeichneten Leitungen stehen als Schnellwahl daneben) und die **Farbe** auf Lage und Plan.',
+            'Darunter der **Auftrag**: Art (Retten · Löschen · Absuchen · Sichern · Erkunden · Anderes), **Ziel / Ort** in Klartext, **Leitung Nr.** (die bereits gezeichneten Leitungen stehen als Schnellwahl daneben) und die **Farbe** auf Karte und Plan.',
             'Der Auftrag hält niemanden auf: **Trupp anmelden** geht auch ohne ihn. Die Karte trägt dann **«Auftrag offen»**, und ein Tipp darauf öffnet das Formular.',
             'Getippte Angaben bleiben erhalten, wenn das Fenster mit **✕** oder per Klick daneben geschlossen wird – nur **Abbrechen** verwirft sie.',
           ] },
@@ -273,7 +273,7 @@ export const de = {
           { kind: 'list', items: [
             'Der **Katalog** kommt aus der Verwaltung, mit Einheit und Bestand («auf dem TLF», «Pio»). **+** erhöht die Menge, die Zeile bleibt stehen.',
             '**Anderes Material** erfasst etwas, das der Katalog nicht kennt – Bezeichnung und Menge genügen.',
-            'Steht auf Lage oder Plan ein Symbol für ein Material (Lüfter, Ölbinder), das noch nicht erfasst ist, sagt es eine **Leiste über der Liste**: «Gesetzt, aber nicht erfasst». **Übernehmen** erfasst alles Fehlende mit der Quelle aus dem Bestand – einmal tippen, statt dieselbe Sache zweimal zu erfassen.',
+            'Steht auf Karte oder Plan ein Symbol für ein Material (Lüfter, Ölbinder), das noch nicht erfasst ist, sagt es eine **Leiste über der Liste**: «Gesetzt, aber nicht erfasst». **Übernehmen** erfasst alles Fehlende mit der Quelle aus dem Bestand – einmal tippen, statt dieselbe Sache zweimal zu erfassen.',
             'Eine Menge auf **0** zu setzen entfernt die Zeile nicht aus dem Protokoll – der Rapport zeigt, was eingesetzt und was zurückgenommen wurde.',
           ] },
         ],
@@ -306,17 +306,17 @@ export const de = {
       {
         id: 'verlauf', title: 'Verlauf & Eintrag', icon: 'history',
         blocks: [
-          { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan – der Verlauf des Einsatzes.' },
+          { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Karte und Plan – der Verlauf des Einsatzes.' },
           { kind: 'list', items: [
             '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe. **Gedrückt halten** klappt zwei Felder auf – **Sprachnotiz** zuerst, **Foto** dahinter. Der Finger schiebt auf eines davon und lässt los. Der Knopf selbst wird dabei zum **✕**: loslassen, ohne geschoben zu haben, bricht ab und hinterlässt nichts. Erst beim Loslassen läuft die Aufnahme bzw. öffnet die Kamera. Fotos lassen sich auch im Eintrag selbst anhängen.',
             'Ab **zwei Buchstaben** werden Namen vorgeschlagen – Personal, Material, Partnerorganisationen, Fahrzeuge und Alarmgruppen, dazu die Posten **EL** und **Stv. EL**. Angetippt wird der ganze Name eingesetzt; im Verlauf und auf dem gedruckten Rapport ist er hervorgehoben. Wer den Posten schreibt, bekommt den Namen dazu («EL (Widmer Céline)»), und wer den Namen schreibt, den Posten. Ein eigenes «Von»-Feld gibt es nicht: der Satz sagt schon, wer gemeldet hat.',
             'Sobald der Satz auf einem Namen endet, stehen **→** und **←** als Vorschlag daneben: ein Tipp schreibt den Pfeil, und «EL → Sanität: Patient stabil» liest sich wie das Funkprotokoll, das der Verlauf ist. Auf dem Papier wird daraus «->».',
             'Solange das Feld **leer** ist, stehen Startchips bereit: zuerst **EL →**, danach die Textbausteine, die auf diesem Einsatz schon geschrieben wurden (sonst die Liste der Wehr). Sie bleiben stehen, bis wirklich getippt wird – ein zweiter Chip hängt sich an den ersten an.',
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
-            '**Rückgängig/Wiederholen** gilt für Lage, Plan – und für die **Anwesenheit**: dort nimmt es den letzten Tipp zurück (am Telefon stehen die beiden Pfeile in der Kopfzeile der Anwesenheit).',
+            '**Rückgängig/Wiederholen** gilt für Karte, Plan – und für die **Anwesenheit**: dort nimmt es den letzten Tipp zurück (am Telefon stehen die beiden Pfeile in der Kopfzeile der Anwesenheit).',
             'Ein Verlaufseintrag mit Ort springt beim Antippen zurück auf die Stelle in Karte oder Plan; Fotos und Sprachnotizen lassen sich direkt im Verlauf öffnen/abspielen.',
             'Ein **Vertipper** lässt sich korrigieren: der **Stift** in der Zeile steht auf allem, was jemand selber getippt hat – nicht auf dem, was die App über eine Aktion geschrieben hat («Trupp 2 eingerückt»). Die Zeile trägt danach **korrigiert HH:MM**; der ursprüngliche Wortlaut bleibt im Protokoll und in der Prüfkette.',
-            '**Wiedergabe starten** spielt Lage und Plan zu einem früheren Zeitpunkt ab (Zeitschieber; Bearbeiten ist dabei gesperrt).',
+            '**Wiedergabe starten** spielt Karte und Plan zu einem früheren Zeitpunkt ab (Zeitschieber; Bearbeiten ist dabei gesperrt).',
           ] },
           { kind: 'sub', text: 'Pendenzen' },
           { kind: 'list', items: [
@@ -378,7 +378,7 @@ export const de = {
           { kind: 'list', items: [
             'Änderungen werden automatisch geteilt; das Sync-Abzeichen oben zeigt den Stand (gespeichert/ausstehend).',
             'Gleichzeitige Bearbeitung wird pro Objekt zusammengeführt (jüngste Änderung gewinnt).',
-            '**Nur-Lesen**: Betrachter und Telefone sehen die Lage live, ohne die taktischen Werkzeuge.',
+            '**Nur-Lesen**: Betrachter und Telefone sehen die Karte live, ohne die taktischen Werkzeuge.',
           ] },
           { kind: 'sub', text: 'Offline' },
           { kind: 'list', items: [
@@ -700,7 +700,7 @@ export const de = {
     { id: 'lasso', icon: 'marquee', label: 'Mehrfach' },
     { id: 'sep-symbol', sep: true, icon: '', label: '' },
     { id: 'symbol-slot', slot: true, icon: '', label: '' },
-    // single Linie tool (Freihand-drag ↔ Punkte toggle lives in its dock), mirroring the Lage map
+    // single Linie tool (Freihand-drag ↔ Punkte toggle lives in its dock), mirroring the Karte map
     { id: 'line', icon: 'pen', label: 'Linie' },
     { id: 'area', icon: 'area', label: 'Fläche' },
     { id: 'text', icon: 'type', label: 'Notiz' },
@@ -757,6 +757,11 @@ export const de = {
     note: 'Auf die Karte tippen, um eine Notiz zu setzen. «Textfeld» macht daraus einen mehrzeiligen Block, dessen Breite sich am rechten Rand ziehen lässt.',
     team: 'Auf die Karte tippen und den Trupp aus der Liste wählen. Zum Verschieben ziehen.',
     shape: 'Auf die Karte tippen, um die Form zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
+    // Eine Rotation ist eine Strecke zwischen zwei Orten, also wird sie auch so gelegt:
+    // erst der Wasserbezug, dann die Brandstelle. Auf einem Symbol halten, bis der Ring
+    // zu ist, setzt den Punkt genau darauf.
+    rotationStart: 'Ersten Punkt tippen – dort, wo das Wasser bezogen wird. Auf einem Zeichen halten, bis der Ring voll ist, setzt den Punkt genau darauf.',
+    rotationEnd: 'Zweiten Punkt tippen – die Brandstelle. Nochmals auf denselben Punkt tippen legt eine Rotation in Standardlänge hin.',
     measure: 'Punkte auf die Karte tippen. Strecke zeigt Distanz und Höhenprofil, Fläche zeigt Flächeninhalt und Umfang. Punkte ziehen zum Verschieben, das + in der Mitte einer Strecke setzt einen Zwischenpunkt, Rechtsklick auf einen Punkt entfernt ihn.',
   },
   map: {
@@ -926,7 +931,7 @@ export const de = {
     modeLine: 'Strecke',
     modeArea: 'Fläche',
     clear: 'Zurücksetzen',
-    // the + in the middle of every segment — the same label on Lage and Plan, because it is
+    // the + in the middle of every segment — the same label on Karte and Plan, because it is
     // the same gesture
     insertPoint: 'Punkt einfügen',
     // the arrow grip past an open line end — dragging it appends one point
@@ -940,6 +945,11 @@ export const de = {
     snapRelease: 'Wegziehen zum Lösen',
     distance: 'Distanz',
     perimeter: 'Umfang',
+    // Wie breit und wie hoch die Fläche am Boden ist — das Rechteck, das sie belegt, in
+    // Ost-West und Nord-Süd. Nicht entlang ihrer eigenen Achsen: eine gezeichnete Fläche hat
+    // keine, und die Frage wird gegen die Karte gestellt, auf die man schaut.
+    boxWidth: 'Breite',
+    boxHeight: 'Höhe',
     area: 'Fläche',
     hoses: 'Schläuche',
     profile: 'Höhenprofil',
@@ -971,11 +981,24 @@ export const de = {
     lengthLabel: 'Länge',
     lengthShorter: 'Kürzer',
     lengthLonger: 'Länger',
-    widthLabel: 'Breite',
-    widthNarrower: 'Schmaler',
-    widthWider: 'Breiter',
-    rotateHint: 'Griff ziehen zum Drehen',
+    rotate: 'Drehen',
     resizeHint: 'Ecke ziehen zum Skalieren',
+    // Ein Rechteck hat zwei Achsen und je einen Griff dafür – waagrecht die Breite, senkrecht
+    // die Höhe. Dieselbe Aufteilung wie bei der Rotation (Länge/Breite), nur heissen die Achsen
+    // hier anders: ein Rechteck pendelt nicht.
+    heightLabel: 'Höhe',
+    boxWidthHint: 'Griff ziehen – Breite',
+    boxHeightHint: 'Griff ziehen – Höhe',
+    endHint: 'Ende ziehen – Strecke und Richtung',
+    // Die Strichstärke der Form – dieselben drei Stufen wie bei einer gezeichneten Fläche,
+    // weil eine Form eine vorgeformte Fläche ist (lib/shapes · SHAPE_STROKE_DEFAULT).
+    strokeLabel: 'Strichstärke',
+    // Ein Rechteck ist eine vorgeformte Fläche – es beantwortet dieselben Fragen wie eine
+    // gezeichnete (Füllung, Farbe, Strichstärke) und dazu die eine, die nur es hat: ob die
+    // Ecken rund sind oder scharf. Eine von Hand gezogene Fläche hat die Ecken ihrer Punkte.
+    cornersLabel: 'Ecken',
+    cornersRound: 'Rund',
+    cornersSharp: 'Eckig',
     // Pfeil-Ende «->|»: der Stopp-Balken quer zur Spitze (Entwicklungsgrenze)
     stopLabel: 'Stopp-Balken',
     // FKS Vegetationsbrand S. 52: die Schlaufe wird MIT ihrem Träger gezeichnet
@@ -992,7 +1015,7 @@ export const de = {
     symbolPlaced: 'Symbol «{name}» gesetzt',
     shapePlaced: '{name} platziert',
     notePlaced: 'Notiz gesetzt',
-    teamPlaced: '{name} auf der Lage gesetzt',
+    teamPlaced: '{name} auf der Karte gesetzt',
     /** Every drawn shape opens on ONE row shape, named by lib/drawingEdit · drawingLogName —
      *  «Fläche gezeichnet», «Absperrkreis gezeichnet», «Rettungsachse gezeichnet», «Zeichnung
      *  gezeichnet». Replaced the three separate rows on 31.08.: a line reported «Zeichnung
@@ -1047,7 +1070,7 @@ export const de = {
     // says. A line that carries a preset reports THAT instead (lib/lineStyle · linePresetLabel).
     drawKinds: { area: 'Fläche', line: 'Linie', circle: 'Absperrkreis' } as Record<string, string>,
   },
-  // unified, append-only journal (Verlauf) shared by Lage + Plan
+  // unified, append-only journal (Verlauf) shared by Karte + Plan
   toolDock: {
     colorGroup: 'Farbe',
     colorName: '{group} {n}',
@@ -1066,12 +1089,12 @@ export const de = {
     addHint: 'Tippen für Eintrag · halten und auf Sprachnotiz oder Foto schieben',
     title: 'Verlauf',
     empty: 'Noch keine Ereignisse erfasst.',
-    surfaceMap: 'Lage',
+    surfaceMap: 'Karte',
     surfacePlan: 'Plan',
     replay: 'Wiedergabe starten',
     // activity strip above the list: WHEN something happened, as a position rather than a row
     stripLabel: 'Zeitstrahl – tippen, um zur passenden Stelle zu springen',
-    replayHint: 'Lage und Plan zu einem früheren Zeitpunkt abspielen',
+    replayHint: 'Karte und Plan zu einem früheren Zeitpunkt abspielen',
     // composer
     composerTitle: 'Journaleintrag',
     textPlaceholder: 'Was ist passiert? Meldung, Beobachtung, Entscheid …',
@@ -1156,9 +1179,30 @@ export const de = {
     // a hand-written line corrected later (append-only patch — both wordings stay in the record)
     corrected: 'korrigiert {t}',
     // a line the app repeated while nothing changed — the record keeps every repeat
-    repeated: '{n}×',
+    repeated: '{n}× wiederholt',
     repeatedTitle: 'Diese Meldung wiederholte sich – jede Wiederholung bleibt im Protokoll.',
     correctHint: 'Der ursprüngliche Wortlaut bleibt im Protokoll.',
+    // ── the row's detail sheet: a fact table, one line per thing the record actually holds ──
+    // ⚠️ Only lines with an answer are printed. A sheet of «–» teaches nothing and turns the one
+    // fact that IS there (a correction, a repeat) into something to hunt for.
+    detailTime: 'Zeit',
+    detailArea: 'Bereich',
+    detailSource: 'Quelle',
+    // …written by hand vs. logged by the app. The second is why the pen is missing on that row,
+    // so the sheet says it rather than leaving an operator tapping a button that is not there.
+    detailSourceManual: 'Journal · von Hand erfasst',
+    detailSourceSystem: 'Von der App erfasst',
+    detailSourceSystemHint: 'Systemzeilen sind nicht bearbeitbar',
+    detailAttachments: 'Beilagen',
+    detailAttachmentsN: '{n} Bilder',
+    detailAttachmentsOne: 'Ein Bild',
+    detailCorrected: 'Korrigiert',
+    // the FIRST wording, kept by the append-only patch chain (lib/journalStore · display)
+    detailCorrectedFirst: 'zuerst: {text}',
+    detailRepeated: 'Wiederholt',
+    detailRepeatedN: '{n}× bis {t}',
+    detailNachtrag: 'Nachtrag',
+    detailNachtragHint: 'nach Einsatzende erfasst',
     // system row appended when a three-way sync merge saw BOTH sides (KP tablet and
     // QR-Erfassung/server) change the SAME person's attendance to different values —
     // last-writer-wins stays, but the divergence is said, not silent (append-only record)
@@ -1397,7 +1441,7 @@ export const de = {
     teamManual: 'Gast',
     teamTypeName: 'Name eingeben (Gast / Nachbarwehr)',
     teamAdd: 'Hinzufügen',
-    // Leitung: the same number as on the drawn Leitung (Lage/Plan) — that is how Trupp and
+    // Leitung: the same number as on the drawn Leitung (Karte/Plan) — that is how Trupp and
     // Schlauchleitung find each other, without anybody typing anything twice.
     lineNoLabel: 'Leitung Nr.',
     lineLegacyNote: 'Früher erfasst: «{value}»',
@@ -1409,7 +1453,7 @@ export const de = {
     lineOptTaken: 'Trupp {name} ist auf dieser Leitung',
     lineShow: 'Leitung auf der Karte zeigen',
     linePick: 'Leitung wählen',
-    linePickHint: 'Leitung auf der Lage oder im Plan antippen',
+    linePickHint: 'Leitung auf der Karte oder im Plan antippen',
     linePickCancel: 'Auswahl abbrechen',
     lineLinkedToast: 'Leitung {n} mit {name} verknüpft',
     logLineLinked: 'Trupp {name} auf Leitung {n}',
@@ -1566,7 +1610,7 @@ export const de = {
     placeWhere: 'Wohin platzieren?',
     placeNoTarget: 'Kein Plan vorhanden – zuerst über «Gebäude» in der Leiste ein Gebäude wählen.',
     showOnPlan: 'Auf Plan zeigen',
-    showOnMap: 'Auf der Lage zeigen',
+    showOnMap: 'Auf der Karte zeigen',
     preEntryHint: 'Noch nicht eingerückt – «Einrücken» drücken, sobald der Trupp unter Atemschutz in den Einsatz geht.',
     // Die Glocke: ein Knopf, drei ehrliche Zustände (siehe useAtemschutzMute). Jeder sagt, was
     // GERADE gilt, und nennt seine Reichweite – die Beschriftung war früher die Handlung
@@ -1591,8 +1635,8 @@ export const de = {
     logSafetyGrace: 'Nachfrist {from} → {to} s',
     logSafetyFunkkanal: 'Funkkanal {from} → {to}',
     logPlaced: 'Trupp {name} auf Plan platziert',
-    logPlacedMap: 'Trupp {name} auf der Lage platziert',
-    placeLage: 'Lagekarte',
+    logPlacedMap: 'Trupp {name} auf der Karte platziert',
+    placeLage: 'Karte',
     logEntry: 'Trupp {name} eingerückt',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
@@ -1668,7 +1712,7 @@ export const de = {
   notes: {
     deleteTitle: 'Notiz löschen',
     deleteMsg: 'Diese Notiz enthält Text. Wirklich löschen?',
-    // note styling — shared by the Lage map and the Plan whiteboard (same controls in the
+    // note styling — shared by the Karte map and the Plan whiteboard (same controls in the
     // armed-tool dock before placing and in the detail panel afterwards)
     section: 'Notiz',
     content: 'Text',
@@ -2157,6 +2201,14 @@ export const de = {
     endingArrow: 'Pfeil',
     endingArrowStop: 'Pfeil mit Stopp',
     endingTeilstueck: 'Teilstück',
+    // ⚠️ Was der Halte-/Hover-Tooltip auf den vier Bildern sagt (Segmented · explain): WAS es ist,
+    // in einer Zeile — «Pfeil mit Stopp» heisst Entwicklungsgrenze, das Teilstück ist eine Gabel
+    // mit drei Anschlüssen. Keine Folgen: dass ein gelöschtes Teilstück seine Linien freigibt,
+    // sagt `removeEMessage` in dem Moment, in dem es tatsächlich passiert.
+    endingNoneWhat: 'Ohne Abschluss',
+    endingArrowWhat: 'Pfeilspitze',
+    endingArrowStopWhat: 'Pfeil mit Stopp-Balken – Entwicklungsgrenze',
+    endingTeilstueckWhat: 'Teilstück – Gabel mit drei Anschlüssen',
     // Dreht die Punktreihenfolge um – der Abschluss (Pfeil bzw. Teilstück-«E») sitzt danach am
     // anderen Ende. Die Linie selbst bleibt, wo sie ist.
     reverse: 'Richtung umkehren',
@@ -2442,7 +2494,7 @@ export const de = {
     // Two sliders, not one size: an unlinked Modul-2/3 sheet is a whole floor on one page and
     // needs far smaller symbols than the map. A georeferenced sheet follows Karte automatically.
     symbolSizeMap: 'Symbolgrösse auf der Karte',
-    symbolSizeMapSub: 'Taktische Zeichen auf der Lagekarte und verknüpften Modulplänen',
+    symbolSizeMapSub: 'Taktische Zeichen auf der Karte und verknüpften Modulplänen',
     symbolSizeBoard: 'Symbolgrösse in Modulen',
     symbolSizeBoardSub: 'Taktische Zeichen auf nicht verknüpften Modulplänen',
     symbolCaptions: 'Beschriftungen',
@@ -2763,7 +2815,7 @@ export const de = {
     searchMaterial: 'Material suchen …',
     // Cross-visibility QR ↔ KP: the live-dot line in the capture header once the KP tablet
     // has the incident (editor_opened_at latch), and the quiet hint that de-emphasizes the
-    // print buttons — the full rapport (incl. Lageskizze) will come from the KP.
+    // print buttons — the full rapport (incl. Kroki) will come from the KP.
     kpActive: 'KP-Tablet aktiv',
     kpActiveHint: 'Das KP-Tablet ist im Einsatz – der vollständige Rapport (mit Kroki) kommt von dort.',
     // dasselbe, aber ohne laufendes KP-Tablet: der Normalfall, nicht eine Meldung über jetzt
@@ -2808,7 +2860,7 @@ export const de = {
   // that is exactly the question somebody asks at 3am before tapping «Ja».
   sharePosition: {
     askTitle: 'Standort teilen?',
-    askBody: 'Der Kommandoposten sieht dann auf der Lagekarte, wo du bist – damit klar ist, wer wo arbeitet (z. B. beim Wassertransport) und wer erreichbar ist.',
+    askBody: 'Der Kommandoposten sieht dann auf der Karte, wo du bist – damit klar ist, wer wo arbeitet (z. B. beim Wassertransport) und wer erreichbar ist.',
     askWho: 'Sichtbar nur für den Kommandoposten. Andere, die den Einsatz-Link haben, sehen deinen Standort nicht.',
     askHowLong: 'Nur solange dieser Einsatz läuft. Beim Abschluss wird der Standort gelöscht.',
     askBackground: 'Wenn du das Handy sperrst, wird nichts mehr übermittelt – die letzte Position bleibt mit Zeitangabe stehen.',
@@ -2818,7 +2870,7 @@ export const de = {
     pickTitle: 'Wer bist du?',
     pickHint: 'Damit dein Punkt auf der Karte einen Namen hat.',
     // Bei jedem neuen Einsatz wird nochmals gefragt: auf einem Tablet, das herumgereicht wird,
-    // stünde sonst der Name des letzten Einsatzes auf der Lagekarte.
+    // stünde sonst der Name des letzten Einsatzes auf der Karte.
     pickAgain: 'Neuer Einsatz – bitte bestätige nochmals, wer du bist. Der zuletzt gewählte Name steht zuoberst.',
     pickLast: 'zuletzt',
     search: 'Name suchen',
@@ -3248,9 +3300,9 @@ export const de = {
     lehrenPlaceholder: 'Erkenntnisse, Sicherheitshinweise (optional)',
     geretteteLabel: 'Gerettete',
     // Das Rettungs-Symbol trägt beide Zahlen schon (Anzahl Personen im Zähler, «Anzahl Tiere» im
-    // Feld) – der Streifen sagt, was auf der Lage steht, und füllt auf Tipp. Gleiche Form wie
+    // Feld) – der Streifen sagt, was auf der Karte steht, und füllt auf Tipp. Gleiche Form wie
     // «Gesetzt, aber nicht erfasst» im Material (mittel.lageStrip).
-    geretteteLageStrip: 'Auf der Lage: {list}',
+    geretteteLageStrip: 'Auf der Karte: {list}',
     geretteteLagePersonen: '{n} Personen',
     geretteteLageTiere: '{n} Tiere',
     geretteteLageTake: 'Übernehmen',
@@ -3329,7 +3381,7 @@ export const de = {
     krokiPortrait: 'Hoch',
     krokiLandscape: 'Quer',
     krokiAtNow: 'Jetzt',
-    krokiAtFailed: 'Lage zu diesem Zeitpunkt konnte nicht rekonstruiert werden – gedruckt wird der aktuelle Stand.',
+    krokiAtFailed: 'Kroki zu diesem Zeitpunkt konnte nicht rekonstruiert werden – gedruckt wird der aktuelle Stand.',
     partnersLabel: 'Partnerorganisationen',
     partnerOrg: 'Organisation (z. B. Polizei)',
     partnerOrgShort: 'Organisation',
@@ -3356,7 +3408,7 @@ export const de = {
     // Rapports, kein Häkchen – und die Warnung steht UNTER der Adresse, nicht in einem Tooltip:
     // sie ist das eine, was jemand gelesen haben muss, bevor er ihn verschickt.
     shareHead: 'Weitergeben',
-    shareLede: 'Ein Link auf genau diesen Einsatz – Lage, Pläne, Verlauf, Fotos, Zeiten. '
+    shareLede: 'Ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. '
       + 'Nur lesen, kein Login, nichts lässt sich ändern.',
     shareLiveLede: 'Gilt, bis du ihn aufhebst – auch nachdem der Einsatz abgeschlossen ist.',
     shareCreate: 'Link erstellen',
@@ -3395,9 +3447,9 @@ export const de = {
     framingFit: 'Auf Einsatz zoomen',
     // Until 09.08. the crop did not follow along: picked once at 22:20, printed unchanged at
     // 01:30 — with everything added since then outside it, and nobody saying so.
-    framingFollows: 'Folgt der Lagekarte',
-    framingFollowOn: 'Der Ausschnitt wächst mit der Lagekarte mit. Verschieben schaltet das ab.',
-    framingFollowOff: 'Ausschnitt an die Lagekarte anpassen – und mitwachsen lassen',
+    framingFollows: 'Folgt der Karte',
+    framingFollowOn: 'Der Ausschnitt wächst mit der Karte mit. Verschieben schaltet das ab.',
+    framingFollowOff: 'Ausschnitt an die Karte anpassen – und mitwachsen lassen',
     // An arrow instead of zooming out: what lies outside is usually a Hydrant two streets away,
     // and shrinking half the picture for that costs more than it gains.
     framingOutside: '{n} ausserhalb – antippen zum Anpassen',
@@ -3511,6 +3563,10 @@ export const de = {
     // only if none has been written by hand yet.
     // one row per person, not one for the Anwesenheit and a second one for the role
     logPresentAs: '{name} anwesend – {role}',
+    // Ein ganzer Trupp auf EINER Zeile. Die Namen sind, was gelesen wird – das Feld, aus dem die
+    // Funktion kommt, ist es nicht (und «Bemerkung» war ohnehin falsch: bemerkt hat niemand
+    // etwas, die App hat eine Funktion gesetzt).
+    logRoleGroup: 'Unter {role}: {list}',
     // ⚠️ The record is APPEND-ONLY, so a step back cannot remove the tap's own row — it writes
     // the correction beside it, naming whoever moved.
     undoTap: 'Letzten Tipp zurücknehmen',
@@ -3863,6 +3919,10 @@ export const de = {
     logDeleted: '{label} gelöscht',
     logNote: '{label} – Bemerkung: {note}',
     logStock: '{label} – Bestand: {stock}',
+    // Angehängt an eine gesetzte Menge: WOHER die Zahl kommt. Ohne sie sagt die Zeile nur,
+    // wie viel jetzt dort liegt – auf Papier wird der Verlauf aber gelesen, um zu sehen, was
+    // passiert ist. Entfällt bei einer erstmals erfassten Position (es gibt kein «vorher»).
+    logBefore: '(vorher {n})',
     noteLabel: 'Bemerkung',
     notePlaceholder: 'z. B. an Werkhof übergeben',
     // Pencil dialog on a self-captured row: correct label/unit/source/stock after the fact – it
@@ -3873,7 +3933,7 @@ export const de = {
     deleteLine: 'Eintrag löschen',
     // Symbol→Mittel: the reconciliation strip above the list. Third home of this offer
     // (28.08.): as a toast it was missed, as a row in the symbol's card it was only seen by
-    // whoever re-opened the symbol. Now the SHEET says what stands on Lage/Plan and is not
+    // whoever re-opened the symbol. Now the SHEET says what stands on Karte/Plan and is not
     // recorded yet — one sentence, one button, gone once the counts agree (or dismissed).
     // {list} = «2× Lüfter mobil · Ölbinder»
     lageStrip: 'Gesetzt, aber nicht erfasst: {list}',
@@ -3886,9 +3946,9 @@ export const de = {
     // The picker sheet: one group per open symbol (radio rows: Typ + Quelle + Restbestand), the
     // unambiguous rest pre-ticked below, a counting footer button that books everything at once.
     lagePickTitle: 'Gesetzt, aber nicht erfasst',
-    lagePickSub: '{n} Symbole auf Lage/Plan sind noch nicht im Material. Welche waren es?',
-    lagePickSubOne: 'Ein Symbol auf Lage/Plan ist noch nicht im Material. Welches war es?',
-    lagePickGroupHint: 'Symbol auf Lage/Plan',
+    lagePickSub: '{n} Symbole auf Karte/Plan sind noch nicht im Material. Welche waren es?',
+    lagePickSubOne: 'Ein Symbol auf Karte/Plan ist noch nicht im Material. Welches war es?',
+    lagePickGroupHint: 'Symbol auf Karte/Plan',
     lagePickGroupSourceHint: 'Quelle?',
     lagePickUnambiguous: 'Eindeutig',
     lagePickUnambiguousSub: 'wird ohne Rückfrage erfasst',
@@ -3958,7 +4018,7 @@ export const de = {
     },
     shell: {
       verwaltung: 'Verwaltung',
-      toLageMap: '← Zur Lagekarte',
+      toLageMap: '← Zur Karte',
       // Das Handbuch ist für genau diese Leserin geschrieben und war aus der Verwaltung
       // heraus nirgends verlinkt.
       docs: 'Anleitung',
@@ -3986,8 +4046,8 @@ export const de = {
       groupPersonen: 'Personen',
       groupDaten: 'Daten',
       groupSystem: 'System',
-      identitaet: { label: 'Station & Karte', title: 'Station & Karte', lede: 'Name, Sprache, Markenfarbe, Logos und Startansicht der Lagekarte für diese Installation.' },
-      karte: { label: 'Karte', title: 'Karte', lede: 'Startansicht der Lagekarte (Zentrum + Zoom), bevor ein Einsatz gewählt ist.' },
+      identitaet: { label: 'Station & Karte', title: 'Station & Karte', lede: 'Name, Sprache, Markenfarbe, Logos und Startansicht der Karte für diese Installation.' },
+      karte: { label: 'Karte', title: 'Karte', lede: 'Startansicht der Karte (Zentrum + Zoom), bevor ein Einsatz gewählt ist.' },
       doktrin: { label: 'Doktrin', title: 'Doktrin', lede: 'FKS-Vorgaben dieser Wehr: Standard-Funkkanal, AGT-Kontaktintervall und Warn-Vorlauf.' },
       journal: { label: 'Journal', title: 'Journal', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
       rapport: { label: 'Rapport', title: 'Rapport', lede: 'Wie die Einsatzstunden auf dem gedruckten Rapport gerundet werden – und welche eigenen Formulare am Schluss noch auszufüllen sind.' },
@@ -4000,7 +4060,7 @@ export const de = {
         label: 'Fahrzeuge & Symbole',
         title: 'Fahrzeuge & Symbole',
         lede: 'Die Fahrzeuge der Wehr – hier bearbeitbar; sie ergeben das Raster für Ausrückzeiten auf dem Rapport. Darunter die Symbol-Felder und ihre Auswahllisten (schreibgeschützt).',
-        tip: 'Jede Liste hängt Auswahl-Vorschläge an ein Symbol-Feld – z. B. Fahrzeugtypen an «VKF Fahrzeug · Titel». Vorschläge nur; freies Tippen bleibt in der Lage immer möglich.',
+        tip: 'Jede Liste hängt Auswahl-Vorschläge an ein Symbol-Feld – z. B. Fahrzeugtypen an «VKF Fahrzeug · Titel». Vorschläge nur; freies Tippen bleibt auf der Karte immer möglich.',
       },
       ebenen: { label: 'Kartenebenen', title: 'Kartenebenen & Geodaten', lede: 'Referenzebenen dieser Wehr (Hydranten, Leitungskataster, Kanton-WMS …) mit Lade-Status sowie die geladenen Datensätze. GeoJSON-Dateien und Raster-Ebenen (WMS/WMTS) sind hier einrichtbar, ganze Manifeste via admin_geodata-CLI; Grundkarten sind national/mitgeliefert.' },
       objektplaene: {
@@ -4217,7 +4277,7 @@ export const de = {
       hint: 'Token geheim halten – er gewährt Lesezugriff auf alle Einsatzdaten inkl. Namen. Übergabe an das Auswertungs-Tool als Header X-Stats-Token (oder ?t=).',
     },
     einsatzlink: {
-      body: 'Die Alarmierung hängt einen Link an den Alarm; wer ihn auf dem privaten Handy antippt, sieht genau diesen einen Einsatz – Lage, Pläne, Hydranten, Checklisten, Verlauf – schreibgeschützt und ohne Anmeldung. Vertrauensmodell: Wer den Alarm erhalten hat, darf den Einsatz sehen, bis er abgeschlossen ist.',
+      body: 'Die Alarmierung hängt einen Link an den Alarm; wer ihn auf dem privaten Handy antippt, sieht genau diesen einen Einsatz – Karte, Pläne, Hydranten, Checklisten, Verlauf – schreibgeschützt und ohne Anmeldung. Vertrauensmodell: Wer den Alarm erhalten hat, darf den Einsatz sehen, bis er abgeschlossen ist.',
       stateLabel: 'Einsatz-Links',
       stateOn: 'aktiv',
       stateOff: 'deaktiviert',
@@ -4543,7 +4603,7 @@ export const de = {
       estConsumption: 'Verbrauch (L/min)',
       estConsumptionTip: 'Angenommener Atemluftverbrauch eines arbeitenden AdF. Höher ansetzen heisst früher warnen.',
       groupAuftragColors: 'Atemschutz – Truppfarben',
-      auftragColorsTip: 'Optional: Startfarbe je Auftrag. Leer lassen heisst «jeder Trupp eine eigene Farbe» (Identität). Wer die Lage lieber nach Rolle liest – alle Löschtrupps rot –, setzt hier eine Farbe; pro Trupp ist sie weiterhin änderbar.',
+      auftragColorsTip: 'Optional: Startfarbe je Auftrag. Leer lassen heisst «jeder Trupp eine eigene Farbe» (Identität). Wer die Karte lieber nach Rolle liest – alle Löschtrupps rot –, setzt hier eine Farbe; pro Trupp ist sie weiterhin änderbar.',
       defaultFunkkanal: 'Funkkanal (Standard)',
       defaultFunkkanalTip: 'Voreingestellter Funkkanal eines neuen Einsatzes.',
       contactInterval: 'Kontaktintervall (min)',
@@ -4575,7 +4635,7 @@ export const de = {
       nameOpen: 'Noch nicht gesetzt – Login-Screen und Rapport zeigen den Produktnamen',
       map: 'Kartenmitte',
       mapSet: '{lon} / {lat}',
-      mapOpen: 'Nicht gesetzt – jede neue Lage startet irgendwo',
+      mapOpen: 'Nicht gesetzt – jede neue Karte startet irgendwo',
       logo: 'Brandmark hochladen',
       logoSet: 'Gesetzt',
       logoOpen: 'Login-Screen und Rapport-Briefkopf zeigen noch den Standard',
@@ -4811,7 +4871,7 @@ export const de = {
       roleQuestion: 'Was darf {name} im Einsatz?',
       roleQuestionAnon: 'diese Person',
       roleRequired: 'Pflichtangabe',
-      roleEditorMeans: 'Trägt im Einsatz ein: Journal, Anwesenheit, Lage und Rapport.',
+      roleEditorMeans: 'Trägt im Einsatz ein: Journal, Anwesenheit, Karte und Rapport.',
       roleViewerMeans: 'Liest nur mit. Kann im Einsatz nichts eintragen – auch die eigene Anwesenheit nicht.',
       roleChangeableHint: 'Beides lässt sich später ändern. Nur nicht mitten im Einsatz, wenn niemand die Verwaltung offen hat.',
       rolePickFirst: 'Rolle wählen, dann erstellen',

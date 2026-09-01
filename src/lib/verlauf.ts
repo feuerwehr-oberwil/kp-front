@@ -117,9 +117,15 @@ export function isHandWritten(e: TimelineEvent): boolean {
 const REPEAT_WINDOW_MS = 2 * 60_000
 
 /**
- * Runs of the SAME line repeated within {@link REPEAT_WINDOW_MS} — the Verlauf and the printed
- * journal show the first of them and say how often it repeated, instead of the same sentence
- * twenty times.
+ * Runs of the SAME line about the SAME object repeated within {@link REPEAT_WINDOW_MS} — the
+ * Verlauf and the printed journal show the first of them and say how often it repeated, instead
+ * of the same sentence twenty times.
+ *
+ * The run key is **text + object** (`entityId ?? annoId`), never text alone. Two different
+ * Notizen dropped seconds apart both write «Notiz gesetzt», and two shapes drawn in one burst
+ * both write the same line — on text alone those collapsed to «Notiz gesetzt 2×», which claims
+ * one thing happened twice where two things happened once. Rows about no object at all (an
+ * überfällige Kontaktuhr) share the empty object key and collapse exactly as before.
  *
  * ⚠️ Display only. Every row stays in the append-only record and in the hash chain; this decides
  * what is worth READING. The count is shown («6×») rather than silently swallowed — a reader has
@@ -128,26 +134,36 @@ const REPEAT_WINDOW_MS = 2 * 60_000
  * ⚠️ Hand-written rows are never collapsed. Somebody who types the same sentence twice meant it
  * both times, and the journal is their record, not the app's.
  */
-export function repeatRuns(events: TimelineEvent[]): { counts: Map<string, number>; hidden: Set<string> } {
+export function repeatRuns(events: TimelineEvent[]): {
+  counts: Map<string, number>
+  hidden: Set<string>
+  /** ISO instant of the LAST repeat in each run — the detail sheet says «6× bis 14:34», because
+   *  «6×» alone leaves a reader unable to tell a burst from something that ran for two minutes. */
+  lastAt: Map<string, string>
+} {
   const counts = new Map<string, number>()
   const hidden = new Set<string>()
+  const lastAt = new Map<string, string>()
   const open = new Map<string, { id: string; lastMs: number }>()
   const chrono = events
     .filter((e) => e.at && !isHandWritten(e))
     .sort((a, b) => Date.parse(a.at!) - Date.parse(b.at!))
   for (const e of chrono) {
-    const key = e.text.trim()
-    if (!key) continue
+    const text = e.text.trim()
+    if (!text) continue
+    // NUL joins the two halves so an object id can never run into the text and fake a match.
+    const key = `${e.entityId ?? e.annoId ?? ''}\u0000${text}`
     const ms = Date.parse(e.at!)
     if (!Number.isFinite(ms)) continue
     const run = open.get(key)
     if (run && ms - run.lastMs <= REPEAT_WINDOW_MS) {
       counts.set(run.id, (counts.get(run.id) ?? 1) + 1)
       hidden.add(e.id)
+      lastAt.set(run.id, e.at!)
       run.lastMs = ms
       continue
     }
     open.set(key, { id: e.id, lastMs: ms })
   }
-  return { counts, hidden }
+  return { counts, hidden, lastAt }
 }

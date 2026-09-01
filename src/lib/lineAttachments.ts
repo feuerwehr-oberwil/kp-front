@@ -22,6 +22,12 @@ export const MAGNET_RADIUS_PX = 32
 export const MAGNET_DWELL_MS = 350
 export const DETACH_RADIUS_PX = 44
 export const GPS_GUARD_METRES = 20
+/** How far a fresh stroke may travel from its pointerDOWN point and still count as being «at the
+ *  start». Inside it the instantly armed line-START claim (see `armDwell`) still belongs to the
+ *  first point, so a SHORT stroke begun on a symbol attaches there; beyond it the far end has to
+ *  earn its own ring. Both surfaces read this one number — the Plan used to drop the claim on the
+ *  first pixel of movement, which is why a short Leitung docked on the Lage and not on the Plan. */
+export const STROKE_START_RADIUS_PX = 10
 
 /** How far INSIDE the target glyph an attached endpoint is placed (screen px).
  *

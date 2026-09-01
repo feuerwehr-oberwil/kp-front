@@ -99,9 +99,9 @@ export default defineConfig(({ mode }) => {
         // App shell is precached for offline launch on station/vehicle tablets.
         includeAssets: ['icons/apple-touch-icon.png'],
         manifest: {
-          name: 'kp-front Lagekarte',
+          name: 'kp-front Einsatzkarte',
           short_name: 'kp-front',
-          description: 'Operative Lagekarte der Feuerwehr — Einsätze, Pläne, Fahrzeuge.',
+          description: 'Operative Einsatzkarte der Feuerwehr — Einsätze, Pläne, Fahrzeuge.',
           lang: 'de-CH',
           display: 'standalone',
           orientation: 'any',

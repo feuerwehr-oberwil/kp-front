@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { haversineM, hoseCount, hoseLengthHint, lv95ToWgs84, polygonAreaM2, wgs84ToLV95 } from './geo'
+import { bboxSizeM, haversineM, hoseCount, hoseLengthHint, lv95ToWgs84, polygonAreaM2, wgs84ToLV95 } from './geo'
 
 describe('wgs84ToLV95', () => {
   // swisstopo's canonical reference: the old observatory in Bern is the LV95 origin,
@@ -91,5 +91,23 @@ describe('hoseLengthHint', () => {
   it('formats the hose count incl. the reserve', () => {
     expect(hoseLengthHint(100)).toBe('~6 Schläuche')
     expect(hoseLengthHint(0)).toBe('~0 Schläuche')
+  })
+})
+
+
+describe('bboxSizeM', () => {
+  it('measures the ground box an outline occupies, east–west and north–south', () => {
+    // a ~200 m × ~100 m box near Basel
+    const sw = lv95ToWgs84(2611000, 1267000)
+    const se = lv95ToWgs84(2611200, 1267000)
+    const ne = lv95ToWgs84(2611200, 1267100)
+    const nw = lv95ToWgs84(2611000, 1267100)
+    const box = bboxSizeM([sw, se, ne, nw])!
+    expect(box.widthM).toBeCloseTo(200, 0)
+    expect(box.heightM).toBeCloseTo(100, 0)
+  })
+
+  it('has nothing to say about a single point', () => {
+    expect(bboxSizeM([[7.59, 47.53]])).toBeNull()
   })
 })

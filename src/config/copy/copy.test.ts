@@ -14,12 +14,12 @@ describe('locale resolution', () => {
     applyLocale('de-CH')
     expect(getLocaleId()).toBe('de-CH')
     expect(getCopy().atemschutz.title).toBe('Atemschutzüberwachung')
-    expect(getCopy().modes.map).toBe('Lage')
+    expect(getCopy().modes.map).toBe('Karte')
   })
 
   it('an unknown locale falls back to the German base', () => {
     applyLocale('xx-YY')
-    expect(getCopy().modes.map).toBe('Lage')
+    expect(getCopy().modes.map).toBe('Karte')
   })
 
   it('normalizes a regional tag to its base language (fr-CH → fr)', () => {
@@ -31,7 +31,7 @@ describe('locale resolution', () => {
 describe('English (full overlay)', () => {
   it('translates the general UI and the SCBA section', () => {
     applyLocale('en')
-    expect(getCopy().modes.map).toBe('Situation')
+    expect(getCopy().modes.map).toBe('Map')
     expect(getCopy().atemschutz.title).toBe('SCBA monitoring')
   })
 

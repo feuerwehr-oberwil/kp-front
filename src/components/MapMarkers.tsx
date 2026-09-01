@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
+import { buzz } from '../lib/haptics'
 import { appConfig } from '../config/appConfig'
 import { thumbUrl } from '../lib/mediaUrl'
 import { useHoldToDrag } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
+import { LockChip } from './LockChip'
 import { MenuPick } from './MenuPick'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
-import { ROTATION_MAX_M, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_PX, ShapeGlyph, shapeAspect } from '../lib/shapes'
+import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_PX, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
+import { MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
+import { ConnectRing } from './NodeDeleteChip'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
@@ -63,7 +67,10 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd, style
       el.removeEventListener('touchstart', block)
     }
   })
-  return <button ref={ref} className={className} style={style} title={title} aria-label={title} onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
+  // ⚠️ `data-holdaction` and no `title`: a transform grip's press-and-hold IS its gesture, so the
+  // global hold-tooltip must not claim it (AGENTS.md · touch vocabulary) — asking «what is this»
+  // would otherwise start the very drag it is asking about. The name stays for screen readers.
+  return <button ref={ref} className={className} style={style} aria-label={title} data-holdaction onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
 }
 
 // once a hold has armed, the finger must still travel this far (screen px) before the symbol
@@ -139,7 +146,12 @@ interface Props {
   onMarkerDragEnd: (id: string, c: LngLat) => void
   onDelete: (id: string) => void
   onRotate?: (id: string, deg: number) => void
-  onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number; aspect?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
+  /** ⚠️ `coord` too: dragging one END of a Rotation moves its centre as well as its size and
+   *  bearing — the box is derived from the two ends, so all four change together. */
+  onShapeTransform?: (id: string, patch: { coord?: LngLat; rotation?: number; rotation2?: number; sizeM?: number; aspect?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
+  /** unlock a locked shape (short-hold on its centre chip) → unlocks + selects. Absent ⇒ the
+   *  chip is not drawn (viewer / tactically locked), matching MapView · onUnlockDrawing. */
+  onUnlockShape?: (id: string) => void
   /** which note is in raw inline-text edit mode (mirrors the Plan whiteboard's text notes) */
   editNoteId?: string | null
   /** stream a note's text live as it's typed */
@@ -186,7 +198,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)
@@ -238,7 +250,14 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
   // `rot` = the shape's SCREEN rotation at grab time and `free` = per-axis resize allowed —
   // both captured on pointer-down so the corner drag can be resolved in the shape's own frame
-  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage'; rot: number; free: boolean; keepHeightM: number | null } | null>(null)
+  const shapeRef = useRef<{
+    id: string; cx: number; cy: number; lat: number
+    mode: 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage' | 'endA' | 'endB'
+    rot: number; free: boolean; keepHeightM: number | null; aspectMax: number; maxM: number
+    /** end drags only: the end that stays put (client px), how far the grip floats past the cap,
+     *  and the client→container offset the new centre is unprojected through */
+    fixed: { x: number; y: number } | null; gripOffPx: number; toCont: { x: number; y: number }
+  } | null>(null)
   // Press-and-hold to move a placed symbol. Markers are NOT react-map-gl-draggable (that would
   // claim every pan/zoom that starts on a symbol and drag it instead of the map); instead a still
   // hold past the delay arms a drag — a quick flick to pan/zoom passes straight through to the map.
@@ -324,10 +343,60 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   }
   const rotUp = () => { rotateRef.current = null }
 
+  // ── «Halten, dann verbindet es», an einem Rotationsende ──────────────────────────────────
+  // The same claim a Leitung's endpoint makes, drawn with the same chip and the same ring
+  // (components/NodeDeleteChip · ConnectRing): the end keeps following the finger while the ring
+  // fills, and only a FULL ring puts it on the symbol. Nothing is STORED by it — a Rotation has
+  // no attachment field and deliberately none — so what it buys is exactness: the run starts on
+  // the Wasserbezug's own spot instead of a few metres beside it, and it says so before it does it.
+  const [endMagnet, setEndMagnet] = useState<{ coord: LngLat; since: number; armed: boolean } | null>(null)
+  const endMagnetRef = useRef<{ key: string; coord: LngLat; since: number; armed: boolean } | null>(null)
+  const endDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearEndMagnet = () => {
+    if (endDwellTimer.current) { clearTimeout(endDwellTimer.current); endDwellTimer.current = null }
+    if (endMagnetRef.current) { endMagnetRef.current = null; setEndMagnet(null) }
+  }
+  useEffect(() => () => { if (endDwellTimer.current) clearTimeout(endDwellTimer.current) }, [])
+  /** Track the claim under a dragged end and answer with the point it should snap to — which is
+   *  `null` until the ring has closed. `pt` is in the same client px the drag works in. */
+  const trackEndMagnet = (id: string, pt: { x: number; y: number }, toCont: { x: number; y: number }) => {
+    const p = { x: pt.x + toCont.x, y: pt.y + toCont.y }
+    let best: { e: Entity; d: number; q: { x: number; y: number } } | null = null
+    for (const x of entities) {
+      // the same targets the PLACEMENT magnet accepts (MapView · trackPlaceMagnet) — an end
+      // laid onto a TLF must be re-dockable when it is dragged later
+      if (x.id === id || !['symbol', 'vehicle', 'team'].includes(x.kind)) continue
+      if (!Array.isArray(x.coord) || !isVisible(effectiveLayer(x))) continue
+      const q = project(x.coord as LngLat); if (!q) continue
+      const d = Math.hypot(q.x - p.x, q.y - p.y)
+      if (d < MAGNET_RADIUS_PX && (!best || d < best.d)) best = { e: x, d, q }
+    }
+    if (!best) { clearEndMagnet(); return null }
+    const cur = endMagnetRef.current
+    if (cur?.key !== best.e.id) {
+      clearEndMagnet()
+      const st = { key: best.e.id, coord: best.e.coord as LngLat, since: Date.now(), armed: false }
+      endMagnetRef.current = st
+      setEndMagnet({ coord: st.coord, since: st.since, armed: false })
+      // arm on a motionless finger — there is no pointermove to advance a dwell by itself
+      endDwellTimer.current = setTimeout(() => {
+        const now = endMagnetRef.current
+        if (!now || now.key !== st.key) return
+        now.armed = true
+        setEndMagnet({ coord: now.coord, since: now.since, armed: true })
+        buzz()
+      }, MAGNET_DWELL_MS)
+      return null
+    }
+    // re-project every frame rather than reusing the anchor: a map that moves under the drag
+    // must not leave the snap pointing at where the symbol used to be
+    return cur.armed ? { x: best.q.x - toCont.x, y: best.q.y - toCont.y } : null
+  }
+
   // drag-to-transform a shape. Both handles measure from the glyph centre, so the maths is
   // rotation-invariant: rotate = angle centre→pointer (+90° so the top handle leads); resize =
   // pointer distance → ground size in metres. A 'start' / 'end' pair folds the gesture into one undo.
-  const shapeDown = (clientX: number, clientY: number, el: HTMLElement, id: string, lat: number, mode: 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage') => {
+  const shapeDown = (clientX: number, clientY: number, el: HTMLElement, id: string, lat: number, mode: 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage' | 'endA' | 'endB') => {
     hold.cancel() // a handle press takes over from any pending/active marker hold
     const marker = el.closest('.marker')
     const glyph = marker?.querySelector('.shape-glyph, .ts') as HTMLElement | null
@@ -335,22 +404,74 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     const r = glyph.getBoundingClientRect() // rotated/scaled AABB — centre is unchanged
     const ent = entities.find((x) => x.id === id)
     const shape = ent?.kind === 'shape' ? (ent.shape ?? 'square') : null
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+    // ── the two ends of a Rotation ──────────────────────────────────────────────────────────
+    // Dragging one end pins the OTHER one, so a single grip sets the run's length and its bearing
+    // at once — which is exactly why the loop needs neither a rotate knob nor a size grip. Both
+    // are worked out from the fixed end, so the answer stays exact however far the drag travels.
+    let fixed: { x: number; y: number } | null = null
+    let gripOffPx = 0
+    let toCont = { x: 0, y: 0 }
+    if ((mode === 'endA' || mode === 'endB') && ent) {
+      const size = ent.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM
+      const ppm = pxPerM(lat, zoom)
+      const half = (rotationRun(size, ent.aspect) * ppm) / 2
+      const rad = (((ent.rotation ?? 0) - bearing) * Math.PI) / 180
+      const away = mode === 'endA' ? 1 : -1 // the end that stays put is the far one
+      fixed = { x: cx + Math.cos(rad) * half * away, y: cy + Math.sin(rad) * half * away }
+      gripOffPx = rotationGripOffPx(size * shapeAspect('rotation', ent.aspect) * ppm)
+      // client px → container px, so the new centre can be unprojected. Snapshotted like every
+      // other handle's anchor: it only goes stale if the map transform changes mid-gesture.
+      const pc = project(ent.coord as LngLat)
+      if (pc) toCont = { x: pc.x - cx, y: pc.y - cy }
+    }
     shapeRef.current = {
-      id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, lat, mode,
+      id, cx, cy, lat, mode, fixed, gripOffPx, toCont,
       rot: (ent?.rotation ?? 0) - bearing,
       free: (mode === 'resize' || mode === 'width') && !!shape && SHAPE_FREE_ASPECT[shape],
-      // A Rotation has TWO axes and one handle per axis, so what is captured here is whichever one
-      // the drag must LEAVE ALONE: the corner grip lengthens the run and keeps its width, the edge
-      // grip widens the loop and keeps its length. Without this the only way to make the loop long
-      // was to make it enormous in both.
-      keepHeightM: shape !== 'rotation' ? null
-        : mode === 'width' ? Math.max(1, ent?.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM)
-        : Math.max(1, (ent?.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM) * shapeAspect('rotation', ent?.aspect)),
+      // A shape with one grip per axis captures whichever axis the drag must LEAVE ALONE: the ↔
+      // grip sets the x-axis and keeps the height, the ↕ grip sets the y-axis and keeps the
+      // length. Without this the only way to make a Rotation long was to make it enormous in both.
+      keepHeightM: !shape || !SHAPE_AXIS_GRIPS[shape] ? null
+        : mode === 'width' ? Math.max(1, ent?.sizeM ?? SHAPE_DEFS[shape].defaultSizeM)
+        : Math.max(1, (ent?.sizeM ?? SHAPE_DEFS[shape].defaultSizeM) * shapeAspect(shape, ent?.aspect)),
+      aspectMax: shape ? shapeAspectMax(shape) : 5,
+      // …and how far it may be stretched along its long axis. A Wasserpendel between the Weiher
+      // and the Brandstelle is kilometres; every other shape stays inside the general cap.
+      maxM: shape === 'rotation' ? ROTATION_MAX_M : 500,
     }
     onShapeTransform?.(id, {}, 'start')
   }
   const shapeMove = (clientX: number, clientY: number) => {
     const st = shapeRef.current; if (!st) return
+    if ((st.mode === 'endA' || st.mode === 'endB') && st.fixed) {
+      // One end moves, the other stays: length, bearing and centre all fall out of the pair, and
+      // the width follows the run (lib/shapes · rotationBox). Everything the app stores about the
+      // loop is rewritten from these two points, which is what makes them the only two grips.
+      const f = st.fixed
+      const d = Math.hypot(clientX - f.x, clientY - f.y) || 1
+      const ux = (clientX - f.x) / d, uy = (clientY - f.y) / d
+      // the grip floats past the cap, so the END is the pointer pulled back along the run
+      let ex = clientX - ux * st.gripOffPx, ey = clientY - uy * st.gripOffPx
+      const snap = trackEndMagnet(st.id, { x: ex, y: ey }, st.toCont)
+      if (snap) { ex = snap.x; ey = snap.y }
+      const ppm = pxPerM(st.lat, zoom)
+      const runM = Math.max(SHAPE_MIN_M, Math.min(ROTATION_MAX_M, Math.hypot(ex - f.x, ey - f.y) / ppm))
+      const { size, aspect } = rotationBox(runM, ROTATION_W_M)
+      // the run points fixed→dragged when the far end is A, and the other way when it is B
+      const deg = st.mode === 'endB'
+        ? (Math.atan2(ey - f.y, ex - f.x) * 180) / Math.PI
+        : (Math.atan2(f.y - ey, f.x - ex) * 180) / Math.PI
+      const c = unproject({ x: (f.x + ex) / 2 + st.toCont.x, y: (f.y + ey) / 2 + st.toCont.y })
+      if (!c) return
+      onShapeTransform?.(st.id, {
+        coord: c,
+        rotation: Math.round((((deg + bearing) % 360) + 360) % 360),
+        sizeM: Math.round(size),
+        aspect: Math.round(aspect * 1000) / 1000,
+      }, 'move')
+      return
+    }
     if (st.mode === 'cage') {
       // Hubretter cage tip: one handle sets BOTH the boom bearing (rotation2, geographic) AND the
       // reach (metres from the truck to the cage). No +90/−90 offset — the handle IS the tip, so its
@@ -377,39 +498,45 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
       const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
       const ppm = pxPerM(st.lat, zoom)
-      if (st.keepHeightM != null && st.mode === 'width') {
-        // The OTHER axis: the run stays as long as it was and the loop gets wider or narrower.
-        // `keepHeightM` carries the captured LENGTH in this mode (shapeDown stores whichever axis
-        // the drag must not touch), and the aspect can never exceed 1 — a Rotation taller than it
-        // is long is the degenerate sliver shapeAspect already refuses.
-        const heightM = Math.max(4, Math.min(st.keepHeightM, (2 * Math.abs(ly)) / ppm))
-        onShapeTransform?.(st.id, {
-          sizeM: Math.round(st.keepHeightM),
-          aspect: Math.max(0.02, Math.min(1, Math.round((heightM / st.keepHeightM) * 1000) / 1000)),
-        }, 'move')
-        return
-      }
+      // ⚠️ GROUND metres, not screen px (lib/shapes · SHAPE_MIN_M): a pixel floor would store a
+      // different real-world size depending on the zoom the drag happened at, and one zoom step
+      // in would let the same drag continue past it.
+      const minM = SHAPE_MIN_M
       if (st.keepHeightM != null) {
-        // ⚠️ A Rotation grows along its LONG axis only, and far past the 500 m every other shape
-        // is capped at: a Wasserpendel between the Weiher and the Brandstelle is kilometres, and
-        // the cap was the reason the only way to make the loop long was to make it enormous.
-        // …and never shorter than it is wide: the loop degenerates into a sliver otherwise
-        const sizeM = Math.max(st.keepHeightM, Math.min(ROTATION_MAX_M, Math.round((2 * Math.abs(lx)) / ppm)))
-        const aspect = Math.max(0.02, Math.min(1, Math.round((st.keepHeightM / sizeM) * 1000) / 1000))
-        onShapeTransform?.(st.id, { sizeM, aspect }, 'move')
+        // ── one grip, one axis (lib/shapes · SHAPE_AXIS_GRIPS) ──
+        // The captured axis is the one that must not move, so a drag says exactly what its glyph
+        // promises: ↕ makes the box taller and leaves its length alone, ↔ makes it longer and
+        // leaves its height alone. `aspectMax` is what keeps a Rotation from inverting into a
+        // sliver with its arrows pointing at each other (it is 1 there, 5 for a Rechteck).
+        const asp = (h: number, len: number) =>
+          Math.max(0.02, Math.min(st.aspectMax, Math.round((h / len) * 1000) / 1000))
+        if (st.mode === 'width') {
+          const lengthM = st.keepHeightM // captured LENGTH in this mode
+          const heightM = Math.max(minM, Math.min(lengthM * st.aspectMax, (2 * Math.abs(ly)) / ppm))
+          onShapeTransform?.(st.id, { sizeM: Math.round(lengthM), aspect: asp(heightM, lengthM) }, 'move')
+          return
+        }
+        const heightM = st.keepHeightM // captured HEIGHT in this mode
+        // never shorter than `aspectMax` allows — that floor is what a Rotation's «never taller
+        // than it is long» becomes once the cap is per-shape
+        const floorM = Math.max(minM, heightM / st.aspectMax)
+        const sizeM = Math.max(floorM, Math.min(st.maxM, Math.round((2 * Math.abs(lx)) / ppm)))
+        onShapeTransform?.(st.id, { sizeM: Math.round(sizeM), aspect: asp(heightM, sizeM) }, 'move')
         return
       }
-      const sizeM = Math.max(5, Math.min(500, Math.round((2 * Math.abs(lx)) / ppm)))
-      const heightM = Math.max(5, Math.min(500, Math.round((2 * Math.abs(ly)) / ppm)))
+      const sizeM = Math.max(minM, Math.min(500, Math.round((2 * Math.abs(lx)) / ppm)))
+      const heightM = Math.max(minM, Math.min(500, Math.round((2 * Math.abs(ly)) / ppm)))
       const aspect = Math.max(0.2, Math.min(5, Math.round((heightM / sizeM) * 100) / 100))
       onShapeTransform?.(st.id, { sizeM, aspect }, 'move')
     } else {
+      const ppm = pxPerM(st.lat, zoom)
       const dist = Math.hypot(clientX - st.cx, clientY - st.cy)
-      const sizeM = (dist * Math.SQRT2) / pxPerM(st.lat, zoom) // corner handle = half-diagonal
-      onShapeTransform?.(st.id, { sizeM: Math.max(5, Math.min(500, Math.round(sizeM))) }, 'move')
+      const sizeM = (dist * Math.SQRT2) / ppm // corner handle = half-diagonal
+      // …and the same ground floor for a proportional shape (the Pfeil)
+      onShapeTransform?.(st.id, { sizeM: Math.max(SHAPE_MIN_M, Math.min(500, Math.round(sizeM))) }, 'move')
     }
   }
-  const shapeUp = () => { const st = shapeRef.current; if (!st) return; shapeRef.current = null; onShapeTransform?.(st.id, {}, 'end') }
+  const shapeUp = () => { const st = shapeRef.current; clearEndMagnet(); if (!st) return; shapeRef.current = null; onShapeTransform?.(st.id, {}, 'end') }
 
   // drag the right-edge grip of a note text box. The pill is centred on its coord, so the
   // pointer's distance from the centre is HALF the width. Screen px, not metres: a map note is
@@ -473,6 +600,10 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // be set HERE, on the marker container: every MapLibre marker is its own stacking context
         // (it carries a transform), so a z-index inside the marker cannot lift it past a sibling.
         const z = markerZ(e.kind, { selected: raised, fanned: !!spoke })
+        // A LOCKED shape is click-through, exactly like a locked drawn Fläche: its ink takes no
+        // tap at all — placement and selection pass to whatever is beneath — and the centre
+        // LockChip (re-enabling its own pointer events) is the only door back in.
+        const lockedShape = e.kind === 'shape' && !!e.locked
         return (
         <Marker
           key={e.id}
@@ -480,7 +611,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           latitude={e.coord[1]}
           anchor={teamStrip ? 'left' : 'center'}
           offset={teamStrip ? [selectedId === e.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2, 0] : undefined}
-          style={{ zIndex: z }}
+          style={{ zIndex: z, ...(lockedShape ? { pointerEvents: 'none' as const } : null) }}
           draggable={false}
           // swallow the synthetic click so it can't reach the map (deselect / placement); selection
           // itself is reported by the hold gesture's onTap, which fires even on a slightly-moved touch
@@ -494,7 +625,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
             // Tap selects; press-and-hold (touch) / press-and-drag (mouse) moves. A quick flick stays
             // a map pan/zoom. Not while editing a note's text (the input owns the pointer).
             // canDrag gates the MOVE only — tap-to-select still works in every tool. See useHoldToDrag.
-            onPointerDown={!(e.kind === 'note' && editNoteId === e.id)
+            onPointerDown={!(e.kind === 'note' && editNoteId === e.id) && !lockedShape
               ? (ev) => {
                   const cx = ev.clientX, cy = ev.clientY
                   // Which marker did the finger MEAN? Not "whichever DOM node happened to be on
@@ -572,7 +703,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     // a different and unbacked claim from the one the dot makes.
                     // While a pile is fanned nothing drags: the glyphs are standing off their
                     // real positions, so a drag would write back a coordinate nobody chose.
-                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && e.kind !== 'person' && !fanned })
+                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && e.kind !== 'person' && !fanned && !e.locked })
                 }
               : undefined}
           >
@@ -632,12 +763,21 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 </span>
               )
             })() : e.kind === 'shape' ? (
-              <div
-                className="shape-glyph"
-                style={{ width: shpW, height: shpH, transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
-              >
-                <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} stop={e.stop} aspect={e.aspect} carrier={e.carrier} />
-              </div>
+              <>
+                <div
+                  className="shape-glyph"
+                  style={{ width: shpW, height: shpH, transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
+                >
+                  <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} stop={e.stop} aspect={e.aspect} carrier={e.carrier} reverse={e.reverse} strokeW={e.strokeW} boxPx={shpW} fillOpacity={e.fillOpacity} hatch={e.hatch} sharpCorners={e.sharpCorners} />
+                </div>
+                {/* the click-through ink's only tap target — outside the rotated box, so the
+                    chip stays upright (drawings' twin: MapView · lockChips) */}
+                {lockedShape && onUnlockShape && (
+                  <span className="shape-lock-anchor">
+                    <LockChip onUnlock={() => onUnlockShape(e.id)} />
+                  </span>
+                )}
+              </>
             ) : e.kind === 'note' ? (() => {
               // every note is a wrapping box; a stored note with no width falls back to the
               // default. Font size = the fixed 12px base × the size-slider step.
@@ -884,12 +1024,39 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 onEnd={rotUp}
               />
             )}
-            {selectedId === e.id && e.kind === 'shape' && onShapeTransform && (() => {
+            {selectedId === e.id && e.kind === 'shape' && !e.locked && onShapeTransform && (() => {
               // rotor rotates with the shape so the handles stay attached to it: a tethered
               // knob (top) for rotation, a corner grip for resize. The CSS anchors assume a
               // SQUARE --hbox; a stretched shape overrides them inline so the knob rides the
               // real top edge and the grip the real corner (same floors as .marker.sel --hbox).
               const hbW = Math.max(shpW, 56), hbH = Math.max(shpH, 56)
+              const axisGrips = SHAPE_AXIS_GRIPS[e.shape ?? 'square']
+              // ── A Rotation is its two ENDS, and nothing else ──────────────────────────────
+              // Each end sets the run's length AND its bearing, and the width follows the run —
+              // so there is no rotate knob and no size grip left to draw. They live in the rotor,
+              // which already turns with the shape, so «along the run» is simply left and right.
+              // The grips float past the caps (rotationGripOffPx) on a short tether, or they
+              // would cover both the loop's own end and whatever the end was dropped on.
+              if (SHAPE_TWO_POINT[e.shape ?? 'square']) {
+                const runPx = Math.max(0, shpW - shpH)
+                const off = rotationGripOffPx(shpH)
+                return (
+                  <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
+                    {([['endA', -1], ['endB', 1]] as const).map(([which, sign]) => (
+                      <TransformHandle
+                        key={which}
+                        className="handle shape-end"
+                        icon="resize-h"
+                        style={{ left: `calc(50% + ${sign * (runPx / 2 + off)}px)`, top: '50%' }}
+                        title={appConfig.copy.shapes.endHint}
+                        onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], which)}
+                        onMove={shapeMove}
+                        onEnd={shapeUp}
+                      />
+                    ))}
+                  </div>
+                )
+              }
               return (
               <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
                 <span className="shape-stem" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} />
@@ -897,30 +1064,44 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   className="handle shape-rotate"
                   icon="rotate"
                   style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }}
-                  title={appConfig.copy.shapes.rotateHint}
+                  title={appConfig.copy.shapes.rotate}
                   onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'rotate')}
                   onMove={shapeMove}
                   onEnd={shapeUp}
                 />
-                <TransformHandle
-                  className="handle shape-resize"
-                  icon="resize"
-                  style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }}
-                  title={e.shape === 'rotation' ? appConfig.copy.shapes.lengthLabel : appConfig.copy.shapes.resizeHint}
-                  onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'resize')}
-                  onMove={shapeMove}
-                  onEnd={shapeUp}
-                />
-                {/* The second axis, on the shape's own right edge. Only a Rotation has two sizes
-                    that mean different things — how far the shuttle runs, and how wide the loop is
-                    drawn — so only it gets a second grip. The corner one is the length. */}
-                {e.shape === 'rotation' && (
+                {/* ── ONE GRIP PER AXIS on a Rechteck and a Rotation (01.09.) ──
+                    Both handles used to be corner grips wearing the same «resize» glyph, so
+                    nothing on screen said which of the two sizes a drag would change. Now the ↔
+                    sits on the right edge and moves the x-axis, the ↕ sits on the bottom edge and
+                    moves the y-axis: the grip stands ON the axis it controls and its arrows point
+                    the way it goes. The Rauch keeps the diagonal corner — a plume is pulled into
+                    shape, not given a width and a height (lib/shapes · SHAPE_AXIS_GRIPS). */}
+                {axisGrips ? <>
                   <TransformHandle
-                    className="handle shape-width"
-                    icon="resize"
+                    className="handle shape-resize shape-axis-x"
+                    icon="resize-h"
                     style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: '50%' }}
-                    title={appConfig.copy.shapes.widthLabel}
+                    title={appConfig.copy.shapes.boxWidthHint}
+                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'resize')}
+                    onMove={shapeMove}
+                    onEnd={shapeUp}
+                  />
+                  <TransformHandle
+                    className="handle shape-width shape-axis-y"
+                    icon="resize-v"
+                    style={{ left: '50%', top: `calc(50% + ${hbH / 2 + 3}px)` }}
+                    title={appConfig.copy.shapes.boxHeightHint}
                     onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'width')}
+                    onMove={shapeMove}
+                    onEnd={shapeUp}
+                  />
+                </> : (
+                  <TransformHandle
+                    className="handle shape-resize"
+                    icon="resize"
+                    style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }}
+                    title={appConfig.copy.shapes.resizeHint}
+                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'resize')}
                     onMove={shapeMove}
                     onEnd={shapeUp}
                   />
@@ -936,7 +1117,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 <TransformHandle
                   className="handle shape-rotate"
                   icon="rotate"
-                  title={appConfig.copy.shapes.rotateHint}
+                  title={appConfig.copy.shapes.rotate}
                   onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'rotate')}
                   onMove={shapeMove}
                   onEnd={shapeUp}
@@ -995,6 +1176,13 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         </Marker>
         )
       })}
+      {/* the attachment ring at a Rotation end's claimed symbol — the same chip the Leitungen
+          raise, so «halten, dann verbindet es» is one thing to learn (see trackEndMagnet) */}
+      {endMagnet && (
+        <Marker key={`rotend:${endMagnet.since}`} longitude={endMagnet.coord[0]} latitude={endMagnet.coord[1]} anchor="center">
+          <span className="magnet-anchor"><ConnectRing since={endMagnet.since} armed={endMagnet.armed} /></span>
+        </Marker>
+      )}
       {/* team trail breadcrumbs (recorded via «Position markieren») — same dot + timestamp
           look as the plan board; pointer-transparent so they never block a map tap */}
       {entities.filter((e) => e.kind === 'team' && isVisible(effectiveLayer(e)) && Array.isArray(e.coord) && e.trail?.length && !hiddenTrails?.has(e.id)).flatMap((e) =>

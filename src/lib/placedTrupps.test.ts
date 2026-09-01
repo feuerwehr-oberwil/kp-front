@@ -31,7 +31,7 @@ describe('placedTrupps', () => {
       PLANS, [],
     )
     expect(out.map((t) => t.name)).toEqual(['Trupp 1', 'Trupp 2', 'Trupp 3'])
-    expect(out.map((t) => t.where)).toEqual(['Lage', 'Gebäude · 2. OG', 'Modul 3'])
+    expect(out.map((t) => t.where)).toEqual(['Karte', 'Gebäude · 2. OG', 'Modul 3'])
   })
 
   it('leaves a live vehicle alone — nobody placed it', () => {
@@ -151,7 +151,7 @@ describe('markerOptions (what a Trupp card offers)', () => {
     const opts = markerOptions(placed, [TRUPPS[0], T2], 'tr1')
     expect(opts.map((o) => o.key)).toEqual(['e1', 'e2'])
     expect(opts[0].takenBy).toBeUndefined()
-    expect(opts[0].where).toBe('Lage')
+    expect(opts[0].where).toBe('Karte')
     // the HOLDER's name off the board, not the marker's label
     expect(opts[1].takenBy).toBe('Keller Anna')
   })

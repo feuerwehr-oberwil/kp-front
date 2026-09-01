@@ -128,6 +128,16 @@ body {
   0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
   11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
 }
+/* ⚠️ The same two beats drawn INSIDE the element, for targets that sit in a scrollport. An
+   outward ring is painted outside the border box, so an ancestor with `overflow: hidden` on
+   either axis slices it — the Verlauf's rows are 2px from the edge of `.history-list`, whose
+   `overflow-x: hidden` cut the ring off flat down the right-hand side (and through the chevron
+   with it). Inset, the ring hugs the element's own rounded corners and cannot be clipped by
+   anything. Same ink, same rhythm: only where the 4px lands differs. */
+@keyframes ui-flash-ring-inset {
+  0%, 22%, 48%, 74% { box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  11%, 36%, 62%, 100% { box-shadow: inset 0 0 0 4px transparent; }
+}
 
 /* Scrollbars — one thin treatment for every scrollable pane. Styling ::-webkit-scrollbar
    opts out of the OS auto-hiding overlay bar, so a pane that can scroll shows its bar

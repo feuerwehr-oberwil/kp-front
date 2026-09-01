@@ -31,14 +31,27 @@ export function entityEditChanges(prev: Entity, next: Entity): string[] {
 
   // ── the roster/attribute fields typed onto a symbol («Name», «Fahrer», «Stoff», «Status») ──
   // These are the ones somebody asks about afterwards: who was named as Einsatzleiter, and when.
+  //
+  // ⚠️ A field may be named after the symbol it sits on. «FW Gefahr allgemein» is labelled
+  // «Gefahr» and its one preset field is called «Gefahr» too, and the caller wraps these lines
+  // in `log.entityEdited` («{name}: {changes}») — so the record read «Gefahr: Gefahr: Wassertiefe
+  // 10m». Where the field label IS the object's name the line names only what happened to it;
+  // the name is already the first word of the row. General, not a rule about one symbol.
+  const logName = entityLogName(next).trim().toLowerCase()
   const before = prev.fields ?? {}
   const after = next.fields ?? {}
   for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
     const a = (before[key] ?? '').trim()
     const b = (after[key] ?? '').trim()
     if (a === b) continue
-    if (!b) out.push(fillTemplate(L.fieldCleared, { field: key }))
-    else out.push(fillTemplate(a ? L.fieldChanged : L.fieldSet, { field: key, value: b }))
+    // Dropped from the TEMPLATE, not from the finished string: every locale's three templates
+    // lead with {field}, so an empty one leaves exactly the statement («auf X geändert»,
+    // «geleert»). `fieldSet` is «{field}: {value}» — minus the field that IS the bare value.
+    const selfNamed = !!logName && key.trim().toLowerCase() === logName
+    const field = selfNamed ? '' : key
+    if (!b) out.push(fillTemplate(L.fieldCleared, { field }).trim())
+    else if (selfNamed && !a) out.push(b)
+    else out.push(fillTemplate(a ? L.fieldChanged : L.fieldSet, { field, value: b }).trim())
   }
 
   if ((prev.label ?? '').trim() !== (next.label ?? '').trim()) {

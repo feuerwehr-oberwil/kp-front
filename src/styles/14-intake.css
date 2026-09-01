@@ -163,21 +163,3 @@
    when no coordinate could be resolved. */
 
 
-/* PWA: offline map pre-download control in the Ebenen panel (dock chrome — white on
-   --ink-fill like the other panel rows) */
-.offline-dl {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; margin: 4px 0 2px;
-  min-height: 44px; padding: 0 8px; border-radius: var(--r-sm);
-  background: transparent; border: none;
-  color: var(--on-accent-ink); font: inherit; font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: background 0.15s;
-}
-/* same gate as the layer rows it sits under (05-navrail `.lrow:hover`): on touch :hover sticks
-   to whatever was tapped last, and this row is the last thing in the Ebenen panel */
-@media (hover: hover) {
-  .offline-dl:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 12%, transparent); }
-}
-.offline-dl:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.offline-dl:disabled { opacity: var(--disabled); cursor: default; }
-.offline-dl svg { width: 16px; height: 16px; flex: 0 0 auto; color: rgba(255, 255, 255, .75); }

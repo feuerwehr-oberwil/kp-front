@@ -102,6 +102,21 @@ describe('repeatRuns', () => {
   const row = (id: string, at: string, text: string, over: Partial<TimelineEvent> = {}): TimelineEvent =>
     ({ id, t: at.slice(11, 16), at, icon: 'warn', text, kind: 'team', ...over })
 
+  it('reports when a run stopped, so «6×» can be told from «6× over two minutes»', () => {
+    const { counts, lastAt } = repeatRuns([
+      row('a', '2026-09-01T14:32:00.000Z', 'Kontakt überfällig'),
+      row('b', '2026-09-01T14:32:40.000Z', 'Kontakt überfällig'),
+      row('c', '2026-09-01T14:33:10.000Z', 'Kontakt überfällig'),
+    ])
+    expect(counts.get('a')).toBe(3)
+    expect(lastAt.get('a')).toBe('2026-09-01T14:33:10.000Z')
+  })
+
+  it('leaves lastAt empty for a line that never repeated', () => {
+    const { lastAt } = repeatRuns([row('a', '2026-09-01T14:32:00.000Z', 'Kontakt überfällig')])
+    expect(lastAt.has('a')).toBe(false)
+  })
+
   it('collapses a run of the same line into the first, counting the repeats', () => {
     const rows = [
       row('a', '2026-08-19T20:00:00.000Z', 'Atemschutz-Alarm: Trupp Weber Marco – Überfällig'),
@@ -137,6 +152,39 @@ describe('repeatRuns', () => {
     const { counts, hidden } = repeatRuns(rows)
     expect(hidden.size).toBe(0)
     expect(counts.size).toBe(0)
+  })
+
+  // ⚠️ SAME TEXT, DIFFERENT OBJECT is not a repeat. Two Notizen dropped in the same breath
+  // both log «Notiz gesetzt»; keying on the sentence alone printed «Notiz gesetzt 2×» and lost one
+  // of the two notes from the Verlauf and from the printed Rapport.
+  it('never merges the same sentence about two different objects', () => {
+    const rows = [
+      row('n1', '2026-08-19T20:00:00.000Z', 'Notiz gesetzt', { kind: 'symbol', entityId: 'e100' }),
+      row('n2', '2026-08-19T20:00:03.000Z', 'Notiz gesetzt', { kind: 'symbol', entityId: 'e200' }),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden.size).toBe(0)
+    expect(counts.size).toBe(0)
+  })
+
+  // …the board's side of the same key: two shapes drawn in one burst are two annotations
+  it('never merges the same sentence about two different plan annotations', () => {
+    const rows = [
+      row('a1', '2026-08-19T20:00:00.000Z', 'Fläche gezeichnet', { kind: 'symbol', annoId: 'sh1' }),
+      row('a2', '2026-08-19T20:00:02.000Z', 'Fläche gezeichnet', { kind: 'symbol', annoId: 'sh2' }),
+    ]
+    expect(repeatRuns(rows).hidden.size).toBe(0)
+  })
+
+  it('still collapses a run about ONE object', () => {
+    const rows = [
+      row('n1', '2026-08-19T20:00:00.000Z', 'Notiz gesetzt', { kind: 'symbol', entityId: 'e100' }),
+      row('n2', '2026-08-19T20:00:03.000Z', 'Notiz gesetzt', { kind: 'symbol', entityId: 'e100' }),
+      row('n3', '2026-08-19T20:00:06.000Z', 'Notiz gesetzt', { kind: 'symbol', entityId: 'e100' }),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden).toEqual(new Set(['n2', 'n3']))
+    expect(counts.get('n1')).toBe(3)
   })
 
   it('leaves hand-written rows alone — somebody who typed it twice meant it twice', () => {

@@ -124,16 +124,20 @@ export function LineStylePicker({ dashed, onChange, marker, onMarker }: LineStyl
   const pick = (m: string) => { onMarker?.(m); if (dashed) onChange(false) }
   return (
     <>
-      <button className={`wb-ls ${!dashed && !chain ? 'on' : ''}`} title={c.lineSolid} aria-label={c.lineSolid} aria-pressed={!dashed && !chain} onClick={() => plain(false)}><span className="ls-solid" /></button>
-      <button className={`wb-ls ${dashed && !chain ? 'on' : ''}`} title={c.lineDashed} aria-label={c.lineDashed} aria-pressed={dashed && !chain} onClick={() => plain(true)}><span className="ls-dashed" /></button>
+      <button className={`wb-ls ${!dashed && !chain ? 'on' : ''}`} data-holdexplain aria-label={c.lineSolid} aria-pressed={!dashed && !chain} onClick={() => plain(false)}><span className="ls-solid" /></button>
+      <button className={`wb-ls ${dashed && !chain ? 'on' : ''}`} data-holdexplain aria-label={c.lineDashed} aria-pressed={dashed && !chain} onClick={() => plain(true)}><span className="ls-dashed" /></button>
       {onMarker && (
         <>
           {/* Both Haltelinien-Seiten are their own button rather than a flip on one: which side the
               teeth face is an operational fact (they face the fire) and cannot be read off the
-              geometry, so it must be visible rather than a state you tap into. */}
-          <button className={`wb-ls ${chain === '▲' ? 'on' : ''}`} title={c.lineHalteliniUp} aria-label={c.lineHalteliniUp} aria-pressed={chain === '▲'} onClick={() => pick('▲')}><span className="ls-teeth" /></button>
-          <button className={`wb-ls ${chain === '▼' ? 'on' : ''}`} title={c.lineHalteliniDown} aria-label={c.lineHalteliniDown} aria-pressed={chain === '▼'} onClick={() => pick('▼')}><span className="ls-teeth down" /></button>
-          <button className={`wb-ls ${chain === '◯' ? 'on' : ''}`} title={c.lineAbwurfzone} aria-label={c.lineAbwurfzone} aria-pressed={chain === '◯'} onClick={() => pick('◯')}><span className="ls-rings" /></button>
+              geometry, so it must be visible rather than a state you tap into.
+              ⚠️ `data-holdexplain`, like the Typ letters and the Abschluss glyphs: these five are
+              pictures of a stroke, and «Haltelinie – Zähne oberhalb» is the only thing that says
+              which one. Hold (touch) or hover (mouse) answers with it; no `title`, or the native
+              tooltip repeats the same sentence a second later. */}
+          <button className={`wb-ls ${chain === '▲' ? 'on' : ''}`} data-holdexplain aria-label={c.lineHalteliniUp} aria-pressed={chain === '▲'} onClick={() => pick('▲')}><span className="ls-teeth" /></button>
+          <button className={`wb-ls ${chain === '▼' ? 'on' : ''}`} data-holdexplain aria-label={c.lineHalteliniDown} aria-pressed={chain === '▼'} onClick={() => pick('▼')}><span className="ls-teeth down" /></button>
+          <button className={`wb-ls ${chain === '◯' ? 'on' : ''}`} data-holdexplain aria-label={c.lineAbwurfzone} aria-pressed={chain === '◯'} onClick={() => pick('◯')}><span className="ls-rings" /></button>
         </>
       )}
     </>

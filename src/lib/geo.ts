@@ -61,6 +61,25 @@ export function haversineM(a: LngLat, b: LngLat): number {
   return 2 * R_EARTH * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
+/**
+ * The angle from `a` to `b` in the app's OWN rotation convention: degrees clockwise from east,
+ * measured on a north-up map. That is exactly what `Entity.rotation` / `BoardAnno.rotation`
+ * store — every renderer draws them as `rotation − bearing` — so an angle computed here keeps
+ * pointing at the same ground while the map is turned.
+ */
+export function bearingDeg(a: LngLat, b: LngLat): number {
+  // longitude degrees shrink towards the poles; without the cosine a run laid out east–west
+  // would come out steeper than it is drawn
+  const dx = (b[0] - a[0]) * Math.cos((((a[1] + b[1]) / 2) * Math.PI) / 180)
+  const dy = a[1] - b[1] // screen y grows downwards, latitude upwards
+  const deg = (Math.atan2(dy, dx) * 180) / Math.PI
+  return ((deg % 360) + 360) % 360
+}
+
+/** the point halfway between two coords — a plane average, exact enough at the scale one
+ *  incident spans (metres to a few kilometres) */
+export const midCoord = (a: LngLat, b: LngLat): LngLat => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+
 /** total length of a polyline (sum of segment great-circle distances), in metres */
 export function pathLengthM(coords: LngLat[]): number {
   let sum = 0
@@ -99,6 +118,21 @@ export function polygonAreaM2(coords: LngLat[]): number {
     a += pts[j][0] * pts[i][1] - pts[i][0] * pts[j][1]
   }
   return Math.abs(a) / 2
+}
+
+/**
+ * How wide and how tall the thing is on the ground, in metres — the axis-aligned bounding box of
+ * its outline, measured in LV95 like `polygonAreaM2` so the two answers agree.
+ *
+ * ⚠️ East–west and north–south, NOT along the shape's own axes: a Fläche has no axes of its own,
+ * and «wie breit ist das» about a Brandzone is asked against the map the operator is looking at.
+ * A rotated Rechteck is the same case — the box it occupies is what has to fit down a street.
+ */
+export function bboxSizeM(coords: LngLat[]): { widthM: number; heightM: number } | null {
+  if (coords.length < 2) return null
+  const pts = coords.map(([lon, lat]) => wgs84ToLV95(lon, lat))
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
+  return { widthM: Math.max(...xs) - Math.min(...xs), heightM: Math.max(...ys) - Math.min(...ys) }
 }
 
 /** human area: m² under 1 ha, hectares under 1 km², else km² */

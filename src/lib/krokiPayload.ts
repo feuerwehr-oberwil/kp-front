@@ -6,11 +6,11 @@
 
 import type { CaptionMode, Drawing, Entity, LayerDef, LngLat, ShapeKind, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
-import { isVehicleSym } from './mapView'
+import { isVehicleSym, shapePx } from './mapView'
 import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { LUEFTER, LUEFTER_EXTRACT, compositeSpec, compositePartGlyph, composeCompositeSvg, isHubretter, composeHubretterSvg } from './symbolRender'
-import { SHAPE_DEFS, rotationInner, rotationViewBox, shapeAspect, type RotationCarrier } from './shapes'
+import { SHAPE_DEFS, SHAPE_MAX_PX, rotationInner, rotationViewBox, shapeAspect, squareInner, squareViewBox, type RotationCarrier } from './shapes'
 import { operationalExtentPoints, type KrokiView } from './report'
 import { resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
@@ -30,6 +30,10 @@ export interface KrokiEntityOut {
   spread?: Entity['spread']
   caption?: string
   sizeM?: number
+  /** generic shapes: which kind, so the server can apply the SAME size and aspect limits the
+   *  client does (a Rotation spans the map and is far leaner than any box — lib/shapes ·
+   *  SHAPE_MAX_PX / shapeAspect). ⚠️ Mirrored in backend/app/kroki.py. */
+  shape?: ShapeKind
   /** generic shapes: height/width ratio of the glyph box (absent = 1). ⚠️ Mirrored in
    *  backend/app/report_pdf.py · KrokiEntityIn — a field pydantic doesn't know is dropped. */
   aspect?: number
@@ -78,13 +82,13 @@ export const krokiSymbolMul = (zoom: number): number =>
 /** The same silhouettes as lib/shapes.tsx ShapeGlyph, as plain SVG strings for resvg.
  *  `stop` (arrow only) adds the «→|» Stopp-Balken across the tip — identical artwork to the
  *  live glyph, so the print says exactly what the screen said. */
-export function shapeSvgString(kind: ShapeKind, color: string, stop = false, aspect?: number, carrier?: RotationCarrier): string {
+export function shapeSvgString(kind: ShapeKind, color: string, stop = false, aspect?: number, carrier?: RotationCarrier, strokeW?: number, boxPx?: number, fillOpacity?: number, hatch?: boolean, sharpCorners?: boolean, reverse?: boolean): string {
   const open = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">'
   // the loop's arrowheads have to be counter-scaled against the SAME aspect the print stretches
   // the box by, or the paper shows flattened wedges where the screen shows arrows
   if (kind === 'rotation') {
     const asp = shapeAspect('rotation', aspect)
-    return `<svg viewBox="${rotationViewBox(asp)}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" overflow="visible">${rotationInner(color, asp, carrier)}</svg>`
+    return `<svg viewBox="${rotationViewBox(asp)}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" overflow="visible">${rotationInner(color, asp, carrier, strokeW, boxPx, reverse)}</svg>`
   }
   if (kind === 'arrow') {
     const bar = stop
@@ -94,14 +98,38 @@ export function shapeSvgString(kind: ShapeKind, color: string, stop = false, asp
     return `${open}<path d="M50 6 L80 50 L60 50 L60 94 L40 94 L40 50 L20 50 Z" fill="${color}" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>${bar}</svg>`
   }
   if (kind === 'square') {
-    return `${open}<rect x="6" y="6" width="88" height="88" rx="6" fill="${color}" fill-opacity="0.18" stroke="${color}" stroke-width="5"/></svg>`
+    // the aspect-matched box, exactly as the screen draws it (lib/shapes · squareInner) — the
+    // stretch that used to fatten the verticals happened on paper too
+    const asp = shapeAspect('square', aspect)
+    return `<svg viewBox="${squareViewBox(asp)}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">${squareInner(color, asp, strokeW, boxPx, fillOpacity, hatch, sharpCorners)}</svg>`
   }
   return `${open}<path d="M27 76 Q12 76 12 62 Q12 49 26 50 Q26 34 43 35 Q52 24 65 33 Q82 31 81 48 Q94 50 90 64 Q86 76 71 76 Z" fill="${color}" fill-opacity="0.5" stroke="${color}" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`
 }
 
+/**
+ * The pixel width the SERVER will raster this shape's box at — the same number the on-screen
+ * marker uses, before the page's own dpi scaling.
+ *
+ * ⚠️ That last part is what makes the outline match a drawn Zeichnung on paper: the server scales
+ * a shape's raster and a line's `width` by the SAME page factor, so a stroke computed against the
+ * unscaled box lands on the same weight as the Linie beside it. Mirrors `krokiSymbolMul`, which
+ * already has to stay in step with `kroki_symbol_mul` in backend/app/kroki.py.
+ */
+function shapeBoxPx(e: Entity, kind: ShapeKind, printZoom?: number): number | undefined {
+  if (printZoom == null) return undefined
+  // ⚠️ per-kind cap, same as the on-screen marker (MapMarkers): the default 900 px ceiling
+  // understated a long Rotation's box, and strokeUnits (= units/boxPx) then printed its outline
+  // up to 13× too fat — the server rasters the run at up to SHAPE_MAX_PX (kroki.py mirrors it)
+  return shapePx(e.sizeM ?? SHAPE_DEFS[kind].defaultSizeM, e.coord[1], printZoom, SHAPE_MAX_PX[kind]) * krokiSymbolMul(printZoom)
+}
+
 /** Resolve one map entity into the server's Kroki entity — or null when it has no
- *  printable representation (photo markers stay app-only). */
-export function krokiEntity(e: Entity, byName: Record<string, string>, captionMode: CaptionMode = 'auto'): KrokiEntityOut | null {
+ *  printable representation (photo markers stay app-only).
+ *
+ *  `printZoom` is the zoom the sheet will be rendered at (the framing crop). It is what lets a
+ *  shape's outline be built at the same pixel width a drawn Zeichnung has — see `shapeBoxPx`.
+ *  Omitted (a legend row, a caller with no crop yet) ⇒ the shape keeps its icon weight. */
+export function krokiEntity(e: Entity, byName: Record<string, string>, captionMode: CaptionMode = 'auto', printZoom?: number): KrokiEntityOut | null {
   if (e.kind === 'photo') return null
   const base: KrokiEntityOut = {
     coord: e.coord, kind: e.kind, rotation: e.rotation,
@@ -125,7 +153,10 @@ export function krokiEntity(e: Entity, byName: Record<string, string>, captionMo
     const aspect = shapeAspect(kind, e.aspect)
     return {
       ...base,
-      symbolSvg: shapeSvgString(kind, color, kind === 'arrow' && !!e.stop, aspect, e.carrier),
+      // ⚠️ the size RATIO travels, not pixels — that is the whole reason the outline can stay out
+      // of the resize on paper as well as on screen (lib/shapes · shapeSizeRel)
+      symbolSvg: shapeSvgString(kind, color, kind === 'arrow' && !!e.stop, aspect, e.carrier, e.strokeW, shapeBoxPx(e, kind, printZoom), e.fillOpacity, e.hatch, e.sharpCorners, e.reverse),
+      shape: kind,
       sizeM: e.sizeM ?? SHAPE_DEFS[kind].defaultSizeM,
       aspect: aspect !== 1 ? aspect : undefined,
     }
@@ -182,7 +213,7 @@ export function buildKrokiPayload(args: {
   if (!base?.tiles?.length) return null
   const ents = entities
     .filter((e) => visible(e.layer))
-    .map((e) => krokiEntity(e, byName, captionMode))
+    .map((e) => krokiEntity(e, byName, captionMode, args.currentView?.zoom))
     .filter((e): e is KrokiEntityOut => e !== null)
   const truppLabel = (d: Drawing): string | undefined => {
     const t = truppForLine(d, trupps)

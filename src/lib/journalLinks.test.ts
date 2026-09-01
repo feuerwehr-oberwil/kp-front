@@ -86,6 +86,59 @@ describe('addresses', () => {
   })
 })
 
+// Where a Meldung's callback number actually lands: in the sentence somebody typed. It is worth
+// anchoring on the Rapport — and worth NOT guessing at, because a Verlauf is full of numbers that
+// are not numbers to call.
+describe('phone numbers', () => {
+  const phones = (text: string) =>
+    linkParts(text, vocab, { phone: true }).filter((p) => p.kind === 'phone')
+
+  it('finds the shapes a Swiss number is written in, and normalises the href', () => {
+    const cases: [string, string][] = [
+      ['079 123 45 67', 'tel:0791234567'],
+      ['+41 79 123 45 67', 'tel:+41791234567'],
+      ['044 123 45 67', 'tel:0441234567'],
+      ['079/123 45 67', 'tel:0791234567'],
+      ['079.123.45.67', 'tel:0791234567'],
+      ['079-123-45-67', 'tel:0791234567'],
+      ['0791234567', 'tel:0791234567'],
+    ]
+    for (const [typed, href] of cases) {
+      const hit = phones(`Melder ${typed}, wartet vor dem Haus`)
+      expect(hit, typed).toHaveLength(1)
+      // the printed text stays exactly as it was typed — the Rapport prints what was said
+      expect(hit[0].text).toBe(typed)
+      expect(hit[0].href).toBe(href)
+    }
+  })
+
+  it('⚠️ swallows nothing that merely looks numeric', () => {
+    const nothing = [
+      'Rückzug 14:31, Wiederbelebung ab 14:31:20',
+      'Flasche 250 bar, zweite 300 bar',
+      'Leitung 3 ab Verteiler 2, Ltg-Nr 12',
+      'Ereignis vom 01.09.2026, Nachkontrolle 04.09.2026',
+      'Zählerstand 20260901123456 abgelesen',
+    ]
+    for (const text of nothing) expect(phones(text), text).toEqual([])
+  })
+
+  it('⚠️ leaves the digits inside an address alone — that link is already claimed', () => {
+    const text = 'Meldung unter https://elz.ch/f/0791234567 abgelegt'
+    const parts = linkParts(text, vocab, { phone: true }).filter((p) => p.kind)
+    expect(parts.map((p) => p.kind)).toEqual(['url'])
+  })
+
+  it('⚠️ is not marked on screen — the Verlauf renders a number as prose', () => {
+    expect(linkParts('Melder 079 123 45 67', vocab).some((p) => p.kind)).toBe(false)
+  })
+
+  it('anchors it for the PDF, underlined like an address', () => {
+    expect(linkMarkup('Melder 079 123 45 67 vor dem Haus', vocab, (v) => v))
+      .toBe('Melder <a href="tel:0791234567"><u>079 123 45 67</u></a> vor dem Haus')
+  })
+})
+
 describe('linkParts', () => {
   it('splits into plain and marked stretches that rebuild the original exactly', () => {
     const text = 'TLF bringt Ölbinder'

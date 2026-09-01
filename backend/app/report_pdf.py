@@ -224,6 +224,9 @@ class KrokiEntityIn(BaseModel):
     spread: dict | None = None  # {h: 'E'|'W', hBounded, up, down, vBounded}
     caption: str | None = None
     sizeM: float | None = None  # generic shapes: ground size in metres (client shapePx)
+    # which generic shape — the size and aspect limits are per kind (app/kroki.py), because a
+    # Rotation is a run across the map and far leaner than any box
+    shape: str | None = None
     # generic shapes: height/width ratio (client sends it only when != 1); without this
     # field pydantic would silently drop it and every Rechteck would print square
     aspect: float | None = None
@@ -315,6 +318,7 @@ class PlanAnnoIn(BaseModel):
     # generic shapes (Pfeil/Rauch/Rechteck) arrive as kind 'symbol' with a client-resolved
     # svg + their size as a fraction of the plan width (overrides the fixed symbol size)
     sizeN: float | None = None
+    shape: str | None = None  # which generic shape — see KrokiEntityIn.shape
     # generic shapes: height/width ratio (only sent when != 1, see KrokiEntityIn.aspect)
     aspect: float | None = None
     # free-text note styling. wN (a fraction of the plan width, like sizeN) is what makes a note
@@ -577,6 +581,11 @@ L = {
     # Foto at every other step («Foto hinzufügen», «Bildlegende»). A heading that promises a
     # Beilage the surface cannot accept is a heading that has to be explained.
     "attachments": "Fotos",
+    # …and the reference under each plate. The NUMBER is the contract — it is what a journal
+    # entry, a phone call and this sheet all name the picture by, so it stays put and stays the
+    # same; only the label spells itself out. «B1» was a code the reader had to be told, on a
+    # sheet whose whole job is to be legible to somebody who was not there.
+    "figure": "Bild {n}",
     "summary": "Kurzbericht / durchgeführte Arbeiten",
     "lehren": "Lehren / Sicherheit",
     "remarks": "Bemerkungen",
@@ -885,6 +894,53 @@ def _esc(s: str | None) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+#: A Swiss phone number, and deliberately only that — the mirror of ``phoneRanges`` in
+#: src/lib/journalLinks.ts, which marks the numbers inside journal entries. Ten digits written
+#: nationally («079 123 45 67», «044 123 45 67») or internationally («+41 79 123 45 67»), grouped
+#: 3-3-2-2 the way the Post writes them, separated by a space, «/», «.», «-» or nothing at all.
+#: A rapport is full of numbers that are not numbers to call — «14:31», «250 bar», «01.09.2026» —
+#: and a guess costs a dead tap target in the middle of a signed document.
+_PHONE_RE = re.compile(r"(?:\+41[ ./-]?|0)\d{2}[ ./-]?\d{3}[ ./-]?\d{2}[ ./-]?\d{2}")
+
+
+def _phone_spans(text: str) -> list[tuple[int, int]]:
+    """Where the dialable numbers sit in ``text`` — half-open ``(start, end)`` offsets.
+
+    ⚠️ Glued to a letter or another digit it is a longer number that happens to contain ten of
+    them (an Einsatz-ID, a Zählerstand, a reference), never a number anybody dials.
+    """
+    out: list[tuple[int, int]] = []
+    for m in _PHONE_RE.finditer(text):
+        before = text[m.start() - 1] if m.start() else ""
+        after = text[m.end() : m.end() + 1]
+        if before.isalnum() or before == "+" or after.isalnum():
+            continue
+        out.append((m.start(), m.end()))
+    return out
+
+
+def _tel(number: str) -> str:
+    """The dialable form: digits only, keeping the country code's «+». Never escaped, because
+    that character class cannot carry anything XML would have to be told about."""
+    return "tel:" + re.sub(r"[^\d+]", "", number)
+
+
+def _tel_markup(text: str) -> str:
+    """``text`` escaped for a Paragraph, with every phone number in it wrapped in a ``tel:``
+    anchor — underlined like an address, because the sheet has no colour to spend and both mean
+    «this can be followed». The segment is built BEFORE escaping so the markup escapes nothing
+    of its own (the same order src/lib/journalLinks.ts uses)."""
+    out: list[str] = []
+    at = 0
+    for start, end in _phone_spans(text):
+        number = text[start:end]
+        out.append(_esc(text[at:start]))
+        out.append(f'<a href="{_tel(number)}"><u>{_esc(number)}</u></a>')
+        at = end
+    out.append(_esc(text[at:]))
+    return "".join(out)
+
+
 def _str_w(text: str, font: str, size: float) -> float:
     """Text width without a canvas — for sizing a column before there is anything to draw on."""
     return pdfmetrics.stringWidth(text, font, size)
@@ -899,11 +955,29 @@ def _fit_text(c, text: str, max_w: float, font: str = "Helvetica", size: float =
     return text + "…"
 
 
+def _link_tel_on_canvas(c, text: str, x: float, y: float, size: float) -> None:
+    """Lay a ``tel:`` link annotation over each phone number in canvas-drawn text.
+
+    ⚠️ The Details box is painted straight onto the canvas (`_FormRows`), not assembled from
+    Paragraphs, so there is no markup to hang an `<a>` on: the hotspot has to be measured off the
+    very x/y/font the `drawString` used. Without it the one number on the sheet that actually gets
+    dialled — the Kontaktperson's, in the Nachbearbeitung the next morning — is the one number
+    nobody can tap. `relative=1` because a Flowable draws in its own translated coordinate system.
+    """
+    for start, end in _phone_spans(text):
+        x0 = x + c.stringWidth(text[:start], "Helvetica", size)
+        x1 = x0 + c.stringWidth(text[start:end], "Helvetica", size)
+        # `y` is the baseline; a finger needs the line box, so descend a quarter and rise
+        # three quarters of the type size around it
+        c.linkURL(_tel(text[start:end]), (x0, y - 0.25 * size, x1, y + 0.75 * size), relative=1)
+
+
 class _FormRows(Flowable):
     """Dotted-leader form fields exactly like the jsPDF Erfassungsblatt: `Label: ······`,
     with a recorded value printed ON the line (as handwriting would be). Each row is a list
-    of fields `{label, w (fraction), value?, time?}`; `time` fields render the `__:__`
-    stub instead of a leader. `boxed` draws the Details frame around the block."""
+    of fields `{label, w (fraction), value?, time?, tel?}`; `time` fields render the `__:__`
+    stub instead of a leader, `tel` fields get a `tel:` hotspot over whatever number they
+    printed. `boxed` draws the Details frame around the block."""
 
     def __init__(self, width: float, rows: list[list[dict]], boxed: bool = False, pitch: float = 8.5 * mm):
         super().__init__()
@@ -996,6 +1070,10 @@ class _FormRows(Flowable):
                         c.setFont("Helvetica", 9)
                         c.setFillColor(_INK)
                         c.drawString(lx, y, shown)
+                        # measured on `shown`, not on the value: a field clipped by _fit_text
+                        # must not carry a hotspot over an ellipsis
+                        if f.get("tel"):
+                            _link_tel_on_canvas(c, shown, lx, y, 9)
                 x += w
                 offset += w
 
@@ -1312,7 +1390,9 @@ def compose_report_pdf(
             # half/half like every other two-field row, so «Telefon» aligns with the right
             # column («Gerettet», «Einsatzende») instead of floating 10% off it
             {"label": L["kontaktperson"], "w": 0.5, "value": kontaktperson},
-            {"label": L["kontaktpersonTelefon"], "w": 0.5, "value": m.kontaktpersonTelefon},
+            # …and the number is dialable from the PDF: this rapport is read on a phone the
+            # morning after, by whoever has to call the owner back
+            {"label": L["kontaktpersonTelefon"], "w": 0.5, "value": m.kontaktpersonTelefon, "tel": True},
         ]
     )
     half = 0.5
@@ -2183,8 +2263,8 @@ def _attachment_block(
     print as a numbered contact sheet: at 50 photos nobody reads plate 30, and what the paper is
     for becomes «which pictures exist», which a thumbnail answers.
 
-    Either way each carries its number «B7», so the Verlauf, a phone call and the paper can all
-    name the same picture.
+    Either way each carries its number «Bild 7», so the Verlauf, a phone call and the paper can
+    all name the same picture.
     """
     n = len(att)
     grid = n > _ATT_PLATE_MAX
@@ -2205,10 +2285,12 @@ def _attachment_block(
 
     def cell(i: int, a: AttachmentIn, data: bytes):
         # The NUMBER is the contract — it is what lets the Verlauf, a phone call and the paper
-        # name the same picture. A caption is extra. «ohne Bildlegende» printed under all seven
-        # plates of an ordinary rapport, which is a placeholder repeated until it is noise.
+        # name the same picture, so the label spells itself out around a number that never moves.
+        # A caption is extra: «ohne Bildlegende» printed under all seven plates of an ordinary
+        # rapport, which is a placeholder repeated until it is noise.
         cap = _esc((a.caption or "").strip())
-        caption = Paragraph(f"<b>B{i}</b>" + (f" · {cap}" if cap else ""), st["muted"])
+        ref = _esc(L["figure"].format(n=i))
+        caption = Paragraph(f"<b>{ref}</b>" + (f" · {cap}" if cap else ""), st["muted"])
         img = _fit_image(data, img_w, cell_h)
         if img is None:
             return [caption]
@@ -2246,7 +2328,7 @@ def _attachment_block(
     # cell's width. As `[cell_w] * cols` the table came out `gutter * (cols-1)` narrower than
     # the frame — ReportLab then centre-floated the whole block (left edge 48.2 against a
     # section rule at 39.7) AND the images, sized at cell_w, overflowed their own padding: two
-    # photographs measured as touching, B1 ending at 297.64 and B2 starting at 297.64.
+    # photographs measured as touching, Bild 1 ending at 297.64 and Bild 2 starting at 297.64.
     t = Table(rows, colWidths=[cell_w + (gutter if c < cols - 1 else 0) for c in range(cols)])
     t.hAlign = "LEFT"
     t.setStyle(
@@ -2287,7 +2369,13 @@ def _partner_table(
         # text with no length rule behind them, and a long one wrapped to four or five lines —
         # which on a two-up block means the row opposite it opens a hole that size (see
         # `_personal_table`), and the two halves stop sharing baselines from there down.
-        notes = [_esc(_clip_print(" · ".join(x for x in (c.name, c.phone, c.note) if x))) if c else "" for _, c in part]
+        # ⚠️ Clipped FIRST, then marked up: `_clip_print` counts characters, and letting it cut a
+        # string that already carries an `<a href>` would leave a half-open tag on the page. The
+        # phone number in that line is the partner's callback — the reason to print it at all.
+        notes = [
+            _tel_markup(_clip_print(" · ".join(x for x in (c.name, c.phone, c.note) if x))) if c else ""
+            for _, c in part
+        ]
         note_w = col_w - check_w - org_w
         # each write-in cell carries its OWN rule, on its own text line — a LINEBELOW would sit
         # at the bottom of a row whose height comes from the checkbox (see _write_rule)

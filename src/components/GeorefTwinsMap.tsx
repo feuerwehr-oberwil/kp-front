@@ -80,6 +80,10 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
         return (
           <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center"
             style={{ zIndex: MARKER_Z.twin }}
+            // swallow the trailing native click before MapLibre's own container listener sees
+            // it — otherwise onMapClick closes the twin panel the tap just opened (the same
+            // idiom as MapMarkers; see GeorefContentMap · tapTarget for the full story)
+            onClick={(ev) => ev.originalEvent.stopPropagation()}
             draggable={movable}
             onDragStart={() => { dragged.current = true; onMove?.(t, t.coord, 'start') }}
             onDrag={(e) => onMove?.(t, [e.lngLat.lng, e.lngLat.lat], 'move')}

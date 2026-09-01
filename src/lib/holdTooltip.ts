@@ -12,8 +12,10 @@
 // What is eligible — decided at press time, from the DOM alone:
 //  · a <button> (or role="button") whose accessible name lives ONLY in aria-label/title, i.e.
 //    it renders no visible text — a labelled button already says its word;
-//  · …or one marked `data-holdexplain`, whose visible text is a CODE and not a word (the FKS
-//    letter chips: «S», «N», «G»). Opt-in, so nothing becomes explainable by accident;
+//  · …or one marked `data-holdexplain`, whose visible content does not say what it does — a CODE
+//    (the FKS letter chips: «S», «N», «G») or a PICTURE (the Abschluss endings, via Segmented ·
+//    `explain`, where the drawing shows the arrow but not that a deleted Teilstück releases the
+//    lines docked to it). Opt-in, so nothing becomes explainable by accident;
 //  · not `[data-holdaction]`: controls whose press-and-hold IS a gesture of their own
 //    (±steppers via useHoldRepeat, the Eintrag hold via useHoldEntry) opt out at the source;
 //  · touch/pen presses only — the mouse keeps its native hover tooltip …
@@ -69,8 +71,10 @@ function showBubble(el: HTMLElement, label: string): HTMLElement {
   document.body.appendChild(b)
   const r = el.getBoundingClientRect()
   // above the button, clamped into the viewport; below it when there is no room above
-  const bw = b.offsetWidth
-  const left = Math.max(6, Math.min(window.innerWidth - bw - 6, r.left + r.width / 2 - bw / 2))
+  // ⚠️ Measured AFTER `text-wrap: balance` has settled the line break, so `bw` is the pill's real
+  // width and not the pre-wrap one — clamping on a stale width is what would push it off-screen.
+  const bw = b.getBoundingClientRect().width
+  const left = Math.max(8, Math.min(window.innerWidth - bw - 8, r.left + r.width / 2 - bw / 2))
   const top = r.top - b.offsetHeight - 8
   b.style.left = `${Math.round(left)}px`
   b.style.top = `${Math.round(top >= 6 ? top : r.bottom + 8)}px`

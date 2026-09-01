@@ -65,12 +65,14 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     // A COUNT settles before it is logged. «Ölbinder: 3 Sack» typed with the ±stepper is five
     // taps, and it used to be five Verlauf rows — the material is already listed with its total
     // in the Mittel section, so the log's job is to say when it was recorded, once.
-    scheduleCountLog(probe, `${where}`, unit)
+    scheduleCountLog(probe, `${where}`, unit, cur?.menge ?? 0)
   }
 
   /** Pending «this count is still being dialled in» writers, one per material line. Each entry
-   *  keeps its timer AND the closure that writes the row, so the row can be forced out early. */
-  const countLogs = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; write: () => void }>())
+   *  keeps its timer AND the closure that writes the row, so the row can be forced out early —
+   *  plus `before`, the total this line carried when the burst STARTED, so the settled row can
+   *  say what the number moved from. */
+  const countLogs = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; before: number; write: () => void }>())
   /** Write a pending count row NOW — a deletion supersedes it, and so does leaving the incident. */
   const flushLogFor = (key: string) => {
     const p = countLogs.current.get(key)
@@ -79,20 +81,29 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     countLogs.current.delete(key)
     p.write()
   }
-  const scheduleCountLog = (probe: Parameters<typeof currentLineFor>[1], where: string, unit: string) => {
+  const scheduleCountLog = (probe: Parameters<typeof currentLineFor>[1], where: string, unit: string, before: number) => {
     const key = mittelKey(probe)
     const pending = countLogs.current.get(key)
     if (pending) clearTimeout(pending.timer)
+    // ⚠️ The FIRST `before` of a burst wins. Five taps on ± are five calls, and each one reads
+    // the total the tap before it wrote — so taking the newest would report «3 (vorher 4)» for a
+    // line that actually stood at 8 when the operator started dialling.
+    const from = pending?.before ?? before
     const write = () => {
       // read the FINAL value off the live log, not the one captured when the burst started
       const menge = currentLineFor(mittelRef.current, probe)?.menge ?? 0
       const label = probe.label
-      log('box', menge === 0
+      // …and say where it came FROM. The row used to carry only the new total, which answers
+      // «wie viel liegt jetzt dort» but not «was ist passiert» — and on paper the Verlauf is
+      // read for the second question. Omitted when the line was empty before: there is no
+      // «vorher» for a material that is being recorded for the first time.
+      const moved = from !== menge && from > 0 ? ` ${fillTemplate(M.logBefore, { n: from })}` : ''
+      log('box', (menge === 0
         ? fillTemplate(M.logRemoved, { label }) + where
-        : fillTemplate(M.logSet, { label, menge, unit }) + where, 'team')
+        : fillTemplate(M.logSet, { label, menge, unit }) + where) + moved, 'team')
     }
     const timer = setTimeout(() => { countLogs.current.delete(key); write() }, COUNT_SETTLE_MS)
-    countLogs.current.set(key, { timer, write })
+    countLogs.current.set(key, { timer, before: from, write })
   }
   // Leaving the incident FORCES the pending rows out rather than dropping them — a Verlauf that
   // silently loses the last thing recorded is worse than one written a moment early.

@@ -76,7 +76,12 @@ export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, stri
       const kind = a.shape ?? 'square'
       const aspect = shapeAspect(kind, a.aspect)
       out.kind = 'symbol'
-      out.symbolSvg = shapeSvgString(kind, a.color ?? SHAPE_DEFS[kind].defaultColor, kind === 'arrow' && !!a.stop)
+      // the FULL prop set, exactly as the map path sends it (krokiPayload · krokiEntity):
+      // aspect, carrier, stroke weight, fill/hatch, corners and circulation all print as drawn.
+      // No boxPx — the page width is the server's to decide, so the stroke keeps the unit-based
+      // default weight here.
+      out.symbolSvg = shapeSvgString(kind, a.color ?? SHAPE_DEFS[kind].defaultColor, kind === 'arrow' && !!a.stop, aspect, a.carrier, a.strokeW, undefined, a.fillOpacity, a.hatch, a.sharpCorners, a.reverse)
+      out.shape = kind // so the server applies the same per-kind limits the client does
       out.sizeN = a.sizeN ?? SHAPE_DEFS[kind].defaultSizeN
       if (aspect !== 1) out.aspect = aspect
       out.label = undefined // the shape's implicit name (Rauch/Pfeil/…) is not an on-plan label

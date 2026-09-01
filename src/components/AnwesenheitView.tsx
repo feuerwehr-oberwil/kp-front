@@ -831,9 +831,12 @@ export function AnwesenheitView({
             <Menu
               modal={false} // one-tap switch with the rank filter beside it — see the note above
               trigger={
+                /* «Nach Status filtern», not the bare «Filtern»: the rank filter beside it names
+                   its facet and this popup's own heading already does, so the hold tooltip was
+                   the one place answering «which filter is this?» with «Filtern». */
                 <button className={cx(c.iconBtn, (stateSel.size > 0 || noteOnly) && c.iconBtnOn)}
-                  aria-label={stateOn ? `${A.filterLabel} – ${stateOn}` : A.filterLabel}
-                  title={stateOn ? `${A.filterLabel} – ${stateOn}` : A.filterLabel}>
+                  aria-label={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}
+                  title={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}>
                   <Icon id="filter" />
                   {(stateSel.size > 0 || noteOnly) && <span className={c.filterDot} aria-hidden />}
                 </button>

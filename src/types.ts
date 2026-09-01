@@ -195,6 +195,30 @@ export interface Entity extends SymbolProps {
   stop?: boolean
   /** Rotation only: which vehicle runs the shuttle (lib/shapes · RotationCarrier) */
   carrier?: 'heli' | 'tlf'
+  /** Rotation only: the shuttle circulates the OTHER way round — both direction heads mirrored
+   *  (lib/shapes · rotationInner). Absent = the default sense. The Plan mirror is
+   *  `BoardAnno.reverse`. */
+  reverse?: boolean
+  /** the outline's weight, in the drawn Fläche's own three steps (`appConfig.drawing.widths`) —
+   *  a Form is a pre-shaped area and is edited with the area's vocabulary. Absent = the middle
+   *  step, which is what every shape stored before 01.09. is drawn at. A FACTOR, not pixels: the
+   *  artwork travels to the print path as a string that never learns the box's pixel size
+   *  (lib/shapes · SHAPE_STROKE_DEFAULT). The Plan mirror is `BoardAnno.strokeW`. */
+  strokeW?: number
+  /** shape fill — the SAME two answers a drawn Fläche gives, because a Rechteck is a Fläche that
+   *  came pre-shaped: a wash at this opacity (0 = outline only), or `hatch` for the Schraffur.
+   *  Absent = the default wash. The Plan mirror is `BoardAnno.fillOpacity` / `.hatch`, which the
+   *  board's own areas already use. */
+  fillOpacity?: number
+  hatch?: boolean
+  /** Rechteck: square corners instead of the rounded default. A Fläche drawn by hand has the
+   *  corners its points make, so the pre-shaped one has to be able to say the same thing. */
+  sharpCorners?: boolean
+  /** locked: exactly the lock a drawn Fläche has — the same field, name AND behaviour as
+   *  `Drawing.locked` / `BoardAnno.locked`: the ink is click-through (no select, no drag, no
+   *  lasso), and the centre LockChip (short hold) is the only door back in
+   *  (MapMarkers · shape-lock-anchor). */
+  locked?: boolean
   /** aerial-appliance boom reach in metres (Hubretter) — the ground distance from the truck
    *  (`coord`) to the rescue cage; the cage is the draggable tip and `rotation2` its bearing.
    *  Metre-scaled like `sizeM` so the cage stays over its ground spot as the map zooms. The Plan
@@ -632,6 +656,10 @@ export interface BoardAnno extends SymbolProps {
   stop?: boolean
   /** Rotation only: which vehicle runs the shuttle (lib/shapes · RotationCarrier) */
   carrier?: 'heli' | 'tlf'
+  /** Rotation only: reversed circulation — the shape twin of `Entity.reverse` */
+  reverse?: boolean
+  /** shape outline weight — the plan-space twin of `Entity.strokeW` (lib/shapes) */
+  strokeW?: number
   /** aerial-appliance boom reach as a fraction of the plan width (0..1) — the plan-space analogue of
    *  Entity.reachM (the Hubretter cage distance from the truck; bearing = `rotation2`). */
   reachN?: number
@@ -655,6 +683,8 @@ export interface BoardAnno extends SymbolProps {
   endDy?: number
   fillOpacity?: number       // area: polygon fill opacity (0..1); absent = a sensible default
   hatch?: boolean            // area: schraffiert statt gefüllt (lib/draw · Schraffur)
+  /** shape twin of `Entity.sharpCorners` — a Rechteck with square corners */
+  sharpCorners?: boolean
   t?: string                 // resource: HH:MM of last move
   trail?: TrailPoint[]       // resource: breadcrumb history, oldest → newest
   // resource: the linked Atemschutz Trupp this chip REPRESENTS (position tracking).
@@ -677,7 +707,7 @@ export interface BoardAnno extends SymbolProps {
    *  on it unlocks it with a short hold. Absent = editable. The plan-space twin of
    *  `Drawing.locked` — same field name, same meaning, so a Leitung behaves the same on both
    *  surfaces. ⚠️ NOT `tacticalLocked`, which locks the whole surface for a viewer.
-   *  Draw/area only, exactly like the map (a symbol is never locked on either surface). */
+   *  Draw/area/shape only, exactly like the map (a symbol is never locked on either surface). */
   locked?: boolean
   /** Magnetic relationship intent at the first/last vertex (draw/line only). */
   startAttachment?: LineAttachment

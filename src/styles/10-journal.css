@@ -908,7 +908,39 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .hist-ev .tl-play::after { width: 48px; height: 48px; }
 
 /* ── the row's detail sheet (Sheet · .jr-detail) ── */
+/* The pictures the row carries, ABOVE its words: on a photo entry the sentence is «Foto» or the
+   Bereich's own word, so the picture is the row. A wrapping strip rather than one hero, because
+   a Sofortmassnahme routinely carries three and the sheet must not become a scroll to see them.
+   ⚠️ Fixed height, `object-fit: cover`: a portrait phone shot and a landscape one land in one
+   row without the strip changing height under the finger. */
+.jr-detail-shots { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.jr-detail-shots button {
+  padding: 0; border: 1px solid var(--border-soft); border-radius: var(--r-sm);
+  background: var(--surface-2); overflow: hidden; cursor: pointer; line-height: 0;
+}
+.jr-detail-shots button:active { background-image: linear-gradient(var(--press), var(--press)); }
+.jr-detail-shots img { width: 104px; height: 76px; object-fit: cover; display: block; }
 .jr-detail .jr-detail-text { margin: 0 0 6px; font-size: 13.5px; line-height: 1.45; }
+/* The fact table — one row per thing the record holds, hairline-separated like the Rapport's own
+   rows. A two-track grid so every value starts on one x however long its label is; `--r-ctl` is
+   not used because this is a list of facts, not a control. */
+.jr-detail-facts {
+  margin: 12px 0 0; padding: 2px 0;
+  border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);
+}
+.jr-detail-facts > div {
+  display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px;
+  padding: 7px 2px; align-items: baseline;
+}
+.jr-detail-facts > div + div { border-top: 1px solid var(--border-soft); }
+.jr-detail-facts dt { font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
+.jr-detail-facts dd { margin: 0; font-size: 12.5px; font-weight: 500; color: var(--ink); }
+/* the second line of a fact — the first wording of a corrected row, the «nicht bearbeitbar»
+   note. Quieter than the value it hangs under, and never bold: it is context, not the answer. */
+.jr-detail-facts dd small {
+  display: block; margin-top: 2px; font-size: 11px; font-weight: 400;
+  color: var(--ink-faint); line-height: 1.4;
+}
 .jr-detail-acts { display: grid; gap: 8px; margin-top: 12px; }
 .jr-detail-acts .btn { justify-content: flex-start; padding-inline: 12px; }
 /* the amber the inline Transkript button used to carry — same tone, now on the sheet action */

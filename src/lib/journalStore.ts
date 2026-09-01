@@ -57,6 +57,36 @@ function stripSessionUrls(row: TimelineEvent): TimelineEvent {
 const isValidationError = (e: unknown): boolean =>
   e instanceof ApiError && (e.status === 400 || e.status === 413 || e.status === 422)
 
+/**
+ * Order display rows newest-first by the time they were WRITTEN (`at`).
+ *
+ * WHY: nothing else in the store carries written time. Server rows are ordered by `seq`, i.e.
+ * the order the server ACCEPTED them, and the outbox is concatenated after all of them — so a
+ * row written offline at 15:01 and flushed at 15:07 printed after everything written at 15:05,
+ * and a pending row always printed newest whatever its timestamp. Rows show HH:MM only, so the
+ * operator read that as random order within a minute. `at` is a full-precision ISO stamp, so
+ * the written order is recoverable exactly — no change to what is stored or displayed.
+ *
+ * Pass the list in the order the store built it (newest-first, `seq` within a timestamp): the
+ * sort is deliberately the plain `Array.prototype.sort`, whose stability ES2019 guarantees, so
+ * rows sharing a millisecond keep exactly that incoming order and `seq` stays the tiebreak.
+ *
+ * A row whose `at` is missing or unparseable (legacy blob rows may carry only `t`) inherits the
+ * key of the row before it rather than sorting as 0 — an undated row belongs where it already
+ * sits between its neighbours, not flushed to one end of the Verlauf.
+ */
+export function chronological(rows: readonly TimelineEvent[]): TimelineEvent[] {
+  let carry = Number.POSITIVE_INFINITY // a leading undated row has no predecessor: leave it on top
+  return rows
+    .map((row) => {
+      const ms = row.at ? Date.parse(row.at) : Number.NaN
+      if (!Number.isNaN(ms)) carry = ms
+      return { row, key: carry }
+    })
+    .sort((a, b) => b.key - a.key)
+    .map((d) => d.row)
+}
+
 export class JournalStore {
   private state: Persisted = { rows: [], latestSeq: 0, outbox: [], dead: [] }
   /** legacy blob rows in CHRONOLOGICAL (oldest-first) order — the blob stores newest-first */
@@ -287,8 +317,9 @@ export class JournalStore {
   }
 
   /** The UI's timeline: union (server ∪ legacy-not-yet-on-server ∪ outbox ∪ dead-lettered),
-   *  patches folded, session overlays applied, newest-first (what the old in-blob state
-   *  looked like). */
+   *  patches folded, session overlays applied, and finally ordered newest-first by written
+   *  time (`chronological`) — the union order is `seq` per source, which is acceptance order,
+   *  not the order the operator wrote the rows. */
   display(): TimelineEvent[] {
     const out: TimelineEvent[] = []
     const seen = new Set<string>()
@@ -336,7 +367,9 @@ export class JournalStore {
     const rows = out.filter((r) => !r.patchOf).map((r) => patched.get(r.id)!).filter((r) => !r.retracted)
     // session overlay last (blob: URLs beat everything for display)
     const withOverlay = rows.map((r) => (this.overlay.has(r.id) ? { ...r, ...this.overlay.get(r.id) } : r))
-    return withOverlay.reverse()
+    // reverse first (newest-first, `seq` within), then order by written time — the reverse is
+    // what makes `seq` descending, which is the tiebreak the stable sort then preserves
+    return chronological(withOverlay.reverse())
   }
 
   dispose() {

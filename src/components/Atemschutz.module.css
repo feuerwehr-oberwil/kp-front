@@ -742,14 +742,21 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    ⚠️ The LIST blinks with it. The search field alone answered «where do I type», which is not
    the question somebody tapping an empty slot is asking — they are looking for a name, and the
    answer is «pick one from down here», where typing is only the way to narrow it. Blinking the
-   two together points at the whole answer instead of at half of it. */
+   two together points at the whole answer instead of at half of it.
+   ⚠️ …and so does the GAST link (.linkBtnHint below). A person who is not on the Mannschaft is
+   exactly the case where the field and the list have no answer, and the one control that does
+   was the one control the gesture left dark. Highlight only — the caret stays in the search
+   field, because typing a Gast name is the exception, not what the tap asked for. */
 @keyframes teamSearchFlash {
   0%, 30%, 70% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
   15%, 50%, 100% { box-shadow: 0 0 0 3px transparent; }
 }
-.teamSearchHint, .teamListHint { animation: teamSearchFlash 1.1s ease-out 1; }
+.teamSearchHint, .teamListHint, .linkBtnHint { animation: teamSearchFlash 1.1s ease-out 1; }
+/* the link is a bare text button (no border, no fill), so the ring needs the button radius of
+   its own to read as a ring rather than a box */
+.linkBtnHint { border-radius: var(--r-sm); }
 @media (prefers-reduced-motion: reduce) {
-  .teamSearchHint, .teamListHint { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
+  .teamSearchHint, .teamListHint, .linkBtnHint { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
 }
 .teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
 .teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;

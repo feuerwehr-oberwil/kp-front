@@ -24,7 +24,7 @@ import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
-import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM, polygonAreaM2 } from './lib/geo'
+import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, type AssignableRole } from './lib/roleAssignment'
 import { useShiftActions } from './lib/useShiftActions'
@@ -85,7 +85,7 @@ import { DrawEditor } from './components/DrawEditor'
 import { ToolDock } from './components/ToolDock'
 import { ShapeEditor } from './components/ShapeEditor'
 import { MeasurePanel } from './components/MeasurePanel'
-import { ROTATION_MAX_M, SHAPE_DEFS, ShapeGlyph, shapeAspect } from './lib/shapes'
+import { ROTATION_DEFAULT_RUN_M, ROTATION_MAX_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationRun, shapeAspect } from './lib/shapes'
 import { Journal } from './components/Journal'
 import { JournalComposer, type JournalDraft } from './components/JournalComposer'
 import { composeJournalText } from './lib/journalEntry'
@@ -420,6 +420,15 @@ export function IncidentWorkspace({
    *  selection that arrived some other way can't borrow a stale point. Only the panel nudge reads
    *  it (lib/panelNudge · panelNudgeSelection). */
   const [drawTap, setDrawTap] = useState<{ id: string; x: number; y: number } | null>(null)
+  /** the FIRST of a Rotation's two points, while the second is still being looked for. Held here
+   *  rather than in the tactical selection because it lives and dies with one placement gesture
+   *  (lib/shapes · SHAPE_TWO_POINT); the guard effect below clears it on EVERY exit from that
+   *  gesture — per-exit bookkeeping missed paths, and a stale point silently became one end of
+   *  the next Rotation laid minutes later. */
+  const [rotStart, setRotStart] = useState<LngLat | null>(null)
+  useEffect(() => {
+    if (tool !== 'shape' || !pendingShape || !SHAPE_TWO_POINT[pendingShape]) setRotStart(null)
+  }, [tool, pendingShape])
 
   // Per-incident SYNCED workspace slices (board, checklists, trupps, attendance, mittel, camera
   // views, plan scale, report meta, Gebäude, active plan, picked object, synced settings, the
@@ -1446,7 +1455,7 @@ export function IncidentWorkspace({
       // the confirm AND peeled a map layer behind it. The Plan's twin of this handler already
       // matched both roles; this is the Lage catching up.
       if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
-      if (pending || pendingShape) { setPending(null); setPendingShape(null); setTool('select') }
+      if (pending || pendingShape) { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
       else if (panel || viewsOpen) { setPanel(null); setViewsOpen(false) }
       // …then the active TOOL and the dock that belongs to it. Escape used to bail out of an
       // armed placement but leave Messen or Zeichnen running with its dock open over the map,
@@ -2154,7 +2163,26 @@ export function IncidentWorkspace({
     if (tool === 'shape' && pendingShape) {
       const id = `sh${Date.now()}`; const def = SHAPE_DEFS[pendingShape]
       const name = appConfig.copy.shapes.names[pendingShape]
-      commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, coord: c, shape: pendingShape, color: def.defaultColor, sizeM: def.defaultSizeM, rotation: 0, label: name }] }))
+      // ── A Rotation is laid between two PLACES (lib/shapes · SHAPE_TWO_POINT) ──────────────
+      // The first tap is the Wasserbezug, the second the Brandstelle, and the loop's centre,
+      // length, bearing and width all fall out of the pair. A second tap on the SAME spot means
+      // «einfach hinlegen»: the default run, aimed east — nobody is ever left holding half a
+      // gesture with no way to finish it.
+      let geom: Pick<Entity, 'coord' | 'rotation' | 'sizeM' | 'aspect'> = { coord: c, sizeM: def.defaultSizeM, rotation: 0 }
+      if (SHAPE_TWO_POINT[pendingShape]) {
+        if (!rotStart) { setRotStart(c); return }
+        const spanM = haversineM(rotStart, c)
+        const apart = spanM >= SHAPE_MIN_M
+        const box = rotationBox(apart ? spanM : ROTATION_DEFAULT_RUN_M, ROTATION_W_M)
+        geom = {
+          coord: apart ? midCoord(rotStart, c) : rotStart,
+          rotation: apart ? Math.round(bearingDeg(rotStart, c)) : 0,
+          sizeM: Math.round(box.size),
+          aspect: Math.round(box.aspect * 1000) / 1000,
+        }
+        setRotStart(null)
+      }
+      commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, shape: pendingShape, color: def.defaultColor, label: name, ...geom }] }))
       // unlocked: place once, then drop back to select with the new shape active so
       // its edit handles are immediately usable. locked: stay in place-mode (no
       // selection so the editor doesn't interrupt) to drop several in a row.
@@ -2164,7 +2192,7 @@ export function IncidentWorkspace({
       if (placeLock) { setSelectedId(null); setSelectedDrawingId(null) }
       else { setPendingShape(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
       log('area', fillTemplate(appConfig.copy.log.shapePlaced, { name }), 'symbol', undefined, id)
-      emit('entity.add', { id, kind: 'shape', entity: { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, coord: c, shape: pendingShape, color: def.defaultColor, sizeM: def.defaultSizeM, rotation: 0, label: name } })
+      emit('entity.add', { id, kind: 'shape', entity: { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, shape: pendingShape, color: def.defaultColor, label: name, ...geom } })
     } else if (tool === 'symbol' && pending) {
       const id = `p${Date.now()}`; const s = pending
       // shared seeding (label / subtitle / fields / vehicle rotation) — identical to
@@ -2501,18 +2529,20 @@ export function IncidentWorkspace({
   // one-shot tool: drop back to plain navigate (select) after the box so a stray next
   // finger pans the map instead of drawing another box.
   const onMarquee = (drawIds: string[], entIds: string[]) => {
-    // live (GPS) entities aren't editable, so they never join an editable group
-    const ents = entIds.filter((id) => !liveIds.has(id))
-    const total = drawIds.length + ents.length
+    // live (GPS) entities aren't editable, and anything LOCKED is click-through — its chip is
+    // the only door (LockChip), so a lasso may neither move, delete nor select it
+    const ents = entIds.filter((id) => { const e = entities.find((x) => x.id === id); return !liveIds.has(id) && !e?.locked })
+    const draws = drawIds.filter((id) => !drawings.find((d) => d.id === id)?.locked)
+    const total = draws.length + ents.length
     setSelectedId(null)
     if (total <= 1) {
       // a single object → drop into the normal single-edit selection
       setSelectedDrawIds([]); setSelectedEntityIds([])
-      setSelectedDrawingId(drawIds[0] ?? null)
+      setSelectedDrawingId(draws[0] ?? null)
       setSelectedId(ents[0] ?? null)
     } else {
       setSelectedDrawingId(null)
-      setSelectedDrawIds(drawIds); setSelectedEntityIds(ents)
+      setSelectedDrawIds(draws); setSelectedEntityIds(ents)
     }
     setTool('select')
   }
@@ -3271,7 +3301,9 @@ export function IncidentWorkspace({
     }
   }
 
-  const ensurePresentForRole = (ids: (string | undefined)[], roleNote?: string) => {
+  /** `grouped` folds the per-person rows into ONE line naming the whole crew — see the Trupp
+   *  caller below for why. */
+  const ensurePresentForRole = (ids: (string | undefined)[], roleNote?: string, grouped = false) => {
     const wanted = [...new Set(ids.filter(Boolean) as string[])]
     const fresh = wanted.filter((id) => !isPresent(attendance[id]))
     // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
@@ -3303,6 +3335,18 @@ export function IncidentWorkspace({
     // reads like two things happened to her.
     const A = appConfig.copy.anwesenheit
     const noted = new Set(needNote)
+    // ── ONE row for a whole crew (01.09.) ──
+    // A Trupp of three wrote three near-identical lines — «X – Bemerkung: AS» ×3 — under the
+    // Trupp's own rows, which is three quarters of a screen at 3am saying one thing. Worse, the
+    // word was wrong: nobody remarked anything, the app filled a Funktion. The names are what a
+    // reader is after, so they go on one line and the field they came from is not mentioned.
+    if (grouped && roleNote) {
+      const named = wanted
+        .filter((id) => fresh.includes(id) || noted.has(id))
+        .map((id) => rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id)
+      if (named.length) log('people', fillTemplate(A.logRoleGroup, { role: roleNote, list: named.join(', ') }), 'team')
+      return
+    }
     for (const id of fresh) {
       const name = rosterById.get(id)?.displayName ?? id
       log('people', noted.has(id) && roleNote
@@ -3322,7 +3366,7 @@ export function IncidentWorkspace({
    *  same fact read the other way round. Like every auto-Bemerkung it only fills an EMPTY one,
    *  so anything typed by hand survives. */
   const ensurePresentFromTrupp = (ids: (string | undefined)[]) =>
-    ensurePresentForRole(ids, appConfig.copy.anwesenheit.roleAtemschutz)
+    ensurePresentForRole(ids, appConfig.copy.anwesenheit.roleAtemschutz, true)
 
   /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
    *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
@@ -3635,6 +3679,8 @@ export function IncidentWorkspace({
             coord.setMode('set')
           }}
           pickedPoint={coord.mode === 'set' ? coord.picked : null}
+          placeMagnet={tool === 'shape' && !!pendingShape && SHAPE_TWO_POINT[pendingShape] && !tacticalLocked}
+          placeAnchor={tool === 'shape' && !!pendingShape ? rotStart : null}
           freehand={freehandArmed}
           onFreehand={onFreehand}
           circleEnabled={tool === 'circle' && !tacticalLocked}
@@ -3655,6 +3701,7 @@ export function IncidentWorkspace({
             setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
           }}
           onUnlockDrawing={tacticalLocked ? undefined : (id) => { setTwinView(null); setContentTwinView(null); patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
+          onUnlockShape={tacticalLocked ? undefined : (id) => { commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, locked: undefined } : e)) })); setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
           onDelete={deleteEntity}
           selectedDrawing={selectedDrawing}
           onDrawingEdit={editDrawingCoords}
@@ -3995,25 +4042,41 @@ export function IncidentWorkspace({
           key={selected.id}
           entity={selected}
           onColor={(c) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, color: c } : e)) }))}
-          onScale={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, sizeM: Math.max(8, Math.min(800, (e.sizeM ?? SHAPE_DEFS[e.shape ?? 'square'].defaultSizeM) * f)) } : e)) }))}
-          // A Rotation's two sizes mean different things, so each has its own control (and its
-          // own handle on the canvas). LENGTH keeps the loop as wide as it was — the aspect is
-          // recomputed against the height — and WIDTH is the other way round.
+          onScale={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, sizeM: Math.max(SHAPE_MIN_M, Math.min(800, (e.sizeM ?? SHAPE_DEFS[e.shape ?? 'square'].defaultSizeM) * f)) } : e)) }))}
+          // A Rotation has one size and it is the RUN between its two ends; the loop's width
+          // follows from it. So the buttons scale the run and the box is rebuilt from it — the
+          // same maths the two end grips use, just in fixed steps for a finger that would rather
+          // press twice than drag (lib/shapes · rotationBox).
           onScaleLength={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => {
             if (e.id !== selected.id) return e
-            const size = e.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM
-            const heightM = size * shapeAspect('rotation', e.aspect)
-            const next = Math.max(heightM, Math.min(ROTATION_MAX_M, size * f))
-            return { ...e, sizeM: Math.round(next), aspect: Math.round((heightM / next) * 1000) / 1000 }
-          }) }))}
-          onScaleWidth={(f) => commit((d) => ({ ...d, entities: d.entities.map((e) => {
-            if (e.id !== selected.id) return e
-            const size = e.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM
-            const next = Math.max(0.02, Math.min(1, shapeAspect('rotation', e.aspect) * f))
-            return { ...e, aspect: Math.round(next * 1000) / 1000, sizeM: size }
+            const run = rotationRun(e.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM, e.aspect)
+            const next = Math.max(SHAPE_MIN_M, Math.min(ROTATION_MAX_M, run * f))
+            const box = rotationBox(next, ROTATION_W_M)
+            return { ...e, sizeM: Math.round(box.size), aspect: Math.round(box.aspect * 1000) / 1000 }
           }) }))}
           onStop={(v) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, stop: v } : e)) }))}
           onCarrier={(v) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, carrier: v } : e)) }))}
+          onReverse={() => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, reverse: !e.reverse || undefined } : e)) }))}
+          onStrokeW={(w) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, strokeW: w } : e)) }))}
+          onFill={(fillOpacity, hatch) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, fillOpacity, hatch: hatch || undefined } : e)) }))}
+          onCorners={(sharp) => commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, sharpCorners: sharp || undefined } : e)) }))}
+          // locking DESELECTS (same as a drawn Fläche, onToggleLock below): the ink goes
+          // click-through and the LockChip becomes the only door back in
+          onToggleLock={() => { commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, locked: !e.locked || undefined } : e)) })); if (!selected.locked) setSelectedId(null) }}
+          locked={selected.locked}
+          {...(selected.shape === 'square' ? (() => {
+            // ⚠️ The box on the GROUND, from the two numbers the shape is stored with: `sizeM` is
+            // its width and `sizeM × aspect` its height (types · Entity). No polygon to integrate
+            // — a Rechteck is its own rectangle — so this is the same answer `polygonAreaM2` would
+            // give for the outline, arrived at directly.
+            const wM = selected.sizeM ?? SHAPE_DEFS.square.defaultSizeM
+            const hM = wM * shapeAspect('square', selected.aspect)
+            // ⚠️ Unrotated: `sizeM` is the box's own width and height. A rotated Rechteck occupies a
+            // bigger axis-aligned box, but «wie gross ist diese Fläche» is asking about the shape,
+            // not about the room it needs — which is the opposite call from a drawn Fläche, whose
+            // outline has no width of its own to report.
+            return { areaM2: wM * hM, perimeterM: 2 * (wM + hM), boxM: { widthM: wM, heightM: hM } }
+          })() : {})}
           onCenter={() => flyToMapVisible(selected.coord, 18.4)}
           onDelete={() => deleteEntity(selected.id)}
           onClose={() => setSelectedId(null)}
@@ -4251,6 +4314,10 @@ export function IncidentWorkspace({
           readOnly={tacticalLocked}
           areaM2={selectedDrawing.kind === 'circle' ? Math.PI * (selectedDrawing.radiusM ?? 0) ** 2
             : selectedDrawing.kind === 'area' && selectedDrawing.coords.length >= 3 ? polygonAreaM2(selectedDrawing.coords) : null}
+          // a circle's box is its bounding square — the diameter each way
+          boxM={selectedDrawing.kind === 'circle'
+            ? { widthM: 2 * (selectedDrawing.radiusM ?? 0), heightM: 2 * (selectedDrawing.radiusM ?? 0) }
+            : selectedDrawing.kind === 'area' && selectedDrawing.coords.length >= 3 ? bboxSizeM(selectedDrawing.coords) : null}
           perimeterM={selectedDrawing.kind === 'circle' ? 2 * Math.PI * (selectedDrawing.radiusM ?? 0)
             : selectedDrawing.kind === 'area' && selectedDrawing.coords.length >= 3
               ? pathLengthM([...selectedDrawing.coords, selectedDrawing.coords[0]]) : null}
@@ -4420,10 +4487,14 @@ export function IncidentWorkspace({
       )}
       {mapUI && tool === 'shape' && pendingShape && (
         <ToolDock groups={[
-          [{ type: 'close', onClick: () => { setPendingShape(null); setTool('select') } }],
+          [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
           [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
-          [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
-          [{ type: 'info', text: appConfig.copy.dockHints.shape }],
+          // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
+          // meaning for it — the lock row is simply not offered
+          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
+          // …and the hint says which of the two taps is due
+          [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
+            : rotStart ? appConfig.copy.dockHints.rotationEnd : appConfig.copy.dockHints.rotationStart }],
         ]} />
       )}
       {mapUI && tool === 'measure' && (

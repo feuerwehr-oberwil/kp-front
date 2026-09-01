@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Person } from '../types'
 import { TruppTeam } from './TruppTeam'
@@ -167,11 +167,20 @@ describe('TruppTeam', () => {
 
   // an empty slot looks like the field it is not — the tap has to hand the caret on, or the
   // first-time user sits there waiting for a keyboard that never opens
-  it('points an empty slot at the search field instead of becoming one', () => {
+  // …and it points at the GAST link too: whoever is not on the Mannschaft gets no answer from
+  // the search field or the list, so the one control that has one must not stay dark. Highlight
+  // only — the caret stays in the search field.
+  it('points an empty slot at the search field, the list and the Gast link', async () => {
     setup()
     const slot = screen.getAllByTitle('Person suchen …')[0]
     expect(slot.querySelector('input')).toBe(null)
     fireEvent.click(slot)
+    expect(document.activeElement).toBe(screen.getByLabelText('Person suchen …'))
+    // the flash is armed a frame later (pointAtSearch restarts it even mid-blink)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Name eingeben/ }).className).toContain('linkBtnHint')
+    })
+    expect(screen.getByRole('listbox').className).toContain('teamListHint')
     expect(document.activeElement).toBe(screen.getByLabelText('Person suchen …'))
   })
 

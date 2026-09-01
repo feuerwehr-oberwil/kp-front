@@ -273,6 +273,9 @@ function withoutAreaPrefix(text: string): string {
     appConfig.copy.capture.logMeta,
   ].map((tpl) => tpl.replace('{fields}', '').trimEnd()).filter(Boolean)
   for (const p of prefixes) {
+    // ⚠️ The `|| text` fallback stays HERE on purpose. «Rapportangaben» is not the word the
+    // column prints («Rapport»), so a row stripped to nothing would leave the line with no
+    // content at all and nothing beside it saying what it was.
     if (text.startsWith(p)) return text.slice(p.length).trimStart() || text
   }
   // …and the entry-type tag the composer writes into the text («Auftrag · Trupp 2 sichert»),
@@ -280,6 +283,12 @@ function withoutAreaPrefix(text: string): string {
   // record keeps its wording, and the live Verlauf has no column to lean on.
   for (const [key, label] of Object.entries(appConfig.copy.journal.entryTypes)) {
     if (key === 'info') continue
+    // ⚠️ The BARE tag counts too. A photo-only entry has no body, so the composer returns the
+    // tag alone (lib/journalEntry · composeJournalText) and the row's entire text is the word
+    // «Sofortmassnahme» — which printed twice on one line, once here and once in the Bereich.
+    // Empty is the right Eintrag: the column carries the word and the picture IS the content,
+    // so unlike the meta prefixes above this deliberately does NOT fall back to the text.
+    if (text.trim() === label) return ''
     const tag = `${label} · `
     if (text.startsWith(tag)) return text.slice(tag.length).trimStart() || text
   }

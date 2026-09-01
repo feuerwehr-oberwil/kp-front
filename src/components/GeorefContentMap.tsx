@@ -111,7 +111,14 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
     }, { mode: ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: movable })
   }
   /** One tappable mark. The button replaces the inert span the layer used to render; keyboard
-   *  «click» (detail 0) keeps the open, pointer taps go through the hold gesture's onTap. */
+   *  «click» (detail 0) keeps the open, pointer taps go through the hold gesture's onTap.
+   *
+   *  ⚠️ Every INTERACTIVE Marker in this layer swallows the trailing native click
+   *  (onClick · originalEvent.stopPropagation, the MapMarkers idiom). MapLibre listens for
+   *  clicks NATIVELY on the map container — below React's delegated root — so a React-level
+   *  stop can never reach it: the click bubbled to the map, onMapClick cleared the twin view
+   *  in the same breath, and the panel the tap had just opened was gone before it ever painted
+   *  («Trupp-Spiegel lässt sich nicht öffnen», 01.09.). */
   const tapTarget = (twin: MapContentTwin, anchor: LngLat, movable: boolean, className: string, children: ReactNode, style?: CSSProperties) => (
     <button type="button"
       className={`${s.contentTap} ${s.mapTap} ${className}`}
@@ -244,7 +251,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
               </Marker>
             )}
             {gripCoord && (
-              <Marker longitude={gripCoord[0]} latitude={gripCoord[1]} anchor="center">
+              <Marker longitude={gripCoord[0]} latitude={gripCoord[1]} anchor="center" onClick={(ev) => ev.originalEvent.stopPropagation()}>
                 {/* whole-object drag only while NO endpoint is anchored: translating an attached
                     line's stored pts while the plan re-resolves the endpoint would fork the
                     mirror. An anchored line reshapes via its vertex grips below (detach-on-grab). */}
@@ -270,7 +277,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
                     const midPlan: [number, number] = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
                     const c = t.fit.toMap({ x: midPlan[0], y: midPlan[1] })
                     return (
-                      <Marker key={`ctins-${k}`} longitude={c.lng} latitude={c.lat} anchor="center" style={{ zIndex: MARKER_Z.selected }}>
+                      <Marker key={`ctins-${k}`} longitude={c.lng} latitude={c.lat} anchor="center" style={{ zIndex: MARKER_Z.selected }} onClick={(ev) => ev.originalEvent.stopPropagation()}>
                         <button type="button" className="measure-insert" title={appConfig.copy.measure.insertPoint} aria-label={appConfig.copy.measure.insertPoint}
                           onPointerDown={(ev) => {
                             ev.stopPropagation(); ev.preventDefault()
@@ -292,7 +299,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
                     const g = t.fit.toMap({ x: gPlan[0], y: gPlan[1] })
                     const deg = (Math.atan2(worldPx([g.lng, g.lat], zoom)[1] - worldPx([segB.lng, segB.lat], zoom)[1], worldPx([g.lng, g.lat], zoom)[0] - worldPx([segB.lng, segB.lat], zoom)[0]) * 180) / Math.PI - bearing
                     return (
-                      <Marker key={`ctgrow-${ep}`} longitude={g.lng} latitude={g.lat} anchor="center" style={{ zIndex: MARKER_Z.selected }}>
+                      <Marker key={`ctgrow-${ep}`} longitude={g.lng} latitude={g.lat} anchor="center" style={{ zIndex: MARKER_Z.selected }} onClick={(ev) => ev.originalEvent.stopPropagation()}>
                         <button type="button" className="draw-grow" title={appConfig.copy.measure.extendLine} aria-label={appConfig.copy.measure.extendLine}
                           style={{ ['--grow-deg' as string]: `${deg}deg` }}
                           onPointerDown={(ev) => {
@@ -305,7 +312,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
                   {pts.map((p, i) => {
                     const c = t.fit.toMap({ x: p[0], y: p[1] })
                     return (
-                      <Marker key={`ctv-${i}`} longitude={c.lng} latitude={c.lat} anchor="center" style={{ zIndex: MARKER_Z.selected }} draggable
+                      <Marker key={`ctv-${i}`} longitude={c.lng} latitude={c.lat} anchor="center" style={{ zIndex: MARKER_Z.selected }} onClick={(ev) => ev.originalEvent.stopPropagation()} draggable
                         onDragStart={() => setDragPan?.(false)}
                         onDrag={(e) => {
                           vertexHold.cancel()
@@ -341,13 +348,13 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
           const kind = a.shape ?? 'square'
           const glyph = (
             <span className={`${s.contentMap} shape-glyph`} style={{ display: 'block', width: px, height: px * shapeAspect(kind, a.aspect), transform: `rotate(${(a.rotation ?? 0) - t.fit.rotationDeg - bearing}deg)` }}>
-              <ShapeGlyph kind={kind} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} carrier={a.carrier} />
+              <ShapeGlyph kind={kind} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} carrier={a.carrier} reverse={a.reverse} strokeW={a.strokeW} boxPx={px} fillOpacity={a.fillOpacity} hatch={a.hatch} sharpCorners={a.sharpCorners} />
             </span>
           )
           if (!interactive || !onOpenTwin) {
             return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>{glyph}</Marker>
           }
-          return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center">
+          return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" onClick={(ev) => ev.originalEvent.stopPropagation()}>
             {tapTarget(t, t.coord, canDragAny, '', glyph)}
           </Marker>
         }
@@ -365,7 +372,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
               <span className={`${s.contentMap} ${cls}`} style={style}>{a.text || appConfig.copy.whiteboard.text}</span>
             </Marker>
           }
-          return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center">
+          return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" onClick={(ev) => ev.originalEvent.stopPropagation()}>
             {tapTarget(t, t.coord, canDragAny, `${s.contentMap} ${cls}`, a.text || appConfig.copy.whiteboard.text, style)}
           </Marker>
         }
@@ -391,7 +398,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
                 <span className={`${s.contentMap} team-dot`} style={style}>{chip}</span>
               </Marker>
             ) : (
-              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="left" offset={[-TEAM_DOT_PX / 2, 0]}>
+              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="left" offset={[-TEAM_DOT_PX / 2, 0]} onClick={(ev) => ev.originalEvent.stopPropagation()}>
                 {tapTarget(t, t.coord, canDragAny, '', <span className="team-dot">{chip}</span>, style)}
               </Marker>
             )}

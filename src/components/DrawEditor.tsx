@@ -100,6 +100,9 @@ interface Props {
   /** area + perimeter of an area/circle, so the Messung section states what the shape covers
    *  (a line uses `lengthM` instead). Absent → the rows are omitted. */
   areaM2?: number | null
+  /** the ground box the outline occupies (lib/geo · bboxSizeM) — «wie breit ist das» about a
+   *  Brandzone, asked against the map it is drawn on */
+  boxM?: { widthM: number; heightM: number } | null
   perimeterM?: number | null
   /** offer the geodesic distance toggle — Lage only (a Plan has no metric scale) */
   supportsDistance?: boolean
@@ -166,7 +169,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -212,15 +215,22 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className="ctx-body">
-        {/* shape group — radius (circle) + fill (circle/area) */}
-        {!readOnly && (isCircle || isArea) && (
+        {/* shape group — the circle's radius. ⚠️ Füllung is NOT here any more (01.09.): it sat in
+            its own group directly above Farbe, so a hairline was drawn between the two rows that
+            answer the same question — what colour is this thing and how solid. They belong to one
+            block, and the rule now falls where the subject actually changes. */}
+        {!readOnly && isCircle && (
           <div className="de-group">
-            {isCircle && (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.radius}</span>
-                <Stepper value={radiusM} min={radMin} max={100000} step={radStep} format={fmtDistance}
-                  onChange={onRadius} ariaLabel={appConfig.copy.drawingEditor.radius} />
-              </div>
-            )}
+            <div className="de-row"><span>{appConfig.copy.drawingEditor.radius}</span>
+              <Stepper value={radiusM} min={radMin} max={100000} step={radStep} format={fmtDistance}
+                onChange={onRadius} ariaLabel={appConfig.copy.drawingEditor.radius} />
+            </div>
+          </div>
+        )}
+
+        {/* style group — Füllung · Stil · Farbe · Stärke · Linie */}
+        {!readOnly && <div className="de-group">
+          {(isCircle || isArea) && (
             <div className="de-row"><span>{appConfig.copy.drawingEditor.fill}</span>
               <span className="dh-swatches">
                 {FILL_OPACITIES.map((o) => (
@@ -244,11 +254,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                 )}
               </span>
             </div>
-          </div>
-        )}
-
-        {/* style group — Stil · Farbe · Stärke · Linie */}
-        {!readOnly && <div className="de-group">
+          )}
           {/* ⚠️ The line presets live HERE and nowhere else — both docks deleted their own picker
               on the promise that the style is chosen in the post-draw editor (WbControls · the
               Plan's Zeichnen dock). `onPreset` was declared, passed by both surfaces, and then
@@ -325,11 +331,17 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                   ariaLabel={appConfig.copy.drawingEditor.ending}
                   value={drawing.teilstueck ? 'teilstueck' : drawing.arrow ? (drawing.arrowStop ? 'arrowStop' : 'arrow') : 'none'}
                   onChange={onEnding}
+                  // ⚠️ `explain`, like the Typ letters below (data-holdexplain): four pictures whose
+                  // NAMES were all a hold ever gave, and the names are the least of it — «Pfeil mit
+                  // Stopp» is the Entwicklungsgrenze, and deleting a Teilstück releases every line
+                  // docked to its ports. Hold (touch) or hover (mouse) now answers with the
+                  // consequence instead. No `title`: the native tooltip would say it again.
+                  explain
                   options={[
-                    { value: 'none', label: <EndingGlyph kind="none" />, title: appConfig.copy.drawingEditor.endingNone },
-                    { value: 'arrow', label: <EndingGlyph kind="arrow" />, title: appConfig.copy.drawingEditor.endingArrow },
-                    { value: 'arrowStop', label: <EndingGlyph kind="arrowStop" />, title: appConfig.copy.drawingEditor.endingArrowStop },
-                    { value: 'teilstueck', label: <EndingGlyph kind="teilstueck" />, title: appConfig.copy.drawingEditor.endingTeilstueck },
+                    { value: 'none', label: <EndingGlyph kind="none" />, title: appConfig.copy.drawingEditor.endingNoneWhat },
+                    { value: 'arrow', label: <EndingGlyph kind="arrow" />, title: appConfig.copy.drawingEditor.endingArrowWhat },
+                    { value: 'arrowStop', label: <EndingGlyph kind="arrowStop" />, title: appConfig.copy.drawingEditor.endingArrowStopWhat },
+                    { value: 'teilstueck', label: <EndingGlyph kind="teilstueck" />, title: appConfig.copy.drawingEditor.endingTeilstueckWhat },
                   ]}
                 />
               </div>
@@ -465,6 +477,16 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                 <div className="de-row"><span>{appConfig.copy.measure.area}</span>
                   <b className="de-measure-v">{fmtArea(areaM2)}</b>
                 </div>
+                {boxM && (
+                  <>
+                    <div className="de-row"><span>{appConfig.copy.measure.boxWidth}</span>
+                      <b className="de-measure-v">{fmtDistance(boxM.widthM)}</b>
+                    </div>
+                    <div className="de-row"><span>{appConfig.copy.measure.boxHeight}</span>
+                      <b className="de-measure-v">{fmtDistance(boxM.heightM)}</b>
+                    </div>
+                  </>
+                )}
                 {perimeterM != null && (
                   <div className="de-row"><span>{appConfig.copy.measure.perimeter}</span>
                     <b className="de-measure-v">{fmtDistance(perimeterM)}</b>

@@ -23,6 +23,7 @@ import { ensureNotifyPermission, unlockAlarm } from '../lib/alarm'
 import { atemschutzDoctrine, isDemoMode } from '../lib/deploymentConfig'
 import { useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
+import { truppOrderKey } from '../lib/useTruppActions'
 import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 
@@ -291,7 +292,12 @@ export function AtemschutzView({
    * Alarmdruck floats exactly like one out of contact.
    * The MODE is per-device (a way of looking); the hand-set order is synced (it is data).
    */
-  const orderKey = (t: Trupp) => trupps.findIndex((x) => x.id === t.id)
+  // ⚠️ ONE key space with the writers. `order` is optional, so a Trupp that never got one sorts
+  // by its position in this list — and createTrupp/moveTrupp compute against exactly that key
+  // (lib/useTruppActions · truppOrderKey), or a new card ties with an existing one and lands
+  // mid-board. Also the stable tiebreak for the derived sorts, so two Trupps that compare equal
+  // by name/Auftrag keep the slots the hand gave them.
+  const orderKey = (t: Trupp) => truppOrderKey(t, trupps.findIndex((x) => x.id === t.id))
   const baseSort = (list: Trupp[]) => [...list].sort((a, b) => {
     if (order !== 'manuell') {
       const alarm = Number(sevOf(b.id) >= 2) - Number(sevOf(a.id) >= 2)
@@ -309,7 +315,7 @@ export function AtemschutzView({
       const by = urgency(b) - urgency(a)
       if (by) return by
     }
-    return (a.order ?? orderKey(a)) - (b.order ?? orderKey(b))
+    return orderKey(a) - orderKey(b)
   })
 
   /* Hold the ARRANGEMENT still for a moment after any change made on this board.

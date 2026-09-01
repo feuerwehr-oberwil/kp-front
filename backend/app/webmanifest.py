@@ -61,7 +61,7 @@ MANIFEST_PATH = "/manifest.webmanifest"
 #: minimum a browser needs to treat the app as installable; the real values live in
 #: vite.config.ts and are read from the built file whenever there is one.
 _FALLBACK_BASE: dict[str, Any] = {
-    "name": "kp-front Lagekarte",
+    "name": "kp-front Einsatzkarte",
     "short_name": "kp-front",
     "start_url": "/",
     "scope": "/",

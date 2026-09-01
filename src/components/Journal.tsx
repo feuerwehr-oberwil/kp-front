@@ -882,9 +882,58 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           if (!e) return null
           const hasTx = !!e.transcript || !!e.transcriptSections?.length
           const target = targetOf(e)
+          const photos = rowPhotos(e)
+          const disc = journalDisc(e, plans)
+          const repeated = repeats.counts.get(e.id) ?? 1
+          const lastRepeat = repeats.lastAt.get(e.id)
+          // A row is «von Hand erfasst» exactly where the pen is offered (lib/verlauf ·
+          // isHandWritten) — so the sheet answers «warum kann ich das nicht ändern» with the
+          // same rule that decides it, instead of leaving an absent button to explain itself.
+          const byHand = isHandWritten(e)
+          const facts: { k: string; v: string; sub?: string }[] = [
+            ...(e.at ? [{ k: C.detailTime, v: formatTime(new Date(e.at), true) }] : []),
+            ...(disc ? [{ k: C.detailArea, v: disc.label }] : []),
+            {
+              k: C.detailSource,
+              v: byHand ? C.detailSourceManual : C.detailSourceSystem,
+              ...(byHand ? {} : { sub: C.detailSourceSystemHint }),
+            },
+            ...(photos.length
+              ? [{ k: C.detailAttachments, v: photos.length === 1 ? C.detailAttachmentsOne : fillTemplate(C.detailAttachmentsN, { n: photos.length }) }]
+              : []),
+            ...(e.correctedAt
+              ? [{
+                  k: C.detailCorrected,
+                  v: formatTime(new Date(e.correctedAt), true),
+                  ...(e.textOriginal ? { sub: fillTemplate(C.detailCorrectedFirst, { text: e.textOriginal }) } : {}),
+                }]
+              : []),
+            ...(repeated > 1
+              ? [{ k: C.detailRepeated, v: lastRepeat ? fillTemplate(C.detailRepeatedN, { n: repeated, t: formatTime(new Date(lastRepeat)) }) : fillTemplate(C.repeated, { n: repeated }) }]
+              : []),
+            ...(isNachtrag(e, closedAt) ? [{ k: C.detailNachtrag, v: C.detailNachtragHint }] : []),
+          ]
           return (
             <Sheet open onClose={() => setDetailId(null)} fit sheetClassName="jr-detail"
               title={`${rowTime(e)} · ${e.audioUrl ? C.audioClipLabel : C.composerTitle}`}>
+              {/* THE PICTURES, before the paperwork. A photo row's text is «Foto» or the Bereich's
+                  own word (lib/verlauf · rowText), so the sheet used to open on a sentence that
+                  said nothing about the one thing the row was written to carry — and the picture
+                  itself was only reachable from the thumbnail back in the list.
+                  ⚠️ `thumbUrl`, not the full media URL: a strip of full-size pictures in a modal
+                  is exactly what jetsammed the tab once (lib/mediaUrl). The tap opens `url`. */}
+              {photos.length > 0 && (
+                <div className="jr-detail-shots">
+                  {photos.map((url, i) => (
+                    <button
+                      key={url} type="button" title={C.photoOpen} aria-label={C.photoOpen}
+                      onClick={() => openPhoto(url, { caption: e.text, filename: `foto-${e.id}-${i + 1}.jpg` })}
+                    >
+                      <img src={thumbUrl(url)} alt="" loading="lazy" decoding="async" />
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* the row's own words, and — on a memo — what it says (the list's subtitle chrome) */}
               <p className="jr-detail-text">{marked(rowText(e))}</p>
               {e.audioUrl && hasTx && (
@@ -895,6 +944,23 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   ))}
                 </div>
               )}
+              {/* ── THE FACTS ──
+                  One line per thing the append-only record actually holds about this row, in the
+                  order the questions get asked after the fact: when exactly, under what, written
+                  by whom or by what, what came with it, and what happened to it afterwards.
+                  ⚠️ Only lines with an answer are printed — a table of «–» teaches nothing and
+                  buries the one fact that IS there. And the time is the only place in the app
+                  that prints SECONDS: the list shows HH:MM, so «why is this line above that one»
+                  has no answer anywhere else (the Verlauf now sorts on the full stamp —
+                  lib/journalStore · chronological). */}
+              <dl className="jr-detail-facts">
+                {facts.map((f) => (
+                  <div key={f.k}>
+                    <dt>{f.k}</dt>
+                    <dd>{f.v}{f.sub && <small>{f.sub}</small>}</dd>
+                  </div>
+                ))}
+              </dl>
               <div className="jr-detail-acts">
                 {e.audioUrl && e.audioMeta && onOpenPlayer && (
                   <button type="button" className="btn"

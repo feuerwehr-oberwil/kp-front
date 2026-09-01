@@ -22,6 +22,10 @@
    .sym-count) hang past the glyph's top/bottom edge. Read by anything that has to sit CLEAR of
    the symbol, so neither may be re-typed as a literal. */
 .marker { position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; --gpx: 44px; --badge-out: 7px; }
+/* the unlock chip on a locked shape — the whole marker is pointer-events:none (click-through
+   ink, same doctrine as a locked drawing), so the chip re-enables its own events. Centred on
+   the glyph and NOT inside the rotated box, so the Schloss stays upright. */
+.marker .shape-lock-anchor { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 0; height: 0; pointer-events: auto; }
 /* Mid-move the pointer says so, the way the plan canvas already does for an annotation
    (.wb-canvas.tool-pan .wb-anno:active). At REST the marker keeps `pointer`, deliberately: a
    symbol is tap-to-select and hold-to-drag, so a resting `grab` would promise a drag that a
@@ -177,12 +181,39 @@
 }
 .shape-resize { left: calc(50% + var(--hbox, 56px) / 2 + 3px); top: calc(50% + var(--hbox, 56px) / 2 + 3px);
   transform: translate(-50%, -50%); border-radius: var(--r-sm); background: var(--ink-fill); cursor: nwse-resize; touch-action: none; }
-/* the Rotation's second grip — the loop's WIDTH, on the right edge at mid-height. Same chrome as
-   the corner one; the two are told apart by where they sit and by their labels. */
-.shape-width { transform: translate(-50%, -50%); }
+/* the second grip. Same chrome as the first; the two are told apart by where they sit, by the
+   direction their arrows point, and by their labels. */
+.shape-width { transform: translate(-50%, -50%); border-radius: var(--r-sm); background: var(--ink-fill);
+  touch-action: none; }
+/* ⚠️ A single-axis grip must not wear the diagonal `nwse-resize` cursor: on a Rechteck the two
+   handles do different things, and the pointer is the only thing that says so before the drag
+   starts (01.09.). The glyph inside says the same thing to a gloved finger, which has no cursor. */
+.shape-axis-x { cursor: ew-resize; }
+.shape-axis-y { cursor: ns-resize; }
+@media (hover: hover) {
+  .shape-width:hover { background: var(--ink-fill-hover); }
+}
 @media (hover: hover) {
   .shape-resize:hover { background: var(--ink-fill-hover); }
 }
+/* the first of a Rotation's two points, while the second is still being looked for: a plain ink
+   dot in the shape's own blue, big enough to find again after panning across the map */
+.place-anchor { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--blue);
+  border: 2.5px solid #fff; box-shadow: 0 1px 3px rgba(15, 22, 34, .4), 0 3px 8px rgba(30, 45, 70, .25); }
+
+/* ── Rotation: die zwei Enden ────────────────────────────────────────────────────────────────
+   A Rotation carries no rotate knob and no size grip — it IS its two ends, and each of them sets
+   the run's length and its bearing together (lib/shapes · SHAPE_TWO_POINT). The grips sit in the
+   same rotor as every other shape handle, so «along the run» is left and right. They float clear
+   of the loop's caps (lib/shapes · rotationGripOffPx) — a grip sitting ON the cap covers both the
+   loop's own end and the Wasserbezug the end was dropped on — and wear no tether: the ↔ already
+   says which way it goes, and a line to it only added ink to a sign made of lines. */
+.shape-end { transform: translate(-50%, -50%); background: var(--ink-fill); cursor: grab; touch-action: none; }
+.shape-end:active { cursor: grabbing; }
+@media (hover: hover) {
+  .shape-end:hover { background: var(--ink-fill-hover); }
+}
+
 /* Grosslüfter: a SECOND rotor for the fan/airflow, placed on the OPPOSITE (bottom) side of the
    ring from the blue vehicle-body knob and amber-tinted — so the two knobs are always far apart
    and easy to grab independently (rotating the body without catching the fan). */

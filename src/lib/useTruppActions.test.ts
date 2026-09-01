@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Dispatch, SetStateAction } from 'react'
-import { useTruppActions, truppEditChanges, LAGE_TARGET } from './useTruppActions'
+import { useTruppActions, truppEditChanges, handOrder, nextTruppOrder, LAGE_TARGET } from './useTruppActions'
 import type { BoardDoc, Drawing, Entity, Trupp, TruppFields } from '../types'
 import { appConfig } from '../config/appConfig'
 import { anyTruppInField, truppNeverDeployed } from './atemschutz'
@@ -655,13 +655,17 @@ describe('moveTrupp (hand-set board order)', () => {
   }
   const orders = (ts: Trupp[]) => ts.map((t) => [t.id, t.order] as const)
 
-  it('swaps two cards rather than renumbering the board', () => {
+  /** the board as the Atemschutz comparator reads it (lib/useTruppActions · handOrder) */
+  const asShown = (ts: Trupp[]) => handOrder(ts.filter((t) => !t.removedAt)).map((e) => e.t.id)
+
+  it('re-keys only the card that moved', () => {
     const { actions, state } = board(
       baseTrupp({ id: 'a', order: 1 }), baseTrupp({ id: 'b', order: 2 }), baseTrupp({ id: 'c', order: 3 }),
     )
     actions.moveTrupp('c', -1)
-    // only b and c change — a concurrent edit elsewhere on the board is untouched
-    expect(orders(state.trupps)).toEqual([['a', 1], ['b', 3], ['c', 2]])
+    // b keeps its number — a concurrent edit on another device merges over nothing this wrote
+    expect(orders(state.trupps)).toEqual([['a', 1], ['b', 2], ['c', 1.5]])
+    expect(asShown(state.trupps)).toEqual(['a', 'c', 'b'])
   })
 
   it('does nothing at either end', () => {
@@ -674,14 +678,54 @@ describe('moveTrupp (hand-set board order)', () => {
   it('settles a Trupp that never carried an order from where it currently sits', () => {
     const { actions, state } = board(baseTrupp({ id: 'a' }), baseTrupp({ id: 'b' }))
     actions.moveTrupp('b', -1)
-    const byId = Object.fromEntries(state.trupps.map((t) => [t.id, t.order]))
-    expect(byId.b).toBeLessThan(byId.a!)
+    expect(asShown(state.trupps)).toEqual(['b', 'a'])
   })
 
-  it('a new Trupp joins at the END of a hand-arranged board', () => {
-    const { actions, state } = board(baseTrupp({ id: 'a', order: 4 }), baseTrupp({ id: 'b', order: 9 }))
-    actions.createTrupp(baseTrupp({ id: 'c' }))
-    expect(state.trupps.find((t) => t.id === 'c')?.order).toBe(10)
+  // ⚠️ the old swap took its values from SUBSET indices, so it could hand a card a number another
+  // card already carried — and a tie falls back to array order, i.e. the tap did nothing visible
+  it('moves a card even on a board whose orders already collide', () => {
+    const { actions, state } = board(
+      baseTrupp({ id: 'a', order: 0 }), baseTrupp({ id: 'b', order: 0 }), baseTrupp({ id: 'c', order: 0 }),
+    )
+    actions.moveTrupp('c', -1)
+    expect(asShown(state.trupps)[0]).toBe('c')
+  })
+})
+
+describe('hand-set board order (the key AtemschutzView sorts on)', () => {
+  const t = (over: Partial<Trupp>) => baseTrupp(over)
+
+  it('reads a stored order, and a Trupp without one by where it sits', () => {
+    expect(handOrder([t({ id: 'a' }), t({ id: 'b', order: -1 }), t({ id: 'c' })]).map((e) => e.t.id))
+      .toEqual(['b', 'a', 'c'])
+  })
+
+  // THE bug: `max(order ?? 0) + 1` is 1 on a board of unordered Trupps, so the new card tied with
+  // the SECOND one and landed in position 2 instead of at the far right
+  it('puts a new Trupp last on a board that carries no orders at all', () => {
+    const legacy = [t({ id: 'a' }), t({ id: 'b' }), t({ id: 'c' })]
+    expect(nextTruppOrder(legacy)).toBe(3)
+    expect(handOrder([...legacy, t({ id: 'neu', order: nextTruppOrder(legacy) })]).map((e) => e.t.id))
+      .toEqual(['a', 'b', 'c', 'neu'])
+  })
+
+  it('puts a new Trupp last in a MIX of ordered, unordered and removed Trupps', () => {
+    const mixed = [
+      t({ id: 'a' }), t({ id: 'weg', removedAt: '2026-09-01T10:00:00Z', order: 7 }),
+      t({ id: 'b', order: 2 }), t({ id: 'c' }),
+    ]
+    const neu = t({ id: 'neu', order: nextTruppOrder(mixed) })
+    const shown = handOrder([...mixed, neu].filter((x) => !x.removedAt)).map((e) => e.t.id)
+    expect(shown[shown.length - 1]).toBe('neu')
+  })
+
+  it('a new Trupp still lands last after the board was hand-arranged', () => {
+    const { actions, state } = harness(baseTrupp({ id: 'a' }))
+    state.trupps = [baseTrupp({ id: 'a' }), baseTrupp({ id: 'b' }), baseTrupp({ id: 'c' })]
+    actions.moveTrupp('c', -1)
+    actions.moveTrupp('c', -1)
+    actions.createTrupp(baseTrupp({ id: 'neu' }))
+    expect(handOrder(state.trupps).map((e) => e.t.id)).toEqual(['c', 'a', 'b', 'neu'])
   })
 })
 

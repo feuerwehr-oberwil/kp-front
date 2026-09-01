@@ -58,11 +58,15 @@ export function TruppTeam({
   const [typed, setTyped] = useState('')
   const typedRef = useRef<HTMLInputElement>(null)
   // An empty slot LOOKS like the field it is not: people tap it and wait for a keyboard. It
-  // stays a slot — names are picked from the Mannschaft below — so the tap points at the search
-  // AND at the list: caret in the field, and both blink once so the eye follows the finger. Same
-  // pointing gesture the card flash makes (.cardFlash), never a state that stays.
-  // ⚠️ Both, not just the field. The search is only how you NARROW the list; the list is where
-  // the names actually are, and blinking the field alone sent people looking for a keyboard again.
+  // stays a slot — names are picked from the Mannschaft below — so the tap points at the search,
+  // at the list AND at the Gast link: caret in the field, and all three blink once so the eye
+  // follows the finger. Same pointing gesture the card flash makes (.cardFlash), never a state
+  // that stays.
+  // ⚠️ Not just the field. The search is only how you NARROW the list; the list is where the
+  // names actually are, and blinking the field alone sent people looking for a keyboard again.
+  // ⚠️ …and the Gast link with them: when the person is NOT on the Mannschaft, neither the field
+  // nor the list can answer, and the control that can was the only one left dark. It is a
+  // highlight, not a focus steal — the search field stays where the caret goes.
   const searchRef = useRef<HTMLInputElement>(null)
   const [hint, setHint] = useState(false)
   const pointAtSearch = () => {
@@ -309,7 +313,7 @@ export function TruppTeam({
             onClick={() => { typedCancel.current = false; setTyped(''); setTyping(false) }}><Icon id="close" /></button>
         </div>
       ) : (
-        <button type="button" className={s.linkBtn} onClick={() => setTyping(true)}>
+        <button type="button" className={cx(s.linkBtn, hint && s.linkBtnHint)} onClick={() => setTyping(true)}>
           <Icon id="type" /><span>{az.teamTypeName}</span>
         </button>
       )}

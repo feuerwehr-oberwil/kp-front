@@ -11,7 +11,7 @@ vi.mock('./api', async () => {
 
 import { ApiError } from './api'
 import { __resetIdbForTests } from './idb'
-import { JournalStore } from './journalStore'
+import { chronological, JournalStore } from './journalStore'
 import type { TimelineEvent } from '../types'
 
 const INC = 'inc-1'
@@ -436,5 +436,64 @@ describe('JournalStore — the long-poll round', () => {
     // the server never answered → 'failed', which is what makes the loop ease off
     apiGet.mockRejectedValueOnce(new ApiError(0, 'offline'))
     expect(await s.pull({ wait: true })).toBe('failed')
+  })
+})
+
+
+describe('JournalStore — display ordering', () => {
+  // rows print HH:MM only, so the written stamp is the only thing that can order them
+  const at = (hhmm: string) => ({ t: hhmm, at: `2026-07-02T${hhmm}:00.000Z` })
+
+  it('a row written offline lands at the time it was WRITTEN, not the time it flushed', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('offline', at('15:01')))
+    await settle()
+
+    // back online: two rows written on another device arrive first, ours flushes last (highest seq)
+    fakeServer([row('frueh', at('15:00')), row('spaet', at('15:05'))])
+    await s.pull()
+    await s.flush()
+    await settle(); await settle()
+
+    expect(s.pendingCount).toBe(0)
+    // acceptance order would print ['offline', 'spaet', 'frueh'] — it belongs at 15:01
+    expect(s.display().map((r) => r.id)).toEqual(['spaet', 'offline', 'frueh'])
+  })
+
+  it('a pending row sorts by its own time, not after every server row', async () => {
+    fakeServer([row('server', at('15:06'))])
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    s.append(row('pending', at('15:02')))
+    await settle()
+
+    expect(s.pendingCount).toBe(1)
+    // the outbox is concatenated last, which used to make every unsent row the newest one
+    expect(s.display().map((r) => r.id)).toEqual(['server', 'pending'])
+  })
+
+  it('two rows written in the same millisecond keep their seq order', async () => {
+    fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('a', at('15:02')))
+    s.append(row('b', at('15:02'))) // same stamp: only seq can tell them apart
+    await settle(); await settle()
+
+    expect(s.display().map((r) => r.id)).toEqual(['b', 'a']) // stable sort → newest-first by seq
+  })
+
+  it('a row without a parseable `at` stays put between its neighbours', () => {
+    // legacy blob rows may carry only `t`; sorting those as 0 would dump them at the bottom
+    const undated: TimelineEvent = { ...row('alt'), at: undefined }
+    expect(chronological([row('neu', at('15:05')), undated, row('aelter', at('15:00'))]).map((r) => r.id))
+      .toEqual(['neu', 'alt', 'aelter'])
+    // an unparseable stamp behaves exactly like a missing one
+    expect(chronological([row('neu', at('15:05')), row('alt', { at: 'kaputt' }), row('aelter', at('15:00'))]).map((r) => r.id))
+      .toEqual(['neu', 'alt', 'aelter'])
   })
 })

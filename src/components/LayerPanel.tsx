@@ -23,15 +23,11 @@ interface Props {
    *  Gefahren. Absent ⇒ the twin groups go last, which is right on the Plan surface (where the
    *  only other groups are the sheet's own). */
   twinsAfterGroup?: string
-  /** open the Offline-Bereitschaft sheet — the one place that owns offline. The Ebenen panel
-   *  used to run its own download here, which meant two unrelated screens both claimed to
-   *  handle offline and neither showed what the other had already stored. */
-  onOfflineReadiness?: () => void
   /** round ✕ in the title row — dock chrome parity with the views popover / tool docks */
   onClose?: () => void
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onOfflineReadiness, onClose }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose }: Props) {
   const bases = layers.filter((l) => l.base)
   const groups = layers.filter((l) => !l.base).reduce<Record<string, LayerDef[]>>((acc, l) => {
     (acc[l.group] ??= []).push(l)
@@ -155,18 +151,6 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
 
       {!twinsAnchored && twinBlocks}
 
-      {onOfflineReadiness && (
-        <>
-          <div className="lgroup">{appConfig.copy.offline.layerGroup}</div>
-          {/* a door, not a second engine: the download, what is already stored and how much
-              room is left all live in the Offline-Bereitschaft sheet */}
-          <button className="offline-dl" onClick={onOfflineReadiness}>
-            <Icon id="map" />
-            {appConfig.copy.offline.title}
-            <Icon id="chevron" />
-          </button>
-        </>
-      )}
     </div>
   )
 }

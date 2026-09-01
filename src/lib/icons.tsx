@@ -107,6 +107,10 @@ export function IconSprite() {
       <symbol id="trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6" /></symbol>
       <symbol id="rotate" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 1-2.4-5.7" /><path d="M20 4v4.2h-4.2" /></symbol>
       <symbol id="resize" viewBox="0 0 24 24"><path d="M10 4H4v6" /><path d="M4 4l7 7" /><path d="M14 20h6v-6" /><path d="M20 20l-7-7" /></symbol>
+      {/* the two single-axis grips on a Form: each says which way it moves, so a Rechteck's two
+          handles can never be mistaken for the same control (01.09.) */}
+      <symbol id="resize-h" viewBox="0 0 24 24"><path d="M3 12h18" /><path d="M7 8l-4 4 4 4" /><path d="M17 8l4 4-4 4" /></symbol>
+      <symbol id="resize-v" viewBox="0 0 24 24"><path d="M12 3v18" /><path d="M8 7l4-4 4 4" /><path d="M8 17l4 4 4-4" /></symbol>
       <symbol id="move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" /></symbol>
       <symbol id="measure" viewBox="0 0 24 24"><path d="M3 14.5 14.5 3 21 9.5 9.5 21z" /><path d="M7 10.5l2 2M10.5 7l2.5 2.5M14 3.5l2 2" /></symbol>
       <symbol id="polygon" viewBox="0 0 24 24"><path d="M12 3.5 20 9 17 19.5 7 19.5 4 9z" /><circle cx="12" cy="3.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="20" cy="9" r="1.5" fill="currentColor" stroke="none" /><circle cx="17" cy="19.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="7" cy="19.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="4" cy="9" r="1.5" fill="currentColor" stroke="none" /></symbol>

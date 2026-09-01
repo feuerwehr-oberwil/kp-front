@@ -10,7 +10,7 @@ import { fillTemplate } from '../lib/format'
 import { operationalExtentPoints } from '../lib/report'
 import { circlePolygon } from '../lib/geo'
 import { TacticalSymbol } from '../lib/symbolRender'
-import { SHAPE_DEFS, ShapeGlyph, shapeAspect } from '../lib/shapes'
+import { SHAPE_DEFS, SHAPE_MAX_PX, ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
 import { truppForLine, truppTagText } from '../lib/truppLines'
 import { lerpPoint } from '../lib/lineStyle'
@@ -507,16 +507,23 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                   if (!printable) return null
                   if (e.kind === 'shape') {
                     // WYSIWYG with the sheet: the print stretches a free-aspect Rechteck/Rauch
-                    // (kroki.py, same 0.2..5 clamp) and draws the arrow's «→|» Stopp-Balken
-                    // (krokiPayload · shapeSvgString) — so this preview does too. Default colour
-                    // from SHAPE_DEFS, the same fallback the payload sends.
+                    // (kroki.py, same clamp as lib/shapes · shapeAspect) and draws the arrow's
+                    // «→|» Stopp-Balken (krokiPayload · shapeSvgString) — so this preview does
+                    // too, per-kind size cap included (a long Rotation legitimately exceeds the
+                    // 900 px box every other shape stops at). Default colour from SHAPE_DEFS,
+                    // the same fallback the payload sends.
                     const kind = e.shape ?? 'square'
-                    const w = shapePx(e.sizeM, e.coord[1], previewZoom)
+                    const w = shapePx(e.sizeM, e.coord[1], previewZoom, SHAPE_MAX_PX[kind])
                     const h = w * shapeAspect(kind, e.aspect)
                     return (
                       <div className="kf-print-box" style={{ width: w * printScale, height: h * printScale }}>
                         <div className="kf-print-inner kf-glyph" style={{ width: w, height: h, transform: `translate(-50%, -50%) scale(${printScale}) rotate(${e.rotation ?? 0}deg)` }}>
-                          <ShapeGlyph kind={kind} color={e.color ?? SHAPE_DEFS[kind].defaultColor} stop={kind === 'arrow' && !!e.stop} />
+                          {/* ⚠️ the shape's OWN aspect, carrier and stroke — the box around it is
+                              already sized from them (w × h above), so a glyph built at the DEFAULT
+                              aspect was stretched into it and the preview stopped being WYSIWYG
+                              against the paper it is cropping (01.09.). */}
+                          <ShapeGlyph kind={kind} color={e.color ?? SHAPE_DEFS[kind].defaultColor}
+                            stop={kind === 'arrow' && !!e.stop} aspect={e.aspect} carrier={e.carrier} reverse={e.reverse} strokeW={e.strokeW} boxPx={w} fillOpacity={e.fillOpacity} hatch={e.hatch} sharpCorners={e.sharpCorners} />
                         </div>
                       </div>
                     )

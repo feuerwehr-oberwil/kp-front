@@ -13,6 +13,7 @@ import { appConfig } from '../config/appConfig'
 import { resolveLinePreset, markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
+import { buzz } from '../lib/haptics'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
 import { nextTeamName } from '../lib/placedTrupps'
@@ -30,11 +31,11 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { MenuPick } from './MenuPick'
 import { LockChip } from './LockChip'
-import { ShapeGlyph, SHAPE_DEFS, SHAPE_FREE_ASPECT, shapeAspect } from '../lib/shapes'
+import { ShapeGlyph, ROTATION_DEFAULT_RUN_N, ROTATION_W_N, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { polyAreaM2, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
@@ -370,6 +371,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // sticky line preset (Freihand / Messpfeil / Rettungsachse) baked into a new line + editable after,
   // mirroring the Lage map. Chosen in the post-draw editor now, not the dock.
   const [linePreset, setLinePreset] = useState<string>(appConfig.drawing.linePresets[0].id)
+  /** the FIRST of a Rotation's two points, while the second is still being looked for (lib/shapes
+   *  · SHAPE_TWO_POINT). Lives and dies with one placement gesture. */
+  const [rotStart, setRotStart] = useState<BoardPoint | null>(null)
   // last node-tap (time + point) to detect a double-tap that finishes the shape
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null)
   const [aspect, setAspect] = useState(1.414) // h/w, A4 default until image loads
@@ -404,8 +408,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number } | null>(null)
   // drag a single selected freehand stroke (its original board-space vertices + the start point)
   const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean } | null>(null)
-  // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based)
-  const vertDrag = useRef<{ id: string; idx: number; floor: number; moved: boolean } | null>(null)
+  // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based).
+  // `pushed` = the undo checkpoint for this gesture was already taken BEFORE the shape changed
+  // (extendLine/insertVertex grow it on pointer-down), so the release must not take a second one.
+  const vertDrag = useRef<{ id: string; idx: number; floor: number; moved: boolean; pushed: boolean } | null>(null)
   // `origin` + `attached` + `detach` are the RELEASE half of the ring language (see the Lage map's
   // EndpointDrag — same shape, board coords instead of lng/lat).
   type PlanEndpointDrag = { id: string; endpoint: LineEndpoint; point: BoardPoint; origin: BoardPoint; attached: boolean; detach: number; dwell: DwellState; candidate: MagneticTarget | null }
@@ -413,7 +419,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const planEndpointDrag = useRef<PlanEndpointDrag | null>(null)
   const planDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const setPlanEndpointDrag = (next: PlanEndpointDrag | null) => { planEndpointDrag.current = next; setPlanEndpointDragState(next) }
-  type PlanDraftMagnet = { atStart: boolean; point: BoardPoint; dwell: DwellState; candidate: MagneticTarget | null }
+  // `first` is where the stroke went DOWN — the start's claim is kept while the finger is still
+  // within STROKE_START_RADIUS_PX of it (see updatePlanDraftMagnet), exactly as on the Lage map.
+  type PlanDraftMagnet = { first: BoardPoint; atStart: boolean; point: BoardPoint; dwell: DwellState; candidate: MagneticTarget | null }
   const [planDraftMagnetState, setPlanDraftMagnetState] = useState<PlanDraftMagnet | null>(null)
   const planDraftMagnet = useRef<PlanDraftMagnet | null>(null)
   const planDraftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -424,7 +432,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // drag-to-rotate a selected directional symbol — mirrors the map's rotor handle
   // `rot` = the shape's rotation at grab time and `free` = per-axis resize allowed — captured
   // on pointer-down so a corner drag can be resolved in the shape's own rotated frame
-  const rotate = useRef<{ id: string; cx: number; cy: number; moved: boolean; mode: 'rotate' | 'rotate2' | 'resize' | 'cage' | 'width'; rot: number; free: boolean; keepHeightN: number | null } | null>(null)
+  const rotate = useRef<{
+    id: string; cx: number; cy: number; moved: boolean
+    mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'width' | 'endA' | 'endB'
+    rot: number; free: boolean; keepHeightN: number | null; aspectMax: number; maxN: number
+    /** the shape's storey — stored y is storey-LOCAL (floorGeometry · localY), so every write
+     *  of a board-global coordinate has to come back through it */
+    floor: number
+    /** end drags only: the end that stays put (client px) and how far the grip floats past the cap */
+    fixed: { x: number; y: number } | null; gripOffPx: number
+  } | null>(null)
   // the group-move drag origin (start client point and the original board-space geometry of
   // every selected anno). Pan/pinch/marquee refs live in useBoardGestures.
   const groupMove = useRef<{ sx: number; sy: number } | null>(null)
@@ -520,7 +537,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // (A6, 29.08.): tap-away loses a draft by ACCIDENT, so it auto-commits; Escape is the
       // one gesture whose whole meaning is «weg damit», and auto-saving it would leave no
       // way to throw a half-laid shape away.
-      if (draft) { setDraft(null); draftAttachments.current = {}; lastTap.current = null }
+      if (rotStart) { setRotStart(null); clearRotMagnet() }
+      else if (draft) { setDraft(null); draftAttachments.current = {}; lastTap.current = null }
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
       else if (twinView) setTwinView(null)
       // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
@@ -875,6 +893,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Plan, so arming a shape froze the surface: the tap placed nothing and, with no overlay,
   // the board couldn't pan either. placeNode already handles 'shape'.
   const creating = tool === 'line' || tool === 'area' || tool === 'text' || tool === 'symbol' || tool === 'shape' || tool === 'resource' || tool === 'scale'
+  /** a two-point shape (Rotation) is armed: each of its two taps may claim a symbol, and it does
+   *  so by dwelling — press, hold until the ring closes, let go (lib/shapes · SHAPE_TWO_POINT) */
+  const rotPlacing = tool === 'shape' && !!pendingShape && SHAPE_TWO_POINT[pendingShape] && !readOnly
+  // Derived guard, not per-exit bookkeeping (the Lage map has the same one): the moment the
+  // two-point gesture stops being armed, its first point is meaningless — left behind, it drew
+  // an orphaned anchor dot in pan mode and silently became one end of the NEXT Rotation.
+  useEffect(() => {
+    if (!rotPlacing) { setRotStart(null); clearRotMagnet() }
+  }, [rotPlacing])
   // node-based (tap each vertex, then finish): the area tool, and the Linie tool in Punkte mode.
   // In Freihand mode the Linie tool drags a stroke instead (handled below).
   const noding = (tool === 'area' && areaMode === 'nodes') || (tool === 'line' && lineMode === 'nodes')
@@ -990,32 +1017,44 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    *  `phase` is the whole difference between the two behaviours: a pointerDOWN that lands on a
    *  target is deliberate aim and arms at once (the line-START exception — you put your finger on
    *  the Teilstück's prong because that is where the branch begins); everything acquired later in
-   *  the same stroke has to hold still for `MAGNET_DWELL_MS` first. */
-  const updatePlanDraftMagnet = (point: BoardPoint, atStart: boolean, phase: 'start' | 'move') => {
+   *  the same stroke has to hold still for `MAGNET_DWELL_MS` first.
+   *
+   *  `atStart` is the caller's claim on pointerDOWN only. A MOVE re-derives it from the stroke's
+   *  own first point — the map's rule — so it is not passed there. */
+  const updatePlanDraftMagnet = (point: BoardPoint, phase: 'start' | 'move', atStart = false) => {
     const pointer: [number, number] = [point[0] * sW, mapY(point[2], point[1]) * sH]
     const cur = planDraftMagnet.current
     const targets = planCandidatesAt('__draft__', pointer)
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
     if (phase === 'start') {
       const candidate = nearestMagneticTarget(pointer, targets)
-      setPlanDraftMagnet({ point, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()) })
+      setPlanDraftMagnet({ first: point, point, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()) })
       if (candidate) {
         draftAttachments.current = { ...draftAttachments.current, [atStart ? 'startAttachment' : 'endAttachment']: planAttachmentFor(candidate) }
-        navigator.vibrate?.(12)
+        buzz()
       }
       return
     }
-    const candidate = stickyMagneticTarget(pointer, targets, cur?.candidate?.key ?? null)
-    // leaving the start point ends the start's claim — the far end earns its own ring
-    const base = cur && atStart === cur.atStart ? cur.dwell : EMPTY_DWELL
-    const next: PlanDraftMagnet = { point, atStart, candidate, dwell: advanceDwell(base, candidate?.key ?? null, Date.now()) }
+    if (!cur) return
+    // The start KEEPS its claim while the finger is still within STROKE_START_RADIUS_PX of the
+    // pointerDOWN point and has not already banked a start attachment — the same rule the map
+    // applies (MapView · updateDraftMagnet). The Plan used to hand `false` in from the very first
+    // pixel of movement, so a SHORT stroke begun on a symbol lost the start's ring before it could
+    // ever be honoured. Leaving that radius ends the claim: from there the FAR end earns its own
+    // ring, even over the very target the stroke began on.
+    const first = cur.first
+    const firstPx: [number, number] = [first[0] * sW, mapY(first[2], first[1]) * sH]
+    const nowAtStart = cur.atStart && distance(firstPx, pointer) < STROKE_START_RADIUS_PX && !draftAttachments.current.startAttachment
+    const candidate = stickyMagneticTarget(pointer, targets, cur.candidate?.key ?? null)
+    const base = nowAtStart === cur.atStart ? cur.dwell : EMPTY_DWELL
+    const next: PlanDraftMagnet = { first, point, atStart: nowAtStart, candidate, dwell: advanceDwell(base, candidate?.key ?? null, Date.now()) }
     setPlanDraftMagnet(next)
     // arm on a motionless finger (no pointermove ⇒ no advanceDwell); the attachment itself is
     // only written on release, so moving on after arming still lets the end go free.
     if (candidate && !next.dwell.armed) planDraftTimer.current = setTimeout(() => {
       const now = planDraftMagnet.current
       if (!now || now.candidate?.key !== candidate.key) return
-      setPlanDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } }); navigator.vibrate?.(12)
+      setPlanDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } }); buzz()
     }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - next.dwell.since)))
   }
   const finishPlanDraftMagnet = () => {
@@ -1055,7 +1094,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const atStart = !draft?.length
       if (atStart) draftAttachments.current = {}
       else draftAttachments.current = { ...draftAttachments.current, endAttachment: undefined }
-      updatePlanDraftMagnet([x, y, floor], atStart, 'start')
+      updatePlanDraftMagnet([x, y, floor], 'start', atStart)
     }
     if (inking) {
       // Freehand is the one create gesture that IS the drag — the stroke follows the finger,
@@ -1071,6 +1110,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // past the overlay edge.
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     inkTap.current = { x: e.clientX, y: e.clientY, px: posRef.current.x, py: posRef.current.y, moved: false }
+    // …and a two-point shape's tap may claim a symbol: press, hold until the ring closes, let go
+    if (rotPlacing) claimRotTarget({ x: e.clientX, y: e.clientY })
   }
   // create a resource chip — linked to a tracked Trupp when one is picked, else a generic team
   const placeTeamChip = (x: number, y: number, floor: number, trupp?: Trupp) => {
@@ -1092,8 +1133,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Trupp. Freehand is the exception (it draws on the drag itself), so it never routes through here.
   const placeNode = (e: React.PointerEvent) => {
     const n = toNorm(e.clientX, e.clientY); if (!n) return
-    const floor = stack ? floorAt(n[1]) : 0
-    const x = n[0], y = localY(n[1], floor)
+    let floor = stack ? floorAt(n[1]) : 0
+    let x = n[0], y = localY(n[1], floor)
+    // a two-point shape's tap lands ON the symbol whose ring closed under it, not beside it
+    if (rotPlacing) {
+      const claimed = rotMagnetRef.current?.armed ? rotMagnetRef.current : null
+      clearRotMagnet()
+      if (claimed) { x = claimed.x; y = claimed.y; floor = claimed.floor }
+    }
     if (tool === 'scale') {
       // Maßstab: tap the TWO endpoints of the printed scale bar; the second tap opens the
       // metre-entry popover. Coords stay board-normalized (converted to measure space on confirm).
@@ -1153,10 +1200,38 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const def = SHAPE_DEFS[k]
       const name = appConfig.copy.shapes.names[k] ?? appConfig.copy.shapes.kindLabel
       // same defaults + naming as the Lage placement path; size is normalized to the plan width
-      add({ id, kind: 'shape', x, y, floor, shape: k, color: def.defaultColor, sizeN: def.defaultSizeN, rotation: 0, label: name })
-      log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name }), { annoId: id, x, y, floor })
-      // unlocked: place once → pan with the shape selected (rotor/resize usable); locked: keep placing
-      if (placeLock) setSelId(null)
+      let geom: Pick<BoardAnno, 'x' | 'y' | 'floor' | 'rotation' | 'sizeN' | 'aspect'> =
+        { x, y, floor, sizeN: def.defaultSizeN, rotation: 0 }
+      // ── A Rotation is laid between two PLACES (lib/shapes · SHAPE_TWO_POINT) ──────────────
+      // The twin of the Lage map's two taps, in plan space: first the Wasserbezug, then the
+      // Brandstelle. A second tap on the SAME spot lays down the default run instead, so nobody
+      // is ever left holding half a gesture with no way to finish it.
+      if (SHAPE_TWO_POINT[k]) {
+        if (!rotStart) { setRotStart([x, y, floor]); return }
+        // ⚠️ y is normalized against the board HEIGHT and sizeN against its WIDTH, so the two
+        // axes are only comparable once y is scaled by the board's own proportions
+        const f0 = rotStart[2] ?? floor
+        const gy0 = mapY(f0, rotStart[1]), gy1 = mapY(floor, y)
+        const dx = x - rotStart[0], dy = (gy1 - gy0) * (sH / sW)
+        const span = Math.hypot(dx, dy)
+        const apart = span >= SHAPE_MIN_N
+        const box = rotationBox(apart ? span : ROTATION_DEFAULT_RUN_N, ROTATION_W_N)
+        geom = {
+          x: apart ? (x + rotStart[0]) / 2 : rotStart[0],
+          // the midpoint is halved in BOARD space and re-localised into the first tap's storey —
+          // averaging two storey-local y's from different storeys puts the loop nowhere
+          y: apart ? localY((gy0 + gy1) / 2, f0) : rotStart[1],
+          floor: f0,
+          rotation: apart ? Math.round((((Math.atan2(dy, dx) * 180) / Math.PI % 360) + 360) % 360) : 0,
+          sizeN: box.size,
+          aspect: Math.round(box.aspect * 1000) / 1000,
+        }
+        setRotStart(null)
+      }
+      add({ id, kind: 'shape', shape: k, color: def.defaultColor, label: name, ...geom })
+      log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name }), { annoId: id, x: geom.x, y: geom.y, floor: geom.floor })
+      // unlocked: place once → pan with the shape selected (its two ends usable); locked: keep placing
+      if (placeLock && !SHAPE_TWO_POINT[k]) setSelId(null)
       else { setPendingShape(null); setTool('pan'); setSelId(id) }
       return
     }
@@ -1180,9 +1255,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     if (inkTap.current) {
+      // a two-point shape's press keeps its claim under the travelling finger
+      if (rotPlacing) claimRotTarget({ x: e.clientX, y: e.clientY })
       if (tool === 'line') {
         const n = toNorm(e.clientX, e.clientY)
-        if (n) { const floor = stack ? floorAt(n[1]) : draftFloor.current; updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], !draft?.length, 'move') }
+        if (n) { const floor = stack ? floorAt(n[1]) : draftFloor.current; updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move') }
       }
       // node tool: drag pans the board (and disqualifies the tap). 8px of slop tolerates finger
       // jitter so a still tap still places. Pan from the recorded origin, like useBoardGestures.
@@ -1194,12 +1271,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!inking || !draft) return
     const n = toNorm(e.clientX, e.clientY); if (n) {
       const floor = stack ? floorAt(n[1]) : draftFloor.current
-      if (tool === 'line') updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], false, 'move')
+      if (tool === 'line') updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move')
       setDraft((d) => (d ? [...d, [n[0], localY(n[1], floor), floor]] : [[n[0], localY(n[1], floor), floor]]))
     }
   }
   const inkUp = (e?: React.PointerEvent) => {
     if (e) inkPtrs.current.delete(e.pointerId)
+    // the claim survives just long enough for placeNode to consume it, and no longer
+    if (rotPlacing && (!e || e.type !== 'pointerup' || inkTap.current?.moved)) clearRotMagnet()
     if (inkPtrs.current.size < 2) inkPinch.current = null
     if (inkTap.current) {
       const st = inkTap.current; inkTap.current = null
@@ -1464,7 +1543,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const attached = !!(endpoint === 'start' ? a.startAttachment : a.endAttachment)
       setPlanEndpointDrag({ id: a.id, endpoint, point: resolved[idx], origin: resolved[idx], attached, detach: 0, dwell: EMPTY_DWELL, candidate: null })
     }
-    vertDrag.current = { id: a.id, idx, floor: a.floor ?? 0, moved: false }
+    vertDrag.current = { id: a.id, idx, floor: a.floor ?? 0, moved: false, pushed: false }
   }
   const vertMove = (e: React.PointerEvent) => {
     const st = vertDrag.current; if (!st) return
@@ -1483,7 +1562,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         const o = magnetic.origin
         const detach = detachProgress([o[0] * sW, mapY(o[2] ?? 0, o[1]) * sH], pointer)
         setPlanEndpointDrag({ ...magnetic, point, detach, attached: detach < 1, candidate: null, dwell: EMPTY_DWELL })
-        if (detach >= 1) navigator.vibrate?.(12)
+        if (detach >= 1) buzz()
         return
       }
       const targets = planCandidatesAt(st.id, pointer)
@@ -1495,11 +1574,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       if (candidate && !dwell.armed) planDwellTimer.current = setTimeout(() => {
         const cur = planEndpointDrag.current
         if (!cur || cur.candidate?.key !== candidate.key) return
-        setPlanEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } }); navigator.vibrate?.(12)
+        setPlanEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } }); buzz()
       }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - dwell.since)))
       return
     }
-    if (!st.moved) { pushPast(); st.moved = true }
+    if (!st.moved) { pushPast(); st.moved = true; st.pushed = true }
     const floor = stack ? floorAt(n[1]) : st.floor
     patch(st.id, { pts: (annos.find((a) => a.id === st.id)?.pts ?? []).map((p, i): BoardPoint => (i === st.idx ? [n[0], localY(n[1], floor), floor] : p)) })
   }
@@ -1523,7 +1602,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           if (sW && sH) endPt = [magnetic.candidate.point[0] / sW, localY(magnetic.candidate.point[1] / sH, floor), floor]
         } else if (magnetic.attached) { setPlanEndpointDrag(null); return }  // ring never closed → snap back, no change
         const pts = a.pts.map((p, i): BoardPoint => i === (magnetic.endpoint === 'start' ? 0 : a.pts!.length - 1) ? endPt : p)
-        patchCommit(a.id, { pts, ...(magnetic.endpoint === 'start' ? { startAttachment: attachment } : { endAttachment: attachment }) })
+        const out: Partial<BoardAnno> = { pts, ...(magnetic.endpoint === 'start' ? { startAttachment: attachment } : { endAttachment: attachment }) }
+        // `pushed` = extendLine already checkpointed BEFORE it grew the line, so a second
+        // checkpoint here would snapshot the already-grown shape and make one grow gesture cost
+        // two undo presses. Write + emit without one instead; the emitted `pts` is the final
+        // array either way, so the replay is identical.
+        if (st.pushed) { patch(a.id, out); emit('board.edit', { id: a.id, patch: out, planId: activeId }) }
+        else patchCommit(a.id, out)
       }
       setPlanEndpointDrag(null)
       return
@@ -1535,6 +1620,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * Grow the line past one of its open ends: append a point where the finger is, then hand the
    * gesture straight over to the ordinary vertex drag so the new point follows until release.
    * One undo step (pushPast once, at the start) — the same shape a reshape has.
+   *
+   * ⚠️ The grown point IS the line's new start/end, so the drag runs through the MAGNET path
+   * (`planEndpointDrag`), not the plain vertex reshape. Without that, «Verlängern» was the one
+   * way of moving an endpoint that could never dock — grow a Leitung onto a Fahrzeug and nothing
+   * connected (field report 01.09.). The Lage map's grip had the identical hole and is fixed with
+   * it (MapView · the «Verlängern» NewNodeHandle), so both surfaces grow AND dock the same way.
+   * An end that is ALREADY attached keeps the plain reshape: unplugging is the node grip's and
+   * the × chip's job, and a grip that could also detach would promise two things at once.
    */
   const extendLine = (end: 'start' | 'end', e: React.PointerEvent) => {
     if (tool !== 'pan') return
@@ -1547,9 +1640,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     pushPast()
     const next = end === 'start' ? [point, ...pts] : [...pts, point]
     patch(a.id, { pts: next })
+    if (a.kind === 'draw' && !(end === 'start' ? a.startAttachment : a.endAttachment)) {
+      setPlanEndpointDrag({ id: a.id, endpoint: end, point, origin: point, attached: false, detach: 0, dwell: EMPTY_DWELL, candidate: null })
+    }
     // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and
     // vertUp commits exactly as if the node had always been there.
-    vertDrag.current = { id: a.id, idx: end === 'start' ? 0 : next.length - 1, floor, moved: true }
+    vertDrag.current = { id: a.id, idx: end === 'start' ? 0 : next.length - 1, floor, moved: true, pushed: true }
   }
 
   /**
@@ -1557,6 +1653,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * press over to the ordinary vertex drag, exactly as `extendLine` does, so the new node follows
    * the finger until it lifts. Letting go without moving leaves the node at the midpoint, which is
    * what a plain tap on the «+» always left. One undo step (pushPast once, at the start).
+   *
+   * No magnet here, unlike `extendLine`: the new node lands at `idx + 1`, which for an open line
+   * is never index 0 nor the last one, and for a closed Fläche there is no endpoint at all. So it
+   * is always an interior vertex — nothing to dock, and no attachment can change which point it
+   * refers to.
    */
   const insertVertex = (idx: number, e: React.PointerEvent) => {
     if (tool !== 'pan') return
@@ -1571,7 +1672,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     patch(a.id, { pts: [...pts.slice(0, idx + 1), mid, ...pts.slice(idx + 1)] })
     // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and vertUp
     // commits — the new node never gets a chance to look like something you have to find again.
-    vertDrag.current = { id: a.id, idx: idx + 1, floor, moved: true }
+    vertDrag.current = { id: a.id, idx: idx + 1, floor, moved: true, pushed: true }
   }
   // delete vertex `idx`, keeping a valid shape (≥2 for a line, ≥3 for an area)
   const deleteVertex = (idx: number) => {
@@ -1626,6 +1727,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // --- chip dragging (resource / symbol / text in pan mode) ---
   const chipDown = (e: React.PointerEvent, id: string) => {
     if (tool !== 'pan') return
+    // (a locked shape never reaches this handler: its anno div is pointer-events:none —
+    // click-through ink, the LockChip is the only door, same as a locked drawn Fläche)
     // Notiz-Grammatik (29.08., unified with symbols across Karte AND Plan): tapping a note opens
     // its detail panel, exactly as tapping a symbol opens its ContextPanel — the ⚙ grip that used
     // to be the panel's only door is gone. Not while the note is mid-edit (its textarea owns the
@@ -1704,9 +1807,68 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   })
 
   // --- drag-to-rotate a selected directional symbol (rotor handle) ---
+  // ── «Halten, dann verbindet es», an einer Rotation ───────────────────────────────────────
+  // The plan twin of the map's claim (MapMarkers · trackEndMagnet / MapView · trackPlaceMagnet),
+  // down to the same chip, the same ring and the same rule: the point keeps following the finger
+  // while the ring fills, and only a FULL ring puts it on the symbol. It serves both moments a
+  // Rotation has — laying one of its two points down, and dragging an end afterwards — because
+  // they are the same question asked twice.
+  //
+  // Nothing is STORED by it: a Rotation carries no attachment field and deliberately none. What
+  // it buys is exactness — the run starts on the Wasserbezug's own spot rather than beside it —
+  // and it says so before it does it.
+  const [rotMagnet, setRotMagnet] = useState<{ x: number; y: number; floor: number; since: number; armed: boolean } | null>(null)
+  const rotMagnetRef = useRef<{ key: string; x: number; y: number; floor: number; since: number; armed: boolean } | null>(null)
+  const rotDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearRotMagnet = () => {
+    if (rotDwellTimer.current) { clearTimeout(rotDwellTimer.current); rotDwellTimer.current = null }
+    if (rotMagnetRef.current) { rotMagnetRef.current = null; setRotMagnet(null) }
+  }
+  useEffect(() => () => { if (rotDwellTimer.current) clearTimeout(rotDwellTimer.current) }, [])
+  /** Track the claim under a point and answer with the symbol it has actually taken — `null`
+   *  until the ring has closed. `pt` is in the client px both gestures work in. */
+  const claimRotTarget = (pt: { x: number; y: number }, skipId?: string) => {
+    const r = boardRef.current?.getBoundingClientRect()
+    if (!r || !r.width) { clearRotMagnet(); return null }
+    let best: { a: BoardAnno; d: number } | null = null
+    for (const a of annos) {
+      if (a.id === skipId || (a.kind !== 'symbol' && a.kind !== 'resource')) continue
+      if (a.x == null || a.y == null) continue
+      // mapY folds the sheet's own y into the stack's, so a claim lands on the floor it is drawn on
+      const x = r.left + a.x * r.width, y = r.top + mapY(a.floor, a.y) * r.height
+      const d = Math.hypot(x - pt.x, y - pt.y)
+      if (d < MAGNET_RADIUS_PX && (!best || d < best.d)) best = { a, d }
+    }
+    if (!best) { clearRotMagnet(); return null }
+    const cur = rotMagnetRef.current
+    if (cur?.key !== best.a.id) {
+      clearRotMagnet()
+      const st = { key: best.a.id, x: best.a.x ?? 0, y: best.a.y ?? 0, floor: best.a.floor ?? 0, since: Date.now(), armed: false }
+      rotMagnetRef.current = st
+      setRotMagnet({ ...st })
+      // arm on a motionless finger — there is no pointermove to advance a dwell by itself
+      rotDwellTimer.current = setTimeout(() => {
+        const now = rotMagnetRef.current
+        if (!now || now.key !== st.key) return
+        now.armed = true
+        setRotMagnet({ ...now })
+        buzz()
+      }, MAGNET_DWELL_MS)
+      return null
+    }
+    return cur.armed ? cur : null
+  }
+  /** the same claim, answered in the client px an end drag needs */
+  const trackEndMagnet = (id: string, pt: { x: number; y: number }) => {
+    const hit = claimRotTarget(pt, id)
+    const r = boardRef.current?.getBoundingClientRect()
+    if (!hit || !r || !r.width) return null
+    return { x: r.left + hit.x * r.width, y: r.top + mapY(hit.floor, hit.y) * r.height }
+  }
+
   // angle from the glyph centre to the pointer becomes the rotation (+90° so the
   // top knob leads); the whole gesture is one undo step (checkpoint on first move).
-  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'cage' | 'width' = 'rotate') => {
+  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'width' | 'endA' | 'endB' = 'rotate') => {
     if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
     const anno = (e.currentTarget as HTMLElement).closest('.wb-anno')
@@ -1715,45 +1877,104 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const r = glyph.getBoundingClientRect()
     const a = annos.find((x) => x.id === id)
     const shp = a?.kind === 'shape' ? (a.shape ?? 'square') : null
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+    // ── the two ends of a Rotation (lib/shapes · SHAPE_TWO_POINT) ──────────────────────────
+    // Identical to the Lage map (MapMarkers · shapeDown), in plan space: dragging one end pins
+    // the other, so the grip sets the run's length and its bearing at once.
+    let fixed: { x: number; y: number } | null = null
+    let gripOffPx = 0
+    if ((mode === 'endA' || mode === 'endB') && a) {
+      const size = a.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN
+      const half = (rotationRun(size, a.aspect) * sW) / 2
+      const rad = ((a.rotation ?? 0) * Math.PI) / 180
+      const away = mode === 'endA' ? 1 : -1 // the end that stays put is the far one
+      fixed = { x: cx + Math.cos(rad) * half * away, y: cy + Math.sin(rad) * half * away }
+      gripOffPx = rotationGripOffPx(size * shapeAspect('rotation', a.aspect) * sW)
+    }
     rotate.current = {
-      id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, moved: false, mode,
-      rot: a?.rotation ?? 0,
-      free: mode === 'resize' && !!shp && SHAPE_FREE_ASPECT[shp],
-      // a Rotation grows along its LONG axis only — its width stays what it was (MapMarkers)
-      keepHeightN: shp === 'rotation'
-        ? Math.max(0.005, (a?.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN) * shapeAspect('rotation', a?.aspect))
-        : null,
+      id, cx, cy, moved: false, mode, fixed, gripOffPx,
+      rot: a?.rotation ?? 0, floor: a?.floor ?? 0,
+      free: (mode === 'resize' || mode === 'sizeY') && !!shp && SHAPE_FREE_ASPECT[shp],
+      // One grip per axis: capture whichever axis the drag must LEAVE ALONE — the ↔ keeps the
+      // height, the ↕ keeps the length. Identical to the Lage map (MapMarkers · shapeDown).
+      keepHeightN: !shp || !SHAPE_AXIS_GRIPS[shp] ? null
+        : mode === 'sizeY'
+          ? Math.max(0.005, a?.sizeN ?? SHAPE_DEFS[shp].defaultSizeN)
+          : Math.max(0.005, (a?.sizeN ?? SHAPE_DEFS[shp].defaultSizeN) * shapeAspect(shp, a?.aspect)),
+      aspectMax: shp ? shapeAspectMax(shp) : 5,
+      // a Wasserpendel spans the plan; every other form stays inside the ordinary cap
+      maxN: shp === 'rotation' ? 3 : 0.9,
     }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
   const rotMove = (e: React.PointerEvent) => {
     const st = rotate.current; if (!st) return
     if (!st.moved) { pushPast(); st.moved = true } // one checkpoint per rotate/resize gesture
-    if (st.mode === 'resize') {
+    if ((st.mode === 'endA' || st.mode === 'endB') && st.fixed) {
+      // One end moves, the other stays: position, length, bearing and width all fall out of the
+      // pair (lib/shapes · rotationBox). Same maths as the map, in plan-width fractions.
+      const f = st.fixed
+      const d = Math.hypot(e.clientX - f.x, e.clientY - f.y) || 1
+      const ux = (e.clientX - f.x) / d, uy = (e.clientY - f.y) / d
+      // the grip floats past the cap, so the END is the pointer pulled back along the run
+      let ex = e.clientX - ux * st.gripOffPx, ey = e.clientY - uy * st.gripOffPx
+      const snap = trackEndMagnet(st.id, { x: ex, y: ey })
+      if (snap) { ex = snap.x; ey = snap.y }
+      const runN = Math.max(SHAPE_MIN_N, Math.min(st.maxN, Math.hypot(ex - f.x, ey - f.y) / sW))
+      const box = rotationBox(runN, ROTATION_W_N)
+      const deg = st.mode === 'endB'
+        ? (Math.atan2(ey - f.y, ex - f.x) * 180) / Math.PI
+        : (Math.atan2(f.y - ey, f.x - ex) * 180) / Math.PI
+      const mid = toNorm((f.x + ex) / 2, (f.y + ey) / 2)
+      if (!mid) return
+      patch(st.id, {
+        // toNorm is board-global; stored y is storey-local — on a floor stack the raw value
+        // would multiply through mapY and teleport the loop down the stack
+        x: mid[0], y: localY(mid[1], st.floor),
+        rotation: Math.round(((deg % 360) + 360) % 360),
+        sizeN: box.size,
+        aspect: Math.round(box.aspect * 1000) / 1000,
+      })
+      return
+    }
+    if (st.mode === 'resize' || st.mode === 'sizeY') {
       if (st.free) {
-        // free-aspect corner drag (Rechteck / Rauch): the pointer offset, rotated into the
-        // shape's own frame, sets width from |dx| and height from |dy| independently —
-        // identical maths to the map's resize (MapMarkers · shapeMove), in plan space
+        // free-aspect drag: the pointer offset, rotated into the shape's own frame, gives the
+        // two axes independently — identical maths to the map (MapMarkers · shapeMove), in plan
+        // space, so a Form feels the same on both surfaces.
         const rad = (-st.rot * Math.PI) / 180
         const dx = e.clientX - st.cx, dy = e.clientY - st.cy
         const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
         const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
-        const wN = Math.max(0.03, Math.min(0.9, (2 * Math.abs(lx)) / sW))
+        // ⚠️ A fraction of the PLAN, not screen px (lib/shapes · SHAPE_MIN_N): the plan zooms too,
+        // and a pixel floor would store a different share of the sheet at every zoom.
+        const minN = SHAPE_MIN_N
         if (st.keepHeightN != null) {
-          // the Rotation's own rule, mirrored from the map: the drag lengthens the run and the
-          // loop stays as wide as it was, rather than the whole form growing
-          const len = Math.max(st.keepHeightN, Math.min(3, (2 * Math.abs(lx)) / sW))
-          patch(st.id, { sizeN: len, aspect: Math.max(0.02, Math.min(1, Math.round((st.keepHeightN / len) * 1000) / 1000)) })
+          // ── one grip, one axis (lib/shapes · SHAPE_AXIS_GRIPS) ──
+          const asp = (h: number, len: number) =>
+            Math.max(0.02, Math.min(st.aspectMax, Math.round((h / len) * 1000) / 1000))
+          if (st.mode === 'sizeY') {
+            const len = st.keepHeightN // captured LENGTH
+            const hN = Math.max(minN, Math.min(len * st.aspectMax, (2 * Math.abs(ly)) / sW))
+            patch(st.id, { sizeN: len, aspect: asp(hN, len) })
+            return
+          }
+          const hN = st.keepHeightN // captured HEIGHT
+          const len = Math.max(Math.max(minN, hN / st.aspectMax), Math.min(st.maxN, (2 * Math.abs(lx)) / sW))
+          patch(st.id, { sizeN: len, aspect: asp(hN, len) })
           return
         }
-        const hN = Math.max(0.03, Math.min(0.9, (2 * Math.abs(ly)) / sW))
+        // the Rauch keeps its diagonal corner: both axes at once
+        const wN = Math.max(minN, Math.min(0.9, (2 * Math.abs(lx)) / sW))
+        const hN = Math.max(minN, Math.min(0.9, (2 * Math.abs(ly)) / sW))
         patch(st.id, { sizeN: wN, aspect: Math.max(0.2, Math.min(5, Math.round((hN / wN) * 100) / 100)) })
         return
       }
       // corner grip = half-diagonal from the glyph centre → full width, normalized to the
       // (scaled) plan width — same maths as the map's shape resize, in plan space
       const dist = Math.hypot(e.clientX - st.cx, e.clientY - st.cy)
-      patch(st.id, { sizeN: Math.max(0.03, Math.min(0.9, (dist * Math.SQRT2) / sW)) })
+      // …and the same floor for a proportional shape (the Pfeil)
+      patch(st.id, { sizeN: Math.max(SHAPE_MIN_N, Math.min(0.9, (dist * Math.SQRT2) / sW)) })
       return
     }
     if (st.mode === 'width') {
@@ -1778,10 +1999,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
   const rotUp = () => {
     const st = rotate.current; rotate.current = null
+    clearRotMagnet()
     if (!st?.moved) return
     const a = annos.find((x) => x.id === st.id)
     if (!a) return
-    const patchOut = st.mode === 'resize' ? { sizeN: a.sizeN, aspect: a.aspect }
+    const patchOut = st.mode === 'endA' || st.mode === 'endB'
+        ? { x: a.x, y: a.y, rotation: a.rotation, sizeN: a.sizeN, aspect: a.aspect }
+      : st.mode === 'resize' || st.mode === 'sizeY' ? { sizeN: a.sizeN, aspect: a.aspect }
       : st.mode === 'width' ? { wN: a.wN }
       : st.mode === 'cage' ? { rotation2: a.rotation2, reachN: a.reachN }
       : st.mode === 'rotate2' ? { rotation2: a.rotation2 } : { rotation: a.rotation }
@@ -2488,6 +2712,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 <ConnectRing since={planDraftMagnetState.dwell.since} armed={planDraftMagnetState.dwell.armed} />
               </span>
             )}
+            {/* …and the same ring for a Rotation, at both the end being dragged and each of the
+                two taps that lay it down (claimRotTarget) */}
+            {/* the first of a Rotation's two points, while the second is still being looked for */}
+            {rotStart && (
+              <span className="magnet-anchor wb-magnet" style={{ left: rotStart[0] * sW, top: mapY(rotStart[2] ?? 0, rotStart[1]) * sH }}>
+                <span className="place-anchor" />
+              </span>
+            )}
+            {rotMagnet && (
+              <span key={`rotmag:${rotMagnet.since}`} className="magnet-anchor wb-magnet"
+                style={{ left: rotMagnet.x * sW, top: mapY(rotMagnet.floor, rotMagnet.y) * sH }}>
+                <ConnectRing since={rotMagnet.since} armed={rotMagnet.armed} />
+              </span>
+            )}
 
             {/* line arrowheads · repeated marker letters · free-text label + distance — rendered in
                 board px (the ink SVG is stretched 1×1 and would distort them). Same feature set +
@@ -2639,13 +2877,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               <WbVertexHandles anno={renderAnnos.find((a) => a.id === selDraw.id) ?? selDraw} sW={sW} sH={sH} mapY={mapY}
                 onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine} />
             )}
-            {/* unlock chip on every locked line/area — the click-through ink's only tap target,
-                a SHORT HOLD to unlock + select (the Lage's twin, MapView · LockChip). Its only job
-                is unlocking, so it stays away where editing is locked anyway. Position mirrors the
-                map: an area is chipped at its centroid, a line at its middle vertex. */}
-            {!readOnly && tool === 'pan' && renderAnnos.filter((a) => a.locked && (a.kind === 'draw' || a.kind === 'area') && a.pts?.length).map((a) => {
-              const pts = a.pts!
-              const p = a.kind === 'area'
+            {/* unlock chip on every locked line/area/shape — the click-through ink's only tap
+                target, a SHORT HOLD to unlock + select (the Lage's twin, MapView · LockChip /
+                MapMarkers · shape-lock-anchor). Its only job is unlocking, so it stays away where
+                editing is locked anyway. Position mirrors the map: an area is chipped at its
+                centroid, a line at its middle vertex, a shape at its centre. */}
+            {!readOnly && tool === 'pan' && renderAnnos.filter((a) => a.locked && (a.kind === 'shape' || ((a.kind === 'draw' || a.kind === 'area') && a.pts?.length))).map((a) => {
+              const pts = a.pts ?? []
+              const p = a.kind === 'shape'
+                ? [a.x ?? 0, mapY(a.floor, a.y ?? 0)] as const
+                : a.kind === 'area'
                 ? [pts.reduce((t, q) => t + q[0], 0) / pts.length, pts.reduce((t, q) => t + mapY(q[2] ?? a.floor, q[1]), 0) / pts.length] as const
                 : [pts[Math.floor((pts.length - 1) / 2)][0], mapY(pts[Math.floor((pts.length - 1) / 2)][2] ?? a.floor, pts[Math.floor((pts.length - 1) / 2)][1])] as const
               return (
@@ -2688,7 +2929,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 // Trupp markers use (MapMarkers · anchor="left" + offset), because a Trupp
                 // transferred between the two surfaces must not visibly jump. Everything else
                 // stays centred on its glyph.
-                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(${a.kind === 'resource' ? `${selId === a.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px` : '-50%'}, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px` }}
+                // a LOCKED shape is click-through, like a locked drawn Fläche: no tap, no drag,
+                // no double-tap — the LockChip (own layer below) is the only door back in
+                style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(${a.kind === 'resource' ? `${selId === a.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px` : '-50%'}, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px`, ...(a.kind === 'shape' && a.locked ? { pointerEvents: 'none' as const } : null) }}
                 onPointerDown={(e) => chipDown(e, a.id)}
                 // double-tap still opens the on-surface textarea; the panel steps aside so the
                 // two editors for one text never stream keystrokes side by side
@@ -2750,7 +2993,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   // same glyphs + sizing model as the map: the silhouette scales with the
                   // plan (width = sizeN × plan width, height = width × aspect) and rotates as a whole
                   <div className="shape-glyph" style={{ width: (a.sizeN ?? 0.1) * sW, height: (a.sizeN ?? 0.1) * sW * shapeAspect(a.shape ?? 'square', a.aspect), transform: `rotate(${a.rotation ?? 0}deg)` }}>
-                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} carrier={a.carrier} />
+                    <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} stop={a.stop} aspect={a.aspect} carrier={a.carrier} reverse={a.reverse} strokeW={a.strokeW} boxPx={(a.sizeN ?? 0.1) * sW} fillOpacity={a.fillOpacity} hatch={a.hatch} sharpCorners={a.sharpCorners} />
                   </div>
                 )}
                 {a.kind === 'text' && (() => {
@@ -2917,23 +3160,65 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 )}
                 {/* generic shape: tethered rotor knob + corner resize grip, identical to the
                     Lage map — both rotate with the shape so the handles stay attached */}
-                {a.kind === 'shape' && selId === a.id && tool === 'pan' && !readOnly && (() => {
+                {a.kind === 'shape' && selId === a.id && tool === 'pan' && !readOnly && !a.locked && (() => {
                   // CSS anchors the knob/grip off a SQUARE --hbox; a stretched shape overrides
                   // them inline so the knob rides the real top edge and the grip the real
                   // corner (identical to the Lage map — MapMarkers' shape rotor)
                   const hbW = Math.max((a.sizeN ?? 0.1) * sW, 56)
                   const hbH = Math.max((a.sizeN ?? 0.1) * sW * shapeAspect(a.shape ?? 'square', a.aspect), 56)
+                  // ── A Rotation is its two ENDS, and nothing else (lib/shapes · SHAPE_TWO_POINT) ──
+                  // Each end sets the run's length AND its bearing, and the width follows the run,
+                  // so there is no rotate knob and no size grip left to draw. The twin of the Lage
+                  // map's pair (MapMarkers), down to the tether that keeps a grip off its own cap.
+                  if (SHAPE_TWO_POINT[a.shape ?? 'square']) {
+                    const boxW = (a.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN) * sW
+                    const boxH = boxW * shapeAspect('rotation', a.aspect)
+                    const runPx = Math.max(0, boxW - boxH)
+                    const off = rotationGripOffPx(boxH)
+                    return (
+                      <div className="shape-rotor" style={{ transform: `rotate(${a.rotation ?? 0}deg)` }}>
+                        {([['endA', -1], ['endB', 1]] as const).map(([which, sign]) => (
+                          <button key={which} className="handle shape-end"
+                            style={{ left: `calc(50% + ${sign * (runPx / 2 + off)}px)`, top: '50%' }}
+                            title={appConfig.copy.shapes.endHint} aria-label={appConfig.copy.shapes.endHint} data-holdaction
+                            onPointerDown={(e) => rotDown(e, a.id, which)} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp}
+                            onClick={(e) => e.stopPropagation()}>
+                            <Icon id="resize-h" />
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  }
                   return (
                   <div className="shape-rotor" style={{ transform: `rotate(${a.rotation ?? 0}deg)` }}>
                     <span className="shape-stem" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} />
-                    <button className="handle shape-rotate" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} title={appConfig.copy.shapes.rotateHint} aria-label={appConfig.copy.shapes.rotateHint}
+                    <button className="handle shape-rotate" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} aria-label={appConfig.copy.shapes.rotate} data-holdaction
                       onPointerDown={(e) => rotDown(e, a.id)} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
                       <Icon id="rotate" />
                     </button>
-                    <button className="handle shape-resize" style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }} title={appConfig.copy.shapes.resizeHint} aria-label={appConfig.copy.shapes.resizeHint}
-                      onPointerDown={(e) => rotDown(e, a.id, 'resize')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
-                      <Icon id="resize" />
-                    </button>
+                    {/* ── ONE GRIP PER AXIS on a Rechteck and a Rotation (01.09.) ── the ↔ on the
+                        right edge moves the x-axis, the ↕ on the bottom edge the y-axis: each grip
+                        stands ON the axis it controls. Identical to the Lage map (MapMarkers); the
+                        Rauch keeps the diagonal corner (lib/shapes · SHAPE_AXIS_GRIPS). */}
+                    {SHAPE_AXIS_GRIPS[a.shape ?? 'square'] ? <>
+                      <button className="handle shape-resize shape-axis-x" style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: '50%' }}
+                        title={appConfig.copy.shapes.boxWidthHint}
+                        aria-label={appConfig.copy.shapes.boxWidthHint} data-holdaction
+                        onPointerDown={(e) => rotDown(e, a.id, 'resize')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
+                        <Icon id="resize-h" />
+                      </button>
+                      <button className="handle shape-width shape-axis-y" style={{ left: '50%', top: `calc(50% + ${hbH / 2 + 3}px)` }}
+                        title={appConfig.copy.shapes.boxHeightHint}
+                        aria-label={appConfig.copy.shapes.boxHeightHint} data-holdaction
+                        onPointerDown={(e) => rotDown(e, a.id, 'sizeY')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
+                        <Icon id="resize-v" />
+                      </button>
+                    </> : (
+                      <button className="handle shape-resize" style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }} title={appConfig.copy.shapes.resizeHint} aria-label={appConfig.copy.shapes.resizeHint}
+                        onPointerDown={(e) => rotDown(e, a.id, 'resize')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
+                        <Icon id="resize" />
+                      </button>
+                    )}
                   </div>
                   )
                 })()}
@@ -2944,8 +3229,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     <span className="shape-stem" />
                     <button
                       className="handle shape-rotate"
-                      title={appConfig.copy.shapes.rotateHint}
-                      aria-label={appConfig.copy.shapes.rotateHint}
+                      aria-label={appConfig.copy.shapes.rotate} data-holdaction
                       onPointerDown={(e) => rotDown(e, a.id)}
                       onPointerMove={rotMove}
                       onPointerUp={rotUp}
@@ -3226,10 +3510,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
       {pendingShape && tool === 'shape' && (
         <ToolDock groups={[
-          [{ type: 'close', onClick: () => { setPendingShape(null); setTool('pan') } }],
+          [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('pan') } }],
           [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
-          [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
-          [{ type: 'info', text: appConfig.copy.dockHints.shape }],
+          // «mehrere nacheinander» has no meaning for a shape laid between two named places
+          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
+          [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
+            : rotStart ? appConfig.copy.dockHints.rotationEnd : appConfig.copy.dockHints.rotationStart }],
         ]} />
       )}
 
@@ -3470,6 +3756,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             ? polyAreaM2(selDraw.pts!.map(([x, y]) => [x, y]), activeScale.mPerU, measureAR) : null}
           perimeterM={selDraw.kind === 'area' && (selDraw.pts?.length ?? 0) >= 3
             ? planMetres([...selDraw.pts!, selDraw.pts![0]].map(([x, y]) => [x, y])) : null}
+          // …the ground box, measured through `planMetres` like every other plan distance, so the
+          // sheet's scale AND its aspect ratio are honoured exactly once (lib/geo · bboxSizeM is
+          // the map's twin of this)
+          boxM={selDraw.kind === 'area' && calibrated && activeScale && (selDraw.pts?.length ?? 0) >= 3
+            ? (() => {
+                const xs = selDraw.pts!.map(([x]) => x), ys = selDraw.pts!.map(([, y]) => y)
+                const [x0, x1] = [Math.min(...xs), Math.max(...xs)]
+                const [y0, y1] = [Math.min(...ys), Math.max(...ys)]
+                const widthM = planMetres([[x0, y0], [x1, y0]])
+                const heightM = planMetres([[x0, y0], [x0, y1]])
+                // planMetres answers null on an uncalibrated sheet; `calibrated` is already
+                // checked above, so this only narrows the type
+                return widthM == null || heightM == null ? null : { widthM, heightM }
+              })()
+            : null}
           onPreset={(presetId) => {
             setLinePreset(presetId)
             patchCommit(selDraw.id, resolveLinePreset(presetId, selDraw.dashed)) // ONE bundle, shared with the Lage map (lib/lineStyle)
@@ -3546,9 +3847,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           entity={selShape}
           onColor={(c) => patchCommit(selShape.id, { color: c })}
           // ±25 % steps scale BOTH axes: sizeN is the width and the height is width × aspect
-          onScale={(f) => patchCommit(selShape.id, { sizeN: Math.max(0.03, Math.min(0.9, (selShape.sizeN ?? SHAPE_DEFS[selShape.shape ?? 'square'].defaultSizeN) * f)) })}
+          onScale={(f) => patchCommit(selShape.id, { sizeN: Math.max(SHAPE_MIN_N, Math.min(0.9, (selShape.sizeN ?? SHAPE_DEFS[selShape.shape ?? 'square'].defaultSizeN) * f)) })}
+          // A Rotation has one size and it is the RUN between its two ends; the loop's width
+          // follows from it. Same rebuild as the Lage map, in plan-width fractions — the buttons
+          // are the two ends' gesture in fixed steps (lib/shapes · rotationBox).
+          onScaleLength={(f) => {
+            const run = rotationRun(selShape.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN, selShape.aspect)
+            const box = rotationBox(Math.max(SHAPE_MIN_N, Math.min(3, run * f)), ROTATION_W_N)
+            patchCommit(selShape.id, { sizeN: box.size, aspect: Math.round(box.aspect * 1000) / 1000 })
+          }}
           onStop={(v) => patchCommit(selShape.id, { stop: v })}
           onCarrier={(v) => patchCommit(selShape.id, { carrier: v })}
+          onReverse={() => patchCommit(selShape.id, { reverse: !selShape.reverse || undefined })}
+          onStrokeW={(w) => patchCommit(selShape.id, { strokeW: w })}
+          onFill={(fillOpacity, hatch) => patchCommit(selShape.id, { fillOpacity, hatch: hatch || undefined })}
+          onCorners={(sharp) => patchCommit(selShape.id, { sharpCorners: sharp || undefined })}
+          // locking DESELECTS (same as a locked Fläche): the ink goes click-through and the
+          // LockChip becomes the only door back in
+          onToggleLock={() => { patchCommit(selShape.id, { locked: !selShape.locked || undefined }); if (!selShape.locked) setSelId(null) }}
+          locked={selShape.locked}
           onDelete={() => void removeWithConnections(selShape)}
           onClose={() => setSelId(null)}
         />

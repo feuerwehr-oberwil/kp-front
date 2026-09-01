@@ -81,10 +81,10 @@ test('core surfaces render and survive reload', async ({ page }) => {
   await login(page)
   await ensureIncidentOpen(page)
 
-  // Lage (map): the MapLibre canvas must actually mount, not just the chrome.
+  // Karte (map): the MapLibre canvas must actually mount, not just the chrome.
   await page.getByRole('button', { name: 'Karte', exact: true }).click()
   await expect(page.locator('canvas.maplibregl-canvas').first()).toBeVisible()
-  await expectNoCrash(page, 'Lage')
+  await expectNoCrash(page, 'Karte')
 
   // Plan: the always-present generic sheet ("Tafel" = Leeres Blatt) renders the whiteboard.
   await page.getByRole('button', { name: 'Tafel', exact: true }).click()

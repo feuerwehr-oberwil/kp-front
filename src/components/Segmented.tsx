@@ -6,18 +6,29 @@ import type { ReactNode } from 'react'
  *  blue-filled active segment, wrapping for longer sets. Longer lists / the Mannschaft roster keep
  *  the Combo dropdown instead. The caller owns toggle semantics: it decides which value to commit on
  *  click (e.g. a detail field clears when its active option is tapped again). */
-export function Segmented<T extends string | number | boolean>({ options, value, onChange, ariaLabel }: {
+export function Segmented<T extends string | number | boolean>({ options, value, onChange, ariaLabel, explain }: {
   options: readonly { value: T; label: ReactNode; disabled?: boolean; title?: string }[]
   value: T | undefined
   onChange: (value: T) => void
   ariaLabel?: string
+  /**
+   * The options carry an EXPLANATION rather than a name, delivered through the app's own bubble —
+   * hold on touch, hover on mouse (lib/holdTooltip · `data-holdexplain`). Use it where the segment
+   * is a picture or a code that means nothing to somebody who has not used the sheet for six
+   * months; the Typ letters in the Linien-Editor are the pattern.
+   *
+   * ⚠️ It also DROPS the native `title`, deliberately: leaving both makes the browser's own
+   * tooltip arrive a second later and say the same sentence twice.
+   */
+  explain?: boolean
 }) {
   return (
     <div className="useg" role="group" aria-label={ariaLabel}>
       {options.map((o) => {
         const on = value === o.value
         return (
-          <button key={String(o.value)} type="button" className={`useg-btn${on ? ' on' : ''}`} title={o.title}
+          <button key={String(o.value)} type="button" className={`useg-btn${on ? ' on' : ''}`}
+            {...(explain ? { 'data-holdexplain': true, 'aria-label': o.title } : { title: o.title })}
             aria-pressed={on} disabled={o.disabled} onClick={() => onChange(o.value)}>{o.label}</button>
         )
       })}

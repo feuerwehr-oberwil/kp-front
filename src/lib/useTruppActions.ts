@@ -29,6 +29,59 @@ export const LAGE_TARGET = 'lage'
 const truppLabel = (name: string): string => name.trim()
 
 /**
+ * ── The hand-set board order, in ONE key space ──
+ *
+ * `Trupp.order` is synced but optional (older/imported incidents carry none), so the board's
+ * comparator falls back to the Trupp's position in the LIVE list — and every writer has to use
+ * that same fallback or the two scales talk past each other. They used to: `createTrupp` handed
+ * out `max(order ?? 0) + 1`, which on a board of N unordered Trupps is 1, so the new card tied
+ * with the SECOND one and landed in the middle of a board somebody had arranged.
+ *
+ * `truppOrderKey` is that one key: the stored `order`, else the position. Exported and pure so
+ * `AtemschutzView`'s comparator, `createTrupp` and `moveTrupp` provably agree.
+ */
+export const truppOrderKey = (t: Trupp, i: number): number => t.order ?? i
+
+/** The board as it reads when arranged by hand: by key, ties broken by position — so the order
+ *  is total even on a legacy board where several Trupps share a key. Carries each Trupp's key
+ *  along, because that is what a move has to compute against. */
+export function handOrder<T extends Trupp>(ts: T[]): { t: T; key: number; i: number }[] {
+  return ts.map((t, i) => ({ t, key: truppOrderKey(t, i), i }))
+    .sort((a, b) => a.key - b.key || a.i - b.i)
+}
+
+/** Where a newly registered Trupp goes: past every key on the board, so it sorts LAST in any mix
+ *  of ordered, unordered and soft-deleted Trupps. Removed ones count too — one of them can come
+ *  back (restoreTrupp), and it must not come back on top of the new card's number. */
+export function nextTruppOrder(ts: Trupp[]): number {
+  return ts.reduce((n, t, i) => Math.max(n, truppOrderKey(t, i)), -1) + 1
+}
+
+/**
+ * Where a card lands when it is moved one slot: BETWEEN the neighbour it jumps over and whatever
+ * lies past that one. Returns the new key for the moved Trupp, or `null` when it is already at
+ * that end of the board.
+ *
+ * A midpoint rather than a swap of two `order` values, for two reasons: it writes ONE object
+ * (a concurrent move on another device then merges per object without a second card following
+ * along), and it cannot land on a number another card already carries — the old swap took its
+ * values from subset indices and collided with real `order`s, and a tie falls back to array
+ * order, i.e. the card visibly did not move. Where the two neighbouring keys are already tied
+ * (legacy data) there is no gap to aim at, so the card steps past the whole tied group instead:
+ * further than asked, but never a dead button.
+ */
+export function nextMoveOrder(ordered: { key: number }[], i: number, dir: -1 | 1): number | null {
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= ordered.length) return null
+  const nb = ordered[j].key
+  const beyond = ordered[j + dir]?.key
+  const mid = beyond === undefined ? nb + dir : (nb + beyond) / 2
+  // strictly past the neighbour, or the move is invisible — also catches the float running out
+  // of room after very many moves
+  return (dir < 0 ? mid < nb : mid > nb) ? mid : nb + dir
+}
+
+/**
  * What a Trupp edit actually CHANGED, as the words the Verlauf prints.
  *
  * Exported and pure so the wording is testable: the line it feeds used to be «Auftrag angepasst»
@@ -149,11 +202,9 @@ export function useTruppActions(deps: Deps) {
       ? t.readings
       : [{ t: new Date().toISOString(), bar: t.entryPressureBar, kind: 'registered' }]
     // a new card joins at the END of the hand-set order, never in the middle of a board somebody
-    // arranged — `order` is synced, so it lands the same way on every device
-    setTrupps((ts) => [...ts, {
-      ...t, readings: registered,
-      order: t.order ?? ts.reduce((n, x) => Math.max(n, x.order ?? 0), 0) + 1,
-    }])
+    // arranged — `order` is synced, so it lands the same way on every device. The key comes from
+    // nextTruppOrder, which reads the board in the SAME space the comparator sorts in (see there).
+    setTrupps((ts) => [...ts, { ...t, readings: registered, order: t.order ?? nextTruppOrder(ts) }])
     // with the Eingangsdruck: it is the number the whole pressure trend is measured from, and
     // the Verlauf used to start the story without it
     log('flag', fillTemplate(appConfig.copy.atemschutz.logRegister, { name: t.name, bar: String(t.entryPressureBar) }), 'team')
@@ -162,23 +213,19 @@ export function useTruppActions(deps: Deps) {
   const updateTrupp = (id: string, patch: Partial<Trupp>) =>
     setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)))
 
-  /** Move a card one slot in the hand-set order. Swaps the two `order` values rather than
-   *  renumbering the board, so a concurrent edit on another device touches at most these two
-   *  Trupps. Not logged: where a card sits is a way of looking at the board, not something that
-   *  happened at the Einsatz — and the Verlauf is thin enough to keep for what did. */
+  /** Move a card one slot in the hand-set order. Re-keys the ONE card that moved (nextMoveOrder
+   *  slots it between its neighbour and the next one along), so a concurrent edit on another
+   *  device touches nothing this move wrote. Not logged: where a card sits is a way of looking at
+   *  the board, not something that happened at the Einsatz — and the Verlauf is thin enough to
+   *  keep for what did. */
   const moveTrupp = (id: string, dir: -1 | 1) => setTrupps((ts) => {
     // ⚠️ over the VISIBLE Trupps only. A soft-deleted one (types · Trupp.removedAt) still sits in
     // the array, so «nach oben» swapped places with a card nobody can see: the board did not move,
     // and the second tap was the one that appeared to work. At 3am that reads as a dead button.
-    const ordered = ts.filter((t) => !t.removedAt).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    const i = ordered.findIndex((t) => t.id === id)
-    const j = i + dir
-    if (i < 0 || j < 0 || j >= ordered.length) return ts
-    const [a, b] = [ordered[i], ordered[j]]
-    // an older Trupp may carry no order at all — settle both from their current position first
-    const oa = a.order ?? i
-    const ob = b.order ?? j
-    return ts.map((t) => (t.id === a.id ? { ...t, order: ob } : t.id === b.id ? { ...t, order: oa } : t))
+    const ordered = handOrder(ts.filter((t) => !t.removedAt))
+    const next = nextMoveOrder(ordered, ordered.findIndex((e) => e.t.id === id), dir)
+    if (next === null) return ts
+    return ts.map((t) => (t.id === id ? { ...t, order: next } : t))
   })
   // keep the placed chip/marker label in sync when the leader changes (plan chip text ==
   // map marker label == the leader's name as recorded)

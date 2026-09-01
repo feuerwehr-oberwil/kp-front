@@ -183,9 +183,21 @@ to prod.
   `src/lib/checklists.ts`, offline-cached), falling back to one neutral bundled example
   (`src/data/checklists/generic-action.json`) – never a station's real lists. GeoJSON must be WGS84
   `[lng,lat]` (LV95 is rejected).
-- **Domain language is German** (Lage, Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
+- **Domain language is German** (Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
   accurate. **All user-facing strings live in `appConfig.copy.*`** – never hard-code UI text in
   a component; add a key and reference it.
+- **The map surface is «Karte», the printed picture is «Kroki» – user-facing copy no longer says
+  «Lage»** (2026-09-01). The word meant three things at once (the surface you draw on, the
+  tactical picture that gets printed, and the doctrinal *Lage* of an Einsatz), so a row could
+  read «auf der Lage platziert» while the tab beside it said «Karte» and the Rapport column said
+  «Kroki». The rule now: the surface and everything about placing things on it is **Karte**; the
+  rendered/printed snapshot is **Kroki** (the Rapport's `areaLage` value has said so since
+  10.08.); real doctrine compounds – *Lage- und Einsatzführung*, *Lagebeurteilung*, *Lagerapport*
+  – keep their word, because they are the fire service's terms and not ours. ⚠️ Code identifiers
+  are NOT part of this: `mode 'map'`, `surface: 'map'`, `areaLage`, `placeLage`, `lagePickSub`
+  and friends keep their names, and so does `alarmText.ts`'s `LINK_PREFIX = 'Lage & Pläne:'`,
+  which is a **wire literal** matching what the external alerting gateway (fwo-divera ·
+  `src/api/sms.py`) emits – renaming it would break link extraction on every real alarm.
 - **Failure copy has two shapes, and they are not interchangeable** (settled 2026-08-27 after a
   sweep found 35 of one and 20+ of the other with no rule between them):
   - *«X fehlgeschlagen»* – the action the operator just triggered failed, on a surface that

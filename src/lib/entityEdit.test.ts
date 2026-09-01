@@ -76,6 +76,30 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
       .toEqual(['Name: Widmer Céline', 'Stockwerk 2. OG', 'Anzahl 3'])
   })
 
+  // ⚠️ The caller wraps these lines in «{name}: {changes}», so a field named after the symbol it
+  // sits on said the word twice: «FW Gefahr allgemein» is labelled «Gefahr» and its one preset
+  // field is «Gefahr» too, and the record read «Gefahr: Gefahr: Wassertiefe 10m».
+  it('does not repeat a field name that IS the object’s own name', () => {
+    const gefahr = (over: Partial<Entity>): Entity =>
+      sym({ symbol: 'FW Gefahr allgemein', label: 'Gefahr', ...over })
+    expect(entityEditChanges(gefahr({ fields: { Gefahr: '' } }), gefahr({ fields: { Gefahr: 'Wassertiefe 10m' } })))
+      .toEqual(['Wassertiefe 10m'])
+    // …and the other two statements keep their verb, minus the doubled word
+    expect(entityEditChanges(gefahr({ fields: { Gefahr: 'Einsturz' } }), gefahr({ fields: { Gefahr: 'Wassertiefe 10m' } })))
+      .toEqual(['auf Wassertiefe 10m geändert'])
+    expect(entityEditChanges(gefahr({ fields: { Gefahr: 'Einsturz' } }), gefahr({ fields: { Gefahr: '' } })))
+      .toEqual(['geleert'])
+  })
+
+  it('matches the name case-insensitively and untrimmed, and leaves other fields named', () => {
+    const g = (over: Partial<Entity>): Entity => sym({ label: '  gefahr ', ...over })
+    expect(entityEditChanges(g({ fields: { 'Gefahr': '' } }), g({ fields: { 'Gefahr': 'Einsturz' } })))
+      .toEqual(['Einsturz'])
+    // a second field on the same symbol is NOT the name and keeps saying which field it is
+    expect(entityEditChanges(g({ fields: { Stoff: '' } }), g({ fields: { Stoff: 'Diesel' } })))
+      .toEqual(['Stoff: Diesel'])
+  })
+
   it('calls the symbol by its label, falling back to the symbol name', () => {
     expect(entityLogName(sym({ label: 'EL Widmer' }))).toBe('EL Widmer')
     expect(entityLogName(sym({ label: '  ' }))).toBe('Einsatzleiter')

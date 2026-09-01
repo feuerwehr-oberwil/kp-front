@@ -20,16 +20,16 @@ from app.report_pdf import compose_report_pdf
 pytestmark = pytest.mark.asyncio
 
 
-def _link_uris(pdf_bytes: bytes) -> list[str]:
-    """URI targets of every Link annotation in the PDF, in on-page order.
+def _link_annots(pdf_bytes: bytes) -> list[tuple[int, str, tuple[float, float, float, float]]]:
+    """Every Link annotation in the PDF, in on-page order: ``(page index, URI, rect)``.
 
     pypdfium2's high-level API has no annotation helpers, so this drops to the raw FPDF_*
     bindings the library wraps — same approach the journal-link test uses to prove a
     ``<a href>`` in journal markup actually became a clickable PDF link, not just underlined text.
     """
     pdf = pdfium.PdfDocument(pdf_bytes)
-    uris: list[str] = []
-    for page in pdf:
+    out: list[tuple[int, str, tuple[float, float, float, float]]] = []
+    for page_i, page in enumerate(pdf):
         raw_page = page.raw
         for i in range(pdfium_raw.FPDFPage_GetAnnotCount(raw_page)):
             annot = pdfium_raw.FPDFPage_GetAnnot(raw_page, i)
@@ -47,10 +47,18 @@ def _link_uris(pdf_bytes: bytes) -> list[str]:
                     continue
                 buf = ctypes.create_string_buffer(buflen)
                 pdfium_raw.FPDFAction_GetURIPath(pdf.raw, action, buf, buflen)
-                uris.append(buf.raw[: buflen - 1].decode("utf-8", "replace"))
+                rect = pdfium_raw.FS_RECTF()
+                pdfium_raw.FPDFAnnot_GetRect(annot, ctypes.byref(rect))
+                uri = buf.raw[: buflen - 1].decode("utf-8", "replace")
+                out.append((page_i, uri, (rect.left, rect.bottom, rect.right, rect.top)))
             finally:
                 pdfium_raw.FPDFPage_CloseAnnot(annot)
-    return uris
+    return out
+
+
+def _link_uris(pdf_bytes: bytes) -> list[str]:
+    """URI targets of every Link annotation in the PDF, in on-page order."""
+    return [uri for _, uri, _ in _link_annots(pdf_bytes)]
 
 
 def _png(w: int = 12, h: int = 8) -> bytes:
@@ -429,3 +437,106 @@ async def test_journal_link_with_a_very_long_url_does_not_blow_up_the_table():
     # one unbreakable word must not cost more than a page or two over the same journal with a
     # short entry — a real blow-up runs into dozens/hundreds of pages, not a couple.
     assert long_pages <= base_pages + 2
+
+
+# ── Phone numbers on the sheet ────────────────────────────────────────────────────────────────
+# A rapport is read the morning after, on a phone, by whoever has to call somebody back — the
+# Kontaktperson whose Keller is still wet, the Werkhof that took the Absperrmaterial. Every number
+# it prints should be one tap, and no number it prints should be a tap that dials «14:31».
+
+
+async def test_the_kontaktperson_telefon_is_dialable():
+    """⚠️ The Details box is raw-canvas (`_FormRows`), NOT a Paragraph — markup does nothing
+    there, so the link is a rect measured off the same drawString and can silently be off by a
+    field. This asserts the annotation exists with the dialable form of what was typed."""
+    from app.report_pdf import ReportPayload
+
+    payload = _minimal_payload("x")
+    payload["meta"] = {"kontaktperson": "A. Beispiel", "kontaktpersonTelefon": "079 123 45 67"}
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(payload), {})
+    hits = [a for a in _link_annots(pdf_bytes) if a[1] == "tel:0791234567"]
+    assert len(hits) == 1
+
+    # ⚠️ And it sits ON the number. A wrong coordinate system (the Flowable draws translated, so
+    # the rect is `relative=1`) still produces a perfectly valid annotation — just one somewhere
+    # else on the page, or off it. So: page 1, the right-hand half of the Details box near the
+    # top, and about as wide as the number is set.
+    page_i, _, (left, bottom, right, top) = hits[0]
+    doc = pdfium.PdfDocument(io.BytesIO(pdf_bytes))
+    page = doc[0]
+    assert page_i == 0
+    assert page.get_width() / 2 < left < right < page.get_width()
+    assert page.get_height() * 0.6 < bottom < top < page.get_height()
+    assert 40 < right - left < 90  # «079 123 45 67» at 9pt Helvetica ≈ 57pt
+    assert 8 < top - bottom < 12  # the 9pt line box
+
+    # the PRINTED number stays exactly as the operator typed it — spacing included
+    assert "079 123 45 67" in page.get_textpage().get_text_range()
+
+
+async def test_a_partner_callback_number_is_dialable():
+    """The Partnerliste's remark line carries «Name · Telefon · Bemerkung» and IS a Paragraph, so
+    the anchor is markup — built before escaping, so it escapes nothing of its own."""
+    from app.report_pdf import ReportPayload
+
+    payload = _minimal_payload("x")
+    payload["meta"] = {
+        "partnerContacts": [
+            {"org": "Polizei", "name": "Wache & Co", "phone": "+41 61 123 45 67", "note": "Verkehr ab Kreisel"}
+        ]
+    }
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(payload), {})
+    assert "tel:+41611234567" in _link_uris(pdf_bytes)
+    doc = pdfium.PdfDocument(io.BytesIO(pdf_bytes))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Wache & Co" in text  # the «&» survived the markup that wrapped the number beside it
+
+
+async def test_the_phone_matcher_takes_the_swiss_shapes_and_nothing_else():
+    """⚠️ Conservative on purpose. A dead `tel:` hotspot over «250 bar» sits in a signed document
+    and cannot be corrected there; a number that simply prints as text loses nothing."""
+    from app.report_pdf import _phone_spans, _tel
+
+    dialable = {
+        "079 123 45 67": "tel:0791234567",
+        "+41 79 123 45 67": "tel:+41791234567",
+        "044 123 45 67": "tel:0441234567",
+        "079/123 45 67": "tel:0791234567",
+        "079.123.45.67": "tel:0791234567",
+        "079-123-45-67": "tel:0791234567",
+        "0791234567": "tel:0791234567",
+    }
+    for typed, href in dialable.items():
+        line = f"Melder {typed}, wartet vor dem Haus"
+        spans = _phone_spans(line)
+        assert len(spans) == 1, typed
+        assert line[spans[0][0] : spans[0][1]] == typed
+        assert _tel(typed) == href
+
+    prose = [
+        "Rückzug 14:31, Wiederbelebung ab 14:31:20",
+        "Flasche 250 bar, zweite 300 bar",
+        "Leitung 3 ab Verteiler 2, Ltg-Nr 12",
+        "Ereignis vom 01.09.2026, Nachkontrolle 04.09.2026",
+        "Zählerstand 20260901123456 abgelesen",
+        "Polizei 117, Sanität 144",  # the short emergency numbers are not matched — nor needed
+    ]
+    for line in prose:
+        assert _phone_spans(line) == [], line
+
+
+async def test_a_photo_reference_spells_itself_out():
+    """«B1» was a code the reader had to be told. The NUMBER is the contract — it is what a
+    journal entry and a phone call name the picture by — so it stays put and stays the same;
+    only the label spells out."""
+    from app.report_pdf import ReportPayload
+
+    payload = _minimal_payload("x")
+    payload["attachments"] = [{"url": "/api/media/a", "caption": "Ausweis Lenker"}, {"url": "/api/media/b"}]
+    figures = {"photo:/api/media/a": _png(60, 40), "photo:/api/media/b": _png(60, 40)}
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(payload), figures)
+    doc = pdfium.PdfDocument(io.BytesIO(pdf_bytes))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Bild 1 · Ausweis Lenker" in text
+    assert "Bild 2" in text  # no caption — the reference stands on its own
+    assert "B1" not in text
