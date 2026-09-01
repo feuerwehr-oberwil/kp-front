@@ -50,6 +50,15 @@ const SEAMS: Record<string, string> = {
   Fernsignaltableau: 'Fern­signal­tableau',
   Schlüsseldepot: 'Schlüssel­depot',
   Windrichtung: 'Wind­richtung',
+  // ── FKS Vegetationsbrand + Zivile Signaturen (01.09.) ──
+  // Without a seam the palette cell simply clips: «Drohnenlandeplat» is what the new
+  // Drohnenlandeplatz read as, with the last letters cut off rather than wrapped.
+  Schlüsselstelle: 'Schlüssel­stelle',
+  Beobachtungsposten: 'Beobachtungs­posten',
+  Drohnenlandeplatz: 'Drohnen­lande­platz',
+  Fahrzeugplatz: 'Fahrzeug­platz',
+  Angehörigensammelstelle: 'Angehörigen­sammel­stelle',
+  Dekontaminationsstelle: 'Dekontaminations­stelle',
   // ── caption compounds: values, not symbol names ──
   // What an operator types into a symbol's detail field, where the same rule applies: a
   // Gefahrstoff is recognised by its first component («Salpeter…», «Natron…»). Curated, not

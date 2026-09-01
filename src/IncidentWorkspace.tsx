@@ -123,7 +123,6 @@ import { amendBuilding } from './lib/buildingTransfer'
 import { useAuth } from './lib/auth'
 import {
   WorkspaceSync, uploadMedia,
-  referenceUrl,
   type IncidentMeta,
   isIncidentRunning,
 } from './lib/incidents'
@@ -740,10 +739,11 @@ export function IncidentWorkspace({
     const templates = base?.tiles ?? cartoRasterTiles('rastertiles/voyager', ['a'])
     const rasterOverlays = layers.filter((l) => !l.base && l.tiles?.length).map((l) => l.tiles as string[])
     const bounds = incidentBounds
-    // warm: per-object plan PDFs, the symbol library, and the geojson overlays cropped to the box
+    // warm: per-object plan PDFs and the geojson overlays cropped to the box. NOT the symbol
+    // library — it is a bundled asset (Workbox precaches every .json in the build) and the app
+    // stopped reading the backend's copy of it entirely (lib/useSymbols · 01.09.).
     const warmUrls = [
       ...Object.values(backendPlans),
-      referenceUrl('symbols:tactical'),
       ...layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
     ]
     // Pre-flight: everything cached for offline shares ONE origin quota, so a download into a
