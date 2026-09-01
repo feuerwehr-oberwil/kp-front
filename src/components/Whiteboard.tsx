@@ -33,7 +33,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { MenuPick } from './MenuPick'
 import { LockChip } from './LockChip'
-import { ShapeGlyph, ROTATION_DEFAULT_RUN_N, ROTATION_W_N, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
+import { ShapeGlyph, ROTATION_DEFAULT_RUN_N, ROTATION_MAX_N, ROTATION_W_N, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
@@ -2072,7 +2072,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           : Math.max(0.005, (a?.sizeN ?? SHAPE_DEFS[shp].defaultSizeN) * shapeAspect(shp, a?.aspect)),
       aspectMax: shp ? shapeAspectMax(shp) : 5,
       // a Wasserpendel spans the plan; every other form stays inside the ordinary cap
-      maxN: shp === 'rotation' ? 3 : 0.9,
+      // (lib/shapes · SHAPE_MAX_N — the same number the ± stepper clamps to)
+      maxN: SHAPE_MAX_N[shp ?? 'square'],
     }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
@@ -2134,8 +2135,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           return
         }
         // the Rauch keeps its diagonal corner: both axes at once
-        const wN = Math.max(minN, Math.min(0.9, (2 * Math.abs(lx)) / sW))
-        const hN = Math.max(minN, Math.min(0.9, (2 * Math.abs(ly)) / sW))
+        const wN = Math.max(minN, Math.min(st.maxN, (2 * Math.abs(lx)) / sW))
+        const hN = Math.max(minN, Math.min(st.maxN, (2 * Math.abs(ly)) / sW))
         patch(st.id, { sizeN: wN, aspect: Math.max(0.2, Math.min(5, Math.round((hN / wN) * 100) / 100)) })
         return
       }
@@ -2143,7 +2144,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // (scaled) plan width — same maths as the map's shape resize, in plan space
       const dist = Math.hypot(e.clientX - st.cx, e.clientY - st.cy)
       // …and the same floor for a proportional shape (the Pfeil)
-      patch(st.id, { sizeN: Math.max(SHAPE_MIN_N, Math.min(0.9, (dist * Math.SQRT2) / sW)) })
+      patch(st.id, { sizeN: Math.max(SHAPE_MIN_N, Math.min(st.maxN, (dist * Math.SQRT2) / sW)) })
       return
     }
     if (st.mode === 'radius') {
@@ -4189,13 +4190,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           entity={selShape}
           onColor={(c) => patchCommit(selShape.id, { color: c })}
           // ±25 % steps scale BOTH axes: sizeN is the width and the height is width × aspect
-          onScale={(f) => patchCommit(selShape.id, { sizeN: Math.max(SHAPE_MIN_N, Math.min(0.9, (selShape.sizeN ?? SHAPE_DEFS[selShape.shape ?? 'square'].defaultSizeN) * f)) })}
+          onScale={(f) => patchCommit(selShape.id, { sizeN: Math.max(SHAPE_MIN_N, Math.min(SHAPE_MAX_N[selShape.shape ?? 'square'], (selShape.sizeN ?? SHAPE_DEFS[selShape.shape ?? 'square'].defaultSizeN) * f)) })}
           // A Rotation has one size and it is the RUN between its two ends; the loop's width
           // follows from it. Same rebuild as the Lage map, in plan-width fractions — the buttons
           // are the two ends' gesture in fixed steps (lib/shapes · rotationBox).
           onScaleLength={(f) => {
             const run = rotationRun(selShape.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN, selShape.aspect)
-            const box = rotationBox(Math.max(SHAPE_MIN_N, Math.min(3, run * f)), ROTATION_W_N)
+            const box = rotationBox(Math.max(SHAPE_MIN_N, Math.min(ROTATION_MAX_N, run * f)), ROTATION_W_N)
             patchCommit(selShape.id, { sizeN: box.size, aspect: Math.round(box.aspect * 1000) / 1000 })
           }}
           onStop={(v) => patchCommit(selShape.id, { stop: v })}

@@ -69,10 +69,32 @@ export const SHAPE_MAX_PX: Record<ShapeKind, number> = {
 export const SHAPE_MIN_M = 8
 export const SHAPE_MIN_N = 0.03
 
-/** How long a Rotation may be drawn, in metres. Every other shape is capped at 500 — a
- *  Wasserpendel between the Weiher and the Brandstelle is kilometres, and that cap was the reason
- *  the only way to make the loop long was to make it enormous in both axes. */
+/** How long a Rotation may be drawn: in metres on the Karte, as a share of the plan width on the
+ *  Kroki. Every other shape is capped far lower (SHAPE_MAX_M / SHAPE_MAX_N) — a Wasserpendel
+ *  between the Weiher and the Brandstelle is kilometres, and that cap was the reason the only way
+ *  to make the loop long was to make it enormous in both axes. */
 export const ROTATION_MAX_M = 20000
+export const ROTATION_MAX_N = 3
+
+/**
+ * How large a shape may be made — the ceiling twin of SHAPE_MIN_M / SHAPE_MIN_N, and in the same
+ * two unit domains: ground metres on the Karte, a share of the plan width on the Kroki.
+ *
+ * ⚠️ ONE ceiling per domain, read by BOTH the corner/axis drag and the editor's ± stepper
+ * (MapMarkers · shapeDown/shapeMove, Whiteboard · rotDown/rotMove, ShapeEditor · onScale). The
+ * three numbers used to be written out at each site and had drifted: the Lage's ± button grew a
+ * Rechteck to 800 m that its own drag refused past 500 m, so the same shape had two answers to
+ * «wie gross darf das werden» depending on which control was touched.
+ *
+ * Not to be confused with SHAPE_MAX_PX, which bounds the rendered box on SCREEN — that one stops
+ * a stray value from producing a mile-wide DOM node and says nothing about the stored size.
+ */
+export const SHAPE_MAX_M: Record<ShapeKind, number> = {
+  arrow: 500, cloud: 500, square: 500, rotation: ROTATION_MAX_M,
+}
+export const SHAPE_MAX_N: Record<ShapeKind, number> = {
+  arrow: 0.9, cloud: 0.9, square: 0.9, rotation: ROTATION_MAX_N,
+}
 
 export const SHAPE_FREE_ASPECT: Record<ShapeKind, boolean> = { arrow: false, cloud: true, square: true, rotation: true }
 

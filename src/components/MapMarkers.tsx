@@ -10,7 +10,7 @@ import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { MenuPick } from './MenuPick'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
-import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_PX, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
+import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_M, SHAPE_MAX_PX, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { ConnectRing } from './NodeDeleteChip'
@@ -461,8 +461,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         : Math.max(1, (ent?.sizeM ?? SHAPE_DEFS[shape].defaultSizeM) * shapeAspect(shape, ent?.aspect)),
       aspectMax: shape ? shapeAspectMax(shape) : 5,
       // …and how far it may be stretched along its long axis. A Wasserpendel between the Weiher
-      // and the Brandstelle is kilometres; every other shape stays inside the general cap.
-      maxM: shape === 'rotation' ? ROTATION_MAX_M : 500,
+      // and the Brandstelle is kilometres; every other shape stays inside the general cap
+      // (lib/shapes · SHAPE_MAX_M — the same number the ± stepper clamps to).
+      maxM: SHAPE_MAX_M[shape ?? 'square'],
     }
     onShapeTransform?.(id, {}, 'start')
   }
@@ -548,8 +549,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         onShapeTransform?.(st.id, { sizeM: Math.round(sizeM), aspect: asp(heightM, sizeM) }, 'move')
         return
       }
-      const sizeM = Math.max(minM, Math.min(500, Math.round((2 * Math.abs(lx)) / ppm)))
-      const heightM = Math.max(minM, Math.min(500, Math.round((2 * Math.abs(ly)) / ppm)))
+      const sizeM = Math.max(minM, Math.min(st.maxM, Math.round((2 * Math.abs(lx)) / ppm)))
+      const heightM = Math.max(minM, Math.min(st.maxM, Math.round((2 * Math.abs(ly)) / ppm)))
       const aspect = Math.max(0.2, Math.min(5, Math.round((heightM / sizeM) * 100) / 100))
       onShapeTransform?.(st.id, { sizeM, aspect }, 'move')
     } else {
@@ -557,7 +558,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       const dist = Math.hypot(clientX - st.cx, clientY - st.cy)
       const sizeM = (dist * Math.SQRT2) / ppm // corner handle = half-diagonal
       // …and the same ground floor for a proportional shape (the Pfeil)
-      onShapeTransform?.(st.id, { sizeM: Math.max(SHAPE_MIN_M, Math.min(500, Math.round(sizeM))) }, 'move')
+      onShapeTransform?.(st.id, { sizeM: Math.max(SHAPE_MIN_M, Math.min(st.maxM, Math.round(sizeM))) }, 'move')
     }
   }
   const shapeUp = () => { const st = shapeRef.current; clearEndMagnet(); if (!st) return; shapeRef.current = null; onShapeTransform?.(st.id, {}, 'end') }
