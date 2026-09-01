@@ -1912,6 +1912,11 @@ export const de = {
       twinPanelFromMap: 'Gespiegelt von der Karte',
       // Ein Zwilling ohne Namen: das Wort steht im Etikett, damit die Plakette nie leer bleibt.
       twinUnnamed: 'Symbol',
+      // Die Herkunft im geteilten Editor: Farbe, Breite, Löschen sind hier dieselben wie bei
+      // einem eigenen Objekt – nur EINE Sache ist anders, und die steht als Weg dahin, nicht als
+      // Warnung. (Die Zwillings-Plakette sagt es im Untertitel; die beiden Flächen-Editoren
+      // hatten dafür bis 01.09. gar keine Stelle.)
+      twinOrigin: 'Gespiegelt – zum Original',
     },
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',

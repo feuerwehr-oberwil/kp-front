@@ -41,7 +41,7 @@ import s from './GeorefTwins.module.css'
  * LENGTH is resolved by each renderer in its own surface's units — metres on the Karte, a sheet
  * fraction on the Plan — because that is the one thing the two frames cannot share.
  */
-export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, boom, caption, title, onOpen, onMove, onGesture, gestureMovable = false, interactive = true, selected = false, style, className }: {
+export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, boom, caption, title, onOpen, onMove, onGesture, gestureMovable = false, interactive = true, selected = false, style, className, children }: {
   svg: string
   sizePx: number
   rotation: number
@@ -98,6 +98,10 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
   selected?: boolean
   style?: React.CSSProperties
   className?: string
+  /** surface-owned chrome drawn INSIDE the mark — currently only the fan's hairline home
+   *  (GeorefTwinsMap), which has to sit in the mark's own stacking box to point back at the
+   *  true position. */
+  children?: React.ReactNode
 }) {
   // The live gesture. A ref, not state: it is written on every pointer sample, and nothing about
   // the mark's appearance depends on it — the position it produces arrives back as a new `pt`.
@@ -171,6 +175,7 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
         dragged.current = false
       }}
     >
+      {children}
       {selected && <span className="sel-halo" aria-hidden />}
       <TacticalSymbol svg={svg} sizePx={sizePx} rotation={rotation} count={count}
         floor={floor} floorFrom={floorFrom} floorTo={floorTo}

@@ -7,6 +7,11 @@ interface BoardGesturesDeps {
   annos: BoardAnno[]
   setSelId: (id: string | null) => void
   setSelIds: (ids: string[]) => void
+  /** the mirrored Karte objects on this sheet, in board-normalized points — a lasso boxes a
+   *  projection exactly like the object beside it (D-09); the bar's writers fold each one back
+   *  through the fit and write the ONE source object on the Karte. */
+  twinBoxes?: { key: string; pts: { x: number; y: number }[] }[]
+  setSelTwinIds?: (keys: string[]) => void
   /** arm a tool — the marquee uses it to hand a single catch back to the selection tool */
   setTool: (t: BoardTool) => void
   applyView: (s: number, p: { x: number; y: number }) => void
@@ -34,7 +39,7 @@ interface BoardGesturesDeps {
  * to the two-finger gesture happen in the CAPTURE phase (trackDown/trackUp) so they see fingers
  * that a chip's own handler swallows — see the comment there.
  */
-export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp }: BoardGesturesDeps) {
+export function useBoardGestures({ tool, annos, setSelId, setSelIds, twinBoxes, setSelTwinIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp }: BoardGesturesDeps) {
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const pan = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const pointers = useRef<Map<number, { x: number; y: number }>>(new Map())
@@ -57,7 +62,7 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     marqueeRef.current = { x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY }
     setMarquee(marqueeRef.current)
-    setSelId(null); setSelIds([])
+    setSelId(null); setSelIds([]); setSelTwinIds?.([])
   }
   const marqueeMove = (e: ReactPointerEvent) => {
     if (!marqueeRef.current) return
@@ -67,7 +72,7 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   const marqueeUp = () => {
     const r = marqueeRef.current; marqueeRef.current = null; setMarquee(null)
     if (!r) return
-    if (isMarqueeTap(r)) { setSelIds([]); return } // a tap, not a box
+    if (isMarqueeTap(r)) { setSelIds([]); setSelTwinIds?.([]); return } // a tap, not a box
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect || !rect.width) return
     // project a normalized board point (x, y, floor) into client px; shared bounds test does the rest
     const inBox = marqueeContains(r, ({ x, y, floor }: { x: number; y: number; floor: number | undefined }) => ({
@@ -80,18 +85,20 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
         ? (a.pts ?? []).some(([x, y]) => inBox({ x, y, floor: a.floor }))
         : inBox({ x: a.x ?? 0, y: a.y ?? 0, floor: a.floor })),
     ).map((a) => a.id)
+    // …and the mirrored ones on the same rule: any of its board points inside the box
+    const twinKeys = (twinBoxes ?? []).filter((t) => t.pts.some(({ x, y }) => inBox({ x, y, floor: 0 }))).map((t) => t.key)
     // Exactly one caught → drop into the normal single-edit selection, so the object gets its
     // editor, its grips and its Löschen; a group of one has none of that (groupCentroid needs
     // two). Same fallback as the Karte (IncidentWorkspace · onMarquee), and like the Karte it
     // hands the surface back to the selection tool — that IS where the single-edit affordances
     // live ('pan' gates the editor slot and the vertex handles). A box that caught nothing or a
     // real group leaves the lasso armed, as before.
-    if (ids.length <= 1) {
-      setSelIds([]); setSelId(ids[0] ?? null)
+    if (ids.length + twinKeys.length <= 1) {
+      setSelIds([]); setSelTwinIds?.([]); setSelId(ids[0] ?? null)
       if (ids.length === 1) setTool('pan')
       return
     }
-    setSelId(null); setSelIds(ids)
+    setSelId(null); setSelIds(ids); setSelTwinIds?.(twinKeys)
   }
   const panMove = (e: ReactPointerEvent) => {
     if (!pan.current) return

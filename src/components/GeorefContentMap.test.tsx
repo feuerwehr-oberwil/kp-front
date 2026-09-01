@@ -95,16 +95,15 @@ describe('broader Plan content on the Karte', () => {
       point({ id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1' }),
     ]
     const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive onOpenTwin={onOpenTwin} />)
-    // the pathless kinds are their own hit target; the line gets a grip at its midpoint
-    expect(container.querySelectorAll('button')).toHaveLength(3)
+    // ⚠️ the pathless kinds are their own hit target; the LINE has none — its ink answers over
+    // its whole length through MapView's interactiveLayerIds, and it wears no midpoint grip any
+    // more (D-25), exactly like the map's own Linie
+    expect(container.querySelectorAll('button')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /Linie/ })).toBeNull()
     const note = screen.getByRole('button', { name: /Abschnitt Ost/ })
     fireEvent.pointerDown(note, { pointerId: 1, isPrimary: true, clientX: 50, clientY: 50 })
     fireEvent.pointerUp(note, { pointerId: 1, clientX: 50, clientY: 50 })
     expect(onOpenTwin).toHaveBeenCalledWith(expect.objectContaining({ annoId: 'note' }))
-    const grip = screen.getByRole('button', { name: /Linie/ })
-    fireEvent.pointerDown(grip, { pointerId: 2, isPrimary: true, clientX: 50, clientY: 50 })
-    fireEvent.pointerUp(grip, { pointerId: 2, clientX: 50, clientY: 50 })
-    expect(onOpenTwin).toHaveBeenCalledWith(expect.objectContaining({ annoId: 'line' }))
   })
 
   it('the open panel marks its projection with the selection halo', () => {
@@ -126,29 +125,16 @@ describe('broader Plan content on the Karte', () => {
     expect(coord[0]).toBeCloseTo(point({ id: 'x', kind: 'resource' }).coord![0] + 0.05, 5)
   })
 
-  it('…and a grip drag moves ANY unanchored line whole — only an attached endpoint blocks it', () => {
-    // round 8 (full 1:1): the old isLeitung tap-only guard fell — a numbered Leitung drags like
-    // any line. Only a line whose endpoint is ANCHORED keeps its whole-drag off (translating
-    // stored pts would fork against the plan's re-resolution; its grips reshape it instead).
+  it('a mirrored line has no move handle of its own — the selection bar carries the move', () => {
+    // D-25/D-13: the midpoint grip existed only because the ink was pointer-dead. The map's own
+    // Linie has no body grip either; both are moved from the one fixed bar (components/SelectionBar).
     const onMoveTwin = vi.fn()
     const twins: MapContentTwin[] = [
       { ...point({ id: 'ltg', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.1]], lineNo: 1 }), coords: [[7.5, 47.5], [7.501, 47.5]] },
-      {
-        ...point({
-          id: 'anchored', kind: 'draw', pts: [[0.1, 0.3], [0.8, 0.3]],
-          startAttachment: { target: { kind: 'object', id: 'hydrant' }, routing: 'direct' },
-        }),
-        coords: [[7.5, 47.49], [7.501, 47.49]],
-      },
     ]
-    render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
       onOpenTwin={() => {}} onMoveTwin={onMoveTwin} project={project} unproject={unproject} setDragPan={() => {}} />)
-    const grips = screen.getAllByRole('button')
-    mouseDrag(grips[0], [100, 100], [150, 100])
-    expect(onMoveTwin.mock.calls.some(([t, , ph]) => t.annoId === 'ltg' && ph === 'end')).toBe(true)
-    onMoveTwin.mockClear()
-    mouseDrag(grips[1], [100, 100], [150, 100])
-    expect(onMoveTwin).not.toHaveBeenCalled()
+    expect(container.querySelectorAll('button')).toHaveLength(0)
   })
 
   it('the selected mirrored line wears the map\'s native vertex vocabulary', () => {

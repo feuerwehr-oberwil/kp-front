@@ -1328,6 +1328,7 @@ export const fr: Localizable<Copy> = {
       twinPanelFromPlan: 'Reflété depuis {plan}',
       twinPanelFromMap: 'Reflété depuis la carte',
       twinUnnamed: 'Symbole',
+      twinOrigin: 'Reflété – vers l’original',
     },
     finishShape: 'Terminé',
     cancelShape: 'Annuler',

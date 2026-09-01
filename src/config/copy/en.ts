@@ -1326,6 +1326,7 @@ export const en: Localizable<Copy> = {
       twinPanelFromPlan: 'Mirrored from {plan}',
       twinPanelFromMap: 'Mirrored from the map',
       twinUnnamed: 'Symbol',
+      twinOrigin: 'Mirrored – go to the original',
     },
     finishShape: 'Done',
     cancelShape: 'Cancel',

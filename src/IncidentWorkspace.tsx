@@ -16,7 +16,7 @@ import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
-import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
+import type { BoardAnno, BoardPoint, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
@@ -131,7 +131,7 @@ import {
 import { useAuditEvents } from './lib/useAuditEvents'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { applyRouting, moveLineBody, resolveMapDrawings, resolvePlanAnnos } from './lib/lineAttachments'
-import { centroid, rotateAround, turnedBy } from './lib/selectionTransform'
+import { centroid, rotateAround, transformThroughFit, turnedBy } from './lib/selectionTransform'
 import { leitungOptions, truppForLine, truppIsOut } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
@@ -418,7 +418,7 @@ export function IncidentWorkspace({
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
   // scope for that callback; threaded into useMapDrawing below just as before.
-  const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = useTacticalSelection()
+  const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds, selectedTwinKeys, setSelectedTwinKeys } = useTacticalSelection()
   /** Where the currently selected drawing was TAPPED (map-container px), paired with its id so a
    *  selection that arrived some other way can't borrow a stale point. Only the panel nudge reads
    *  it (lib/panelNudge · panelNudgeSelection). */
@@ -1068,7 +1068,7 @@ export function IncidentWorkspace({
   // A detail sidebar has one owner. Opening a projection first drops every real selection so
   // two editors can never stack, compete for Escape, or leave two objects looking active.
   const openTwinView = (twin: MapTwin) => {
-    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
     setNotePanelId(null); setEditNoteId(null)
     // …and the two chrome docks, which a twin's panel shares a slot with exactly as an ordinary
     // detail panel does. A twin is not part of `selKey`, so the «new selection closes the map
@@ -1080,7 +1080,7 @@ export function IncidentWorkspace({
   }
   // the content twins' half of the same discipline: one detail sidebar, one owner
   const openContentTwinView = (twin: MapContentTwin) => {
-    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
     setNotePanelId(null); setEditNoteId(null)
     setPanel(null); setViewsOpen(false)
     setTwinView(null)
@@ -1472,7 +1472,7 @@ export function IncidentWorkspace({
       else if (twinView) setTwinView(null)
       else if (contentTwinView) setContentTwinView(null)
       else if (notePanelId) setNotePanelId(null)
-      else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
+      else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([]) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -1895,7 +1895,7 @@ export function IncidentWorkspace({
     setPanel(null); setViewsOpen(false); setPaletteOpen(false)
     if (keep === 'selection') return
     setTwinView(null)
-    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
     setNotePanelId(null); setEditNoteId(null)
   }
 
@@ -2160,7 +2160,7 @@ export function IncidentWorkspace({
     // see lib/useMeasure). Everything else falls through to "deselect", so a stale armed tool can
     // never keep collecting draft points behind a hidden dock.
     if (tacticalLocked && tool !== 'measure') {
-      setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+      setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
       return
     }
     if (tool === 'shape' && pendingShape) {
@@ -2191,7 +2191,7 @@ export function IncidentWorkspace({
       // selection so the editor doesn't interrupt) to drop several in a row.
       // Both branches drop a lasso group too — it used to survive every placement and keep
       // painting halos over unrelated objects.
-      setSelectedDrawIds([]); setSelectedEntityIds([])
+      setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
       if (placeLock) { setSelectedId(null); setSelectedDrawingId(null) }
       else { setPendingShape(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
       log('area', fillTemplate(appConfig.copy.log.shapePlaced, { name }), 'symbol', undefined, id)
@@ -2207,7 +2207,7 @@ export function IncidentWorkspace({
       const entity: Entity = { id, kind: 'symbol', layer, coord: c, ...seedSymbolProps(s, sym.symbols) }
       commit((d) => ({ ...d, entities: [...d.entities, entity] }))
       addRecent(s)
-      setSelectedDrawIds([]); setSelectedEntityIds([])
+      setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
       if (placeLock) { setSelectedId(null); setSelectedDrawingId(null) }
       else { setPending(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
       log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, id)
@@ -2226,7 +2226,7 @@ export function IncidentWorkspace({
       setDraft((d) => [...d, c]) // node mode: tap to place each line vertex; ✓ finishes
     } else if (tool === 'measure') {
       measure.setPath((d) => [...d, c])
-    } else { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
+    } else { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([]) }
   }
 
   // "Center" doesn't just recentre the alarm point — it frames the whole tactical picture:
@@ -2344,7 +2344,7 @@ export function IncidentWorkspace({
       const id = `p${Date.now()}`
       const copy: Entity = { ...src, id, coord: [src.coord[0] + DUP_OFFSET, src.coord[1] - DUP_OFFSET] }
       commit((d) => ({ ...d, entities: [...d.entities, copy] }))
-      setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+      setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
       log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('entity.add', { id, entity: copy })
     } else if (selectedDrawingId) {
       const src = doc.drawings.find((dr) => dr.id === selectedDrawingId)
@@ -2352,7 +2352,7 @@ export function IncidentWorkspace({
       const id = `sh${Date.now()}`
       const copy: Drawing = { ...src, id, coords: src.coords.map(([x, y]) => [x + DUP_OFFSET, y - DUP_OFFSET] as LngLat) }
       commit((d) => ({ ...d, drawings: [...d.drawings, copy] }))
-      setSelectedDrawingId(id); setSelectedId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+      setSelectedDrawingId(id); setSelectedId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
       log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('draw.add', { id, kind: src.kind, drawing: copy })
     }
   }
@@ -2531,23 +2531,98 @@ export function IncidentWorkspace({
   // become a group (move/delete together). Empty box clears any selection. The lasso is a
   // one-shot tool: drop back to plain navigate (select) after the box so a stray next
   // finger pans the map instead of drawing another box.
-  const onMarquee = (drawIds: string[], entIds: string[]) => {
+  const onMarquee = (drawIds: string[], entIds: string[], twinKeys: string[]) => {
     // live (GPS) entities aren't editable, and anything LOCKED is click-through — its chip is
     // the only door (LockChip), so a lasso may neither move, delete nor select it
     const ents = entIds.filter((id) => { const e = entities.find((x) => x.id === id); return !liveIds.has(id) && !e?.locked })
     const draws = drawIds.filter((id) => !drawings.find((d) => d.id === id)?.locked)
-    const total = draws.length + ents.length
+    // a mirrored object is boxed like anything else (D-09) — the group's writers fold it back
+    // through its own fit and write the ONE plan annotation
+    const twins = tacticalLocked ? [] : twinKeys
+    const total = draws.length + ents.length + twins.length
     setSelectedId(null)
     if (total <= 1) {
       // a single object → drop into the normal single-edit selection
-      setSelectedDrawIds([]); setSelectedEntityIds([])
+      setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
       setSelectedDrawingId(draws[0] ?? null)
       setSelectedId(ents[0] ?? null)
+      const lone = twins[0] ? [...mapTwinList, ...mapContentTwinList].find((t) => t.key === twins[0]) : undefined
+      if (lone) { if ('coords' in lone || lone.anno.kind !== 'symbol') openContentTwinView(lone as MapContentTwin); else openTwinView(lone as MapTwin) }
     } else {
       setSelectedDrawingId(null)
-      setSelectedDrawIds(draws); setSelectedEntityIds(ents)
+      setSelectedDrawIds(draws); setSelectedEntityIds(ents); setSelectedTwinKeys(twins)
     }
     setTool('select')
+  }
+  /**
+   * Move and/or turn a MIRRORED selection from the same bar (D-09/D-13). The delta and the turn
+   * arrive in the Karte's frame; each member's SOURCE annotation is folded through its own fit,
+   * turned about the projected centre and written back in plan space — never the projection,
+   * which is derived and would be overwritten on the next render.
+   *
+   * ⚠️ One checkpoint per touched PLAN, and a mixed group therefore folds into two undo steps:
+   * the Lage document and each plan board keep separate histories by design.
+   */
+  const twinGroupOrig = useRef<{ items: { planId: string; annoId: string; anno: BoardAnno; fit: GeorefFit }[]; centre: LngLat | null }>({ items: [], centre: null })
+  const transformPlanTwins = (keys: string[], t: { dLng: number; dLat: number; deg: number }, centre: LngLat, phase: 'start' | 'move' | 'end') => {
+    if (tacticalLocked || !keys.length) return
+    if (phase === 'start') {
+      const all = [...mapTwinList, ...mapContentTwinList]
+      const items = keys.flatMap((k) => {
+        const tw = all.find((x) => x.key === k)
+        return tw && !tw.anno.locked ? [{ planId: tw.planId, annoId: tw.annoId, anno: tw.anno, fit: tw.fit }] : []
+      })
+      twinGroupOrig.current = { items, centre }
+      const plans = [...new Set(items.map((i) => i.planId))]
+      setPlanHistory((m) => plans.reduce((acc, planId) => pushBoardPast(acc, planId, board[planId] ?? []), m))
+      return
+    }
+    const { items, centre: c } = twinGroupOrig.current
+    if (!items.length || !c) return
+    // rigid in a local east/north frame, so the turn looks like a turn at any latitude
+    const xScale = Math.cos((c[1] * Math.PI) / 180) || 1e-6
+    const moved = (fit: GeorefFit, x: number, y: number): [number, number] => transformThroughFit(
+      [x, y],
+      ([px, py]) => { const m = fit.toMap({ x: px, y: py }); return [m.lng, m.lat] },
+      ([lng, lat]) => { const q = fit.toPlan({ lng, lat }); return [q.x, q.y] },
+      { dx: t.dLng, dy: t.dLat, deg: t.deg }, c as [number, number], { xScale, yUp: true },
+    )
+    const byPlan = new Map<string, typeof items>()
+    for (const it of items) byPlan.set(it.planId, [...(byPlan.get(it.planId) ?? []), it])
+    setBoard((all) => {
+      const next = { ...all }
+      for (const [planId, group] of byPlan) {
+        next[planId] = (all[planId] ?? []).map((a) => {
+          const o = group.find((g) => g.annoId === a.id)
+          if (!o) return a
+          // a symbol's own bearing is paper-relative, and the twin's screen angle is
+          // `rotation − fit.rotationDeg − bearing`: a clockwise screen turn is the same turn here
+          const turned = t.deg
+            ? { ...(o.anno.rotation !== undefined ? { rotation: turnedBy(o.anno.rotation, t.deg) } : null),
+                ...(o.anno.rotation2 !== undefined ? { rotation2: turnedBy(o.anno.rotation2, t.deg) } : null) }
+            : null
+          if (o.anno.pts?.length) {
+            return { ...a, ...turned, pts: o.anno.pts.map(([x, y, floor]): BoardPoint => { const [nx, ny] = moved(o.fit, x, y); return [nx, ny, floor ?? a.floor ?? 0] }) }
+          }
+          if (o.anno.x == null || o.anno.y == null) return { ...a, ...turned }
+          const [nx, ny] = moved(o.fit, o.anno.x, o.anno.y)
+          return { ...a, ...turned, x: nx, y: ny }
+        })
+      }
+      return next
+    })
+    if (phase === 'end') {
+      items.forEach((i) => emit('board.move', { planId: i.planId, id: i.annoId }))
+      twinGroupOrig.current = { items: [], centre: null }
+    }
+  }
+  const deletePlanTwins = (keys: string[]) => {
+    const all = [...mapTwinList, ...mapContentTwinList]
+    for (const key of keys) {
+      const tw = all.find((x) => x.key === key)
+      if (tw) void deletePlanTwinSource(tw)
+    }
+    setSelectedTwinKeys([])
   }
   // Move and/or turn the marquee group from the selection bar: a (lng,lat) delta and a turn in
   // degrees, both applied to the snapshot taken at gesture start (drawings' coords + entities'
@@ -2641,7 +2716,7 @@ export function IncidentWorkspace({
       const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
       emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
     })
-    setSelectedDrawIds([]); setSelectedEntityIds([])
+    setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
     // «Zeichnung entfernt» after a lasso over eleven objects is not vague, it is wrong — the
     // singular says one thing went. The count is right here; a reconstruction needs it. A single
     // deletion is named like its creation row («Fläche gelöscht», «Einsatzleiter gelöscht»).
@@ -3023,7 +3098,7 @@ export function IncidentWorkspace({
       // moment, with nothing selected — no vertex handles under the finger, no editor sheet over
       // the map. Tapping the line is still how you edit it.
       focusMapDrawing: (drawingId) => {
-        setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedDrawingId(null); setSelectedId(null)
+        setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([]); setSelectedDrawingId(null); setSelectedId(null)
         const d = drawings.find((x) => x.id === drawingId)
         if (d?.coords[0]) flyToMapVisible(d.coords[0], 17.8)
         setFlashDrawingId(drawingId)
@@ -3756,10 +3831,13 @@ export function IncidentWorkspace({
           contentTwinTeam={tacticalLocked ? undefined : contentTwinTeam}
           selectedTwinKey={twinView?.key}
           selectedContentTwinKey={contentTwinView?.key}
+          selectedContentTwinKeys={selectedTwinKeys}
+          onContentTwinTransform={tacticalLocked ? undefined : transformPlanTwins}
+          onContentTwinDelete={tacticalLocked ? undefined : deletePlanTwins}
           georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}
           selectedId={selectedId}
-          onSelect={(e) => { setTwinView(null); setContentTwinView(null); setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
+          onSelect={(e) => { setTwinView(null); setContentTwinView(null); setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([]) }}
           onMapClick={onMapClick}
           drawings={drawings}
           drawingsVisible={isVisible(appConfig.defaults.drawingLayerId)}
@@ -3814,10 +3892,10 @@ export function IncidentWorkspace({
             // a drawing too big for its bounds to mean anything. Any other way into the selection
             // (Verlauf jump, a just-finished stroke) leaves a stale id here and is simply ignored.
             setDrawTap(at ? { id, x: at.x, y: at.y } : null)
-            setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
+            setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([]); setSelectedId(null)
           }}
-          onUnlockDrawing={tacticalLocked ? undefined : (id) => { setTwinView(null); setContentTwinView(null); patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
-          onUnlockShape={tacticalLocked ? undefined : (id) => { commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, locked: undefined } : e)) })); setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
+          onUnlockDrawing={tacticalLocked ? undefined : (id) => { setTwinView(null); setContentTwinView(null); patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([]); setSelectedId(null) }}
+          onUnlockShape={tacticalLocked ? undefined : (id) => { commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, locked: undefined } : e)) })); setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([]) }}
           onDelete={deleteEntity}
           selectedDrawing={selectedDrawing}
           onDrawingEdit={editDrawingCoords}
@@ -4425,6 +4503,9 @@ export function IncidentWorkspace({
                 if (!a.locked) setContentTwinView(null)
               }}
               onDelete={() => { void deletePlanTwinSource(t) }}
+              // the editor is the Karte's own, so it says nowhere else which document this
+              // object lives in — this is that one line, and the way there (D-13 follow-up)
+              onOriginal={() => goToTwinSource(t)}
               onClose={() => setContentTwinView(null)}
             />
           )
@@ -4453,6 +4534,9 @@ export function IncidentWorkspace({
               locked={a.locked}
               onCenter={t.coord ? () => flyToMapVisible(t.coord!, 18.4) : undefined}
               onDelete={() => { void deletePlanTwinSource(t) }}
+              // the editor is the Karte's own, so it says nowhere else which document this
+              // object lives in — this is that one line, and the way there (D-13 follow-up)
+              onOriginal={() => goToTwinSource(t)}
               onClose={() => setContentTwinView(null)}
             />
           )
@@ -4468,6 +4552,10 @@ export function IncidentWorkspace({
             entity={{ id: t.annoId, label: contentTwinName(a) }}
             subtitle={fillTemplate(appConfig.copy.whiteboard.georef.twinPanelFromPlan, { plan: t.planCode })}
             readOnly={tacticalLocked || !isNote}
+            // D-06: read-only here means «this kind has no editor on the Karte», not «protected» —
+            // the same object's plan panel offers Löschen, and deletePlanTwinSource was wired the
+            // whole time behind an unreachable button
+            allowDelete={!tacticalLocked}
             onClose={() => setContentTwinView(null)}
             onCenter={t.coord ? () => flyToMapVisible(t.coord!, 18.4) : undefined}
             onOriginal={() => goToTwinSource(t)}
@@ -4492,6 +4580,7 @@ export function IncidentWorkspace({
           entity={{ id: planTwinEntity.id, label: contentTwinName(planTwinEntity) }}
           subtitle={appConfig.copy.whiteboard.georef.twinPanelFromMap}
           readOnly={tacticalLocked || planTwinEntity.kind !== 'note'}
+          allowDelete={!tacticalLocked}
           onClose={() => setPlanTwinEntityId(null)}
           onOriginal={() => jumpToTwinSourceOnMap(planTwinEntity)}
           originalLabel={appConfig.copy.contextPanel.showOnMap}
@@ -4893,6 +4982,9 @@ export function IncidentWorkspace({
           onTwinDrawingDetach={detachTwinDrawing}
           onTwinDrawingFocusAttachment={focusTwinDrawingAttachment}
           onTwinDrawingDelete={(id) => { void deleteDrawing(id) }}
+          // «Gespiegelt – zum Original» out of the sheet's twin DrawEditor: the same jump the
+          // symbol twin's plaque makes, to the Karte the line actually lives on
+          onTwinDrawingFocusOriginal={(id) => { setMode('map'); focusDrawing(id) }}
           twinSelectedEntityId={planTwinEntityId}
           layersOn={panel === 'layers'}
           // the Ebenen button appears only on a linked sheet: with no fit the map lends it

@@ -34,7 +34,7 @@ import type { CaptionMode, LngLat } from '../types'
  * Memoised: the projection itself is done once per board/fit change by the caller, and
  * this tree then re-renders only when that list, the zoom or the bearing actually moves.
  */
-export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, interactive = true, selectedKey, onOpen, onMove, project, unproject, setDragPan }: {
+export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, fanOffsets, interactive = true, selectedKey, selectedKeys = [], onOpen, onMove, project, unproject, setDragPan }: {
   twins: MapTwin[]
   byName: Record<string, string>
   zoom: number
@@ -51,6 +51,11 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
    *  thing being placed, and a tap during «Karte verknüpfen» is half of a reference pair. */
   interactive?: boolean
   selectedKey?: string | null
+  /** …and every mirrored member of a Mehrfach group (D-09) */
+  selectedKeys?: string[]
+  /** the open fat-finger fan (MapMarkers · pileUnder, held by MapView): a twin buried under a
+   *  native marker steps out on its own hairline instead of being unreachable (D-10) */
+  fanOffsets?: Record<string, { dx: number; dy: number }> | null
   /** tap: open the source-backed editor on this surface */
   onOpen: (twin: MapTwin) => void
   /**
@@ -76,7 +81,8 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
     <>
       {twins.map((t) => {
         const a = t.anno
-        const selected = selectedKey === t.key
+        const selected = selectedKey === t.key || selectedKeys.includes(t.key)
+        const spoke = fanOffsets?.[t.key]
         // Match the source marker: no selection tap is needed first (that made the mirror feel
         // inert) — the press itself decides, through the shared hold. A tap opens the panel and
         // paints the halo; a hold moves the source.
@@ -105,7 +111,8 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
           : 0
         return (
           <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center"
-            style={{ zIndex: MARKER_Z.twin }}
+            offset={spoke ? [spoke.dx, spoke.dy] : undefined}
+            style={{ zIndex: spoke ? MARKER_Z.fanned : MARKER_Z.twin }}
             // swallow the trailing native click before MapLibre's own container listener sees
             // it — otherwise onMapClick closes the twin panel the tap just opened (the same
             // idiom as MapMarkers; see GeorefContentMap · tapTarget for the full story)
@@ -134,7 +141,16 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
               selected={selected}
               // the Marker already places the element; the mark only has to centre itself in it
               style={{ position: 'relative', margin: 0 }}
-            />
+            >
+              {/* the hairline home, the same promise a fanned native makes: this glyph really
+                  stands at the other end of it (MapMarkers · fan-spoke) */}
+              {spoke && (
+                <svg className="fan-spoke" aria-hidden>
+                  <line x1="0" y1="0" x2={-spoke.dx} y2={-spoke.dy} />
+                  <circle cx={-spoke.dx} cy={-spoke.dy} r="2.5" />
+                </svg>
+              )}
+            </TwinMark>
           </Marker>
         )
       })}

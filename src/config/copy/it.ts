@@ -1328,6 +1328,7 @@ export const it: Localizable<Copy> = {
       twinPanelFromPlan: 'Rispecchiato da {plan}',
       twinPanelFromMap: 'Rispecchiato dalla mappa',
       twinUnnamed: 'Simbolo',
+      twinOrigin: 'Rispecchiato – all’originale',
     },
     finishShape: 'Fatto',
     cancelShape: 'Annulla',

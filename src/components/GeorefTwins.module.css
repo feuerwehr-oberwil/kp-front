@@ -83,11 +83,11 @@
 .mapTap { position: relative; --hbox: 44px; }
 /* the halo'd mark stays readable above its ring — same raise .marker.sel gives its glyph */
 .mapTap :global(.shape-glyph), .mapTap :global(.note-pill), .mapTap > i, .mapTap > b { position: relative; z-index: 1; }
-/* The one hit target of a mirrored line/area: a small round grip at its midpoint/centroid —
-   round like every piece of on-canvas furniture. The button is bigger than the dot it draws
-   (gloved-finger pad); the dot takes the line's own colour. */
-.grip { width: 34px; height: 34px; display: grid; place-items: center; }
-.grip i { display: block; width: 13px; height: 13px; border-radius: 50%; background: currentColor; border: 2px solid var(--surface); box-sizing: content-box; }
+/* ⚠️ NO midpoint grip on mirrored ink (removed 01.09., D-25). It existed because the projection
+   was pointer-dead everywhere else; the ink now answers a tap over its whole length, and moving
+   a selection belongs to the one fixed selection bar — which is also all the map's OWN Linie has.
+   Its dot was the last piece of edit chrome painting in `currentColor` instead of the blue
+   handle family, and it left with it. */
 /* …and so must the LockChip of a mirrored LOCKED line/area/Form: its ink is click-through on
    both surfaces, so the chip is the object's only remaining tap target (D-07, 01.09.). */
 .contentBoard :global(.wb-lock-anchor) { pointer-events: auto; }

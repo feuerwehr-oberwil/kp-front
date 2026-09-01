@@ -40,7 +40,7 @@ import { fillTemplate } from '../lib/format'
 import type { BoardAnno, Drawing, Entity, LngLat, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
-export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, selectedEntityId, onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords, onDrawingRadius, onDrawingDetach, onUnlockDrawing, onUnlockEntity, selectedTeamId, onSelectTeam, teamActions, hiddenTrails, onToggleTrail }: {
+export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, selectedEntityId, selectedKeys = [], onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords, onDrawingRadius, onDrawingDetach, onUnlockDrawing, onUnlockEntity, selectedTeamId, onSelectTeam, teamActions, hiddenTrails, onToggleTrail }: {
   entities: BoardEntityTwin[]
   drawings: BoardDrawingTwin[]
   fit: GeorefFit
@@ -58,6 +58,8 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
   /** the mirrored Karte note/Form whose panel is open — it wears the selection state its
    *  original wears on the Karte, so the open panel says which object it belongs to */
   selectedEntityId?: string | null
+  /** …and every mirrored member of a Mehrfach group, which lights up the same way (D-09) */
+  selectedKeys?: string[]
   /** Tap on a mirrored team chip, note or shape: open its in-place source-backed panel (the
    *  workspace decides — a team chip used to jump surfaces, which read as a bug). The name is
    *  historic: Whiteboard wires it as `onTwinJump`, generic over every entity kind. */
@@ -531,7 +533,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
         const tappable = !!jump || movable
         const grabStyle = movable ? { touchAction: 'none' as const, cursor: 'grab' } : null
         const title = fillTemplate(appConfig.copy.whiteboard.georef.twinFromMap, { name: contentTwinName(entity) })
-        const selected = selectedEntityId === entity.id
+        const selected = selectedEntityId === entity.id || selectedKeys.includes(key)
         if (entity.kind === 'shape') {
           // ⚠️ no twin-only floor: the sheet's own Form is a bare `sizeN × sW` (Whiteboard), so a
           // 12 px floor made a small mirrored Form bigger than the original standing beside it.

@@ -21,6 +21,10 @@ export function useTacticalSelection() {
   // drawings AND placed entities (symbols/shapes/notes), so the group spans both sets.
   const [selectedDrawIds, setSelectedDrawIds] = useState<string[]>([])
   const [selectedEntityIds, setSelectedEntityIds] = useState<string[]>([])
+  // …and the mirrored members of the same box: a Georeferenz twin joins a group like anything
+  // else, by its twin key (lib/georefTwins · `<planId>:<annoId>`). The group's writers fold each
+  // one back through its own fit and write the ONE source annotation.
+  const [selectedTwinKeys, setSelectedTwinKeys] = useState<string[]>([])
   return {
     selectedId, setSelectedId,
     tool, setTool,
@@ -31,5 +35,6 @@ export function useTacticalSelection() {
     selectedDrawingId, setSelectedDrawingId,
     selectedDrawIds, setSelectedDrawIds,
     selectedEntityIds, setSelectedEntityIds,
+    selectedTwinKeys, setSelectedTwinKeys,
   }
 }

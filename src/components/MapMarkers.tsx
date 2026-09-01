@@ -11,7 +11,7 @@ import { LockChip } from './LockChip'
 import { MenuPick } from './MenuPick'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
 import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_PX, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
-import { MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
+import { isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { ConnectRing } from './NodeDeleteChip'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -146,6 +146,16 @@ interface Props {
   /** ⚠️ `coord` too: dragging one END of a Rotation moves its centre as well as its size and
    *  bearing — the box is derived from the two ends, so all four change together. */
   onShapeTransform?: (id: string, patch: { coord?: LngLat; rotation?: number; rotation2?: number; sizeM?: number; aspect?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
+  /** the mirrored objects a Rotation end may dock onto, resolved by the surface (MapView ·
+   *  twinMagnets) — a twin is a docking place exactly like the native it mirrors */
+  twinMagnets?: { id: string; coord: LngLat }[]
+  /** the mirrored SYMBOLS that join the fat-finger pile (D-10). A twin sits below every native
+   *  marker by design, so one covered by a symbol could never receive the tap AND was not offered
+   *  by the fan either — the second half was not deliberate. Same kinds `PILE_KINDS` accepts. */
+  twinPiles?: { id: string; coord: LngLat }[]
+  /** the fan this component opened, so the surface can offset the mirrored members too — they
+   *  are drawn by other layers (GeorefTwinsMap) and cannot see this state. */
+  onFan?: (offsets: Record<string, { dx: number; dy: number }> | null) => void
   /** unlock a locked shape (short-hold on its centre chip) → unlocks + selects. Absent ⇒ the
    *  chip is not drawn (viewer / tactically locked), matching MapView · onUnlockDrawing. */
   onUnlockShape?: (id: string) => void
@@ -195,7 +205,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, twinMagnets = [], twinPiles = [], onFan, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)
@@ -280,10 +290,15 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // gone, which reads as the label coming off its dot. Their coordinates are part of the key.
   type FanOffsets = Record<string, { dx: number; dy: number }>
   const fanKey = (offsets: FanOffsets) => `${zoom}|${bearing}|` + Object.keys(offsets).sort()
-    .map((id) => { const e = entities.find((x) => x.id === id); return e ? `${id}@${e.coord[0]},${e.coord[1]}` : id })
+    .map((id) => {
+      const at = entities.find((x) => x.id === id)?.coord ?? twinPiles.find((x) => x.id === id)?.coord
+      return at ? `${id}@${at[0]},${at[1]}` : id
+    })
     .join('|')
   const [fanState, setFan] = useState<{ key: string; offsets: FanOffsets } | null>(null)
   const fan = fanState && fanState.key === fanKey(fanState.offsets) ? fanState.offsets : null
+  // the mirrored members ride along in the surface's own state — see the `onFan` prop
+  useEffect(() => { onFan?.(fan) }, [fan]) // eslint-disable-line react-hooks/exhaustive-deps
   const openFan = (offsets: FanOffsets) => setFan({ key: fanKey(offsets), offsets })
   // A tap anywhere that is not a fanned glyph closes the fan — including a tap on the map, which
   // this component never sees otherwise. Capture phase, and bound only while a fan is open.
@@ -311,13 +326,21 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     const r = el.closest('.maplibregl-map')?.getBoundingClientRect()
     if (!r) return []
     const tap = { x: clientX - r.left, y: clientY - r.top }
-    return pileAt(tap, entities.flatMap((x) => {
-      if (!PILE_KINDS.includes(x.kind) || !Array.isArray(x.coord) || !isVisible(effectiveLayer(x))) return []
-      const p = project(x.coord as LngLat)
-      // pad diameter mirrors .marker::before in 03-map.css — the hit test has to measure the
-      // same slop the operator can see the effect of
-      return p ? [{ id: x.id, x: p.x, y: p.y, pad: Math.max(symPx(x.kind, x.coord[1], zoom, symMul) + 20, 44) }] : []
-    }))
+    const pad = (kind: string, at: LngLat) => Math.max(symPx(kind, at[1], zoom, symMul) + 20, 44)
+    return pileAt(tap, [
+      ...entities.flatMap((x) => {
+        if (!PILE_KINDS.includes(x.kind) || !Array.isArray(x.coord) || !isVisible(effectiveLayer(x))) return []
+        const p = project(x.coord as LngLat)
+        // pad diameter mirrors .marker::before in 03-map.css — the hit test has to measure the
+        // same slop the operator can see the effect of
+        return p ? [{ id: x.id, x: p.x, y: p.y, pad: pad(x.kind, x.coord as LngLat) }] : []
+      }),
+      // …and the mirrored symbols standing in the same spot (D-10)
+      ...twinPiles.flatMap((x) => {
+        const p = project(x.coord)
+        return p ? [{ id: x.id, x: p.x, y: p.y, pad: pad('symbol', x.coord) }] : []
+      }),
+    ])
   }
 
   // rotate a marker by dragging its handle: angle from the glyph centre to the pointer becomes the
@@ -358,21 +381,25 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
    *  `null` until the ring has closed. `pt` is in the same client px the drag works in. */
   const trackEndMagnet = (id: string, pt: { x: number; y: number }, toCont: { x: number; y: number }) => {
     const p = { x: pt.x + toCont.x, y: pt.y + toCont.y }
-    let best: { e: Entity; d: number; q: { x: number; y: number } } | null = null
-    for (const x of entities) {
-      // the same targets the PLACEMENT magnet accepts (MapView · trackPlaceMagnet) — an end
-      // laid onto a TLF must be re-dockable when it is dragged later
-      if (x.id === id || !['symbol', 'vehicle', 'team'].includes(x.kind)) continue
-      if (!Array.isArray(x.coord) || !isVisible(effectiveLayer(x))) continue
-      const q = project(x.coord as LngLat); if (!q) continue
+    let best: { key: string; coord: LngLat; d: number; q: { x: number; y: number } } | null = null
+    // the same targets the PLACEMENT magnet accepts (MapView · trackPlaceMagnet) — an end
+    // laid onto a TLF must be re-dockable when it is dragged later, and a MIRRORED TLF is the
+    // same truck seen from the other surface (twinMagnets, D-08)
+    const anchors: { key: string; coord: LngLat }[] = [
+      ...entities.flatMap((x) => (x.id !== id && isMagnetEntity(x) && Array.isArray(x.coord) && isVisible(effectiveLayer(x))
+        ? [{ key: x.id, coord: x.coord as LngLat }] : [])),
+      ...twinMagnets.flatMap((m) => (m.id === id ? [] : [{ key: m.id, coord: m.coord }])),
+    ]
+    for (const a of anchors) {
+      const q = project(a.coord); if (!q) continue
       const d = Math.hypot(q.x - p.x, q.y - p.y)
-      if (d < MAGNET_RADIUS_PX && (!best || d < best.d)) best = { e: x, d, q }
+      if (d < MAGNET_RADIUS_PX && (!best || d < best.d)) best = { ...a, d, q }
     }
     if (!best) { clearEndMagnet(); return null }
     const cur = endMagnetRef.current
-    if (cur?.key !== best.e.id) {
+    if (cur?.key !== best.key) {
       clearEndMagnet()
-      const st = { key: best.e.id, coord: best.e.coord as LngLat, since: Date.now(), armed: false }
+      const st = { key: best.key, coord: best.coord, since: Date.now(), armed: false }
       endMagnetRef.current = st
       setEndMagnet({ coord: st.coord, since: st.since, armed: false })
       // arm on a motionless finger — there is no pointermove to advance a dwell by itself

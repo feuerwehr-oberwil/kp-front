@@ -54,7 +54,7 @@ const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
 
 const INERT: CSSProperties = { pointerEvents: 'none' }
 
-export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, hiddenTrails, suppressedLabels, interactive = false, selectedKey = null, onOpenTwin, onMoveTwin, onEditTwinAnno, onUnlockTwin, teamActions, onToggleTrail, project, unproject, setDragPan }: {
+export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, hiddenTrails, suppressedLabels, interactive = false, selectedKey = null, selectedKeys = [], onOpenTwin, onMoveTwin, onEditTwinAnno, onUnlockTwin, teamActions, onToggleTrail, project, unproject, setDragPan }: {
   twins: MapContentTwin[]
   zoom: number
   bearing: number
@@ -69,6 +69,8 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
   interactive?: boolean
   /** the twin whose in-place panel is open — its hit target wears the selection halo */
   selectedKey?: string | null
+  /** …and every mirrored member of a Mehrfach group, which lights up the same way (D-09) */
+  selectedKeys?: string[]
   /** tap on any mirrored object: open its in-place, source-backed panel on THIS surface */
   onOpenTwin?: (twin: MapContentTwin) => void
   /** Drag a projection to move its one source annotation on the Modul — the ground coordinate
@@ -104,6 +106,8 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
 }) {
   // still hold on a node pad = delete, movement cancels into the drag — the map's own grammar
   const vertexHold = useNodeHold()
+  /** selected = the open panel's twin, or any mirrored member of a Mehrfach group */
+  const isSelected = (key: string) => key === selectedKey || selectedKeys.includes(key)
   /** Shared tap/hold gesture for every hit target in this layer — the same one the symbol twins
    *  and the map's own markers run (lib/mapTwinDrag). */
   const { begin: beginGesture, canDrag } = useMapTwinDrag<MapContentTwin>({ project, unproject, setDragPan, onMove: onMoveTwin })
@@ -125,7 +129,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       data-twin=""
       onClick={(ev) => { if (ev.detail === 0) onOpenTwin?.(twin) }}
       onPointerDown={(ev) => beginGesture(ev, twin, anchor, { movable, onTap: onOpenTwin ? () => onOpenTwin(twin) : undefined })}>
-      {selectedKey === twin.key && <span className="sel-halo" aria-hidden />}
+      {isSelected(twin.key) && <span className="sel-halo" aria-hidden />}
       {children}
     </button>
   )
@@ -202,7 +206,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
               'line-width': ['+', ['get', 'width'], 8],
               'line-opacity': 0.45,
             } as never} />
-          <Layer id="l-georef-content-sel" type="line" filter={['==', ['get', 'twinKey'], selectedKey ?? '__none__'] as never}
+          <Layer id="l-georef-content-sel" type="line" filter={['in', ['get', 'twinKey'], ['literal', [selectedKey ?? '__none__', ...selectedKeys]]] as never}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.5 } as never} />
           {/* fill and Schraffur are separate layers for the same reason the map's own are: a
@@ -281,14 +285,11 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
               return out.length ? out : [{ coord: mid, deg: 0 }]
             })()
             : []
-          // The whole-object grip at the midpoint/centroid (before the label's nudge, so it sits
-          // ON the geometry): the drag handle, and the keyboard's way in. The ink itself is
-          // tappable over its full length through the GL hit band above.
-          // ⚠️ A LOCKED source has neither — its ink goes click-through and the LockChip below is
-          // the only door back in, exactly as a locked native Fläche behaves (MapView).
-          const gripCoord = interactive && !!onOpenTwin && basePlan && !a.locked
-            ? (() => { const c = t.fit.toMap({ x: basePlan[0], y: basePlan[1] }); return [c.lng, c.lat] as LngLat })()
-            : null
+          // ⚠️ NO midpoint grip. It was the mirror's only move handle while the ink was
+          // pointer-dead; the ink answers a tap over its whole length now, and moving belongs to
+          // the surface's ONE selection bar — which the map's own Linie has no grip for either
+          // (D-25, 01.09.). Extra furniture on every mirrored line is exactly what the native
+          // does not have.
           const lockCoord = a.locked && basePlan && onUnlockTwin
             ? (() => { const c = t.fit.toMap({ x: basePlan[0], y: basePlan[1] }); return [c.lng, c.lat] as LngLat })()
             : null
@@ -320,14 +321,6 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
                 <span className={`${s.contentMap} measure-label draw-label`}>
                   {lines.map((l, j) => <div key={j}>{l}</div>)}
                 </span>
-              </Marker>
-            )}
-            {gripCoord && (
-              <Marker longitude={gripCoord[0]} latitude={gripCoord[1]} anchor="center" onClick={(ev) => ev.originalEvent.stopPropagation()}>
-                {/* whole-object drag only while NO endpoint is anchored: translating an attached
-                    line's stored pts while the plan re-resolves the endpoint would fork the
-                    mirror. An anchored line reshapes via its vertex grips below (detach-on-grab). */}
-                {tapTarget(t, gripCoord, canDragAny && !a.startAttachment && !a.endAttachment, s.grip, <i style={{ color }} aria-hidden />)}
               </Marker>
             )}
             {/* the click-through ink's only tap target — a short hold unlocks the ONE plan
@@ -455,7 +448,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
           const edge = t.fit.toMap({ x: a.x + (a.wN ?? 0.18), y: a.y })
           const width = Math.max(72, projectedPx(t.coord, [edge.lng, edge.lat], zoom))
           const tinted = !a.notePlain && !!a.color
-          const cls = `note-pill box${a.notePlain ? ' plain' : ''}${tinted ? ' tinted' : ''}${selectedKey === t.key ? ' twin-sel' : ''}`
+          const cls = `note-pill box${a.notePlain ? ' plain' : ''}${tinted ? ' tinted' : ''}${isSelected(t.key) ? ' twin-sel' : ''}`
           const style = {
             width, fontSize: 12 * noteScale(a.noteSize),
             ...(a.color ? (a.notePlain ? { color: a.color } : { '--note-tint': a.color }) : null),

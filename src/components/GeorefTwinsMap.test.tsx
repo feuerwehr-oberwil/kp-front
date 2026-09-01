@@ -6,8 +6,9 @@ import type { MapTwin } from '../lib/georefTwins'
 import type { BoardAnno } from '../types'
 
 vi.mock('react-map-gl/maplibre', () => ({
-  Marker: ({ children, draggable }: { children: ReactNode; draggable?: boolean }) => (
-    <div data-testid="marker" data-draggable={draggable ? 'true' : 'false'}>{children}</div>
+  Marker: ({ children, draggable, offset, style }: { children: ReactNode; draggable?: boolean; offset?: [number, number]; style?: Record<string, unknown> }) => (
+    <div data-testid="marker" data-draggable={draggable ? 'true' : 'false'}
+      data-offset={offset ? offset.join(',') : ''} data-z={String(style?.zIndex ?? '')}>{children}</div>
   ),
 }))
 
@@ -98,5 +99,31 @@ describe('a Plan twin on the Karte', () => {
     cleanup()
     show(undefined, 21)
     expect(parseFloat(screen.getByRole('button').style.width)).toBe(48) // the native ceiling
+  })
+})
+
+// D-24/D-10: a projection is presentation-equivalent to the object beside it, and that includes
+// answering to the surface's ONE label pass and stepping out of a fat-finger pile with it.
+describe('a Plan twin inside the map\'s own arbitration', () => {
+  const render1 = (extra: Partial<React.ComponentProps<typeof GeorefTwinsMap>> = {}) =>
+    render(<GeorefTwinsMap twins={[{ ...twin, anno: { ...anno, label: 'Brandherd' } }]} byName={{ Feuer: svg }}
+      zoom={18} captionMode="all" onOpen={() => {}} {...extra} />)
+
+  it('drops its caption when the label pass says the box is taken', () => {
+    render1()
+    expect(screen.getByText('Brandherd')).toBeTruthy()
+    cleanup()
+    render1({ suppressedLabels: new Set(['tcap:modul1:a1']) })
+    expect(screen.queryByText('Brandherd')).toBeNull()
+  })
+
+  it('steps out on the fan\'s hairline when a pile is opened over it', () => {
+    const { container } = render1({ fanOffsets: { 'modul1:a1': { dx: 30, dy: -20 } } })
+    const marker = screen.getByTestId('marker')
+    expect(marker.dataset.offset).toBe('30,-20')
+    // …and it clears the natives it was buried under, exactly as a fanned native does
+    expect(marker.dataset.z).toBe('12')
+    // the hairline points back at the true position
+    expect(container.querySelector('.fan-spoke line')?.getAttribute('x2')).toBe('-30')
   })
 })

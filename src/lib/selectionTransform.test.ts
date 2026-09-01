@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { centroid, rotateAround, turnedBy } from './selectionTransform'
+import { centroid, rotateAround, transformThroughFit, turnedBy } from './selectionTransform'
 
 describe('centroid — the one centre resolver both surfaces ask', () => {
   it('is the plain mean of the points that define the selection', () => {
@@ -51,5 +51,34 @@ describe('turnedBy — a stored bearing plus a turn', () => {
     expect(turnedBy(350, 20)).toBe(10)
     expect(turnedBy(10, -20)).toBe(350)
     expect(turnedBy(0, -720.4)).toBe(0)
+  })
+})
+
+// A twin is dragged where it is SEEN and written where it LIVES: the two surfaces pass the two
+// directions of the same fit, which is the whole difference between them.
+describe('transformThroughFit', () => {
+  // a deliberately lopsided fit: 10× across, 2× down, and a shift — a plain identity would let a
+  // wrong frame pass unnoticed
+  const into = ([x, y]: readonly [number, number]): [number, number] => [x * 10 + 1, y * 2 - 3]
+  const back = ([x, y]: readonly [number, number]): [number, number] => [(x - 1) / 10, (y + 3) / 2]
+
+  it('translates in the frame the finger works in, and hands the point back in its own', () => {
+    // +2 in the gesture's x is +0.2 in the source's
+    expect(transformThroughFit([0.5, 0.5], into, back, { dx: 2, dy: 0, deg: 0 }, null))
+      .toEqual([0.7, 0.5])
+  })
+
+  it('turns about the centre the operator sees, not about anything in the source frame', () => {
+    // 90° clockwise about the projected centre of the point itself leaves it where it was
+    const p: [number, number] = [0.5, 0.5]
+    const centre = into(p)
+    const [x, y] = transformThroughFit(p, into, back, { dx: 0, dy: 0, deg: 90 }, centre)
+    expect(x).toBeCloseTo(0.5)
+    expect(y).toBeCloseTo(0.5)
+  })
+
+  it('a turn with no centre is a no-op turn — never a silent rotation about the origin', () => {
+    expect(transformThroughFit([0.4, 0.6], into, back, { dx: 0, dy: 0, deg: 45 }, null))
+      .toEqual([0.4, 0.6])
   })
 })

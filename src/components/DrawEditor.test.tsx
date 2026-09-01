@@ -187,3 +187,21 @@ describe('the Abschluss options explain themselves', () => {
     expect(teeth.getAttribute('title')).toBeNull()
   })
 })
+
+// A mirrored Linie/Fläche opens THIS editor, the surface's own — so nothing in it said which
+// document the object actually lives in until «Gespiegelt – zum Original» (components/TwinOrigin).
+describe('the twin’s one line of provenance', () => {
+  const origin = () => screen.queryAllByRole('button', { name: appConfig.copy.whiteboard.georef.twinOrigin })
+
+  it('is absent on a native object — it has no other side to go to', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} />)
+    expect(origin()).toHaveLength(0)
+  })
+
+  it('…and jumps to the original when the object is a projection', () => {
+    const onOriginal = vi.fn()
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onOriginal={onOriginal} />)
+    fireEvent.click(origin()[0])
+    expect(onOriginal).toHaveBeenCalledTimes(1)
+  })
+})

@@ -11,7 +11,7 @@ import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
 import { resolveLinePreset, markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
-import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
+import { centroid, rotateAround, transformThroughFit, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
@@ -37,7 +37,7 @@ import { ShapeGlyph, ROTATION_DEFAULT_RUN_N, ROTATION_W_N, SHAPE_AXIS_GRIPS, SHA
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { circleRadiusM, circleRadiusN, polyAreaM2, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
@@ -272,6 +272,8 @@ interface Props {
   onTwinDrawingDetach?: (drawingId: string, endpoint: LineEndpoint) => void
   onTwinDrawingFocusAttachment?: (drawingId: string, endpoint: LineEndpoint) => void
   onTwinDrawingDelete?: (drawingId: string) => void
+  /** «zum Original» out of the mirrored drawing's editor — pan the Karte to the one it mirrors */
+  onTwinDrawingFocusOriginal?: (drawingId: string) => void
   /** the mirrored Karte note/Form whose panel the workspace has open — the selection state has
    *  to come from there, because that panel is the workspace's, not this surface's */
   twinSelectedEntityId?: string | null
@@ -298,7 +300,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, onTwinDrawingFocusOriginal, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -346,6 +348,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // marquee (Mehrfach/lasso) group selection — parity with the Lage map. A separate
   // set from the single selId (which still drives the symbol editor / team actions).
   const [selIds, setSelIds] = useState<string[]>([])
+  // …and the mirrored Karte objects the same box caught (D-09), by their twin key
+  // (lib/georefTwins · `drawing:<id>` / `content:<id>`). The bar's writers fold each one back
+  // through the fit and write the ONE source object on the Karte.
+  const [selTwinIds, setSelTwinIds] = useState<string[]>([])
   const [editId, setEditId] = useState<string | null>(null)
   // which note has its detail panel open. Since 29.08. TAPPING a note opens it (chipDown) —
   // the same grammar as a symbol, unified across Karte and Plan. Still separate from selId:
@@ -772,7 +778,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // …but arming the mode is a tap-away like any other: a committable node draft is
     // auto-committed (with its undo toast) instead of silently discarded — A6, 29.08.
     releaseRef.current(tool)
-    setSelId(null); setSelIds([]); setEditId(null); setPending(null); setPendingShape(null)
+    setSelId(null); setSelIds([]); setSelTwinIds([]); setEditId(null); setPending(null); setPendingShape(null)
     setPaletteOpen(false); setTruppPick(null)
     resetEphemeral() // the calibration nodes usePlanMeasure owns
     setTool('pan')
@@ -814,6 +820,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    *  geometry needs to become a sheet fraction (a Form's `sizeM`, a Hubretter's `reachM`).
    *  Same product `georefPlans` records as `GeorefPlan.widthM` on the Karte's side. */
   const twinPlanWidthM = georefFit ? planGroundWidthM(georefFit, measureAR) : 1
+  /** Where every mirrored Karte object stands on this sheet, in board-normalized points: what a
+   *  lasso boxes it by and what the selection bar takes its centre from. Locked sources stay out,
+   *  exactly as locked natives do. */
+  const twinBoxes = useMemo(() => [
+    ...twins.flatMap((t) => (t.entity.locked ? [] : [{ key: t.key, pts: [t.pt] }])),
+    ...twinContent.flatMap((t) => (t.entity.locked ? [] : [{ key: t.key, pts: [t.pt] }])),
+    ...twinDrawings.flatMap((t) => (t.drawing.locked || !t.anno.pts?.length ? []
+      : [{ key: t.key, pts: t.anno.pts.map(([x, y]) => ({ x, y })) }])),
+  ], [twins, twinContent, twinDrawings])
   // State keeps the stable selection key; the object itself is re-derived so edits made through
   // the mirrored panel are reflected immediately instead of leaving that panel on its old snapshot.
   const viewedTwin = twinView ? twins.find((t) => t.key === twinView.key) ?? twinView : null
@@ -845,11 +860,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     onTwinMove(entity.id, [c.lng, c.lat], phase)
   }, [readOnly, georefFit, onTwinMove])
   const openBoardTwin = useCallback((twin: BoardTwin) => {
-    setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null); setTwinDrawingId(null)
+    setSelId(null); setSelIds([]); setSelTwinIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null); setTwinDrawingId(null)
     setTwinView(twin)
   }, [])
   const openTwinDrawing = useCallback((drawing: Drawing) => {
-    setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null); setTwinView(null)
+    setSelId(null); setSelIds([]); setSelTwinIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null); setTwinView(null)
     setTwinDrawingId(drawing.id)
   }, [])
 
@@ -859,7 +874,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // ⚠️ The VIEW is no longer reset here: useBoardView restores the plan's remembered zoom/pan
   // (falling back to fit on a first visit), and a reset here would run after it and undo it.
   useEffect(() => {
-    setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null)
+    setSelId(null); setSelIds([]); setSelTwinIds([]); setEditId(null); setDraft(null); setPending(null)
     resetEphemeral() // the calibrate state usePlanMeasure owns
     if (tool === 'symbol') setTool('pan')
     setAspect(active.orientation === 'portrait' ? 1.414 : 1 / 1.414)
@@ -973,11 +988,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   /** The box a plan object offers an attaching line, in board px. A team chip is a left-anchored
    *  STRIP — its stored point is the DOT, so its ~76×44 body hangs to the RIGHT of that point
    *  rather than around it (see the wb-anno transform); `dx` puts the box back over the chip. */
-  const attachBox = (a: BoardAnno) => (a.kind === 'resource'
+  const attachBox = (a: Pick<BoardAnno, 'kind'>) => (a.kind === 'resource'
     ? { width: 76, height: 44, dx: 76 / 2 - TEAM_DOT_PX / 2 }
     : { width: symBase, height: symBase, dx: 0 })
+  /**
+   * Every MIRRORED Karte object this sheet offers a docking Leitung — the same kinds a native
+   * plan symbol/chip offers (lib/lineAttachments · MAGNET_ANNO_KINDS). A hose that reaches the
+   * mirrored TLF has reached the TLF; nothing on the surface said why it could not (D-08).
+   * ⚠️ The stored attachment names an object in the KARTE's document. See the Lage's twin of this
+   * list (MapView · twinMagnets) for what that costs: the live surfaces resolve it, print and
+   * a far-side delete fall back to the stored point, which resolveLinePoints already does safely.
+   */
+  const twinMagnets = georefFit && !georefArmed ? [
+    ...twins.map((t) => ({ id: t.entityId, pt: t.pt, kind: 'symbol' as const, rotation: (t.entity.rotation ?? 0) + t.fit.rotationDeg })),
+    ...twinContent.flatMap((t) => (t.entity.kind === 'team' ? [{ id: t.entityId, pt: t.pt, kind: 'resource' as const, rotation: 0 }] : [])),
+  ] : []
   const objectPoint = (id: string, toward: BoardPoint, _a: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
-    const target = annos.find((a) => a.id === id && (a.kind === 'symbol' || a.kind === 'resource'))
+    const own = annos.find((a) => a.id === id && isMagnetAnno(a))
+    const twin = own ? null : twinMagnets.find((m) => m.id === id)
+    const target = own ?? (twin ? { kind: twin.kind, x: twin.pt.x, y: twin.pt.y, floor: 0, rotation: twin.rotation } : null)
     if (!target || target.x == null || target.y == null || !sW || !sH) return null
     const floor = target.floor ?? 0
     const box = attachBox(target)
@@ -1003,13 +1032,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   const planCandidatesAt = (sourceId: string, pointer: [number, number]): MagneticTarget[] => {
     const objects: MagneticTarget[] = annos
-      .filter((a) => (a.kind === 'symbol' || a.kind === 'resource') && a.x != null && a.y != null)
+      .filter((a) => isMagnetAnno(a) && a.x != null && a.y != null)
       .map((a) => {
         const box = attachBox(a)
         const center: [number, number] = [a.x! * sW + box.dx, mapY(a.floor, a.y!) * sH]
         const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: a.rotation }, pointer)
         return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: a.kind === 'resource' ? 'trace' : 'direct' }
       })
+    // …and the mirrored ones, offered exactly like a native standing in the same spot
+    const twinObjects: MagneticTarget[] = twinMagnets.map((m) => {
+      const box = attachBox(m)
+      const center: [number, number] = [m.pt.x * sW + box.dx, m.pt.y * sH]
+      const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: m.rotation }, pointer)
+      return { key: `object:${m.id}`, target: { kind: 'object', id: m.id }, point: edge, defaultRouting: m.kind === 'resource' ? 'trace' : 'direct' }
+    })
     const lines: MagneticTarget[] = renderAnnos
       .filter((a) => a.kind === 'draw' && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
       .flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
@@ -1026,7 +1062,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           return { key: `line:${a.id}:${endpoint}:${port}`, target: { kind: 'line', id: a.id, endpoint }, point, capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, a.id), defaultRouting: 'direct' as const }
         })
       }))
-    return [...objects, ...lines]
+    return [...objects, ...twinObjects, ...lines]
   }
   const planAttachmentFor = (c: MagneticTarget): LineAttachment => ({
     target: c.target, routing: c.defaultRouting ?? 'direct',
@@ -1540,7 +1576,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // too big for its bounds to mean anything (lib/panelNudge · panelNudgeSelection). Client px,
     // the same space the nudge's box is built in.
     setAnnoTap({ id, x: e.clientX, y: e.clientY })
-    setSelId(id); setSelIds([])
+    setSelId(id); setSelIds([]); setSelTwinIds([])
     const a = annos.find((x) => x.id === id); if (!a || (a.kind !== 'draw' && a.kind !== 'area')) return
     // snapshot the vertices in board-space (y mapped to the stacked board), so the delta is always
     // applied to the original geometry — no drift across re-renders (mirrors the group-move math)
@@ -1584,7 +1620,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     setAnnoTap({ id, x: e.clientX, y: e.clientY })
-    setSelId(id); setSelIds([])
+    setSelId(id); setSelIds([]); setSelTwinIds([])
     circleDrag.current = { id, sx: e.clientX, sy: e.clientY, x0: a.x ?? 0, by0: mapY(a.floor, a.y ?? 0), floor: a.floor ?? 0, moved: false }
   }
   const circleMove = (e: React.PointerEvent) => {
@@ -1852,14 +1888,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // view-only (viewer / replay / EL view): a tap still SELECTS — so the read-only
       // detail panel can open, parity with the Lage map — but never arms a drag
       e.stopPropagation()
-      setSelId(id); setSelIds([])
+      setSelId(id); setSelIds([]); setSelTwinIds([])
       if (isNote) setNotePanelId(id)
       return
     }
     e.stopPropagation()
     chipDrag.current = { id, moved: false, sx: e.clientX, sy: e.clientY }
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    setSelId(id); setSelIds([])
+    setSelId(id); setSelIds([]); setSelTwinIds([])
     if (isNote && editId !== id) setNotePanelId(id)
   }
   const chipMove = (e: React.PointerEvent) => {
@@ -1918,7 +1954,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
   const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp } = useBoardGestures({
-    tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
+    tool, annos, setSelId, setSelIds, twinBoxes, setSelTwinIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
   // --- drag-to-rotate a selected directional symbol (rotor handle) ---
@@ -2467,20 +2503,73 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     : editDraw ? [editDraw.id]
     : selShape && !readOnly ? [selShape.id]
     : []
-  const barActive = barIds.length > 0 && (selIds.length > 1 ? tool === 'pan' || tool === 'lasso' : tool === 'pan') && !readOnly && !georefArmed
+  /**
+   * The MIRRORED members of the same selection (D-13/D-09). A single mirrored Linie/Fläche/
+   * Absperrkreis or Form gets the bar for the same reason its native does; a mirrored symbol,
+   * Notiz or Truppmarker keeps its original's grammar instead (its own drag, its panel's
+   * stepper), so the bar never appears where the surface has never had one.
+   */
+  const barTwinKeys: string[] = selIds.length > 1 || selTwinIds.length > 1 ? selTwinIds
+    : twinDrawingId ? [`drawing:${twinDrawingId}`]
+    : twinSelectedEntityId && twinContent.some((t) => t.entityId === twinSelectedEntityId && t.entity.kind === 'shape') ? [`content:${twinSelectedEntityId}`]
+    : selTwinIds
+  const barActive = (barIds.length > 0 || barTwinKeys.length > 0)
+    && (selIds.length > 1 || selTwinIds.length > 1 ? tool === 'pan' || tool === 'lasso' : tool === 'pan')
+    && !readOnly && !georefArmed
   /** The selection's centre in board-normalized space — the shared resolver (lib/selectionTransform),
    *  and the reason a line, a Fläche and an Absperrkreis have one at all: rotDown reads the
    *  `.wb-anno` chip's bounding box, and ink has no chip. */
   const barCentre = (() => {
     if (!barActive) return null
-    const c = centroid(annos.flatMap((a): [number, number][] => {
-      if (!barIds.includes(a.id)) return []
-      // ink is its points; everything else (chip, Form, Absperrkreis, Notiz) is its anchor
-      if (a.pts?.length) return a.pts.map(([x, y, floor]) => [x, mapY(floor ?? a.floor, y)])
-      return [[a.x ?? 0, mapY(a.floor, a.y ?? 0)]]
-    }))
+    const c = centroid([
+      ...annos.flatMap((a): [number, number][] => {
+        if (!barIds.includes(a.id)) return []
+        // ink is its points; everything else (chip, Form, Absperrkreis, Notiz) is its anchor
+        if (a.pts?.length) return a.pts.map(([x, y, floor]) => [x, mapY(floor ?? a.floor, y)])
+        return [[a.x ?? 0, mapY(a.floor, a.y ?? 0)]]
+      }),
+      ...twinBoxes.flatMap((t): [number, number][] => (barTwinKeys.includes(t.key) ? t.pts.map(({ x, y }) => [x, y]) : [])),
+    ])
     return c ? { x: c[0], y: c[1] } : null
   })()
+  /** Every mirrored member's ORIGINAL geometry, in the KARTE's own coordinates — the frame the
+   *  one source object is actually written in. Snapshotted at gesture start for the same reason
+   *  the native members are: a delta applied to live geometry compounds across re-renders. */
+  const twinOrig = useRef<{ drawings: { id: string; coords: LngLat[] }[]; ents: { id: string; coord: LngLat; rotation?: number; rotation2?: number }[]; centre: { x: number; y: number } | null }>({ drawings: [], ents: [], centre: null })
+  const barTwinSnapshot = () => {
+    twinOrig.current = {
+      drawings: twinDrawings.filter((t) => barTwinKeys.includes(t.key)).map((t) => ({ id: t.drawing.id, coords: t.drawing.coords })),
+      ents: [...twins, ...twinContent].filter((t) => barTwinKeys.includes(t.key))
+        .map((t) => ({ id: t.entityId, coord: t.entity.coord, rotation: t.entity.rotation, rotation2: t.entity.rotation2 })),
+      centre: barCentre,
+    }
+  }
+  /** One frame of the gesture, for the mirrored members. The turn happens in BOARD space about
+   *  the projected centre — that is what the finger sees — and each moved point is folded back
+   *  through the fit, so the write lands on the Karte in its own frame. */
+  const barTwinApply = (t: { ndx: number; ndy: number; deg: number }, phase: 'start' | 'move' | 'end') => {
+    const fit = georefFit
+    if (!fit) return
+    const { drawings: ds, ents, centre } = twinOrig.current
+    // x and y are fractions of DIFFERENT edges, so a turn has to happen in px proportions
+    const xScale = (sW || 1) / (sH || 1)
+    const moved = (c: LngLat): LngLat => transformThroughFit(
+      c as [number, number],
+      ([lng, lat]) => { const q = fit.toPlan({ lng, lat }); return [q.x, q.y] },
+      ([x, y]) => { const m = fit.toMap({ x, y }); return [m.lng, m.lat] },
+      { dx: t.ndx, dy: t.ndy, deg: t.deg }, centre ? [centre.x, centre.y] : null, { xScale },
+    ) as LngLat
+    ds.forEach((d) => onTwinDrawingCoords?.(d.id, d.coords.map(moved), phase))
+    ents.forEach((e) => {
+      onTwinMove?.(e.id, moved(e.coord), phase)
+      // a map symbol's bearing is geographic and the twin's board angle is `rotation +
+      // fit.rotationDeg`, so a clockwise turn here is the same turn there
+      if (t.deg && phase !== 'start') onTwinEdit?.(e.id, {
+        ...(e.rotation !== undefined ? { rotation: turnedBy(e.rotation, t.deg) } : null),
+        ...(e.rotation2 !== undefined ? { rotation2: turnedBy(e.rotation2, t.deg) } : null),
+      }, phase === 'end' ? 'commit' : 'live')
+    })
+  }
   /** snapshot every member's ORIGINAL board-space geometry, so each frame's delta is applied to
    *  the start position and never compounds across re-renders */
   const barSnapshot = () => {
@@ -2519,19 +2608,26 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     .forEach((a) => emit('board.move', { id: a.id, x: a.x, y: a.y, floor: a.floor, planId: activeId }))
   const barMove = (dx: number, dy: number, phase: 'start' | 'move' | 'end') => {
     if (readOnly) return
-    if (phase === 'start') { barSnapshot(); beginSheetPeek(); return }
+    if (phase === 'start') { barSnapshot(); barTwinSnapshot(); beginSheetPeek(); return }
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
-    barApply({ ndx: dx / rect.width, ndy: dy / rect.height, deg: 0 }, barCentre)
+    const t = { ndx: dx / rect.width, ndy: dy / rect.height, deg: 0 }
+    barApply(t, barCentre)
+    barTwinApply(t, phase)
     if (phase === 'end') { endSheetPeek(); barCommit() }
   }
   const barRotate = (deg: number, phase: 'start' | 'move' | 'end') => {
     if (readOnly) return
-    if (phase === 'start') { barRotCentre.current = barCentre; barSnapshot(); return }
+    if (phase === 'start') { barRotCentre.current = barCentre; barSnapshot(); barTwinSnapshot(); return }
     barApply({ ndx: 0, ndy: 0, deg }, barRotCentre.current)
+    barTwinApply({ ndx: 0, ndy: 0, deg }, phase)
     if (phase === 'end') { barCommit(); barRotCentre.current = null }
   }
   const barDelete = () => {
     if (readOnly) return
+    // D-06/D-13: the mirror's Löschen lives here too, writing the ONE Karte object
+    twinDrawings.filter((t) => barTwinKeys.includes(t.key)).forEach((t) => onTwinDrawingDelete?.(t.drawing.id))
+    ;[...twins, ...twinContent].filter((t) => barTwinKeys.includes(t.key)).forEach((t) => { void onTwinDelete?.(t.entityId) })
+    if (barTwinKeys.length) { setSelTwinIds([]); setTwinDrawingId(null); onDismissTwinPanels?.() }
     if (selIds.length > 1) { void deleteGroup(); return }
     const a = annos.find((x) => barIds.includes(x.id))
     if (a) void removeWithConnections(a)
@@ -3534,7 +3630,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 interactive={tool === 'pan'} onOpenTeam={onTwinJump}
                 onMoveTeam={readOnly ? undefined : moveContentTeam}
                 selectedDrawingId={twinDrawingId} onOpenDrawing={openTwinDrawing}
-                selectedEntityId={twinSelectedEntityId}
+                selectedEntityId={twinSelectedEntityId} selectedKeys={selTwinIds}
                 onDrawingCoords={readOnly ? undefined : onTwinDrawingCoords}
                 onDrawingRadius={readOnly || !onTwinDrawingEdit ? undefined : (id, radiusM, phase) =>
                   onTwinDrawingEdit(id, { radiusM }, phase === 'move' ? 'live' : 'commit')}
@@ -3566,6 +3662,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 sourceSuppressedCaptions={mapSuppressedCaptions}
                 interactive={tool === 'pan'}
                 selectedKey={twinView?.key}
+                selectedKeys={selTwinIds}
                 onOpen={openBoardTwin}
                 // undefined (not a no-op) on a locked surface, so the mark shows no grab
                 // cursor and no drag affordance it would refuse to honour
@@ -3611,7 +3708,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           {barActive && (
             <SelectionBar
               onMove={barMove}
-              onRotate={selIds.length > 1 || editDraw?.kind !== 'circle' ? barRotate : undefined}
+              // ⟳ is absent, not inert, where the model carries no angle: an Absperrkreis is a
+              // centre and a radius — the native's and the mirror's alike
+              onRotate={selIds.length > 1 || selTwinIds.length > 1
+                || (barTwinKeys.length === 1 ? !twinDrawings.some((t) => t.key === barTwinKeys[0] && t.drawing.kind === 'circle') : editDraw?.kind !== 'circle')
+                ? barRotate : undefined}
               onDelete={barDelete}
             />
           )}
@@ -3954,6 +4055,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onDetach={onTwinDrawingDetach ? (endpoint) => onTwinDrawingDetach(viewedTwinDrawing.id, endpoint) : undefined}
           onFocusAttachment={onTwinDrawingFocusAttachment ? (endpoint) => onTwinDrawingFocusAttachment(viewedTwinDrawing.id, endpoint) : undefined}
           onDelete={() => { onTwinDrawingDelete?.(viewedTwinDrawing.id); setTwinDrawingId(null) }}
+          // this editor is the SHEET's own, so nothing in it says which document the object
+          // lives in — one quiet line does, and it is also the way there (components/TwinOrigin)
+          onOriginal={onTwinDrawingFocusOriginal ? () => { setTwinDrawingId(null); onTwinDrawingFocusOriginal(viewedTwinDrawing.id) } : undefined}
           onClose={() => setTwinDrawingId(null)}
         />
       )}

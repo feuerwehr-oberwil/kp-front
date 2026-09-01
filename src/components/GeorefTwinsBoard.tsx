@@ -27,7 +27,7 @@ import type { CaptionMode } from '../types'
  * annotation — its position is the normalized plan point times the board's px size, which is
  * the same arithmetic every `.wb-anno` does.
  */
-export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, sW, sH, sizePx, planWidthM, captionMode = 'off', sourceSuppressedCaptions, interactive = true, selectedKey, onOpen, onMove }: {
+export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, sW, sH, sizePx, planWidthM, captionMode = 'off', sourceSuppressedCaptions, interactive = true, selectedKey, selectedKeys = [], onOpen, onMove }: {
   twins: BoardTwin[]
   byName: Record<string, string>
   /** the board's rendered size in px (fit × zoom) */
@@ -44,6 +44,8 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
   /** the sheet is at rest (the pan tool, no pairing) — only then may a twin answer a tap. */
   interactive?: boolean
   selectedKey?: string | null
+  /** …and every mirrored member of a Mehrfach group (D-09) */
+  selectedKeys?: string[]
   /** tap: open the source-backed editor on this surface */
   onOpen: (twin: BoardTwin) => void
   /**
@@ -74,7 +76,7 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
     <>
       {twins.map((t) => {
         const e = t.entity
-        const selected = selectedKey === t.key
+        const selected = selectedKey === t.key || selectedKeys.includes(t.key)
         const name = twinName(e)
         const veh = t.kind === 'vehicle' || isVehicleSym(e)
         // Map rotation is north-referenced; on a turned sheet it must be expressed relative to

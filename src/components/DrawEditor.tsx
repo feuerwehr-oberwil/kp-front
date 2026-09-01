@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import { Icon } from '../lib/icons'
+import { TwinOrigin } from './TwinOrigin'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -159,6 +160,9 @@ interface Props {
   locked?: boolean
   onDelete: () => void
   onClose: () => void
+  /** This object is a Georeferenz twin: the editor is the surface's own, so the ONE thing that
+   *  differs — which document persists it — is stated here as the way there (components/TwinOrigin). */
+  onOriginal?: () => void
   attachmentLabels?: Partial<Record<LineEndpoint, string>>
   onRouting?: (endpoint: LineEndpoint, mode: LineRoutingMode) => void
   onDetach?: (endpoint: LineEndpoint) => void
@@ -169,7 +173,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, onOriginal, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? DEFAULT_INK
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -205,6 +209,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
         </button>
       )}
+      {onOriginal && <TwinOrigin onOriginal={onOriginal} />}
       <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>
     </div>
   )

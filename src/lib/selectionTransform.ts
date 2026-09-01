@@ -46,3 +46,26 @@ export function rotateAround(
  *  ⚠️ Rounded BEFORE the wrap, not after: a fraction just below zero normalises to 359.6, which
  *  then rounds to 360 — a value outside the range this is supposed to guarantee. */
 export const turnedBy = (deg: number, by: number) => ((Math.round(deg + by) % 360) + 360) % 360
+
+/**
+ * One frame of a transform on a GEOREFERENZ TWIN — the one selection whose geometry lives in a
+ * different frame from the finger moving it.
+ *
+ * The mirror is dragged where it is seen, but the write lands on the ONE source object in the
+ * source's own frame. So the point is taken INTO the gesture's frame, turned about the centre the
+ * operator sees, translated by the delta they made, and handed BACK. The two surfaces pass the
+ * two directions of the same fit (`toMap`/`toPlan`) — which is `into` and which is `back` is the
+ * whole difference between them, and it is why this is one function rather than two.
+ */
+export function transformThroughFit(
+  p: readonly [number, number],
+  into: (p: readonly [number, number]) => [number, number],
+  back: (p: readonly [number, number]) => [number, number],
+  t: { dx: number; dy: number; deg: number },
+  centre: readonly [number, number] | null,
+  opts: RotateOpts = {},
+): [number, number] {
+  const q = into(p)
+  const r = t.deg && centre ? rotateAround(q, centre, t.deg, opts) : q
+  return back([r[0] + t.dx, r[1] + t.dy])
+}
