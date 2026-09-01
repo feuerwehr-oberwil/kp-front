@@ -27,11 +27,11 @@ export function glyphFor(o: BoardAnno | Entity, byName: Record<string, string>):
  *  part points at the same piece of ground on both pictures. Undefined for plain symbols. */
 export function overlayFor(
   o: BoardAnno | Entity, byName: Record<string, string>, rotationOffset = 0,
-): { svg: string; rotation: number; scale?: number } | undefined {
+): { svg: string; rotation: number; scale?: number; offsetX?: number } | undefined {
   const comp = compositeSpec(o.symbol)
   if (!comp) return undefined
   const svg = byName[compositePartGlyph(comp, o.extract)] ?? byName[comp.part] ?? ''
-  return svg ? { svg, rotation: (o.rotation2 ?? 0) + rotationOffset, scale: comp.scale } : undefined
+  return svg ? { svg, rotation: (o.rotation2 ?? 0) + rotationOffset, scale: comp.scale, offsetX: comp.offsetX } : undefined
 }
 
 /** The name on a twin's label — never empty, so the plaque always says what it mirrors. */

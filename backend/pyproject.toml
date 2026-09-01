@@ -105,7 +105,6 @@ extend-immutable-calls = [
 # the CLI, so blocking the event loop is exactly what they should do. ASYNC230 only matters
 # for code on a request path.
 "app/seed.py" = ["ASYNC230"]
-"app/seed_reference.py" = ["ASYNC230"]
 "app/reset_roster.py" = ["ASYNC230"]
 # Traccar models mirror the external camelCase API shape
 "app/traccar.py" = ["N815"]

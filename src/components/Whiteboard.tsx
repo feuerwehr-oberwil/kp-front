@@ -2668,7 +2668,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     : (placardSvgForSymbol(a.symbol, a.fields) ?? (a.symbol ? sym.byName[luefterVariant(a.symbol, a.extract)!] ?? sym.byName[a.symbol] ?? '' : ''))
                   // a composite stacks its part (fan / ladder) as a separately-rotatable overlay aimed
                   // by rotation2; the Lüfter's extract (Absaugen) swaps to the reversed-arrow fan.
-                  const overlay = comp ? { svg: sym.byName[compositePartGlyph(comp, a.extract)] ?? sym.byName[comp.part] ?? '', rotation: a.rotation2 ?? 0, scale: comp.scale } : undefined
+                  const overlay = comp ? { svg: sym.byName[compositePartGlyph(comp, a.extract)] ?? sym.byName[comp.part] ?? '', rotation: a.rotation2 ?? 0, scale: comp.scale, offsetX: comp.offsetX } : undefined
                   // Hubretter boom: variable-reach articulated arm mounted on the turntable (drawn ON
                   // TOP of the body), sized as a fraction of the plan width (reachN), aimed by rotation2.
                   const boomPx = hub ? Math.max(12, (a.reachN ?? 0.12) * sW) : 0

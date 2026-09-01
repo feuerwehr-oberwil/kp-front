@@ -126,7 +126,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.seed_database:
         from .seed import seed_users
         from .seed_config import seed_deployment_config
-        from .seed_reference import seed_reference
 
         # ⚠️ ACCOUNTS FIRST, AND LOUDLY. This used to share one try/except with the two blocks
         # below, which logged and continued — so a production boot with no SEED_PIN (the state
@@ -138,14 +137,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # the cheapest place to find that out. `seed.py` says so and now it is true.
         await seed_users()
 
-        # These two are genuinely best-effort: the bundled symbol pack is authoritative in the
-        # frontend (lib/useSymbols) and a missing config row is served as an empty config
+        # ⚠️ The symbol pack is NOT seeded into the database any more (01.09.). It used to be
+        # copied into `reference.symbols:tactical` on a deployment's FIRST boot and never again,
+        # while the frontend overlaid its artwork on top of the bundled pack — so that frozen row
+        # silently reverted every symbol we redrew afterwards, for the life of the station. The
+        # bundled pack is now the only source (lib/useSymbols), and a copy of ourselves in the
+        # station's own data is exactly the shadow that caused it.
+        #
+        # Best-effort on purpose: a missing config row is served as an empty config
         # (api/config · get_config), so a station degrades visibly rather than breaking.
         try:
-            await seed_reference()
             await seed_deployment_config()
         except Exception:
-            logger.exception("Reference/config seeding failed (continuing — the app degrades safely)")
+            logger.exception("Config seeding failed (continuing — the app degrades safely)")
 
     # Load the deployment locale for error-detail i18n (null-safe; stays de-CH otherwise).
     try:

@@ -22,7 +22,6 @@ app/
   geocode.py         swisstopo geocoder
   storage.py         object storage (local dir v1 = Railway volume)
   seed.py            seed users from seed_users.json
-  seed_reference.py  seed the global symbol pack (symbols:tactical) from ../../public
 alembic/             migrations
 tests/               pytest suite (see Tests below) + smoke_*.py scripts for a live server
 ```
@@ -58,7 +57,7 @@ repo root does the whole thing (Postgres + backend + frontend) in one terminal. 
 - **Reference data:** seeds only the global symbol pack (`symbols:tactical`, from
   `public/tactical-symbols.json`). Station data – geodata, object plans, checklists – is
   never seeded from the repo; load it per deployment via the `admin_*` CLIs or
-  `just demo-load`. `uv run python -m app.seed_reference`.
+  `just demo-load`.
 - Both run automatically on startup when `SEED_DATABASE=true` (idempotent).
 
 ## Tests

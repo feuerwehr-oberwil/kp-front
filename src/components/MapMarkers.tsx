@@ -690,7 +690,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // a composite stacks its part (Grosslüfter fan / Drehleiter ladder) as a separately-
               // rotatable overlay aimed by rotation2; the Lüfter's extract (Absaugen) swaps to the
               // reversed-arrow fan glyph. Ladder scales 1:1 over the body; the fan reads at 60%.
-              const overlay = comp ? { svg: byName[compositePartGlyph(comp, e.extract)] ?? byName[comp.part] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: comp.scale } : undefined
+              const overlay = comp ? { svg: byName[compositePartGlyph(comp, e.extract)] ?? byName[comp.part] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: comp.scale, offsetX: comp.offsetX } : undefined
               // Hubretter boom: a variable-reach articulated arm drawn behind the body, ground-scaled in
               // metres (reachM) and aimed by rotation2 (−bearing). The cage tip carries the drag handle.
               const boomPx = hub ? Math.max(24, Math.min(900, (e.reachM ?? 18) * pxPerM(e.coord[1], zoom))) : 0

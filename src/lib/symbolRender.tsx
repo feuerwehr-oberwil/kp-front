@@ -41,17 +41,29 @@ export const LUEFTER_EXTRACT = 'VKF Luefter mobil saugend'
  *  the symbol's own name otherwise. */
 export const luefterVariant = (name: string | undefined, extract?: boolean): string | undefined =>
   extract && name === LUEFTER ? LUEFTER_EXTRACT : name
-// the fan reads at ~60% of the body box so the carrier stays recognisable behind it
-export const FAN_OVERLAY_SCALE = 0.6
+// The fan reads at half the body box, mounted a little forward of centre.
+//
+// ⚠️ Both numbers changed on 01.09., and the reason is the FKS recolour: the Lüfter used to be
+// black-on-yellow, so it separated from the blue carrier by colour alone. Drawn in Führungs-blau
+// (Behelf S. 37) it stopped doing that — at 0.6 and centred, the fan's arrowhead landed exactly
+// on the vehicle's nose chevron and the two shapes read as one tangle at map size. Smaller and
+// shifted back, both are legible again, and the standalone sign stays exactly the sheet's.
+export const FAN_OVERLAY_SCALE = 0.5
+/** How far a composite's part sits from the glyph centre, as a FRACTION OF THE GLYPH BOX —
+ *  the one unit both renderers can honour (the static composite nests raw glyph units in a 2.6
+ *  box, the live overlay is a CSS transform on a full-box div). Negative = towards the rear. */
+export const FAN_OVERLAY_OFFSET = -0.085
 // strip a glyph's outer <svg> wrapper, keeping its inner paths (for nesting one glyph in another)
 const innerSvg = (svg: string) => svg.replace(/^\s*<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
 // A static composite: base body + overlaid part, the part rotated `partDeg` about the shared centre
 // (0,0) and scaled. Used for the palette thumbnail (partDeg 0) and the server print (where the two
 // layers can't be separate DOM nodes). The live map/plan instead render them as two independently-
 // rotatable divs (TacticalSymbol `overlay`), so each part rotates on its own.
-export function composeCompositeSvg(baseSvg: string, partSvg: string, scale = FAN_OVERLAY_SCALE, partDeg = 0): string {
+export function composeCompositeSvg(baseSvg: string, partSvg: string, scale = FAN_OVERLAY_SCALE, partDeg = 0, offsetX = 0): string {
   if (!baseSvg || !partSvg) return baseSvg || partSvg
-  const part = `<g transform="rotate(${partDeg}) scale(${scale})">${innerSvg(partSvg)}</g>`
+  // translate LAST in the list = applied outermost, so the part spins in place at its mounting
+  // point instead of orbiting the glyph centre. `offsetX` is a box fraction; the box is 2.6 wide.
+  const part = `<g transform="translate(${(offsetX * 2.6).toFixed(3)} 0) rotate(${partDeg}) scale(${scale})">${innerSvg(partSvg)}</g>`
   return `<svg viewBox="-1.3 -1.3 2.6 2.6" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${innerSvg(baseSvg)}${part}</svg>`
 }
 
@@ -73,13 +85,16 @@ export interface CompositeSpec {
   part: string
   partExtract?: string
   scale: number
+  /** the part's mounting offset along the body, as a fraction of the glyph box (see
+   *  FAN_OVERLAY_OFFSET). Absent = centred, which is what the aerial ladder wants. */
+  offsetX?: number
   airflow?: boolean
   partLabel: 'rotationFan' | 'rotationLadder'
 }
 export const COMPOSITES: Record<string, CompositeSpec> = {
   // base = the plain vehicle body (VKF Fahrzeug); each part slews on `rotation2`. The Hubretter is
   // NOT a rotation composite — its boom is a variable-reach, cage-draggable element (see below).
-  [GROSSLUEFTER]: { base: GROSSLUEFTER_BODY, part: GROSSLUEFTER_FAN, partExtract: LUEFTER_EXTRACT, scale: FAN_OVERLAY_SCALE, airflow: true, partLabel: 'rotationFan' },
+  [GROSSLUEFTER]: { base: GROSSLUEFTER_BODY, part: GROSSLUEFTER_FAN, partExtract: LUEFTER_EXTRACT, scale: FAN_OVERLAY_SCALE, offsetX: FAN_OVERLAY_OFFSET, airflow: true, partLabel: 'rotationFan' },
   [DREHLEITER]: { base: GROSSLUEFTER_BODY, part: DREHLEITER_PART, scale: 1, partLabel: 'rotationLadder' },
 }
 export const compositeSpec = (name?: string): CompositeSpec | undefined => (name ? COMPOSITES[name] : undefined)
@@ -197,7 +212,7 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
   rotation?: number
   /** a second glyph stacked on top with its OWN rotation + scale (the Grosslüfter fan over the
    *  vehicle body). Centred on the base; rotates independently of the base `rotation`. */
-  overlay?: { svg: string; rotation?: number; scale?: number }
+  overlay?: { svg: string; rotation?: number; scale?: number; offsetX?: number }
   /** quantity badge at the bottom-right; shown only when > 1 */
   count?: number
   /** signed storey badge at the top-right. Shown on both surfaces — the Lage passes
@@ -234,7 +249,9 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
       {overlay && (
         <div
           className="ts-rot ts-overlay"
-          style={{ transform: `rotate(${overlay.rotation ?? 0}deg) scale(${overlay.scale ?? FAN_OVERLAY_SCALE})` }}
+          // translate FIRST in the CSS list = applied last, so the part spins in place at its
+          // mounting point rather than orbiting the centre — same order as composeCompositeSvg.
+          style={{ transform: `translateX(${((overlay.offsetX ?? 0) * 100).toFixed(2)}%) rotate(${overlay.rotation ?? 0}deg) scale(${overlay.scale ?? FAN_OVERLAY_SCALE})` }}
           dangerouslySetInnerHTML={{ __html: overlay.svg }}
         />
       )}

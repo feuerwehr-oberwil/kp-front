@@ -134,7 +134,7 @@ export function krokiEntity(e: Entity, byName: Record<string, string>, captionMo
     // offset (rotation2 − rotation) — after the server rotates the whole by base.rotation the part
     // lands at rotation2. Lüfter extract (Absaugen) prints the reversed fan.
     const part = byName[compositePartGlyph(comp, e.extract)] ?? byName[comp.part] ?? ''
-    const svg = composeCompositeSvg(byName[comp.base] ?? '', part, comp.scale, (e.rotation2 ?? 0) - (e.rotation ?? 0))
+    const svg = composeCompositeSvg(byName[comp.base] ?? '', part, comp.scale, (e.rotation2 ?? 0) - (e.rotation ?? 0), comp.offsetX)
     return svg ? { ...base, symbolSvg: svg } : null
   }
   if (isHubretter(e.symbol)) {
