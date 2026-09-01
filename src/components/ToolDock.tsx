@@ -33,7 +33,9 @@ export type DockItem =
   | { type: 'colors'; value: string; onChange: (c: string) => void; colors?: readonly string[] }
   | { type: 'colorGrid'; value: string; onChange: (c: string) => void; colors: readonly string[]; title?: string }
   | { type: 'widths'; value: number; onChange: (w: number) => void; widths?: readonly number[] }
-  | { type: 'lineStyle'; dashed: boolean; onChange: (d: boolean) => void }
+  // `onMarker` present = this dock draws LINES and offers the FKS chain styles too; a Fläche
+  // dock leaves it off and keeps the plain solid/dashed pair (lib/draw · LineStylePicker).
+  | { type: 'lineStyle'; dashed: boolean; onChange: (d: boolean) => void; marker?: string; onMarker?: (m: string) => void }
   | { type: 'info'; text: string }
 
 function renderItem(item: DockItem, key: string): ReactNode {
@@ -63,7 +65,7 @@ function renderItem(item: DockItem, key: string): ReactNode {
         title={fillTemplate(appConfig.copy.toolDock.widthName, { n: String(w) })}
         aria-label={fillTemplate(appConfig.copy.toolDock.widthName, { n: String(w) })}><span style={{ height: w }} /></button>)}</Fragment>
     case 'lineStyle':
-      return <LineStylePicker key={key} dashed={item.dashed} onChange={item.onChange} />
+      return <LineStylePicker key={key} dashed={item.dashed} onChange={item.onChange} marker={item.marker} onMarker={item.onMarker} />
     case 'info':
       return <DockInfo key={key} text={item.text} />
   }

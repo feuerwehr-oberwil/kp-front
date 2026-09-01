@@ -1691,9 +1691,9 @@ export function IncidentWorkspace({
   // threaded in so the handlers behave identically to their former inline selves.
   const {
     draft, setDraft,
-    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
-    lineMode, setLineMode,
-    draftActive, lineNodes, selectedDrawing,
+    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed, drawMarker, setDrawMarker,
+    lineMode, setLineMode, areaMode, setAreaMode,
+    draftActive, lineNodes, freehandArmed, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
@@ -3604,7 +3604,7 @@ export function IncidentWorkspace({
           drawings={drawings}
           drawingsVisible={isVisible(appConfig.defaults.drawingLayerId)}
           draft={draft}
-          draftKind={tool === 'area' ? 'area' : lineNodes ? 'line' : null}
+          draftKind={tool === 'area' && areaMode === 'nodes' ? 'area' : lineNodes ? 'line' : null}
           placing={tool !== 'select'}
           onDraftDrag={(i, c) => setDraft((pts) => pts.map((p, j) => (j === i ? c : p)))}
           onDraftInsert={(i, c) => setDraft((pts) => { const next = [...pts]; next.splice(i, 0, c); return next })}
@@ -3635,7 +3635,7 @@ export function IncidentWorkspace({
             coord.setMode('set')
           }}
           pickedPoint={coord.mode === 'set' ? coord.picked : null}
-          freehand={tool === 'line' && lineMode === 'freehand'}
+          freehand={freehandArmed}
           onFreehand={onFreehand}
           circleEnabled={tool === 'circle' && !tacticalLocked}
           onCircle={createCircle}
@@ -4332,14 +4332,18 @@ export function IncidentWorkspace({
           ],
           [{ type: 'colors', value: drawColor, onChange: setDrawColor }],
           [{ type: 'widths', value: drawWidth, onChange: setDrawWidth }],
-          [{ type: 'lineStyle', dashed: drawDashed, onChange: setDrawDashed }],
+          [{ type: 'lineStyle', dashed: drawDashed, onChange: setDrawDashed, marker: drawMarker, onMarker: setDrawMarker }],
           [{ type: 'info', text: appConfig.copy.dockHints.line }],
         ]} />
       )}
       {mapUI && tool === 'area' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
-          [{ type: 'go', disabled: !draftActive, onClick: commitDraft }],
+          [
+            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); setDraft([]) } },
+            { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => setAreaMode('nodes') },
+            ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: commitDraft }] : []),
+          ],
           [{ type: 'colors', value: drawColor, onChange: setDrawColor }],
           [{ type: 'widths', value: drawWidth, onChange: setDrawWidth }],
           [{ type: 'lineStyle', dashed: drawDashed, onChange: setDrawDashed }],

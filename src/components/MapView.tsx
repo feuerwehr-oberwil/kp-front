@@ -9,7 +9,7 @@ import { motionDuration } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML } from '../lib/draw'
-import { markerParamsAlong, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
@@ -22,6 +22,7 @@ import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circl
 import { noteWPx } from '../lib/notes'
 import { useVehicleTrails } from '../lib/useVehicleTrails'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
+import { LineMarker } from './LineMarker'
 import { MapMarkers } from './MapMarkers'
 import { MapLayers } from './MapLayers'
 // long-press to delete a path vertex (touch — desktop right-click kept); the placed-object
@@ -930,17 +931,22 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // —R— rhythm reads at any zoom. Falls back to the midpoint until the map is ready.
   // walk the polyline in PROJECTED screen px (shared spacing math), then lerp the ORIGINAL lng/lat by
   // each {seg, t} so the —R— rhythm reads at any zoom. SAME helper the Plan whiteboard uses.
-  const markerPointsAlong = (coords: LngLat[]): LngLat[] => {
+  // `deg` rides along so an FKS chain glyph (a Haltelinie's teeth) can stand on the line; a
+  // letter ignores it. Spacing is the marker's own rhythm — a triangle chain is far denser than
+  // the —R— letters (lib/lineStyle · markerSpacing).
+  const markerPointsAlong = (coords: LngLat[], marker?: string): { coord: LngLat; deg: number }[] => {
     const m = mapInst.current
-    if (!m) return [coords[Math.floor((coords.length - 1) / 2)]]
+    const mid = coords[Math.floor((coords.length - 1) / 2)]
+    if (!m) return [{ coord: mid, deg: 0 }]
     const px = coords.map((c) => { const p = m.project(c as [number, number]); return [p.x, p.y] as [number, number] })
-    const out = markerParamsAlong(px).map(({ seg, t }) => lerpPoint(coords[seg], coords[seg + 1], t) as LngLat)
-    if (out.length === 0) out.push(coords[Math.floor((coords.length - 1) / 2)])
+    const out = markerParamsAlong(px, markerSpacing(marker))
+      .map(({ seg, t, deg }) => ({ coord: lerpPoint(coords[seg], coords[seg + 1], t) as LngLat, deg }))
+    if (out.length === 0) out.push({ coord: mid, deg: 0 })
     return out
   }
   const drawMarkers = drawings
     .filter((d) => d.kind !== 'area' && !!d.marker && Array.isArray(d.coords) && d.coords.length >= 2)
-    .flatMap((d) => markerPointsAlong(d.coords).map((coord, i) => ({ id: `${d.id}-${i}`, coord, marker: d.marker!, color: d.color || '#1f6feb' })))
+    .flatMap((d) => markerPointsAlong(d.coords, d.marker).map(({ coord, deg }, i) => ({ id: `${d.id}-${i}`, coord, deg, marker: d.marker!, color: d.color || '#1f6feb' })))
   // committed Absperrkreis circles carry their radius at the SCREEN-TOP edge (not the centre,
   // which is the drag handle) so the size reads without sitting in the middle of the action.
   // The edge point tracks the map bearing so it stays at the top of the screen when rotated.
@@ -1123,7 +1129,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     ? [editDraw.coords.reduce((s, c) => s + c[0], 0) / editDraw.coords.length,
        editDraw.coords.reduce((s, c) => s + c[1], 0) / editDraw.coords.length]
     : null
-  // Where the action hub (move grip · rotate knob · delete ✕) actually hangs. For an area or a
+  // Where the action hub (move grip · rotate knob) actually hangs. For an area or a
   // circle that is the centroid; for a LINE the centroid lies on the path, so the hub is lifted
   // perpendicular off it (lib/lineStyle · hubOffsetPx) — otherwise the move grip parks on top of a
   // vertex node and the node can neither be seen nor grabbed.
@@ -1893,10 +1899,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         </Fragment>
       ))}
 
-      {/* inline line marker letter (e.g. R on a Rettungsachse), tinted to the line colour */}
+      {/* inline line marker — a letter (—R— on a Rettungsachse) or an FKS chain glyph, tinted to
+          the line colour. `deg` is measured in PROJECTED screen px and a Marker's child is not
+          rotated with the map, so a turned map needs no correction: the teeth stay on the line. */}
       {nativeDrawingChrome && drawMarkers.map((m) => (
         <Marker key={`dm${m.id}`} longitude={m.coord[0]} latitude={m.coord[1]} anchor="center">
-          <div className="draw-marker" style={{ color: m.color }}>{m.marker}</div>
+          <LineMarker marker={m.marker} color={m.color} deg={m.deg} />
         </Marker>
       ))}
 
@@ -1933,8 +1941,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       })()}
       {hiddenAttachmentTargets.map((e) => <Marker key={`hidden-${e.id}`} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center"><span className="hidden-attachment-marker" /></Marker>)}
 
-      {/* selected drawing — on-canvas edit handles: a move grip at the centre, a delete
-          ✕ above it, and (for non-huge shapes) a draggable handle on every vertex */}
+      {/* Selected drawing — on-canvas edit handles: a move grip, a rotate knob above it, and (for
+          non-huge shapes) a draggable handle on every vertex.
+          ⚠️ NO delete ✕ here any more (01.09.). Three round buttons stacked over a line put a
+          DESTRUCTIVE action inside the cluster the operator reaches into to nudge the shape — and
+          the ✕ was the one that sat on a vertex node. Löschen lives in the detail sidebar, next to
+          everything else that changes the object, where it is a decision rather than a near-miss. */}
       {editDraw && editHubAt && (
         <Marker longitude={editHubAt[0]} latitude={editHubAt[1]} anchor="center" style={handleZ}>
           <div className="draw-edit-hub">
@@ -1952,15 +1964,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
                   onClick={(ev) => ev.stopPropagation()}
                 ><Icon id="rotate" /></button>
               </div>
-            )}
-            {onDrawingDelete && (
-              <button
-                className="draw-del"
-                title={appConfig.copy.delete}
-                aria-label={appConfig.copy.delete}
-                onPointerDown={(ev) => ev.stopPropagation()}
-                onClick={(ev) => { ev.stopPropagation(); onDrawingDelete(editDraw.id) }}
-              ><Icon id="close" /></button>
             )}
           </div>
         </Marker>

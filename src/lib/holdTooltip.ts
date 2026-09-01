@@ -12,6 +12,8 @@
 // What is eligible — decided at press time, from the DOM alone:
 //  · a <button> (or role="button") whose accessible name lives ONLY in aria-label/title, i.e.
 //    it renders no visible text — a labelled button already says its word;
+//  · …or one marked `data-holdexplain`, whose visible text is a CODE and not a word (the FKS
+//    letter chips: «S», «N», «G»). Opt-in, so nothing becomes explainable by accident;
 //  · not `[data-holdaction]`: controls whose press-and-hold IS a gesture of their own
 //    (±steppers via useHoldRepeat, the Eintrag hold via useHoldEntry) opt out at the source;
 //  · touch/pen presses only — the mouse keeps its native hover tooltip.
@@ -32,8 +34,13 @@ const LINGER_MS = 1100
 function labelOf(el: HTMLElement): string | null {
   const aria = el.getAttribute('aria-label') || el.getAttribute('title')
   if (!aria) return null
-  // icon-only means no visible words of its own — an <svg> icon has no textContent
-  if ((el.textContent ?? '').trim() !== '') return null
+  // icon-only means no visible words of its own — an <svg> icon has no textContent.
+  //
+  // `data-holdexplain` is the opt-in for the other case: a control whose visible text is a CODE
+  // rather than a word. An FKS letter chip says «N» — which is a full explanation to somebody who
+  // has learned the sheet and nothing at all to anybody else, which is the exact gap this bubble
+  // exists to close. A button with a real word still opts out, because it has already answered.
+  if ((el.textContent ?? '').trim() !== '' && !el.hasAttribute('data-holdexplain')) return null
   return aria
 }
 

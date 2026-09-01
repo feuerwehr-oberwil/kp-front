@@ -256,6 +256,8 @@ interface DocksProps {
   color: string
   width: number
   dashed: boolean
+  marker: string
+  setMarker: (m: string) => void
   /** the in-progress node draft is committable (line ≥2 pts / area ≥3 pts) — gates the ✓ button */
   draftActive: boolean
   selResource: BoardAnno | undefined
@@ -264,6 +266,8 @@ interface DocksProps {
   setColor: (c: string) => void
   setWidth: (w: number) => void
   setDashed: (d: boolean) => void
+  areaMode: 'nodes' | 'freehand'
+  setAreaMode: (m: 'nodes' | 'freehand') => void
   onFinish: () => void
   onCancelDraft: () => void
   recolorTeam: (c: string) => void
@@ -287,7 +291,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, noteDefaults, setNoteDefaults }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, width, dashed, marker, setMarker, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, noteDefaults, setNoteDefaults }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   const NOTES = appConfig.copy.notes
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
@@ -304,16 +308,21 @@ export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive,
           ],
           [{ type: 'colors', value: color, onChange: setColor }],
           [{ type: 'widths', value: width, onChange: setWidth }],
-          [{ type: 'lineStyle', dashed, onChange: setDashed }],
+          [{ type: 'lineStyle', dashed, onChange: setDashed, marker, onMarker: setMarker }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.line }],
         ]} />
       )}
 
-      {/* Fläche (node polygon) — ✓ finish + colour/width/style + info */}
+      {/* Fläche — Freihand ODER Knoten, then colour/width/style + info. Same two-mode group as
+          the Linie dock above it, because it is the same question: tap the corners, or draw it. */}
       {tool === 'area' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: closeDraft }],
-          [{ type: 'go', disabled: !draftActive, onClick: onFinish }],
+          [
+            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); onCancelDraft() } },
+            { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => setAreaMode('nodes') },
+            ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
+          ],
           [{ type: 'colors', value: color, onChange: setColor }],
           [{ type: 'widths', value: width, onChange: setWidth }],
           [{ type: 'lineStyle', dashed, onChange: setDashed }],

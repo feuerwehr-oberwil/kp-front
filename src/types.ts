@@ -35,6 +35,16 @@ export type EntityKind = 'symbol' | 'vehicle' | 'note' | 'photo' | 'shape' | 'te
  *  colour / size / rotation. e.g. an arrow for direction, a cloud for smoke. */
 export type ShapeKind = 'arrow' | 'cloud' | 'square'
 
+/**
+ * The letter a line carries in its FKS end tag — what KIND of line this is.
+ *
+ * S/W/H/P are the Druckleitung devices (Schaumrohr · Wasser · Hydroschild · Pulverpistole,
+ * Behelf Einsatzführung S. 37). N/T/G are the Vegetationsbrand-Haltelinien (nass · trocken ·
+ * Gegenfeuer, Handbuch S. 52) — the same question asked of a different line, so the same field
+ * answers it rather than a second one nobody would find. Names in copy · lineDecor.
+ */
+export type LineContent = 'S' | 'W' | 'H' | 'P' | 'N' | 'T' | 'G'
+
 /** The built-in steppers in the symbol editor that change how the glyph reads on
  *  the surface: `rotation` (orientation), `count` (quantity badge), `floor` (storey
  *  badge — map only) and `floorRange` (a von/bis storey span, e.g. stairs/lift —
@@ -291,7 +301,7 @@ export interface Drawing {
   teilstueck?: boolean
   /** FKS device/content letter at the line end: S=Schaumrohr, W=Wasserwerfer,
    *  H=Hydroschild, P=Pulverpistole. Wasser = plain line (unset). */
-  content?: 'S' | 'W' | 'H' | 'P'
+  content?: LineContent
   /** Druckleitung number shown in a small box on the line (e.g. 1. Druckleitung). ALSO the
    *  identity of the Leitung for the Atemschutz link: the same number on the Lage and on a Plan
    *  is one hose drawn twice, and both carry the Trupp tag (see lib/truppLines). Unique per
@@ -632,7 +642,7 @@ export interface BoardAnno extends SymbolProps {
   labelDy?: number
   // FKS hose-line annotations (draw/line only) — mirror Drawing's fields for cross-surface parity
   teilstueck?: boolean       // forward "E"-fork coupling at the line end (instead of an arrowhead)
-  content?: 'S' | 'W' | 'H' | 'P' // FKS device letter at the end (Schaumrohr/Wasserwerfer/Hydroschild/Pulver)
+  content?: LineContent
   lineNo?: number            // Druckleitung number in a small box on the line (= Leitung identity, see Drawing)
   floorTag?: number          // storey the line works on, signed badge (+2 / 0 / -1)
   endDx?: number             // draw: screen-space nudge of the FKS end-tag off other symbols

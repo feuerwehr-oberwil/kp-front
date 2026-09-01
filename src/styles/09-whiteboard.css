@@ -460,6 +460,17 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ls-solid, .ls-dashed { display: block; width: 20px; height: 3px; border-radius: 3px; }
 .ls-solid { background: var(--ls-ink); }
 .ls-dashed { background: repeating-linear-gradient(to right, var(--ls-ink) 0 5px, transparent 5px 8px); }
+/* the two FKS chains, as swatches: a saw edge and a row of rings. Drawn with gradients/borders
+   rather than an icon so they tint with --ls-ink like the two above and stay one row of peers. */
+.ls-teeth, .ls-rings { display: block; width: 20px; height: 9px; }
+.ls-teeth { clip-path: polygon(0 100%, 16.7% 0, 33.3% 100%, 50% 0, 66.7% 100%, 83.3% 0, 100% 100%);
+  background: var(--ls-ink); }
+/* the same saw, pointing the other way — the second Haltelinien button */
+.ls-teeth.down { clip-path: polygon(0 0, 16.7% 100%, 33.3% 0, 50% 100%, 66.7% 0, 83.3% 100%, 100% 0); }
+.ls-rings { display: flex; gap: 0; align-items: center; justify-content: center; }
+.ls-rings::before, .ls-rings::after { content: ''; width: 9px; height: 9px; border-radius: 50%;
+  border: 1.5px solid var(--ls-ink); }
+.ls-rings::after { margin-left: -3px; }
 
 /* vertical tool-option dock — anchored to the right edge beside the rail, so a
    tool's options appear right where you picked it instead of bottom-centre */
@@ -564,6 +575,13 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    dark-on-dark. Same plate as the tactical-symbol chip. */
 .wb-line-marker { position: absolute; pointer-events: none; font: 800 12px var(--mono); color: currentColor;
   background: var(--on-accent-ink); border-radius: 5px; padding: 0 4px; line-height: 1.5; box-shadow: inset 0 0 0 1.5px currentColor; }
+/* An FKS chain glyph (Haltelinie's teeth, Wasserabwurfzone's circles) is bare — the chip above
+   is for a LETTER, which needs a plate to read over a printed plan; a filled triangle does not,
+   and a plate around each tooth would break the saw edge into beads. Same positioning, no skin. */
+.wb-line-glyph { position: absolute; pointer-events: none; line-height: 0; }
+/* the shared <LineMarker> span inside either wrapper — the wrapper owns the placement */
+.wb-line-mk { display: block; }
+
 /* free-text label pinned to a Linie's midpoint — same chrome as the Lage map's .draw-label, and
    draggable (labelDx/labelDy) to nudge it off the ink */
 .wb-line-label { position: absolute; padding: 2px 7px; border-radius: var(--r-xs); font-size: 11px; font-weight: 700;

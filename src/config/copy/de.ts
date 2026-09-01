@@ -752,7 +752,7 @@ export const de = {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Stil (Freihand · Pfeil · Rettungsachse) danach im Editor wählen.',
-    area: 'Mindestens drei Eckpunkte auf die Karte tippen, dann mit dem Haken abschliessen.',
+    area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen. «Textfeld» macht daraus einen mehrzeiligen Block, dessen Breite sich am rechten Rand ziehen lässt.',
     team: 'Auf die Karte tippen und den Trupp aus der Liste wählen. Zum Verschieben ziehen.',
@@ -1634,6 +1634,11 @@ export const de = {
     S: 'Schaum',
     H: 'Hydroschild',
     P: 'Pulver',
+    // FKS Vegetationsbrand S. 52 — welche Art Haltelinie. Dieselbe Stelle wie beim
+    // Druckleitungs-Buchstaben, weil es dieselbe Frage ist: was für eine Linie ist das.
+    N: 'Nasse Haltelinie',
+    T: 'Trockene Haltelinie',
+    G: 'Gegenfeuer',
   } as Record<string, string>,
   // data-layer messages (lib/incidents): generated incident title + client-side GeoJSON checks
   incidents: {
@@ -1676,7 +1681,7 @@ export const de = {
     dockHints: {
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Stärke und Linienart unten wählen.',
       line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Stil unten wählen.',
-      area: 'Eckpunkte antippen (mind. 3). Doppeltippen oder «Fertig» schliesst die Fläche ab.',
+      area: 'Ziehen zeichnet den Umriss frei. Oder Eckpunkte antippen (mind. 3) – Doppeltippen oder «Fertig» schliesst die Fläche ab.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen. «Textfeld» macht daraus einen mehrzeiligen Block, dessen Breite sich am rechten Rand ziehen lässt.',
       resource: 'Auf den Plan tippen, um einen Trupp zu setzen. Zum Verschieben ziehen.',
       scale: 'Die zwei Endpunkte des gedruckten Massstabs antippen, dann die reale Länge eingeben. Danach zeigen Linien mit «Länge» echte Meter.',
@@ -2119,6 +2124,12 @@ export const de = {
     lineStyle: 'Linie',
     lineSolid: 'Durchgezogen',
     lineDashed: 'Gestrichelt',
+    // FKS Vegetationsbrand S. 52 — Linienarten, nicht eigene Objekte: die Dreieckskette ist eine
+    // Haltelinie (N nass · T trocken · G Gegenfeuer, als Beschriftung der Linie), die Ringkette
+    // die Wasserabwurfzone.
+    lineHalteliniUp: 'Haltelinie – Zähne oberhalb',
+    lineHalteliniDown: 'Haltelinie – Zähne unterhalb',
+    lineAbwurfzone: 'Wasserabwurfzone',
     label: 'Text',
     labelPlaceholder: 'Beschriftung …',
     areaLabelPlaceholder: 'z. B. Sektor A / Abschnitt Ost',
@@ -2133,7 +2144,7 @@ export const de = {
     // Dreht die Punktreihenfolge um – der Abschluss (Pfeil bzw. Teilstück-«E») sitzt danach am
     // anderen Ende. Die Linie selbst bleibt, wo sie ist.
     reverse: 'Richtung umkehren',
-    content: 'Inhalt',
+    content: 'Typ',
     contentPlain: 'Wasser',
     lineNo: 'Leitung Nr.',
     // Two Leitungen with the same number make the number ambiguous — and the number is what the

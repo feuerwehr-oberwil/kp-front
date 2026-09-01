@@ -4,6 +4,7 @@ import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { LineStylePicker } from '../lib/draw'
+import { markerGlyph } from '../lib/lineStyle'
 import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -13,7 +14,7 @@ import { Stepper } from './Stepper'
 import { MenuPick } from './MenuPick'
 import { Menu } from '../lib/overlays'
 import { Segmented } from './Segmented'
-import type { LineAttachment, LineEndpoint, LngLat, LineRoutingMode } from '../types'
+import type { LineAttachment, LineContent, LineEndpoint, LngLat, LineRoutingMode } from '../types'
 
 // small glyph for the line-ending picker: plain · arrow · arrow with Entwicklungsgrenze · FKS
 // Teilstück "E"-fork.
@@ -75,7 +76,7 @@ export interface DrawStyle {
   radiusM?: number
   // FKS hose-line annotations
   teilstueck?: boolean
-  content?: 'S' | 'W' | 'H' | 'P'
+  content?: LineContent
   lineNo?: number
   floorTag?: number
   /** the Atemschutz link anchor (Drawing/BoardAnno · truppId) */
@@ -121,7 +122,7 @@ interface Props {
   /** reverse the point order, so the Abschluss sits at the other end. Absent ⇒ the row is hidden. */
   onReverse?: () => void
   /** FKS device letter at the end (S/W/H/P) or undefined for plain Wasser */
-  onContent?: (content: 'S' | 'W' | 'H' | 'P' | undefined) => void
+  onContent?: (content: LineContent | undefined) => void
   /** Druckleitung number + storey badge on the line (undefined clears) */
   onLineNo?: (lineNo: number | undefined) => void
   onFloorTag?: (floor: number | undefined) => void
@@ -257,7 +258,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
           {isLine && (
             <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}</span>
               <span className="dh-widths">
-                <LineStylePicker dashed={dashed} onChange={onDashed} />
+                {/* the chains belong to the STROKE, so they sit here with solid and dashed — the
+                    letter field below stays the letter field (lib/draw · LineStylePicker) */}
+                <LineStylePicker dashed={dashed} onChange={onDashed} marker={drawing.marker} onMarker={onMarker} />
               </span>
             </div>
           )}
@@ -287,7 +290,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
             </div>
             {isLine && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.marker}</span>
-                <input className="de-input de-input-short" value={drawing.marker ?? ''} placeholder={appConfig.copy.drawingEditor.markerPlaceholder} maxLength={3} onChange={(e) => onMarker(e.target.value)} />
+                {/* a chain style lives in the same field, so it would otherwise show up here as a
+                    stray «▲» in a box the operator is meant to type a letter into */}
+                <input className="de-input de-input-short" value={markerGlyph(drawing.marker) ? '' : (drawing.marker ?? '')} placeholder={appConfig.copy.drawingEditor.markerPlaceholder} maxLength={3} onChange={(e) => onMarker(e.target.value)} />
               </div>
             )}
           </div>
@@ -336,9 +341,16 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                   <button className={`de-preset ${!drawing.content ? 'on' : ''}`} title={appConfig.copy.drawingEditor.contentPlain} onClick={() => onContent(undefined)}>{appConfig.copy.drawingEditor.contentPlain}</button>
                   {/* W = Wasser, and that is the default chip on the left — a Druckleitung with no
                       letter IS a water line, so W never needed a chip of its own. S/H/P are the
-                      ends that are worth marking. Lines already stored with content 'W' keep it. */}
-                  {(['S', 'H', 'P'] as const).map((c) => (
-                    <button key={c} className={`de-preset ${drawing.content === c ? 'on' : ''}`} title={CONTENT_LABELS[c]} onClick={() => onContent(c)}>{c}</button>
+                      ends that are worth marking. Lines already stored with content 'W' keep it.
+                      N/T/G are the Vegetationsbrand-Haltelinien (nass · trocken · Gegenfeuer): the
+                      same question about a different line, so they sit in the same row rather than
+                      in a second control nobody would look for. */}
+                  {(['S', 'H', 'P', 'N', 'T', 'G'] as const).map((c) => (
+                    // `data-holdexplain`: the letter IS the label, and it explains nothing to
+                    // somebody who never learned the sheet — hold it to hear the word
+                    // (lib/holdTooltip). On a mouse the same string is the native tooltip.
+                    <button key={c} data-holdexplain className={`de-preset ${drawing.content === c ? 'on' : ''}`}
+                      title={CONTENT_LABELS[c]} aria-label={CONTENT_LABELS[c]} onClick={() => onContent(c)}>{c}</button>
                   ))}
                 </span>
               </div>

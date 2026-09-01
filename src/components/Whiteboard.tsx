@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { LineMarker } from './LineMarker'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, Drawing, Entity, LineAttachment, LineEndpoint, LineRoutingMode, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
@@ -9,7 +10,7 @@ import { PdfViewport, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
-import { resolveLinePreset, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { resolveLinePreset, markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
@@ -354,6 +355,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [color, setColor] = useState<string>(appConfig.drawing.defaultColor)
   const [width, setWidth] = useState(5)
   const [dashed, setDashed] = useState(false)
+  // the armed line's chain style, chosen next to solid/dashed — the Lage map's `drawMarker`
+  const [marker, setMarker] = useState('')
+  // Fläche: tapped nodes, or a dragged outline — the Lage map's `areaMode`, same default and
+  // same reason (a fire's edge has no corners to tap).
+  const [areaMode, setAreaMode] = useState<'nodes' | 'freehand'>('nodes')
   const [draft, setDraft] = useState<BoardPoint[] | null>(null)
   const draftAttachments = useRef<{ startAttachment?: LineAttachment; endAttachment?: LineAttachment }>({})
   // the single Linie tool's input mode: Freihand (drag) ↔ Punkte (tap each vertex), like the Lage map
@@ -871,9 +877,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const creating = tool === 'line' || tool === 'area' || tool === 'text' || tool === 'symbol' || tool === 'shape' || tool === 'resource' || tool === 'scale'
   // node-based (tap each vertex, then finish): the area tool, and the Linie tool in Punkte mode.
   // In Freihand mode the Linie tool drags a stroke instead (handled below).
-  const noding = tool === 'area' || (tool === 'line' && lineMode === 'nodes')
+  const noding = (tool === 'area' && areaMode === 'nodes') || (tool === 'line' && lineMode === 'nodes')
+  /** the drag IS the shape right now — a freehand Linie or a freehand Fläche. The one
+   *  predicate the three pointer handlers share, so the two tools cannot drift apart. */
+  const inking = (tool === 'line' && lineMode === 'freehand') || (tool === 'area' && areaMode === 'freehand')
   // the in-progress node draft is committable: an area needs ≥3 pts, a Punkte-mode line ≥2 (gates ✓)
-  const draftActive = (tool === 'area' && (draft?.length ?? 0) >= 3) || (tool === 'line' && lineMode === 'nodes' && (draft?.length ?? 0) >= 2)
+  const draftActive = (tool === 'area' && areaMode === 'nodes' && (draft?.length ?? 0) >= 3) || (tool === 'line' && lineMode === 'nodes' && (draft?.length ?? 0) >= 2)
   // symbols/notes are sized smaller on the Gebäude floor-stack (small storey tiles) than on the
   // full-page module plans, so they don't dwarf the building outline — closer to the Lage map feel
   // Symbol/note size: on a PDF plan, scale it to the board WIDTH (= one page's width, since stitched
@@ -1033,7 +1042,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       e.stopPropagation()
       // an aborted stroke leaves no line, so it may leave no attachment either — the start one
       // armed on pointerdown would otherwise ride along into the next line (see inkUp)
-      if (tool === 'line' && lineMode === 'freehand') { setDraft(null); finishPlanDraftMagnet(); draftAttachments.current = {} }
+      if (inking) { setDraft(null); if (tool === 'line') { finishPlanDraftMagnet(); draftAttachments.current = {} } }
       inkTap.current = null // a second finger → pinch-zoom, not a node tap
       inkPinch.current = inkPinchPts()?.dist ?? null
       return
@@ -1048,8 +1057,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       else draftAttachments.current = { ...draftAttachments.current, endAttachment: undefined }
       updatePlanDraftMagnet([x, y, floor], atStart, 'start')
     }
-    if (tool === 'line' && lineMode === 'freehand') {
-      // Freehand is the one create tool whose gesture IS the drag — the stroke follows the finger,
+    if (inking) {
+      // Freehand is the one create gesture that IS the drag — the stroke follows the finger,
       // so it can't double as a pan. Every OTHER create tool places on a single tap (placeNode/inkUp).
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
       draftFloor.current = floor
@@ -1182,10 +1191,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       if (st.moved) applyView(scaleRef.current, { x: st.px + dx, y: st.py + dy })
       return
     }
-    if (!(tool === 'line' && lineMode === 'freehand') || !draft) return
+    if (!inking || !draft) return
     const n = toNorm(e.clientX, e.clientY); if (n) {
       const floor = stack ? floorAt(n[1]) : draftFloor.current
-      updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], false, 'move')
+      if (tool === 'line') updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], false, 'move')
       setDraft((d) => (d ? [...d, [n[0], localY(n[1], floor), floor]] : [[n[0], localY(n[1], floor), floor]]))
     }
   }
@@ -1198,6 +1207,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // pointer-cancel just leaves the panned view as-is, with no stray node placed.
       if (e && e.type === 'pointerup' && !st.moved) placeNode(e)
       finishPlanDraftMagnet()
+      return
+    }
+    // A dragged Fläche: the same thinned stroke as a freehand Linie, closed into a ring. No
+    // magnet and no attachments — those belong to a Leitung's ends, and an area has none.
+    if (tool === 'area' && areaMode === 'freehand' && draft) {
+      const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloor.current, y) * sH])
+      if (!isTapStroke(px)) {
+        const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
+        if (idx.length >= 3) addArea(idx.map((i) => draft[i]))
+      }
+      setDraft(null)
       return
     }
     if (tool === 'line' && lineMode === 'freehand' && draft) {
@@ -1230,7 +1250,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const id = `l${Date.now()}`
     const floor = pts[0]?.[2] ?? draftFloor.current
     const anno: BoardAnno = { id, kind: 'draw', pts, floor, color, width, ...draftAttachments.current,
-      ...resolveLinePreset(linePreset, dashed) } // SAME preset bundle the Lage map bakes (lib/lineStyle)
+      ...resolveLinePreset(linePreset, dashed),
+      ...(marker ? { marker } : {}) } // SAME preset bundle the Lage map bakes (lib/lineStyle)
     add(anno)
     // the jump-back aims at the line's FIRST node: a Leitung can run across two floors, and the
     // end it was started from is the end the operator was standing at when the row was written
@@ -2479,8 +2500,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               // stroke width beyond the last vertex), then a few px more so the spitze leads the line
               const fwd = (a.width ?? 5) * 0.6 + 6
               const last: [number, number] = [end[0] + (dxr / dlen) * fwd, end[1] + (dyr / dlen) * fwd]
-              const markerPts: [number, number][] = a.marker
-                ? (() => { const ps = markerParamsAlong(bpx).map(({ seg, t }) => lerpPoint(bpx[seg], bpx[seg + 1], t)); return ps.length ? ps : [mid] })()
+              // `deg` rides along so an FKS chain glyph stands on the line; a letter ignores it.
+              // Board px are screen px here (the board is only translated/scaled), so the bearing
+              // is directly usable — the same value the Lage map computes from projected px.
+              const markerPts: { at: [number, number]; deg: number }[] = a.marker
+                ? (() => {
+                  const ps = markerParamsAlong(bpx, markerSpacing(a.marker))
+                    .map(({ seg, t, deg }) => ({ at: lerpPoint(bpx[seg], bpx[seg + 1], t), deg }))
+                  return ps.length ? ps : [{ at: mid, deg: 0 }]
+                })()
                 : []
               // distance read-out (calibrated plans only); falls back to a "calibrate first" nudge
               // the Atemschutz-Trupp on this Leitung (anchor or number) and how it is doing
@@ -2533,8 +2561,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       </span>
                     )
                   })()}
+                  {/* a LETTER keeps the plan's chip (plate + ring, legible over a printed plan);
+                      a chain GLYPH is bare, like the sheet draws it — hence the two classes. */}
                   {markerPts.map((mp, i) => (
-                    <span key={`mk-${i}`} className="wb-line-marker" style={{ left: 0, top: 0, color, transform: `translate(${mp[0]}px, ${mp[1]}px) translate(-50%, -50%)` }}>{a.marker}</span>
+                    <span key={`mk-${i}`} className={markerGlyph(a.marker) ? 'wb-line-glyph' : 'wb-line-marker'}
+                      style={{ left: 0, top: 0, color, transform: `translate(${mp.at[0]}px, ${mp.at[1]}px) translate(-50%, -50%)` }}>
+                      <LineMarker marker={a.marker!} color={color} deg={mp.deg} className="wb-line-mk" />
+                    </span>
                   ))}
                   {labelLines.length > 0 && (
                     <span className="wb-line-label" style={{ left: 0, top: 0, transform: `translate(${mid[0] + (a.labelDx ?? 0) * sW}px, ${mid[1] + (a.labelDy ?? 0) * sH}px) translate(-50%, -100%)`, cursor: tool === 'pan' ? 'move' : undefined }}
@@ -3070,6 +3103,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           color={color}
           width={width}
           dashed={dashed}
+          marker={marker}
+          setMarker={setMarker}
+          areaMode={areaMode}
+          setAreaMode={setAreaMode}
           draftActive={draftActive}
           selResource={selResource}
           setTool={setTool}

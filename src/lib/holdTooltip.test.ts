@@ -73,6 +73,19 @@ describe('holdTooltip', () => {
     expect(bubble()).toBeNull()
   })
 
+  // The FKS letter chips: «N» is a full explanation to somebody who learned the sheet and
+  // nothing at all to anybody else, which is exactly the gap the bubble exists to close.
+  it('[data-holdexplain] IS claimed — its visible text is a code, not a word', () => {
+    const chip = document.createElement('button')
+    chip.setAttribute('aria-label', 'Nasse Haltelinie')
+    chip.setAttribute('data-holdexplain', '')
+    chip.textContent = 'N'
+    document.body.appendChild(chip)
+    ptr('pointerdown', chip)
+    vi.advanceTimersByTime(600)
+    expect(bubble()?.textContent).toBe('Nasse Haltelinie')
+  })
+
   it('[data-holdaction] opts out — holding IS that control\'s own gesture', () => {
     btn.setAttribute('data-holdaction', 'true')
     ptr('pointerdown', btn)

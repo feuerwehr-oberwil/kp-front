@@ -395,19 +395,13 @@ def build() -> list[dict]:
         [path([(-0.3, 0.6), (0, -0.4), (0.3, 0.6)], stroke=BLUE, sw=0.1, close=True)],
         viewbox="-0.8 -0.7 1.6 1.6",
     ))
-    # Drohne — top-down quadcopter: an X-frame of two arms with a rotor ring at each tip and a
-    # filled hub. Own-pack aviation glyph (FKS has none); stays upright (no rotation) like a
-    # hovering-asset marker.
-    # drawn to ~0.85× the unit radius so the square 4-rotor footprint reads at the same visual
-    # size as the thin Einsatzleiter/vehicle glyphs (a full-unit square looks noticeably larger)
+    # Drohne — FKS Vegetationsbrand-Handbuch S. 52. Replaced our own top-down quadcopter on
+    # 01.09.: that glyph was authored on the belief that FKS had no drone sign, and it does —
+    # the swept chevron, which is also what the Landeplatz below frames. Four rotor rings at
+    # 28 px were a smudge anyway, where this reads as one shape.
     add("Fahrzeuge / Mittel", "VKF Drohne", svg(
-        [line(-0.6, -0.6, 0.6, 0.6, stroke=BLUE, sw=0.1),
-         line(-0.6, 0.6, 0.6, -0.6, stroke=BLUE, sw=0.1),
-         circle(-0.6, -0.6, 0.26, stroke=BLUE, sw=0.1),
-         circle(0.6, -0.6, 0.26, stroke=BLUE, sw=0.1),
-         circle(-0.6, 0.6, 0.26, stroke=BLUE, sw=0.1),
-         circle(0.6, 0.6, 0.26, stroke=BLUE, sw=0.1),
-         circle(0, 0, 0.19, stroke=BLUE, sw=0.1, fill=BLUE)],
+        [path([(-0.95, -0.5), (0, 0.56), (0.95, -0.5), (0.7, -0.5), (0, 0.22), (-0.7, -0.5)],
+              stroke=BLUE, sw=0.09, close=True)],
         vb=2.6,
     ))
     add("Fahrzeuge / Mittel", "VKF Helilandeplatz", svg(

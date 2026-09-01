@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveLinePreset, vertexHandleIndices, evenIndices, rdpIndices, hubOffsetPx, isTapStroke, MIN_STROKE_PX, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES, HANDLE_MIN_SPACING_PX } from './lineStyle'
+import { FREEHAND_SIMPLIFY_PX, HANDLE_MIN_SPACING_PX, HUB_NODE_CLEARANCE_PX, HUB_OFFSET_PX, MARKER_SPACING_PX, MAX_HUB_LIFT, MAX_VERTEX_HANDLES, MIN_STROKE_PX, evenIndices, hubOffsetPx, isTapStroke, markerGlyph, markerParamsAlong, markerSpacing, rdpIndices, resolveLinePreset, vertexHandleIndices } from './lineStyle'
 
 // resolveLinePreset is the ONE preset bundle both drawing surfaces (Lage map + Plan whiteboard)
 // apply — this pins the coercion so they can't drift. The default presets are the app's stock
@@ -228,5 +228,85 @@ describe('isTapStroke', () => {
   it('measures the FURTHEST the path ever got, not where it ended', () => {
     // out past the threshold and back onto its own start: the finger did go somewhere
     expect(isTapStroke([[0, 0], [40, 0], [0, 0]])).toBe(false)
+  })
+})
+
+// ── FKS chain markers ───────────────────────────────────────────────────────────────────────
+// A Haltelinie and a Wasserabwurfzone are the same mechanism as «—R—»: something repeated along
+// the polyline. What is new is that the repeated thing is a SHAPE, and that a shape may have to
+// stand on the line — so the walk has to hand back the segment's bearing too.
+describe('marker glyphs', () => {
+  it('recognises a chain glyph and leaves a letter alone', () => {
+    expect(markerGlyph('▲')?.fill).toBe(true)
+    expect(markerGlyph('◯')?.fill).toBe(false)
+    expect(markerGlyph('R')).toBeUndefined()
+    expect(markerGlyph(undefined)).toBeUndefined()
+  })
+
+  // Which side the teeth face is an operational fact (they face the fire) and cannot be derived
+  // from the geometry — the same line drawn the other way round is the same Haltelinie.
+  it('carries both Haltelinien sides as mirror images of one tooth', () => {
+    const up = markerGlyph('▲')!, down = markerGlyph('▼')!
+    expect(down.path).toBe(up.path.replace('-1.05', '1.05'))
+    expect([down.size, down.spacing, down.rotate]).toEqual([up.size, up.spacing, up.rotate])
+  })
+
+  it('repeats a chain at its own rhythm, not the letter rhythm', () => {
+    expect(markerSpacing('▲')).toBeLessThan(markerSpacing('R'))
+    expect(markerSpacing('R')).toBe(MARKER_SPACING_PX)
+    expect(markerSpacing(undefined)).toBe(MARKER_SPACING_PX)
+  })
+
+  // they touch rather than sit apart — a row of separate dots is not a covered band
+  it('spaces the Abwurfzone rings no further apart than they are wide', () => {
+    const g = markerGlyph('◯')!
+    expect(g.spacing).toBeLessThanOrEqual(g.size)
+  })
+
+  it('reports each segment’s bearing, so the teeth turn only where the line does', () => {
+    const east = markerParamsAlong([[0, 0], [200, 0]], 50)
+    expect(east.every((m) => m.deg === 0)).toBe(true)
+    // screen y grows DOWNWARD, so a segment heading down-screen is +90°
+    const south = markerParamsAlong([[0, 0], [0, 200]], 50)
+    expect(south.every((m) => m.deg === 90)).toBe(true)
+  })
+
+  it('turns at the corner of an L, not before it', () => {
+    const params = markerParamsAlong([[0, 0], [100, 0], [100, 100]], 40)
+    const bearings = [...new Set(params.map((m) => m.deg))]
+    expect(bearings).toEqual([0, 90])
+  })
+})
+
+// The hub is lifted off the line so the move grip doesn't park on the node under it. Lifting off
+// the NEAREST segment can drop it onto a DIFFERENT one, though — a corner, or the far side of a
+// hairpin where the path doubles back under the offset (reported 01.09.).
+describe('hubOffsetPx — clear of every node, not just the one below', () => {
+  const at = (px: [number, number][], p: [number, number]) => {
+    const [dx, dy] = hubOffsetPx(px, p)
+    return [p[0] + dx, p[1] + dy] as [number, number]
+  }
+  const clearance = (px: [number, number][], p: [number, number]) =>
+    Math.min(...px.map(([vx, vy]) => Math.hypot(at(px, p)[0] - vx, at(px, p)[1] - vy)))
+
+  it('lifts a straight line’s hub clear of its own vertices', () => {
+    const px: [number, number][] = [[0, 0], [100, 0], [200, 0]]
+    expect(clearance(px, [100, 0])).toBeGreaterThanOrEqual(HUB_NODE_CLEARANCE_PX)
+  })
+
+  // a hairpin: the return leg runs right where a single 42px lift would put the grip
+  it('pushes further out when the first lift lands on the other leg’s node', () => {
+    const px: [number, number][] = [[0, 0], [120, 0], [120, -42], [0, -42]]
+    expect(clearance(px, [60, 0])).toBeGreaterThanOrEqual(HUB_NODE_CLEARANCE_PX)
+  })
+
+  it('gives up rather than flying off — a hub far from its line is the worse question', () => {
+    const px: [number, number][] = [[0, 0], [100, 0]]
+    const [dx, dy] = hubOffsetPx(px, [50, 0])
+    expect(Math.hypot(dx, dy)).toBeLessThanOrEqual(HUB_OFFSET_PX * MAX_HUB_LIFT + 0.01)
+  })
+
+  it('still lifts a two-point line with nothing to measure against', () => {
+    expect(hubOffsetPx([[0, 0]], [0, 0])).toEqual([0, -HUB_OFFSET_PX])
   })
 })

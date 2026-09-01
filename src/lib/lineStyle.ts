@@ -128,18 +128,72 @@ export function vertexHandleIndices(px: [number, number][], budget = MAX_VERTEX_
   return evenIndices(keep.length, budget).map((k) => keep[k])
 }
 
-/** Walk a polyline given in PIXEL space and return a parametric position `{seg, t}` every
- *  `spacing` px (seg = segment start index, t = 0..1 along it). The caller lerps its OWN coordinate
- *  list by `{seg, t}` — so the map feeds projected screen px and back-projects to lng/lat, while the
- *  plan feeds board px and lerps normalized board coords. One algorithm, both surfaces. */
-export function markerParamsAlong(px: [number, number][], spacing = MARKER_SPACING_PX): { seg: number; t: number }[] {
-  const out: { seg: number; t: number }[] = []
+/**
+ * A repeated marker that is a SHAPE rather than a letter — the FKS chains.
+ *
+ * The Vegetationsbrand-Handbuch draws a Haltelinie as a row of filled triangles standing on the
+ * line and a Wasserabwurfzone as a row of overlapping circles (S. 52, in use on S. 53). Both are
+ * the same mechanism the «—R—» Rettungsachse already uses — repeat something along the polyline —
+ * so they are markers, not stamps: one object that reshapes, moves and deletes as a line.
+ *
+ * Keyed by the character the marker field holds, so the stored value still SAYS what it is and a
+ * renderer that does not know the glyph falls back to drawing that character. `marker` stays one
+ * free-text field (DrawEditor), and a letter behaves exactly as before.
+ */
+export interface LineMarkerGlyph {
+  /** on-screen box of one glyph, px */
+  size: number
+  /** distance between repeats, px — the chain's own rhythm, not the letter rhythm */
+  spacing: number
+  /** path in a −1…1 box, drawn in the line's colour */
+  path: string
+  fill: boolean
+  /** turn with the line. The Haltelinie's teeth stand ON it; the Abwurfzone's circles don't care. */
+  rotate: boolean
+}
+
+export const MARKER_GLYPHS: Record<string, LineMarkerGlyph> = {
+  // Haltelinie — a saw edge, in both directions.
+  //
+  // ⚠️ The triangle's BASE sits at y=0 in its own box, not its centre: rotated by the segment's
+  // bearing that lands the base exactly ON the line, teeth to one side, with the line itself
+  // still visible. Centring it instead buries the line inside the teeth.
+  //
+  // Which side matters operationally — the teeth face the fire — and it cannot be derived from
+  // the geometry, because a line drawn left-to-right and the same line drawn right-to-left are
+  // the same Haltelinie. So it is two styles the operator picks between, not a flag hidden
+  // behind a second tap (decision 01.09.).
+  '▲': { size: 20, spacing: 15, path: 'M -0.62 0 L 0 -1.05 L 0.62 0 Z', fill: true, rotate: true },
+  '▼': { size: 20, spacing: 15, path: 'M -0.62 0 L 0 1.05 L 0.62 0 Z', fill: true, rotate: true },
+  // Wasserabwurfzone — a chain of rings threaded ON the line, so the line reads through them.
+  // Round, so it has no orientation to keep and turning it would only shimmer. Sized up a little
+  // from the first cut, which vanished exactly where it is read: zoomed in on the drop run.
+  '◯': { size: 29, spacing: 28, path: 'M 0 -0.86 A 0.86 0.86 0 1 1 -0.001 -0.86 Z', fill: false, rotate: false },
+}
+
+/** The glyph a marker names, or undefined for an ordinary letter. */
+export const markerGlyph = (marker?: string): LineMarkerGlyph | undefined =>
+  (marker ? MARKER_GLYPHS[marker] : undefined)
+
+/** The rhythm this marker repeats at — its glyph's own, else the letter spacing. */
+export const markerSpacing = (marker?: string): number => markerGlyph(marker)?.spacing ?? MARKER_SPACING_PX
+
+/** Walk a polyline given in PIXEL space and return a parametric position `{seg, t, deg}` every
+ *  `spacing` px (seg = segment start index, t = 0..1 along it, deg = that segment's screen
+ *  bearing, for a glyph that stands on the line). The caller lerps its OWN coordinate list by
+ *  `{seg, t}` — so the map feeds projected screen px and back-projects to lng/lat, while the plan
+ *  feeds board px and lerps normalized board coords. One algorithm, both surfaces. */
+export function markerParamsAlong(px: [number, number][], spacing = MARKER_SPACING_PX): { seg: number; t: number; deg: number }[] {
+  const out: { seg: number; t: number; deg: number }[] = []
   let carry = spacing / 2 // start half a step in, so letters don't pile on the first vertex
   for (let i = 1; i < px.length; i++) {
     const [ax, ay] = px[i - 1], [bx, by] = px[i]
     const segLen = Math.hypot(bx - ax, by - ay)
     if (segLen < 1e-3) continue
-    while (carry <= segLen) { out.push({ seg: i - 1, t: carry / segLen }); carry += spacing }
+    // screen bearing of THIS segment — the same for every glyph dropped on it, so a chain reads
+    // as one saw edge and only turns where the line does.
+    const deg = (Math.atan2(by - ay, bx - ax) * 180) / Math.PI
+    while (carry <= segLen) { out.push({ seg: i - 1, t: carry / segLen, deg }); carry += spacing }
     carry -= segLen
   }
   return out
@@ -228,6 +282,13 @@ export function lookbackPoint(px: [number, number][], dist: number): [number, nu
  */
 export const HUB_OFFSET_PX = 42
 
+/** How close the lifted hub may come to ANY vertex before it is pushed further out. The move
+ *  grip's hit pad (40px ⇒ 20) plus a node handle's (44px ⇒ 22) — at this distance the two stop
+ *  competing for the same finger, wherever the node happens to be. */
+export const HUB_NODE_CLEARANCE_PX = 42
+/** …and how far the lift may grow before overlap is the lesser evil (multiples of the offset). */
+export const MAX_HUB_LIFT = 2.5
+
 /**
  * Screen-px offset `[dx, dy]` that lifts a selected line's action hub — the move grip, the rotate
  * knob above it and the red ✕ beside it — clear of the path it belongs to.
@@ -257,5 +318,16 @@ export function hubOffsetPx(px: [number, number][], at: [number, number], distPx
   // the two unit normals of that segment; take the one that points up the screen (y grows down)
   const nx = (by - ay) / len, ny = -(bx - ax) / len
   const up = ny < 0 || (ny === 0 && nx > 0) ? [nx, ny] : [-nx, -ny]
-  return [up[0] * distPx, up[1] * distPx]
+  // ⚠️ Lifting off the NEAREST segment clears the node under the hub, and can drop it straight
+  // onto a different one — a corner, or the far side of a hairpin, where the path doubles back
+  // under the offset (reported 01.09.). So the lift grows until the grip is clear of EVERY
+  // vertex, in steps, with a hard ceiling: past that the hub is so far from its own line that
+  // «which shape does this belong to» becomes the worse question, and a bit of overlap wins.
+  for (let d = distPx; d <= distPx * MAX_HUB_LIFT; d += distPx / 2) {
+    const at2: [number, number] = [at[0] + up[0] * d, at[1] + up[1] * d]
+    if (px.every(([vx, vy]) => Math.hypot(at2[0] - vx, at2[1] - vy) >= HUB_NODE_CLEARANCE_PX)) {
+      return [up[0] * d, up[1] * d]
+    }
+  }
+  return [up[0] * distPx * MAX_HUB_LIFT, up[1] * distPx * MAX_HUB_LIFT]
 }

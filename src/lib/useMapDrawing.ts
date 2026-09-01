@@ -59,6 +59,14 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const [drawColor, setDrawColor] = useState<string>(appConfig.drawing.defaultColor)
   const [drawWidth, setDrawWidth] = useState(4)
   const [drawDashed, setDrawDashed] = useState(false)
+  // the armed line's repeated marker — today only the FKS chains, chosen in the style picker
+  // next to solid/dashed (lib/draw · LineStylePicker). Sticky like the colour and the dash.
+  const [drawMarker, setDrawMarker] = useState('')
+  // Fläche: tapped nodes, or a dragged outline. Nodes stay the default — most Flächen are a
+  // Sektor or an Absperrung, and those want corners. Freehand exists for the one that does
+  // not: a fire's edge, which has no corners and which nobody tapping points can follow
+  // (FKS Vegetationsbrand · «vorsehbare Brandentwicklung»).
+  const [areaMode, setAreaMode] = useState<'nodes' | 'freehand'>('nodes')
   const [linePreset, setLinePreset] = useState<string>('freihand')
   const [lineMode, setLineMode] = useState<'freehand' | 'nodes'>('freehand')
 
@@ -101,7 +109,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // styled presets (Messpfeil/Rettungsachse) carry their own arrow/marker/dash; Freihand falls
     // back to the dock's dash. A new line inherits the last-used preset (post-pick + sticky) — the
     // SAME resolved bundle the Plan whiteboard bakes (lib/lineStyle), so the surfaces can't drift.
-    const drawing: Drawing = { id, kind: 'line', coords, color: drawColor, width: drawWidth, ...resolveLinePreset(linePreset, drawDashed), ...attachments }
+    // the dock's own style wins over the sticky preset's marker: the operator picked the chain
+    // a moment ago, the preset is whatever the last line happened to be
+    const drawing: Drawing = { id, kind: 'line', coords, color: drawColor, width: drawWidth, ...resolveLinePreset(linePreset, drawDashed), ...(drawMarker ? { marker: drawMarker } : {}), ...attachments }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
     // named by drawingLogName, so «Rettungsachse gezeichnet» opens what «Rettungsachse gelöscht»
     // closes — before 31.08. every line, whatever it was drawn with, opened on «Zeichnung erstellt»
@@ -110,7 +120,13 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
     return drawing
   }
-  const onFreehand = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => createLine(coords, attachments)
+  // ONE gesture, two outcomes: whichever tool is armed decides whether the dragged path closes
+  // into a Fläche or stays a Linie. The path is already thinned by the gesture hook, so an area
+  // drawn with a finger arrives with the same handful of editable nodes a tapped one has.
+  const onFreehand = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => {
+    if (tool === 'area') return coords.length >= 3 ? createArea(coords) : null
+    return createLine(coords, attachments)
+  }
   const setDraftPointAttachment = (attachment?: LineAttachment) => {
     if (!attachment) return
     setDraftAttachments((a) => draft.length === 0 ? { ...a, startAttachment: attachment } : { ...a, endAttachment: attachment })
@@ -398,15 +414,17 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   }
 
   // ✓ enabled when the draft is committable: an area needs ≥3 points, a node-mode line ≥2
-  const draftActive = (tool === 'area' && draft.length >= 3) || (tool === 'line' && lineMode === 'nodes' && draft.length >= 2)
+  const draftActive = (tool === 'area' && areaMode === 'nodes' && draft.length >= 3) || (tool === 'line' && lineMode === 'nodes' && draft.length >= 2)
   // node-mode line taps seed the draft (like the area/measure tools), so the freehand gesture is off
   const lineNodes = tool === 'line' && lineMode === 'nodes'
+  /** the canvas drag draws a shape right now (a Linie or a Fläche) rather than panning */
+  const freehandArmed = (tool === 'line' && lineMode === 'freehand') || (tool === 'area' && areaMode === 'freehand')
 
   return {
     draft, setDraft,
-    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
-    linePreset, setLinePreset, lineMode, setLineMode,
-    draftActive, lineNodes, selectedDrawing,
+    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed, drawMarker, setDrawMarker,
+    linePreset, setLinePreset, lineMode, setLineMode, areaMode, setAreaMode,
+    draftActive, lineNodes, freehandArmed, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,

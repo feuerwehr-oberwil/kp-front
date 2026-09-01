@@ -662,22 +662,66 @@ def _arrow_head(
         )
 
 
-def _marker_points(pts: list[tuple[float, float]], spacing: float) -> list[tuple[float, float]]:
-    """Positions for the repeated inline letter (—R—R—), every `spacing` px along the
-    polyline, starting half a step in (client markerParamsAlong)."""
-    out: list[tuple[float, float]] = []
+def _marker_points(pts: list[tuple[float, float]], spacing: float) -> list[tuple[float, float, float]]:
+    """Positions for a repeated inline marker, every `spacing` px along the polyline, starting
+    half a step in (client markerParamsAlong). Returns (x, y, degrees-of-this-segment) — the
+    bearing is what lets a chain glyph stand ON the line the way the client draws it."""
+    out: list[tuple[float, float, float]] = []
     carry = spacing / 2
     for i in range(1, len(pts)):
         (ax, ay), (bx, by) = pts[i - 1], pts[i]
         seg = math.hypot(bx - ax, by - ay)
         if seg < 1e-3:
             continue
+        deg = math.degrees(math.atan2(by - ay, bx - ax))
         while carry <= seg:
             t = carry / seg
-            out.append((ax + (bx - ax) * t, ay + (by - ay) * t))
+            out.append((ax + (bx - ax) * t, ay + (by - ay) * t, deg))
             carry += spacing
         carry -= seg
     return out
+
+
+# ── FKS chain markers ────────────────────────────────────────────────────────────────────────
+# ⚠️ MIRRORS src/lib/lineStyle.ts · MARKER_GLYPHS. A Haltelinie drawn on the tablet and the same
+# Haltelinie on the printed Kroki have to be the same picture — the screen/paper split is exactly
+# the bug the stale symbol dataset caused (01.09.), and it is not worth repeating for lines.
+# Keyed by the character the client stores, sizes as fractions of the client's screen px so the
+# print's own scale factor carries through.
+_CHAIN_GLYPHS: dict[str, dict] = {
+    "▲": {"size": 20, "spacing": 15, "fill": True, "rotate": True},
+    "▼": {"size": 20, "spacing": 15, "fill": True, "rotate": True},
+    "◯": {"size": 29, "spacing": 28, "fill": False, "rotate": False},
+}
+
+
+def _chain_marker(
+    overlay: Image.Image, xy: tuple[float, float], marker: str, deg: float, size: int, color: str
+) -> None:
+    """One chain glyph, rasterised from the SAME path the client draws and pasted rotated."""
+    g = _CHAIN_GLYPHS[marker]
+    # ⚠️ The triangle's BASE sits at y=0, not its centre — rotated by the segment bearing that
+    # puts the base ON the line, teeth to one side, line still visible (mirrors lineStyle.ts).
+    path = {
+        "▲": "M -0.62 0 L 0 -1.05 L 0.62 0 Z",
+        "▼": "M -0.62 0 L 0 1.05 L 0.62 0 Z",
+    }.get(marker, "M 0 -0.86 A 0.86 0.86 0 1 1 -0.001 -0.86 Z")
+    fill = color if g["fill"] else "none"
+    sw = 0.08 if g["fill"] else 0.16
+    svg = (
+        f'<svg viewBox="-1.15 -1.15 2.3 2.3" xmlns="http://www.w3.org/2000/svg">'
+        f'<path d="{path}" fill="none" stroke="#ffffff" stroke-width="0.22" stroke-linejoin="round" opacity="0.9"/>'
+        f'<path d="{path}" fill="{fill}" stroke="{color}" stroke-width="{sw}" stroke-linejoin="round"/>'
+        f"</svg>"
+    )
+    img = raster_svg(svg, size)
+    if img is None:
+        return
+    # The bearing itself, as on the client: the path is authored standing on a line running east.
+    # Negated because PIL rotates counter-clockwise while screen y grows downward.
+    if g["rotate"]:
+        img = img.rotate(-deg, expand=True, resample=Image.Resampling.BICUBIC)
+    overlay.alpha_composite(img, (int(xy[0] - img.width / 2), int(xy[1] - img.height / 2)))
 
 
 def _halo_text(
@@ -1096,9 +1140,17 @@ def render_kroki(
             if d.get("arrow"):
                 _arrow_head(draw, pts, color, w, stop=bool(d.get("arrowStop")))
             if d.get("marker"):
-                # repeated inline letter (—R—R—) at the client's 46px screen rhythm
-                for mp in _marker_points(pts, 46 * u * ss):
-                    markers.append((mp, d["marker"], int(13 * u * ss), color))
+                # A LETTER repeats at the client's 46 px rhythm and is drawn with the halo text
+                # pass below; a CHAIN GLYPH has its own denser rhythm and is painted here, because
+                # it is a shape and not a font.
+                mk = str(d["marker"])
+                chain = _CHAIN_GLYPHS.get(mk)
+                step = (chain["spacing"] if chain else 46) * u * ss
+                for mx, my, mdeg in _marker_points(pts, step):
+                    if chain:
+                        _chain_marker(overlay, (mx, my), mk, mdeg, max(6, int(chain["size"] * u * ss)), color)
+                    else:
+                        markers.append(((mx, my), mk, int(13 * u * ss), color))
             # FKS hose-line decorations: Teilstück fork at the tip + boxed end tag
             # («Leitungsnummer · Inhaltsbuchstabe · Stockwerk») just before it
             if d.get("teilstueck"):

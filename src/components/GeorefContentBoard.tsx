@@ -21,6 +21,7 @@
 import { useRef, useState, type CSSProperties } from 'react'
 import { Icon } from '../lib/icons'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
+import { LineMarker } from './LineMarker'
 import { MenuPick } from './MenuPick'
 import type { GeorefFit } from '../lib/georef'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
@@ -32,7 +33,7 @@ import { glyphFor } from '../lib/twinGlyph'
 import { noteScale, noteWPx } from '../lib/notes'
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
-import { EXTEND_STEP_PX, lerpPoint, lookbackPoint, markerParamsAlong } from '../lib/lineStyle'
+import { EXTEND_STEP_PX, lerpPoint, lookbackPoint, markerGlyph, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { appConfig } from '../config/appConfig'
@@ -397,10 +398,16 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           </span>)
         }
         if (anno.marker) {
-          const mps = markerParamsAlong(bpx).map(({ seg, t }) => lerpPoint(bpx[seg], bpx[seg + 1], t))
-          for (const [i, mp] of (mps.length ? mps : [anchor]).entries()) {
-            out.push(<span key={`mk-${key}-${i}`} className="wb-line-marker"
-              style={{ left: 0, top: 0, color, transform: `translate(${mp[0]}px, ${mp[1]}px) translate(-50%, -50%)` }}>{anno.marker}</span>)
+          // identical to the native Plan line (Whiteboard): the twin doctrine says a projection
+          // paints exactly like the object beside it, chain glyphs included
+          const mps = markerParamsAlong(bpx, markerSpacing(anno.marker))
+            .map(({ seg, t, deg }) => ({ at: lerpPoint(bpx[seg], bpx[seg + 1], t), deg }))
+          const pts = mps.length ? mps : [{ at: anchor, deg: 0 }]
+          for (const [i, mp] of pts.entries()) {
+            out.push(<span key={`mk-${key}-${i}`} className={markerGlyph(anno.marker) ? 'wb-line-glyph' : 'wb-line-marker'}
+              style={{ left: 0, top: 0, color, transform: `translate(${mp.at[0]}px, ${mp.at[1]}px) translate(-50%, -50%)` }}>
+              <LineMarker marker={anno.marker} color={color} deg={mp.deg} className="wb-line-mk" />
+            </span>)
           }
         }
         return out

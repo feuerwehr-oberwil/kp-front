@@ -21,6 +21,7 @@
 import { Fragment, useRef, type CSSProperties, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { useNodeHold } from '../lib/nodeHold'
+import { LineMarker } from './LineMarker'
 import { NodeDeleteChip } from './NodeDeleteChip'
 import { MARKER_Z } from '../lib/labelPass'
 import { Layer, Marker, Source } from 'react-map-gl/maplibre'
@@ -30,7 +31,7 @@ import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { noteScale } from '../lib/notes'
 import { worldPx, TEAM_DOT_PX } from '../lib/mapView'
 import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
-import { EXTEND_STEP_PX, lerpPoint, markerParamsAlong } from '../lib/lineStyle'
+import { EXTEND_STEP_PX, lerpPoint, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { fillTemplate } from '../lib/format'
@@ -192,10 +193,12 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
               return [c.lng, c.lat] as LngLat
             })()
             : null
-          const markerCoords: LngLat[] = !polygon && a.marker && t.coords.length >= 2
+          const markerCoords: { coord: LngLat; deg: number }[] = !polygon && a.marker && t.coords.length >= 2
             ? (() => {
-              const out = markerParamsAlong(px).map(({ seg, t: f }) => lerpPoint(t.coords![seg], t.coords![seg + 1], f) as LngLat)
-              return out.length ? out : [t.coords![Math.floor((t.coords!.length - 1) / 2)]]
+              const out = markerParamsAlong(px, markerSpacing(a.marker))
+                .map(({ seg, t: f, deg }) => ({ coord: lerpPoint(t.coords![seg], t.coords![seg + 1], f) as LngLat, deg }))
+              const mid = t.coords![Math.floor((t.coords!.length - 1) / 2)]
+              return out.length ? out : [{ coord: mid, deg: 0 }]
             })()
             : []
           // The path's one hit target: a grip at its midpoint/centroid (before the label's
@@ -228,9 +231,9 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
                 </span>
               </Marker>
             )}
-            {markerCoords.map((c, j) => (
-              <Marker key={`mk-${j}`} longitude={c[0]} latitude={c[1]} anchor="center" style={INERT}>
-                <span className={s.contentMap}><span className="draw-marker" style={{ color }}>{a.marker}</span></span>
+            {markerCoords.map((m, j) => (
+              <Marker key={`mk-${j}`} longitude={m.coord[0]} latitude={m.coord[1]} anchor="center" style={INERT}>
+                <span className={s.contentMap}><LineMarker marker={a.marker!} color={color} deg={m.deg} /></span>
               </Marker>
             ))}
             {lines.length > 0 && labelCoord && (

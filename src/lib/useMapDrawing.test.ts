@@ -138,3 +138,44 @@ describe('settleDraft (A6)', () => {
     expect(toast).not.toHaveBeenCalled()
   })
 })
+
+// One drag gesture, two outcomes: which tool is armed decides whether the path closes into a
+// Fläche or stays a Linie. Freehand areas exist for the shape a tapped polygon cannot follow —
+// a fire's edge (FKS Vegetationsbrand · «vorsehbare Brandentwicklung»).
+describe('freehand: the armed tool decides what the stroke becomes', () => {
+  const stroke: [number, number][] = [[7.70, 47.40], [7.72, 47.42], [7.74, 47.40], [7.71, 47.39]]
+
+  it('closes a dragged path into a Fläche while the area tool is armed', () => {
+    const deps = makeDeps({ tool: 'area' })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.onFreehand(stroke) })
+    const added = deps.commit.mock.calls.length ? deps.drawings[deps.drawings.length - 1] : undefined
+    expect(added?.kind).toBe('area')
+    expect(added?.coords).toEqual(stroke)
+  })
+
+  it('still draws a Linie while the line tool is armed', () => {
+    const deps = makeDeps({ tool: 'line' })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.onFreehand(stroke) })
+    expect(deps.drawings[deps.drawings.length - 1]?.kind).toBe('line')
+  })
+
+  // a ring needs three points; two are a line the operator drew by accident with the wrong tool
+  it('refuses a stroke too short to be a ring', () => {
+    const deps = makeDeps({ tool: 'area' })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.onFreehand([[7.7, 47.4], [7.71, 47.41]]) })
+    expect(deps.commit).not.toHaveBeenCalled()
+  })
+
+  it('the ✓ button belongs to node mode — a freehand area has nothing to confirm', () => {
+    const deps = makeDeps({ tool: 'area' })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.setDraft([[7.7, 47.4], [7.8, 47.4], [7.8, 47.5]]) })
+    expect(result.current.draftActive).toBe(true)
+    act(() => { result.current.setAreaMode('freehand') })
+    expect(result.current.draftActive).toBe(false)
+    expect(result.current.freehandArmed).toBe(true)
+  })
+})
