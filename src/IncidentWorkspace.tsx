@@ -85,7 +85,7 @@ import { DrawEditor } from './components/DrawEditor'
 import { ToolDock } from './components/ToolDock'
 import { ShapeEditor } from './components/ShapeEditor'
 import { MeasurePanel } from './components/MeasurePanel'
-import { ROTATION_DEFAULT_RUN_M, ROTATION_MAX_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationRun, shapeAspect } from './lib/shapes'
+import { ROTATION_DEFAULT_RUN_M, ROTATION_MAX_M, ROTATION_W_M, ROTATION_W_N, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_MIN_N, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationRun, shapeAspect } from './lib/shapes'
 import { Journal } from './components/Journal'
 import { JournalComposer, type JournalDraft } from './components/JournalComposer'
 import { composeJournalText } from './lib/journalEntry'
@@ -111,7 +111,9 @@ import { Whiteboard } from './components/Whiteboard'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
 import { pushBoardPast, type BoardHistory } from './components/useBoardDoc'
-import { deleteBoardTwinSource, patchBoardTwinSource } from './lib/georefTwinEdit'
+import { deleteBoardTwinSource, detachBoardTwinEndpoint, patchBoardTwinSource, reverseBoardTwinSource,
+  setBoardTwinEnding, teilstueckDependents, type BoardTwinWrite } from './lib/georefTwinEdit'
+import { resolveLinePreset } from './lib/lineStyle'
 import type { GeorefFit } from './lib/georef'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
@@ -3481,6 +3483,39 @@ export function IncidentWorkspace({
     if (patch.label != null) linkRosterFields({ ...source, label: patch.label }, current.fields ?? {}, { force: true })
   }
 
+  /** A twin edit that touches MORE than the mirrored annotation itself — «Richtung umkehren», an
+   *  Abschluss that has to let its Teilstück branches go, a detached endpoint. One undo step for
+   *  the lot, one `board.edit` per anno that actually changed (lib/georefTwinEdit · BoardTwinWrite). */
+  const applyPlanTwinWrite = (planId: string, write: BoardTwinWrite | null) => {
+    if (tacticalLocked || !write) return
+    setPlanHistory((m) => pushBoardPast(m, planId, board[planId] ?? []))
+    setBoard((all) => ({ ...all, [planId]: write.next }))
+    write.patches.forEach(({ id, patch }) => emit('board.edit', { planId, id, patch }))
+  }
+
+  /**
+   * «Abschluss» on a mirrored plan line, changed from the Karte.
+   *
+   * Dropping a Teilstück lets go of every branch hanging on its «E», so it asks first — the same
+   * question, in the same words, the Plan asks for its own line (Whiteboard · changePlanEnding).
+   */
+  const changePlanTwinEnding = async (t: MapContentTwin, ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => {
+    if (tacticalLocked) return
+    const annos = board[t.planId] ?? []
+    const target = annos.find((a) => a.id === t.annoId)
+    if (!target) return
+    const released = target.teilstueck && ending !== 'teilstueck' ? teilstueckDependents(annos, t.annoId) : []
+    if (released.length) {
+      const ok = await confirmDialog({
+        title: appConfig.copy.drawingEditor.endingTeilstueck,
+        message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: released.length }),
+        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      })
+      if (!ok) return
+    }
+    applyPlanTwinWrite(t.planId, setBoardTwinEnding(annos, t.annoId, ending))
+  }
+
   /** Delete a plan-owned source without navigating away. Attached plan lines are detached and
    *  frozen at the symbol's current plan coordinate, so no dangling object id survives. */
   const deletePlanTwinSource = async (t: Pick<MapTwin, 'planId' | 'annoId'>) => {
@@ -3638,6 +3673,9 @@ export function IncidentWorkspace({
           // round 8 (full 1:1): node pads / «+» / hold-delete on a selected mirrored plan
           // drawing write straight to the one source annotation, with per-plan undo history
           onContentTwinEdit={(t, patch, phase) => editPlanTwinSource(t, patch, phase)}
+          // the LockChip on a mirrored Fläche/Linie/Form: unlocking hands editing back and
+          // opens its editor, the same pair of steps the map's own onUnlockDrawing makes
+          onContentTwinUnlock={tacticalLocked ? undefined : (t) => { editPlanTwinSource(t, { locked: undefined }); openContentTwinView(t) }}
           selectedTwinKey={twinView?.key}
           selectedContentTwinKey={contentTwinView?.key}
           georefPlanRasters={georefPlanRasters}
@@ -4228,26 +4266,131 @@ export function IncidentWorkspace({
         />
       )}
 
-      {/* A mirrored non-symbol object (line, area, note, shape, Trupp chip) viewed through its
-          Lage projection. Same rule as the symbol twin above: the panel stays on THIS surface,
-          «Gespiegelt von …» carries the provenance, «Zum Original» is the explicit jump. A
-          Notiz gets its one cross-surface edit (its text, via the source anno); the other kinds
-          read name + provenance until their editors exist cross-surface. */}
+      {/* A mirrored non-symbol object (line, area, note, shape, Trupp chip), edited through its
+          Lage projection — the editor always stays on THIS surface.
+          ⚠️ Since 01.09. the mirror is editable in BOTH directions: a mirrored Leitung/Fläche
+          opens the shared DrawEditor and a mirrored Form the shared ShapeEditor, exactly the way
+          the Plan has long opened them for the Karte's twins — every control writing the ONE plan
+          annotation through `editPlanTwinSource`, never a copy. Those two are the surfaces' own
+          editors, so like the board's twin DrawEditor they carry no «Gespiegelt von …» line; the
+          plaque below keeps it for the kinds that still use it. A Notiz edits its text there; the
+          Trupp chip's context bar belongs to the board (GeorefContentBoard · team bar). */}
       {mapUI && !journalOpen && panel === null && !viewsOpen && viewedContentTwin && (() => {
         const t = viewedContentTwin
-        const isNote = t.anno.kind === 'text'
+        const a = t.anno
+        const pts = a.pts ?? []
+        const patchTwin = (patch: Partial<BoardAnno>, phase: 'live' | 'commit' = 'commit') => editPlanTwinSource(t, patch, phase)
+        const planAnnos = board[t.planId] ?? []
+        if ((a.kind === 'draw' || a.kind === 'area') && t.coords && t.coords.length >= 2) {
+          const coords = t.coords
+          const area = a.kind === 'area'
+          const lineTrupp = truppForLine(a, effTrupps)
+          return (
+            <DrawEditor
+              key={t.key}
+              readOnly={tacticalLocked}
+              drawing={{ kind: a.kind, color: a.color, width: a.width, dashed: a.dashed, label: a.label, marker: a.marker, arrow: a.arrow, arrowStop: a.arrowStop, showDistance: a.showDistance, fillOpacity: a.fillOpacity, hatch: a.hatch, teilstueck: a.teilstueck, content: a.content, lineNo: a.lineNo, floorTag: a.floorTag, startAttachment: a.startAttachment, endAttachment: a.endAttachment }}
+              pointCount={pts.length}
+              /* the projection stands on the MAP, so its Messung is the map's own geodesic one —
+                 measured on the projected geometry, which is what the operator sees here */
+              supportsDistance
+              lengthM={area ? null : pathLengthM(coords)}
+              areaM2={area && coords.length >= 3 ? polygonAreaM2(coords) : null}
+              perimeterM={area && coords.length >= 3 ? pathLengthM([...coords, coords[0]]) : null}
+              boxM={area && coords.length >= 3 ? bboxSizeM(coords) : null}
+              profileCoords={coords}
+              onPreset={(presetId) => patchTwin(resolveLinePreset(presetId, a.dashed))}
+              onColor={(color) => patchTwin({ color })}
+              onWidth={(width) => patchTwin({ width })}
+              onDashed={(dashed) => patchTwin({ dashed })}
+              onLabel={(label) => patchTwin({ label: label || undefined }, 'live')}
+              onLabelCommit={(label) => patchTwin({ label: label || undefined }, 'commit')}
+              onMarker={(marker) => patchTwin({ marker: marker || undefined })}
+              onArrow={(arrow) => patchTwin({ arrow: arrow || undefined })}
+              onEnding={(ending) => { void changePlanTwinEnding(t, ending) }}
+              onReverse={a.kind === 'draw' ? () => applyPlanTwinWrite(t.planId, reverseBoardTwinSource(planAnnos, t.annoId)) : undefined}
+              onContent={(content) => patchTwin({ content })}
+              // the anchored Trupp carries a COPY of the number, so a renumbered hose renumbers
+              // the Trupp too — the same sync both native surfaces do (useTruppActions)
+              onLineNo={(lineNo) => { patchTwin({ lineNo }); syncLineNoToTrupp(t.annoId, lineNo) }}
+              onFloorTag={(floorTag) => patchTwin({ floorTag })}
+              // «Gehört zu Trupp …» writes both collections through the one action the Atemschutz
+              // board uses — the surface the line is drawn on makes no difference to the link
+              onTrupp={(truppId) => (truppId ? linkTruppLine(truppId, t.annoId) : unlinkLine(t.annoId))}
+              trupps={effTrupps.filter((tr) => tr.status !== 'raus').map((tr) => ({ id: tr.id, name: tr.name }))}
+              usedLineNos={planAnnos.filter((x) => x.kind === 'draw' && x.id !== t.annoId && x.lineNo != null).map((x) => x.lineNo!)}
+              truppOnLine={lineTrupp?.name}
+              truppOnLineOut={truppIsOut(lineTrupp)}
+              onShowTrupp={lineTrupp ? () => { setContentTwinView(null); setMode('atemschutz'); setPanel(null) } : undefined}
+              onShowDistance={(showDistance) => patchTwin({ showDistance: showDistance || undefined })}
+              onRadius={() => {}} /* a plan annotation has no Absperrkreis primitive */
+              onFillOpacity={(fillOpacity) => patchTwin({ fillOpacity })}
+              onHatch={(hatch, fillOpacity) => patchTwin({ hatch: hatch || undefined, fillOpacity })}
+              attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
+                const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
+                if (!rel) return []
+                const target = planAnnos.find((x) => x.id === rel.target.id)
+                return [[endpoint, target?.kind === 'draw' ? lineLabel(target) : target?.label ?? target?.text ?? appConfig.copy.drawingEditor.line]]
+              }))}
+              onRouting={tacticalLocked ? undefined : (endpoint, routing) => {
+                const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
+                const rel = a[key]
+                if (rel) patchTwin({ [key]: { ...rel, routing } })
+              }}
+              onDetach={tacticalLocked ? undefined : (endpoint) => applyPlanTwinWrite(t.planId, detachBoardTwinEndpoint(planAnnos, t.annoId, endpoint))}
+              locked={!!a.locked}
+              // locking DESELECTS, exactly as it does for a native: a locked object no longer
+              // answers a tap, so leaving its editor open would offer edits it has stopped taking
+              onToggleLock={tacticalLocked ? undefined : () => {
+                patchTwin({ locked: a.locked ? undefined : true })
+                if (!a.locked) setContentTwinView(null)
+              }}
+              onDelete={() => { void deletePlanTwinSource(t) }}
+              onClose={() => setContentTwinView(null)}
+            />
+          )
+        }
+        if (a.kind === 'shape' && !tacticalLocked) {
+          return (
+            <ShapeEditor
+              key={t.key}
+              entity={a}
+              onColor={(color) => patchTwin({ color })}
+              // the source lives on paper, so every size is written in the PLAN's own units —
+              // the same clamps the sheet's own shape editor uses (Whiteboard · selShape)
+              onScale={(f) => patchTwin({ sizeN: Math.max(SHAPE_MIN_N, Math.min(0.9, (a.sizeN ?? SHAPE_DEFS[a.shape ?? 'square'].defaultSizeN) * f)) })}
+              onScaleLength={(f) => {
+                const run = rotationRun(a.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN, a.aspect)
+                const box = rotationBox(Math.max(SHAPE_MIN_N, Math.min(3, run * f)), ROTATION_W_N)
+                patchTwin({ sizeN: box.size, aspect: Math.round(box.aspect * 1000) / 1000 })
+              }}
+              onStop={(stop) => patchTwin({ stop })}
+              onCarrier={(carrier) => patchTwin({ carrier })}
+              onReverse={() => patchTwin({ reverse: !a.reverse || undefined })}
+              onStrokeW={(strokeW) => patchTwin({ strokeW })}
+              onFill={(fillOpacity, hatch) => patchTwin({ fillOpacity, hatch: hatch || undefined })}
+              onCorners={(sharp) => patchTwin({ sharpCorners: sharp || undefined })}
+              onToggleLock={() => { patchTwin({ locked: a.locked ? undefined : true }); if (!a.locked) setContentTwinView(null) }}
+              locked={a.locked}
+              onCenter={t.coord ? () => flyToMapVisible(t.coord!, 18.4) : undefined}
+              onDelete={() => { void deletePlanTwinSource(t) }}
+              onClose={() => setContentTwinView(null)}
+            />
+          )
+        }
+        const isNote = a.kind === 'text'
         return (
           <GeorefTwinPanel
             key={t.key}
-            entity={{ id: t.annoId, label: contentTwinName(t.anno) }}
+            entity={{ id: t.annoId, label: contentTwinName(a) }}
             subtitle={fillTemplate(appConfig.copy.whiteboard.georef.twinPanelFromPlan, { plan: t.planCode })}
             readOnly={tacticalLocked || !isNote}
             onClose={() => setContentTwinView(null)}
             onCenter={t.coord ? () => flyToMapVisible(t.coord!, 18.4) : undefined}
             onOriginal={() => goToTwinSource(t)}
             originalLabel={fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: t.planCode })}
-            onTitleLive={isNote ? (v) => editPlanTwinSource(t, { text: v }, 'live') : undefined}
-            onTitle={isNote ? (v) => editPlanTwinSource(t, { text: v }, 'commit') : () => {}}
+            onTitleLive={isNote ? (v) => patchTwin({ text: v }, 'live') : undefined}
+            onTitle={isNote ? (v) => patchTwin({ text: v }, 'commit') : () => {}}
             onFields={() => {}}
             onDelete={() => { void deletePlanTwinSource(t) }}
           />

@@ -262,6 +262,16 @@ describe('broader Karte content → plan', () => {
     const stopped = boardDrawingTwins([{ id: 's', kind: 'line', coords: drawings[0].coords, arrow: true, arrowStop: true }], FIT)
     expect(stopped[0].anno.arrowStop).toBe(true)
   })
+
+  // D-07: the lock is a property of the OBJECT. Without it on the projection a Fläche locked on
+  // the Karte was still draggable through its mirror on the Plan.
+  it('carries the source’s lock across, so the mirror refuses the same gestures', () => {
+    const twins = boardDrawingTwins([
+      { id: 'sektor', kind: 'area', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat - 0.0001]], locked: true },
+      { id: 'frei', kind: 'line', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(40).lng, ORIGIN.lat]] },
+    ], FIT)
+    expect(twins.map((t) => t.anno.locked)).toEqual([true, undefined])
+  })
 })
 
 describe('ownership transfer keeps one object', () => {

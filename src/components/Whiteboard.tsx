@@ -3330,6 +3330,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 selectedDrawingId={twinDrawingId} onOpenDrawing={openTwinDrawing}
                 onDrawingCoords={readOnly ? undefined : onTwinDrawingCoords}
                 onDrawingDetach={readOnly ? undefined : onTwinDrawingDetach}
+                // unlocking hands editing back and selects, the same pair of steps the sheet's
+                // own lock chip makes — both write the ONE Karte object
+                onUnlockDrawing={readOnly || !onTwinDrawingEdit ? undefined : (id) => { onTwinDrawingEdit(id, { locked: undefined }); setTwinDrawingId(id) }}
+                onUnlockEntity={readOnly || !onTwinEdit ? undefined : (id) => onTwinEdit(id, { locked: undefined })}
                 selectedTeamId={twinTeamSel} onSelectTeam={setTwinTeamSel}
                 teamActions={readOnly ? undefined : twinTeam}
                 hiddenTrails={hiddenTrails} onToggleTrail={toggleTrail} />

@@ -266,4 +266,50 @@ describe('broader Karte content on a Modul', () => {
     fireEvent.pointerUp(vertex, { pointerId: 10, clientX: 100, clientY: 100 })
     expect(onDrawingCoords).not.toHaveBeenCalled()
   })
+
+  // D-16, safety-relevant: the alarm outline the Lage draws on the Leitung of an überfällig
+  // Trupp has to cross the mirror — until 01.09. only the end tag carried the tone.
+  it('gives a mirrored Leitung of an überfällig Trupp the Atemschutz alarm halo', () => {
+    const drawings: Drawing[] = [
+      { id: 'ltg', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], lineNo: 1, width: 5 },
+      { id: 'plain', kind: 'line', coords: [[7.5, 47.4995], [7.5008, 47.4995]], width: 5 },
+    ]
+    const trupps = [{ id: 't1', name: 'Meier Anna', lineNo: 1, status: 'in' }] as never
+    const { container } = render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} trupps={trupps} truppSeverities={{ t1: 2 }} />)
+    const halos = [...container.querySelectorAll('polyline')].filter((l) => l.getAttribute('stroke') === 'var(--red)')
+    expect(halos).toHaveLength(1)
+    expect(halos[0].getAttribute('stroke-width')).toBe('13') // the line's 5 + the native's 8
+  })
+
+  // D-07: `locked` is a property of the OBJECT, so the mirror has to honour it — a Fläche locked
+  // on the Karte was still draggable from the Plan, which defeats the point of locking it.
+  it('a locked Karte line is click-through here too, with the LockChip as the only way back', () => {
+    const onUnlockDrawing = vi.fn()
+    const onDrawingCoords = vi.fn()
+    const drawings: Drawing[] = [{ id: 'line', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], label: 'Leitung 1', locked: true }]
+    const { container } = render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive selectedDrawingId="line"
+      onOpenDrawing={() => {}} onDrawingCoords={onDrawingCoords} onUnlockDrawing={onUnlockDrawing} />)
+    // no hit surface, and no vertex handles even though it IS the selected drawing
+    expect(container.querySelector('[class*="drawingHits"] polyline')).toBeNull()
+    expect(screen.queryAllByRole('button', { name: appConfig.copy.whiteboard.dragVertex })).toHaveLength(0)
+    const chip = container.querySelector<HTMLElement>('.draw-lock-chip')
+    expect(chip).toBeTruthy()
+    // …and the chip writes the ONE Karte drawing, not a copy on this sheet
+    fireEvent.pointerDown(chip!, { pointerId: 20, clientX: 10, clientY: 10 })
+    fireEvent.pointerUp(chip!, { pointerId: 20, clientX: 10, clientY: 10 })
+    expect(onDrawingCoords).not.toHaveBeenCalled()
+  })
+
+  it('a locked Karte Form takes no tap and no drag on the sheet either', () => {
+    const entities: Entity[] = [{ ...base, id: 'shape', kind: 'shape', shape: 'square', sizeM: 20, locked: true }]
+    const { container } = render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
+      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      onOpenTeam={() => {}} onMoveTeam={() => {}} onUnlockEntity={() => {}} />)
+    expect(container.querySelector('.shape-glyph')).toBeTruthy()
+    const buttons = container.querySelectorAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0].className).toContain('draw-lock-chip')
+  })
 })

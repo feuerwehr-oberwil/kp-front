@@ -23,6 +23,7 @@ import { Icon } from '../lib/icons'
 import { Menu, Popover, PopoverClose } from '../lib/overlays'
 import { LineMarker } from './LineMarker'
 import { MenuPick } from './MenuPick'
+import { LockChip } from './LockChip'
 import type { GeorefFit } from '../lib/georef'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { contentTwinName, type BoardDrawingTwin, type BoardEntityTwin } from '../lib/georefTwins'
@@ -41,7 +42,7 @@ import { fillTemplate } from '../lib/format'
 import type { BoardAnno, Drawing, Entity, LngLat, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
-export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords, onDrawingDetach, selectedTeamId, onSelectTeam, teamActions, hiddenTrails, onToggleTrail }: {
+export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords, onDrawingDetach, onUnlockDrawing, onUnlockEntity, selectedTeamId, onSelectTeam, teamActions, hiddenTrails, onToggleTrail }: {
   entities: BoardEntityTwin[]
   drawings: BoardDrawingTwin[]
   fit: GeorefFit
@@ -73,6 +74,12 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   /** clear one endpoint's attachment — grabbing an attached endpoint's grip detaches it first
    *  (the magnet machinery lives on the Karte; dragging the stored coord would fork the mirror) */
   onDrawingDetach?: (drawingId: string, endpoint: 'start' | 'end') => void
+  /** Unlock a mirrored Karte line/area (its LockChip's only job). A locked source is
+   *  click-through on BOTH surfaces — the lock is a property of the object, not of the sheet it
+   *  happens to be drawn on — so the chip is the only door back in here too. */
+  onUnlockDrawing?: (drawingId: string) => void
+  /** …the same for a mirrored Karte Form (Entity.locked). */
+  onUnlockEntity?: (entityId: string) => void
   /** the selected mirrored Truppmarker (Whiteboard holds it beside its other twin selections,
    *  so the shared outside-tap dismissal closes it like everything else) */
   selectedTeamId?: string | null
@@ -288,6 +295,14 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
     }]
   })
   const ink = [...drawings.map((d) => d.anno), ...trailAnnos]
+  /** anno id → Atemschutz alarm tone, so a mirrored Leitung wears the SAME halo the sheet's own
+   *  Leitungen wear (WbControls · truppTones). It is the loudest thing either surface says about
+   *  people being overdue; the end tag alone did not carry it across (01.09.). */
+  const truppTones = Object.fromEntries(drawings.flatMap(({ anno }) => {
+    const tr = anno.kind === 'draw' ? truppForLine(anno, trupps) : undefined
+    const tone = tr ? truppLineTone(tr, truppSeverities?.[tr.id] ?? 0) : 'idle'
+    return tone === 'warn' || tone === 'crit' ? [[anno.id, tone] as const] : []
+  }))
   // PlanScale/georef units are aspect-corrected: one normalized sheet width is ar·mPerU metres.
   const planWidthM = Math.max(0.001, fit.scaleMPerU * planAspect)
 
@@ -295,12 +310,14 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
     // not aria-hidden any more: the mirrored team chips answer a tap (onOpenTeam)
     <div className={s.contentBoard}>
       <WbInkLayer annos={ink} draft={null} draftFloor={0} color="#1f6feb" width={5} dashed={false}
-        hiddenTrails={new Set()} mapY={(_floor, y) => y} />
+        hiddenTrails={new Set()} mapY={(_floor, y) => y} truppTones={truppTones} />
       {interactive && (onOpenDrawing || onDrawingCoords) && (
         <svg className={s.drawingHits} width={sW} height={sH} viewBox={`0 0 ${sW} ${sH}`} aria-hidden={false}>
           {drawings.map(({ key, anno, drawing }) => {
             const pts = (anno.pts ?? []).map(([x, y]) => `${x * sW},${y * sH}`).join(' ')
-            if (!pts) return null
+            // a LOCKED source has no hit surface at all — its ink is click-through here exactly
+            // as it is on the Karte, and the LockChip below is the only tap target it keeps
+            if (!pts || drawing.locked) return null
             const common = {
               role: 'button', tabIndex: 0, 'aria-label': lineLabel(drawing),
               className: s.drawingHit,
@@ -320,10 +337,31 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           hold-to-delete, Verlängern), every gesture writing the one map source. Attached
           endpoints keep their grips: grabbing one detaches (beginVertexGesture). */}
       {interactive && onDrawingCoords && drawings.flatMap((t) => {
-        if (t.drawing.id !== selectedDrawingId || t.drawing.kind === 'circle') return []
+        if (t.drawing.id !== selectedDrawingId || t.drawing.kind === 'circle' || t.drawing.locked) return []
         return [<WbVertexHandles key={`vh-${t.key}`} anno={t.anno} sW={sW} sH={sH}
           mapY={(_f, y) => y} {...twinVertexProps(t.drawing)} />]
       })}
+      {/* unlock chip on every locked mirrored line/area/Form — the click-through ink's only tap
+          target, a SHORT HOLD to unlock, at the same anchor the sheet's own locked annotations
+          use (Whiteboard · wb-lock-anchor): an area at its centroid, a line at its middle vertex,
+          a Form at its centre. Absent where editing is locked anyway. */}
+      {interactive && (onUnlockDrawing || onUnlockEntity) && [
+        ...(onUnlockDrawing ? drawings.filter(({ drawing }) => drawing.locked).flatMap(({ key, anno, drawing }) => {
+          const pts = anno.pts ?? []
+          if (!pts.length) return []
+          const at = anno.kind === 'area'
+            ? [pts.reduce((sum, q) => sum + q[0], 0) / pts.length, pts.reduce((sum, q) => sum + q[1], 0) / pts.length]
+            : pts[Math.floor((pts.length - 1) / 2)]
+          return [<span key={`lk-${key}`} className="wb-lock-anchor" style={{ left: at[0] * sW, top: at[1] * sH }}>
+            <LockChip onUnlock={() => onUnlockDrawing(drawing.id)} />
+          </span>]
+        }) : []),
+        ...(onUnlockEntity ? entities.filter(({ entity }) => entity.kind === 'shape' && entity.locked).map(({ key, entity, pt }) => (
+          <span key={`lk-${key}`} className="wb-lock-anchor" style={{ left: pt.x * sW, top: pt.y * sH }}>
+            <LockChip onUnlock={() => onUnlockEntity(entity.id)} />
+          </span>
+        )) : []),
+      ]}
       {/* line/area decorations — the same feature set the sheet's own annotations render
           (Whiteboard's decor pass), minus every drag affordance: this layer is a projection. */}
       {drawings.flatMap(({ key, anno, drawing }) => {
@@ -425,7 +463,9 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           const kind = entity.shape ?? 'square'
           const style = { ...pos, width: px, height: px * shapeAspect(kind, entity.aspect), transform: `translate(-50%, -50%) rotate(${(entity.rotation ?? 0) + fit.rotationDeg}deg)` }
           const glyph = <ShapeGlyph kind={kind} color={entity.color ?? '#1f6feb'} stop={entity.stop} aspect={entity.aspect} carrier={entity.carrier} reverse={entity.reverse} strokeW={entity.strokeW} boxPx={px} fillOpacity={entity.fillOpacity} hatch={entity.hatch} sharpCorners={entity.sharpCorners} />
-          if (!tappable) {
+          // a LOCKED Form is click-through, exactly as it is on the Karte (MapMarkers ·
+          // lockedShape) — the LockChip above is the only door back in
+          if (!tappable || entity.locked) {
             return <div key={key} className={`${s.contentPoint} shape-glyph`} style={style}>{glyph}</div>
           }
           return <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} shape-glyph`}

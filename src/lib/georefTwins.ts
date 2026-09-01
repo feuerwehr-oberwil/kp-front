@@ -388,6 +388,9 @@ export function boardDrawingTwins(drawings: Drawing[], fit: GeorefFit, margin = 
         endDy: endAt && tagBase ? endAt.y - tagBase[1] : undefined,
         teilstueck: drawing.teilstueck, content: drawing.content, lineNo: drawing.lineNo,
         floorTag: drawing.floorTag, truppId: drawing.truppId,
+        // ⚠️ The lock crosses too. Without it a Fläche locked on the Karte was still draggable
+        // through its mirror on the Plan, which defeats the whole point of locking it (01.09.).
+        locked: drawing.locked,
       },
     })
   }

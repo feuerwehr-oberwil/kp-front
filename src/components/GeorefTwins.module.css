@@ -88,3 +88,6 @@
    (gloved-finger pad); the dot takes the line's own colour. */
 .grip { width: 34px; height: 34px; display: grid; place-items: center; }
 .grip i { display: block; width: 13px; height: 13px; border-radius: 50%; background: currentColor; border: 2px solid var(--surface); box-sizing: content-box; }
+/* …and so must the LockChip of a mirrored LOCKED line/area/Form: its ink is click-through on
+   both surfaces, so the chip is the object's only remaining tap target (D-07, 01.09.). */
+.contentBoard :global(.wb-lock-anchor) { pointer-events: auto; }
