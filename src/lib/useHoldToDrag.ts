@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react'
 import { buzz } from './haptics'
 
 const DELAY_MS = 180     // touch: hold this long (still) before a drag arms — a quick flick stays a map pan
-// Shared drag deadzone: movement must pass this before a drag begins — on the map (here) AND on
-// the Plan's chip drag (Whiteboard) — so a tap never nudges a placed symbol on either surface.
+// Shared drag deadzone: movement must pass this before a drag begins — on the map (here and in
+// MapMarkers, where it also absorbs the tremble AFTER a hold has armed) AND on the Plan's chip
+// drag (Whiteboard) — so a tap never nudges a placed symbol on either surface.
 export const DRAG_DEADZONE_PX = 8
 const MOVE_TOL_PX = DRAG_DEADZONE_PX
 const TAP_TOL_PX = 16    // release within this much total movement still counts as a tap — generous for fat fingers

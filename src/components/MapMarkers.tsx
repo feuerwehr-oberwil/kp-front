@@ -4,7 +4,7 @@ import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
 import { buzz } from '../lib/haptics'
 import { appConfig } from '../config/appConfig'
 import { thumbUrl } from '../lib/mediaUrl'
-import { useHoldToDrag } from '../lib/useHoldToDrag'
+import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
@@ -72,10 +72,6 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd, style
   // would otherwise start the very drag it is asking about. The name stays for screen readers.
   return <button ref={ref} className={className} style={style} aria-label={title} data-holdaction onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
 }
-
-// once a hold has armed, the finger must still travel this far (screen px) before the symbol
-// actually starts following — so a tremble while holding (or holding a beat too long) can't nudge it
-const DRAG_DEADZONE_PX = 6
 
 /** Kinds the nearest-centre hit test arbitrates: compact glyphs, centred on their coordinate. */
 const PILE_KINDS: Entity['kind'][] = ['symbol', 'vehicle', 'person']
