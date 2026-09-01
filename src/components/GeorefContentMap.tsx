@@ -36,7 +36,7 @@ import { contentTwinName, type MapContentTwin } from '../lib/georefTwins'
 import { ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { noteScale } from '../lib/notes'
 import { worldPx, TEAM_DOT_PX } from '../lib/mapView'
-import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
+import { fmtArea, fmtDistance, haversineM, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
 import { EXTEND_STEP_PX, lerpPoint, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
@@ -120,10 +120,12 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
    * 18 px hit band, its selection halo and its Atemschutz alarm outline (01.09.).
    */
   const inkFeats = twins
-    .filter((t) => t.coords && (t.anno.kind === 'draw' || t.anno.kind === 'area'))
+    .filter((t) => t.coords && (t.anno.kind === 'draw' || t.anno.kind === 'area' || t.anno.kind === 'circle'))
     .map((t) => {
       const a = t.anno
-      const polygon = a.kind === 'area'
+      // an Absperrkreis arrives as its projected ring (lib/georefTwins · mapContentTwins), so it
+      // paints through the same closed-polygon path an area does
+      const polygon = a.kind !== 'draw'
       // the tone that drives the alarm halo: '' unless a Trupp on this Leitung is fällig or
       // überfällig. Resolved here so the paint expression stays a plain lookup, as on the map.
       const lineTrupp = polygon ? undefined : truppForLine(a, trupps)
@@ -202,8 +204,8 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       )}
       {twins.map((t, i) => {
         const a = t.anno
-        if (t.coords && (a.kind === 'draw' || a.kind === 'area')) {
-          const polygon = a.kind === 'area'
+        if (t.coords && (a.kind === 'draw' || a.kind === 'area' || a.kind === 'circle')) {
+          const polygon = a.kind !== 'draw'
           const color = a.color || appConfig.drawing.colors[0]
           // labels anchor where the SHEET says: midpoint/centroid in plan space plus the
           // operator's own nudge (labelDx/Dy, board fractions), projected through the fit
@@ -212,13 +214,17 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
           const centroidPlan = pts.length
             ? [pts.reduce((sum, p) => sum + p[0], 0) / pts.length, pts.reduce((sum, p) => sum + p[1], 0) / pts.length]
             : null
-          const basePlan = polygon ? centroidPlan : midPlan
+          // a cordon's anchor is its stored CENTRE, not a centroid of the ring we synthesised
+          const basePlan = a.kind === 'circle' ? (a.x != null && a.y != null ? [a.x, a.y] : null) : polygon ? centroidPlan : midPlan
           const labelCoord = basePlan
             ? (() => { const c = t.fit.toMap({ x: basePlan[0] + (a.labelDx ?? 0), y: basePlan[1] + (a.labelDy ?? 0) }); return [c.lng, c.lat] as LngLat })()
             : null
           const lines: string[] = []
+          // an Absperrkreis states its radius, exactly as the Karte's own circles do (MapView ·
+          // circleLabels) — measured off the projection, which is where its real metres live
+          if (a.kind === 'circle' && t.coord) lines.push(fmtDistance(haversineM(t.coord, t.coords[0])))
           if (a.showDistance && !polygon) { const len = pathLengthM(t.coords); lines.push(`${fmtDistance(len)} · ${hoseLengthHint(len)}`) }
-          if (a.showDistance && polygon) lines.push(fmtArea(polygonAreaM2(t.coords)))
+          if (a.showDistance && polygon && a.kind !== 'circle') lines.push(fmtArea(polygonAreaM2(t.coords)))
           if (a.label) lines.push(a.label)
           // screen angle of the final segment, for the arrow-adjacent fork (glyph rotation is
           // screen-aligned in a DOM marker, so the live map bearing comes off the ground angle)

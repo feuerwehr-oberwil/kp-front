@@ -35,6 +35,7 @@ import type { BoardAnno, Drawing, Entity, LngLat, PlanDocument } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { circlePolygon } from './geo'
+import { circleRingN } from './planScale'
 
 /** How far past the sheet edge a projected map object may sit and still be drawn — 2 % of the
  *  sheet. Enough that a hydrant on the kerb outside the plan frame is not lost to a rounding
@@ -224,8 +225,14 @@ export interface MapContentTwin {
   coords?: LngLat[]
 }
 
-/** Plan → Karte projections for lines, areas, notes, shapes and Atemschutz resource markers.
- *  Tactical symbols stay in `mapTwins`, where their existing selection/move behavior lives. */
+/** Plan → Karte projections for lines, areas, cordons, notes, shapes and Atemschutz resource
+ *  markers. Tactical symbols stay in `mapTwins`, where their existing selection/move behavior
+ *  lives.
+ *
+ *  An Absperrkreis crosses as BOTH: its centre (`coord` — it is a point object, and that is what
+ *  a whole-object drag writes back) and a projected ring (`coords`), because the Karte can only
+ *  paint a circle of PLAN radius as a polygon. The mirror image of what the other direction has
+ *  always done with a map circle (boardDrawingTwins). */
 export function mapContentTwins(
   plans: GeorefPlan[],
   board: Record<string, BoardAnno[] | undefined>,
@@ -242,6 +249,21 @@ export function mapContentTwins(
         }).filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
         const min = anno.kind === 'area' ? 3 : 2
         if (coords.length >= min) out.push({ ...base, coords })
+        continue
+      }
+      if (anno.kind === 'circle' && anno.x != null && anno.y != null && (anno.radiusN ?? 0) > 0) {
+        // the sheet's aspect, back out of the two numbers the fit already carries
+        // (planGroundWidthM = scaleMPerU · aspect) — the ring is round in PLAN pixels, so it
+        // needs the same aspect correction every plan length does (lib/planScale)
+        const ar = plan.fit.scaleMPerU > 0 ? plan.widthM / plan.fit.scaleMPerU : 1
+        const c = plan.fit.toMap({ x: anno.x, y: anno.y })
+        const ring = circleRingN(anno.x, anno.y, anno.radiusN ?? 0, ar).map(([x, y]) => {
+          const p = plan.fit.toMap({ x, y })
+          return [p.lng, p.lat] as LngLat
+        }).filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
+        if (Number.isFinite(c.lng) && Number.isFinite(c.lat) && ring.length >= 3) {
+          out.push({ ...base, coord: [c.lng, c.lat], coords: ring })
+        }
         continue
       }
       if ((anno.kind === 'text' || anno.kind === 'shape' || anno.kind === 'resource') && anno.x != null && anno.y != null) {
@@ -278,6 +300,7 @@ export function contentTwinName(o: { kind?: string; label?: string; text?: strin
     case 'resource': case 'team': return C.whiteboard.team
     case 'shape': return C.shapes.names[o.shape ?? ''] ?? C.shapes.kindLabel
     case 'area': return C.whiteboard.area
+    case 'circle': return C.drawingEditor.circle
     case 'draw': return C.whiteboard.line
     default: return C.whiteboard.georef.twinUnnamed
   }
@@ -433,7 +456,7 @@ type _EntityKeysAccounted = Assert<Exclude<keyof Entity, (typeof ENTITY_MAP_ONLY
  *  floor-stack TILE INDEX that must never be read as `Entity.floor`'s signed badge, while `storey`
  *  is the badge and becomes exactly that. */
 const BOARD_PLAN_ONLY = [
-  'kind', 'pts', 'x', 'y', 'text', 'wN', 'sizeN', 'reachN', 'width', 'dashed', 'arrow', 'arrowStop', 'marker',
+  'kind', 'pts', 'x', 'y', 'text', 'wN', 'sizeN', 'reachN', 'radiusN', 'width', 'dashed', 'arrow', 'arrowStop', 'marker',
   'showDistance', 'labelDx', 'labelDy', 'teilstueck', 'content', 'lineNo', 'floorTag',
   'endDx', 'endDy', 'fillOpacity', 'hatch', 't', 'trail', 'truppId', 'floor', 'locked',
   'startAttachment', 'endAttachment', 'storey',

@@ -181,7 +181,12 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   const fillOpacity = drawing.fillOpacity ?? (isCircle ? appConfig.drawing.circleFillOpacity : 0.14)
   const headIcon = isCircle ? 'circle' : isArea ? 'area' : 'pen'
   const headTitle = isCircle ? appConfig.copy.drawingEditor.circle : isArea ? appConfig.copy.drawingEditor.area : appConfig.copy.drawingEditor.drawing
-  const headSub = isCircle ? fmtDistance(drawing.radiusM ?? 0) : `${pointCount} ${appConfig.copy.drawingEditor.points}`
+  // ⚠️ A circle states its RADIUS instead of a point count — and only when the surface can put a
+  // number on it. On an uncalibrated Kroki `radiusM` is absent (the sheet has no metric scale
+  // yet), and «0 m» would be a lie about a ring that is plainly there: the subtitle and the
+  // stepper below simply stay away, and the ring's own grip sizes it until the Maßstab is set.
+  const hasRadius = isCircle && drawing.radiusM != null
+  const headSub = isCircle ? (hasRadius ? fmtDistance(drawing.radiusM!) : '') : `${pointCount} ${appConfig.copy.drawingEditor.points}`
   const radiusM = drawing.radiusM ?? 0
   const radStep = appConfig.drawing.circleRadiusStepM
   const radMin = appConfig.drawing.circleMinRadiusM
@@ -211,7 +216,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
       {/* the whole header drags the sheet too, not just the 44×5px grip above it */}
       <div className="ctx-head" {...sheetDrag}>
         <div className="ph" style={{ borderColor: color, color }}><Icon id={headIcon} /></div>
-        <div className="ctx-titlewrap"><h3>{headTitle}</h3><p>{headSub}</p></div>
+        <div className="ctx-titlewrap"><h3>{headTitle}</h3>{headSub && <p>{headSub}</p>}</div>
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className="ctx-body">
@@ -219,7 +224,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             its own group directly above Farbe, so a hairline was drawn between the two rows that
             answer the same question — what colour is this thing and how solid. They belong to one
             block, and the rule now falls where the subject actually changes. */}
-        {!readOnly && isCircle && (
+        {!readOnly && hasRadius && (
           <div className="de-group">
             <div className="de-row"><span>{appConfig.copy.drawingEditor.radius}</span>
               <Stepper value={radiusM} min={radMin} max={100000} step={radStep} format={fmtDistance}

@@ -36,7 +36,7 @@ import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
-import { polyAreaM2, type PlanScale } from '../lib/planScale'
+import { circleRadiusM, circleRadiusN, polyAreaM2, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -59,7 +59,7 @@ import { glyphFor, twinName } from '../lib/twinGlyph'
 import { MAX_SCALE, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
 import { pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
-import { WbToolDocks, WbInkLayer, WbVertexHandles, WbDraftHandles } from './WbControls'
+import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles } from './WbControls'
 import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
 import { ToolRail } from './ToolRail'
@@ -83,6 +83,10 @@ function autoGrow(el: HTMLInputElement | HTMLTextAreaElement | null) {
   // Width comes from React (wN) — every note carries one.
 }
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
+/** How far an Absperrkreis may be dragged out on a plan, in plan-width fractions: twice the
+ *  sheet. A cordon legitimately reaches past the paper (the Karte's radius stepper caps at
+ *  100 km for the same reason), so the ceiling is only there to stop a runaway drag. */
+const CIRCLE_MAX_N = 2
 // parity with the Lage map: directional symbols that support drag-to-rotate (set
 // derived from the symbol presets, lib/symbols · ROTATABLE), and the generic
 // vehicle whose typed name is baked into the glyph (text stays upright).
@@ -362,6 +366,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // same reason (a fire's edge has no corners to tap).
   const [areaMode, setAreaMode] = useState<'nodes' | 'freehand'>('nodes')
   const [draft, setDraft] = useState<BoardPoint[] | null>(null)
+  /** Absperrkreis being dragged out: centre (plan-normalized, storey-local) + radius as a
+   *  fraction of the plan width. The drag IS the shape here, exactly as on the Karte
+   *  (useMapCanvasGestures · circle), so it lives beside `draft` and never in the document. */
+  const [circleDraft, setCircleDraft] = useState<{ x: number; y: number; floor: number; r: number } | null>(null)
   const draftAttachments = useRef<{ startAttachment?: LineAttachment; endAttachment?: LineAttachment }>({})
   // the single Linie tool's input mode: Freihand (drag) ↔ Punkte (tap each vertex), like the Lage map
   const [lineMode, setLineMode] = useState<'freehand' | 'nodes'>('freehand')
@@ -434,7 +442,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // on pointer-down so a corner drag can be resolved in the shape's own rotated frame
   const rotate = useRef<{
     id: string; cx: number; cy: number; moved: boolean
-    mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'width' | 'endA' | 'endB'
+    mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'width' | 'radius' | 'endA' | 'endB'
     rot: number; free: boolean; keepHeightN: number | null; aspectMax: number; maxN: number
     /** the shape's storey — stored y is storey-LOCAL (floorGeometry · localY), so every write
      *  of a board-global coordinate has to come back through it */
@@ -513,7 +521,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // document opened.
   useEffect(() => {
     if (!selectOnly) return
-    setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null)
+    setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
   }, [selectOnly])
   // WHICH plan the Passung is open for, not merely whether it is open: switching documents then
   // closes it by derivation instead of by an effect that fires after the wrong panel has already
@@ -539,6 +547,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // way to throw a half-laid shape away.
       if (rotStart) { setRotStart(null); clearRotMagnet() }
       else if (draft) { setDraft(null); draftAttachments.current = {}; lastTap.current = null }
+      else if (circleDraft) setCircleDraft(null)
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
       else if (twinView) setTwinView(null)
       // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
@@ -550,7 +559,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [draft, twinView, qualityFor, selId, notePanelId])
+  }, [draft, circleDraft, twinView, qualityFor, selId, notePanelId])
 
   // Stable ref callback that focuses a freshly-mounted text/resource input. The focus is
   // DEFERRED past the current placement tap: focusing synchronously on mount gets immediately
@@ -875,12 +884,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!keysRef) return
     // no 'measure' entry: the Messen tool left the Plan on 29.08. (see the rail filter above),
     // so the shared shortcut simply does nothing while the Plan is the active surface
-    const MAP: Record<string, BoardTool> = { select: 'pan', lasso: 'lasso', line: 'line', area: 'area', note: 'text', team: 'resource' }
+    const MAP: Record<string, BoardTool> = { select: 'pan', lasso: 'lasso', line: 'line', area: 'area', circle: 'circle', note: 'text', team: 'resource' }
     keysRef.current = {
       pickTool: (cmd) => {
         if (selectOnly) return // the Umrisse sheet arms nothing — by keyboard either (see selectOnly)
         if (cmd === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
-        const id = MAP[cmd]; if (!id) return // e.g. 'circle' has no Plan equivalent
+        const id = MAP[cmd]; if (!id) return // e.g. 'measure' has no Plan equivalent (rail filter above)
         setTool(tool === id ? 'pan' : id); setPending(null)
       },
       zoom: (f) => zoom(f),
@@ -892,7 +901,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // (the palette's Rauch/Rechteck/Pfeil forms). Omitting 'shape' left its overlay off the
   // Plan, so arming a shape froze the surface: the tap placed nothing and, with no overlay,
   // the board couldn't pan either. placeNode already handles 'shape'.
-  const creating = tool === 'line' || tool === 'area' || tool === 'text' || tool === 'symbol' || tool === 'shape' || tool === 'resource' || tool === 'scale'
+  const creating = tool === 'line' || tool === 'area' || tool === 'circle' || tool === 'text' || tool === 'symbol' || tool === 'shape' || tool === 'resource' || tool === 'scale'
   /** a two-point shape (Rotation) is armed: each of its two taps may claim a symbol, and it does
    *  so by dwelling — press, hold until the ring closes, let go (lib/shapes · SHAPE_TWO_POINT) */
   const rotPlacing = tool === 'shape' && !!pendingShape && SHAPE_TWO_POINT[pendingShape] && !readOnly
@@ -1082,6 +1091,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // an aborted stroke leaves no line, so it may leave no attachment either — the start one
       // armed on pointerdown would otherwise ride along into the next line (see inkUp)
       if (inking) { setDraft(null); if (tool === 'line') { finishPlanDraftMagnet(); draftAttachments.current = {} } }
+      setCircleDraft(null) // two fingers navigate — no cordon is laid by a pinch
       inkTap.current = null // a second finger → pinch-zoom, not a node tap
       inkPinch.current = inkPinchPts()?.dist ?? null
       return
@@ -1095,6 +1105,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       if (atStart) draftAttachments.current = {}
       else draftAttachments.current = { ...draftAttachments.current, endAttachment: undefined }
       updatePlanDraftMagnet([x, y, floor], 'start', atStart)
+    }
+    if (tool === 'circle') {
+      // Absperrkreis: press = the centre, drag = the radius, exactly the Karte's grammar
+      // (useMapCanvasGestures · circle). The ring shows at its default radius the instant the
+      // finger lands — «etwas ist hier, zieh es auf» — instead of a zero-size point, and a
+      // release without a drag commits that default rather than nothing.
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      draftFloor.current = floor
+      setCircleDraft({ x, y, floor, r: appConfig.drawing.circleInitialRadiusN })
+      return
     }
     if (inking) {
       // Freehand is the one create gesture that IS the drag — the stroke follows the finger,
@@ -1256,7 +1276,22 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     if (inkTap.current) {
       // a two-point shape's press keeps its claim under the travelling finger
-      if (rotPlacing) claimRotTarget({ x: e.clientX, y: e.clientY })
+      if (rotPlacing) {
+        const wasPaused = rotPanPaused.current
+        claimRotTarget({ x: e.clientX, y: e.clientY })
+        // while the ring fills the board must not pan (rotPanPaused): the wobble budget is the
+        // magnet radius, not the tap threshold below. Leaving the ring hands the pan back —
+        // re-anchored to where the finger rests now, so the board doesn't jump by the wobble.
+        if (rotPanPaused.current) return
+        if (wasPaused) {
+          const st = inkTap.current
+          // …and if the finger has already travelled past the tap threshold by the time it left
+          // the ring, this was a drag all along: the tap dies here, as it does on the Karte,
+          // where MapLibre's own click tolerance is long gone by that distance.
+          if (Math.hypot(e.clientX - st.x, e.clientY - st.y) > DRAG_DEADZONE_PX) st.moved = true
+          st.x = e.clientX; st.y = e.clientY; st.px = posRef.current.x; st.py = posRef.current.y
+        }
+      }
       if (tool === 'line') {
         const n = toNorm(e.clientX, e.clientY)
         if (n) { const floor = stack ? floorAt(n[1]) : draftFloor.current; updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move') }
@@ -1266,6 +1301,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const st = inkTap.current, dx = e.clientX - st.x, dy = e.clientY - st.y
       if (!st.moved && Math.hypot(dx, dy) > 8) st.moved = true
       if (st.moved) applyView(scaleRef.current, { x: st.px + dx, y: st.py + dy })
+      return
+    }
+    if (circleDraft) {
+      // the board rect IS the plan's px box (toNorm works in the same space), so the radius is
+      // the pointer's distance from the centre as a fraction of the sheet's width
+      const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
+      const cx = rect.left + circleDraft.x * rect.width, cy = rect.top + mapY(circleDraft.floor, circleDraft.y) * rect.height
+      setCircleDraft({ ...circleDraft, r: Math.hypot(e.clientX - cx, e.clientY - cy) / rect.width })
       return
     }
     if (!inking || !draft) return
@@ -1282,10 +1325,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (inkPtrs.current.size < 2) inkPinch.current = null
     if (inkTap.current) {
       const st = inkTap.current; inkTap.current = null
+      rotPanPaused.current = false // the press is over — whatever happens next pans normally
       // a clean pointer-up that never panned is a tap → drop the node; a drag (moved) or a
       // pointer-cancel just leaves the panned view as-is, with no stray node placed.
       if (e && e.type === 'pointerup' && !st.moved) placeNode(e)
       finishPlanDraftMagnet()
+      return
+    }
+    if (circleDraft) {
+      const c = circleDraft; setCircleDraft(null)
+      // a real drag keeps its dragged radius; a tap (below the minimum) drops the default-size
+      // cordon, so the tool never does «nothing» — the radius is editable either way
+      if (e && e.type === 'pointerup') {
+        addCircle(c.x, c.y, c.floor, c.r >= appConfig.drawing.circleMinRadiusN ? c.r : appConfig.drawing.circleInitialRadiusN)
+      }
       return
     }
     // A dragged Fläche: the same thinned stroke as a freehand Linie, closed into a ring. No
@@ -1352,6 +1405,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     return anno
   }
   const addArea = (pts: BoardPoint[]) => { const { id } = commitArea(pts); setSelId(id); setTool('pan') }
+  // Absperrkreis / Gefahrenradius — the plan twin of the Karte's createCircle (lib/useMapDrawing):
+  // the same hazard colour, dashed slim ring and default fill, undoable + journaled + audited
+  // through the same `add`. Drops to pan with the circle selected so its radius stepper is right
+  // there, exactly as the map's does.
+  const addCircle = (x: number, y: number, floor: number, radiusN: number) => {
+    const id = `c${Date.now()}`
+    add({ id, kind: 'circle', x, y, floor, radiusN, color: appConfig.drawing.circleColor,
+      dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity })
+    log('circle', appConfig.copy.whiteboard.placeCircle, { annoId: id, x, y, floor })
+    setSelId(id); setTool('pan')
+  }
   // commit the in-progress node shape: a Linie (≥2 pts) or a Fläche (≥3 pts, closed + filled).
   // Then drop to pan so it's immediately selectable.
   const finishShape = () => {
@@ -1442,6 +1506,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const from = prevTool.current
     prevTool.current = tool
     if (from !== tool) releaseDraft(from)
+    // …and a half-dragged cordon goes with the tool: its overlay unmounts with it, so nothing
+    // would ever end the gesture and the preview ring would hang on the sheet
+    if (from !== tool) setCircleDraft(null)
     lastTap.current = null
   }, [tool]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1474,10 +1541,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const st = drawDrag.current; if (!st) return
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
     // tap-vs-drag threshold: a finger never lands perfectly still, so without this a plain TAP on
-    // a selected area/line nudged it (and stamped an undo step). Below ~6px it's a tap → no move,
-    // so tapping just keeps the selection (and tapping empty space still deselects via the stage).
+    // a selected area/line nudged it (and stamped an undo step). Inside DRAG_DEADZONE_PX it's a
+    // tap → no move, so tapping just keeps the selection (and tapping empty space still
+    // deselects via the stage). Same deadzone as every other drag on both surfaces.
     if (!st.moved) {
-      if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < 6) return
+      if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < DRAG_DEADZONE_PX) return
       pushPast(); st.moved = true // one checkpoint per drag
     }
     const ndx = (e.clientX - st.sx) / rect.width, ndy = (e.clientY - st.sy) / rect.height
@@ -1491,6 +1559,41 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const drawUp = () => {
     const st = drawDrag.current; drawDrag.current = null
     if (st?.moved) emit('board.move', { id: st.id, planId: activeId })
+  }
+
+  // --- single Absperrkreis select + move (tap its ring/fill in WbCircleLayer, pan mode) ---
+  // ⚠️ A DELTA on the centre, not the chip drag's jump-to-the-finger (chipMove): a cordon is
+  // grabbed anywhere on its face, and moving the centre to the grab point would shift the ring
+  // out from under the hand. Same grammar as the stroke body-drag above — deadzone, one
+  // checkpoint per drag, one board.move on release.
+  const circleDrag = useRef<{ id: string; sx: number; sy: number; x0: number; by0: number; floor: number; moved: boolean } | null>(null)
+  const circleDown = (id: string, e: React.PointerEvent) => {
+    if (tool !== 'pan' || readOnly) return
+    const a = annos.find((x) => x.id === id)
+    if (!a || a.locked) return // locked ink is click-through; the LockChip is its only door
+    e.stopPropagation()
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    setAnnoTap({ id, x: e.clientX, y: e.clientY })
+    setSelId(id); setSelIds([])
+    circleDrag.current = { id, sx: e.clientX, sy: e.clientY, x0: a.x ?? 0, by0: mapY(a.floor, a.y ?? 0), floor: a.floor ?? 0, moved: false }
+  }
+  const circleMove = (e: React.PointerEvent) => {
+    const st = circleDrag.current; if (!st) return
+    const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
+    if (!st.moved) {
+      if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < DRAG_DEADZONE_PX) return
+      pushPast(); st.moved = true // one checkpoint per drag
+    }
+    const ndx = (e.clientX - st.sx) / rect.width, ndy = (e.clientY - st.sy) / rect.height
+    // the storey stays put (a cordon belongs to the sheet it was drawn on): board-global y is
+    // re-localised back into that same tile, exactly as the stroke drag does
+    patch(st.id, { x: st.x0 + ndx, y: localY(st.by0 + ndy, st.floor) })
+  }
+  const circleUp = () => {
+    const st = circleDrag.current; circleDrag.current = null
+    if (!st?.moved) return
+    const a = annos.find((x) => x.id === st.id)
+    emit('board.move', { id: st.id, x: a?.x, y: a?.y, floor: a?.floor, planId: activeId })
   }
 
   // --- drag a Linie's free-text label to a per-line offset (normalized board fractions, so it
@@ -1533,7 +1636,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // --- vertex editing of a selected line/area (drag a node, insert on a segment, delete a node).
   // Identical for both kinds — they're both just `pts`, so one code path serves Linie and Fläche. ---
   const vertDown = (idx: number, e: React.PointerEvent) => {
-    if (tool !== 'pan') return
+    if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     const a = annos.find((x) => x.id === selId); if (!a?.pts) return
@@ -1630,7 +1733,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * the × chip's job, and a grip that could also detach would promise two things at once.
    */
   const extendLine = (end: 'start' | 'end', e: React.PointerEvent) => {
-    if (tool !== 'pan') return
+    if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
@@ -1660,7 +1763,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * refers to.
    */
   const insertVertex = (idx: number, e: React.PointerEvent) => {
-    if (tool !== 'pan') return
+    if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
     const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
@@ -1676,6 +1779,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
   // delete vertex `idx`, keeping a valid shape (≥2 for a line, ≥3 for an area)
   const deleteVertex = (idx: number) => {
+    if (readOnly) return
     const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
     if (pts.length <= (a.kind === 'area' ? 3 : 2)) return
     // a long-press delete fires mid-pointer-session — drop the pending drag so further
@@ -1791,19 +1895,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // drag (each no-ops if its ref is null — same fall-through the inline dispatcher had).
   const manipMove = (e: React.PointerEvent) => {
     if (chipDrag.current) chipMove(e)
+    else if (circleDrag.current) circleMove(e)
     else if (drawDrag.current) drawMove(e)
     else if (vertDrag.current) vertMove(e)
     else if (draftVert.current) draftVertMove(e)
     // once an object is really travelling (past the shared deadzone), the phone detail sheet
     // peeks down to its grip line so the board isn't reduced to a strip — lib/sheetPeek
-    if (chipDrag.current?.moved || drawDrag.current?.moved || vertDrag.current?.moved) beginSheetPeek()
+    if (chipDrag.current?.moved || circleDrag.current?.moved || drawDrag.current?.moved || vertDrag.current?.moved) beginSheetPeek()
   }
-  const manipUp = () => { endSheetPeek(); chipUp(); drawUp(); vertUp(); draftVertUp() }
+  const manipUp = () => { endSheetPeek(); chipUp(); circleUp(); drawUp(); vertUp(); draftVertUp() }
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
   const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp } = useBoardGestures({
-    tool, annos, setSelId, setSelIds, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
+    tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
   // --- drag-to-rotate a selected directional symbol (rotor handle) ---
@@ -1820,9 +1925,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [rotMagnet, setRotMagnet] = useState<{ x: number; y: number; floor: number; since: number; armed: boolean } | null>(null)
   const rotMagnetRef = useRef<{ key: string; x: number; y: number; floor: number; since: number; armed: boolean } | null>(null)
   const rotDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Board pan paused while a placement claim is live — the map does exactly this
+   *  (MapView · placePanPaused): a finger holding still for the MAGNET_DWELL_MS dwell wobbles
+   *  past the tap threshold, and the pan that started killed the claim AND discarded the tap, so
+   *  on a real device the ring could never be ridden to the end. Paused, the full
+   *  MAGNET_RADIUS_PX is the wobble budget; leaving the ring clears the claim and hands the pan
+   *  back. Only the placement press pauses anything — an end drag owns its pointer already. */
+  const rotPanPaused = useRef(false)
   const clearRotMagnet = () => {
     if (rotDwellTimer.current) { clearTimeout(rotDwellTimer.current); rotDwellTimer.current = null }
     if (rotMagnetRef.current) { rotMagnetRef.current = null; setRotMagnet(null) }
+    rotPanPaused.current = false
   }
   useEffect(() => () => { if (rotDwellTimer.current) clearTimeout(rotDwellTimer.current) }, [])
   /** Track the claim under a point and answer with the symbol it has actually taken — `null`
@@ -1845,6 +1958,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       clearRotMagnet()
       const st = { key: best.a.id, x: best.a.x ?? 0, y: best.a.y ?? 0, floor: best.a.floor ?? 0, since: Date.now(), armed: false }
       rotMagnetRef.current = st
+      if (inkTap.current) rotPanPaused.current = true // a placement press: hold the board still
       setRotMagnet({ ...st })
       // arm on a motionless finger — there is no pointermove to advance a dwell by itself
       rotDwellTimer.current = setTimeout(() => {
@@ -1868,16 +1982,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   // angle from the glyph centre to the pointer becomes the rotation (+90° so the
   // top knob leads); the whole gesture is one undo step (checkpoint on first move).
-  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'width' | 'endA' | 'endB' = 'rotate') => {
+  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'width' | 'radius' | 'endA' | 'endB' = 'rotate') => {
     if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
-    const anno = (e.currentTarget as HTMLElement).closest('.wb-anno')
-    const glyph = (anno?.querySelector('.ts, .shape-glyph') ?? anno) as HTMLElement | null
-    if (!glyph) return
-    const r = glyph.getBoundingClientRect()
     const a = annos.find((x) => x.id === id)
     const shp = a?.kind === 'shape' ? (a.shape ?? 'square') : null
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+    let cx: number, cy: number
+    if (mode === 'radius') {
+      // an Absperrkreis is ink, not a `.wb-anno` chip: its centre is the stored point, read
+      // through the same board rect every other plan gesture works in
+      const rect = boardRef.current?.getBoundingClientRect()
+      if (!rect?.width || !a) return
+      cx = rect.left + (a.x ?? 0) * rect.width; cy = rect.top + mapY(a.floor, a.y ?? 0) * rect.height
+    } else {
+      const anno = (e.currentTarget as HTMLElement).closest('.wb-anno')
+      const glyph = (anno?.querySelector('.ts, .shape-glyph') ?? anno) as HTMLElement | null
+      if (!glyph) return
+      const r = glyph.getBoundingClientRect()
+      cx = r.left + r.width / 2; cy = r.top + r.height / 2
+    }
     // ── the two ends of a Rotation (lib/shapes · SHAPE_TWO_POINT) ──────────────────────────
     // Identical to the Lage map (MapMarkers · shapeDown), in plan space: dragging one end pins
     // the other, so the grip sets the run's length and its bearing at once.
@@ -1977,6 +2100,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       patch(st.id, { sizeN: Math.max(SHAPE_MIN_N, Math.min(0.9, (dist * Math.SQRT2) / sW)) })
       return
     }
+    if (st.mode === 'radius') {
+      // Absperrkreis: the grip rides the ring, so the pointer's distance from the centre IS the
+      // radius — the same «drag from the centre outward» the placement gesture used, in
+      // plan-width fractions (types · BoardAnno.radiusN)
+      const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
+      patch(st.id, { radiusN: Math.max(appConfig.drawing.circleMinRadiusN, Math.min(CIRCLE_MAX_N, Math.hypot(e.clientX - st.cx, e.clientY - st.cy) / rect.width)) })
+      return
+    }
     if (st.mode === 'width') {
       // note text box: the grip sits on the RIGHT edge of a centre-anchored box, so the pointer
       // distance from the centre is half the width. Normalized against the (scaled) plan width
@@ -2007,6 +2138,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         ? { x: a.x, y: a.y, rotation: a.rotation, sizeN: a.sizeN, aspect: a.aspect }
       : st.mode === 'resize' || st.mode === 'sizeY' ? { sizeN: a.sizeN, aspect: a.aspect }
       : st.mode === 'width' ? { wN: a.wN }
+      : st.mode === 'radius' ? { radiusN: a.radiusN }
       : st.mode === 'cage' ? { rotation2: a.rotation2, reachN: a.reachN }
       : st.mode === 'rotate2' ? { rotation2: a.rotation2 } : { rotation: a.rotation }
     emit('board.edit', { id: st.id, patch: patchOut, planId: activeId })
@@ -2104,6 +2236,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     return n ? { x: sx / n, y: sy / n } : null
   })()
   const grpDown = (e: React.PointerEvent) => {
+    if (readOnly) return
     e.stopPropagation()
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     groupMove.current = { sx: e.clientX, sy: e.clientY }
@@ -2141,6 +2274,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // group delete — removes the selection, but trail-carrying teams are protected (their
   // recorded trail is part of the incident record); those stay selected.
   const deleteGroup = async () => {
+    if (readOnly) return
     const removable = selIds.filter((id) => { const a = annos.find((x) => x.id === id); return !!a && !teamLocked(a) })
     if (!removable.length) return
     const affected = annos.flatMap((a) => removable.includes(a.id) ? [] : (['start', 'end'] as const).flatMap((endpoint) => {
@@ -2326,11 +2460,26 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // something that is no longer on screen.
   useEffect(() => { setTwinView(null); setTwinDrawingId(null) }, [tool, activeId, georefArmed])
   // a selected stroke / Linie / Fläche — drives the shared DrawEditor (style + presets) panel
-  const selDraw = annos.find((a) => a.id === selId && (a.kind === 'draw' || a.kind === 'area'))
+  // ⚠️ 'circle' rides along: an Absperrkreis is styled, locked, measured and deleted through the
+  // same DrawEditor as a Linie/Fläche (the Karte does exactly this — MapView · editDraw). It is
+  // the one member with no `pts`, so every geometry path below asks for them before using them.
+  const selDraw = annos.find((a) => a.id === selId && (a.kind === 'draw' || a.kind === 'area' || a.kind === 'circle'))
+  /** The selected Absperrkreis's radius in REAL metres — only once the sheet is calibrated
+   *  against its printed Maßstab (lib/planScale · circleRadiusM). Undefined on an uncalibrated
+   *  Kroki, which is what keeps the editor's metre stepper and its subtitle away (DrawEditor). */
+  const selCircleM = selDraw?.kind === 'circle' && calibrated && activeScale
+    ? circleRadiusM(selDraw.radiusN ?? 0, activeScale.mPerU, measureAR)
+    : undefined
+  /** The selected line/Fläche AS AN EDIT TARGET — null whenever the surface may not be written.
+   *  Read-only never gets handles, the same rule the Karte states at MapView · editDraw: grips
+   *  that look grabbable but move under the finger and snap back are the worst kind of 3am lie.
+   *  ⚠️ `readOnly` here is BROADER than the onChange guard upstream (tacticalLocked alone), so on
+   *  a phone with the Verlauf open these handles did not merely lie — they wrote. */
+  const editDraw = readOnly ? undefined : selDraw
   // Explicit detach for a plan line endpoint (the × chip on the canvas + the Verbindung lösen button
   // in the editor both call this) — materialize the endpoint at its resolved point, drop the link.
   const detachPlanEndpoint = (endpoint: LineEndpoint) => {
-    if (!selDraw?.pts?.length) return
+    if (readOnly || !selDraw?.pts?.length) return
     const a = endpoint === 'start' ? selDraw.startAttachment : selDraw.endAttachment
     if (!a) return
     // resolved endpoint (where it visually sits, on the target)
@@ -2684,6 +2833,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               />
             )}
 
+            {/* Absperrkreise — their own px-space layer, painted under the ink (WbCircleLayer) */}
+            <WbCircleLayer annos={renderAnnos} draft={circleDraft} sW={sW} sH={sH} mapY={mapY}
+              color={appConfig.drawing.circleColor} selId={selId} flashId={flashId}
+              onPickCircle={tool === 'pan' ? circleDown : undefined} />
+
             {/* committed drawings */}
             <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
@@ -2869,22 +3023,43 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 (deliberate Lage↔Plan divergence; see the rail filter above and usePlanMeasure).
                 The Maßstab preview above and every calibrated read-out below stay. */}
 
+            {/* an Absperrkreis states its radius at the ring's top edge, exactly as the Karte does
+                (MapView · circleLabels) — in the sheet's calibrated metres. Uncalibrated there is
+                no honest number to print, so the ring simply carries none. */}
+            {calibrated && activeScale && renderAnnos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
+              const cx = (a.x ?? 0) * sW, cy = mapY(a.floor, a.y ?? 0) * sH
+              const r = (a.radiusN ?? 0) * sW
+              return (
+                <span key={`cr-${a.id}`} className="wb-line-label"
+                  style={{ left: 0, top: 0, transform: `translate(${cx}px, ${cy - r}px) translate(-50%, -100%)` }}>
+                  {fmtDistance(circleRadiusM(a.radiusN ?? 0, activeScale.mPerU, measureAR))}
+                </span>
+              )
+            })}
+
             {/* vertex editing for a selected line/area — node drag / insert / delete (one shared
                 code path for Linie + Fläche). A many-point freehand stroke used to be skipped here
                 entirely and so could not be reshaped at all; WbVertexHandles now thins its own
                 grips instead (mirrors the map's cap). */}
-            {selDraw && tool === 'pan' && (
-              <WbVertexHandles anno={renderAnnos.find((a) => a.id === selDraw.id) ?? selDraw} sW={sW} sH={sH} mapY={mapY}
+            {editDraw && editDraw.kind !== 'circle' && tool === 'pan' && (
+              <WbVertexHandles anno={renderAnnos.find((a) => a.id === editDraw.id) ?? editDraw} sW={sW} sH={sH} mapY={mapY}
                 onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine} />
+            )}
+            {/* Absperrkreis: ONE grip on the ring (screen-right) sets the radius — the gesture
+                that placed it, available again afterwards. It is the only way to resize on an
+                uncalibrated sheet, where the editor's metre stepper has nothing to say. */}
+            {editDraw?.kind === 'circle' && tool === 'pan' && (
+              <WbCircleHandle anno={editDraw} sW={sW} sH={sH} mapY={mapY}
+                onRadiusDown={(e) => rotDown(e, editDraw.id, 'radius')} onMove={rotMove} onUp={rotUp} />
             )}
             {/* unlock chip on every locked line/area/shape — the click-through ink's only tap
                 target, a SHORT HOLD to unlock + select (the Lage's twin, MapView · LockChip /
                 MapMarkers · shape-lock-anchor). Its only job is unlocking, so it stays away where
                 editing is locked anyway. Position mirrors the map: an area is chipped at its
                 centroid, a line at its middle vertex, a shape at its centre. */}
-            {!readOnly && tool === 'pan' && renderAnnos.filter((a) => a.locked && (a.kind === 'shape' || ((a.kind === 'draw' || a.kind === 'area') && a.pts?.length))).map((a) => {
+            {!readOnly && tool === 'pan' && renderAnnos.filter((a) => a.locked && (a.kind === 'shape' || a.kind === 'circle' || ((a.kind === 'draw' || a.kind === 'area') && a.pts?.length))).map((a) => {
               const pts = a.pts ?? []
-              const p = a.kind === 'shape'
+              const p = a.kind === 'shape' || a.kind === 'circle'
                 ? [a.x ?? 0, mapY(a.floor, a.y ?? 0)] as const
                 : a.kind === 'area'
                 ? [pts.reduce((t, q) => t + q[0], 0) / pts.length, pts.reduce((t, q) => t + mapY(q[2] ?? a.floor, q[1]), 0) / pts.length] as const
@@ -2897,15 +3072,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             })}
             {/* explicit detach: a × chip beside a connected endpoint of the selected line — dragging
                 the node only moves/re-targets (never severs), so this is how a link is broken. */}
-            {selDraw?.kind === 'draw' && tool === 'pan' && !planEndpointDragState && (['start', 'end'] as const).map((ep) => {
-              const rel = ep === 'start' ? selDraw.startAttachment : selDraw.endAttachment
-              const pts = renderAnnos.find((a) => a.id === selDraw.id)?.pts ?? selDraw.pts
+            {editDraw?.kind === 'draw' && tool === 'pan' && !planEndpointDragState && (['start', 'end'] as const).map((ep) => {
+              const rel = ep === 'start' ? editDraw.startAttachment : editDraw.endAttachment
+              const pts = renderAnnos.find((a) => a.id === editDraw.id)?.pts ?? editDraw.pts
               if (!rel || !pts || pts.length < 2) return null
               const p = ep === 'start' ? pts[0] : pts[pts.length - 1]
               return (
                 <span key={`detach-${ep}`} className="line-detach-chip wb-magnet" role="button"
                   title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
-                  style={{ left: p[0] * sW + 16, top: mapY(p[2] ?? selDraw.floor, p[1]) * sH - 16 }}
+                  style={{ left: p[0] * sW + 16, top: mapY(p[2] ?? editDraw.floor, p[1]) * sH - 16 }}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); detachPlanEndpoint(ep) }}><Icon id="close" /></span>
               )
@@ -3294,7 +3469,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
             {/* marquee group (≥2): one move grip + delete at the combined centre — parity
                 with the Lage map. Works while either Auswahl or Mehrfach is active. */}
-            {groupCentroid && (tool === 'pan' || tool === 'lasso') && (
+            {groupCentroid && !readOnly && (tool === 'pan' || tool === 'lasso') && (
               <div className="wb-group-acts" style={{ transform: `translate(${groupCentroid.x * sW}px, ${groupCentroid.y * sH}px) translate(-50%, -50%)` }} onPointerDown={(e) => e.stopPropagation()}>
                 <button className="wb-pa wb-pa-move" title={appConfig.copy.drawingEditor.move} aria-label={appConfig.copy.drawingEditor.move}
                   onPointerDown={grpDown} onPointerMove={grpMove} onPointerUp={grpUp} onPointerCancel={grpUp} onClick={(e) => e.stopPropagation()}><Icon id="move" /></button>
@@ -3746,7 +3921,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         <DrawEditor
           key={selDraw.id}
           readOnly={readOnly}
-          drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
+          drawing={{ kind: selDraw.kind as 'draw' | 'area' | 'circle', radiusM: selCircleM, color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}
@@ -3756,14 +3931,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           /* …and a Fläche measures itself the same way the Lage's does — Fläche + Umfang, in the
              plan's calibrated metres. Without these the Messung section simply never appeared for
              an area on a plan, so a Sektor drawn on Modul 2 could state neither. */
-          areaM2={selDraw.kind === 'area' && calibrated && activeScale && (selDraw.pts?.length ?? 0) >= 3
+          areaM2={selCircleM != null ? Math.PI * selCircleM ** 2
+            : selDraw.kind === 'area' && calibrated && activeScale && (selDraw.pts?.length ?? 0) >= 3
             ? polyAreaM2(selDraw.pts!.map(([x, y]) => [x, y]), activeScale.mPerU, measureAR) : null}
-          perimeterM={selDraw.kind === 'area' && (selDraw.pts?.length ?? 0) >= 3
+          perimeterM={selCircleM != null ? 2 * Math.PI * selCircleM
+            : selDraw.kind === 'area' && (selDraw.pts?.length ?? 0) >= 3
             ? planMetres([...selDraw.pts!, selDraw.pts![0]].map(([x, y]) => [x, y])) : null}
           // …the ground box, measured through `planMetres` like every other plan distance, so the
           // sheet's scale AND its aspect ratio are honoured exactly once (lib/geo · bboxSizeM is
           // the map's twin of this)
-          boxM={selDraw.kind === 'area' && calibrated && activeScale && (selDraw.pts?.length ?? 0) >= 3
+          // a circle's box is its bounding square — the diameter each way, exactly as the Karte
+          // states it (IncidentWorkspace · the map DrawEditor)
+          boxM={selCircleM != null ? { widthM: 2 * selCircleM, heightM: 2 * selCircleM }
+            : selDraw.kind === 'area' && calibrated && activeScale && (selDraw.pts?.length ?? 0) >= 3
             ? (() => {
                 const xs = selDraw.pts!.map(([x]) => x), ys = selDraw.pts!.map(([, y]) => y)
                 const [x0, x1] = [Math.min(...xs), Math.max(...xs)]
@@ -3809,7 +3989,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           truppOnLineOut={truppIsOut(truppForLine(selDraw, trupps))}
           onShowTrupp={onShowTrupp && truppForLine(selDraw, trupps) ? () => onShowTrupp(truppForLine(selDraw, trupps)!.id) : undefined}
           onShowDistance={(showDistance) => patchCommit(selDraw.id, { showDistance: showDistance || undefined })}
-          onRadius={() => {}}
+          // metres in, plan-width fraction out — the stepper only exists on a calibrated sheet
+          onRadius={(radiusM) => {
+            if (!activeScale) return
+            const n = circleRadiusN(radiusM, activeScale.mPerU, measureAR)
+            if (n != null) patchCommit(selDraw.id, { radiusN: Math.max(appConfig.drawing.circleMinRadiusN, Math.min(CIRCLE_MAX_N, n)) })
+          }}
           onFillOpacity={(fillOpacity) => patchCommit(selDraw.id, { fillOpacity })}
           onHatch={(hatch, fillOpacity) => patchCommit(selDraw.id, { hatch: hatch || undefined, fillOpacity })}
           attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {

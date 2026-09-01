@@ -7,6 +7,8 @@ interface BoardGesturesDeps {
   annos: BoardAnno[]
   setSelId: (id: string | null) => void
   setSelIds: (ids: string[]) => void
+  /** arm a tool — the marquee uses it to hand a single catch back to the selection tool */
+  setTool: (t: BoardTool) => void
   applyView: (s: number, p: { x: number; y: number }) => void
   zoomTo: (factor: number, mx?: number, my?: number) => void
   scaleRef: MutableRefObject<number>
@@ -32,7 +34,7 @@ interface BoardGesturesDeps {
  * to the two-finger gesture happen in the CAPTURE phase (trackDown/trackUp) so they see fingers
  * that a chip's own handler swallows — see the comment there.
  */
-export function useBoardGestures({ tool, annos, setSelId, setSelIds, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp }: BoardGesturesDeps) {
+export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp }: BoardGesturesDeps) {
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const pan = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const pointers = useRef<Map<number, { x: number; y: number }>>(new Map())
@@ -78,6 +80,17 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, applyView, 
         ? (a.pts ?? []).some(([x, y]) => inBox({ x, y, floor: a.floor }))
         : inBox({ x: a.x ?? 0, y: a.y ?? 0, floor: a.floor })),
     ).map((a) => a.id)
+    // Exactly one caught → drop into the normal single-edit selection, so the object gets its
+    // editor, its grips and its Löschen; a group of one has none of that (groupCentroid needs
+    // two). Same fallback as the Karte (IncidentWorkspace · onMarquee), and like the Karte it
+    // hands the surface back to the selection tool — that IS where the single-edit affordances
+    // live ('pan' gates the editor slot and the vertex handles). A box that caught nothing or a
+    // real group leaves the lasso armed, as before.
+    if (ids.length <= 1) {
+      setSelIds([]); setSelId(ids[0] ?? null)
+      if (ids.length === 1) setTool('pan')
+      return
+    }
     setSelId(null); setSelIds(ids)
   }
   const panMove = (e: ReactPointerEvent) => {

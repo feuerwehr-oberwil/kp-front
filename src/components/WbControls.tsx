@@ -112,6 +112,96 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
   )
 }
 
+interface CircleProps {
+  annos: BoardAnno[]
+  /** the Absperrkreis being dragged out right now (centre + radius, plan-normalized) */
+  draft: { x: number; y: number; floor: number; r: number } | null
+  /** board size in px — this layer works in PIXELS, unlike the 1×1 ink layer above */
+  sW: number
+  sH: number
+  mapY: (floor: number | undefined, ly: number) => number
+  color: string
+  selId?: string | null
+  flashId?: string | null
+  /** select/drag a circle by tapping it (pan mode only); omitted ⇒ not hittable */
+  onPickCircle?: (id: string, e: React.PointerEvent) => void
+}
+
+/**
+ * Absperrkreise (Gefahrenradius) — the plan twin of the Karte's `circle` drawings.
+ *
+ * ⚠️ Its own SVG, in BOARD PIXELS, and deliberately not part of WbInkLayer: that one is stretched
+ * 1×1 with `preserveAspectRatio="none"`, where a circle can only be drawn as an ellipse whose
+ * radii have to be re-derived from the sheet's aspect on every render. A plan circle is round in
+ * pixels — its stored `radiusN` is a fraction of the plan WIDTH (types · BoardAnno.radiusN) — so
+ * one px-space layer says it once and says it exactly, hatch pattern included.
+ *
+ * Painted UNDER the ink layer on purpose: a Leitung drawn across a big cordon must win the tap,
+ * the same ordering rule the Karte states (MapView · handleClick).
+ */
+export function WbCircleLayer({ annos, draft, sW, sH, mapY, color, selId, flashId, onPickCircle }: CircleProps) {
+  const W = Math.max(1, sW), H = Math.max(1, sH)
+  return (
+    <svg className="wb-ink-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+      <HatchDefs colors={COLORS} />
+      {annos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
+        const cx = (a.x ?? 0) * sW, cy = mapY(a.floor, a.y ?? 0) * sH
+        const r = Math.max(1, (a.radiusN ?? 0) * sW)
+        const ink = a.color || appConfig.drawing.circleColor
+        const w = a.width ?? appConfig.drawing.circleLineWidth
+        return (
+          <g key={a.id}>
+            {flashId === a.id && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth={w + 14} strokeOpacity={0.3} />}
+            {selId === a.id && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth={w + 6} strokeOpacity={0.35} />}
+            <circle cx={cx} cy={cy} r={r}
+              fill={a.hatch ? `url(#${hatchPatternId(ink)})` : ink}
+              fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? appConfig.drawing.circleFillOpacity)}
+              stroke={ink} strokeWidth={w} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined} />
+            {/* a LOCKED circle is click-through — its LockChip is the only door (Whiteboard) */}
+            {onPickCircle && !a.locked && (
+              <circle cx={cx} cy={cy} r={r} fill="transparent" stroke="transparent" strokeWidth={18}
+                style={{ pointerEvents: 'all', cursor: 'grab' }} onPointerDown={(e) => onPickCircle(a.id, e)} />
+            )}
+          </g>
+        )
+      })}
+      {draft && (
+        <circle cx={draft.x * sW} cy={mapY(draft.floor, draft.y) * sH} r={Math.max(1, draft.r * sW)}
+          fill={color} fillOpacity={appConfig.drawing.circleFillOpacity}
+          stroke={color} strokeWidth={appConfig.drawing.circleLineWidth} strokeDasharray={LINE_DASH_SVG} />
+      )}
+    </svg>
+  )
+}
+
+/**
+ * The ONE grip an Absperrkreis has: on the ring at screen-right, dragging its radius — the
+ * gesture that placed it, available again afterwards. It wears the sheet's own node-grip look
+ * (`.wb-vertex`), because that is what it is: a point you drag.
+ *
+ * It lives here beside the vertex handles rather than inline on the board so the drag handlers
+ * stay plain props (the render pass then touches no gesture ref of the Whiteboard's).
+ */
+export function WbCircleHandle({ anno, sW, sH, mapY, onRadiusDown, onMove, onUp }: {
+  anno: BoardAnno
+  sW: number
+  sH: number
+  mapY: (floor: number | undefined, ly: number) => number
+  onRadiusDown: (e: React.PointerEvent) => void
+  onMove: (e: React.PointerEvent) => void
+  onUp: () => void
+}) {
+  if (anno.kind !== 'circle') return null
+  const cx = (anno.x ?? 0) * sW, cy = mapY(anno.floor, anno.y ?? 0) * sH
+  const r = Math.max(1, (anno.radiusN ?? 0) * sW)
+  return (
+    <button className="wb-vertex" title={appConfig.copy.whiteboard.dragRadius} aria-label={appConfig.copy.whiteboard.dragRadius}
+      style={{ left: 0, top: 0, transform: `translate(${cx + r}px, ${cy}px) translate(-50%, -50%)` }}
+      onPointerDown={onRadiusDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+      onClick={(e) => e.stopPropagation()} />
+  )
+}
+
 /**
  * Vertex handles for the IN-PROGRESS Punkte draft (node-mode Linie / Fläche) — the same grips and
  * «+» midpoint inserts a FINISHED shape gets (WbVertexHandles below), so the shape being laid down
@@ -329,6 +419,16 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, widt
           [{ type: 'widths', value: width, onChange: setWidth }],
           [{ type: 'lineStyle', dashed, onChange: setDashed }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.area }],
+        ]} />
+      )}
+
+      {/* Absperrkreis — drag centre → edge. Cancel + hint and nothing else, exactly like the
+          Karte's circle dock (IncidentWorkspace): a cordon is placed in the hazard colour and
+          then adjusted — radius, colour and fill — in its own editor. */}
+      {tool === 'circle' && (
+        <ToolDock groups={[
+          [{ type: 'close', onClick: () => setTool('pan') }],
+          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.circle }],
         ]} />
       )}
 

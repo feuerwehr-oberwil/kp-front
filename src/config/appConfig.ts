@@ -450,6 +450,11 @@ const base = {
     circleInitialRadiusM: 25,
     /** default fill transparency of a new circle, and the presets offered in the editor. */
     circleFillOpacity: 0.12,
+    /** The same two guards on a PLAN, in plan-width fractions (types · BoardAnno.radiusN): a Kroki
+     *  has no metric scale until it is calibrated, so an Absperrkreis is sized against the sheet
+     *  the way every other plan object is (lib/shapes · SHAPE_MIN_N, SHAPE_DEFS.defaultSizeN). */
+    circleMinRadiusN: 0.01,
+    circleInitialRadiusN: 0.08,
     fillOpacities: [0, 0.12, 0.25, 0.4],
     /** nominal hose length (m) for the Messpfeil distance helper "~N Schläuche" */
     hoseLengthM: 20,

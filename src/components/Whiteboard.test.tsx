@@ -414,3 +414,192 @@ describe('Plan round 3 (29.08.)', () => {
     expect(screen.getAllByRole('button', { name: appConfig.copy.delete }).length).toBeGreaterThan(0)
   })
 })
+
+// ── A23 · read-only never gets grips ────────────────────────────────────────────────────────
+// The Karte states the rule and the reason (MapView · editDraw): «read-only never gets handles —
+// grabbable-looking vertices would move under the finger and snap back, the worst kind of 3am
+// lie». On the Plan they did more than lie: the surface's readOnly is broader than the write
+// guard upstream, so on a phone with the Verlauf open the grips actually wrote.
+describe('a locked plan surface hands out no reshape grips', () => {
+  const W = appConfig.copy.whiteboard
+  // `focus` is the door a read-only surface still has into a selection («Leitung zeigen», the
+  // ContextPanel's Verbindungen list) — and it only opens once the board has been measured, so
+  // jsdom needs a size for both the viewport (clientWidth) and the sheet (rect).
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+  const focused = (annoId: string) => ({ x: 0.5, y: 0.5, floor: 0, annoId, nonce: 1 })
+
+  it('gives the selected Leitung its node grips while the surface is editable', () => {
+    const { container } = renderPlan([line], { focus: focused('l1') })
+    expect(container.querySelectorAll('.wb-vertex').length).toBeGreaterThan(0)
+  })
+
+  it('renders none of them read-only — no node, no «+», no Verlängern', () => {
+    const { container } = renderPlan([line], { focus: focused('l1'), readOnly: true })
+    expect(container.querySelectorAll('.wb-vertex')).toHaveLength(0)
+    expect(container.querySelector('.wb-vins')).toBeNull()
+    expect(container.querySelector('.wb-grow')).toBeNull()
+  })
+
+  it('writes nothing when a grip is dragged anyway (a stale handle, a synthetic event)', () => {
+    const { container, onChange } = renderPlan([line], { focus: focused('l1') })
+    const grip = container.querySelector('.wb-vertex')!
+    cleanup()
+    const locked = renderPlan([line], { focus: focused('l1'), readOnly: true })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerMove(grip, { clientX: 300, clientY: 300, pointerId: 1 })
+    expect(onChange).not.toHaveBeenCalled()
+    expect(locked.onChange).not.toHaveBeenCalled()
+  })
+
+  it('still opens the read-only editor — the EL may ask how long the Leitung is', () => {
+    renderPlan([line], { focus: focused('l1'), readOnly: true })
+    expect(screen.getByText(appConfig.copy.drawingEditor.drawing)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
+  })
+})
+
+// ── A4 · Absperrkreis / Gefahrenradius on the Plan ──────────────────────────────────────────
+// The one object type that existed on the Karte and nowhere else. A cordon is a POINT with an
+// extent — centre plus a radius stored as a fraction of the plan width (types · BoardAnno.radiusN)
+// — so it is placed, moved and sized by the Karte's own gestures, and only its metres wait for
+// the sheet's Maßstab.
+describe('the Absperrkreis on a plan', () => {
+  const W = appConfig.copy.whiteboard
+  const C = appConfig.drawing
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  const cordon: BoardAnno = { id: 'k1', kind: 'circle', x: 0.5, y: 0.5, floor: 0, radiusN: 0.2, color: C.circleColor }
+  const ink = (c: HTMLElement) => c.querySelector('.wb-ink')!
+  const ring = (c: HTMLElement) => c.querySelector('.wb-ink-svg circle[style]')!
+  const placed = (onChange: ReturnType<typeof vi.fn>) => onChange.mock.calls[onChange.mock.calls.length - 1][0] as BoardAnno[]
+
+  it('is dragged out from its centre, exactly like the Karte’s', () => {
+    const { container, onChange } = renderPlan([])
+    fireEvent.click(screen.getByRole('button', { name: 'Absperrkreis' }))
+    const el = ink(container)
+    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(el, { clientX: 300, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 300, clientY: 200, pointerId: 1 })
+    const [a] = placed(onChange)
+    expect(a).toMatchObject({ kind: 'circle', x: 0.5, y: 0.5, floor: 0 })
+    expect(a.radiusN).toBeCloseTo(0.25, 6) // 100 of 400 px
+  })
+
+  it('drops a real cordon on a tap alone — the tool never does «nothing»', () => {
+    const { container, onChange } = renderPlan([])
+    fireEvent.click(screen.getByRole('button', { name: 'Absperrkreis' }))
+    const el = ink(container)
+    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    expect(placed(onChange)[0].radiusN).toBe(C.circleInitialRadiusN)
+  })
+
+  it('paints its ring and, once tapped, hands over the radius grip', () => {
+    const { container } = renderPlan([cordon])
+    expect(container.querySelectorAll('.wb-ink-svg circle').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: W.dragRadius })).toBeNull()
+    fireEvent.pointerDown(ring(container), { clientX: 200, clientY: 200, pointerId: 1 })
+    expect(screen.getByRole('button', { name: W.dragRadius })).toBeTruthy()
+  })
+
+  // a cordon is grabbed anywhere on its face, so the centre follows the DELTA — moving it to the
+  // grab point would shift the ring out from under the hand
+  it('moves by the pointer’s travel, not to the pointer', () => {
+    const { container, onChange } = renderPlan([cordon])
+    fireEvent.pointerDown(ring(container), { clientX: 280, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(ring(container), { clientX: 320, clientY: 200, pointerId: 1 })
+    const [a] = placed(onChange)
+    expect(a.x).toBeCloseTo(0.6, 6) // 0.5 + 40/400
+    expect(a.y).toBeCloseTo(0.5, 6)
+  })
+
+  it('states no metres on an uncalibrated sheet — that would be a number nobody measured', () => {
+    const { container } = renderPlan([cordon])
+    expect(container.querySelector('.wb-line-label')).toBeNull()
+  })
+
+  it('states its radius once the sheet is calibrated against its Maßstab', () => {
+    // ar matches the landscape A4 the blank Tafel is measured at (1 / (1 / 1.414))
+    const { container } = renderPlan([cordon], { planScale: { tafel: { mPerU: 100, refM: 10, ar: 1.414 } } })
+    expect(container.querySelector('.wb-line-label')?.textContent).toMatch(/m$/)
+  })
+
+  it('never wears vertex grips — it is centre + radius, not a polyline', () => {
+    const { container } = renderPlan([cordon])
+    fireEvent.pointerDown(ring(container), { clientX: 200, clientY: 200, pointerId: 1 })
+    expect(container.querySelectorAll('.wb-vertex')).toHaveLength(1) // the radius grip, nothing else
+    expect(container.querySelector('.wb-vins')).toBeNull()
+  })
+})
+
+// ── A8 · the placement magnet holds the board still ─────────────────────────────────────────
+// The Karte pauses dragPan while a claim ring fills, with the reason written out (MapView ·
+// placePanPaused): a finger holding still for the dwell wobbles past the pan slop, the pan that
+// starts kills the claim AND eats the tap, and the ring can never be ridden to the end on a real
+// device. The Plan kept its 8 px tap threshold live through the very same moment.
+describe('the Rotation’s placement magnet pauses the board pan', () => {
+  const S = appConfig.copy.shapes
+  const symApi: SymbolsApi = {
+    ready: true, order: ['Gefahren'],
+    symbols: [{ cat: 'Gefahren', name: 'VKF Feuer', svg: '<svg viewBox="0 0 10 10"></svg>' }],
+    byName: { 'VKF Feuer': '<svg viewBox="0 0 10 10"></svg>' },
+  }
+  const target: BoardAnno = { id: 's1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Feuer' }
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  const armRotation = () => {
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.symbol }))
+    fireEvent.click(screen.getByRole('button', { name: S.names.rotation }))
+  }
+  const shapes = (onChange: ReturnType<typeof vi.fn>) => {
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1]
+    return ((last?.[0] ?? []) as BoardAnno[]).filter((a) => a.kind === 'shape')
+  }
+
+  it('rides a 9 px glove wobble on the target and still lays the point down', () => {
+    const { container, onChange } = renderPlan([target], { sym: symApi })
+    armRotation()
+    const el = container.querySelector('.wb-ink')!
+    // dead on the symbol (0.5/0.5 of a 400 px sheet), then the wobble the ring is meant to absorb
+    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(el, { clientX: 209, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 209, clientY: 200, pointerId: 1 })
+    // the second point finishes the run — it only exists if the first tap survived the wobble
+    fireEvent.pointerDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    expect(shapes(onChange)).toHaveLength(1)
+  })
+
+  it('still lets a deliberate drag off the ring pan and lay nothing down', () => {
+    const { container, onChange } = renderPlan([target], { sym: symApi })
+    armRotation()
+    const el = container.querySelector('.wb-ink')!
+    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(el, { clientX: 380, clientY: 200, pointerId: 1 }) // well out of the ring
+    fireEvent.pointerUp(el, { clientX: 380, clientY: 200, pointerId: 1 })
+    fireEvent.pointerDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    expect(shapes(onChange)).toHaveLength(0) // that second tap is only the FIRST point now
+  })
+})

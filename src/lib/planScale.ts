@@ -72,3 +72,31 @@ export function isStale(scale: PlanScale, ar: number): boolean {
   if (!(scale.ar > 0) || !(ar > 0)) return false
   return Math.abs(scale.ar - ar) / scale.ar > 0.02 // >2% aspect drift = the sheet changed under it
 }
+
+/** Real-world radius (m) of a plan Absperrkreis under a calibration factor. `radiusN` is a
+ *  fraction of the plan WIDTH, so in the aspect-corrected measure space its length is
+ *  `radiusN · ar` (see the module doc) — which is exactly what `unitLen` would answer for a
+ *  horizontal segment of that length. */
+export function circleRadiusM(radiusN: number, mPerU: number, ar: number): number {
+  return radiusN * ar * mPerU
+}
+
+/** The inverse: what fraction of the plan width a radius of `m` metres is. Returns null when the
+ *  sheet cannot answer (no factor, degenerate aspect) — the caller keeps the stored radius. */
+export function circleRadiusN(m: number, mPerU: number, ar: number): number | null {
+  if (!(mPerU > 0) || !(ar > 0)) return null
+  return m / (ar * mPerU)
+}
+
+/** A plan circle as a closed normalized ring (last point ≠ first), for every consumer that can
+ *  only draw polygons: the Karte projection of a plan Absperrkreis (lib/georefTwins) and the
+ *  printed sheet. A circle on screen is round in PIXELS, so its y radius is `radiusN · ar`
+ *  in normalized units — the same aspect correction the metres above apply. */
+export function circleRingN(cx: number, cy: number, radiusN: number, ar: number, steps = 48): NPoint[] {
+  const out: NPoint[] = []
+  for (let i = 0; i < steps; i++) {
+    const t = (i / steps) * Math.PI * 2
+    out.push([cx + radiusN * Math.cos(t), cy + radiusN * ar * Math.sin(t)])
+  }
+  return out
+}

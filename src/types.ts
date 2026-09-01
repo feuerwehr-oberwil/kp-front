@@ -625,8 +625,8 @@ export type PreparedMapOverlay =
 
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
  *  so they stick to the plan across zoom/pan. */
-export type BoardTool = 'pan' | 'lasso' | 'draw' | 'line' | 'area' | 'text' | 'symbol' | 'shape' | 'resource' | 'scale' | 'measure'
-export type BoardKind = 'draw' | 'area' | 'text' | 'symbol' | 'shape' | 'resource'
+export type BoardTool = 'pan' | 'lasso' | 'draw' | 'line' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'scale' | 'measure'
+export type BoardKind = 'draw' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource'
 /** Plan point. The optional storey is backward compatible: legacy points inherit BoardAnno.floor. */
 export type BoardPoint = [x: number, y: number] | [x: number, y: number, floor: number]
 export interface BoardAnno extends SymbolProps {
@@ -663,6 +663,12 @@ export interface BoardAnno extends SymbolProps {
   /** aerial-appliance boom reach as a fraction of the plan width (0..1) — the plan-space analogue of
    *  Entity.reachM (the Hubretter cage distance from the truck; bearing = `rotation2`). */
   reachN?: number
+  /** kind 'circle' (Absperrkreis / Gefahrenradius): radius as a fraction of the plan WIDTH —
+   *  the plan-space twin of `Drawing.radiusM`, in the same unit as `sizeN`. The centre is x/y,
+   *  so a circle is a POINT object with an extent, not a polyline (it has no `pts`). Real metres
+   *  come from the sheet's Maßstab (lib/planScale · circleRadiusM); uncalibrated it is simply a
+   *  share of the sheet, which is all an uncalibrated Kroki can honestly say. */
+  radiusN?: number
   width?: number             // draw stroke width
   dashed?: boolean           // draw: render dashed instead of solid (mirrors Drawing.dashed). Absent = solid.
   arrow?: boolean            // draw: an arrowhead at the last vertex (Messpfeil / Rettungsachse line presets)
