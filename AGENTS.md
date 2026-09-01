@@ -113,6 +113,16 @@ to prod.
   `--red` means delete, and `--accent` stays alarm/relationship – never «selected». Node dots are
   24px on both surfaces. Every grip whose press-and-hold is its own gesture carries
   `data-holdaction`, or the app-wide hold-tooltip eats its release.
+- **The editor sheets have one control per kind of question** (decided 01.09., same sweep). A
+  yes/no property is the `OnOff` Segmented pair (`components/Segmented`) – never a single chip
+  whose text or glyph flips, which said «An» on one row and showed a state on the next. A number
+  is the shared `Stepper`; where the two surfaces cannot agree on a unit (a Form's size is metres
+  on the Karte and a share of the sheet on a Plan) it is `ScaleStepper`, the same chrome handing
+  the caller a ×-factor. A one-press action is a `.de-action` row, in the grammar «Verbindung
+  lösen» already had – it is not given toggle chrome, because it has no state to be in. Rows are
+  grouped in `.de-group`, so the hairline falls where the subject changes. And **no native form
+  control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
+  instead of a number field, `components/Slider` instead of `<input type="range">`.
 - **A georef twin is the object itself, seen from the other side.** Once a plan carries a
   georeference, annotations mirror between the surfaces (`src/lib/georefTwins.ts`,
   `GeorefTwins*` / `GeorefContent*`). A twin is **interaction- AND presentation-equivalent** to

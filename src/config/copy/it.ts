@@ -34,6 +34,7 @@ export const it: Localizable<Copy> = {
   layerPanel: {
     stateVisible: 'visibile, nascondi',
     stateHidden: 'nascosto, mostra',
+    opacity: 'Opacità',
   },
   help: {
     menu: 'Funzioni e aiuto',

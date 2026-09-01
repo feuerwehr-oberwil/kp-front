@@ -48,6 +48,9 @@ export const de = {
   layerPanel: {
     stateVisible: 'sichtbar, ausblenden',
     stateHidden: 'ausgeblendet, einblenden',
+    // Der Regler unter einer eingeblendeten Ebene – im Screenreader hinter dem Ebenennamen,
+    // damit «Deckkraft» sagt, wovon.
+    opacity: 'Deckkraft',
   },
   help: {
     menu: 'Funktionen & Hilfe',
