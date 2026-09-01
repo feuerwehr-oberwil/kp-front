@@ -1880,7 +1880,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           and swallow the tap meant for it. */}
       {twins.length > 0 && onTwinOpen && !georefOn && (
         <GeorefTwinsMap twins={twins} byName={byName} zoom={zoom} bearing={bearing} symMul={symMul} captionMode={captionMode}
-          suppressedLabels={suppressedLabels} fanOffsets={pileFan}
+          suppressedLabels={suppressedLabels} fanOffsets={pileFan} networkIds={relationship.objectIds}
           interactive={!placing} selectedKey={selectedTwinKey} selectedKeys={selectedContentTwinKeys} onOpen={onTwinOpen}
           onMove={readOnly ? undefined : onTwinMove}
           project={projectLngLat} unproject={unprojectPoint} setDragPan={setDragPanEnabled} />

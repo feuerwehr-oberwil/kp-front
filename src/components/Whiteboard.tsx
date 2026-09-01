@@ -3663,6 +3663,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 interactive={tool === 'pan'}
                 selectedKey={twinView?.key}
                 selectedKeys={selTwinIds}
+                networkIds={relationship.objectIds}
                 onOpen={openBoardTwin}
                 // undefined (not a no-op) on a locked surface, so the mark shows no grab
                 // cursor and no drag affordance it would refuse to honour

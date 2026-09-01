@@ -127,3 +127,18 @@ describe('a Plan twin inside the map\'s own arbitration', () => {
     expect(container.querySelector('.fan-spoke line')?.getAttribute('x2')).toBe('-30')
   })
 })
+
+// D-28, and the other half of D-08: once a Karte Leitung may dock onto a mirrored Plan symbol,
+// the twin IS a node of this surface's relationship network — and says so like its neighbours.
+describe('a Plan twin inside the map\'s relationship network', () => {
+  it('wears the «Verbunden» ring when a line is hooked to it, and not while selected', () => {
+    const { container, rerender } = render(<GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }}
+      zoom={18} networkIds={new Set(['a1'])} onOpen={() => {}} />)
+    expect(container.querySelector('.network-halo')).toBeTruthy()
+    // the selection halo already says «this one» — two rings on one glyph say it twice
+    rerender(<GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }} zoom={18}
+      networkIds={new Set(['a1'])} selectedKey="modul1:a1" onOpen={() => {}} />)
+    expect(container.querySelector('.network-halo')).toBeNull()
+    expect(container.querySelector('.sel-halo')).toBeTruthy()
+  })
+})

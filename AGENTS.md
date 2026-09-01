@@ -125,7 +125,14 @@ to prod.
   native object beside it. The ONE permitted difference is which surface persists it: a twin is a
   projection, never stored, logged, printed or clocked, and an edit writes the ONE source object.
   A mechanical exception must be real and documented (an anchored endpoint reshapes instead of
-  translating, on both surfaces); «not built on that surface yet» is not one.
+  translating, on both surfaces); «not built on that surface yet» is not one. It follows that a
+  twin is also inside every SELECTION mechanism of the surface it stands on: the fixed
+  `SelectionBar` (for the kinds a native gets it for – ink and a Form), the marquee/group, the
+  fat-finger pile's fan, and the magnet. The magnet carries the second real mechanical exception:
+  an endpoint docked on a twin stores an attachment naming an object in the OTHER document, which
+  both live surfaces resolve but the print/export adapters cannot – there, and after a far-side
+  delete, it falls back to the stored coordinate the way every unresolvable attachment does
+  (`resolveLinePoints`).
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live

@@ -41,7 +41,7 @@ import s from './GeorefTwins.module.css'
  * LENGTH is resolved by each renderer in its own surface's units — metres on the Karte, a sheet
  * fraction on the Plan — because that is the one thing the two frames cannot share.
  */
-export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, boom, caption, title, onOpen, onMove, onGesture, gestureMovable = false, interactive = true, selected = false, style, className, children }: {
+export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, boom, caption, title, onOpen, onMove, onGesture, gestureMovable = false, interactive = true, selected = false, network = false, style, className, children }: {
   svg: string
   sizePx: number
   rotation: number
@@ -96,6 +96,9 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
    *  source object. Movement is available immediately, matching each source surface's direct
    *  drag grammar; selection changes only the visual state. */
   selected?: boolean
+  /** this projection is a node of the surrounding surface's relationship network — the same
+   *  «Verbunden» ring its native neighbours wear (11-measure.css · .network-halo) */
+  network?: boolean
   style?: React.CSSProperties
   className?: string
   /** surface-owned chrome drawn INSIDE the mark — currently only the fan's hairline home
@@ -177,6 +180,7 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
     >
       {children}
       {selected && <span className="sel-halo" aria-hidden />}
+      {network && <span className="network-halo" aria-hidden />}
       <TacticalSymbol svg={svg} sizePx={sizePx} rotation={rotation} count={count}
         floor={floor} floorFrom={floorFrom} floorTo={floorTo}
         spread={spread} overlay={overlay} caption={caption} />

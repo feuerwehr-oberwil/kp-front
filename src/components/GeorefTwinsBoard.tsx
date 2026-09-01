@@ -27,7 +27,7 @@ import type { CaptionMode } from '../types'
  * annotation — its position is the normalized plan point times the board's px size, which is
  * the same arithmetic every `.wb-anno` does.
  */
-export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, sW, sH, sizePx, planWidthM, captionMode = 'off', sourceSuppressedCaptions, interactive = true, selectedKey, selectedKeys = [], onOpen, onMove }: {
+export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, sW, sH, sizePx, planWidthM, captionMode = 'off', sourceSuppressedCaptions, interactive = true, selectedKey, selectedKeys = [], networkIds, onOpen, onMove }: {
   twins: BoardTwin[]
   byName: Record<string, string>
   /** the board's rendered size in px (fit × zoom) */
@@ -46,6 +46,10 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
   selectedKey?: string | null
   /** …and every mirrored member of a Mehrfach group (D-09) */
   selectedKeys?: string[]
+  /** the objects this sheet's relationship network reaches, by SOURCE id. Since a plan Leitung
+   *  may dock onto a mirrored Karte symbol (D-08), a twin can be a node of that network — and
+   *  then it wears the same «Verbunden» ring the sheet's own symbols wear (D-28). */
+  networkIds?: ReadonlySet<string>
   /** tap: open the source-backed editor on this surface */
   onOpen: (twin: BoardTwin) => void
   /**
@@ -123,6 +127,7 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
             }) : undefined}
             interactive={interactive}
             selected={selected}
+            network={!selected && !!networkIds?.has(t.entityId)}
             style={{ left: 0, top: 0, transform: `translate(${t.pt.x * sW}px, ${t.pt.y * sH}px) translate(-50%, -50%)` }}
           />
         )

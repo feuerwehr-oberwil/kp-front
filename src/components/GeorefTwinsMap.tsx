@@ -34,7 +34,7 @@ import type { CaptionMode, LngLat } from '../types'
  * Memoised: the projection itself is done once per board/fit change by the caller, and
  * this tree then re-renders only when that list, the zoom or the bearing actually moves.
  */
-export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, fanOffsets, interactive = true, selectedKey, selectedKeys = [], onOpen, onMove, project, unproject, setDragPan }: {
+export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, fanOffsets, networkIds, interactive = true, selectedKey, selectedKeys = [], onOpen, onMove, project, unproject, setDragPan }: {
   twins: MapTwin[]
   byName: Record<string, string>
   zoom: number
@@ -56,6 +56,10 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
   /** the open fat-finger fan (MapMarkers · pileUnder, held by MapView): a twin buried under a
    *  native marker steps out on its own hairline instead of being unreachable (D-10) */
   fanOffsets?: Record<string, { dx: number; dy: number }> | null
+  /** the objects the map's relationship network reaches, by SOURCE id. Since a Karte Leitung may
+   *  dock onto a mirrored Plan symbol (D-08), a twin can be a node of it — and then it wears the
+   *  same «Verbunden» ring its native neighbours wear (D-28). */
+  networkIds?: ReadonlySet<string>
   /** tap: open the source-backed editor on this surface */
   onOpen: (twin: MapTwin) => void
   /**
@@ -139,6 +143,7 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
               gestureMovable={movable}
               interactive={interactive}
               selected={selected}
+              network={!selected && !!networkIds?.has(t.annoId)}
               // the Marker already places the element; the mark only has to centre itself in it
               style={{ position: 'relative', margin: 0 }}
             >
