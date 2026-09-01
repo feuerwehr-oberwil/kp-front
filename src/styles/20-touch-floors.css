@@ -69,8 +69,9 @@
 /* ---- The drawing controls stay as they are — decided, not overlooked ------------------------
    A sweep on 28.08. listed the plan dock's own controls as under the floor: the colour swatches
    at 30px (.wb-sw, .dh-color), the width and line-style buttons at 38×34 (.wb-ww, .wb-ls,
-   .dh-width), the shape stepper at 40×36 (.shape-size-btn), the plan-picker pin at 34
-   (.pp-pin). They are deliberately left alone, and the three ways of «fixing» them were drawn
+   .dh-width) and the plan-picker pin at 34 (.pp-pin). (The list also named the shape editor's
+   own 40×36 size stepper; that one is gone — it is the shared ±stepper now, on the drawing
+   panel's `--de-h`, which is the same call made once for the whole panel in 08-toasts.) They are deliberately left alone, and the three ways of «fixing» them were drawn
    out before that was decided:
      · grow them to 44 — the dock is a COLUMN with a max-height that already scrolls, so this is
        paid entirely in the axis it has least of, and the `@media (max-height: 640px)` rule below

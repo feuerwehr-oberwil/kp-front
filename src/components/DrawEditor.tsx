@@ -14,7 +14,7 @@ import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Stepper } from './Stepper'
 import { MenuPick } from './MenuPick'
 import { Menu } from '../lib/overlays'
-import { Segmented } from './Segmented'
+import { OnOff, Segmented } from './Segmented'
 import type { LineAttachment, LineContent, LineEndpoint, LngLat, LineRoutingMode } from '../types'
 
 // small glyph for the line-ending picker: plain · arrow · arrow with Entwicklungsgrenze · FKS
@@ -281,12 +281,15 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           )}
           <div className="de-row"><span>{appConfig.copy.drawingEditor.color}</span>
             <span className="dh-swatches">
-              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => onColor(c)} />)}
+              {/* named like the Form editor's identical rows (ShapeEditor · the Farbe/Strichstärke
+                  swatches): a chip whose whole content is a colour or a bar has no text to read
+                  out, so without this the row announces «Farbe» and then four blank buttons. */}
+              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
             </span>
           </div>
           <div className="de-row"><span>{appConfig.copy.drawingEditor.width}</span>
             <span className="dh-widths">
-              {WIDTHS.map((w) => <button key={w} className={`dh-width ${width === w ? 'on' : ''}`} onClick={() => onWidth(w)}><span style={{ height: w }} /></button>)}
+              {WIDTHS.map((w) => <button key={w} className={`dh-width ${width === w ? 'on' : ''}`} aria-label={`${appConfig.copy.drawingEditor.width} ${w}`} onClick={() => onWidth(w)}><span style={{ height: w }} /></button>)}
             </span>
           </div>
           {isLine && (
@@ -357,23 +360,21 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               </div>
             ) : (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.arrow}</span>
-                <span className="dh-widths">
-                  <button className={`de-toggle ${drawing.arrow ? 'on' : ''}`} aria-pressed={!!drawing.arrow} onClick={() => onArrow(!drawing.arrow)}>{drawing.arrow ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}</button>
-                </span>
+                <OnOff ariaLabel={appConfig.copy.drawingEditor.arrow} value={!!drawing.arrow} onChange={onArrow} />
               </div>
             )}
             {/* Which end the Abschluss sits at is the second half of the same question — so it sits
                 in the same row block, directly under it. It does not MOVE the line: the drawn hose
                 stays where it is, only its direction of travel turns around (lib/lineAttachments ·
                 flipLine), and everything hooked to either end stays hooked where it physically is. */}
+            {/* ⚠️ An ACTION, not a state — so it is not one of this panel's Segmented pairs and
+                no longer wears their chrome (01.09.). It used to sit as a label plus a lone icon
+                chip in the `.de-toggle` box, which reads as «umkehren: on/off» while nothing here
+                is ever on: the row is one press that does one thing. */}
             {onReverse && (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.reverse}</span>
-                <span className="dh-widths">
-                  <button className="de-toggle" onClick={onReverse} title={appConfig.copy.drawingEditor.reverse} aria-label={appConfig.copy.drawingEditor.reverse}>
-                    <Icon id="swap" />
-                  </button>
-                </span>
-              </div>
+              <button type="button" className="de-action" onClick={onReverse}>
+                <Icon id="swap" />{appConfig.copy.drawingEditor.reverse}
+              </button>
             )}
             {onContent && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.content}</span>
@@ -510,9 +511,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 gets the same switch a hose line has. */}
             {(isLine ? supportsDistance : areaM2 != null) && !readOnly && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.showOnMap}</span>
-                <span className="dh-widths">
-                  <button className={`de-toggle ${drawing.showDistance ? 'on' : ''}`} aria-pressed={!!drawing.showDistance} onClick={() => onShowDistance(!drawing.showDistance)}>{drawing.showDistance ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}</button>
-                </span>
+                <OnOff ariaLabel={appConfig.copy.drawingEditor.showOnMap} value={!!drawing.showDistance} onChange={onShowDistance} />
               </div>
             )}
             {hasProfileCoords && (

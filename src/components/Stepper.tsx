@@ -84,3 +84,31 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, format, pl
     </span>
   )
 }
+
+/**
+ * The same ±stepper for a value that has no absolute number to step to: a Form's size is a
+ * ×-FACTOR on both surfaces, because the two of them do not measure it in the same unit — the
+ * Karte stores metres on the ground, a Plan a share of the sheet's width, and a mirrored Form
+ * writes whichever its source document keeps (ShapeEditor · onScale/onScaleLength). So the
+ * caller is handed a factor and does its own clamping, and this face carries no editable value.
+ * Everything else is the canonical stepper: the same `.step` chrome, and press-and-hold to
+ * repeat rather than tapping a shape up a size at a time.
+ */
+export function ScaleStepper({ onScale, factor = 1.25, lessLabel, moreLabel, ariaLabel }: {
+  /** called with the factor to scale by — >1 on +, its reciprocal on − */
+  onScale: (factor: number) => void
+  /** how big one step is; 1.25 = ±25 %, the step the corner handle's fixed alternative has used */
+  factor?: number
+  lessLabel: string
+  moreLabel: string
+  ariaLabel?: string
+}) {
+  const dec = useHoldRepeat(() => onScale(1 / factor))
+  const inc = useHoldRepeat(() => onScale(factor))
+  return (
+    <span className="step" role="group" aria-label={ariaLabel}>
+      <button className="step-btn" {...dec} aria-label={lessLabel}>−</button>
+      <button className="step-btn" {...inc} aria-label={moreLabel}>+</button>
+    </span>
+  )
+}

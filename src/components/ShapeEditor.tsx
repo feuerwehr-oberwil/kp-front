@@ -4,7 +4,8 @@ import { TwinOrigin } from './TwinOrigin'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fmtArea, fmtDistance } from '../lib/geo'
-import { Segmented } from './Segmented'
+import { OnOff, Segmented } from './Segmented'
+import { ScaleStepper } from './Stepper'
 import { SHAPE_STROKE_DEFAULT, SQUARE_FILL_DEFAULT, ShapeGlyph } from '../lib/shapes'
 import { HATCH_PERIOD_PX, HatchDefs, hatchPatternId } from '../lib/draw'
 import { DEFAULT_INK } from '../lib/lineStyle'
@@ -105,6 +106,12 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className="ctx-body">
+        {/* ⚠️ The rows are GROUPED, the way the Linien-Editor's are (DrawEditor · `.de-group`):
+            the hairline falls where the subject changes and nowhere else. Ungrouped, every row
+            here ran flush into the Messung block below, so the one rule in the panel appeared
+            between «Stopp-Balken» and «Fläche» — where nothing changes — and none appeared
+            between the numbers and the Träger row, where everything does. */}
+        <div className="de-group">
         {onFill && entity.shape === 'square' && (() => {
           const fillOpacity = entity.fillOpacity ?? SQUARE_FILL_DEFAULT
           return (
@@ -160,19 +167,15 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
         {onScale && !(entity.shape === 'rotation' && onScaleLength) && (
           <div className="de-row">
             <span>{appConfig.copy.shapes.size}</span>
-            <span className="shape-size-steps">
-              <button className="btn shape-size-btn" onClick={() => onScale(1 / 1.25)} title={appConfig.copy.shapes.sizeSmaller} aria-label={appConfig.copy.shapes.sizeSmaller}><Icon id="minus" /></button>
-              <button className="btn shape-size-btn" onClick={() => onScale(1.25)} title={appConfig.copy.shapes.sizeBigger} aria-label={appConfig.copy.shapes.sizeBigger}><Icon id="plus" /></button>
-            </span>
+            <ScaleStepper onScale={onScale} ariaLabel={appConfig.copy.shapes.size}
+              lessLabel={appConfig.copy.shapes.sizeSmaller} moreLabel={appConfig.copy.shapes.sizeBigger} />
           </div>
         )}
         {onScaleLength && entity.shape === 'rotation' && (
           <div className="de-row">
             <span>{appConfig.copy.shapes.lengthLabel}</span>
-            <span className="shape-size-steps">
-              <button className="btn shape-size-btn" onClick={() => onScaleLength(1 / 1.25)} title={appConfig.copy.shapes.lengthShorter} aria-label={appConfig.copy.shapes.lengthShorter}><Icon id="minus" /></button>
-              <button className="btn shape-size-btn" onClick={() => onScaleLength(1.25)} title={appConfig.copy.shapes.lengthLonger} aria-label={appConfig.copy.shapes.lengthLonger}><Icon id="plus" /></button>
-            </span>
+            <ScaleStepper onScale={onScaleLength} ariaLabel={appConfig.copy.shapes.lengthLabel}
+              lessLabel={appConfig.copy.shapes.lengthShorter} moreLabel={appConfig.copy.shapes.lengthLonger} />
           </div>
         )}
         {/* …and the one question only a pre-shaped Fläche has. Segmented, not a toggle: «Rund»
@@ -195,11 +198,10 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
           // line tool's own arrowStop lives in the DrawEditor and stays untouched
           <div className="de-row">
             <span>{appConfig.copy.shapes.stopLabel}</span>
-            <button className={`de-toggle ${entity.stop ? 'on' : ''}`} aria-pressed={!!entity.stop} onClick={() => onStop(!entity.stop)}>
-              {entity.stop ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}
-            </button>
+            <OnOff ariaLabel={appConfig.copy.shapes.stopLabel} value={!!entity.stop} onChange={onStop} />
           </div>
         )}
+        </div>
         {/* ⚠️ A Rechteck measures itself, exactly as a drawn Fläche does (DrawEditor · the Messung
             block) — same two numbers, same labels, same formatter. Map only: its size is metres on
             the ground there, while on a Plan it is a share of the sheet and has no area to state
@@ -227,6 +229,8 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
             )}
           </div>
         )}
+        {/* what the loop IS, after what it looks like: who runs it, and which way round */}
+        {(onCarrier || onReverse) && entity.shape === 'rotation' && <div className="de-group">
         {onCarrier && entity.shape === 'rotation' && (
           // Which vehicle runs the shuttle. The FKS sheet draws the loop WITH its carrier
           // («Rotation-Helikopter», «Rotation TLF», Vegetationsbrand S. 52) — same shape, and the
@@ -247,17 +251,15 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
           </div>
         )}
         {onReverse && entity.shape === 'rotation' && (
-          // Which way round the shuttle circulates. The same row a Linie offers (DrawEditor ·
+          // Which way round the shuttle circulates. The same control a Linie offers (DrawEditor ·
           // onReverse), for the same reason: it turns only the direction of travel around — the
-          // loop, its two ends and everything beside it stay exactly where they are.
-          <div className="de-row"><span>{appConfig.copy.drawingEditor.reverse}</span>
-            <span className="dh-widths">
-              <button className="de-toggle" onClick={onReverse} title={appConfig.copy.drawingEditor.reverse} aria-label={appConfig.copy.drawingEditor.reverse}>
-                <Icon id="swap" />
-              </button>
-            </span>
-          </div>
+          // loop, its two ends and everything beside it stay exactly where they are. An action,
+          // so it wears the panel's action row rather than a chip that could look «on».
+          <button type="button" className="de-action" onClick={onReverse}>
+            <Icon id="swap" />{appConfig.copy.drawingEditor.reverse}
+          </button>
         )}
+        </div>}
         <div className="ctx-footer-inline">{actions}</div>
       </div>
       {actions}
