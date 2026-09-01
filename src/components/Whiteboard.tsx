@@ -11,6 +11,8 @@ import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
 import { resolveLinePreset, markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
+import { SelectionBar } from './SelectionBar'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { buzz } from '../lib/haptics'
@@ -450,11 +452,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     /** end drags only: the end that stays put (client px) and how far the grip floats past the cap */
     fixed: { x: number; y: number } | null; gripOffPx: number
   } | null>(null)
-  // the group-move drag origin (start client point and the original board-space geometry of
-  // every selected anno). Pan/pinch/marquee refs live in useBoardGestures.
-  const groupMove = useRef<{ sx: number; sy: number } | null>(null)
-  type GrpOrig = { id: string; floor: number; bx?: number; by?: number; bpts?: BoardPoint[] }
+  // The selection bar's drag origin: the original board-space geometry and bearings of every
+  // selected anno, plus the centre a turn pivots about. Pan/pinch/marquee refs live in
+  // useBoardGestures.
+  type GrpOrig = { id: string; floor: number; rot?: number; rot2?: number; bx?: number; by?: number; bpts?: BoardPoint[] }
   const groupOrig = useRef<GrpOrig[]>([])
+  const barRotCentre = useRef<{ x: number; y: number } | null>(null)
   // zoom/pan view state (layout-based zoom + focal wheel-zoom) lives in a hook, which also
   // remembers it per plan across a surface switch — `signature` says when a remembered view has
   // gone stale (the plan's image / floor stack / calibration changed under it).
@@ -2222,55 +2225,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (selId === target.id) setSelId(null)
   }
 
-  // --- marquee group: a single move grip + delete at the combined centre (≥2 selected),
-  // mirroring the Lage map's group handles. Both point annos and freehand drawings join. ---
-  // centroid in board-normalized space (point anchors + every draw vertex)
-  const groupCentroid = (() => {
-    if (selIds.length < 2) return null
-    let sx = 0, sy = 0, n = 0
-    for (const a of annos) {
-      if (!selIds.includes(a.id)) continue
-      if (a.kind === 'draw') { for (const [x, y, floor] of a.pts ?? []) { sx += x; sy += mapY(floor ?? a.floor, y); n++ } }
-      else { sx += a.x ?? 0; sy += mapY(a.floor, a.y ?? 0); n++ }
-    }
-    return n ? { x: sx / n, y: sy / n } : null
-  })()
-  const grpDown = (e: React.PointerEvent) => {
-    if (readOnly) return
-    e.stopPropagation()
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    groupMove.current = { sx: e.clientX, sy: e.clientY }
-    pushPast() // one checkpoint for the whole group drag
-    // snapshot every selected anno's ORIGINAL geometry in board-normalized space, so the
-    // delta is always applied to the start position (no drift across re-renders)
-    groupOrig.current = annos.filter((a) => selIds.includes(a.id)).map((a) =>
-      a.kind === 'draw'
-        ? { id: a.id, floor: a.floor ?? 0, bpts: (a.pts ?? []).map(([x, y, floor]): BoardPoint => [x, mapY(floor ?? a.floor, y), floor ?? a.floor ?? 0]) }
-        : { id: a.id, floor: a.floor ?? 0, bx: a.x ?? 0, by: mapY(a.floor, a.y ?? 0) },
-    )
-  }
-  const grpMove = (e: React.PointerEvent) => {
-    const st = groupMove.current; if (!st) return
-    beginSheetPeek()
-    const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
-    const ndx = (e.clientX - st.sx) / rect.width, ndy = (e.clientY - st.sy) / rect.height
-    // move within each anno's own storey (floor unchanged), consistent with the flat map group-move
-    set(annos.map((a) => {
-      const o = groupOrig.current.find((g) => g.id === a.id); if (!o) return a
-      if (o.bpts) return { ...a, pts: o.bpts.map(([x, by, floor], i): BoardPoint => {
-        if ((i === 0 && a.startAttachment) || (i === o.bpts!.length - 1 && a.endAttachment)) return a.pts?.[i] ?? [x, localY(by, floor ?? o.floor), floor ?? o.floor]
-        const pf = floor ?? o.floor
-        return [x + ndx, localY(by + ndy, pf), pf]
-      }) }
-      return { ...a, x: (o.bx ?? 0) + ndx, y: localY((o.by ?? 0) + ndy, o.floor) }
-    }))
-  }
-  const grpUp = () => {
-    endSheetPeek()
-    if (!groupMove.current) return
-    groupMove.current = null
-    annos.filter((a) => selIds.includes(a.id)).forEach((a) => emit('board.move', { id: a.id, x: a.x, y: a.y, floor: a.floor, planId: activeId }))
-  }
   // group delete — removes the selection, but trail-carrying teams are protected (their
   // recorded trail is part of the incident record); those stay selected.
   const deleteGroup = async () => {
@@ -2495,6 +2449,86 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
   // a selected generic shape — colour via the same ShapeEditor sheet as the Lage map
   const selShape = annos.find((a) => a.id === selId && a.kind === 'shape')
+
+  // --- the selection bar's transform target (components/SelectionBar) ------------------------
+  // ONE writer for every selection this surface has: a Mehrfach group, a single Linie/Fläche/
+  // Absperrkreis, a single Form. The bar hands over a client-px delta or a turn in degrees; what
+  // happens to each member depends only on whether it is ink (pts) or a point anno (x/y), never
+  // on how many are selected. That is what retired the plan's group pill and the map's hub in
+  // the same move.
+  const barIds: string[] = selIds.length > 1 ? selIds
+    : editDraw ? [editDraw.id]
+    : selShape && !readOnly ? [selShape.id]
+    : []
+  const barActive = barIds.length > 0 && (selIds.length > 1 ? tool === 'pan' || tool === 'lasso' : tool === 'pan') && !readOnly && !georefArmed
+  /** The selection's centre in board-normalized space — the shared resolver (lib/selectionTransform),
+   *  and the reason a line, a Fläche and an Absperrkreis have one at all: rotDown reads the
+   *  `.wb-anno` chip's bounding box, and ink has no chip. */
+  const barCentre = (() => {
+    if (!barActive) return null
+    const c = centroid(annos.flatMap((a): [number, number][] => {
+      if (!barIds.includes(a.id)) return []
+      // ink is its points; everything else (chip, Form, Absperrkreis, Notiz) is its anchor
+      if (a.pts?.length) return a.pts.map(([x, y, floor]) => [x, mapY(floor ?? a.floor, y)])
+      return [[a.x ?? 0, mapY(a.floor, a.y ?? 0)]]
+    }))
+    return c ? { x: c[0], y: c[1] } : null
+  })()
+  /** snapshot every member's ORIGINAL board-space geometry, so each frame's delta is applied to
+   *  the start position and never compounds across re-renders */
+  const barSnapshot = () => {
+    pushPast() // one checkpoint for the whole gesture
+    groupOrig.current = annos.filter((a) => barIds.includes(a.id)).map((a) =>
+      a.pts
+        ? { id: a.id, floor: a.floor ?? 0, rot: a.rotation, rot2: a.rotation2, bpts: a.pts.map(([x, y, floor]): BoardPoint => [x, mapY(floor ?? a.floor, y), floor ?? a.floor ?? 0]) }
+        : { id: a.id, floor: a.floor ?? 0, rot: a.rotation, rot2: a.rotation2, bx: a.x ?? 0, by: mapY(a.floor, a.y ?? 0) },
+    )
+  }
+  /** write one frame of the gesture: `t` moves in board fractions, `deg` turns about `barCentre`.
+   *  Members stay on their own storey (floor unchanged) and an ATTACHED line end stays pinned to
+   *  its target — the same two rules the single-object body drag already follows. */
+  const barApply = (t: { ndx: number; ndy: number; deg: number }, centre: { x: number; y: number } | null) => {
+    // x and y are fractions of DIFFERENT edges, so a turn has to happen in px proportions
+    const xScale = (sW || 1) / (sH || 1)
+    const turn = (x: number, by: number): [number, number] => (t.deg && centre
+      ? rotateAround([x, by], [centre.x, centre.y], t.deg, { xScale })
+      : [x, by])
+    set(annos.map((a) => {
+      const o = groupOrig.current.find((g) => g.id === a.id); if (!o) return a
+      const turned = t.deg
+        ? { ...(o.rot !== undefined ? { rotation: turnedBy(o.rot, t.deg) } : null), ...(o.rot2 !== undefined ? { rotation2: turnedBy(o.rot2, t.deg) } : null) }
+        : null
+      if (o.bpts) return { ...a, ...turned, pts: o.bpts.map(([x, by, floor], i): BoardPoint => {
+        if ((i === 0 && a.startAttachment) || (i === o.bpts!.length - 1 && a.endAttachment)) return a.pts?.[i] ?? [x, localY(by, floor ?? o.floor), floor ?? o.floor]
+        const pf = floor ?? o.floor
+        const [rx, ry] = turn(x, by)
+        return [rx + t.ndx, localY(ry + t.ndy, pf), pf]
+      }) }
+      const [rx, ry] = turn(o.bx ?? 0, o.by ?? 0)
+      return { ...a, ...turned, x: rx + t.ndx, y: localY(ry + t.ndy, o.floor) }
+    }))
+  }
+  const barCommit = () => annos.filter((a) => barIds.includes(a.id))
+    .forEach((a) => emit('board.move', { id: a.id, x: a.x, y: a.y, floor: a.floor, planId: activeId }))
+  const barMove = (dx: number, dy: number, phase: 'start' | 'move' | 'end') => {
+    if (readOnly) return
+    if (phase === 'start') { barSnapshot(); beginSheetPeek(); return }
+    const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
+    barApply({ ndx: dx / rect.width, ndy: dy / rect.height, deg: 0 }, barCentre)
+    if (phase === 'end') { endSheetPeek(); barCommit() }
+  }
+  const barRotate = (deg: number, phase: 'start' | 'move' | 'end') => {
+    if (readOnly) return
+    if (phase === 'start') { barRotCentre.current = barCentre; barSnapshot(); return }
+    barApply({ ndx: 0, ndy: 0, deg }, barRotCentre.current)
+    if (phase === 'end') { barCommit(); barRotCentre.current = null }
+  }
+  const barDelete = () => {
+    if (readOnly) return
+    if (selIds.length > 1) { void deleteGroup(); return }
+    const a = annos.find((x) => barIds.includes(x.id))
+    if (a) void removeWithConnections(a)
+  }
 
   /**
    * «Richtung umkehren» on the plan — the twin of the Lage's useMapDrawing · reverseDrawing, built
@@ -3467,16 +3501,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               )),
             )}
 
-            {/* marquee group (≥2): one move grip + delete at the combined centre — parity
-                with the Lage map. Works while either Auswahl or Mehrfach is active. */}
-            {groupCentroid && !readOnly && (tool === 'pan' || tool === 'lasso') && (
-              <div className="wb-group-acts" style={{ transform: `translate(${groupCentroid.x * sW}px, ${groupCentroid.y * sH}px) translate(-50%, -50%)` }} onPointerDown={(e) => e.stopPropagation()}>
-                <button className="wb-pa wb-pa-move" title={appConfig.copy.drawingEditor.move} aria-label={appConfig.copy.drawingEditor.move}
-                  onPointerDown={grpDown} onPointerMove={grpMove} onPointerUp={grpUp} onPointerCancel={grpUp} onClick={(e) => e.stopPropagation()}><Icon id="move" /></button>
-                <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => void deleteGroup()}><Icon id="trash" /></button>
-              </div>
-            )}
-
             {/* create-tool capture layer */}
             {creating && (
               <div className="wb-ink" onPointerDown={inkDown} onPointerMove={inkMove} onPointerUp={inkUp} onPointerCancel={inkUp} />
@@ -3566,6 +3590,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               Rendered AFTER the floating zoom so the chip can step below it (module CSS). */}
           {stack && fpView && (
             <PlanCompass deg={shownAngle} controls={canOrient && !readOnly ? orientControls : undefined} />
+          )}
+
+          {/* ONE bar for every selection this sheet has — the same component, in the same corner
+              of the viewport, as on the Karte (components/SelectionBar). It lives OUTSIDE the
+              board's pan/zoom transform on purpose: the control that moves the paper's contents
+              must not move with the paper. ⟳ is absent on an Absperrkreis, which is a centre and
+              a radius and has no angle to turn. */}
+          {barActive && (
+            <SelectionBar
+              onMove={barMove}
+              onRotate={selIds.length > 1 || editDraw?.kind !== 'circle' ? barRotate : undefined}
+              onDelete={barDelete}
+            />
           )}
 
         </div>

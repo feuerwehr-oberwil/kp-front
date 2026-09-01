@@ -100,8 +100,19 @@ to prod.
   when the value must genuinely differ *per Einsatz* and be identical on every device.
 - **Lage and Plan should stay as close as possible in every regard** – same tools, controls,
   and behavior. Only the implementation that *must* differ because of the drawing surface /
-  relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`, and
-  `src/lib/lineStyle.ts`; the renderers stay separate only for that surface-specific part.
+  relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`,
+  `SelectionBar` and `src/lib/lineStyle.ts` / `src/lib/selectionTransform.ts`; the renderers stay
+  separate only for that surface-specific part.
+- **One selection bar, one edit-chrome vocabulary** (decided 01.09.). Moving, turning and
+  deleting a selection – a single Linie/Fläche/Absperrkreis, a Form, or a Mehrfach group – happen
+  on the fixed `SelectionBar` at the bottom of each surface, never on floating chrome grown at the
+  object's own centre. On the object itself only **geometry** grips live: vertex, «+» midpoint,
+  Verlängern, Verbindung lösen, the radius ring, and a shape's own rotate/resize handles.
+  Colour is one family: a geometry point is white-filled with a `--blue` ring, an action grip that
+  transforms the whole object is solid `--blue`, `--amber` means the SECOND axis and nothing else,
+  `--red` means delete, and `--accent` stays alarm/relationship – never «selected». Node dots are
+  24px on both surfaces. Every grip whose press-and-hold is its own gesture carries
+  `data-holdaction`, or the app-wide hold-tooltip eats its release.
 - **A georef twin is the object itself, seen from the other side.** Once a plan carries a
   georeference, annotations mirror between the surfaces (`src/lib/georefTwins.ts`,
   `GeorefTwins*` / `GeorefContent*`). A twin is **interaction- AND presentation-equivalent** to

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { BoardAnno, BuildingDoc, PlanDocument, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import type { SymbolsApi } from '../lib/useSymbols'
@@ -601,5 +601,98 @@ describe('the Rotation’s placement magnet pauses the board pan', () => {
     fireEvent.pointerDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
     fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
     expect(shapes(onChange)).toHaveLength(0) // that second tap is only the FIRST point now
+  })
+})
+
+// ── the fixed selection bar (components/SelectionBar) ────────────────────────────────────────
+// It replaced the group pill AND the map's floating hub on 01.09.: one bar, in one place, for a
+// single Linie, an Absperrkreis, a Form and a Mehrfach group alike.
+describe('the plan’s selection bar', () => {
+  const D = appConfig.copy.drawingEditor
+  const R = appConfig.copy.shapes.rotate
+  const bar = () => screen.queryByRole('toolbar', { name: D.selectionBar })
+  const circle: BoardAnno = { id: 'k1', kind: 'circle', x: 0.5, y: 0.5, radiusN: 0.2, floor: 0 }
+  const box: BoardAnno = { id: 'f1', kind: 'shape', shape: 'square', x: 0.3, y: 0.3, sizeN: 0.1, floor: 0, rotation: 10 }
+
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('is absent until something is selected, then carries ✥ · ⟳ · Löschen', () => {
+    const { container } = renderPlan([line])
+    expect(bar()).toBeNull()
+    fireEvent.pointerDown(hitShape(container))
+    expect(bar()).toBeTruthy()
+    expect(within(bar()!).getByRole('button', { name: D.move })).toBeTruthy()
+    expect(within(bar()!).getByRole('button', { name: R })).toBeTruthy()
+  })
+
+  it('moves the whole selection by the ✥ drag, in one undo step', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerMove(grip, { clientX: 180, clientY: 100, pointerId: 1 }) // +80px of a 400px board
+    fireEvent.pointerUp(grip, { clientX: 180, clientY: 100, pointerId: 1 })
+    const moved = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
+    expect(moved.pts[0][0]).toBeCloseTo(0.4) // 0.2 + 80/400
+    expect(moved.pts[1][0]).toBeCloseTo(1.0)
+    expect(moved.pts[0][1]).toBeCloseTo(0.2) // untouched across
+  })
+
+  it('turns a Form about the selection centre and its own bearing with it', () => {
+    const { container, onChange } = renderPlan([box])
+    fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+    // the Form keeps its own knob on the glyph; the bar's is the one in the toolbar
+    const dialBtn = within(bar()!).getByRole('button', { name: R })
+    fireEvent.pointerDown(dialBtn, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(dialBtn, { clientX: 380, clientY: 200, pointerId: 1 }) // 180px = +90°
+    fireEvent.pointerUp(dialBtn, { clientX: 380, clientY: 200, pointerId: 1 })
+    const turned = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'f1')
+    expect(turned.rotation).toBe(100) // 10° + 90°
+    // a single object turns about ITSELF, so it stays where it was
+    expect(turned.x).toBeCloseTo(0.3)
+    expect(turned.y).toBeCloseTo(0.3)
+  })
+
+  it('offers no ⟳ for an Absperrkreis — a centre and a radius have no angle', () => {
+    const { container } = renderPlan([circle])
+    fireEvent.pointerDown(container.querySelector('.wb-ink-svg circle[style]')!)
+    expect(bar()).toBeTruthy()
+    expect(within(bar()!).queryByRole('button', { name: R })).toBeNull()
+  })
+
+  it('deletes the selection from the bar', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.delete }))
+    expect(onChange.mock.calls[onChange.mock.calls.length - 1][0].some((a: BoardAnno) => a.id === 'l1')).toBe(false)
+  })
+
+  it('is the SAME bar for a Mehrfach group — one drag moves every boxed object', () => {
+    const { container, onChange } = renderPlan([line, box])
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+    const stage = container.querySelector('.wb-stage > div')!
+    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    expect(bar()).toBeTruthy()
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 2 })
+    fireEvent.pointerMove(grip, { clientX: 100, clientY: 140, pointerId: 2 }) // +40px down of 400
+    fireEvent.pointerUp(grip, { clientX: 100, clientY: 140, pointerId: 2 })
+    const out = onChange.mock.calls[onChange.mock.calls.length - 1][0] as BoardAnno[]
+    expect(out.find((a) => a.id === 'l1')!.pts![0][1]).toBeCloseTo(0.3) // 0.2 + 40/400
+    expect(out.find((a) => a.id === 'f1')!.y).toBeCloseTo(0.4)          // 0.3 + 40/400
+  })
+
+  it('hands out no bar at all on a read-only surface', () => {
+    renderPlan([line], { readOnly: true, focus: { x: 0.5, y: 0.5, floor: 0, annoId: 'l1', nonce: 1 } })
+    expect(bar()).toBeNull()
   })
 })

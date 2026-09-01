@@ -233,38 +233,44 @@
   .draw-editor .de-trupp-go:hover { color: var(--blue); }
 }
 
-/* Selected-drawing edit handles (reshape vertices + move grip + rotor) — each gets a transparent
-   hit pad.
-   ⚠️ The grip's pad was deliberately kept UNDER the 44px floor, because move/delete/rotate used to
-   cluster around the drawing centre and full-size pads would have overlapped onto the destructive
-   ✕. The ✕ left the canvas on 01.09., so that reason is gone and the constraint went with it: the
-   grip is the one control on the cluster you reach for by hand, and it was reported twice as hard
-   to hit. 34px + a 7px pad = 48, which is also what HUB_NODE_CLEARANCE_PX now keeps clear of the
-   node handles beside it. */
-.draw-move { position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--blue); color: var(--on-fill);
-  display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); border: 2px solid #fff; }
-.draw-move::after { content: ''; position: absolute; inset: -7px; }
-.draw-move:active { cursor: grabbing; }
-.draw-move .i { width: 18px; height: 18px; }
-/* edit hub sits at the drawing's centre: a rotor knob straight up, the delete ✕ to
-   the upper-right, with the move grip (separate marker) filling the centre */
-.draw-edit-hub { position: relative; }
-.draw-del { position: absolute; left: 0; top: 0; transform: translate(16px, -16px);
-  width: 24px; height: 24px; border-radius: 50%; background: var(--red, #e23); color: var(--on-accent-ink); border: 2px solid #fff;
-  display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); padding: 0; }
-.draw-del .i { width: 13px; height: 13px; }
-.draw-del::after { content: ''; position: absolute; inset: -7px; }
-.draw-rotor { position: absolute; left: 0; top: 0; pointer-events: none; }
-.draw-rotor button { pointer-events: auto; }
-/* 34px of stem, not 24: the grip's pad now reaches 24px up and the rotor's 20px down, so at the
-   old distance the two overlapped and a press meant for «verschieben» could land on «drehen». */
-.draw-stem { position: absolute; left: 0; bottom: 0; width: 2px; height: 34px; transform: translateX(-50%); background: var(--blue); }
-.draw-rotate { position: absolute; left: 0; bottom: 34px; transform: translateX(-50%);
-  width: 28px; height: 28px; border-radius: 50%; background: var(--blue); color: var(--on-fill); border: 2px solid #fff;
-  display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); padding: 0; }
-.draw-rotate:active { cursor: grabbing; }
-.draw-rotate::after { content: ''; position: absolute; inset: -6px; }
-.draw-rotate .i { width: 15px; height: 15px; }
+/* ── the selection bar ────────────────────────────────────────────────────────────────
+   ONE bar, bottom-centre of the Lage map and of the Plan board, for every selection there is
+   (components/SelectionBar). It replaced three floating grammars on 01.09.: the map's edit hub
+   (a move grip with a rotor tethered above it), the map's group grip, and the plan's group pill
+   — all three grew at the selection's own centre, on top of the ink and of the vertex handles
+   the finger was reaching for.
+   Same bottom inset as .coord-read (07-toolrail.css), and the phone rules for the two live in one
+   place (15-mobile.css) so they cannot drift apart or land on the bottom bars.
+   Glass, not an ink-fill slab: it sits over the map and must not read as another dark dock. */
+/* FIXED, not absolute: the two surfaces hang it in containers that end in different places —
+   the map's fills the screen, the plan's canvas already stops above the phone's two bottom bars —
+   and «always the same spot» has to mean the same spot on the SCREEN. Nothing above it carries a
+   transform, so the viewport is the containing block on both. */
+.sel-bar { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
+  display: flex; align-items: center; gap: 6px; padding: 6px;
+  border-radius: var(--r-cluster); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); box-shadow: var(--shadow); animation: pop .16s var(--ease); }
+/* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action) —
+   solid blue, the app's one colour for an action grip that transforms the whole object */
+.sel-bar-act { min-width: 52px; height: 44px; border: none; border-radius: var(--r-sm); padding: 0 12px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  background: var(--blue); color: var(--on-fill); cursor: grab; touch-action: none; }
+.sel-bar-act:active { cursor: grabbing; }
+@media (hover: hover) {
+  .sel-bar-act:hover { background: var(--blue-strong); }
+}
+.sel-bar-act .i { width: 19px; height: 19px; }
+/* the dial's live degree — the same mono, tabular figures the measure read-out uses, so a number
+   that changes under the finger never re-flows the button it sits in */
+.sel-bar-deg { font-family: var(--mono); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Löschen carries its word: it is the one destructive thing on the bar, and an icon-only ✕ next
+   to two grips is exactly the near-miss the map's old hub ✕ was removed for. */
+.sel-bar-del { height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+@media (hover: hover) {
+  .sel-bar-del:hover { color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
+}
+.sel-bar-del:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* WebGL context lost: centred over the (now blank) canvas, above the map chrome but below
    sheets/toasts. Persistent by design — it stays until the operator rebuilds the map. */
 .map-gl-lost { position: absolute; z-index: var(--z-blocking-scrim); left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -282,15 +288,6 @@
 /* plan Mehrfach (lasso) marquee box — client coords, so fixed positioning */
 .wb-marquee { position: fixed; z-index: var(--z-dock); pointer-events: none; border: 1.5px solid var(--blue);
   background: color-mix(in srgb, var(--blue) 10%, transparent); border-radius: 2px; }
-/* plan group handles (≥2 selected) — move grip + delete at the combined centre */
-.wb-group-acts { position: absolute; top: 0; left: 0; z-index: 7;
-  display: flex; gap: 6px; background: var(--ink-fill); border-radius: var(--r-ctl); padding: 5px; box-shadow: var(--shadow); }
-.wb-pa-move { background: var(--blue); cursor: grab; touch-action: none; }
-@media (hover: hover) {
-  .wb-pa-move:hover { background: var(--blue); filter: brightness(1.08); }
-}
-.wb-pa-move:active { cursor: grabbing; }
-
 
 /* ── the number, while a node is in the hand ──
    The cumulative label hangs 12px over its vertex — i.e. under the fingertip of the very drag

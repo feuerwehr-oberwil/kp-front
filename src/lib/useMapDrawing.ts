@@ -305,6 +305,18 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       emit('draw.edit', { id, patch: { coords } })
     }
   }
+  // an Absperrkreis's radius, dragged on its ring grip (MapView) — the same phased shape as
+  // editDrawingCoords, so the whole drag is one undo step and one Verlauf row
+  const editDrawingRadius = (id: string, radiusM: number, phase: 'start' | 'move' | 'end') => {
+    if (tacticalLocked) return
+    if (phase === 'start') { beginDrag(); return }
+    setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === id ? { ...dr, radiusM } : dr)) }))
+    if (phase === 'end') {
+      endDrag()
+      noteDrawingEdit(drawings.find((dr) => dr.id === id), { radiusM })
+      emit('draw.edit', { id, patch: { radiusM } })
+    }
+  }
   // drag a line's distance/text label to a georeferenced anchor (WGS84 [lng,lat]) — stays pinned
   // to the ground at any zoom/bearing; folds into one undo step like editDrawingCoords
   // ('start' snapshots, 'move' streams, 'end' commits).
@@ -427,6 +439,6 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     draftActive, lineNodes, freehandArmed, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
+    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   }
 }

@@ -10,7 +10,9 @@ import { motionDuration } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML, hatchImageId, hatchTile } from '../lib/draw'
-import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, hubOffsetPx, DEFAULT_INK, HUB_NODE_CLEARANCE_PX, HUB_EDGE_MARGIN_PX, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
+import { SelectionBar } from './SelectionBar'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, GEOREF_CONTENT_PICK_LAYERS, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
@@ -19,7 +21,7 @@ import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { cachedLabelSize, LABEL_RANK, MARKER_Z, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
-import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon } from '../lib/geo'
+import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM } from '../lib/geo'
 import { noteWPx } from '../lib/notes'
 import { useVehicleTrails } from '../lib/useVehicleTrails'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
@@ -47,8 +49,8 @@ import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, D
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
 
-// Every edit handle of a SELECTED drawing (node pads, «+» midpoints, grow arrows, the hub, the
-// move grip, detach chips — and the marquee group's) rides at MARKER_Z.selected: a react-map-gl
+// Every edit handle of a SELECTED drawing (node pads, «+» midpoints, grow arrows, detach chips,
+// the Absperrkreis's radius ring) rides at MARKER_Z.selected: a react-map-gl
 // marker defaults to z-auto, which paints BELOW every resting symbol/team (MARKER_Z 4–8), so the
 // very handles a selection exists for disappeared behind the symbols the line ran under — the
 // endpoint could not be grabbed to extend it (28.08. field feedback). One stacking table for all
@@ -298,6 +300,8 @@ interface Props {
   onDrawingEdit?: (id: string, coords: LngLat[], phase: 'start' | 'move' | 'end') => void
   onDrawingVertexInsert?: (id: string, index: number, coord: LngLat) => void
   onDrawingVertexDelete?: (id: string, index: number) => void
+  /** an Absperrkreis's radius in metres, dragged on its ring grip — phased like onDrawingEdit */
+  onDrawingRadius?: (id: string, radiusM: number, phase: 'start' | 'move' | 'end') => void
   onDrawingDelete?: (id: string) => void
   /** Commit one armed endpoint attach/retarget/detach gesture. */
   onDrawingAttachment?: (id: string, endpoint: LineEndpoint, attachment: LineAttachment | undefined, fallback: LngLat) => void
@@ -316,7 +320,9 @@ interface Props {
   onCircle?: (center: LngLat, radiusM: number) => void
   /** entity ids currently in the multi-selection — highlighted like the boxed drawings */
   selectedEntityIds?: string[]
-  onGroupMove?: (ids: string[], entIds: string[], dLng: number, dLat: number, phase: 'start' | 'move' | 'end') => void
+  /** Move AND/OR turn a marquee group in one writer: the bar streams a lng/lat delta, a turn in
+   *  degrees about the group's centre, or (in principle) both, folded into one undo step. */
+  onGroupTransform?: (ids: string[], entIds: string[], t: { dLng: number; dLat: number; deg: number }, phase: 'start' | 'move' | 'end') => void
   onGroupDelete?: (ids: string[], entIds: string[]) => void
   /** Georeferenz twins: tactical symbols use the interactive point-twin path below; broader
    *  Modul content travels separately through `georefPlanContent`. Both are derived and empty
@@ -355,8 +361,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
-    selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
-    marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
+    selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingDelete, onDrawingAttachment, onLabelMove,
+    marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
     twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, onContentTwinUnlock, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
@@ -1271,41 +1277,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     ? [editDraw.coords.reduce((s, c) => s + c[0], 0) / editDraw.coords.length,
        editDraw.coords.reduce((s, c) => s + c[1], 0) / editDraw.coords.length]
     : null
-  // Where the action hub (move grip · rotate knob) actually hangs — the centroid, lifted clear of
-  // the shape's own vertex handles when it would otherwise land on one (lib/lineStyle ·
-  // hubOffsetPx). A grip parked on a node hides it and takes its finger.
-  //
-  // ⚠️ Not lines only (widened 01.09.). A LINE's centroid is on the path by definition, so it was
-  // always lifted; an area was assumed to have an interior to sit in. A thin Absperrung or a
-  // concave Fläche — the shape a freehand fire edge makes — has a centroid right on its own edge,
-  // and the grip landed on a node there too. So the test is now the actual distance to the
-  // nearest vertex, whatever the kind, and a fat convex Fläche is untouched because it passes.
-  // A circle is excluded: its «vertices» are a synthesised ring, not handles anybody can grab.
-  const editHubAt: LngLat | null = (() => {
-    const map = mapInst.current
-    if (!editCentroid || !editDraw) return null
-    if (!map || editCircle || editDraw.coords.length < 2) return editCentroid
-    const px = editDraw.coords.map((c) => { const q = map.project(c as [number, number]); return [q.x, q.y] as [number, number] })
-    const c = map.project(editCentroid as [number, number])
-    // ⚠️ A LINE is lifted unconditionally — its centroid is ON the path by definition, so the grip
-    // lands on the ink itself even when no vertex is near (regression 01.09.: making the lift
-    // conditional on vertex proximity left the grip sitting on a long straight Leitung, where the
-    // line's own hit-band then swallowed the press). For every other kind the question is the one
-    // below: is the centroid actually near a handle.
-    const clear = editDraw.kind !== 'line'
-      && px.every(([vx, vy]) => Math.hypot(c.x - vx, c.y - vy) >= HUB_NODE_CLEARANCE_PX)
-    if (clear) return editCentroid
-    // ⚠️ The lift is also capped by the SHAPE's own size (01.09.). A fixed 42–72px off the centroid
-    // is sensible for a Leitung across a street and absurd for a 40px blob, where the grip ended
-    // up floating above a shape it visibly did not belong to. Just outside the object's own
-    // extent is as far as a handle should ever sit from it.
-    const reach = Math.max(...px.map(([vx, vy]) => Math.hypot(c.x - vx, c.y - vy)))
-    const [dx, dy] = hubOffsetPx(px, [c.x, c.y])
-    const len = Math.hypot(dx, dy) || 1
-    const capped = Math.min(len, reach + HUB_EDGE_MARGIN_PX)
-    const ll = map.unproject([c.x + (dx / len) * capped, c.y + (dy / len) * capped])
-    return [ll.lng, ll.lat]
-  })()
   const moveRef = useRef<{ start: LngLat; coords: LngLat[] } | null>(null)
   // Translate from the geometry snapshotted at drag-start (moveRef.coords), NOT the live doc —
   // 'move' streams into the doc each frame, so reading it back would re-add the full delta and
@@ -1316,16 +1287,16 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (!base || !stored) return stored?.coords ?? []
     return moveLineBody({ id, points: base, startAttachment: stored.startAttachment, endAttachment: stored.endAttachment }, [dx, dy])
   }
-  // a marquee group (≥2 across drawings + entities): a single move grip + delete at the
-  // combined centre; which objects light up as "selected" = the group, else the single edit
-  // target. Both boxed drawings AND boxed symbols/entities join the group.
+  // a marquee group (≥2 across drawings + entities): which objects light up as "selected" = the
+  // group, else the single edit target. Both boxed drawings AND boxed symbols/entities join it.
+  // It is moved, turned and deleted from the same bar every other selection uses (SelectionBar).
   const groupActive = (selectedDrawIds.length + selectedEntityIds.length) > 1 && !picking && !freehand && !draftKind && !measureKind
   const groupDraws = groupActive ? drawings.filter((d) => selectedDrawIds.includes(d.id) && Array.isArray(d.coords) && d.coords.length > 0) : []
   const groupEnts = groupActive ? entities.filter((e) => selectedEntityIds.includes(e.id) && Array.isArray(e.coord) && !e.live) : []
-  const groupCentroid: LngLat | null = (groupDraws.length + groupEnts.length)
-    ? (() => { let sx = 0, sy = 0, n = 0; for (const d of groupDraws) for (const [x, y] of d.coords) { sx += x; sy += y; n++ } for (const e of groupEnts) { sx += e.coord[0]; sy += e.coord[1]; n++ } return n ? [sx / n, sy / n] : null })()
-    : null
-  const groupMoveRef = useRef<{ start: LngLat } | null>(null)
+  const groupCentroid: LngLat | null = centroid([
+    ...groupDraws.flatMap((d) => d.coords as [number, number][]),
+    ...groupEnts.map((e) => e.coord as [number, number]),
+  ])
   // dragging a line's distance/text label: the label is anchored at a GEOREFERENCED point
   // (the polyline midpoint, or a dragged `labelAt`). We keep the grab offset between the
   // pointer and that anchor constant, and on each move unproject (pointer − grab) back to a
@@ -1393,37 +1364,86 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }
   const selHighlight: (string | number)[] = selectedDrawIds.length ? selectedDrawIds : (selectedDrawingId ? [selectedDrawingId] : ['__none__'])
   const flashHighlight: (string | number)[] = flashDrawingId ? [flashDrawingId] : ['__none__']
-  // rotate the whole selected drawing around its centroid. The angle is measured in
-  // screen space from the centroid; we rotate the coords in a local east/north frame
-  // (lng scaled by cos(lat)) so the turn looks rigid, then bake it back into coords.
-  const drawRot = useRef<{ cx: number; cy: number; a0: number; coords: LngLat[]; cLng: number; cLat: number } | null>(null)
-  const drawRotDown = (e: React.PointerEvent) => {
-    e.stopPropagation(); e.preventDefault()
-    if (!editDraw || !editCentroid) return
-    // ⚠️ The pivot is the projected CENTROID, not the hub's own rect: since the hub is offset off
-    // a line's path (editHubAt), those two are no longer the same point, and turning the shape
-    // about a knob that sits beside it would swing the line away instead of rotating it in place.
-    const map = mapInst.current
-    if (!map) return
-    const r = map.getContainer().getBoundingClientRect()
-    const c = map.project(editCentroid as [number, number])
-    const cx = r.left + c.x, cy = r.top + c.y
-    drawRot.current = { cx, cy, a0: Math.atan2(e.clientY - cy, e.clientX - cx), coords: editDraw.coords, cLng: editCentroid[0], cLat: editCentroid[1] }
-    onDrawingEdit?.(editDraw.id, editDraw.coords, 'start')
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  // ── the selection bar's one transform target ─────────────────────────────────────────────
+  // Every native selection on this surface — one Linie/Fläche/Absperrkreis, one Form, or a
+  // Mehrfach group — is moved, turned and deleted from ONE bar at the bottom of the map
+  // (components/SelectionBar). What differs per kind is only which of the app's existing writers
+  // the delta lands in, so undo, the Verlauf row and the attachment rules stay exactly as they
+  // were for each of them.
+  const selShape = !groupActive && !editDraw && draggable && !georefOn && !readOnly
+    ? entities.find((e) => e.id === selectedId && e.kind === 'shape' && !e.locked && !e.live)
+    : undefined
+  /** the selection's centre, snapshotted at gesture start — the live one travels with the drag */
+  const barFrom = useRef<{ at: LngLat; coords: LngLat[]; rotation: number } | null>(null)
+  const barCentre: LngLat | null = groupCentroid ?? (editDraw ? editCentroid : selShape ? selShape.coord : null)
+  /** client px → a lng/lat delta measured at `at`, so the selection travels with the finger at
+   *  any zoom and bearing */
+  const barDelta = (dx: number, dy: number, at: LngLat): [number, number] | null => {
+    const m = mapInst.current
+    if (!m) return null
+    const p = m.project(at as [number, number])
+    const ll = m.unproject([p.x + dx, p.y + dy])
+    return [ll.lng - at[0], ll.lat - at[1]]
   }
-  const drawRotMove = (e: React.PointerEvent) => {
-    const st = drawRot.current; if (!st || !editDraw) return
-    const d = Math.atan2(e.clientY - st.cy, e.clientX - st.cx) - st.a0
-    const cosL = Math.cos((st.cLat * Math.PI) / 180) || 1e-6
-    const cs = Math.cos(-d), sn = Math.sin(-d) // screen y-down → negate for north-up frame
-    const rot = st.coords.map(([lng, lat]): LngLat => {
-      const dx = (lng - st.cLng) * cosL, dy = lat - st.cLat
-      return [st.cLng + (dx * cs - dy * sn) / cosL, st.cLat + (dx * sn + dy * cs)]
-    })
-    onDrawingEdit?.(editDraw.id, rot, 'move')
+  const barMove = (dx: number, dy: number, phase: 'start' | 'move' | 'end') => {
+    if (phase === 'start') {
+      if (!barCentre) return
+      beginSheetPeek()
+      barFrom.current = { at: barCentre, coords: editDraw?.coords ?? [], rotation: selShape?.rotation ?? 0 }
+      if (editDraw) { moveRef.current = { start: barCentre, coords: editDraw.coords }; onDrawingEdit?.(editDraw.id, editDraw.coords, 'start') }
+      else if (selShape) onMarkerDragStart(selShape.id)
+      else onGroupTransform?.(selectedDrawIds, selectedEntityIds, { dLng: 0, dLat: 0, deg: 0 }, 'start')
+      return
+    }
+    const st = barFrom.current
+    const d = st && barDelta(dx, dy, st.at)
+    if (!st || !d) return
+    // ⚠️ The writers run BEFORE the refs are cleared: bodyMovedCoords translates from the
+    // snapshot in moveRef, and dropping it first would leave the final frame translating the
+    // already-moved live geometry — the line would jump the whole delta a second time.
+    if (editDraw) onDrawingEdit?.(editDraw.id, bodyMovedCoords(editDraw.id, d[0], d[1]), phase)
+    else if (selShape) {
+      const to: LngLat = [st.at[0] + d[0], st.at[1] + d[1]]
+      if (phase === 'end') onMarkerDragEnd(selShape.id, to)
+      else onMarkerMove(selShape.id, to)
+    } else onGroupTransform?.(selectedDrawIds, selectedEntityIds, { dLng: d[0], dLat: d[1], deg: 0 }, phase)
+    if (phase === 'end') { endSheetPeek(); barFrom.current = null; moveRef.current = null }
   }
-  const drawRotUp = () => { if (drawRot.current && editDraw) onDrawingEdit?.(editDraw.id, editDraw.coords, 'end'); drawRot.current = null }
+  // The free dial. A rigid turn in the geo frame IS a rigid turn on screen whatever the map's
+  // bearing is (the screen frame is the geo one, rotated), so the bar's degrees go in unchanged;
+  // `xScale` only compensates that a degree of longitude is shorter than one of latitude.
+  const barRotate = (deg: number, phase: 'start' | 'move' | 'end') => {
+    if (phase === 'start') {
+      if (!barCentre) return
+      barFrom.current = { at: barCentre, coords: editDraw?.coords ?? [], rotation: selShape?.rotation ?? 0 }
+      if (editDraw) onDrawingEdit?.(editDraw.id, editDraw.coords, 'start')
+      else if (selShape) onShapeTransform?.(selShape.id, {}, 'start')
+      else onGroupTransform?.(selectedDrawIds, selectedEntityIds, { dLng: 0, dLat: 0, deg: 0 }, 'start')
+      return
+    }
+    const st = barFrom.current
+    if (!st) return
+    if (editDraw) {
+      const xScale = Math.cos((st.at[1] * Math.PI) / 180) || 1e-6
+      onDrawingEdit?.(editDraw.id, st.coords.map((c) => rotateAround(c as [number, number], st.at as [number, number], deg, { xScale, yUp: true }) as LngLat), phase)
+    } else if (selShape) {
+      // ⚠️ The bearing always rides a 'move': the entity writer deliberately ignores the patch on
+      // 'end' (it only closes the undo step there — MapMarkers · shapeUp sends {} for the same
+      // reason), so the last few degrees of the turn would be dropped on release.
+      onShapeTransform?.(selShape.id, { rotation: turnedBy(st.rotation, deg) }, 'move')
+      if (phase === 'end') onShapeTransform?.(selShape.id, {}, 'end')
+    } else onGroupTransform?.(selectedDrawIds, selectedEntityIds, { dLng: 0, dLat: 0, deg }, phase)
+    if (phase === 'end') barFrom.current = null
+  }
+  const barDelete = () => {
+    if (editDraw) onDrawingDelete?.(editDraw.id)
+    else if (selShape) onDelete(selShape.id)
+    else if (groupActive) onGroupDelete?.(selectedDrawIds, selectedEntityIds)
+  }
+  // ⟳ is absent, not inert, where the model carries no angle: an Absperrkreis is a centre and a
+  // radius, and a dead button at 3am is a button you keep pressing.
+  const barCanRotate = !!(groupActive ? onGroupTransform : editDraw ? !editCircle && onDrawingEdit : selShape && onShapeTransform)
+  const barShown = !!barCentre && !readOnly && !georefOn && !picking && !freehand && !draftKind && !measureKind
 
   /**
    * Continue a gesture that started on a «+» as a drag of the node it just inserted — the second
@@ -2150,46 +2170,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       })()}
       {hiddenAttachmentTargets.map((e) => <Marker key={`hidden-${e.id}`} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center"><span className="hidden-attachment-marker" /></Marker>)}
 
-      {/* Selected drawing — on-canvas edit handles: a move grip, a rotate knob above it, and (for
-          non-huge shapes) a draggable handle on every vertex.
-          ⚠️ NO delete ✕ here any more (01.09.). Three round buttons stacked over a line put a
-          DESTRUCTIVE action inside the cluster the operator reaches into to nudge the shape — and
-          the ✕ was the one that sat on a vertex node. Löschen lives in the detail sidebar, next to
-          everything else that changes the object, where it is a decision rather than a near-miss. */}
-      {editDraw && editHubAt && (
-        <Marker longitude={editHubAt[0]} latitude={editHubAt[1]} anchor="center" style={handleZ}>
-          <div className="draw-edit-hub">
-            {onDrawingEdit && !editCircle && (
-              <div className="draw-rotor">
-                <span className="draw-stem" />
-                <button
-                  className="draw-rotate"
-                  aria-label={appConfig.copy.shapes.rotate} data-holdaction
-                  onPointerDown={drawRotDown}
-                  onPointerMove={drawRotMove}
-                  onPointerUp={drawRotUp}
-                  onPointerCancel={drawRotUp}
-                  onClick={(ev) => ev.stopPropagation()}
-                ><Icon id="rotate" /></button>
-              </div>
-            )}
-          </div>
-        </Marker>
-      )}
-      {editDraw && editHubAt && onDrawingEdit && (
-        <Marker
-          longitude={editHubAt[0]}
-          latitude={editHubAt[1]}
-          anchor="center"
-          style={handleZ}
-          draggable
-          onDragStart={() => { beginSheetPeek(); moveRef.current = { start: editHubAt, coords: editDraw.coords }; onDrawingEdit(editDraw.id, editDraw.coords, 'start') }}
-          onDrag={(e) => { const m = moveRef.current; if (!m) return; const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, bodyMovedCoords(editDraw.id, dx, dy), 'move') }}
-          onDragEnd={(e) => { endSheetPeek(); const m = moveRef.current; if (!m) { onDrawingEdit(editDraw.id, editDraw.coords, 'end'); return } const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, bodyMovedCoords(editDraw.id, dx, dy), 'end'); moveRef.current = null }}
-        >
-          <div className="draw-move" title={appConfig.copy.drawingEditor.move} aria-label={appConfig.copy.drawingEditor.move}><Icon id="move" /></div>
-        </Marker>
-      )}
+      {/* ⚠️ On the object itself only GEOMETRY grips remain (01.09.): the node pads, the «+»
+          midpoints, Verlängern, «Verbindung lösen» and the Absperrkreis's radius ring. Moving,
+          turning and deleting the selection all moved off the ink and onto the one fixed bar at
+          the bottom of the surface (SelectionBar, rendered below) — the floating hub they used to
+          form grew exactly where the finger was already reaching. */}
       {/* «+» at each segment's midpoint of the SELECTED drawing — the same affordance the Messung
           has always had, and the Plan too. On the map inserting a node used to mean hitting the
           line's invisible 18px hit-band with no sign that this was possible at all (19.08.).
@@ -2341,36 +2326,50 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         )
       })}
 
-      {/* marquee group (≥2 drawings + entities): one move grip + delete at the combined centre */}
-      {groupCentroid && (
-        <Marker longitude={groupCentroid[0]} latitude={groupCentroid[1]} anchor="center" style={handleZ}>
-          <div className="draw-edit-hub">
-            {onGroupDelete && (
-              <button
-                className="draw-del"
-                title={appConfig.copy.delete}
-                aria-label={appConfig.copy.delete}
-                onPointerDown={(ev) => ev.stopPropagation()}
-                onClick={(ev) => { ev.stopPropagation(); onGroupDelete(selectedDrawIds, selectedEntityIds) }}
-              ><Icon id="close" /></button>
-            )}
-          </div>
-        </Marker>
+      {/* The Absperrkreis's ONE geometry grip: a node dot on the ring at screen-right, dragged
+          outward or in to set the radius — the gesture that placed it, offered again afterwards,
+          and the same grip the Plan carries (WbControls · WbCircleHandle). Until 01.09. the Karte
+          had only the editor's metre stepper for this, so the two surfaces answered «wie gross?»
+          in two different ways for the same object. Metres stay editable there for a radius that
+          has to be exact. */}
+      {editDraw && editCircle && onDrawingRadius && (() => {
+        const m = mapInst.current
+        const c = editDraw.coords[0]
+        // ring[0] is the circle's due-EAST point (lib/geo · circlePolygon starts at angle 0), so
+        // the grip sits ON the ring and turns with the map rather than with the screen
+        const edge = c && (circleRing(editDraw)[0] as LngLat | undefined)
+        if (!m || !c || !edge) return null
+        const radiusAt = (e: React.PointerEvent): number => {
+          const r = m.getContainer().getBoundingClientRect()
+          const at = m.unproject([e.clientX - r.left, e.clientY - r.top])
+          return Math.max(appConfig.drawing.circleMinRadiusM, Math.round(haversineM(c, [at.lng, at.lat])))
+        }
+        return (
+          <Marker longitude={edge[0]} latitude={edge[1]} anchor="center" style={handleZ}>
+            <div className="draw-handle" title={appConfig.copy.drawingEditor.radius} aria-label={appConfig.copy.drawingEditor.radius}
+              onPointerDown={(ev) => {
+                ev.stopPropagation(); ev.preventDefault()
+                ;(ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId)
+                // ⚠️ MapLibre arms DragPan on the separate NATIVE mousedown/touchstart, which no
+                // React stopPropagation can reach — without this the map pans under the grip
+                // (the same disable/enable pair the line-label drag needs, see labelDown).
+                setDragPanEnabled(false)
+                onDrawingRadius(editDraw.id, editDraw.radiusM ?? 0, 'start')
+              }}
+              onPointerMove={(ev) => { if ((ev.currentTarget as HTMLElement).hasPointerCapture(ev.pointerId)) onDrawingRadius(editDraw.id, radiusAt(ev), 'move') }}
+              onPointerUp={(ev) => { setDragPanEnabled(true); if ((ev.currentTarget as HTMLElement).hasPointerCapture(ev.pointerId)) onDrawingRadius(editDraw.id, radiusAt(ev), 'end') }}
+              onPointerCancel={() => { setDragPanEnabled(true); onDrawingRadius(editDraw.id, editDraw.radiusM ?? 0, 'end') }}
+            />
+          </Marker>
+        )
+      })()}
+
+      {/* ONE bar for every selection this surface has — see components/SelectionBar */}
+      {barShown && (
+        <SelectionBar onMove={barMove} onRotate={barCanRotate ? barRotate : undefined} onDelete={barDelete}
+          onGrab={(grabbing) => setDragPanEnabled(!grabbing)} />
       )}
-      {groupCentroid && onGroupMove && (
-        <Marker
-          longitude={groupCentroid[0]}
-          latitude={groupCentroid[1]}
-          anchor="center"
-          style={handleZ}
-          draggable
-          onDragStart={() => { beginSheetPeek(); groupMoveRef.current = { start: groupCentroid }; onGroupMove(selectedDrawIds, selectedEntityIds, 0, 0, 'start') }}
-          onDrag={(e) => { const s = groupMoveRef.current; if (!s) return; onGroupMove(selectedDrawIds, selectedEntityIds, e.lngLat.lng - s.start[0], e.lngLat.lat - s.start[1], 'move') }}
-          onDragEnd={(e) => { endSheetPeek(); const s = groupMoveRef.current; if (s) onGroupMove(selectedDrawIds, selectedEntityIds, e.lngLat.lng - s.start[0], e.lngLat.lat - s.start[1], 'end'); groupMoveRef.current = null }}
-        >
-          <div className="draw-move" title={appConfig.copy.drawingEditor.move} aria-label={appConfig.copy.drawingEditor.move}><Icon id="move" /></div>
-        </Marker>
-      )}
+
 
       {/* entity markers — guard against malformed entities (e.g. a server workspace
           missing a coord) so one bad row can't white-screen the whole map */}

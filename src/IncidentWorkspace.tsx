@@ -131,6 +131,7 @@ import {
 import { useAuditEvents } from './lib/useAuditEvents'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { applyRouting, moveLineBody, resolveMapDrawings, resolvePlanAnnos } from './lib/lineAttachments'
+import { centroid, rotateAround, turnedBy } from './lib/selectionTransform'
 import { leitungOptions, truppForLine, truppIsOut } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
@@ -1707,7 +1708,7 @@ export function IncidentWorkspace({
     draftActive, lineNodes, freehandArmed, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
+    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   } = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
@@ -2548,29 +2549,55 @@ export function IncidentWorkspace({
     }
     setTool('select')
   }
-  // drag the group by a (lng,lat) delta applied to each member (drawings' coords + entities'
-  // coord) from the snapshot taken at gesture start — the whole drag is one undo step.
-  const groupOrig = useRef<{ draws: Record<string, LngLat[]>; ents: Record<string, LngLat> }>({ draws: {}, ents: {} })
-  const moveGroup = (ids: string[], entIds: string[], dLng: number, dLat: number, phase: 'start' | 'move' | 'end') => {
+  // Move and/or turn the marquee group from the selection bar: a (lng,lat) delta and a turn in
+  // degrees, both applied to the snapshot taken at gesture start (drawings' coords + entities'
+  // coord) — so the whole drag is one undo step and no frame compounds on the last.
+  // A turn moves each member AROUND the group's centre and turns each member's own bearing by
+  // the same amount, which is what makes a boxed picture read as one rigid thing.
+  const groupOrig = useRef<{ draws: Record<string, LngLat[]>; ents: Record<string, Entity>; centre: LngLat | null }>({ draws: {}, ents: {}, centre: null })
+  const transformGroup = (ids: string[], entIds: string[], t: { dLng: number; dLat: number; deg: number }, phase: 'start' | 'move' | 'end') => {
     if (tacticalLocked) return
     if (phase === 'start') {
       beginDrag()
+      const draws = Object.fromEntries(ids.map((id) => [id, drawings.find((d) => d.id === id)?.coords ?? []]))
+      const ents = Object.fromEntries(entIds.flatMap((id) => { const e = entities.find((x) => x.id === id); return e ? [[id, e] as [string, Entity]] : [] }))
       groupOrig.current = {
-        draws: Object.fromEntries(ids.map((id) => [id, drawings.find((d) => d.id === id)?.coords ?? []])),
-        ents: Object.fromEntries(entIds.map((id) => [id, entities.find((e) => e.id === id)?.coord ?? [0, 0]] as [string, LngLat])),
+        draws,
+        ents,
+        centre: centroid([
+          ...Object.values(draws).flat().map((c) => c as [number, number]),
+          ...Object.values(ents).map((e) => e.coord as [number, number]),
+        ]),
       }
       return
     }
+    const { draws, ents, centre } = groupOrig.current
+    // rigid in a local east/north frame, so the turn looks like a turn at any latitude
+    const xScale = centre ? Math.cos((centre[1] * Math.PI) / 180) || 1e-6 : 1
+    const turn = (c: LngLat): LngLat => (t.deg && centre
+      ? rotateAround(c as [number, number], centre as [number, number], t.deg, { xScale, yUp: true }) as LngLat
+      : c)
     setDocRaw((d) => ({
       ...d,
-      drawings: d.drawings.map((dr) => (ids.includes(dr.id) && groupOrig.current.draws[dr.id]
-        ? { ...dr, coords: moveLineBody({ id: dr.id, points: groupOrig.current.draws[dr.id], startAttachment: dr.startAttachment, endAttachment: dr.endAttachment }, [dLng, dLat]) }
+      drawings: d.drawings.map((dr) => (ids.includes(dr.id) && draws[dr.id]
+        ? { ...dr, coords: moveLineBody({ id: dr.id, points: draws[dr.id].map(turn), startAttachment: dr.startAttachment, endAttachment: dr.endAttachment }, [t.dLng, t.dLat]) }
         : dr)),
-      entities: d.entities.map((e) => (entIds.includes(e.id) && groupOrig.current.ents[e.id] ? { ...e, coord: [groupOrig.current.ents[e.id][0] + dLng, groupOrig.current.ents[e.id][1] + dLat] as LngLat } : e)),
+      entities: d.entities.map((e) => {
+        const o = entIds.includes(e.id) ? ents[e.id] : undefined
+        if (!o) return e
+        const [lng, lat] = turn(o.coord)
+        return {
+          ...e,
+          coord: [lng + t.dLng, lat + t.dLat] as LngLat,
+          // a symbol's own bearing is geographic too, so it turns with the picture
+          ...(t.deg && o.rotation !== undefined ? { rotation: turnedBy(o.rotation, t.deg) } : null),
+          ...(t.deg && o.rotation2 !== undefined ? { rotation2: turnedBy(o.rotation2, t.deg) } : null),
+        }
+      }),
     }))
     if (phase === 'end') {
       endDrag()
-      groupOrig.current = { draws: {}, ents: {} }
+      groupOrig.current = { draws: {}, ents: {}, centre: null }
     }
   }
   // a team marker that carries recorded positions is protected from deletion — its trail is
@@ -3743,6 +3770,7 @@ export function IncidentWorkspace({
           onDelete={deleteEntity}
           selectedDrawing={selectedDrawing}
           onDrawingEdit={editDrawingCoords}
+          onDrawingRadius={editDrawingRadius}
           onDrawingVertexInsert={insertDrawingVertex}
           onDrawingVertexDelete={deleteDrawingVertex}
           onDrawingDelete={deleteDrawing}
@@ -3752,7 +3780,7 @@ export function IncidentWorkspace({
           selectedDrawIds={selectedDrawIds}
           selectedEntityIds={selectedEntityIds}
           onMarquee={onMarquee}
-          onGroupMove={moveGroup}
+          onGroupTransform={transformGroup}
           onGroupDelete={deleteGroup}
         />
       ) : (

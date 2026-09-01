@@ -2181,6 +2181,9 @@ export const de = {
     // FKS: eine betroffene Fläche wird schraffiert, nicht gewaschen (Brandzone/Flächenbrand)
     fillHatch: 'Schraffiert',
     move: 'Verschieben',
+    // die feste Auswahl-Leiste unten an Karte und Plan (SelectionBar) — Gruppenname für
+    // Screenreader; ihre drei Knöpfe tragen move / shapes.rotate / delete
+    selectionBar: 'Auswahl',
     points: 'Punkte',
     preset: 'Stil',
     color: 'Farbe',

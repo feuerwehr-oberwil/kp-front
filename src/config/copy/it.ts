@@ -1513,6 +1513,7 @@ export const it: Localizable<Copy> = {
     fill: 'Riempimento',
     fillHatch: 'Tratteggiato',
     move: 'Sposta',
+    selectionBar: 'Selezione',
     points: 'Punti',
     preset: 'Stile',
     color: 'Colore',
