@@ -3571,6 +3571,56 @@ export function IncidentWorkspace({
     })
   }
   /**
+   * The mirrored Truppmarker's context bar on the Karte — the SAME actions the original wears on
+   * the Plan (Whiteboard · twinTeam) and a native Trupp wears here (MapMarkers), each writing the
+   * ONE plan annotation. Until 01.09. a mirrored Trupp on the Karte was a bare dot with a
+   * read-only plaque behind it, while the same object on the Plan carried the whole bar: one
+   * mirror, two answers.
+   */
+  const contentTwinTeam = {
+    rename: (t: MapContentTwin, name: string) => {
+      const label = name.trim()
+      if (!label || label === t.anno.text || t.anno.truppId) return
+      editPlanTwinSource(t, { text: label })
+    },
+    pick: (t: MapContentTwin, truppId?: string) => {
+      if (truppId) void adoptTruppMarker(truppId, t.annoId)
+      else releaseTruppMarker(t.annoId)
+    },
+    // a marker bound to a Trupp paints the TRUPP (card, plan chip and Lage marker follow); a
+    // loose one has no Trupp to write and just takes the colour itself — the native rule
+    color: (t: MapContentTwin, c: string | null) => {
+      if (t.anno.truppId) setTruppColor(t.anno.truppId, c)
+      else editPlanTwinSource(t, { color: c ?? undefined })
+    },
+    // marking is the ONLY way a position is recorded, on every surface: a dot exists exactly
+    // where somebody chose to log one (useTeamMarkerActions · markTeamPosition)
+    mark: (t: MapContentTwin) => {
+      const a = t.anno
+      const now = formatTime(new Date())
+      editPlanTwinSource(t, { t: now, trail: [...(a.trail ?? []), { x: a.x ?? 0, y: a.y ?? 0, floor: a.floor ?? 0, t: now }] })
+      log('flag', fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: a.text ?? '' }))
+      toast(fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: a.text ?? '' }))
+    },
+    clearTrail: (t: MapContentTwin) => {
+      const a = t.anno
+      if (!a.trail?.length) return
+      void confirmDialog({
+        title: appConfig.copy.whiteboard.clearTrail,
+        message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: a.text ?? '', n: a.trail.length }),
+        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      }).then((ok) => {
+        if (!ok) return
+        editPlanTwinSource(t, { trail: [] })
+        log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: a.text ?? '' }))
+      })
+    },
+    remove: (t: MapContentTwin) => { void deletePlanTwinSource(t) },
+    showTrupp: (truppId: string) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) },
+    toOriginal: (t: MapContentTwin) => goToTwinSource(t),
+  }
+
+  /**
    * The roster's spelling of every name on a Trupp, applied ON THE WAY IN.
    *
    * ⚠️ The Trupp's name is what the rest of the app draws from — the card, the hose tag, the
@@ -3703,6 +3753,7 @@ export function IncidentWorkspace({
           // the LockChip on a mirrored Fläche/Linie/Form: unlocking hands editing back and
           // opens its editor, the same pair of steps the map's own onUnlockDrawing makes
           onContentTwinUnlock={tacticalLocked ? undefined : (t) => { editPlanTwinSource(t, { locked: undefined }); openContentTwinView(t) }}
+          contentTwinTeam={tacticalLocked ? undefined : contentTwinTeam}
           selectedTwinKey={twinView?.key}
           selectedContentTwinKey={contentTwinView?.key}
           georefPlanRasters={georefPlanRasters}
@@ -4406,6 +4457,10 @@ export function IncidentWorkspace({
             />
           )
         }
+        // a mirrored Truppmarker is edited from its own context bar on the map (the original's
+        // grammar on both surfaces — GeorefContentMap · TwinTeamPill), so no panel opens for it.
+        // On a LOCKED surface the bar is absent and the plaque below is what remains.
+        if (a.kind === 'resource' && !tacticalLocked) return null
         const isNote = a.kind === 'text'
         return (
           <GeorefTwinPanel
@@ -4838,6 +4893,7 @@ export function IncidentWorkspace({
           onTwinDrawingDetach={detachTwinDrawing}
           onTwinDrawingFocusAttachment={focusTwinDrawingAttachment}
           onTwinDrawingDelete={(id) => { void deleteDrawing(id) }}
+          twinSelectedEntityId={planTwinEntityId}
           layersOn={panel === 'layers'}
           // the Ebenen button appears only on a linked sheet: with no fit the map lends it
           // nothing, and the panel would be an empty room

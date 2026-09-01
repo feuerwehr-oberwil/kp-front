@@ -32,10 +32,11 @@ import { MARKER_Z } from '../lib/labelPass'
 import { Layer, Marker, Source } from 'react-map-gl/maplibre'
 import { useMapTwinDrag } from '../lib/mapTwinDrag'
 import { LockChip } from './LockChip'
+import { TwinTeamPill } from './TwinTeamPill'
 import { contentTwinName, type MapContentTwin } from '../lib/georefTwins'
-import { ShapeGlyph, shapeAspect } from '../lib/shapes'
+import { SHAPE_MAX_PX, ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { noteScale } from '../lib/notes'
-import { worldPx, TEAM_DOT_PX } from '../lib/mapView'
+import { worldPx, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { fmtArea, fmtDistance, haversineM, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
 import { DEFAULT_INK, EXTEND_STEP_PX, lerpPoint, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork } from '../lib/lineDecor'
@@ -53,10 +54,14 @@ const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
 
 const INERT: CSSProperties = { pointerEvents: 'none' }
 
-export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, interactive = false, selectedKey = null, onOpenTwin, onMoveTwin, onEditTwinAnno, onUnlockTwin, project, unproject, setDragPan }: {
+export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, hiddenTrails, suppressedLabels, interactive = false, selectedKey = null, onOpenTwin, onMoveTwin, onEditTwinAnno, onUnlockTwin, teamActions, onToggleTrail, project, unproject, setDragPan }: {
   twins: MapContentTwin[]
   zoom: number
   bearing: number
+  /** the map's own per-team Spuren switch — one surface, one switch, mirrored trails included */
+  hiddenTrails?: ReadonlySet<string>
+  /** the map's ONE label pass (lib/labelPass), keyed `tdl:` / `ttag:` / `tteam:` + the twin key */
+  suppressedLabels?: ReadonlySet<string>
   /** the Atemschutz board, so a mirrored Leitung's tag carries its Trupp and clock tone */
   trupps?: Trupp[]
   truppSeverities?: Record<string, 1 | 2>
@@ -77,6 +82,21 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
   /** unlock a mirrored line/area/shape through its projection — the LockChip's only job, and the
    *  only door back into a locked object on this surface (MapView · lockChips) */
   onUnlockTwin?: (twin: MapContentTwin) => void
+  /** The mirrored Truppmarker's context bar — the SAME bar the original wears on the Plan, and
+   *  the same one a native Trupp wears here (MapMarkers · wb-pill-acts). Every action writes the
+   *  ONE plan annotation; absent on a locked surface, where the read-only plaque takes over. */
+  teamActions?: {
+    rename: (twin: MapContentTwin, name: string) => void
+    pick: (twin: MapContentTwin, truppId?: string) => void
+    color: (twin: MapContentTwin, color: string | null) => void
+    mark: (twin: MapContentTwin) => void
+    clearTrail: (twin: MapContentTwin) => void
+    remove: (twin: MapContentTwin) => void
+    showTrupp: (truppId: string) => void
+    toOriginal: (twin: MapContentTwin) => void
+  }
+  /** the map's own per-team Spuren switch (MapView state) — one surface, one switch */
+  onToggleTrail?: (id: string) => void
   /** the live map transform + pan switch, for the drag above (same trio MapMarkers uses) */
   project?: (c: LngLat) => { x: number; y: number } | undefined
   unproject?: (p: { x: number; y: number }) => LngLat | undefined
@@ -138,9 +158,14 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
         properties: {
           twinKey: t.key,
           color: a.color || appConfig.drawing.colors[0],
-          width: a.width ?? (polygon ? 3 : 5),
+          // the MAP's own default weight, not the plan's 5/3: a projection paints like the ink
+          // beside it on the surface it is drawn on (MapView · drawFC)
+          width: a.width || 4,
           dashed: !!a.dashed,
           fillOpacity: a.fillOpacity ?? 0.14,
+          // ⚠️ Schraffur is FKS meaning, not decoration («betroffene Fläche») — a hatched Fläche
+          // that mirrored as an ordinary washed one said something else about the ground.
+          hatch: !!a.hatch,
           truppTone: tone === 'warn' || tone === 'crit' ? tone : '',
           locked: !!a.locked,
         },
@@ -180,8 +205,13 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
           <Layer id="l-georef-content-sel" type="line" filter={['==', ['get', 'twinKey'], selectedKey ?? '__none__'] as never}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.5 } as never} />
-          <Layer id="l-georef-content-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon'] as never}
+          {/* fill and Schraffur are separate layers for the same reason the map's own are: a
+              `fill-pattern` cannot be tinted, so there is one registered tile per draw colour
+              (MapView · ensureArrow registers them on the map instance). */}
+          <Layer id="l-georef-content-fill" type="fill" filter={['all', ['==', ['geometry-type'], 'Polygon'], ['!', ['get', 'hatch']]] as never}
             paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': ['get', 'fillOpacity'] } as never} />
+          <Layer id="l-georef-content-hatch" type="fill" filter={['all', ['==', ['geometry-type'], 'Polygon'], ['get', 'hatch']] as never}
+            paint={{ 'fill-pattern': ['concat', 'hatch-', ['downcase', ['get', 'color']]] } as never} />
           {/* solid + dashed split: line-dasharray cannot be data-driven (MapView says the same) */}
           <Layer id="l-georef-content-line" type="line" filter={['!', ['get', 'dashed']] as never}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
@@ -390,11 +420,14 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
         }
         if (!t.coord || a.x == null || a.y == null) return null
         if (a.kind === 'shape') {
+          const kind = a.shape ?? 'square'
           const edge = t.fit.toMap({ x: a.x + (a.sizeN ?? 0.1), y: a.y })
-          const px = Math.max(12, projectedPx(t.coord, [edge.lng, edge.lat], zoom))
+          // the MAP's own px band for a shape — floor 24, and the per-kind ceiling a native
+          // stops at (lib/mapView · shapePx). A twin-only «12 and no ceiling» let a big mirrored
+          // Rechteck keep growing past the size the object beside it is capped to.
+          const px = Math.max(24, Math.min(SHAPE_MAX_PX[kind], projectedPx(t.coord, [edge.lng, edge.lat], zoom)))
           // height follows the source's stretched box (BoardAnno.aspect — height per plan
           // WIDTH unit, same as the sheet renders it), so the mirror keeps its geometry
-          const kind = a.shape ?? 'square'
           const glyph = (
             <span className={`${s.contentMap} shape-glyph`} style={{ display: 'block', width: px, height: px * shapeAspect(kind, a.aspect), transform: `rotate(${(a.rotation ?? 0) - t.fit.rotationDeg - bearing}deg)` }}>
               <ShapeGlyph kind={kind} color={a.color ?? DEFAULT_INK} stop={a.stop} aspect={a.aspect} carrier={a.carrier} reverse={a.reverse} strokeW={a.strokeW} boxPx={px} fillOpacity={a.fillOpacity} hatch={a.hatch} sharpCorners={a.sharpCorners} />
@@ -413,14 +446,16 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
             </Fragment>
           }
           return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" onClick={(ev) => ev.originalEvent.stopPropagation()}>
-            {tapTarget(t, t.coord, canDragAny, '', glyph)}
+            {/* the halo tracks the BOX, exactly as a native shape's does (03-map.css ·
+                .marker.sel --hbox) — pinned at 44px it drew a 104px ring inside a 600px shape */}
+            {tapTarget(t, t.coord, canDragAny, '', glyph, { ['--hbox' as string]: `${Math.max(px, 56)}px` })}
           </Marker>
         }
         if (a.kind === 'text') {
           const edge = t.fit.toMap({ x: a.x + (a.wN ?? 0.18), y: a.y })
           const width = Math.max(72, projectedPx(t.coord, [edge.lng, edge.lat], zoom))
           const tinted = !a.notePlain && !!a.color
-          const cls = `note-pill box${a.notePlain ? ' plain' : ''}${tinted ? ' tinted' : ''}`
+          const cls = `note-pill box${a.notePlain ? ' plain' : ''}${tinted ? ' tinted' : ''}${selectedKey === t.key ? ' twin-sel' : ''}`
           const style = {
             width, fontSize: 12 * noteScale(a.noteSize),
             ...(a.color ? (a.notePlain ? { color: a.color } : { '--note-tint': a.color }) : null),
@@ -435,29 +470,69 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
           </Marker>
         }
         if (a.kind === 'resource') {
-          const trail = (a.trail ?? []).map((p) => {
+          const teamCol = a.color || appConfig.drawing.teamColors[0]
+          const trailShown = !hiddenTrails?.has(t.annoId)
+          const trail = trailShown ? (a.trail ?? []).map((p) => {
             const c = t.fit.toMap({ x: p.x, y: p.y })
-            return [c.lng, c.lat] as LngLat
-          })
-          const trailData = { type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: trail }, properties: {} }
-          const style = { '--team': a.color || appConfig.drawing.teamColors[0] } as CSSProperties
-          const chip = <><i /><b>{a.text}</b></>
+            return { coord: [c.lng, c.lat] as LngLat, t: p.t }
+          }) : []
+          const trailData = { type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: trail.map((p) => p.coord) }, properties: {} }
+          // «raus» dims and strikes the chip on both native surfaces — a Trupp that is out
+          // still reading as in is the one thing this marker must never say (safety)
+          const isRaus = !!a.truppId && trupps.some((tr) => tr.id === a.truppId && tr.status === 'raus')
+          const selected = selectedKey === t.key && !!teamActions
+          const nameHidden = !!a.text && !!suppressedLabels?.has(`tteam:${t.key}`)
+          const style = { '--team': teamCol } as CSSProperties
+          const chip = <><i />{!nameHidden && <b>{a.text}</b>}</>
           return <Fragment key={t.key}>
             {trail.length >= 2 && <Source id={`s-georef-trail-${i}`} type="geojson" data={trailData}>
-              <Layer id={`l-georef-trail-${i}`} type="line" paint={{ 'line-color': a.color || appConfig.drawing.teamColors[0], 'line-width': 2, 'line-opacity': 0.85, 'line-dasharray': [2.5, 2.5] }} />
+              <Layer id={`l-georef-trail-${i}`} type="line" paint={{ 'line-color': teamCol, 'line-width': 2, 'line-opacity': 0.85, 'line-dasharray': [2.5, 2.5] }} />
             </Source>}
+            {/* the breadcrumbs themselves — the dot AND the recorded time at every marked
+                position, exactly as the Karte's own trails read (MapMarkers · map-trail-dot).
+                The path alone is a route; the times are the record. */}
+            {trail.map((p, j) => (
+              <Marker key={`tr-${j}`} longitude={p.coord[0]} latitude={p.coord[1]} anchor="center" style={INERT}>
+                <div className="map-trail-dot">
+                  <span className="wb-trail-mark" style={{ background: teamCol }} />
+                  <i>{p.t}</i>
+                </div>
+              </Marker>
+            ))}
             {/* ⚠️ A Trupp marker is a STRIP — [dot][gap][name] — anchored by its LEFT edge with
                 half a dot taken back, so the DOT sits on the coordinate and the name merely hangs
                 off it. Same anchor + offset the Karte's own Trupp markers use (MapMarkers), which
                 is the whole point: on this surface a mirrored chip stands next to the original,
-                and two anchorings side by side put them half a name's width apart. */}
+                and two anchorings side by side put them half a name's width apart. The selected
+                pill takes its accent cap back instead, so selecting does not shift the point. */}
             {!interactive || !onOpenTwin ? (
               <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="left" offset={[-TEAM_DOT_PX / 2, 0]} style={INERT}>
-                <span className={`${s.contentMap} team-dot`} style={style}>{chip}</span>
+                <span className={`${s.contentMap} team-dot ${isRaus ? 'raus' : ''}`} style={style}>{chip}</span>
+              </Marker>
+            ) : !selected ? (
+              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="left" offset={[-TEAM_DOT_PX / 2, 0]} onClick={(ev) => ev.originalEvent.stopPropagation()}>
+                {tapTarget(t, t.coord, canDragAny, '', <span className={`team-dot ${isRaus ? 'raus' : ''}`}>{chip}</span>, style)}
               </Marker>
             ) : (
-              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="left" offset={[-TEAM_DOT_PX / 2, 0]} onClick={(ev) => ev.originalEvent.stopPropagation()}>
-                {tapTarget(t, t.coord, canDragAny, '', <span className="team-dot">{chip}</span>, style)}
+              <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="left" offset={[-TEAM_PILL_CAP_PX, 0]}
+                style={{ zIndex: MARKER_Z.selected }} onClick={(ev) => ev.originalEvent.stopPropagation()}>
+                <TwinTeamPill
+                  name={a.text ?? ''} time={a.t} color={teamCol} colorSet={a.color}
+                  originalLabel={fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: t.planCode })}
+                  raus={isRaus} truppId={a.truppId} trailCount={a.trail?.length ?? 0} trailShown={trailShown}
+                  trupps={trupps}
+                  acts={{
+                    rename: (name) => teamActions!.rename(t, name),
+                    pick: (truppId) => teamActions!.pick(t, truppId),
+                    color: (c) => teamActions!.color(t, c),
+                    mark: () => teamActions!.mark(t),
+                    clearTrail: () => teamActions!.clearTrail(t),
+                    remove: () => teamActions!.remove(t),
+                    showTrupp: teamActions!.showTrupp,
+                    toOriginal: () => teamActions!.toOriginal(t),
+                    toggleTrail: () => onToggleTrail?.(t.annoId),
+                  }}
+                  hit={(children) => tapTarget(t, t.coord!, canDragAny, '', children)} />
               </Marker>
             )}
           </Fragment>

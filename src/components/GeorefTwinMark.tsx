@@ -26,25 +26,22 @@
  *     of the recorded incident, and the vehicle feed is the present tense. The caller gates it
  *     (IncidentWorkspace passes empty lists while `replayActive`).
  */
-import { TacticalSymbol } from '../lib/symbolRender'
+import { HubretterBoom, TacticalSymbol } from '../lib/symbolRender'
 import { useRef } from 'react'
+import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import type { SymbolProps } from '../types'
 import s from './GeorefTwins.module.css'
 
 /**
  * The one mark, positioned by its caller.
  *
- * The same symbol renderer carries the source's caption decision across — and its storey badge
- * and Entwicklung spread arrows too, drawn exactly as the source draws them (doctrine 30.08.:
- * presentation-equivalent, never re-aimed through the fit). Only the Hubretter boom
- * remains source-only: metre-scaled geometry the projection has no honest length for.
+ * The same symbol renderer carries the source's caption decision across — and its storey badge,
+ * its Entwicklung spread arrows and a Hubretter's boom too, drawn exactly as the source draws
+ * them (doctrine 30.08.: presentation-equivalent, never re-aimed through the fit). The boom's
+ * LENGTH is resolved by each renderer in its own surface's units — metres on the Karte, a sheet
+ * fraction on the Plan — because that is the one thing the two frames cannot share.
  */
-/** Pointer travel that turns a tap into a drag. Small — the operator is aiming at a symbol they
- *  can already see, so the gesture is deliberate from the first millimetre — but not zero, or a
- *  fingertip's own wobble on a glove would move the object on every tap. */
-const DRAG_SLOP_PX = 4
-
-export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, caption, title, onOpen, onMove, onGesture, gestureMovable = false, interactive = true, selected = false, style, className }: {
+export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, boom, caption, title, onOpen, onMove, onGesture, gestureMovable = false, interactive = true, selected = false, style, className }: {
   svg: string
   sizePx: number
   rotation: number
@@ -58,6 +55,9 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
   /** a composite's fan/ladder over the base body, already aimed by the caller (lib/twinGlyph ·
    *  overlayFor) — without it a mirrored Grosslüfter was just a bare vehicle body */
   overlay?: { svg: string; rotation?: number; scale?: number }
+  /** a Hubretter's articulated boom over the base body, already aimed and sized by the caller
+   *  (lib/twinGlyph · boomFor) — without it a mirrored Hubretter was a bare Fahrzeug */
+  boom?: { lengthPx: number; deg: number }
   /** Exactly the caption the source surface gives this symbol. Null means neither source nor
    *  projection invents a name plaque merely because it crossed the georeference. */
   caption?: string | null
@@ -128,7 +128,9 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
     const dx = e.clientX - d.x, dy = e.clientY - d.y
     // …the first sample past the slop opens the drag, so a tap that never travels stays a tap
     if (!d.moved) {
-      if (Math.hypot(dx, dy) < DRAG_SLOP_PX) return
+      // the SHARED deadzone every drag on both surfaces uses (useHoldToDrag) — this layer had
+      // its own 4 px, so two twins standing next to each other answered a nudge differently
+      if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
       d.moved = true
       onMove?.('start', 0, 0)
     }
@@ -173,6 +175,8 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
       <TacticalSymbol svg={svg} sizePx={sizePx} rotation={rotation} count={count}
         floor={floor} floorFrom={floorFrom} floorTo={floorTo}
         spread={spread} overlay={overlay} caption={caption} />
+      {/* boom AFTER the body → paints on top, the way both source surfaces mount it */}
+      {boom && <HubretterBoom lengthPx={boom.lengthPx} deg={boom.deg} />}
     </button>
   )
 }

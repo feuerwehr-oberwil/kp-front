@@ -12,9 +12,11 @@ import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { ROTATABLE } from '../lib/symbols'
 import { MARKER_Z } from '../lib/labelPass'
 import { type MapTwin } from '../lib/georefTwins'
-import { symPx } from '../lib/mapView'
+import { pxPerM, symPx } from '../lib/mapView'
 import { TwinMark } from './GeorefTwinMark'
-import { glyphFor, overlayFor, twinName } from '../lib/twinGlyph'
+import { boomFor, glyphFor, overlayFor, twinName } from '../lib/twinGlyph'
+import { haversineM } from '../lib/geo'
+import { isHubretter } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import type { CaptionMode, LngLat } from '../types'
@@ -32,7 +34,7 @@ import type { CaptionMode, LngLat } from '../types'
  * Memoised: the projection itself is done once per board/fit change by the caller, and
  * this tree then re-renders only when that list, the zoom or the bearing actually moves.
  */
-export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', interactive = true, selectedKey, onOpen, onMove, project, unproject, setDragPan }: {
+export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, interactive = true, selectedKey, onOpen, onMove, project, unproject, setDragPan }: {
   twins: MapTwin[]
   byName: Record<string, string>
   zoom: number
@@ -41,6 +43,9 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
   bearing?: number
   symMul?: number
   captionMode?: CaptionMode
+  /** the map's ONE label pass (lib/labelPass), keyed `tcap:<twin key>` — a twin's caption is
+   *  arbitrated against every native label instead of being drawn over them */
+  suppressedLabels?: ReadonlySet<string>
   /** the map is at rest (Auswahl, no pairing, no armed tool) — only then may a twin answer a
    *  tap. Otherwise it stays on screen and goes inert: a tap during placement belongs to the
    *  thing being placed, and a tap during «Karte verknüpfen» is half of a reference pair. */
@@ -83,8 +88,21 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
         // ⚠️ Only for DIRECTIONAL glyphs — an upright badge (no rotation control) stays upright,
         // as it does on both source surfaces (see GeorefTwinsBoard).
         const rot = veh || (!!a.symbol && ROTATABLE.has(a.symbol)) ? (a.rotation ?? 0) - t.fit.rotationDeg - bearing : 0
-        const svg = veh ? vehicleSymbolSvg(name, rot) : glyphFor(a, byName)
+        // ⚠️ the third argument is passed explicitly, like both other call sites (MapMarkers,
+        // GeorefTwinsBoard): a plan annotation carries no `directed` (it is ENTITY_MAP_ONLY), so
+        // a mirrored Fahrzeug always states its heading — never silently, by omission.
+        const svg = veh ? vehicleSymbolSvg(name, rot, true) : glyphFor(a, byName)
         const rawCaption = symbolCaptionText(a, captionMode)
+        const capHidden = !!rawCaption && !!suppressedLabels?.has(`tcap:${t.key}`)
+        // the boom's reach is a sheet fraction on the source; projected through the fit it is a
+        // ground distance, and from there the map's own px — the same band the native uses
+        const boomPx = isHubretter(a.symbol) && a.x != null && a.y != null
+          ? (() => {
+            const edge = t.fit.toMap({ x: a.x! + (a.reachN ?? 0.12), y: a.y! })
+            const reachM = haversineM(t.coord, [edge.lng, edge.lat])
+            return Math.max(24, Math.min(900, reachM * pxPerM(t.coord[1], zoom)))
+          })()
+          : 0
         return (
           <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center"
             style={{ zIndex: MARKER_Z.twin }}
@@ -105,7 +123,8 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
               floor={a.storey} floorFrom={a.floorFrom} floorTo={a.floorTo}
               spread={a.spread}
               overlay={veh ? undefined : overlayFor(a, byName, -t.fit.rotationDeg - bearing)}
-              caption={rawCaption ? softHyphenateText(rawCaption) : rawCaption}
+              boom={boomFor(a, boomPx, -t.fit.rotationDeg - bearing)}
+              caption={capHidden || !rawCaption ? null : softHyphenateText(rawCaption)}
               title={fillTemplate(C.twinFromPlan, { name, plan: t.planCode })}
               onOpen={() => onOpen(t)}
               // the layer's shared hold gesture runs the press and hands back ground coordinates

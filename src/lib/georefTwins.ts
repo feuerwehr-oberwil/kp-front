@@ -405,6 +405,9 @@ export function boardDrawingTwins(drawings: Drawing[], fit: GeorefFit, margin = 
         color: drawing.color, width: drawing.width, dashed: drawing.dashed,
         arrow: drawing.arrow, arrowStop: drawing.arrowStop, marker: drawing.marker, showDistance: drawing.showDistance,
         label: drawing.label, fillOpacity: drawing.fillOpacity,
+        // ⚠️ Schraffur crosses too. It is FKS MEANING, not decoration — a «betroffene Fläche»
+        // mirrored as an ordinary washed one says something else about the ground (01.09.).
+        hatch: drawing.hatch,
         labelDx: labelAt && mid ? labelAt.x - mid[0] : undefined,
         labelDy: labelAt && mid ? labelAt.y - mid[1] : undefined,
         endDx: endAt && tagBase ? endAt.x - tagBase[0] : undefined,

@@ -231,3 +231,75 @@ describe('broader Plan content on the Karte', () => {
     expect(buttons[0].className).toContain('draw-lock-chip')
   })
 })
+
+describe('presentation equivalence on the Karte (01.09.)', () => {
+  it('carries the Schraffur across and paints it in its own fill layer', () => {
+    const twins: MapContentTwin[] = [{
+      ...point({ id: 'a', kind: 'area', pts: [[0.1, 0.1], [0.8, 0.1], [0.8, 0.8]], hatch: true }),
+      coords: [[7.5, 47.5], [7.501, 47.5], [7.501, 47.499]],
+    }]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} />)
+    expect(inkProps(container)[0].hatch).toBe(true)
+    expect(layerIds()).toContain('l-georef-content-hatch')
+    // …and MapView picks that layer, or a hatched Fläche would be pointer-dead over its fill
+    expect(GEOREF_CONTENT_PICK_LAYERS).toContain('l-georef-content-hatch')
+  })
+
+  it('uses the MAP surface default line weight, not the plan sheet default', () => {
+    const twins: MapContentTwin[] = [
+      { ...point({ id: 'l', kind: 'draw', pts: [[0, 0], [1, 1]] }), coords: [[7.5, 47.5], [7.501, 47.499]] },
+    ]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} />)
+    expect(inkProps(container)[0].width).toBe(4)
+  })
+
+  it('sizes a mirrored Form in the map band and lets its halo follow the box', () => {
+    // 0.4 plan units ≈ 0.0004° ≈ far past the 900px ceiling at this zoom
+    const twins = [point({ id: 'big', kind: 'shape', x: 0.1, y: 0.5, shape: 'square', sizeN: 0.4 })]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={22} bearing={0} interactive selectedKey="big"
+      onOpenTwin={() => {}} project={project} unproject={unproject} setDragPan={() => {}} />)
+    const glyph = container.querySelector<HTMLElement>('.shape-glyph')!
+    const px = parseFloat(glyph.style.width)
+    expect(px).toBeLessThanOrEqual(900)
+    expect(px).toBeGreaterThanOrEqual(24)
+    // the halo box tracks the shape instead of the old fixed 44px
+    expect(container.querySelector<HTMLElement>('button')!.style.getPropertyValue('--hbox')).toBe(`${Math.max(px, 56)}px`)
+  })
+
+  it('a mirrored Trupp states «raus», its recorded times, and answers the Spuren switch', () => {
+    const anno: BoardAnno = {
+      id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1', truppId: 't1',
+      trail: [{ x: 0.4, y: 0.4, t: '08:12' }, { x: 0.45, y: 0.45, t: '08:20' }],
+    }
+    const trupps = [{ id: 't1', name: 'Trupp 1', status: 'raus' } as never]
+    const { container, rerender } = render(<GeorefContentMap twins={[point(anno)]} zoom={18} bearing={0} trupps={trupps} />)
+    expect(container.querySelector('.team-dot')?.className).toContain('raus')
+    expect(screen.getByText('08:12')).toBeTruthy()
+    expect(screen.getByText('08:20')).toBeTruthy()
+    rerender(<GeorefContentMap twins={[point(anno)]} zoom={18} bearing={0} trupps={trupps} hiddenTrails={new Set(['team'])} />)
+    expect(screen.queryByText('08:12')).toBeNull()
+  })
+
+  it('gives the selected mirrored Trupp the full context bar, not a plaque', () => {
+    const anno: BoardAnno = { id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1' }
+    const remove = vi.fn()
+    const acts = {
+      rename: vi.fn(), pick: vi.fn(), color: vi.fn(), mark: vi.fn(), clearTrail: vi.fn(),
+      remove, showTrupp: vi.fn(), toOriginal: vi.fn(),
+    }
+    const { container } = render(<GeorefContentMap twins={[point(anno)]} zoom={18} bearing={0} interactive
+      selectedKey="team" teamActions={acts} onOpenTwin={() => {}}
+      project={project} unproject={unproject} setDragPan={() => {}} />)
+    expect(container.querySelector('.wb-resource-pill')).toBeTruthy()
+    const del = container.querySelector<HTMLButtonElement>('.wb-pa-del')!
+    fireEvent.click(del)
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(remove.mock.calls[0][0].annoId).toBe('team')
+  })
+
+  it('lets the map label pass suppress a mirrored Trupp name', () => {
+    const anno: BoardAnno = { id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1' }
+    render(<GeorefContentMap twins={[point(anno)]} zoom={18} bearing={0} suppressedLabels={new Set(['tteam:team'])} />)
+    expect(screen.queryByText('Trupp 1')).toBeNull()
+  })
+})

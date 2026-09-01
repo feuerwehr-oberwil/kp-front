@@ -272,6 +272,16 @@ describe('broader Karte content → plan', () => {
     ], FIT)
     expect(twins.map((t) => t.anno.locked)).toEqual([true, undefined])
   })
+
+  // D-17: Schraffur is FKS meaning («betroffene Fläche»), not decoration — dropping it changes
+  // what the mirror says about the ground, not merely how it looks.
+  it('carries the Schraffur across', () => {
+    const twins = boardDrawingTwins([
+      { id: 'betroffen', kind: 'area', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat - 0.0001]], hatch: true },
+      { id: 'gewaschen', kind: 'area', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat - 0.0001]] },
+    ], FIT)
+    expect(twins.map((t) => t.anno.hatch)).toEqual([true, undefined])
+  })
 })
 
 describe('ownership transfer keeps one object', () => {

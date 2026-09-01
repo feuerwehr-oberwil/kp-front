@@ -345,6 +345,9 @@ interface Props {
   onContentTwinEdit?: (twin: MapContentTwin, patch: Partial<BoardAnno>, phase: 'live' | 'commit') => void
   /** unlock a mirrored plan line/area/shape through its LockChip — the twin of onUnlockDrawing */
   onContentTwinUnlock?: (twin: MapContentTwin) => void
+  /** the mirrored Truppmarker's context bar — the same one a native Trupp wears here, writing
+   *  the ONE plan annotation (components/TwinTeamPill) */
+  contentTwinTeam?: React.ComponentProps<typeof GeorefContentMap>['teamActions']
   selectedTwinKey?: string | null
   /** the content twin whose in-place panel is open — its hit target wears the halo */
   selectedContentTwinKey?: string | null
@@ -363,7 +366,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, onContentTwinUnlock, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, onContentTwinUnlock, contentTwinTeam, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -1226,6 +1229,32 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           box: { x: p.x - s.w / 2, y: p.y - RADIUS_LIFT - s.h, w: s.w, h: s.h } })
       }
     }
+    // ── the Georeferenz twins ────────────────────────────────────────────────────────────
+    // A projection is presentation-equivalent to the object beside it, and that includes being
+    // arbitrated by this pass: twin labels used to be neither suppressed NOR visible to it, so
+    // they printed over native names and native names dodged nothing (01.09.).
+    for (const t of twins) {
+      const p = px(t.coord)
+      const g = symPx(t.anno.symbol === appConfig.symbols.vehicleName ? 'vehicle' : 'symbol', t.coord[1], zoom, symMul)
+      occupied.push({ x: p.x - g / 2, y: p.y - g / 2, w: g, h: g })
+      const cap = symbolCaptionText(t.anno, captionMode)
+      if (!cap) continue
+      const size = cachedLabelSize(softHyphenateText(cap), LABEL_STYLE.caption)
+      cands.push({ key: `tcap:${t.key}`, rank: t.key === selectedTwinKey ? LABEL_RANK.selected : LABEL_RANK.caption, dist: near(p),
+        box: { x: p.x - size.w / 2, y: p.y + g / 2 + CAPTION_GAP, w: size.w, h: size.h } })
+    }
+    for (const t of georefPlanContent) {
+      const a = t.anno
+      if (a.kind === 'resource' && t.coord) {
+        const p = px(t.coord)
+        occupied.push({ x: p.x - TEAM_DOT_PX / 2, y: p.y - TEAM_DOT_PX / 2, w: TEAM_DOT_PX, h: TEAM_DOT_PX })
+        if (a.text && t.key !== selectedContentTwinKey) {
+          const size = cachedLabelSize(a.text, LABEL_STYLE.team)
+          cands.push({ key: `tteam:${t.key}`, rank: LABEL_RANK.team, dist: near(p),
+            box: { x: p.x + TEAM_DOT_PX / 2 + TEAM_DOT_GAP, y: p.y - size.h / 2, w: size.w, h: size.h } })
+        }
+      }
+    }
     // The live Messen readouts deliberately stay OUT of the pass: they belong to a tool the
     // operator is holding right now, they change on every vertex drag, and a measurement that
     // blinks out because a caption got there first would be unusable.
@@ -1734,7 +1763,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {!georefOn && georefPlanContent.length > 0 && (
         <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing}
           trupps={trupps} truppSeverities={truppSeverities}
+          hiddenTrails={hiddenTrails} suppressedLabels={suppressedLabels}
           interactive={!placing} selectedKey={selectedContentTwinKey}
+          teamActions={readOnly ? undefined : contentTwinTeam} onToggleTrail={toggleTrail}
           onOpenTwin={onContentTwinOpen}
           onMoveTwin={readOnly ? undefined : onContentTwinMove}
           onEditTwinAnno={readOnly ? undefined : onContentTwinEdit}
@@ -1753,6 +1784,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           and swallow the tap meant for it. */}
       {twins.length > 0 && onTwinOpen && !georefOn && (
         <GeorefTwinsMap twins={twins} byName={byName} zoom={zoom} bearing={bearing} symMul={symMul} captionMode={captionMode}
+          suppressedLabels={suppressedLabels}
           interactive={!placing} selectedKey={selectedTwinKey} onOpen={onTwinOpen}
           onMove={readOnly ? undefined : onTwinMove}
           project={projectLngLat} unproject={unprojectPoint} setDragPan={setDragPanEnabled} />

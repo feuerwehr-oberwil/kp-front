@@ -53,7 +53,7 @@ import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
 import { fitSimilarity } from '../lib/georef'
 import { georefForPlan, refreshStationPlanScales } from '../lib/stationPlanScale'
 import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
-import { boardDrawingTwins, boardEntityTwins, boardTwins, type BoardTwin } from '../lib/georefTwins'
+import { boardDrawingTwins, boardEntityTwins, boardTwins, planGroundWidthM, type BoardTwin } from '../lib/georefTwins'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
 import { GeorefContentBoard } from './GeorefContentBoard'
 import { GeorefTwinPanel } from './GeorefTwinPanel'
@@ -272,6 +272,9 @@ interface Props {
   onTwinDrawingDetach?: (drawingId: string, endpoint: LineEndpoint) => void
   onTwinDrawingFocusAttachment?: (drawingId: string, endpoint: LineEndpoint) => void
   onTwinDrawingDelete?: (drawingId: string) => void
+  /** the mirrored Karte note/Form whose panel the workspace has open — the selection state has
+   *  to come from there, because that panel is the workspace's, not this surface's */
+  twinSelectedEntityId?: string | null
   /** the Ebenen panel is open (it lives in the app shell; the plan only owns the button) */
   layersOn?: boolean
   /** Ebenen button in the rail footer — omitted ⇒ no button, which is the state of every sheet
@@ -295,7 +298,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -807,6 +810,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // glyph/caption work. This board re-renders on every pan frame (`applyView` is state), while
   // the twins' board-space positions do not move at all during a pan.
   const twins = useMemo(() => [...twinVehicles, ...twinSymbols], [twinVehicles, twinSymbols])
+  /** Ground width of the fitted sheet in metres — the ONE conversion every metre-scaled map
+   *  geometry needs to become a sheet fraction (a Form's `sizeM`, a Hubretter's `reachM`).
+   *  Same product `georefPlans` records as `GeorefPlan.widthM` on the Karte's side. */
+  const twinPlanWidthM = georefFit ? planGroundWidthM(georefFit, measureAR) : 1
   // State keeps the stable selection key; the object itself is re-derived so edits made through
   // the mirrored panel are reflected immediately instead of leaving that panel on its old snapshot.
   const viewedTwin = twinView ? twins.find((t) => t.key === twinView.key) ?? twinView : null
@@ -3522,12 +3529,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             )}
             {!georefArmed && georefFit && (twinContent.length > 0 || twinDrawings.length > 0) && (
               <GeorefContentBoard entities={twinContent} drawings={twinDrawings} fit={georefFit}
-                planAspect={measureAR} sW={sW} sH={sH} byName={sym.byName}
+                planWidthM={twinPlanWidthM} sW={sW} sH={sH} byName={sym.byName}
                 trupps={trupps} truppSeverities={truppSeverities}
                 interactive={tool === 'pan'} onOpenTeam={onTwinJump}
                 onMoveTeam={readOnly ? undefined : moveContentTeam}
                 selectedDrawingId={twinDrawingId} onOpenDrawing={openTwinDrawing}
+                selectedEntityId={twinSelectedEntityId}
                 onDrawingCoords={readOnly ? undefined : onTwinDrawingCoords}
+                onDrawingRadius={readOnly || !onTwinDrawingEdit ? undefined : (id, radiusM, phase) =>
+                  onTwinDrawingEdit(id, { radiusM }, phase === 'move' ? 'live' : 'commit')}
                 onDrawingDetach={readOnly ? undefined : onTwinDrawingDetach}
                 // unlocking hands editing back and selects, the same pair of steps the sheet's
                 // own lock chip makes — both write the ONE Karte object
@@ -3551,6 +3561,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 // the sheet's own symbol size (symBase): a twin renders exactly like a symbol
                 // somebody placed on this sheet — presentation-equivalent, doctrine 30.08.
                 sizePx={symBase}
+                planWidthM={twinPlanWidthM}
                 captionMode={captionMode}
                 sourceSuppressedCaptions={mapSuppressedCaptions}
                 interactive={tool === 'pan'}

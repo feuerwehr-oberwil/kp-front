@@ -25,7 +25,7 @@ describe('broader Karte content on a Modul', () => {
     ]
     const drawings: Drawing[] = [{ id: 'line', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], label: 'Leitung 1' }]
     const { container } = render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={boardDrawingTwins(drawings, fit)}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} />)
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} />)
     expect(screen.getByText('Abschnitt West')).toBeTruthy()
     expect(screen.getByText('Trupp 2')).toBeTruthy()
     expect(screen.getByText('Muster Max')).toBeTruthy()
@@ -43,7 +43,7 @@ describe('broader Karte content on a Modul', () => {
       { id: 'ring', kind: 'circle', coords: [[7.5005, 47.5]], radiusM: 50 },
     ]
     const { container } = render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} />)
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} />)
     expect(container.querySelector('.wb-arrowhead')).toBeTruthy()
     expect(container.querySelector('.line-fork')).toBeTruthy()
     expect(screen.getByText('1 · S')).toBeTruthy()          // the end tag
@@ -65,7 +65,7 @@ describe('broader Karte content on a Modul', () => {
     }
     const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2', trail: [{ coord: base.coord, t: '15:34' }] }]
     const { rerender, container } = render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive
       onOpenTeam={() => {}} teamActions={acts} onSelectTeam={onSelectTeam} selectedTeamId={null} />)
     const chip = screen.getByRole('button', { name: /Trupp 2/ })
     fireEvent.pointerDown(chip, { pointerId: 21, clientX: 100, clientY: 100 })
@@ -73,7 +73,7 @@ describe('broader Karte content on a Modul', () => {
     expect(onSelectTeam).toHaveBeenCalledWith('team')
 
     rerender(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive
       onOpenTeam={() => {}} teamActions={acts} onSelectTeam={onSelectTeam} selectedTeamId="team" />)
     expect(container.querySelector('.wb-pill-acts')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.markPosition }))
@@ -88,7 +88,7 @@ describe('broader Karte content on a Modul', () => {
     const onOpenTeam = vi.fn()
     const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2' }]
     render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} />)
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} />)
     const chip = screen.getByRole('button', { name: /Trupp 2/ })
     fireEvent.pointerDown(chip, { pointerId: 1, clientX: 100, clientY: 100 })
     fireEvent.pointerUp(chip, { pointerId: 1, clientX: 100, clientY: 100 })
@@ -101,7 +101,7 @@ describe('broader Karte content on a Modul', () => {
     const onMoveTeam = vi.fn()
     const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2' }]
     render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} onMoveTeam={onMoveTeam} />)
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} onMoveTeam={onMoveTeam} />)
     const chip = screen.getByRole('button', { name: /Trupp 2/ })
     fireEvent.pointerDown(chip, { pointerId: 1, clientX: 100, clientY: 100 })
     fireEvent.pointerMove(chip, { pointerId: 1, clientX: 180, clientY: 100 }) // +80px on an 800px sheet = +0.1
@@ -117,7 +117,7 @@ describe('broader Karte content on a Modul', () => {
     const onOpenTeam = vi.fn()
     const entities: Entity[] = [{ ...base, id: 'team', kind: 'team', label: 'Trupp 2' }]
     render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive={false} onOpenTeam={onOpenTeam} />)
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive={false} onOpenTeam={onOpenTeam} />)
     expect(screen.queryByRole('button', { name: /Trupp 2/ })).toBeNull()
   })
 
@@ -126,7 +126,7 @@ describe('broader Karte content on a Modul', () => {
     const onMoveTeam = vi.fn()
     const entities: Entity[] = [{ ...base, id: 'note', kind: 'note', label: 'Abschnitt West' }]
     render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} onMoveTeam={onMoveTeam} />)
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive onOpenTeam={onOpenTeam} onMoveTeam={onMoveTeam} />)
     const note = screen.getByRole('button', { name: /Abschnitt West/ })
     fireEvent.pointerDown(note, { pointerId: 1, clientX: 100, clientY: 100 })
     fireEvent.pointerUp(note, { pointerId: 1, clientX: 100, clientY: 100 })
@@ -145,7 +145,7 @@ describe('broader Karte content on a Modul', () => {
   it('keeps a shared responder position pointer-inert even on an interactive sheet', () => {
     const entities: Entity[] = [{ ...base, id: 'p1', kind: 'person', label: 'Muster Max', symbolSvg: '<svg viewBox="0 0 10 10" />', live: true }]
     render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive onOpenTeam={() => {}} onMoveTeam={() => {}} />)
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive onOpenTeam={() => {}} onMoveTeam={() => {}} />)
     expect(screen.queryByRole('button')).toBeNull()
     expect(document.querySelector<HTMLElement>('.ts')?.style.width).toBe('28px')
   })
@@ -155,7 +155,7 @@ describe('broader Karte content on a Modul', () => {
     const onDrawingCoords = vi.fn()
     const drawings: Drawing[] = [{ id: 'line', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], label: 'Leitung 1' }]
     render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive
       onOpenDrawing={onOpenDrawing} onDrawingCoords={onDrawingCoords} />)
     const line = screen.getByRole('button', { name: /Leitung 1/ })
     fireEvent.pointerDown(line, { pointerId: 7, clientX: 100, clientY: 100 })
@@ -175,7 +175,7 @@ describe('broader Karte content on a Modul', () => {
     const onDrawingCoords = vi.fn()
     const drawings: Drawing[] = [{ id: 'line', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], label: 'Leitung 1' }]
     render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive selectedDrawingId="line"
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive selectedDrawingId="line"
       onDrawingCoords={onDrawingCoords} />)
     // grips + «+» midpoints + Verlängern arrows — the same chrome the sheet's own lines get
     const grips = screen.getAllByRole('button', { name: appConfig.copy.whiteboard.dragVertex })
@@ -209,7 +209,7 @@ describe('broader Karte content on a Modul', () => {
     const onDrawingCoords = vi.fn()
     const drawings: Drawing[] = [{ id: 'wide', kind: 'line', coords: [[7.4994, 47.5], [7.5014, 47.5]], label: 'Leitung 1' }]
     render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive
       onDrawingCoords={onDrawingCoords} />)
     const line = screen.getByRole('button', { name: /Leitung 1/ })
     fireEvent.pointerDown(line, { pointerId: 11, clientX: 100, clientY: 100 })
@@ -233,7 +233,7 @@ describe('broader Karte content on a Modul', () => {
       startAttachment: { target: { kind: 'object', id: 'hydrant' }, routing: 'direct' },
     }]
     render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive selectedDrawingId="att"
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive selectedDrawingId="att"
       onDrawingCoords={onDrawingCoords} onDrawingDetach={onDrawingDetach} />)
     const line = screen.getByRole('button', { name: 'Leitung 1' })
     fireEvent.pointerDown(line, { pointerId: 12, clientX: 100, clientY: 100 })
@@ -259,7 +259,7 @@ describe('broader Karte content on a Modul', () => {
     const onDrawingCoords = vi.fn()
     const drawings: Drawing[] = [{ id: 'line', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], label: 'Leitung 1' }]
     render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive selectedDrawingId="line"
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive selectedDrawingId="line"
       onDrawingCoords={onDrawingCoords} />)
     const vertex = screen.getAllByRole('button', { name: appConfig.copy.whiteboard.dragVertex })[0]
     fireEvent.pointerDown(vertex, { pointerId: 10, clientX: 100, clientY: 100 })
@@ -276,7 +276,7 @@ describe('broader Karte content on a Modul', () => {
     ]
     const trupps = [{ id: 't1', name: 'Meier Anna', lineNo: 1, status: 'in' }] as never
     const { container } = render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} trupps={trupps} truppSeverities={{ t1: 2 }} />)
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} trupps={trupps} truppSeverities={{ t1: 2 }} />)
     const halos = [...container.querySelectorAll('polyline')].filter((l) => l.getAttribute('stroke') === 'var(--red)')
     expect(halos).toHaveLength(1)
     expect(halos[0].getAttribute('stroke-width')).toBe('13') // the line's 5 + the native's 8
@@ -289,7 +289,7 @@ describe('broader Karte content on a Modul', () => {
     const onDrawingCoords = vi.fn()
     const drawings: Drawing[] = [{ id: 'line', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.5]], label: 'Leitung 1', locked: true }]
     const { container } = render(<GeorefContentBoard entities={[]} drawings={boardDrawingTwins(drawings, fit)}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive selectedDrawingId="line"
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive selectedDrawingId="line"
       onOpenDrawing={() => {}} onDrawingCoords={onDrawingCoords} onUnlockDrawing={onUnlockDrawing} />)
     // no hit surface, and no vertex handles even though it IS the selected drawing
     expect(container.querySelector('[class*="drawingHits"] polyline')).toBeNull()
@@ -305,11 +305,56 @@ describe('broader Karte content on a Modul', () => {
   it('a locked Karte Form takes no tap and no drag on the sheet either', () => {
     const entities: Entity[] = [{ ...base, id: 'shape', kind: 'shape', shape: 'square', sizeM: 20, locked: true }]
     const { container } = render(<GeorefContentBoard entities={boardEntityTwins(entities, fit)} drawings={[]}
-      fit={fit} planAspect={1} sW={800} sH={600} byName={{}} interactive
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive
       onOpenTeam={() => {}} onMoveTeam={() => {}} onUnlockEntity={() => {}} />)
     expect(container.querySelector('.shape-glyph')).toBeTruthy()
     const buttons = container.querySelectorAll('button')
     expect(buttons).toHaveLength(1)
     expect(buttons[0].className).toContain('draw-lock-chip')
+  })
+})
+
+describe('presentation equivalence on the Plan (01.09.)', () => {
+  it('outlines the selected mirrored drawing, the way the sheet outlines its own', () => {
+    const drawings = boardDrawingTwins([
+      { id: 'd1', kind: 'line', coords: [[7.5, 47.5], [7.5008, 47.4996]] },
+    ], fit)
+    const { container } = render(<GeorefContentBoard entities={[]} drawings={drawings}
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive selectedDrawingId="d1"
+      onDrawingCoords={() => {}} />)
+    // WbInkLayer draws the selection as a second, wider blue polyline over the same points
+    expect(container.querySelectorAll('polyline[stroke="var(--blue)"]').length).toBeGreaterThan(0)
+  })
+
+  it('keeps a mirrored Trupp trail’s dots and recorded times', () => {
+    const entities = boardEntityTwins([{
+      id: 'e1', kind: 'team', layer: 'lage', coord: [7.5004, 47.4998], label: 'Trupp 1',
+      trail: [{ coord: [7.5002, 47.4999] as [number, number], t: '08:12' }],
+    }], fit)
+    const { container } = render(<GeorefContentBoard entities={entities} drawings={[]}
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} />)
+    expect(container.querySelectorAll('.wb-trail-dot')).toHaveLength(1)
+    expect(screen.getByText('08:12')).toBeTruthy()
+  })
+
+  it('sizes a mirrored Form with the sheet’s own rule — no twin-only floor', () => {
+    // 4 m wide on a 100 m sheet drawn 800 px across = 32 px; the old 12 px floor never bit,
+    // but a 0.5 m marker used to render 12 px where the sheet's own draws 4
+    const entities = boardEntityTwins([{
+      id: 's1', kind: 'shape', layer: 'lage', coord: [7.5004, 47.4998], shape: 'square', sizeM: 0.5,
+    }], fit)
+    const { container } = render(<GeorefContentBoard entities={entities} drawings={[]}
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} />)
+    expect(container.querySelector<HTMLElement>('.shape-glyph')!.style.width).toBe('4px')
+  })
+
+  it('gives a mirrored Form the selection halo its original wears', () => {
+    const entities = boardEntityTwins([{
+      id: 's1', kind: 'shape', layer: 'lage', coord: [7.5004, 47.4998], shape: 'square', sizeM: 20,
+    }], fit)
+    const { container } = render(<GeorefContentBoard entities={entities} drawings={[]}
+      fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive
+      onOpenTeam={() => {}} selectedEntityId="s1" />)
+    expect(container.querySelector('.sel-halo')).toBeTruthy()
   })
 })

@@ -27,7 +27,7 @@ const twinAt = (x: number, y: number): BoardTwin => ({ key: 'modul2:e1', kind: '
 
 const SW = 1000, SH = 500
 const renderBoard = (onMove?: typeof vi.fn extends never ? never : ((t: BoardTwin, p: { x: number; y: number }, ph: 'start' | 'move' | 'end') => void)) =>
-  render(<GeorefTwinsBoard twins={[twinAt(0.5, 0.5)]} byName={{}} sW={SW} sH={SH} sizePx={40}
+  render(<GeorefTwinsBoard twins={[twinAt(0.5, 0.5)]} byName={{}} sW={SW} sH={SH} sizePx={40} planWidthM={100}
     selectedKey="modul2:e1" onOpen={() => {}} onMove={onMove} />)
 
 const mark = () => screen.getByRole('button')
@@ -69,7 +69,7 @@ describe('a twin dragged across the sheet', () => {
     const seen: { x: number; y: number }[] = []
     const Live = () => {
       const [p, setP] = useState(pt)
-      return <GeorefTwinsBoard twins={[{ ...twinAt(p.x, p.y) }]} byName={{}} sW={SW} sH={SH} sizePx={40}
+      return <GeorefTwinsBoard twins={[{ ...twinAt(p.x, p.y) }]} byName={{}} sW={SW} sH={SH} sizePx={40} planWidthM={100}
         selectedKey="modul2:e1" onOpen={() => {}} onMove={(_t, next) => { seen.push(next); pt = next; setP(next) }} />
     }
     render(<Live />)
@@ -102,7 +102,7 @@ describe('a twin dragged across the sheet', () => {
   it('moves immediately without requiring a selection tap first', () => {
     const onOpen = vi.fn()
     const onMove = vi.fn()
-    render(<GeorefTwinsBoard twins={[twinAt(0.5, 0.5)]} byName={{}} sW={SW} sH={SH} sizePx={40}
+    render(<GeorefTwinsBoard twins={[twinAt(0.5, 0.5)]} byName={{}} sW={SW} sH={SH} sizePx={40} planWidthM={100}
       onOpen={onOpen} onMove={onMove} />)
     expect(mark().className).toContain('grab')
     drag([300, 250])
@@ -117,7 +117,7 @@ describe('a twin dragged across the sheet', () => {
     } as Entity
     const turned = { ...twinAt(0.5, 0.5), entity: directional, fit: { ...TWIN_FIT, rotationDeg: 40 } }
     render(<GeorefTwinsBoard twins={[turned]} byName={{ 'VKF Luefter mobil': '<svg viewBox="0 0 10 10" />' }}
-      sW={SW} sH={SH} sizePx={28} onOpen={() => {}} />)
+      sW={SW} sH={SH} sizePx={28} planWidthM={100} onOpen={() => {}} />)
     const glyph = document.querySelector<HTMLElement>('.ts-rot')!
     expect(glyph.style.transform).toContain('rotate(75deg)')
     for (const badge of document.querySelectorAll('.sym-floor, .sym-count')) {

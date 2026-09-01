@@ -10,9 +10,10 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { isRotatableSym, isVehicleSym } from '../lib/mapView'
+import { isHubretter } from '../lib/symbolRender'
 import type { BoardTwin } from '../lib/georefTwins'
 import { TwinMark } from './GeorefTwinMark'
-import { glyphFor, overlayFor, twinName } from '../lib/twinGlyph'
+import { boomFor, glyphFor, overlayFor, twinName } from '../lib/twinGlyph'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import type { CaptionMode } from '../types'
@@ -26,7 +27,7 @@ import type { CaptionMode } from '../types'
  * annotation — its position is the normalized plan point times the board's px size, which is
  * the same arithmetic every `.wb-anno` does.
  */
-export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, sW, sH, sizePx, captionMode = 'off', sourceSuppressedCaptions, interactive = true, selectedKey, onOpen, onMove }: {
+export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, sW, sH, sizePx, planWidthM, captionMode = 'off', sourceSuppressedCaptions, interactive = true, selectedKey, onOpen, onMove }: {
   twins: BoardTwin[]
   byName: Record<string, string>
   /** the board's rendered size in px (fit × zoom) */
@@ -34,6 +35,9 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
   sH: number
   /** the plan's symbol base size in px, so a twin matches the sheet's own symbols */
   sizePx: number
+  /** ground width of the fitted sheet in metres — the one conversion a metre-scaled source
+   *  geometry (a Hubretter's reach) needs to become sheet px, the way `sizeM` does */
+  planWidthM: number
   captionMode?: CaptionMode
   /** Caption visibility already decided on the source Karte. */
   sourceSuppressedCaptions?: ReadonlySet<string>
@@ -81,6 +85,8 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
         const rot = veh || isRotatableSym(e) ? (e.rotation ?? 0) + t.fit.rotationDeg : 0
         const svg = veh ? vehicleSymbolSvg(name, rot, e.directed ?? true) : glyphFor(e, byName)
         const rawCaption = symbolCaptionText(e, captionMode)
+        // metres → sheet px, exactly as a mirrored Form's `sizeM` crosses (GeorefContentBoard)
+        const boomPx = isHubretter(e.symbol) ? Math.max(12, ((e.reachM ?? 18) / Math.max(0.001, planWidthM)) * sW) : 0
         return (
           <TwinMark
             key={t.key}
@@ -93,6 +99,7 @@ export const GeorefTwinsBoard = memo(function GeorefTwinsBoard({ twins, byName, 
             // the source draws them (doctrine 30.08.: presentation-equivalent, never re-aimed)
             spread={e.spread}
             overlay={veh ? undefined : overlayFor(e, byName, t.fit.rotationDeg)}
+            boom={boomFor(e, boomPx, t.fit.rotationDeg)}
             caption={sourceSuppressedCaptions?.has(e.id) ? null : rawCaption ? softHyphenateText(rawCaption) : rawCaption}
             title={fillTemplate(C.twinFromMap, { name })}
             onOpen={() => onOpen(t)}
