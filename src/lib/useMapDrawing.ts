@@ -429,14 +429,24 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const draftActive = (tool === 'area' && areaMode === 'nodes' && draft.length >= 3) || (tool === 'line' && lineMode === 'nodes' && draft.length >= 2)
   // node-mode line taps seed the draft (like the area/measure tools), so the freehand gesture is off
   const lineNodes = tool === 'line' && lineMode === 'nodes'
-  /** the canvas drag draws a shape right now (a Linie or a Fläche) rather than panning */
-  const freehandArmed = (tool === 'line' && lineMode === 'freehand') || (tool === 'area' && areaMode === 'freehand')
+  /**
+   * WHICH shape the canvas drag lays down right now — a Linie or a Fläche — or null while the drag
+   * still pans. The kind, not a bare «armed»: only a Leitung's two ends can carry an attachment
+   * (`onFreehand` above hands an area's straight back), so only a line stroke may raise the
+   * endpoint magnet (A7 · MapView · onFreehandPointer). It used to be a boolean, the ring was
+   * bound unconditionally, and a Fläche drawn across a Hydrant filled a ConnectRing whose
+   * attachment was thrown away on release — the Plan has never raised one there.
+   */
+  const freehandKind: 'line' | 'area' | null =
+    tool === 'line' && lineMode === 'freehand' ? 'line'
+    : tool === 'area' && areaMode === 'freehand' ? 'area'
+    : null
 
   return {
     draft, setDraft,
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed, drawMarker, setDrawMarker,
     linePreset, setLinePreset, lineMode, setLineMode, areaMode, setAreaMode,
-    draftActive, lineNodes, freehandArmed, selectedDrawing,
+    draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,

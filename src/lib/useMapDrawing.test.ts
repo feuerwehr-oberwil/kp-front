@@ -176,6 +176,16 @@ describe('freehand: the armed tool decides what the stroke becomes', () => {
     expect(result.current.draftActive).toBe(true)
     act(() => { result.current.setAreaMode('freehand') })
     expect(result.current.draftActive).toBe(false)
-    expect(result.current.freehandArmed).toBe(true)
+    expect(result.current.freehandKind).toBe('area')
+  })
+
+  // A7 · the surface has to know WHICH shape the drag lays down, because only a Leitung's ends
+  // can carry an attachment — MapView raises the endpoint magnet for a 'line' and for nothing else.
+  it('names the freehand kind, so an area stroke can be told from a line stroke', () => {
+    const deps = makeDeps({ tool: 'line' })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    expect(result.current.freehandKind).toBe('line')
+    act(() => { result.current.setLineMode('nodes') })
+    expect(result.current.freehandKind).toBe(null)
   })
 })

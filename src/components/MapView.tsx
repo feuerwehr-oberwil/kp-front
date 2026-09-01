@@ -270,7 +270,10 @@ interface Props {
   /** the first of those two points, once it is down — drawn as an anchor so the operator can see
    *  where the run starts while looking for its other end */
   placeAnchor?: LngLat | null
-  freehand: boolean
+  /** WHICH shape the canvas drag lays down right now, or null while it pans (useMapDrawing ·
+   *  freehandKind). The kind decides whether the endpoint magnet is raised at all — see the
+   *  onFreehandPointer binding below. */
+  freehand: 'line' | 'area' | null
   onFreehand: (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => void
   drawColor: string
   drawWidth: number
@@ -1075,7 +1078,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
   // canvas-level pointer gestures (freehand drawing + marquee multi-select) live in a
   // dedicated hook; they bind directly to the MapLibre instance and toggle dragPan.
-  const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, onFreehandPointer: updateDraftMagnet, marqueeEnabled, drawings, entities, twinPoints: twinLassoPoints, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
+  // ⚠️ A7 · the magnet is raised for a freehand LINE only. An area's endpoints are not a thing
+  // that attaches — `onFreehand` hands an area's attachments straight back (useMapDrawing) — so a
+  // ring filling over a Hydrant while a Fläche is dragged across it was promising a link that was
+  // then discarded. The Plan says the same thing in its own words (Whiteboard · inkMove: «no
+  // magnet and no attachments — those belong to a Leitung's ends»).
+  const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand: !!freehand, onFreehand, onFreehandPointer: freehand === 'area' ? undefined : updateDraftMagnet, marqueeEnabled, drawings, entities, twinPoints: twinLassoPoints, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
 
   // a circle drawing as a closed polygon ring (LngLat[]) for rendering / selection outline.
   const circleRing = (d: Drawing): LngLat[] => circlePolygon(d.coords[0], d.radiusM ?? 0)[0] as LngLat[]

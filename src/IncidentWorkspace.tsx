@@ -1705,7 +1705,7 @@ export function IncidentWorkspace({
     draft, setDraft,
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed, drawMarker, setDrawMarker,
     lineMode, setLineMode, areaMode, setAreaMode,
-    draftActive, lineNodes, freehandArmed, selectedDrawing,
+    draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
@@ -3875,7 +3875,7 @@ export function IncidentWorkspace({
           pickedPoint={coord.mode === 'set' ? coord.picked : null}
           placeMagnet={tool === 'shape' && !!pendingShape && SHAPE_TWO_POINT[pendingShape] && !tacticalLocked}
           placeAnchor={tool === 'shape' && !!pendingShape ? rotStart : null}
-          freehand={freehandArmed}
+          freehand={freehandKind}
           onFreehand={onFreehand}
           circleEnabled={tool === 'circle' && !tacticalLocked}
           onCircle={createCircle}
