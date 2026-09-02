@@ -1,11 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getDiveraPool, refreshDiveraPool, type DiveraAlarm } from './incidents'
-
-const POLL_MS = 30_000
-// A tablet gets picked up / put down constantly; without a floor, every foreground fired a
-// Divera + backend round-trip. Skip the resume-refresh if we polled within this window (the 30 s
-// interval keeps the pool fresh anyway).
-const RESUME_MIN_GAP_MS = 10_000
+import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumingPoll'
 
 /**
  * Always-on Divera watch (editor only). On an interval — and whenever the tab regains
@@ -16,35 +11,20 @@ const RESUME_MIN_GAP_MS = 10_000
  */
 export function useDiveraWatch(enabled: boolean): { alarms: DiveraAlarm[]; refresh: () => Promise<void> } {
   const [alarms, setAlarms] = useState<DiveraAlarm[]>([])
-  const busy = useRef(false)
-  const lastAt = useRef(0)
 
+  // The cadence, the foreground resume and the one-round-at-a-time guard are useResumingPoll's
+  // (which also keeps the last-known pool on a transient failure — never blank the banner).
   const refresh = useCallback(async () => {
-    if (!enabled || busy.current) return
-    busy.current = true
-    try {
-      // Actively poll Divera first; swallow 503 "nicht konfiguriert" / network errors so we
-      // still read whatever is already mirrored in the pool.
-      await refreshDiveraPool().catch(() => {})
-      setAlarms(await getDiveraPool())
-    } catch {
-      /* keep the last-known pool on a transient failure — never blank the banner */
-    } finally {
-      lastAt.current = Date.now()
-      busy.current = false
-    }
-  }, [enabled])
+    // Actively poll Divera first; swallow 503 "nicht konfiguriert" / network errors so we
+    // still read whatever is already mirrored in the pool.
+    await refreshDiveraPool().catch(() => {})
+    setAlarms(await getDiveraPool())
+  }, [])
 
-  useEffect(() => {
-    if (!enabled) { setAlarms([]); return }
-    void refresh()
-    const t = setInterval(() => void refresh(), POLL_MS)
-    const onVis = () => {
-      if (document.visibilityState === 'visible' && Date.now() - lastAt.current >= RESUME_MIN_GAP_MS) void refresh()
-    }
-    document.addEventListener('visibilitychange', onVis)
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis) }
-  }, [enabled, refresh])
+  const run = useResumingPoll(enabled, refresh, { pollMs: WATCH_POLL_MS, resumeGapMs: WATCH_RESUME_GAP_MS })
 
-  return { alarms, refresh }
+  // a watch that is off shows no pool
+  useEffect(() => { if (!enabled) setAlarms([]) }, [enabled])
+
+  return { alarms, refresh: run }
 }

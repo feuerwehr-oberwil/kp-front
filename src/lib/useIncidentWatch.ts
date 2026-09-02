@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { listIncidentsResilient, type IncidentMeta } from './incidents'
 import { freshAlarmCandidate, loadDismissedIncidents, saveDismissedIncident } from './incidentAlerts'
-
-const POLL_MS = 30_000
-const RESUME_MIN_GAP_MS = 10_000 // same foreground-refresh floor as useDiveraWatch
+import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumingPoll'
 
 /**
  * Always-on incident-list watch. With alarm auto-open, a new Einsatz can appear with no
@@ -21,45 +19,30 @@ export function useIncidentWatch(
   // ids seen on the first poll of this session: pre-existing incidents never banner (the
   // cold-start pick already handled them), only mid-session arrivals do.
   const baseline = useRef<Set<string> | null>(null)
-  const busy = useRef(false)
-  const lastAt = useRef(0)
 
+  // The cadence, the foreground resume and the one-round-at-a-time guard are useResumingPoll's;
+  // this is only what a round does.
   const refresh = useCallback(async () => {
-    if (!enabled || busy.current) return
-    busy.current = true
-    try {
-      const { list } = await listIncidentsResilient()
-      onList(list)
-      if (baseline.current === null) {
-        baseline.current = new Set(list.map((i) => i.id))
-        return
-      }
-      setFresh(
-        freshAlarmCandidate(list, {
-          activeId,
-          baselineIds: baseline.current,
-          dismissed: loadDismissedIncidents(),
-          now: Date.now(),
-        }),
-      )
-    } catch {
-      /* transient failure — keep the last-known state */
-    } finally {
-      lastAt.current = Date.now()
-      busy.current = false
+    const { list } = await listIncidentsResilient()
+    onList(list)
+    if (baseline.current === null) {
+      baseline.current = new Set(list.map((i) => i.id))
+      return
     }
-  }, [enabled, activeId, onList])
+    setFresh(
+      freshAlarmCandidate(list, {
+        activeId,
+        baselineIds: baseline.current,
+        dismissed: loadDismissedIncidents(),
+        now: Date.now(),
+      }),
+    )
+  }, [activeId, onList])
 
-  useEffect(() => {
-    if (!enabled) { setFresh(null); return }
-    void refresh()
-    const t = setInterval(() => void refresh(), POLL_MS)
-    const onVis = () => {
-      if (document.visibilityState === 'visible' && Date.now() - lastAt.current >= RESUME_MIN_GAP_MS) void refresh()
-    }
-    document.addEventListener('visibilitychange', onVis)
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis) }
-  }, [enabled, refresh])
+  useResumingPoll(enabled, refresh, { pollMs: WATCH_POLL_MS, resumeGapMs: WATCH_RESUME_GAP_MS })
+
+  // a watch that is off announces nothing
+  useEffect(() => { if (!enabled) setFresh(null) }, [enabled])
 
   // switching to the announced incident (banner tap or any other way) retires the banner
   useEffect(() => {
