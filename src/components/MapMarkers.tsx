@@ -8,8 +8,7 @@ import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
-import { MenuPick } from './MenuPick'
-import { Menu, Popover, PopoverClose } from '../lib/overlays'
+import { TwinTeamPill } from './TwinTeamPill'
 import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_M, SHAPE_MAX_PX, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
 import { DEFAULT_INK } from '../lib/lineStyle'
@@ -240,10 +239,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       autoGrow(el)
     })
   }, [])
-  // which team pill is in inline rename. Local, unlike editNoteId: a note enters edit straight
-  // from placement (the parent has to drive that), a team is only ever renamed from its own
-  // action bar, so nothing outside this component needs to know.
-  const [editTeamId, setEditTeamId] = useState<string | null>(null)
+  // ⚠️ Which team pill is in inline rename is TwinTeamPill's own state — a rename never survives
+  // selecting something else, and leaving the pill (which unmounts it) IS the commit/abort. What
+  // stays here is the focus recipe: only this surface knows MapLibre's quirk.
   const focusTeam = useCallback((el: HTMLInputElement | null) => {
     if (!el) return
     // same MapLibre marker quirk as the note input: the Marker element preventDefaults
@@ -252,8 +250,6 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     el.focus(); el.select()
     requestAnimationFrame(() => { if (document.activeElement !== el) { el.focus(); el.select() } })
   }, [])
-  // a rename never survives selecting something else — leaving the pill IS the commit/abort
-  useEffect(() => { setEditTeamId((cur) => (cur && cur !== selectedId ? null : cur)) }, [selectedId])
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
   // `rot` = the shape's SCREEN rotation at grab time and `free` = per-axis resize allowed —
   // both captured on pointer-down so the corner drag can be resolved in the shape's own frame
@@ -775,29 +771,27 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   </>
                 )
               }
+              // the pill AND its action bar are the ONE shared component (components/TwinTeamPill),
+              // the very same one the two mirrors wear — so the Karte, the Plan and both twins
+              // can never again answer differently for the same Trupp. The bar only appears where
+              // this surface may write (`draggable`); a read-only Karte keeps the bare pill.
+              // The marker container already owns the press, so no `hit` shell is passed.
               return (
-                <span className={`wb-resource-pill ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
-                  <span className="wb-resource-cap" />
-                  <span className="wb-resource-body">
-                    <span className="wb-resource-name">
-                      {/* identical markup to the plan board's resource chip (Whiteboard.tsx) —
-                          same class, same commit-on-blur/Enter, so a rename feels the same on
-                          both surfaces */}
-                      {editTeamId === e.id
-                        ? <input className="wb-resource-input" ref={focusTeam} defaultValue={e.label ?? ''}
-                            onPointerDown={(ev) => ev.stopPropagation()}
-                            onBlur={(ev) => { onTeamRename?.(e.id, ev.target.value); setEditTeamId(null) }}
-                            onKeyDown={(ev) => {
-                              if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur()
-                              // Esc abandons: blur would commit, so drop the edit first
-                              if (ev.key === 'Escape') { ev.stopPropagation(); setEditTeamId(null) }
-                            }} />
-                        : <b>{e.label}</b>}
-                      {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
-                    </span>
-                    {e.t && <i className="wb-resource-time">{e.t}</i>}
-                  </span>
-                </span>
+                <TwinTeamPill
+                  name={e.label ?? ''} time={e.t} color={teamCol} colorSet={e.color}
+                  raus={isRaus} truppId={e.truppId} trailCount={e.trail?.length ?? 0}
+                  trailShown={!hiddenTrails?.has(e.id)} trupps={trupps ?? []}
+                  renameRef={focusTeam}
+                  acts={draggable ? {
+                    rename: onTeamRename && ((name) => onTeamRename(e.id, name)),
+                    pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),
+                    color: onTeamColor && ((c) => onTeamColor(e, c)),
+                    mark: onTeamMark && (() => onTeamMark(e.id)),
+                    clearTrail: () => onTeamClearTrail?.(e.id),
+                    remove: () => onDelete(e.id),
+                    showTrupp: onShowTrupp,
+                    toggleTrail: onToggleTrail && (() => onToggleTrail(e.id)),
+                  } : undefined} />
               )
             })() : e.kind === 'shape' ? (
               <>
@@ -964,89 +958,6 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               >
                 <Icon id="check" />
               </button>
-            )}
-            {/* selected team — the same action bar as the plan chip: show on Atemschutz board,
-                mark position, show/hide trails, delete (greyed out while a recorded trail exists;
-                tapping the greyed trash offers the confirmed trail clear, which frees it). */}
-            {selectedId === e.id && e.kind === 'team' && draggable && (
-              <div className="wb-pill-acts" onPointerDown={(ev) => ev.stopPropagation()}>
-                {/* rename — the touch path (double-tap→dblclick is unreliable on iOS), same as
-                    the plan chip. A Trupp-bound marker is named by the Atemschutz board, so it
-                    gets no pen: renaming it here would fork the two names apart. */}
-                {!e.truppId && onTeamRename && (
-                  <button className="wb-pa" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
-                    onClick={() => setEditTeamId(e.id)}><Icon id="pen" /></button>
-                )}
-                {e.truppId && onShowTrupp && (
-                  <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp} onClick={() => onShowTrupp(e.truppId!)}><Icon id="warn" /></button>
-                )}
-                {/* «Atemschutz-Trupp» — the marker's half of the join, and the exact shape the
-                    line editor's «Gehört zu Trupp …» has: the app's own menu, never a native
-                    <select>. A Trupp registered AFTER this marker was put down is in the list, so
-                    a «Trupp 2» dropped at 03:12 still finds its crew at 03:14. ⚠️ A Trupp that is
-                    already out is offered only when it is the one standing here — it is the
-                    record of who was, not somebody to send. */}
-                {onTeamTrupp && (!!e.truppId || !!trupps?.some((t) => !t.removedAt && t.status !== 'raus')) && (
-                  <Menu
-                    popupClassName="de-menu-pop"
-                    itemClassName={() => 'de-menu-item'}
-                    trigger={
-                      <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
-                        <Icon id="people" />
-                      </button>
-                    }
-                    items={[
-                      { label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={!e.truppId} />, onClick: () => onTeamTrupp(e.id, undefined) },
-                      ...(trupps ?? []).filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === e.truppId)).map((t) => ({
-                        label: <MenuPick label={t.name} on={t.id === e.truppId} />,
-                        onClick: () => onTeamTrupp(e.id, t.id),
-                      })),
-                    ]}
-                  />
-                )}
-                {/* Farbe — for the LOOSE team marker only (placed with the Trupp tool, never
-                    registered on the board): it has no other place to be recoloured. A marker
-                    bound to a registered Trupp does — the Trupp's own form — and its colour is
-                    the Trupp's identity, so a second palette here said the same thing twice.
-                    A colour someone else already wears is allowed — «alle Löschtrupps rot». */}
-                {onTeamColor && !(e.truppId && trupps?.some((t) => t.id === e.truppId && !t.removedAt)) && (
-                  <Popover
-                    ariaLabel={appConfig.copy.atemschutz.colorLabel}
-                    popupClassName="wb-pa-colors"
-                    trigger={
-                      <button className="wb-pa" title={appConfig.copy.atemschutz.colorLabel} aria-label={appConfig.copy.atemschutz.colorLabel}>
-                        <span className="wb-pa-swatch" style={{ background: e.color || 'transparent' }} />
-                      </button>
-                    }
-                  >
-                    <PopoverClose className={`ctx-team-auto${e.color ? '' : ' on'}`} onClick={() => onTeamColor(e, null)}>
-                      {appConfig.copy.atemschutz.colorAuto}
-                    </PopoverClose>
-                    {appConfig.drawing.teamColors.map((c) => (
-                      <PopoverClose key={c} className={`dh-color${e.color === c ? ' on' : ''}`} onClick={() => onTeamColor(e, c)}>
-                        <span style={{ background: c }} />
-                      </PopoverClose>
-                    ))}
-                  </Popover>
-                )}
-                {onTeamMark && (
-                  <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition} onClick={() => onTeamMark(e.id)}><Icon id="flag" /></button>
-                )}
-                {/* per-team visibility toggle, NOT deletion — the ✕ here silently wiped the record */}
-                {(e.trail?.length ?? 0) > 0 && onToggleTrail && (() => {
-                  const shown = !hiddenTrails?.has(e.id)
-                  return (
-                    <button className="wb-pa" title={shown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
-                      aria-label={appConfig.copy.whiteboard.trails} aria-pressed={shown} onClick={() => onToggleTrail(e.id)}>
-                      <Icon id={shown ? 'eye' : 'eyeoff'} />
-                    </button>
-                  )
-                })()}
-                {(e.trail?.length ?? 0) > 0
-                  ? <button className="wb-pa wb-pa-del-off" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked}
-                      onClick={() => onTeamClearTrail?.(e.id)}><Icon id="trash" /></button>
-                  : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => onDelete(e.id)}><Icon id="trash" /></button>}
-              </div>
             )}
             {/* Rotation is for live VEHICLES (a truck faces somewhere). A person dot carries no
                 heading, so a rotate handle on it would invite orienting a fact that has no

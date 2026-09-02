@@ -23,7 +23,7 @@ import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/tr
 import { nextTeamName } from '../lib/placedTrupps'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
-import { Menu, Overlay, Popover } from '../lib/overlays'
+import { Overlay, Popover } from '../lib/overlays'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -33,7 +33,7 @@ import { softHyphenateText } from '../lib/symbolWrap'
 import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
-import { MenuPick } from './MenuPick'
+import { TwinTeamPill } from './TwinTeamPill'
 import { LockChip } from './LockChip'
 import { ShapeGlyph, ROTATION_DEFAULT_RUN_N, ROTATION_MAX_N, ROTATION_W_N, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
@@ -3571,84 +3571,36 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       </span>
                     )
                   }
+                  // the pill AND its action bar are the ONE shared component
+                  // (components/TwinTeamPill) — the very same one the Karte's own Trupp marker and
+                  // both mirrors wear, so no surface can answer differently for the same Trupp.
+                  // The bar only appears while this board may be written on; the anno wrapper
+                  // already owns the press, so no `hit` shell is passed.
+                  // ⚠️ No Farbe swatch here, deliberately: a chip's colour is the TRUPP's identity
+                  // and is written from the SelectionBar (recolorTeam), which also carries it to
+                  // the Atemschutz card. Leaving `color` out is what keeps the swatch away.
                   return (
-                  <span className={`wb-resource-pill ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
-                    <span className="wb-resource-cap" />
-                    <span className="wb-resource-body">
-                      <span className="wb-resource-name">
-                        {editId === a.id
-                          ? <input className="wb-resource-input" ref={focusOnce} defaultValue={a.text}
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onBlur={(e) => { patchCommit(a.id, { text: e.target.value || a.text }); setEditId(null) }}
-                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
-                          : <b>{a.text}</b>}
-                        {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
-                      </span>
-                      <i className="wb-resource-time">{a.t}</i>
-                    </span>
-                  </span>
+                    <TwinTeamPill
+                      name={a.text ?? ''} time={a.t} color={teamCol}
+                      raus={isRaus} truppId={a.truppId} trailCount={a.trail?.length ?? 0}
+                      trailShown={!hiddenTrails.has(a.id)} trupps={trupps}
+                      renameRef={focusOnce}
+                      // ⚠️ the rename flag stays OUT here: on this surface a chip also enters
+                      // rename by DOUBLE-CLICK on the anno wrapper (the desktop path), which the
+                      // pill knows nothing about — so `editId` remains the one source of truth.
+                      renaming={editId === a.id} onRenaming={(on) => setEditId(on ? a.id : null)}
+                      acts={tool === 'pan' && !readOnly ? {
+                        // an empty name keeps the old one — a blank chip is nobody
+                        rename: (name) => patchCommit(a.id, { text: name || a.text }),
+                        pick: onTeamTrupp && ((truppId) => onTeamTrupp(a.id, truppId)),
+                        mark: markPosition,
+                        clearTrail: () => void clearTrail(),
+                        remove: () => void removeWithConnections(a),
+                        showTrupp: onShowTrupp,
+                        toggleTrail: () => toggleTrail(a.id),
+                      } : undefined} />
                   )
                 })()}
-                {/* selected team — one tidy action bar under the pill instead of two
-                    corner orbs. Delete is locked once the team has a recorded trail. */}
-                {a.kind === 'resource' && selId === a.id && tool === 'pan' && !readOnly && (
-                  <div className="wb-pill-acts" onPointerDown={(e) => e.stopPropagation()}>
-                    {/* rename — the touch path (double-tap→dblclick is unreliable on iOS). A
-                        Trupp-bound chip gets no pen, the same rule the map marker follows: its name
-                        is the TRUPP's, written on the Atemschutz board, and renaming it here would
-                        fork the two apart. Now that the chip can be joined to a Trupp from its own
-                        menu (above), that state is reachable from here too. */}
-                    {!a.truppId && (
-                      <button className="wb-pa" title={appConfig.copy.edit} aria-label={appConfig.copy.edit} onClick={() => setEditId(a.id)}><Icon id="pen" /></button>
-                    )}
-                    {a.truppId && onShowTrupp && (
-                      <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp} onClick={() => onShowTrupp(a.truppId!)}><Icon id="warn" /></button>
-                    )}
-                    {/* «Atemschutz-Trupp» — the chip's half of the join, the exact twin of the map
-                        marker's menu (MapMarkers) and of the line editor's «Gehört zu Trupp …»:
-                        the app's own menu, never a native <select>. Until this existed, a chip put
-                        down on Modul 1 before anybody was registered could only be joined from the
-                        AT card — and joining it from the picture, where you are looking, meant
-                        deleting the chip and re-placing it, which threw its recorded trail away.
-                        Takeover of somebody else's chip asks first, in the ONE place that ask lives
-                        (useTruppActions · adoptTruppMarker). ⚠️ A Trupp that is already out is
-                        offered only when it is the one standing here — it is the record of who was,
-                        not somebody to send. */}
-                    {onTeamTrupp && (!!a.truppId || trupps.some((t) => !t.removedAt && t.status !== 'raus')) && (
-                      <Menu
-                        popupClassName="de-menu-pop"
-                        itemClassName={() => 'de-menu-item'}
-                        trigger={
-                          <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
-                            <Icon id="people" />
-                          </button>
-                        }
-                        items={[
-                          { label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={!a.truppId} />, onClick: () => onTeamTrupp(a.id, undefined) },
-                          ...trupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === a.truppId)).map((t) => ({
-                            label: <MenuPick label={t.name} on={t.id === a.truppId} />,
-                            onClick: () => onTeamTrupp(a.id, t.id),
-                          })),
-                        ]}
-                      />
-                    )}
-                    <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition} onClick={markPosition}><Icon id="flag" /></button>
-                    {/* per-team trail visibility toggle — deletion of the record itself
-                        lives behind the lock's confirmed clear, never one tap */}
-                    {(a.trail?.length ?? 0) > 0 && (() => {
-                      const shown = !hiddenTrails.has(a.id)
-                      return (
-                        <button className="wb-pa" title={shown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
-                          aria-label={appConfig.copy.whiteboard.trails} aria-pressed={shown} onClick={() => toggleTrail(a.id)}>
-                          <Icon id={shown ? 'eye' : 'eyeoff'} />
-                        </button>
-                      )
-                    })()}
-                    {teamLocked(a)
-                      ? <button className="wb-pa wb-pa-del-off" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked} onClick={() => void clearTrail()}><Icon id="trash" /></button>
-                      : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => void removeWithConnections(a)}><Icon id="trash" /></button>}
-                  </div>
-                )}
                 {a.kind === 'resource' && selId === a.id && tool === 'pan' && (() => {
                   const connected = annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === a.id))
                   return connected.length > 0 ? <div className="wb-resource-connections ctx-connections" onPointerDown={(e) => e.stopPropagation()}>
