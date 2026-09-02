@@ -9,12 +9,18 @@
  * (TwinMark's own tap-vs-drag rule lives in GeorefTwinMark.test.tsx.)
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import type { Entity } from '../types'
+import type { BoardAnno, Entity } from '../types'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
 import { fitSimilarity } from '../lib/georef'
-import type { BoardTwin } from '../lib/georefTwins'
+import type { BoardTwin, MapTwin } from '../lib/georefTwins'
+
+// the map half of the mirror only needs the Marker to place its child somewhere
+vi.mock('react-map-gl/maplibre', () => ({
+  Marker: ({ children }: { children: ReactNode }) => <div data-testid="marker">{children}</div>,
+}))
+import { GeorefTwinsMap } from './GeorefTwinsMap'
 
 afterEach(cleanup)
 
@@ -150,5 +156,106 @@ describe('the fold back through the fit', () => {
     const back = fit!.toPlan(fit!.toMap(pt))
     expect(back.x).toBeCloseTo(pt.x, 9)
     expect(back.y).toBeCloseTo(pt.y, 9)
+  })
+})
+
+/**
+ * ⚠️ THE AXIS regression (02.09.) — «ein gespiegeltes Feuer lässt sich nur auf einer Achse
+ * ziehen».
+ *
+ * Every drag test above pulls along ONE axis on a square, north-up sheet, which is the one shape
+ * of sheet where an aspect or a y-flip mistake cannot show. A mirrored symbol on a real Modul
+ * lives on a sheet that is neither: plan x and y are fractions of DIFFERENT edges, so the fit
+ * runs in `(x·ar, y)` with y flipped, and getting either wrong collapses the inverse towards a
+ * line — the drag then follows the finger's PROJECTION onto one plan axis instead of the finger.
+ * So: a diagonal drag, through a fit that is turned 30° and 1.6 : 1, and both coordinates
+ * checked against amounts derived from the transform rather than from the fit's own inverse.
+ */
+const DEG = Math.PI / 180
+const R_EARTH = 6378137
+const LAT0 = 47.5
+const K = Math.cos(LAT0 * DEG) * R_EARTH
+const M0 = { x: K * 7.6 * DEG, y: K * Math.log(Math.tan(Math.PI / 4 + LAT0 * DEG / 2)) }
+/** the georef module's own latitude-corrected Mercator metres, both ways */
+const toLngLat = (mx: number, my: number) => ({ lng: mx / K / DEG, lat: (2 * Math.atan(Math.exp(my / K)) - Math.PI / 2) / DEG })
+const toMetre = (lng: number, lat: number) => ({ x: K * lng * DEG, y: K * Math.log(Math.tan(Math.PI / 4 + lat * DEG / 2)) })
+
+/** a sheet 1.6 : 1, one plan unit of HEIGHT = 80 m of ground, laid down 30° off north */
+const AR = 1.6, TURN = 30 * DEG, MPU = 80
+const planToLngLat = (x: number, y: number) => toLngLat(
+  M0.x + MPU * (Math.cos(TURN) * x * AR - Math.sin(TURN) * -y),
+  M0.y + MPU * (Math.sin(TURN) * x * AR + Math.cos(TURN) * -y),
+)
+const TURNED_FIT = fitSimilarity([
+  { plan: { x: 0, y: 0 }, lngLat: planToLngLat(0, 0) },
+  { plan: { x: 1, y: 0 }, lngLat: planToLngLat(1, 0) },
+  { plan: { x: 0, y: 1 }, lngLat: planToLngLat(0, 1) },
+], AR)!
+/** the plan-space delta a ground displacement of (east, north) metres HAS to produce */
+const planDelta = (east: number, north: number) => ({
+  x: (Math.cos(TURN) * east + Math.sin(TURN) * north) / (MPU * AR),
+  y: (Math.sin(TURN) * east - Math.cos(TURN) * north) / MPU,
+})
+
+describe('a diagonal drag on a turned, non-square sheet', () => {
+  const feuer: BoardAnno = { id: 'a1', kind: 'symbol', symbol: 'Feuer', x: 0.4, y: 0.4, floor: 0 }
+  const svg = '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>'
+  // a plain 4 px per metre map transform, in the same metric space the fit works in
+  const PPM = 4
+  const project = (c: [number, number]) => { const m = toMetre(c[0], c[1]); return { x: (m.x - M0.x) * PPM, y: -(m.y - M0.y) * PPM } }
+  const unproject = (p: { x: number; y: number }) => { const g = toLngLat(M0.x + p.x / PPM, M0.y - p.y / PPM); return [g.lng, g.lat] as [number, number] }
+
+  it('moves a mirrored symbol on the KARTE in both plan coordinates at once', () => {
+    let written = { x: feuer.x!, y: feuer.y! }
+    const Live = () => {
+      const [a, setA] = useState<BoardAnno>(feuer)
+      const { lng, lat } = TURNED_FIT.toMap({ x: a.x!, y: a.y! })
+      const twin = { key: 'm:a1', planId: 'm', planCode: 'M', annoId: 'a1', coord: [lng, lat], anno: a, fit: TURNED_FIT } as MapTwin
+      return <GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }} zoom={18} selectedKey="m:a1"
+        onOpen={() => {}} project={project} unproject={unproject}
+        // the surface's own write-through, in the one shape IncidentWorkspace writes it
+        // (moveMapTwinSource): fold the ground coordinate back and store BOTH halves
+        onMove={(t, coord, phase) => {
+          if (phase === 'start') return
+          const p = t.fit.toPlan({ lng: coord[0], lat: coord[1] })
+          written = { x: Math.max(0, Math.min(1, p.x)), y: Math.max(0, Math.min(1, p.y)) }
+          setA((prev) => ({ ...prev, ...written }))
+        }} />
+    }
+    render(<Live />)
+    const mark = screen.getByRole('button')
+    fireEvent.pointerDown(mark, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 120, clientY: 130 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 140, clientY: 160 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 140, clientY: 160 })
+    // +40 px east = +10 m, +60 px DOWN = 15 m south
+    const want = planDelta(10, -15)
+    expect(want.x).not.toBeCloseTo(0, 3)   // the drag really does ask both axes to move
+    expect(want.y).not.toBeCloseTo(0, 3)
+    expect(written.x).toBeCloseTo(0.4 + want.x, 5)
+    expect(written.y).toBeCloseTo(0.4 + want.y, 5)
+  })
+
+  it('…and a mirrored Karte object on the PLAN lands where it was dropped, both ways', () => {
+    const tlfHere = { ...tlf, coord: [0, 0] } as Entity
+    const start = { x: 0.4, y: 0.4 }
+    const onMove = vi.fn()
+    render(<GeorefTwinsBoard twins={[{ key: 'p:e1', kind: 'symbol', entityId: 'e1', pt: start, entity: tlfHere, fit: TURNED_FIT }]}
+      byName={{}} sW={1000} sH={625} sizePx={40} planWidthM={MPU * AR}
+      selectedKey="p:e1" onOpen={() => {}} onMove={onMove} />)
+    fireEvent.pointerDown(screen.getByRole('button'), { pointerId: 1, clientX: 200, clientY: 200 })
+    fireEvent.pointerMove(screen.getByRole('button'), { pointerId: 1, clientX: 300, clientY: 325 })
+    fireEvent.pointerUp(screen.getByRole('button'), { pointerId: 1, clientX: 300, clientY: 325 })
+    const [, pt] = onMove.mock.calls[onMove.mock.calls.length - 1]
+    // +100 px of 1000 across, +125 px of 625 down — a share of each of the sheet's OWN edges
+    expect(pt.x).toBeCloseTo(0.5, 9)
+    expect(pt.y).toBeCloseTo(0.6, 9)
+    // …and folded back through the turned fit that is a real ground displacement in both axes
+    const from = TURNED_FIT.toMap(start), to = TURNED_FIT.toMap(pt)
+    const east = toMetre(to.lng, to.lat).x - toMetre(from.lng, from.lat).x
+    const north = toMetre(to.lng, to.lat).y - toMetre(from.lng, from.lat).y
+    const back = planDelta(east, north)
+    expect(back.x).toBeCloseTo(0.1, 6)
+    expect(back.y).toBeCloseTo(0.2, 6)
   })
 })
