@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { apiGet, apiPost, ApiError, isUnverifiable, SESSION_EXPIRED_EVENT } from './api'
 import { idbGet, idbSet, idbDel } from './idb'
-import { isDemoMode, loadDeploymentConfig } from './deploymentConfig'
+import { getDeploymentConfig, isDemoMode, loadDeploymentConfig } from './deploymentConfig'
 import { syncMediaCacheAuth } from './authMediaCache'
 
 // The demo's public PIN (shown to every visitor) — used to auto-sign-in on demo instances so
@@ -90,6 +90,8 @@ function writeCachedUser(u: AuthUser | null) {
  *  before the splash gives up; a slow-but-alive server then simply gets the designed offline
  *  boot, which the next poll corrects. */
 const CACHED_PROBE_TIMEOUT_MS = 7_000
+/** how long the boot probe waits for the session-bearing config re-read before mounting the app */
+const SESSION_CONFIG_BUDGET_MS = 4_000
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -138,6 +140,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await apiPost('/api/auth/logout').catch(() => { /* best-effort: the re-probe says what is left */ })
           u = await probe()
         }
+        // The boot config was fetched BEFORE this probe, and `/api/config` is public: with the
+        // access cookie expired and only the refresh cookie alive it answered as an ANONYMOUS
+        // caller — no 401, so no refresh — and silently withheld the CARTO key and the Rapport
+        // links (backend api/config · get_config). The probe above is what refreshed the session,
+        // so re-read now, before the app mounts and the map builds its tile URLs; the basemap
+        // used to print «API key required» for the whole session (field report 02.09.). Only
+        // when the booted config shows the withholding, and bounded: a slow link must not hold
+        // the splash twice — a late answer still lands in the singleton and the offline cache.
+        if (!getDeploymentConfig().integrations?.cartoBasemapKey) {
+          await Promise.race([loadDeploymentConfig().catch(() => {}), new Promise((r) => setTimeout(r, SESSION_CONFIG_BUDGET_MS))])
+        }
         if (alive) { setUser(u); writeCachedUser(u) }
       } catch (e) {
         if (!alive) return
@@ -181,7 +194,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ⚠️ Re-read the deployment config now that there IS a session. Parts of it are withheld
     // from anonymous callers (`report.links` — the station's own Formulare, whose URLs are
     // capabilities; see backend api/config · get_config), and the boot fetch necessarily ran
-    // before this login. Every later boot carries the session cookie and needs nothing extra.
+    // before this login. A later boot re-reads too when its config shows the withholding — the
+    // boot fetch is anonymous whenever the access cookie has expired (probe effect above).
     // Best-effort: a station that cannot re-read still has the config it booted with, and
     // failing the login over a config refresh would be the worse trade at 3am.
     try { await loadDeploymentConfig() } catch { /* keep the booted config */ }

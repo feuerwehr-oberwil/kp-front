@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, atemschutzDoctrine, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { alarmProviderName, atemschutzDoctrine, carrySessionOnly, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -291,5 +291,33 @@ describe('reportLinks — what is allowed onto the Rapport', () => {
     // reachable via `admin_config load` of a hand-edited file
     await withLinks([null, 'nonsense', {}])
     expect(reportLinks()).toEqual([])
+  })
+})
+
+// `/api/config` withholds the CARTO key and the Rapport links from an anonymous caller without
+// saying so — and the boot fetch IS anonymous whenever the access cookie has expired. An answer
+// that lacks them where the previous one had them is «withheld», never «removed».
+describe('carrySessionOnly — an anonymous answer never downgrades a keyed config', () => {
+  type Cfg = Parameters<typeof carrySessionOnly>[0]
+  const link = { id: 'l1', url: 'https://x' } as unknown as NonNullable<NonNullable<Cfg['report']>['links']>[number]
+  const keyed: Cfg = { integrations: { cartoBasemapKey: 'k1' }, report: { links: [link] } }
+
+  it('carries the key and the links over an answer that withholds them', () => {
+    const out = carrySessionOnly(keyed, { identity: { appName: 'FWO' } })
+    expect(out.integrations?.cartoBasemapKey).toBe('k1')
+    expect(out.report?.links).toHaveLength(1)
+    expect(out.identity?.appName).toBe('FWO')
+  })
+
+  it('lets a session-bearing answer replace both (a rotated key wins)', () => {
+    const out = carrySessionOnly(keyed, { integrations: { cartoBasemapKey: 'k2' }, report: { links: [] } })
+    expect(out.integrations?.cartoBasemapKey).toBe('k2')
+    // an empty list is indistinguishable from a withheld one, so the previous links stay
+    expect(out.report?.links).toHaveLength(1)
+  })
+
+  it('is the identity when nothing was known before', () => {
+    const next: Cfg = { integrations: {} }
+    expect(carrySessionOnly({}, next)).toBe(next)
   })
 })

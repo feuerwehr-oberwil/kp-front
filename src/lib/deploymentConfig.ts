@@ -408,6 +408,35 @@ let resolved: DeploymentConfig = {}
 // response must never overwrite the newer authenticated one.
 let loadGeneration = 0
 
+/**
+ * Keep the session-only parts of the config across an ANONYMOUS answer.
+ *
+ * `/api/config` is public and withholds two things from a caller without a session, silently
+ * (backend api/config · get_config): the CARTO basemap key and the Rapport's Formular links.
+ * The boot fetch runs before `/me`, and when the access cookie has expired while the refresh
+ * cookie is still good, it IS that anonymous caller — the endpoint never 401s, so nothing
+ * refreshes the session first. The keyless answer then replaced a keyed one here and in the
+ * offline cache: the basemap printed «API key required» on its tiles for the rest of the
+ * session (field report 02.09.), and an OFFLINE boot afterwards built keyless tile URLs that no
+ * longer matched the tiles the service worker had cached under `?key=`.
+ *
+ * Both values are deployment-stable, so an answer that lacks one where the previous answer had
+ * it is read as «withheld», never as «removed» — a station that really rotates its key serves the
+ * new one on the next session-bearing load, which every login and every boot probe makes.
+ */
+export function carrySessionOnly(prev: DeploymentConfig, next: DeploymentConfig): DeploymentConfig {
+  let out = next
+  const prevKey = prev.integrations?.cartoBasemapKey
+  if (prevKey && !next.integrations?.cartoBasemapKey) {
+    out = { ...out, integrations: { ...out.integrations, cartoBasemapKey: prevKey } }
+  }
+  const prevLinks = prev.report?.links
+  if (prevLinks?.length && !next.report?.links?.length) {
+    out = { ...out, report: { ...out.report, links: prevLinks } }
+  }
+  return out
+}
+
 function readCache(): Promise<DeploymentConfig | null> {
   return idbGet<DeploymentConfig>(CACHE_KEY).then((v) => (v && typeof v === 'object' ? v : null))
 }
@@ -422,7 +451,10 @@ export async function loadDeploymentConfig(): Promise<DeploymentConfig> {
   const generation = ++loadGeneration
   try {
     const cfg = await apiGet<DeploymentConfig>('/api/config')
-    const next = cfg && typeof cfg === 'object' ? cfg : {}
+    const fetched = cfg && typeof cfg === 'object' ? cfg : {}
+    // what this device last knew — the singleton, or on a cold boot the offline copy
+    const prev = Object.keys(resolved).length ? resolved : (await readCache()) ?? {}
+    const next = carrySessionOnly(prev, fetched)
     if (generation === loadGeneration) {
       resolved = next
       void idbSet(CACHE_KEY, resolved) // durable copy for offline boot; in-memory singleton is enough this session

@@ -55,9 +55,37 @@ describe('AuthProvider — offline user cache', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper })
     await waitFor(() => expect(result.current.user).toEqual(LINK_USER))
-    expect(idbSet).not.toHaveBeenCalled()
+    expect(idbSet).not.toHaveBeenCalledWith('kp-front-user', expect.anything())
     expect(idbDel).toHaveBeenCalledWith('kp-front-user')
     await waitFor(() => expect(syncMediaCacheAuth).toHaveBeenCalledWith(LINK_USER))
+  })
+})
+
+describe('AuthProvider — the boot probe re-reads a config the anonymous boot fetch had withheld from', () => {
+  // `/api/config` is public and answers keyless when only the refresh cookie is alive; the probe
+  // is what refreshes the session, so it re-reads — before the app (and the map) mounts
+  it('re-reads when the booted config has no CARTO key, and waits for it before exposing the user', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: {} })
+    let releaseConfig!: (cfg: DeploymentConfig) => void
+    const loadConfig = vi.spyOn(deploymentConfig, 'loadDeploymentConfig')
+      .mockReturnValue(new Promise<DeploymentConfig>((resolve) => { releaseConfig = resolve }))
+    apiGet.mockResolvedValue(EDITOR_USER)
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(loadConfig).toHaveBeenCalledTimes(1))
+    expect(result.current.user).toBeNull() // still on the splash — the map must not mount keyless
+    releaseConfig({ integrations: { cartoBasemapKey: 'k' } })
+    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
+  })
+
+  it('does not re-read when the booted config already carries the key', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: { cartoBasemapKey: 'k' } })
+    const loadConfig = vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockResolvedValue({})
+    apiGet.mockResolvedValue(EDITOR_USER)
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
+    expect(loadConfig).not.toHaveBeenCalled()
   })
 })
 
