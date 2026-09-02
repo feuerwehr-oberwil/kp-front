@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { JournalStore } from './journalStore'
-import { LONG_POLL_SPACING_MS, nextPollDelay } from './pollBackoff'
+import { createLongPollLoop } from './pollBackoff'
 import type { TimelineEvent } from '../types'
 
 /**
@@ -29,74 +29,35 @@ export function useJournal({ incidentId, readOnly, legacy }: {
     store.onChange = () => setNonce((n) => n + 1)
     void store.init(legacy)
 
-    // Same live-follow shape as the workspace sync: pull new rows + retry the outbox. A VISIBLE
-    // tab long-polls (`wait: true` — the server holds the request until a row is appended, see
-    // backend app/live_wait), so a Verlaufszeile dictated on the tablet is on the phone as soon
-    // as it commits, and the rounds run back-to-back with only a spacing floor between them. A
-    // HIDDEN tab keeps the flat 60 s no-wait poll: nothing on screen to keep fresh, and a
-    // backgrounded PWA holding a connection open only spends radio (see pollBackoff).
-    let stopped = false
-    let timer: ReturnType<typeof setTimeout> | null = null
-    let quiet = 0
-    let gen = 0
-    let inflight: AbortController | null = null // the held request, so a restart can drop it
+    // Same live-follow loop as the workspace sync — literally the same one (pollBackoff ·
+    // createLongPollLoop), so only the round differs. A VISIBLE tab long-polls (`wait: true` —
+    // the server holds the request until a row is appended, see backend app/live_wait), so a
+    // Verlaufszeile dictated on the tablet is on the phone as soon as it commits, and the rounds
+    // run back-to-back with only a spacing floor between them. A HIDDEN tab keeps the flat 60 s
+    // no-wait poll: nothing on screen to keep fresh, and a backgrounded PWA holding a connection
+    // open only spends radio (see pollBackoff).
+    const loop = createLongPollLoop({
+      baseMs: appConfig.sync.livePollMs,
+      maxMs: appConfig.sync.livePollMaxMs,
+      hiddenMs: () => appConfig.sync.hiddenPollMs,
+      round: async ({ hidden, signal }) => {
+        const result = await store.pull({ wait: !hidden, signal })
+        void store.flush()
+        // 'failed' (offline, aborted, backend down) → the loop eases off so a dead server isn't
+        // hammered; anything else answered and a visible tab goes straight into the next round.
+        return result !== 'failed'
+      },
+      // the outbox retries as soon as the link is back — the loop restarts the PULL on its own
+      onOnline: () => void store.flush(),
+      // page teardown (iOS PWA backgrounded / swiped away): a normal fetch is aborted with the
+      // document, so pending rows ride a keepalive beacon — the coverage timeline rows had via
+      // the workspace blob beacon before the extraction.
+      onSuspend: () => store.flushKeepalive(),
+    })
+    loop.start(appConfig.sync.livePollMs)
 
-    const tick = async (myGen: number) => {
-      if (stopped || myGen !== gen) return
-      const ctrl = new AbortController()
-      inflight = ctrl
-      const hidden = document.hidden
-      const result = await store.pull({ wait: !hidden, signal: ctrl.signal })
-      if (inflight === ctrl) inflight = null
-      void store.flush()
-      if (stopped || myGen !== gen) return
-      // The server answered a visible tab → straight into the next round. It didn't (offline,
-      // aborted, backend down) → ease off so a dead server isn't hammered; hidden → 60 s.
-      let delay: number
-      if (result !== 'failed' && !document.hidden) { quiet = 0; delay = LONG_POLL_SPACING_MS }
-      else {
-        delay = nextPollDelay({
-          baseMs: appConfig.sync.livePollMs, maxMs: appConfig.sync.livePollMaxMs,
-          quietRounds: quiet, hidden: document.hidden, hiddenMs: appConfig.sync.hiddenPollMs,
-        })
-        quiet += 1
-      }
-      timer = setTimeout(() => void tick(myGen), delay)
-    }
-    // (re)start, dropping any round the server is still holding — a 20 s request must not
-    // outlive the loop that issued it (teardown, incident switch, tab going away).
-    const start = (delay: number) => {
-      gen++
-      const myGen = gen
-      quiet = 0
-      if (timer) clearTimeout(timer)
-      inflight?.abort()
-      inflight = null
-      timer = setTimeout(() => void tick(myGen), delay)
-    }
-    start(appConfig.sync.livePollMs)
-
-    const onOnline = () => void store.flush()
-    // page teardown (iOS PWA backgrounded / swiped away): a normal fetch is aborted with the
-    // document, so pending rows ride a keepalive beacon — the coverage timeline rows had via
-    // the workspace blob beacon before the extraction.
-    const onHide = () => store.flushKeepalive()
-    const onVis = () => {
-      if (document.visibilityState === 'hidden') {
-        store.flushKeepalive()
-        start(appConfig.sync.hiddenPollMs) // drop the held request, fall back to the slow poll
-      } else start(0) // back to the foreground → pull the latest at once and resume long-polling
-    }
-    window.addEventListener('online', onOnline)
-    window.addEventListener('pagehide', onHide)
-    document.addEventListener('visibilitychange', onVis)
     return () => {
-      stopped = true; gen++
-      if (timer) clearTimeout(timer)
-      window.removeEventListener('online', onOnline)
-      window.removeEventListener('pagehide', onHide)
-      document.removeEventListener('visibilitychange', onVis)
-      inflight?.abort()
+      loop.stop()
       store.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

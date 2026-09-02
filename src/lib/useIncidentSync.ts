@@ -5,7 +5,7 @@ import { onWorkspaceServerTime } from './api/workspace'
 import { attendanceConflictRows, conflictRows } from './attendanceConflict'
 import { fillTemplate } from './format'
 import type { RecordConflict } from './mergeWorkspace'
-import { LONG_POLL_SPACING_MS, nextPollDelay } from './pollBackoff'
+import { createLongPollLoop } from './pollBackoff'
 import { createClockSkewAlert, createSyncAlertTracker } from './syncAlert'
 import { recordTrouble } from './trouble'
 import { toast } from './ui'
@@ -163,94 +163,51 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // battery cost the old cadence was tuned to avoid. It keeps the flat 60 s no-wait poll and
   // catches up at once on the visibility return — unless this device is RINGING (alarmUrgent),
   // where the hidden cadence drops to hiddenAlarmPollMs so the Funkkontakt that ends the alarm
-  // is not up to a minute late.
+  // is not up to a minute late. The loop also catches up when the device comes back ONLINE: the
+  // ease-off can have parked it up to livePollMaxMs out on a link that has since recovered.
   const liveRev = useRef(sync.rev)
   useEffect(() => {
-    let stopped = false
-    let timer: ReturnType<typeof setTimeout> | null = null
-    let quiet = 0    // consecutive rounds that fetched nothing (failed / dirty-skipped) → ease-off
-    let gen = 0      // bumps to invalidate any in-flight async round when we (re)start or tear down
-    let inflight: AbortController | null = null // the held request, so a restart can drop it
     // While this device is sounding the alarm the hidden cadence drops to hiddenAlarmPollMs
     // (see IncidentSyncDeps · alarmUrgent). `alarmUrgent` is in the effect's deps, so a flip
     // restarts the loop and the new cadence applies at once — not after the parked 60 s timer.
     const hiddenMs = () => (alarmUrgent ? appConfig.sync.hiddenAlarmPollMs : appConfig.sync.hiddenPollMs)
 
-    const tick = async (myGen: number) => {
-      if (stopped || myGen !== gen) return
-      // Demo follows the shared server too now (edits persist + sync across visitors, like a real
-      // station). The `!sync.hasUnsynced` guard still protects in-progress local edits from being
-      // clobbered mid-edit; the nightly reset re-seeds everyone at once.
-      const skipped = !readOnly && sync.hasUnsynced
-      const hold = !document.hidden
-      let answered = false
-      if (!skipped) {
-        const ctrl = new AbortController()
-        inflight = ctrl
-        try {
-          const since = Math.max(liveRev.current, sync.rev)
-          const res = await pollWorkspaceSince(incidentId, since, { wait: hold, signal: ctrl.signal })
-          answered = true
-          // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
-          // flight (with a held request that window is now the whole wait, so this guard matters
-          // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the
-          // "symbol placed on a tablet vanishes ~200ms later" race. Skip the take-server: the
-          // edit's own debounced flush will 3-way merge against the server.
-          if (stopped || myGen !== gen || (!readOnly && sync.hasUnsynced)) return
-          if (res && res.workspace_rev > sync.rev) {
-            liveRev.current = res.workspace_rev
-            const ws = (res.workspace ?? {}) as Workspace
-            if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
-            hydrate(ws as unknown as Saved)
-          }
-        } catch { /* offline, or this round was aborted — handled by the delay below */ }
-        finally { if (inflight === ctrl) inflight = null }
-      }
-      if (stopped || myGen !== gen) return
-      // Straight into the next round while the server is answering a visible tab — it does the
-      // waiting for us, so the spacing is only a floor against a tight retry loop. A round that
-      // never reached the server, or one skipped because we're dirty, eases off instead
-      // (pollBackoff): a dead backend must not be hammered, and a dirty skip fetches nothing.
-      const hidden = document.hidden
-      let delay: number
-      if (answered && !hidden) { quiet = 0; delay = LONG_POLL_SPACING_MS }
-      else {
-        delay = nextPollDelay({
-          baseMs: appConfig.sync.livePollMs, maxMs: appConfig.sync.livePollMaxMs,
-          quietRounds: quiet, hidden, hiddenMs: hiddenMs(),
-        })
-        quiet += 1
-      }
-      timer = setTimeout(() => void tick(myGen), delay)
-    }
-
-    // (re)start the loop, invalidating any prior round — including one the server is still
-    // holding: without the abort, a teardown or an incident switch would stay pinned to a
-    // 20 s request that can no longer do anything with its answer.
-    const start = (delay: number) => {
-      gen++
-      const myGen = gen
-      quiet = 0
-      if (timer) clearTimeout(timer)
-      inflight?.abort()
-      inflight = null
-      timer = setTimeout(() => void tick(myGen), delay)
-    }
-    start(appConfig.sync.livePollMs)
-    startRef.current = start
-
-    // returning to the foreground: catch up immediately and resume long-polling, so a
-    // backgrounded device (which was polling at hiddenPollMs) shows the latest state at once.
-    // Going away: drop the held request and fall back to the slow no-wait cadence.
-    const onVis = () => start(document.visibilityState === 'visible' ? 0 : hiddenMs())
-    document.addEventListener('visibilitychange', onVis)
+    // The mechanics (generation guard, in-flight abort, ease-off, visibility/online/pagehide)
+    // are pollBackoff's; this is only what a round DOES.
+    const loop = createLongPollLoop({
+      baseMs: appConfig.sync.livePollMs,
+      maxMs: appConfig.sync.livePollMaxMs,
+      hiddenMs,
+      round: async ({ hidden, signal }) => {
+        // Demo follows the shared server too now (edits persist + sync across visitors, like a real
+        // station). The `!sync.hasUnsynced` guard still protects in-progress local edits from being
+        // clobbered mid-edit; the nightly reset re-seeds everyone at once. A dirty round fetches
+        // nothing, so it reports "unanswered" and the loop eases off.
+        if (!readOnly && sync.hasUnsynced) return false
+        const since = Math.max(liveRev.current, sync.rev)
+        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal })
+        // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
+        // flight (with a held request that window is now the whole wait, so this guard matters
+        // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the
+        // "symbol placed on a tablet vanishes ~200ms later" race. Skip the take-server: the
+        // edit's own debounced flush will 3-way merge against the server. The server DID answer,
+        // so the loop stays hot rather than easing off.
+        if (signal.aborted || (!readOnly && sync.hasUnsynced)) return true
+        if (res && res.workspace_rev > sync.rev) {
+          liveRev.current = res.workspace_rev
+          const ws = (res.workspace ?? {}) as Workspace
+          if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
+          hydrate(ws as unknown as Saved)
+        }
+        return true
+      },
+    })
+    loop.start(appConfig.sync.livePollMs)
+    startRef.current = loop.start
 
     return () => {
-      stopped = true; gen++
-      if (timer) clearTimeout(timer)
-      inflight?.abort()
+      loop.stop()
       startRef.current = null
-      document.removeEventListener('visibilitychange', onVis)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly, incidentId, sync, alarmUrgent])
