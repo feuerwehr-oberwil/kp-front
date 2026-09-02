@@ -10,6 +10,7 @@ uses CurrentUser, not CurrentEditor.
 
 import re
 import uuid
+from urllib.parse import unquote
 
 import anyio
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -121,7 +122,14 @@ async def resolve_report_assets(db: AsyncSession, data: ReportPayload, figs: dic
         m = _REFERENCE_URL.match(pp.url)
         if not m:
             continue
-        ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == m.group(1)))).scalar_one_or_none()
+        # ⚠️ unquote: the client percent-encodes the dataset id (referenceUrl uses
+        # encodeURIComponent), and every real plan id carries colons («plan:<obj>:<module>»)
+        # — so the raw match is `plan%3A…` and the DB lookup found nothing. The serving route
+        # never noticed because FastAPI decodes its path params; this resolver reads the raw
+        # URL string, so it has to decode itself or every annotated Objektplan page drops out
+        # of the printed rapport in silence.
+        ds_id = unquote(m.group(1))
+        ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
         if ds is None or not ds.storage_key or ds.kind != "pdf":
             continue
         try:

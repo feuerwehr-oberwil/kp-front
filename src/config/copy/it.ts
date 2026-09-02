@@ -1257,6 +1257,7 @@ export const it: Localizable<Copy> = {
       stale: 'ricontrolla la scala',
       saved: 'Scala calibrata ({m} m di riferimento)',
       needsCalibration: 'Imposta la scala: tocca i due estremi della barra di scala',
+      needsCalibrationViewer: 'Per misurare serve prima una scala calibrata',
 
       persistTitle: 'Memorizzare la scala?',
       saveAll: 'Per tutti i piani',
@@ -2356,16 +2357,16 @@ export const it: Localizable<Copy> = {
       + 'Un nuovo link può essere creato in qualsiasi momento – sarà un altro indirizzo.',
     shareRevokeConfirm: 'Sì, revoca',
     shareRevokeFailed: 'Revoca del link non riuscita',
-    shareKindLabel: 'Cosa apre il codice',
+    shareKindLabel: 'Cosa apre il link',
     shareKindFull: 'Intero intervento',
     shareKindFullSub: 'sola lettura',
     shareKindAtem: 'Solo APR',
     shareKindAtemSub: 'operare',
-    shareAsLede: 'Chi inquadra il codice vede solo la sorveglianza APR di questo intervento e la '
+    shareAsLede: 'Chi apre il link vede solo la sorveglianza APR di questo intervento e la '
       + 'usa: annunciare una squadra, contatto, pressione, ripiegamento, fuori. Nessuna carta, '
       + 'nessun diario. Vale finché l’intervento non è chiuso.',
     shareAsLiveLede: 'Vale finché l’intervento non è chiuso – o finché non lo revochi.',
-    shareAsWarn: 'Quanto viene inserito lì compare nel diario APR del rapporto. Dai il codice '
+    shareAsWarn: 'Quanto viene inserito lì compare nel diario APR del rapporto. Dai il link '
       + 'solo alla persona che sorveglia.',
     shareAsRevokeTitle: 'Revocare il link APR?',
     shareAsRevokeBody: 'L’indirizzo smetterà di funzionare. Chi ha la tabella aperta non può più '

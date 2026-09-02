@@ -61,7 +61,7 @@ const sym: SymbolsApi = { ready: false, order: [], symbols: [], byName: {} }
 const oldNote: BoardAnno = { id: 'a1', kind: 'text', x: 0.4, y: 0.4, floor: 0, text: 'Alte Notiz' }
 
 const gebaeudeDoc: PlanDocument = {
-  id: 'gebaeude', code: 'Gebäude', title: 'Geschosse (Skizze)', subtitle: '', imageUrl: '',
+  id: 'gebaeude', code: 'Gebäude', title: 'Gebäude', subtitle: '', imageUrl: '',
   orientation: 'portrait', icon: 'floors', floorStack: true,
 }
 const aBuilding: BuildingDoc = {
@@ -337,16 +337,18 @@ describe('Plan round 3 (29.08.)', () => {
     tapAt(ink(c), 100, 100); tapAt(ink(c), 300, 100); tapAt(ink(c), 200, 300)
   }
 
-  it('offers no Messen tool on the Plan — the deliberate divergence from the Lage', () => {
+  // Messen left the Plan rail on 29.08. and came BACK on 02.09. (field feedback: the quick
+  // «wie weit?» glance kept reaching for it) — see usePlanMeasure's header.
+  it('offers the Messen tool on the Plan again (02.09.)', () => {
     renderPlan([])
     expect(screen.getByRole('button', { name: 'Linie' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Messen' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Messen' })).toBeTruthy()
   })
 
-  it('keeps the slim read-only rail, now Auswahl alone', () => {
+  it('keeps the slim read-only rail: Auswahl + Messen', () => {
     renderPlan([], { readOnly: true, slimTools: true })
     expect(screen.getByRole('button', { name: 'Auswahl' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Messen' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Messen' })).toBeTruthy()
   })
 
   it('gives the in-progress Punkte draft real vertex grips and «+» inserts', () => {

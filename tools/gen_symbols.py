@@ -404,16 +404,13 @@ def build() -> list[dict]:
               stroke=BLUE, sw=0.09, close=True)],
         vb=2.6,
     ))
-    add("Fahrzeuge / Mittel", "VKF Helilandeplatz", svg(
-        [path([(-1, -1), (1, -1), (1, 1), (-1, 1)], stroke=BLUE, sw=0.1, close=True),
-         line(-1, 0, 1, 0, stroke=BLUE, sw=0.1),
-         # rope-knot (lying eight) in the top half: centre cross + two side loops
-         line(0, -0.5, -0.2, -0.4, stroke=BLUE, sw=0.1),
-         line(0, -0.5, 0.2, -0.6, stroke=BLUE, sw=0.1),
-         line(0, -0.5, 0.2, -0.4, stroke=BLUE, sw=0.1),
-         line(0, -0.5, -0.2, -0.6, stroke=BLUE, sw=0.1),
-         f'<path d="M -0.2 -0.6 L -0.4 -0.7 A 0.21 0.21 0 0 0 -0.7 -0.5 A 0.23 0.23 0 0 0 -0.4 -0.3 A 0.81 0.81 0 0 0 -0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>',
-         f'<path d="M 0.2 -0.6 L 0.4 -0.7 A 0.21 0.21 0 0 1 0.7 -0.5 A 0.23 0.23 0 0 1 0.4 -0.3 A 0.81 0.81 0 0 1 0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>'],
+    # …and the mirror of the Drohne right above: we could place the machine but not where it
+    # goes up and down. Same box-with-content grammar as VKF Helilandeplatz. (Machine before
+    # its Landeplatz, both pairs — the picker reads Drohne → Landeplatz, Heli → Landeplatz.)
+    add("Fahrzeuge / Mittel", "FKS Drohnenlandeplatz", svg(
+        [path([(-1, -0.62), (1, -0.62), (1, 0.62), (-1, 0.62)], stroke=BLUE, sw=0.1, close=True),
+         path([(-0.9, -0.5), (0, 0.54), (0.9, -0.5), (0.66, -0.5), (0, 0.2), (-0.66, -0.5)],
+              stroke=BLUE, sw=0.09, close=True)],
         vb=2.6,
     ))
     # Helikopter — FKS Vegetationsbrand S. 52. The lying eight is the rotor disc seen from
@@ -425,12 +422,16 @@ def build() -> list[dict]:
          f'fill="none" stroke="{BLUE}" stroke-width="0.09" stroke-linejoin="round"/>'],
         vb=2.6,
     ))
-    # …and the mirror of our existing Drohne: we could place the machine but not where it goes
-    # up and down. Same box-with-content grammar as VKF Helilandeplatz beside it.
-    add("Fahrzeuge / Mittel", "FKS Drohnenlandeplatz", svg(
-        [path([(-1, -0.62), (1, -0.62), (1, 0.62), (-1, 0.62)], stroke=BLUE, sw=0.1, close=True),
-         path([(-0.9, -0.5), (0, 0.54), (0.9, -0.5), (0.66, -0.5), (0, 0.2), (-0.66, -0.5)],
-              stroke=BLUE, sw=0.09, close=True)],
+    add("Fahrzeuge / Mittel", "VKF Helilandeplatz", svg(
+        [path([(-1, -1), (1, -1), (1, 1), (-1, 1)], stroke=BLUE, sw=0.1, close=True),
+         line(-1, 0, 1, 0, stroke=BLUE, sw=0.1),
+         # rope-knot (lying eight) in the top half: centre cross + two side loops
+         line(0, -0.5, -0.2, -0.4, stroke=BLUE, sw=0.1),
+         line(0, -0.5, 0.2, -0.6, stroke=BLUE, sw=0.1),
+         line(0, -0.5, 0.2, -0.4, stroke=BLUE, sw=0.1),
+         line(0, -0.5, -0.2, -0.6, stroke=BLUE, sw=0.1),
+         f'<path d="M -0.2 -0.6 L -0.4 -0.7 A 0.21 0.21 0 0 0 -0.7 -0.5 A 0.23 0.23 0 0 0 -0.4 -0.3 A 0.81 0.81 0 0 0 -0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>',
+         f'<path d="M 0.2 -0.6 L 0.4 -0.7 A 0.21 0.21 0 0 1 0.7 -0.5 A 0.23 0.23 0 0 1 0.4 -0.3 A 0.81 0.81 0 0 1 0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>'],
         vb=2.6,
     ))
     # Zivile Signaturen S. 7 — the Bereitstellungsraum for VEHICLES. We had Sammelplatz and

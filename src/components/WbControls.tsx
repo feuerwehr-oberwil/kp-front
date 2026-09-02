@@ -386,6 +386,12 @@ interface DocksProps {
   /** the SELECTED team's trail visibility — the dock eye toggles just that team */
   trailsShown: boolean
   onToggleTrails: () => void
+  /** Messen tool: line/area mode + clear/close, mirroring the Lage map's measure dock */
+  measMode: 'line' | 'area'
+  setMeasMode: (m: 'line' | 'area') => void
+  measCount: number
+  onMeasClear: () => void
+  onMeasClose: () => void
   /** Defaults for the NEXT note, set while the Notiz tool is armed. They live here — before a
    *  note exists — rather than during editing on purpose: a dock button tapped mid-edit blurs
    *  the note's textarea, which commits and unmounts the dock under the finger reaching for it.
@@ -401,7 +407,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, width, dashed, marker, setMarker, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, noteDefaults, setNoteDefaults }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, width, dashed, marker, setMarker, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   const NOTES = appConfig.copy.notes
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
@@ -440,6 +446,20 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, widt
         ]} />
       )}
 
+      {/* Messen — close + Strecke/Fläche toggle + clear + info (identical to the Lage map dock).
+          Removed 29.08., restored 02.09.: see usePlanMeasure's header. */}
+      {tool === 'measure' && (
+        <ToolDock groups={[
+          [{ type: 'close', onClick: onMeasClose }],
+          [
+            { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measMode === 'line', onClick: () => setMeasMode('line') },
+            { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: measMode === 'area', onClick: () => setMeasMode('area') },
+          ],
+          [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, disabled: !measCount, onClick: onMeasClear }],
+          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.measure }],
+        ]} />
+      )}
+
       {/* Absperrkreis — drag centre → edge. Cancel + hint and nothing else, exactly like the
           Karte's circle dock (IncidentWorkspace): a cordon is placed in the hazard colour and
           then adjusted — radius, colour and fill — in its own editor. */}
@@ -449,9 +469,6 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, widt
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.circle }],
         ]} />
       )}
-
-      {/* ⚠️ No Messen dock any more: the Messen TOOL left the Plan on 29.08. (deliberate
-          Lage↔Plan divergence — see usePlanMeasure's header). */}
 
       {/* Notiz armed — the quick actions for the note about to be placed. Safe here (nothing has
           focus yet); after placement they live in the note's detail panel instead. */}

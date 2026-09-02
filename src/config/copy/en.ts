@@ -1255,6 +1255,7 @@ export const en: Localizable<Copy> = {
       stale: 'recheck the scale',
       saved: 'Scale calibrated ({m} m reference)',
       needsCalibration: 'Set scale: tap the two ends of the scale bar',
+      needsCalibrationViewer: 'Measuring needs a calibrated scale first',
 
       persistTitle: 'Remember the scale?',
       saveAll: 'For all plans',
@@ -2354,16 +2355,16 @@ export const en: Localizable<Copy> = {
       + 'immediately. A new link can be created at any time – it will be a different address.',
     shareRevokeConfirm: 'Yes, revoke',
     shareRevokeFailed: 'Revoking the link failed',
-    shareKindLabel: 'What the code opens',
+    shareKindLabel: 'What the link opens',
     shareKindFull: 'Whole incident',
     shareKindFullSub: 'read only',
     shareKindAtem: 'SCBA only',
     shareKindAtemSub: 'operate',
-    shareAsLede: 'Whoever scans the code sees only this incident’s SCBA monitoring and operates '
+    shareAsLede: 'Whoever opens the link sees only this incident’s SCBA monitoring and operates '
       + 'it: register a team, contact, pressure, withdrawal, out. No map, no log. Valid until '
       + 'the incident is closed.',
     shareAsLiveLede: 'Valid until the incident is closed – or until you revoke it.',
-    shareAsWarn: 'Whatever is entered there appears in the report’s SCBA log. Give the code only '
+    shareAsWarn: 'Whatever is entered there appears in the report’s SCBA log. Give the link only '
       + 'to the person doing the monitoring.',
     shareAsRevokeTitle: 'Revoke the SCBA link?',
     shareAsRevokeBody: 'The address stops working. Anyone with the board open can no longer enter '
