@@ -14,6 +14,7 @@ import { useRef } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useArmedTransform, type ArmMode } from './useArmedTransform'
 import { DRAG_DEADZONE_PX } from './useHoldToDrag'
+import { transformingChrome } from './transformChrome'
 
 afterEach(cleanup)
 
@@ -44,7 +45,8 @@ function Harness({ enabled = true, resetKey = 'sel-1', onMove = () => {}, onRota
       <div data-arm-exempt>
         <button onClick={() => arm.toggle('move')}>✥</button>
         <button onClick={() => arm.toggle('rotate')}>⟳</button>
-        <output data-testid="state">{`${arm.armed ?? 'off'}:${arm.deg ?? '—'}`}</output>
+        <output data-testid="state">{`${arm.armed ?? 'off'}:${arm.turn ? Math.round(arm.turn.deg) : '—'}`}</output>
+        <output data-testid="turn">{arm.turn ? `${arm.turn.cx},${arm.turn.cy}→${arm.turn.px},${arm.turn.py}` : ''}</output>
       </div>
     </>
   )
@@ -101,6 +103,19 @@ describe('a drag on the surface while ✥ is armed', () => {
     expect(onSurface).not.toHaveBeenCalled()
   })
 
+  it('steps the selection’s own geometry grips aside for the drag, and back on release', () => {
+    render(<Harness />)
+    armWith('✥')
+    expect(transformingChrome()).toBe(false)
+    fireEvent.pointerDown(surface(), { pointerId: 9, isPrimary: true, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(window, { pointerId: 9, clientX: 100, clientY: 104 })
+    expect(transformingChrome()).toBe(false)     // still inside the deadzone: nothing has moved
+    fireEvent.pointerMove(window, { pointerId: 9, clientX: 100, clientY: 180 })
+    expect(transformingChrome()).toBe(true)
+    fireEvent.pointerUp(window, { pointerId: 9, clientX: 100, clientY: 180 })
+    expect(transformingChrome()).toBe(false)
+  })
+
   it('allows drag after drag, from wherever the finger lands', () => {
     const onMove = vi.fn()
     render(<Harness onMove={onMove} />)
@@ -143,6 +158,8 @@ describe('a drag on the surface while ⟳ is armed', () => {
     fireEvent.pointerMove(window, { pointerId: 3, clientX: CENTRE.x, clientY: CENTRE.y + 100 })
     expect(onRotate.mock.calls[0]).toEqual([0, 'start'])
     expect(onRotate.mock.calls[1][0]).toBeCloseTo(90, 6)
+    // …and the guide has the pivot AND the fingertip, which is what it draws the radius between
+    expect(screen.getByTestId('turn').textContent).toBe('200,200→200,300')
     // …and on past half a circle, which is where a plainly wrapped angle would fall back to −90
     fireEvent.pointerMove(window, { pointerId: 3, clientX: CENTRE.x - 100, clientY: CENTRE.y })
     fireEvent.pointerMove(window, { pointerId: 3, clientX: CENTRE.x, clientY: CENTRE.y - 100 })

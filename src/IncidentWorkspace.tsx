@@ -1507,13 +1507,17 @@ export function IncidentWorkspace({
       if (mode !== 'map') return
       const el = document.activeElement as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-      if (selectedDrawIds.length || selectedEntityIds.length) { e.preventDefault(); deleteGroup(selectedDrawIds, selectedEntityIds) }
-      else if (selectedDrawingId) { e.preventDefault(); deleteDrawing(selectedDrawingId) }
+      // ⚠️ mirrored members too (02.09.). The bar's «Löschen» left with the bar, so this key is
+      // where a boxed projection is deleted from now — the Kroki's own Delete has reached its
+      // twins since A21, and a group had no other affordance at all.
+      if (selectedDrawIds.length || selectedEntityIds.length || selectedTwinKeys.length) {
+        e.preventDefault(); deleteGroup(selectedDrawIds, selectedEntityIds, selectedTwinKeys)
+      } else if (selectedDrawingId) { e.preventDefault(); deleteDrawing(selectedDrawingId) }
       else if (selectedId && !tacticalLocked) { e.preventDefault(); deleteEntity(selectedId) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [mode, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, selectedTwinKeys, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard shortcuts (see lib/hotkeys + the "Tastaturkürzel" help section). One mount-once
   // listener delegates to hotkeyRef, which is reassigned every render with the live handlers —
@@ -2154,6 +2158,13 @@ export function IncidentWorkspace({
   // pinch before it ever gets here (see its panGesture note), so moving the map neither places
   // anything nor reaches the deselect at the end of this chain. On a phone that deselect IS the
   // detail sheet's dismiss, and it used to fire on every pan.
+  /** «Fertig» on the selection bar — the editing state ends. Exactly what a tap on the empty map
+   *  already does: nothing selected, and every sheet that was open FOR that selection closed. */
+  const finishSelection = () => {
+    setSelectedId(null); setSelectedDrawingId(null)
+    setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
+    setTwinView(null); setContentTwinView(null); setNotePanelId(null); setEditNoteId(null)
+  }
   const onMapClick = (c: LngLat) => {
     setTwinView(null); setContentTwinView(null)
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
@@ -2686,8 +2697,12 @@ export function IncidentWorkspace({
   // a team marker that carries recorded positions is protected from deletion — its trail is
   // part of the incident record, so it must be cleared deliberately first (plan-board parity)
   const teamEntityLocked = (e: Entity | undefined) => e?.kind === 'team' && (e.trail?.length ?? 0) > 0
-  const deleteGroup = async (ids: string[], entIds: string[]) => {
+  const deleteGroup = async (ids: string[], entIds: string[], twinKeys: string[] = []) => {
     if (tacticalLocked) return
+    // ⚠️ …the boxed MIRRORS too (02.09.). The bar's «Löschen» left with the bar, so the Delete
+    // key is the group's only affordance now, and a group is what the operator boxed — natives
+    // and projections alike. Each mirror deletes through its ONE source object on the plan.
+    if (twinKeys.length) deletePlanTwins(twinKeys)
     const ents = entIds.filter((id) => !liveIds.has(id) && !teamEntityLocked(entities.find((e) => e.id === id)))
     const affected = drawings.flatMap((dr) => ids.includes(dr.id) ? [] : (['start', 'end'] as const).flatMap((endpoint) => {
       const a = endpoint === 'start' ? dr.startAttachment : dr.endAttachment
@@ -3828,6 +3843,7 @@ export function IncidentWorkspace({
           georefPlanContent={mapContentTwinList}
           onTwinOpen={openTwinView}
           onTwinMove={moveMapTwinSource}
+          onSelectionDone={finishSelection}
           onContentTwinOpen={openContentTwinView}
           onContentTwinMove={moveMapTwinSource}
           // round 8 (full 1:1): node pads / «+» / hold-delete on a selected mirrored plan
@@ -3841,7 +3857,6 @@ export function IncidentWorkspace({
           selectedContentTwinKey={contentTwinView?.key}
           selectedContentTwinKeys={selectedTwinKeys}
           onContentTwinTransform={tacticalLocked ? undefined : transformPlanTwins}
-          onContentTwinDelete={tacticalLocked ? undefined : deletePlanTwins}
           georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}
           selectedId={selectedId}
@@ -3910,7 +3925,6 @@ export function IncidentWorkspace({
           onDrawingRadius={editDrawingRadius}
           onDrawingVertexInsert={insertDrawingVertex}
           onDrawingVertexDelete={deleteDrawingVertex}
-          onDrawingDelete={deleteDrawing}
           onDrawingAttachment={setDrawingAttachment}
           onLabelMove={tacticalLocked ? undefined : moveLabel}
           marqueeEnabled={tool === 'lasso' && !tacticalLocked && coord.mode === 'off'}
@@ -3918,7 +3932,6 @@ export function IncidentWorkspace({
           selectedEntityIds={selectedEntityIds}
           onMarquee={onMarquee}
           onGroupTransform={transformGroup}
-          onGroupDelete={deleteGroup}
         />
       ) : (
         <Splash inApp sub={appConfig.copy.loadingSubtitle} />

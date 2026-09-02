@@ -13,6 +13,7 @@ import { appConfig } from '../config/appConfig'
 import { resolveLinePreset, markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, transformThroughFit, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
+import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
@@ -2653,12 +2654,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
   const barRotate = (deg: number, phase: 'start' | 'move' | 'end') => {
     if (readOnly) return
+    // the turn is read on the sheet, beside its pivot (components/SelectionTurn)
+    if (phase === 'end') setBarTurn(null)
+    else if (phase === 'start') { const c = barCentreClient(); setBarTurn(c ? { cx: c.x, cy: c.y, deg: 0 } : null) }
+    else setBarTurn((t) => (t ? { ...t, deg } : t))
     if (phase === 'start') { barRotCentre.current = barCentre; barSnapshot(); barTwinSnapshot(); return }
     barApply({ ndx: 0, ndy: 0, deg }, barRotCentre.current)
     barTwinApply({ ndx: 0, ndy: 0, deg }, phase)
     if (phase === 'end') { barCommit(); barRotCentre.current = null }
   }
-  const barDelete = () => {
+  /** Remove whatever the bar is pointed at — a Mehrfach group, a single Linie/Fläche/
+   *  Absperrkreis, a Form, and the mirrored members of any of those (which delete through their
+   *  ONE source object on the Karte).
+   *  ⚠️ No longer reachable FROM the bar (02.09.): this is what the Delete key runs, and what an
+   *  object's own editor sheet runs. The bar's third slot is «Fertig». */
+  const deleteSelection = () => {
     if (readOnly) return
     // D-06/D-13: the mirror's Löschen lives here too, writing the ONE Karte object
     twinDrawings.filter((t) => barTwinKeys.includes(t.key)).forEach((t) => onTwinDrawingDelete?.(t.drawing.id))
@@ -2667,6 +2677,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (selIds.length > 1) { void deleteGroup(); return }
     const a = annos.find((x) => barIds.includes(x.id))
     if (a) void removeWithConnections(a)
+  }
+  /** «Fertig» — the editing state ends: nothing selected, no mode armed, every sheet that was
+   *  open for this selection closed. The bar carries no Löschen any more: an object is deleted
+   *  from its own editor sheet and with the Delete key, which reaches natives and mirrors alike. */
+  const barDone = () => {
+    setSelId(null); setSelIds([]); setSelTwinIds([]); setTwinDrawingId(null); setTwinView(null)
+    setTwinTeamSel(null); setNotePanelId(null); setEditId(null); setAnnoTap(null)
+    onDismissTwinPanels?.()
   }
   /** ⟳ is absent, not inert, where the model carries no angle: an Absperrkreis is a centre and a
    *  radius — the native's and the mirror's alike. */
@@ -2677,13 +2695,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   /** ✥ / ⟳ tapped instead of dragged: the same two writers, taken on the sheet itself. Capturing
    *  on `.wb-canvas` is also this surface's pan guard — the press never reaches `stageDown`, so
    *  no pan, no marquee and no placement can start under an armed drag (lib/useArmedTransform). */
+  const [barTurn, setBarTurn] = useState<{ cx: number; cy: number; deg: number } | null>(null)
+  const barCentreClient = () => {
+    const r = boardRef.current?.getBoundingClientRect()
+    return r && barCentre ? { x: r.left + barCentre.x * r.width, y: r.top + barCentre.y * r.height } : null
+  }
   const arm = useArmedTransform({
     enabled: barActive,
     surface: () => canvasRef.current,
-    centreClient: () => {
-      const r = boardRef.current?.getBoundingClientRect()
-      return r && barCentre ? { x: r.left + barCentre.x * r.width, y: r.top + barCentre.y * r.height } : null
-    },
+    centreClient: barCentreClient,
     onMove: barMove,
     onRotate: barCanRotate ? barRotate : undefined,
     // a different selection is a different thing to move, and an armed tool is a different
@@ -2710,7 +2730,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const el = e.target instanceof HTMLElement ? e.target : null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       if (readOnly) return
-      if (barIds.length || barTwinKeys.length) { e.preventDefault(); barDelete(); return }
+      if (barIds.length || barTwinKeys.length) { e.preventDefault(); deleteSelection(); return }
       const a = annos.find((x) => x.id === selId)
       if (a) { e.preventDefault(); void removeWithConnections(a) }
     }
@@ -3803,10 +3823,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             <SelectionBar
               onMove={barMove}
               onRotate={barCanRotate ? barRotate : undefined}
-              onDelete={barDelete}
-              armed={arm.armed} onArm={arm.toggle} armedDeg={arm.deg}
+              onDone={barDone}
+              armed={arm.armed} onArm={arm.toggle}
             />
           )}
+          {/* …and the turn is read where it happens, not in the bar's far corner */}
+          {(arm.turn ?? barTurn) && (arm.turn
+            ? <SelectionTurn cx={arm.turn.cx} cy={arm.turn.cy} px={arm.turn.px} py={arm.turn.py} deg={arm.turn.deg} />
+            : <SelectionTurn cx={barTurn!.cx} cy={barTurn!.cy} deg={barTurn!.deg} />)}
 
         </div>
 

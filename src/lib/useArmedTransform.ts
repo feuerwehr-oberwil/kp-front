@@ -20,6 +20,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { DRAG_DEADZONE_PX } from './useHoldToDrag'
+import { beginTransformChrome, endTransformChrome } from './transformChrome'
 
 export type ArmMode = 'move' | 'rotate'
 type Phase = 'start' | 'move' | 'end'
@@ -49,6 +50,14 @@ interface ArmedTransformDeps {
 /** clockwise degrees, wrapped into ±180 so a turn past half a circle keeps counting up */
 const wrapDeg = (d: number) => ((d + 180) % 360 + 360) % 360 - 180
 
+/** The live turn, in CLIENT px — what the on-surface guide is drawn from (components/SelectionTurn) */
+export interface ArmedTurn {
+  cx: number; cy: number
+  /** where the finger is, so the guide can draw the radius the operator is swinging */
+  px: number; py: number
+  deg: number
+}
+
 export function useArmedTransform({ enabled, surface, centreClient, onMove, onRotate, onGrab, resetKey }: ArmedTransformDeps) {
   // The mode is stamped with WHAT it was armed on, and read back only while that still stands —
   // so «a different selection disarms», «a tool change disarms» and «read-only cannot arm» are
@@ -56,8 +65,8 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
   const armKey = `${enabled ? 'on' : 'off'}|${resetKey}`
   const [arm, setArm] = useState<{ mode: ArmMode; key: string } | null>(null)
   const armed = enabled && arm?.key === armKey ? arm.mode : null
-  /** the live turn's read-out; null whenever no turn is in the hand */
-  const [deg, setDeg] = useState<number | null>(null)
+  /** the live turn, for the on-surface guide; null whenever no turn is in the hand */
+  const [turn, setTurn] = useState<ArmedTurn | null>(null)
   const live = useRef<{
     pid: number
     x0: number; y0: number
@@ -83,7 +92,8 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
     const close = () => {
       const st = live.current
       live.current = null
-      setDeg(null)
+      setTurn(null)
+      endTransformChrome()
       cb.current.onGrab?.(false)
       if (!st?.on) return
       if (armed === 'move') cb.current.onMove(st.lx - st.x0, st.ly - st.y0, 'end')
@@ -109,6 +119,8 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
         // a press that never travels writes nothing at all — no undo step, no Verlauf row
         if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
         st.on = true
+        // the selection's own geometry grips step aside for the gesture (lib/transformChrome)
+        beginTransformChrome()
         if (armed === 'move') cb.current.onMove(0, 0, 'start')
         else cb.current.onRotate?.(0, 'start')
       }
@@ -117,8 +129,8 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
         const raw = (Math.atan2(e.clientY - st.centre.y, e.clientX - st.centre.x) * 180) / Math.PI
         st.acc += wrapDeg(raw - st.prev)
         st.prev = raw
+        setTurn({ cx: st.centre.x, cy: st.centre.y, px: e.clientX, py: e.clientY, deg: st.acc })
       }
-      setDeg(st.acc)
       cb.current.onRotate?.(st.acc, 'move')
     }
     const up = (e: PointerEvent) => {
@@ -159,7 +171,8 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
 
   return {
     armed,
-    deg,
+    /** the live turn, for the on-surface guide — null unless ⟳ is armed AND being dragged */
+    turn,
     /** a tap on ✥ / ⟳ — the same grip disarms, the other one takes the mode over */
     toggle: (mode: ArmMode) => setArm((cur) =>
       (!enabled || (cur?.key === armKey && cur.mode === mode) ? null : { mode, key: armKey })),

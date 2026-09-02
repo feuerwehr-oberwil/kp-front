@@ -764,11 +764,36 @@ describe('the plan’s selection bar', () => {
     expect(within(bar()!).getByRole('button', { name: D.moveArmed })).toBeTruthy()
   })
 
-  it('deletes the selection from the bar', () => {
+  // ⚠️ «Löschen» left the bar on 02.09.: its third slot is «Fertig», which ENDS the editing state
+  // — nothing selected, no mode armed, the sheets that were open for it closed. Deleting stays on
+  // the Delete key and in the object's own editor sheet (see the A21 block below).
+  it('ends the editing state on «Fertig», and offers no trash at all', () => {
     const { container, onChange } = renderPlan([line])
     fireEvent.pointerDown(hitShape(container))
-    fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.delete }))
-    expect(onChange.mock.calls[onChange.mock.calls.length - 1][0].some((a: BoardAnno) => a.id === 'l1')).toBe(false)
+    expect(within(bar()!).queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+    fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.done }))
+    expect(bar()).toBeNull()
+    // …and it deletes nothing on the way out
+    expect(onChange.mock.calls.length === 0
+      || onChange.mock.calls[onChange.mock.calls.length - 1][0].some((a: BoardAnno) => a.id === 'l1')).toBe(true)
+  })
+
+  it('drops an armed mode with the editing state', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    expect(within(bar()!).getByRole('button', { name: D.moveArmed })).toBeTruthy()
+    fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.done }))
+    expect(bar()).toBeNull()
+    // …and a drag on the sheet is a plain board gesture again, not a move of what was selected
+    const canvas = container.querySelector('.wb-canvas')!
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
+    fireEvent.pointerMove(window, { clientX: 40, clientY: 160, pointerId: 2 })
+    fireEvent.pointerUp(window, { clientX: 40, clientY: 160, pointerId: 2 })
+    const out = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
+    expect(out?.find((a) => a.id === 'l1')?.pts?.[0][1] ?? 0.2).toBeCloseTo(0.2)
   })
 
   it('is the SAME bar for a Mehrfach group — one drag moves every boxed object', () => {
@@ -810,7 +835,7 @@ describe('the plan’s selection bar', () => {
     }
   })
 
-  it('deletes a whole Mehrfach group by the key, exactly as the bar’s trash does', () => {
+  it('deletes a whole Mehrfach group by the key, exactly as a single object goes', () => {
     const { container, onChange } = renderPlan([line, box])
     fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
     const stage = container.querySelector('.wb-stage > div')!

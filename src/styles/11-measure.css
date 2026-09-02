@@ -247,34 +247,74 @@
    and «always the same spot» has to mean the same spot on the SCREEN. Nothing above it carries a
    transform, so the viewport is the containing block on both. */
 .sel-bar { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
-  display: flex; align-items: center; gap: 6px; padding: 6px;
+  display: flex; align-items: center; gap: 8px; padding: 6px;
   border-radius: var(--r-cluster); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); box-shadow: var(--shadow); animation: pop .16s var(--ease); }
 /* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action) —
-   solid blue, the app's one colour for an action grip that transforms the whole object */
-.sel-bar-act { min-width: 52px; height: 44px; border: none; border-radius: var(--r-sm); padding: 0 12px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  background: var(--blue); color: var(--on-fill); cursor: grab; touch-action: none; }
+   solid blue, the app's one colour for an action grip that transforms the whole object.
+   Square and icon-only: nothing appears or disappears inside them (the turn's degrees are read on
+   the surface now — .sel-turn), so the bar never re-flows under the finger that is using it. */
+.sel-bar-act { width: 52px; height: 44px; border: none; border-radius: var(--r-sm); padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--blue); color: var(--on-fill); cursor: grab; touch-action: none;
+  transition: background-color .14s var(--ease), box-shadow .14s var(--ease); }
 .sel-bar-act:active { cursor: grabbing; }
 @media (hover: hover) {
   .sel-bar-act:not(.on):hover { background: var(--blue-strong); }
 }
 /* TAPPED rather than dragged, ✥ / ⟳ arm the same writers for the whole surface (the bar is
    pinned bottom-centre, so pulling the grip DOWN runs the finger off the screen). Armed stays in
-   the blue family — the deeper fill plus the family's ring, never a second colour. */
-.sel-bar-act.on { background: var(--blue-strong); box-shadow: 0 0 0 2px var(--glass), 0 0 0 4px var(--blue); }
+   the blue family — the deeper fill plus the family's ring, never a second colour — and it
+   arrives on a transition, so arming reads as a decision rather than as a flicker. The ring is
+   drawn OUTSIDE the button, so nothing on the bar moves when a mode goes on or off. */
+.sel-bar-act.on { background: var(--blue-strong);
+  box-shadow: 0 0 0 2px var(--glass), 0 0 0 4px var(--blue); }
+@media (prefers-reduced-motion: reduce) { .sel-bar-act { transition: none; } }
 .sel-bar-act .i { width: 19px; height: 19px; }
-/* the dial's live degree — the same mono, tabular figures the measure read-out uses, so a number
-   that changes under the finger never re-flows the button it sits in */
-.sel-bar-deg { font-family: var(--mono); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
-/* Löschen carries its word: it is the one destructive thing on the bar, and an icon-only ✕ next
-   to two grips is exactly the near-miss the map's old hub ✕ was removed for. */
-.sel-bar-del { height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--r-sm);
+/* «Fertig» carries its word: it is the way OUT of the editing state, and the bar's only label.
+   ⚠️ NOT «Löschen» (02.09.) — deleting belongs in the object's own editor sheet and on the Delete
+   key, not on chrome sitting two taps from every grip. */
+.sel-bar-done { height: 44px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
 @media (hover: hover) {
-  .sel-bar-del:hover { color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
+  .sel-bar-done:hover { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); }
 }
-.sel-bar-del:active { background-image: linear-gradient(var(--press), var(--press)); }
+.sel-bar-done:active { background-image: linear-gradient(var(--press), var(--press)); }
+
+/* ── the grips step aside while the whole object is moving (lib/transformChrome) ──────────────
+   A selected Linie wears a pad on every vertex, a «+» in every gap, Verlängern on both ends and
+   a detach ring on each attachment; a Form wears rotate/resize/cage. All of that answers «where
+   exactly», none of it answers «where to», and under a whole-object drag it travels along as a
+   cloud of blue furniture over the very shape being aimed. Painted only — nothing is unmounted,
+   so no gesture and no state is touched, and every grip is back on release. */
+body.sel-transforming .handle,
+body.sel-transforming .draw-handle,
+body.sel-transforming .measure-insert,
+body.sel-transforming .draw-grow,
+body.sel-transforming .line-detach-chip,
+body.sel-transforming .node-del,
+body.sel-transforming .marker-rotate,
+body.sel-transforming .shape-rotor,
+body.sel-transforming .wb-vertex,
+body.sel-transforming .wb-vins,
+body.sel-transforming .wb-grow { display: none; }
+
+/* ── the turn, on the surface (components/SelectionTurn) ──────────────────────────────────────
+   The pivot the object turns about, the radius the finger is swinging, and the degrees — beside
+   the object, not on a button at the far edge of a tablet held at arm's length. Pointer-inert
+   throughout: it is painted over a live gesture and must never take a sample from it. */
+.sel-turn { position: fixed; inset: 0; z-index: var(--z-chrome); pointer-events: none; }
+.sel-turn-arm { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.sel-turn-arm line { stroke: var(--blue); stroke-width: 2; stroke-dasharray: 5 5; stroke-linecap: round; opacity: .85; }
+/* the pivot wears the geometry-point look the rest of the app uses: white, ringed in blue */
+.sel-turn-pivot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
+  background: var(--on-accent-ink); border: 3px solid var(--blue); box-sizing: border-box; }
+/* …and the number hangs off the fingertip, the way a dragged node's cumulative label hangs off
+   its vertex — never centred under the finger that is changing it */
+.sel-turn-deg { position: absolute; transform: translate(-50%, calc(-100% - 14px));
+  padding: 3px 8px; border-radius: var(--r-sm); background: var(--blue); color: var(--on-fill);
+  font-family: var(--mono); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  white-space: nowrap; box-shadow: var(--shadow); }
 /* WebGL context lost: centred over the (now blank) canvas, above the map chrome but below
    sheets/toasts. Persistent by design — it stays until the operator rebuilds the map. */
 .map-gl-lost { position: absolute; z-index: var(--z-blocking-scrim); left: 50%; top: 50%; transform: translate(-50%, -50%);

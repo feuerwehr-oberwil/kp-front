@@ -114,9 +114,17 @@ to prod.
   the finger off the screen within ~28px. Only one of the two is ever armed; tapping it again,
   Esc, a selection change and a tool change all disarm, and while armed the surface answers no
   taps at all – a press that never travels is nothing, so nothing can be placed, selected or
-  deselected under the finger. On the object itself only **geometry** grips live: vertex, «+»
-  midpoint, Verlängern, Verbindung lösen, the radius ring, and a shape's own rotate/resize
-  handles.
+  deselected under the finger. **The bar has three slots and no fourth: ✥ · ⟳ · Fertig.** The
+  turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
+  swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
+  two grips are icon-only and never re-flow mid-gesture. «Fertig» ends the editing state
+  (disarm + clear the selection + close its sheets); **«Löschen» is not on the bar** – an object
+  is deleted from its own editor sheet and with the Delete key, which on both surfaces reaches a
+  Mehrfach group and a mirrored selection too. On the object itself only **geometry** grips live:
+  vertex, «+» midpoint, Verlängern, Verbindung lösen, the radius ring, and a shape's own
+  rotate/resize handles – and all of them step aside for the length of a transform
+  (`lib/transformChrome`, a body class), because they answer «where exactly» and a whole-object
+  drag is asking «where to».
   Colour is one family: a geometry point is white-filled with a `--blue` ring, an action grip that
   transforms the whole object is solid `--blue`, `--amber` means the SECOND axis and nothing else,
   `--red` means delete, and `--accent` stays alarm/relationship – never «selected». Node dots are
