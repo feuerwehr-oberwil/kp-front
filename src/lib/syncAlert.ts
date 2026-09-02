@@ -18,6 +18,36 @@ export interface SyncAlertTracker {
 
 export const OFFLINE_ALERT_DELAY_MS = 30_000
 
+/** Warn threshold for device-vs-server clock skew, in whole minutes — the same bound the
+ *  capture surface uses (CaptureApp: warn when |serverSkewMinutes| > 3). */
+export const CLOCK_SKEW_WARN_MIN = 3
+
+/**
+ * Episode detection for the clock-skew toast, same doctrine as the sync-trouble tracker above:
+ * the live-follow poll samples the server clock every round, so a skewed device would re-warn
+ * forever. One notification per episode — announced on crossing the threshold, re-armed only
+ * once a sample comes back within it (the operator fixed the clock / NTP caught up). A null
+ * sample (unparseable header) carries no information and changes nothing.
+ */
+export function createClockSkewAlert(
+  notify: (skewMin: number) => void,
+): { onSkew: (skewMin: number | null) => void } {
+  let announced = false
+  return {
+    onSkew(skewMin: number | null) {
+      if (skewMin === null) return
+      const mag = Math.abs(skewMin)
+      if (mag > CLOCK_SKEW_WARN_MIN) {
+        if (!announced) { announced = true; notify(skewMin) }
+      } else if (mag <= CLOCK_SKEW_WARN_MIN - 1) {
+        // Re-arm only a full minute INSIDE the bound. A clock straddling the threshold flips
+        // 3↔4 on network jitter; re-arming at exactly the bound re-fired the toast every flip.
+        announced = false
+      }
+    },
+  }
+}
+
 export function createSyncAlertTracker(
   notify: (kind: SyncAlertKind) => void,
   opts?: { offlineDelayMs?: number },

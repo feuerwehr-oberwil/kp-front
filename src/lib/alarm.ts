@@ -305,16 +305,34 @@ export class Alarm {
     }
   }
 
-  // keep the screen awake while an alarm is active (best-effort; minimal)
+  // keep the screen awake while an alarm is active (best-effort; minimal). The OS silently
+  // releases the lock whenever the tab is hidden, so we re-acquire on visibilitychange while
+  // the alarm is still active (same approach as useWakeLock).
+  private onVisibility = () => {
+    if (document.visibilityState === 'visible' && this.level > 0) void this.acquireWake()
+  }
   private async acquireWake() {
     try {
       const nav = navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<WakeLockSentinel> } }
-      if (!this.wake && nav.wakeLock) this.wake = await nav.wakeLock.request('screen')
+      if (!nav.wakeLock) return // API unavailable (older browsers, insecure context)
+      // idempotent for the same handler reference — safe to (re-)add on every acquire
+      document.addEventListener('visibilitychange', this.onVisibility)
+      // a hidden tab can't hold the lock; the visibility listener retries on foreground
+      if (document.visibilityState !== 'visible') return
+      if (this.wake && !this.wake.released) return
+      const s = await nav.wakeLock.request('screen')
+      if (this.level <= 0) {
+        // alarm stopped mid-request — release immediately
+        void s.release().catch(() => {})
+        return
+      }
+      this.wake = s
     } catch {
-      /* ignore — non-essential */
+      /* ignore — non-essential (request can reject, e.g. low battery) */
     }
   }
   private releaseWake() {
+    document.removeEventListener('visibilitychange', this.onVisibility)
     try {
       void this.wake?.release()
     } catch {

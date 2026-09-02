@@ -101,6 +101,12 @@ export class WorkspaceSync {
    *  merge) buffer until the first registration/drain. */
   onAttendanceConflicts?: (conflicts: RecordConflict[]) => void
   private conflictBuf: RecordConflict[] = []
+  /** Registered by the live view (useIncidentSync): a three-way merge saw BOTH sides change
+   *  the SAME Trupp concurrently. The merge itself is field-level (mergeWorkspace · mergeTrupp
+   *  — nothing was dropped), but two devices writing one SCBA crew's record at once gets a
+   *  Verlauf note so a human checks. Buffers like the attendance channel until registration. */
+  onTruppConflicts?: (conflicts: RecordConflict[]) => void
+  private truppConflictBuf: RecordConflict[] = []
   /** the lifecycle state on its own, before the cache-durability overlay (effectiveSyncStatus) */
   private base: SyncStatus
   /** what the UI last saw — the overlaid value */
@@ -147,14 +153,20 @@ export class WorkspaceSync {
     })
   }
 
-  /** mergeWorkspace with attendance-divergence reporting: collected conflicts go to the
-   *  registered listener, or buffer until one registers (init runs before the view mounts). */
+  /** mergeWorkspace with divergence reporting (attendance keys + concurrently edited Trupps):
+   *  collected conflicts go to the registered listeners, or buffer until one registers (init
+   *  runs before the view mounts). */
   private mergeReporting(base: Workspace, mine: Workspace, theirs: Workspace): Workspace {
     const conflicts: RecordConflict[] = []
-    const merged = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c))
+    const truppConflicts: RecordConflict[] = []
+    const merged = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c), (c) => truppConflicts.push(c))
     if (conflicts.length) {
       if (this.onAttendanceConflicts) this.onAttendanceConflicts(conflicts)
       else this.conflictBuf.push(...conflicts)
+    }
+    if (truppConflicts.length) {
+      if (this.onTruppConflicts) this.onTruppConflicts(truppConflicts)
+      else this.truppConflictBuf.push(...truppConflicts)
     }
     return merged
   }
@@ -164,6 +176,13 @@ export class WorkspaceSync {
   drainAttendanceConflicts(): RecordConflict[] {
     const buf = this.conflictBuf
     this.conflictBuf = []
+    return buf
+  }
+
+  /** Same drain for the Trupp channel (see onTruppConflicts). */
+  drainTruppConflicts(): RecordConflict[] {
+    const buf = this.truppConflictBuf
+    this.truppConflictBuf = []
     return buf
   }
 

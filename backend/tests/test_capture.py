@@ -10,7 +10,8 @@ Contract under test:
   appends stay idempotent;
 - the admin endpoints (ADMIN_SECRET session) rotate/disable the secret;
 - per-IP rate limit: scripted bursts get 429 (German detail), a fast operator never does;
-- every capture response carries X-Server-Time (clock-skew contract with the frontend).
+- every API response carries X-Server-Time (clock-skew contract with the capture frontend
+  and the workspace live-follow poll).
 """
 
 from datetime import UTC, datetime, timedelta
@@ -317,7 +318,12 @@ async def test_capture_responses_carry_server_time(client, capture_secret):
     r = await client.get("/api/capture/incidents?t=nope")
     assert r.status_code == 401
     assert "X-Server-Time" in r.headers
-    # …but not sprayed on non-capture API responses
+    # every /api/* response carries it now — the workspace live-follow poll is the second
+    # consumer (frontend api/workspace · onWorkspaceServerTime), and like capture it must
+    # see the clock even on an error answer
+    r = await client.get("/api/incidents")
+    assert "X-Server-Time" in r.headers
+    # …but not outside the API surface
     r = await client.get("/health")
     assert "X-Server-Time" not in r.headers
 

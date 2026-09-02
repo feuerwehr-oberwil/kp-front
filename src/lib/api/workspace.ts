@@ -16,6 +16,14 @@ export const putWorkspace = (id: string, workspace: Workspace, base_rev: number)
 export const putWorkspaceBeacon = (id: string, workspace: Workspace, base_rev: number) =>
   apiBeacon(`/api/incidents/${id}/workspace`, { workspace, base_rev }, 'PUT')
 
+// clock-skew watch (mirrors captureClient · onServerTime): workspace responses carry
+// X-Server-Time (backend · api_server_time middleware), and the live-follow poll is the one
+// request every device — editor and viewer alike — repeats for the whole session, so it is the
+// sampling point. Header absent (older backend) → silent. useIncidentSync registers, computes
+// the skew and surfaces it; only one listener is ever needed (one workspace per app).
+let serverTimeListener: ((iso: string) => void) | null = null
+export function onWorkspaceServerTime(fn: ((iso: string) => void) | null): void { serverTimeListener = fn }
+
 /**
  * Live-follow poll: 304 → null (unchanged); 200 → the current workspace + rev.
  *
@@ -37,6 +45,10 @@ export async function pollWorkspaceSince(
     signal: opts?.signal,
     timeoutMs: wait ? LONG_POLL_TIMEOUT_MS : undefined,
   })
+  // before the status branches: the 304 "nothing new" answer carries the clock too, and on a
+  // quiet incident it is the ONLY answer — the skew watch must not depend on edits happening
+  const serverTime = res.headers.get('X-Server-Time')
+  if (serverTime) serverTimeListener?.(serverTime)
   if (res.status === 304) return null
   if (!res.ok) throw new ApiError(res.status, 'Workspace-Poll fehlgeschlagen')
   return res.json()

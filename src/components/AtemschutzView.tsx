@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, stripUnprintable } from '../lib/format'
+import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
@@ -21,6 +21,8 @@ import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
 import { ensureNotifyPermission, unlockAlarm } from '../lib/alarm'
 import { atemschutzDoctrine, isDemoMode } from '../lib/deploymentConfig'
+import type { SyncStatus } from '../lib/api/workspaceSync'
+import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { truppOrderKey } from '../lib/useTruppActions'
@@ -75,6 +77,7 @@ export function AtemschutzView({
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus,
+  syncStatus, lastSyncedAt, clockSkewMs,
 }: {
   trupps: Trupp[]
   /** trupp id → the colour it wears on the Lage / plan (useTruppActions · truppColors). Every
@@ -148,6 +151,17 @@ export function AtemschutzView({
   /** «point at THAT Trupp» — set by a locked Anwesenheit row. The nonce makes a repeat tap point
    *  again; the card scrolls itself into view and flashes, then the mark clears on its own. */
   focus?: { id: string; nonce: number } | null
+  /** The incident's sync lifecycle (useIncidentSync), rendered in the board's OWN header
+   *  (safety review 01.09.): the surface a life depends on must say itself whether what it
+   *  shows is saved and current — offline or a failing sync has to be visible without the
+   *  top-bar pill, which the handed-over Tafel does not even have. Absent = no status line. */
+  syncStatus?: SyncStatus
+  /** epoch ms of the last save the server accepted — the «Stand» a loud chip dates */
+  lastSyncedAt?: number | null
+  /** device-vs-server clock offset (ms, positive = device runs ahead; minute-quantized, null
+   *  until the first sample — useIncidentSync). Beyond ±CLOCK_SKEW_WARN_MIN it earns its own
+   *  warning chip: every contact clock on this board is device-local Date.now(). */
+  clockSkewMs?: number | null
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // the shared create / edit / re-deploy form — null when closed
@@ -520,12 +534,60 @@ export function AtemschutzView({
   // silence would be one too many (useAtemschutzMute already folds that into `audioBlocked`).
   const bellLabel = muted ? az.alarmMuted : audioBlocked ? az.alarmBlocked : az.alarmArmed
 
+  /* ── The board's own sync/clock line, under the subtitle ──────────────────────────────────
+   * Same vocabulary as the incident switcher (its copy, its chip classes — learned once):
+   * quiet while the record is safe (tick / amber dot + «Gespeichert um HH:MM» in the
+   * subtitle's voice, so it never competes with a Trupp card), a LOUD chip for
+   * offline/error/storage — the case this line exists for — dated with the last synced
+   * Stand, and an independent chip when this device's clock is minutes off (every contact
+   * clock here is device-local time). */
+  const cpSync = appConfig.copy.incidentSwitcher
+  const savedAtText = lastSyncedAt != null
+    ? fillTemplate(cpSync.savedAt, { t: formatTime(new Date(lastSyncedAt)) })
+    : cpSync.saved
+  const syncShort: Record<'offline' | 'error' | 'storage', string> = {
+    offline: cpSync.offlineShort, error: cpSync.errorShort, storage: cpSync.storageShort,
+  }
+  const syncLong: Record<'offline' | 'error' | 'storage', string> = {
+    offline: cpSync.badgeOffline, error: cpSync.badgeError, storage: cpSync.badgeStorage,
+  }
+  const skewMin = clockSkewMs != null ? Math.round(clockSkewMs / 60_000) : null
+  const skewLoud = skewMin != null && Math.abs(skewMin) > CLOCK_SKEW_WARN_MIN
+  const syncLine = (syncStatus || skewLoud) && (
+    <div className="az-syncline">
+      {syncStatus === 'synced' || syncStatus === 'pending' ? (
+        <span className={cx('az-sync-quiet', syncStatus === 'pending' && 'az-sync-pending')}
+          title={syncStatus === 'pending' ? cpSync.badgePending : savedAtText}>
+          {syncStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
+          <span>{savedAtText}</span>
+        </span>
+      ) : syncStatus ? (
+        <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
+          title={syncLong[syncStatus]} aria-label={syncLong[syncStatus]}>
+          {syncStatus === 'offline' ? <span className="ip-status-dot" /> : <Icon id="warn" />}
+          <span>{lastSyncedAt != null
+            ? fillTemplate(az.syncStand, { status: syncShort[syncStatus], t: formatTime(new Date(lastSyncedAt)) })
+            : syncShort[syncStatus]}</span>
+        </span>
+      ) : null}
+      {skewLoud && (
+        <span className="ip-offline-chip"
+          title={fillTemplate(cpSync.clockSkewToast, { n: Math.abs(skewMin) })}
+          aria-label={fillTemplate(cpSync.clockSkewToast, { n: Math.abs(skewMin) })}>
+          <Icon id="warn" />
+          <span>{fillTemplate(az.clockSkewChip, { d: skewMin > 0 ? `+${skewMin}` : String(skewMin) })}</span>
+        </span>
+      )}
+    </div>
+  )
+
   return (
     <div className={s.surface}>
       <header className={s.head}>
         <div className={s.headTitles}>
           <h2>{az.title}</h2>
           <p>{az.subtitle}</p>
+          {syncLine}
         </div>
         {/* ⚠️ ONE group, not four siblings. `.head` wraps, and as direct children the badge, the
             sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
