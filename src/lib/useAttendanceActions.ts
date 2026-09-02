@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
-import { toast } from './ui'
+import { undoToast } from './ui'
 import type { AttendanceState, Person, TimelineEvent } from '../types'
 import { closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, withIntervals } from './attendanceIntervals'
 import { ortOf, otherOrt } from './attendanceOrt'
@@ -61,10 +61,7 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
       log('people', fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), 'team')
       // splitting a running block is destructive in the sense that matters here — the earlier
       // block gets an end it never had — so it takes the house confirm-with-undo toast
-      toast(fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), {
-        icon: 'undo',
-        action: { label: appConfig.copy.undo, onClick: () => setAttendance((cur) => ({ ...cur, [p.id]: prev })) },
-      })
+      undoToast(fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), () => setAttendance((cur) => ({ ...cur, [p.id]: prev })))
       return
     }
     // First tick: «von» defaults to the alarm time (Vorschlag ab Alarmzeit) — ticking often
@@ -96,10 +93,7 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
     log('people', fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), 'team')
     // confirm-with-undo: a mis-cycle to «frei» silently drops a corrected von/checkedInAt with
     // no way back — restore the exact prior entry (status + times) on undo.
-    toast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), {
-      icon: 'undo',
-      action: { label: appConfig.copy.undo, onClick: () => setAttendance((cur) => ({ ...cur, [p.id]: prev })) },
-    })
+    undoToast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), () => setAttendance((cur) => ({ ...cur, [p.id]: prev })))
   }
   // Stunden editor (Abschluss-Assistent): correct ONE block's von–bis (`index` defaults to the
   // block the surface is showing). After the Rapport was declared complete, a correction
@@ -129,10 +123,7 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
       if (!rest.length) { const next = { ...cur }; delete next[personId]; return next }
       return { ...cur, [personId]: withIntervals(cur[personId], rest) }
     })
-    toast(fillTemplate(appConfig.copy.anwesenheit.blockRemoved, { name: prev.displayNameSnapshot }), {
-      icon: 'undo',
-      action: { label: appConfig.copy.undo, onClick: () => setAttendance((cur) => ({ ...cur, [personId]: prev })) },
-    })
+    undoToast(fillTemplate(appConfig.copy.anwesenheit.blockRemoved, { name: prev.displayNameSnapshot }), () => setAttendance((cur) => ({ ...cur, [personId]: prev })))
   }
   /** Write (or clear) the free remark on a person's attendance row. Not a presence change, so
    *  it touches no interval and writes no «anwesend/gegangen» Verlauf line — but it IS part of

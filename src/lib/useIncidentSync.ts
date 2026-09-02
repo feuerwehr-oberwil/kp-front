@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { pollWorkspaceSince, type WorkspaceSync, type Workspace, type SyncStatus } from './incidents'
 import { appConfig } from '../config/appConfig'
 import { onWorkspaceServerTime } from './api/workspace'
-import { attendanceConflictRows, conflictSignature } from './attendanceConflict'
+import { attendanceConflictRows, conflictRows } from './attendanceConflict'
 import { fillTemplate } from './format'
 import type { RecordConflict } from './mergeWorkspace'
 import { LONG_POLL_SPACING_MS, nextPollDelay } from './pollBackoff'
@@ -12,32 +12,16 @@ import { toast } from './ui'
 import type { Saved } from './workspace'
 import type { TimelineEvent } from '../types'
 
-/**
- * Turn freshly reported Trupp divergences (mergeWorkspace · onTruppConflict) into Verlauf rows,
- * one per affected Trupp — the Atemschutz sibling of attendanceConflictRows, and the same
- * doctrine: the merge already resolved things (field-level, nothing dropped), the row exists so
- * a human double-checks a record two devices wrote at once. `seen` is the caller's
- * session-scoped signature set, so merge retries re-reporting the same divergence don't
- * re-append.
- */
-function truppConflictRows(conflicts: RecordConflict[], seen: Set<string>, now: Date = new Date()): TimelineEvent[] {
-  const rows: TimelineEvent[] = []
-  const pad = (n: number) => String(n).padStart(2, '0')
-  for (const c of conflicts) {
-    const sig = conflictSignature(c)
-    if (seen.has(sig)) continue
-    seen.add(sig)
-    const name = ((c.mine as { name?: string })?.name ?? (c.theirs as { name?: string })?.name ?? c.key).trim()
-    rows.push({
-      id: `tc${now.getTime()}-${rows.length}`, // prefixed timestamp, same convention as attendanceConflictRows
-      t: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-      at: now.toISOString(),
-      icon: 'warn',
-      text: fillTemplate(appConfig.copy.journal.truppConflict, { name }),
-    })
-  }
-  return rows
-}
+/** `conflictRows` for the Atemschutz (mergeWorkspace · onTruppConflict): one row per affected
+ *  Trupp, named from whichever side of the divergence carries a name. */
+const truppConflictRows = (conflicts: RecordConflict[], seen: Set<string>) =>
+  conflictRows(conflicts, seen, {
+    idPrefix: 'tc',
+    text: (c) => {
+      const name = ((c.mine as { name?: string })?.name ?? (c.theirs as { name?: string })?.name ?? c.key).trim()
+      return fillTemplate(appConfig.copy.journal.truppConflict, { name })
+    },
+  })
 
 interface IncidentSyncDeps {
   sync: WorkspaceSync

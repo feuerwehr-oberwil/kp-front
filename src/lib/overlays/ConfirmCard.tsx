@@ -6,6 +6,27 @@ import { useRef } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 
 /**
+ * What a confirm ASKS. One declaration for all three places the same question travels through:
+ * the imperative `confirmDialog()` (which fills the two labels from the copy), the pending
+ * request `ui.tsx` holds while it waits for an answer, and this component's props. They were
+ * three hand-kept copies of the same fields, and adding `items` to the middle one only is how
+ * an open-points list reaches the state and never the screen.
+ */
+export interface ConfirmSpec {
+  title?: string
+  message: string
+  /** the open points, as a LIST. «Noch offen: Zeiten, Mittel, Einsatzleiter, Kurzbericht,
+   *  Rückmeldung ELZ. Trotzdem abschliessen? …» is a paragraph nobody reads to the end — and
+   *  it is the one part of the sentence somebody has to act on, item by item. */
+  items?: string[]
+  /** the sentence AFTER the list — what happens if you go ahead anyway */
+  note?: string
+  confirmLabel: string
+  cancelLabel: string
+  danger?: boolean
+}
+
+/**
  * The confirm/alert card behind the imperative `confirmDialog()` (src/lib/ui.tsx). Built on Base
  * UI's AlertDialog so it gets focus trap + restore, scroll-lock and inert siblings — keeping the
  * existing `.confirm-*` look and the `role="alertdialog"` semantics.
@@ -18,16 +39,8 @@ import { Dialog } from '@base-ui/react/dialog'
  * app answers to. A modal that does not respond to a tap beside it reads as a frozen app, and
  * that is the wrong thing to be wondering about with an Einsatz open.
  */
-export function ConfirmCard({ open, title, message, items, note, confirmLabel, cancelLabel, danger, onResolve }: {
+export function ConfirmCard({ open, title, message, items, note, confirmLabel, cancelLabel, danger, onResolve }: ConfirmSpec & {
   open: boolean
-  title?: string
-  message: string
-  /** open points as a list — see ui.tsx · ConfirmReq.items */
-  items?: string[]
-  note?: string
-  confirmLabel: string
-  cancelLabel: string
-  danger?: boolean
   onResolve: (confirmed: boolean) => void
 }) {
   const confirmRef = useRef<HTMLButtonElement>(null)

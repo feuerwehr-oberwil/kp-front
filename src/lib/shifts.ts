@@ -1,5 +1,6 @@
 import type { AttendanceState, PresenceInterval, Shift, ShiftBand } from '../types'
 import { intervalsOf } from './attendanceIntervals'
+import { newId } from './ids'
 
 /**
  * Schichtenplanung — who is available from when to when, on a Wer × Zeit grid (the BGV/KKO
@@ -709,7 +710,7 @@ export function draftShift(personId: string, nowMs: number, startedAt: string | 
   const startMs = ms(startedAt)
   const base = ceilSlot(startMs != null && startMs > nowMs ? startMs : nowMs)
   return {
-    id: `sh${Date.now()}`,
+    id: newId('sh'),
     personId,
     from: new Date(base).toISOString(),
     to: new Date(base + hours * HOUR).toISOString(),
@@ -735,7 +736,7 @@ export function shiftAt(personId: string, at: number, hours: number, span: Span)
   const from = Math.max(span.from, Math.min(want, span.to - SLOT_MS))
   const to = Math.min(from + (Number.isFinite(hours) ? hours : 1) * HOUR, span.to)
   return {
-    id: `sh${Date.now()}`,
+    id: newId('sh'),
     personId,
     from: new Date(from).toISOString(),
     to: new Date(Math.max(to, from + SLOT_MS)).toISOString(),

@@ -3,6 +3,7 @@
 // operator-confirmed «Aufnahme begann» HH:MM to an absolute timestamp. The upload itself rides
 // the existing media endpoint; nothing here touches the offline queue — large imports are
 // deliberately upload-during-save only (no IndexedDB copy).
+import { fmtDuration } from './format'
 
 /** v1 cap, mirrored server-side (backend/app/api/media.py MAX_UPLOAD_BYTES; the multipart
  *  body middleware cap `max_upload_mb` must stay above this). MB value feeds the copy. */
@@ -111,14 +112,9 @@ export function resolveRecordingStart(hhmm: string, now: Date = new Date()): Dat
   return d
 }
 
-/** Compact duration for labels: 47s → "47s", 754s → "12:34", 3675s → "1:01:15". */
-export function formatAudioDuration(secs: number): string {
-  const s = Math.max(0, Math.round(secs))
-  if (s < 60) return `${s}s`
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return h > 0 ? `${h}:${pad(m)}:${pad(r)}` : `${m}:${pad(r)}`
-}
+/** A clip's length as a LABEL — `fmtDuration`'s compact preset under the name this module's
+ *  callers know it by: 47s → "47s", 754s → "12:34", 3675s → "1:01:15". */
+export const formatAudioDuration = (secs: number) => fmtDuration(secs, { compact: true })
 
 /** Read a clip's duration via HTMLAudioElement metadata; null when unavailable (some
  *  containers report Infinity/NaN until fully decoded — treated as unknown, not an error). */

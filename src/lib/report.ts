@@ -2,11 +2,10 @@ import type { AttendanceState, BoardAnno, BoardDoc, Drawing, Entity, LngLat, Mit
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
-import { fillTemplate, hhmm, restoreUmlauts } from './format'
+import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
 import { truppNeverDeployed } from './atemschutz'
-import { formatElapsed } from './audioPlayer'
 import { attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
 import { repeatRuns, rowPhotos, rowText } from './verlauf'
@@ -359,7 +358,7 @@ export function journalRows(
         transcriptLines: e.transcriptSections?.length
           ? [
               ...(e.transcript ? [e.transcript] : []),
-              ...e.transcriptSections.map((s) => `${formatElapsed(s.at)}  ${s.text}`),
+              ...e.transcriptSections.map((s) => `${fmtDuration(s.at)}  ${s.text}`),
             ]
           : undefined,
         nachtrag: Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs,
@@ -705,7 +704,7 @@ export interface PersonalPdfRow {
 }
 
 /** «07.08.» — the day in front of a clock reading, for an Einsatz that runs past midnight. */
-const dayShort = (d: Date) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
+const dayShort = (d: Date) => `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.`
 
 /** The incident's own bounds — what decides whether a printed clock needs its date. */
 export interface IncidentBounds { alarmedAt?: string | null; endedAt?: string | null }

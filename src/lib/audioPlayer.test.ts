@@ -4,7 +4,6 @@ import {
   audioWindowOf,
   clockTicks,
   currentMarkerIndex,
-  formatElapsed,
   markerTone,
   markersInWindow,
   wallClockAt,
@@ -81,12 +80,8 @@ describe('markerTone', () => {
   })
 })
 
-describe('formatElapsed / wallClockAt', () => {
-  it('formats m:ss and h:mm:ss', () => {
-    expect(formatElapsed(47)).toBe('0:47')
-    expect(formatElapsed(754)).toBe('12:34')
-    expect(formatElapsed(8103)).toBe('2:15:03')
-  })
+// (the elapsed readout itself is fmtDuration — see format.test.ts)
+describe('wallClockAt', () => {
   it('maps offsets to incident wall-clock', () => {
     const win = audioWindowOf(audioRow)!
     expect(wallClockAt(win, 0)).toBe('14:32')

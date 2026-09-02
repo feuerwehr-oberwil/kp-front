@@ -7,6 +7,7 @@ import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, TimelineEvent } from '../types'
 import { confirmDialog, toast } from './ui'
 import { fillTemplate } from './format'
+import { newId } from './ids'
 
 // same settle window as the workspace's noteEntityEdit / Rapportangaben logger
 // (IncidentWorkspace · META_LOG_SETTLE_MS) — a burst of taps on the editor is one row
@@ -84,7 +85,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // from the Messen panel. The twin of createLine: same funnel, same one-shot to Select.
   const createArea = (coords: LngLat[], opts?: { select?: boolean }): Drawing | null => {
     if (tacticalLocked) return null // same guard as createLine + the edit handlers
-    const id = `d${Date.now()}`
+    const id = newId('d')
     // carry the dock's colour/width/dash so the area-tool style controls actually apply
     // (parity with the line tool + the Plan area tool); still fully editable in the DrawEditor.
     const drawing: Drawing = { id, kind: 'area', coords, color: drawColor, width: drawWidth, dashed: drawDashed }
@@ -105,7 +106,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // its detail editor opens right away for post-draw tweaks — no extra click needed.
   const createLine = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }, opts?: { select?: boolean }): Drawing | null => {
     if (tacticalLocked) return null // the funnel every finished line goes through — same guard as the edit handlers
-    const id = `d${Date.now()}`
+    const id = newId('d')
     // styled presets (Messpfeil/Rettungsachse) carry their own arrow/marker/dash; Freihand falls
     // back to the dock's dash. A new line inherits the last-used preset (post-pick + sticky) — the
     // SAME resolved bundle the Plan whiteboard bakes (lib/lineStyle), so the surfaces can't drift.
@@ -135,7 +136,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // journaled) circle Drawing — centre in coords[0], radius in metres. Drops into Select
   // with the new circle active so its radius is tweakable in the DrawEditor right away.
   const createCircle = (center: LngLat, radiusM: number) => {
-    const id = `d${Date.now()}`
+    const id = newId('d')
     const drawing: Drawing = { id, kind: 'circle', coords: [center], radiusM, color: appConfig.drawing.circleColor, dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
     log('circle', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol'); emit('draw.add', { id, kind: 'circle', drawing })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueClock, fillTemplate, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref } from './format'
+import { dueClock, fillTemplate, fmtDuration, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -58,6 +58,36 @@ describe('initials', () => {
 
   it('uppercases the result', () => {
     expect(initials('hans müller')).toBe('HM')
+  })
+})
+
+// The two duration formatters the whole app now shares. They disagree on purpose, and each
+// disagreement is somebody's readout: the recorder pads BOTH halves so its width cannot jump,
+// the player truncates so its counter never shows the end a second early, and a label rounds.
+describe('fmtMMSS (the running recorder)', () => {
+  it('pads both halves and does not cap the minutes', () => {
+    expect(fmtMMSS(7)).toBe('00:07')
+    expect(fmtMMSS(547)).toBe('09:07')
+    expect(fmtMMSS(3607)).toBe('60:07')
+  })
+})
+
+describe('fmtDuration', () => {
+  it('formats m:ss and h:mm:ss for the player readout, truncating', () => {
+    expect(fmtDuration(47)).toBe('0:47')
+    expect(fmtDuration(754)).toBe('12:34')
+    expect(fmtDuration(8103)).toBe('2:15:03')
+    expect(fmtDuration(47.9)).toBe('0:47')
+  })
+  it('says «47s» and rounds in the compact label form', () => {
+    expect(fmtDuration(47, { compact: true })).toBe('47s')
+    expect(fmtDuration(0, { compact: true })).toBe('0s')
+    expect(fmtDuration(754, { compact: true })).toBe('12:34')
+    expect(fmtDuration(3675, { compact: true })).toBe('1:01:15')
+    expect(fmtDuration(47.6, { compact: true })).toBe('48s')
+  })
+  it('never goes negative', () => {
+    expect(fmtDuration(-5)).toBe('0:00')
   })
 })
 

@@ -7,8 +7,7 @@
 
 import { useRef, useState } from 'react'
 import { WheelPopover, type WheelValue } from './WheelPicker'
-
-const pad2 = (n: number) => String(n).padStart(2, '0')
+import { hhmm, pad2 } from '../lib/format'
 
 /** '0715' | '7:15' | '19.30' → 'HH:MM' (24h), or null when not parseable/empty. */
 export function parseHHMM(raw: string): string | null {
@@ -79,7 +78,7 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
     // day from a neighbouring stamp, and every such rule can only reach one day either side: on
     // an Einsatz that has been running since Monday, «Jetzt» pressed on Wednesday was filed on
     // Tuesday. Callers that pass no `days` are untouched — the day stays undefined for them.
-    onCommit(`${pad2(d.getHours())}:${pad2(d.getMinutes())}`, days && days.length > 1 ? d : undefined)
+    onCommit(hhmm(d), days && days.length > 1 ? d : undefined)
   }
 
   return (
@@ -137,7 +136,7 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className 
   const d = value ? new Date(value) : null
   const valid = d && Number.isFinite(d.getTime())
   const display = valid
-    ? `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+    ? `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()} ${hhmm(d)}`
     : ''
 
   return (

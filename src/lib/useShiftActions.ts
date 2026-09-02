@@ -1,9 +1,10 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
-import { toast } from './ui'
+import { undoToast } from './ui'
 import type { Person, Shift } from '../types'
 import { SLOT_MS, draftShift } from './shifts'
+import { newId } from './ids'
 
 interface ShiftActionsDeps {
   shifts: Shift[]
@@ -35,15 +36,12 @@ export function useShiftActions({ shifts, setShifts, startedAt }: ShiftActionsDe
    *  a zero-length shift that renders as nothing. */
   const addShiftSpan = (p: Person, from: number, to: number) => {
     const end = Math.max(to, from + SLOT_MS)
-    const id = `sh${Date.now()}`
+    const id = newId('sh')
     setShifts((cur) => [...cur, {
       id, personId: p.id,
       from: new Date(from).toISOString(), to: new Date(end).toISOString(),
     }])
-    toast(fillTemplate(appConfig.copy.zeitplan.added, { name: p.displayName }), {
-      icon: 'undo',
-      action: { label: appConfig.copy.undo, onClick: () => setShifts((cur) => cur.filter((s) => s.id !== id)) },
-    })
+    undoToast(fillTemplate(appConfig.copy.zeitplan.added, { name: p.displayName }), () => setShifts((cur) => cur.filter((s) => s.id !== id)))
   }
   /**
    * A drag committed: the whole shift replaces its stored self, so one gesture is one undo step.
@@ -56,10 +54,7 @@ export function useShiftActions({ shifts, setShifts, startedAt }: ShiftActionsDe
     const prev = shifts.find((s) => s.id === sh.id)
     setShifts((cur) => cur.map((x) => (x.id === sh.id ? sh : x)))
     if (!undoName || !prev) return
-    toast(fillTemplate(appConfig.copy.zeitplan.moved, { name: undoName }), {
-      icon: 'undo',
-      action: { label: appConfig.copy.undo, onClick: () => setShifts((cur) => cur.map((s) => (s.id === prev.id ? prev : s))) },
-    })
+    undoToast(fillTemplate(appConfig.copy.zeitplan.moved, { name: undoName }), () => setShifts((cur) => cur.map((s) => (s.id === prev.id ? prev : s))))
   }
   const setShiftTime = (id: string, patch: { from?: string; to?: string }) => {
     setShifts((cur) => cur.map((s) => (s.id === id ? { ...s, ...patch } : s)))
@@ -68,10 +63,7 @@ export function useShiftActions({ shifts, setShifts, startedAt }: ShiftActionsDe
     const prev = shifts.find((s) => s.id === id)
     if (!prev) return
     setShifts((cur) => cur.filter((s) => s.id !== id))
-    toast(fillTemplate(appConfig.copy.zeitplan.removed, { name: personName }), {
-      icon: 'undo',
-      action: { label: appConfig.copy.undo, onClick: () => setShifts((cur) => (cur.some((s) => s.id === id) ? cur : [...cur, prev])) },
-    })
+    undoToast(fillTemplate(appConfig.copy.zeitplan.removed, { name: personName }), () => setShifts((cur) => (cur.some((s) => s.id === id) ? cur : [...cur, prev])))
   }
   return { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift }
 }

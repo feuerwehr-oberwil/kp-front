@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Icon, PrinterFeedIcon } from './icons'
 import { appConfig } from '../config/appConfig'
-import { ConfirmCard } from './overlays/ConfirmCard'
+import { ConfirmCard, type ConfirmSpec } from './overlays/ConfirmCard'
 import { Overlay } from './overlays'
 
 // Lightweight app-wide toast + confirm host. Replaces native alert()/confirm()
@@ -25,19 +25,10 @@ export interface ToastStep {
   icon?: 'check' | 'warn' | 'printer'
 }
 interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; leaving?: boolean }
-interface ConfirmReq {
+/** A confirm that is on screen and waiting for its answer — the shared `ConfirmSpec` plus what
+ *  only the pending state needs: which request it is, and the promise to settle. */
+interface ConfirmReq extends ConfirmSpec {
   id: number
-  title?: string
-  message: string
-  /** the open points, as a LIST. «Noch offen: Zeiten, Mittel, Einsatzleiter, Kurzbericht,
-   *  Rückmeldung ELZ. Trotzdem abschliessen? …» is a paragraph nobody reads to the end — and
-   *  it is the one part of the sentence somebody has to act on, item by item. */
-  items?: string[]
-  /** the sentence AFTER the list — what happens if you go ahead anyway */
-  note?: string
-  confirmLabel: string
-  cancelLabel: string
-  danger?: boolean
   resolve: (v: boolean) => void
 }
 
@@ -88,6 +79,19 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
   return id
 }
 
+/**
+ * The house confirm-with-undo toast: what just happened, and one tap to take it back.
+ *
+ * This is the pattern the app uses INSTEAD of asking «wirklich?» before a reversible edit — the
+ * operator is at an Einsatz and a modal in the way of a tick costs more than the mistake does.
+ * That trade only holds while every one of them looks and behaves the same, and they were seven
+ * hand-written copies of the same three lines (Zeitplan, Schichtbänder, Anwesenheit), so the
+ * icon and the «Rückgängig» label are decided here, once.
+ */
+export function undoToast(text: string, onUndo: () => void): number {
+  return toast(text, { icon: 'undo', action: { label: appConfig.copy.undo, onClick: onUndo } })
+}
+
 /** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it
  * (e.g. once the job reaches done/failed); omit to keep it sticky. Unknown id = no-op. */
 export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction | null; steps?: ToastStep[] | null }) {
@@ -100,15 +104,10 @@ export function updateToast(id: number, text: string, opts?: { icon?: string; to
   if (opts?.duration) scheduleDismiss(id, opts.duration)
 }
 
-export function confirmDialog(opts: {
-  title?: string
-  message: string
-  items?: string[]
-  note?: string
-  confirmLabel?: string
-  cancelLabel?: string
-  danger?: boolean
-}): Promise<boolean> {
+/** The two labels are the only optional part of the ask: unset, they come from the copy. */
+export function confirmDialog(
+  opts: Omit<ConfirmSpec, 'confirmLabel' | 'cancelLabel'> & { confirmLabel?: string; cancelLabel?: string },
+): Promise<boolean> {
   return new Promise((resolve) => {
     // a fresh request supersedes any pending one (resolve the old as cancelled)
     confirmReq?.resolve(false)

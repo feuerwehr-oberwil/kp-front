@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import {
-  ageMinutes, initialsOf, personSymbolSvg, positionsSignature, usePersonPositions,
+  ageMinutes, personSymbolSvg, positionsSignature, usePersonPositions,
   PERSON_STALE_AFTER_MS, type LivePerson,
 } from './usePersonPositions'
 
@@ -42,10 +42,14 @@ describe('positionsSignature (re-render short-circuit)', () => {
 })
 
 describe('the glyph', () => {
-  it('takes initials from first and last name', () => {
-    expect(initialsOf('Meier Hans')).toBe('MH')
-    expect(initialsOf('Meier')).toBe('M')
-    expect(initialsOf('  ')).toBe('?')
+  // ⚠️ THE SAME initials the avatar shows (lib/format · initials). This module used to mint its
+  // own, so one person had two labels: «Meier» read «ME» on the avatar and «M» on the map dot.
+  it('labels the dot with the avatar initials', () => {
+    expect(personSymbolSvg('Meier Hans')).toContain('>MH<')
+    expect(personSymbolSvg('Meier')).toContain('>ME<')
+    // umlaut-folded, so a name with an Ä does not get a glyph the map font may not carry
+    expect(personSymbolSvg('Bär')).toContain('>BA<')
+    expect(personSymbolSvg('  ')).toContain('>?<')
   })
 
   it('is not a tactical symbol — a person dot must never read as a deployed unit', () => {

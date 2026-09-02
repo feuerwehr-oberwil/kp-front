@@ -58,10 +58,36 @@ export function formatSymbolName(name: string): string {
   return restoreUmlauts(base)
 }
 
+/** Zero-pad a number to two digits: 7 → "07". */
+export const pad2 = (n: number) => String(n).padStart(2, '0')
+
 /** elapsed duration as h:mm (Einsatzuhr) — hours uncapped so a 26-h incident reads 26:05 */
 export function fmtElapsedHM(ms: number): string {
   const mins = Math.max(0, Math.floor(ms / 60_000))
-  return `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')}`
+  return `${Math.floor(mins / 60)}:${pad2(mins % 60)}`
+}
+
+/** MM:SS with BOTH halves padded — a running recorder's readout, where a jumping width under
+ *  the thumb is what the padding buys («09:07», never «9:07»). Minutes are uncapped. */
+export function fmtMMSS(totalSec: number): string {
+  return `${pad2(Math.floor(totalSec / 60))}:${pad2(totalSec % 60)}`
+}
+
+/**
+ * An audio clip's length: «12:34», and «2:15:03» once it passes the hour. Leading minutes are
+ * NOT padded — this is a duration read as a number, not a clock (see `fmtMMSS` for that one).
+ *
+ * `compact` is the LABEL form, used where the duration annotates something else (an imported
+ * Sprachmemo in a list): under a minute it says «47s» rather than «0:47», and it rounds to the
+ * nearest second instead of truncating, because a label is written once from a finished file.
+ * The player's live readout does neither — a counter that rounds up would show the end of a
+ * clip a second before it arrives.
+ */
+export function fmtDuration(sec: number, { compact = false } = {}): string {
+  const s = Math.max(0, compact ? Math.round(sec) : Math.floor(sec))
+  if (compact && s < 60) return `${s}s`
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(r)}` : `${m}:${pad2(r)}`
 }
 
 /** How long a stretch lasts, for a card head: «29 min» under the hour, else «4 h 00». Hours are
@@ -70,7 +96,7 @@ export function fmtElapsedHM(ms: number): string {
 export function fmtSpanShort(ms: number): string {
   const mins = Math.max(0, Math.round(ms / 60_000))
   if (mins < 60) return `${mins} min`
-  return `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')}`
+  return `${Math.floor(mins / 60)} h ${pad2(mins % 60)}`
 }
 
 /** A due time that fell to the next day (an exact Uhrzeit earlier than now rolls forward). */
@@ -87,9 +113,6 @@ export function dueClock(iso: string): string {
   const t = formatTime(new Date(iso))
   return isNextDay(iso) ? `${t}${appConfig.copy.journal.reminderTomorrow}` : t
 }
-
-/** Zero-pad a number to two digits: 7 → "07". */
-export const pad2 = (n: number) => String(n).padStart(2, '0')
 
 /** Local wall-clock HH:MM (24h, always zero-padded) from a Date — the hand-inlined
  *  `${pad(h)}:${pad(m)}` spelled once. Locale-independent by design, unlike formatTime. */

@@ -3,11 +3,9 @@ import type { Entity, VehiclePosition } from '../types'
 import { appConfig } from '../config/appConfig'
 import { apiGetRaw } from './api'
 import { formatTime } from './format'
+import { xmlEscape } from './svg'
 
 const cfg = appConfig.gps
-
-const xmlEscape = (s: string) =>
-  s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 
 /**
  * Generic vehicle tactical glyph (the VKF "Fahrzeug" outline) with the vehicle

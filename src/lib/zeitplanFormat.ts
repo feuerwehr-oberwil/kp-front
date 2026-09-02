@@ -1,4 +1,5 @@
 import { appConfig } from '../config/appConfig'
+import { hhmm } from './format'
 
 /** «Mo 27.07.» — the midnight tick on a multi-day Zeitplan axis. Over several days a bare
  *  «00:00» says nothing about WHICH night, and «Tag 2, 03:00» is a different decision from
@@ -45,6 +46,6 @@ export function incidentDays(startedAt: string | null | undefined, until: number
 export function fmtStartValue(startedAt: string, days: Date[]): string {
   const d = new Date(startedAt)
   if (!Number.isFinite(d.getTime())) return ''
-  const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const t = hhmm(d)
   return days.length > 1 ? `${fmtDayShort(d)} ${t}` : t
 }

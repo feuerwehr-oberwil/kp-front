@@ -44,11 +44,8 @@ export function fmtWGS(lon: number, lat: number): string {
   return `${lat.toFixed(5)}, ${lon.toFixed(5)}`
 }
 
-export function fmtMMSS(totalSec: number): string {
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
+/* (fmtMMSS lived here for no reason anybody could name — it is a clock, not a coordinate.
+   It is in lib/format with the rest of them now.) */
 
 const R_EARTH = 6371008.8 // mean Earth radius (m)
 /** great-circle distance between two WGS84 points, in metres */

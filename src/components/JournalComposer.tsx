@@ -4,7 +4,7 @@ import { Menu, Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases, type PhraseMatch } from '../lib/quickPhrases'
-import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
+import { fillTemplate, formatTime, hhmm, pad2, stripUnprintable } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { forgetLocalThumb, mintLocalThumb, thumbUrl } from '../lib/mediaUrl'
@@ -41,7 +41,6 @@ const MIN_STEP = 1 // exact-time minute granularity (hold the ± to repeat-fast)
  *  reversing the sentence you just heard. */
 const ARROW = '→'
 const ARROW_BACK = '←'
-const pad2 = (n: number) => String(n).padStart(2, '0')
 
 export interface JournalDraft {
   text: string
@@ -109,7 +108,7 @@ function resolveDueAt(sel: DueSel): string | null {
 function defaultExact(): { day: string; hhmm: string } {
   const d = new Date(Date.now() + 5 * 60_000)
   d.setMinutes(Math.ceil(d.getMinutes() / MIN_STEP) * MIN_STEP, 0, 0)
-  return { day: dayKey(d), hhmm: `${pad2(d.getHours())}:${pad2(d.getMinutes())}` }
+  return { day: dayKey(d), hhmm: hhmm(d) }
 }
 
 /** «Heute · Di 18.08.» — the day the dialog is set to, named the way a person would say it. */
@@ -433,7 +432,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   } | null>(null)
   const [startHHMM, setStartHHMM] = useState(() => {
     const d = incidentStartAt ? new Date(incidentStartAt) : new Date()
-    return Number.isNaN(d.getTime()) ? `${pad2(new Date().getHours())}:${pad2(new Date().getMinutes())}` : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+    return hhmm(Number.isNaN(d.getTime()) ? new Date() : d)
   })
   // hard gate (2026-07-15 decision): save stays disabled until the operator edits the
   // stepper or explicitly confirms — the row lands at this time in the Verlauf

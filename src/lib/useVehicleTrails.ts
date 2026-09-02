@@ -4,8 +4,11 @@ import { apiGetRaw } from './api'
 
 const cfg = appConfig.gps
 
-/** One point of a vehicle's recorded track, as the backend returns it. */
-export interface TrailPoint {
+/** One point of a vehicle's recorded track, as the backend returns it — a GPS SAMPLE.
+ *  ⚠️ NOT types.ts · `TrailPoint`, which is a Plan-board breadcrumb in board coordinates
+ *  ({x, y, floor}). Both used to be exported under the name `TrailPoint`, so an import that
+ *  reached for the wrong one still type-checked — against the wrong shape. */
+export interface GpsTrailPoint {
   lat: number
   lng: number
   ts?: string
@@ -16,7 +19,7 @@ export interface TrailPoint {
 export interface VehicleTrail {
   device_id: number
   device_name: string
-  points: TrailPoint[]
+  points: GpsTrailPoint[]
 }
 
 /** GeoJSON LineString feature collection — the shape MapView's `<Source>` wants. */

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { fmtMMSS } from '../lib/geo'
+import { fmtMMSS } from '../lib/format'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useGeorefMode } from '../lib/georefMode'

@@ -63,13 +63,8 @@ export function currentMarkerIndex(markers: AudioMarker[], posSec: number): numb
   return idx
 }
 
-/** Elapsed time for the small readout: 47 → "0:47", 754 → "12:34", 8103 → "2:15:03". */
-export function formatElapsed(sec: number): string {
-  const s = Math.max(0, Math.floor(sec))
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return h > 0 ? `${h}:${pad(m)}:${pad(r)}` : `${m}:${pad(r)}`
-}
+/* (the elapsed readout is `fmtDuration` in lib/format — the same formatter the imported-memo
+   labels use, which is the whole point of it living there.) */
 
 /** Wall-clock HH:MM at an offset into the recording (the operator thinks in Einsatzzeit). */
 export function wallClockAt(win: AudioWindow, offsetSec: number): string {

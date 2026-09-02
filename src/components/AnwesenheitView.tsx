@@ -68,9 +68,7 @@ function rememberedTab(incidentId: string | undefined): AnwesenheitTab | null {
 // HH:MM of an ISO stamp — the tappable time chip / the <input type="time"> value
 function toHM(iso: string): string {
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return Number.isNaN(d.getTime()) ? '' : hhmm(d)
 }
 
 

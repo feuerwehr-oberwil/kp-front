@@ -1,9 +1,10 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
-import { confirmDialog, toast } from './ui'
+import { confirmDialog, undoToast } from './ui'
 import type { Person, Shift, ShiftBand } from '../types'
 import { bandAssignWindow, bandCell, mergePersonShifts, splitShiftAtBand } from './shifts'
+import { newId } from './ids'
 
 interface BandActionsDeps {
   bands: ShiftBand[]
@@ -36,7 +37,7 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
 
   /** A new column. One row, no shifts — every cell starts empty. */
   const addBand = (label: string, from: string, to: string): ShiftBand => {
-    const band: ShiftBand = { id: `bd${Date.now()}`, label, from, to }
+    const band: ShiftBand = { id: newId('bd'), label, from, to }
     setBands((cur) => [...cur, band])
     return band
   }
@@ -86,16 +87,10 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
       const { bandId: _drop, ...rest } = s
       return rest
     }))
-    toast(fillTemplate(S().removedBand, { label: prev.label }), {
-      icon: 'undo',
-      action: {
-        label: appConfig.copy.undo,
-        onClick: () => {
-          setBands((cur) => (cur.some((b) => b.id === id) ? cur : [...cur, prev]))
-          const back = new Set(attached)
-          setShifts((cur) => cur.map((s) => (back.has(s.id) ? { ...s, bandId: id } : s)))
-        },
-      },
+    undoToast(fillTemplate(S().removedBand, { label: prev.label }), () => {
+      setBands((cur) => (cur.some((b) => b.id === id) ? cur : [...cur, prev]))
+      const back = new Set(attached)
+      setShifts((cur) => cur.map((s) => (back.has(s.id) ? { ...s, bandId: id } : s)))
     })
   }
 
@@ -120,7 +115,7 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
     const cell = bandCell(shifts, person.id, band)
     if (cell.state === 'empty') {
       setShifts((list) => [...list, {
-        id: `sh${Date.now()}`, personId: person.id, bandId: band.id, from: band.from, to: band.to,
+        id: newId('sh'), personId: person.id, bandId: band.id, from: band.from, to: band.to,
       }])
       return
     }
@@ -138,7 +133,7 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
       }
       const win = bandAssignWindow(cell, band)
       setShifts((list) => [...list, {
-        id: `sh${Date.now()}`, personId: person.id, bandId: band.id, ...win, confirmed: true,
+        id: newId('sh'), personId: person.id, bandId: band.id, ...win, confirmed: true,
       }])
       return
     }
@@ -216,7 +211,7 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
     const cell = bandCell(shifts, person.id, band)
     if (cell.state === 'empty') {
       setShifts((list) => [...list, {
-        id: `sh${Date.now()}`, personId: person.id, bandId: band.id,
+        id: newId('sh'), personId: person.id, bandId: band.id,
         from: band.from, to: band.to, confirmed: next === 'confirmed',
       }])
       return

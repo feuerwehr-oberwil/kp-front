@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Popover, PopoverClose } from '../lib/overlays'
-import { fmtMMSS } from '../lib/geo'
-import { fmtElapsedHM } from '../lib/format'
+import { fmtElapsedHM, fmtMMSS } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'

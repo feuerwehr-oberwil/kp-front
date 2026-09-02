@@ -13,6 +13,7 @@
 // the derived live numbers + the contact-clock alarm tier.
 
 import type { Trupp, TruppReading } from '../types'
+import { pad2 } from './format'
 
 export interface TruppLive {
   /** seconds under PA: entryTime → exitTime, or → now while still in. A Trupp that is out has
@@ -400,5 +401,5 @@ export function fmtClock(sec: number | null): string {
   const s = Math.max(0, sec)
   const m = Math.floor(s / 60)
   const r = s % 60
-  return `${m}:${String(r).padStart(2, '0')}`
+  return `${m}:${pad2(r)}`
 }

@@ -6,6 +6,7 @@
 import type { AttendanceState, PresenceInterval } from '../types'
 import { intervalsOf, mergeCloseBlocks, totalMinutes } from './attendanceIntervals'
 import { attendanceMergeGapMin } from './deploymentConfig'
+import { pad2 } from './format'
 
 export interface HoursRow {
   personId: string
@@ -109,7 +110,7 @@ export function hoursSummary(rows: HoursRow[], rule = DEFAULT_HOURS_ROUNDING): H
 
 /** «14:35» — hours and minutes, never a decimal: 14.58 h is not a number anybody checks. */
 export function fmtHours(minutes: number): string {
-  return `${Math.floor(minutes / 60)}:${String(Math.round(minutes % 60)).padStart(2, '0')}`
+  return `${Math.floor(minutes / 60)}:${pad2(Math.round(minutes % 60))}`
 }
 
 /**

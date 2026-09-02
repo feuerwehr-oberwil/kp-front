@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { fmtDayShort } from '../lib/zeitplanFormat'
+import { hhmm, pad2 } from '../lib/format'
 import { scrollBehavior } from '../lib/reducedMotion'
 import w from './WheelPicker.module.css'
 
@@ -96,7 +97,6 @@ function Wheel({ items, index, onIndex, ariaLabel, loop = false }: {
   )
 }
 
-const pad2 = (n: number) => String(n).padStart(2, '0')
 const HOURS = Array.from({ length: 24 }, (_, i) => pad2(i))
 const MINUTES = Array.from({ length: 60 }, (_, i) => pad2(i))
 
@@ -170,7 +170,7 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   const months = Array.from({ length: 12 }, (_, i) => pad2(i + 1))
 
   // what the keyboard is holding right now; the wheels follow as soon as it parses
-  const [typed, setTyped] = useState(() => `${pad2(initial.getHours())}:${pad2(initial.getMinutes())}`)
+  const [typed, setTyped] = useState(() => hhmm(initial))
 
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {

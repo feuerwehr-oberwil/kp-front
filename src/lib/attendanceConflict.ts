@@ -6,7 +6,7 @@
 // conflict must not re-append on every sync cycle) and the row construction.
 
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
+import { fillTemplate, hhmm } from './format'
 import type { RecordConflict } from './mergeWorkspace'
 import type { AttendanceEntry, TimelineEvent } from '../types'
 
@@ -75,29 +75,47 @@ export function conflictWhat(c: RecordConflict): string {
 }
 
 /**
- * Turn freshly reported attendance conflicts into journal rows, one per affected person,
+ * Turn freshly reported record divergences into Verlauf rows, one per affected record,
  * skipping (and recording into `seen`) every signature already reported. `seen` is the
- * caller's session-scoped set — passing the same set across sync cycles is what guarantees
- * no duplicate events.
+ * caller's session-scoped set — passing the same set across sync cycles is what guarantees no
+ * duplicate events, so the same set must be passed on every cycle.
+ *
+ * Two surfaces report divergences (Anwesenheit and Atemschutz — see useIncidentSync) and they
+ * differ in exactly two things: the id prefix and the sentence. Everything that matters is the
+ * same by doctrine, and has to stay that way: the merge already resolved the record
+ * field-by-field with nothing dropped, and the row exists so a human double-checks something
+ * two devices wrote at once.
  */
-export function attendanceConflictRows(
+export function conflictRows(
   conflicts: RecordConflict[],
   seen: Set<string>,
-  now: Date = new Date(),
+  { idPrefix, text, now = new Date() }: {
+    /** short, per-surface id namespace ('ac' | 'tc'), before the timestamp */
+    idPrefix: string
+    text: (conflict: RecordConflict) => string
+    now?: Date
+  },
 ): TimelineEvent[] {
   const rows: TimelineEvent[] = []
-  const pad = (n: number) => String(n).padStart(2, '0')
   for (const c of conflicts) {
     const sig = conflictSignature(c)
     if (seen.has(sig)) continue
     seen.add(sig)
     rows.push({
-      id: `ac${now.getTime()}-${rows.length}`, // prefixed timestamp, same convention as 'e'+Date.now()+'-'+i
-      t: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+      id: `${idPrefix}${now.getTime()}-${rows.length}`, // prefixed timestamp, same convention as 'e'+Date.now()+'-'+i
+      t: hhmm(now),
       at: now.toISOString(),
       icon: 'warn',
-      text: fillTemplate(appConfig.copy.journal.attendanceConflict, { name: nameOf(c), what: conflictWhat(c) }),
+      text: text(c),
     })
   }
   return rows
 }
+
+/** `conflictRows` for the Anwesenheit: one row per affected person. */
+export const attendanceConflictRows = (conflicts: RecordConflict[], seen: Set<string>, now?: Date) =>
+  conflictRows(conflicts, seen, {
+    idPrefix: 'ac',
+    now,
+    text: (c) => fillTemplate(appConfig.copy.journal.attendanceConflict, { name: nameOf(c), what: conflictWhat(c) }),
+  })

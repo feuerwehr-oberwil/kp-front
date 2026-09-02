@@ -1,7 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { lookupUN } from './unHazard'
-
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+import { xmlEscape as esc } from './svg'
 
 // Big bold number; 4+ digit numbers are condensed to the plate width via textLength so
 // they fill the plate without overflowing (no font-metric guessing).

@@ -4,7 +4,8 @@ import { appConfig } from '../config/appConfig'
 import { apiGetRaw } from './api'
 import { isDemoMode } from './deploymentConfig'
 import { stepWalkers, syncWalkers, type Walker } from './demoCrewWalk'
-import { formatTime } from './format'
+import { formatTime, initials } from './format'
+import { xmlEscape } from './svg'
 
 const cfg = appConfig.personGps
 
@@ -28,17 +29,10 @@ export interface LivePerson {
   accuracyM: number | null
 }
 
-const xmlEscape = (s: string) =>
-  s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
-
-/** Up to two initials from a display name — «Meier Hans» → «MH», «Meier» → «M». */
-export function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (!parts.length) return '?'
-  const first = parts[0]![0] ?? ''
-  const last = parts.length > 1 ? (parts[parts.length - 1]![0] ?? '') : ''
-  return (first + last).toUpperCase()
-}
+/* (initials come from lib/format · `initials`, the same function the avatars use. This module
+   had its own, which folded no umlauts and gave a one-word name a single letter — so «Meier»
+   was «ME» on their avatar and «M» on their map dot, and «Bär» was «BÄ» and «B». One person,
+   two labels, in the two places you compare them.) */
 
 /**
  * The glyph for a person who is sharing their position.
@@ -52,7 +46,7 @@ export function initialsOf(name: string): string {
  * PERSON_STALE_AFTER_MS) — recognisably the same person, visibly not current.
  */
 export function personSymbolSvg(name: string, dimmed = false): string {
-  const label = xmlEscape(initialsOf(name))
+  const label = xmlEscape(initials(name))
   // SOLID fill, white initials. The first version drew thin amber strokes on a light-amber
   // wash, which measured about 1.9:1 against the marker's white chip — legible on a monitor
   // at rest, and gone on a phone held at arm's length over a pale basemap. A filled disc

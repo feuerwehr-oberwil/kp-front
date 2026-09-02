@@ -6,11 +6,10 @@ import { EmptyState } from './EmptyState'
 import { Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
-import { dueClock, fillTemplate, formatTime } from '../lib/format'
+import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
 import { thumbUrl } from '../lib/mediaUrl'
 import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowText, rowTime } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
-import { formatElapsed } from '../lib/audioPlayer'
 import type { OpenReminder } from '../lib/reminders'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
@@ -898,7 +897,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   <div className="jr-subs">
                     {e.transcript && <p><span>{marked(e.transcript)}</span></p>}
                     {(e.transcriptSections ?? []).map((s, i) => (
-                      <p key={i}><i>{formatElapsed(s.at)}</i><span>{marked(s.text)}</span></p>
+                      <p key={i}><i>{fmtDuration(s.at)}</i><span>{marked(s.text)}</span></p>
                     ))}
                   </div>
                 )}
@@ -1018,7 +1017,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 <div className="jr-subs">
                   {e.transcript && <p><span>{marked(e.transcript)}</span></p>}
                   {(e.transcriptSections ?? []).map((s, i) => (
-                    <p key={i}><i>{formatElapsed(s.at)}</i><span>{marked(s.text)}</span></p>
+                    <p key={i}><i>{fmtDuration(s.at)}</i><span>{marked(s.text)}</span></p>
                   ))}
                 </div>
               )}

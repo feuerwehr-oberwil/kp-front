@@ -4,7 +4,7 @@ import type { TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, fmtDuration } from '../lib/format'
 import { ApiError, apiGet, apiPatch, apiPost, timeoutSignal } from '../lib/api'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases, type PhraseMatch } from '../lib/quickPhrases'
@@ -14,7 +14,6 @@ import {
   audioWindowOf,
   clockTicks,
   currentMarkerIndex,
-  formatElapsed,
   markersInWindow,
   wallClockAt,
 } from '../lib/audioPlayer'
@@ -399,7 +398,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
 
   if (!win) return null
   const rangeLabel = durationSec > 0
-    ? `${wallClockAt(win, 0)} – ${wallClockAt(win, durationSec)} · ${formatElapsed(durationSec)}`
+    ? `${wallClockAt(win, 0)} – ${wallClockAt(win, durationSec)} · ${fmtDuration(durationSec)}`
     : wallClockAt(win, 0)
 
   return (
@@ -458,7 +457,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
               </button>
               <div className="ap-time">
                 <strong>{wallClockAt(win, cur)}</strong>
-                <span>{formatElapsed(cur)}{durationSec > 0 ? ` / ${formatElapsed(durationSec)}` : ''}</span>
+                <span>{fmtDuration(cur)}{durationSec > 0 ? ` / ${fmtDuration(durationSec)}` : ''}</span>
               </div>
             </div>
           )}
@@ -468,7 +467,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
               {/* on a memo this writes the TRANSCRIPT (a section at the playhead), so it
                   says so and shows the offset; on a long recording it stays the timeline
                   entry with its wall-clock instant */}
-              <span className="ap-add-label"><Icon id="type" />{isMemo ? C.transcriptAdd : C.playerEntryHere}<em>{isMemo ? formatElapsed(cur) : wallClockAt(win, cur)}</em></span>
+              <span className="ap-add-label"><Icon id="type" />{isMemo ? C.transcriptAdd : C.playerEntryHere}<em>{isMemo ? fmtDuration(cur) : wallClockAt(win, cur)}</em></span>
               <div className="ap-add-row">
                 {/* the marks backdrop, exactly as in the composer: the same text painted behind
                     a see-through field so only the <mark> spans show. Both layers must share
@@ -567,7 +566,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
               {sections.map((s) => (
                 editSec?.id === s.id ? (
                   <div key={s.id} className="ap-row ap-row-editing">
-                    <span className="ap-row-t">{formatElapsed(s.at)}</span>
+                    <span className="ap-row-t">{fmtDuration(s.at)}</span>
                     <input
                       className="ap-row-input"
                       value={editSec.value}
@@ -591,7 +590,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
                     onClick={onEditSection && !readOnly ? () => setEditSec({ id: s.id, value: s.text }) : () => seek(s.at)}
                     onKeyDown={(e) => { if (e.key === 'Enter') (onEditSection && !readOnly ? setEditSec({ id: s.id, value: s.text }) : seek(s.at)) }}
                   >
-                    <span className="ap-row-t">{formatElapsed(s.at)}</span>
+                    <span className="ap-row-t">{fmtDuration(s.at)}</span>
                     <button
                       className="ap-draft-play"
                       title={appConfig.copy.play}
