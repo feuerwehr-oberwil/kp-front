@@ -14,7 +14,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { BoardAnno, Entity } from '../types'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
 import { fitSimilarity } from '../lib/georef'
-import { clampToSheet, type SheetEdge } from '../lib/georefTwins'
+import { clampToSheet, sheetShift, SHEET_DOMAIN, twinBoundOf, type SheetEdge } from '../lib/georefTwins'
 import type { BoardTwin, MapTwin } from '../lib/georefTwins'
 
 // the map half of the mirror only needs the Marker to place its child somewhere
@@ -304,6 +304,47 @@ describe('a diagonal drag on a turned, non-square sheet', () => {
     expect(written.y).toBeGreaterThan(0.4)           // …while the free axis kept following
     expect(written.y).toBeLessThan(1)
     expect(held).toEqual(['right'])                  // and the surface can light that edge
+  })
+
+  /**
+   * ⚠️ THE «die Umrandung passt nicht zum Anschlag» regression (02.09.).
+   *
+   * The outline the Karte draws and the bound a drag actually meets have to be ONE thing. They
+   * were not derived from one: the rectangle came from beside the clamp rather than from it, and
+   * the bar's own twin move drew the rectangle while enforcing nothing at all, so a mirrored
+   * object pulled from ✥ sailed straight through the line that had just promised where it would
+   * stop. Both now read `SHEET_DOMAIN` — and this is the assertion that keeps them there: the
+   * drawn corners ARE that domain through the drag's own fit, and a clamped landing is ON the
+   * drawn edge, to the same numbers.
+   */
+  it('draws exactly the rectangle it clamps to, and clamps exactly onto what it drew', () => {
+    const bound = twinBoundOf(TURNED_FIT, ['right'])
+    // 1 — the corners are the clamp domain, through the very fit the write-through inverts
+    const projected = SHEET_DOMAIN.map((p) => { const c = TURNED_FIT.toMap(p); return [c.lng, c.lat] })
+    expect(bound.ring).toEqual(projected)
+    // …and every one of them comes back as a corner of the domain, so nothing was re-derived
+    bound.ring.forEach((c, i) => {
+      const back = TURNED_FIT.toPlan({ lng: c[0], lat: c[1] })
+      expect(back.x).toBeCloseTo(SHEET_DOMAIN[i].x, 9)
+      expect(back.y).toBeCloseTo(SHEET_DOMAIN[i].y, 9)
+    })
+    // 2 — a drag pushed off the right-hand side lands ON the segment that was drawn for it
+    const [a, b] = bound.held[0]
+    const { pt, held } = clampToSheet(TURNED_FIT.toPlan(TURNED_FIT.toMap({ x: 2.4, y: 0.55 })))
+    expect(held).toEqual(['right'])
+    const g = TURNED_FIT.toMap(pt)
+    // collinear with the drawn edge (cross product of the two spans) and between its ends
+    expect(Math.abs((b[0] - a[0]) * (g.lat - a[1]) - (b[1] - a[1]) * (g.lng - a[0]))).toBeLessThan(1e-12)
+    // …and at the right place ALONG it. Measured in raw lng/lat, where the segment is straight
+    // but its parameterisation is not quite uniform (a degree of latitude is not a degree of
+    // longitude): 1e-5 of the edge is ~1 mm on an 80 m sheet.
+    const along = ((g.lng - a[0]) * (b[0] - a[0]) + (g.lat - a[1]) * (b[1] - a[1]))
+      / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2)
+    expect(along).toBeCloseTo(0.55, 5)
+    // 3 — and the bar's own writer measures against the same domain, so it stops there too
+    const barShift = sheetShift([{ x: 0.9, y: 0.5 }], { x: 0.4, y: 0 })
+    expect(barShift.dx).toBeCloseTo(0.1, 9)
+    expect(barShift.held).toEqual(['right'])
   })
 
   it('…and a mirrored Karte object on the PLAN lands where it was dropped, both ways', () => {

@@ -70,7 +70,7 @@ import { LayerPanel } from './components/LayerPanel'
 import {
   boardTwinAnnosForPrint, georefPlans, mapContentTwins as projectMapContentTwins, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
   twinPlanImageLayerId, twinPlanImageVisible, twinPlanLayerId, twinVisible, isTwinLayerId, TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardSymbolToEntity, contentTwinName, entityToBoardSymbol, clampToSheet, movedTwinPath, sheetCorners, sheetEdgeEnds, twinPathDelta, onSheet, planGroundWidthM, revealTwinLayer,
+  boardSymbolToEntity, contentTwinName, entityToBoardSymbol, clampToSheet, movedTwinPath, sheetShift, twinBoundOf, twinPathDelta, onSheet, planGroundWidthM, revealTwinLayer,
   type MapContentTwin, type MapTwin,
 } from './lib/georefTwins'
 import type { SheetEdge } from './lib/georefTwins'
@@ -2597,7 +2597,8 @@ export function IncidentWorkspace({
       const plans = [...new Set(items.map((i) => i.planId))]
       // …and the paper this selection lives on, for the length of the gesture — the same answer
       // to «why did it stop» the direct drag gets. Only when the selection is on ONE sheet: two
-      // outlines at once say nothing, and one of two would be a lie.
+      // outlines at once say nothing, and one of two would be a lie. (The bound itself is
+      // enforced per sheet either way — see the frame below.)
       if (plans.length === 1 && items[0]) showTwinBound(items[0].fit, [])
       setPlanHistory((m) => plans.reduce((acc, planId) => pushBoardPast(acc, planId, board[planId] ?? []), m))
       return
@@ -2614,9 +2615,39 @@ export function IncidentWorkspace({
     )
     const byPlan = new Map<string, typeof items>()
     for (const it of items) byPlan.set(it.planId, [...(byPlan.get(it.planId) ?? []), it])
+    /** Every plan point this frame produces, per sheet, BEFORE the bound — one pass, so the
+     *  correction below can be measured against the whole rigid selection at once. */
+    const wanted = new Map<string, Map<string, [number, number][]>>()
+    for (const [planId, group] of byPlan) {
+      const perAnno = new Map<string, [number, number][]>()
+      for (const o of group) {
+        perAnno.set(o.annoId, o.anno.pts?.length
+          ? o.anno.pts.map(([x, y]) => moved(o.fit, x, y))
+          : o.anno.x == null || o.anno.y == null ? [] : [moved(o.fit, o.anno.x, o.anno.y)])
+      }
+      wanted.set(planId, perAnno)
+    }
+    /**
+     * ⚠️ The SAME bound the direct drag obeys, on the SAME domain the Karte draws — and it has to
+     * be measured across the whole selection, not per member, or a rigid group would deform
+     * against the paper edge (georefTwins · sheetShift). Until 02.09. this path drew the sheet's
+     * outline and enforced nothing, so a mirrored object moved from the bar sailed straight
+     * through the rectangle that had just promised where it would stop.
+     */
+    const bounds = new Map<string, { dx: number; dy: number; held: SheetEdge[] }>()
+    for (const [planId, perAnno] of wanted) {
+      const all = [...perAnno.values()].flat().map(([x, y]) => ({ x, y }))
+      bounds.set(planId, all.length ? sheetShift(all) : { dx: 0, dy: 0, held: [] })
+    }
+    const heldNow = [...new Set([...bounds.values()].flatMap((b) => b.held))]
+    const onePlan = bounds.size === 1 ? items[0] : undefined
+    if (phase === 'end') endTwinBound()
+    else if (onePlan) showTwinBound(onePlan.fit, heldNow)
     setBoard((all) => {
       const next = { ...all }
       for (const [planId, group] of byPlan) {
+        const { dx, dy } = bounds.get(planId) ?? { dx: 0, dy: 0 }
+        const perAnno = wanted.get(planId)
         next[planId] = (all[planId] ?? []).map((a) => {
           const o = group.find((g) => g.annoId === a.id)
           if (!o) return a
@@ -2626,18 +2657,17 @@ export function IncidentWorkspace({
             ? { ...(o.anno.rotation !== undefined ? { rotation: turnedBy(o.anno.rotation, t.deg) } : null),
                 ...(o.anno.rotation2 !== undefined ? { rotation2: turnedBy(o.anno.rotation2, t.deg) } : null) }
             : null
+          const want = perAnno?.get(o.annoId) ?? []
           if (o.anno.pts?.length) {
-            return { ...a, ...turned, pts: o.anno.pts.map(([x, y, floor]): BoardPoint => { const [nx, ny] = moved(o.fit, x, y); return [nx, ny, floor ?? a.floor ?? 0] }) }
+            return { ...a, ...turned, pts: o.anno.pts.map(([, , floor], i): BoardPoint => [want[i][0] + dx, want[i][1] + dy, floor ?? a.floor ?? 0]) }
           }
-          if (o.anno.x == null || o.anno.y == null) return { ...a, ...turned }
-          const [nx, ny] = moved(o.fit, o.anno.x, o.anno.y)
-          return { ...a, ...turned, x: nx, y: ny }
+          if (!want.length) return { ...a, ...turned }
+          return { ...a, ...turned, x: want[0][0] + dx, y: want[0][1] + dy }
         })
       }
       return next
     })
     if (phase === 'end') {
-      endTwinBound()
       items.forEach((i) => emit('board.move', { planId: i.planId, id: i.annoId }))
       twinGroupOrig.current = { items: [], centre: null }
     }
@@ -2876,7 +2906,9 @@ export function IncidentWorkspace({
   const showTwinBound = (fit: GeorefFit, held: SheetEdge[]) => {
     if (held.length && !twinBoundBuzzed.current) { twinBoundBuzzed.current = true; buzz() }
     if (!held.length) twinBoundBuzzed.current = false
-    setTwinBound({ ring: sheetCorners(fit), held: held.map((e) => sheetEdgeEnds(fit, e)) })
+    // ⚠️ `twinBoundOf` and nothing else: the drawn rectangle IS the clamp domain, projected
+    // through the very fit the write-through inverts (georefTwins · SHEET_DOMAIN).
+    setTwinBound(twinBoundOf(fit, held))
   }
   const endTwinBound = () => { twinBoundBuzzed.current = false; setTwinBound(null) }
   const moveMapTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId' | 'fit'> & { anno: BoardAnno }, coord: LngLat, phase: 'start' | 'move' | 'end') => {

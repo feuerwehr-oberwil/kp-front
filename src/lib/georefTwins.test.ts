@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardTwinAnnosForPrint, boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, clampToSheet, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect, sheetCorners, sheetEdgeEnds, twinPathDelta,
+  boardTwinAnnosForPrint, boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, clampToSheet, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect, sheetCorners, sheetEdgeEnds, sheetShift, twinPathDelta,
   planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
@@ -201,6 +201,18 @@ describe('the sheet’s own edge', () => {
     expect(out.dy).toBeCloseTo(0, 9)
     expect(out.held).toEqual(['right'])
     expect(twinPathDelta(pts, { x: 0.3, y: 0.3 }, { x: 0.4, y: 0.35 }).held).toEqual([])
+  })
+
+  it('shifts a whole rigid selection back onto the sheet, never its members apart', () => {
+    // three points spanning 0.2..0.9, pushed 0.3 to the right: only 0.1 of paper is left
+    const pts = [{ x: 0.2, y: 0.5 }, { x: 0.6, y: 0.5 }, { x: 0.9, y: 0.5 }]
+    const out = sheetShift(pts, { x: 0.3, y: 0 })
+    expect(out.dx).toBeCloseTo(0.1, 9)
+    expect(out.held).toEqual(['right'])
+    // …and a selection WIDER than the sheet freezes that axis rather than teleporting half a sheet
+    const wide = sheetShift([{ x: -0.4, y: 0.5 }, { x: 1.4, y: 0.5 }], { x: 0.2, y: 0 })
+    expect(wide.dx).toBe(0)
+    expect(wide.held).toEqual(['right'])
   })
 
   it('puts the sheet on the ground as four corners and four edges', () => {

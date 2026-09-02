@@ -275,66 +275,110 @@ export function mapContentTwins(
   return out
 }
 
-// ── the sheet's edge, which is a real constraint and has to be visible ────────────────────────
+// ── the sheet's edge: ONE domain, enforced and drawn from the same two numbers ────────────────
+
+/**
+ * THE clamp domain of a plan annotation: 0..1 on both axes of its own sheet — x a fraction of the
+ * width, y a fraction of the height, y running down (see the module header on «Plan» space).
+ *
+ * ⚠️ Every writer that enforces this bound AND the outline the Karte DRAWS for it read these two
+ * numbers and nothing else, through the helpers below. That is the whole point of stating it
+ * here: the first version of the outline was derived beside the clamp rather than from it, and a
+ * rectangle drawn from a second definition — a footprint, a preview's extent, a differently
+ * recovered aspect — is a promise about where a drag will stop that the drag does not keep.
+ */
+export const SHEET_MIN = 0
+export const SHEET_MAX = 1
+
+/** …the same rectangle as four corners, in paper order: top-left, top-right, bottom-right,
+ *  bottom-left. The one list `sheetCorners` projects and every clamp is measured against. */
+export const SHEET_DOMAIN: readonly PlanPt[] = [
+  { x: SHEET_MIN, y: SHEET_MIN }, { x: SHEET_MAX, y: SHEET_MIN },
+  { x: SHEET_MAX, y: SHEET_MAX }, { x: SHEET_MIN, y: SHEET_MAX },
+]
 
 /**
  * The four bounds of a plan sheet, named as the operator sees them on the paper.
  *
  * ⚠️ This is why a mirrored object on the Karte can stop following the finger on ONE axis and go
  * on following it on the other, which reads as a broken drag until you can see the paper: the
- * source lives on a BOUNDED document (x and y are fractions of the sheet, 0..1), so crossing the
- * projected edge pins that coordinate while the free one keeps moving. It is the right behaviour
- * — a plan point outside the paper is not a place on that document — but it is only legible with
- * the sheet's outline drawn (MapView · twinBound).
+ * source lives on a BOUNDED document, so crossing the projected edge pins that coordinate while
+ * the free one keeps moving. It is the right behaviour — a plan point outside the paper is not a
+ * place on that document — and it is only legible with the sheet's outline drawn.
  */
 export type SheetEdge = 'left' | 'right' | 'top' | 'bottom'
 
-/** Put a plan point on its sheet, naming the edges that actually held it back. */
+/**
+ * One axis of the bound: how far a move may actually go, and which edge shortened it.
+ * `lo`/`hi` are the room left on the low and the high side of that axis.
+ *
+ * ⚠️ A selection WIDER than the sheet has no in-sheet position at all — the bounds invert, and
+ * clamping through them would teleport it by half a sheet. That axis freezes instead; the edge
+ * the move was pushing against still reports, because the operator is entitled to know which one
+ * is holding (GeorefContentBoard has followed the same rule on the Plan since 01.09.).
+ */
+function holdAxis(want: number, lo: number, hi: number, low: SheetEdge, high: SheetEdge): { d: number; held?: SheetEdge } {
+  if (lo > hi) return { d: 0, held: want > 0 ? high : want < 0 ? low : undefined }
+  const d = Math.max(lo, Math.min(hi, want))
+  return { d, held: d > want ? low : d < want ? high : undefined }
+}
+
+/**
+ * THE bound, for everything that moves a mirrored object: the plan-space delta a selection may
+ * actually take from where it stands, and the edges that shortened it.
+ *
+ * The DELTA is clamped, never the individual points, because clamping points one by one would
+ * squash a shape against the paper edge instead of stopping it there — and because the two axes
+ * clamp INDEPENDENTLY, which is what makes the motion a slide along the edge rather than a stop.
+ */
+export function sheetShift(pts: readonly PlanPt[], want: { x: number; y: number } = { x: 0, y: 0 }): { dx: number; dy: number; held: SheetEdge[] } {
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
+  const x = holdAxis(want.x, SHEET_MIN - Math.min(...xs), SHEET_MAX - Math.max(...xs), 'left', 'right')
+  const y = holdAxis(want.y, SHEET_MIN - Math.min(...ys), SHEET_MAX - Math.max(...ys), 'top', 'bottom')
+  return { dx: x.d, dy: y.d, held: [x.held, y.held].filter((e): e is SheetEdge => !!e) }
+}
+
+/** Put ONE plan point on its sheet, naming the edges that held it back. */
 export function clampToSheet(p: PlanPt): { pt: PlanPt; held: SheetEdge[] } {
-  const x = Math.max(0, Math.min(1, p.x)), y = Math.max(0, Math.min(1, p.y))
-  const held: SheetEdge[] = []
-  if (x > p.x) held.push('left'); else if (x < p.x) held.push('right')
-  if (y > p.y) held.push('top'); else if (y < p.y) held.push('bottom')
-  return { pt: { x, y }, held }
+  const { dx, dy, held } = sheetShift([p])
+  return { pt: { x: p.x + dx, y: p.y + dy }, held }
 }
 
-/** The plan-space delta a whole-path drag may actually take, and which edges shortened it. The
- *  DELTA is clamped — not each vertex — because clamping vertices one by one would squash the
- *  shape against the paper edge instead of stopping it there. */
+/** …and the delta a whole PATH may take (a projected Plan line or area dragged on the Karte). */
 export function twinPathDelta(pts: readonly (readonly [number, number, ...number[]])[], from: PlanPt, to: PlanPt): { dx: number; dy: number; held: SheetEdge[] } {
-  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
-  const wantX = to.x - from.x, wantY = to.y - from.y
-  const dx = Math.max(-Math.min(...xs), Math.min(1 - Math.max(...xs), wantX))
-  const dy = Math.max(-Math.min(...ys), Math.min(1 - Math.max(...ys), wantY))
-  const held: SheetEdge[] = []
-  if (dx > wantX) held.push('left'); else if (dx < wantX) held.push('right')
-  if (dy > wantY) held.push('top'); else if (dy < wantY) held.push('bottom')
-  return { dx, dy, held }
+  return sheetShift(pts.map(([x, y]) => ({ x, y })), { x: to.x - from.x, y: to.y - from.y })
 }
 
-/** Whole-object translation of a mirrored path (a projected Plan line or area dragged on the
- *  Karte): every vertex moves by the same plan-space delta, clamped to the sheet
- *  (`twinPathDelta`). Vertex-level editing stays with the source. Generic over the vertex tuple
- *  so a `BoardPoint`'s optional per-point floor rides along untouched — a drag moves the line on
- *  the paper, never between storeys. */
+/** Whole-object translation of a mirrored path: every vertex moves by the same clamped plan-space
+ *  delta (`twinPathDelta`). Vertex-level editing stays with the source. Generic over the vertex
+ *  tuple so a `BoardPoint`'s optional per-point floor rides along untouched — a drag moves the
+ *  line on the paper, never between storeys. */
 export function movedTwinPath<P extends readonly [number, number, ...rest: number[]]>(pts: readonly P[], from: PlanPt, to: PlanPt): P[] {
   const { dx, dy } = twinPathDelta(pts, from, to)
   return pts.map((p) => { const [x, y, ...rest] = p; return [x + dx, y + dy, ...rest] as unknown as P })
 }
 
-/** The sheet's four corners on the ground, in paper order — top-left, top-right, bottom-right,
- *  bottom-left. The same derivation the pairing mode's «Deckung prüfen» outline uses. */
+/** The clamp domain itself, on the ground — `SHEET_DOMAIN` through the very fit the drag's
+ *  write-through inverts. Nothing else may derive this rectangle. */
 export function sheetCorners(fit: GeorefFit): LngLat[] {
-  return ([[0, 0], [1, 0], [1, 1], [0, 1]] as const).map(([x, y]) => {
-    const c = fit.toMap({ x, y })
-    return [c.lng, c.lat] as LngLat
-  })
+  return SHEET_DOMAIN.map((p) => { const c = fit.toMap(p); return [c.lng, c.lat] as LngLat })
 }
 
 /** …and the two ends of ONE of its edges, for the edge that is holding a drag back. */
 export function sheetEdgeEnds(fit: GeorefFit, edge: SheetEdge): [LngLat, LngLat] {
   const [tl, tr, br, bl] = sheetCorners(fit)
   return edge === 'left' ? [tl, bl] : edge === 'right' ? [tr, br] : edge === 'top' ? [tl, tr] : [bl, br]
+}
+
+/** What the Karte draws while a mirrored object is in the hand: the clamp domain, and whichever
+ *  of its edges are holding right now. Built HERE rather than at the call site, so no surface can
+ *  hand itself a rectangle the writers do not enforce (MapView · twinBound). */
+export interface TwinBound {
+  ring: LngLat[]
+  held: LngLat[][]
+}
+export function twinBoundOf(fit: GeorefFit, held: readonly SheetEdge[]): TwinBound {
+  return { ring: sheetCorners(fit), held: held.map((e) => sheetEdgeEnds(fit, e)) }
 }
 
 /** The name a mirrored non-symbol object answers to — its own label/text where it has one, else
