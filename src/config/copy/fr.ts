@@ -974,6 +974,14 @@ export const fr: Localizable<Copy> = {
     newTrupp: 'Créer un binôme',
     shareLink: 'Transmettre la surveillance',
     shareLinkOn: 'Transmettre la surveillance – un lien est actif',
+    /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
+    liteNewTab: 'Binôme',
+    /** the two-step form on the handed-over phone (TruppForm · wizard) */
+    wizardWho: 'Qui entre ?',
+    wizardAir: 'Air & mission',
+    wizardNext: 'Suivant · Air & mission',
+    wizardBack: 'Retour',
+    wizardStep: 'Étape {n} sur 2',
     // état sync/horloge dans l'en-tête du tableau (voir de.ts)
     syncStand: '{status} – état de {t}',
     clockSkewChip: 'Horloge de l\'appareil décalée ({d} min)',

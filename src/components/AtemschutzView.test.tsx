@@ -7,6 +7,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
+import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
 import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
@@ -52,6 +53,8 @@ const propsFor = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => (
     pickTruppLine: noop, unlinkTruppLine: noop,
     ...over,
 })
+vi.mock('../lib/useIsPhone', () => ({ useIsPhone: vi.fn(() => false) }))
+
 const mount = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => {
   const props = propsFor(over)
   render(<AtemschutzView {...props} />)
@@ -162,5 +165,31 @@ describe('the handed-over board (lite)', () => {
   it('says a link is live rather than claiming what the press would do', () => {
     mount({ onShareLink: noop, shareLinkActive: true })
     expect(screen.getByRole('button', { name: az.shareLinkOn })).toBeTruthy()
+  })
+})
+
+// The same board on a PHONE: one tab per Trupp in a strip, one Trupp filling the screen, and a
+// tap on a tab is what decides which — not a scroll.
+describe('the handed-over board on a phone (focus mode)', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  it('shows a tab per Trupp and exactly one card, and a tab picks its Trupp', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ lite: { subtitle: 'Brand · Hauptstrasse 12', onLeave: noop }, trupps: [aktivTrupp(), { ...aktivTrupp(), id: 'tr2', name: 'Meier' }] })
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
+    expect(document.querySelectorAll(`.${s.card}`)).toHaveLength(1)
+    fireEvent.click(screen.getByRole('tab', { name: /Meier/ }))
+    expect(document.querySelector(`.${s.card}`)?.textContent).toContain('Meier')
+    // the strip's own «+ Trupp» is the door; no second one in the header
+    expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
+  })
+
+  it('opens the Trupp form as two steps: the roster first, Druck and Auftrag behind «Weiter»', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ lite: { subtitle: 'Brand', onLeave: noop }, trupps: [aktivTrupp()] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+    expect(screen.queryByText(az.pressureLabel)).toBeNull()
+    // no Gruppenführer yet → «Weiter» waits
+    expect((screen.getByRole('button', { name: az.wizardNext }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
