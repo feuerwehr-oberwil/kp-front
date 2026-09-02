@@ -10,11 +10,26 @@
 // Downscaling is not a compromise for this job: a Beilage prints at ~180 mm wide, so ~2200 px on
 // the long edge is already more than the paper can show. What matters is that the document stays
 // READABLE, which is what the long edge buys.
+//
+// ⚠️ Every decode in this file runs through ONE lane (lib/serialQueue). A decode is the full
+// bitmap of the camera file (~48 MB for 12 MP) plus a canvas, and a ten-photo multi-select used to
+// start ten of them in the same tick — enough to have an iPhone's tab killed before the first
+// upload began. One at a time, the peak is one picture.
+
+import { serialQueue } from './serialQueue'
+
+const decodeLane = serialQueue()
 
 /** Longest edge after preparation (px) — comfortably above what an A4 plate can print. */
 const MAX_EDGE = 2200
 /** JPEG quality — high enough for the small print on an ID card, small enough to upload. */
 const QUALITY = 0.85
+
+/** Longest edge of a session thumbnail (px) — a Verlauf chip is 40 CSS px, a map marker 56,
+ *  so 160 device px covers a 3× phone with room to spare. */
+const THUMB_EDGE = 160
+/** JPEG quality of a thumbnail — it is looked at, never printed. */
+const THUMB_QUALITY = 0.7
 
 /** Longest edge for a photo attached to a Rückmeldung (px). Smaller than MAX_EDGE because this
  *  picture is never printed: it is looked at once, by one person, to see what the operator saw. */
@@ -42,13 +57,30 @@ const SERVER_OK = new Set(['image/jpeg', 'image/png', 'image/webp'])
 export async function prepareUploadImage(file: Blob, maxEdge = MAX_EDGE): Promise<Blob> {
   const smallEnough = file.size <= 1_500_000
   if (smallEnough && SERVER_OK.has(file.type)) return file
-  try {
-    const canvas = await decodeToCanvas(file, maxEdge)
-    if (!canvas) return file
-    return (await encodeJpeg(canvas, QUALITY)) ?? file
-  } catch {
-    return file
-  }
+  return decodeLane(async () => {
+    try {
+      const canvas = await decodeToCanvas(file, maxEdge)
+      if (!canvas) return file
+      return (await encodeJpeg(canvas, QUALITY)) ?? file
+    } catch {
+      return file
+    }
+  })
+}
+
+/**
+ * A small JPEG of `file` for the chips and markers of THIS session — the picture a Verlauf row
+ * shows while its upload has not landed and the server has no thumbnail to ask for
+ * (lib/mediaUrl · thumbUrl). Same decode as the upload, at chip size; rejects when the browser
+ * cannot decode the file, and the caller then shows nothing rather than the full picture.
+ */
+export function localThumb(file: Blob, edge = THUMB_EDGE): Promise<Blob> {
+  return decodeLane(async () => {
+    const canvas = await decodeToCanvas(file, edge)
+    const blob = canvas && (await encodeJpeg(canvas, THUMB_QUALITY))
+    if (!blob) throw new Error('thumbnail failed')
+    return blob
+  })
 }
 
 /**
@@ -70,17 +102,19 @@ export async function prepareFeedbackPhoto(
   file: Blob,
   maxBytes = FEEDBACK_PHOTO_MAX_BYTES,
 ): Promise<Blob | null> {
-  try {
-    const canvas = await decodeToCanvas(file, FEEDBACK_EDGE)
-    if (!canvas) return null
-    for (const quality of FEEDBACK_QUALITIES) {
-      const blob = await encodeJpeg(canvas, quality)
-      if (blob && blob.size <= maxBytes) return blob
+  return decodeLane(async () => {
+    try {
+      const canvas = await decodeToCanvas(file, FEEDBACK_EDGE)
+      if (!canvas) return null
+      for (const quality of FEEDBACK_QUALITIES) {
+        const blob = await encodeJpeg(canvas, quality)
+        if (blob && blob.size <= maxBytes) return blob
+      }
+      return null
+    } catch {
+      return null
     }
-    return null
-  } catch {
-    return null
-  }
+  })
 }
 
 /** Decode `file` and draw it into a canvas scaled to at most `maxEdge` on the long edge,

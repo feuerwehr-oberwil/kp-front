@@ -7,6 +7,7 @@ import { acceptPhrase, suggestPhrases, type PhraseMatch } from '../lib/quickPhra
 import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
+import { forgetLocalThumb, mintLocalThumb, thumbUrl } from '../lib/mediaUrl'
 import {
   MAX_AUDIO_UPLOAD_MB,
   MAX_FILE_UPLOAD_MB,
@@ -408,6 +409,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // SEVERAL photos per entry: one damage is rarely one picture, and the picker used to REPLACE
   // what was already attached — the second pick silently threw the first away.
   const [photos, setPhotos] = useState<string[]>(rest0.photos)
+  // the strip below shows each picture's session THUMBNAIL (lib/mediaUrl), never the camera
+  // file — ten full-size previews was a tab-killing amount of decode on a phone. A thumbnail
+  // lands a moment after its pick; this nonce re-renders the strip when it does.
+  const [, setThumbNonce] = useState(0)
+  const addPhotos = (picked: File[]) => {
+    const urls = picked.map((f) => URL.createObjectURL(f))
+    setPhotos((ps) => [...ps, ...urls])
+    picked.forEach((f, i) => void mintLocalThumb(urls[i], f).then(() => { if (alive.current) setThumbNonce((n) => n + 1) }))
+  }
   // …and one write per change. Cheap enough (draftKeep), and it is the only thing that has to
   // stay in step with the five states above.
   useEffect(() => { keepDraft<KeptRest>(restKey, { dueSel, openState, entryType, clip, photos }) },
@@ -566,7 +576,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const takePick = (picked: File[]) => {
     const images = picked.filter((f) => classifyPick(f) === 'photo')
     const audios = picked.filter((f) => classifyPick(f) === 'audio')
-    if (images.length) setPhotos((ps) => [...ps, ...images.map((f) => URL.createObjectURL(f))])
+    if (images.length) addPhotos(images)
     if (audios.length) void importAudioFile(audios[0])
     // ⚠️ One recording per Eintrag — but a pick that brought several must SAY which ones it did
     // not take. Silently keeping the first is the loss the composer refuses everywhere else.
@@ -683,9 +693,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const onPhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = [...(e.target.files ?? [])]
     e.target.value = '' // the same file twice in a row must still fire
-    if (picked.length) setPhotos((ps) => [...ps, ...picked.map((f) => URL.createObjectURL(f))])
+    if (picked.length) addPhotos(picked)
   }
   const discardPhoto = (url: string) => {
+    forgetLocalThumb(url)
     URL.revokeObjectURL(url)
     setPhotos((ps) => ps.filter((p) => p !== url))
   }
@@ -1248,7 +1259,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
           <div className="jc-photos">
             {photos.map((url) => (
               <div className="jc-photo" key={url}>
-                <img src={url} alt="" />
+                {/* the session thumbnail, not the camera file (see addPhotos) */}
+                <img src={thumbUrl(url)} alt="" decoding="async" />
                 <button className="jc-clip-x" title={C.discardPhoto} aria-label={C.discardPhoto} onClick={() => discardPhoto(url)}><Icon id="close" /></button>
               </div>
             ))}

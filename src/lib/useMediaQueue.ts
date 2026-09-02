@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { uploadMedia } from './incidents'
+import { forgetLocalThumb, mintLocalThumb } from './mediaUrl'
 import {
   enqueueMedia,
   flushMediaQueue,
@@ -61,6 +62,10 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
       // capture was queued with — that is the picture the server URL has to replace
       const old = restoredUrls.current.get(u.id)
       cb.current.onUploaded(u.rowId, u.kind, u.url, old ?? u.localUrl)
+      // the picture is on the server now: its session thumbnail (restored OR minted at the
+      // capture) and the restored object URL have nothing left to show
+      const local = old ?? u.localUrl
+      if (local) forgetLocalThumb(local)
       if (old) { URL.revokeObjectURL(old); restoredUrls.current.delete(u.id) }
     }
     await refresh()
@@ -75,6 +80,12 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
       for (const item of q) {
         const url = URL.createObjectURL(item.blob)
         restoredUrls.current.set(item.id, url)
+        // ⚠️ The chip reads a session THUMBNAIL of the queued file (lib/mediaUrl); the full
+        // object URL is only for the viewer. Minted before the row shows it, one picture at a
+        // time: every pending photo re-minted at full size on every launch is what killed the
+        // tab of an offline phone, again on each reopen for as long as it stayed offline.
+        if (item.kind === 'photo') await mintLocalThumb(url, item.blob)
+        if (!alive) { forgetLocalThumb(url); URL.revokeObjectURL(url); return }
         // the queued-with URL died with the previous session; hand it over so the restore
         // replaces that dead entry instead of appending a duplicate picture to the row
         cb.current.onRestore(item.rowId, item.kind, url, item.localUrl)
@@ -84,7 +95,7 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     })()
     return () => {
       alive = false
-      for (const url of restoredUrls.current.values()) URL.revokeObjectURL(url)
+      for (const url of restoredUrls.current.values()) { forgetLocalThumb(url); URL.revokeObjectURL(url) }
       restoredUrls.current.clear()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

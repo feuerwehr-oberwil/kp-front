@@ -164,6 +164,7 @@ import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { prepareUploadImage } from './lib/imagePrep'
+import { forgetLocalThumb, mintLocalThumb } from './lib/mediaUrl'
 
 const prefs = loadPrefs()
 
@@ -1416,6 +1417,7 @@ export function IncidentWorkspace({
     try {
       const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', `photo-${rowId}`)
       swapPhoto(rowId, localUrl, url)
+      forgetLocalThumb(localUrl) // the chip reads the server's small copy from here on
     } catch {
       // queue THIS picture (keyed by its own blob: URL) — a row-wide key made each photo of a
       // multi-photo row evict the previous one, losing every capture but the last while offline
@@ -1456,15 +1458,19 @@ export function IncidentWorkspace({
     for (const file of files) {
       const id = `att${Date.now()}${Math.random().toString(36).slice(2, 6)}`
       const localUrl = URL.createObjectURL(file)
-      setAttachments((list) => [...list, { id, url: localUrl, at }])
-      emit('report.attachment.add', { id })
       void (async () => {
+        // the Beilagen list shows a session thumbnail, never the camera file (lib/mediaUrl) —
+        // minted before the row appears, so the chip never renders without one
+        await mintLocalThumb(localUrl, file)
+        setAttachments((list) => [...list, { id, url: localUrl, at }])
+        emit('report.attachment.add', { id })
         try {
           // Re-encode first: the server takes jpeg/png/webp only and a phone hands over HEIC at
           // 4–12 MB, so the raw file 4xx'd and the Beilage silently never printed (lib/imagePrep).
           const blob = await prepareUploadImage(file)
           const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', file.name || 'beilage.jpg')
           setAttachments((list) => list.map((a) => (a.id === id ? { ...a, url } : a)))
+          forgetLocalThumb(localUrl)
         } catch (e) {
           // NOT silent: an upload that failed means this Beilage will not be on the paper, and
           // the operator has to hear that while they can still do something about it.
@@ -1600,19 +1606,22 @@ export function IncidentWorkspace({
   // next ordinary open of this browser land on the Atemschutz board for no reason anyone gave.)
   useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [asLink, mode, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
 
-  // bake every plan's bitmap into memory at app load (on idle, sized to the
-  // window) so the very first time the Plan tab is opened the page appears
-  // instantly — the exact-fit bake reuses these unless the stage is larger
+  // warm the plan bitmaps at app load (on idle) so the first open of the Plan tab appears
+  // instantly — the exact-fit bake reuses these unless the stage is larger. ⚠️ Only the active
+  // plan and its two rail neighbours are baked at window size; the rest get a small preview
+  // (~5 MB instead of up to ~83 MB each on an iPad — every plan at full size was enough to have
+  // the tab reclaimed before the Plan tab was ever opened). Re-runs on a plan switch, so the
+  // new neighbours are warmed as the operator moves along the rail (PdfViewport · prewarmPlans).
   useEffect(() => {
     if (asLink) return // never shows a plan — a phone must not bake every page into memory for nothing
-    const urls = resolvedPlanDocs
-      .filter((p) => p.imageUrl)
-      .map((p) => (p.imageUrl.startsWith('/') || /^https?:/.test(p.imageUrl) ? p.imageUrl : `${import.meta.env.BASE_URL}${p.imageUrl}`))
-    const run = () => prewarmPlans(urls, window.innerWidth, window.innerHeight)
+    const docs = resolvedPlanDocs.filter((p) => p.imageUrl)
+    const urls = docs.map((p) => (p.imageUrl.startsWith('/') || /^https?:/.test(p.imageUrl) ? p.imageUrl : `${import.meta.env.BASE_URL}${p.imageUrl}`))
+    const active = Math.max(0, docs.findIndex((p) => p.id === activePlanId))
+    const run = () => prewarmPlans(urls, window.innerWidth, window.innerHeight, urls.slice(Math.max(0, active - 1), active + 2))
     const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
     const id = idle ? idle(run) : window.setTimeout(run, 600)
     return () => { const ric = (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback; if (idle && ric) ric(id); else clearTimeout(id) }
-  }, [resolvedPlanDocs, asLink])
+  }, [resolvedPlanDocs, activePlanId, asLink])
 
   // Layers the MAP renders: during replay, apply the reconstructed layerState so
   // `layer.toggle` history (which layer was on/off at that moment) is faithful too.
@@ -2195,7 +2204,12 @@ export function IncidentWorkspace({
     const files = [...(e.target.files ?? [])]
     e.target.value = '' // the same file twice in a row must still fire
     if (!files.length) return
-    addJournal({ text: '', photoUrls: files.map((f) => URL.createObjectURL(f)) })
+    const urls = files.map((f) => URL.createObjectURL(f))
+    // Thumbnails FIRST, then the row: its chips read the session thumbnail the moment they render
+    // (lib/mediaUrl · thumbUrl), and a chip pointed at the camera file is the decode that killed
+    // the tab. The row is stamped at the gesture (composerOpenedAt), so the moment it appears
+    // does not move its time.
+    void Promise.all(files.map((f, i) => mintLocalThumb(urls[i], f))).then(() => addJournal({ text: '', photoUrls: urls }))
   }
 
   // Every path through here ends the "I am reading this object" state — reaching for a tool means

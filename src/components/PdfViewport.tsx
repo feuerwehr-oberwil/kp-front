@@ -3,6 +3,7 @@ import type * as PdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { appConfig } from '../config/appConfig'
 import { GIT_SHA } from '../lib/buildInfo'
+import { ByteBudgetCache } from '../lib/byteBudgetCache'
 import { diagnosePdfFailure, type PdfFailure } from '../lib/pdfDiagnosis'
 import s from './PdfViewport.module.css'
 
@@ -111,27 +112,34 @@ interface Props {
 const BASE_HEADROOM = 1.4 // bake the page a bit above display res so panning + small zooms stay crisp from the cached bitmap alone
 const REFINE_FROM = 1.15  // engage the full-res pass just past the base bitmap's crisp range, so there's no blurry dead zone between base and refine
 const SETTLE_MS = 40      // re-raster quickly after the view settles (kept non-zero so a continuous zoom gesture doesn't thrash pdf.js)
-const BITMAP_CAP = 12     // how many baked page bitmaps to keep resident
 export const RETRY_AFTER_MS = 5_000 // show «Erneut laden» once a load has been pending this long
 const MAX_COMPOSITE_PX = 12000 // ceiling on the stitched bitmap's long side (browser canvas limit safety for many-page plans)
+// Width (px) a plan is baked at when it is NOT the active plan or one of its rail neighbours —
+// enough for the blurry first paint a switch shows while the full bake runs, ~5 MB instead of
+// up to ~83 MB. `bake` upgrades it the first time a viewport asks for more.
+const PREVIEW_SIDE = 1024
 const DPR = () => Math.min(window.devicePixelRatio || 1, 2)
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
 type Baked = { bitmap: ImageBitmap; aspect: number; side: number; pages: number }
 
+// What the resident bitmaps may weigh together. ⚠️ Bytes, not a count: one stitched A4 plan at
+// 3840 px on an iPad is ~83 MB, and the old cap of twelve bitmaps allowed close to a gigabyte —
+// allocated by the prewarm before the operator had opened the Plan tab, at which point iOS
+// reclaimed the tab. Read live at every eviction, so a phone-sized viewport gets the small one.
+const BUDGET_TABLET = 200 * 1024 * 1024
+const BUDGET_PHONE = 60 * 1024 * 1024
+const bitmapBudget = () =>
+  (typeof matchMedia === 'function' && matchMedia('(max-width: 600px)').matches ? BUDGET_PHONE : BUDGET_TABLET)
+const bitmapBytes = (b: Baked) => b.bitmap.width * b.bitmap.height * 4
+
 // One baked bitmap per document, held in memory. A multi-page plan (e.g. Modul 6 Geschosspläne)
 // is STITCHED into a single tall bitmap — page 1 at the bottom, later pages stacked above (like
 // the Gebäude floor-stack) — so the whole plan scrolls/zooms as one board. The first render is the
 // ONLY pdf.js rasterization for normal viewing; open / switch / pan / zoom are served from this
-// bitmap (a GPU blit + CSS transform), so they're instant. Keyed by url; memory-bounded by a count cap.
-const bitmapCache = new Map<string, Promise<Baked>>()
-
-// Never keep a rejected bake — a failed/timed-out load must be retryable on the next
-// mount (or the «Erneut laden» tap) instead of replaying the cached rejection.
-function setBitmap(url: string, p: Promise<Baked>) {
-  p.catch(() => { if (bitmapCache.get(url) === p) bitmapCache.delete(url) })
-  bitmapCache.set(url, p)
-}
+// bitmap (a GPU blit + CSS transform), so they're instant. Keyed by url; memory-bounded by the
+// byte budget above (LRU; a rejected bake drops out on its own so a failed load can be retried).
+const bitmapCache = new ByteBudgetCache<Baked>(bitmapBudget, bitmapBytes)
 
 // Compute the contain-fit of a page (h/w aspect) inside the viewport, then the
 // pixel width to bake at — display size × dpr × headroom, rounded to a step so
@@ -147,27 +155,28 @@ function targetSide(aspect: number, vw: number, vh: number) {
 
 // Rasterize the document once at the given fit and cache the bitmap. Concurrent/repeat
 // callers share the in-flight promise. Re-bakes only if a larger size is asked
-// for (e.g. the window grew); shrinking reuses the crisper bitmap.
-function bake(url: string, vw: number, vh: number): Promise<Baked> {
-  const existing = bitmapCache.get(url)
+// for (e.g. the window grew, or a preview bake meets its first real viewport); shrinking
+// reuses the crisper bitmap. `maxSide` caps the bake width — the prewarm's preview size.
+function bake(url: string, vw: number, vh: number, maxSide = Infinity): Promise<Baked> {
+  const existing = bitmapCache.get(url) // a read touches the entry (LRU)
   if (existing) {
     // keep if it's already at least as crisp as we'd now ask for
-    const want = (a: number) => targetSide(a, vw, vh)
+    const want = (a: number) => Math.min(targetSide(a, vw, vh), maxSide)
     const reuse = existing.then((b) => (b.side >= want(b.aspect) ? b : Promise.reject('stale')))
-    // touch for LRU
-    bitmapCache.delete(url); bitmapCache.set(url, existing)
     // fall through to re-bake only on the stale rejection
-    const p = reuse.catch(() => render(url, vw, vh))
-    setBitmap(url, p)
+    const p = reuse.catch(() => render(url, vw, vh, maxSide))
+    bitmapCache.set(url, p)
     return p
   }
-  const p = render(url, vw, vh)
-  setBitmap(url, p)
-  evict()
+  const p = render(url, vw, vh, maxSide)
+  bitmapCache.set(url, p)
   return p
 }
 
-function render(url: string, vw: number, vh: number): Promise<Baked> {
+/** The bake already held for `url`, whatever its size — a stale preview is still a first paint. */
+const cachedBake = (url: string) => bitmapCache.get(url)
+
+function render(url: string, vw: number, vh: number, maxSide: number): Promise<Baked> {
   return loadDocTimed(url).then(async (pdf) => {
     const n = pdf.numPages
     // measure every page; stitched width is the widest page, height is the sum
@@ -181,7 +190,7 @@ function render(url: string, vw: number, vh: number): Promise<Baked> {
       totalH += vp.height
     }
     const aspect = totalH / W
-    let side = targetSide(aspect, vw, vh) // stitched bitmap WIDTH in px
+    let side = Math.min(targetSide(aspect, vw, vh), maxSide) // stitched bitmap WIDTH in px
     if (side * aspect > MAX_COMPOSITE_PX) side = MAX_COMPOSITE_PX / aspect // keep within canvas limits
     const renderScale = side / W
     const canvas = document.createElement('canvas')
@@ -208,22 +217,21 @@ function render(url: string, vw: number, vh: number): Promise<Baked> {
   })
 }
 
-function evict() {
-  while (bitmapCache.size > BITMAP_CAP) {
-    const oldest = bitmapCache.keys().next().value
-    if (oldest === undefined) break
-    bitmapCache.delete(oldest) // resolved bitmap is GC'd once nothing draws it
-  }
-}
-
-// Warm every plan's bitmap in the background, one at a time so they never
-// contend with the active document's render. Called when the Plan tab mounts.
+// Warm the plans' bitmaps in the background, one at a time so they never contend with the
+// active document's render. The plans in `near` (the active one and its rail neighbours) are
+// baked at the given viewport, so a switch to them is an instant crisp blit; every other plan
+// gets a PREVIEW_SIDE bake that the first real open upgrades — see `bake`. A plan already held
+// at any size is left alone unless it is in `near` and its bake is smaller than the viewport asks.
+// Previews go first: they are cheap, and baking the big ones LAST leaves them the most recently
+// used entries, so the byte budget evicts a preview before it evicts the active plan.
 let warmQueue: Promise<unknown> = Promise.resolve()
-export function prewarmPlans(urls: string[], vw: number, vh: number) {
+export function prewarmPlans(urls: string[], vw: number, vh: number, near: string[] = []) {
   if (!vw || !vh) return
-  for (const url of urls) {
-    if (bitmapCache.has(url)) continue
-    warmQueue = warmQueue.then(() => bake(url, vw, vh).catch(() => {}))
+  const full = new Set(near)
+  const order = [...urls.filter((u) => !full.has(u)), ...urls.filter((u) => full.has(u))]
+  for (const url of order) {
+    if (!full.has(url) && bitmapCache.has(url)) continue
+    warmQueue = warmQueue.then(() => bake(url, vw, vh, full.has(url) ? Infinity : PREVIEW_SIDE).catch(() => {}))
   }
 }
 
@@ -310,21 +318,32 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
     setAttempt((a) => a + 1)
   }
 
-  // base — blit the baked bitmap (instant if cached/prewarmed; a single render otherwise)
+  // base — blit the baked bitmap (instant if cached/prewarmed; a single render otherwise).
+  // A plan the prewarm only holds as a small preview paints THAT first, so the switch shows the
+  // sheet at once (blurry) and sharpens when the full bake lands, instead of «PDF wird geladen…».
   useEffect(() => {
     if (!vw || !vh) return
     let cancelled = false
-    bake(url, vw, vh)
-      .then(({ bitmap, aspect, pages: n }) => {
-        if (cancelled) return
-        onAspect(aspect)
-        setPages(n)
-        const canvas = baseRef.current
-        if (!canvas) return
-        canvas.width = bitmap.width
-        canvas.height = bitmap.height
-        canvas.getContext('2d')?.drawImage(bitmap, 0, 0)
-        setStatus('ready')
+    let painted: Baked | null = null
+    const paint = (b: Baked) => {
+      const { bitmap, aspect, pages: n } = b
+      painted = b
+      onAspect(aspect)
+      setPages(n)
+      const canvas = baseRef.current
+      if (!canvas) return
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      canvas.getContext('2d')?.drawImage(bitmap, 0, 0)
+      setStatus('ready')
+    }
+    const stale = cachedBake(url)
+    const fresh = bake(url, vw, vh)
+    if (stale && stale !== fresh) stale.then((b) => { if (!cancelled && !painted) paint(b) }).catch(() => {})
+    fresh
+      .then((b) => {
+        if (cancelled || painted === b) return // the reused crisp bake is already on the canvas
+        paint(b)
       })
       .catch((err: unknown) => {
         if (cancelled) return
