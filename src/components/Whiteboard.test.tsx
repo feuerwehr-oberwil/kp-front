@@ -649,6 +649,7 @@ describe('a Rotation on the plan sheet', () => {
     // …and no grip paints itself: the blue is the shared .shape-end rule, never an inline fill
     for (const g of ends) expect((g as HTMLElement).style.background).toBe('')
   })
+
 })
 
 // ── the fixed selection bar (components/SelectionBar) ────────────────────────────────────────
@@ -705,6 +706,35 @@ describe('the plan’s selection bar', () => {
     // a single object turns about ITSELF, so it stays where it was
     expect(turned.x).toBeCloseTo(0.3)
     expect(turned.y).toBeCloseTo(0.3)
+  })
+
+  /**
+   * ⚠️ 02.09., in lockstep with the Karte: a selected Form wears no halo and its body drags
+   * nothing. Its grips are the precise ones; moving the whole thing is the bar's ✥, dragged for
+   * the small adjustment or armed for the whole sheet. A body drag meant a reach for an end grip
+   * that landed a few pixels short pulled the loop away instead.
+   */
+  it('gives a selected Form no halo, and no body drag either', () => {
+    const { container, onChange } = renderPlan([box])
+    const glyph = container.querySelector('.wb-shape')!
+    fireEvent.pointerDown(glyph, { pointerId: 1, clientX: 100, clientY: 100 })
+    expect(container.querySelector('.sel-halo')).toBeNull()
+    fireEvent.pointerMove(glyph, { pointerId: 1, clientX: 200, clientY: 180 })
+    fireEvent.pointerUp(glyph, { pointerId: 1, clientX: 200, clientY: 180 })
+    const out = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
+    expect(out?.find((a) => a.id === 'f1')?.x ?? 0.3).toBeCloseTo(0.3)
+  })
+
+  it('…while a placed symbol keeps its halo and its body drag', () => {
+    const sym: BoardAnno = { id: 'y1', kind: 'symbol', symbol: 'Feuer', x: 0.3, y: 0.3, floor: 0 }
+    const { container, onChange } = renderPlan([sym])
+    const chip = container.querySelector('.wb-anno')!
+    fireEvent.pointerDown(chip, { pointerId: 1, clientX: 100, clientY: 100 })
+    expect(container.querySelector('.sel-halo')).toBeTruthy()
+    fireEvent.pointerMove(chip, { pointerId: 1, clientX: 200, clientY: 100 })
+    fireEvent.pointerUp(chip, { pointerId: 1, clientX: 200, clientY: 100 })
+    const out = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
+    expect(out?.find((a) => a.id === 'y1')?.x ?? 0.3).toBeGreaterThan(0.3)
   })
 
   it('offers no ⟳ for an Absperrkreis — a centre and a radius have no angle', () => {

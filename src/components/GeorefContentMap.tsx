@@ -54,15 +54,6 @@ const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
 
 const INERT: CSSProperties = { pointerEvents: 'none' }
 
-/**
- * The kinds whose selection is NOT a halo — the native's own rule, exactly (MapMarkers · `raised
- * && e.kind !== 'note' && e.kind !== 'team'`). A Trupp says «selected» by becoming its context
- * pill and a Notiz by its own selected chrome; a 104px blue ring around either was a second
- * vocabulary the object beside it does not speak (02.09.). BoardAnno spells the two kinds
- * `resource` and `text`.
- */
-const HALOLESS = new Set(['resource', 'text'])
-
 export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, hiddenTrails, suppressedLabels, interactive = false, selectedKey = null, selectedKeys = [], onOpenTwin, onMoveTwin, onEditTwinAnno, onUnlockTwin, teamActions, onToggleTrail, project, unproject, setDragPan }: {
   twins: MapContentTwin[]
   zoom: number
@@ -138,7 +129,14 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       data-twin=""
       onClick={(ev) => { if (ev.detail === 0) onOpenTwin?.(twin) }}
       onPointerDown={(ev) => beginGesture(ev, twin, anchor, { movable, instant: isSelected(twin.key), onTap: onOpenTwin ? () => onOpenTwin(twin) : undefined })}>
-      {isSelected(twin.key) && !HALOLESS.has(twin.anno.kind ?? '') && <span className="sel-halo" aria-hidden />}
+      {/* ⚠️ NO selection halo here, and that is the native's own rule rather than a twin one
+          (MapMarkers · `raised && kind !== 'note' && kind !== 'team' && kind !== 'shape'`). The
+          three kinds this layer hit-targets are exactly those three: a Trupp says «selected» by
+          becoming its context pill, a Notiz by its own selected chrome (`.twin-sel.note-pill` IS
+          `.marker.sel .note-pill`), and a Form by its grips and the bar. A 104px blue ring around
+          any of them was a second vocabulary the object beside it does not speak — the field saw
+          it on a mirrored «Trupp 10» (02.09.). Mirrored INK is not affected: its selected paint
+          comes from the GL layers below, exactly as the map's own Linie's does. */}
       {children}
     </button>
   )
@@ -453,9 +451,8 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
             </Fragment>
           }
           return <Marker key={t.key} longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" onClick={(ev) => ev.originalEvent.stopPropagation()}>
-            {/* the halo tracks the BOX, exactly as a native shape's does (03-map.css ·
-                .marker.sel --hbox) — pinned at 44px it drew a 104px ring inside a 600px shape */}
-            {tapTarget(t, t.coord, canDragAny, '', glyph, { ['--hbox' as string]: `${Math.max(px, 56)}px` })}
+            {/* …and no body drag either: a Form is moved from the bar on this surface too */}
+            {tapTarget(t, t.coord, false, '', glyph, { ['--hbox' as string]: `${Math.max(px, 56)}px` })}
           </Marker>
         }
         if (a.kind === 'text') {

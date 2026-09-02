@@ -156,8 +156,11 @@
 
 /* editable shapes (arrow / cloud / square) — sized in metres, rotated in place.
    No transform transition: rotation must track the pointer 1:1 (a transition makes
-   it lag and feel janky). The body shows a move cursor — drag it to reposition. */
-.shape-glyph { line-height: 0; cursor: move; }
+   it lag and feel janky).
+   ⚠️ The body is a TAP TARGET, not a drag handle (02.09.): a Form is moved from the selection
+   bar's ✥ — dragged for the small adjustment, or armed for the whole surface — so its cursor is
+   the pointer that says «tap me», never the four arrows that promise a drag the surface refuses. */
+.shape-glyph { line-height: 0; cursor: pointer; }
 /* THE hit pad of a Form — the shape's OWN box grown by the same 20px of slop a symbol's pad
    carries, per axis, with the 44px glove floor on each side. Drawn inside the glyph, so it turns
    with the shape and covers the run wherever the run points; and stated once, so the Karte, the

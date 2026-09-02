@@ -7,7 +7,7 @@
  * marker's square long-side pad, and the box left for the pad is the shape's own, per axis.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { Entity, LngLat } from '../types'
@@ -47,6 +47,48 @@ describe('what a finger lands on when it reaches for a Form', () => {
   it('…while a placed symbol keeps the square pad it was written for', () => {
     const { container } = show([{ id: 's1', kind: 'symbol', layer: 'lage', coord: at, symbol: 'Feuer' } as Entity])
     expect(container.querySelector('.marker')!.className).not.toContain('marker-shape')
+  })
+
+  /**
+   * ⚠️ 02.09.: a selected Form wears NO halo and its body drags nothing. It is selected to be
+   * worked with its own precise grips — the ends, the axes, the cage — and moved from the fixed
+   * selection bar's ✥, dragged for the small adjustment or armed for the whole surface. A 104px
+   * ring around a metres-true shape said nothing those grips do not, over the ground they sit on;
+   * and a body drag meant a mis-aimed reach for an end grip nudged the whole loop instead.
+   */
+  it('gives a selected Form no halo, and no body drag either', () => {
+    const onMarkerDragStart = vi.fn()
+    const onMarkerMove = vi.fn()
+    const { container } = render(
+      <MapMarkers entities={[rechteck]} byName={{}} isVisible={() => true} selectedId="sq"
+        zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
+        onSelect={() => {}} onMarkerDragStart={onMarkerDragStart} onMarkerMove={onMarkerMove}
+        onMarkerDragEnd={() => {}} onDelete={() => {}} onShapeTransform={() => {}} />,
+    )
+    expect(container.querySelector('.sel-halo')).toBeNull()
+    const glyph = container.querySelector('.shape-glyph')!
+    fireEvent.pointerDown(glyph, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 190, clientY: 160 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 190, clientY: 160 })
+    expect(onMarkerDragStart).not.toHaveBeenCalled()
+    expect(onMarkerMove).not.toHaveBeenCalled()
+  })
+
+  it('…and a placed symbol keeps both, because its body IS its move path', () => {
+    const symbol = { id: 's1', kind: 'symbol', layer: 'lage', coord: at, symbol: 'Feuer' } as Entity
+    const onMarkerMove = vi.fn()
+    const { container } = render(
+      <MapMarkers entities={[symbol]} byName={{}} isVisible={() => true} selectedId="s1"
+        zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
+        onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={onMarkerMove}
+        onMarkerDragEnd={() => {}} onDelete={() => {}} onShapeTransform={() => {}} />,
+    )
+    expect(container.querySelector('.sel-halo')).toBeTruthy()
+    const ts = container.querySelector('.marker')!
+    fireEvent.pointerDown(ts, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 190, clientY: 160 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 190, clientY: 160 })
+    expect(onMarkerMove).toHaveBeenCalled()
   })
 
   // the box the pad hugs: a Rechteck's is square, a Rotation's is long and flat — and it is the

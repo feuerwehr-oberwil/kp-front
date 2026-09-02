@@ -348,13 +348,25 @@ describe('presentation equivalence on the Plan (01.09.)', () => {
     expect(container.querySelector<HTMLElement>('.shape-glyph')!.style.width).toBe('4px')
   })
 
-  it('gives a mirrored Form the selection halo its original wears', () => {
+  /**
+   * ⚠️ Reversed 02.09., on both surfaces at once. A Form is selected to be worked with its own
+   * precise grips — the ends, the axes, the cage — and moved from the selection bar's ✥; a 104px
+   * ring around a sheet-sized shape said nothing the grips do not, over the very paper they work
+   * on. Neither the native nor the mirror wears one now, and the body drags on neither.
+   */
+  it('gives a mirrored Form neither a halo nor a body drag, exactly as its original', () => {
+    const onMoveTeam = vi.fn()
     const entities = boardEntityTwins([{
       id: 's1', kind: 'shape', layer: 'lage', coord: [7.5004, 47.4998], shape: 'square', sizeM: 20,
     }], fit)
     const { container } = render(<GeorefContentBoard entities={entities} drawings={[]}
       fit={fit} planWidthM={100} sW={800} sH={600} byName={{}} interactive
-      onOpenTeam={() => {}} selectedEntityId="s1" />)
-    expect(container.querySelector('.sel-halo')).toBeTruthy()
+      onOpenTeam={() => {}} onMoveTeam={onMoveTeam} selectedEntityId="s1" />)
+    expect(container.querySelector('.sel-halo')).toBeNull()
+    const form = container.querySelector('button.shape-glyph')!
+    fireEvent.pointerDown(form, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(form, { pointerId: 1, clientX: 200, clientY: 180 })
+    fireEvent.pointerUp(form, { pointerId: 1, clientX: 200, clientY: 180 })
+    expect(onMoveTeam).not.toHaveBeenCalled()
   })
 })

@@ -555,11 +555,12 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
           if (!tappable || entity.locked) {
             return <div key={key} className={`${s.contentPoint} shape-glyph`} style={style}>{glyph}</div>
           }
+          // ⚠️ A Form carries neither a selection halo nor a body drag on either surface any
+          // more (02.09.): it is selected to be worked with its own grips, and moved from the
+          // bar's ✥. The mirror answers exactly as the native beside it does.
           return <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} shape-glyph${selected ? ' twin-sel' : ''}`}
-            style={{ ...style, ...grabStyle }} title={title} data-twin=""
-            {...pointHandlers(entity, pt, movable, jump)}>
-            {/* the same halo a selected Form wears on this sheet (Whiteboard · .sel-halo) */}
-            {selected && <span className="sel-halo" aria-hidden />}
+            style={style} title={title} data-twin=""
+            {...pointHandlers(entity, pt, false, jump)}>
             {glyph}
           </button>
         }

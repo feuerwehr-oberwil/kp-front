@@ -1929,8 +1929,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     e.stopPropagation()
-    chipDrag.current = { id, moved: false, sx: e.clientX, sy: e.clientY }
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    // ⚠️ A FORM has no body drag (02.09., Karte parity): it is moved from the bar's ✥, and its
+    // body only selects — so a press on a Rotation's loop cannot nudge it away from the end grip
+    // somebody was aiming for.
+    if (annos.find((x) => x.id === id)?.kind !== 'shape') {
+      chipDrag.current = { id, moved: false, sx: e.clientX, sy: e.clientY }
+      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    }
     setSelId(id); setSelIds([]); setSelTwinIds([])
     if (isNote && editId !== id) setNotePanelId(id)
   }
@@ -3365,7 +3370,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 {relationship.objectIds.has(a.id) && selId !== a.id && <span className="network-halo" />}
                 {/* selection halo — the same accent ring the Lage map draws, so a selected
                     symbol/shape reads identically on the plan (teams keep their own team-colour ring) */}
-                {(selId === a.id || selIds.includes(a.id)) && (a.kind === 'symbol' || a.kind === 'shape') && <div className="sel-halo" />}
+                {/* ⚠️ Symbols only (02.09.): a Form is selected to be worked with its own ends
+                    and axes, and a ring around a sheet-sized shape covers the very paper those
+                    grips work on. Karte parity — MapMarkers excludes it there too. */}
+                {(selId === a.id || selIds.includes(a.id)) && a.kind === 'symbol' && <div className="sel-halo" />}
                 {a.kind === 'symbol' && (() => {
                   // same renderer as the Lage map — so the plan symbol gets the white
                   // legibility chip, rotation, and count badge identically. (Floor is

@@ -730,7 +730,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     // a different and unbacked claim from the one the dot makes.
                     // While a pile is fanned nothing drags: the glyphs are standing off their
                     // real positions, so a drag would write back a coordinate nobody chose.
-                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && e.kind !== 'person' && !fanned && !e.locked })
+                  // ⚠️ A FORM has no body drag at all (02.09.): it is moved from the bar's ✥ — dragged
+                    // as the small adjustment, or armed for the whole surface. Its body is a
+                    // tap-select target and nothing else, so a press that starts on a Rotation's
+                    // loop still pans the map, and the shape can never be nudged by a mis-aimed
+                    // tap on the very grip somebody was reaching for.
+                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && e.kind !== 'person' && e.kind !== 'shape' && !fanned && !e.locked })
                 }
               : undefined}
           >
@@ -743,7 +748,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 <circle cx={-spoke.dx} cy={-spoke.dy} r="2.5" />
               </svg>
             )}
-            {raised && e.kind !== 'note' && e.kind !== 'team' && <div className="sel-halo" />}
+            {/* ⚠️ …and never on a FORM (02.09.). A Form is selected to be worked on with its own
+                precise grips — the ends, the two axes, the cage — and a 104px ring around a
+                metres-true shape says nothing those grips do not already say while covering the
+                ground they sit on. Its selection is the grips plus the bar. `note` and `team`
+                have always been out for the same reason: they carry their own selected chrome. */}
+            {raised && e.kind !== 'note' && e.kind !== 'team' && e.kind !== 'shape' && <div className="sel-halo" />}
             {networkEntityIds.includes(e.id) && selectedId !== e.id && <div className="network-halo" />}
             {e.kind === 'team' ? (() => {
               // resting: a compact team-coloured dot + name (low map clutter); selected: the
