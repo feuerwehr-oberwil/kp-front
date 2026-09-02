@@ -189,7 +189,14 @@ describe('the handed-over board on a phone (focus mode)', () => {
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
-    // no Gruppenführer yet → «Weiter» waits
-    expect((screen.getByRole('button', { name: az.wizardNext }) as HTMLButtonElement).disabled).toBe(true)
+    // the steps walk freely — an empty roster still passes «Weiter»…
+    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
+    expect(screen.getByText(new RegExp(az.wizardAir))).toBeTruthy()
+    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    // …only the final submit is gated on a valid Trupp
+    expect((screen.getByRole('button', { name: az.start }) as HTMLButtonElement).disabled).toBe(true)
+    // and «Zurück» returns without losing the step
+    fireEvent.click(screen.getByRole('button', { name: az.wizardBack }))
+    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
   })
 })

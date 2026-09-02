@@ -842,6 +842,17 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .formCol > .field:has(> .team) { flex: none; min-height: auto; }
   .team { flex: none; }
   .teamList { flex: none; max-height: 38dvh; }
+  /* …except in the WIZARD (handed-over phone), which shows ONE column per step: on step 1 the
+     Mannschaftsliste is the only thing on screen, so the 38dvh box above just left the bottom
+     half of the sheet empty. The grow chain from the tablet layout comes back — and the grid
+     row itself must be told to take the sheet's height, because a lone column has no taller
+     sibling to stretch against. Everything is scoped with :has(.team) so step 2 (whose formCol
+     becomes :first-child once the team column unmounts) keeps its natural height. */
+  .modalWizard .modalBody:has(.team) { grid-template-rows: 1fr; }
+  .modalWizard .modalBody > .formCol:has(.team) { min-height: 0; }
+  .modalWizard .formCol > .field:has(> .team) { flex: 1 1 0; min-height: 0; }
+  .modalWizard .team { flex: 1 1 auto; min-height: 0; }
+  .modalWizard .teamList { flex: 1 1 0; max-height: none; }
 }
 
 /* ===========================================================================================

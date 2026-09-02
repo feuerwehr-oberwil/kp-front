@@ -980,8 +980,8 @@ export const it: Localizable<Copy> = {
     liteNewTab: 'Squadra',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
     wizardWho: 'Chi entra?',
-    wizardAir: 'Aria & compito',
-    wizardNext: 'Avanti · Aria & compito',
+    wizardAir: 'Cosa fanno?',
+    wizardNext: 'Avanti',
     wizardBack: 'Indietro',
     wizardStep: 'Passo {n} di 2',
     // stato sync/orologio nell'intestazione della tavola (vedi de.ts)

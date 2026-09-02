@@ -1661,7 +1661,7 @@ function TruppForm({
   // portal to <body> so the modal escapes the .surface stacking context (z-index 20) and covers
   // the TopBar ("+ Eintrag", z-index 40) instead of rendering beneath it
   return (
-    <Overlay open onClose={onCancel} className={s.modal} ariaLabel={title}>
+    <Overlay open onClose={onCancel} className={cx(s.modal, wizard && s.modalWizard)} ariaLabel={title}>
       <div className={s.modalHead}>
         <h3>{title}</h3>
         <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
@@ -1669,8 +1669,10 @@ function TruppForm({
       {wizard && (
         <>
           <div className={s.steps} aria-hidden><span className={s.stepOn} /><span className={cx(step === 2 && s.stepOn)} /></div>
+          {/* both captions are the step's QUESTION — steps can be walked freely, so step 2 must
+              say what it asks even when nobody is picked yet */}
           <div className={s.stepCap}>
-            {fillTemplate(az.wizardStep, { n: step })} · {step === 1 ? az.wizardWho : (team.map((m) => m.name.trim()).filter(Boolean).map(abbreviateName).join(' · ') || az.wizardAir)}
+            {fillTemplate(az.wizardStep, { n: step })} · {step === 1 ? az.wizardWho : az.wizardAir}
           </div>
         </>
       )}
@@ -1826,7 +1828,9 @@ function TruppForm({
           <button className="ip-btn ghost" onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
         )}
         {wizard && step === 1 ? (
-          <button className="ip-btn primary" disabled={!leaderOk} onClick={() => setStep(2)}>{az.wizardNext}</button>
+          /* never disabled — the steps can be walked freely; only the final submit gates on a
+             valid Trupp (canSubmit) */
+          <button className="ip-btn primary" onClick={() => setStep(2)}>{az.wizardNext}</button>
         ) : (<>
         {/* Re-deploy forks here: a re-equipped Trupp is just as often held back as Sicherungstrupp
             as it is sent straight in. Both buttons take the same filled-in form, so the choice

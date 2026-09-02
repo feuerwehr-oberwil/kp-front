@@ -980,8 +980,8 @@ export const fr: Localizable<Copy> = {
     liteNewTab: 'Binôme',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
     wizardWho: 'Qui entre ?',
-    wizardAir: 'Air & mission',
-    wizardNext: 'Suivant · Air & mission',
+    wizardAir: 'Que font-ils ?',
+    wizardNext: 'Suivant',
     wizardBack: 'Retour',
     wizardStep: 'Étape {n} sur 2',
     // état sync/horloge dans l'en-tête du tableau (voir de.ts)
