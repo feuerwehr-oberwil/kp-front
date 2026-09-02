@@ -52,11 +52,14 @@ function LinkMessage({ reason, onRetry }: { reason: LinkFailure; onRetry: () => 
 
 /** Session established: the normal app, gated on the /me probe that now returns the
  *  link-scoped viewer. A vanished session between exchange and probe reads as an expired
- *  link — the only honest thing left to say, and a reload is the way back. */
+ *  link — the only honest thing left to say, and a reload is the way back. A probe that
+ *  could not REACH the server is not that: link users are never cached (auth · USER_CACHE),
+ *  so the phone that merely lost signal between the two requests lands here too, and it is
+ *  told «Kein Empfang» — the same reload re-exchanges once it has signal again. */
 function LinkSession() {
-  const { user, loading } = useAuth()
+  const { user, loading, probeUnreachable } = useAuth()
   if (loading) return <Splash />
-  if (!user) return <LinkMessage reason="invalid" onRetry={() => window.location.reload()} />
+  if (!user) return <LinkMessage reason={probeUnreachable ? 'offline' : 'invalid'} onRetry={() => window.location.reload()} />
   return <App />
 }
 

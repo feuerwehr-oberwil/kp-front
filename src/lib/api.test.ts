@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost, apiPut } from './api'
+import { ApiError, SESSION_EXPIRED_EVENT, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost, apiPut, isUnverifiable } from './api'
 
 // api.ts is the fetch wrapper under EVERY backend call: typed errors, the transparent
 // 401→refresh→retry, 429 Retry-After parsing, offline (status 0) detection, and empty-body
@@ -290,5 +290,49 @@ describe('apiBeacon — fire-and-forget teardown', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/incidents/x/workspace', expect.objectContaining({
       method: 'PUT', keepalive: true,
     }))
+  })
+})
+
+describe('isUnverifiable — silence vs. refusal', () => {
+  // The boot fallbacks (cached user, cached incident list) used to key off status 0 alone, so
+  // a Railway restart during a launch — a 502 from the proxy — bounced a logged-in tablet to
+  // the PIN pad. To the operator «no answer» and «a gateway in front of a restarting server»
+  // are the same situation; a 401 or a 500 is an answer.
+  it('is true for status 0 and the three gateway statuses', () => {
+    for (const status of [0, 502, 503, 504]) expect(isUnverifiable(new ApiError(status, 'x'))).toBe(true)
+  })
+
+  it('is false for a real refusal and for non-ApiErrors', () => {
+    for (const status of [401, 403, 404, 500]) expect(isUnverifiable(new ApiError(status, 'x'))).toBe(false)
+    expect(isUnverifiable(new Error('x'))).toBe(false)
+  })
+})
+
+describe('request — a session that cannot be repaired', () => {
+  // A failed refresh means every later request 401s the same way; api.ts says so ONCE on
+  // `window`, and AuthProvider turns it into `sessionExpired`. The 401 still reaches the caller.
+  it('dispatches kp:session-expired when the refresh is refused', async () => {
+    const win = new EventTarget()
+    const onExpired = vi.fn()
+    win.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    vi.stubGlobal('window', win)
+    fetchMock
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(new Response('', { status: 401 })) // the refresh
+    await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 401 })
+    expect(onExpired).toHaveBeenCalledOnce()
+  })
+
+  it('stays quiet when the refresh succeeds', async () => {
+    const win = new EventTarget()
+    const onExpired = vi.fn()
+    win.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    vi.stubGlobal('window', win)
+    fetchMock
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(new Response('', { status: 200 })) // the refresh
+      .mockResolvedValueOnce(json({ ok: 1 }))
+    await expect(apiGet('/api/x')).resolves.toEqual({ ok: 1 })
+    expect(onExpired).not.toHaveBeenCalled()
   })
 })

@@ -792,6 +792,13 @@ export function IncidentWorkspace({
   const online = useOnline()
 
   const [offlineProgress, setOfflineProgress] = useState<{ done: number; total: number } | null>(null)
+  // The running download's controller. Aborting stops the tile workers (offlineTiles · signal);
+  // `cancelOffline` is what the sheet's «Abbrechen» will call, and the unmount effect below
+  // calls it so an Einsatz switch does not leave three workers pulling tiles for a map nobody
+  // is looking at.
+  const offlineAbort = useRef<AbortController | null>(null)
+  const cancelOffline = useCallback(() => { offlineAbort.current?.abort() }, [])
+  useEffect(() => cancelOffline, [cancelOffline])
   // `quiet` = the automatic self-warm (Offline-Vorbereitung, see the effect below): no dialogs,
   // no toasts — the Offline-Bereitschaft sheet is where the resulting truth is read. A tight
   // storage budget silently takes the reduced download instead of asking; the manual button
@@ -845,6 +852,8 @@ export function IncidentWorkspace({
       cap = reduced
     }
     setOfflineProgress({ done: 0, total: 1 })
+    const ctrl = new AbortController()
+    offlineAbort.current = ctrl
     // throttle progress to whole-percent changes so we don't re-render this (huge) component
     // ~750× during the download — a real contributor to memory/CPU pressure on the device.
     let lastPct = -1
@@ -858,6 +867,7 @@ export function IncidentWorkspace({
         maxZoom: 17,
         cap,
         warmUrls,
+        signal: ctrl.signal,
         onProgress: (done, total) => {
           const pct = total ? Math.floor((done / total) * 100) : 0
           if (pct !== lastPct) { lastPct = pct; setOfflineProgress({ done, total }) }
@@ -891,8 +901,10 @@ export function IncidentWorkspace({
         toast(fillTemplate(res.capped ? co.dlDoneCapped : co.dlDone, { n: res.fetched }), { icon: 'map', tone: 'success' })
       }
     } catch {
-      if (!quiet) toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
+      // a cancel is not a failure: the operator (or the unmount) asked for it, nothing to report
+      if (!quiet && !ctrl.signal.aborted) toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
     } finally {
+      if (offlineAbort.current === ctrl) offlineAbort.current = null
       setOfflineProgress(null)
     }
   }, [layers, backendPlans, incidentBounds, withGeoBbox])

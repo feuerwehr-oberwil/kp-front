@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Entity, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
+import { apiGetRaw } from './api'
 import { isDemoMode } from './deploymentConfig'
 import { stepWalkers, syncWalkers, type Walker } from './demoCrewWalk'
 import { formatTime } from './format'
@@ -193,6 +194,7 @@ export function usePersonPositions(incidentId: string | null, enabled: boolean, 
       return
     }
     let alive = true
+    let busy = false // one round at a time — a half-open link must not stack a request per tick
     const url = `/api/incidents/${incidentId}/positions`
     const stop = () => {
       if (timer.current != null) {
@@ -202,8 +204,10 @@ export function usePersonPositions(incidentId: string | null, enabled: boolean, 
     }
 
     const poll = async () => {
+      if (busy) return
+      busy = true
       try {
-        const res = await fetch(url, { headers: { Accept: 'application/json' } })
+        const res = await apiGetRaw(url) // bounded (20 s); non-2xx comes back as a Response
         // 403/404 = this session may not look, or the route isn't there (older backend).
         // Stop for good rather than retry on a cadence: neither answer changes by asking again.
         if (res.status === 403 || res.status === 404) {
@@ -233,6 +237,8 @@ export function usePersonPositions(incidentId: string | null, enabled: boolean, 
       } catch (e) {
         if (!alive) return
         setError(e instanceof Error ? e.message : 'Standorte nicht erreichbar')
+      } finally {
+        busy = false
       }
     }
 

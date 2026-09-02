@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { CRASH_WINDOW_MS, clearCrash, foldCrash, isLooping, readCrash, recordCrash } from './crashLoop'
+import { CRASH_HEALTHY_MS, CRASH_WINDOW_MS, clearCrash, foldCrash, isLooping, readCrash, recordCrash } from './crashLoop'
 
 // The whole point of this counter is that a SECOND crash on the same Einsatz unlocks the
 // destructive recovery, because at that point «Neu laden» has demonstrably failed (boot
@@ -96,5 +96,14 @@ describe('persistence — must survive the reload the operator just triggered', 
 
   it('records a crash outside any incident under the empty scope', () => {
     expect(recordCrash('', T0)).toMatchObject({ id: '', n: 1 })
+  })
+})
+
+describe('CRASH_HEALTHY_MS — when App forgets a streak on its own', () => {
+  // A crash that only happens once a surface is opened — minutes after the reload that
+  // reproduces it — must still find its predecessor. A healthy window shorter than the crash
+  // window restarted the count at one on every round, and the destructive recovery never came.
+  it('outlasts the crash window', () => {
+    expect(CRASH_HEALTHY_MS).toBeGreaterThanOrEqual(CRASH_WINDOW_MS)
   })
 })

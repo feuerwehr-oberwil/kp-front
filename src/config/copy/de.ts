@@ -2998,6 +2998,14 @@ export const de = {
     clockSkewToast: 'Die Uhr dieses Geräts weicht um {n} Minuten ab – erfasste Zeiten prüfen.',
     // Boot: the incident list came out of the offline cache
     bootOffline: 'Offline – gespeicherte Daten werden angezeigt.',
+    // Boot: the server REFUSED the list (not silence — that takes the cached list above); the
+    // launcher then shows no Einsätze and this says why
+    bootListFailed: 'Einsatzliste konnte nicht geladen werden',
+    // A human's open (launch card / switcher / banner / Verlauf) failed and the server gave no
+    // usable reason of its own (App · openIncident)
+    openFailed: 'Einsatz konnte nicht geöffnet werden',
+    // …because the server could not be asked and no workspace is cached on this device
+    openFailedNoCache: 'Dieser Einsatz ist auf diesem Gerät nicht gespeichert – Verbindung nötig',
     syncNow: 'Jetzt synchronisieren',
     // The button used to run silently: on an already-synced Einsatz — the normal case — a tap
     // looked exactly like no tap at all. Now the icon spins while it runs and a message says

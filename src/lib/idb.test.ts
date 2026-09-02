@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { idbGet, idbSet, idbDel, __resetIdbForTests } from './idb'
 
 beforeEach(() => {
@@ -69,5 +69,38 @@ describe('idb localStorage fallback when IndexedDB is unavailable', () => {
     await idbSet('kp-front-ws-a', 1)
     await idbDel('kp-front-ws-a')
     expect(await idbGet('kp-front-ws-a')).toBeNull()
+  })
+})
+
+describe('idb open that never answers', () => {
+  // WebKit after a page restore, Chromium on a corrupt LevelDB: `indexedDB.open()` fires
+  // neither onsuccess nor onerror. Every caller awaits the same cached open, so this used to
+  // hold the whole boot path behind the static splash — kill and relaunch repeated it.
+  beforeEach(() => {
+    const store = new Map<string, string>()
+    ;(globalThis as { localStorage?: Storage }).localStorage = {
+      getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+      setItem: (k: string, v: string) => void store.set(k, String(v)),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+      key: (i: number) => [...store.keys()][i] ?? null,
+      get length() { return store.size },
+    } as Storage
+    // a request object that never fires anything
+    ;(globalThis as { indexedDB?: unknown }).indexedDB = { open: () => ({}) }
+    __resetIdbForTests()
+    vi.useFakeTimers()
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('gives up after the bound and falls back to localStorage', async () => {
+    const pending = idbSet('k', { x: 1 })
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(await pending).toBe(true)
+    expect(localStorage.getItem('kp-idb-fb:k')).toBe(JSON.stringify({ x: 1 }))
+    // and the decision sticks: the next call does not wait another five seconds
+    const read = idbGet('k')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(await read).toEqual({ x: 1 })
   })
 })

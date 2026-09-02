@@ -12,8 +12,8 @@ vi.mock('./api', async () => {
 })
 
 import { ApiError } from './api'
-import { __resetIdbForTests } from './idb'
-import { WorkspaceSync, objectsNearIncidentResilient, getObjectResilient } from './incidents'
+import { __resetIdbForTests, idbSet } from './idb'
+import { WorkspaceSync, cacheIncidentList, getObjectResilient, listIncidentsResilient, objectsNearIncidentResilient, readCachedIncidentList, type IncidentMeta } from './incidents'
 
 const ID = '11111111-1111-1111-1111-111111111111'
 const wsPut = (rev: number) => ({ workspace: null, workspace_rev: rev })
@@ -451,5 +451,28 @@ describe('WorkspaceSync — automatic retry backoff (stuck-dirty recovery)', () 
     sync.dispose()
     await vi.advanceTimersByTimeAsync(300_000)
     expect(apiPut).toHaveBeenCalledTimes(1) // no zombie flushes from a torn-down incident
+  })
+})
+
+describe('listIncidentsResilient — silence vs. refusal', () => {
+  // The launcher fell back to the cached list on status 0 only, so a 502/503/504 from the
+  // proxy in front of a restarting server showed «keine offenen Einsätze» over a perfectly
+  // good cache. A real refusal still throws — App says so — and a corrupt cache entry is [].
+  it('serves the cached list on a gateway error', async () => {
+    await cacheIncidentList([{ id: 'a' } as IncidentMeta])
+    await flushIdb()
+    apiGet.mockRejectedValue(new ApiError(503, 'Server nicht erreichbar'))
+    await expect(listIncidentsResilient()).resolves.toEqual({ list: [{ id: 'a' }], offline: true })
+  })
+
+  it('still throws a real refusal', async () => {
+    apiGet.mockRejectedValue(new ApiError(500, 'Serverfehler'))
+    await expect(listIncidentsResilient()).rejects.toMatchObject({ status: 500 })
+  })
+
+  it('treats a non-list cache entry as empty instead of throwing at the launcher', async () => {
+    await idbSet('kp-front-incidents', { not: 'a list' })
+    await flushIdb()
+    await expect(readCachedIncidentList()).resolves.toEqual([])
   })
 })

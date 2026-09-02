@@ -6,9 +6,16 @@
 // reflects the agent heartbeat so the button can be honest about the relay's state.
 
 import { appConfig } from '../config/appConfig'
+import { timeoutSignal } from './api'
 
 // Mirror api.ts's base so a cross-origin deployment still resolves (Vite proxies /api in dev).
 const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
+
+// Every relay request is bounded like an api.ts request (api · DEFAULT_TIMEOUT_MS): these are
+// bare `fetch`es because of the FormData bodies and the poster's token header, and on a
+// half-open link an unbounded status poll held the «Wird gedruckt …» toast open for ever.
+const FETCH_TIMEOUT_MS = 20_000
+const bounded = () => ({ signal: timeoutSignal(FETCH_TIMEOUT_MS) })
 
 export interface PrintRelayStatus {
   available: boolean
@@ -49,7 +56,7 @@ export function capturePrintTransport(token: string): PrintTransport {
 /** null = unknown (offline / error) — treat like unavailable and hide the button. */
 export async function fetchPrintStatus(t: PrintTransport): Promise<PrintRelayStatus | null> {
   try {
-    const res = await fetch(t.statusUrl, { credentials: 'include', headers: t.headers })
+    const res = await fetch(t.statusUrl, { credentials: 'include', headers: t.headers, ...bounded() })
     if (!res.ok) return null
     const body = await res.json()
     return { available: !!body.available, online: !!body.online }
@@ -67,6 +74,7 @@ export async function enqueuePrint(t: PrintTransport, incidentId: string, payloa
     credentials: 'include',
     headers: t.headers,
     body: form,
+    ...bounded(),
   })
   // localized message (read at call time, not module load) — callers surface it in a toast
   if (!res.ok) throw new Error(`${appConfig.copy.printRelay.failed} (${res.status})`)
@@ -91,7 +99,7 @@ export interface PrintJobState {
  *    last known state. Folding 404 into null used to keep a swept job «offen» for ever. */
 export async function fetchJobStatus(t: PrintTransport, jobId: string): Promise<PrintJobState | 'gone' | null> {
   try {
-    const res = await fetch(t.jobUrl(jobId), { credentials: 'include', headers: t.headers })
+    const res = await fetch(t.jobUrl(jobId), { credentials: 'include', headers: t.headers, ...bounded() })
     if (res.status === 404) return 'gone'
     if (!res.ok) return null
     const body = await res.json()
@@ -139,6 +147,7 @@ export async function prewarmPrint(t: PrintTransport, incidentId: string, payloa
       credentials: 'include',
       headers: t.headers,
       body: form,
+      ...bounded(),
     })
   } catch {
     /* best-effort — a warm miss just means the real print pays the render cost */
@@ -158,6 +167,7 @@ export async function cancelPrint(t: PrintTransport, jobId: string): Promise<Can
       method: 'DELETE',
       credentials: 'include',
       headers: t.headers,
+      ...bounded(),
     })
     if (res.ok) return 'cancelled'
     return res.status === 404 ? 'gone' : 'late'

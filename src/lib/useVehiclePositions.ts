@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Entity, VehiclePosition } from '../types'
 import { appConfig } from '../config/appConfig'
+import { apiGetRaw } from './api'
 import { formatTime } from './format'
 
 const cfg = appConfig.gps
@@ -157,10 +158,12 @@ export function useVehiclePositions(): VehiclePositionsApi {
   // signature of the last vehicle list we pushed to state — lets us skip re-rendering when a poll
   // returns the same positions (a parked fleet), so an idle map stays genuinely idle between moves.
   const lastSig = useRef<string>('')
+  // one round at a time: on a half-open link a round can take the full 20 s bound, and a tick
+  // that ignored that stacked a new pending request every 15 s (useIncidentWatch does the same)
+  const busy = useRef(false)
 
   useEffect(() => {
     let alive = true
-    const url = `${cfg.baseUrl}${cfg.positionsPath}`
     const stop = () => {
       if (timer.current != null) {
         window.clearInterval(timer.current)
@@ -169,8 +172,12 @@ export function useVehiclePositions(): VehiclePositionsApi {
     }
 
     const poll = async () => {
+      if (busy.current) return
+      busy.current = true
       try {
-        const res = await fetch(url, { headers: { Accept: 'application/json' } })
+        // apiGetRaw: bounded (20 s), and it prepends the deployment's API origin itself — the
+        // path alone goes in. Non-2xx comes back as a Response so the stop logic below can read it.
+        const res = await apiGetRaw(cfg.positionsPath)
         // 503 = this deployment has no Traccar configured (404 = no backend at all): the layer
         // stays empty by design, so stop polling — an unconfigured deployment costs one request
         // per app load, not a 15 s heartbeat (the battery concern that motivated the old
@@ -209,6 +216,8 @@ export function useVehiclePositions(): VehiclePositionsApi {
       } catch (e) {
         if (!alive) return
         setError(e instanceof Error ? e.message : 'GPS nicht erreichbar')
+      } finally {
+        busy.current = false
       }
     }
 
