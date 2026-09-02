@@ -1516,6 +1516,8 @@ export const en: Localizable<Copy> = {
     fill: 'Fill',
     fillHatch: 'Hatched',
     move: 'Move',
+    moveArmed: 'Move armed – drag anywhere',
+    rotateArmed: 'Turn armed – drag anywhere',
     selectionBar: 'Selection',
     points: 'Points',
     preset: 'Style',

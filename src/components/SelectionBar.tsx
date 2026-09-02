@@ -28,6 +28,14 @@ interface Props {
    *  touchstart, which no React stopPropagation can reach, so without holding it off for the
    *  gesture the whole map pans under the finger while the selection is being moved. */
   onGrab?: (grabbing: boolean) => void
+  /** ✥ / ⟳ armed as a SURFACE mode — the bar only paints the state; the drag itself is taken
+   *  on the Karte / the Kroki (lib/useArmedTransform). */
+  armed?: 'move' | 'rotate' | null
+  /** a TAP on ✥ / ⟳ (a press that never became a drag): arm that mode, or disarm it again */
+  onArm?: (kind: 'move' | 'rotate') => void
+  /** the armed turn's live degrees, so the read-out is the same number in the same place
+   *  whether the dial or the surface is being dragged */
+  armedDeg?: number | null
 }
 
 const fmtDeg = (d: number) => {
@@ -46,11 +54,18 @@ const fmtDeg = (d: number) => {
  * remain — vertex, «+», Verlängern, Verbindung lösen, the radius ring. Body-drag on the object
  * stays as the tolerant shortcut.
  *
+ * ✥ and ⟳ answer TWO gestures, and the second one exists because of where the bar sits. A DRAG
+ * on the grip moves/turns straight away, for the small adjustment. A TAP arms that grip as a
+ * surface MODE (`armed`/`onArm`, driven by lib/useArmedTransform): while it is on, a drag
+ * anywhere on the Karte or the Kroki does the same thing with the whole surface to work in —
+ * because the bar is pinned bottom-centre, and pulling ✥ downward from there runs the finger off
+ * the screen within ~28px.
+ *
  * Presentational on purpose: it knows a pointer delta and nothing about lng/lat, board fractions,
  * undo or the journal. Each surface maps the delta onto its own writers, which is also what lets
  * a further selection source (a Georeferenz-Zwilling) be added later without touching this file.
  */
-export function SelectionBar({ onMove, onRotate, onDelete, onGrab }: Props) {
+export function SelectionBar({ onMove, onRotate, onDelete, onGrab, armed = null, onArm, armedDeg = null }: Props) {
   const drag = useRef<{ kind: 'move' | 'rotate'; x0: number; y0: number; live: boolean } | null>(null)
   // the live dial readout; null whenever no turn is in the hand
   const [deg, setDeg] = useState<number | null>(null)
@@ -86,7 +101,12 @@ export function SelectionBar({ onMove, onRotate, onDelete, onGrab }: Props) {
     drag.current = null
     setDeg(null)
     onGrab?.(false)
-    if (!st?.live) return
+    if (!st?.live) {
+      // a press that never travelled is a TAP, and a tap arms the same writers for the whole
+      // surface — the bar sits bottom-centre, so pulling ✥ downward has nowhere to go
+      if (st) onArm?.(st.kind)
+      return
+    }
     e.stopPropagation()
     const dx = e.clientX - st.x0, dy = e.clientY - st.y0
     if (st.kind === 'move') onMove(dx, dy, 'end')
@@ -96,18 +116,28 @@ export function SelectionBar({ onMove, onRotate, onDelete, onGrab }: Props) {
   return (
     // pointerdown is swallowed here so a press on the bar never reaches the surface below and
     // deselects the very thing the bar is about to move
-    <div className="sel-bar" role="toolbar" aria-label={C.selectionBar} onPointerDown={(e) => e.stopPropagation()}>
-      <button className="sel-bar-act" title={C.move} aria-label={C.move} data-holdaction
+    // `data-arm-exempt`: the armed mode owns every press on the surface EXCEPT the ones on this
+    // bar, which is how ✥ keeps its own drag and how the mode can be tapped off again
+    <div className="sel-bar" role="toolbar" aria-label={C.selectionBar} data-arm-exempt
+      onPointerDown={(e) => e.stopPropagation()}>
+      <button className={`sel-bar-act${armed === 'move' ? ' on' : ''}`} aria-pressed={armed === 'move'}
+        title={armed === 'move' ? C.moveArmed : C.move} aria-label={armed === 'move' ? C.moveArmed : C.move} data-holdaction
         onPointerDown={down('move')} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
         onClick={(e) => e.stopPropagation()}><Icon id="move" /></button>
-      {onRotate && (
-        <button className="sel-bar-act sel-bar-rot" title={appConfig.copy.shapes.rotate} aria-label={appConfig.copy.shapes.rotate} data-holdaction
-          onPointerDown={down('rotate')} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
-          onClick={(e) => e.stopPropagation()}>
-          <Icon id="rotate" />
-          {deg !== null && <span className="sel-bar-deg">{fmtDeg(deg)}</span>}
-        </button>
-      )}
+      {onRotate && (() => {
+        const R = appConfig.copy.shapes
+        const label = armed === 'rotate' ? C.rotateArmed : R.rotate
+        const shownDeg = deg ?? (armed === 'rotate' ? armedDeg : null)
+        return (
+          <button className={`sel-bar-act sel-bar-rot${armed === 'rotate' ? ' on' : ''}`} aria-pressed={armed === 'rotate'}
+            title={label} aria-label={label} data-holdaction
+            onPointerDown={down('rotate')} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+            onClick={(e) => e.stopPropagation()}>
+            <Icon id="rotate" />
+            {shownDeg !== null && <span className="sel-bar-deg">{fmtDeg(shownDeg)}</span>}
+          </button>
+        )
+      })()}
       <button className="sel-bar-del" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDelete() }}>
         {appConfig.copy.delete}
       </button>

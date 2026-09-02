@@ -714,6 +714,56 @@ describe('the plan’s selection bar', () => {
     expect(within(bar()!).queryByRole('button', { name: R })).toBeNull()
   })
 
+  // ── ✥ / ⟳ as tap-toggles (02.09.) ───────────────────────────────────────────────────────
+  // The bar is pinned bottom-centre, so pulling ✥ DOWN runs the finger off the screen. A tap
+  // arms the same writers for the whole sheet instead (lib/useArmedTransform).
+  it('arms ✥ on a tap, then moves the selection from a drag on the paper itself', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    expect(within(bar()!).getByRole('button', { name: D.moveArmed }).getAttribute('aria-pressed')).toBe('true')
+    // …now a drag anywhere, including straight DOWN, which the grip had no room for
+    const canvas = container.querySelector('.wb-canvas')!
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
+    fireEvent.pointerMove(window, { clientX: 40, clientY: 160, pointerId: 2 })
+    fireEvent.pointerUp(window, { clientX: 40, clientY: 160, pointerId: 2 })
+    const moved = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
+    expect(moved.pts[0][1]).toBeCloseTo(0.5)   // 0.2 + 120/400
+    expect(moved.pts[0][0]).toBeCloseTo(0.2)   // untouched across
+  })
+
+  it('turns the selection about its centre while ⟳ is armed, following the pointer', () => {
+    const { container, onChange } = renderPlan([box])
+    fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+    const dialBtn = within(bar()!).getByRole('button', { name: R })
+    fireEvent.pointerDown(dialBtn, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(dialBtn, { clientX: 100, clientY: 100, pointerId: 1 })
+    // the Form sits at (0.3, 0.3) of a 400px board → its centre is client (120, 120)
+    const canvas = container.querySelector('.wb-canvas')!
+    fireEvent.pointerDown(canvas, { clientX: 220, clientY: 120, pointerId: 2, isPrimary: true }) // due east
+    fireEvent.pointerMove(window, { clientX: 120, clientY: 220, pointerId: 2 })                  // due south
+    fireEvent.pointerUp(window, { clientX: 120, clientY: 220, pointerId: 2 })
+    const turned = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'f1')
+    expect(turned.rotation).toBe(100)          // 10° + a quarter turn clockwise
+  })
+
+  it('keeps the selection under a tap that never travels while armed', () => {
+    const { container } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    const canvas = container.querySelector('.wb-canvas')!
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
+    fireEvent.pointerUp(window, { clientX: 40, clientY: 40, pointerId: 2 })
+    fireEvent.click(canvas)
+    // an empty-paper press normally clears the selection; while armed it is simply nothing
+    expect(bar()).toBeTruthy()
+    expect(within(bar()!).getByRole('button', { name: D.moveArmed })).toBeTruthy()
+  })
+
   it('deletes the selection from the bar', () => {
     const { container, onChange } = renderPlan([line])
     fireEvent.pointerDown(hitShape(container))

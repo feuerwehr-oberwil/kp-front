@@ -2189,6 +2189,11 @@ export const de = {
     // FKS: eine betroffene Fläche wird schraffiert, nicht gewaschen (Brandzone/Flächenbrand)
     fillHatch: 'Schraffiert',
     move: 'Verschieben',
+    // Getippt statt gezogen: ✥ und ⟳ schalten die Direktbedienung auf der Fläche ein. Die
+    // Leiste klebt unten in der Mitte – nach UNTEN ziehen geht dort nicht, also übernimmt in
+    // diesem Zustand die ganze Karte bzw. der ganze Plan die Geste.
+    moveArmed: 'Verschieben aktiv – zum Bewegen ziehen',
+    rotateArmed: 'Drehen aktiv – zum Drehen ziehen',
     // die feste Auswahl-Leiste unten an Karte und Plan (SelectionBar) — Gruppenname für
     // Screenreader; ihre drei Knöpfe tragen move / shapes.rotate / delete
     selectionBar: 'Auswahl',

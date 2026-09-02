@@ -257,8 +257,12 @@
   background: var(--blue); color: var(--on-fill); cursor: grab; touch-action: none; }
 .sel-bar-act:active { cursor: grabbing; }
 @media (hover: hover) {
-  .sel-bar-act:hover { background: var(--blue-strong); }
+  .sel-bar-act:not(.on):hover { background: var(--blue-strong); }
 }
+/* TAPPED rather than dragged, ✥ / ⟳ arm the same writers for the whole surface (the bar is
+   pinned bottom-centre, so pulling the grip DOWN runs the finger off the screen). Armed stays in
+   the blue family — the deeper fill plus the family's ring, never a second colour. */
+.sel-bar-act.on { background: var(--blue-strong); box-shadow: 0 0 0 2px var(--glass), 0 0 0 4px var(--blue); }
 .sel-bar-act .i { width: 19px; height: 19px; }
 /* the dial's live degree — the same mono, tabular figures the measure read-out uses, so a number
    that changes under the finger never re-flows the button it sits in */

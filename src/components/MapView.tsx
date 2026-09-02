@@ -13,6 +13,7 @@ import { LINE_DASH_ML, hatchImageId, hatchTile } from '../lib/draw'
 import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
+import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, GEOREF_CONTENT_PICK_LAYERS, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
@@ -1577,6 +1578,29 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     : selTwin ? selTwin.anno.kind !== 'circle'
     : false)
   const barShown = !!barCentre && !readOnly && !georefOn && !picking && !freehand && !draftKind && !measureKind
+  /** ✥ / ⟳ tapped instead of dragged: the same two writers, taken on the map itself. The
+   *  listeners capture on the map CONTAINER, so an armed drag beats the marquee, the pan and
+   *  every marker without any of them knowing; MapLibre's own DragPan is held off by the same
+   *  guard the bar's grip drag uses (lib/useArmedTransform). */
+  const barCentreClient = () => {
+    const m = mapInst.current
+    if (!m || !barCentre) return null
+    const r = m.getContainer().getBoundingClientRect()
+    const p = m.project(barCentre as [number, number])
+    return { x: r.left + p.x, y: r.top + p.y }
+  }
+  const arm = useArmedTransform({
+    enabled: barShown,
+    surface: () => mapInst.current?.getContainer() ?? null,
+    centreClient: barCentreClient,
+    onMove: barMove,
+    onRotate: barCanRotate ? barRotate : undefined,
+    onGrab: (grabbing) => setDragPanEnabled(!grabbing),
+    // a different selection is a different thing to move, and an armed tool is a different
+    // answer to the same press: neither carries the mode over. (The tools `barShown` already
+    // rules out disarm through `enabled`; Mehrfach/Absperrkreis leave the bar standing.)
+    resetKey: `${marqueeEnabled ? 'lasso' : ''}${circleEnabled ? 'circle' : ''}|${editDraw?.id ?? ''}|${selShape?.id ?? ''}|${selTwin?.key ?? ''}|${selectedDrawIds.join(',')}|${selectedEntityIds.join(',')}|${selectedContentTwinKeys.join(',')}`,
+  })
 
   /**
    * Continue a gesture that started on a «+» as a drag of the node it just inserted — the second
@@ -2503,7 +2527,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {/* ONE bar for every selection this surface has — see components/SelectionBar */}
       {barShown && (
         <SelectionBar onMove={barMove} onRotate={barCanRotate ? barRotate : undefined} onDelete={barDelete}
-          onGrab={(grabbing) => setDragPanEnabled(!grabbing)} />
+          onGrab={(grabbing) => setDragPanEnabled(!grabbing)}
+          armed={arm.armed} onArm={arm.toggle} armedDeg={arm.deg} />
       )}
 
 

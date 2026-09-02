@@ -13,6 +13,7 @@ import { appConfig } from '../config/appConfig'
 import { resolveLinePreset, markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, transformThroughFit, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
+import { useArmedTransform } from '../lib/useArmedTransform'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { buzz } from '../lib/haptics'
@@ -2667,6 +2668,28 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const a = annos.find((x) => barIds.includes(x.id))
     if (a) void removeWithConnections(a)
   }
+  /** ⟳ is absent, not inert, where the model carries no angle: an Absperrkreis is a centre and a
+   *  radius — the native's and the mirror's alike. */
+  const barCanRotate = selIds.length > 1 || selTwinIds.length > 1
+    || (barTwinKeys.length === 1
+      ? !twinDrawings.some((t) => t.key === barTwinKeys[0] && t.drawing.kind === 'circle')
+      : editDraw?.kind !== 'circle')
+  /** ✥ / ⟳ tapped instead of dragged: the same two writers, taken on the sheet itself. Capturing
+   *  on `.wb-canvas` is also this surface's pan guard — the press never reaches `stageDown`, so
+   *  no pan, no marquee and no placement can start under an armed drag (lib/useArmedTransform). */
+  const arm = useArmedTransform({
+    enabled: barActive,
+    surface: () => canvasRef.current,
+    centreClient: () => {
+      const r = boardRef.current?.getBoundingClientRect()
+      return r && barCentre ? { x: r.left + barCentre.x * r.width, y: r.top + barCentre.y * r.height } : null
+    },
+    onMove: barMove,
+    onRotate: barCanRotate ? barRotate : undefined,
+    // a different selection is a different thing to move, and an armed tool is a different
+    // answer to the same press: neither carries the mode over
+    resetKey: `${tool}|${barIds.join(',')}|${barTwinKeys.join(',')}`,
+  })
 
   /**
    * Delete / Backspace removes the current selection — the Karte's key, now on the Kroki too
@@ -2967,7 +2990,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // vanished, `onMove` was withdrawn mid-gesture, and «twins cannot be moved» was the
           // whole visible story. A press starting on the mark keeps the selection; any other
           // press still dismisses (that is what makes tapping empty paper close the panel).
-          onPointerDownCapture={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setTwinView(null); setTwinTeamSel(null); onDismissTwinPanels?.() } trackDown(e) }}
+          // ⚠️ …and it stands down entirely while ✥ / ⟳ are armed: React delegates at the app
+          // root, so this capture handler runs BEFORE useArmedTransform's listener on this very
+          // element and would dismiss the twin panel of the object the drag is about to move.
+          onPointerDownCapture={(e) => {
+            if (arm.armed && !(e.target as HTMLElement | null)?.closest?.('[data-arm-exempt]')) return
+            if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setTwinView(null); setTwinTeamSel(null); onDismissTwinPanels?.() }
+            trackDown(e)
+          }}
           onPointerUpCapture={trackUp}
           onPointerCancelCapture={trackUp}
           onPointerDown={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setTwinView(null); setTwinTeamSel(null); onDismissTwinPanels?.() } stageDown(e) }}
@@ -3772,12 +3802,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           {barActive && (
             <SelectionBar
               onMove={barMove}
-              // ⟳ is absent, not inert, where the model carries no angle: an Absperrkreis is a
-              // centre and a radius — the native's and the mirror's alike
-              onRotate={selIds.length > 1 || selTwinIds.length > 1
-                || (barTwinKeys.length === 1 ? !twinDrawings.some((t) => t.key === barTwinKeys[0] && t.drawing.kind === 'circle') : editDraw?.kind !== 'circle')
-                ? barRotate : undefined}
+              onRotate={barCanRotate ? barRotate : undefined}
               onDelete={barDelete}
+              armed={arm.armed} onArm={arm.toggle} armedDeg={arm.deg}
             />
           )}
 

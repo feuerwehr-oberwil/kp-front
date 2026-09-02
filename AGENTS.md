@@ -106,8 +106,17 @@ to prod.
 - **One selection bar, one edit-chrome vocabulary** (decided 01.09.). Moving, turning and
   deleting a selection – a single Linie/Fläche/Absperrkreis, a Form, or a Mehrfach group – happen
   on the fixed `SelectionBar` at the bottom of each surface, never on floating chrome grown at the
-  object's own centre. On the object itself only **geometry** grips live: vertex, «+» midpoint,
-  Verlängern, Verbindung lösen, the radius ring, and a shape's own rotate/resize handles.
+  object's own centre. **✥ and ⟳ answer two gestures** (02.09.): a *drag on the grip* moves /
+  dials straight away, for the small adjustment; a *tap* arms that grip as a surface **mode**
+  (`lib/useArmedTransform`), and while it is on, a drag anywhere on the Karte or the Kroki moves
+  the selection by the drag delta or turns it about its centre, following the pointer's bearing.
+  The mode exists because of where the bar sits: pinned bottom-centre, pulling ✥ *downward* runs
+  the finger off the screen within ~28px. Only one of the two is ever armed; tapping it again,
+  Esc, a selection change and a tool change all disarm, and while armed the surface answers no
+  taps at all – a press that never travels is nothing, so nothing can be placed, selected or
+  deselected under the finger. On the object itself only **geometry** grips live: vertex, «+»
+  midpoint, Verlängern, Verbindung lösen, the radius ring, and a shape's own rotate/resize
+  handles.
   Colour is one family: a geometry point is white-filled with a `--blue` ring, an action grip that
   transforms the whole object is solid `--blue`, `--amber` means the SECOND axis and nothing else,
   `--red` means delete, and `--accent` stays alarm/relationship – never «selected». Node dots are
