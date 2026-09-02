@@ -9,6 +9,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { appConfig } from '../config/appConfig'
 import type { Entity, LngLat } from '../types'
 
 vi.mock('react-map-gl/maplibre', () => ({
@@ -60,5 +61,39 @@ describe('what a finger lands on when it reaches for a Form', () => {
     expect(parseFloat(rot.style.height)).toBeCloseTo(parseFloat(rot.style.width) * 0.13, 3)
     // …and it turns with the run, so the pad drawn inside it does too
     expect(rot.style.transform).toContain('rotate(40deg)')
+  })
+})
+
+// ── the edit chrome of a selected Form (01.09. vocabulary) ───────────────────────────────────
+// On the object itself only GEOMETRY grips, and every one of them from the one blue family —
+// the near-black ink fill these wore is gone. Moving, turning and deleting the whole thing are
+// the fixed SelectionBar's (MapView), which is why the Rotation has nothing but its two ends.
+describe('what a selected Form shows on the Karte', () => {
+  const S = appConfig.copy.shapes
+  const noInlineFill = (g: Element) => expect((g as HTMLElement).style.background).toBe('')
+
+  it('gives a Rotation its two end grips and nothing else', () => {
+    const { container } = show([rotation], 'rot')
+    const ends = container.querySelectorAll('.handle.shape-end')
+    expect(ends).toHaveLength(2)
+    for (const g of ends) {
+      expect(g.getAttribute('aria-label')).toBe(S.endHint)
+      // its press-and-hold IS the gesture, so the global hold-tooltip must not claim the release
+      expect(g.hasAttribute('data-holdaction')).toBe(true)
+      noInlineFill(g)
+    }
+    // each end sets the run's length AND its bearing, so there is nothing for a knob or a size
+    // grip to say — and no stem to tether one by
+    expect(container.querySelector('.shape-stem')).toBeNull()
+    expect(container.querySelector('.shape-rotate')).toBeNull()
+    expect(container.querySelector('.shape-resize, .shape-width')).toBeNull()
+  })
+
+  it('…and a Rechteck the knob and one grip per axis, from the same family', () => {
+    const { container } = show([rechteck], 'sq')
+    expect(container.querySelector('.shape-rotate')).toBeTruthy()
+    expect(container.querySelector('.shape-resize.shape-axis-x')).toBeTruthy()
+    expect(container.querySelector('.shape-width.shape-axis-y')).toBeTruthy()
+    for (const g of container.querySelectorAll('.handle')) noInlineFill(g)
   })
 })

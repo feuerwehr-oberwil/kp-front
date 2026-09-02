@@ -639,7 +639,10 @@ describe('a Rotation on the plan sheet', () => {
     fireEvent.pointerDown(container.querySelector('.wb-shape')!)
     const ends = container.querySelectorAll('.handle.shape-end')
     expect(ends).toHaveLength(2)
-    for (const g of ends) expect(g.getAttribute('aria-label')).toBe(S.endHint)
+    for (const g of ends) {
+      expect(g.getAttribute('aria-label')).toBe(S.endHint)
+      expect(g.hasAttribute('data-holdaction')).toBe(true)
+    }
     expect(container.querySelector('.shape-stem')).toBeNull()
     expect(container.querySelector('.shape-rotate')).toBeNull()
     expect(container.querySelector('.shape-resize, .shape-width')).toBeNull()
