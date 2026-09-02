@@ -132,6 +132,8 @@ export const planDocuments: PlanDocument[] = [
 // The generated floor-stack document. Only shown once a building is picked on
 // the Umgebung sheet; its annotations live in board['gebaeude'] (floor-tagged).
 export const gebaeudeDoc: PlanDocument = {
-  id: 'gebaeude', code: 'Gebäude', title: 'Geschosse (Skizze)',
+  // title = the printed page label (reportPdfDirect · floorStackPages) — the same word the
+  // rail tile wears, so the paper and the screen name the surface identically
+  id: 'gebaeude', code: 'Gebäude', title: 'Gebäude',
   subtitle: 'Aus Gebäudeumriss – ohne Pläne', imageUrl: '', orientation: 'portrait', icon: 'floors', floorStack: true,
 }

@@ -303,6 +303,38 @@ async def test_plan_page_url_with_a_version_query_still_resolves(client, editor)
     assert _REFERENCE_URL.match("/api/media/x") is None
 
 
+async def test_a_percent_encoded_plan_url_still_reaches_the_composer(client, editor, db_session):
+    """⚠️ End-to-end through the resolver, with the URL the CLIENT actually sends. referenceUrl
+    (src/lib/api/reference.ts) builds `encodeURIComponent(id)`, and every real plan id carries
+    colons («plan:<obj>:<module>») — so the wire URL says `plan%3A…`. The regex test above passed
+    on the unencoded form while the DB lookup ran with the still-encoded id and found nothing:
+    stored, served, annotated on screen, and absent from the printed rapport in silence."""
+    from app import storage
+    from app.api.report import resolve_report_assets
+    from app.models import ReferenceDataset
+    from app.report_pdf import ReportPayload
+
+    ds_id = "plan:test-obj:modul1"
+    key = "reference/test-plan-modul1.pdf"
+    buf = io.BytesIO()
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+
+    c = canvas.Canvas(buf, pagesize=A4)
+    c.drawString(100, 100, "Modul 1")
+    c.save()
+    storage.put_bytes(key, buf.getvalue())
+    db_session.add(ReferenceDataset(id=ds_id, kind="pdf", storage_key=key, current_version=2))
+    await db_session.flush()
+
+    url = "/api/reference/plan%3Atest-obj%3Amodul1?v=2"  # exactly what referenceUrl produces
+    payload = ReportPayload.model_validate(
+        {**_minimal_payload("x"), "planPages": [{"label": "Modul 1", "url": url, "annos": []}]}
+    )
+    plan_pdfs = await resolve_report_assets(db_session, payload, {})
+    assert plan_pdfs.get(url, b"")[:5] == b"%PDF-", "the encoded plan URL did not resolve"
+
+
 async def test_report_pdf_carries_the_pendenzen_section(client, editor):
     """⚠️ End to end through the real endpoint, not just the composer.
 

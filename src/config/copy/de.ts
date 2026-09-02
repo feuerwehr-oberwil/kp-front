@@ -1807,6 +1807,7 @@ export const de = {
       savedAll: 'Als Standard-Massstab gespeichert',
       savedThis: 'Massstab für diesen Plan gespeichert',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
+      needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
     },
     // «Karte verknüpfen» – die Paarung markanter Punkte, die den Plan auf die Karte legt
     // (lib/georef · fitSimilarity, lib/georefMode). Zwei Punkte genügen; erst der dritte misst.
@@ -3004,7 +3005,7 @@ export const de = {
     // «Teilen» in der Karte des aktiven Einsatzes — die zweite Tür zum Einsatz-Link, der bis
     // 01.09. nur im Rapport stand. Mitten im Einsatz will ihn jemand einer Nachbarwehr
     // hinhalten und nicht dafür die Abschluss-Fläche öffnen. Gleiche Fläche wie dort.
-    share: 'Einsatz weitergeben',
+    share: 'Einsatz teilen',
     shareShort: 'Teilen',
     noOpenIncidents: 'Keine offenen Einsätze',
     logout: 'Abmelden',
@@ -3473,21 +3474,23 @@ export const de = {
     shareRevokeConfirm: 'Ja, aufheben',
     shareRevokeFailed: 'Link aufheben fehlgeschlagen',
     // ── Zweite Art Link: «Nur Atemschutz – bedienen» (01.09.) ──
-    // Ein Einsatz kann seine Atemschutz-Überwachung abgeben: wer den Code scannt, bekommt die
+    // Ein Einsatz kann seine Atemschutz-Überwachung abgeben: wer den Link öffnet, bekommt die
     // Tafel dieses einen Einsatzes auf dem eigenen Handy und bedient sie. Beide Arten wohnen im
     // selben Blatt, ganz oben die Wahl – darum ist die Zeile darunter kein Satz, sondern das
     // eine Wort, das die beiden unterscheidet (lesen ↔ bedienen).
-    shareKindLabel: 'Was der Code freigibt',
+    // ⚠️ «Link», nie «Code» (02.09.): geteilt wird eine Adresse – QR ist nur einer der Wege,
+    // sie aufs andere Gerät zu bringen, und der ganze übrige Abschnitt sagt schon «Link».
+    shareKindLabel: 'Was der Link freigibt',
     shareKindFull: 'Ganzer Einsatz',
     shareKindFullSub: 'nur lesen',
     shareKindAtem: 'Nur Atemschutz',
     shareKindAtemSub: 'bedienen',
-    shareAsLede: 'Wer den Code scannt, sieht nur die Atemschutz-Überwachung dieses Einsatzes und '
+    shareAsLede: 'Wer den Link öffnet, sieht nur die Atemschutz-Überwachung dieses Einsatzes und '
       + 'bedient sie mit: Trupp anmelden, Kontakt, Druck, Rückzug, Draussen. Keine Karte, kein '
       + 'Verlauf. Gilt, bis der Einsatz abgeschlossen ist.',
     shareAsLiveLede: 'Gilt, bis der Einsatz abgeschlossen ist – oder bis du ihn aufhebst.',
     shareAsWarn: 'Was hier eingetragen wird, steht im Atemschutz-Journal des Rapports. Gib den '
-      + 'Code nur an die Person, die überwacht.',
+      + 'Link nur an die Person, die überwacht.',
     shareAsRevokeTitle: 'Atemschutz-Link aufheben?',
     shareAsRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer die Tafel gerade offen '
       + 'hat, kann ab sofort nichts mehr eintragen. Ein neuer Link lässt sich jederzeit erstellen '

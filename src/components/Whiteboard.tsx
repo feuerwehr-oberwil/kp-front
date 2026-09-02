@@ -36,7 +36,7 @@ import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
-import { polyAreaM2, type PlanScale } from '../lib/planScale'
+import { pathMetres, polyAreaM2, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -60,6 +60,7 @@ import { MAX_SCALE, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews
 import { pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbInkLayer, WbVertexHandles, WbDraftHandles } from './WbControls'
+import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
 import { ToolRail } from './ToolRail'
@@ -129,6 +130,10 @@ interface Props {
    *  change nothing. Off for replay (its scrubber owns the bottom band) and for the phone's
    *  Verlauf sheet, where the plan is parked behind a full-width overlay. */
   slimTools?: boolean
+  /** Einsatz-Link session (App · linkScoped): the bottom-left setting chips (Maßstab /
+   *  Verknüpft) disappear entirely — every setting comes from the origin, and an outside
+   *  viewer gets no door to a settings surface, not even a disabled one. */
+  linkViewer?: boolean
   /** device pref «Beschriftung der Werkzeugleisten» (lib/prefs · railLabels) — the word under each glyph.
    *  The setting says «in den beiden Leisten», so the plan's rail has to be handed it too. */
   railLabels?: RailLabels
@@ -289,7 +294,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -305,18 +310,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
   const readOnly = readOnlyProp || active?.viewer === true || selectOnly
-  // The slim read-only rail (Auswahl) — never on a viewer-only or selection-only
+  // The slim read-only rail (Auswahl · Messen) — never on a viewer-only or selection-only
   // document, which has no tool rail for ANYONE, so a locked editor and a viewer keep seeing the
   // same surface.
   const slimRail = readOnly && slimToolsProp && active?.viewer !== true && !selectOnly
-  // ⚠️ Messen is filtered OUT of the Plan rail — a DELIBERATE Lage↔Plan divergence, decided
-  // 29.08., not drift: on a plan, a distance worth keeping is a drawn Linie/Fläche, which reads
-  // its metres through the Maßstab calibration (usePlanMeasure) in the DrawEditor's Messung
-  // section and the on-canvas distance labels; the ephemeral measure path only duplicated the
-  // drawing tools with state a tap-away destroyed. The Maßstab chip and its calibration flow
-  // stay untouched. `sep-measure` goes with it so the rail never ends on a stray divider, and
-  // the read-only slim rail loses Messen with it (leaving Auswahl — a viewer still inspects).
-  const planTools = useMemo(() => appConfig.copy.planTools.filter((t) => t.id !== 'measure' && t.id !== 'sep-measure'), [])
+  // Messen left the Plan rail on 29.08. («a distance worth keeping is a drawn Linie») and came
+  // BACK on 02.09.: the field kept reaching for the quick throwaway «wie weit?» glance, and a
+  // drawn Linie is a journal-logged act, not a glance. See usePlanMeasure's header.
+  const planTools = useMemo(() => appConfig.copy.planTools, [])
   const slimPlanTools = useMemo(() => slimTools(planTools, PLAN_READONLY_TOOLS), [planTools])
   const isPhone = useIsPhone()
 
@@ -325,6 +326,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // on the selection-only Umrisse sheet — with no rail left to disarm it. Forcing the rest tool
   // there closes every create path at once (they all gate on `tool`) instead of gating each.
   const [armedTool, setTool] = useState<BoardTool>('pan')
+  /** measure node currently in the hand — its cumulative label (25px over the fingertip) steps
+   *  aside and the fixed .measure-readout carries the number instead (mirrors MapView) */
+  const [measDragNode, setMeasDragNode] = useState<number | null>(null)
+  // released ANYWHERE ends the readout — the node drag itself is window-tracked (usePlanMeasure),
+  // so the button that started it never reliably sees the up
+  useEffect(() => {
+    if (measDragNode == null) return
+    const clear = () => setMeasDragNode(null)
+    window.addEventListener('pointerup', clear, true)
+    window.addEventListener('pointercancel', clear, true)
+    return () => {
+      window.removeEventListener('pointerup', clear, true)
+      window.removeEventListener('pointercancel', clear, true)
+    }
+  }, [measDragNode])
   const tool: BoardTool = selectOnly ? 'pan' : armedTool
   const [pending, setPending] = useState<string | null>(null)
   // a generic shape (Pfeil / Rauch / Rechteck) armed from the palette — mirror of the map's pendingShape
@@ -487,7 +503,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // plan WITHOUT leaving the active draw/measure tool (the overlay otherwise swallows pointers)
   const inkPtrs = useRef<Map<number, { x: number; y: number }>>(new Map())
   const inkPinch = useRef<number | null>(null)
-  // single-finger node-placement gesture (Maßstab / node-draw): like the Lage map, a DRAG
+  // single-finger node-placement gesture (Maßstab / Messen / node-draw): like the Lage map, a DRAG
   // pans the board and only a genuine TAP drops a node. Placement is deferred to pointer-up so the
   // movement since pointer-down can be measured; px/py is the pan origin the drag offsets from.
   const inkTap = useRef<{ x: number; y: number; px: number; py: number; moved: boolean } | null>(null)
@@ -649,9 +665,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       : undefined
   const {
     calNodes, setCalNodes, calPrompt, setCalPrompt, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
-    measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres, resetEphemeral,
+    measMode, setMeasMode, setMeasLine, setMeasArea,
+    measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres,
+    measPath, setMeasPath, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
+    measNodeDown, measMove, measUp, measDragging, measInsert, measDelete, measPress,
     closeCalPrompt, commitCalibration,
-  } = usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, log, onCalibrate, autoScale })
+  } = usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale })
 
   // --- Karte verknüpfen (Georeferenz) --------------------------------------------------------
   // The pairing mode itself lives in lib/georefMode — outside React, because on a phone this
@@ -873,9 +892,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // No dep array (mirrors fitRef) so the toggle always closes over the current tool.
   useEffect(() => {
     if (!keysRef) return
-    // no 'measure' entry: the Messen tool left the Plan on 29.08. (see the rail filter above),
-    // so the shared shortcut simply does nothing while the Plan is the active surface
-    const MAP: Record<string, BoardTool> = { select: 'pan', lasso: 'lasso', line: 'line', area: 'area', note: 'text', team: 'resource' }
+    const MAP: Record<string, BoardTool> = { select: 'pan', lasso: 'lasso', line: 'line', area: 'area', note: 'text', team: 'resource', measure: 'measure' }
     keysRef.current = {
       pickTool: (cmd) => {
         if (selectOnly) return // the Umrisse sheet arms nothing — by keyboard either (see selectOnly)
@@ -892,7 +909,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // (the palette's Rauch/Rechteck/Pfeil forms). Omitting 'shape' left its overlay off the
   // Plan, so arming a shape froze the surface: the tap placed nothing and, with no overlay,
   // the board couldn't pan either. placeNode already handles 'shape'.
-  const creating = tool === 'line' || tool === 'area' || tool === 'text' || tool === 'symbol' || tool === 'shape' || tool === 'resource' || tool === 'scale'
+  const creating = tool === 'line' || tool === 'area' || tool === 'text' || tool === 'symbol' || tool === 'shape' || tool === 'resource' || tool === 'scale' || tool === 'measure'
   /** a two-point shape (Rotation) is armed: each of its two taps may claim a symbol, and it does
    *  so by dwelling — press, hold until the ring closes, let go (lib/shapes · SHAPE_TWO_POINT) */
   const rotPlacing = tool === 'shape' && !!pendingShape && SHAPE_TWO_POINT[pendingShape] && !readOnly
@@ -1147,6 +1164,23 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const next: [number, number][] = [...calNodes, n]
       if (next.length >= 2) { setCalNodes([]); setCalPrompt({ a: next[0], b: next[1] }); setRefMInput(String(lastRefM)) }
       else setCalNodes(next)
+      return
+    }
+    if (tool === 'measure') {
+      // Messen: each tap drops a measurement node (mirrors the Lage map's measure tool). But on an
+      // UNCALIBRATED plan the first segment IS the calibration — the two reference taps open the
+      // metre popover directly, so the user never has to find a separate Maßstab step first.
+      // …but calibration is a WRITE (it persists to the workspace and the station default), so a
+      // locked surface just can't measure until someone with edit rights has set the scale — the
+      // panel says exactly that instead of offering a button that would fail.
+      if (!calibrated) {
+        if (readOnly) return
+        const next: [number, number][] = [...measPath, n]
+        if (next.length >= 2) { setCalPrompt({ a: next[0], b: next[1] }); setRefMInput(String(lastRefM)); setMeasLine([]); setMeasArea([]) }
+        else setMeasPath(() => next)
+        return
+      }
+      setMeasPath((p) => [...p, n])
       return
     }
     if (noding) {
@@ -1794,11 +1828,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     else if (drawDrag.current) drawMove(e)
     else if (vertDrag.current) vertMove(e)
     else if (draftVert.current) draftVertMove(e)
+    else if (measDragging()) measMove(e)
     // once an object is really travelling (past the shared deadzone), the phone detail sheet
     // peeks down to its grip line so the board isn't reduced to a strip — lib/sheetPeek
     if (chipDrag.current?.moved || drawDrag.current?.moved || vertDrag.current?.moved) beginSheetPeek()
   }
-  const manipUp = () => { endSheetPeek(); chipUp(); drawUp(); vertUp(); draftVertUp() }
+  const manipUp = () => { endSheetPeek(); chipUp(); drawUp(); vertUp(); draftVertUp(); measUp() }
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
@@ -2865,9 +2900,52 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               )
             })()}
 
-            {/* ⚠️ No Messen overlay any more — the Messen TOOL left the Plan on 29.08.
-                (deliberate Lage↔Plan divergence; see the rail filter above and usePlanMeasure).
-                The Maßstab preview above and every calibrated read-out below stay. */}
+            {/* Messen: the measurement polyline / area (board px) + draggable nodes + cumulative
+                labels — the Plan twin of the Lage map's measure tool, scaled by the calibration. */}
+            {tool === 'measure' && measPath.length > 0 && (
+              <>
+                <svg className="wb-meas-svg" width={sW} height={sH} style={{ left: 0, top: 0 }} aria-hidden>
+                  {measMode === 'area' && measPath.length >= 3
+                    ? <polygon points={measPath.map((p) => `${p[0] * sW},${p[1] * sH}`).join(' ')} className="wb-meas-fill" />
+                    : measPath.length >= 2 && <polyline points={measPath.map((p) => `${p[0] * sW},${p[1] * sH}`).join(' ')} className="wb-meas-stroke" fill="none" />}
+                </svg>
+                {/* insert "+" at each segment midpoint */}
+                {measPath.length >= 2 && measPath.map((p, i) => {
+                  if (measMode === 'line' && i === measPath.length - 1) return null
+                  const b = measPath[(i + 1) % measPath.length]
+                  return (
+                    <button key={`mi-${i}`} className="wb-vins" title={appConfig.copy.measure.insertPoint} aria-label={appConfig.copy.measure.insertPoint}
+                      style={{ left: 0, top: 0, transform: `translate(${((p[0] + b[0]) / 2) * sW}px, ${((p[1] + b[1]) / 2) * sH}px) translate(-50%, -50%)` }}
+                      onPointerDown={(e) => measInsert(i, e)}><Icon id="plus" /></button>
+                  )
+                })}
+                {/* draggable nodes (hold to delete) + cumulative-distance labels */}
+                {measPath.map((p, i) => {
+                  const cum = calibrated && i > 0 ? pathMetres(measMpts.slice(0, i + 1), activeScale!.mPerU, measureAR) : null
+                  return (
+                    <Fragment key={`mn-${i}`}>
+                      {/* positioning wrapper so the handle's :active scale never clobbers the
+                          board-px placement (mirrors how the map nests the handle in a Marker) */}
+                      <div className="wb-meas-node" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -50%)` }}>
+                        <button className={`measure-handle ${measPress.armed?.key === `m${i}` ? 'doomed' : ''}`}
+                          title={appConfig.copy.measure.deleteNode} aria-label={appConfig.copy.measure.deleteNode}
+                          onPointerDown={(e) => { measPress.press(`m${i}`, () => measDelete(i)).onPointerDown(e); measNodeDown(i, e); setMeasDragNode(i) }}
+                        >{measPress.armed?.key === `m${i}` && <NodeDeleteChip progress={measPress.armed.progress} />}</button>
+                      </div>
+                      {measMode === 'line' && cum != null && measDragNode !== i && (
+                        <span className="wb-line-label wb-meas-label" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -150%)` }}>{fmtDistance(cum)}</span>
+                      )}
+                    </Fragment>
+                  )
+                })}
+                {/* area: total at the centroid */}
+                {measMode === 'area' && calibrated && measPath.length >= 3 && (() => {
+                  const cx = measPath.reduce((s, q) => s + q[0], 0) / measPath.length
+                  const cy = measPath.reduce((s, q) => s + q[1], 0) / measPath.length
+                  return <span className="wb-line-label wb-meas-label" style={{ left: 0, top: 0, transform: `translate(${cx * sW}px, ${cy * sH}px) translate(-50%, -50%)` }}>{fmtArea(measAreaM2)}</span>
+                })()}
+              </>
+            )}
 
             {/* vertex editing for a selected line/area — node drag / insert / delete (one shared
                 code path for Linie + Fläche). A many-point freehand stroke used to be skipped here
@@ -3372,6 +3450,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               with the rail present, zoom/fit lives in its pinned footer (mirrors the map's
               ToolRail). The phone keeps it either way: there the rail is a bottom bar whose
               footer cluster is CSS-hidden, so this is the plan's only zoom control. */}
+          {/* the tool's number while a measure node is in the hand — fixed top-centre, where
+              nothing moves while it changes; the label under the finger is suppressed above.
+              Same class and reasoning as the Lage's readout (11-measure.css). */}
+          {measDragNode != null && calibrated && measPath.length >= 2 && (
+            <div className="measure-readout" aria-hidden>
+              {measMode === 'line' ? fmtDistance(measLenM) : fmtArea(measAreaM2)}
+            </div>
+          )}
           {readOnly && (!slimRail || isPhone) && (
             <div className="wb-zoom wb-zoom-float" onPointerDown={(e) => e.stopPropagation()}>
               <button onClick={() => zoom(1 / 1.3)} disabled={scale <= MIN_SCALE} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><Icon id="minus" /></button>
@@ -3391,9 +3477,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
         </div>
 
-        {/* every dock arms a create/edit tool, so a locked surface renders none — since the
-            Messen tool left the Plan (29.08.) there is no read-only dock left to carve out */}
-        {!readOnly && <WbToolDocks
+        {/* on a locked surface the rail can only arm Messen, so the only dock this can render
+            there is the Messen one (its ✕ / Strecke↔Fläche / Zurücksetzen — all ephemeral) */}
+        {(!readOnly || tool === 'measure') && <WbToolDocks
           tool={tool}
           lineMode={lineMode}
           color={color}
@@ -3416,6 +3502,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           resourceBound={!!selResource?.truppId && trupps.some((t) => t.id === selResource.truppId && !t.removedAt)}
           trailsShown={!!selResource && !hiddenTrails.has(selResource.id)}
           onToggleTrails={() => { if (selResource) toggleTrail(selResource.id) }}
+          measMode={measMode}
+          setMeasMode={setMeasMode}
+          measCount={measPath.length}
+          onMeasClear={() => setMeasPath(() => [])}
+          onMeasClose={() => { measReset(); setTool('pan') }}
           noteDefaults={noteDefaults}
           setNoteDefaults={(p) => setNoteDefaults((d) => ({ ...d, ...p }))}
         />}
@@ -3904,6 +3995,51 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         </Overlay>
       )}
 
+      {/* Messen — the SAME panel the Lage map uses (bottom-centred); metrics come from the plan
+          calibration (no elevation profile), and it nudges to calibrate until a scale is set. */}
+      {tool === 'measure' && (
+        <MeasurePanel
+          mode={measMode}
+          coords={measPath}
+          profile={null}
+          profileLoading={false}
+          showProfile={false}
+          metrics={{ lengthM: measLenM, areaM2: measAreaM2, perimeterM: measPerimM }}
+          blocked={!calibrated}
+          hint={readOnly ? appConfig.copy.whiteboard.scale.needsCalibrationViewer : appConfig.copy.whiteboard.scale.needsCalibration}
+          // «Als Linie/Fläche übernehmen»: the measured nodes become a real Linie resp. Fläche on
+          // this plan. Board coords are whole-board normalized, so each point is folded back into
+          // its storey tile (the space every stored `pts` lives in) before addLine/addArea sees it.
+          // Unreachable while the plan is uncalibrated — the panel then shows the hint, not the
+          // readout, so neither adopt button is rendered.
+          onAdopt={!readOnly && measPath.length >= (measMode === 'line' ? 2 : 3)
+            ? () => {
+                // a Linie keeps the storey under each node; a Fläche lives on ONE storey — its
+                // first point's — exactly like the node tool, which pins every vertex of a ring
+                // to the floor it was started on.
+                const floorOf = (y: number) => (stack ? floorAt(y) : draftFloor.current)
+                const ringFloor = floorOf(measPath[0][1])
+                const pts: BoardPoint[] = measPath.map(([x, y]) => {
+                  const f = measMode === 'line' ? floorOf(y) : ringFloor
+                  return [x, localY(y, f), f]
+                })
+                measReset()
+                if (measMode === 'line') addLine(pts)
+                else addArea(pts)
+              }
+            : undefined}
+          // ⚠️ NOT offered on an automatically referenced sheet. `scaleAuto` means the metres come
+          // from the Kartenverknüpfung, and the same rule the Massstab chip follows holds here:
+          // an automatic scale is a READING, never a shortcut into a second, competing manual
+          // calibration. «Neu kalibrieren» under a plan that is already tied to the map read as
+          // «this is not calibrated» — the opposite of the truth. The reading takes its place.
+          onCalibrate={readOnly || scaleAuto ? undefined : () => setTool('scale')}
+          calibrateLabel={appConfig.copy.whiteboard.scale.calibrate}
+          recalibrateLabel={appConfig.copy.whiteboard.scale.recalibrate}
+          scaleNote={scaleAuto ? appConfig.copy.whiteboard.scale.chipAutoHint : undefined}
+        />
+      )}
+
       {/* Maßstab — metre-entry popover after the two reference taps: a clean −/+ stepper */}
       {calPrompt && (
         <PlanScalePrompt refMInput={refMInput} setRefMInput={setRefMInput}
@@ -3932,8 +4068,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           a reading, never a shortcut into a second, competing manual calibration. The separate
           Verknüpft control beside it opens the Passung and its explicit correction actions.
           Hidden for the OSM live outline / blank sheet (no printed reference to measure against).
-          A locked surface keeps the reading but cannot arm a manual calibration. */}
-      {(!readOnly || slimRail) && !osm && !blank && (
+          A locked surface keeps the reading but cannot arm a manual calibration — and an
+          Einsatz-Link viewer (linkViewer) gets neither: the chips are the origin's instruments. */}
+      {(!readOnly || slimRail) && !osm && !blank && !linkViewer && (
         scaleAuto
           /* Still a reading, not a second calibration path – but a TAPPABLE one (29.08.): the
              hover title never fires on the field iPad, so the chip explains itself the same
@@ -3970,8 +4107,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           tied to the world, and how well. Same recipe and same corner as the Massstab beside it,
           and the same rule: never a hidden assumption. Blue, like Messen and Massstab — a
           georeference is not an alarm, so never the station's --accent.
-          A viewer sees the reading but cannot arm it; a plan with no reference offers the verb. */}
-      {canGeoref && (!readOnly || georefState.kind === 'linked') && (
+          A viewer sees the reading but cannot arm it; a plan with no reference offers the verb.
+          An Einsatz-Link viewer sees neither — see linkViewer on the Maßstab chip above. */}
+      {canGeoref && (!readOnly || georefState.kind === 'linked') && !linkViewer && (
         <button
           className={`wb-scale-chip ${georefState.kind === 'linked' ? (georefState.warn ? 'wb-georef-warn' : 'wb-georef-ok') : ''} ${georefQuality ? 'arm' : ''}`}
           title={readOnly ? undefined

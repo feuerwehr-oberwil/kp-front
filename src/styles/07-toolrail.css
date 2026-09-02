@@ -293,7 +293,12 @@
 .sym-ghead { position: sticky; top: 0; background: var(--surface); backdrop-filter: blur(4px); z-index: 1;
   font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ink-dim); padding: 8px 4px 5px; }
 .sym-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 6px; align-content: start; margin-bottom: 6px; }
-.sym-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px 9px; border-radius: var(--r-ctl); background: none; border: 1px solid transparent; cursor: pointer; }
+/* ⚠️ The flex column lives on an INNER span (.sym-cell-in), never on the <button> itself:
+   Safari lays a flex <button> out with the button's own intrinsic height and CLIPS what wraps
+   beyond it — «Dekontaminations-stelle»'s second line was cut mid-letter (02.09.). A plain
+   block button grows with its one child; the child does the flexing in every engine. */
+.sym-cell { display: block; padding: 12px 6px 9px; border-radius: var(--r-ctl); background: none; border: 1px solid transparent; cursor: pointer; }
+.sym-cell-in { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 @media (hover: hover) {
   .sym-cell:hover { background: var(--fill-soft); border-color: var(--border-soft); }
 }

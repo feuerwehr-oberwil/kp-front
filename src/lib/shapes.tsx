@@ -228,7 +228,7 @@ export const SQUARE_FILL_DEFAULT = 0.18
 /** The Schraffur's geometry, in CSS px. ⚠️ The same numbers a drawn Fläche hatches with
  *  (lib/draw · HATCH_PERIOD_PX / HATCH_WIDTH_PX) — inlined rather than imported so this module
  *  stays free of the drawing layer, and they must move together. */
-const HATCH_PERIOD_PX = 12
+const HATCH_PERIOD_PX = 16
 const HATCH_WIDTH_PX = 1.6
 
 /**
@@ -251,7 +251,7 @@ export function squareInner(color: string, asp: number, strokeW?: number, boxPx?
   const period = HATCH_PERIOD_PX * perUnit
   const defs = hatch
     ? `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${period.toFixed(3)}" height="${period.toFixed(3)}"`
-      + ` patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="${period.toFixed(3)}" stroke="${color}"`
+      + ` patternTransform="rotate(-45)"><line x1="0" y1="0" x2="0" y2="${period.toFixed(3)}" stroke="${color}"`
       + ` stroke-width="${(HATCH_WIDTH_PX * perUnit).toFixed(3)}"/></pattern></defs>`
     : ''
   const opacity = fillOpacity ?? SQUARE_FILL_DEFAULT

@@ -1254,6 +1254,7 @@ export const fr: Localizable<Copy> = {
       stale: 'revérifier l’échelle',
       saved: 'Échelle calibrée (référence {m} m)',
       needsCalibration: 'Définir l’échelle : touchez les deux extrémités de la barre d’échelle',
+      needsCalibrationViewer: 'La mesure exige d’abord une échelle calibrée',
 
       persistTitle: 'Mémoriser l\'échelle ?',
       saveAll: 'Pour tous les plans',
@@ -1950,7 +1951,7 @@ export const fr: Localizable<Copy> = {
     archiveShort: 'Clore',
     archive: 'Clore l\u2019intervention',
     archiveOpen: '{n} en suspens',
-    share: 'Transmettre l’intervention',
+    share: 'Partager l’intervention',
     shareShort: 'Transmettre',
     report: 'Rapport d’intervention',
     noOpenIncidents: 'Aucune intervention ouverte',
@@ -2347,17 +2348,17 @@ export const fr: Localizable<Copy> = {
       + 'immédiatement. Un nouveau lien peut être créé à tout moment – ce sera une autre adresse.',
     shareRevokeConfirm: 'Oui, révoquer',
     shareRevokeFailed: 'La révocation du lien a échoué.',
-    shareKindLabel: 'Ce que le code donne',
+    shareKindLabel: 'Ce que le lien donne',
     shareKindFull: 'Intervention entière',
     shareKindFullSub: 'lecture seule',
     shareKindAtem: 'ARI uniquement',
     shareKindAtemSub: 'utiliser',
-    shareAsLede: 'Qui scanne le code ne voit que la surveillance ARI de cette intervention et '
+    shareAsLede: 'Qui ouvre le lien ne voit que la surveillance ARI de cette intervention et '
       + 'l’utilise : annoncer un binôme, contact, pression, repli, sorti. Pas de carte, pas de '
       + 'journal. Valable jusqu’à la clôture de l’intervention.',
     shareAsLiveLede: 'Valable jusqu’à la clôture de l’intervention – ou jusqu’à ce que vous le '
       + 'révoquiez.',
-    shareAsWarn: 'Ce qui y est saisi figure au journal ARI du rapport. Ne donnez le code qu’à la '
+    shareAsWarn: 'Ce qui y est saisi figure au journal ARI du rapport. Ne donnez le lien qu’à la '
       + 'personne qui surveille.',
     shareAsRevokeTitle: 'Révoquer le lien ARI ?',
     shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a le tableau ouvert ne peut plus '

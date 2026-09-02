@@ -665,7 +665,7 @@ def _arrow_head(
 # ⚠️ MIRRORS src/lib/draw.tsx · HATCH_PERIOD_PX / HATCH_WIDTH_PX. The FKS draws an affected AREA
 # hatched rather than washed (Brandzone/Flächenbrand); screen and paper have to agree about which
 # Fläche is which, so the geometry is one set of numbers copied here on purpose.
-_HATCH_PERIOD = 12
+_HATCH_PERIOD = 16
 _HATCH_WIDTH = 1.6
 
 

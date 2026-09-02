@@ -442,6 +442,16 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* (no floating delete orb on annos and no note grips row anymore — deletion lives in the
    detail panels, tap = panel / drag = move, 29.08.) */
 
+/* Messen on the Plan (removed 29.08., restored 02.09. — see usePlanMeasure's header) */
+.wb-meas-svg { position: absolute; z-index: 6; overflow: visible; pointer-events: none; }
+.wb-meas-stroke { stroke: var(--blue); stroke-width: 2.5; stroke-dasharray: 5 3; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.wb-meas-fill { fill: color-mix(in srgb, var(--blue) 10%, transparent); stroke: var(--blue); stroke-width: 2.5; stroke-dasharray: 5 3; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+/* measure node: a board-px wrapper around the shared .measure-handle (its :active scale then
+   stays local instead of clobbering this placement transform) */
+.wb-meas-node { position: absolute; z-index: 7; }
+/* cumulative-distance labels mirror the map's .measure-label (mono, strong contrast) */
+.wb-meas-label { z-index: 7; font-family: var(--mono); }
+
 /* draw style picker (floats over canvas bottom) */
 .wb-style-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, .2); }
 .wb-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); cursor: pointer; padding: 0; }

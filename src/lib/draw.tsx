@@ -20,7 +20,7 @@ import { appConfig } from '../config/appConfig'
 // polygon mask. The numbers live here so a Fläche is the same picture on all three.
 
 /** Period of the 45° pattern, in CSS px. The perpendicular spacing between lines is this ÷ √2. */
-export const HATCH_PERIOD_PX = 12
+export const HATCH_PERIOD_PX = 16
 /** Stroke width of one hatch line, CSS px. */
 export const HATCH_WIDTH_PX = 1.6
 
@@ -72,8 +72,11 @@ export function HatchDefs({ colors }: { colors: readonly string[] }) {
   return (
     <defs>
       {colors.map((c) => (
+        // ⚠️ rotate(-45): a vertical line rotated −45° runs top-left → bottom-right, the SAME
+        // diagonal hatchTile rules and kroki.py prints. +45 ran the other way, so the editor
+        // swatch and the Plan hatched opposite to the drawn Fläche beside them.
         <pattern key={c} id={hatchPatternId(c)} patternUnits="userSpaceOnUse"
-          width={HATCH_PERIOD_PX} height={HATCH_PERIOD_PX} patternTransform="rotate(45)">
+          width={HATCH_PERIOD_PX} height={HATCH_PERIOD_PX} patternTransform="rotate(-45)">
           <line x1={0} y1={0} x2={0} y2={HATCH_PERIOD_PX} stroke={c} strokeWidth={HATCH_WIDTH_PX} />
         </pattern>
       ))}

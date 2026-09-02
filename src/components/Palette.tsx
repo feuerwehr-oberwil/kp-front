@@ -15,8 +15,11 @@ const FORMEN_AFTER_CAT = 'Gefahren'
 function ShapeCell({ kind, onPick }: { kind: ShapeKind; onPick: (k: ShapeKind) => void }) {
   return (
     <button className="sym-cell" title={appConfig.copy.shapes.names[kind]} onClick={() => onPick(kind)} draggable={false}>
-      <span className="sym-shape"><ShapeGlyph kind={kind} color={SHAPE_DEFS[kind].defaultColor} aspect={SHAPE_DEFS[kind].defaultAspect} fit /></span>
-      <small>{appConfig.copy.shapes.names[kind]}</small>
+      {/* ⚠️ layout on the inner span, not the button — see .sym-cell-in in 07-toolrail.css */}
+      <span className="sym-cell-in">
+        <span className="sym-shape"><ShapeGlyph kind={kind} color={SHAPE_DEFS[kind].defaultColor} aspect={SHAPE_DEFS[kind].defaultAspect} fit /></span>
+        <small>{appConfig.copy.shapes.names[kind]}</small>
+      </span>
     </button>
   )
 }
@@ -32,11 +35,14 @@ interface Props {
 function Cell({ name, svg, onPick }: { name: string; svg: string; onPick: (n: string) => void }) {
   return (
     <button className="sym-cell" title={name} onClick={() => onPick(name)} draggable={false}>
-      <span dangerouslySetInnerHTML={{ __html: svg }} />
-      {/* soft hyphens at the COMPOUND seams (lib/symbolWrap) — the cell is ~94px, so a long
-          name wraps, and it has to wrap where the word does: «Kontroll-posten», never
-          «Kontrollpos-ten». Display only; `title` and search keep the plain label. */}
-      <small>{softHyphenate(formatSymbolName(name) || name)}</small>
+      {/* ⚠️ layout on the inner span, not the button — see .sym-cell-in in 07-toolrail.css */}
+      <span className="sym-cell-in">
+        <span dangerouslySetInnerHTML={{ __html: svg }} />
+        {/* soft hyphens at the COMPOUND seams (lib/symbolWrap) — the cell is ~94px, so a long
+            name wraps, and it has to wrap where the word does: «Kontroll-posten», never
+            «Kontrollpos-ten». Display only; `title` and search keep the plain label. */}
+        <small>{softHyphenate(formatSymbolName(name) || name)}</small>
+      </span>
     </button>
   )
 }
