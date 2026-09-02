@@ -47,14 +47,20 @@ interface ArmedTransformDeps {
   resetKey: string
 }
 
+/** the idle guide's needle: long enough to read as a radius under a glove, short enough to stay
+ *  inside a phone's map half; and the top-bar band it must not be drawn into */
+const IDLE_ARM_PX = 96
+const IDLE_ARM_MIN_Y = 120
+
 /** clockwise degrees, wrapped into ±180 so a turn past half a circle keeps counting up */
 const wrapDeg = (d: number) => ((d + 180) % 360 + 360) % 360 - 180
 
 /** The live turn, in CLIENT px — what the on-surface guide is drawn from (components/SelectionTurn) */
 export interface ArmedTurn {
   cx: number; cy: number
-  /** where the finger is, so the guide can draw the radius the operator is swinging — absent
-   *  while ⟳ is armed but no finger is down yet: then the guide shows the pivot and 0° alone */
+  /** where the finger is, so the guide can draw the radius the operator is swinging — while ⟳ is
+   *  armed with no finger down it is the idle needle's tip (straight up from the pivot); absent
+   *  only for the bar's own dial drag, whose pointer is on the button */
   px?: number; py?: number
   deg: number
 }
@@ -106,7 +112,13 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
     const idle = () => {
       if (armed !== 'rotate') { setTurn(null); return }
       const c = cb.current.centreClient()
-      setTurn(c ? { cx: c.x, cy: c.y, deg: 0 } : null)
+      if (!c) { setTurn(null); return }
+      // the WHOLE guide, not just the dot: a needle standing at twelve o'clock, 0° at its tip, so
+      // the tap shows the pivot, the radius and the number the drag is about to move — the finger
+      // takes the needle over from wherever it lands. Points down when the pivot sits under the
+      // top bar, so the number is never drawn off the screen.
+      const up = c.y - IDLE_ARM_PX >= IDLE_ARM_MIN_Y
+      setTurn({ cx: c.x, cy: c.y, px: c.x, py: c.y + (up ? -IDLE_ARM_PX : IDLE_ARM_PX), deg: 0 })
     }
     idle()
     const close = () => {

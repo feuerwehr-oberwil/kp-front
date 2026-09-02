@@ -68,7 +68,9 @@ describe('the armed mode’s lifecycle', () => {
     armWith('✥')
     expect(state()).toBe('move:—')
     armWith('⟳')                       // only ever one of the two
-    expect(state()).toBe('rotate:0')            // the guide seats its pivot the moment ⟳ is armed
+    expect(state()).toBe('rotate:0')            // the guide seats its pivot the moment ⟳ is armed…
+    // …with its needle: twelve o'clock would end at y=104, inside the top-bar band, so it hangs down
+    expect(screen.getByTestId('turn').textContent).toBe('200,200→200,296')
     armWith('⟳')
     expect(state()).toBe('off:—')
   })
