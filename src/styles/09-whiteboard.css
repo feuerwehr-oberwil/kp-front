@@ -44,7 +44,7 @@
    a desktop operator can leave for a different section halfway through a point pair, while a
    phone shows the map's ordinary tool bar behind the mode card. The TopBar stays: incident
    identity, clock and operational status remain useful context while placing landmarks. */
-.app.georef-mode :is(.navrail, .tool-rail, .layers-card, .mapctl-backdrop, .ctx, .coord-read) {
+.app.georef-mode :is(.navrail, .tool-rail, .layers-card, .mapctl-backdrop, .ctx, .coord-read, .sel-bar) {
   display: none;
 }
 /* the tool rail steps aside for the mode's own action bar — one bar at a time, so it is never in
@@ -348,14 +348,14 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
   display: flex; gap: 6px; background: var(--ink-fill); border-radius: var(--r-ctl); padding: 5px; box-shadow: var(--shadow); }
 .wb-pa { width: 40px; height: 40px; border-radius: var(--r-sm); border: none; padding: 0; color: var(--on-accent-ink);
-  background: rgba(255, 255, 255, .14); display: grid; place-items: center; cursor: pointer; }
+  background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); display: grid; place-items: center; cursor: pointer; }
 @media (hover: hover) {
-  .wb-pa:hover:not(:disabled) { background: rgba(255, 255, 255, .28); }
+  .wb-pa:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); }
 }
 .wb-pa .i { width: 16px; height: 16px; }
 /* Truppfarbe on a placed team marker: the trigger wears the current colour, the popup is the same
    palette the Trupp form shows (gloved 30px targets, wrapped two rows). */
-.wb-pa-swatch { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .8); }
+.wb-pa-swatch { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--on-accent-ink) 80%, transparent); }
 .wb-pa-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 232px; padding: 10px;
   border-radius: var(--r-ctl); background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); z-index: var(--z-popover); }
 /* the swatch colour rides on an inner span (the popup's close-button takes no inline style) */
@@ -376,9 +376,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* Delete is blocked because the team carries a recorded trail. It stays the SAME trash glyph in
    the same slot, greyed out — a padlock only said "locked" without saying locked out of WHAT.
    Still clickable: it offers the confirmed trail clear, which is the way back to a normal delete. */
-.wb-pa-del-off { background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .45); }
+.wb-pa-del-off { background: color-mix(in srgb, var(--on-accent-ink) 8%, transparent); color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
 @media (hover: hover) {
-  .wb-pa-del-off:hover { background: rgba(255, 255, 255, .16); }
+  .wb-pa-del-off:hover { background: color-mix(in srgb, var(--on-accent-ink) 16%, transparent); }
 }
 .wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; transform: translateX(-50%); z-index: 7;
   width: min(290px, 70vw); padding: 9px; border: 1px solid var(--border); border-radius: var(--r-ctl);
@@ -762,11 +762,17 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   background: color-mix(in srgb, currentColor 10%, var(--surface));
 }
 
-/* vertex-editing handles for a selected line/area (board px, absolute on the board) —
-   small dots visually, but with transparent hit pads (::after) like the map's handles;
-   the vertex pad wins over the smaller midpoint-insert pad on short segments (DOM order) */
-.wb-vertex { position: absolute; z-index: 7; width: 16px; height: 16px; border-radius: 50%; padding: 0;
-  background: var(--surface); border: 2px solid var(--blue); cursor: grab; touch-action: none; box-shadow: var(--shadow-sm); }
+/* Vertex-editing handles for a selected line/area (board px, absolute on the board) — small dots
+   visually, but with transparent hit pads (::after) like the map's handles; the vertex pad wins
+   over the smaller midpoint-insert pad on short segments (DOM order).
+   ⚠️ ONE dot size across both surfaces (01.09.): 24px drawn, exactly the Lage's .draw-handle,
+   white-filled with a 3px blue ring. `box-sizing: border-box` is global (02-base.css), so 24 is
+   the diameter you see and not 24-plus-ring. The plan's dot used to be 16/2 and the map's 18/3 —
+   the same gesture on the same object, two sizes apart, and the smaller one sat UNDER the 20px
+   «+» it is supposed to outrank. The insert and Verlängern grips keep their sizes; they were
+   already pixel-matched. */
+.wb-vertex { position: absolute; z-index: 7; width: 24px; height: 24px; border-radius: 50%; padding: 0;
+  background: var(--on-accent-ink); border: 3px solid var(--blue); cursor: grab; touch-action: none; box-shadow: var(--shadow-sm); }
 .wb-vertex::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-vertex:active { cursor: grabbing; }
 /* Verlängern-Griff auf dem Plan: dieselbe Optik wie auf der Lage (.draw-grow in 11-measure.css),

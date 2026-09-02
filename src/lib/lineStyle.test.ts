@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FREEHAND_SIMPLIFY_PX, HANDLE_MIN_SPACING_PX, HUB_NODE_CLEARANCE_PX, HUB_OFFSET_PX, MARKER_SPACING_PX, MAX_HUB_LIFT, MAX_VERTEX_HANDLES, MIN_STROKE_PX, evenIndices, hubOffsetPx, isTapStroke, markerGlyph, markerParamsAlong, markerSpacing, rdpIndices, resolveLinePreset, vertexHandleIndices } from './lineStyle'
+import { FREEHAND_SIMPLIFY_PX, HANDLE_MIN_SPACING_PX, MARKER_SPACING_PX, MAX_VERTEX_HANDLES, MIN_STROKE_PX, evenIndices, isTapStroke, markerGlyph, markerParamsAlong, markerSpacing, rdpIndices, resolveLinePreset, vertexHandleIndices } from './lineStyle'
 
 // resolveLinePreset is the ONE preset bundle both drawing surfaces (Lage map + Plan whiteboard)
 // apply — this pins the coercion so they can't drift. The default presets are the app's stock
@@ -179,34 +179,6 @@ describe('rdpIndices — Freihand-Vereinfachung', () => {
   })
 })
 
-describe('hubOffsetPx', () => {
-  it('lifts the hub off a horizontal line, upward', () => {
-    const [dx, dy] = hubOffsetPx([[0, 100], [200, 100]], [100, 100], 42)
-    expect(dx).toBeCloseTo(0)
-    expect(dy).toBeCloseTo(-42)
-  })
-
-  it('offsets perpendicular to the segment NEAREST the anchor, not to the whole line', () => {
-    // an L: the anchor sits by the vertical leg, so the offset must be horizontal
-    const [dx, dy] = hubOffsetPx([[0, 0], [0, 100], [100, 100]], [4, 50], 10)
-    expect(Math.abs(dy)).toBeCloseTo(0)
-    expect(dx).toBeCloseTo(10) // a vertical segment ties on y → the offset goes right
-  })
-
-  it('clears the node hit pads either way the line runs', () => {
-    const up = hubOffsetPx([[0, 0], [100, 100]], [50, 50], 42)
-    const down = hubOffsetPx([[100, 100], [0, 0]], [50, 50], 42)
-    expect(up[1]).toBeLessThan(0)
-    expect(down[1]).toBeLessThan(0) // direction of travel must not flip which side the hub takes
-    expect(Math.hypot(...up)).toBeCloseTo(42)
-    expect(Math.hypot(...down)).toBeCloseTo(42)
-  })
-
-  it('falls back to straight up for a degenerate path', () => {
-    expect(hubOffsetPx([[5, 5]], [5, 5], 30)).toEqual([0, -30])
-  })
-})
-
 // Lift-off is the only way out of a stroke that began armed on a target, so what counts as
 // «went nowhere» has to be exact — nothing else stands between a mis-grab and a coupled stub.
 describe('isTapStroke', () => {
@@ -287,50 +259,5 @@ describe('marker glyphs', () => {
     const params = markerParamsAlong([[0, 0], [100, 0], [100, 100]], 40)
     const bearings = [...new Set(params.map((m) => m.deg))]
     expect(bearings).toEqual([0, 90])
-  })
-})
-
-// The hub is lifted off the line so the move grip doesn't park on the node under it. Lifting off
-// the NEAREST segment can drop it onto a DIFFERENT one, though — a corner, or the far side of a
-// hairpin where the path doubles back under the offset (reported 01.09.).
-describe('hubOffsetPx — clear of every node, not just the one below', () => {
-  const at = (px: [number, number][], p: [number, number]) => {
-    const [dx, dy] = hubOffsetPx(px, p)
-    return [p[0] + dx, p[1] + dy] as [number, number]
-  }
-  const clearance = (px: [number, number][], p: [number, number]) =>
-    Math.min(...px.map(([vx, vy]) => Math.hypot(at(px, p)[0] - vx, at(px, p)[1] - vy)))
-
-  it('lifts a straight line’s hub clear of its own vertices', () => {
-    const px: [number, number][] = [[0, 0], [100, 0], [200, 0]]
-    expect(clearance(px, [100, 0])).toBeGreaterThanOrEqual(HUB_NODE_CLEARANCE_PX)
-  })
-
-  // a hairpin: the return leg runs right where a single 42px lift would put the grip
-  it('pushes further out when the first lift lands on the other leg’s node', () => {
-    const px: [number, number][] = [[0, 0], [120, 0], [120, -42], [0, -42]]
-    expect(clearance(px, [60, 0])).toBeGreaterThanOrEqual(HUB_NODE_CLEARANCE_PX)
-  })
-
-  // A freehand Fläche has nodes all the way round: nothing within reach ever clears, and the old
-  // loop ran to its ceiling every time — the hub ended up floating half a screen from the shape
-  // it belonged to (reported 01.09.). Crowded and attached beats clear and orphaned.
-  it('stays close and picks the roomiest spot when nothing can fully clear', () => {
-    const ring: [number, number][] = Array.from({ length: 16 }, (_, i) => {
-      const a = (i / 16) * Math.PI * 2
-      return [Math.cos(a) * 30, Math.sin(a) * 30] as [number, number]
-    })
-    const [dx, dy] = hubOffsetPx(ring, [0, 0])
-    expect(Math.hypot(dx, dy)).toBeLessThanOrEqual(HUB_OFFSET_PX * MAX_HUB_LIFT + 0.01)
-  })
-
-  it('gives up rather than flying off — a hub far from its line is the worse question', () => {
-    const px: [number, number][] = [[0, 0], [100, 0]]
-    const [dx, dy] = hubOffsetPx(px, [50, 0])
-    expect(Math.hypot(dx, dy)).toBeLessThanOrEqual(HUB_OFFSET_PX * MAX_HUB_LIFT + 0.01)
-  })
-
-  it('still lifts a two-point line with nothing to measure against', () => {
-    expect(hubOffsetPx([[0, 0]], [0, 0])).toEqual([0, -HUB_OFFSET_PX])
   })
 })

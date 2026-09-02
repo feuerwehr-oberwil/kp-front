@@ -1,10 +1,11 @@
 import { Fragment, useState } from 'react'
 import { Icon } from '../lib/icons'
+import { TwinOrigin } from './TwinOrigin'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { HATCH_PERIOD_PX, HatchDefs, LineStylePicker, hatchPatternId } from '../lib/draw'
-import { markerGlyph } from '../lib/lineStyle'
+import { DEFAULT_INK, markerGlyph } from '../lib/lineStyle'
 import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -13,7 +14,7 @@ import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Stepper } from './Stepper'
 import { MenuPick } from './MenuPick'
 import { Menu } from '../lib/overlays'
-import { Segmented } from './Segmented'
+import { OnOff, Segmented } from './Segmented'
 import type { LineAttachment, LineContent, LineEndpoint, LngLat, LineRoutingMode } from '../types'
 
 // small glyph for the line-ending picker: plain · arrow · arrow with Entwicklungsgrenze · FKS
@@ -159,6 +160,9 @@ interface Props {
   locked?: boolean
   onDelete: () => void
   onClose: () => void
+  /** This object is a Georeferenz twin: the editor is the surface's own, so the ONE thing that
+   *  differs — which document persists it — is stated here as the way there (components/TwinOrigin). */
+  onOriginal?: () => void
   attachmentLabels?: Partial<Record<LineEndpoint, string>>
   onRouting?: (endpoint: LineEndpoint, mode: LineRoutingMode) => void
   onDetach?: (endpoint: LineEndpoint) => void
@@ -169,8 +173,8 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
-  const color = drawing.color ?? '#1f6feb'
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, onOriginal, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+  const color = drawing.color ?? DEFAULT_INK
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
   const isCircle = drawing.kind === 'circle'
@@ -181,7 +185,12 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   const fillOpacity = drawing.fillOpacity ?? (isCircle ? appConfig.drawing.circleFillOpacity : 0.14)
   const headIcon = isCircle ? 'circle' : isArea ? 'area' : 'pen'
   const headTitle = isCircle ? appConfig.copy.drawingEditor.circle : isArea ? appConfig.copy.drawingEditor.area : appConfig.copy.drawingEditor.drawing
-  const headSub = isCircle ? fmtDistance(drawing.radiusM ?? 0) : `${pointCount} ${appConfig.copy.drawingEditor.points}`
+  // ⚠️ A circle states its RADIUS instead of a point count — and only when the surface can put a
+  // number on it. On an uncalibrated Kroki `radiusM` is absent (the sheet has no metric scale
+  // yet), and «0 m» would be a lie about a ring that is plainly there: the subtitle and the
+  // stepper below simply stay away, and the ring's own grip sizes it until the Maßstab is set.
+  const hasRadius = isCircle && drawing.radiusM != null
+  const headSub = isCircle ? (hasRadius ? fmtDistance(drawing.radiusM!) : '') : `${pointCount} ${appConfig.copy.drawingEditor.points}`
   const radiusM = drawing.radiusM ?? 0
   const radStep = appConfig.drawing.circleRadiusStepM
   const radMin = appConfig.drawing.circleMinRadiusM
@@ -200,6 +209,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
         </button>
       )}
+      {onOriginal && <TwinOrigin onOriginal={onOriginal} />}
       <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>
     </div>
   )
@@ -211,7 +221,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
       {/* the whole header drags the sheet too, not just the 44×5px grip above it */}
       <div className="ctx-head" {...sheetDrag}>
         <div className="ph" style={{ borderColor: color, color }}><Icon id={headIcon} /></div>
-        <div className="ctx-titlewrap"><h3>{headTitle}</h3><p>{headSub}</p></div>
+        <div className="ctx-titlewrap"><h3>{headTitle}</h3>{headSub && <p>{headSub}</p>}</div>
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className="ctx-body">
@@ -219,7 +229,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             its own group directly above Farbe, so a hairline was drawn between the two rows that
             answer the same question — what colour is this thing and how solid. They belong to one
             block, and the rule now falls where the subject actually changes. */}
-        {!readOnly && isCircle && (
+        {!readOnly && hasRadius && (
           <div className="de-group">
             <div className="de-row"><span>{appConfig.copy.drawingEditor.radius}</span>
               <Stepper value={radiusM} min={radMin} max={100000} step={radStep} format={fmtDistance}
@@ -271,12 +281,15 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           )}
           <div className="de-row"><span>{appConfig.copy.drawingEditor.color}</span>
             <span className="dh-swatches">
-              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => onColor(c)} />)}
+              {/* named like the Form editor's identical rows (ShapeEditor · the Farbe/Strichstärke
+                  swatches): a chip whose whole content is a colour or a bar has no text to read
+                  out, so without this the row announces «Farbe» and then four blank buttons. */}
+              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
             </span>
           </div>
           <div className="de-row"><span>{appConfig.copy.drawingEditor.width}</span>
             <span className="dh-widths">
-              {WIDTHS.map((w) => <button key={w} className={`dh-width ${width === w ? 'on' : ''}`} onClick={() => onWidth(w)}><span style={{ height: w }} /></button>)}
+              {WIDTHS.map((w) => <button key={w} className={`dh-width ${width === w ? 'on' : ''}`} aria-label={`${appConfig.copy.drawingEditor.width} ${w}`} onClick={() => onWidth(w)}><span style={{ height: w }} /></button>)}
             </span>
           </div>
           {isLine && (
@@ -347,23 +360,21 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               </div>
             ) : (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.arrow}</span>
-                <span className="dh-widths">
-                  <button className={`de-toggle ${drawing.arrow ? 'on' : ''}`} aria-pressed={!!drawing.arrow} onClick={() => onArrow(!drawing.arrow)}>{drawing.arrow ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}</button>
-                </span>
+                <OnOff ariaLabel={appConfig.copy.drawingEditor.arrow} value={!!drawing.arrow} onChange={onArrow} />
               </div>
             )}
             {/* Which end the Abschluss sits at is the second half of the same question — so it sits
                 in the same row block, directly under it. It does not MOVE the line: the drawn hose
                 stays where it is, only its direction of travel turns around (lib/lineAttachments ·
                 flipLine), and everything hooked to either end stays hooked where it physically is. */}
+            {/* ⚠️ An ACTION, not a state — so it is not one of this panel's Segmented pairs and
+                no longer wears their chrome (01.09.). It used to sit as a label plus a lone icon
+                chip in the `.de-toggle` box, which reads as «umkehren: on/off» while nothing here
+                is ever on: the row is one press that does one thing. */}
             {onReverse && (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.reverse}</span>
-                <span className="dh-widths">
-                  <button className="de-toggle" onClick={onReverse} title={appConfig.copy.drawingEditor.reverse} aria-label={appConfig.copy.drawingEditor.reverse}>
-                    <Icon id="swap" />
-                  </button>
-                </span>
-              </div>
+              <button type="button" className="de-action" onClick={onReverse}>
+                <Icon id="swap" />{appConfig.copy.drawingEditor.reverse}
+              </button>
             )}
             {onContent && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.content}</span>
@@ -500,9 +511,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 gets the same switch a hose line has. */}
             {(isLine ? supportsDistance : areaM2 != null) && !readOnly && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.showOnMap}</span>
-                <span className="dh-widths">
-                  <button className={`de-toggle ${drawing.showDistance ? 'on' : ''}`} aria-pressed={!!drawing.showDistance} onClick={() => onShowDistance(!drawing.showDistance)}>{drawing.showDistance ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}</button>
-                </span>
+                <OnOff ariaLabel={appConfig.copy.drawingEditor.showOnMap} value={!!drawing.showDistance} onChange={onShowDistance} />
               </div>
             )}
             {hasProfileCoords && (

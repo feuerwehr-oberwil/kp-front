@@ -386,6 +386,10 @@
 
 .ctx-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px 16px; }
 .ctx-actions > .btn { flex: 1 1 140px; }
+/* «Gespiegelt – zum Original» (components/TwinOrigin) — the ONE line the shared DrawEditor /
+   ShapeEditor carries about which document a mirrored object actually lives in. Quieter than the
+   actions beside it, because it is provenance and a way there, not something done to the object. */
+.twin-origin { color: var(--ink-faint); }
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 700;
   padding: 11px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
   cursor: pointer; color: var(--ink); white-space: nowrap; }

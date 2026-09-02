@@ -48,6 +48,9 @@ export const de = {
   layerPanel: {
     stateVisible: 'sichtbar, ausblenden',
     stateHidden: 'ausgeblendet, einblenden',
+    // Der Regler unter einer eingeblendeten Ebene – im Screenreader hinter dem Ebenennamen,
+    // damit «Deckkraft» sagt, wovon.
+    opacity: 'Deckkraft',
   },
   help: {
     menu: 'Funktionen & Hilfe',
@@ -703,6 +706,7 @@ export const de = {
     // single Linie tool (Freihand-drag ↔ Punkte toggle lives in its dock), mirroring the Karte map
     { id: 'line', icon: 'pen', label: 'Linie' },
     { id: 'area', icon: 'area', label: 'Fläche' },
+    { id: 'circle', icon: 'circle', label: 'Absperrkreis' },
     { id: 'text', icon: 'type', label: 'Notiz' },
     { id: 'resource', icon: 'flag', label: 'Trupp' },
     { id: 'sep-measure', sep: true, icon: '', label: '' },
@@ -1774,6 +1778,7 @@ export const de = {
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Stärke und Linienart unten wählen.',
       line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Stil unten wählen.',
       area: 'Ziehen zeichnet den Umriss frei. Oder Eckpunkte antippen (mind. 3) – Doppeltippen oder «Fertig» schliesst die Fläche ab.',
+      circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen. «Textfeld» macht daraus einen mehrzeiligen Block, dessen Breite sich am rechten Rand ziehen lässt.',
       resource: 'Auf den Plan tippen, um einen Trupp zu setzen. Zum Verschieben ziehen.',
       scale: 'Die zwei Endpunkte des gedruckten Massstabs antippen, dann die reale Länge eingeben. Danach zeigen Linien mit «Länge» echte Meter.',
@@ -1945,11 +1950,17 @@ export const de = {
       twinPanelFromMap: 'Gespiegelt von der Karte',
       // Ein Zwilling ohne Namen: das Wort steht im Etikett, damit die Plakette nie leer bleibt.
       twinUnnamed: 'Symbol',
+      // Die Herkunft im geteilten Editor: Farbe, Breite, Löschen sind hier dieselben wie bei
+      // einem eigenen Objekt – nur EINE Sache ist anders, und die steht als Weg dahin, nicht als
+      // Warnung. (Die Zwillings-Plakette sagt es im Untertitel; die beiden Flächen-Editoren
+      // hatten dafür bis 01.09. gar keine Stelle.)
+      twinOrigin: 'Gespiegelt – zum Original',
     },
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
     insertVertex: 'Punkt einfügen',
     dragVertex: 'Eckpunkt ziehen · gedrückt halten zum Löschen',
+    dragRadius: 'Radius ziehen',
     groupDeleteTitle: 'Auswahl löschen',
     groupDeleted: 'Auswahl gelöscht',
     groupDeletedN: '{n} Objekte vom Plan gelöscht',
@@ -1957,6 +1968,7 @@ export const de = {
     placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
     placeLine: 'Linie auf Plan gezeichnet',
     placeArea: 'Fläche auf Plan gezeichnet',
+    placeCircle: 'Absperrkreis auf Plan gezeichnet',
     placeTeam: '{name} auf Plan gesetzt',
     selectTrupp: 'Welcher Trupp?',
     newTeam: 'Neuer Trupp',
@@ -2212,6 +2224,14 @@ export const de = {
     // FKS: eine betroffene Fläche wird schraffiert, nicht gewaschen (Brandzone/Flächenbrand)
     fillHatch: 'Schraffiert',
     move: 'Verschieben',
+    // Getippt statt gezogen: ✥ und ⟳ schalten die Direktbedienung auf der Fläche ein. Die
+    // Leiste klebt unten in der Mitte – nach UNTEN ziehen geht dort nicht, also übernimmt in
+    // diesem Zustand die ganze Karte bzw. der ganze Plan die Geste.
+    moveArmed: 'Verschieben aktiv – zum Bewegen ziehen',
+    rotateArmed: 'Drehen aktiv – zum Drehen ziehen',
+    // die feste Auswahl-Leiste unten an Karte und Plan (SelectionBar) — Gruppenname für
+    // Screenreader; ihre drei Knöpfe tragen move / shapes.rotate / delete
+    selectionBar: 'Auswahl',
     points: 'Punkte',
     preset: 'Stil',
     color: 'Farbe',

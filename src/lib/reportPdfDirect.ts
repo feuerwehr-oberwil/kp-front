@@ -19,7 +19,7 @@ import {
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
-import { buildKrokiPayload, shapeSvgString } from './krokiPayload'
+import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolCaptionText } from './symbols'
 import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { placardSvgForSymbol } from './placard'
@@ -67,6 +67,16 @@ export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, stri
       } else {
         out.symbol = a.symbol
       }
+    }
+    if (a.kind === 'circle') {
+      // An Absperrkreis prints as a client-resolved glyph in a SQUARE box, the way a plan shape
+      // does (below): `sizeN` is the DIAMETER as a fraction of the plan width, so the server's
+      // existing symbol path sizes it against the same page width the screen sized it against —
+      // and the ring stays round on paper without the sheet's aspect having to travel with it.
+      out.kind = 'symbol'
+      out.symbolSvg = circleSvgString(a.color ?? appConfig.drawing.circleColor, a.fillOpacity ?? appConfig.drawing.circleFillOpacity, !!a.hatch, a.dashed !== false)
+      out.sizeN = 2 * (a.radiusN ?? 0)
+      out.rotation = undefined
     }
     if (a.kind === 'shape') {
       // a plan shape prints as a client-resolved glyph (like map shapes); sizeN scales it

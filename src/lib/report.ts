@@ -93,6 +93,7 @@ export function hasVisiblePlanAnnotation(board: BoardDoc, planId: string): boole
   return (board[planId] ?? []).some((a) => {
     if (a.kind === 'text') return !!(a.text ?? '').trim()
     if (a.kind === 'draw' || a.kind === 'area') return Array.isArray(a.pts) && a.pts.length > 0
+    if (a.kind === 'circle') return (a.radiusN ?? 0) > 0
     if (a.kind === 'symbol' || a.kind === 'shape' || a.kind === 'resource') return true
     return false
   })

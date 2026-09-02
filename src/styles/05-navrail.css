@@ -310,6 +310,13 @@ html.rail-dragging .layers-card { transition: none; }
 .lrow .lock { display: grid; place-items: center; font-size: 13px; color: rgba(255, 255, 255, .5); }
 .lrow .eye { font-size: 15px; color: var(--blue); display: grid; place-items: center; }
 .lrow.off .eye { color: rgba(255, 255, 255, .45); }
-.opacity { display: flex; gap: 9px; align-items: center; padding: 2px 8px 9px 34px; }
-.opacity input { flex: 1; accent-color: var(--blue); height: 4px; }
-.opacity span { font-family: var(--mono); font-size: 10px; color: rgba(255, 255, 255, .6); width: 34px; text-align: right; }
+/* Deckkraft under a shown layer. The control is the app's own `.uslider` (07-toolrail), not a
+   native <input type="range">: this was the last native form control on these surfaces, it came
+   out in the browser's own track-and-thumb rather than the panel's, and its 4px rail was the
+   smallest target in the app. The % stays beside it as the live read-out under the finger.
+   It costs height — a `--tap` band where a 4px rail stood — and that is the trade: the row only
+   appears under a layer that is actually SHOWN and carries a transparency, so it is at most a
+   handful of them in a list that already scrolls. */
+.opacity { display: flex; gap: 9px; align-items: center; padding: 0 8px 4px 34px; }
+.opacity span { font-family: var(--mono); font-size: 10px; color: color-mix(in srgb, var(--on-accent-ink) 60%, transparent);
+  width: 34px; text-align: right; }

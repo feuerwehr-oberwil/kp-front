@@ -107,6 +107,33 @@ export function shapeSvgString(kind: ShapeKind, color: string, stop = false, asp
 }
 
 /**
+ * An Absperrkreis (Gefahrenradius) as a standalone SVG string — for the one path that can place
+ * a glyph but not a circle: the printed plan page (reportPdfDirect · planAnnosForPdf) sends it as
+ * a `symbol` whose `sizeN` is the cordon's DIAMETER as a fraction of the plan width. The box is
+ * square, so the ring stays round on paper whatever the sheet's aspect is, and the server needs
+ * no circle primitive of its own.
+ *
+ * ⚠️ The outline weight is in viewBox units, like every other plan glyph printed without a box
+ * size (shapeSvgString · `boxPx` undefined): a printed cordon keeps its proportion rather than a
+ * screen pixel weight.
+ */
+export function circleSvgString(color: string, fillOpacity?: number, hatch = false, dashed = true): string {
+  const sw = 3
+  const r = 50 - sw / 2
+  const id = `cih-${color.replace(/[^a-z0-9]/gi, '')}`
+  const defs = hatch
+    ? `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="12" height="12"`
+      + ` patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="12" stroke="${color}"`
+      + ' stroke-width="1.6"/></pattern></defs>'
+    : ''
+  const fill = hatch ? `fill="url(#${id})"` : `fill="${color}" fill-opacity="${fillOpacity ?? 0.12}"`
+  return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">'
+    + defs
+    + `<circle cx="50" cy="50" r="${r}" ${fill} stroke="${color}" stroke-width="${sw}"`
+    + `${dashed ? ' stroke-dasharray="7 5"' : ''}/></svg>`
+}
+
+/**
  * The pixel width the SERVER will raster this shape's box at — the same number the on-screen
  * marker uses, before the page's own dpi scaling.
  *

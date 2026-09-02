@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { glyphFor, overlayFor, twinName } from './twinGlyph'
-import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, LUEFTER, LUEFTER_EXTRACT } from './symbolRender'
+import { boomFor, glyphFor, overlayFor, twinName } from './twinGlyph'
+import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, HUBRETTER, LUEFTER, LUEFTER_EXTRACT } from './symbolRender'
 import { appConfig } from '../config/appConfig'
 import type { BoardAnno, Entity } from '../types'
 
@@ -20,6 +20,7 @@ const byName: Record<string, string> = {
   [LUEFTER]: '<svg id="luefter"/>',
   [LUEFTER_EXTRACT]: '<svg id="luefter-saugend"/>',
   [TAFEL]: '<svg id="tafel-leer"/>',
+  [HUBRETTER]: '<svg id="vkf-hubretter"/>',
   Hydrant: '<svg id="hydrant"/>',
 }
 
@@ -50,10 +51,23 @@ describe('glyphFor', () => {
     expect(glyphFor(anno({ symbol: LUEFTER }), byName)).toBe(byName[LUEFTER])
   })
 
+  // D-20: the pack DOES carry a «VKF Hubretter» artwork, so the plain lookup resolved a
+  // different vehicle than the original — which composes the plain body plus a live boom.
+  it('draws a Hubretter as the plain Fahrzeug body, never the pack’s own Hubretter plate', () => {
+    expect(glyphFor(anno({ symbol: HUBRETTER }), byName)).toBe(byName[appConfig.symbols.vehicleName])
+  })
+
   it('falls back to the plain library glyph, and to nothing when there is none', () => {
     expect(glyphFor(anno({ symbol: 'Hydrant' }), byName)).toBe(byName.Hydrant)
     expect(glyphFor(anno({ symbol: 'Nicht im Katalog' }), byName)).toBe('')
     expect(glyphFor(anno({}), byName)).toBe('')
+  })
+})
+
+describe('boomFor', () => {
+  it('gives a Hubretter its boom, aimed by rotation2 plus the frame change — and nothing else one', () => {
+    expect(boomFor(anno({ symbol: HUBRETTER, rotation2: 20 }), 80, -5)).toEqual({ lengthPx: 80, deg: 15 })
+    expect(boomFor(anno({ symbol: 'Hydrant' }), 80)).toBeUndefined()
   })
 })
 

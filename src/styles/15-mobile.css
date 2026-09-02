@@ -202,7 +202,7 @@
      a sheet is open; the sheet then covers both Plan rails as its Lage twin already does, while
      the top bar (z 56) and modal overlays remain above it. */
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
-  .phone-tools .coord-read { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
+  .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
   /* the Eintrag-FAB clears both bars on the drawing surfaces */
   .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); }
 
@@ -225,6 +225,15 @@
      in-progress edits and its scroll position, and springs back on drop through the same
      transition. Beats .sheet-full on specificity, so a full sheet peeks away too. */
   body.sheet-peek .ctx { height: calc(76px + env(safe-area-inset-bottom)); }
+  /* …and the selection bar rides just above that sheet, because the two describe the SAME
+     selection and a bar hidden behind its own editor is a bar nobody can reach. The two heights
+     are the sheet's own defaults, repeated here on purpose and kept in this one place beside
+     them — there is no way for a sibling to read a fixed sheet's height in CSS.
+     Deliberately NOT tied to `body.sheet-peek`: the peek exists for the length of a drag, and a
+     bar that jumps 300px the moment the finger presses ✥ is worse than one sitting a little
+     high. It simply stays where the press found it. */
+  .app:has(.ctx) .sel-bar { bottom: calc(46dvh + 12px); }
+  .app:has(.ctx.sheet-full) .sel-bar { bottom: calc(88dvh + 12px); }
   /* phone scroll model: the sheet is a fixed flex column. The grip + header are pinned, and so
      is the ACTIONS row — by layout, never position:sticky, because sticky inside a
      backdrop-filtered scroller proved unreliable on iOS and `.ctx` carries a blur.
@@ -443,8 +452,8 @@
     bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom));
     max-height: calc(100dvh - var(--rail-h) * 2 - 102px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 
-  /* coordinate readout sits above the bottom bar + home indicator */
-  .coord-read { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
+  /* coordinate readout + selection bar sit above the bottom bar + home indicator */
+  :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
 
   /* journal drawer → full-width bottom sheet (was a right-edge column too narrow on a
      phone); body scrolls, capped to the viewport with safe-area room top + bottom. The

@@ -35,14 +35,16 @@
 /* Fat-finger touch slop: an invisible hit pad a little larger than the glyph, so a tap that
    lands just shy of the symbol still selects it. Because markers are DOM nodes ABOVE the map
    canvas, this pad also wins over any area/Absperrkreis drawn underneath (those live on the
-   canvas). Not on notes: they're already a wide pill and own inline-text editing.
+   canvas). Not on notes: they're already a wide pill and own inline-text editing. Not on
+   Formen either: a shape's box has two different sides, and squaring the pad off the longer one
+   is what made a Rotation swallow the ground around it — theirs hugs its own box (.shape-glyph).
    ⚠️ Where two pads OVERLAP the CSS no longer decides. It used to: equal z-index falls back to
    DOM order = placement order = the alarm's history, so a tap between the Wasserbezugsort and
    the Kleinlöscher you set after it always gave you the Kleinlöscher. The winner is now picked
    in JS by NEAREST CENTRE, and a tap that covers more than one fans the pile out
    (MapMarkers · pileAt / fanOffsets). Keep the pad modest all the same — it is what the hit
    test measures against. */
-.marker:not(.marker-note)::before {
+.marker:not(.marker-note):not(.marker-shape)::before {
   content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 0;
   width: max(calc(var(--gpx) + 20px), 44px); height: max(calc(var(--gpx) + 20px), 44px);
 }
@@ -60,8 +62,11 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 30%, transparent), 0 2px 12px rgba(30, 45, 70, .28); animation: haloIn .18s var(--ease); }
 @keyframes haloIn { from { opacity: 0; transform: translate(-50%, -50%) scale(.8); } }
 .marker.sel .ts, .marker.sel .shape-glyph, .marker.sel .note-pill { position: relative; z-index: 1; }
-.handle { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff;
-  color: var(--on-accent-ink); display: grid; place-items: center; box-shadow: 0 2px 7px rgba(30, 45, 70, .32); padding: 0; z-index: 8; }
+/* ⚠️ The separating ring is `--surface`, not a frozen #fff: in day it is the white rim that lifts
+   a handle off bright imagery, at night it is the dark rim that does the same over a dark basemap
+   — a frozen white there smears into a glow (the same reasoning as --note-halo). */
+.handle { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--surface);
+  color: var(--on-fill); display: grid; place-items: center; box-shadow: 0 2px 7px rgba(30, 45, 70, .32); padding: 0; z-index: 8; }
 .handle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .handle .i { width: 16px; height: 16px; stroke-width: 2.3; }
 /* inline delete + live-vehicle rotate share the top-LEFT corner of the ring (they are
@@ -69,7 +74,7 @@
 .marker-rotate { left: calc(50% - var(--hbox) / 2 - 3px); top: calc(50% - var(--hbox) / 2 - 3px);
   transform: translate(-50%, -50%); }
 /* (a note carries no corner handles: tap = panel, drag = move — 29.08. grammar unification) */
-.marker-rotate { background: var(--ink-fill); cursor: grab; touch-action: none; }
+.marker-rotate { background: var(--blue); cursor: grab; touch-action: none; }
 .marker-rotate:active { cursor: grabbing; }
 .ts { position: relative; line-height: 0; border-radius: var(--r-xs); transition: transform .14s var(--ease), box-shadow .14s var(--ease); }
 /* storey badge — signed floor (+2, -1) at the icon's top-right corner. Ink on the surface
@@ -151,8 +156,24 @@
 
 /* editable shapes (arrow / cloud / square) — sized in metres, rotated in place.
    No transform transition: rotation must track the pointer 1:1 (a transition makes
-   it lag and feel janky). The body shows a move cursor — drag it to reposition. */
-.shape-glyph { line-height: 0; cursor: move; }
+   it lag and feel janky).
+   ⚠️ The body is a TAP TARGET, not a drag handle (02.09.): a Form is moved from the selection
+   bar's ✥ — dragged for the small adjustment, or armed for the whole surface — so its cursor is
+   the pointer that says «tap me», never the four arrows that promise a drag the surface refuses. */
+.shape-glyph { line-height: 0; cursor: pointer; }
+/* THE hit pad of a Form — the shape's OWN box grown by the same 20px of slop a symbol's pad
+   carries, per axis, with the 44px glove floor on each side. Drawn inside the glyph, so it turns
+   with the shape and covers the run wherever the run points; and stated once, so the Karte, the
+   Kroki and a mirrored Form answer a finger identically. The `transform` every renderer sets on
+   this box is what makes it the pad's containing block, whatever its `position`.
+   ⚠️ Per AXIS, not squared off the long side. The marker pad above is ONE square of
+   max(width, height): right for a Rechteck, whose box is square-ish, and wrong for a Rotation,
+   where a 500px run drew a 520px square of hit area and swallowed every tap on the empty ground
+   above and below the loop. The Kroki had the opposite half of the same bug — a `.wb-anno`
+   carried no pad at all, so a lean loop (its width is capped in metres, a few dozen px however
+   long the run gets) was a sub-44px band a glove could not land on. */
+.shape-glyph::before { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: max(calc(100% + 20px), 44px); height: max(calc(100% + 20px), 44px); }
 .shape-glyph .shape-svg { width: 100%; height: 100%; display: block;
   filter: drop-shadow(0 1px 1px rgba(15, 22, 34, .4)) drop-shadow(0 3px 6px rgba(30, 45, 70, .25)); }
 /* shapes show their rotate/resize handles when selected; a quick one-shot bounce on the
@@ -162,8 +183,14 @@
 @keyframes shapebounce { 0% { transform: scale(.9); } 55% { transform: scale(1.14); } 100% { transform: scale(1); } }
 
 /* Transform handles live in a rotor that rotates WITH the shape, so they stay
-   visually attached. Colour language: neutral dark (ink) for the edit handles so
-   they stay unobtrusive; red is reserved for delete. */
+   visually attached.
+   Colour language (unified 01.09.): ONE blue family for every edit affordance on both surfaces.
+   A geometry POINT you drag is white-filled with a blue ring (.draw-handle / .wb-vertex); an
+   ACTION grip that transforms the whole object — rotate, resize, the axis grips, a Rotation's
+   ends — is solid blue. The near-black --ink-fill these wore until 01.09. was the one handle
+   colour that said nothing: it read as a second, unrelated vocabulary next to the blue nodes on
+   the very same shape. Amber is reserved for the SECOND axis (a composite's part rotor, the
+   Hubretter cage), red for delete, and --accent stays alarm/relationship — never «selected». */
 /* rotate + resize live in a rotor that turns WITH the shape so they stay attached. The
    rotor fills the marker (centre = glyph centre); handles anchor off --hbox so they sit
    a fixed distance outside the glyph at any zoom. */
@@ -171,19 +198,19 @@
 .shape-rotor button { pointer-events: auto; }
 /* the stem tethers the rotate knob to the shape — a clear "swing me around" cue */
 .shape-stem { position: absolute; left: 50%; top: calc(50% - var(--hbox, 56px) / 2 - 18px); width: 2px; height: 18px;
-  transform: translateX(-50%); background: var(--ink-fill); pointer-events: none; }
+  transform: translateX(-50%); background: var(--blue); pointer-events: none; }
 /* rotate knob floats above top-centre; resize grip at the bottom-right corner of the ring */
 .shape-rotate { left: 50%; top: calc(50% - var(--hbox, 56px) / 2 - 18px); transform: translate(-50%, -50%);
-  background: var(--ink-fill); cursor: grab; touch-action: none; }
+  background: var(--blue); cursor: grab; touch-action: none; }
 .shape-rotate:active { cursor: grabbing; }
 @media (hover: hover) {
-  .shape-rotate:hover { background: var(--ink-fill-hover); }
+  .shape-rotate:hover { background: var(--blue-strong); }
 }
 .shape-resize { left: calc(50% + var(--hbox, 56px) / 2 + 3px); top: calc(50% + var(--hbox, 56px) / 2 + 3px);
-  transform: translate(-50%, -50%); border-radius: var(--r-sm); background: var(--ink-fill); cursor: nwse-resize; touch-action: none; }
+  transform: translate(-50%, -50%); border-radius: var(--r-sm); background: var(--blue); cursor: nwse-resize; touch-action: none; }
 /* the second grip. Same chrome as the first; the two are told apart by where they sit, by the
    direction their arrows point, and by their labels. */
-.shape-width { transform: translate(-50%, -50%); border-radius: var(--r-sm); background: var(--ink-fill);
+.shape-width { transform: translate(-50%, -50%); border-radius: var(--r-sm); background: var(--blue);
   touch-action: none; }
 /* ⚠️ A single-axis grip must not wear the diagonal `nwse-resize` cursor: on a Rechteck the two
    handles do different things, and the pointer is the only thing that says so before the drag
@@ -191,15 +218,15 @@
 .shape-axis-x { cursor: ew-resize; }
 .shape-axis-y { cursor: ns-resize; }
 @media (hover: hover) {
-  .shape-width:hover { background: var(--ink-fill-hover); }
+  .shape-width:hover { background: var(--blue-strong); }
 }
 @media (hover: hover) {
-  .shape-resize:hover { background: var(--ink-fill-hover); }
+  .shape-resize:hover { background: var(--blue-strong); }
 }
 /* the first of a Rotation's two points, while the second is still being looked for: a plain ink
    dot in the shape's own blue, big enough to find again after panning across the map */
 .place-anchor { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--blue);
-  border: 2.5px solid #fff; box-shadow: 0 1px 3px rgba(15, 22, 34, .4), 0 3px 8px rgba(30, 45, 70, .25); }
+  border: 2.5px solid var(--surface); box-shadow: 0 1px 3px rgba(15, 22, 34, .4), 0 3px 8px rgba(30, 45, 70, .25); }
 
 /* ── Rotation: die zwei Enden ────────────────────────────────────────────────────────────────
    A Rotation carries no rotate knob and no size grip — it IS its two ends, and each of them sets
@@ -208,15 +235,16 @@
    of the loop's caps (lib/shapes · rotationGripOffPx) — a grip sitting ON the cap covers both the
    loop's own end and the Wasserbezug the end was dropped on — and wear no tether: the ↔ already
    says which way it goes, and a line to it only added ink to a sign made of lines. */
-.shape-end { transform: translate(-50%, -50%); background: var(--ink-fill); cursor: grab; touch-action: none; }
+.shape-end { transform: translate(-50%, -50%); background: var(--blue); cursor: grab; touch-action: none; }
 .shape-end:active { cursor: grabbing; }
 @media (hover: hover) {
-  .shape-end:hover { background: var(--ink-fill-hover); }
+  .shape-end:hover { background: var(--blue-strong); }
 }
 
 /* Grosslüfter: a SECOND rotor for the fan/airflow, placed on the OPPOSITE (bottom) side of the
    ring from the blue vehicle-body knob and amber-tinted — so the two knobs are always far apart
-   and easy to grab independently (rotating the body without catching the fan). */
+   and easy to grab independently (rotating the body without catching the fan). Amber is the ONE
+   thing that marks a second axis, and it marks nothing else. */
 .shape-rotor-fan .shape-stem { top: calc(50% + var(--hbox, 56px) / 2); height: 18px; background: var(--amber); }
 .shape-rotor-fan .shape-rotate { top: calc(50% + var(--hbox, 56px) / 2 + 18px); background: var(--amber); }
 @media (hover: hover) {

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef } from 'react'
 import type { LayerDef } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { Slider } from './Slider'
 import type { TwinLayerRow } from '../lib/georefTwins'
 
 interface Props {
@@ -28,6 +29,17 @@ interface Props {
 }
 
 export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose }: Props) {
+  /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
+     are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
+     `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
+     same `onOpacity(id, …)`. The value reads out live beside it while the finger moves. */
+  const opacityRow = (id: string, opacity: number, label: string) => (
+    <div className="opacity" onClick={(e) => e.stopPropagation()}>
+      <Slider value={opacity} onChange={(v) => onOpacity(id, v)}
+        ariaLabel={`${label} – ${appConfig.copy.layerPanel.opacity}`} valueText={`${opacity} %`} />
+      <span>{opacity}%</span>
+    </div>
+  )
   const bases = layers.filter((l) => l.base)
   const groups = layers.filter((l) => !l.base).reduce<Record<string, LayerDef[]>>((acc, l) => {
     (acc[l.group] ??= []).push(l)
@@ -58,13 +70,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
             <span className="name">{t.label}{t.sub && <small>{t.sub}</small>}</span>
             <span className="eye"><Icon id={t.visible ? 'eye' : 'eyeoff'} /></span>
           </button>
-          {t.opacity !== undefined && t.visible && (
-            <div className="opacity" onClick={(e) => e.stopPropagation()}>
-              <input type="range" min={0} max={100} value={t.opacity}
-                onChange={(e) => onOpacity(t.id, Number(e.target.value))} />
-              <span>{t.opacity}%</span>
-            </div>
-          )}
+          {t.opacity !== undefined && t.visible && opacityRow(t.id, t.opacity, t.label)}
         </Fragment>
       ))}
     </Fragment>
@@ -134,15 +140,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
                 {l.locked && <span className="lock"><Icon id="lock" /></span>}
                 <span className="eye"><Icon id={l.visible ? 'eye' : 'eyeoff'} /></span>
               </button>
-              {l.opacity !== undefined && l.visible && (
-                <div className="opacity" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="range" min={0} max={100} value={l.opacity}
-                    onChange={(e) => onOpacity(l.id, Number(e.target.value))}
-                  />
-                  <span>{l.opacity}%</span>
-                </div>
-              )}
+              {l.opacity !== undefined && l.visible && opacityRow(l.id, l.opacity, l.label)}
             </Fragment>
           ))}
           {twinsAnchored && group === twinsAfterGroup && twinBlocks}

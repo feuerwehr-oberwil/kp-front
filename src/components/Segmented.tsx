@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { appConfig } from '../config/appConfig'
 
 /** The ONE segmented option-picker used across the details modal (ContextPanel): the Lüfter
  *  Luftrichtung, a symbol's on-canvas Beschriftung, and short fixed detail-field lists (e.g. a
@@ -33,5 +34,25 @@ export function Segmented<T extends string | number | boolean>({ options, value,
         )
       })}
     </div>
+  )
+}
+
+/**
+ * A yes/no property, in the app's ONE binary idiom (decided 01.09.): the Segmented pair, «Aus»
+ * left and «An» right. Both answers stay on screen, so «ist das an» is read rather than deduced
+ * from a single chip — which, before this, showed the state it was IN on some rows and carried
+ * only an icon on others, three idioms for one question inside the same two sheets.
+ * ⚠️ The labels are read HERE, inside the component: captured at module level they would freeze
+ * the catalogue at import time and never follow the deployment's locale (AGENTS.md · i18n).
+ */
+export function OnOff({ value, onChange, ariaLabel }: {
+  value: boolean
+  onChange: (value: boolean) => void
+  ariaLabel: string
+}) {
+  const D = appConfig.copy.drawingEditor
+  return (
+    <Segmented ariaLabel={ariaLabel} value={value} onChange={onChange}
+      options={[{ value: false, label: D.off }, { value: true, label: D.on }]} />
   )
 }

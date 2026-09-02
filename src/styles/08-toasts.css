@@ -446,7 +446,9 @@
 .note-pill-input::placeholder { color: var(--note-ink); opacity: .45; }
 /* selected/editing note: an on-theme gold ring (NOT the blue marker halo, which we suppress
    for notes) — covers both the pill and the editable input (both carry .note-pill) */
-.marker.sel .note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), 0 4px 10px rgba(30, 45, 70, .2); }
+/* `.twin-sel` is the same state on a MIRRORED note (GeorefContent*): a projection wears the
+   selection chrome of the surface it is drawn on, so the open panel says which object it is. */
+.marker.sel .note-pill, .twin-sel.note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), 0 4px 10px rgba(30, 45, 70, .2); }
 /* map text BOX: an explicit width (px — map notes don't scale with zoom) replaces the 180px
    auto-cap and lets the pill wrap + grow downwards. Mirrors .wb-text-label.box on the plan. */
 .note-pill.box { max-width: none; white-space: pre-wrap; overflow-wrap: break-word; line-height: 1.35; }
@@ -461,7 +463,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   text-shadow: 0 0 3px var(--note-halo), 0 0 3px var(--note-halo), 0 0 6px var(--note-halo); }
 /* while selected/editing, a plain note still needs an edge to grab — a faint wash of its own
    paper colour, enough to see the box without turning it back into a sticker */
-.marker.sel .note-pill.plain, .wb-anno.sel .wb-text-label.plain,
+.marker.sel .note-pill.plain, .wb-anno.sel .wb-text-label.plain, .twin-sel.note-pill.plain,
 .wb-text-input.plain, .note-pill-input.plain {
   background: color-mix(in srgb, var(--note-bg) 22%, transparent); border-color: var(--note-border-sel); }
 
@@ -551,7 +553,6 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-preset { min-height: var(--de-h); display: inline-flex; align-items: center; padding: 0 12px; }
 .draw-editor .de-input { height: var(--de-h); padding: 0 10px; }
 .draw-editor .de-input-short { width: 66px; }
-.draw-editor .de-toggle { min-height: var(--de-h); display: inline-flex; align-items: center; }
 .draw-editor .dh-swatches, .draw-editor .dh-widths { gap: 8px; }
 .draw-editor .useg { border-radius: var(--r-sm); padding: 2px; gap: 2px; }
 .draw-editor .useg-btn { min-height: calc(var(--de-h) - 4px); padding: 0 12px; }
@@ -579,9 +580,21 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-input { width: 150px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-xs);
   font-size: 13px; color: var(--ink); background: var(--surface); }
 .draw-editor .de-input-short { width: 60px; text-align: center; }
-.draw-editor .de-toggle { padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  font-size: 12.5px; font-weight: 700; color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
-.draw-editor .de-toggle.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+/* ── The panel's ACTION row (01.09.) ─────────────────────────────────────────────────────────
+   «Richtung umkehren» on a Linie and on a Rotation: one press that does one thing, with no
+   state to be in. It used to wear the `.de-toggle` chip — the same box a yes/no property wore —
+   so a row that can never light up looked like one that was merely off. Every yes/no answer in
+   this panel is a Segmented pair now, and an action reads as a row, in the grammar the
+   Verbindungen block's «Verbindung lösen» already set (11-measure · .de-conn-detach). */
+.draw-editor .de-action { display: inline-flex; align-items: center; gap: 7px; min-height: 48px; padding: 2px 0;
+  border: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 12.5px;
+  font-weight: 700; cursor: pointer; }
+.draw-editor .de-action .i { width: 16px; height: 16px; color: var(--ink-dim); }
+@media (hover: hover) {
+  .draw-editor .de-action:hover { color: var(--blue); }
+  .draw-editor .de-action:hover .i { color: var(--blue); }
+}
+.draw-editor .de-action:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* line-preset chips (Freihand · Messpfeil · Rettungsachse) — post-pick style switcher */
 .draw-editor .de-presets { display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 .draw-editor .de-preset { padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
@@ -589,9 +602,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-preset.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
 /* line-ending glyph picker (plain · arrow · Teilstück fork) uses the shared <Segmented> */
 
-/* shape editor — size / rotation range rows */
-/* shape editor hint row (size/rotation are done by dragging on the map) */
-.de-hint { display: block; font-size: 11.5px; color: var(--ink-faint); font-weight: 500; padding: 10px 0 2px; border: none; line-height: 1.4; }
+/* shape editor — the tile that previews the picked Form */
 /* ⚠️ The tile is SQUARE and the glyph is fitted into it (ShapeEditor · ShapeGlyph `fit`), so the
    padding has to be even or the drawing sits off-centre inside the ring. It used to be lopsided
    for every kind — which was invisible while the artwork was stretched to fill the box, and
@@ -600,11 +611,10 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* …the nudge belongs to the Rauch alone: its silhouette sits low-and-right inside its own viewBox
    (airy top, flat heavy bottom), so it needs the optical correction the others must not get. */
 .shape-ph-cloud { padding: 5px 9px 9px 5px; }
-/* size stepper in the shape editor — the phone-reachable way to scale (the corner
-   drag-handle sits under this sheet on a phone) */
-.shape-size-steps { display: flex; align-items: center; gap: 8px; }
-.shape-size-btn { width: 40px; min-width: 40px; height: 36px; padding: 0; justify-content: center; }
-.shape-size-btn svg { width: 18px; height: 18px; }
+/* The size row is the shared ±stepper (components/Stepper · ScaleStepper) — the phone-reachable
+   way to scale, since the corner drag-handle sits under this sheet on a phone. It used to be a
+   local 40×36 pair of `.btn`s, the one control in either editor that answered a numeric question
+   with markup of its own; it now sits on the panel's `--de-h` like every other row. */
 .shape-ph .shape-svg { width: 100%; height: 100%; }
 
 /* timeline audio play — ROUND. It is a transport control, the one shape every player in the

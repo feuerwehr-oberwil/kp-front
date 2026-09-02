@@ -132,3 +132,9 @@ export function forkBearing(coords: LngLat[], zoom: number, minPx: number): numb
   const ref = lookbackPoint(px, minPx)
   return (Math.atan2(tip[1] - ref[1], tip[0] - ref[0]) * 180) / Math.PI
 }
+
+/** The mirrored-ink layers MapView must register in `interactiveLayerIds` so a projected Plan
+ *  line/Fläche is picked exactly like the native `l-draw-*` ink beside it. Named here, once: a
+ *  layer added in GeorefContentMap and forgotten in the list is pointer-dead ink — which is the
+ *  bug this list closes (a mirrored Leitung answered only at its midpoint dot, 01.09.). */
+export const GEOREF_CONTENT_PICK_LAYERS = ['l-georef-content-hit', 'l-georef-content-line', 'l-georef-content-line-dash', 'l-georef-content-fill', 'l-georef-content-hatch'] as const

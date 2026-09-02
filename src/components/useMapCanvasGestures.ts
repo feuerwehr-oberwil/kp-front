@@ -20,7 +20,11 @@ interface Args {
   /** placed map entities (symbols/shapes/notes…) the marquee should also catch */
   entities: Entity[]
   /** report the boxed drawings AND entities so a lasso can grab both */
-  onMarquee?: (drawIds: string[], entityIds: string[]) => void
+  onMarquee?: (drawIds: string[], entityIds: string[], twinKeys: string[]) => void
+  /** the mirrored objects on this surface, as bare key + points — a lasso boxes a projection
+   *  exactly like the object beside it (D-09); the group's writers fold each one through its
+   *  own fit (MapView · onContentTwinTransform). */
+  twinPoints?: { key: string; points: LngLat[] }[]
   /** the Absperrkreis (circle) tool is active — drag from centre out to set the radius */
   circleEnabled?: boolean
   /** commit a finished circle (centre + geodesic radius in metres) */
@@ -44,7 +48,7 @@ interface Args {
  * commit, no editor, the map pans out from under the finger). Keeping the listeners bound for
  * the whole gesture (deps = enable-flag + mapReady only) is what makes the map match the Plan.
  */
-export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, onFreehandPointer, marqueeEnabled, drawings, entities, onMarquee, circleEnabled = false, onCircle, circleMinRadiusM = 5, circleInitialRadiusM = 25 }: Args) {
+export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, onFreehandPointer, marqueeEnabled, drawings, entities, twinPoints = [], onMarquee, circleEnabled = false, onCircle, circleMinRadiusM = 5, circleInitialRadiusM = 25 }: Args) {
   const [fhPath, setFhPath] = useState<LngLat[] | null>(null)
 
   // Freehand drawing happens ON the map canvas (not a blocking overlay) so the map can
@@ -67,6 +71,7 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
   const drawingsRef = useRef(drawings)
   const entitiesRef = useRef(entities)
   const onMarqueeRef = useRef(onMarquee)
+  const twinPointsRef = useRef(twinPoints)
   const onCircleRef = useRef(onCircle)
   useEffect(() => {
     onFreehandRef.current = onFreehand
@@ -74,6 +79,7 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
     drawingsRef.current = drawings
     entitiesRef.current = entities
     onMarqueeRef.current = onMarquee
+    twinPointsRef.current = twinPoints
     onCircleRef.current = onCircle
   })
   useEffect(() => {
@@ -183,7 +189,9 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       // a drawing is caught if any vertex falls in the box; an entity if its point does
       const drawIds = drawingsRef.current.filter((d) => Array.isArray(d.coords) && d.coords.some((c) => inBox(c))).map((d) => d.id)
       const entityIds = entitiesRef.current.filter((e) => Array.isArray(e.coord) && inBox(e.coord)).map((e) => e.id)
-      onMarqueeRef.current?.(drawIds, entityIds)
+      // …and a mirrored object on the same rule: any of its points inside the box
+      const twinKeys = twinPointsRef.current.filter((t) => t.points.some((c) => inBox(c))).map((t) => t.key)
+      onMarqueeRef.current?.(drawIds, entityIds, twinKeys)
     }
     const onTouchStart = (e: any) => {
       mUsingTouch.current = true
