@@ -34,11 +34,10 @@ See docs/ALARM-INTEGRATIONS.md.
 """
 
 import logging
-import secrets
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audit
@@ -48,6 +47,7 @@ from ..credentials import load as load_credentials
 from ..database import get_db
 from ..push import notify_new_alarm
 from ..schemas import FireHubWebhook
+from .alarms import ALARM_INTAKE
 
 logger = logging.getLogger(__name__)
 
@@ -56,22 +56,14 @@ router = APIRouter(prefix="/firehub", tags=["firehub"])
 SOURCE = "firehub"
 
 
-def _check_secret(provided: str | None) -> None:
+def _check_secret(request: Request, header_token: str | None) -> None:
     """⚠️ Preceded by ``await load_credentials(db)`` at every call site — the secret is
     settable from /admin and must be live on the next request, not the next restart.
 
-    The same ``alarm_webhook_secret`` the generic ``POST /api/alarms`` path checks: one
-    intake secret for every non-Divera sender, FireHub included."""
-    expected = credential("alarm_webhook_secret")
-    if not expected:
-        # Fail CLOSED: with no secret configured, anyone could open incidents remotely.
-        # Setting ALARM_WEBHOOK_SECRET is the deployment's opt-in to generic intake.
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Alarm-Intake deaktiviert (ALARM_WEBHOOK_SECRET nicht gesetzt)",
-        )
-    if not provided or not secrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Webhook-Secret")
+    The same ``alarm_webhook_secret`` the generic ``POST /api/alarms`` path checks, through
+    that path's own gate: one intake secret for every non-Divera sender, FireHub included,
+    and therefore one wording for «deaktiviert» and one for «ungültig»."""
+    ALARM_INTAKE.check_request(credential("alarm_webhook_secret"), request, header_token)
 
 
 @router.post("/webhook", status_code=200)
@@ -85,7 +77,7 @@ async def webhook(
     X-Webhook-Secret (same convention as the Divera and generic-intake webhooks). Always 200 —
     a redelivered start and an end for an unknown operation are both idempotent no-ops."""
     await load_credentials(db)
-    _check_secret(request.query_params.get("secret") or x_webhook_secret)
+    _check_secret(request, x_webhook_secret)
 
     source_id = str(payload.operation.ops_id)
     if payload.trigger.action.lower() == "end":

@@ -1,6 +1,5 @@
 """Divera endpoints: webhook intake, pool list/refresh, open-or-correct, attach, archive."""
 
-import secrets
 import uuid
 from datetime import UTC
 from zoneinfo import ZoneInfo
@@ -13,6 +12,7 @@ from .. import audit
 from .. import divera as divera_svc
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, EditorOrAdmin
+from ..auth.secret_token import SecretGate
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import get_db
@@ -24,20 +24,20 @@ from ..schemas import DiveraEmergencyOut, DiveraTakeBody, DiveraWebhookPayload, 
 router = APIRouter(prefix="/divera", tags=["divera"])
 
 
-def _check_secret(provided: str | None) -> None:
+#: Fail-closed like every other intake: with no secret configured, anyone could inject fake
+#: alarms that an editor then "takes" into a real incident. Setting DIVERA_WEBHOOK_SECRET
+#: enables the webhook; the polling path (pool/refresh) works without it.
+_WEBHOOK = SecretGate(
+    query_param="secret",
+    disabled_detail="Webhook deaktiviert (DIVERA_WEBHOOK_SECRET nicht gesetzt)",
+    invalid_detail="Ungültiges Webhook-Secret",
+)
+
+
+def _check_secret(request: Request, header_token: str | None) -> None:
     """⚠️ Call ``await load_credentials(db)`` before this — it reads the cached snapshot, and a
     secret set in /admin thirty seconds ago has to be live now, not at the next restart."""
-    expected = credential("divera_webhook_secret")
-    if not expected:
-        # Fail CLOSED: with no secret configured, anyone could inject fake alarms that an
-        # editor then "takes" into a real incident. Set DIVERA_WEBHOOK_SECRET to enable
-        # the webhook; the polling path (pool/refresh) works without it.
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Webhook deaktiviert (DIVERA_WEBHOOK_SECRET nicht gesetzt)",
-        )
-    if not provided or not secrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Webhook-Secret")
+    _WEBHOOK.check_request(credential("divera_webhook_secret"), request, header_token)
 
 
 @router.post("/webhook", status_code=200)
@@ -49,7 +49,7 @@ async def webhook(
 ) -> dict:
     """Receive an alarm. Secret via ?secret= or X-Webhook-Secret. 200 even on duplicate."""
     await load_credentials(db)
-    _check_secret(request.query_params.get("secret") or x_webhook_secret)
+    _check_secret(request, x_webhook_secret)
     em = await divera_svc.upsert_emergency(db, payload)
     inc = None
     if em is not None:

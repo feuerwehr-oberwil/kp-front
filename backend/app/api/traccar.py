@@ -8,7 +8,6 @@ GPS hardware — see `app.fake_scenario`. Injection is double-gated: the env fla
 ALARM_WEBHOOK_SECRET (same secret convention as the alarm intake), both fail-closed.
 """
 
-import secrets
 from datetime import UTC, datetime
 
 import httpx
@@ -16,6 +15,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from ..auth.dependencies import UserOrAdmin
+from ..auth.secret_token import SecretGate
 from ..config import settings
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
@@ -41,21 +41,23 @@ class FakeVehicleIn(BaseModel):
     address: str | None = None
 
 
+#: The second of the two gates on the fake fleet: the intake secret, with this surface's own
+#: «deaktiviert» wording — a station reading it must not be told to look at the alarm intake.
+_FAKE = SecretGate(
+    query_param="secret",
+    disabled_detail="Fake-Positionen deaktiviert (ALARM_WEBHOOK_SECRET nicht gesetzt)",
+    invalid_detail="Ungültiges Webhook-Secret",
+)
+
+
 def _check_fake_access(request: Request, x_webhook_secret: str | None) -> None:
+    """Double-gated (see the module docstring): the env flag first, then the shared secret."""
     if not settings.traccar_fake:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Fake-Positionen deaktiviert (TRACCAR_FAKE nicht gesetzt)",
         )
-    expected = credential("alarm_webhook_secret")
-    if not expected:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Fake-Positionen deaktiviert (ALARM_WEBHOOK_SECRET nicht gesetzt)",
-        )
-    provided = request.query_params.get("secret") or x_webhook_secret
-    if not provided or not secrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Webhook-Secret")
+    _FAKE.check_request(credential("alarm_webhook_secret"), request, x_webhook_secret)
 
 
 @router.post("/fake", status_code=200)

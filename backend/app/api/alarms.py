@@ -8,7 +8,6 @@ Idempotent on (source, source_id): a retried webhook returns the existing incide
 Fail-closed like the Divera webhook: no ALARM_WEBHOOK_SECRET → 403.
 """
 
-import secrets
 import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -18,6 +17,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarms import create_incident_from_alarm, find_by_source_ref, get_config_model, lock_alarm_identity
+from ..auth.secret_token import SecretGate
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import execute_dml, get_db
@@ -29,19 +29,21 @@ from ..schemas import RESERVED_ALARM_SOURCES, AlarmIn, AlarmOut, MilestonesIn, M
 router = APIRouter(prefix="/alarms", tags=["alarms"])
 
 
-def _check_secret(provided: str | None) -> None:
+#: The gate every non-Divera intake shares — FireHub (api/firehub.py) imports this very
+#: constant, because it is the same secret and therefore has to be the same two answers.
+#: Fail-closed: with no secret configured anyone could open incidents remotely, so setting
+#: ALARM_WEBHOOK_SECRET is the deployment's opt-in to generic intake.
+ALARM_INTAKE = SecretGate(
+    query_param="secret",
+    disabled_detail="Alarm-Intake deaktiviert (ALARM_WEBHOOK_SECRET nicht gesetzt)",
+    invalid_detail="Ungültiges Webhook-Secret",
+)
+
+
+def _check_secret(request: Request, header_token: str | None) -> None:
     """⚠️ Preceded by ``await load_credentials(db)`` at every call site — the secret is now
     settable from /admin and must be live on the next request, not the next restart."""
-    expected = credential("alarm_webhook_secret")
-    if not expected:
-        # Fail CLOSED: with no secret configured, anyone could open incidents remotely.
-        # Setting ALARM_WEBHOOK_SECRET is the deployment's opt-in to generic intake.
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Alarm-Intake deaktiviert (ALARM_WEBHOOK_SECRET nicht gesetzt)",
-        )
-    if not provided or not secrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Webhook-Secret")
+    ALARM_INTAKE.check_request(credential("alarm_webhook_secret"), request, header_token)
 
 
 @router.post("", response_model=AlarmOut, status_code=201)
@@ -56,7 +58,7 @@ async def intake(
     Divera webhook). Returns 201 with the new incident id, or 200 with the existing one
     when the same (source, source_id) was already delivered."""
     await load_credentials(db)
-    _check_secret(request.query_params.get("secret") or x_webhook_secret)
+    _check_secret(request, x_webhook_secret)
     if payload.source in RESERVED_ALARM_SOURCES:
         raise HTTPException(
             status_code=422,
@@ -230,7 +232,7 @@ async def milestones(
     """Apply milestone times to an existing incident. 404 while no incident matches —
     the sender retries with backoff (dispatch precedes take/auto-open by minutes at most)."""
     await load_credentials(db)
-    _check_secret(request.query_params.get("secret") or x_webhook_secret)
+    _check_secret(request, x_webhook_secret)
 
     inc: Incident | None = None
     if payload.divera_id is not None:

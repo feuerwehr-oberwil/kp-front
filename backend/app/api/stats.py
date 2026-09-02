@@ -28,12 +28,14 @@ from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentAdmin
+from ..auth.secret_token import SecretGate
 from ..database import get_db
+from ..deployment_config import config_row
 from ..models import DeploymentConfig, DiveraEmergency, Incident
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -50,25 +52,16 @@ SELF_PATCH_EPSILON_S = 90
 # --- admin: the export token ----------------------------------------------------------
 
 
-async def _config_row(db: AsyncSession) -> DeploymentConfig:
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    if row is None:
-        row = DeploymentConfig(id=1, config_json=None)
-        db.add(row)
-        await db.flush()
-    return row
-
-
 @router.get("/secret")
 async def get_stats_secret(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
-    row = await _config_row(db)
+    row = await config_row(db)
     return {"configured": bool(row.stats_secret), "token": row.stats_secret}
 
 
 @router.post("/secret/rotate")
 async def rotate_stats_secret(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
     """Mint a fresh export token — every consumer must be reconfigured at once."""
-    row = await _config_row(db)
+    row = await config_row(db)
     row.stats_secret = secrets.token_urlsafe(24)
     await db.flush()
     return {"configured": True, "token": row.stats_secret}
@@ -76,7 +69,7 @@ async def rotate_stats_secret(_admin: CurrentAdmin, db: AsyncSession = Depends(g
 
 @router.delete("/secret")
 async def disable_stats(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
-    row = await _config_row(db)
+    row = await config_row(db)
     row.stats_secret = None
     await db.flush()
     return {"configured": False}
@@ -85,17 +78,20 @@ async def disable_stats(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 # --- the export -------------------------------------------------------------------------
 
 
+#: ``?t=`` as well as the header: a consumer is often a spreadsheet or a dashboard fetching a
+#: bare URL. Fail-closed — no token minted means the export surface is off, not open.
+_EXPORT = SecretGate(
+    query_param="t",
+    disabled_detail="Statistik-Export deaktiviert (kein Export-Token gesetzt)",
+    invalid_detail="Ungültiger Export-Token",
+)
+
+
 async def _check_token(db: AsyncSession, request: Request, header_token: str | None) -> None:
+    """Reads the row without creating one — an export against a deployment that never minted
+    a token is a 403, and must not leave a config row behind as a side effect."""
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    expected = row.stats_secret if row else None
-    if not expected:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Statistik-Export deaktiviert (kein Export-Token gesetzt)",
-        )
-    provided = request.query_params.get("t") or header_token
-    if not provided or not secrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiger Export-Token")
+    _EXPORT.check_request(row.stats_secret if row else None, request, header_token)
 
 
 def _rapport_state(report_done_at: datetime | None, updated_at: datetime | None) -> str:

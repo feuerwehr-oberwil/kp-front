@@ -35,7 +35,9 @@ from ..api.media import _ALLOWED_PHOTO, MAX_UPLOAD_BYTES
 from ..api.media import _CHUNK as _MEDIA_CHUNK
 from ..auth.capture_limiter import capture_limiter
 from ..auth.dependencies import CurrentAdmin
+from ..auth.secret_token import SecretGate
 from ..database import get_db
+from ..deployment_config import config_row
 from ..models import DeploymentConfig, Incident, Media, Personnel
 from ..schemas import (
     IncidentMeta,
@@ -123,25 +125,16 @@ router = APIRouter(prefix="/capture", tags=["capture"], dependencies=[Depends(_r
 # print the poster grants station-wide capture access, which is deployment administration.
 
 
-async def _config_row(db: AsyncSession) -> DeploymentConfig:
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    if row is None:
-        row = DeploymentConfig(id=1, config_json=None)
-        db.add(row)
-        await db.flush()
-    return row
-
-
 @router.get("/secret")
 async def get_capture_secret(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
-    row = await _config_row(db)
+    row = await config_row(db)
     return {"configured": bool(row.capture_secret), "token": row.capture_secret}
 
 
 @router.post("/secret/rotate")
 async def rotate_capture_secret(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
     """Mint a fresh poster secret — every previously printed poster stops working at once."""
-    row = await _config_row(db)
+    row = await config_row(db)
     row.capture_secret = secrets.token_urlsafe(18)
     await db.flush()
     return {"configured": True, "token": row.capture_secret}
@@ -149,7 +142,7 @@ async def rotate_capture_secret(_admin: CurrentAdmin, db: AsyncSession = Depends
 
 @router.delete("/secret")
 async def disable_capture(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
-    row = await _config_row(db)
+    row = await config_row(db)
     row.capture_secret = None
     await db.flush()
     return {"configured": False}
@@ -158,18 +151,27 @@ async def disable_capture(_admin: CurrentAdmin, db: AsyncSession = Depends(get_d
 # --- station capture (poster token) ----------------------------------------------------
 
 
-async def _check_token(db: AsyncSession, request: Request, header_token: str | None) -> None:
+#: ``?t=`` as well as the header: the poster is a QR code, and what it encodes is a URL.
+#: Fail-closed — no poster secret configured means the whole capture surface is off.
+_POSTER = SecretGate(
+    query_param="t",
+    disabled_detail="Erfassung deaktiviert (kein Erfassungs-Token gesetzt)",
+    invalid_detail="Ungültiger Erfassungs-Token",
+)
+
+
+async def _check_token(
+    request: Request,
+    x_capture_token: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """The poster gate, as a dependency — every route below carries it.
+
+    Reads the row without creating one: a deployment that never minted a poster secret answers
+    403 and must not gain a config row from being probed.
+    """
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    expected = row.capture_secret if row else None
-    if not expected:
-        # Fail CLOSED: no poster secret configured → the whole capture surface is off.
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Erfassung deaktiviert (kein Erfassungs-Token gesetzt)",
-        )
-    provided = request.query_params.get("t") or header_token
-    if not provided or not secrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiger Erfassungs-Token")
+    _POSTER.check_request(row.capture_secret if row else None, request, x_capture_token)
 
 
 async def _capture_incidents(db: AsyncSession) -> list[Incident]:
@@ -199,24 +201,29 @@ async def _get_in_window(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
     raise HTTPException(status_code=404, detail="Einsatz nicht (mehr) erfassbar")
 
 
-@router.get("/incidents", response_model=list[IncidentMeta])
-async def list_capture_incidents(
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
+async def _reachable_incident(
+    incident_id: uuid.UUID,
+    _token: None = Depends(_check_token),
     db: AsyncSession = Depends(get_db),
-) -> list[Incident]:
-    await _check_token(db, request, x_capture_token)
+) -> Incident:
+    """The incident this path names, if the poster may reach it at all — the second half of
+    the gate, for every route that addresses one.
+
+    ⚠️ Order is part of the answer: the token is checked FIRST (it is a sub-dependency, so
+    FastAPI solves it before this runs), which is why a wrong token on an unknown incident is
+    still a 401 and never a 404 that would confirm what does not exist.
+    """
+    return await _get_in_window(db, incident_id)
+
+
+@router.get("/incidents", response_model=list[IncidentMeta], dependencies=[Depends(_check_token)])
+async def list_capture_incidents(db: AsyncSession = Depends(get_db)) -> list[Incident]:
     return await _capture_incidents(db)
 
 
-@router.get("/roster", response_model=list[PersonnelOut])
-async def capture_roster(
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
-    db: AsyncSession = Depends(get_db),
-):
+@router.get("/roster", response_model=list[PersonnelOut], dependencies=[Depends(_check_token)])
+async def capture_roster(db: AsyncSession = Depends(get_db)):
     """Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers."""
-    await _check_token(db, request, x_capture_token)
     rows = list((await db.execute(select(Personnel).where(Personnel.is_active.is_(True)))).scalars())
     # Same names, same order, same sort as the KP tablet's roster — the two lists are read
     # side by side (phone ticks off, tablet checks) and must not disagree on either.
@@ -249,30 +256,16 @@ async def _bump_capture_usage(db: AsyncSession, incident_id: uuid.UUID) -> None:
 
 
 @router.get("/incidents/{incident_id}/status")
-async def capture_incident_status(
-    incident_id: uuid.UUID,
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
+async def capture_incident_status(inc: Incident = Depends(_reachable_incident)) -> dict:
     """Tiny cross-visibility poll for the open capture form: has the KP tablet opened this
     incident (the editor_opened_at latch)? The form polls ~45 s ONLY while false — once
     true it stays true (latched), so the common case costs zero polls after the initial
     list load (which already carries editor_opened_at)."""
-    await _check_token(db, request, x_capture_token)
-    inc = await _get_in_window(db, incident_id)
     return {"kp_active": inc.editor_opened_at is not None}
 
 
 @router.get("/incidents/{incident_id}/workspace", response_model=WorkspaceOut)
-async def capture_get_workspace(
-    incident_id: uuid.UUID,
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> WorkspaceOut:
-    await _check_token(db, request, x_capture_token)
-    inc = await _get_in_window(db, incident_id)
+async def capture_get_workspace(inc: Incident = Depends(_reachable_incident)) -> WorkspaceOut:
     # Projected, not the whole blob — the tactical map is not the poster's business.
     return WorkspaceOut(workspace=_capture_view(inc.map_workspace_json), workspace_rev=inc.workspace_rev)
 
@@ -281,8 +274,7 @@ async def capture_get_workspace(
 async def capture_put_workspace(
     incident_id: uuid.UUID,
     body: WorkspacePut,
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
+    inc: Incident = Depends(_reachable_incident),
     db: AsyncSession = Depends(get_db),
 ) -> WorkspaceOut:
     """Same optimistic-concurrency save as the editor endpoint (shared helper), so capture
@@ -293,8 +285,6 @@ async def capture_put_workspace(
     it still equals base_rev, so a tablet that saved in between makes this a 409 rather than
     a silent overwrite of the map with a stale snapshot.
     """
-    await _check_token(db, request, x_capture_token)
-    inc = await _get_in_window(db, incident_id)
     from .incidents import apply_workspace_put
 
     scoped = WorkspacePut(
@@ -310,14 +300,11 @@ async def capture_put_workspace(
 @router.get("/incidents/{incident_id}/verify")
 async def capture_verify_chain(
     incident_id: uuid.UUID,
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
+    _inc: Incident = Depends(_reachable_incident),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Read-only audit-chain check for the capture Rapport-PDF — same output as the
     editor endpoint, so the QR-generated PDF shows a real Prüfnachweis."""
-    await _check_token(db, request, x_capture_token)
-    await _get_in_window(db, incident_id)
     from .. import audit
 
     return await audit.verify_chain(db, incident_id)
@@ -325,18 +312,14 @@ async def capture_verify_chain(
 
 @router.post("/incidents/{incident_id}/report/pdf")
 async def capture_report_pdf(
-    incident_id: uuid.UUID,
-    request: Request,
     payload: str = Form(...),
-    x_capture_token: str | None = Header(default=None),
+    _inc: Incident = Depends(_reachable_incident),
     db: AsyncSession = Depends(get_db),
 ):
     """Data-only Rapport-PDF for the capture view (no kiosk cookie there — poster token
     auth). Same composer as the editor endpoint; journal photos resolve from the media
     store server-side (the poster token never carried the media cookie, so the old
     client-side photo fetch silently dropped them). Read-only output."""
-    await _check_token(db, request, x_capture_token)
-    await _get_in_window(db, incident_id)
     from fastapi.responses import Response
 
     from .report import compose_report_from_payload
@@ -348,13 +331,8 @@ async def capture_report_pdf(
 # --- station print relay (poster token; twins of the /api/print* editor routes) --------
 
 
-@router.get("/print/status")
-async def capture_print_status(
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    await _check_token(db, request, x_capture_token)
+@router.get("/print/status", dependencies=[Depends(_check_token)])
+async def capture_print_status() -> dict:
     from .print_relay import print_status
 
     return print_status()
@@ -362,32 +340,22 @@ async def capture_print_status(
 
 @router.post("/incidents/{incident_id}/report/print")
 async def capture_report_print(
-    incident_id: uuid.UUID,
-    request: Request,
     payload: str = Form(...),
-    x_capture_token: str | None = Header(default=None),
+    inc: Incident = Depends(_reachable_incident),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Queue the data-only Rapport-PDF on the station printer — the phone needs no
     printer setup, possession of the poster token is the authority (same as the PDF)."""
-    await _check_token(db, request, x_capture_token)
-    inc = await _get_in_window(db, incident_id)
     from .print_relay import enqueue_print_job
 
     job = await enqueue_print_job(db, inc, payload, kind="capture_report", requested_by=None)
     return {"job_id": str(job.id), "status": job.status}
 
 
-@router.get("/print-jobs/{job_id}")
-async def capture_print_job(
-    job_id: uuid.UUID,
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
+@router.get("/print-jobs/{job_id}", dependencies=[Depends(_check_token)])
+async def capture_print_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> dict:
     """Poll a just-queued job's lifecycle (queued → printing → done/failed) for the live
     toast. Token holders may only read jobs of incidents still reachable through the poster."""
-    await _check_token(db, request, x_capture_token)
     from ..models import PrintJob
     from .print_relay import job_view
 
@@ -398,16 +366,10 @@ async def capture_print_job(
     return job_view(job)
 
 
-@router.delete("/print-jobs/{job_id}")
-async def capture_print_cancel(
-    job_id: uuid.UUID,
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
+@router.delete("/print-jobs/{job_id}", dependencies=[Depends(_check_token)])
+async def capture_print_cancel(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> dict:
     """Rückgängig for a just-queued job. Token holders may only touch jobs of incidents
     still reachable through the poster (and never already-claimed ones)."""
-    await _check_token(db, request, x_capture_token)
     from ..models import PrintJob
     from .print_relay import cancel_print_job
 
@@ -421,9 +383,8 @@ async def capture_print_cancel(
 @router.post("/incidents/{incident_id}/media", status_code=201)
 async def capture_upload_media(
     incident_id: uuid.UUID,
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
     file: UploadFile = File(...),
+    _inc: Incident = Depends(_reachable_incident),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Upload one Rapport-Beilage (photo) from the poster.
@@ -436,9 +397,6 @@ async def capture_upload_media(
 
     The returned URL is what the caller writes into `attachments` on the workspace.
     """
-    await _check_token(db, request, x_capture_token)
-    await _get_in_window(db, incident_id)
-
     content_type = file.content_type or "application/octet-stream"
     if content_type not in _ALLOWED_PHOTO:
         raise HTTPException(
@@ -474,13 +432,10 @@ async def capture_upload_media(
 @router.get("/incidents/{incident_id}/journal", response_model=JournalPage)
 async def capture_read_journal(
     incident_id: uuid.UUID,
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
+    _inc: Incident = Depends(_reachable_incident),
     db: AsyncSession = Depends(get_db),
 ) -> JournalPage:
     """Read-only Verlauf for the capture view's data-only Rapport-PDF."""
-    await _check_token(db, request, x_capture_token)
-    await _get_in_window(db, incident_id)
     from sqlalchemy import select as sa_select
 
     from ..models import JournalEntry
@@ -498,12 +453,9 @@ async def capture_read_journal(
 async def capture_append_journal(
     incident_id: uuid.UUID,
     body: JournalAppendIn,
-    request: Request,
-    x_capture_token: str | None = Header(default=None),
+    _inc: Incident = Depends(_reachable_incident),
     db: AsyncSession = Depends(get_db),
 ) -> JournalPage:
-    await _check_token(db, request, x_capture_token)
-    await _get_in_window(db, incident_id)
     from sqlalchemy import func as sa_func
 
     from ..models import JournalEntry

@@ -17,7 +17,6 @@ import asyncio
 import contextlib
 import io
 import logging
-import secrets as pysecrets
 import uuid
 from datetime import UTC, datetime
 
@@ -28,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarms import get_config_model
 from ..auth.dependencies import CurrentUser
+from ..auth.secret_token import SecretGate
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import execute_dml, get_db
@@ -99,13 +99,17 @@ def _mark_seen() -> None:
     _last_seen = datetime.now(UTC)
 
 
+#: Header-only (no ``?secret=``): the sole caller is the print agent we ship, and a secret in
+#: the URL would ride along into every proxy log. Fail-closed — no secret configured means
+#: the whole relay surface is off.
+_AGENT = SecretGate(
+    disabled_detail="Druck-Relay deaktiviert (PRINT_AGENT_SECRET nicht gesetzt)",
+    invalid_detail="Ungültiges Print-Agent-Secret",
+)
+
+
 def _check_agent_secret(provided: str | None) -> None:
-    expected = credential("print_agent_secret")
-    if not expected:
-        # Fail CLOSED: no secret configured → the whole relay surface is off.
-        raise HTTPException(status_code=403, detail="Druck-Relay deaktiviert (PRINT_AGENT_SECRET nicht gesetzt)")
-    if not provided or not pysecrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=401, detail="Ungültiges Print-Agent-Secret")
+    _AGENT.check(credential("print_agent_secret"), provided)
 
 
 def print_status() -> dict:
