@@ -249,7 +249,7 @@
 .adm-colorrow > * { flex: none; }
 .adm-colorrow .dh-color { width: 24px; height: 24px; }
 .adm-colorrow .dh-color.on { box-shadow: 0 0 0 2.5px var(--blue); }
-.adm-swatch-auto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--border-soft); border-radius: 999px;
+.adm-swatch-auto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--border-soft); border-radius: var(--r-pill);
   padding: 5px 10px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
   box-shadow: 6px 0 6px -4px var(--surface); }
 .adm-swatch-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }

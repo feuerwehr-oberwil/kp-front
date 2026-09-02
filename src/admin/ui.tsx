@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { apiDelete, apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
 import { InfoTip } from './InfoTip'
@@ -418,5 +419,145 @@ export function Select({ value, onChange, options, ariaLabel, mono }: {
         </ul>
       )}
     </div>
+  )
+}
+
+// --- Secret tokens -------------------------------------------------------------------
+//
+// Three admin surfaces manage a shared secret with the backend: the Statistik-Export token,
+// the Einsatz-Link minting key and the Erfassungs-Poster secret. All three are the same
+// object — one value the server holds, handed out ONCE when it is minted, rotated to cut off
+// every consumer at a stroke, deleted as the off switch (fail-closed: no secret, no surface).
+// They were three hand-written copies of the same hook and the same card, differing in an
+// endpoint prefix, a copy namespace and one example string.
+
+/** What the backend answers: whether a secret exists, plus the value itself — only in the
+ *  reply to a rotation. A later GET says `configured: true` and no token, which is why the
+ *  card shows the value once and never again. */
+export interface SecretState { configured: boolean; token?: string | null }
+
+export interface SecretApi {
+  /** null while the first read is in flight — the card renders nothing until then */
+  state: SecretState | null
+  busy: boolean
+  result: { tone: 'ok' | 'err'; text: string } | null
+  clearResult: () => void
+  /** Say something on the card's own result chip. For the extra actions a surface hangs on a
+   *  secret — «Poster konnte nicht erzeugt werden» belongs in the same slot, last one wins. */
+  report: (tone: 'ok' | 'err', text: string) => void
+  rotate: () => Promise<void>
+  disable: () => Promise<void>
+}
+
+/**
+ * The get / rotate / disable trio behind a secret-token card.
+ *
+ * `basePath` is the backend resource — `/api/stats/secret`, with `POST <basePath>/rotate` and
+ * `DELETE <basePath>`. `said` is the caller's own copy: a rotated poster and a rotated export
+ * token are not the same sentence, so nothing here holds a string.
+ *
+ * A failed READ reports «not configured» rather than an error: that is what the surface does
+ * with a missing secret anyway, and an admin card showing «fehlgeschlagen» for a secret nobody
+ * has set yet reads as a broken deployment.
+ */
+export function useSecret(basePath: string, said: { rotated: string; disabled: string; failed: string }): SecretApi {
+  const [state, setState] = useState<SecretState | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+
+  const reload = useCallback(async () => {
+    try { setState(await apiGet<SecretState>(basePath)) } catch { setState({ configured: false }) }
+  }, [basePath])
+  useEffect(() => { void reload() }, [reload])
+
+  const rotate = async () => {
+    setBusy(true)
+    try {
+      setState(await apiPost<SecretState>(`${basePath}/rotate`, {}))
+      setResult({ tone: 'ok', text: said.rotated })
+    } catch { setResult({ tone: 'err', text: said.failed }) } finally { setBusy(false) }
+  }
+
+  const disable = async () => {
+    setBusy(true)
+    try {
+      await apiDelete(basePath)
+      setState({ configured: false })
+      setResult({ tone: 'ok', text: said.disabled })
+    } catch { setResult({ tone: 'err', text: said.failed }) } finally { setBusy(false) }
+  }
+
+  return {
+    state, busy, result,
+    clearResult: () => setResult(null),
+    report: (tone, text) => setResult({ tone, text }),
+    rotate,
+    disable,
+  }
+}
+
+/** Everything the card says. Passed in from the caller's own copy namespace
+ *  (admin.statistik / admin.einsatzlink), so this component owns no strings. */
+export interface SecretCardCopy {
+  body: string
+  stateLabel: string
+  stateOn: string
+  stateOff: string
+  /** what the value IS, in front of it on the chip: «Token» / «Schlüssel» */
+  tokenLabel: string
+  exampleLabel: string
+  docsLink: string
+  enableBtn: string
+  rotateBtn: string
+  rotateMsg: string
+  disableBtn: string
+  disableMsg: string
+  hint: string
+}
+
+/**
+ * The card a secret-token surface is: status, the value while it is being handed out, a
+ * copyable example of using it, and the actions in consequence order — enable, rotate,
+ * disable last.
+ *
+ * `example` builds the one line that is genuinely per-surface (a curl command, a link shape)
+ * from the freshly minted token; it is only asked for while there is one to show.
+ */
+export function SecretCard({ secret, copy, docsUrl, example }: {
+  secret: SecretApi
+  copy: SecretCardCopy
+  docsUrl: string
+  example: (token: string) => string
+}) {
+  const { state, busy, result, clearResult, rotate, disable } = secret
+  if (state === null) return null
+  return (
+    <Card>
+      <p className="adm-card-cap">{copy.body}</p>
+      <div className="adm-cap-rows">
+        <div className="adm-cap-status">
+          <StatusBadge tone={state.configured ? 'on' : 'off'} label={copy.stateLabel} state={state.configured ? copy.stateOn : copy.stateOff} />
+        </div>
+        {state.token && <CopyChip value={state.token} display={`${copy.tokenLabel}: ${state.token}`} />}
+        {state.token && (
+          <div className="adm-cap-example">
+            <p className="adm-card-cap">{copy.exampleLabel} — <a href={docsUrl} target="_blank" rel="noreferrer">{copy.docsLink}</a></p>
+            <CopyChip value={example(state.token)} />
+          </div>
+        )}
+      </div>
+      <div className="adm-actions">
+        {state.configured ? (
+          <>
+            <ConfirmButton label={copy.rotateBtn} question={copy.rotateMsg} primary disabled={busy} onConfirm={() => void rotate()} />
+            <ConfirmButton label={copy.disableBtn} question={copy.disableMsg} danger disabled={busy} onConfirm={() => void disable()} />
+          </>
+        ) : (
+          <button type="button" className="btn adm-save-btn" disabled={busy} onClick={() => void rotate()}>{copy.enableBtn}</button>
+        )}
+        {result && <ResultChip tone={result.tone} onExpire={clearResult}>{result.text}</ResultChip>}
+      </div>
+      <p className="adm-card-cap">{copy.hint}</p>
+    </Card>
   )
 }

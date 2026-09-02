@@ -8,43 +8,21 @@
 // the paper fallback. Copy buttons on the link; rotate/disable use the inline two-step
 // confirm instead of native dialogs.
 
-import { useCallback, useEffect, useState } from 'react'
-import { apiDelete, apiGet, apiPost } from '../lib/api'
+import { apiGet } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { Card, ConfirmButton, CopyChip, ResultChip, StatusBadge } from './ui'
-
-interface SecretState { configured: boolean; token?: string | null }
+import { Card, ConfirmButton, CopyChip, ResultChip, StatusBadge, useSecret } from './ui'
 
 const captureUrl = (token: string) => `${window.location.origin}/e/${token}`
 
 export function CaptureAdminView() {
   const C = appConfig.copy.admin.erfassung
-  const [state, setState] = useState<SecretState | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
-
-  const reload = useCallback(async () => {
-    try { setState(await apiGet<SecretState>('/api/capture/secret')) } catch { setState({ configured: false }) }
-  }, [])
-  useEffect(() => { void reload() }, [reload])
-
-  const rotate = async () => {
-    setBusy(true)
-    try {
-      setState(await apiPost<SecretState>('/api/capture/secret/rotate', {}))
-      setResult({ tone: 'ok', text: C.rotated })
-    } catch { setResult({ tone: 'err', text: C.failed }) } finally { setBusy(false) }
-  }
-
-  const disable = async () => {
-    setBusy(true)
-    try {
-      await apiDelete('/api/capture/secret')
-      setState({ configured: false })
-      setResult({ tone: 'ok', text: C.disabled })
-    } catch { setResult({ tone: 'err', text: C.failed }) } finally { setBusy(false) }
-  }
+  // the same get/rotate/disable trio the Statistik and Einsatz-Link surfaces run on. This one
+  // keeps its OWN card: the poster button, the copy-warning and the Übung note sit between the
+  // shared card's rows, and it carries a second card (the paper Erfassungsblatt) besides.
+  const { state, busy, result, clearResult, report, rotate, disable } = useSecret('/api/capture/secret', {
+    rotated: C.rotated, disabled: C.disabled, failed: C.failed,
+  })
 
   // Poster: downloads a ready-to-print PDF (no popup, no print dialog) — the admin decides
   // when and where to print it. jsPDF + qrcode live in this lazy admin chunk.
@@ -53,7 +31,7 @@ export function CaptureAdminView() {
     try {
       const { downloadPosterPdf } = await import('./capturePdf')
       await downloadPosterPdf(captureUrl(state.token), getDeploymentConfig().identity?.appName ?? 'KP Front')
-    } catch { setResult({ tone: 'err', text: C.failed }) }
+    } catch { report('err', C.failed) }
   }
 
   // A4 Erfassungsblatt: the paper twin of the digital record, generated on demand from the
@@ -79,7 +57,7 @@ export function CaptureAdminView() {
         vehicles: cfg.fleet?.vehicles ?? [],
         partnerOrgs: cfg.report?.partnerOrgs ?? [],
       })
-    } catch { setResult({ tone: 'err', text: C.failed }) }
+    } catch { report('err', C.failed) }
   }
 
   if (state === null) return null
@@ -106,7 +84,7 @@ export function CaptureAdminView() {
             <button type="button" className="btn adm-save-btn" disabled={busy} onClick={() => void rotate()}>{C.enableBtn}</button>
           )}
         </div>
-        {result && <ResultChip tone={result.tone} onExpire={() => setResult(null)}>{result.text}</ResultChip>}
+        {result && <ResultChip tone={result.tone} onExpire={clearResult}>{result.text}</ResultChip>}
         <p className="adm-card-cap">{C.hint}</p>
         {/* the rehearsal, spelled out where the poster is made — an Übung is the one incident
             kind that is stats-excluded and may be deleted afterwards, which is what makes it
