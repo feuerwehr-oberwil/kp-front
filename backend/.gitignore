@@ -10,3 +10,7 @@ __pycache__/
 # checked-in package data (the shared alarm keyword vocabulary). That failed silently — the
 # file simply never appeared in `git status`.
 /data/
+
+# Coverage data from a local `pytest --cov` run.
+.coverage
+htmlcov/
