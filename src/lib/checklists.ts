@@ -15,7 +15,7 @@
 // Divera match) so it stays unit-testable.
 
 import { apiGet } from './api'
-import { idbGet, idbSet } from './idb'
+import { readThrough } from './idb'
 import genericAction from '../data/checklists/generic-action.json'
 
 // --- template schema (matches the bundled JSON) ----------------------------------
@@ -134,38 +134,33 @@ const rankKind = (k: ChecklistKind) => (k === 'reference' ? 1 : 0)
 const sortTemplates = (ts: ChecklistTemplate[]) =>
   [...ts].sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || rankKind(a.kind) - rankKind(b.kind))
 
-async function readCache(): Promise<ChecklistTemplate[] | null> {
-  const v = await idbGet<ChecklistTemplate[]>(CACHE_KEY)
-  return Array.isArray(v) && v.length ? v : null
-}
+/** An empty list is no list: a registry with no `checklists:` datasets — and equally a cache
+ *  entry that lost its contents — must fall through to the prior cache / bundled example. */
+const hasTemplates = (v: unknown): v is ChecklistTemplate[] => Array.isArray(v) && v.length > 0
 
 /** All checklist templates for this deployment, sorted action/rapport first then reference.
  *  Fetches the `checklists:` datasets from the reference registry, caches them for offline, and
  *  falls back to the last cache then the bundled neutral example. NEVER throws — a failed fetch
- *  (offline, fresh deployment) must never leave the Checkliste surface unusable. */
+ *  (offline, fresh deployment) must never leave the Checkliste surface unusable, which is why
+ *  this one overrides `readThrough`'s default «only silence falls back». */
 export async function loadTemplates(): Promise<ChecklistTemplate[]> {
-  try {
-    const list = await apiGet<{ id: string }[]>('/api/reference')
-    const ids = (list ?? []).filter((d) => isChecklistTemplateId(d.id)).map((d) => d.id)
-    const fetched = await Promise.all(
-      ids.map((id) =>
-        apiGet<unknown>(`/api/reference/${id}`)
-          .then((j) => (isTemplate(j) ? j : null))
-          .catch(() => null),
-      ),
-    )
-    const tpls = fetched.filter((t): t is ChecklistTemplate => t !== null)
-    if (tpls.length) {
-      const sorted = sortTemplates(tpls)
-      void idbSet(CACHE_KEY, sorted) // durable copy for offline boot
-      return sorted
-    }
-    // registry has no checklist datasets → prefer a prior cache, else the bundled fallback
-    return (await readCache()) ?? FALLBACK
-  } catch {
-    // network / server failure — fall back to the cached copy (offline tablet), else the example
-    return (await readCache()) ?? FALLBACK
-  }
+  const { value } = await readThrough<ChecklistTemplate[]>(
+    CACHE_KEY,
+    async () => {
+      const list = await apiGet<{ id: string }[]>('/api/reference')
+      const ids = (list ?? []).filter((d) => isChecklistTemplateId(d.id)).map((d) => d.id)
+      const fetched = await Promise.all(
+        ids.map((id) =>
+          apiGet<unknown>(`/api/reference/${id}`)
+            .then((j) => (isTemplate(j) ? j : null))
+            .catch(() => null),
+        ),
+      )
+      return sortTemplates(fetched.filter((t): t is ChecklistTemplate => t !== null))
+    },
+    { validate: hasTemplates, fallback: () => FALLBACK, shouldFallback: () => true },
+  )
+  return value
 }
 
 // --- pure logic (unit-tested) ----------------------------------------------------

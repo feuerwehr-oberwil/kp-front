@@ -21,6 +21,8 @@
 // UI can tell the operator. Writes that hold operator work must check — see the degraded-storage
 // block below for why swallowing it was the dangerous option.
 
+import { isUnverifiable } from './api'
+
 const DB_NAME = 'kp-front'
 const DB_VERSION = 1
 const STORE = 'kv'
@@ -259,6 +261,57 @@ export async function idbDel(key: string): Promise<void> {
   try {
     await tx('readwrite', (s) => s.delete(key))
   } catch { /* already absent, or unreachable — the localStorage copy is gone either way */ }
+}
+
+// --- Read-through cache --------------------------------------------------------------
+//
+// Fetch → vet → cache → on failure serve the last copy. Half a dozen call sites hand-rolled
+// this and drifted while doing so: some asked `isUnverifiable` (0/502/503/504 — the server
+// could not be ASKED), others inlined `status === 0` only, so a Railway restart dropped the
+// object listings while leaving the incident list intact. One implementation, one predicate.
+
+/** Where a `readThrough` value came from — `cache` and `fallback` both mean «not fresh». */
+export type ReadThroughSource = 'network' | 'cache' | 'fallback'
+
+export interface ReadThroughOptions<T> {
+  /** Vets BOTH the fetched value and the stored one. A fetched value that fails is treated as
+   *  a miss (the cache, then the fallback, answer) and is never written to the cache — that is
+   *  what keeps a corrupt entry from being served as if it were current on the next boot. */
+  validate?: (value: unknown) => value is T
+  /** Last resort when neither network nor cache produced a usable value. Without one, the
+   *  original error is rethrown (or a miss throws), so «no answer at all» stays visible. */
+  fallback?: () => T
+  /** Which fetch errors may be answered from the cache. Defaults to `isUnverifiable`: silence
+   *  falls back, a refusal (401, 404, 500) still throws. Loaders that must NEVER throw pass
+   *  `() => true`. */
+  shouldFallback?: (error: unknown) => boolean
+}
+
+export async function readThrough<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  { validate, fallback, shouldFallback = isUnverifiable }: ReadThroughOptions<T> = {},
+): Promise<{ value: T; source: ReadThroughSource }> {
+  const stale = async (rethrow: () => never): Promise<{ value: T; source: ReadThroughSource }> => {
+    const cached = await idbGet<unknown>(key)
+    if (cached != null && (validate ? validate(cached) : true)) return { value: cached as T, source: 'cache' }
+    if (fallback) return { value: fallback(), source: 'fallback' }
+    rethrow()
+  }
+  let fetched: T
+  try {
+    fetched = await fetcher()
+  } catch (e) {
+    if (!shouldFallback(e)) throw e
+    return stale(() => { throw e })
+  }
+  if (validate && !validate(fetched)) {
+    return stale(() => { throw new Error(`readThrough(${key}): fetched value failed validation`) })
+  }
+  // fire-and-forget: the caller is waiting on the VALUE, and `idbSet` can sit behind a wedged
+  // database open for seconds. A cache that could not be written costs nothing right now.
+  void idbSet(key, fetched)
+  return { value: fetched, source: 'network' }
 }
 
 /** Test-only: drop the cached open promise so a fresh fake-indexeddb is picked up. */

@@ -1,7 +1,7 @@
 // Objects (Feuerwehrpläne / Einsatzobjekte) + their plan datasets, with offline-resilient
 // per-incident listing so switching incidents with no signal keeps the plans.
-import { ApiError, apiGet } from '../api'
-import { idbGet, idbSet } from '../idb'
+import { apiGet } from '../api'
+import { readThrough } from '../idb'
 import type { ReferenceDataset } from './reference'
 
 export interface ObjectWithPlans {
@@ -31,31 +31,23 @@ export const getObject = (id: string) =>
 
 // Offline: the per-incident object+plan listing (which Objektplan tiles belong to an incident) is a
 // live call, so switching incidents with no signal would otherwise drop the plans — the plan PDFs
-// are runtime-cached by the SW, but the listing that points at them isn't. Cache the metadata in
-// IDB on every successful fetch and fall back to it on a network error, the same shape as
-// listIncidentsResilient. Metadata only (object + dataset refs), so it stays small.
+// are runtime-cached by the SW, but the listing that points at them isn't. `readThrough` caches the
+// metadata in IDB on every successful fetch and falls back to it whenever the server could not be
+// ASKED — offline, our own timeout, or a 502/503/504 from the proxy in front of a restarting
+// server. (Until 02.09. these two inlined `status === 0`, so a Railway restart dropped the plans
+// while the incident list, which already asked `isUnverifiable`, survived it.) Metadata only
+// (object + dataset refs), so it stays small.
 const OBJECTS_NEAR_CACHE = (id: string) => `kp-front-objects-${id}`
 export async function objectsNearIncidentResilient(id: string): Promise<ObjectWithPlans[]> {
-  try {
-    const objs = await objectsNearIncident(id)
-    void idbSet(OBJECTS_NEAR_CACHE(id), objs)
-    return objs
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 0) return (await idbGet<ObjectWithPlans[]>(OBJECTS_NEAR_CACHE(id))) ?? []
-    throw e
-  }
+  const { value } = await readThrough<ObjectWithPlans[]>(OBJECTS_NEAR_CACHE(id), () => objectsNearIncident(id), {
+    validate: (v): v is ObjectWithPlans[] => Array.isArray(v),
+    fallback: () => [],
+  })
+  return value
 }
 const OBJECT_CACHE = (id: string) => `kp-front-object-${id}`
 export async function getObjectResilient(id: string): Promise<ObjectWithPlans> {
-  try {
-    const obj = await getObject(id)
-    void idbSet(OBJECT_CACHE(id), obj)
-    return obj
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 0) {
-      const cached = await idbGet<ObjectWithPlans>(OBJECT_CACHE(id))
-      if (cached) return cached
-    }
-    throw e
-  }
+  // No fallback: with neither network nor cache the caller must learn the object is unknown.
+  const { value } = await readThrough<ObjectWithPlans>(OBJECT_CACHE(id), () => getObject(id))
+  return value
 }

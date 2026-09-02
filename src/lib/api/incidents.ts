@@ -1,8 +1,8 @@
 // Incident CRUD + the offline-resilient active list, plus the one-time legacy-workspace
 // migration. Other incident subresources live in sibling modules: workspace blob (./workspace),
 // audit events (./events), media (./media).
-import { apiDelete, apiGet, apiPatch, apiPost, isUnverifiable } from '../api'
-import { idbGet, idbSet } from '../idb'
+import { apiDelete, apiGet, apiPatch, apiPost } from '../api'
+import { idbGet, idbSet, readThrough } from '../idb'
 import { appConfig } from '../../config/appConfig'
 import { putWorkspace, type Workspace } from './workspace'
 
@@ -81,28 +81,27 @@ export const listIncidents = (archived?: boolean, limit?: number) => {
 // reopen the last incident with no signal (its workspace blob is already in WorkspaceSync's
 // per-incident cache). The list itself is NetworkOnly for the SW, so we cache it here.
 const INCIDENT_LIST_CACHE = 'kp-front-incidents'
+/** A cache entry that is not a list at all is no list. The launcher filters this on every
+ *  offline boot, so a corrupt entry used to throw at the root boundary on every launch, with
+ *  no incident open to escape from. */
+const isIncidentList = (v: unknown): v is IncidentMeta[] => Array.isArray(v)
 export async function cacheIncidentList(list: IncidentMeta[]): Promise<void> {
   await idbSet(INCIDENT_LIST_CACHE, list)
 }
-/** The cached list, or [] — also for a cache entry that is not a list at all. The launcher
- *  filters this on every offline boot, so a corrupt entry used to throw at the root boundary
- *  on every launch, with no incident open to escape from. */
+/** The cached list, or [] — see `isIncidentList`. */
 export async function readCachedIncidentList(): Promise<IncidentMeta[]> {
   const cached = await idbGet<unknown>(INCIDENT_LIST_CACHE)
-  return Array.isArray(cached) ? (cached as IncidentMeta[]) : []
+  return isIncidentList(cached) ? cached : []
 }
 /** Fetch the active list online (and cache it); when the server could not be asked (offline,
  *  timeout, or a gateway in front of a restarting server — api · isUnverifiable) fall back to
  *  the cache. A real refusal (401, 500, …) still throws: that is an answer, not silence. */
 export async function listIncidentsResilient(): Promise<{ list: IncidentMeta[]; offline: boolean }> {
-  try {
-    const list = await listIncidents(false)
-    void cacheIncidentList(list)
-    return { list, offline: false }
-  } catch (e) {
-    if (isUnverifiable(e)) return { list: await readCachedIncidentList(), offline: true }
-    throw e
-  }
+  const { source, value } = await readThrough<IncidentMeta[]>(INCIDENT_LIST_CACHE, () => listIncidents(false), {
+    validate: isIncidentList,
+    fallback: () => [],
+  })
+  return { list: value, offline: source !== 'network' }
 }
 export const getIncident = (id: string) => apiGet<IncidentFull>(`/api/incidents/${id}`)
 export const createIncident = (body: IncidentCreate) => apiPost<IncidentFull>('/api/incidents', body)

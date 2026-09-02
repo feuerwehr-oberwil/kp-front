@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { idbGet, idbSet, idbDel, __resetIdbForTests } from './idb'
+import { idbGet, idbSet, idbDel, readThrough, __resetIdbForTests } from './idb'
+import { ApiError } from './api'
 
 beforeEach(() => {
   // Fresh in-memory IndexedDB per test; reset the module's cached open promise to match.
@@ -102,5 +103,54 @@ describe('idb open that never answers', () => {
     const read = idbGet('k')
     await vi.advanceTimersByTimeAsync(0)
     expect(await read).toEqual({ x: 1 })
+  })
+})
+
+// The read-through cache: one implementation of «fetch → vet → cache → on failure serve the
+// last copy», so the offline predicate cannot drift between call sites again.
+describe('readThrough', () => {
+  const KEY = 'rt'
+
+  /** Wait for the fire-and-forget cache write. `readThrough` deliberately does not await it
+   *  (a wedged IDB open must not delay the value), so the test does. */
+  const settled = async <T>(read: () => Promise<T | null>): Promise<T | null> => {
+    for (let i = 0; i < 50; i++) {
+      const v = await read()
+      if (v != null) return v
+      await new Promise((r) => setTimeout(r, 0))
+    }
+    return null
+  }
+
+  it('serves a fresh fetch and caches it', async () => {
+    const res = await readThrough(KEY, async () => ({ n: 1 }))
+    expect(res).toEqual({ value: { n: 1 }, source: 'network' })
+    expect(await settled(() => idbGet(KEY))).toEqual({ n: 1 })
+  })
+
+  it('falls back to the cache when the server could not be asked', async () => {
+    await idbSet(KEY, { n: 7 })
+    const res = await readThrough(KEY, () => Promise.reject(new ApiError(503, 'restarting')))
+    expect(res).toEqual({ value: { n: 7 }, source: 'cache' })
+  })
+
+  it('rethrows a refusal — that is an answer, not silence', async () => {
+    await idbSet(KEY, { n: 7 })
+    await expect(readThrough(KEY, () => Promise.reject(new ApiError(403, 'nope')))).rejects.toThrow(ApiError)
+  })
+
+  it('uses the fallback when neither network nor cache has an answer', async () => {
+    const res = await readThrough(KEY, () => Promise.reject(new ApiError(0, 'offline')), { fallback: () => ({ n: 0 }) })
+    expect(res).toEqual({ value: { n: 0 }, source: 'fallback' })
+  })
+
+  it('treats a fetched value that fails validation as a miss, and never caches it', async () => {
+    const res = await readThrough<number[]>(KEY, async () => [], {
+      validate: (v): v is number[] => Array.isArray(v) && v.length > 0,
+      fallback: () => [-1],
+    })
+    expect(res).toEqual({ value: [-1], source: 'fallback' })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(await idbGet(KEY)).toBeNull()
   })
 })
