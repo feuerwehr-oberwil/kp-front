@@ -400,10 +400,6 @@
    with no flicker, and only a start slow enough to look broken ever shows a pulse. `both` keeps
    it fully transparent during the delay rather than painting and then fading. */
 .boot-splash { animation: fade .3s var(--ease) .4s both; }
-/* …and its one sentence, held back much longer: a boot that has not mounted React after 12 s is
-   wedged before any JS could say so (an IndexedDB open that never answers), so the hint is pure
-   CSS. Shares .loading-stuck's type; `both` keeps it invisible until the delay has run. */
-.boot-hint { animation: fade .3s var(--ease) 12s both; }
 .ping { position: relative; width: 72px; height: 72px; display: grid; place-items: center; }
 .ping span { position: absolute; border-radius: 50%; }
 .ping span:not(.core) { width: 100%; height: 100%; border: 2px solid var(--accent); animation: ping 1.8s var(--ease) infinite; }
@@ -418,6 +414,17 @@
   padding-top: 14px; border-top: 1px solid var(--border-soft); animation: fade .3s var(--ease); }
 .loading-stuck-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
 .loading-stuck-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+/* The static boot splash's one sentence (index.html), held back much longer: a boot that has not
+   mounted React after 12 s is wedged before any JS could say so (an IndexedDB open that never
+   answers), so the hint is pure CSS. `both` keeps it invisible until the delay has run.
+   ⚠️ Compound selector, BELOW .loading-stuck: the element carries both classes, and a bare
+   `.boot-hint` above that rule lost the cascade to its delay-less `animation: fade` — prod showed
+   the hint at first paint (02.09.). And the delay IS the feature, so it survives the global
+   reduced-motion stilling (03-map.css zeroes every animation-delay with !important). */
+.loading-stuck.boot-hint { animation: fade .3s var(--ease) 12s both; }
+@media (prefers-reduced-motion: reduce) {
+  .loading-stuck.boot-hint { animation-delay: 12s !important; }
+}
 
 /* note pill + photo markers */
 /* shape/padding kept identical to the Plan note (.wb-text-label) so a Notiz reads the same on
