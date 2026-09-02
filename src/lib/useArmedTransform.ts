@@ -83,6 +83,16 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
   const cb = useRef({ surface, centreClient, onMove, onRotate, onGrab })
   useEffect(() => { cb.current = { surface, centreClient, onMove, onRotate, onGrab } })
 
+  // Armed is a MODE, and it shows: the selection's geometry grips step aside for as long as it
+  // lasts (nothing on the surface can be grabbed but the selection itself), and the surface wears
+  // the mode's cursor — `data-sel-arm` on <body>, read by 11-measure.css.
+  useEffect(() => {
+    if (!armed) return
+    beginTransformChrome('armed')
+    document.body.dataset.selArm = armed
+    return () => { endTransformChrome('armed'); delete document.body.dataset.selArm }
+  }, [armed])
+
   useEffect(() => {
     if (!armed) return
     const el = cb.current.surface()
@@ -93,7 +103,6 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
       const st = live.current
       live.current = null
       setTurn(null)
-      endTransformChrome()
       cb.current.onGrab?.(false)
       if (!st?.on) return
       if (armed === 'move') cb.current.onMove(st.lx - st.x0, st.ly - st.y0, 'end')
@@ -119,8 +128,6 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
         // a press that never travels writes nothing at all — no undo step, no Verlauf row
         if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
         st.on = true
-        // the selection's own geometry grips step aside for the gesture (lib/transformChrome)
-        beginTransformChrome()
         if (armed === 'move') cb.current.onMove(0, 0, 'start')
         else cb.current.onRotate?.(0, 'start')
       }

@@ -263,14 +263,31 @@
   .sel-bar-act:not(.on):hover { background: var(--blue-strong); }
 }
 /* TAPPED rather than dragged, ✥ / ⟳ arm the same writers for the whole surface (the bar is
-   pinned bottom-centre, so pulling the grip DOWN runs the finger off the screen). Armed stays in
-   the blue family — the deeper fill plus the family's ring, never a second colour — and it
-   arrives on a transition, so arming reads as a decision rather than as a flicker. The ring is
-   drawn OUTSIDE the button, so nothing on the bar moves when a mode goes on or off. */
-.sel-bar-act.on { background: var(--blue-strong);
+   pinned bottom-centre, so pulling the grip DOWN runs the finger off the screen).
+   ⚠️ An armed grip is an ARMED TOOL, and it is painted like one: `--ink-fill`, exactly what the
+   tool rail marks its active tool with (.vrail-tool.on) — a deeper shade of the resting blue was
+   read as a hover, not as a mode. The blue ring around it keeps it in the bar's own family. The
+   ring is drawn OUTSIDE the button and the fill arrives on a transition, so nothing moves and
+   nothing flickers when a mode goes on or off. */
+.sel-bar-act.on { background: var(--ink-fill); color: var(--on-accent-ink);
   box-shadow: 0 0 0 2px var(--glass), 0 0 0 4px var(--blue); }
+@media (hover: hover) { .sel-bar-act.on:hover { background: var(--ink-fill-hover); } }
 @media (prefers-reduced-motion: reduce) { .sel-bar-act { transition: none; } }
 .sel-bar-act .i { width: 19px; height: 19px; }
+
+/* …and the whole surface says which mode is on, under the cursor that will act on it. Mouse-only
+   by nature; a gloved tablet reads the lit button and the cleared grips instead.
+   ⚠️ The bar's own grips keep `cursor: grab` (a direct rule beats this inherited one), because
+   dragging them is still the small adjustment it always was. */
+body[data-sel-arm="move"] .maplibregl-map,
+body[data-sel-arm="move"] .wb-canvas { cursor: move; }
+/* CSS has no rotate cursor, so this is the app's own ⟳ glyph (lib/icons · #rotate) as a 24px
+   data-URI: a white halo under a dark stroke, so it stays legible over any basemap, hotspot in
+   the middle, `grab` for anything that cannot load it. */
+body[data-sel-arm="rotate"] .maplibregl-map,
+body[data-sel-arm="rotate"] .wb-canvas {
+  cursor: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23ffffff' stroke-width='5'%3E%3Cpath d='M20 11a8 8 0 1 1-2.4-5.7'/%3E%3Cpath d='M20 4v4.2h-4.2'/%3E%3C/g%3E%3Cg stroke='%231f2937' stroke-width='2.4'%3E%3Cpath d='M20 11a8 8 0 1 1-2.4-5.7'/%3E%3Cpath d='M20 4v4.2h-4.2'/%3E%3C/g%3E%3C/svg%3E") 12 12, grab;
+}
 /* «Fertig» carries its word: it is the way OUT of the editing state, and the bar's only label.
    ⚠️ NOT «Löschen» (02.09.) — deleting belongs in the object's own editor sheet and on the Delete
    key, not on chrome sitting two taps from every grip. */

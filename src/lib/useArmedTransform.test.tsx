@@ -103,17 +103,28 @@ describe('a drag on the surface while ✥ is armed', () => {
     expect(onSurface).not.toHaveBeenCalled()
   })
 
-  it('steps the selection’s own geometry grips aside for the drag, and back on release', () => {
+  // ⚠️ ARMING hides them, not the drag (02.09.): while a mode is on, every press on the surface
+  // belongs to it, so a grip that can no longer be grabbed must not still be offered.
+  it('steps the selection’s own geometry grips aside for the whole mode, not just the drag', () => {
     render(<Harness />)
+    expect(transformingChrome()).toBe(false)
+    armWith('✥')
+    expect(transformingChrome()).toBe(true)
+    dragSurface([100, 100], [100, 180], 9)
+    expect(transformingChrome()).toBe(true)      // …still armed, so still clean
     armWith('✥')
     expect(transformingChrome()).toBe(false)
-    fireEvent.pointerDown(surface(), { pointerId: 9, isPrimary: true, clientX: 100, clientY: 100 })
-    fireEvent.pointerMove(window, { pointerId: 9, clientX: 100, clientY: 104 })
-    expect(transformingChrome()).toBe(false)     // still inside the deadzone: nothing has moved
-    fireEvent.pointerMove(window, { pointerId: 9, clientX: 100, clientY: 180 })
-    expect(transformingChrome()).toBe(true)
-    fireEvent.pointerUp(window, { pointerId: 9, clientX: 100, clientY: 180 })
-    expect(transformingChrome()).toBe(false)
+  })
+
+  it('dresses the surface in the mode’s cursor, and undresses it on disarm', () => {
+    render(<Harness onRotate={() => {}} />)
+    expect(document.body.dataset.selArm).toBeUndefined()
+    armWith('✥')
+    expect(document.body.dataset.selArm).toBe('move')
+    armWith('⟳')
+    expect(document.body.dataset.selArm).toBe('rotate')
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(document.body.dataset.selArm).toBeUndefined()
   })
 
   it('allows drag after drag, from wherever the finger lands', () => {
@@ -153,6 +164,9 @@ describe('a drag on the surface while ⟳ is armed', () => {
     const onRotate = vi.fn()
     render(<Harness onRotate={onRotate} />)
     armWith('⟳')
+    // ⚠️ The turn is RELATIVE to this press, always: whatever bearing the finger lands on is 0°,
+    // and the object turns by what the finger travels from there. Jumping to the absolute bearing
+    // of wherever a gloved hand happens to touch down would spin the selection before it moved.
     // press due EAST of the centre, then swing to due SOUTH: a quarter turn clockwise
     fireEvent.pointerDown(surface(), { pointerId: 3, isPrimary: true, clientX: CENTRE.x + 100, clientY: CENTRE.y })
     fireEvent.pointerMove(window, { pointerId: 3, clientX: CENTRE.x, clientY: CENTRE.y + 100 })
@@ -167,6 +181,22 @@ describe('a drag on the surface while ⟳ is armed', () => {
     fireEvent.pointerUp(window, { pointerId: 3, clientX: CENTRE.x, clientY: CENTRE.y - 100 })
     expect(onRotate.mock.calls[onRotate.mock.calls.length - 1]).toEqual([270, 'end'])
     expect(state()).toBe('rotate:—')   // the read-out belongs to the gesture only
+  })
+
+  it('starts at 0° wherever the finger lands, and again on the next press', () => {
+    const onRotate = vi.fn()
+    render(<Harness onRotate={onRotate} />)
+    armWith('⟳')
+    for (const start of [[CENTRE.x, CENTRE.y - 90], [CENTRE.x - 70, CENTRE.y + 70]] as const) {
+      onRotate.mockClear()
+      fireEvent.pointerDown(surface(), { pointerId: 4, isPrimary: true, clientX: start[0], clientY: start[1] })
+      // one sample straight back out along the SAME bearing: further from the centre, no turn
+      const far: [number, number] = [CENTRE.x + (start[0] - CENTRE.x) * 2, CENTRE.y + (start[1] - CENTRE.y) * 2]
+      fireEvent.pointerMove(window, { pointerId: 4, clientX: far[0], clientY: far[1] })
+      expect(onRotate.mock.calls[0]).toEqual([0, 'start'])
+      expect(onRotate.mock.calls[1][0]).toBeCloseTo(0, 6)
+      fireEvent.pointerUp(window, { pointerId: 4, clientX: far[0], clientY: far[1] })
+    }
   })
 })
 
