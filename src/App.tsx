@@ -100,6 +100,12 @@ export default function App() {
   // directly, because listing incidents is exactly what a link may not do.
   const linkScoped = !!user?.link_scoped
   const linkIncidentId = (linkScoped && user?.link_incident_id) || null
+  // …and WHICH link. The Atemschutz one is the only session that is link-scoped and may still
+  // write (auth · AuthUser.link_kind); IncidentWorkspace renders it as «Tafel pur». Mirrored in
+  // a ref because `selectIncident` below is a stable ([] deps) callback.
+  const asLink = linkScoped && user?.link_kind === 'atemschutz'
+  const asLinkRef = useRef(asLink)
+  useEffect(() => { asLinkRef.current = asLink }, [asLink])
 
   // register this browser for server push once per session (no-op unless notification
   // permission is already granted AND the deployment has VAPID keys) — killed-app alarms.
@@ -227,6 +233,13 @@ export default function App() {
     if (syncRef.current) { await syncRef.current.flush().catch(() => {}); syncRef.current.dispose(); syncRef.current = null }
     const sync = new WorkspaceSync(id, {
       debounceMs: appConfig.sync.saveDebounceMs,
+      // An Atemschutz-Link session may write the Überwachungstafel and nothing else — the full
+      // workspace PUT 403s for it — so its pushes and its teardown beacon go down the trupp
+      // slice route. Everything else about the engine (cache, debounce, 409 merge, retry) is
+      // unchanged: the merge still reasons about the whole blob, because the server's copy has
+      // one. Read as of THIS call: selectIncident is a stable ([] deps) callback, and the
+      // link_kind cannot change without a fresh session anyway.
+      ...(asLinkRef.current ? { slice: 'trupps' as const } : {}),
       // Concurrent edits are auto-merged three-way (see mergeWorkspace), so no blocking
       // dialog — just a quiet notice. The merged result is applied in place via onApplyMerged
       // (registered by the live view); onServerWorkspace is the remount fallback.

@@ -134,7 +134,8 @@ import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } from './lib/useObjectPlans'
 import { PlanPicker } from './components/PlanPicker'
-import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet } from './components/panels'
+import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet, ShareIncidentSheet } from './components/panels'
+import { fetchShareLink } from './lib/viewLink'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
 import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
@@ -250,7 +251,20 @@ export function IncidentWorkspace({
   // inspect, but every editing affordance is hidden and commit() is neutered so
   // nothing can mutate the document (defense in depth).
   const { user, logout } = useAuth()
-  const baseReadOnly = user?.role !== 'editor' || forceReadOnly || tabLockLost
+  /**
+   * The Atemschutz-Link session (auth · AuthUser.link_kind): a link holder who may OPERATE the
+   * Atemschutzüberwachung of this one Einsatz — Trupp anmelden, Eingerückt, Kontakt, Druck,
+   * Rückzug, Draussen, bearbeiten, entfernen — and nothing else. It renders as «Tafel pur»
+   * (the lite branch at the bottom of this component), which is why the rest of the workspace
+   * never has to reason about it beyond the three flags below.
+   */
+  const asLink = user?.link_kind === 'atemschutz'
+  // ⚠️ `asLink` is NOT read-only. Its writes are real (the trupp slice of the workspace, journal
+  // rows of kind 'team', `atemschutz.*` events — the backend allowlists exactly those), and
+  // read-only would neuter `commit`, the journal store and the sync push alike, leaving a board
+  // whose Kontakt button did nothing. What it is NOT is an editor: `isEditor`/`canEditIncident`
+  // stay false, so every affordance outside the Tafel is withheld exactly as for a viewer.
+  const baseReadOnly = (user?.role !== 'editor' && !asLink) || forceReadOnly || tabLockLost
   const isEditor = user?.role === 'editor'
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. Read-only is not
   // enough here — a plain viewer may still generate the Rapport/Zeitplan PDFs and drive the
@@ -285,6 +299,23 @@ export function IncidentWorkspace({
   // The edits were saved and (correctly) badged as Nachträge, but nobody had asked for them:
   // the unlock is «Reaktivieren», deliberately, once, with its own confirm.
   const canEditIncident = isEditor && !readOnly && !elView
+  /** …and the ONE slice an Atemschutz-Link may write. Everything Atemschutz-side gates on this
+   *  rather than on `canEditIncident`, so the handed-over Tafel is operable while the rest of
+   *  the workspace stays as read-only for it as it is for any viewer. */
+  const canEditTrupps = canEditIncident || (asLink && !readOnly)
+  /**
+   * «may write the incident RECORD at large» — the flag every writer that used to gate on bare
+   * `readOnly` now uses.
+   *
+   * ⚠️ It is not `canEditIncident`. That one also excludes the Führungsansicht, where journal
+   * capture, media upload and the weather log deliberately stay live (see `elView`); gating
+   * these on it would silently switch off half of what an EL device is for. What has to be
+   * excluded is the Atemschutz-Link: it is genuinely not read-only — it operates the Tafel —
+   * but it owns exactly ONE slice, and everything outside that slice is refused by the backend.
+   * Left on bare `readOnly`, those writers would emit `weather.observe` events into a 403,
+   * drain a media queue that cannot upload, and dirty a blob whose push carries only Trupps.
+   */
+  const canWriteRecord = !readOnly && !asLink
   // Phones edit like tablets — the tool bar is simply always there on the drawing surfaces
   // (stacked above the surface bar). Viewers and the EL-Ansicht stay hands-off; a brigade
   // that wants a view-only phone uses exactly those.
@@ -562,7 +593,23 @@ export function IncidentWorkspace({
   // Objekt-Picker, Hilfe, Installations-Guide, Offline-Bereitschaft — the Rapport is not here,
   // it is a rail surface, so «open it» is setMode('rapport'),
   // layers panel) — grouped in useSheets; switching to a tool closes the views popover + panel.
-  const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen } = useSheets()
+  const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, shareLink, setShareLink } = useSheets()
+  /** Who may hand a link out at all — the same rule for both kinds: an editor on a live view,
+   *  and never a link session itself (a link may not mint further links). */
+  const canShareLink = canEditIncident && !readOnly && !linkScoped
+  /** Is there an Atemschutz-Link on this Einsatz right now? ONE request per incident, and
+   *  deliberately never polled: the QR in the Atemschutz header only claims that a link EXISTS,
+   *  and the only thing that changes that is minting or revoking one — which happens in the
+   *  sheet, on this device, and reports straight back through its `onState`. */
+  const [atemschutzLinkOn, setAtemschutzLinkOn] = useState(false)
+  useEffect(() => {
+    if (!canShareLink) return // nobody who could see the button — asking would only 403
+    let alive = true
+    void fetchShareLink(incidentMeta.id, 'atemschutz')
+      .then((l) => { if (alive) setAtemschutzLinkOn(l.enabled) })
+      .catch(() => { /* an unknown state paints «kein Link» — the sheet is the honest answer */ })
+    return () => { alive = false }
+  }, [incidentMeta.id, canShareLink])
   // Child sheets suspend their parent rather than destroying it. Their origin decides whether
   // cancel restores Einstellungen/Ansichten/status and whether a completed action closes the
   // entire chain.
@@ -581,7 +628,10 @@ export function IncidentWorkspace({
   // All ephemeral (never saved); gated on the measure tool being active.
   const measure = useMeasure(tool === 'measure')
   // surface + active plan are remembered across reloads via a cookie
-  const [mode, setMode] = useState<'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'>(prefs.mode ?? 'map')
+  // ⚠️ An Atemschutz-Link session has exactly ONE surface, so the remembered one is ignored:
+  // that device may have been on the Karte as an editor yesterday, and the lite shell renders
+  // whatever `mode` says. There is no rail to steer back with.
+  const [mode, setMode] = useState<'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'>(asLink ? 'atemschutz' : (prefs.mode ?? 'map'))
   /** The Rapport is a surface now, so «open it» is «go there». Kept as a named helper because
    *  half a dozen entry points say it (Abschluss-Assistent, the print action, the return chip). */
   const openRapport = () => setMode('rapport')
@@ -1111,11 +1161,11 @@ export function IncidentWorkspace({
   const lastWxAt = useRef<string | null>(null)
   useEffect(() => {
     const w = liveWeather.data
-    if (readOnly || !w || !w.observed_at || w.observed_at === lastWxAt.current) return
+    if (!canWriteRecord || !w || !w.observed_at || w.observed_at === lastWxAt.current) return
     lastWxAt.current = w.observed_at
     emit('weather.observe', { weather: w })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveWeather.data, readOnly])
+  }, [liveWeather.data, canWriteRecord])
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
   const openWeatherDetails = useCallback(() => {
     const [lng, lat] = incidentView.center
@@ -1188,7 +1238,10 @@ export function IncidentWorkspace({
     sync, readOnly, incidentId: incidentMeta.id,
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
-    appendJournal: journal.append,
+    // Not for an Atemschutz-Link session: the server refuses every non-«team» row from it (403,
+    // deliberately not a 422), and a refused row at the head of the outbox would block the
+    // Kontakt rows queued behind it. Attendance conflicts are not that session's business.
+    appendJournal: canWriteRecord ? journal.append : undefined,
     // a ringing device polls fast even when hidden — the Funkkontakt that ends its alarm is
     // usually entered on another device and arrives via this very poll
     alarmUrgent: azAlarm.peak >= 2,
@@ -1201,9 +1254,9 @@ export function IncidentWorkspace({
   // other device drops the banner on its next poll. Auto-opened Einsätze only: a hand-typed one
   // was never up for review, and stamping it would dirty the blob for nothing.
   useEffect(() => {
-    if (readOnly || !reviewedLocallyAt || intakeReviewedAt || !incidentMeta.auto_opened) return
+    if (!canWriteRecord || !reviewedLocallyAt || intakeReviewedAt || !incidentMeta.auto_opened) return
     setIntakeReviewedAt(reviewedLocallyAt)
-  }, [readOnly, reviewedLocallyAt, intakeReviewedAt, incidentMeta.auto_opened, setIntakeReviewedAt])
+  }, [canWriteRecord, reviewedLocallyAt, intakeReviewedAt, incidentMeta.auto_opened, setIntakeReviewedAt])
 
   // Keep the screen awake while an incident workspace is open (this component only mounts for an
   // open incident) — so the map never dims/sleeps mid-operation on a station/vehicle tablet.
@@ -1291,7 +1344,7 @@ export function IncidentWorkspace({
     else patchRow(rowId, { audioUrl: url })
   }, [swapPhoto, overlayRow, patchRow])
   const media = useMediaQueue({
-    incidentId: incidentMeta.id, readOnly,
+    incidentId: incidentMeta.id, readOnly: !canWriteRecord,
     onUploaded: swapRowMedia, onRestore: swapRowMedia,
   })
 
@@ -1349,7 +1402,7 @@ export function IncidentWorkspace({
    * preflight already counts as pending media.
    */
   const uploadPhotoForRow = useCallback(async (rowId: string, localUrl: string) => {
-    if (readOnly) return
+    if (!canWriteRecord) return
     let blob: Blob
     try {
       blob = await (await fetch(localUrl)).blob()
@@ -1363,10 +1416,10 @@ export function IncidentWorkspace({
       // multi-photo row evict the previous one, losing every capture but the last while offline
       await media.enqueue(rowId, 'photo', blob, `photo-${rowId}`, new Date().toISOString(), localUrl)
     }
-  }, [incidentMeta.id, readOnly, media, swapPhoto])
+  }, [incidentMeta.id, canWriteRecord, media, swapPhoto])
 
   const uploadMediaForRow = useCallback(async (rowId: string, localUrl: string, kind: 'photo' | 'audio') => {
-    if (readOnly) return
+    if (!canWriteRecord) return
     let blob: Blob
     try {
       blob = await (await fetch(localUrl)).blob()
@@ -1383,7 +1436,7 @@ export function IncidentWorkspace({
       // offline / server error — keep the blob for later instead of losing it this session
       await media.enqueue(rowId, kind, blob, `${kind}-${rowId}`, new Date().toISOString(), kind === 'photo' ? localUrl : undefined)
     }
-  }, [incidentMeta.id, readOnly, media, swapRowMedia])
+  }, [incidentMeta.id, canWriteRecord, media, swapRowMedia])
 
   /**
    * Rapport-Beilagen: add one or more photos that belong to the REPORT (an ID document, a damage
@@ -1393,7 +1446,7 @@ export function IncidentWorkspace({
    * says «noch nicht hochgeladen» beside it rather than pretending it will print.
    */
   const addAttachments = useCallback((files: File[]) => {
-    if (readOnly) return
+    if (!canWriteRecord) return
     const at = new Date().toISOString()
     for (const file of files) {
       const id = `att${Date.now()}${Math.random().toString(36).slice(2, 6)}`
@@ -1415,20 +1468,20 @@ export function IncidentWorkspace({
         }
       })()
     }
-  }, [incidentMeta.id, readOnly, setAttachments, emit])
+  }, [incidentMeta.id, canWriteRecord, setAttachments, emit])
   const captionAttachment = useCallback((id: string, caption: string) => {
-    if (readOnly) return
+    if (!canWriteRecord) return
     // Stored AS TYPED. `.trim()` here ran on every keystroke, so the space you pressed was
     // deleted before the next letter arrived — «Ausweis Lenker» came out «AusweisLenker» and a
     // trailing space was impossible. Trimming belongs where the caption is USED (the print
     // payload), not where it is being written.
     setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: caption || undefined } : a)))
-  }, [readOnly, setAttachments])
+  }, [canWriteRecord, setAttachments])
   const removeAttachment = useCallback((id: string) => {
-    if (readOnly) return
+    if (!canWriteRecord) return
     setAttachments((list) => list.filter((a) => a.id !== id))
     emit('report.attachment.remove', { id })
-  }, [readOnly, setAttachments, emit])
+  }, [canWriteRecord, setAttachments, emit])
 
   // When the workspace sync recovers (server reachable again), drain any queued media too —
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.
@@ -1491,8 +1544,8 @@ export function IncidentWorkspace({
     if (changedToSelection) { setPanel(null); setViewsOpen(false); setTool('select'); setPending(null); setPendingShape(null); settleDraft() }
   }, [selKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || composerOpen || journalOpen || teamPick) setPanel(null)
-  }, [settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen, composerOpen, journalOpen, teamPick])
+    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || shareLink || composerOpen || journalOpen || teamPick) setPanel(null)
+  }, [settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen, shareLink, composerOpen, journalOpen, teamPick])
 
   // Delete / Backspace removes the current selection (drawing first, then entity) — but
   // never while typing in a field. `doc` is a dep so the delete closes over fresh state.
@@ -1523,17 +1576,23 @@ export function IncidentWorkspace({
   // useObjectPlans re-centres the osm surface on the incident, so prefetching the bundled
   // catalog's default center warmed a bbox nobody looks at. Re-runs when the center moves
   // (e.g. the alarm address lands); prefetchOutlines dedupes by bbox, so repeats are free.
+  // Not for an Atemschutz-Link session: it never shows a plan, and /api/overpass is off the
+  // link allowlist – the warm-up would only be a 403 in the console.
   useEffect(() => {
+    if (asLink) return
     for (const p of resolvedPlanDocs) if (p.osm) prefetchOutlines(p.osm.center, p.osm.radiusM)
-  }, [resolvedPlanDocs])
+  }, [resolvedPlanDocs, asLink])
 
   // remember the active surface + plan document in a cookie (preserve incidentId)
-  useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [mode, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
+  // (…but never FROM a link session: its surface is forced, so remembering it would make the
+  // next ordinary open of this browser land on the Atemschutz board for no reason anyone gave.)
+  useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [asLink, mode, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
 
   // bake every plan's bitmap into memory at app load (on idle, sized to the
   // window) so the very first time the Plan tab is opened the page appears
   // instantly — the exact-fit bake reuses these unless the stage is larger
   useEffect(() => {
+    if (asLink) return // never shows a plan — a phone must not bake every page into memory for nothing
     const urls = resolvedPlanDocs
       .filter((p) => p.imageUrl)
       .map((p) => (p.imageUrl.startsWith('/') || /^https?:/.test(p.imageUrl) ? p.imageUrl : `${import.meta.env.BASE_URL}${p.imageUrl}`))
@@ -1541,7 +1600,7 @@ export function IncidentWorkspace({
     const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
     const id = idle ? idle(run) : window.setTimeout(run, 600)
     return () => { const ric = (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback; if (idle && ric) ric(id); else clearTimeout(id) }
-  }, [resolvedPlanDocs])
+  }, [resolvedPlanDocs, asLink])
 
   // Layers the MAP renders: during replay, apply the reconstructed layerState so
   // `layer.toggle` history (which layer was on/off at that moment) is faithful too.
@@ -2373,7 +2432,7 @@ export function IncidentWorkspace({
   useEffect(() => { hotkeyRef.current = (e: KeyboardEvent) => {
     if (isTypingTarget(document.activeElement)) return
     // a modal sheet owns the screen — its own focus trap / Esc handle keys; stay inert behind it.
-    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || composerOpen) return
+    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || shareLink || composerOpen) return
     const cmd = resolveHotkey(e)
     if (!cmd) return
     // An alignment session owns navigation on every form factor. The hidden NavRail must not
@@ -2979,7 +3038,13 @@ export function IncidentWorkspace({
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
   const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
     useTruppActions({
-      trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
+      trupps, drawings, entities, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
+      // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
+      // recoloured here would change only on this phone and be undone by the next poll, while
+      // the tablet keeps the old one. So the placement half of every Trupp action is a no-op
+      // there; the tablet's own board/entities stay the single source for the picture.
+      setBoard: asLink ? () => {} : setBoard,
+      setDocRaw: asLink ? () => {} : setDocRaw,
       // a new map marker lands at the current map centre (the operator drags it to position);
       // fall back to the Einsatzort when the map hasn't been opened yet this session
       mapCenter: () => {
@@ -3127,7 +3192,8 @@ export function IncidentWorkspace({
   // toasts in useAttendanceActions). Those stay: the toast catches the mistake you notice at once,
   // the stack the one you notice three names later. A toast undo is itself a write through `set`,
   // so ↶ after it re-applies the tap — «undo the last thing I did», consistently.
-  const attHist = useUndoableSlice(attendance, setAttendance, readOnly)
+  // ⚠️ `canWriteRecord`, not `readOnly`: the Anwesenheit is not the Atemschutz-Link's slice.
+  const attHist = useUndoableSlice(attendance, setAttendance, !canWriteRecord)
   attHistClear.current = attHist.clear
   // …and what each person's Bemerkung said, for as long as this incident is open here. The record
   // loses it when a row is cycled to «frei» (the entry goes, as it must); this is what puts it back
@@ -3304,6 +3370,10 @@ export function IncidentWorkspace({
   /** `grouped` folds the per-person rows into ONE line naming the whole crew — see the Trupp
    *  caller below for why. */
   const ensurePresentForRole = (ids: (string | undefined)[], roleNote?: string, grouped = false) => {
+    // Not on an Atemschutz-Link session: its Anwesenheit write is a no-op (the slice never
+    // carries attendance), and a Verlauf row claiming «anwesend · AS» over a record that never
+    // changed would be a lie on paper. The tablet marks the crew present when it takes the Trupp.
+    if (!canWriteRecord) return
     const wanted = [...new Set(ids.filter(Boolean) as string[])]
     const fresh = wanted.filter((id) => !isPresent(attendance[id]))
     // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
@@ -3577,6 +3647,110 @@ export function IncidentWorkspace({
   // `maptool-<tool>` on the root drives the map cursor (see .maptool-* in app.css) the way the
   // plan canvas's own `tool-<tool>` does. Gated on mapUI so an armed tool can never leak a
   // crosshair onto Checkliste, Atemschutz or the plan.
+  /* The Atemschutzüberwachung, as ONE element used by both branches below — the full workspace
+   * and the handed-over «Tafel pur» (asLink). Extracted so the prop list exists once: a board
+   * that drifts between the two would be the same failure the twin doctrine names, on a surface
+   * where a missing control is a Trupp nobody clocked. */
+  const atemschutzBoard = (
+    <AtemschutzView
+      trupps={effTrupps}
+      // ⚠️ A link holder has no picture to read a hose number off and no surface to draw one on,
+      // so the quick-picks are empty there and the Ltg-Nr row goes with them (`lite`).
+      leitungOptions={asLink ? () => [] : truppLeitungOptions}
+      truppColors={truppColors()}
+      showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()} lineNoOf={truppLineNos()}
+      pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
+      // the ONE slice an Atemschutz-Link may write — see canEditTrupps
+      canEdit={canEditTrupps}
+      personnel={pickablePersonnel}
+      attendance={effAttendance}
+      // a Gast under PA was at the Einsatz — record them on the Anwesenheit too. Through
+      // assignTypedName, so typing the name of somebody who IS on the list (or already on
+      // this Einsatz) links that row instead of opening a second one beside it. No job
+      // written here: the Trupp is not formed yet, and submitting it writes «AS» itself.
+      // ⚠️ NOT for a link session: the Anwesenheit is not its slice, and the write would 403.
+      onAddGuest={canEditIncident ? (name) => assignTypedName(name, 'presence') : undefined}
+      createTrupp={createTruppA}
+      placeTrupp={placeTrupp}
+      placeTargets={placeTargets}
+      // the Trupp symbols already standing on Lage/plan, offered under the placement targets
+      markerOptions={truppMarkerOptions}
+      adoptMarker={(truppId, markerId) => void adoptTruppMarker(truppId, markerId)}
+      focusTruppOnPlan={focusTruppOnPlan}
+      recordContact={recordContact}
+      recordPressure={recordPressure}
+      setTruppStatus={setTruppStatus}
+      editTrupp={editTruppA}
+      reactivateTrupp={reactivateTruppA}
+      deleteTrupp={deleteTrupp}
+      restoreTrupp={restoreTrupp}
+      removedTrupps={removedTrupps}
+      muted={atemschutzMuted}
+      onToggleMuted={toggleAtemschutzMuted}
+      audioBlocked={atemschutzAudioBlocked}
+      onUnlockAudio={unlockAtemschutzAudio}
+      order={atemschutzOrder}
+      onOrder={setAtemschutzOrder}
+      onMove={canEditIncident && !readOnly ? moveTrupp : undefined}
+      intervalMin={azIntervalMin}
+      graceSec={azGraceSec}
+      defaultFunkkanal={azFunkkanal}
+      focus={truppFocus}
+      // «Überwachung abgeben» — the QR beside the bell, on the page the FU is standing on when
+      // they decide to hand the Tafel over. Same sheet as the Einsatz-Karte's «Teilen», opened
+      // on its «Nur Atemschutz» half.
+      onShareLink={canShareLink ? () => setShareLink('atemschutz') : undefined}
+      shareLinkActive={atemschutzLinkOn}
+      // the board's own sync/clock line (safety review 01.09.): the Tafel says itself whether
+      // its Stand is saved and its clock is right — on the handed-over board there is no
+      // top-bar pill to say it, and on the tablet nobody watching Trupps watches the top bar
+      syncStatus={syncStatus} lastSyncedAt={lastSyncedAt} clockSkewMs={clockSkewMs}
+      // «Tafel pur»: the whole app for this session, so the subtitle has to name the Einsatz —
+      // nothing else on that screen does.
+      lite={asLink ? {
+        subtitle: [incidentMeta.title, incidentMeta.address].filter(Boolean).join(' · '),
+        // to «/», not a reload: on /l/<token> a reload would redeem the token again and land
+        // right back on this board
+        onLeave: () => { void logout().then(() => window.location.assign('/')) },
+      } : undefined}
+    />
+  )
+
+  /* ── «Tafel pur»: the Atemschutz-Link session's WHOLE app ────────────────────────────────
+   *
+   * Somebody scanned the QR the FU held out and is now watching this Einsatz's Atemschutz on
+   * their own phone. What they get is the board and the two things that make it safe — the
+   * alarm host (tone + OS notification, which is the half that works while the screen is off)
+   * and the alarm strip, on the same terms as everywhere else. Nothing else: no TopBar, no
+   * NavRail, no context panel, no Meldeleiste, no sheets but the Trupp-Formular the board opens
+   * itself. Every control that is not here is one this session's backend would refuse.
+   *
+   * ⚠️ AFTER every hook, and it uses the SAME `atemschutzBoard` element as the full layout —
+   * one prop list, so the handed-over board cannot quietly drift from the one in the app.
+   * Toasts + confirms are already mounted app-wide (App · Overlays), the icon sprite is not. */
+  if (asLink) {
+    return (
+      <div className="app as-link-shell">
+        <IconSprite />
+        <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
+          logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+        {atemschutzBoard}
+        {/* `onBoard` is unconditionally true here — the board IS the screen, and the strip's own
+            rule (see AtemschutzAlarmMeldung's header) is that it steps aside for it. Mounted
+            regardless so the two layouts obey ONE contract rather than two. */}
+        <AtemschutzAlarmMeldungen
+          trupps={trupps}
+          severities={azAlarm.severities}
+          intervalMin={azIntervalMin}
+          graceSec={azGraceSec}
+          onBoard
+          onAcknowledge={muteAtemschutz}
+          onGoToTrupp={(id) => setTruppFocus({ id, nonce: Date.now() })}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
@@ -3819,6 +3993,11 @@ export function IncidentWorkspace({
             // can be read before the row is pressed, not only after.
             onArchive={canEditIncident && !readOnly && !incidentMeta.is_archived ? () => { void confirmAndComplete() } : undefined}
             archiveOpenCount={abschlussMissing.length}
+            // «Teilen» — the read-only Einsatz-Link, which until 01.09. could only be minted
+            // from the Rapport. Handing the running Lage to a Nachbarwehr is not an Abschluss
+            // gesture, so it sits in the Einsatz's own card. Refused for a link session: a
+            // link may not mint further links.
+            onShare={canEditIncident && !readOnly && !linkScoped ? () => setShareLink('view') : undefined}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onOfflineReadiness={() => setOfflineReadyOpen(true)}
@@ -3826,7 +4005,7 @@ export function IncidentWorkspace({
             // a link session has no login to leave (and no way back in) — see App's landing card
             onLogout={linkScoped ? undefined : () => { void logout() }}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
-            sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen}
+            sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
           />
         }
       />
@@ -4848,53 +5027,7 @@ export function IncidentWorkspace({
         />
       )}
 
-      {mode === 'atemschutz' && (
-        <AtemschutzView
-          trupps={effTrupps}
-          leitungOptions={truppLeitungOptions}
-          truppColors={truppColors()}
-          showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()} lineNoOf={truppLineNos()}
-          pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
-          canEdit={canEditIncident}
-          personnel={pickablePersonnel}
-          attendance={effAttendance}
-          // a Gast under PA was at the Einsatz — record them on the Anwesenheit too. Through
-          // assignTypedName, so typing the name of somebody who IS on the list (or already on
-          // this Einsatz) links that row instead of opening a second one beside it. No job
-          // written here: the Trupp is not formed yet, and submitting it writes «AS» itself.
-          onAddGuest={canEditIncident ? (name) => assignTypedName(name, 'presence') : undefined}
-          createTrupp={createTruppA}
-          placeTrupp={placeTrupp}
-          placeTargets={placeTargets}
-          // the Trupp symbols already standing on Lage/plan, offered under the placement targets
-          markerOptions={truppMarkerOptions}
-          adoptMarker={(truppId, markerId) => void adoptTruppMarker(truppId, markerId)}
-          focusTruppOnPlan={focusTruppOnPlan}
-          recordContact={recordContact}
-          recordPressure={recordPressure}
-          setTruppStatus={setTruppStatus}
-          editTrupp={editTruppA}
-          reactivateTrupp={reactivateTruppA}
-          deleteTrupp={deleteTrupp}
-          restoreTrupp={restoreTrupp}
-          removedTrupps={removedTrupps}
-          muted={atemschutzMuted}
-          onToggleMuted={toggleAtemschutzMuted}
-          audioBlocked={atemschutzAudioBlocked}
-          onUnlockAudio={unlockAtemschutzAudio}
-          order={atemschutzOrder}
-          onOrder={setAtemschutzOrder}
-          onMove={canEditIncident && !readOnly ? moveTrupp : undefined}
-          intervalMin={azIntervalMin}
-          graceSec={azGraceSec}
-          defaultFunkkanal={azFunkkanal}
-          focus={truppFocus}
-          // the board's own sync/clock line (safety review 01.09.): the Tafel says itself whether
-          // its Stand is saved and its clock is right — on the tablet nobody watching Trupps
-          // watches the top bar
-          syncStatus={syncStatus} lastSyncedAt={lastSyncedAt} clockSkewMs={clockSkewMs}
-        />
-      )}
+      {mode === 'atemschutz' && atemschutzBoard}
 
       {mode === 'anwesenheit' && (
         <AnwesenheitView
@@ -5163,6 +5296,16 @@ export function IncidentWorkspace({
         />
       )}
       {helpOpen && <HelpOverlay onClose={() => setHelpOpen(false)} />}
+      {shareLink && (
+        <ShareIncidentSheet
+          incidentId={incidentMeta.id}
+          initialKind={shareLink}
+          onClose={() => setShareLink(null)}
+          // the Atemschutz header's own button paints its «ein Link läuft» tint from this,
+          // so minting or revoking one is reflected the moment the sheet closes
+          onState={(k, l) => { if (k === 'atemschutz') setAtemschutzLinkOn(l.enabled) }}
+        />
+      )}
       {installGuideOpen && <InstallGuide onClose={() => setInstallGuideOpen(false)} />}
       {offlineReadyOpen && (
         <OfflineReadinessSheet

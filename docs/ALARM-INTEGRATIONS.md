@@ -291,6 +291,15 @@ incident* the way a `viewer` account sees it – Lage map, Pläne, Hydranten, Ch
 No login, and nothing that writes, prints, costs money or leaves the building. Any alerting
 system can do this; Divera is only the common case.
 
+Two more links land on the same `/l/<token>` door and are minted **in the app**, not by the
+alerting system: the Rapport's view link (`/l/v…`, survives the Einsatz closing, revoked per
+incident) and the **Atemschutz-Link** (`/l/a…`, minted from a running Einsatz by an editor via
+«Überwachung abgeben» or «Weitergeben › Nur Atemschutz»). The Atemschutz-Link is the one link that
+writes: it lets a non-FU operate the Atemschutzüberwachung of that Einsatz from their own phone,
+and its writes are exactly three routes – the `trupps` slice of the workspace, `kind: team` Verlauf
+rows and `atemschutz.*` audit events, all stamped `atemschutz-link`. It dies when the Einsatz is
+closed or the link is revoked. Everything else below applies to it unchanged.
+
 ```
 alert text …  https://front.example.org/l/<token>
                        │  responder taps it
@@ -454,7 +463,8 @@ deployment, leave `incident_link_key` unset and the surface does not exist.
   reachable incident, the same content-type allowlist and size cap as the editor upload, behind
   the same per-IP capture rate limit. A Beilage is report paperwork, which is what the poster
   is for; audio is deliberately not offered there.
-- A link token exposes **one incident, read-only, for as long as that incident is open**: map,
+- A link token exposes **one incident, read-only, for as long as that incident is open** (the
+  Atemschutz-Link above is the single, narrow exception): map,
   Pläne, Referenz-Layer, Personen, Verlauf and the live vehicle/weather display — what a
   `viewer` sees on screen, and nothing that writes, prints, generates a PDF or calls a paid
   service. The reachable routes are an allowlist (`LINK_ALLOWED` in

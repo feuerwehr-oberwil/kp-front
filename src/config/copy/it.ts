@@ -853,6 +853,8 @@ export const it: Localizable<Copy> = {
     repeated: 'ripetuto {n}×',
     repeatedTitle: 'Questo messaggio si è ripetuto – ogni ripetizione resta nel verbale.',
     correctHint: 'Il testo originale resta nel verbale.',
+    viaAtemschutzLink: 'Link APR',
+    viaAtemschutzLinkTitle: 'Inserito sulla tabella APR ceduta.',
     detailTime: 'Ora',
     detailArea: 'Ambito',
     detailSource: 'Fonte',
@@ -970,6 +972,8 @@ export const it: Localizable<Copy> = {
     empty: 'Ancora nessuna squadra in sorveglianza.',
     emptyHint: 'Crea una squadra per avviare la sorveglianza.',
     newTrupp: 'Crea squadra',
+    shareLink: 'Cedi la sorveglianza',
+    shareLinkOn: 'Cedi la sorveglianza – un link è attivo',
     // stato sync/orologio nell'intestazione della tavola (vedi de.ts)
     syncStand: '{status} – stato delle {t}',
     clockSkewChip: 'Orologio del dispositivo sfasato ({d} min)',
@@ -1994,6 +1998,8 @@ export const it: Localizable<Copy> = {
     archiveShort: 'Chiudi',
     archive: 'Chiudi intervento',
     archiveOpen: '{n} in sospeso',
+    share: 'Condividi l’intervento',
+    shareShort: 'Condividi',
     report: 'Rapporto d’intervento',
     noOpenIncidents: 'Nessun intervento aperto',
     logout: 'Disconnetti',
@@ -2323,6 +2329,8 @@ export const it: Localizable<Copy> = {
     shareCreateFailed: 'Creazione del link non riuscita',
     shareCopy: 'Copia indirizzo',
     shareCopied: 'Copiato',
+    shareScan: 'Inquadra con la fotocamera',
+    shareSend: 'Invia …',
     shareWarn: 'Chi ha il link vede l’intero intervento – i nomi dei presenti, le foto e il '
       + 'diario completo.',
     shareRevoke: 'Revoca link',
@@ -2331,6 +2339,21 @@ export const it: Localizable<Copy> = {
       + 'Un nuovo link può essere creato in qualsiasi momento – sarà un altro indirizzo.',
     shareRevokeConfirm: 'Sì, revoca',
     shareRevokeFailed: 'Revoca del link non riuscita',
+    shareKindLabel: 'Cosa apre il codice',
+    shareKindFull: 'Intero intervento',
+    shareKindFullSub: 'sola lettura',
+    shareKindAtem: 'Solo APR',
+    shareKindAtemSub: 'operare',
+    shareAsLede: 'Chi inquadra il codice vede solo la sorveglianza APR di questo intervento e la '
+      + 'usa: annunciare una squadra, contatto, pressione, ripiegamento, fuori. Nessuna carta, '
+      + 'nessun diario. Vale finché l’intervento non è chiuso.',
+    shareAsLiveLede: 'Vale finché l’intervento non è chiuso – o finché non lo revochi.',
+    shareAsWarn: 'Quanto viene inserito lì compare nel diario APR del rapporto. Dai il codice '
+      + 'solo alla persona che sorveglia.',
+    shareAsRevokeTitle: 'Revocare il link APR?',
+    shareAsRevokeBody: 'L’indirizzo smetterà di funzionare. Chi ha la tabella aperta non può più '
+      + 'inserire nulla. Un nuovo link può essere creato in qualsiasi momento – sarà un altro '
+      + 'indirizzo.',
     linksCount: '{done} di {n} fatti',
     linksOpen: 'Apri',
     linksMarkDone: 'Segna {title} come fatto',

@@ -16,7 +16,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import live_wait
-from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..auth.dependencies import CurrentAtemschutzWriter, CurrentUser, is_atemschutz_link
+from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, JournalEntry
 from ..schemas import JournalAppendIn, JournalEntryOut, JournalPage
@@ -128,14 +129,26 @@ async def append_system_row(db: AsyncSession, incident_id: uuid.UUID, *, icon: s
 async def append_journal(
     incident_id: uuid.UUID,
     body: JournalAppendIn,
-    _user: CurrentEditor,
+    user: CurrentAtemschutzWriter,
     db: AsyncSession = Depends(get_db),
 ) -> JournalPage:
     """Append a batch of rows. Idempotent on the client row id: rows this incident already
     holds are skipped silently, so an offline outbox may retry the same batch after a lost
-    response without duplicating the record. Returns the accepted rows with their seqs."""
+    response without duplicating the record. Returns the accepted rows with their seqs.
+
+    Editors append anything. An ATEMSCHUTZ-link session appends `kind == "team"` rows and
+    nothing else — it holds the Atemschutzüberwachung, not the Verlauf — and every row it
+    writes is stamped `via` so the record says where it came from. A row of any other kind is
+    the link refusal, never a 422: the generic message is what keeps a link holder from
+    mapping this API by watching which rejections differ.
+    """
     if len(body.entries) > MAX_BATCH:
         raise HTTPException(status_code=422, detail=f"Batch zu gross (max. {MAX_BATCH})")
+    if is_atemschutz_link(user):
+        if any(e.get("kind") != "team" for e in body.entries):
+            raise _Denied()
+        for e in body.entries:
+            e["via"] = "atemschutz-link"
     accepted = await append_rows(db, incident_id, body.entries)
     if accepted:
         latest = accepted[-1].seq

@@ -76,7 +76,7 @@ export function AtemschutzView({
   trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
-  focus,
+  focus, onShareLink, shareLinkActive = false, lite,
   syncStatus, lastSyncedAt, clockSkewMs,
 }: {
   trupps: Trupp[]
@@ -151,6 +151,27 @@ export function AtemschutzView({
   /** «point at THAT Trupp» — set by a locked Anwesenheit row. The nonce makes a repeat tap point
    *  again; the card scrolls itself into view and flashes, then the mark clears on its own. */
   focus?: { id: string; nonce: number } | null
+  /** «Überwachung abgeben» — open the Weitergeben sheet on its «Nur Atemschutz» half, so the
+   *  Tafel of this Einsatz can be handed to somebody's phone (components/panels · ShareIncident).
+   *  Editors only, and never on the handed-over board itself: a link may not mint links. */
+  onShareLink?: () => void
+  /** …and whether one is currently live. The button's whole «on» state, deliberately: a device
+   *  counter was dropped as YAGNI (01.09.), so this says that a link EXISTS and nothing more. */
+  shareLinkActive?: boolean
+  /**
+   * «Tafel pur» — this board IS the whole app for this session (an Atemschutz-Link on somebody's
+   * own phone): no NavRail, no TopBar, no context panel, no menus. Same cards, same words, same
+   * bell; what goes is everything that points at a surface the session cannot reach — placing a
+   * Trupp on the Karte, picking or showing a Leitung, moving a card in the board order, and the
+   * order menu itself. `subtitle` replaces the generic one, because the one thing this screen
+   * must say and otherwise could not is WHICH Einsatz it is watching.
+   */
+  lite?: {
+    subtitle: string
+    /** «Abmelden»: end the link session and go back to the login. The lite shell has no menu,
+     *  so this is the ONE way off the handed-over board on that browser. */
+    onLeave: () => void
+  }
   /** The incident's sync lifecycle (useIncidentSync), rendered in the board's OWN header
    *  (safety review 01.09.): the surface a life depends on must say itself whether what it
    *  shows is saved and current — offline or a failing sync has to be visible without the
@@ -524,6 +545,9 @@ export function AtemschutzView({
       onMove={order === 'manuell' && !compact ? onMove : undefined}
       onPickLine={pickTruppLine}
       onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)}
+      // «Tafel pur»: everything that points at the Karte or a drawn Leitung is unreachable from
+      // this session, and a control that will fail is worse than no control (see `lite` above).
+      lite={!!lite}
       onCollapse={compact ? () => setOpenRow(null) : undefined}
     />
     )
@@ -533,6 +557,10 @@ export function AtemschutzView({
   // alarm claims to be on — a muted bell promises no tone anyway, so two warnings about the same
   // silence would be one too many (useAtemschutzMute already folds that into `audioBlocked`).
   const bellLabel = muted ? az.alarmMuted : audioBlocked ? az.alarmBlocked : az.alarmArmed
+
+  // What the QR beside the bell says of itself — the same rule as the bell: the state that is
+  // TRUE now, not what the press would do.
+  const shareLabel = shareLinkActive ? az.shareLinkOn : az.shareLink
 
   /* ── The board's own sync/clock line, under the subtitle ──────────────────────────────────
    * Same vocabulary as the incident switcher (its copy, its chip classes — learned once):
@@ -582,11 +610,15 @@ export function AtemschutzView({
   )
 
   return (
-    <div className={s.surface}>
+    <div className={cx(s.surface, lite && s.surfaceLite)}>
       <header className={s.head}>
         <div className={s.headTitles}>
           <h2>{az.title}</h2>
-          <p>{az.subtitle}</p>
+          {/* ⚠️ On the handed-over Tafel the subtitle is the EINSATZ, not the generic sentence
+              about what the board is for. Nothing else on that screen names it, and «welcher
+              Einsatz ist das» is the first question somebody scanning a code from a stranger's
+              tablet has. Not a second header — this line already exists. */}
+          <p>{lite ? lite.subtitle : az.subtitle}</p>
           {syncLine}
         </div>
         {/* ⚠️ ONE group, not four siblings. `.head` wraps, and as direct children the badge, the
@@ -616,7 +648,7 @@ export function AtemschutzView({
             the board is. A way of LOOKING at the board is not worth a permanent strip of the one
             screen that exists to show overdue Trupps; behind its own icon it costs 44px and the
             current choice still shows as a tick when it is opened. */}
-        {trupps.length > 1 && onOrder && (
+        {trupps.length > 1 && onOrder && !lite && (
           <Menu
             trigger={
               <button type="button" className={s.orderBtn} aria-label={az.orderLabel} title={az.orderLabel}>
@@ -669,6 +701,26 @@ export function AtemschutzView({
             AudioContext the browser only releases inside a gesture, and nothing on this screen
             guaranteed one. «Nicht freigegeben» outranks «an» because it is the state somebody has
             to act on — and its tap retries the unlock instead of muting. See useAtemschutzMute. */}
+        {/* «Überwachung abgeben»: the QR, beside the bell, because the realistic handover in an
+            Einsatz is «Handy scannen lassen» and the FU is standing on THIS page when they
+            decide to. Green while a link is live — the same 44px square as the two controls
+            beside it, so the header's right end stays a row of equal targets. */}
+        {onShareLink && (
+          <button
+            type="button"
+            className={cx(s.orderBtn, shareLinkActive && s.shareOn)}
+            onClick={onShareLink}
+            aria-label={shareLabel} title={shareLabel}
+          >
+            <Icon id="qr" />
+          </button>
+        )}
+        {lite && (
+          <button type="button" className={s.orderBtn} onClick={lite.onLeave}
+            aria-label={appConfig.copy.incidentSwitcher.logout} title={appConfig.copy.incidentSwitcher.logout}>
+            <Icon id="logout" />
+          </button>
+        )}
         <button
           className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
           onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
@@ -705,6 +757,7 @@ export function AtemschutzView({
           personnel={personnel} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
           assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
           leitungOptions={leitungOptions(form.trupp?.id)}
+          lite={!!lite}
           onAddGuest={onAddGuest}
           onCancel={() => setForm(null)} onSubmit={submitForm}
         />
@@ -970,7 +1023,7 @@ function TruppRow({
 }
 
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse,
+  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
@@ -1004,6 +1057,11 @@ function TruppCard({
   drawnLineNo?: number
   /** set only in compact mode, where this card was opened from a row — collapses back to it */
   onCollapse?: () => void
+  /** the handed-over «Tafel pur» (see AtemschutzView · lite): drop every control that points at
+   *  a surface this session cannot reach — Platzieren, auf Plan zeigen, Leitung wählen/zeigen,
+   *  and the board-order arrows. Kontakt, Druck, Rückzug, Draussen, Bearbeiten and Entfernen
+   *  all stay: they are what the board was handed over FOR. */
+  lite?: boolean
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   const status = live.status
@@ -1114,7 +1172,7 @@ function TruppCard({
               opened FROM a row — otherwise there is nothing to collapse to. */}
           {/* Only while the hand-set order is the one on screen: moving a card under any other
               sort would rearrange something the sort is about to rearrange back. */}
-          {onMove && canEdit && (
+          {onMove && canEdit && !lite && (
             <>
               <button className={s.iconBtn} aria-label={az.moveBack} title={az.moveBack} onClick={() => onMove(t.id, -1)}>
                 <Icon id="chevron-left" />
@@ -1129,7 +1187,7 @@ function TruppCard({
               <Icon id="pen" />
             </button>
           )}
-          {(t.annoId || t.entityId) ? (
+          {lite ? null : (t.annoId || t.entityId) ? (
             <button className={s.iconBtn} aria-label={t.entityId ? az.showOnMap : az.showOnPlan} title={t.entityId ? az.showOnMap : az.showOnPlan} onClick={() => onShowPlan(t.id)}>
               <Icon id={t.entityId ? 'map' : 'doc'} />
             </button>
@@ -1142,7 +1200,7 @@ function TruppCard({
               nothing drawn yet ⇒ pick one, drawn ⇒ GO there. Letting go of a Leitung is not an
               icon: it is clearing the number in the form (or «Kein Trupp» on the line itself),
               which is where the operator already is when they change their mind. */}
-          {hasLine ? (
+          {lite ? null : hasLine ? (
             <button className={s.iconBtn} aria-label={az.lineShow} title={az.lineShow} onClick={() => onShowLine(t.id)}>
               <Icon id="drop" />
             </button>
@@ -1189,7 +1247,9 @@ function TruppCard({
               : <button type="button" className={cx(s.tag, s.tagAuftragOpen)} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>}
             {t.ziel && <span className={s.tagZiel}>{t.ziel}</span>}
             {/* the numeric Leitung, else the free text an older record still carries verbatim */}
-            {lineTag && (hasLine ? (
+            {/* ⚠️ On the lite board the number still SHOWS (a Trupp's Leitung is a fact the
+                Überwacher needs) but stops being a jump: there is no Karte to land on. */}
+            {lineTag && (hasLine && !lite ? (
               <button type="button" className={cx(s.tag, s.tagGo)} title={az.lineShow} onClick={() => onShowLine(t.id)}>
                 {az.lineField} {lineTag}<Icon id="chevron" />
               </button>
@@ -1399,7 +1459,7 @@ function TruppCard({
 // Kontakt), then the Trupp; the Druck section shows only when a fresh cylinder is involved
 // (create + re-deploy), never on a plain edit where the live pressure must not be disturbed.
 function TruppForm({
-  mode, initial, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, onAddGuest, onCancel, onSubmit,
+  mode, initial, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, lite = false, onAddGuest, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -1418,6 +1478,11 @@ function TruppForm({
   /** the Leitungen drawn on either surface (lib/truppLines · leitungOptions) — offered as
    *  quick-picks so the number is chosen from what exists, not typed blind */
   leitungOptions: LeitungOption[]
+  /** the handed-over «Tafel pur» (see AtemschutzView · lite): the Ltg-Nr row goes. A link holder
+   *  has no picture to read a hose number off and no surface to draw one on, so the field could
+   *  only ever be a number typed blind — and one Leitung, one Trupp is enforced against what is
+   *  actually drawn (see submitForm's takeover confirm). The FU sets it on the KP tablet. */
+  lite?: boolean
   /** record a hand-typed Gast on the Anwesenheit as well — being put in a Trupp IS being here */
   onAddGuest?: (name: string) => string | undefined
   /** `standby` (re-deploy only) parks the Trupp as Reserve instead of sending it straight in */
@@ -1607,6 +1672,7 @@ function TruppForm({
                 what lets a Trupp and a drawn Leitung find each other without anyone re-typing
                 anything (lib/truppLines). A Trupp recorded before this was free text keeps its
                 text below; it is never rewritten. */}
+            {!lite && (
             <div className={cx(s.field, s.lineField)}>
               <span>{az.lineNoLabel}</span>
               {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
@@ -1640,6 +1706,7 @@ function TruppForm({
               </div>
               {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
             </div>
+            )}
             {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
                 normal case (every Trupp a different one); picking is for when the EL would rather
                 read the picture by role — «alle Löschtrupps rot» — and a duplicate is then the

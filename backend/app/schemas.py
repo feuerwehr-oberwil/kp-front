@@ -42,6 +42,10 @@ class UserOut(BaseModel):
     # button — a real account has neither attribute and both fall back to the defaults.
     link_scoped: bool = False
     link_incident_id: uuid.UUID | None = None
+    # WHICH kind of link, because they do not offer the same app: "alarm" and "view" are
+    # read-only, "atemschutz" may operate the Atemschutzüberwachung of that one Einsatz and
+    # nothing else. None for a real account.
+    link_kind: Literal["alarm", "view", "atemschutz"] | None = None
 
 
 # --- User administration (Slice 2 — Members & access) -------------------------------
@@ -164,6 +168,33 @@ class WorkspaceOut(BaseModel):
 class WorkspacePut(BaseModel):
     workspace: dict[str, Any]
     base_rev: int
+
+
+#: A wide-open workspace holds hundreds of objects; the Atemschutz roster of one Einsatz is a
+#: handful of Trupps. The cap is a bad-client guard, not a doctrine limit.
+MAX_TRUPPS = 200
+
+
+class TruppsPut(BaseModel):
+    """The Atemschutz SLICE of the workspace — the only write shape an Atemschutz link has.
+
+    Deliberately not a `WorkspacePut` with a narrower validator: the caller never sends the
+    rest of the document, so a stale copy cannot erase anything outside `trupps`. `base_rev`
+    is the same optimistic-concurrency token as the full PUT and produces the same 409.
+    """
+
+    trupps: list[dict[str, Any]]
+    base_rev: int
+
+    @model_validator(mode="after")
+    def _validate_trupps(self) -> "TruppsPut":
+        if len(self.trupps) > MAX_TRUPPS:
+            raise ValueError(f"Zu viele Trupps (max. {MAX_TRUPPS})")
+        for t in self.trupps:
+            tid = t.get("id")
+            if not isinstance(tid, str) or not tid.strip():
+                raise ValueError("Jeder Trupp braucht eine nichtleere String-id")
+        return self
 
 
 class ViewLinkOut(BaseModel):

@@ -853,6 +853,8 @@ export const fr: Localizable<Copy> = {
     repeated: 'répété {n}×',
     repeatedTitle: 'Ce message s’est répété – chaque répétition reste au procès-verbal.',
     correctHint: 'La formulation initiale reste au procès-verbal.',
+    viaAtemschutzLink: 'Lien ARI',
+    viaAtemschutzLinkTitle: 'Saisi sur le tableau ARI transmis.',
     detailTime: 'Heure',
     detailArea: 'Domaine',
     detailSource: 'Source',
@@ -970,6 +972,8 @@ export const fr: Localizable<Copy> = {
     empty: 'Aucun binôme en surveillance.',
     emptyHint: 'Créez un binôme pour démarrer la surveillance.',
     newTrupp: 'Créer un binôme',
+    shareLink: 'Transmettre la surveillance',
+    shareLinkOn: 'Transmettre la surveillance – un lien est actif',
     // état sync/horloge dans l'en-tête du tableau (voir de.ts)
     syncStand: '{status} – état de {t}',
     clockSkewChip: 'Horloge de l\'appareil décalée ({d} min)',
@@ -1938,6 +1942,8 @@ export const fr: Localizable<Copy> = {
     archiveShort: 'Clore',
     archive: 'Clore l\u2019intervention',
     archiveOpen: '{n} en suspens',
+    share: 'Transmettre l’intervention',
+    shareShort: 'Transmettre',
     report: 'Rapport d’intervention',
     noOpenIncidents: 'Aucune intervention ouverte',
     logout: 'Déconnexion',
@@ -2323,6 +2329,8 @@ export const fr: Localizable<Copy> = {
     shareCreateFailed: 'La création du lien a échoué.',
     shareCopy: 'Copier l’adresse',
     shareCopied: 'Copié',
+    shareScan: 'Scanner avec l’appareil photo',
+    shareSend: 'Envoyer …',
     shareWarn: 'Toute personne disposant du lien voit l’intervention entière – les noms des '
       + 'présents, les photos et le journal complet.',
     shareRevoke: 'Révoquer le lien',
@@ -2331,6 +2339,22 @@ export const fr: Localizable<Copy> = {
       + 'immédiatement. Un nouveau lien peut être créé à tout moment – ce sera une autre adresse.',
     shareRevokeConfirm: 'Oui, révoquer',
     shareRevokeFailed: 'La révocation du lien a échoué.',
+    shareKindLabel: 'Ce que le code donne',
+    shareKindFull: 'Intervention entière',
+    shareKindFullSub: 'lecture seule',
+    shareKindAtem: 'ARI uniquement',
+    shareKindAtemSub: 'utiliser',
+    shareAsLede: 'Qui scanne le code ne voit que la surveillance ARI de cette intervention et '
+      + 'l’utilise : annoncer un binôme, contact, pression, repli, sorti. Pas de carte, pas de '
+      + 'journal. Valable jusqu’à la clôture de l’intervention.',
+    shareAsLiveLede: 'Valable jusqu’à la clôture de l’intervention – ou jusqu’à ce que vous le '
+      + 'révoquiez.',
+    shareAsWarn: 'Ce qui y est saisi figure au journal ARI du rapport. Ne donnez le code qu’à la '
+      + 'personne qui surveille.',
+    shareAsRevokeTitle: 'Révoquer le lien ARI ?',
+    shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a le tableau ouvert ne peut plus '
+      + 'rien saisir. Un nouveau lien peut être créé à tout moment – ce sera alors une autre '
+      + 'adresse.',
     linksCount: '{done} sur {n} faits',
     linksOpen: 'Ouvrir',
     linksMarkDone: 'Marquer {title} comme fait',

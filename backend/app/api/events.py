@@ -12,7 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audit
-from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..auth.dependencies import CurrentAtemschutzWriter, CurrentUser, is_atemschutz_link
+from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, IncidentEvent
 from ..schemas import EventBatchIn, EventOut, SnapshotOut, VehicleSampleOut
@@ -46,14 +47,22 @@ async def list_events(
 
 @router.post("/{incident_id}/events", response_model=list[EventOut], status_code=201)
 async def ingest_events(
-    incident_id: uuid.UUID, body: EventBatchIn, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+    incident_id: uuid.UUID, body: EventBatchIn, user: CurrentAtemschutzWriter, db: AsyncSession = Depends(get_db)
 ):
     """Flush a batch of client tactical events (entity.*, draw.*, layer.toggle, undo, redo).
 
     Server assigns seq + recorded_at + chain hash; client supplies occurred_at (scene
     wall-clock, possibly buffered offline).
+
+    Editors write the whole vocabulary. An ATEMSCHUTZ-link session writes `atemschutz.*` and
+    nothing else, and its rows carry `source="atemschutz-link"` rather than "client" — the
+    chain has to record that this came from a phone at the Eingang, not from the FU tablet.
+    Any other op_type is the generic link refusal, not a 422 (no probing).
     """
     await _ensure(db, incident_id)
+    link = is_atemschutz_link(user)
+    if link and any(not e.op_type.startswith("atemschutz.") for e in body.events):
+        raise _Denied()
     # A batch is one transaction, and `audit.append_event` takes the incident row before it
     # computes a seq — so this flush landing at the same moment as another appender (a second
     # device flushing, a status webhook) waits for it instead of colliding on
@@ -64,9 +73,9 @@ async def ingest_events(
             db,
             incident_id=incident_id,
             op_type=e.op_type,
-            source="client",
+            source="atemschutz-link" if link else "client",
             payload=e.payload,
-            user_id=user.id,
+            user_id=None if link else user.id,
             occurred_at=e.occurred_at,
         )
         out.append(ev)
