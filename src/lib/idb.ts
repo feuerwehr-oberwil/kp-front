@@ -78,6 +78,14 @@ export async function requestPersistentStorage(): Promise<boolean> {
   }
 }
 
+/** How long `indexedDB.open()` may stay silent. It can — WebKit after a page restore or under
+ *  storage pressure, Chromium on a corrupted LevelDB — fire neither `onsuccess` nor `onerror`,
+ *  and `onblocked` only fires on a version change (never: DB_VERSION is 1). Every caller awaits
+ *  the same cached promise, so one wedged open used to hang the whole boot path behind the
+ *  static splash. Past this bound the open counts as failed and the localStorage fallback
+ *  takes over, the same degraded path a refused open already lands on. */
+const OPEN_TIMEOUT_MS = 5_000
+
 function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise
   const opening = new Promise<IDBDatabase>((resolve, reject) => {
@@ -88,13 +96,25 @@ function openDb(): Promise<IDBDatabase> {
       reject(e)
       return
     }
+    let gaveUp = false
+    const timer = setTimeout(() => {
+      gaveUp = true
+      reject(new Error('IndexedDB open timed out'))
+    }, OPEN_TIMEOUT_MS)
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE)
     }
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
-    req.onblocked = () => reject(new Error('idb blocked'))
+    req.onsuccess = () => {
+      clearTimeout(timer)
+      // A connection that arrives after we gave up is closed, not adopted: every caller has
+      // already been told to use the fallback namespace, and a late switch would split the
+      // store between two backends.
+      if (gaveUp) { req.result.close(); return }
+      resolve(req.result)
+    }
+    req.onerror = () => { clearTimeout(timer); reject(req.error) }
+    req.onblocked = () => { clearTimeout(timer); reject(new Error('idb blocked')) }
   })
   // Set this in the promise callers await, rather than a detached catch handler. The first
   // operation that observes the failed open must choose the same fallback namespace as every

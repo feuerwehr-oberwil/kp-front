@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,7 +14,8 @@ vi.mock('./idb', () => ({ idbGet: vi.fn().mockResolvedValue(null), idbSet, idbDe
 const { syncMediaCacheAuth } = vi.hoisted(() => ({ syncMediaCacheAuth: vi.fn() }))
 vi.mock('./authMediaCache', () => ({ syncMediaCacheAuth }))
 
-import { ApiError } from './api'
+import { ApiError, SESSION_EXPIRED_EVENT } from './api'
+import { idbGet } from './idb'
 import * as deploymentConfig from './deploymentConfig'
 import type { DeploymentConfig } from './deploymentConfig'
 import { AuthProvider, useAuth } from './auth'
@@ -102,5 +103,86 @@ describe('AuthProvider — demo auto-login', () => {
     expect(result.current.user).toBeNull()
     expect(apiPost).not.toHaveBeenCalled()
     await waitFor(() => expect(syncMediaCacheAuth).toHaveBeenCalledWith(null))
+  })
+})
+
+describe('AuthProvider — a server that could not be asked', () => {
+  // The boot probe used to branch on status 0 alone, so a 502/503/504 from the proxy in
+  // front of a restarting server — a Railway deploy during a launch — bounced a logged-in
+  // tablet to the PIN pad although its cookie was fine. Silence and a gateway error are one
+  // situation to the operator (api · isUnverifiable); a real 401 still logs out.
+  it('restores the cached user on a gateway error, probing with the short bound', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    vi.mocked(idbGet).mockResolvedValueOnce(EDITOR_USER)
+    apiGet.mockRejectedValue(new ApiError(503, 'Server nicht erreichbar'))
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
+    expect(result.current.probeUnreachable).toBe(false)
+    // 7 s, not 20: the cached user is the answer, and it has to land before the Splash's 9 s
+    // «Neu starten» — obeying that button used to restart the probe from zero
+    expect(apiGet).toHaveBeenCalledWith('/api/auth/me', { timeoutMs: 7_000 })
+  })
+
+  it('says «unreachable» rather than «logged out» when there is no cache either', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+    expect(result.current.probeUnreachable).toBe(true)
+    expect(idbDel).not.toHaveBeenCalled() // nothing was refused, nothing is cleared
+    expect(apiGet).toHaveBeenCalledWith('/api/auth/me', undefined) // no cache → the full bound
+  })
+})
+
+describe('AuthProvider — a dead Einsatz-Link cookie', () => {
+  // The Einsatz a link named has closed; while its cookie lives every credential-gated route
+  // (roster, login, /me) answers 403, so the kiosk login is unreachable on that phone for up to
+  // 12 h. Logout is exempt from that liveness check: shed the cookie, ask once more.
+  it('sheds the cookie through logout and re-probes exactly once', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet
+      .mockRejectedValueOnce(new ApiError(403, 'Für diesen Einsatz-Link nicht freigegeben'))
+      .mockRejectedValueOnce(new ApiError(401, 'unauth'))
+    apiPost.mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(apiPost).toHaveBeenCalledWith('/api/auth/logout')
+    expect(apiGet).toHaveBeenCalledTimes(2)
+    expect(result.current.user).toBeNull() // → the ordinary login screen, not a 403 dead end
+    expect(idbDel).toHaveBeenCalledWith('kp-front-user')
+  })
+
+  it('does not loop when the re-probe is refused again', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValue(new ApiError(403, 'nope'))
+    apiPost.mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(apiGet).toHaveBeenCalledTimes(2)
+    expect(apiPost).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('AuthProvider — session expiry mid-use', () => {
+  it('flags kp:session-expired and clears it on logout', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockResolvedValue(EDITOR_USER)
+    apiPost.mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
+    expect(result.current.sessionExpired).toBe(false)
+
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT)) })
+    expect(result.current.sessionExpired).toBe(true)
+    expect(result.current.user).toEqual(EDITOR_USER) // the workspace keeps working on its cache
+
+    await act(() => result.current.logout())
+    expect(result.current.sessionExpired).toBe(false)
   })
 })

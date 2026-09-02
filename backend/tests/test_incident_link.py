@@ -316,6 +316,23 @@ async def test_logout_ends_a_link_session(client, link_key, incident):
     assert (await client.get("/api/auth/me")).status_code == 401
 
 
+async def test_logout_still_works_once_the_einsatz_has_closed(client, link_key, incident, db_session):
+    """The frontend relies on this (lib/auth · the 403 re-probe): a member who scanned a link
+    on their own phone opens the app at / after the Einsatz closed. Every credential-gated
+    route is refused while the dead cookie lives — but logout is liveness-exempt, sheds the
+    cookie, and the next /me is the ordinary 401 that leads to the login screen."""
+    await _open_link(client)
+    incident.status = "geschlossen"
+    incident.closed_at = datetime.now(UTC)
+    await db_session.commit()
+    assert (await client.get("/api/auth/me")).status_code == 403  # the trap, as designed
+
+    r = await client.post("/api/auth/logout")
+    assert r.status_code == 200, r.text
+    assert (await client.get("/api/auth/me")).status_code == 401
+    assert (await client.get("/api/auth/roster")).status_code == 200
+
+
 async def test_explicitly_excluded_routes_are_refused(client, link_key, incident):
     """The named exclusions from auth/incident_link.py: documents carrying names, the station
     printer, another person's print job, push rows, billable outbound calls, and the GETs that

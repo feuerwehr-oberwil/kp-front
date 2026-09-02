@@ -79,8 +79,11 @@ function Gate() {
 
 // Nothing before createRoot may be unbounded. Anything still pending here is a LITERALLY blank
 // screen — `#root` is empty, so there is no splash, no error boundary and nothing to tap, and
-// killing the app just re-runs the same stall. Both awaits below therefore carry a hard
-// wall-clock budget and fall back to their offline caches; first paint is guaranteed.
+// killing the app just re-runs the same stall. Both awaits below therefore run inside
+// `withBudget` — the config load INCLUDED, although it budgets its own network race: the cache
+// read it falls back to after that race is an IndexedDB await, and one that never settles
+// (idb.ts · OPEN_TIMEOUT_MS) would otherwise have held the blank page from outside the race.
+// Past the budget each falls back to defaults; first paint is guaranteed either way.
 const BOOT_BUDGET_MS = 4_000
 
 /** Resolve `p`, or `fallback` if it hasn't settled within `ms`. The loser keeps running. */
@@ -103,7 +106,9 @@ void (async () => {
     // offline fallback and WorkspaceSync.init both now read from IDB. Best-effort; budgeted too,
     // because a blocked IndexedDB upgrade (another tab holding the old version) never settles.
     await withBudget(migrateLocalStorageToIdb(), BOOT_BUDGET_MS, undefined)
-    const cfg = await loadDeploymentConfigBounded(BOOT_BUDGET_MS)
+    // Outer budget one second past the inner one: the inner race decides network vs. cache,
+    // the outer bound is only there for a cache read that never answers (see above).
+    const cfg = await withBudget(loadDeploymentConfigBounded(BOOT_BUDGET_MS), BOOT_BUDGET_MS + 1_000, {})
     applyDeploymentBranding(cfg)
     // station plan calibration (public, offline-cached) — so plans measure out of the box (#3)
     void loadStationPlanScales()

@@ -36,8 +36,10 @@ const UPLOAD_TIMEOUT_MS = 5 * 60_000
 export const LONG_POLL_TIMEOUT_MS = 35_000
 
 /** AbortSignal that fires after `ms`. Guarded: an environment without AbortSignal.timeout
- *  simply keeps the old unbounded behaviour rather than failing every request. */
-function timeoutSignal(ms: number): AbortSignal | undefined {
+ *  simply keeps the old unbounded behaviour rather than failing every request. Exported for
+ *  the few callers that must use a bare `fetch` (cross-origin tiles, the print relay's
+ *  FormData posts, the peaks poll) — «no fetch may be unbounded» holds for them too. */
+export function timeoutSignal(ms: number): AbortSignal | undefined {
   return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
     ? AbortSignal.timeout(ms)
     : undefined
@@ -114,10 +116,32 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Could the server not be ASKED — as opposed to having answered «no»? True for status 0 (no
+ * network, our own timeout, a captive portal) and for 502/503/504, which come from the proxy
+ * in front of a server that is down or restarting. To the operator these are one situation:
+ * the session cookie and the cached Einsätze are as good as they were a minute ago, nothing
+ * has been refused, and the offline fallbacks (cached user, cached incident list) apply. The
+ * boot path used to branch on `status === 0` only, so a Railway restart during a launch bounced
+ * a logged-in tablet to the PIN pad and emptied the launcher.
+ */
+export function isUnverifiable(e: unknown): boolean {
+  return e instanceof ApiError && (e.status === 0 || e.status === 502 || e.status === 503 || e.status === 504)
+}
+
+/**
+ * Fired on `window` when a 401 could not be repaired by the refresh: the session is gone for
+ * good (refresh cookie expired mid-incident, SECRET_KEY rotated, server redeployed with a fresh
+ * secret). Every later request fails the same way, so it is said ONCE here, where every request
+ * passes, rather than guessed from the sync badge. AuthProvider listens and exposes it as
+ * `sessionExpired`; nothing in this module knows about React.
+ */
+export const SESSION_EXPIRED_EVENT = 'kp:session-expired'
+
 /** One signal that fires when EITHER input does. The long-poll loops need both halves: the
  *  timeout still cuts a half-open connection, and the caller's own controller drops a request
  *  the server is deliberately holding open (tab hidden, incident switched, hook torn down). */
-function eitherSignal(a?: AbortSignal, b?: AbortSignal | null): AbortSignal | undefined {
+export function eitherSignal(a?: AbortSignal, b?: AbortSignal | null): AbortSignal | undefined {
   if (!a) return b ?? undefined
   if (!b) return a
   const ctrl = new AbortController()
@@ -180,6 +204,10 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
       } catch (e) {
         throw networkError(e)
       }
+    } else if (typeof window !== 'undefined') {
+      // the refresh itself was refused: this session cannot be repaired from here (see
+      // SESSION_EXPIRED_EVENT). The 401 still propagates to the caller below.
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
     }
   }
 

@@ -81,3 +81,29 @@ describe('raster template expansion', () => {
       .toBe('https://wms.test/?BBOX=0,0,20037508.342789244,20037508.342789244&Z=1&X=1&Y=0')
   })
 })
+
+describe('predownloadArea can be cancelled', () => {
+  // The bar had no «Abbrechen» and the download no bound: on a half-open link the workers hung
+  // for ever and the manual button stayed dead for the session. A cancel stops issuing
+  // requests and REJECTS — a cancelled download must not toast «teilweise geladen».
+  it('stops after the abort and rejects with the reason', async () => {
+    const ctrl = new AbortController()
+    let calls = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      calls++
+      ctrl.abort(new Error('cancelled'))
+      return { ok: true, status: 200 } as Response
+    }))
+    const many = { ...opts, maxZoom: 16, warmUrls: ['/plan.pdf'], concurrency: 1, signal: ctrl.signal }
+    await expect(predownloadArea(many)).rejects.toThrow('cancelled')
+    expect(calls).toBe(1)
+    expect(tilesForBounds(BOX, 14, 16).length + 1).toBeGreaterThan(calls)
+  })
+
+  it('bounds every tile request', async () => {
+    stubFetch(() => 'ok')
+    await predownloadArea(opts)
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+})

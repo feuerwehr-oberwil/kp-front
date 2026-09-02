@@ -23,7 +23,10 @@ logger = logging.getLogger(__name__)
 # an explicit Cache-Control the browser applies HEURISTIC freshness (10% of file age), so hours
 # after a deploy a tablet could keep re-reading a stale sw.js/index.html from its HTTP cache and
 # never learn a new build exists. ETag/Last-Modified make the forced revalidation a cheap 304.
-_NO_CACHE_FILES = {"index.html", "sw.js", "sw-notify.js", "manifest.webmanifest", "registerSW.js"}
+# sw-media-cache.js is an importScripts of sw.js: with the default `updateViaCache: 'imports'`
+# the browser fetches it THROUGH the HTTP cache, so a new sw.js could install with an hour-old
+# import. Same rule as sw-notify.js.
+_NO_CACHE_FILES = {"index.html", "sw.js", "sw-notify.js", "sw-media-cache.js", "manifest.webmanifest", "registerSW.js"}
 
 
 def _cache_control(basename: str) -> str:

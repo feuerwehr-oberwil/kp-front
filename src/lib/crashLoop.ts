@@ -19,6 +19,12 @@
 const KEY = 'kp-front-crash'
 /** Crashes further apart than this are unrelated incidents, not a loop. */
 export const CRASH_WINDOW_MS = 5 * 60_000
+/** How long an incident must stay up before App forgets its streak (it also forgets on a clean
+ *  switch or close). Deliberately LONGER than the window: a crash that only happens once some
+ *  surface is opened — minutes after the reload that reproduces it — must still find its
+ *  predecessor, or the count restarts at one on every round and the destructive recovery is
+ *  never offered for a loop that is real. */
+export const CRASH_HEALTHY_MS = 10 * 60_000
 
 export interface CrashRecord {
   /** incident id that crashed (or '' for a crash outside any incident) */

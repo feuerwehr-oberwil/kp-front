@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { apiGet, apiPost, ApiError } from './api'
+import { apiGet, apiPost, ApiError, isUnverifiable, SESSION_EXPIRED_EVENT } from './api'
 import { idbGet, idbSet, idbDel } from './idb'
 import { isDemoMode, loadDeploymentConfig } from './deploymentConfig'
 import { syncMediaCacheAuth } from './authMediaCache'
@@ -46,6 +46,15 @@ interface AuthContextValue {
   user: AuthUser | null
   /** true until the initial /me probe settles, so the gate can hold a splash */
   loading: boolean
+  /** the initial probe left `user` null because the server could not be ASKED (offline, timeout,
+   *  restarting) — as opposed to it having said «no». The Einsatz-Link door reads this so a phone
+   *  that merely lost signal is told so, instead of «Dieser Link gilt nicht mehr». */
+  probeUnreachable: boolean
+  /** the session died mid-use and the transparent refresh could not repair it (api ·
+   *  SESSION_EXPIRED_EVENT). `user` stays set on purpose — the workspace keeps working on its
+   *  local cache — so a surface has to SAY it; this is the one flag that surface reads.
+   *  Cleared by a fresh login or a logout. */
+  sessionExpired: boolean
   login: (userId: string, pin: string) => Promise<void>
   logout: () => Promise<void>
 }
@@ -53,9 +62,10 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 // Cache the last-known user so the PWA stays usable OFFLINE: when the /me probe fails
-// with a network error (not a 401), the httpOnly cookie is still present in the browser
-// but unverifiable, so we optimistically restore the cached identity instead of bouncing
-// to the login screen. A real 401 (online, session gone) clears it.
+// because the server could not be asked (offline, timeout, restarting — not a 401), the
+// httpOnly cookie is still present in the browser but unverifiable, so we optimistically
+// restore the cached identity instead of bouncing to the login screen. A real 401 (online,
+// session gone) clears it.
 // A link session is deliberately NEVER cached (and landing on one CLEARS the cache): the
 // offline restore above is a promise that the httpOnly cookie is still good — true for a
 // station tablet whose 8h/7d session simply can't be verified right now, false for an
@@ -72,9 +82,20 @@ function writeCachedUser(u: AuthUser | null) {
   void (u && !u.link_scoped ? idbSet(USER_CACHE, u) : idbDel(USER_CACHE))
 }
 
+/** The /me bound when a cached user is waiting behind it. The default 20 s is right for a
+ *  request nothing else can answer — but here the offline fallback IS the answer, and the boot
+ *  Splash admits «hängt» with a «Neu starten» button at 9 s (Splash · STUCK_MS). With the full
+ *  bound, obeying that button restarted the probe from zero and the cached session was only
+ *  ever reached by ignoring it. Well under 9 s, so a half-open link lands on the cached user
+ *  before the splash gives up; a slow-but-alive server then simply gets the designed offline
+ *  boot, which the next poll corrects. */
+const CACHED_PROBE_TIMEOUT_MS = 7_000
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [probeUnreachable, setProbeUnreachable] = useState(false)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   // Demo instances skip the login screen: on a fresh visit (no session) auto-sign-in as the
   // demo editor so a visitor lands straight in the action. Fetch the roster, pick the editor,
@@ -95,19 +116,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   // On mount, ask the backend who we are. A 401 just means "not logged in" (normal
-  // cold-start) — on the demo we then auto-sign-in. A network error (status 0 = offline)
-  // falls back to the cached user so an installed PWA opens straight into the app with no signal.
+  // cold-start) — on the demo we then auto-sign-in. A server that could not be asked (offline,
+  // timeout, restarting — api · isUnverifiable) falls back to the cached user so an installed
+  // PWA opens straight into the app with no signal. A 403 is a DEAD Einsatz-Link cookie: the
+  // Einsatz that link named has closed, and while the cookie lives every credential-gated route
+  // (roster, login, /me) is refused — the kiosk login is unreachable on that phone for up to
+  // 12 h. `POST /api/auth/logout` is exempt from that liveness check for exactly this
+  // (backend · incident_link · _LIVENESS_EXEMPT), so shed the cookie and ask ONCE more; the
+  // re-probe then lands on the ordinary 401 → login path.
   useEffect(() => {
     let alive = true
     void (async () => {
+      const cached = await readCachedUser()
+      const probe = () => apiGet<AuthUser>('/api/auth/me', cached ? { timeoutMs: CACHED_PROBE_TIMEOUT_MS } : undefined)
       try {
-        const u = await apiGet<AuthUser>('/api/auth/me')
+        let u: AuthUser
+        try {
+          u = await probe()
+        } catch (e) {
+          if (!(e instanceof ApiError && e.status === 403)) throw e
+          await apiPost('/api/auth/logout').catch(() => { /* best-effort: the re-probe says what is left */ })
+          u = await probe()
+        }
         if (alive) { setUser(u); writeCachedUser(u) }
       } catch (e) {
         if (!alive) return
-        if (e instanceof ApiError && e.status === 0) {
-          const cached = await readCachedUser()
-          if (alive && cached) setUser(cached) // offline — keep the session usable
+        if (isUnverifiable(e)) {
+          if (cached) setUser(cached) // unverifiable, not refused — keep the session usable
+          else setProbeUnreachable(true)
         } else if (e instanceof ApiError && e.status === 401) {
           writeCachedUser(null) // genuinely logged out
           const demoUser = await tryDemoAutoLogin() // demo → straight in; real stations → login screen
@@ -118,6 +154,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })()
     return () => { alive = false }
+  }, [])
+
+  // The one listener for a session that died mid-use; the flag is what a banner consumes.
+  useEffect(() => {
+    const onExpired = () => setSessionExpired(true)
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
   }, [])
 
   // Protected media is cached only for a known real-user client. Do not signal during the
@@ -133,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (userId: string, pin: string) => {
     const u = await apiPost<AuthUser>('/api/auth/login', { user_id: userId, pin })
     setUser(u)
+    setSessionExpired(false)
     writeCachedUser(u)
     // ⚠️ Re-read the deployment config now that there IS a session. Parts of it are withheld
     // from anonymous callers (`report.links` — the station's own Formulare, whose URLs are
@@ -146,11 +190,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try { await apiPost('/api/auth/logout') } catch { /* best-effort — clear locally regardless */ }
     setUser(null)
+    setSessionExpired(false)
     writeCachedUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, probeUnreachable, sessionExpired, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

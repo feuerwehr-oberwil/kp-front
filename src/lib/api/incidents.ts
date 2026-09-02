@@ -1,7 +1,7 @@
 // Incident CRUD + the offline-resilient active list, plus the one-time legacy-workspace
 // migration. Other incident subresources live in sibling modules: workspace blob (./workspace),
 // audit events (./events), media (./media).
-import { ApiError, apiDelete, apiGet, apiPatch, apiPost } from '../api'
+import { apiDelete, apiGet, apiPatch, apiPost, isUnverifiable } from '../api'
 import { idbGet, idbSet } from '../idb'
 import { appConfig } from '../../config/appConfig'
 import { putWorkspace, type Workspace } from './workspace'
@@ -84,17 +84,23 @@ const INCIDENT_LIST_CACHE = 'kp-front-incidents'
 export async function cacheIncidentList(list: IncidentMeta[]): Promise<void> {
   await idbSet(INCIDENT_LIST_CACHE, list)
 }
+/** The cached list, or [] — also for a cache entry that is not a list at all. The launcher
+ *  filters this on every offline boot, so a corrupt entry used to throw at the root boundary
+ *  on every launch, with no incident open to escape from. */
 export async function readCachedIncidentList(): Promise<IncidentMeta[]> {
-  return (await idbGet<IncidentMeta[]>(INCIDENT_LIST_CACHE)) ?? []
+  const cached = await idbGet<unknown>(INCIDENT_LIST_CACHE)
+  return Array.isArray(cached) ? (cached as IncidentMeta[]) : []
 }
-/** Fetch the active list online (and cache it); on a network error fall back to cache. */
+/** Fetch the active list online (and cache it); when the server could not be asked (offline,
+ *  timeout, or a gateway in front of a restarting server — api · isUnverifiable) fall back to
+ *  the cache. A real refusal (401, 500, …) still throws: that is an answer, not silence. */
 export async function listIncidentsResilient(): Promise<{ list: IncidentMeta[]; offline: boolean }> {
   try {
     const list = await listIncidents(false)
     void cacheIncidentList(list)
     return { list, offline: false }
   } catch (e) {
-    if (e instanceof ApiError && e.status === 0) return { list: await readCachedIncidentList(), offline: true }
+    if (isUnverifiable(e)) return { list: await readCachedIncidentList(), offline: true }
     throw e
   }
 }

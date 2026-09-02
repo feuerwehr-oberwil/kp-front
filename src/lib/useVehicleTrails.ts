@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
+import { apiGetRaw } from './api'
 
 const cfg = appConfig.gps
 
@@ -72,7 +73,8 @@ export function useVehicleTrails(enabled: boolean): TrailFeatureCollection {
   useEffect(() => {
     if (!enabled) return
     let alive = true
-    const url = `${cfg.baseUrl}${cfg.trailsPath}?minutes=${cfg.trailMinutes}`
+    let busy = false // one round at a time — a half-open link must not stack a request per tick
+    const path = `${cfg.trailsPath}?minutes=${cfg.trailMinutes}` // apiGetRaw adds the API origin
     const stop = () => {
       if (timer.current != null) {
         window.clearInterval(timer.current)
@@ -81,8 +83,10 @@ export function useVehicleTrails(enabled: boolean): TrailFeatureCollection {
     }
 
     const poll = async () => {
+      if (busy) return
+      busy = true
       try {
-        const res = await fetch(url, { headers: { Accept: 'application/json' } })
+        const res = await apiGetRaw(path) // bounded (20 s); non-2xx comes back as a Response
         // Same contract as the positions poll: 503 = no Traccar in this deployment, 404 = no
         // backend at all. Neither is going to fix itself, so stop rather than heartbeat.
         if (res.status === 503 || res.status === 404) {
@@ -97,6 +101,8 @@ export function useVehicleTrails(enabled: boolean): TrailFeatureCollection {
         // Deliberately silent, unlike the positions poll. A missing track is a missing
         // decoration; the vehicles themselves keep their own error and staleness handling, and
         // a second error surface for the same dead Traccar would just be noise.
+      } finally {
+        busy = false
       }
     }
 

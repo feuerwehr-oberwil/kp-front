@@ -176,9 +176,12 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     }
     const drawing = wasTool === 'line' ? createLine(coords, attachments, { select: false }) : createArea(coords, { select: false })
     if (!drawing) return
+    // Twelve seconds, not the six-second floor: the commit happened on its own, not on a tap,
+    // so the operator first has to notice it before deciding whether it was meant.
     toast(fillTemplate(C.autoCommitted, { name: drawingLogName(drawing) }), {
       icon: 'check',
       tone: 'success',
+      duration: 12_000,
       action: {
         label: C.autoCommitUndo,
         onClick: () => {

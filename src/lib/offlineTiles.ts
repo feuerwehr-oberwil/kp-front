@@ -3,6 +3,8 @@
 // base map renders later with no signal. Downloads stay CORS-only because opaque responses are
 // padded heavily in iOS Cache Storage; supported raster hosts must therefore send CORS headers.
 
+import { eitherSignal, timeoutSignal } from './api'
+
 export interface LngLatBounds {
   west: number
   south: number
@@ -94,7 +96,16 @@ export interface PredownloadOpts {
   warmUrls?: string[] // extra same-origin URLs (plans, symbols, geojson)
   onProgress?: (done: number, total: number) => void
   concurrency?: number
+  /** Abort: no further request is issued, the in-flight ones are cut, and the promise REJECTS
+   *  with the signal's reason — a cancelled download must not toast «teilweise geladen». */
+  signal?: AbortSignal
 }
+
+/** Per-tile bound. A tile is a few KB; on a half-open link the three workers used to hang for
+ *  ever, and with them the bar, the button and the automatic self-warm for the rest of the
+ *  session. Ten seconds is generous for a tile and short enough that a dead host is over in
+ *  minutes, not never. */
+const TILE_TIMEOUT_MS = 10_000
 
 /** Warm the SW caches for an area + a set of extra resources. */
 export async function predownloadArea(opts: PredownloadOpts): Promise<PredownloadResult> {
@@ -132,7 +143,7 @@ export async function predownloadArea(opts: PredownloadOpts): Promise<Predownloa
       // We never fall back to no-cors — a tile that lacks CORS is simply skipped (it still
       // loads online). Carto/swisstopo/OSM/Esri all send CORS headers. Don't read the body:
       // the SW caches it independently; reading would pull big GeoJSON/PDFs into page memory.
-      const res = await fetch(url, { mode: 'cors' })
+      const res = await fetch(url, { mode: 'cors', signal: eitherSignal(timeoutSignal(TILE_TIMEOUT_MS), opts.signal) })
       // ⚠️ `fetch` resolving is not «the tile is cached». A 404 or a 502 resolves perfectly
       // happily, and counting it as a hit is how «1240 Kacheln» came to mean «1240 attempts».
       // Opaque responses (status 0) are never produced here — the request is cors-only.
@@ -163,7 +174,7 @@ export async function predownloadArea(opts: PredownloadOpts): Promise<Predownloa
     let cursor = 0
     await Promise.all(
       Array.from({ length: Math.min(conc, urls.length) }, async () => {
-        while (cursor < urls.length) {
+        while (cursor < urls.length && !opts.signal?.aborted) {
           const idx = cursor++
           await fetchOne(urls[idx], weight, isTile)
           if (pauseMs) await sleep(pauseMs)
@@ -178,6 +189,7 @@ export async function predownloadArea(opts: PredownloadOpts): Promise<Predownloa
   // flight and it's flushed to disk before the next starts.
   await runPool(tileUrls, opts.concurrency ?? 3, 1, true)
   await runPool(warm, 1, warmW, false, 150)
+  if (opts.signal?.aborted) throw opts.signal.reason ?? new DOMException('Download abgebrochen', 'AbortError')
 
   return { fetched: tilesFetched, total: tileUrls.length, warmFetched, warmTotal: warm.length, notFound, failed, capped }
 }

@@ -31,7 +31,7 @@ import {
   type DiveraAlarm, type IncidentFull, type IncidentMeta,
 } from './lib/incidents'
 import { unlockAlarm } from './lib/alarm'
-import { clearCrash } from './lib/crashLoop'
+import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
 import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
@@ -117,6 +117,14 @@ export default function App() {
 
   const [incidents, setIncidents] = useState<IncidentMeta[] | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
+  // the incident a HUMAN is opening right now (launch card / switcher / banner / Verlauf) — the
+  // card spins and locks meanwhile, the way `taking` does for a Divera take, so a slow open on
+  // a bad link (up to 20 s) is not mistaken for a dead tap
+  const [opening, setOpening] = useState<string | null>(null)
+  // the boot auto-open is running and nothing is on screen yet: hold the Splash instead of
+  // flashing the launcher, whose card would only start a second, silent open of the same Einsatz
+  const [bootOpening, setBootOpening] = useState(false)
+  const bootOpenSeq = useRef(0) // StrictMode / re-run guard: only the LATEST boot open may clear it
   const [activeMeta, setActiveMeta] = useState<IncidentMeta | null>(null)
   const [workspace, setWorkspace] = useState<Saved | null>(null)
   const [remount, setRemount] = useState(0)
@@ -279,10 +287,42 @@ export default function App() {
     savePrefs({ ...prev, incidentId: id, incidentChosenAt: opts.boot ? prev.incidentChosenAt : Date.now() })
   }, [])
 
+  // `selectIncident` for a HUMAN tap: the same open, but a failure is SAID. Every interactive
+  // caller used to swallow the rejection — offline with no cached workspace, a 404 for an Einsatz
+  // archived since the list was written, the 20 s bound on a half-open link — so the card simply
+  // did nothing, which at 3am reads as «the app is frozen» and invites more taps. The server's
+  // own {detail} wins where it exists (and its hint rides along); silence (status 0) means the
+  // workspace is not on this device, which is the one thing worth saying then.
+  const openIncident = useCallback(async (id: string, opts?: Parameters<typeof selectIncident>[1]) => {
+    setOpening(id)
+    try {
+      await selectIncident(id, opts)
+    } catch (e) {
+      const C = appConfig.copy.incidentSwitcher
+      const text = !(e instanceof ApiError) ? C.openFailed
+        : e.status === 0 ? C.openFailedNoCache
+        : e.hint ? `${e.detail} · ${e.hint}` : e.detail
+      toast(text, { icon: 'warn', tone: 'warn' })
+    } finally {
+      setOpening((cur) => (cur === id ? null : cur)) // a newer open may already own the state
+    }
+  }, [selectIncident])
+
   // boot: list → migrate legacy localStorage if empty → open remembered/first incident.
   // Offline (network error), fall back to the cached list so the last incident reopens
   // from the WorkspaceSync cache — with an honest one-shot toast that the list is cached.
+  // The auto-open itself stays silent when it fails: it lands on the launcher, whose card
+  // says what is wrong the moment it is tapped (openIncident).
   useEffect(() => {
+    const bootOpen = async (inc: IncidentMeta) => {
+      const my = ++bootOpenSeq.current
+      setBootOpening(true)
+      try {
+        await selectIncident(inc.id, { meta: inc, boot: true })
+      } catch { /* launcher + openIncident's toast on the next tap */ } finally {
+        if (bootOpenSeq.current === my) setBootOpening(false)
+      }
+    }
     void (async () => {
       // Link session: there is exactly one incident and no list to pick from — fetch it by id
       // and open it. (GET /api/incidents is not on the link allowlist, so listing here would
@@ -290,10 +330,17 @@ export default function App() {
       if (linkIncidentId) {
         const inc = await getIncident(linkIncidentId).catch(() => null)
         setIncidents(inc ? [inc as IncidentMeta] : [])
-        if (inc) await selectIncident(inc.id, { meta: inc as IncidentMeta }).catch(() => {})
+        if (inc) await bootOpen(inc as IncidentMeta)
         return
       }
-      let { list, offline } = await listIncidentsResilient().catch(() => ({ list: [] as IncidentMeta[], offline: false }))
+      let { list, offline } = await listIncidentsResilient().catch((e: unknown) => {
+        // A REFUSAL, not silence (isUnverifiable already turned silence into the cached list):
+        // the launcher would otherwise render «keine offenen Einsätze» over a list that simply
+        // failed, with nothing on screen to say so.
+        const C = appConfig.copy.incidentSwitcher
+        toast(e instanceof ApiError ? `${C.bootListFailed} · ${e.detail}` : C.bootListFailed, { icon: 'warn', tone: 'warn' })
+        return { list: [] as IncidentMeta[], offline: false }
+      })
       if (list.length === 0 && !offline) {
         await migrateLegacyWorkspace([appConfig.storage.key, ...appConfig.storage.legacyKeys]).catch(() => null)
         list = (await listIncidentsResilient().catch(() => ({ list: [] as IncidentMeta[] }))).list
@@ -304,17 +351,27 @@ export default function App() {
       // precedence: a killed app reopens onto the live alarm, not yesterday's Einsatz.
       const bootPrefs = loadPrefs()
       const pick = pickBootIncident(list, bootPrefs.incidentId, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })
-      if (pick) await selectIncident(pick.id, { meta: pick, boot: true }).catch(() => {})
+      if (pick) await bootOpen(pick)
     })()
   }, [selectIncident, linkIncidentId])
 
-  // An incident that has rendered for this long without throwing is healthy — forget the crash
-  // streak so an unrelated crash weeks later starts from one, and the destructive recovery stays
-  // hidden until it's genuinely warranted. A crash loop never reaches the timeout.
+  // Forget the crash streak once an incident has proven healthy: on a CLEAN leave (a switch, a
+  // close — the boundary's own escapes clear it themselves) or after CRASH_HEALTHY_MS. It used to
+  // clear 15 s after mount, which only ever covered a crash on boot: one that happens when a
+  // surface is opened later (a malformed Trupp on the Atemschutz board, a bad annotation on one
+  // plan) restarted at n = 1 after every reload, so the destructive recovery never appeared even
+  // though the loop was real. A crash never runs this cleanup — the boundary swaps the workspace
+  // out without changing `activeId`, and «Neu laden» reloads the page.
   useEffect(() => {
     if (!activeId) return
-    const t = setTimeout(clearCrash, 15_000)
-    return () => clearTimeout(t)
+    const since = Date.now()
+    const t = setTimeout(clearCrash, CRASH_HEALTHY_MS)
+    return () => {
+      clearTimeout(t)
+      // a leave within the first second is StrictMode's dev-only remount, not a decision — it
+      // must not wipe the streak the reload just carried over
+      if (Date.now() - since > 1_000) clearCrash()
+    }
   }, [activeId])
 
   const openCreated = useCallback(async (inc: IncidentFull) => {
@@ -360,8 +417,10 @@ export default function App() {
       setReviewPendingId(inc.id)
       // confirm-with-undo: a one-tap take is otherwise only reversible via a multi-tap
       // menu-archive. Undo archives the just-created incident and returns to the prior view.
+      // Twelve seconds, not the six-second floor: the map is filling in underneath, and «did I
+      // mean that?» takes longer at 3am than a toast that is already fading.
       toast(appConfig.copy.intake.taken, {
-        icon: 'check', tone: 'success',
+        icon: 'check', tone: 'success', duration: 12_000,
         action: { label: appConfig.copy.undo, onClick: () => void undoTake(inc.id) },
       })
     } catch (e) {
@@ -522,6 +581,9 @@ export default function App() {
   // Incident list still loading after auth: keep the boot Splash up rather than a blank
   // colour flash, so the launch stays continuous from /me probe → list → workspace.
   if (incidents === null) return <Splash />
+  // …and through the boot auto-open, named: the launcher would only flash for the seconds the
+  // workspace takes to arrive. The splash's own 9 s «Neu starten» stays a harmless escape.
+  if (bootOpening && !activeId) return <Splash sub={appConfig.copy.incidentLink.opening} />
 
   // --- ErrorBoundary escapes (see lib/crashLoop) -------------------------------------------
   // «Neu laden» alone can't recover a workspace whose own data throws: boot auto-reopens the
@@ -599,7 +661,7 @@ export default function App() {
           // (HistoryPanel · onOpen), and it matters here because the menu's «Frühere» rows switch
           // straight to archived Einsätze: without it they would open editable AND join the list
           // of running ones. «Wieder öffnen» stays the one way back to editing.
-          onSwitchIncident={(i) => void selectIncident(i.id, { meta: i, readOnly: i.is_archived }).catch(() => {})}
+          onSwitchIncident={(i) => void openIncident(i.id, { meta: i, readOnly: i.is_archived })}
           onOpenHistory={() => setOverlay('history')}
           // «Einsatz eröffnen» goes straight to the manual wizard — the pool sheet is gone
           // (testing feedback 2026-07-18): incoming alarms are taken via the landing card or
@@ -642,8 +704,8 @@ export default function App() {
             {hasLanding ? (
               <div className="ip-launch-list">
                 {openIncidents.map((i) => (
-                  <button key={i.id} type="button" className="ip-launch" onClick={() => void selectIncident(i.id, { meta: i }).catch(() => {})}>
-                    <Icon id="flag" />
+                  <button key={i.id} type="button" className="ip-launch" disabled={opening != null} onClick={() => void openIncident(i.id, { meta: i })}>
+                    <Icon id={opening === i.id ? 'rotate' : 'flag'} className={opening === i.id ? 'spin' : undefined} />
                     <span className="ip-launch-main">
                       <span className="ip-launch-title">{i.title}</span>
                       <span className="ip-launch-sub">{shortAddress(i.address) ?? ''}</span>
@@ -771,7 +833,7 @@ export default function App() {
           onSwitch={() => {
             const f = freshIncident
             dismissFreshIncident()
-            void selectIncident(f.id, { meta: f }).catch(() => {})
+            void openIncident(f.id, { meta: f })
           }}
           onDismiss={dismissFreshIncident}
         />
@@ -796,7 +858,7 @@ export default function App() {
         />
       )}
       {overlay === 'history' && (
-        <HistoryPanel onClose={() => setOverlay(null)} onOpen={(id, ro) => { setOverlay(null); void selectIncident(id, { readOnly: ro }) }}
+        <HistoryPanel onClose={() => setOverlay(null)} onOpen={(id, ro) => { setOverlay(null); void openIncident(id, { readOnly: ro }) }}
           onArchive={isEditor ? archiveById : undefined} />
       )}
       {overlay === 'daten' && (
