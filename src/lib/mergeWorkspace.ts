@@ -3,7 +3,9 @@
 // "one whole snapshot wins, the other's work is lost" into a real merge, the way Miro/Figma
 // resolve it:
 //   - independent additions to different objects all survive (ordered by server appearance);
-//   - edits to the SAME object are last-writer-wins (the device flushing later wins);
+//   - edits to the SAME object are last-writer-wins (the device flushing later wins) — except
+//     Trupps, which merge field-level (mergeTrupp) because an SCBA record must never lose a
+//     pressure reading to a concurrent radio contact;
 //   - a delete BEATS a concurrent edit — the object stays gone, no resurrection.
 //
 // The `base` ancestor is the crux: it lets us tell "I deleted X" (present in base, absent in
@@ -71,8 +73,18 @@ function pick3<T>(base: T, mine: T, theirs: T): T {
  * object present in `base` but dropped on a side is a delete, and a
  * delete beats the other side's edit. Output order is server (theirs) order first, then my
  * new additions — deterministic, so every device converges on the same array after merging.
+ *
+ * `resolveBoth` (optional) replaces the whole-object LWW for the one case where BOTH sides
+ * changed the same object to different values — used by the Trupp merge to go field-level
+ * instead of dropping one device's safety record wholesale. It runs only with a real ancestor
+ * (a concurrent same-id ADD stays LWW-mine: there is no base to diff against).
  */
-export function mergeById<T extends HasId>(base: T[], mine: T[], theirs: T[]): T[] {
+export function mergeById<T extends HasId>(
+  base: T[],
+  mine: T[],
+  theirs: T[],
+  resolveBoth?: (ancestor: T, mine: T, theirs: T) => T,
+): T[] {
   const baseIds = new Set(base.map((o) => o.id))
   const baseMap = new Map(base.map((o) => [o.id, o]))
   const mineMap = new Map(mine.map((o) => [o.id, o]))
@@ -87,7 +99,8 @@ export function mergeById<T extends HasId>(base: T[], mine: T[], theirs: T[]): T
       if (!ancestor) return mine // concurrent same-id add → last-writer-wins (mine)
       if (eq(mine, ancestor)) return theirs // only the server changed it
       if (eq(theirs, ancestor)) return mine // only I changed it
-      return mine // both changed it → last-writer-wins (mine)
+      if (eq(mine, theirs)) return mine // both made the identical change — nothing to resolve
+      return resolveBoth ? resolveBoth(ancestor, mine, theirs) : mine // both changed it → resolver, else LWW-mine
     }
     if (inMine) return baseIds.has(id) ? null : mineMap.get(id)! // theirs deleted → drop; else my add
     if (inTheirs) return baseIds.has(id) ? null : theirsMap.get(id)! // I deleted → drop; else their add
@@ -151,6 +164,133 @@ export function mergeRecord<V>(
     else out[k] = mine[k]
   }
   return out
+}
+
+// --- Trupp merge: field-level three-way, because whole-object LWW loses safety data --------
+//
+// Trupps are SCBA crew monitoring. The everyday concurrent case — the Truppüberwacher books a
+// Druckmeldung on the tablet while the EL's phone books the Funkkontakt — used to be resolved
+// object-wide LWW, so the later writer's whole Trupp replaced the other device's: a pressure
+// reading from the board silently vanished from the legal record. Merged per field, both edits
+// survive; the divergence is still REPORTED (onTruppConflict → Verlauf note) so a human checks.
+
+/** Minimal structural view of a Trupp reading row (types.TruppReading). */
+interface Readingish {
+  t: string
+  bar: number
+  kind: string
+}
+
+/** Trupp fields that are ISO timestamps where "later" is the only safe answer when both sides
+ *  wrote one: a contact clock that moves BACKWARDS would re-arm an überfällig alarm somebody
+ *  already answered — or worse, silence one by resurrecting a fresher-looking stale time. */
+const TRUPP_TIME_FIELDS = new Set(['entryTime', 'lastContactTime', 'lastPressureTime', 'exitTime', 'removedAt'])
+
+/** The later of two ISO timestamps, or null when either doesn't parse (caller falls back). */
+function laterIso(a: unknown, b: unknown): unknown | null {
+  const ta = Date.parse(String(a)), tb = Date.parse(String(b))
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return null
+  return ta >= tb ? a : b
+}
+
+/**
+ * Three-way merge of one Trupp's `readings` log, keyed by (t, kind). The log is append-only in
+ * normal operation — the union keeps every row either device wrote — but two writers can still
+ * touch the SAME row: an Undo removes the just-appended row (delete wins, like everywhere
+ * else), and the entry-pressure correction (useTruppActions) edits a row's `bar` in place (the
+ * side that changed it wins; both-changed stays LWW-mine). Output is chronological, so every
+ * device converges on the same printed Journal.
+ */
+function mergeReadings(base: Readingish[], mine: Readingish[], theirs: Readingish[]): Readingish[] {
+  const key = (r: Readingish) => `${r.t}|${r.kind}`
+  const bm = new Map(base.map((r) => [key(r), r]))
+  const mm = new Map(mine.map((r) => [key(r), r]))
+  const tm = new Map(theirs.map((r) => [key(r), r]))
+  const out: Readingish[] = []
+  for (const k of new Set([...tm.keys(), ...mm.keys()])) {
+    const inM = mm.has(k), inT = tm.has(k), inB = bm.has(k)
+    if (inM && inT) {
+      const b = bm.get(k), m = mm.get(k)!, t = tm.get(k)!
+      out.push(!b || !eq(m, b) ? m : t) // a one-sided bar correction wins; both-changed → mine
+    } else if ((inM || inT) && !inB) {
+      out.push((mm.get(k) ?? tm.get(k))!) // a new row from either side — never dropped
+    } // in base but gone on one side → that side's Undo removed it → stays gone
+  }
+  out.sort((a, b) => (Date.parse(a.t) || 0) - (Date.parse(b.t) || 0)) // stable → same-t keeps insertion order
+  return out
+}
+
+/**
+ * Field-level three-way merge of ONE Trupp both sides changed (mergeById's `resolveBoth` for
+ * the trupps collection). Per field, mergeRecord semantics: the side that changed it wins, a
+ * removed shared field stays removed (an Undo clearing e.g. `removedAt`). Where BOTH sides
+ * changed the same field:
+ *   - timestamps (TRUPP_TIME_FIELDS) take the LATER value — a contact clock never moves back;
+ *   - `lastPressureBar` rides with `lastPressureTime` (a bar from one reading stamped with the
+ *     other reading's time would assert a pressure at a moment it wasn't read);
+ *   - `lowestBar` joins at the MIN — it is monotone-min within a run, so the union of what two
+ *     devices saw is the lower one, and a low reading is never lost;
+ *   - `readings` is the keyed union above;
+ *   - `status` + `entryTime` + `exitTime` resolve as ONE unit when both sides moved the status
+ *     (see below — a chimera of one side's status with the other's stamps can silence the
+ *     contact clock for a crew that is inside);
+ *   - everything else keeps the collection-wide LWW-mine precedence.
+ */
+function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
+  const a = ancestor as unknown as Record<string, unknown>
+  const m = mine as unknown as Record<string, unknown>
+  const t = theirs as unknown as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const k of new Set([...Object.keys(m), ...Object.keys(t)])) {
+    if (k === 'readings') continue // merged below
+    const inA = k in a, inM = k in m, inT = k in t
+    if (inA && (!inM || !inT)) continue // a shared field removed on either side → delete wins
+    if (!inM) { out[k] = t[k]; continue } // their new field
+    if (!inT) { out[k] = m[k]; continue } // my new field
+    if (eq(m[k], t[k])) { out[k] = m[k]; continue } // same value — nothing to resolve
+    if (eq(m[k], a[k])) { out[k] = t[k]; continue } // only theirs changed it
+    if (eq(t[k], a[k])) { out[k] = m[k]; continue } // only I changed it
+    // both changed it, to different values:
+    if (TRUPP_TIME_FIELDS.has(k)) out[k] = laterIso(m[k], t[k]) ?? m[k]
+    else if (k === 'lowestBar' && typeof m[k] === 'number' && typeof t[k] === 'number') {
+      out[k] = Math.min(m[k] as number, t[k] as number)
+    } else out[k] = m[k] // scalar divergence stays LWW-mine (conservative)
+  }
+  // lastPressureBar follows the reading that won lastPressureTime when both sides logged one —
+  // the generic loop resolves the two fields independently and could pair A's bar with B's time.
+  const bothLoggedPressure =
+    !eq(m.lastPressureTime, a.lastPressureTime) && !eq(t.lastPressureTime, a.lastPressureTime) &&
+    !eq(m.lastPressureTime, t.lastPressureTime)
+  if (bothLoggedPressure) {
+    const winner = eq(out.lastPressureTime, m.lastPressureTime) ? m : t
+    if ('lastPressureBar' in winner) out.lastPressureBar = winner.lastPressureBar
+  }
+  // The state machine is ONE fact, not three fields. When both sides moved `status` to
+  // different values, the generic loop pairs one side's status with the other side's stamps —
+  // a tablet's «Eingerückt» racing a phone's «Draussen» converged on {status:'aktiv', exitTime},
+  // which deriveTruppLive reads as raus: contact clock and überfällig alarm silently OFF for a
+  // crew that was just sent in. Resolve {status, entryTime, exitTime} from ONE side instead:
+  // the in-field side when exactly one is in the field (the louder state wins — the same
+  // doctrine that lets überfällig beat a manual Rückzug; false «drinnen» keeps the monitoring
+  // alive, false «raus» kills it), else mine.
+  const statusConflict = 'status' in m && 'status' in t &&
+    !eq(m.status, t.status) && !eq(m.status, a.status) && !eq(t.status, a.status)
+  if (statusConflict) {
+    const inField = (s: unknown) => s !== 'angemeldet' && s !== 'raus' // mirrors deriveTruppLive
+    const winner = inField(m.status) ? m : inField(t.status) ? t : m
+    for (const k of ['status', 'entryTime', 'exitTime']) {
+      if (k in winner) out[k] = winner[k]
+      else delete out[k]
+    }
+  }
+  if ('readings' in m || 'readings' in t) {
+    out.readings = mergeReadings(
+      (a.readings ?? []) as Readingish[],
+      (m.readings ?? []) as Readingish[],
+      (t.readings ?? []) as Readingish[],
+    )
+  }
+  return out as unknown as HasId
 }
 
 /**
@@ -226,17 +366,24 @@ function mergeBoard(
  *     touch yields to the server's concurrent change instead of being reverted.
  * Only genuinely LOCAL view/device state stays defaulted to mine (activePlanId, layerState, recent,
  * activeModule) — a merge must never yank the resolving device's active plan or layer toggles.
- * (Same-object field-level edits remain LWW-mine — see the documented limitation in the tests.)
+ * (Same-object field-level edits remain LWW-mine for every collection except trupps — see the
+ * documented limitation in the tests, and mergeTrupp for why trupps are the exception.)
  *
  * `onAttendanceConflict` (optional) reports every attendance key BOTH sides changed to different
  * values (same person, divergent entries — e.g. QR capture vs. KP tablet). The merge result is
  * unchanged (LWW); the caller appends a Verlauf note so the divergence is reviewable.
+ *
+ * `onTruppConflict` (optional) reports every Trupp BOTH sides changed concurrently. Unlike
+ * attendance, the merge here is field-level (mergeTrupp) so nothing is silently dropped — but
+ * two devices writing the same SCBA crew's record at once is still worth a human look, so the
+ * caller appends a Verlauf note the same way. `key` = the Trupp id, mine/theirs = both objects.
  */
 export function mergeWorkspace(
   base: Record<string, unknown>,
   mine: Record<string, unknown>,
   theirs: Record<string, unknown>,
   onAttendanceConflict?: (c: RecordConflict) => void,
+  onTruppConflict?: (c: RecordConflict) => void,
 ): Record<string, unknown> {
   const b = base as WsShape
   const m = mine as WsShape
@@ -246,7 +393,10 @@ export function mergeWorkspace(
     entities: mergeById(b.entities ?? [], m.entities ?? [], t.entities ?? []),
     drawings: mergeById(b.drawings ?? [], m.drawings ?? [], t.drawings ?? []),
     timeline: mergeById(b.timeline ?? [], m.timeline ?? [], t.timeline ?? []),
-    trupps: mergeById(b.trupps ?? [], m.trupps ?? [], t.trupps ?? []),
+    trupps: mergeById(b.trupps ?? [], m.trupps ?? [], t.trupps ?? [], (ancestor, mi, th) => {
+      onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
+      return mergeTrupp(ancestor, mi, th)
+    }),
     mittel: mergeById(b.mittel ?? [], m.mittel ?? [], t.mittel ?? []),
     shifts: mergeById(b.shifts ?? [], m.shifts ?? [], t.shifts ?? []),
     bands: mergeById(b.bands ?? [], m.bands ?? [], t.bands ?? []),

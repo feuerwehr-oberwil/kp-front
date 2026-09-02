@@ -226,12 +226,13 @@ describe('mergeWorkspace — task-scoped cross-domain merges (no clobbering)', (
   })
 })
 
-describe('mergeById — documented LWW data-loss (whole-object replacement)', () => {
-  // The merge is per-OBJECT last-writer-wins with WHOLE-OBJECT replacement — it does NOT
-  // merge field-by-field within a single object. So when two devices concurrently edit
-  // DIFFERENT fields of the SAME object, the later writer ("mine") replaces the object
-  // wholesale and the other device's field change is silently lost. This test locks that
-  // documented limitation in (see memory: KP Front sync limitations / per-object LWW).
+describe('mergeById — documented LWW data-loss (whole-object replacement, non-Trupp collections)', () => {
+  // For every collection EXCEPT trupps the merge is per-OBJECT last-writer-wins with
+  // WHOLE-OBJECT replacement — it does NOT merge field-by-field within a single object. So when
+  // two devices concurrently edit DIFFERENT fields of the SAME object, the later writer
+  // ("mine") replaces the object wholesale and the other device's field change is silently
+  // lost. These lock that documented limitation in (see memory: KP Front sync limitations /
+  // per-object LWW). Trupps are the deliberate exception — see the field-level suite below.
   it('loses one side when two devices edit different fields of the same object', () => {
     const base = [o('a', { label: 'Tank', floor: 0 })]
     const theirs = [o('a', { label: 'Tank', floor: 3 })] // they only changed floor
@@ -250,6 +251,105 @@ describe('mergeById — documented LWW data-loss (whole-object replacement)', ()
     expect(merged.entities).toHaveLength(1)
     expect(merged.entities[0].label).toBe('B')      // my rename survives
     expect(merged.entities[0].rotation).toBe(0)     // their concurrent rotation is lost (not 90)
+  })
+})
+
+// Trupps are SCBA crew monitoring — losing a pressure reading from the board to a concurrent
+// radio contact is safety-relevant, so they are the one collection merged FIELD-level
+// (mergeTrupp) instead of whole-object LWW. The everyday case under test: the Truppüberwacher
+// books a Druckmeldung on the tablet while the EL's phone books the Funkkontakt.
+describe('mergeWorkspace — trupps: field-level three-way merge', () => {
+  const E = '2026-09-01T20:00:00.000Z'  // entry
+  const T2 = '2026-09-01T20:10:00.000Z' // my Druckmeldung
+  const T3 = '2026-09-01T20:12:00.000Z' // their (later) Funkkontakt
+  const baseTrupp = {
+    id: 't1', name: 'Meier', status: 'aktiv', entryPressureBar: 300, entryTime: E,
+    lastContactTime: E, lowestBar: 300,
+    readings: [{ t: E, bar: 300, kind: 'entry' }],
+  }
+  const ws = (trupp: Record<string, unknown>) => ({ trupps: [trupp] })
+  const mergedTrupp = (mine: Record<string, unknown>, theirs: Record<string, unknown>) =>
+    (mergeWorkspace(ws(baseTrupp), ws(mine), ws(theirs)) as { trupps: Record<string, unknown>[] }).trupps[0]
+  // …and with an explicit ancestor, for the cases whose base is not the shared fixture
+  const mergedTrupp2 = (base: Record<string, unknown>, mine: Record<string, unknown>, theirs: Record<string, unknown>) =>
+    (mergeWorkspace(ws(base), ws(mine), ws(theirs)) as { trupps: Record<string, unknown>[] }).trupps[0]
+
+  it('a Druckmeldung and a Funkkontakt from two devices both survive, readings union intact', () => {
+    const mine = { ...baseTrupp, lastPressureBar: 150, lastPressureTime: T2, lastContactTime: T2, lowestBar: 150,
+      readings: [...baseTrupp.readings, { t: T2, bar: 150, kind: 'pressure' }] }
+    const theirs = { ...baseTrupp, lastContactTime: T3,
+      readings: [...baseTrupp.readings, { t: T3, bar: 300, kind: 'contact' }] }
+    const t = mergedTrupp(mine, theirs)
+    expect(t.lastPressureBar).toBe(150)  // my pressure reading survives …
+    expect(t.lastPressureTime).toBe(T2)
+    expect(t.lowestBar).toBe(150)
+    expect(t.lastContactTime).toBe(T3)   // … and so does their (later) radio contact
+    // readings union, chronological: entry, my pressure, their contact — nothing dropped
+    expect((t.readings as { t: string; kind: string }[]).map((r) => r.kind)).toEqual(['entry', 'pressure', 'contact'])
+  })
+
+  it('dedupes a reading row present on both sides (it appears once)', () => {
+    const shared = { t: T2, bar: 150, kind: 'pressure' } // reached both devices via an earlier sync
+    const mine = { ...baseTrupp, readings: [...baseTrupp.readings, shared] }
+    const theirs = { ...baseTrupp, lastContactTime: T3,
+      readings: [...baseTrupp.readings, shared, { t: T3, bar: 150, kind: 'contact' }] }
+    const t = mergedTrupp(mine, theirs)
+    expect((t.readings as { kind: string }[]).map((r) => r.kind)).toEqual(['entry', 'pressure', 'contact'])
+  })
+
+  it('the contact clock never moves backwards: the later lastContactTime wins in both directions', () => {
+    const at = (iso: string) => ({ ...baseTrupp, lastContactTime: iso,
+      readings: [...baseTrupp.readings, { t: iso, bar: 300, kind: 'contact' }] })
+    expect(mergedTrupp(at(T2), at(T3)).lastContactTime).toBe(T3) // theirs is later
+    expect(mergedTrupp(at(T3), at(T2)).lastContactTime).toBe(T3) // mine is later — not "mine wins"
+  })
+
+  it('a one-sided field edit passes through while the other device edits a different field', () => {
+    const mine = { ...baseTrupp, ziel: '2. OG links' }
+    const theirs = { ...baseTrupp, funkkanal: 12 }
+    const t = mergedTrupp(mine, theirs)
+    expect(t.ziel).toBe('2. OG links')
+    expect(t.funkkanal).toBe(12)
+  })
+
+  it('reports the concurrent Trupp edit via onTruppConflict — and only a genuine one', () => {
+    const conflicts: { key: string }[] = []
+    const mine = { ...baseTrupp, ziel: '2. OG links' }
+    const theirs = { ...baseTrupp, funkkanal: 12 }
+    mergeWorkspace(ws(baseTrupp), ws(mine), ws(theirs), undefined, (c) => conflicts.push(c))
+    expect(conflicts.map((c) => c.key)).toEqual(['t1'])
+    // one side untouched → no report (and no false alarm on every ordinary sync)
+    conflicts.length = 0
+    mergeWorkspace(ws(baseTrupp), ws(baseTrupp), ws(theirs), undefined, (c) => conflicts.push(c))
+    expect(conflicts).toEqual([])
+  })
+
+  // The state machine merges as ONE unit when both sides moved the status (review 02.09.):
+  // a per-field resolution paired «aktiv» with the other device's exitTime — and any exitTime
+  // reads as raus (deriveTruppLive), so the contact clock went silent on a crew inside.
+  it('«Eingerückt» racing «Draussen» stays in the field — never aktiv-with-exitTime', () => {
+    const E2 = '2026-09-01T20:15:00.000Z'
+    const X = '2026-09-01T20:14:00.000Z'
+    const paused = { ...baseTrupp, status: 'pause' }
+    const mine = { ...paused, status: 'aktiv', entryTime: E2, lastContactTime: E2 }
+    const theirs = { ...paused, status: 'raus', exitTime: X }
+    const t = mergedTrupp2(paused, mine, theirs)
+    expect(t.status).toBe('aktiv')
+    expect(t.entryTime).toBe(E2)
+    expect(t.exitTime).toBeUndefined() // the chimera this test exists for
+    // …and in the other direction the in-field side still wins (not "mine wins")
+    const t2 = mergedTrupp2(paused, theirs, mine)
+    expect(t2.status).toBe('aktiv')
+    expect(t2.exitTime).toBeUndefined()
+  })
+
+  it('a status conflict between two out-of-field states keeps LWW-mine, stamps included', () => {
+    const X = '2026-09-01T20:14:00.000Z'
+    const mine = { ...baseTrupp, status: 'raus', exitTime: X }
+    const theirs = { ...baseTrupp, status: 'angemeldet' }
+    const t = mergedTrupp2(baseTrupp, mine, theirs)
+    expect(t.status).toBe('raus')
+    expect(t.exitTime).toBe(X)
   })
 })
 

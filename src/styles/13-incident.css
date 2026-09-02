@@ -44,6 +44,22 @@
 .ip-error-chip { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent);
   border-color: color-mix(in srgb, var(--red) 38%, transparent); }
 .ip-switch-btn .ip-error-chip svg { width: 12px; height: 12px; opacity: 1; }
+/* ── Atemschutz board: its own sync/clock line (AtemschutzView header, under the subtitle) ──
+   The safety review (01.09.) asked that the ONE surface a life depends on says ITSELF whether
+   what it shows is saved and current — the top-bar pill is invisible to somebody watching
+   Trupps, and the handed-over Tafel («Tafel pur») has no top bar at all. Quiet while the
+   record is safe: a small tick/dot plus «Gespeichert um HH:MM» in the subtitle's muted voice,
+   so it never competes with a Trupp card. The LOUD states reuse the switcher's chips above
+   (.ip-offline-chip / .ip-error-chip) — same colours, same shapes, learned once. */
+.az-syncline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  margin-top: var(--head-sub-gap); }
+.az-sync-quiet { display: inline-flex; align-items: center; gap: 5px; min-width: 0;
+  font: 500 12.5px var(--body); color: var(--ink-dim); }
+.az-sync-quiet .i { width: 13px; height: 13px; flex: none; opacity: 1; color: var(--green); }
+/* pending wears the switcher's amber dot (the dot's currentColor would be the muted text) */
+.az-sync-quiet .ip-status-dot { width: 8px; height: 8px; background: var(--amber); }
+/* the warn glyph inside a chip — the switcher sizes it via .ip-switch-btn, this line is not in one */
+.az-syncline .ip-offline-chip .i { width: 12px; height: 12px; flex: none; opacity: 1; }
 /* THE ACTIVE EINSATZ AS A CARD — the heaviest object in the menu, and the only one with a
    surface of its own: green status edge, Titel, Adresse, two status pills, and the Einsatz's
    own actions along its bottom. Everything below it is deliberately lighter, so one look

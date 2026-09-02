@@ -25,24 +25,28 @@ function makeSync() {
     flushKeepalive: vi.fn(),
     adoptServer: vi.fn(),
     drainAttendanceConflicts: vi.fn().mockReturnValue([]),
+    drainTruppConflicts: vi.fn().mockReturnValue([]),
     hasUnsynced: false,
     rev: 0,
     syncStatus: 'synced' as const,
     lastSyncedAt: null,
     onAttendanceConflicts: undefined,
+    onTruppConflicts: undefined as ((conflicts: unknown[]) => void) | undefined,
     onApplyMerged: undefined,
     onStatus: undefined,
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mount(sync: any, opts?: { alarmUrgent?: boolean }) {
+function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: unknown) => void }) {
   const blob = {} as unknown as Saved
   return renderHook(
     ({ bp }) => useIncidentSync({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sync: sync as any, readOnly: false, incidentId: 'i1', buildPayload: bp,
       applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      appendJournal: opts?.appendJournal as any,
       alarmUrgent: opts?.alarmUrgent,
     }),
     { initialProps: { bp: () => blob } },
@@ -81,6 +85,21 @@ describe('useIncidentSync — persistence', () => {
     const sync = makeSync()
     render(sync)
     expect(sync.save).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useIncidentSync — trupp conflict notes', () => {
+  it('appends ONE Verlauf note per concurrently edited Trupp, never twice for the same divergence', () => {
+    const sync = makeSync()
+    const conflict = { key: 't1', mine: { id: 't1', name: 'Meier' }, theirs: { id: 't1', name: 'Meier' } }
+    sync.drainTruppConflicts = vi.fn().mockReturnValue([conflict]) // init()'s cold-reopen merge
+    const appendJournal = vi.fn()
+    mount(sync, { appendJournal })
+    expect(appendJournal).toHaveBeenCalledTimes(1)
+    expect(appendJournal.mock.calls[0][0].text).toContain('Meier')
+    // a later sync cycle re-reporting the SAME divergence does not re-append
+    sync.onTruppConflicts?.([conflict])
+    expect(appendJournal).toHaveBeenCalledTimes(1)
   })
 })
 

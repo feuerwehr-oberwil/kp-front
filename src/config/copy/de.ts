@@ -1222,6 +1222,11 @@ export const de = {
     attendanceConflictTimes: 'unterschiedliche Zeiten erfasst',
     // nothing above matched — an entry gained a field this row does not know about yet
     attendanceConflictOther: 'abweichende Angaben zusammengeführt',
+    // system row appended when a three-way sync merge saw BOTH sides change the SAME
+    // Atemschutz-Trupp concurrently (e.g. Druckmeldung on the tablet, Funkkontakt on the
+    // phone). Unlike attendance the merge is field-level and drops nothing — the row exists
+    // because two devices wrote one SCBA record at once, and that gets human eyes.
+    truppConflict: 'Atemschutz {name}: Änderungen von zwei Geräten zusammengeführt – bitte prüfen.',
     quickPhrasesAria: 'Textbausteine',
     typeLabel: 'Art',
     // «Info» is the normal case and prints NO badge — a badge on every row is wallpaper. The
@@ -1377,6 +1382,16 @@ export const de = {
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
     newTrupp: 'Trupp erstellen',
+    // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein
+    // Leben hängt, sagt selbst, ob ihr Stand gesichert und ihre Uhr richtig ist. Leise reicht
+    // incidentSwitcher.savedAt; laut trägt der Chip das Kurzlabel des Zustands plus, wie alt
+    // der letzte gesicherte Stand ist.
+    syncStand: '{status} – Stand {t}',
+    // Geräteuhr-Chip (>3 Min. Abweichung, CLOCK_SKEW_WARN_MIN): jede Kontaktuhr auf der Tafel
+    // ist Date.now() dieses Geräts. {d} trägt das Vorzeichen (+ = Gerät geht vor); die
+    // Langfassung (Tooltip) ist incidentSwitcher.clockSkewToast – gleiche Formulierung wie die
+    // Erfassungs-App (capture.clockSkew).
+    clockSkewChip: 'Geräteuhr weicht ab ({d} Min.)',
     // create / edit / re-deploy form (one shared form, section labels + per-mode titles)
     formCreateTitle: 'Trupp erstellen',
     formEditTitle: 'Trupp bearbeiten',
@@ -2937,6 +2952,10 @@ export const de = {
     // one-shot warning toasts (useIncidentSync) — once per episode, deliberately no permanent banner
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',
+    // clock skew (useIncidentSync · X-Server-Time): device-local timestamps feed the legal
+    // record, so a clock minutes off is said once per episode — same wording as the capture
+    // surface's skew line (capture.clockSkew)
+    clockSkewToast: 'Die Uhr dieses Geräts weicht um {n} Minuten ab – erfasste Zeiten prüfen.',
     // Boot: the incident list came out of the offline cache
     bootOffline: 'Offline – gespeicherte Daten werden angezeigt.',
     syncNow: 'Jetzt synchronisieren',

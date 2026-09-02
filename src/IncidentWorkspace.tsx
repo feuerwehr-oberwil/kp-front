@@ -1184,7 +1184,7 @@ export function IncidentWorkspace({
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
-  const { syncStatus, lastSyncedAt, syncNow } = useIncidentSync({
+  const { syncStatus, lastSyncedAt, syncNow, clockSkewMs } = useIncidentSync({
     sync, readOnly, incidentId: incidentMeta.id,
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
@@ -4889,6 +4889,10 @@ export function IncidentWorkspace({
           graceSec={azGraceSec}
           defaultFunkkanal={azFunkkanal}
           focus={truppFocus}
+          // the board's own sync/clock line (safety review 01.09.): the Tafel says itself whether
+          // its Stand is saved and its clock is right — on the tablet nobody watching Trupps
+          // watches the top bar
+          syncStatus={syncStatus} lastSyncedAt={lastSyncedAt} clockSkewMs={clockSkewMs}
         />
       )}
 
