@@ -386,6 +386,14 @@
 .ui-backdrop { position: fixed; inset: 0; z-index: var(--z-dialog-scrim); background: rgba(20,28,40,.32); backdrop-filter: blur(2px);
   transition: opacity .14s var(--ease); }
 .ip-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-dialog); }
+/* Keyboard up — `is-kb` + `--kb-inset` come from lib/overlays (useKeyboardInset), and only then,
+   so without a keyboard nothing here applies. The layout viewport does NOT shrink for the
+   keyboard (iOS never did), so a centred sheet kept its middle and its footer sat behind the
+   keys on an iPad. Ride to the top edge and cap the frame against the measured keyboard — the
+   composer's own answer (10-journal.css · --jc-kb). Phones lift by margin instead (15-mobile). */
+.ip-sheet.ui-dialog.is-kb { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+  height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
+.ip-sheet.ip-fit.ui-dialog.is-kb { height: auto; max-height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 /* ── overlays leave the way they came ──
    Base UI keeps [data-starting-style]/[data-ending-style] on Backdrop + Popup and delays the
    unmount until a running transition ends — so these four rules give every shared primitive

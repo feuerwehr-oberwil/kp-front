@@ -104,7 +104,8 @@ import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { GpsFollowMeldung } from './components/GpsFollowMeldung'
-import { useReminders } from './lib/useReminders'
+import { RemindersHost, useReminders } from './lib/useReminders'
+import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import type { AtemschutzAlarmState } from './lib/atemschutz'
@@ -654,6 +655,13 @@ export function IncidentWorkspace({
   useEffect(() => {
     if (georefActive && mode !== 'map' && mode !== 'plans') georefDispatch({ type: 'end' })
   }, [georefActive, mode])
+  // …nor an Einsatz switch. The mode is a MODULE store; the Whiteboard's own effect dismisses it
+  // on a plan switch, but on a phone the Whiteboard is not mounted while the map half runs, so
+  // the next workspace inherited a `planId` and armed its mode bars for a plan it does not have.
+  useEffect(() => () => georefDispatch({ type: 'dismiss' }), [])
+  // diagnostics only — a non-throwing render storm of THIS component gets one beacon + a
+  // Rückmeldung prompt; nothing else in the tree can see one (lib/useRenderStorm)
+  useRenderStorm('IncidentWorkspace')
   const phoneGeoref = isPhone && !!georefMode.planId
   // Demo-only: which surface someone opened, for the public demo's visit statistics. A no-op
   // on every real station (isDemoMode) and in a link session — see lib/visitBeacon.ts.
@@ -4017,6 +4025,7 @@ export function IncidentWorkspace({
         {tabLockLost && <TabLockBanner onTakeOver={onTakeOverTab} />}
         <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
           logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+        <RemindersHost {...reminders.host} />
         {atemschutzBoard}
         {/* `onBoard` is unconditionally true here — the board IS the screen, and the strip's own
             rule (see AtemschutzAlarmMeldung's header) is that it steps aside for it. Mounted
@@ -4039,6 +4048,8 @@ export function IncidentWorkspace({
       <IconSprite />
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
         logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+      {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
+      <RemindersHost {...reminders.host} />
 
       {sym.ready ? (
         <MapView

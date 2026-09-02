@@ -458,6 +458,7 @@ export const en: Localizable<Copy> = {
   toast: {
     audioSaved: 'Audio note saved ({secs}s)',
     micDenied: 'No microphone access – noted as placeholder',
+    micFailed: 'Recording could not be started',
     merged: 'Changes merged',
   },
   mapHints: {
@@ -4207,12 +4208,14 @@ export const en: Localizable<Copy> = {
     promptFor: {
       crashLoop: 'The app crashed several times during one incident. What were you doing?',
       crash: 'The app crashed once just now. What were you doing?',
+      renderStorm: 'The app ran itself hot during an incident – probably sluggish, or the battery drained fast. What was open at the time?',
       storageFull: 'Storage was full on this device. Did anything get lost?',
       syncConflict: 'Two devices had different states. Was anything missing in the end?',
     },
     kinds: {
       crashLoop: 'repeated crash in the same incident',
       crash: 'interface crash',
+      renderStorm: 'interface under constant load',
       storageFull: 'device storage full',
       syncConflict: 'sync conflict while merging',
     },

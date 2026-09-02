@@ -535,6 +535,11 @@
   /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
      .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + sheetUp entrance. */
   .ip-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; }
+  /* …and with the keyboard up it stays a bottom sheet, lifted by the inline `marginBottom`
+     (13-incident.css rides a CENTRED sheet to the top instead — that rule outweighs the line
+     above, so it is undone here) and capped so the lifted sheet cannot run off the top. */
+  .ip-sheet.ui-dialog.is-kb { top: auto; bottom: 0; left: 0; transform: none;
+    height: auto; max-height: calc(100dvh - var(--kb-inset, 0px) - 10px - env(safe-area-inset-top)); }
 
   /* confirm dialog stays centred but fits the narrow screen with safe-area gutters */
   .confirm-card { width: min(420px, calc(100vw - 24px)); }

@@ -29,12 +29,16 @@ export const DEDUPE_MS = 60 * 60_000
 /** Keep the log tiny; we only ever ask about the most severe one anyway. */
 export const MAX_EVENTS = 5
 
-/** Ordered by how much we want to hear about it — `pickTrouble` asks about the worst one. */
-export type TroubleKind = 'crashLoop' | 'crash' | 'storageFull' | 'syncConflict'
+/** Ordered by how much we want to hear about it — `pickTrouble` asks about the worst one.
+ *  `renderStorm` is the non-throwing cousin of a crash: the UI kept «working» while re-rendering
+ *  hundreds of times a second (lib/useRenderStorm) — nothing in the tree notices, but the battery
+ *  and the operator did. Every kind needs a `feedback.promptFor` + `feedback.kinds` string. */
+export type TroubleKind = 'crashLoop' | 'crash' | 'renderStorm' | 'storageFull' | 'syncConflict'
 
 const SEVERITY: Record<TroubleKind, number> = {
-  crashLoop: 4,
-  crash: 3,
+  crashLoop: 5,
+  crash: 4,
+  renderStorm: 3,
   storageFull: 2,
   syncConflict: 1,
 }

@@ -50,6 +50,9 @@ function useAudioPlayer() {
  *  and leave a tap landing a few minutes off what the ticks show. */
 const STRIP_INSET = 10
 
+/** Rows the log mounts at first, and how many more each scroll to the tail reveals. */
+const PAGE_ROWS = 150
+
 // A row is clickable only when it carries a real jump target: a map entity, a
 // pinned map point, or something ON a plan. Plain log lines (undo/redo, deletions,
 // surface-only journal notes) are read-only — the journal is a record, not a UI.
@@ -256,10 +259,54 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // reads as one line that repeated, not as twenty lines. Display only — see lib/verlauf.
   const repeats = useMemo(() => repeatRuns(events), [events])
 
+  // ── the log, grouped once and mounted in pages ──
+  // Grouping and the repeat filter run once per timeline, not per render — the drawer re-renders
+  // on every store nonce (every poll that adopts a row, every overlay change). And the DOM holds
+  // only the newest `visibleCount` rows: a long Einsatz reaches 1–2k of them (Funkkontakt every
+  // 10 min per Trupp, Druckmeldungen, GPS vor Ort/zurück), each ~10 nodes with chips and actions,
+  // and mounting all of them made opening the drawer a several-hundred-ms stall on an iPad. A
+  // sentinel at the tail reveals the next page as it scrolls into view; a jump to an older row
+  // reveals up to it first (`revealRow`), so the strip and a Meldung's reference still land.
+  const groups = useMemo(
+    () => groupByDay(events).map((g) => ({ ...g, events: g.events.filter((e) => !repeats.hidden.has(e.id)) })),
+    [events, repeats],
+  )
+  const [pageCount, setVisibleCount] = useState(PAGE_ROWS)
+  // no observer (jsdom, an old WebView): everything, as before
+  const visibleCount = typeof IntersectionObserver === 'undefined' ? Infinity : pageCount
+  /** rendered position of every row id — the count a reveal has to reach */
+  const rowIndex = useMemo(() => {
+    const m = new Map<string, number>()
+    let i = 0
+    for (const g of groups) for (const e of g.events) m.set(e.id, i++)
+    return m
+  }, [groups])
+  const totalRows = rowIndex.size
+  const shown = useMemo(() => {
+    let left = visibleCount
+    const out: typeof groups = []
+    for (const g of groups) {
+      if (left <= 0) break
+      out.push(left >= g.events.length ? g : { ...g, events: g.events.slice(0, left) })
+      left -= g.events.length
+    }
+    return out
+  }, [groups, visibleCount])
+  const listRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((x) => x.isIntersecting)) setVisibleCount((c) => c + PAGE_ROWS)
+    }, { root: listRef.current, rootMargin: '400px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [visibleCount, totalRows])
+
   // The strip's own state: the incident's time span, one tick per dated row, and the jump.
   // Rows WITHOUT an absolute time (legacy HH:MM-only entries) are simply not on it — a tick at a
   // guessed position would send the operator to the wrong place, which is worse than no tick.
-  const listRef = useRef<HTMLDivElement>(null)
   const strideRef = useRef(0)
   const stripTicks = useMemo(
     () => events.map((e) => (e.at ? Date.parse(e.at) : NaN)).filter((t) => Number.isFinite(t)).sort((a, b) => a - b),
@@ -337,7 +384,20 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     )
   })
 
+  /** Make sure the row is mounted. True when that needed a reveal — the DOM has it only after
+   *  the re-render, so the caller lands on it then (`pendingJump`, or the landing loop below).
+   *  Checked against the DOM, not the count: the landing loop keeps calling through the closure
+   *  of the render that asked, whose `visibleCount` is stale once the reveal has happened. */
+  const revealRow = (id: string) => {
+    if (findRow(id)) return false
+    const idx = rowIndex.get(id)
+    if (idx == null) return false
+    setVisibleCount((c) => Math.max(c, idx + PAGE_ROWS))
+    return true
+  }
+  const pendingJump = useRef<{ id: string; smooth: boolean } | null>(null)
   const jumpToRow = (id: string, smooth = false) => {
+    if (revealRow(id)) { pendingJump.current = { id, smooth }; return true }
     const list = listRef.current
     const el = findRow(id)
     if (!list || !el) return false
@@ -368,6 +428,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     }
     return true
   }
+  // a jump that had to reveal its row first lands once the page holding it is mounted
+  useEffect(() => {
+    const p = pendingJump.current
+    if (!p) return
+    pendingJump.current = null
+    jumpToRow(p.id, p.smooth)
+  }, [visibleCount]) // eslint-disable-line react-hooks/exhaustive-deps
   /**
    * Opened ONTO one row — «im Verlauf» on the Wiedergabe caption.
    *
@@ -390,6 +457,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    */
   useEffect(() => {
     if (!landOn) return
+    revealRow(landOn.id) // an older row than the DOM holds — the attempt loop finds it once mounted
     let raf = 0
     let tries = 0
     let stable = 0
@@ -590,10 +658,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
         )}
         <div className="history-list" ref={listRef}>
           {events.length === 0 && <EmptyState icon="history" title={C.empty} />}
-          {groupByDay(events).map((g, gi) => (
+          {shown.map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>
               {g.label && <div className="jr-day-sep" role="separator">{g.label}</div>}
-              {g.events.filter((e) => !repeats.hidden.has(e.id)).map((e) => {
+              {g.events.map((e) => {
             const target = targetOf(e)
             // ── during a Wiedergabe every row is a way into the picture ──
             // A row's tap sets the MOMENT, so the map, the Trupps and the Plan all read as they
@@ -878,6 +946,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               })}
             </Fragment>
           ))}
+          {/* the tail's sentinel: scrolling it into view mounts the next page (see `shown`) */}
+          {visibleCount < totalRows && <div ref={sentinelRef} style={{ height: 1 }} aria-hidden />}
         </div>
         {/* ── the row's detail sheet (variant 2, 29.08.) — see `detailId` above ──
             One modal Sheet per open row, over the drawer (--z-dialog > --z-drawer). Every action

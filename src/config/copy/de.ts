@@ -745,6 +745,8 @@ export const de = {
   toast: {
     audioSaved: 'Audionotiz gespeichert ({secs}s)',
     micDenied: 'Kein Mikrofonzugriff – als Platzhalter vermerkt',
+    // the mic WAS granted; the recorder itself would not start (unsupported format/hardware)
+    micFailed: 'Aufnahme konnte nicht gestartet werden',
     merged: 'Änderungen zusammengeführt',
   },
   mapHints: {
@@ -2614,6 +2616,7 @@ export const de = {
     promptFor: {
       crashLoop: 'Die App ist in einem Einsatz mehrmals abgestürzt. Was hast du gerade gemacht?',
       crash: 'Die App ist zuletzt einmal abgestürzt. Was hast du gerade gemacht?',
+      renderStorm: 'Die App hat sich in einem Einsatz festgerechnet – vermutlich war sie träge oder der Akku schnell leer. Was war gerade offen?',
       storageFull: 'Auf diesem Gerät war der Speicher voll. Ist dabei etwas verlorengegangen?',
       syncConflict: 'Zwei Geräte hatten unterschiedliche Stände. Hat am Ende etwas gefehlt?',
     },
@@ -2621,6 +2624,7 @@ export const de = {
     kinds: {
       crashLoop: 'wiederholter Absturz im selben Einsatz',
       crash: 'Absturz der Oberfläche',
+      renderStorm: 'Dauerlast der Oberfläche',
       storageFull: 'Gerätespeicher voll',
       syncConflict: 'Sync-Konflikt beim Zusammenführen',
     },

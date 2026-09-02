@@ -1,4 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
+
+/**
+ * Inline style for a modal frame while the keyboard is up — `undefined` at 0, so a surface
+ * without a keyboard renders byte-identical DOM. `marginBottom` lifts a bottom-anchored (phone)
+ * sheet; a centred sheet ignores the margin and reads `--kb-inset` instead, riding up and
+ * capping its height in CSS (`.is-kb`, 13-incident.css). The shared Sheet/Overlay apply it.
+ */
+export function keyboardLift(inset: number): CSSProperties | undefined {
+  return inset > 0 ? ({ marginBottom: inset, '--kb-inset': `${inset}px` } as CSSProperties) : undefined
+}
 
 /**
  * Height (px) the on-screen keyboard currently occupies, via the VisualViewport API.
@@ -22,13 +32,15 @@ import { useEffect, useRef, useState } from 'react'
 /** px below which a viewport change is not a keyboard appearing or disappearing */
 const MIN_STEP = 40
 
-export function useKeyboardInset(): number {
+/** `enabled` lets a surface that stays MOUNTED while closed (the shared Sheet/Overlay, whose
+ *  `open` is parent state) listen only while it is actually on screen; while disabled it reads 0. */
+export function useKeyboardInset(enabled = true): number {
   const [inset, setInset] = useState(0)
   // the last value we COMMITTED, read inside the listener without re-subscribing it
   const committed = useRef(0)
   useEffect(() => {
     const vv = window.visualViewport
-    if (!vv) return
+    if (!vv || !enabled) return
     let frame = 0
     const measure = () => {
       frame = 0
@@ -47,7 +59,10 @@ export function useKeyboardInset(): number {
       if (frame) cancelAnimationFrame(frame)
       vv.removeEventListener('resize', update)
       vv.removeEventListener('scroll', update)
+      // a sheet that closes with the keyboard up must not reopen lifted by a stale value
+      committed.current = 0
+      setInset(0)
     }
-  }, [])
+  }, [enabled])
   return inset
 }
