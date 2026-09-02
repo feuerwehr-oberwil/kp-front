@@ -17,6 +17,10 @@ import { WorkspaceSync, objectsNearIncidentResilient, getObjectResilient } from 
 
 const ID = '11111111-1111-1111-1111-111111111111'
 const wsPut = (rev: number) => ({ workspace: null, workspace_rev: rev })
+// WorkspaceSync debounces its offline-cache write, so an instance a test leaves running would
+// land that write in the NEXT test's fresh IndexedDB. Every instance is tracked and disposed.
+const live: WorkspaceSync[] = []
+const mk = (...args: ConstructorParameters<typeof WorkspaceSync>) => { const s = new WorkspaceSync(...args); live.push(s); return s }
 
 // The offline cache now lives in IndexedDB (idb.ts). WorkspaceSync writes it fire-and-forget
 // (the in-memory entry is authoritative), so a test that reopens the cache must let the pending
@@ -33,13 +37,14 @@ beforeEach(() => {
   apiBeacon.mockReset()
 })
 afterEach(() => {
+  for (const s of live.splice(0)) s.dispose()
   vi.useRealTimers()
 })
 
 describe('WorkspaceSync.flush — happy path', () => {
   it('pushes a dirty workspace and advances baseRev, clearing dirty', async () => {
     apiPut.mockResolvedValue(wsPut(5))
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
     expect(sync.hasUnsynced).toBe(true)
 
@@ -57,7 +62,7 @@ describe('WorkspaceSync.flush — happy path', () => {
 
 describe('WorkspaceSync.flushKeepalive — teardown beacon', () => {
   it('beacons the dirty workspace at the current baseRev (survives page unload)', () => {
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
 
     sync.flushKeepalive()
@@ -76,13 +81,13 @@ describe('WorkspaceSync.flushKeepalive — teardown beacon', () => {
   })
 
   it('is a no-op when there is nothing dirty to flush', () => {
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.flushKeepalive()
     expect(apiBeacon).not.toHaveBeenCalled()
   })
 
   it('is a no-op after dispose()', () => {
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
     sync.dispose()
     sync.flushKeepalive()
@@ -102,7 +107,7 @@ describe('WorkspaceSync conflict resolution (409) — three-way auto-merge', () 
 
     const onMerged = vi.fn()
     const applied: [unknown, number][] = []
-    const sync = new WorkspaceSync(ID, { debounceMs: 0, onMerged })
+    const sync = mk(ID, { debounceMs: 0, onMerged })
     sync.onApplyMerged = (ws, rev) => applied.push([ws, rev])
     sync.save({ drawings: [{ id: 'd2' }], entities: [] }) // I added d2; they added d1
     await sync.flush()
@@ -120,7 +125,7 @@ describe('WorkspaceSync conflict resolution (409) — three-way auto-merge', () 
 
   it('a local delete beats a concurrent remote edit (object stays gone)', async () => {
     apiGet.mockResolvedValueOnce({ workspace: { drawings: [{ id: 'a' }] }, workspace_rev: 1 }) // init → ancestor
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     await sync.init()
 
     sync.save({ drawings: [] }) // I deleted 'a'
@@ -144,7 +149,7 @@ describe('WorkspaceSync conflict resolution (409) — three-way auto-merge', () 
       .mockResolvedValueOnce(wsPut(3))
     apiGet.mockResolvedValueOnce({ workspace: { drawings: [{ id: 'x' }] }, workspace_rev: 2 }) // they added x
 
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ drawings: [{ id: 'm1' }] }) // I added m1
     const flushP = sync.flush()
     // let the 409 → getWorkspace → merge PUT chain run until the (slow) merge PUT is in flight
@@ -166,7 +171,7 @@ describe('WorkspaceSync conflict resolution (409) — three-way auto-merge', () 
     apiGet.mockResolvedValueOnce({ workspace: { entities: [{ id: 'e1' }], drawings: [] }, workspace_rev: 11 })
 
     const onServerWorkspace = vi.fn()
-    const sync = new WorkspaceSync(ID, { debounceMs: 0, onServerWorkspace })
+    const sync = mk(ID, { debounceMs: 0, onServerWorkspace })
     sync.save({ entities: [], drawings: [] })
     await sync.flush()
 
@@ -185,7 +190,7 @@ describe('WorkspaceSync — flush must not drop the newest edit', () => {
       .mockImplementationOnce(() => new Promise((res) => { resolveFirst = res }))
       .mockResolvedValueOnce(wsPut(2))
 
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ v: 1 })
     const flushP = sync.flush() // begins the slow first PUT
 
@@ -212,7 +217,7 @@ describe('WorkspaceSync.syncStatus — lifecycle surfaced to the UI', () => {
   it('goes pending on save and synced after a successful flush, notifying onStatus', async () => {
     apiPut.mockResolvedValue(wsPut(1))
     const seen: string[] = []
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.onStatus = (s) => seen.push(s)
     expect(sync.syncStatus).toBe('synced')
 
@@ -226,7 +231,7 @@ describe('WorkspaceSync.syncStatus — lifecycle surfaced to the UI', () => {
 
   it('reports offline when a flush fails on the network (status 0), staying dirty', async () => {
     apiPut.mockRejectedValue(new ApiError(0, 'offline'))
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
     await sync.flush()
 
@@ -236,7 +241,7 @@ describe('WorkspaceSync.syncStatus — lifecycle surfaced to the UI', () => {
 
   it('reports error on a non-network failure (e.g. 500), staying dirty', async () => {
     apiPut.mockRejectedValue(new ApiError(500, 'boom'))
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
     await sync.flush()
 
@@ -246,7 +251,7 @@ describe('WorkspaceSync.syncStatus — lifecycle surfaced to the UI', () => {
 
   it('returns to synced after recovering from an offline flush', async () => {
     apiPut.mockRejectedValueOnce(new ApiError(0, 'offline')).mockResolvedValueOnce(wsPut(1))
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
     await sync.flush()
     expect(sync.syncStatus).toBe('offline')
@@ -262,7 +267,7 @@ describe('WorkspaceSync.init — reopen / offline reload (don\'t lose the record
   // instance, disposing it (clears its armed flush timer), then opening a fresh instance on the
   // same incident id — exactly what a tab reload / app relaunch does.
   async function withCachedDirtyEdit(edit: Record<string, unknown>) {
-    const prior = new WorkspaceSync(ID, { debounceMs: 0 })
+    const prior = mk(ID, { debounceMs: 0 })
     prior.save(edit)
     prior.dispose() // keep the cache, drop the timer so it can't flush into a later assertion
     await flushIdb() // let the fire-and-forget IDB write commit before we reopen the incident
@@ -272,7 +277,7 @@ describe('WorkspaceSync.init — reopen / offline reload (don\'t lose the record
     await withCachedDirtyEdit({ entities: [{ id: 'mine' }] }) // edited offline at baseRev 0
     apiGet.mockResolvedValueOnce({ workspace: {}, workspace_rev: 0 }) // server still at 0
 
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     const r = await sync.init()
     // init() reads the offline cache (now in IndexedDB, hence async), rehydrating the engine as
     // pending and returning my unsynced edit even though the server rev is unchanged.
@@ -286,7 +291,7 @@ describe('WorkspaceSync.init — reopen / offline reload (don\'t lose the record
     await withCachedDirtyEdit({ entities: [{ id: 'x' }] })
     apiGet.mockRejectedValueOnce(new ApiError(0, 'offline'))
 
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     const r = await sync.init()
     expect(r.fromCache).toBe(true)
     expect((r.workspace as { entities: { id: string }[] }).entities).toEqual([{ id: 'x' }])
@@ -296,13 +301,13 @@ describe('WorkspaceSync.init — reopen / offline reload (don\'t lose the record
 
   it('throws when offline AND nothing is cached (a genuinely cold, offline first load)', async () => {
     apiGet.mockRejectedValueOnce(new ApiError(0, 'offline'))
-    const sync = new WorkspaceSync('99999999-9999-9999-9999-999999999999', { debounceMs: 0 })
+    const sync = mk('99999999-9999-9999-9999-999999999999', { debounceMs: 0 })
     await expect(sync.init()).rejects.toBeInstanceOf(ApiError)
   })
 
   it('adopts the server revision when the local cache is clean', async () => {
     apiGet.mockResolvedValueOnce({ workspace: { entities: [{ id: 'srv' }] }, workspace_rev: 7 })
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
 
     const r = await sync.init()
     expect(r.fromCache).toBe(false)
@@ -318,14 +323,14 @@ describe('WorkspaceSync.init — reopen / offline reload (don\'t lose the record
     // Device first loads at rev 1 (so a real common ancestor is cached), edits offline, then the
     // server advances to rev 4 via another device before the reopen.
     apiGet.mockResolvedValueOnce({ workspace: { entities: [{ id: 'shared' }] }, workspace_rev: 1 })
-    const prior = new WorkspaceSync(ID, { debounceMs: 0 })
+    const prior = mk(ID, { debounceMs: 0 })
     await prior.init() // base = {shared} @ rev 1
     prior.save({ entities: [{ id: 'shared' }, { id: 'mine' }] }) // offline add 'mine', dirty @ base 1
     prior.dispose()
     await flushIdb() // let the fire-and-forget IDB write commit before we reopen the incident
 
     apiGet.mockResolvedValueOnce({ workspace: { entities: [{ id: 'shared' }, { id: 'theirs' }] }, workspace_rev: 4 })
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     const r = await sync.init()
 
     expect(r.fromCache).toBe(true)
@@ -339,7 +344,7 @@ describe('WorkspaceSync.init — reopen / offline reload (don\'t lose the record
 describe('WorkspaceSync.adoptServer — live-follow rebase', () => {
   it('rebases the cache onto a polled rev, clears dirty, and updates rev + status', () => {
     const onRev = vi.fn()
-    const sync = new WorkspaceSync(ID, { debounceMs: 0, onRev })
+    const sync = mk(ID, { debounceMs: 0, onRev })
     sync.save({ entities: [{ id: 'local' }] }) // pretend a local edit is pending
     expect(sync.hasUnsynced).toBe(true)
 
@@ -353,7 +358,7 @@ describe('WorkspaceSync.adoptServer — live-follow rebase', () => {
   })
 
   it('is a no-op after dispose()', () => {
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.dispose()
     sync.adoptServer({ a: 1 }, 5)
     expect(sync.rev).toBe(0) // unchanged
@@ -408,7 +413,7 @@ describe('WorkspaceSync — automatic retry backoff (stuck-dirty recovery)', () 
       .mockRejectedValueOnce(new ApiError(500, 'boom'))
       .mockRejectedValueOnce(new ApiError(500, 'boom'))
       .mockResolvedValueOnce(wsPut(3))
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
     await sync.flush()
     expect(sync.syncStatus).toBe('error')
@@ -430,7 +435,7 @@ describe('WorkspaceSync — automatic retry backoff (stuck-dirty recovery)', () 
   it('also arms the retry when the failure is a network drop (offline)', async () => {
     vi.useFakeTimers()
     apiPut.mockRejectedValueOnce(new ApiError(0, 'offline')).mockResolvedValueOnce(wsPut(1))
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
     await sync.flush()
     expect(sync.syncStatus).toBe('offline')
@@ -443,7 +448,7 @@ describe('WorkspaceSync — automatic retry backoff (stuck-dirty recovery)', () 
   it('stops retrying after dispose()', async () => {
     vi.useFakeTimers()
     apiPut.mockRejectedValue(new ApiError(500, 'boom'))
-    const sync = new WorkspaceSync(ID, { debounceMs: 0 })
+    const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
     await sync.flush()
     expect(apiPut).toHaveBeenCalledTimes(1)

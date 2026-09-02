@@ -3,6 +3,7 @@
 // hook lives in useIncidentWatch.ts.
 
 import type { IncidentMeta } from './incidents'
+import { isLooping, readCrash, type CrashRecord } from './crashLoop'
 
 // Everything that is not human-created counts as alarm-created: 'divera' (taken OR
 // auto-opened) and any generic-intake source slug.
@@ -33,13 +34,19 @@ const ts = (iso: string): number => {
  *     else does not get to drag them back on every reload. It is the same signal a dismissed
  *     banner carries, read from the cookie rather than a set (lib/prefs · incidentChosenAt).
  * A genuinely new alarm still wins, which is the case the rule exists for.
+ *
+ * An incident whose crash record is LOOPING (lib/crashLoop) is never picked: after «Einsatz
+ * schliessen» on the boundary card the poisoned Einsatz used to come straight back on the next
+ * launch whenever it was the only open one, so the escape led back into the crash. `crash` is
+ * injectable for tests and defaults to the device's own record.
  */
 export function pickBootIncident(
   list: IncidentMeta[],
   savedId: string | null | undefined,
-  opts: { now: number; chosenAt?: number } = { now: Date.now() },
+  opts: { now: number; chosenAt?: number; crash?: CrashRecord | null } = { now: Date.now() },
 ): IncidentMeta | undefined {
-  const open = list.filter((i) => !i.is_archived)
+  const crash = opts.crash === undefined ? readCrash() : opts.crash
+  const open = list.filter((i) => !i.is_archived && !isLooping(crash, i.id, opts.now))
   const saved = savedId ? open.find((i) => i.id === savedId) : undefined
   const newestAlarm = open
     .filter(isAlarmCreated)

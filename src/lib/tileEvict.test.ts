@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { EVICT_BATCH, evictOldTiles, withTileEviction } from './tileEvict'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { EVICT_BATCH, EVICT_MIN_GAP_MS, evictOldTiles, withTileEviction } from './tileEvict'
 
 // The precedence this encodes: a map tile is re-downloadable in a second, the Lagekarte is not.
 // So when the device is full it is the scenery that goes, not the incident record.
@@ -17,7 +17,11 @@ function installCaches(names: string[], keys: string[]) {
   return { deleted }
 }
 
-afterEach(() => { vi.unstubAllGlobals() })
+// The rate limit is module state, so every test starts a full window after the last one — a
+// monotonic clock, because real time would sit behind the fake time the previous test left.
+let clock = Date.now()
+beforeEach(() => { clock += EVICT_MIN_GAP_MS + 1; vi.useFakeTimers(); vi.setSystemTime(clock) })
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('evictOldTiles', () => {
   it('drops the OLDEST entries first (cache.keys is insertion-ordered)', async () => {
@@ -39,6 +43,16 @@ describe('evictOldTiles', () => {
     expect(await evictOldTiles()).toBe(0)
     installCaches(['map-tiles'], [])
     expect(await evictOldTiles()).toBe(0)
+  })
+
+  it('runs at most once per window — a burst of refused writes costs one batch, not one per key', async () => {
+    const { deleted } = installCaches(['map-tiles'], Array.from({ length: 10 }, (_, i) => `t${i}`))
+    expect(await evictOldTiles(3)).toBe(3)
+    expect(await evictOldTiles(3)).toBe(0) // inside the window: nothing more is sacrificed
+    expect(deleted).toHaveLength(3)
+    vi.setSystemTime(clock + EVICT_MIN_GAP_MS)
+    expect(await evictOldTiles(3)).toBe(3)
+    expect(deleted).toHaveLength(6)
   })
 
   it('never becomes its own failure', async () => {
@@ -71,6 +85,15 @@ describe('withTileEviction', () => {
     const write = vi.fn().mockResolvedValue(false)
     expect(await withTileEviction(write)).toBe(false)
     expect(write).toHaveBeenCalledTimes(2)
+  })
+
+  it('a second refused write inside the window is not retried — tiles were not the problem', async () => {
+    installCaches(['map-tiles'], Array.from({ length: 5000 }, (_, i) => `t${i}`))
+    const write = vi.fn().mockResolvedValue(false)
+    expect(await withTileEviction(write)).toBe(false)
+    expect(write).toHaveBeenCalledTimes(2) // first: evict + retry
+    expect(await withTileEviction(write)).toBe(false)
+    expect(write).toHaveBeenCalledTimes(3) // second: rate-limited eviction = nothing freed = no retry
   })
 
   it('does not retry when there was nothing to evict', async () => {

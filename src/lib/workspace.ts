@@ -1,4 +1,4 @@
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Drawing, Entity, LayerDef, LayerId, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, Trupp, WeatherData } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
@@ -263,7 +263,55 @@ export interface WorkspaceGate {
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
-const hasId = (v: unknown): boolean => isObj(v) && typeof v.id === 'string' && v.id.length > 0
+const hasId = (v: unknown): v is Record<string, unknown> & { id: string } => isObj(v) && typeof v.id === 'string' && v.id.length > 0
+const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+
+// --- Shape predicates ---------------------------------------------------------------------
+// One malformed OBJECT in a synced collection used to take every device down together: the
+// gate below only asked «object with a string id», and the first consumer of a `line` whose
+// `coords` was null was a first-render useMemo — so the boundary fired before any surface
+// mounted, «Neu laden» re-pulled the same blob, and «Lokale Kopie verwerfen» too (verified
+// 25.07.). These predicates ask the question each renderer would otherwise ask by throwing.
+
+/** Every member of a string union as a Set, checked BOTH ways at compile time: each listed value
+ *  must be in the union (`readonly T[]`), and every union member must be listed (the intersection
+ *  with `Complete` collapses to `never` when one is missing). So a kind added to `types.ts`
+ *  without a row here fails `tsc` instead of being silently dropped from every incident. */
+type Complete<T extends string, U extends readonly string[]> = Exclude<T, U[number]> extends never ? unknown : never
+const kindSet = <T extends string>() => <const U extends readonly T[]>(u: U & Complete<T, U>): ReadonlySet<string> => new Set<string>(u)
+const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
+const DRAW_KINDS = kindSet<DrawKind>()(['line', 'area', 'circle'])
+const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource'])
+/** the pre-'resource' board kind, still accepted at the gate because normalizeBoard migrates it */
+const LEGACY_BOARD_KINDS: ReadonlySet<string> = new Set([...BOARD_KINDS, 'trupp'])
+/** fewest vertices a drawing of each kind can render with (a circle is its centre) */
+const MIN_DRAW_PTS: Record<DrawKind, number> = { circle: 1, line: 2, area: 3 }
+
+const lngLat = (v: unknown): v is LngLat =>
+  Array.isArray(v) && v.length === 2 && num(v[0]) && num(v[1]) && Math.abs(v[0]) <= 180 && Math.abs(v[1]) <= 90
+const boardPt = (v: unknown): v is BoardPoint => Array.isArray(v) && (v.length === 2 || v.length === 3) && v.every(num)
+const isReading = (v: unknown): v is TruppReading => isObj(v) && typeof v.t === 'string' && num(v.bar) && typeof v.kind === 'string'
+const isGeoTrailPt = (v: unknown): v is GeoTrailPoint => isObj(v) && lngLat(v.coord) && typeof v.t === 'string'
+const isTrailPt = (v: unknown): v is TrailPoint => isObj(v) && num(v.x) && num(v.y) && typeof v.t === 'string'
+
+/** A map entity the markers can place: known kind and a finite, in-range [lng, lat]. */
+export const isEntity = (v: unknown): v is Entity =>
+  hasId(v) && typeof v.kind === 'string' && ENTITY_KINDS.has(v.kind) && lngLat(v.coord)
+/** A drawing the map can render: known kind, enough finite vertices for it, and a radius for a circle. */
+export const isDrawing = (v: unknown): v is Drawing =>
+  hasId(v) && typeof v.kind === 'string' && DRAW_KINDS.has(v.kind)
+  && Array.isArray(v.coords) && v.coords.length >= MIN_DRAW_PTS[v.kind as DrawKind] && v.coords.every(lngLat)
+  && (v.kind !== 'circle' || num(v.radiusM))
+/** A plan annotation the Whiteboard can draw: ink needs enough finite vertices, everything else an anchor. */
+export const isBoardAnno = (v: unknown): v is BoardAnno =>
+  hasId(v) && typeof v.kind === 'string' && LEGACY_BOARD_KINDS.has(v.kind)
+  && (v.kind === 'draw' || v.kind === 'area'
+    ? Array.isArray(v.pts) && v.pts.length >= (v.kind === 'area' ? 3 : 2) && v.pts.every(boardPt)
+    : num(v.x) && num(v.y))
+/** A Gebäude doc the floor-stack can open: at least one finite storey and a footprint of some shape. */
+export const isBuilding = (v: unknown): v is BuildingDoc =>
+  isObj(v) && Array.isArray(v.floors) && v.floors.length > 0 && v.floors.every(num)
+  && (Array.isArray(v.rings) || Array.isArray(v.ring) || Array.isArray(v.src))
 
 /**
  * Gate + sanitize a workspace blob BEFORE deriveInitial: a cached (IndexedDB) or server blob
@@ -271,20 +319,26 @@ const hasId = (v: unknown): boolean => isObj(v) && typeof v.id === 'string' && v
  * must never take down a live incident. Version-gate first (a newer blob loads best-effort
  * and is flagged; an older one runs stepwise migrations — none exist yet), then keep every
  * well-formed entry and drop the malformed rest, counting losses so the caller can surface
- * them instead of failing silently. Deliberately predicate-based (id/shape checks), not a
- * full schema: deep validation belongs to the type system at write time, this is the
+ * them instead of failing silently. Deliberately predicate-based (the shape predicates above),
+ * not a full schema: deep validation belongs to the type system at write time, this is the
  * last-line crash guard at read time.
+ *
+ * Two verbs, on purpose: geometry that cannot render is DROPPED (the object is unusable), while
+ * the string fields the panels `.trim()` / `.localeCompare()` are COERCED to '' — a Trupp without
+ * a name is still a crew under air, and losing its clock over a missing label is the wrong trade.
  */
 export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
   if (raw == null) return { ws: null, dropped: 0, newerSchema: false }
   if (!isObj(raw)) return { ws: null, dropped: 1, newerSchema: false }
   let dropped = 0
-  const arr = <T,>(v: unknown, ok: (x: unknown) => boolean): T[] | undefined => {
+  // `ok` is a plain boolean for the id-only collections (hasId narrows to less than T); the
+  // shape-gated ones pass a real predicate and read as T either way
+  const arr = <T,>(v: unknown, ok: (x: unknown) => boolean, fix?: (x: T) => T): T[] | undefined => {
     if (v == null) return undefined
     if (!Array.isArray(v)) { dropped++; return undefined }
-    const kept = v.filter(ok)
+    const kept = v.filter(ok) as T[]
     dropped += v.length - kept.length
-    return kept as T[]
+    return fix ? kept.map(fix) : kept
   }
   const rec = <T,>(v: unknown): T | undefined => {
     if (v == null) return undefined
@@ -292,45 +346,80 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     return v as T
   }
   const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
+  // Coerce the named string fields on one object to strings; a present wrong-typed value counts
+  // as a reset, an absent one is quietly '' (an older writer simply did not know the field).
+  const strFields = <T extends object>(o: T, keys: (keyof T & string)[]): T => {
+    const r = o as Record<string, unknown>
+    if (keys.every((k) => typeof r[k] === 'string')) return o
+    const out = { ...r }
+    for (const k of keys) if (typeof out[k] !== 'string') { if (out[k] != null) dropped++; out[k] = '' }
+    return out as T
+  }
+  const fixTrupp = (t: Trupp): Trupp => {
+    const o = strFields(t, ['name']) as Trupp & { readings?: unknown }
+    if (o.readings == null) return o
+    const readings = arr<TruppReading>(o.readings, isReading)
+    return { ...o, readings }
+  }
   // board needs one level more: normalizeBoard maps over each doc's anno ARRAY, so a
-  // non-array value (or non-object anno) would crash it
+  // non-array value (or non-object anno) would crash it — and past that, the Whiteboard
+  // derefs `pts` / `x` / `y` per kind
   const board = ((): BoardDoc | undefined => {
     const b = rec<Record<string, unknown>>(raw.board)
     if (!b) return undefined
     const out: BoardDoc = {}
     for (const [k, v] of Object.entries(b)) {
-      if (!Array.isArray(v)) { dropped++; continue }
-      const kept = v.filter(isObj)
-      dropped += v.length - kept.length
-      out[k] = kept as unknown as BoardDoc[string]
+      const annos = arr<BoardAnno>(v, isBoardAnno, (a) => (a.trail == null ? a : { ...a, trail: arr<TrailPoint>(a.trail, isTrailPt) }))
+      if (annos) out[k] = annos
     }
     return out
+  })()
+  // Numeric doctrine overrides: anything that is not a usable number is REMOVED, not kept —
+  // `NaN * 60` in the überfällig arithmetic silently disables the alarm, and an absent key
+  // falls back to the station doctrine. Only the Nachfrist may be zero (a real setting).
+  const settings = ((): IncidentSettings | undefined => {
+    const s = rec<Record<string, unknown>>(raw.settings)
+    if (!s) return undefined
+    const out: IncidentSettings = {}
+    for (const key of SAFETY_KEYS) {
+      const v = s[key]
+      if (v == null) continue
+      if (num(v) && (key === 'contactGraceSec' ? v >= 0 : v > 0)) out[key] = v
+      else dropped++
+    }
+    return out
+  })()
+  const building = ((): BuildingDoc | null | undefined => {
+    if (raw.building == null) return raw.building
+    if (isBuilding(raw.building)) return raw.building
+    dropped++
+    return null // deriveInitial reads null as «no Gebäude»; a half doc would crash the Kroki
   })()
   const sv = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : undefined
   // (stepwise migrations for sv < WORKSPACE_SCHEMA_VERSION go here once version 2 exists)
   const ws: Saved = {
-    entities: (arr<Entity>(raw.entities, hasId) ?? []).map(migrateRauchCloud),
-    drawings: arr<Drawing>(raw.drawings, hasId) ?? [],
+    entities: (arr<Entity>(raw.entities, isEntity, (e) => (e.trail == null ? e : { ...e, trail: arr<GeoTrailPoint>(e.trail, isGeoTrailPt) })) ?? []).map(migrateRauchCloud),
+    drawings: arr<Drawing>(raw.drawings, isDrawing) ?? [],
     recent: arr<string>(raw.recent, (x) => typeof x === 'string') ?? [],
-    layerState: arr<Saved['layerState'][number]>(raw.layerState, (x) => hasId(x) && typeof (x as { visible?: unknown }).visible === 'boolean') ?? [],
-    timeline: arr<TimelineEvent>(raw.timeline, hasId) ?? [],
+    layerState: arr<Saved['layerState'][number]>(raw.layerState, (x) => hasId(x) && typeof x.visible === 'boolean') ?? [],
+    timeline: arr<TimelineEvent>(raw.timeline, hasId, (e) => strFields(e, ['text', 't'])) ?? [],
     board,
     activePlanId: str(raw.activePlanId),
     activeModule: str(raw.activeModule),
     pickedObjectId: str(raw.pickedObjectId),
     planScale: rec<PlanScales>(raw.planScale),
-    building: raw.building === null ? null : rec<BuildingDoc>(raw.building),
+    building,
     vehicleOverrides: rec<VehicleOverrides>(raw.vehicleOverrides),
     checklists: rec<ChecklistState>(raw.checklists),
-    trupps: arr<Trupp>(raw.trupps, hasId),
+    trupps: arr<Trupp>(raw.trupps, hasId, fixTrupp),
     attendance: rec<AttendanceState>(raw.attendance),
-    mittel: arr<MittelEntry>(raw.mittel, hasId),
+    mittel: arr<MittelEntry>(raw.mittel, hasId, (e) => strFields(e, ['label', 'unit'])),
     shifts: arr<Shift>(raw.shifts, hasId),
-    bands: arr<ShiftBand>(raw.bands, hasId),
+    bands: arr<ShiftBand>(raw.bands, hasId, (b) => strFields(b, ['label'])),
     cameraViews: arr<CameraView>(raw.cameraViews, hasId),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     attachments: arr<ReportAttachment>(raw.attachments, hasId),
-    settings: rec<IncidentSettings>(raw.settings),
+    settings,
     intakeReviewedAt: str(raw.intakeReviewedAt),
     schemaVersion: sv,
   }

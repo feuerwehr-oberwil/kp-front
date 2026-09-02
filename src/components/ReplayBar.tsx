@@ -72,6 +72,8 @@ const BREAK_LABEL_MIN_PX = 64
 const TICK_MIN_GAP_PX = 8
 
 const fmtClock = (ms: number) => formatTime(new Date(ms), true)
+/** the incident start as epoch ms, or `now` when it is absent or unparseable (never NaN into the slider) */
+const startMsOf = (iso: string) => { const n = Date.parse(iso); return Number.isFinite(n) ? n : Date.now() }
 
 export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, onShowEntry, onPlayhead, seekRef, journal = [] }: Props) {
   const rp = appConfig.copy.replay
@@ -79,7 +81,7 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, 
   const [loadError, setLoadError] = useState(false)
   // start of the incident, not "now" — otherwise the first frame before the bundle loads is
   // the live picture and the playhead visibly jumps left the moment it arrives
-  const [tMs, setTMs] = useState<number>(() => new Date(startedAt || Date.now()).getTime())
+  const [tMs, setTMs] = useState<number>(() => startMsOf(startedAt))
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(4)
   /** «übersprungen 2 h 14» — set when playback jumps a gap, cleared on a timer. */
@@ -94,8 +96,7 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, 
   // dragged the handle all the way left. This is a Wiedergabe: it begins at the beginning.
   useEffect(() => {
     let alive = true
-    const startMs = new Date(startedAt || Date.now()).getTime()
-    loadReplay(incidentId, startMs, Date.now())
+    loadReplay(incidentId, startMsOf(startedAt), Date.now())
       .then((b) => { if (alive) { setBundle(b); setTMs(b.startMs) } })
       .catch(() => { if (alive) setLoadError(true) })
     return () => { alive = false }
@@ -147,7 +148,7 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, 
         ? layoutTrack([{ fromMs: bundle.startMs, toMs: bundle.endMs }], [], GAP_FRAC)
         : []
   ), [segments, gaps, bundle])
-  const alarmMs = useMemo(() => new Date(startedAt || 0).getTime(), [startedAt])
+  const alarmMs = useMemo(() => Date.parse(startedAt), [startedAt]) // NaN when unparseable — the readers check
 
   /**
    * The lane's ticks, with anything closer together than a finger MERGED into one.

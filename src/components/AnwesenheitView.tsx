@@ -74,6 +74,9 @@ function toHM(iso: string): string {
 }
 
 
+/** a block's duration for the card head — nothing (not «NaN min») when an end is unparseable */
+const spanOrNothing = (ms: number) => (Number.isFinite(ms) ? fmtSpanShort(ms) : undefined)
+
 /**
  * Every recorded block of one person, opened from the row's «+».
  *
@@ -170,7 +173,7 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
         head: iv.to
           ? { label: A.ended, tone: 'done' as const }
           : { label: A.running, tone: 'open' as const },
-        duration: fmtSpanShort((iv.to ? Date.parse(iv.to) : openedAt) - Date.parse(iv.from)),
+        duration: spanOrNothing((iv.to ? Date.parse(iv.to) : openedAt) - Date.parse(iv.from)),
         // mirror of onTo: a von typed after the bis means the block STARTED the previous day
         onFrom: canEdit && onSetTimes ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(iv.from, v, { prevDayIfAfter: iv.to }); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
         // ALWAYS, not only on a multi-day Einsatz: the clock alone never says which day, and a

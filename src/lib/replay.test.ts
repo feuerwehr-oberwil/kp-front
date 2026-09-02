@@ -127,6 +127,18 @@ describe('stateAt — fold over a snapshot anchor', () => {
     expect(deleted?.entities).toHaveLength(0)
   })
 
+  it('a snapshot or an add-event carrying a malformed object passes the live gate — nothing throws, the object is simply absent', async () => {
+    const poisoned = { ...emptyWs(), drawings: [{ id: 'bad', kind: 'line', coords: null }, { id: 'ok', kind: 'line', coords: [[7.5, 47.5], [7.6, 47.6]] }] } as unknown as Saved
+    const b = bundle([
+      ev({ seq: 1, occurred_at: iso(1000), op_type: 'entity.add', payload_json: { entity: { id: 'nan', kind: 'symbol', coord: [NaN, NaN] } } }),
+      ev({ seq: 2, occurred_at: iso(1100), op_type: 'draw.add', payload_json: { drawing: { id: 'str', kind: 'area', coords: 'abc' } } }),
+      ev({ seq: 3, occurred_at: iso(1200), op_type: 'draw.attach', payload_json: { id: 'bad', endpoint: 'start', fallback: [7.5, 47.5] } }),
+    ], () => ({ workspace: poisoned, occurredMs: 500 }))
+    const s = await stateAt(b, 2000)
+    expect(s?.drawings.map((d) => d.id)).toEqual(['ok'])
+    expect(s?.entities).toEqual([])
+  })
+
   it('does not mutate the cached snapshot blob (clones the anchor)', async () => {
     const snapWs = emptyWs()
     const events = [ev({ seq: 1, op_type: 'entity.add', occurred_at: iso(1000), payload_json: { id: 'e1', entity: { id: 'e1', kind: 'symbol', layer: 'l', coord: [7, 47], symbol: 'X' } } })]

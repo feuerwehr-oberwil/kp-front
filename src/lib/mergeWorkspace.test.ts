@@ -412,3 +412,34 @@ describe('mergeWorkspace — reportMeta Zeiten grid', () => {
     expect(out.reportMeta.fahrzeuge ?? []).toEqual([])
   })
 })
+
+describe('mergeWorkspace — a server blob this app did not write', () => {
+  it('entities: {} merges without throwing and yields an empty list', () => {
+    const out = mergeWorkspace({}, { entities: [] }, { entities: {} }) as { entities: unknown[] }
+    expect(out.entities).toEqual([])
+  })
+
+  it('a non-array collection, a string record, an object gruppen grid, an object readings log: none throws', () => {
+    const base = { trupps: [o('tr', { name: 'A', readings: [] })] }
+    const mine = { trupps: [o('tr', { name: 'A', readings: [{ t: '10:00', bar: 280, kind: 'entry' }] })], attendance: { p1: { present: true } } }
+    const theirs = {
+      trupps: [o('tr', { name: 'B', readings: {} })], // both changed the Trupp → mergeTrupp → mergeReadings
+      drawings: 'x',
+      attendance: '',
+      board: { modul1: 'not-a-list' },
+      reportMeta: { gruppen: {}, linksDone: 'no' },
+    }
+    const out = mergeWorkspace(base, mine, theirs) as Record<string, unknown>
+    expect(out.drawings).toEqual([])
+    expect(out.attendance).toEqual({ p1: { present: true } })
+    expect(out.board).toEqual({ modul1: [] })
+    expect(out.reportMeta).toEqual({})
+    const tr = (out.trupps as { readings: unknown[] }[])[0]
+    expect(tr.readings).toEqual([{ t: '10:00', bar: 280, kind: 'entry' }]) // my row survives, their `{}` reads as empty
+  })
+
+  it('a collection entry without an id is not a merge participant', () => {
+    const out = mergeWorkspace({}, { entities: [o('a')] }, { entities: [null, 'junk', { noId: 1 }, o('b')] }) as { entities: { id: string }[] }
+    expect(out.entities.map((e) => e.id)).toEqual(['b', 'a'])
+  })
+})

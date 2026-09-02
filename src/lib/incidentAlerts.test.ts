@@ -81,6 +81,18 @@ describe('pickBootIncident', () => {
     expect(pickBootIncident([arch], 'a')).toBeUndefined()
   })
 
+  it('never boots into an incident whose crash record is looping — the escape must not lead back in', () => {
+    const list = [inc({ id: 'i1' }), inc({ id: 'i2', started_at: '2026-07-08T10:00:00Z' })]
+    const looping = { id: 'i1', n: 2, at: NOW }
+    expect(pickBootIncident(list, 'i1', { now: NOW, crash: looping })?.id).toBe('i2') // remembered, but poisoned
+    expect(pickBootIncident([list[0]], null, { now: NOW, crash: looping })).toBeUndefined() // the only open one → landing
+    expect(pickBootIncident(list, 'i1', { now: NOW, crash: { id: 'i1', n: 1, at: NOW } })?.id).toBe('i1') // one crash is not a loop
+    expect(pickBootIncident(list, 'i1', { now: NOW, crash: null })?.id).toBe('i1')
+    // …and a fresh alarm that is itself crashing does not override anything either
+    const alarm = inc({ id: 'a', source: 'divera', started_at: '2026-07-08T11:30:00Z' })
+    expect(pickBootIncident([...list, alarm], 'i1', { now: NOW, crash: { id: 'a', n: 3, at: NOW } })?.id).toBe('i1')
+  })
+
   it('falls back to the first open incident without a remembered id', () => {
     const a = inc({ id: 'a', started_at: '2026-07-08T11:00:00Z' })
     const b = inc({ id: 'b', started_at: '2026-07-08T10:00:00Z' })

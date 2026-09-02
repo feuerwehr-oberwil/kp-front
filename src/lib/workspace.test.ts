@@ -270,10 +270,10 @@ describe('sanitizeWorkspace — load gate', () => {
 
   it('a well-formed blob passes through with dropped 0 and feeds deriveInitial unchanged', () => {
     const blob = ws({
-      entities: [{ id: 'e1' }] as Saved['entities'],
-      drawings: [{ id: 'd1' }] as Saved['drawings'],
-      trupps: [{ id: 'tr1' }] as Saved['trupps'],
-      board: { modul1: [{ id: 'a1' }] } as unknown as Saved['board'],
+      entities: [{ id: 'e1', kind: 'symbol', coord: [7.5, 47.5] }] as Saved['entities'],
+      drawings: [{ id: 'd1', kind: 'line', coords: [[7.5, 47.5], [7.6, 47.6]] }] as Saved['drawings'],
+      trupps: [{ id: 'tr1', name: 'Trupp 1' }] as Saved['trupps'],
+      board: { modul1: [{ id: 'a1', kind: 'symbol', x: 0.5, y: 0.5 }] } as unknown as Saved['board'],
       settings: { contactIntervalMin: 10 },
       // the crew-wide «Einsatzdaten geprüft» stamp — dropping it here would put the review
       // banner back up on every device (lib/incidentAlerts)
@@ -292,8 +292,8 @@ describe('sanitizeWorkspace — load gate', () => {
 
   it('drops collection entries without a string id and counts every loss', () => {
     const g = sanitizeWorkspace({
-      entities: [{ id: 'e1' }, { id: 42 }, null, 'junk'],
-      trupps: [{ id: 'tr1' }, {}],
+      entities: [{ id: 'e1', kind: 'symbol', coord: [7.5, 47.5] }, { id: 42 }, null, 'junk'],
+      trupps: [{ id: 'tr1', name: 'Trupp 1' }, {}],
       mittel: [{ noId: true }],
     })
     expect(g.ws?.entities.map((e) => e.id)).toEqual(['e1'])
@@ -311,14 +311,15 @@ describe('sanitizeWorkspace — load gate', () => {
     })
     expect(g.ws?.entities).toEqual([])
     expect(g.ws?.attendance).toBeUndefined()
-    expect(g.ws?.building).toBeUndefined()
+    expect(g.ws?.building).toBeNull() // «no Gebäude» — deriveInitial reads null and undefined alike
     expect(g.ws?.activePlanId).toBeUndefined()
     expect(g.dropped).toBe(3) // entities + attendance + building (a wrong-typed plain string resets uncounted)
   })
 
   it('board docs keep only array values with object annos (normalizeBoard would crash otherwise)', () => {
-    const g = sanitizeWorkspace({ board: { modul1: [{ id: 'a1' }, 'junk'], broken: 'not-an-array' } })
-    expect(g.ws?.board).toEqual({ modul1: [{ id: 'a1' }] })
+    const anno = { id: 'a1', kind: 'text', x: 0.1, y: 0.2, text: 'EG' }
+    const g = sanitizeWorkspace({ board: { modul1: [anno, 'junk'], broken: 'not-an-array' } })
+    expect(g.ws?.board).toEqual({ modul1: [anno] })
     expect(g.dropped).toBe(2) // one non-object anno + one non-array doc
     expect(() => deriveInitial(g.ws, 'inc1', {})).not.toThrow()
   })
@@ -330,7 +331,7 @@ describe('sanitizeWorkspace — load gate', () => {
   })
 
   it('flags a NEWER schemaVersion but still loads best-effort', () => {
-    const g = sanitizeWorkspace({ entities: [{ id: 'e1' }], schemaVersion: WORKSPACE_SCHEMA_VERSION + 1 })
+    const g = sanitizeWorkspace({ entities: [{ id: 'e1', kind: 'symbol', coord: [7.5, 47.5] }], schemaVersion: WORKSPACE_SCHEMA_VERSION + 1 })
     expect(g.newerSchema).toBe(true)
     expect(g.ws?.entities).toHaveLength(1) // best-effort, not refused — 3am rule: degrade, don't block
   })
@@ -338,6 +339,149 @@ describe('sanitizeWorkspace — load gate', () => {
   it('current and older stamps do not flag', () => {
     expect(sanitizeWorkspace({ schemaVersion: WORKSPACE_SCHEMA_VERSION }).newerSchema).toBe(false)
     expect(sanitizeWorkspace({}).newerSchema).toBe(false) // pre-versioning blob
+  })
+})
+
+// The per-object SHAPE gate. Each predicate gets the malformed object that used to reach a
+// renderer and throw there (the boundary card for the whole incident, on every device, with
+// «Neu laden» and «Lokale Kopie verwerfen» both re-pulling the same poison) — and one valid
+// neighbour, to show that only the offending object goes.
+describe('sanitizeWorkspace — per-object shape gate', () => {
+  const LINE = { id: 'ok', kind: 'line', coords: [[7.5, 47.5], [7.6, 47.6]] }
+
+  it('drawings: the 25.07. poison — a line whose coords is null — goes, its neighbour stays', () => {
+    const g = sanitizeWorkspace({ drawings: [LINE, { id: 'bad', kind: 'line', coords: null }] })
+    expect(g.ws?.drawings.map((d) => d.id)).toEqual(['ok'])
+    expect(g.dropped).toBe(1)
+  })
+
+  it('drawings: too few vertices for the kind, a non-finite pair, an out-of-range pair, an unknown kind', () => {
+    const g = sanitizeWorkspace({ drawings: [
+      LINE,
+      { id: 'l1', kind: 'line', coords: [[7.5, 47.5]] },
+      { id: 'a2', kind: 'area', coords: [[7.5, 47.5], [7.6, 47.6]] },
+      { id: 'nan', kind: 'line', coords: [[7.5, 47.5], [NaN, 47.6]] },
+      { id: 'range', kind: 'line', coords: [[7.5, 47.5], [200, 47.6]] },
+      { id: 'kind', kind: 'polygon', coords: [[7.5, 47.5], [7.6, 47.6], [7.7, 47.7]] },
+    ] })
+    expect(g.ws?.drawings.map((d) => d.id)).toEqual(['ok'])
+    expect(g.dropped).toBe(5)
+  })
+
+  it('drawings: a circle is its centre plus a finite radius', () => {
+    const g = sanitizeWorkspace({ drawings: [
+      { id: 'c', kind: 'circle', coords: [[7.5, 47.5]], radiusM: 50 },
+      { id: 'noR', kind: 'circle', coords: [[7.5, 47.5]] },
+      { id: 'nanR', kind: 'circle', coords: [[7.5, 47.5]], radiusM: NaN },
+    ] })
+    expect(g.ws?.drawings.map((d) => d.id)).toEqual(['c'])
+    expect(g.dropped).toBe(2)
+  })
+
+  it('entities: [NaN, NaN] (which passed Array.isArray and threw inside the Marker) goes, the rest stays', () => {
+    const g = sanitizeWorkspace({ entities: [
+      { id: 'ok', kind: 'symbol', coord: [7.5, 47.5] },
+      { id: 'nan', kind: 'symbol', coord: [NaN, NaN] },
+      { id: 'one', kind: 'symbol', coord: [7.5] },
+      { id: 'str', kind: 'symbol', coord: ['7.5', '47.5'] },
+      { id: 'kind', kind: 'marker', coord: [7.5, 47.5] },
+    ] })
+    expect(g.ws?.entities.map((e) => e.id)).toEqual(['ok'])
+    expect(g.dropped).toBe(4)
+  })
+
+  it('entities: the trail keeps only its valid points — a bad breadcrumb never costs the Trupp marker', () => {
+    const g = sanitizeWorkspace({ entities: [
+      { id: 't', kind: 'team', coord: [7.5, 47.5], trail: [{ coord: [7.5, 47.5], t: '10:00' }, { coord: null, t: '10:05' }, 'x'] },
+    ] })
+    expect(g.ws?.entities[0].trail).toEqual([{ coord: [7.5, 47.5], t: '10:00' }])
+    expect(g.dropped).toBe(2)
+  })
+
+  it('building: {} becomes null (the Kroki would have crashed on floors.length), a real doc survives', () => {
+    const bad = sanitizeWorkspace({ building: {} })
+    expect(bad.ws?.building).toBeNull()
+    expect(bad.dropped).toBe(1)
+    const doc = { ring: [[0, 0], [1, 0], [1, 1]], ringAspect: 1, floors: [0, 1, 2] }
+    const ok = sanitizeWorkspace({ building: doc })
+    expect(ok.ws?.building).toEqual(doc)
+    expect(ok.dropped).toBe(0)
+    // no storeys, or a footprint of no shape at all, is not a building either
+    expect(sanitizeWorkspace({ building: { ...doc, floors: [] } }).ws?.building).toBeNull()
+    expect(sanitizeWorkspace({ building: { floors: [0], ringAspect: 1 } }).ws?.building).toBeNull()
+    expect(sanitizeWorkspace({ building: { floors: [0, 'EG'], ring: [] } }).ws?.building).toBeNull()
+  })
+
+  it('board annos: ink needs finite vertices (a string pts has a .length and then no .map), points need x/y', () => {
+    const draw = { id: 'ink', kind: 'draw', pts: [[0.1, 0.1], [0.2, 0.2, 1]] }
+    const sym = { id: 'sym', kind: 'symbol', x: 0.5, y: 0.5 }
+    const legacy = { id: 'old', kind: 'trupp', x: 0.3, y: 0.3 }
+    const g = sanitizeWorkspace({ board: { modul1: [
+      draw, sym, legacy,
+      { id: 'str', kind: 'draw', pts: 'abc' },
+      { id: 'short', kind: 'area', pts: [[0.1, 0.1], [0.2, 0.2]] },
+      { id: 'nan', kind: 'draw', pts: [[0.1, 0.1], [NaN, 0.2]] },
+      { id: 'noxy', kind: 'symbol' },
+      { id: 'kind', kind: 'sticker', x: 0.5, y: 0.5 },
+    ] } })
+    expect(g.ws?.board?.modul1.map((a) => a.id)).toEqual(['ink', 'sym', 'old']) // 'trupp' migrates in normalizeBoard
+    expect(g.dropped).toBe(5)
+  })
+
+  it('board annos: a resource trail keeps only its valid points', () => {
+    const g = sanitizeWorkspace({ board: { modul1: [
+      { id: 'r', kind: 'resource', x: 0.5, y: 0.5, trail: [{ x: 0.4, y: 0.4, t: '10:00' }, { x: 'a', y: 0.4, t: '10:05' }] },
+    ] } })
+    expect(g.ws?.board?.modul1[0].trail).toEqual([{ x: 0.4, y: 0.4, t: '10:00' }])
+    expect(g.dropped).toBe(1)
+  })
+
+  it('trupps: a Trupp without a name is KEPT with name "" — it is a crew under air, not a corrupt row', () => {
+    const g = sanitizeWorkspace({ trupps: [{ id: 'tr1', status: 'aktiv' }, { id: 'tr2', name: 42 }] })
+    expect(g.ws?.trupps?.map((t) => t.name)).toEqual(['', ''])
+    expect(g.dropped).toBe(1) // only the wrong-typed value counts as a reset; absent is quietly ''
+  })
+
+  it('trupps: readings keep only real rows; a non-array readings is removed', () => {
+    const g = sanitizeWorkspace({ trupps: [
+      { id: 'a', name: 'A', readings: [{ t: '10:00', bar: 280, kind: 'entry' }, { t: '10:05', bar: 'x', kind: 'pressure' }, null] },
+      { id: 'b', name: 'B', readings: {} },
+    ] })
+    expect(g.ws?.trupps?.[0].readings).toEqual([{ t: '10:00', bar: 280, kind: 'entry' }])
+    expect(g.ws?.trupps?.[1].readings).toBeUndefined()
+    expect(g.dropped).toBe(3)
+  })
+
+  it('bands / mittel / timeline: the fields the panels .trim() are coerced to strings, never left undefined', () => {
+    const g = sanitizeWorkspace({
+      bands: [{ id: 'b', from: 'x', to: 'y' }],
+      mittel: [{ id: 'm', menge: 2 }],
+      timeline: [{ id: 't', icon: 'flag', text: 42 }],
+    })
+    expect(g.ws?.bands?.[0].label).toBe('')
+    expect(g.ws?.mittel?.[0]).toMatchObject({ label: '', unit: '' })
+    expect(g.ws?.timeline[0]).toMatchObject({ text: '', t: '' })
+    expect(g.dropped).toBe(1) // the wrong-typed text counts as a reset; the absent fields are quietly ''
+  })
+
+  it('settings: a doctrine override that is not a usable number is REMOVED so the station doctrine applies', () => {
+    const g = sanitizeWorkspace({ settings: { contactIntervalMin: 'zehn', contactGraceSec: 0, defaultFunkkanal: NaN } })
+    expect(g.ws?.settings).toEqual({ contactGraceSec: 0 }) // a Nachfrist of zero is a real setting
+    expect(g.dropped).toBe(2)
+    expect(sanitizeWorkspace({ settings: { contactIntervalMin: 0 } }).ws?.settings).toEqual({}) // 0 min would alarm at once
+    expect(sanitizeWorkspace({ settings: { contactIntervalMin: 15 } }).ws?.settings).toEqual({ contactIntervalMin: 15 })
+  })
+
+  it('the whole poisoned blob feeds deriveInitial without throwing', () => {
+    const g = sanitizeWorkspace({
+      drawings: [{ id: 'd', kind: 'line', coords: null }],
+      entities: [{ id: 'e', kind: 'symbol', coord: [NaN, NaN] }],
+      building: {},
+      board: { modul1: [{ id: 'a', kind: 'draw', pts: 'abc' }] },
+      trupps: [{ id: 'tr' }],
+    })
+    expect(() => deriveInitial(g.ws, 'inc1', {})).not.toThrow()
+    expect(g.dropped).toBe(4)
   })
 })
 

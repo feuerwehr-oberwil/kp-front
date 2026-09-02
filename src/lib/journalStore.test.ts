@@ -138,6 +138,16 @@ describe('JournalStore — append/flush/pull', () => {
   })
 })
 
+describe('JournalStore — rows the server hands over', () => {
+  it('a pulled row without a string id is skipped, and text/t are coerced — the Verlauf trims them in render', async () => {
+    fakeServer([row('a'), { id: 7 } as unknown as TimelineEvent, { id: 'b', icon: 'flag' } as TimelineEvent])
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    expect(s.display().map((r) => r.id)).toEqual(['b', 'a'])
+    expect(s.display()[0]).toMatchObject({ text: '', t: '' })
+  })
+})
+
 describe('JournalStore — legacy blob rows', () => {
   it('queues legacy rows chronologically and keeps echoing them into the blob (never [])', async () => {
     fakeServer()
