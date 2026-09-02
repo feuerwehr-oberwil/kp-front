@@ -1,14 +1,43 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { pollWorkspaceSince, type WorkspaceSync, type Workspace, type SyncStatus } from './incidents'
 import { appConfig } from '../config/appConfig'
-import { attendanceConflictRows } from './attendanceConflict'
+import { onWorkspaceServerTime } from './api/workspace'
+import { attendanceConflictRows, conflictSignature } from './attendanceConflict'
+import { fillTemplate } from './format'
 import type { RecordConflict } from './mergeWorkspace'
 import { LONG_POLL_SPACING_MS, nextPollDelay } from './pollBackoff'
-import { createSyncAlertTracker } from './syncAlert'
+import { createClockSkewAlert, createSyncAlertTracker } from './syncAlert'
 import { recordTrouble } from './trouble'
 import { toast } from './ui'
 import type { Saved } from './workspace'
 import type { TimelineEvent } from '../types'
+
+/**
+ * Turn freshly reported Trupp divergences (mergeWorkspace · onTruppConflict) into Verlauf rows,
+ * one per affected Trupp — the Atemschutz sibling of attendanceConflictRows, and the same
+ * doctrine: the merge already resolved things (field-level, nothing dropped), the row exists so
+ * a human double-checks a record two devices wrote at once. `seen` is the caller's
+ * session-scoped signature set, so merge retries re-reporting the same divergence don't
+ * re-append.
+ */
+function truppConflictRows(conflicts: RecordConflict[], seen: Set<string>, now: Date = new Date()): TimelineEvent[] {
+  const rows: TimelineEvent[] = []
+  const pad = (n: number) => String(n).padStart(2, '0')
+  for (const c of conflicts) {
+    const sig = conflictSignature(c)
+    if (seen.has(sig)) continue
+    seen.add(sig)
+    const name = ((c.mine as { name?: string })?.name ?? (c.theirs as { name?: string })?.name ?? c.key).trim()
+    rows.push({
+      id: `tc${now.getTime()}-${rows.length}`, // prefixed timestamp, same convention as attendanceConflictRows
+      t: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+      at: now.toISOString(),
+      icon: 'warn',
+      text: fillTemplate(appConfig.copy.journal.truppConflict, { name }),
+    })
+  }
+  return rows
+}
 
 interface IncidentSyncDeps {
   sync: WorkspaceSync
@@ -52,6 +81,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // re-append (attendanceConflictRows guards by signature). Read-only sessions stay silent —
   // the editing side appends the note.
   const seenConflicts = useRef(new Set<string>())
+  const seenTruppConflicts = useRef(new Set<string>())
   useEffect(() => {
     if (!appendJournal || readOnly) return
     const report = (conflicts: RecordConflict[]) => {
@@ -61,9 +91,18 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
       // one side, and only a human knows whether the losing side mattered.
       if (rows.length > 0) recordTrouble('syncConflict')
     }
+    // Same wiring for concurrently edited Trupps. Here the merge is field-level (nothing was
+    // dropped), but an SCBA record two devices wrote at once still gets its note + follow-up.
+    const reportTrupps = (conflicts: RecordConflict[]) => {
+      const rows = truppConflictRows(conflicts, seenTruppConflicts.current)
+      for (const row of rows) appendJournal(row)
+      if (rows.length > 0) recordTrouble('syncConflict')
+    }
     sync.onAttendanceConflicts = report
+    sync.onTruppConflicts = reportTrupps
     report(sync.drainAttendanceConflicts()) // conflicts from init()'s cold-reopen merge
-    return () => { sync.onAttendanceConflicts = undefined }
+    reportTrupps(sync.drainTruppConflicts())
+    return () => { sync.onAttendanceConflicts = undefined; sync.onTruppConflicts = undefined }
   }, [sync, appendJournal, readOnly])
 
   // persistence → server (offline cache + debounced sync). Skip the first run so loading
@@ -267,5 +306,41 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     return () => { sync.onStatus = undefined; tracker.dispose() }
   }, [sync])
 
-  return { syncStatus, lastSyncedAt, syncNow }
+  // Device-vs-server clock skew, sampled from X-Server-Time on every live-follow poll answer
+  // (api/workspace · onWorkspaceServerTime — the backend stamps all /api/ responses). Every
+  // Atemschutz timestamp is device-local Date.now(), so a tablet minutes off writes wrong
+  // contact times into the legal record and nothing else would notice. Positive = this device
+  // runs ahead. Minute-quantized behind a 45 s dead-band (below) so per-sample network jitter
+  // doesn't re-render the tree every poll round; null until the first parseable sample. Crossing the
+  // warn threshold (>3 min — CLOCK_SKEW_WARN_MIN, the capture surface's bound) fires ONE toast
+  // per episode (syncAlert · createClockSkewAlert), re-armed when the clock comes back within
+  // bounds. Same doctrine as the sync-trouble toasts: no persistent banner here — the standing
+  // value is exposed as `clockSkewMs` for the Atemschutz surface to render.
+  const [clockSkewMs, setClockSkewMs] = useState<number | null>(null)
+  useEffect(() => {
+    const alert = createClockSkewAlert((skewMin) => {
+      toast(fillTemplate(appConfig.copy.incidentSwitcher.clockSkewToast, { n: Math.abs(skewMin) }), {
+        icon: 'warn', tone: 'warn',
+      })
+    })
+    // Committed-sample dead-band: a clock sitting near a minute boundary would otherwise flip
+    // 3↔4 on latency jitter every poll round — re-rendering the tree and re-firing the toast
+    // on every flip. A sample only commits when the raw skew moved >45 s from the one on
+    // record; the committed minute is what the state, the alert and the board all see.
+    // (Same sign/rounding as captureDraft · serverSkewMinutes; unparseable = no information.)
+    let committedRawMs: number | null = null
+    onWorkspaceServerTime((iso) => {
+      const server = Date.parse(iso)
+      if (!Number.isFinite(server)) return
+      const raw = Date.now() - server // positive = device runs ahead
+      if (committedRawMs !== null && Math.abs(raw - committedRawMs) <= 45_000) return
+      committedRawMs = raw
+      const skewMin = Math.round(raw / 60_000)
+      setClockSkewMs(skewMin * 60_000)
+      alert.onSkew(skewMin)
+    })
+    return () => onWorkspaceServerTime(null)
+  }, [])
+
+  return { syncStatus, lastSyncedAt, syncNow, clockSkewMs }
 }

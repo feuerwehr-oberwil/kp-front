@@ -37,6 +37,15 @@ Two things differ, and both follow from who it is for:
     by rotating the station's minting key, which would take every alarm link with it.
 Because it cannot expire, revoking has to be complete: the check runs on every request, so a
 session already open on somebody's phone dies together with the URL.
+
+THE THIRD KIND OF LINK (2026-09-01)
+-----------------------------------
+`/l/a<secret>` is the Atemschutz link, minted in the app by an editor from a RUNNING Einsatz
+(api/incidents · the `atemschutz-link` trio) and handed to somebody who is not on the FU — the
+colleague at the Eingang who keeps the Atemschutzüberwachung. Same door, same secret-is-the-
+credential lookup, same per-incident revocation as the view link; the lifetime is the alarm
+link's instead (the Einsatz closes, the link dies), and it is the one kind that may write.
+What it may write is three routes and two content rules, all in auth/incident_link.
 """
 
 import secrets
@@ -51,7 +60,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..alarms import open_pooled_alarm
 from ..auth.cookies import set_link_cookie
 from ..auth.dependencies import CurrentAdmin
-from ..auth.incident_link import LINK_TOKEN_TYPE, create_link_session_token, create_view_session_token
+from ..auth.incident_link import (
+    LINK_TOKEN_TYPE,
+    create_atemschutz_session_token,
+    create_link_session_token,
+    create_view_session_token,
+)
 from ..database import get_db
 from ..models import DeploymentConfig, Incident
 
@@ -127,6 +141,12 @@ def _invalid_token() -> HTTPException:
 #: starts with `eyJ` (the encoded `{"`), so no alerting-system token begins with this.
 VIEW_TOKEN_PREFIX = "v"  # noqa: S105 — a URL marker, not a credential
 
+#: …and the Atemschutz link's marker, for the same reason and with the same guarantee: a JWT
+#: is three base64url segments and always starts with `eyJ` (the encoded `{"`), so no alerting
+#: system token begins with an "a" either. The two app-minted secrets are `secrets.token_urlsafe`
+#: output and carry no prefix of their own, so one leading character tells all three kinds apart.
+ATEMSCHUTZ_TOKEN_PREFIX = "a"  # noqa: S105 — a URL marker, not a credential
+
 
 async def _open_view_session(token: str, response: Response, db: AsyncSession) -> dict:
     """Trade a Rapport view link for a session on the ONE incident that link belongs to.
@@ -152,6 +172,28 @@ async def _open_view_session(token: str, response: Response, db: AsyncSession) -
     return {"incident_id": str(inc.id)}
 
 
+async def _open_atemschutz_session(token: str, response: Response, db: AsyncSession) -> dict:
+    """Trade an Atemschutz link for a write-narrowed session on the ONE Einsatz it belongs to.
+
+    Looked up, not decoded — the secret IS the credential, exactly like the view link. What
+    differs is the lifecycle: this one is minted while the Einsatz runs, so a closed or
+    archived Einsatz answers the alarm link's 404 («noch nicht / nicht mehr verfügbar»). An
+    unknown or revoked secret answers the same 401 as every other bad token: the two refusals
+    stay apart because they mean different things to the person holding the phone, and neither
+    tells them anything about an Einsatz they don't already have the link for.
+    """
+    secret = token[len(ATEMSCHUTZ_TOKEN_PREFIX) :]
+    if not secret:
+        raise _invalid_token()
+    inc = (await db.execute(select(Incident).where(Incident.atemschutz_link_key == secret))).scalar_one_or_none()
+    if inc is None:
+        raise _invalid_token()
+    if not inc.is_open:
+        raise HTTPException(status_code=404, detail="Einsatz nicht (mehr) verfügbar")
+    set_link_cookie(response, create_atemschutz_session_token(str(inc.id), secret))
+    return {"incident_id": str(inc.id)}
+
+
 @router.post("/session")
 async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSession = Depends(get_db)) -> dict:
     """Trade a link token minted by the alerting system for a link-session cookie.
@@ -161,10 +203,12 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
     on. That is what keeps this provider-neutral: nothing here knows what Divera is, and an
     alerting system never has to learn our incident UUIDs to link to one.
     """
-    # One door, two kinds of link — the SPA forwards whatever stood in `/l/<…>` and does not
+    # One door, three kinds of link — the SPA forwards whatever stood in `/l/<…>` and does not
     # need to know which it is holding.
     if body.token.startswith(VIEW_TOKEN_PREFIX):
         return await _open_view_session(body.token, response, db)
+    if body.token.startswith(ATEMSCHUTZ_TOKEN_PREFIX):
+        return await _open_atemschutz_session(body.token, response, db)
 
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     key = row.incident_link_key if row else None

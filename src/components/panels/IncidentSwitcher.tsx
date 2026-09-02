@@ -23,7 +23,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -48,6 +48,10 @@ export function IncidentSwitcher({
    *  (IncidentWorkspace · confirmAndComplete); absent for viewers / read-only views / an
    *  already-closed incident */
   onArchive?: () => void
+  /** «Teilen» — open the Weitergeben sheet (the read-only Einsatz-Link + its QR) for the
+   *  ACTIVE incident. In the card because the link belongs to this Einsatz, not to the app;
+   *  omitted for viewers and for an Einsatz-Link session, which may not mint one. */
+  onShare?: () => void
   /** how many Mindestangaben are still open, shown as a badge on that row. The check used to
    *  happen only after the press, and only on the other door — see confirmAndComplete. */
   archiveOpenCount?: number
@@ -245,23 +249,43 @@ export function IncidentSwitcher({
               {/* The Einsatz's own actions, inside its own card. Short labels: the card names the
                   Einsatz one line above, so «Einsatz abschliessen» would say it twice — the full
                   wording rides along as the button's title/aria-label.
+                  ⚠️ ONE LINE, always (decision 01.09.): three verbs that wrap to a second row
+                  stop reading as one set of choices. The label is its own <span> so the row can
+                  ellipsise instead of wrap when it truly cannot fit — see .ip-card-acts, which
+                  carries the measured widths.
+                  Order is Bearbeiten · Teilen · Abschliessen. Abschliessen goes LAST because it
+                  is the one that ends the Einsatz; a terminal action sitting between two
+                  everyday ones is a mis-tap waiting for a gloved thumb.
                   A wrong ADDRESS is noticed while looking at the map, long before anybody opens
                   the Rapport — whose «Bearbeiten» link was once the only way into the mask. */}
-              {(onEditMeta || onArchive) && (
+              {(onEditMeta || onArchive || onShare) && (
                 <div className="ip-card-acts">
                   {onEditMeta && (
                     <button className="ip-card-act" title={cp.editMeta} aria-label={cp.editMeta}
                       onClick={onEditMeta}>
-                      <Icon id="pen" />{cp.editMetaShort}
+                      <Icon id="pen" /><span>{cp.editMetaShort}</span>
+                    </button>
+                  )}
+                  {onShare && (
+                    <button className="ip-card-act" title={cp.share} aria-label={cp.share}
+                      onClick={onShare}>
+                      <Icon id="external" /><span>{cp.shareShort}</span>
                     </button>
                   )}
                   {onArchive && (
                     <button className="ip-card-act" title={cp.archive} aria-label={cp.archive}
                       onClick={onArchive}>
-                      <Icon id="archive" />{cp.archiveShort}
-                      {/* the counter BEFORE the press, not only in the dialog after it */}
+                      <Icon id="archive" /><span>{cp.archiveShort}</span>
+                      {/* The counter BEFORE the press, not only in the dialog after it. Bare
+                          number: «3 offen» cost 50px of a row that has to stay on one line, and
+                          the word is the half a glance does not need — the full «{n} offen»
+                          rides along as the badge's own title/aria-label. */}
                       {archiveOpenCount > 0 && (
-                        <span className="ip-badge ip-badge-todo">{fillTemplate(cp.archiveOpen, { n: archiveOpenCount })}</span>
+                        <span className="ip-badge ip-badge-todo"
+                          title={fillTemplate(cp.archiveOpen, { n: archiveOpenCount })}
+                          aria-label={fillTemplate(cp.archiveOpen, { n: archiveOpenCount })}>
+                          {archiveOpenCount}
+                        </span>
                       )}
                     </button>
                   )}

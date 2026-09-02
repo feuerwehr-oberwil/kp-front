@@ -503,6 +503,12 @@ export interface TimelineEvent {
    * it are linked (lib/journalLinks). A second field asking the same thing was dropped 09.08.
    */
   entryType?: JournalEntryType
+  /** Written by the SERVER on rows that arrived through an Atemschutz-Link session (the QR a
+   *  non-FU scans to operate only the Überwachung of this Einsatz — see lib/viewLink). The
+   *  Verlauf prints it as a small footnote beside the row, so «wer hat das eingetragen» has an
+   *  answer on a board that deliberately asks nobody for a name. Absent on everything else, and
+   *  never set by this client: the app cannot vouch for its own provenance. */
+  via?: 'atemschutz-link'
 }
 
 /** `'info'` · `'auftrag'` (Befehlsgebung) · `'sofort'` (Sofortmassnahme). See TimelineEvent. */

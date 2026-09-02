@@ -36,7 +36,7 @@ from sqlalchemy import select
 
 from app import storage
 from app.auth.cookies import ACCESS_COOKIE
-from app.auth.incident_link import LINK_ALLOWED, LINK_COOKIE, LINK_TOKEN_TYPE
+from app.auth.incident_link import ATEMSCHUTZ_LINK_ALLOWED, LINK_ALLOWED, LINK_COOKIE, LINK_TOKEN_TYPE
 from app.models import DeploymentConfig, Incident, Media
 from app.schemas import ConfigIntegrations
 
@@ -307,6 +307,15 @@ async def test_me_reports_a_link_scoped_viewer(client, link_key, incident):
 # --- containment ------------------------------------------------------------------------
 
 
+async def test_logout_ends_a_link_session(client, link_key, incident):
+    """«Abmelden» is the way back to the login on a browser holding a link cookie."""
+    await _open_link(client)
+    assert (await client.get("/api/auth/me")).status_code == 200
+    r = await client.post("/api/auth/logout")
+    assert r.status_code == 200, r.text
+    assert (await client.get("/api/auth/me")).status_code == 401
+
+
 async def test_explicitly_excluded_routes_are_refused(client, link_key, incident):
     """The named exclusions from auth/incident_link.py: documents carrying names, the station
     printer, another person's print job, push rows, billable outbound calls, and the GETs that
@@ -376,8 +385,11 @@ async def test_allowlist_entries_all_name_a_real_route():
 
     Compared against the *route templates*, converters included — see `_openapi_pairs`.
     """
-    stale = LINK_ALLOWED - _openapi_pairs() - {SPA_FALLBACK}
+    mounted = _openapi_pairs()
+    stale = LINK_ALLOWED - mounted - {SPA_FALLBACK}
     assert stale == set(), f"LINK_ALLOWED entries matching no mounted route: {sorted(stale)}"
+    stale_atemschutz = ATEMSCHUTZ_LINK_ALLOWED - mounted
+    assert stale_atemschutz == set(), f"ATEMSCHUTZ_LINK_ALLOWED entries matching no route: {sorted(stale_atemschutz)}"
 
 
 #: Values for every path param in the mounted routes. `incident_id` is deliberately the link's
@@ -964,3 +976,294 @@ async def test_view_link_does_not_need_the_stations_minting_key(client, editor, 
     token = await _mint_view_link(client, editor, incident)
     assert (await client.post("/api/incident-link/session", json={"token": token})).status_code == 200
     assert (await client.get(f"/api/incidents/{incident.id}/journal")).status_code == 200
+
+
+# --- the Atemschutz link ------------------------------------------------------------------
+#
+# The third kind: minted by an editor from a RUNNING Einsatz, opened by somebody who is not on
+# the FU, and the only link that writes. So these prove the shape of the write — three routes,
+# two content rules, one Einsatz — far more than they prove that it works at all.
+
+
+async def _mint_atemschutz_link(client, editor, incident) -> str:
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/atemschutz-link")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["enabled"] is True
+    token = body["token"]
+    assert token.startswith("a")
+    client.cookies.delete(ACCESS_COOKIE)  # from here on we are the phone at the Eingang
+    return token
+
+
+async def _open_atemschutz(client, editor, incident) -> str:
+    token = await _mint_atemschutz_link(client, editor, incident)
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 200, r.text
+    assert r.json()["incident_id"] == str(incident.id)
+    return token
+
+
+@pytest.fixture
+async def workspace(db_session, incident):
+    """A workspace with a Trupp and something the link must never be able to touch."""
+    incident.map_workspace_json = {"trupps": [{"id": "t1", "name": "Trupp 1"}], "shapes": [{"id": "s1"}]}
+    await db_session.commit()
+    await db_session.refresh(incident)
+    return incident
+
+
+async def test_atemschutz_link_needs_an_editor_and_is_idempotent(client, viewer, editor, incident):
+    r = await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": "135790"})
+    assert r.status_code == 200, r.text
+    assert (await client.post(f"/api/incidents/{incident.id}/atemschutz-link")).status_code == 403
+    client.cookies.delete(ACCESS_COOKIE)
+
+    first = await _mint_atemschutz_link(client, editor, incident)
+    await _login_editor(client, editor)
+    again = (await client.post(f"/api/incidents/{incident.id}/atemschutz-link")).json()["token"]
+    shown = (await client.get(f"/api/incidents/{incident.id}/atemschutz-link")).json()
+    assert again == first
+    assert shown == {"enabled": True, "token": first}
+
+
+async def test_atemschutz_link_cannot_be_minted_on_a_finished_einsatz(client, editor, incident, db_session):
+    """It is the Atemschutzüberwachung of a RUNNING Einsatz. 409, not the exchange's blind
+    404: the caller is a signed-in editor who knows the Einsatz exists."""
+    incident.is_archived = True
+    await db_session.commit()
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/atemschutz-link")
+    assert r.status_code == 409, r.text
+
+
+async def test_atemschutz_session_reports_its_kind(client, editor, incident):
+    """The client paints a different app for this link than for a read-only one, so it has to
+    be able to tell them apart — `link_scoped` alone cannot."""
+    await _open_atemschutz(client, editor, incident)
+    me = (await client.get("/api/auth/me")).json()
+    assert me["role"] == "viewer"
+    assert me["link_scoped"] is True
+    assert me["link_kind"] == "atemschutz"
+    assert me["link_incident_id"] == str(incident.id)
+
+
+async def test_a_read_only_link_says_so(client, link_key, editor, incident):
+    """The other two kinds must not accidentally claim the write app."""
+    await _open_link(client)
+    assert (await client.get("/api/auth/me")).json()["link_kind"] == "alarm"
+    _forget_link(client)
+    token = await _mint_view_link(client, editor, incident)
+    await client.post("/api/incident-link/session", json={"token": token})
+    assert (await client.get("/api/auth/me")).json()["link_kind"] == "view"
+
+
+async def test_the_slice_put_writes_trupps_and_nothing_else(client, editor, workspace, db_session):
+    """The whole reason this route exists: a link holder replaces the Atemschutz roster and
+    cannot touch the Karte — not even by saving a stale copy of a document they never see."""
+    await _open_atemschutz(client, editor, workspace)
+    r = await client.put(
+        f"/api/incidents/{workspace.id}/workspace/trupps",
+        json={"trupps": [{"id": "t1", "name": "Trupp 1", "status": "innen"}], "base_rev": workspace.workspace_rev},
+    )
+    assert r.status_code == 200, r.text
+    # the answer is the revision alone — a phone on one bar has no use for the blob per tap
+    assert r.json() == {"workspace": None, "workspace_rev": workspace.workspace_rev + 1}
+
+    await db_session.refresh(workspace)
+    saved = workspace.map_workspace_json
+    assert saved["trupps"] == [{"id": "t1", "name": "Trupp 1", "status": "innen"}]
+    assert saved["shapes"] == [{"id": "s1"}], "the rest of the workspace must survive untouched"
+
+
+async def test_the_slice_put_conflicts_like_the_full_put(client, editor, workspace):
+    """Same optimistic concurrency, same 409 body — the client 3-way-merges and retries."""
+    await _open_atemschutz(client, editor, workspace)
+    r = await client.put(
+        f"/api/incidents/{workspace.id}/workspace/trupps",
+        json={"trupps": [], "base_rev": workspace.workspace_rev + 5},
+    )
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["server_rev"] == workspace.workspace_rev
+
+
+async def test_the_slice_put_does_not_latch_editor_opened(client, editor, workspace, db_session):
+    """A phone at the Eingang is not «das KP-Tablet hat den Einsatz offen» — the latch feeds
+    the capture view's «KP-Tablet aktiv» and the stats export drops what it never stamped."""
+    await _open_atemschutz(client, editor, workspace)
+    r = await client.put(
+        f"/api/incidents/{workspace.id}/workspace/trupps",
+        json={"trupps": [], "base_rev": workspace.workspace_rev},
+    )
+    assert r.status_code == 200, r.text
+    await db_session.refresh(workspace)
+    assert workspace.editor_opened_at is None
+
+
+async def test_atemschutz_link_reaches_nothing_else_that_writes(client, editor, workspace):
+    """The three extra routes are the whole widening. Everything an editor may do to this
+    Einsatz besides them stays refused, with the same message as any other link."""
+    await _open_atemschutz(client, editor, workspace)
+    refused = [
+        ("PUT", f"/api/incidents/{workspace.id}/workspace", {"workspace": {}, "base_rev": 0}),
+        ("PATCH", f"/api/incidents/{workspace.id}", {"title": "Umbenannt"}),
+        ("POST", f"/api/incidents/{workspace.id}/report/pdf", {}),
+        ("POST", f"/api/incidents/{workspace.id}/atemschutz-link", None),
+        ("DELETE", f"/api/incidents/{workspace.id}/atemschutz-link", None),
+    ]
+    for method, url, body in refused:
+        r = await client.request(method, url, json=body)
+        assert r.status_code == 403, f"{method} {url} answered {r.status_code}: {r.text[:200]}"
+        assert r.json()["detail"] == DENIED_DETAIL, f"{method} {url}"
+
+
+async def test_the_other_two_links_cannot_write_the_slice(client, link_key, editor, incident):
+    """Read-only means read-only: adding a route to the Atemschutz set must not widen the
+    alarm link or the Rapport view link by the same edit."""
+    await _open_link(client)
+    r = await client.put(f"/api/incidents/{incident.id}/workspace/trupps", json={"trupps": [], "base_rev": 0})
+    assert r.status_code == 403 and r.json()["detail"] == DENIED_DETAIL
+    _forget_link(client)
+
+    token = await _mint_view_link(client, editor, incident)
+    await client.post("/api/incident-link/session", json={"token": token})
+    r = await client.put(f"/api/incidents/{incident.id}/workspace/trupps", json={"trupps": [], "base_rev": 0})
+    assert r.status_code == 403 and r.json()["detail"] == DENIED_DETAIL
+
+
+async def test_journal_takes_team_rows_only_and_stamps_them(client, editor, incident):
+    """The link holds the Atemschutzüberwachung, not the Verlauf. A row of any other kind is
+    the generic refusal — a 422 would tell a probing holder what the rule is."""
+    await _open_atemschutz(client, editor, incident)
+    at = datetime.now(UTC).isoformat()
+
+    r = await client.post(
+        f"/api/incidents/{incident.id}/journal",
+        json={"entries": [{"id": "j1", "kind": "note", "at": at, "text": "Rauch aus dem Dach"}]},
+    )
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+
+    r = await client.post(
+        f"/api/incidents/{incident.id}/journal",
+        json={"entries": [{"id": "j2", "kind": "team", "at": at, "text": "Trupp 1 Kontakt"}]},
+    )
+    assert r.status_code == 201, r.text
+    rows = (await client.get(f"/api/incidents/{incident.id}/journal")).json()["entries"]
+    assert [e["row"]["id"] for e in rows] == ["j2"], "the refused row must not have landed"
+    assert rows[0]["row"]["via"] == "atemschutz-link"
+
+
+async def test_events_take_atemschutz_op_types_only(client, editor, incident):
+    """Same rule on the chain, plus the provenance it exists to record: these rows did not
+    come from the FU tablet, and `source` has to say so."""
+    await _open_atemschutz(client, editor, incident)
+
+    r = await client.post(
+        f"/api/incidents/{incident.id}/events", json={"events": [{"op_type": "draw.create", "payload": {}}]}
+    )
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+
+    r = await client.post(
+        f"/api/incidents/{incident.id}/events",
+        json={"events": [{"op_type": "atemschutz.contact", "payload": {"trupp": "t1"}}]},
+    )
+    assert r.status_code == 201, r.text
+    ev = r.json()[0]
+    assert ev["op_type"] == "atemschutz.contact"
+    assert ev["source"] == "atemschutz-link"
+    assert ev["user_id"] is None, "there is no account behind a link — nothing may be attributed to one"
+
+
+async def test_an_editor_still_writes_anything(client, editor, incident):
+    """The content rules are the LINK's, not the route's. Switching these endpoints off
+    `CurrentEditor` must not have narrowed what a signed-in editor may append."""
+    await _login_editor(client, editor)
+    r = await client.post(
+        f"/api/incidents/{incident.id}/journal",
+        json={"entries": [{"id": "j9", "kind": "note", "at": datetime.now(UTC).isoformat(), "text": "Notiz"}]},
+    )
+    assert r.status_code == 201, r.text
+    assert "via" not in r.json()["entries"][0]["row"]
+    r = await client.post(
+        f"/api/incidents/{incident.id}/events", json={"events": [{"op_type": "draw.create", "payload": {}}]}
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()[0]["source"] == "client"
+
+
+async def test_closing_the_einsatz_kills_an_open_atemschutz_session(client, editor, incident, db_session):
+    """It has the alarm link's lifetime, not the view link's — checked per request."""
+    await _open_atemschutz(client, editor, incident)
+    assert (await client.get(f"/api/incidents/{incident.id}/workspace")).status_code == 200
+
+    inc = await db_session.get(Incident, incident.id)
+    inc.status = "geschlossen"
+    inc.is_archived = True
+    await db_session.commit()
+
+    r = await client.put(f"/api/incidents/{incident.id}/workspace/trupps", json={"trupps": [], "base_rev": 0})
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+    assert (await client.get(f"/api/incidents/{incident.id}/workspace")).status_code == 403
+
+
+async def test_revoking_kills_the_url_and_the_open_atemschutz_session(client, editor, workspace):
+    """The lever the editor has while the Einsatz keeps running: the phone goes home, or the
+    QR ends up somewhere it should not, and the link dies without closing anything."""
+    token = await _open_atemschutz(client, editor, workspace)
+    assert (await client.get(f"/api/incidents/{workspace.id}/workspace")).status_code == 200
+    open_session = client.cookies[LINK_COOKIE]
+
+    _forget_link(client)
+    await _login_editor(client, editor)
+    assert (await client.delete(f"/api/incidents/{workspace.id}/atemschutz-link")).json() == {
+        "enabled": False,
+        "token": None,
+    }
+    client.cookies.delete(ACCESS_COOKIE)
+
+    client.cookies.set(LINK_COOKIE, open_session)  # that phone, unchanged, on its next request
+    r = await client.put(
+        f"/api/incidents/{workspace.id}/workspace/trupps",
+        json={"trupps": [], "base_rev": workspace.workspace_rev},
+    )
+    assert r.status_code == 403, r.text
+    _forget_link(client)
+
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 401
+    assert r.json()["detail"] == INVALID_TOKEN_DETAIL
+
+
+async def test_atemschutz_link_stays_scoped_to_its_own_incident(client, editor, incident, db_session):
+    other = _incident(title="Anderer Einsatz", source_ref="alarm-other-as")
+    db_session.add(other)
+    await db_session.commit()
+    await db_session.refresh(other)
+
+    await _open_atemschutz(client, editor, incident)
+    r = await client.put(f"/api/incidents/{other.id}/workspace/trupps", json={"trupps": [], "base_rev": 0})
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+
+
+async def test_an_atemschutz_link_to_a_closed_einsatz_answers_404(client, editor, incident, db_session):
+    """«Noch nicht / nicht mehr verfügbar» — the alarm link's answer, because it is the alarm
+    link's lifetime. A revoked or unknown secret stays the 401 instead."""
+    token = await _mint_atemschutz_link(client, editor, incident)
+    inc = await db_session.get(Incident, incident.id)
+    inc.is_archived = True
+    await db_session.commit()
+
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 404, r.text
+    assert r.json()["detail"] == NOT_AVAILABLE_DETAIL
+    assert LINK_COOKIE not in r.cookies
+
+    for probe in ("anope-not-a-real-secret", "a"):
+        r = await client.post("/api/incident-link/session", json={"token": probe})
+        assert r.status_code == 401, probe
+        assert r.json()["detail"] == INVALID_TOKEN_DETAIL

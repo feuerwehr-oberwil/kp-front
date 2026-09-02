@@ -256,14 +256,16 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 @app.middleware("http")
-async def capture_server_time(request: Request, call_next):
-    """Every /api/capture/* response carries the server clock so the capture client can
-    warn about device clock skew (times are typed on whatever phone scanned the poster).
-    Contract with the frontend: header `X-Server-Time`, ISO-8601 UTC. On every capture
-    response — errors included, so the skew check works even before token auth.
+async def api_server_time(request: Request, call_next):
+    """Every /api/* response carries the server clock so clients can warn about device
+    clock skew. Contract with the frontend: header `X-Server-Time`, ISO-8601 UTC. Two
+    consumers: the capture client (times are typed on whatever phone scanned the poster)
+    and the workspace live-follow poll (Atemschutz contact/pressure timestamps are
+    device-local Date.now(), so a tablet minutes off corrupts the legal record silently).
+    On every API response — errors included, so the skew check works even before auth.
     """
     response = await call_next(request)
-    if request.url.path.startswith(f"{settings.api_prefix}/capture"):
+    if request.url.path.startswith(f"{settings.api_prefix}/"):
         response.headers["X-Server-Time"] = datetime.now(UTC).isoformat()
     return response
 

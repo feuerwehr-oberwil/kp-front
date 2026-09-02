@@ -855,6 +855,8 @@ export const fr: Localizable<Copy> = {
     repeated: 'répété {n}×',
     repeatedTitle: 'Ce message s’est répété – chaque répétition reste au procès-verbal.',
     correctHint: 'La formulation initiale reste au procès-verbal.',
+    viaAtemschutzLink: 'Lien ARI',
+    viaAtemschutzLinkTitle: 'Saisi sur le tableau ARI transmis.',
     detailTime: 'Heure',
     detailArea: 'Domaine',
     detailSource: 'Source',
@@ -914,6 +916,7 @@ export const fr: Localizable<Copy> = {
     attendanceConflictStatus: 'présence saisie différemment',
     attendanceConflictOrt: 'emplacement saisi différemment',
     attendanceConflictTimes: 'heures saisies différemment',
+    truppConflict: 'Protection respiratoire {name} : modifications de deux appareils fusionnées – merci de vérifier.',
     attendanceConflictOther: 'saisies divergentes fusionnées',
     quickPhrasesAria: 'Formules types',
     openRemindersHead: 'En suspens',
@@ -971,6 +974,19 @@ export const fr: Localizable<Copy> = {
     empty: 'Aucun binôme en surveillance.',
     emptyHint: 'Créez un binôme pour démarrer la surveillance.',
     newTrupp: 'Créer un binôme',
+    shareLink: 'Transmettre la surveillance',
+    shareLinkOn: 'Transmettre la surveillance – un lien est actif',
+    /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
+    liteNewTab: 'Binôme',
+    /** the two-step form on the handed-over phone (TruppForm · wizard) */
+    wizardWho: 'Qui entre ?',
+    wizardAir: 'Air & mission',
+    wizardNext: 'Suivant · Air & mission',
+    wizardBack: 'Retour',
+    wizardStep: 'Étape {n} sur 2',
+    // état sync/horloge dans l'en-tête du tableau (voir de.ts)
+    syncStand: '{status} – état de {t}',
+    clockSkewChip: 'Horloge de l\'appareil décalée ({d} min)',
     formCreateTitle: 'Créer un binôme',
     formEditTitle: 'Modifier le binôme',
     formRedeployTitle: 'Réengager',
@@ -1943,6 +1959,8 @@ export const fr: Localizable<Copy> = {
     archiveShort: 'Clore',
     archive: 'Clore l\u2019intervention',
     archiveOpen: '{n} en suspens',
+    share: 'Transmettre l’intervention',
+    shareShort: 'Transmettre',
     report: 'Rapport d’intervention',
     noOpenIncidents: 'Aucune intervention ouverte',
     logout: 'Déconnexion',
@@ -1953,6 +1971,7 @@ export const fr: Localizable<Copy> = {
     errorShort: 'Erreur de sync',
     syncErrorToast: 'Échec de la synchronisation – les modifications sont enregistrées localement.',
     syncOfflineToast: 'Toujours hors ligne – les modifications sont enregistrées localement.',
+    clockSkewToast: 'L\'horloge de cet appareil dévie de {n} minutes – vérifie les heures saisies.',
     bootOffline: 'Hors ligne – les données enregistrées sont affichées.',
     syncDone: 'Tout est synchronisé',
     syncFailedToast: 'Échec de la synchronisation – les modifications restent enregistrées localement.',
@@ -2327,6 +2346,8 @@ export const fr: Localizable<Copy> = {
     shareCreateFailed: 'La création du lien a échoué.',
     shareCopy: 'Copier l’adresse',
     shareCopied: 'Copié',
+    shareScan: 'Scanner avec l’appareil photo',
+    shareSend: 'Envoyer …',
     shareWarn: 'Toute personne disposant du lien voit l’intervention entière – les noms des '
       + 'présents, les photos et le journal complet.',
     shareRevoke: 'Révoquer le lien',
@@ -2335,6 +2356,22 @@ export const fr: Localizable<Copy> = {
       + 'immédiatement. Un nouveau lien peut être créé à tout moment – ce sera une autre adresse.',
     shareRevokeConfirm: 'Oui, révoquer',
     shareRevokeFailed: 'La révocation du lien a échoué.',
+    shareKindLabel: 'Ce que le code donne',
+    shareKindFull: 'Intervention entière',
+    shareKindFullSub: 'lecture seule',
+    shareKindAtem: 'ARI uniquement',
+    shareKindAtemSub: 'utiliser',
+    shareAsLede: 'Qui scanne le code ne voit que la surveillance ARI de cette intervention et '
+      + 'l’utilise : annoncer un binôme, contact, pression, repli, sorti. Pas de carte, pas de '
+      + 'journal. Valable jusqu’à la clôture de l’intervention.',
+    shareAsLiveLede: 'Valable jusqu’à la clôture de l’intervention – ou jusqu’à ce que vous le '
+      + 'révoquiez.',
+    shareAsWarn: 'Ce qui y est saisi figure au journal ARI du rapport. Ne donnez le code qu’à la '
+      + 'personne qui surveille.',
+    shareAsRevokeTitle: 'Révoquer le lien ARI ?',
+    shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a le tableau ouvert ne peut plus '
+      + 'rien saisir. Un nouveau lien peut être créé à tout moment – ce sera alors une autre '
+      + 'adresse.',
     linksCount: '{done} sur {n} faits',
     linksOpen: 'Ouvrir',
     linksMarkDone: 'Marquer {title} comme fait',

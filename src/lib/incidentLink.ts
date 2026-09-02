@@ -28,6 +28,14 @@ export type LinkExchange =
 // Anything else in the path isn't a link we can exchange — say so without a round trip.
 const LINK_PATH = /^\/l\/([A-Za-z0-9._-]{8,})\/?$/
 
+/** Which kind of link a token is, by the marker the backend puts in front of the secret
+ *  (api/incident_link · VIEW_TOKEN_PREFIX / ATEMSCHUTZ_TOKEN_PREFIX); a JWT has neither. */
+export function linkKindFromToken(token: string): 'alarm' | 'view' | 'atemschutz' {
+  if (token.startsWith('a')) return 'atemschutz'
+  if (token.startsWith('v')) return 'view'
+  return 'alarm'
+}
+
 /** The token in `/l/<token>`, or null when the path isn't a link URL at all. */
 export function linkTokenFromPath(pathname: string): string | null {
   const m = LINK_PATH.exec(pathname)
@@ -64,10 +72,22 @@ export const LINK_NOT_READY_DELAY_MS = 4_000
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
+/** Drop whatever login this browser holds. Best-effort: with no session it is a no-op, and a
+ *  failure must not stop the exchange — the worst case is the full app instead of the board. */
+const shedSession = () => apiPost('/api/auth/logout').then(() => undefined, () => undefined)
+
 /**
  * Open a link: exchange, and re-exchange while the incident is merely not ingested YET.
  * `onPending` fires before each wait so the screen can name the state it's in (attempt 1 =
- * the first retry). Injectable `exchange`/`sleep` keep the policy testable without timers.
+ * the first retry). Injectable `exchange`/`sleep`/`logout` keep the policy testable.
+ *
+ * An ATEMSCHUTZ link first sheds any real login on this browser. A real session outranks a
+ * link session on the server (a leftover link cookie must never narrow an editor), so on a
+ * phone that is signed in the scan used to open the whole app instead of the handed-over
+ * board — and for a signed-in viewer a board whose every tap the server refuses. «Überwachung
+ * abgeben» means THIS phone becomes the Überwachung; its own login comes back through
+ * «Abmelden» → login. The alarm and view links keep the old rule: a signed-in member who taps
+ * an alert link stays who they are.
  */
 export async function openIncidentLink(
   token: string,
@@ -75,10 +95,12 @@ export async function openIncidentLink(
     onPending?: (attempt: number) => void
     exchange?: (token: string) => Promise<LinkExchange>
     sleep?: (ms: number) => Promise<void>
+    logout?: () => Promise<void>
   } = {},
 ): Promise<LinkExchange> {
   const exchange = opts.exchange ?? exchangeLinkToken
   const sleep = opts.sleep ?? wait
+  if (linkKindFromToken(token) === 'atemschutz') await (opts.logout ?? shedSession)()
   let result = await exchange(token)
   for (
     let attempt = 1;

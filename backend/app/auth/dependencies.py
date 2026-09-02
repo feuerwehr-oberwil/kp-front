@@ -42,14 +42,32 @@ _admin_auth_exc = HTTPException(
 LINK_GUEST_ID = uuid.UUID("00000000-0000-0000-0000-00000000110c")
 
 
-def _link_guest(incident_id: str) -> User:
+def _link_kind(claims: dict) -> str:
+    """Which of the three link kinds minted this session — see auth/incident_link.
+
+    Read off the claim that already decides the session's liveness rule, so there is one
+    source of truth rather than a second marker that could disagree with it.
+    """
+    if claims.get("ak"):
+        return "atemschutz"
+    if claims.get("vk"):
+        return "view"
+    return "alarm"
+
+
+def _link_guest(claims: dict) -> User:
     """A transient `viewer` principal for an incident-link session.
 
     Never added to the session and never flushed — it exists so the ~25 allowlisted read
     endpoints can keep taking `CurrentUser` unchanged instead of growing a second auth
     shape each. What stops it doing more than a viewer is `enforce_link_scope`, not this
     object; `role="viewer"` here is belt to that braces (it also fails `CurrentEditor`).
+
+    An Atemschutz link writes, and it does so as this same `viewer` guest: the narrow routes
+    it may reach take `CurrentAtemschutzWriter`, which lets a link session through on the
+    `ak` claim rather than on a role. Nothing here is widened for it.
     """
+    incident_id = str(claims["inc"])
     guest = User(
         id=LINK_GUEST_ID,
         username="einsatz-link",
@@ -74,6 +92,7 @@ def _link_guest(incident_id: str) -> User:
     # checker either — hence the narrow ignores rather than a model change.
     guest.link_scoped = True  # type: ignore[attr-defined]  # read by /api/auth/me
     guest.link_incident_id = incident_id  # type: ignore[attr-defined]
+    guest.link_kind = _link_kind(claims)  # type: ignore[attr-defined]
     return guest
 
 
@@ -87,7 +106,7 @@ async def get_current_user(
         # link cookie is only ever consulted here, after a genuine login has been ruled out.
         claims = read_link_session(request)
         if claims and claims.get("inc"):
-            guest = _link_guest(str(claims["inc"]))
+            guest = _link_guest(claims)
             request.state.user = guest
             return guest
         raise _credentials_exc
@@ -116,6 +135,31 @@ async def get_current_editor(current_user: Annotated[User, Depends(get_current_u
     if current_user.role != "editor":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
     return current_user
+
+
+async def get_atemschutz_writer(
+    request: Request,
+    access_token: Annotated[str | None, Cookie()] = None,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """An editor, OR an Atemschutz-link session — the door on the three routes that link may
+    write (auth/incident_link · ``ATEMSCHUTZ_LINK_ALLOWED``).
+
+    This is the FIRST of two gates and the weaker one: it only says «this caller may write
+    something here». Which routes, which journal rows and which op_types is the allowlist's
+    and the handlers' business. A viewer account, an alarm link and a Rapport view link all
+    fall through to the same 403 an editor-only route would have given them.
+    """
+    user = await get_current_user(request, access_token, db)
+    if user.role == "editor" or is_atemschutz_link(user):
+        return user
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
+
+
+def is_atemschutz_link(user: User) -> bool:
+    """True when the caller is an Atemschutz LINK session rather than a signed-in editor.
+    Decides who a write is attributed to (`user_id=None`) and what source it is stamped with."""
+    return getattr(user, "link_kind", None) == "atemschutz"
 
 
 async def get_optional_user(
@@ -189,7 +233,7 @@ async def get_user_or_admin(
     # on the incident-link allowlist — the map is unreadable without them.
     claims = read_link_session(request)
     if claims and claims.get("inc"):
-        guest = _link_guest(str(claims["inc"]))
+        guest = _link_guest(claims)
         request.state.user = guest
         return guest
     raise _credentials_exc
@@ -224,6 +268,7 @@ async def get_editor_or_admin(
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentEditor = Annotated[User, Depends(get_current_editor)]
+CurrentAtemschutzWriter = Annotated[User, Depends(get_atemschutz_writer)]
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 CurrentAdmin = Annotated[None, Depends(get_current_admin)]
 UserOrAdmin = Annotated[User | None, Depends(get_user_or_admin)]

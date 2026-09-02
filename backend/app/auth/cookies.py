@@ -39,6 +39,10 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str |
 def clear_auth_cookies(response: Response) -> None:
     response.delete_cookie(ACCESS_COOKIE, path="/")
     response.delete_cookie(REFRESH_COOKIE, path="/")
+    # A link session ends the same way. Without this, «Abmelden» on a phone that opened an
+    # Einsatz-Link left the link cookie behind, and the browser landed on the linked Einsatz
+    # again at every visit with no way back to the login (auth/incident_link · LINK_COOKIE).
+    response.delete_cookie(LINK_COOKIE, path="/")
 
 
 def set_admin_cookie(response: Response, token: str) -> None:

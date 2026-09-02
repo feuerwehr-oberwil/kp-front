@@ -5,7 +5,11 @@ import { ApiError } from '../api'
 import { idbDel, idbGet, idbSet } from '../idb'
 import { withTileEviction } from '../tileEvict'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
-import { getWorkspace, putWorkspace, putWorkspaceBeacon, type Workspace } from './workspace'
+import {
+  getWorkspace, putWorkspace, putWorkspaceBeacon, putWorkspaceTrupps, putWorkspaceTruppsBeacon,
+  type Workspace,
+} from './workspace'
+import type { Trupp } from '../../types'
 
 // --- Workspace sync: offline cache + debounced save with three-way merge -------------
 // `base` is the last server revision we shared with everyone else — the common ancestor a
@@ -68,6 +72,24 @@ export interface WorkspaceSyncOptions {
   /** called after a 409 was auto-merged, so the app can show a non-blocking notice. */
   onMerged?: () => void
   debounceMs?: number
+  /**
+   * Push only ONE slice of the blob instead of the whole document.
+   *
+   * `'trupps'` is the Atemschutz-Link session (auth · AuthUser.link_kind): it may write the
+   * Überwachungstafel and nothing else, so the full workspace PUT 403s for it. Only the push
+   * and the teardown beacon change — the cache, the debounce, the three-way merge on 409, the
+   * retry backoff and the live-follow poll are the same engine, because the merge still has to
+   * reason about the WHOLE blob (the server's copy carries everything).
+   */
+  slice?: 'trupps'
+}
+
+/** The trupp slice of an opaque workspace blob. The engine treats the blob as data it only
+ *  moves, so this is the one place that looks inside it — absent or malformed reads as «no
+ *  Trupps», which is what a fresh Einsatz genuinely has. */
+function truppSlice(ws: Workspace): readonly Trupp[] {
+  const t = ws.trupps
+  return Array.isArray(t) ? (t as Trupp[]) : []
 }
 
 /**
@@ -101,6 +123,12 @@ export class WorkspaceSync {
    *  merge) buffer until the first registration/drain. */
   onAttendanceConflicts?: (conflicts: RecordConflict[]) => void
   private conflictBuf: RecordConflict[] = []
+  /** Registered by the live view (useIncidentSync): a three-way merge saw BOTH sides change
+   *  the SAME Trupp concurrently. The merge itself is field-level (mergeWorkspace · mergeTrupp
+   *  — nothing was dropped), but two devices writing one SCBA crew's record at once gets a
+   *  Verlauf note so a human checks. Buffers like the attendance channel until registration. */
+  onTruppConflicts?: (conflicts: RecordConflict[]) => void
+  private truppConflictBuf: RecordConflict[] = []
   /** the lifecycle state on its own, before the cache-durability overlay (effectiveSyncStatus) */
   private base: SyncStatus
   /** what the UI last saw — the overlaid value */
@@ -147,14 +175,20 @@ export class WorkspaceSync {
     })
   }
 
-  /** mergeWorkspace with attendance-divergence reporting: collected conflicts go to the
-   *  registered listener, or buffer until one registers (init runs before the view mounts). */
+  /** mergeWorkspace with divergence reporting (attendance keys + concurrently edited Trupps):
+   *  collected conflicts go to the registered listeners, or buffer until one registers (init
+   *  runs before the view mounts). */
   private mergeReporting(base: Workspace, mine: Workspace, theirs: Workspace): Workspace {
     const conflicts: RecordConflict[] = []
-    const merged = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c))
+    const truppConflicts: RecordConflict[] = []
+    const merged = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c), (c) => truppConflicts.push(c))
     if (conflicts.length) {
       if (this.onAttendanceConflicts) this.onAttendanceConflicts(conflicts)
       else this.conflictBuf.push(...conflicts)
+    }
+    if (truppConflicts.length) {
+      if (this.onTruppConflicts) this.onTruppConflicts(truppConflicts)
+      else this.truppConflictBuf.push(...truppConflicts)
     }
     return merged
   }
@@ -164,6 +198,13 @@ export class WorkspaceSync {
   drainAttendanceConflicts(): RecordConflict[] {
     const buf = this.conflictBuf
     this.conflictBuf = []
+    return buf
+  }
+
+  /** Same drain for the Trupp channel (see onTruppConflicts). */
+  drainTruppConflicts(): RecordConflict[] {
+    const buf = this.truppConflictBuf
+    this.truppConflictBuf = []
     return buf
   }
 
@@ -281,7 +322,17 @@ export class WorkspaceSync {
    * flush() resolves it via the normal three-way merge. No-op when clean. */
   flushKeepalive(): void {
     if (!this.entry.dirty || this.disposed) return
-    putWorkspaceBeacon(this.incidentId, this.entry.workspace, this.entry.baseRev)
+    if (this.opts.slice === 'trupps') putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev)
+    else putWorkspaceBeacon(this.incidentId, this.entry.workspace, this.entry.baseRev)
+  }
+
+  /** The ONE write. `slice: 'trupps'` sends the Atemschutz slice on its own route; everything
+   *  else about a push — when, at which base_rev, and what a 409 means — is identical, which is
+   *  why the merge/retry machinery below never has to know which session it is running in. */
+  private push(workspace: Workspace, baseRev: number) {
+    return this.opts.slice === 'trupps'
+      ? putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev)
+      : putWorkspace(this.incidentId, workspace, baseRev)
   }
 
   // Push the current workspace at the current baseRev. On success, advance baseRev and
@@ -291,7 +342,7 @@ export class WorkspaceSync {
   private async pushCurrent(): Promise<void> {
     const seqAtStart = this.saveSeq
     const pushed = this.entry.workspace
-    const { workspace_rev } = await putWorkspace(this.incidentId, pushed, this.entry.baseRev)
+    const { workspace_rev } = await this.push(pushed, this.entry.baseRev)
     this.retryCount = 0 // server accepted a push → backoff starts over on the next failure
     if (this.saveSeq === seqAtStart) {
       // server now holds exactly what we pushed → that becomes the new merge ancestor.
@@ -324,7 +375,7 @@ export class WorkspaceSync {
       this.writeCache(this.entry)
       try {
         const seqAtStart = this.saveSeq
-        const { workspace_rev } = await putWorkspace(this.incidentId, merged, server.workspace_rev)
+        const { workspace_rev } = await this.push(merged, server.workspace_rev)
         this.opts.onRev?.(workspace_rev)
         this.retryCount = 0 // merge landed → backoff starts over on the next failure
         if (this.saveSeq === seqAtStart) {

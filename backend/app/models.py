@@ -168,6 +168,13 @@ class Incident(Base):
     # one, tell everybody», which is how a station ends up with five live links per Einsatz.
     view_link_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
 
+    # The Atemschutz link (2026-09-01) — the THIRD kind. Same shape as `view_link_key` (a random
+    # secret that IS the link, URL `/l/a<this>`, cleared to revoke), opposite lifetime: it is
+    # minted from a RUNNING Einsatz for somebody who is not on the FU, and it dies when the
+    # Einsatz closes. What it opens is not the read-only viewer but the Atemschutzüberwachung of
+    # this one Einsatz — a narrow write slice, enforced in auth/incident_link.
+    atemschutz_link_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+
     details_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     map_workspace_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     workspace_rev: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

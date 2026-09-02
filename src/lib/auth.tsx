@@ -25,6 +25,12 @@ export interface AuthUser {
   link_scoped?: boolean
   /** the one incident that session may see — the app opens it directly instead of listing */
   link_incident_id?: string
+  /** WHICH link this session came in on. `alarm` and `view` are read-only; `atemschutz` is the
+   *  Atemschutz-Link (the QR a non-FU scans to run only the Überwachungstafel of this one
+   *  Einsatz), and it MAY write — the trupp slice of the workspace, journal rows of kind
+   *  'team', and `atemschutz.*` events. Everything else still 403s, so the app renders that
+   *  session as the lite board and nothing more (IncidentWorkspace · `asLink`). */
+  link_kind?: 'alarm' | 'view' | 'atemschutz'
 }
 
 // One tappable roster tile from GET /api/auth/roster (no PIN / username here —

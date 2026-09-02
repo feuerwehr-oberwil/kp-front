@@ -205,7 +205,12 @@ to prod.
   `get_current_admin` / `CurrentAdmin` (a secret-backed admin-session cookie via `/api/admin/login`),
   not the editor role; the `admin_geodata`/`admin_objects` `push` CLI uses `KP_ADMIN_SECRET`. It's
   **fail-closed** – unset `ADMIN_SECRET` → admin endpoints 403, never the editor PIN. Incident
-  endpoints stay on `CurrentEditor`.
+  endpoints stay on `CurrentEditor`, with ONE exception: the Atemschutz-Link (a QR minted from a
+  running Einsatz that lets a non-FU operate only the Atemschutzüberwachung) writes through
+  `CurrentAtemschutzWriter` on exactly three routes – `PUT …/workspace/trupps`, `POST …/journal`
+  (`kind: 'team'` rows only) and `POST …/events` (`atemschutz.*` only); the allowlist and the
+  liveness rules live in `backend/app/auth/incident_link.py`. Never widen the full workspace PUT
+  to a link session.
 - **Per-station config has four layers:** national defaults (code) → per-station deployment
   config (DB/admin) → secrets (env) → per-incident (workspace). One deployment = one station
   (**single-tenant**, no multi-tenancy). See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).

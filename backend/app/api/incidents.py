@@ -12,7 +12,15 @@ from sqlalchemy.orm import defer
 
 from .. import audit, live_wait, storage
 from ..alarms import is_demo_deployment
-from ..auth.dependencies import CurrentEditor, CurrentUser, EditorOrAdmin, UserOrAdmin, _admin_session_valid
+from ..auth.dependencies import (
+    CurrentAtemschutzWriter,
+    CurrentEditor,
+    CurrentUser,
+    EditorOrAdmin,
+    UserOrAdmin,
+    _admin_session_valid,
+    is_atemschutz_link,
+)
 from ..database import execute_dml, get_db
 from ..geocode import geocode
 from ..models import INCIDENT_ACTIVE_STATUSES, Incident
@@ -21,6 +29,7 @@ from ..schemas import (
     IncidentFull,
     IncidentMeta,
     IncidentPatch,
+    TruppsPut,
     ViewLinkOut,
     WorkspaceOut,
     WorkspacePut,
@@ -43,8 +52,14 @@ def _json_safe(v: object) -> object:
     return v.isoformat() if isinstance(v, datetime) else v
 
 
-async def _get(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
-    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+async def _get(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) -> Incident:
+    """`lock` takes the row FOR UPDATE — for a check-then-set like minting a link secret, where
+    two editors reading NULL in the same window would otherwise both write, and the QR the
+    first one already showed encodes a secret the second one overwrote."""
+    stmt = select(Incident).where(Incident.id == incident_id)
+    if lock:
+        stmt = stmt.with_for_update()
+    inc = (await db.execute(stmt)).scalar_one_or_none()
     if inc is None:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
     return inc
@@ -249,6 +264,42 @@ async def put_workspace(
     return await apply_workspace_put(db, incident_id, body, user_id=user.id)
 
 
+@router.put("/{incident_id}/workspace/trupps", response_model=WorkspaceOut)
+async def put_workspace_trupps(
+    incident_id: uuid.UUID,
+    body: TruppsPut,
+    user: CurrentAtemschutzWriter,
+    db: AsyncSession = Depends(get_db),
+) -> WorkspaceOut:
+    """Save ONLY the Atemschutz roster — the one write shape an Atemschutz link is given.
+
+    It exists because the whole-document PUT would hand a link holder the entire Einsatz: the
+    Karte, the Pläne, the Einstellungen, all of it replaceable in one request by a phone that
+    never renders any of it. Here the server's own blob is the base and exactly one key is
+    replaced, so what a link can damage is bounded by what it can see.
+
+    Not a weaker save: `base_rev` goes through the same conditional UPDATE as the full PUT, so
+    a concurrent save on the FU tablet makes this the identical 409 (client 3-way-merges and
+    retries) rather than a silent overwrite. Editors may use it too — same route, same rules —
+    and only they latch `editor_opened_at`; a link session is not «the KP has this incident».
+    """
+    inc = await _get(db, incident_id)
+    link = is_atemschutz_link(user)
+    if not link:
+        await _latch_editor_opened(db, incident_id)
+    new_ws = {**(inc.map_workspace_json or {}), "trupps": body.trupps}
+    saved = await apply_workspace_put(
+        db,
+        incident_id,
+        WorkspacePut(workspace=new_ws, base_rev=body.base_rev),
+        user_id=None if link else user.id,
+        source="atemschutz-link" if link else "client",
+    )
+    # Only the revision goes back: the caller sent a slice and reads nothing but the rev
+    # (workspaceSync · push), and a phone on one bar has no use for the whole blob per tap.
+    return WorkspaceOut(workspace=None, workspace_rev=saved.workspace_rev)
+
+
 @router.patch("/{incident_id}", response_model=IncidentFull)
 async def patch_incident(
     incident_id: uuid.UUID, body: IncidentPatch, user: CurrentEditor, db: AsyncSession = Depends(get_db)
@@ -446,6 +497,92 @@ async def revoke_view_link(
             source="view-link",
             user_id=user.id,
             payload={"view_link": False},
+        )
+    return ViewLinkOut(enabled=False, token=None)
+
+
+# --- the Atemschutz link -----------------------------------------------------------------
+#
+# «Der am Eingang soll die Atemschutzüberwachung auf seinem eigenen Handy führen.» Minted by an
+# editor from a RUNNING Einsatz, opened on a phone with no login at all, and able to reach
+# exactly the Atemschutzüberwachung of that one Einsatz — the workspace `trupps` slice plus the
+# journal rows and events that go with it (auth/incident_link · ATEMSCHUTZ_LINK_ALLOWED).
+#
+# Structurally the view link's twin — the secret IS the link, minting is idempotent, revoking
+# clears the column and kills open sessions — with the alarm link's lifetime: it cannot be
+# minted on a finished Einsatz and it dies when this one is closed or archived.
+
+
+def _atemschutz_link_token(secret: str) -> str:
+    from .incident_link import ATEMSCHUTZ_TOKEN_PREFIX
+
+    return f"{ATEMSCHUTZ_TOKEN_PREFIX}{secret}"
+
+
+@router.get("/{incident_id}/atemschutz-link", response_model=ViewLinkOut)
+async def get_atemschutz_link(
+    incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """The live link, or that there is none. Readable on a closed Einsatz too — the QR panel
+    has to be able to show that a link is still standing, which is what makes revoking it a
+    deliberate act rather than something forgotten."""
+    inc = await _get(db, incident_id)
+    return ViewLinkOut(
+        enabled=bool(inc.atemschutz_link_key),
+        token=_atemschutz_link_token(inc.atemschutz_link_key) if inc.atemschutz_link_key else None,
+    )
+
+
+@router.post("/{incident_id}/atemschutz-link", response_model=ViewLinkOut)
+async def create_atemschutz_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Mint it, or hand back the one that already exists.
+
+    409 on a closed or archived Einsatz, the same shape as refusing to delete a running one:
+    the caller is an authenticated editor who knows the Einsatz exists, so the honest answer is
+    «not in this state», not the exchange's deliberately blind 404. A minted link would be dead
+    on arrival anyway — `enforce_link_scope` requires the Einsatz to be open on every request.
+    """
+    inc = await _get(db, incident_id, lock=True)
+    if not inc.is_open:
+        raise HTTPException(
+            status_code=409,
+            detail="Einsatz ist abgeschlossen — für die Atemschutzüberwachung kann kein Link mehr erstellt werden",
+        )
+    if not inc.atemschutz_link_key:
+        inc.atemschutz_link_key = secrets.token_urlsafe(32)
+        await db.flush()
+        # In the chain, like the view link: this is the moment somebody outside the FU could
+        # write into the Einsatz. The secret itself never goes in.
+        await audit.append_event(
+            db,
+            incident_id=inc.id,
+            op_type="meta.change",
+            source="atemschutz-link",
+            user_id=user.id,
+            payload={"atemschutz_link": True},
+        )
+    return ViewLinkOut(enabled=True, token=_atemschutz_link_token(inc.atemschutz_link_key))
+
+
+@router.delete("/{incident_id}/atemschutz-link", response_model=ViewLinkOut)
+async def revoke_atemschutz_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Take it back mid-Einsatz. The URL stops working AND the phone that already has it open
+    is refused on its next request (auth/incident_link · `_atemschutz_key_unchanged`)."""
+    inc = await _get(db, incident_id)
+    if inc.atemschutz_link_key:
+        inc.atemschutz_link_key = None
+        await db.flush()
+        await audit.append_event(
+            db,
+            incident_id=inc.id,
+            op_type="meta.change",
+            source="atemschutz-link",
+            user_id=user.id,
+            payload={"atemschutz_link": False},
         )
     return ViewLinkOut(enabled=False, token=None)
 

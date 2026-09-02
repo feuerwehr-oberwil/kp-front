@@ -1850,6 +1850,76 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/workspace/trupps": {
+      "put": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Put Workspace Trupps",
+        "description": "Save ONLY the Atemschutz roster — the one write shape an Atemschutz link is given.\n\nIt exists because the whole-document PUT would hand a link holder the entire Einsatz: the\nKarte, the Pläne, the Einstellungen, all of it replaceable in one request by a phone that\nnever renders any of it. Here the server's own blob is the base and exactly one key is\nreplaced, so what a link can damage is bounded by what it can see.\n\nNot a weaker save: `base_rev` goes through the same conditional UPDATE as the full PUT, so\na concurrent save on the FU tablet makes this the identical 409 (client 3-way-merges and\nretries) rather than a silent overwrite. Editors may use it too — same route, same rules —\nand only they latch `editor_opened_at`; a link session is not «the KP has this incident».",
+        "operationId": "put_workspace_trupps_api_incidents__incident_id__workspace_trupps_put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TruppsPut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/view-link": {
       "get": {
         "tags": [
@@ -1974,6 +2044,182 @@
         "summary": "Revoke View Link",
         "description": "Revoke it. The URL stops working AND every session already open on it ends — checked per\nrequest in auth/incident_link, because a link that cannot expire has to be killable.",
         "operationId": "revoke_view_link_api_incidents__incident_id__view_link_delete",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewLinkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/atemschutz-link": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Atemschutz Link",
+        "description": "The live link, or that there is none. Readable on a closed Einsatz too — the QR panel\nhas to be able to show that a link is still standing, which is what makes revoking it a\ndeliberate act rather than something forgotten.",
+        "operationId": "get_atemschutz_link_api_incidents__incident_id__atemschutz_link_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewLinkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Create Atemschutz Link",
+        "description": "Mint it, or hand back the one that already exists.\n\n409 on a closed or archived Einsatz, the same shape as refusing to delete a running one:\nthe caller is an authenticated editor who knows the Einsatz exists, so the honest answer is\n«not in this state», not the exchange's deliberately blind 404. A minted link would be dead\non arrival anyway — `enforce_link_scope` requires the Einsatz to be open on every request.",
+        "operationId": "create_atemschutz_link_api_incidents__incident_id__atemschutz_link_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewLinkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Revoke Atemschutz Link",
+        "description": "Take it back mid-Einsatz. The URL stops working AND the phone that already has it open\nis refused on its next request (auth/incident_link · `_atemschutz_key_unchanged`).",
+        "operationId": "revoke_atemschutz_link_api_incidents__incident_id__atemschutz_link_delete",
         "parameters": [
           {
             "name": "incident_id",
@@ -6903,7 +7149,7 @@
           "events"
         ],
         "summary": "Ingest Events",
-        "description": "Flush a batch of client tactical events (entity.*, draw.*, layer.toggle, undo, redo).\n\nServer assigns seq + recorded_at + chain hash; client supplies occurred_at (scene\nwall-clock, possibly buffered offline).",
+        "description": "Flush a batch of client tactical events (entity.*, draw.*, layer.toggle, undo, redo).\n\nServer assigns seq + recorded_at + chain hash; client supplies occurred_at (scene\nwall-clock, possibly buffered offline).\n\nEditors write the whole vocabulary. An ATEMSCHUTZ-link session writes `atemschutz.*` and\nnothing else, and its rows carry `source=\"atemschutz-link\"` rather than \"client\" — the\nchain has to record that this came from a phone at the Eingang, not from the FU tablet.\nAny other op_type is the generic link refusal, not a 422 (no probing).",
         "operationId": "ingest_events_api_incidents__incident_id__events_post",
         "parameters": [
           {
@@ -7356,7 +7602,7 @@
           "journal"
         ],
         "summary": "Append Journal",
-        "description": "Append a batch of rows. Idempotent on the client row id: rows this incident already\nholds are skipped silently, so an offline outbox may retry the same batch after a lost\nresponse without duplicating the record. Returns the accepted rows with their seqs.",
+        "description": "Append a batch of rows. Idempotent on the client row id: rows this incident already\nholds are skipped silently, so an offline outbox may retry the same batch after a lost\nresponse without duplicating the record. Returns the accepted rows with their seqs.\n\nEditors append anything. An ATEMSCHUTZ-link session appends `kind == \"team\"` rows and\nnothing else — it holds the Atemschutzüberwachung, not the Verlauf — and every row it\nwrites is stamped `via` so the record says where it came from. A row of any other kind is\nthe link refusal, never a 422: the generic message is what keeps a link holder from\nmapping this API by watching which rejections differ.",
         "operationId": "append_journal_api_incidents__incident_id__journal_post",
         "parameters": [
           {
@@ -14786,6 +15032,29 @@
         ],
         "title": "SubscriptionKeys"
       },
+      "TruppsPut": {
+        "properties": {
+          "trupps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Trupps"
+          },
+          "base_rev": {
+            "type": "integer",
+            "title": "Base Rev"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trupps",
+          "base_rev"
+        ],
+        "title": "TruppsPut",
+        "description": "The Atemschutz SLICE of the workspace — the only write shape an Atemschutz link has.\n\nDeliberately not a `WorkspacePut` with a narrower validator: the caller never sends the\nrest of the document, so a stale copy cannot erase anything outside `trupps`. `base_rev`\nis the same optimistic-concurrency token as the full PUT and produces the same 409."
+      },
       "UserAdminOut": {
         "properties": {
           "id": {
@@ -14971,6 +15240,22 @@
               }
             ],
             "title": "Link Incident Id"
+          },
+          "link_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "alarm",
+                  "view",
+                  "atemschutz"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Kind"
           }
         },
         "type": "object",

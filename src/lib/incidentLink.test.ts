@@ -70,6 +70,24 @@ describe('exchangeLinkToken', () => {
   })
 })
 
+describe('openIncidentLink — which link sheds the browser\'s own login', () => {
+  const ok = { ok: true as const, incidentId: 'i1' }
+  it('an Atemschutz link logs the browser out BEFORE the exchange', async () => {
+    const calls: string[] = []
+    const logout = vi.fn(async () => { calls.push('logout') })
+    const exchange = vi.fn(async () => { calls.push('exchange'); return ok })
+    await openIncidentLink('aSECRET', { exchange, logout })
+    expect(calls).toEqual(['logout', 'exchange'])
+  })
+  it('an alarm link and a view link keep whoever is signed in', async () => {
+    const logout = vi.fn(async () => {})
+    const exchange = vi.fn(async () => ok)
+    await openIncidentLink('eyJhbGciOi.jwt.sig', { exchange, logout })
+    await openIncidentLink('vSECRET', { exchange, logout })
+    expect(logout).not.toHaveBeenCalled()
+  })
+})
+
 describe('openIncidentLink — retry policy', () => {
   const run = (results: LinkExchange[]) => {
     const exchange = vi.fn<(t: string) => Promise<LinkExchange>>()

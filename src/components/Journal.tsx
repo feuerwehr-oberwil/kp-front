@@ -646,7 +646,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             // the footnotes on the row — appended facts about it, so they read AFTER the sentence
             const repeated = repeats.counts.get(e.id) ?? 1
             const nachtrag = isNachtrag(e, closedAt)
-            const hasFootnotes = nachtrag || !!e.correctedAt || repeated > 1
+            const hasFootnotes = nachtrag || !!e.correctedAt || repeated > 1 || e.via === 'atemschutz-link'
             return (
               <div
                 className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''}`}
@@ -698,6 +698,14 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       )}
                       {repeated > 1 && (
                         <span className="jr-foot-rep" title={C.repeatedTitle}>{fillTemplate(C.repeated, { n: String(repeated) })}</span>
+                      )}
+                      {/* The row came in over the Atemschutz-Link — the board handed to somebody's
+                          own phone. It is deliberately NOT a name (that session is asked for
+                          none), so the footnote says WHERE it was written, which is the honest
+                          answer and the one the Rapport can be read against. Server-written
+                          (types · TimelineEvent.via); this client never sets it. */}
+                      {e.via === 'atemschutz-link' && (
+                        <span title={C.viaAtemschutzLinkTitle}>{C.viaAtemschutzLink}</span>
                       )}
                     </span>
                   )}
