@@ -4,7 +4,7 @@ import { TwinOrigin } from './TwinOrigin'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { HATCH_PERIOD_PX, HatchDefs, LineStylePicker, hatchPatternId } from '../lib/draw'
+import { HATCH_CHIP_VB, HatchDefs, LineStylePicker, hatchPatternId } from '../lib/draw'
 import { DEFAULT_INK, markerGlyph } from '../lib/lineStyle'
 import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
@@ -256,9 +256,12 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   <button className={`dh-color de-fill ${drawing.hatch ? 'on' : ''}`}
                     title={appConfig.copy.drawingEditor.fillHatch} aria-label={appConfig.copy.drawingEditor.fillHatch}
                     onClick={() => onHatch(true, fillOpacity)}>
-                    <svg viewBox={`0 0 ${HATCH_PERIOD_PX * 2} ${HATCH_PERIOD_PX * 2}`} width="100%" height="100%" aria-hidden>
+                    {/* ⚠️ a CIRCLE, and three tile widths of viewBox. A square rect at the real
+                        period drew one diagonal across a 30px chip and let it out past the round
+                        border — the swatch read as a «no» slash, not as a Schraffur (02.09.). */}
+                    <svg viewBox={`0 0 ${HATCH_CHIP_VB} ${HATCH_CHIP_VB}`} width="100%" height="100%" aria-hidden>
                       <HatchDefs colors={[color]} />
-                      <rect width="100%" height="100%" fill={`url(#${hatchPatternId(color)})`} />
+                      <circle cx={HATCH_CHIP_VB / 2} cy={HATCH_CHIP_VB / 2} r={HATCH_CHIP_VB / 2} fill={`url(#${hatchPatternId(color)})`} />
                     </svg>
                   </button>
                 )}

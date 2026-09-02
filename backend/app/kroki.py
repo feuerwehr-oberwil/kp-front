@@ -1149,9 +1149,13 @@ def render_kroki(
         alpha = float(raw_alpha) if raw_alpha is not None else 0.14
         if kind == "circle" and d.get("coords"):
             lng, lat = d["coords"][0]
-            draw.polygon(
-                [pt(a, b) for a, b in _circle_points(lng, lat, d.get("radiusM") or 50)], fill=_hex_alpha(color, alpha)
-            )
+            ring = [pt(a, b) for a, b in _circle_points(lng, lat, d.get("radiusM") or 50)]
+            # an Absperrkreis answers the Füllung question the same way a Fläche does — the editor
+            # offers it the same row, so the paper has to know both answers (client DrawEditor)
+            if d.get("hatch"):
+                _hatch_polygon(overlay, ring, color, u * ss)
+            else:
+                draw.polygon(ring, fill=_hex_alpha(color, alpha))
         elif kind == "area" and len(d.get("coords", [])) >= 3:
             poly = [pt(a, b) for a, b in d["coords"]]
             if d.get("hatch"):
@@ -1405,7 +1409,10 @@ def _overlay_board_annos(
             pts = [pp(px_, py_) for px_, py_ in a["pts"]]
             if kind == "area" and len(pts) >= 3:
                 raw_alpha = a.get("fillOpacity")
-                draw.polygon(pts, fill=_hex_alpha(color, float(raw_alpha) if raw_alpha is not None else 0.14))
+                if a.get("hatch"):
+                    _hatch_polygon(overlay, pts, color, u * ss)
+                else:
+                    draw.polygon(pts, fill=_hex_alpha(color, float(raw_alpha) if raw_alpha is not None else 0.14))
                 draw.line([*pts, pts[0]], fill=color, width=sw, joint="curve")
                 if a.get("label"):
                     cx = sum(p[0] for p in pts) / len(pts)

@@ -17,6 +17,7 @@ import { lerpPoint } from '../lib/lineStyle'
 import { Segmented } from './Segmented'
 import { krokiEntity, krokiSymbolMul } from '../lib/krokiPayload'
 import { forkBearing, pxPerM, shapePx, symPx, worldPx } from '../lib/mapView'
+import { ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
 import {
   KROKI_DISC_MIN_PX, KROKI_DISC_R, discOffsetPx, krokiLabels, krokiScaleBar, numberKrokiLabels,
   placeKrokiLabels, type KrokiLegend,
@@ -194,6 +195,9 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
       type: 'Feature' as const,
       properties: {
         color: d.color ?? appConfig.drawing.defaultColor, area: d.kind !== 'line',
+        // the Füllung the sheet will actually print — a Schraffur is a different STATEMENT about
+        // the ground, not a shade of the wash, so the crop has to show which one it is
+        hatch: !!d.hatch,
         // the server draws `(width || 4) * u` — the same factor this preview calls printScale.
         // It used to be a frozen 0.62, which happened to be about right for one page shape and
         // was wrong for the other; a constant cannot follow a crop that changes size.
@@ -282,6 +286,23 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
    * already had. The only per-frame work is this projection, and the state is written ONLY when
    * the answer actually changes — a few times per pan, not a few hundred.
    */
+  /** The Schraffur tiles, on THIS map instance — images are per-map, and the preview draws its
+   *  own (MapView registers the Karte's). Re-added on `styledata` because a style reload drops
+   *  every registered image, and minted on demand for a colour outside the palette. */
+  useEffect(() => {
+    const m = mapRef.current?.getMap()
+    if (!m) return
+    const ensure = () => { ensureHatchImages(m, appConfig.drawing.colors); m.triggerRepaint() }
+    const onMissing = (e: { id: string }) => {
+      const c = hatchImageColor(e.id)
+      if (c) { ensureHatchImage(m, e.id, c); m.triggerRepaint() }
+    }
+    ensure()
+    m.on('styledata', ensure)
+    m.on('styleimagemissing', onMissing)
+    return () => { m.off('styledata', ensure); m.off('styleimagemissing', onMissing) }
+  }, [mapReady])
+
   useEffect(() => {
     const m = mapRef.current?.getMap()
     if (!m) return
@@ -452,7 +473,14 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             onResize={(e) => { syncView(e.target); reportView(e.target) }}
           >
             <Source id="draws" type="geojson" data={geojson}>
-              <Layer id="draw-fill" type="fill" filter={['==', ['get', 'area'], true]} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': 0.14 }} />
+              {/* washed and hatched Flächen are filtered apart for the reason the Karte states:
+                  `fill-pattern` overrides `fill-color` wherever it resolves, and a `case` that
+                  yields no image paints nothing (MapView · l-draw-fill / l-draw-hatch). The tile
+                  is at SCREEN scale here, not scaled by printScale — the crop answers «which
+                  Füllung», the sheet answers «how fine» (kroki.py · _hatch_polygon). */}
+              <Layer id="draw-fill" type="fill" filter={['all', ['==', ['get', 'area'], true], ['!', ['get', 'hatch']]]} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': 0.14 }} />
+              <Layer id="draw-hatch" type="fill" filter={['all', ['==', ['get', 'area'], true], ['get', 'hatch']]}
+                paint={{ 'fill-pattern': ['concat', 'hatch-', ['downcase', ['get', 'color']]] } as never} />
               {/* solid and dashed are separate layers: line-dasharray is not data-driven in
                   MapLibre, and a Druckleitung drawn dashed printed solid in the preview */}
               <Layer id="draw-line" type="line" filter={['!=', ['get', 'dashed'], true]}

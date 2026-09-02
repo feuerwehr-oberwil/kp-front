@@ -129,6 +129,19 @@ describe('buildKrokiPayload', () => {
   it('returns null without a raster base layer (nothing to render)', () => {
     expect(buildKrokiPayload({ entities, drawings, layers: layers.slice(1), byName: {}, center: [7.55, 47.51] })).toBeNull()
   })
+
+  // The Schraffur is the FKS reading of an AFFECTED area, not a shade of the wash. Left out of the
+  // payload it printed as an ordinary fill and the sheet said something else about the ground than
+  // the screen it was framed on (field report 02.09.). ⚠️ Mirrored in backend · KrokiDrawingIn.
+  it('sends the Fläche’s Schraffur, not only its fill opacity', () => {
+    const hatched: Drawing[] = [
+      { id: 'a1', kind: 'area', coords: [[7.55, 47.51], [7.56, 47.51], [7.56, 47.52]], color: '#e8392b', hatch: true, fillOpacity: 0.25 },
+      { id: 'a2', kind: 'area', coords: [[7.55, 47.51], [7.56, 47.51], [7.56, 47.52]], color: '#e8392b', fillOpacity: 0.25 },
+    ]
+    const p = buildKrokiPayload({ entities: [], drawings: hatched, layers, byName: {}, center: [7.55, 47.51] })
+    expect(p!.drawings[0]).toMatchObject({ hatch: true, fillOpacity: 0.25 })
+    expect(p!.drawings[1].hatch).toBeUndefined()
+  })
 })
 
 describe('krokiSymbolMul', () => {

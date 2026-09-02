@@ -378,11 +378,6 @@
    "svg": "<svg viewBox=\"-1.15 -1.15 2.3 2.3\" xmlns=\"http://www.w3.org/2000/svg\" preserveAspectRatio=\"xMidYMid meet\"><circle cx=\"0\" cy=\"0\" r=\"1\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.03\"/><path d=\"M -1 0 L 1 0\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.03\" stroke-linejoin=\"round\"/><path d=\"M 0 0 L 0 1\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.03\" stroke-linejoin=\"round\"/></svg>"
   },
   {
-   "cat": "Wasser",
-   "name": "SI Feuerwehranschluss",
-   "svg": "<svg viewBox=\"-0.83 -0.7 1.66 1.4\" xmlns=\"http://www.w3.org/2000/svg\" preserveAspectRatio=\"xMidYMid meet\"><path d=\"M -0.68 -0.55 L 0.68 -0.55 L 0.68 0.55 L -0.68 0.55 Z\" fill=\"#ff0000\" stroke=\"#000000\" stroke-width=\"0.06\" stroke-linejoin=\"round\"/><text x=\"0\" y=\"0\" text-anchor=\"middle\" dominant-baseline=\"central\" font-family=\"Arial,sans-serif\" font-weight=\"bold\" font-size=\"0.95\" fill=\"#000000\">FA</text></svg>"
-  },
-  {
    "cat": "Gebäude",
    "name": "GB BA Wand F30",
    "svg": "<svg viewBox=\"-0.9 -0.9 1.8 1.8\" xmlns=\"http://www.w3.org/2000/svg\" preserveAspectRatio=\"xMidYMid meet\"><path d=\"M -0.6 0 L 0.6 0\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.1\" stroke-linejoin=\"round\"/><path d=\"M 0 -0.3 L 0 0.3\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.06\" stroke-linejoin=\"round\"/></svg>"

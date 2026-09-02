@@ -635,9 +635,15 @@ export function AtemschutzView({
   // fallback exists is worse than saying nothing: it reads as «something will still alert me»
   // when NOTHING will until the tone itself is unlocked. `notificationsSupported()` is a static
   // capability check (permission aside), so this never flickers with permission state.
-  const bellLabel = muted ? az.alarmMuted
+  // ⚠️ Appended, not swapped in, on the DEMO only: the demo mutes tone + OS notification
+  // everywhere (useAtemschutzAlarm's `demo` gate — its incident is frozen in a worked state, so
+  // a real alarm here would be a false one wearing the app's own voice), and a tester who
+  // presses «Kontakt» and hears nothing has no way to tell «broken» from «deliberately quiet»
+  // without being told (field question, 02.09.: «Wie sollte dieser Alarm erfolgen?»). The
+  // button's own honest state (an / stumm / nicht freigegeben) still reads first.
+  const bellLabel = (muted ? az.alarmMuted
     : audioBlocked ? (notificationsSupported() ? az.alarmBlocked : az.alarmBlockedNoFallback)
-    : az.alarmArmed
+    : az.alarmArmed) + (isDemoMode() ? ` · ${az.alarmDemoNote}` : '')
 
   // What the QR beside the bell says of itself — the same rule as the bell: the state that is
   // TRUE now, not what the press would do.
@@ -845,7 +851,12 @@ export function AtemschutzView({
                     className={cx(s.tab, t.id === focusId && s.tabOn, sev === 1 && s.tabWarn, sev >= 2 && s.tabCrit, lv.sinceContactSec == null && s.tabIdle)}
                     onClick={() => setPicked(t.id)}
                   >
-                    <span className={s.tabName}><span className={s.tabDot} style={{ background: truppColors[t.id] }} aria-hidden />{t.name}</span>
+                    {/* ⚠️ NO Truppfarbe dot here (round 2 review): the lite board drops every
+                        colour accent — the Lage/plan identity a colour normally carries means
+                        nothing on a screen that never shows the Lage or the plan. The full name
+                        is what identifies the Trupp here, so it wraps rather than clips (a name
+                        like «Binggeli Michael» was cut mid-word against this chip's width). */}
+                    <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
                     <span className={s.tabClock}>{fmtClock(lv.sinceContactSec)}</span>
                   </button>
                 )
@@ -1348,9 +1359,12 @@ function TruppCard({
         {/* the colour this Trupp wears on the Lage / plan, so the card and the symbol out there
             read as the same Trupp. EVERY Trupp has one, the automatically-coloured ones included
             (useTruppActions · truppColors) — a hole in this column read as «no colour» on a board
-            where colour is identity. */}
+            where colour is identity.
+            ⚠️ NOT on the lite board (round 2 review): a link session never sees the Lage or the
+            plan, so the colour carries no identity there — it read as an arbitrary dot on
+            somebody's phone. The normal app keeps it exactly as above. */}
         <div className={s.nameRow}>
-          {color && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
+          {color && !lite && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
           <span className={s.nameStatic}>{t.name}</span>
         </div>
         {!!t.members?.filter(Boolean).length && (
@@ -1597,12 +1611,11 @@ function TruppForm({
    *  quick-picks so the number is chosen from what exists, not typed blind */
   leitungOptions: LeitungOption[]
   /** the handed-over «Tafel pur» (see AtemschutzView · lite): drops the Farbe picker (a
-   *  Lage/Plan matter this session cannot see) and the «Gezeichnet:» quick-picks, which stay
-   *  empty here (`leitungOptions` returns `[]` for a link — no picture to read a hose number
-   *  off, no surface to draw one on). The Ltg-Nr STEPPER stays (field feedback, 02.09.): the
-   *  Überwacher on this phone is told a number over the radio same as on the KP tablet and has
-   *  to be able to write it down somewhere, even typed blind — one Leitung, one Trupp is still
-   *  enforced against what is actually drawn (see submitForm's takeover confirm). */
+   *  Lage/Plan matter this session cannot see) and the ENTIRE Ltg-Nr. row (reverted, round 2
+   *  review — briefly shown 02.09.). A link holder has no picture to read a hose number off and
+   *  no surface to draw one on, so the field could only ever be a number typed blind — and one
+   *  Leitung, one Trupp is enforced against what is actually drawn regardless (see submitForm's
+   *  takeover confirm). The FU sets it on the KP tablet. */
   lite?: boolean
   /** the handed-over form on a PHONE (decided 02.09.): two steps instead of one scroll — «Wer
    *  geht rein?» with the whole screen for the roster, then «Luft & Auftrag». Nobody has to know
@@ -1865,10 +1878,13 @@ function TruppForm({
                 what lets a Trupp and a drawn Leitung find each other without anyone re-typing
                 anything (lib/truppLines). A Trupp recorded before this was free text keeps its
                 text below; it is never rewritten.
-                ⚠️ Shown on the lite form too (field feedback, 02.09.: «Leitung kann ich hier
-                nicht erfassen») — the stepper still works blind, and `leitungOptions` is simply
-                empty for a link session, so the «Gezeichnet:» chips just don't appear (see the
-                `lite` prop doc above). */}
+                ⚠️ NOT on the lite form (reverted, round 2 review — briefly shown 02.09. after a
+                field report, «no picture, no point» wasn't a strong enough reason at the time):
+                a link holder has no picture to read a hose number off and no surface to draw one
+                on, so the field could only ever be a number typed blind — and one Leitung, one
+                Trupp is enforced against what is actually drawn regardless (see submitForm's
+                takeover confirm). The FU sets it on the KP tablet. */}
+            {!lite && (
             <div className={cx(s.field, s.lineField)}>
               <span>{az.lineNoLabel}</span>
               {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
@@ -1902,6 +1918,7 @@ function TruppForm({
               </div>
               {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
             </div>
+            )}
             {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
                 normal case (every Trupp a different one); picking is for when the EL would rather
                 read the picture by role — «alle Löschtrupps rot» — and a duplicate is then the

@@ -251,6 +251,9 @@ class KrokiDrawingIn(BaseModel):
     label: str | None = None
     showDistance: bool = False
     fillOpacity: float | None = None
+    # Schraffur instead of a wash — the FKS reading of an AFFECTED area (client lib/draw). A field
+    # pydantic does not know is dropped silently, which is how the paper lost the hatch entirely.
+    hatch: bool = False
     radiusM: float | None = None
     teilstueck: bool = False
     lineNo: int | None = None
@@ -289,6 +292,9 @@ class PlanAnnoIn(BaseModel):
     width: float | None = None
     dashed: bool = False
     fillOpacity: float | None = None
+    # an `area` hatched instead of washed (the same flag KrokiDrawingIn carries). A `circle` or a
+    # `shape` needs none: the client bakes its Schraffur into the symbolSvg it resolves.
+    hatch: bool = False
     label: str | None = None
     text: str | None = None
     symbol: str | None = None

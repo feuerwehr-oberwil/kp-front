@@ -256,7 +256,6 @@ const base = {
       'GB BMA Melder': 'BMA Melder',
       'GB BMA-Z': 'BMA-Z',
       'GB RWA-BS': 'RWA-BS',
-      'SI Feuerwehranschluss': 'Feuerwehranschluss',
       'FW AED': 'AED',
       'GB Fernsignaltableau': 'Fernsignaltableau',
       'GB Schluesseldepot': 'Schlüsseldepot',
@@ -393,9 +392,6 @@ const base = {
         'WV Loeschweier': { fields: ['Kapazität'] },
         'SI Wasserbezugsort': { fields: ['Kapazität'] },
         'SI Wasserdruckversorgung': {},
-        // Feuerwehranschluss placard (trockene Steigleitung, Einspeisung) — floor only, like the
-        // other Wand-Piktogramme added 02.09.
-        'SI Feuerwehranschluss': { controls: ['floor'] },
         // ── Gebäude ── interior elements: floor badge; walls/doors/stairs also orient.
         'GB BA Wand F30': { controls: ['rotation', 'floor'] },
         'GB BA Wand F60': { controls: ['rotation', 'floor'] },

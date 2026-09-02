@@ -9,6 +9,9 @@ import { NodeDeleteChip } from './NodeDeleteChip'
 
 const COLORS = appConfig.drawing.colors
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
+/** id namespace for the ink layer's Schraffur — its patterns are scaled against the 1×1 sheet and
+ *  must not be handed to the px-space defs beside them (lib/draw · hatchPatternId). */
+const INK_HATCH_SPACE = 'sheet'
 
 interface InkProps {
   annos: BoardAnno[]
@@ -31,6 +34,10 @@ interface InkProps {
   /** anno id → Atemschutz alarm tone for the Leitung it draws ('warn' | 'crit'). Those lines get
    *  a soft outline in that tone — the plan twin of the Lage's l-draw-atemschutz layer. */
   truppTones?: Record<string, 'warn' | 'crit'>
+  /** the sheet's size in CSS px. Only the Schraffur needs it: this SVG is a 1×1 sheet stretched
+   *  over the page, and an SVG pattern is measured in THAT space (lib/draw · HatchDefs). */
+  sW: number
+  sH: number
 }
 
 /**
@@ -40,18 +47,20 @@ interface InkProps {
  * non-interactive. (Line arrowheads + marker letters render OUTSIDE this layer, in board px, since
  * this SVG is stretched 1×1 and would distort them.)
  */
-export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {} }: InkProps) {
+export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {}, sW, sH }: InkProps) {
   const pointStr = (pts: BoardPoint[], floor: number | undefined) => pts.map((p) => `${p[0]},${mapY(p[2] ?? floor, p[1])}`).join(' ')
+  // …and the Schraffur's own tile, stated in px and undone by the sheet's stretch — see HatchDefs.
+  const hatchId = (c: string) => hatchPatternId(c, INK_HATCH_SPACE)
   return (
     <svg className="wb-ink-svg" viewBox="0 0 1 1" preserveAspectRatio="none">
-      <HatchDefs colors={COLORS} />
+      <HatchDefs colors={COLORS} space={INK_HATCH_SPACE} unitScale={[1 / Math.max(1, sW), 1 / Math.max(1, sH)]} />
       {/* filled areas (under the lines) */}
       {annos.filter((a) => a.kind === 'area' && a.pts && a.pts.length >= 3).map((a) => {
         const pts = pointStr(a.pts!, a.floor)
         return (
         <g key={a.id}>
           {selId === a.id && <polygon points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 3) + 6} strokeOpacity={0.35} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
-          <polygon points={pts} fill={a.hatch ? `url(#${hatchPatternId(a.color || COLORS[0])})` : (a.color || COLORS[0])}
+          <polygon points={pts} fill={a.hatch ? `url(#${hatchId(a.color || COLORS[0])})` : (a.color || COLORS[0])}
             fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? 0.14)}
             stroke={a.color || COLORS[0]} strokeWidth={a.width || 3} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
             strokeLinejoin="round" vectorEffect="non-scaling-stroke" />

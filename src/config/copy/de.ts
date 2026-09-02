@@ -518,7 +518,6 @@ export const de = {
     'GB BMA Melder': 'BMA Melder',
     'GB BMA-Z': 'BMA-Z',
     'GB RWA-BS': 'RWA-BS',
-    'SI Feuerwehranschluss': 'Feuerwehranschluss',
     'FW AED': 'AED',
     'GB Fernsignaltableau': 'Fernsignaltableau',
     'GB Schluesseldepot': 'Schlüsseldepot',
@@ -613,7 +612,6 @@ export const de = {
     'WV Loeschweier': ['Weiher', 'Teich', 'Reservoir', 'Löschwasserreserve'],
     'SI Wasserbezugsort': ['Saugstelle', 'Fluss', 'Bach', 'See'],
     'SI Wasserdruckversorgung': ['Druckleitung', 'Reservoir'],
-    'SI Feuerwehranschluss': ['FA', 'Steigleitung', 'trockene Steigleitung', 'Einspeisung', 'Löschwassereinspeisung'],
     'GB BA Wand F30': ['Brandabschnitt', 'Brandmauer', 'Brandschutzwand'],
     'GB BA Wand F60': ['Brandabschnitt', 'Brandmauer', 'Brandschutzwand'],
     'GB BA Wand F180': ['Brandabschnitt', 'Brandmauer', 'Brandschutzwand'],
@@ -1696,6 +1694,12 @@ export const de = {
     // hier eine falsche Beruhigung, also sagt der Knopf ehrlich, dass antippen die einzige
     // Reichweite ist, die es überhaupt geben kann.
     alarmBlockedNoFallback: 'Ton nicht freigegeben – antippen aktiviert ihn. Dieser Browser kann keine Benachrichtigung anzeigen.',
+    // Appended to the bell's label on the public DEMO only (isDemoMode, AtemschutzView ·
+    // bellLabel): the demo deliberately mutes tone + notification (useAtemschutzAlarm's `demo`
+    // gate), so a tester pressing «Kontakt» and hearing nothing has no way to tell «broken» from
+    // «deliberately quiet» without this line (field question, 02.09.: «Wie sollte dieser Alarm
+    // erfolgen?»).
+    alarmDemoNote: 'Demo – Ton und Benachrichtigung sind auf dieser Instanz deaktiviert',
     restoreMenu: 'Entfernte Trupps',
     restoreItem: '{name} wiederherstellen',
     // OS notification when a Trupp goes überfällig while the app is backgrounded

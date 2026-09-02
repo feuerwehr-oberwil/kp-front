@@ -23,6 +23,9 @@ import { appConfig } from '../config/appConfig'
 export const HATCH_PERIOD_PX = 16
 /** Stroke width of one hatch line, CSS px. */
 export const HATCH_WIDTH_PX = 1.6
+/** viewBox edge of the Füllung row's Schraffur chip — THREE tile widths, because the chip is
+ *  ~30px: at one-to-one scale a single diagonal crossed it and read as a «no» slash. */
+export const HATCH_CHIP_VB = HATCH_PERIOD_PX * 3
 
 /**
  * A seamless 45° hatch tile, as `ImageData` for `map.addImage`.
@@ -56,27 +59,47 @@ export function hatchTile(color: string, ratio = 2): ImageData | null {
   return ctx.getImageData(0, 0, S, S)
 }
 
-/** The SVG <pattern> id for one colour's hatch — the Plan's half of the same picture. */
-export const hatchPatternId = (color: string) => `hatch-${color.replace('#', '')}`
+/**
+ * The SVG <pattern> id for one colour's hatch — the Plan's half of the same picture.
+ *
+ * ⚠️ `space` is part of the id, and it is not decoration: pattern ids are DOCUMENT-global, so the
+ * first `<defs>` in the DOM answers every `url(#…)` on the page. Two hosts that scale the tile
+ * differently (a 1×1 sheet and a px-space chip live on screen at the same time) must therefore
+ * ask for different ids — `lib/shapes · squareInner` keys its own pattern by scale for exactly
+ * this reason. Same `space` ⇒ same geometry, and sharing is then harmless.
+ */
+export const hatchPatternId = (color: string, space = '') => `hatch-${space ? `${space}-` : ''}${color.replace('#', '')}`
 
 /**
- * The <defs> the Plan needs so `fill="url(#hatch-…)"` resolves — one pattern per draw colour.
+ * The <defs> a surface needs so `fill="url(#hatch-…)"` resolves — one pattern per draw colour.
  *
- * ⚠️ `patternUnits="userSpaceOnUse"` and NOT the parent's viewBox units: the ink layer is a
- * `viewBox="0 0 1 1"` sheet stretched over the plan, so pattern units expressed in that space
- * would be a thousand times too large and each Fläche would come out flat-filled. Rendering in
- * user space and letting the rotation do the 45° keeps the hatch at screen scale, which is
- * where it has to be legible.
+ * `unitScale` is how many USER UNITS one CSS pixel is worth on each axis of the host SVG, so the
+ * tile can be stated once (16 px, 45°) and land at that size on screen wherever it is used.
+ *
+ * ⚠️ `userSpaceOnUse` is the referencing element's user space — the viewBox — and NOT CSS pixels.
+ * The Plan's ink layer is a `viewBox="0 0 1 1"` sheet stretched over the page, so an untransformed
+ * 16-unit tile is sixteen SHEETS wide there: every Fläche landed inside one stroke of the first
+ * line and came out a flat, fully opaque block of colour (field report 02.09.). Passing
+ * `unitScale={[1 / sheetPxW, 1 / sheetPxH]}` cancels that stretch — the net screen transform is a
+ * pure rotation again, so the hatch is 16 px at 45° there exactly as it is everywhere else.
  */
-export function HatchDefs({ colors }: { colors: readonly string[] }) {
+export function HatchDefs({ colors, space = '', unitScale = [1, 1] }: {
+  colors: readonly string[]
+  /** id namespace — required whenever `unitScale` is not [1, 1] (see `hatchPatternId`) */
+  space?: string
+  /** user units per CSS px, [x, y]. [1, 1] = the host SVG already draws in px. */
+  unitScale?: readonly [number, number]
+}) {
+  const [sx, sy] = unitScale
+  // ⚠️ rotate(-45): a vertical line rotated −45° runs top-left → bottom-right, the SAME
+  // diagonal hatchTile rules and kroki.py prints. +45 ran the other way, so the editor
+  // swatch and the Plan hatched opposite to the drawn Fläche beside them.
+  const transform = sx === 1 && sy === 1 ? 'rotate(-45)' : `scale(${sx} ${sy}) rotate(-45)`
   return (
     <defs>
       {colors.map((c) => (
-        // ⚠️ rotate(-45): a vertical line rotated −45° runs top-left → bottom-right, the SAME
-        // diagonal hatchTile rules and kroki.py prints. +45 ran the other way, so the editor
-        // swatch and the Plan hatched opposite to the drawn Fläche beside them.
-        <pattern key={c} id={hatchPatternId(c)} patternUnits="userSpaceOnUse"
-          width={HATCH_PERIOD_PX} height={HATCH_PERIOD_PX} patternTransform="rotate(-45)">
+        <pattern key={c} id={hatchPatternId(c, space)} patternUnits="userSpaceOnUse"
+          width={HATCH_PERIOD_PX} height={HATCH_PERIOD_PX} patternTransform={transform}>
           <line x1={0} y1={0} x2={0} y2={HATCH_PERIOD_PX} stroke={c} strokeWidth={HATCH_WIDTH_PX} />
         </pattern>
       ))}
@@ -84,9 +107,44 @@ export function HatchDefs({ colors }: { colors: readonly string[] }) {
   )
 }
 
+export const HATCH_IMAGE_PREFIX = 'hatch-'
 /** The MapLibre image name for one colour's hatch tile — also what the fill layer's
  *  data-driven `fill-pattern` expression builds, so the two cannot drift. */
-export const hatchImageId = (color: string) => `hatch-${color.toLowerCase()}`
+export const hatchImageId = (color: string) => `${HATCH_IMAGE_PREFIX}${color.toLowerCase()}`
+/** …and back: the colour a hatch image id names, or null when the id is not one of ours. */
+export const hatchImageColor = (id: string): string | null =>
+  id.startsWith(HATCH_IMAGE_PREFIX) && id.length > HATCH_IMAGE_PREFIX.length ? id.slice(HATCH_IMAGE_PREFIX.length) : null
+
+/** The bit of a MapLibre map `ensureHatchImages` needs — structural, so `lib/draw` stays free of
+ *  the map library and both hosts (MapView, the Kroki framing preview) can hand it their map. */
+interface HatchImageHost {
+  hasImage(id: string): boolean
+  addImage(id: string, image: { width: number; height: number; data: Uint8Array | Uint8ClampedArray }, options?: { pixelRatio?: number }): void
+}
+
+/**
+ * Register one Schraffur tile per colour on a MapLibre map — every surface that paints a hatched
+ * Fläche through `fill-pattern` calls this on its own map instance (images are per-map), and
+ * again on every `styledata`: a style RELOAD (day/night swap, base-layer change) drops them all.
+ *
+ * ⚠️ NOT sdf: `fill-pattern` paints the image as given and cannot tint it, so the colour is baked
+ * in and there is one tile per palette colour — six small images, once.
+ *
+ * ⚠️ Registration is not optional decoration: a `fill-pattern` whose image is missing paints
+ * NOTHING AT ALL (not a fallback colour), so an unregistered colour makes the Fläche disappear.
+ * Pair it with `styleimagemissing` → `hatchImageColor` so a drawing in a colour outside the
+ * current palette (a legacy incident, a station that re-cut `drawing.colors`) still hatches.
+ */
+export function ensureHatchImages(map: HatchImageHost, colors: readonly string[]): void {
+  for (const c of colors) ensureHatchImage(map, hatchImageId(c), c)
+}
+
+/** One tile, registered under an explicit id (that id is what the layer's expression asks for). */
+export function ensureHatchImage(map: HatchImageHost, id: string, color: string): void {
+  if (map.hasImage(id)) return
+  const tile = hatchTile(color)
+  if (tile) map.addImage(id, { width: tile.width, height: tile.height, data: tile.data }, { pixelRatio: 2 })
+}
 
 /** MapLibre `line-dasharray` (units = line-width multiples) */
 export const LINE_DASH_ML: [number, number] = [2, 1.6]

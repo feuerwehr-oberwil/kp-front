@@ -1076,7 +1076,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tab:active { background-image: linear-gradient(var(--press), var(--press)); }
 .tabName { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .tabName :global(.i) { width: 14px; height: 14px; }
-.tabDot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+/* The Trupp name, not the «+ Trupp» tab: no icon to sit beside, so it may wrap onto a second
+   line rather than clip — «Binggeli Michael» read as «Binggeli Michae» against this chip's
+   min-width before this (round 2 review). `.tab`'s min-height is a minimum, not a cap, so the
+   chip grows with it. */
+.tabNameWrap { display: block; width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
 .tabClock { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--green); }
 .tabIdle .tabClock { color: var(--ink-faint); }
 .tabWarn .tabClock { color: var(--amber-strong); }

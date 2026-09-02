@@ -578,12 +578,6 @@ def build() -> list[dict]:
          line(0, 0, 0, 1, stroke=BLACK, sw=0.03)],
         vb=2.3,
     ))
-    # Feuerwehranschluss (trockene Steigleitung, Einspeisung) — the red wall placard where a
-    # crew feeds the building's dry riser from outside, same field report as GB BMA-Z/RWA-BS
-    # above. A supply point like the hydrants beside it, not a building installation, so it
-    # lives in Wasser rather than Gebäude; VKF Innenhydrant is the matching Entnahmestelle
-    # INSIDE the building.
-    add("Wasser", "SI Feuerwehranschluss", placard("FA", RED, w=0.68, fs=0.95))
 
     # ── Gebäude
     # fire-resistance walls: the tick count encodes the rating (1=F30, 2=F60, 3=F180)
@@ -665,7 +659,7 @@ def build() -> list[dict]:
         vb=2.0,
     ))
     # Wand-Piktogramme, added 02.09. after a field report: a reproduced Einsatzplan-Legende
-    # (BMA-Z/RWA-BS/FA placards) had no matching symbols, so a crew could not dock a hose line to
+    # (BMA-Z/RWA-BS placards) had no matching symbols, so a crew could not dock a hose line to
     # them — only kind:'symbol' annotations are magnetic (lib/hoseSnap; deliberately untouched).
     # These are the actual placards screwed to the wall next to `GB Brandmeldezentrale` /
     # `GB Abzug` (the schematic anlage icons above) — not a duplicate, a different object: the

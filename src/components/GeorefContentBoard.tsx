@@ -363,7 +363,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
       {/* `selId` is the PROJECTED anno's id, not the map drawing's — the same blue outline the
           sheet's own selected Linie/Fläche wears (WbControls · WbInkLayer). */}
       <WbInkLayer annos={ink} draft={null} draftFloor={0} color={DEFAULT_INK} width={5} dashed={false}
-        hiddenTrails={new Set()} mapY={(_floor, y) => y} truppTones={truppTones}
+        hiddenTrails={new Set()} mapY={(_floor, y) => y} truppTones={truppTones} sW={sW} sH={sH}
         selId={drawings.find((t) => t.drawing.id === selectedDrawingId)?.anno.id} />
       {interactive && (onOpenDrawing || onDrawingCoords) && (
         <svg className={s.drawingHits} width={sW} height={sH} viewBox={`0 0 ${sW} ${sH}`} aria-hidden={false}>

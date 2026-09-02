@@ -7,7 +7,7 @@ import { fmtArea, fmtDistance } from '../lib/geo'
 import { OnOff, Segmented } from './Segmented'
 import { ScaleStepper } from './Stepper'
 import { SHAPE_STROKE_DEFAULT, SQUARE_FILL_DEFAULT, ShapeGlyph } from '../lib/shapes'
-import { HATCH_PERIOD_PX, HatchDefs, hatchPatternId } from '../lib/draw'
+import { HATCH_CHIP_VB, HatchDefs, hatchPatternId } from '../lib/draw'
 import { DEFAULT_INK } from '../lib/lineStyle'
 
 const COLORS = appConfig.drawing.colors
@@ -129,9 +129,10 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
                 <button className={`dh-color de-fill ${entity.hatch ? 'on' : ''}`}
                   title={appConfig.copy.drawingEditor.fillHatch} aria-label={appConfig.copy.drawingEditor.fillHatch}
                   onClick={() => onFill(fillOpacity, true)}>
-                  <svg viewBox={`0 0 ${HATCH_PERIOD_PX * 2} ${HATCH_PERIOD_PX * 2}`} width="100%" height="100%" aria-hidden>
+                  {/* the drawn Fläche's chip, to the pixel (DrawEditor · the Füllung row) */}
+                  <svg viewBox={`0 0 ${HATCH_CHIP_VB} ${HATCH_CHIP_VB}`} width="100%" height="100%" aria-hidden>
                     <HatchDefs colors={[color]} />
-                    <rect width="100%" height="100%" fill={`url(#${hatchPatternId(color)})`} />
+                    <circle cx={HATCH_CHIP_VB / 2} cy={HATCH_CHIP_VB / 2} r={HATCH_CHIP_VB / 2} fill={`url(#${hatchPatternId(color)})`} />
                   </svg>
                 </button>
               </span>

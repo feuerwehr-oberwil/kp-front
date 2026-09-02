@@ -250,7 +250,10 @@ export function buildKrokiPayload(args: {
   const draws = (drawingsVisible ? drawings : []).map((d) => ({
     kind: d.kind, coords: d.coords, color: d.color, width: d.width, dashed: d.dashed,
     arrow: d.arrow, arrowStop: d.arrowStop, marker: d.marker, label: d.label, showDistance: d.showDistance,
-    fillOpacity: d.fillOpacity, radiusM: d.radiusM,
+    // ⚠️ `hatch` travels with the fill it REPLACES. A hatched Fläche is the FKS reading of an
+    // affected area, not decoration — dropped from the payload, the paper printed a plain wash
+    // and said something else about the ground than the screen it was framed on (02.09.).
+    fillOpacity: d.fillOpacity, hatch: d.hatch, radiusM: d.radiusM,
     teilstueck: d.teilstueck, lineNo: d.lineNo, content: d.content, floorTag: d.floorTag,
     // the Atemschutz-Trupp on this Leitung, already resolved + abbreviated: the server draws the
     // Kroki from this payload alone and has no Trupp records to match against. Alarm TONES are

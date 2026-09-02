@@ -9,7 +9,7 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
-import { LINE_DASH_ML, hatchImageId, hatchTile } from '../lib/draw'
+import { LINE_DASH_ML, ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
 import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
@@ -1069,20 +1069,32 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const data = head(stop)
         if (data) map.addImage(name, { width: S, height: S, data: data.data }, { sdf: true, pixelRatio: 2 })
       }
-      // …and one Schraffur tile per draw colour. ⚠️ NOT sdf: `fill-pattern` paints the image as
-      // given and cannot tint it, so the colour is baked in and there is one tile per colour.
-      // The palette is fixed (appConfig.drawing.colors), so this is six small images, once.
-      for (const c of appConfig.drawing.colors) {
-        const id = hatchImageId(c)
-        if (map.hasImage(id)) continue
-        const tile = hatchTile(c)
-        if (tile) map.addImage(id, { width: tile.width, height: tile.height, data: tile.data }, { pixelRatio: 2 })
-      }
       map.triggerRepaint()
     }
+    // The Schraffur tiles ride the same style lifecycle, in a pass of their OWN. ⚠️ Deliberately
+    // not inside `ensureArrow`: that function returns early the moment both arrowheads exist, so
+    // a guard reading «the arrowheads are here» would be what decides whether a Fläche has a fill.
+    const ensureHatch = () => {
+      ensureHatchImages(map, appConfig.drawing.colors)
+      map.triggerRepaint()
+    }
+    // …and a colour outside the palette (a legacy drawing, a station that re-cut `drawing.colors`)
+    // asks for a tile nobody registered — a missing `fill-pattern` paints NOTHING, so that Fläche
+    // would simply be gone from the Karte. Mint it the moment the style asks for it.
+    const onMissing = (e: { id: string }) => {
+      const c = hatchImageColor(e.id)
+      if (c) { ensureHatchImage(map, e.id, c); map.triggerRepaint() }
+    }
     ensureArrow()
+    ensureHatch()
     map.on('styledata', ensureArrow)
-    return () => { map.off('styledata', ensureArrow) }
+    map.on('styledata', ensureHatch)
+    map.on('styleimagemissing', onMissing)
+    return () => {
+      map.off('styledata', ensureArrow)
+      map.off('styledata', ensureHatch)
+      map.off('styleimagemissing', onMissing)
+    }
   }, [mapReady])
 
   // canvas-level pointer gestures (freehand drawing + marquee multi-select) live in a

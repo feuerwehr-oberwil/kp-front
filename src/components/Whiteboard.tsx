@@ -3131,7 +3131,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {/* committed drawings */}
             <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
-              truppTones={truppTones} />
+              truppTones={truppTones} sW={sW} sH={sH} />
             {/* «Ring lädt, dann schnappt es» — the identical pair the Lage map draws: a blue chip
                 BESIDE the target whose ring is the remaining dwell (only a full one attaches), and
                 its red twin at the socket an attached endpoint is being pulled out of (only a full

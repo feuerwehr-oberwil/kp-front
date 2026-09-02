@@ -38,7 +38,10 @@ export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, stri
   return resolvePlanAnnos(annos).map((a) => {
     const out: Record<string, unknown> = {
       kind: a.kind, x: a.x, y: a.y, pts: a.pts, color: a.color, width: a.width,
-      dashed: a.dashed, fillOpacity: a.fillOpacity, label: a.label, text: a.text, rotation: a.rotation,
+      // ⚠️ `hatch` rides with the fill it REPLACES — an `area` that came out washed on paper was
+      // saying «this region» where the screen said «this region is AFFECTED» (02.09.). The other
+      // kinds carry it inside their resolved SVG (circleSvgString / shapeSvgString below).
+      dashed: a.dashed, fillOpacity: a.fillOpacity, hatch: a.hatch, label: a.label, text: a.text, rotation: a.rotation,
       // note styling: wN is what makes it a wrapping box, so the sheet breaks the lines exactly
       // where the screen did. Absent on every other kind, and absent on legacy notes.
       wN: a.wN, noteSize: a.noteSize, notePlain: a.notePlain,

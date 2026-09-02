@@ -4,6 +4,7 @@ rendering — tiles pointing at an unroutable host must still yield a complete i
 all overlays, never an exception. Plan-page rendering runs against a tiny generated PDF."""
 
 import io
+import itertools
 import math
 from pathlib import Path
 
@@ -738,6 +739,47 @@ def test_hatch_stays_inside_the_polygon():
     # …and the inside actually carries ink
     inked = sum(1 for x in range(240) for y in range(160) if px[x, y][:3] != (255, 255, 255))
     assert inked > 500
+
+
+def test_hatch_survives_the_wire_schemas():
+    """`hatch` only reaches the renderer if BOTH schemas know it — pydantic drops an unknown field
+    without a word, which is exactly how a Schraffur drawn on screen printed as a plain wash."""
+    from app.report_pdf import KrokiDrawingIn, PlanAnnoIn
+
+    d = KrokiDrawingIn.model_validate(
+        {"kind": "area", "coords": [[7.5, 47.5], [7.6, 47.5], [7.6, 47.6]], "hatch": True, "fillOpacity": 0.25}
+    ).model_dump()
+    assert d["hatch"] is True and d["fillOpacity"] == 0.25
+    a = PlanAnnoIn.model_validate({"kind": "area", "pts": [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9]], "hatch": True})
+    assert a.model_dump()["hatch"] is True
+    # …and a Fläche that was never hatched must not start printing hatched
+    assert KrokiDrawingIn.model_validate({"kind": "area"}).hatch is False
+
+
+def test_plan_page_hatches_an_affected_area():
+    """A hatched Fläche on a PLAN page is ruled, not washed — the plan half of the same rule the
+    Kroki follows. A wash paints one flat colour across the shape; the Schraffur alternates."""
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=landscape(A4))
+    c.drawString(100, 100, "Grundriss")
+    c.save()
+    box = [[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8]]
+
+    def scanline(hatch: bool) -> int:
+        img = kk.render_plan_page(
+            buf.getvalue(),
+            [{"kind": "area", "pts": box, "color": "#e8392b", "hatch": hatch}],
+            PACK,
+            width=800,
+        )
+        px = img.convert("RGB").load()
+        y = img.height // 2
+        row = [px[x, y] for x in range(int(img.width * 0.25), int(img.width * 0.75))]
+        return sum(1 for a, b in itertools.pairwise(row) if a != b)
+
+    # a wash is flat inside the shape; the ruling crosses the scanline many times over
+    assert scanline(hatch=False) <= 4
+    assert scanline(hatch=True) > 20
 
 
 def test_hatch_ignores_a_degenerate_polygon():
