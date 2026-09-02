@@ -51,6 +51,21 @@ describe('a Plan twin on the Karte', () => {
     expect(screen.getByRole('button').className).not.toContain('grab')
   })
 
+  /**
+   * The «Verbunden» ring is a RELATIONSHIP, not a neighbourhood: the surface hands over exactly
+   * the ids its selected line's attachments reach (MapView · relationshipNetwork), the same set
+   * the natives read. A mirrored object standing near a blue Leitung is not in it.
+   */
+  it('wears the network ring only for a twin the selected line actually reaches', () => {
+    const { container } = render(<GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }} zoom={18}
+      networkIds={new Set(['somebody-else'])} onOpen={() => {}} />)
+    expect(container.querySelector('.network-halo')).toBeNull()
+    cleanup()
+    const docked = render(<GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }} zoom={18}
+      networkIds={new Set(['a1'])} onOpen={() => {}} />)
+    expect(docked.container.querySelector('.network-halo')).toBeTruthy()
+  })
+
   it('shows its selection halo while staying non-draggable', () => {
     show('modul1:a1')
     expect(screen.getByTestId('marker').dataset.draggable).toBe('false')

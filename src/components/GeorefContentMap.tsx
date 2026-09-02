@@ -54,6 +54,15 @@ const projectedPx = (a: LngLat, b: LngLat, zoom: number) => {
 
 const INERT: CSSProperties = { pointerEvents: 'none' }
 
+/**
+ * The kinds whose selection is NOT a halo — the native's own rule, exactly (MapMarkers · `raised
+ * && e.kind !== 'note' && e.kind !== 'team'`). A Trupp says «selected» by becoming its context
+ * pill and a Notiz by its own selected chrome; a 104px blue ring around either was a second
+ * vocabulary the object beside it does not speak (02.09.). BoardAnno spells the two kinds
+ * `resource` and `text`.
+ */
+const HALOLESS = new Set(['resource', 'text'])
+
 export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSeverities, hiddenTrails, suppressedLabels, interactive = false, selectedKey = null, selectedKeys = [], onOpenTwin, onMoveTwin, onEditTwinAnno, onUnlockTwin, teamActions, onToggleTrail, project, unproject, setDragPan }: {
   twins: MapContentTwin[]
   zoom: number
@@ -129,7 +138,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       data-twin=""
       onClick={(ev) => { if (ev.detail === 0) onOpenTwin?.(twin) }}
       onPointerDown={(ev) => beginGesture(ev, twin, anchor, { movable, instant: isSelected(twin.key), onTap: onOpenTwin ? () => onOpenTwin(twin) : undefined })}>
-      {isSelected(twin.key) && <span className="sel-halo" aria-hidden />}
+      {isSelected(twin.key) && !HALOLESS.has(twin.anno.kind ?? '') && <span className="sel-halo" aria-hidden />}
       {children}
     </button>
   )

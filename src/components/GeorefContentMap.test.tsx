@@ -121,10 +121,40 @@ describe('broader Plan content on the Karte', () => {
   })
 
   it('the open panel marks its projection with the selection halo', () => {
-    const twins = [point({ id: 'note', kind: 'text', x: 0.5, y: 0.5, text: 'Abschnitt Ost' })]
+    const twins = [point({ id: 'form', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.1 })]
     const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
-      selectedKey="note" onOpenTwin={() => {}} />)
+      selectedKey="form" onOpenTwin={() => {}} />)
     expect(container.querySelector('.sel-halo')).toBeTruthy()
+  })
+
+  /**
+   * ⚠️ …but NOT on the kinds whose native has no halo (02.09.). A selected mirrored «Trupp 10»
+   * came up wearing a 104px blue ring the original beside it does not wear: MapMarkers excludes
+   * exactly `note` and `team` from the halo, because a Trupp says «selected» by becoming its
+   * context pill and a Notiz by its own selected chrome. The mirror has to say it the same way,
+   * or the same object means two different things depending on which copy you tapped.
+   */
+  it('leaves the halo off a mirrored Trupp and a mirrored Notiz, as their natives do', () => {
+    const team = render(<GeorefContentMap zoom={18} bearing={0} interactive selectedKey="team" onOpenTwin={() => {}}
+      twins={[point({ id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 10' })]} />)
+    expect(team.container.querySelector('.sel-halo')).toBeNull()
+    expect(team.container.querySelector('.team-dot')).toBeTruthy()
+    cleanup()
+    const note = render(<GeorefContentMap zoom={18} bearing={0} interactive selectedKey="note" onOpenTwin={() => {}}
+      twins={[point({ id: 'note', kind: 'text', x: 0.5, y: 0.5, text: 'Abschnitt Ost' })]} />)
+    expect(note.container.querySelector('.sel-halo')).toBeNull()
+    // …its own selected chrome instead, the very rule the native note follows (08-toasts.css)
+    expect(note.container.querySelector('.note-pill.twin-sel')).toBeTruthy()
+  })
+
+  // …and the SELECTED Trupp, the one the report was about: its context pill is the selection,
+  // and there is no ring around it either.
+  it('shows the mirrored Trupp’s context pill without a ring around it', () => {
+    const acts = { rename: vi.fn(), pick: vi.fn(), color: vi.fn(), mark: vi.fn(), clearTrail: vi.fn(), remove: vi.fn(), showTrupp: vi.fn(), toOriginal: vi.fn() }
+    const { container } = render(<GeorefContentMap zoom={18} bearing={0} interactive selectedKey="team"
+      onOpenTwin={() => {}} teamActions={acts}
+      twins={[point({ id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 10' })]} />)
+    expect(container.querySelector('.sel-halo')).toBeNull()
   })
 
   it('a mouse press-drag on a Trupp chip moves the source chip instead of panning the map', () => {
