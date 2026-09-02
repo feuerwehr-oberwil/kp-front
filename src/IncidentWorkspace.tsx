@@ -4009,6 +4009,12 @@ export function IncidentWorkspace({
     return (
       <div className="app as-link-shell">
         <IconSprite />
+        {/* ⚠️ Same tab-lock message as the full layout, WITHOUT its editor gate: an Atemschutz-
+            Link session is role 'viewer' but genuinely writes, so losing the lock to another tab
+            of this browser must say so — silently hiding every button left a handed-over Tafel
+            that looked read-only for no reason. The Meldeleiste is mounted at App root, so the
+            row paints here too. */}
+        {tabLockLost && <TabLockBanner onTakeOver={onTakeOverTab} />}
         <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
           logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         {atemschutzBoard}

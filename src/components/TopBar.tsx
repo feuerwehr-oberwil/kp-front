@@ -115,7 +115,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         : fmtElapsedHM((stoppedAt || now) - startMs)
   const clockLabel: Record<ClockMode, string> = { elapsed: E.modeElapsed, now: E.modeNow, start: E.modeStart }
   const pickClock = (m: ClockMode) => { setClockMode(m); savePrefs({ ...loadPrefs(), clockMode: m }) }
-  const clockText = startedAt ? clockValue(clockMode) : ''
+  const clockText = Number.isFinite(startMs) && startMs > 0 ? clockValue(clockMode) : '' // an unparseable start shows nothing, not «Invalid Date»
 
   // Eintrag gesture (shared with the mobile FAB so they behave identically). The hook runs
   // unconditionally — hooks can't be skipped — but with the button unrendered nothing ever

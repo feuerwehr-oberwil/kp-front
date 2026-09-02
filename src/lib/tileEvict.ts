@@ -14,10 +14,17 @@ const TILE_CACHE = 'map-tiles'
 /** How many tiles to drop per attempt. Big enough that one pass frees real space (≈ 15 MB at
  *  30 KB/tile), small enough that an operator who prefetched an area doesn't lose all of it. */
 export const EVICT_BATCH = 500
+/** Minimum gap between two evictions. A burst of refused writes (every keystroke on a full
+ *  device, before the cache write was debounced) used to cost one batch PER write — a 10-word
+ *  Bemerkung wiped the prefetched map area in seconds. One batch per window is all the rescue a
+ *  write needs; if that did not make room, tiles were not the problem. */
+export const EVICT_MIN_GAP_MS = 30_000
+let lastEvictAt = -Infinity
 
 /**
  * Delete up to `batch` of the OLDEST entries from the tile cache. Returns how many were removed
- * (0 when there is no cache, nothing in it, or Cache Storage is unavailable).
+ * (0 when there is no cache, nothing in it, Cache Storage is unavailable, or an eviction ran
+ * less than EVICT_MIN_GAP_MS ago).
  *
  * Ordering caveat, deliberately accepted: the Cache Storage API exposes no timestamps, so we lean
  * on `cache.keys()` resolving in insertion order — which the spec does require, since the request
@@ -27,6 +34,9 @@ export const EVICT_BATCH = 500
  * is a private implementation detail of the plugin and would break silently on upgrade.
  */
 export async function evictOldTiles(batch = EVICT_BATCH): Promise<number> {
+  const now = Date.now()
+  if (now - lastEvictAt < EVICT_MIN_GAP_MS) return 0 // rate-limited: reads as «nothing to evict»
+  lastEvictAt = now
   try {
     if (typeof caches === 'undefined') return 0
     if (!(await caches.has(TILE_CACHE))) return 0

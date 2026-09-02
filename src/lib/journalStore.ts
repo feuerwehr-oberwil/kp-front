@@ -396,7 +396,13 @@ export class JournalStore {
   private adoptRows(entries: ServerRow[]) {
     const have = new Set(this.state.rows.map((r) => r.row.id))
     for (const e of entries) {
-      if (!have.has(e.row.id)) { have.add(e.row.id); this.state.rows.push(e) }
+      // the journal API validates no row shape — a row without a string id is not a row, and
+      // `text`/`t` are what the Verlauf trims and prints, so they are coerced rather than trusted
+      const row = e?.row as Partial<TimelineEvent> | undefined
+      if (!row || typeof row.id !== 'string') continue
+      if (typeof row.text !== 'string') row.text = ''
+      if (typeof row.t !== 'string') row.t = ''
+      if (!have.has(row.id)) { have.add(row.id); this.state.rows.push(e) }
     }
     this.state.rows.sort((a, b) => a.seq - b.seq)
   }

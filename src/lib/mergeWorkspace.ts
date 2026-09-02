@@ -54,6 +54,19 @@ interface WsShape {
   [k: string]: unknown
 }
 
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+const hasId = (v: unknown): v is HasId => isObj(v) && typeof v.id === 'string'
+/** An id-keyed collection as the merge can walk it: anything else (a `{}`, a string, a null)
+ *  reads as empty. `base`/`theirs` come off the server and the cached ancestor, neither of
+ *  which this app alone writes (capture posts, admin edits, other versions), and one `.map` on
+ *  a non-array here used to escape as an unhandled rejection that re-threw on every retry. */
+const asList = (v: unknown): HasId[] => (Array.isArray(v) ? v.filter(hasId) : [])
+/** A key→value record as mergeRecord can walk it; a non-object reads as empty. */
+const asRecord = (v: unknown): Record<string, unknown> => (isObj(v) ? v : {})
+/** A board (planId → annotations) with every doc coerced to a list. */
+const asBoard = (v: unknown): Record<string, HasId[]> =>
+  Object.fromEntries(Object.entries(asRecord(v)).map(([k, docs]) => [k, asList(docs)]))
+
 /** Structural equality for plain JSON data (the only thing the blob holds). Used to tell "I
  *  changed this field" from "I left it as the ancestor" in the three-way field/record merges.
  *  Key order is stable here because every value is produced by the same buildPayload code. */
@@ -284,11 +297,8 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
     }
   }
   if ('readings' in m || 'readings' in t) {
-    out.readings = mergeReadings(
-      (a.readings ?? []) as Readingish[],
-      (m.readings ?? []) as Readingish[],
-      (t.readings ?? []) as Readingish[],
-    )
+    const rows = (v: unknown): Readingish[] => (Array.isArray(v) ? (v.filter(isObj) as unknown as Readingish[]) : [])
+    out.readings = mergeReadings(rows(a.readings), rows(m.readings), rows(t.readings))
   }
   return out as unknown as HasId
 }
@@ -322,19 +332,11 @@ function mergeReportMeta(
   theirs: Record<string, unknown>,
 ): Record<string, unknown> {
   const out = mergeRecord(base, mine, theirs)
-  const done = mergeRecord(
-    (base.linksDone ?? {}) as Record<string, unknown>,
-    (mine.linksDone ?? {}) as Record<string, unknown>,
-    (theirs.linksDone ?? {}) as Record<string, unknown>,
-  )
+  const done = mergeRecord(asRecord(base.linksDone), asRecord(mine.linksDone), asRecord(theirs.linksDone))
   if (Object.keys(done).length) out.linksDone = done
   else delete out.linksDone
   for (const k of ['gruppen', 'fahrzeuge'] as const) {
-    const rows = mergeById(
-      (base[k] ?? []) as HasId[],
-      (mine[k] ?? []) as HasId[],
-      (theirs[k] ?? []) as HasId[],
-    )
+    const rows = mergeById(asList(base[k]), asList(mine[k]), asList(theirs[k]))
     if (rows.length) out[k] = rows
     else delete out[k]
   }
@@ -377,6 +379,11 @@ function mergeBoard(
  * attendance, the merge here is field-level (mergeTrupp) so nothing is silently dropped — but
  * two devices writing the same SCBA crew's record at once is still worth a human look, so the
  * caller appends a Verlauf note the same way. `key` = the Trupp id, mine/theirs = both objects.
+ *
+ * `base` and `theirs` are coerced first (asList / asRecord): `mine` is this app's own
+ * buildPayload and clean, the other two are whatever the server and the cached ancestor hold.
+ * A collection that is not an array merges as empty rather than throwing — the throw used to
+ * wedge sync silently and forever (badge stuck on «ausstehend», no toast, re-thrown every retry).
  */
 export function mergeWorkspace(
   base: Record<string, unknown>,
@@ -388,50 +395,31 @@ export function mergeWorkspace(
   const b = base as WsShape
   const m = mine as WsShape
   const t = theirs as WsShape
+  const list = (k: keyof WsShape) => [asList(b[k]), asList(m[k]), asList(t[k])] as const
+  const record = (k: keyof WsShape) => [asRecord(b[k]), asRecord(m[k]), asRecord(t[k])] as const
   return {
     ...m, // local view/device state (activePlanId, layerState, recent, activeModule) defaults to mine
-    entities: mergeById(b.entities ?? [], m.entities ?? [], t.entities ?? []),
-    drawings: mergeById(b.drawings ?? [], m.drawings ?? [], t.drawings ?? []),
-    timeline: mergeById(b.timeline ?? [], m.timeline ?? [], t.timeline ?? []),
-    trupps: mergeById(b.trupps ?? [], m.trupps ?? [], t.trupps ?? [], (ancestor, mi, th) => {
+    entities: mergeById(...list('entities')),
+    drawings: mergeById(...list('drawings')),
+    timeline: mergeById(...list('timeline')),
+    trupps: mergeById(...list('trupps'), (ancestor, mi, th) => {
       onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
       return mergeTrupp(ancestor, mi, th)
     }),
-    mittel: mergeById(b.mittel ?? [], m.mittel ?? [], t.mittel ?? []),
-    shifts: mergeById(b.shifts ?? [], m.shifts ?? [], t.shifts ?? []),
-    bands: mergeById(b.bands ?? [], m.bands ?? [], t.bands ?? []),
-    cameraViews: mergeById(b.cameraViews ?? [], m.cameraViews ?? [], t.cameraViews ?? []),
-    attachments: mergeById(b.attachments ?? [], m.attachments ?? [], t.attachments ?? []),
-    board: mergeBoard(b.board ?? {}, m.board ?? {}, t.board ?? {}),
-    vehicleOverrides: mergeRecord(b.vehicleOverrides ?? {}, m.vehicleOverrides ?? {}, t.vehicleOverrides ?? {}),
-    checklists: mergeRecord(
-      (b.checklists ?? {}) as Record<string, unknown>,
-      (m.checklists ?? {}) as Record<string, unknown>,
-      (t.checklists ?? {}) as Record<string, unknown>,
-    ),
+    mittel: mergeById(...list('mittel')),
+    shifts: mergeById(...list('shifts')),
+    bands: mergeById(...list('bands')),
+    cameraViews: mergeById(...list('cameraViews')),
+    attachments: mergeById(...list('attachments')),
+    board: mergeBoard(asBoard(b.board), asBoard(m.board), asBoard(t.board)),
+    vehicleOverrides: mergeRecord(...record('vehicleOverrides')),
+    checklists: mergeRecord(...record('checklists')),
     // domains that previously fell through to `...m` (the resolver's whole blob) and so could be
     // clobbered by a concurrent cross-domain edit — now merged three-way:
-    attendance: mergeRecord(
-      (b.attendance ?? {}) as Record<string, unknown>,
-      (m.attendance ?? {}) as Record<string, unknown>,
-      (t.attendance ?? {}) as Record<string, unknown>,
-      onAttendanceConflict,
-    ),
-    planScale: mergeRecord(
-      (b.planScale ?? {}) as Record<string, unknown>,
-      (m.planScale ?? {}) as Record<string, unknown>,
-      (t.planScale ?? {}) as Record<string, unknown>,
-    ),
-    settings: mergeRecord(
-      (b.settings ?? {}) as Record<string, unknown>,
-      (m.settings ?? {}) as Record<string, unknown>,
-      (t.settings ?? {}) as Record<string, unknown>,
-    ),
-    reportMeta: mergeReportMeta(
-      (b.reportMeta ?? {}) as Record<string, unknown>,
-      (m.reportMeta ?? {}) as Record<string, unknown>,
-      (t.reportMeta ?? {}) as Record<string, unknown>,
-    ),
+    attendance: mergeRecord(...record('attendance'), onAttendanceConflict),
+    planScale: mergeRecord(...record('planScale')),
+    settings: mergeRecord(...record('settings')),
+    reportMeta: mergeReportMeta(...record('reportMeta')),
     building: pick3(b.building, m.building, t.building),
     pickedObjectId: pick3(b.pickedObjectId, m.pickedObjectId, t.pickedObjectId),
     intakeReviewedAt: pick3(b.intakeReviewedAt, m.intakeReviewedAt, t.intakeReviewedAt),

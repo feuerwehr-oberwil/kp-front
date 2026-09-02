@@ -978,8 +978,8 @@ export const en: Localizable<Copy> = {
     liteNewTab: 'Team',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
     wizardWho: 'Who goes in?',
-    wizardAir: 'Air & task',
-    wizardNext: 'Next · Air & task',
+    wizardAir: 'What are they doing?',
+    wizardNext: 'Next',
     wizardBack: 'Back',
     wizardStep: 'Step {n} of 2',
     // sync/clock status in the board header (see de.ts)

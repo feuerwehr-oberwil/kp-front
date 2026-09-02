@@ -14,7 +14,7 @@
 // Anything the fold can't apply is harmlessly skipped — the next snapshot corrects it.
 
 import { apiGet } from './api'
-import type { Saved } from './workspace'
+import { isBoardAnno, isDrawing, isEntity, sanitizeWorkspace, type Saved } from './workspace'
 import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerId, LngLat, WeatherData } from '../types'
 
 // --- API shapes (mirror backend schemas) --------------------------------------------
@@ -397,6 +397,13 @@ const coordOf = (p: Record<string, unknown> | null | undefined): LngLat | null =
   return Array.isArray(c) && c.length === 2 && typeof c[0] === 'number' ? (c as LngLat) : null
 }
 
+/** The patched object, unless the patch would break the shape the live gate requires — then
+ *  the object stays as it was (the same answer the gate gives a malformed add: absent, not a throw). */
+const gated = <T extends object>(ok: (v: unknown) => v is T, cur: T, patch: Partial<T>): T => {
+  const next = { ...cur, ...patch }
+  return ok(next) ? next : cur
+}
+
 /**
  * Apply one event onto a working `Saved` shape, in place where the payload allows.
  * Unknown / payload-too-thin ops are no-ops (the snapshot anchor already has them).
@@ -406,8 +413,10 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
   const id = typeof p.id === 'string' ? p.id : null
   switch (e.op_type) {
     case 'entity.add': {
-      // App enriches this with the full entity; fall back to nothing if absent.
-      const ent = p.entity as Entity | undefined
+      // App enriches this with the full entity; fall back to nothing if absent or malformed —
+      // the fold answers to the same shape gate as the live load (lib/workspace), so time-travel
+      // can never resurrect an object the live path already refuses.
+      const ent = isEntity(p.entity) ? p.entity : undefined
       if (ent && !ws.entities.some((x) => x.id === ent.id)) ws.entities = [...ws.entities, ent]
       break
     }
@@ -418,7 +427,7 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     }
     case 'entity.edit': {
       const patch = p.patch as Partial<Entity> | undefined
-      if (id && patch) ws.entities = ws.entities.map((x) => (x.id === id ? { ...x, ...patch } : x))
+      if (id && patch) ws.entities = ws.entities.map((x) => (x.id === id ? gated(isEntity, x, patch) : x))
       break
     }
     case 'entity.delete': {
@@ -426,13 +435,13 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
       break
     }
     case 'draw.add': {
-      const dr = p.drawing as Drawing | undefined
+      const dr = isDrawing(p.drawing) ? p.drawing : undefined
       if (dr && !ws.drawings.some((x) => x.id === dr.id)) ws.drawings = [...ws.drawings, dr]
       break
     }
     case 'draw.edit': {
       const patch = p.patch as Partial<Drawing> | undefined
-      if (id && patch) ws.drawings = ws.drawings.map((x) => (x.id === id ? { ...x, ...patch } : x))
+      if (id && patch) ws.drawings = ws.drawings.map((x) => (x.id === id ? gated(isDrawing, x, patch) : x))
       break
     }
     case 'draw.delete': {
@@ -452,14 +461,14 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     }
     case 'board.add': {
       const planId = typeof p.planId === 'string' ? p.planId : null
-      const anno = p.anno as BoardAnno | undefined
+      const anno = isBoardAnno(p.anno) ? p.anno : undefined
       if (planId && anno) ws.board = { ...(ws.board ?? {}), [planId]: [...(ws.board?.[planId] ?? []).filter((a) => a.id !== anno.id), anno] }
       break
     }
     case 'board.edit': {
       const planId = typeof p.planId === 'string' ? p.planId : null
       const patch = p.patch as Partial<BoardAnno> | undefined
-      if (planId && id && patch) ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? { ...a, ...patch } : a) }
+      if (planId && id && patch) ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? gated(isBoardAnno, a, patch) : a) }
       break
     }
     case 'board.delete': {
@@ -506,8 +515,9 @@ export type ReplayState = Saved & { board?: BoardDoc; building?: BuildingDoc | n
  */
 export async function stateAt(bundle: ReplayBundle, tMs: number): Promise<ReplayState | null> {
   const { workspace, occurredMs } = await bundle.loadSnapshotAt(tMs)
-  // Clone the anchor so the fold never mutates the cached blob.
-  const base: Saved | null = workspace ? (JSON.parse(JSON.stringify(workspace)) as Saved) : null
+  // Gate the anchor like the live load (drops a malformed object rather than the whole moment),
+  // which also clones it, so the fold never mutates the cached blob.
+  const base: Saved | null = workspace ? sanitizeWorkspace(JSON.parse(JSON.stringify(workspace))).ws : null
   const ws: Saved = base ?? { entities: [], drawings: [], recent: [], layerState: [], timeline: [] }
   ws.entities = ws.entities ?? []
   ws.drawings = ws.drawings ?? []

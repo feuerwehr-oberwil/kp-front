@@ -1401,8 +1401,8 @@ export const de = {
     liteNewTab: 'Trupp',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
     wizardWho: 'Wer geht rein?',
-    wizardAir: 'Luft & Auftrag',
-    wizardNext: 'Weiter · Luft & Auftrag',
+    wizardAir: 'Was machen sie?',
+    wizardNext: 'Weiter',
     wizardBack: 'Zurück',
     wizardStep: 'Schritt {n} von 2',
     // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein

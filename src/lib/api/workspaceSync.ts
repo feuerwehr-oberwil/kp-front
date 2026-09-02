@@ -23,6 +23,8 @@ type CacheEntry = {
   base?: Workspace
 }
 const cacheKey = (id: string) => `kp-front-ws-${id}`
+/** how long after the last save() the offline cache write waits for the next one */
+export const CACHE_DEBOUNCE_MS = 300
 
 function readCache(id: string): Promise<CacheEntry | null> {
   return idbGet<CacheEntry>(cacheKey(id))
@@ -99,6 +101,8 @@ function truppSlice(ws: Workspace): readonly Trupp[] {
  */
 export class WorkspaceSync {
   private timer: ReturnType<typeof setTimeout> | null = null
+  /** the offline-cache write waiting for the keystrokes to stop — see writeCache */
+  private cacheTimer: ReturnType<typeof setTimeout> | null = null
   private entry: CacheEntry
   private flushing = false
   private disposed = false
@@ -166,9 +170,25 @@ export class WorkspaceSync {
 
   /** Cache one revision for reload/offline, KEEPING whether it was durable. A refused write means
    *  any unsynced edit in it exists only in this tab, which `publish` turns into 'storage'.
-   *  A full device evicts map tiles and retries first — the incident record outranks scenery. */
-  private writeCache(e: CacheEntry) {
-    void withTileEviction(() => idbSet(cacheKey(this.incidentId), e)).then((ok) => {
+   *  A full device evicts map tiles and retries first — the incident record outranks scenery.
+   *
+   *  Trailing-debounced (CACHE_DEBOUNCE_MS): several surfaces save per keystroke, and each write
+   *  is a structured clone + IDB put of the WHOLE blob — on a full device also a tile eviction
+   *  per key, which destroyed the prefetched map area while a Bemerkung was being typed. Only the
+   *  latest entry matters, so a burst lands once. Every path that must not lose the write flushes
+   *  synchronously first: teardown (flushKeepalive / dispose) and the server push (the ancestor
+   *  the cache carries has to be the one we pushed). */
+  private writeCache() {
+    if (this.cacheTimer) clearTimeout(this.cacheTimer)
+    this.cacheTimer = setTimeout(() => this.flushCache(), CACHE_DEBOUNCE_MS)
+  }
+
+  /** Write the current entry to the offline cache NOW (a no-op when nothing is waiting). */
+  private flushCache() {
+    if (!this.cacheTimer) return
+    clearTimeout(this.cacheTimer)
+    this.cacheTimer = null
+    void withTileEviction(() => idbSet(cacheKey(this.incidentId), this.entry)).then((ok) => {
       if (this.disposed || this.cacheDurable === ok) return
       this.cacheDurable = ok
       this.publish()
@@ -235,14 +255,14 @@ export class WorkspaceSync {
         const server = workspace ?? {}
         const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
         this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt }
-        this.writeCache(this.entry)
+        this.writeCache()
         this.opts.onRev?.(workspace_rev)
         this.setStatus('pending')
         return { workspace: merged, rev: workspace_rev, fromCache: true }
       }
       const ws = workspace ?? {}
       this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
-      this.writeCache(this.entry)
+      this.writeCache()
       this.opts.onRev?.(workspace_rev)
       this.setStatus('synced')
       return { workspace, rev: workspace_rev, fromCache: false }
@@ -261,7 +281,7 @@ export class WorkspaceSync {
     if (this.disposed) return
     this.saveSeq++
     this.entry = { ...this.entry, workspace, dirty: true }
-    this.writeCache(this.entry)
+    this.writeCache()
     this.setStatus('pending')
     this.armDebounce()
   }
@@ -280,6 +300,7 @@ export class WorkspaceSync {
       this.timer = null
     }
     try {
+      this.flushCache() // the cache must carry what is about to become the ancestor
       await this.pushCurrent()
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -321,6 +342,7 @@ export class WorkspaceSync {
    * raced a concurrent server edit (409) it's simply dropped server-side; the next real
    * flush() resolves it via the normal three-way merge. No-op when clean. */
   flushKeepalive(): void {
+    this.flushCache() // the page is dying — the debounce would never fire
     if (!this.entry.dirty || this.disposed) return
     if (this.opts.slice === 'trupps') putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev)
     else putWorkspaceBeacon(this.incidentId, this.entry.workspace, this.entry.baseRev)
@@ -355,7 +377,7 @@ export class WorkspaceSync {
       this.setStatus('pending')
       this.armDebounce()
     }
-    this.writeCache(this.entry)
+    this.writeCache()
     this.opts.onRev?.(workspace_rev)
   }
 
@@ -364,23 +386,29 @@ export class WorkspaceSync {
   // union: independent edits both survive, same-object edits are last-writer-wins, deletes
   // beat concurrent edits. We're inside an in-flight flush(), so push DIRECTLY (calling
   // flush() would see flushing===true and no-op). Retry on a fresh 409 by re-merging.
+  //
+  // The fetch and the merge sit INSIDE the try on purpose: a GET that dies offline mid-merge,
+  // or a merge that throws on a server blob this app did not write, used to escape flush()'s
+  // own catch as an unhandled rejection — no status, no toast, and the backoff re-threw it every
+  // 5–60 s. Now either lands in 'offline' / 'error' like a failed push, so the sync toast and
+  // «Jetzt synchronisieren» appear and the edits stay dirty in the cache.
   private async resolveConflict() {
     // The content that 409'd — the common ancestor for any local edit that lands while the
     // merge PUT is in flight (so that newer edit can be re-based onto the merge, not lost).
     const mine0 = this.entry.workspace
     for (let attempt = 0; attempt < 4; attempt++) {
-      const server = await getWorkspace(this.incidentId)
-      const merged = this.mergeReporting(this.entry.base ?? {}, this.entry.workspace, server.workspace ?? {})
-      this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true }
-      this.writeCache(this.entry)
       try {
+        const server = await getWorkspace(this.incidentId)
+        const merged = this.mergeReporting(this.entry.base ?? {}, this.entry.workspace, server.workspace ?? {})
+        this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true }
+        this.writeCache()
         const seqAtStart = this.saveSeq
         const { workspace_rev } = await this.push(merged, server.workspace_rev)
         this.opts.onRev?.(workspace_rev)
         this.retryCount = 0 // merge landed → backoff starts over on the next failure
         if (this.saveSeq === seqAtStart) {
           this.entry = { ...this.entry, base: merged, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
-          this.writeCache(this.entry)
+          this.writeCache()
           this.setStatus('synced')
           // Surface the merged union to the live view in place, so the resolver sees the other
           // device's additions without a remount.
@@ -392,7 +420,7 @@ export class WorkspaceSync {
           // overwrite the remote additions we just merged in. Different objects all survive.
           const remerged = mergeWorkspace(mine0, this.entry.workspace, merged)
           this.entry = { ...this.entry, workspace: remerged, base: merged, baseRev: workspace_rev, dirty: true, lastSyncedAt: Date.now() }
-          this.writeCache(this.entry)
+          this.writeCache()
           this.setStatus('pending')
           this.armDebounce()
         }
@@ -419,7 +447,7 @@ export class WorkspaceSync {
   adoptServer(workspace: Workspace, rev: number) {
     if (this.disposed) return
     this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now() }
-    this.writeCache(this.entry)
+    this.writeCache()
     this.opts.onRev?.(rev)
     this.setStatus('synced')
   }
@@ -439,6 +467,7 @@ export class WorkspaceSync {
   }
 
   dispose() {
+    this.flushCache() // land the last edit before the debounce is torn down with the instance
     this.disposed = true
     if (this.timer) clearTimeout(this.timer)
     if (this.retryTimer) clearTimeout(this.retryTimer)
