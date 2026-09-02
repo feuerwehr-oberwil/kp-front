@@ -7,7 +7,6 @@ module's internals for R2/S3 at scale without touching callers.
 
 import contextlib
 import os
-import shutil
 import tempfile
 import uuid
 from collections.abc import AsyncIterator
@@ -122,14 +121,6 @@ def local_path(key: str) -> str:
 
 def size(key: str) -> int:
     return os.path.getsize(_full(key))
-
-
-def copy_in(src_path: str, key: str) -> str:
-    """Copy an external file (e.g. a seed asset) into storage under key."""
-    path = _full(key)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    shutil.copyfile(src_path, path)
-    return key
 
 
 def probe_writable() -> None:
