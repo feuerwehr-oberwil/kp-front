@@ -974,6 +974,14 @@ export const it: Localizable<Copy> = {
     newTrupp: 'Crea squadra',
     shareLink: 'Cedi la sorveglianza',
     shareLinkOn: 'Cedi la sorveglianza – un link è attivo',
+    /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
+    liteNewTab: 'Squadra',
+    /** the two-step form on the handed-over phone (TruppForm · wizard) */
+    wizardWho: 'Chi entra?',
+    wizardAir: 'Aria & compito',
+    wizardNext: 'Avanti · Aria & compito',
+    wizardBack: 'Indietro',
+    wizardStep: 'Passo {n} di 2',
     // stato sync/orologio nell'intestazione della tavola (vedi de.ts)
     syncStand: '{status} – stato delle {t}',
     clockSkewChip: 'Orologio del dispositivo sfasato ({d} min)',

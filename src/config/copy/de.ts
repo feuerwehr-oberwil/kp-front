@@ -1393,6 +1393,14 @@ export const de = {
     // …und wenn schon ein Link läuft. Der Knopf sagt nur, DASS es einen gibt – wer ihn drückt,
     // sieht im Blatt alles Weitere.
     shareLinkOn: 'Überwachung abgeben – ein Link ist aktiv',
+    /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
+    liteNewTab: 'Trupp',
+    /** the two-step form on the handed-over phone (TruppForm · wizard) */
+    wizardWho: 'Wer geht rein?',
+    wizardAir: 'Luft & Auftrag',
+    wizardNext: 'Weiter · Luft & Auftrag',
+    wizardBack: 'Zurück',
+    wizardStep: 'Schritt {n} von 2',
     // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein
     // Leben hängt, sagt selbst, ob ihr Stand gesichert und ihre Uhr richtig ist. Leise reicht
     // incidentSwitcher.savedAt; laut trägt der Chip das Kurzlabel des Zustands plus, wie alt

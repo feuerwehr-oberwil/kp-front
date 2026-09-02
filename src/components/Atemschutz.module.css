@@ -1028,6 +1028,49 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .headActs { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end;
   gap: var(--head-gap); flex: 0 0 auto; margin-left: auto; }
 
+/* «Ein Trupp, ein Bildschirm» — the handed-over board on a phone (AtemschutzView · focusMode).
+   The header swaps its weights: the kicker says what this screen is, the Einsatz is the title. */
+.surfaceLite .headTitles h2 { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.surfaceLite .headTitles p { font-size: 17px; font-weight: 800; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bodyFocus { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+/* A wrapping grid, NOT a horizontal strip (02.09.): every Trupp stays in view, three to a row,
+   and a fifth one starts a second row instead of hiding off the right edge. */
+.strip { flex: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; padding: 10px 12px; }
+.tab { min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: 6px 10px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.tab:active { background-image: linear-gradient(var(--press), var(--press)); }
+.tabName { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.tabName :global(.i) { width: 14px; height: 14px; }
+.tabDot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.tabClock { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--green); }
+.tabIdle .tabClock { color: var(--ink-faint); }
+.tabWarn .tabClock { color: var(--amber-strong); }
+.tabCrit { background: color-mix(in srgb, var(--red) 12%, var(--surface)); border-color: var(--red); }
+.tabCrit .tabClock { color: var(--red); }
+.tabOn { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink) inset; }
+.tabNew { grid-column: 1 / -1; min-height: 44px; border-style: dashed; color: var(--ink-dim); } /* its own full-width row */
+.focusCard { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; padding: 0 12px 12px; }
+/* As tall as its content, never stretched: the card should fit the screen with Druck and the
+   actions in view, and only scroll when it truly cannot. Nothing shrinks under its content
+   (sections overlapped when they did). */
+.focusCard .card { flex: none; width: 100%; max-height: 100%; display: flex; flex-direction: column; overflow-y: auto; }
+.focusCard .card > * { flex: 0 0 auto; }
+.cardBig .cardName { min-height: 0; padding-bottom: 8px; }
+.cardBig .contactClock { padding: 16px 12px 14px; }
+.cardBig .contactVal { font-size: clamp(52px, 16vw, 64px); }
+.cardBig .kontaktBtn { min-height: 76px; font-size: 20px; }
+.cardBig .kontaktBtn :global(.i) { width: 24px; height: 24px; }
+/* Einsatzzeit, Pause and the Schätzung are the Überwacher-on-the-tablet's numbers; the phone shows
+   the one it acts on — the Druck — and the per-Trupp Verlauf lives on the Rapport. */
+.cardBig .metaRow, .cardBig .vfoot { display: none; }
+
+/* The two-step form on the handed-over phone (TruppForm · wizard): a progress bar and a caption
+   under the title say where in the two steps somebody is. */
+.steps { display: flex; gap: 6px; padding: 0 18px 6px; }
+.steps span { flex: 1 1 0; height: 5px; border-radius: 3px; background: var(--border); }
+.steps .stepOn { background: var(--ink); }
+.stepCap { padding: 0 18px 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim); }
+
 /* ⚠️ LAST in the file on purpose: the phone/landscape media queries above re-`inset` the
    floating `.surface`, and at equal specificity source order is the whole rule.
    «Tafel pur» — the handed-over board (AtemschutzView · lite) IS the whole screen: no NavRail

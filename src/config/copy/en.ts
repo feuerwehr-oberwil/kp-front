@@ -972,6 +972,14 @@ export const en: Localizable<Copy> = {
     newTrupp: 'Create team',
     shareLink: 'Hand over monitoring',
     shareLinkOn: 'Hand over monitoring – a link is active',
+    /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
+    liteNewTab: 'Team',
+    /** the two-step form on the handed-over phone (TruppForm · wizard) */
+    wizardWho: 'Who goes in?',
+    wizardAir: 'Air & task',
+    wizardNext: 'Next · Air & task',
+    wizardBack: 'Back',
+    wizardStep: 'Step {n} of 2',
     // sync/clock status in the board header (see de.ts)
     syncStand: '{status} – as of {t}',
     clockSkewChip: 'Device clock is off ({d} min)',
