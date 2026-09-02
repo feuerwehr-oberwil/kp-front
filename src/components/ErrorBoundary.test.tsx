@@ -3,7 +3,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { ErrorBoundary } from './ErrorBoundary'
 import { appConfig } from '../config/appConfig'
-import { clearCrash, recordCrash } from '../lib/crashLoop'
+import { clearCrash, readCrash, recordCrash } from '../lib/crashLoop'
+
+// The shell reset touches storage and reloads; both are stubbed so the test can assert WHICH keys
+// go (only the two shell caches) and that nothing else does.
+const idbDel = vi.fn(async (_key: string) => {})
+vi.mock('../lib/idb', () => ({ idbDel: (k: string) => idbDel(k) }))
 
 // This fallback IS the recovery surface. Before, its only action was «Neu laden» — which boot
 // answers by auto-reopening the very incident that just crashed, so a data-driven throw became a
@@ -93,6 +98,34 @@ describe('ErrorBoundary — recovery affordances', () => {
       </ErrorBoundary>,
     )
     expect(screen.queryByRole('button', { name: eb.discardLocal })).toBeNull()
+  })
+
+  // The root has no incident to close, so its repeat used to say «Schliesse ihn» with no such
+  // button. Now it offers the shell reset — and that reset may touch ONLY the two shell caches.
+  it('offers «App zurücksetzen» on a repeat ROOT crash, clearing only the shell caches', async () => {
+    recordCrash('')
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...location, reload })
+    render(<ErrorBoundary><Boom /></ErrorBoundary>)
+    expect(screen.getByText(eb.bodyRepeatRoot)).toBeTruthy()
+    expect(screen.getByText(eb.resetShellHint)).toBeTruthy()
+    const reset = screen.getByRole('button', { name: eb.resetShell })
+    expect(reset.className).toMatch(/primary/)
+    expect(screen.getByRole('button', { name: eb.reload }).className).not.toMatch(/primary/)
+    fireEvent.click(reset)
+    await vi.waitFor(() => expect(reload).toHaveBeenCalledOnce())
+    expect(idbDel.mock.calls.map(([k]) => k).sort()).toEqual(['kp-front-incidents', 'kp-front-user'])
+    expect(readCrash()).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('does not offer the shell reset on a first root crash, nor inside an incident', () => {
+    render(<ErrorBoundary><Boom /></ErrorBoundary>)
+    expect(screen.queryByRole('button', { name: eb.resetShell })).toBeNull()
+    cleanup()
+    recordCrash('inc-1')
+    render(<ErrorBoundary scopeId="inc-1" onCloseIncident={vi.fn()}><Boom /></ErrorBoundary>)
+    expect(screen.queryByRole('button', { name: eb.resetShell })).toBeNull()
   })
 
   it('demotes reload from primary once it has provably failed', () => {

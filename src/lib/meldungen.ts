@@ -35,10 +35,16 @@ export const MELDUNG_RANK = {
   review: 5,
   /** another tab of this browser holds the edit lock */
   tabLock: 6,
+  /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
+  symbols: 7,
+  /** offline with no cached basemap for this view — the map is a flat colour */
+  basemap: 8,
+  /** the session cookie expired — the sync is standing still until the operator signs in again */
+  session: 9,
   /** a new build is waiting for the next app start */
-  update: 7,
+  update: 10,
   /** «KP Front als App installieren» */
-  install: 8,
+  install: 11,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK

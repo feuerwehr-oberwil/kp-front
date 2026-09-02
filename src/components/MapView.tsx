@@ -260,6 +260,9 @@ interface Props {
    *  phase lets the app snapshot once for undo and persist on release. */
   onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
   onView: (v: { bearing: number; center: LngLat; zoom: number }) => void
+  /** a base-layer tile failed while offline — there is no cached basemap for this view. Fires
+   *  per failed tile; the caller decides how often to say so (IncidentWorkspace · NoBasemapMeldung). */
+  onBasemapUnavailable?: () => void
   /** coordinate picker: while aiming the map shows a crosshair, the cursor lng/lat
    *  streams to onCursor, and the next map click locks the point via onPick. */
   picking?: boolean
@@ -385,7 +388,7 @@ interface Props {
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
-    onView, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
+    onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
     twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onSelectionDone, twinBound = null, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, onContentTwinUnlock, contentTwinTeam, selectedContentTwinKeys = [], onContentTwinTransform, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
@@ -1772,7 +1775,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Map/style/tile errors were only console.error'd by react-map-gl's default handler, so a
       // field failure was invisible to the deployer. Report, but never rethrow: a failed tile
       // must not take the incident down.
-      onError={(e) => reportClientError(e.error ?? new Error('map error'), { kind: 'error' })}
+      onError={(e) => {
+        reportClientError(e.error ?? new Error('map error'), { kind: 'error' })
+        // A BASE tile failing while the device is offline = no cached basemap for this view: the
+        // map is a flat colour with symbols on it and nothing says why. MapLibre re-fires a
+        // source's error at the map with the `sourceId` it belongs to (style.ts · setEventedParent);
+        // react-map-gl's ErrorEvent type does not carry it, hence the structural read.
+        const sourceId = (e as { sourceId?: string }).sourceId
+        if (sourceId && !navigator.onLine && layers.some((l) => l.base && `s-${l.id}` === sourceId)) onBasemapUnavailable?.()
+      }}
       onClick={handleClick}
       // ⚠️ BOTH fill layers. `l-draw-hit` is line-only, so a polygon's INTERIOR is picked through
       // its fill — and a hatched Fläche lives in its own layer. Leaving it out made the

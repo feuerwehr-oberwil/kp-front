@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
@@ -104,6 +104,9 @@ import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { GpsFollowMeldung } from './components/GpsFollowMeldung'
+import { SurfaceBoundary } from './components/SurfaceBoundary'
+import { SymbolsFailedMeldung } from './components/SymbolsFailedMeldung'
+import { NoBasemapMeldung } from './components/NoBasemapMeldung'
 import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
@@ -376,6 +379,27 @@ export function IncidentWorkspace({
     : null
 
   const sym = useSymbols()
+  // ── the two «Karte läuft, aber…» rows (02.09.) ─────────────────────────────────────────
+  // Symbol pack failed for good (sym.error): Karte and Kroki mount anyway with an empty glyph
+  // table, and the Meldeleiste row offers the reload. Dismissed here only; a reload that fails
+  // again brings it back (reload() clears `error` first, so the row re-publishes on the next
+  // failure).
+  const [symbolsRowHidden, setSymbolsRowHidden] = useState(false)
+  // No cached basemap for this view while offline (MapView · onBasemapUnavailable). Said ONCE
+  // per Einsatz mount — every tile of the view fails, and a dismissed row must not come straight
+  // back — and withdrawn the moment the link returns.
+  const [noBasemap, setNoBasemap] = useState(false)
+  const noBasemapSaid = useRef(false)
+  const onBasemapUnavailable = useCallback(() => {
+    if (noBasemapSaid.current) return
+    noBasemapSaid.current = true
+    setNoBasemap(true)
+  }, [])
+  useEffect(() => {
+    const clear = () => setNoBasemap(false)
+    window.addEventListener('online', clear)
+    return () => window.removeEventListener('online', clear)
+  }, [])
   const mapRef = useRef<MapRef>(null)
   // the locked surface's tool set — see lib/readOnlyTools for why only these two qualify
   const slimMapTools = useMemo(() => slimTools(appConfig.copy.mapTools, MAP_READONLY_TOOLS), [])
@@ -1540,6 +1564,9 @@ export function IncidentWorkspace({
       // matched both roles; this is the Lage catching up.
       if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
       if (pending || pendingShape) { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
+      // …then the coordinate crosshair: while it aims it swallows every map tap and hides the
+      // selection bar, and until 02.09. Escape did not know it existed
+      else if (coord.mode !== 'off') coord.setMode('off')
       else if (panel || viewsOpen) { setPanel(null); setViewsOpen(false) }
       // …then the active TOOL and the dock that belongs to it. Escape used to bail out of an
       // armed placement but leave Messen or Zeichnen running with its dock open over the map,
@@ -1557,7 +1584,7 @@ export function IncidentWorkspace({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pending, pendingShape, panel, viewsOpen, tool, twinView, contentTwinView, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pending, pendingShape, coord.mode, panel, viewsOpen, tool, twinView, contentTwinView, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
@@ -3935,6 +3962,18 @@ export function IncidentWorkspace({
   }
 
   const mapUI = mode === 'map'
+
+  /* ── one fault line per view (SurfaceBoundary, 02.09.) ─────────────────────────────────────
+   * A throw in ANY panel — a Mittel row without a label, a Verlauf text, a building without
+   * floors when the Kroki opened — used to unmount the whole workspace, the Atemschutz alarm host
+   * with it. Every surface below renders inside its own boundary: the card sits in the view, the
+   * rail, top bar and Meldeleiste keep working, and «Zur Karte» is the way out. The alarm host
+   * stays OUTSIDE every one of them (both layouts), and the per-incident ErrorBoundary in App
+   * remains the last line. `toMap` false = no such button (the map itself, the handed-over board). */
+  const crashToMap = () => { if (mode !== 'map') clearMapUi(); setJournalOpen(false); setPanel(null); setMode('map') }
+  const guarded = (surface: string, node: ReactNode, toMap = true) => (
+    <SurfaceBoundary surface={surface} onToMap={toMap ? crashToMap : undefined}>{node}</SurfaceBoundary>
+  )
   /**
    * Is the right-hand dock slot free for a detail panel (.ctx — ContextPanel / DrawEditor /
    * ShapeEditor)?
@@ -3958,6 +3997,12 @@ export function IncidentWorkspace({
   // `maptool-<tool>` on the root drives the map cursor (see .maptool-* in app.css) the way the
   // plan canvas's own `tool-<tool>` does. Gated on mapUI so an armed tool can never leak a
   // crosshair onto Checkliste, Atemschutz or the plan.
+  /* An Einsatz-Link session's one way out (02.09.): shed the link cookie (logout is liveness-
+   * exempt on the server) and land on the normal login. To «/», not a reload: on /l/<token> a
+   * reload would redeem the token again and land right back here. Used by the lite board's
+   * «Abmelden», the launcher footer (App) and the Einsatz-Menü. */
+  const leaveLinkSession = () => { void logout().then(() => window.location.assign('/')) }
+
   /* The Atemschutzüberwachung, as ONE element used by both branches below — the full workspace
    * and the handed-over «Tafel pur» (asLink). Extracted so the prop list exists once: a board
    * that drifts between the two would be the same failure the twin doctrine names, on a surface
@@ -4020,9 +4065,7 @@ export function IncidentWorkspace({
       // nothing else on that screen does.
       lite={asLink ? {
         subtitle: [incidentMeta.title, incidentMeta.address].filter(Boolean).join(' · '),
-        // to «/», not a reload: on /l/<token> a reload would redeem the token again and land
-        // right back on this board
-        onLeave: () => { void logout().then(() => window.location.assign('/')) },
+        onLeave: leaveLinkSession,
       } : undefined}
     />
   )
@@ -4052,7 +4095,7 @@ export function IncidentWorkspace({
         <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
           logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         <RemindersHost {...reminders.host} />
-        {atemschutzBoard}
+        {guarded('atemschutz', atemschutzBoard, false)}
         {/* `onBoard` is unconditionally true here — the board IS the screen, and the strip's own
             rule (see AtemschutzAlarmMeldung's header) is that it steps aside for it. Mounted
             regardless so the two layouts obey ONE contract rather than two. */}
@@ -4077,7 +4120,9 @@ export function IncidentWorkspace({
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
       <RemindersHost {...reminders.host} />
 
-      {sym.ready ? (
+      {/* the map mounts once the pack has loaded OR failed for good — with an empty glyph table a
+          symbol renders as its empty chip, which beats a splash that never ends (02.09.) */}
+      {(sym.ready || sym.error) ? guarded('map', (
         <MapView
           ref={mapRef}
           entities={entities}
@@ -4174,6 +4219,7 @@ export function IncidentWorkspace({
             endDrag()  // 'end' — fold the whole gesture into a single undo step
           }}
           onView={setView}
+          onBasemapUnavailable={onBasemapUnavailable}
           picking={coord.mode === 'aim'}
           onCursor={coord.setAim}
           onPick={(c) => {
@@ -4218,7 +4264,7 @@ export function IncidentWorkspace({
           onMarquee={onMarquee}
           onGroupTransform={transformGroup}
         />
-      ) : (
+      )) : (
         <Splash inApp sub={appConfig.copy.loadingSubtitle} />
       )}
 
@@ -4329,8 +4375,9 @@ export function IncidentWorkspace({
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onOfflineReadiness={() => setOfflineReadyOpen(true)}
             onSyncNow={syncNow}
-            // a link session has no login to leave (and no way back in) — see App's landing card
-            onLogout={linkScoped ? undefined : () => { void logout() }}
+            // a link session sheds its link cookie instead (leaveLinkSession above)
+            onLogout={linkScoped ? leaveLinkSession : () => { void logout() }}
+            leaveLink={linkScoped}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
             sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
           />
@@ -4352,9 +4399,19 @@ export function IncidentWorkspace({
           empty during replay, where the fold is silent too. «Zum Trupp» points at the card the
           Funkkontakt / die Druckmeldung is entered on — the same gesture the Anwesenheit's locked
           rows already use (onJumpToTrupp below). */}
+      {/* the two degraded-map rows (see the state above): symbols that did not load, a basemap
+          that is not cached for this view — each says what still works */}
+      {sym.error && !symbolsRowHidden && (
+        <SymbolsFailedMeldung onReload={() => { setSymbolsRowHidden(false); sym.reload() }} onDismiss={() => setSymbolsRowHidden(true)} />
+      )}
+      {noBasemap && (
+        <NoBasemapMeldung onOpenOffline={() => { setNoBasemap(false); setOfflineReadyOpen(true) }} onDismiss={() => setNoBasemap(false)} />
+      )}
       <AtemschutzAlarmMeldungen
         trupps={trupps}
         severities={azAlarm.severities}
+        // a device that cannot end the alarm gets «Zur Kenntnis genommen» (see the component)
+        canEdit={canEditTrupps}
         intervalMin={azIntervalMin}
         graceSec={azGraceSec}
         // withheld while the board itself is on screen — it shows the alarm in full and the
@@ -4486,11 +4543,18 @@ export function IncidentWorkspace({
           )}
 
           {/* coordinate readout — bottom-centre; aiming follows the cursor, set is locked.
-              hidden during replay so it never stacks under the bottom-centre scrubber */}
+              hidden during replay so it never stacks under the bottom-centre scrubber. The ✕ on
+              its right is the same exit in both states — the mode used to be leavable only from
+              the compass menu, two taps away, while it swallowed every map tap (02.09.). */}
           {coord.readout && !replayActive && (
             <div className={`coord-read${coord.mode === 'aim' ? ' aiming' : ''}${tool === 'measure' ? ' coord-read-stacked' : ''}`} role="status">
-              <div className="cr-row"><span className="cr-tag">LV95</span><span className="cr-val">{fmtLV95(coord.readout[0], coord.readout[1])}</span></div>
-              <div className="cr-row"><span className="cr-tag">WGS84</span><span className="cr-val">{fmtWGS(coord.readout[0], coord.readout[1])}</span></div>
+              <div className="cr-rows">
+                <div className="cr-row"><span className="cr-tag">LV95</span><span className="cr-val">{fmtLV95(coord.readout[0], coord.readout[1])}</span></div>
+                <div className="cr-row"><span className="cr-tag">WGS84</span><span className="cr-val">{fmtWGS(coord.readout[0], coord.readout[1])}</span></div>
+              </div>
+              <button type="button" className="cr-x" aria-label={appConfig.copy.nav.coordsExit} onClick={() => coord.setMode('off')}>
+                <Icon id="close" />
+              </button>
               <div className="cr-hint">{coord.mode === 'aim' ? appConfig.copy.nav.coordsHint : appConfig.copy.nav.coordsLocked}</div>
             </div>
           )}
@@ -5235,7 +5299,8 @@ export function IncidentWorkspace({
         </Overlay>
       )}
 
-      {mode === 'plans' && sym.ready && (
+      {/* like the map: mounted once the pack has loaded OR failed for good (empty glyph table) */}
+      {mode === 'plans' && (sym.ready || sym.error) && guarded('board', (
         <Whiteboard
           railLabels={railLabels}
           plans={planDocs}
@@ -5461,7 +5526,7 @@ export function IncidentWorkspace({
           planScale={planScale}
           onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
         />
-      )}
+      ))}
 
       {pickerOpen && (
         <PlanPicker
@@ -5473,7 +5538,7 @@ export function IncidentWorkspace({
         />
       )}
 
-      {mode === 'checklists' && (
+      {mode === 'checklists' && guarded('checklists', (
         <ChecklistsView
           checklists={checklists}
           canTick={canTick}
@@ -5482,11 +5547,11 @@ export function IncidentWorkspace({
           onBranch={setBranch}
           onAction={checklistAction}
         />
-      )}
+      ))}
 
-      {mode === 'atemschutz' && atemschutzBoard}
+      {mode === 'atemschutz' && guarded('atemschutz', atemschutzBoard)}
 
-      {mode === 'anwesenheit' && (
+      {mode === 'anwesenheit' && guarded('anwesenheit', (
         <AnwesenheitView
           people={personnel}
           attendance={effAttendance}
@@ -5544,9 +5609,9 @@ export function IncidentWorkspace({
           incidentCenter={incidentView.center}
           onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}
         />
-      )}
+      ))}
 
-      {mode === 'mittel' && (
+      {mode === 'mittel' && guarded('mittel', (
         <MittelView
           entries={effMittel}
           canEdit={canEditIncident}
@@ -5554,7 +5619,7 @@ export function IncidentWorkspace({
           captureUsage={captureUsage}
           placedSymbols={placedSymbols}
         />
-      )}
+      ))}
 
       {/* time-travel replay scrubber — read-only past view, owns the playhead + fold */}
       {replayActive && (
@@ -5579,7 +5644,7 @@ export function IncidentWorkspace({
         />
       )}
 
-      {mode === 'rapport' && (
+      {mode === 'rapport' && guarded('rapport', (
         /* onEditDispatch leaves the preflight open so the Einsatzdaten wizard stacks on top
            (later in DOM, same z-index) — canceling it reveals the rapport again instead of a
            dead end. (Saving still remounts the workspace and returns to the map.) */
@@ -5637,10 +5702,10 @@ export function IncidentWorkspace({
           onComplete={canEditIncident && !readOnly ? confirmAndComplete : undefined}
           onFixTranscripts={() => { setJournalOpen(true); setJournalFromRapport(true) }}
         />
-      )}
+      ))}
       {/* unified Verlauf + quick-add — rendered app-level so both open over either surface,
           and AFTER the Rapport sheet so its checklist row can stack the Verlauf on top */}
-      {journalOpen && (
+      {journalOpen && guarded('journal', (
         <Journal
           vocab={journalVocab}
           events={timeline}
@@ -5673,7 +5738,7 @@ export function IncidentWorkspace({
           onOpenPlayer={(e, seekSec) => setPlayer({ row: e, seekSec })}
           onEditText={!readOnly ? (id, text) => journal.appendPatch(id, { textEdit: text }) : undefined}
         />
-      )}
+      ))}
       {player && (
         <AudioPlayerSheet
           row={player.row}
@@ -5778,6 +5843,7 @@ export function IncidentWorkspace({
           lastSyncedAt={lastSyncedAt}
           onSyncNow={syncNow}
           onLoadAll={() => { void downloadOffline(); void reloadPersonnel() }}
+          onCancel={cancelOffline}
           loading={offlineProgress != null}
           progress={offlineProgress}
         />

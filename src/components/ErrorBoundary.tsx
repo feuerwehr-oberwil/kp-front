@@ -1,8 +1,22 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { reportClientError } from '../lib/reportError'
-import { isLooping, recordCrash, type CrashRecord } from '../lib/crashLoop'
+import { clearCrash, isLooping, recordCrash, type CrashRecord } from '../lib/crashLoop'
+import { idbDel } from '../lib/idb'
 import { recordTrouble } from '../lib/trouble'
+
+// The ROOT boundary's repeat-crash escape («App zurücksetzen»): drop the two shell caches that a
+// deterministic root throw can come from — the cached incident list (lib/api/incidents ·
+// INCIDENT_LIST_CACHE) and the cached user (lib/auth · USER_CACHE) — and nothing else. The
+// `kp-front-ws-*` workspace caches hold unsynced edits and are never touched here.
+const SHELL_CACHE_KEYS = ['kp-front-incidents', 'kp-front-user'] as const
+
+/** Clear the shell caches, forget the crash streak, and start over. Exported for the test. */
+export async function resetShell(): Promise<void> {
+  await Promise.all(SHELL_CACHE_KEYS.map((k) => idbDel(k)))
+  clearCrash()
+  location.reload()
+}
 
 // Guards the incident workspace: a render throw (malformed board anno, bad symbol SVG,
 // unexpected hydrated workspace) would otherwise white-screen the kiosk mid-incident.
@@ -18,6 +32,9 @@ import { recordTrouble } from '../lib/trouble'
 //   2nd+ crash → additionally discard this incident's local cached copy and re-pull from the
 //                server. Destructive (unsynced edits go), so it stays hidden until reopening
 //                has demonstrably already failed once.
+// At the ROOT (no scopeId — the launcher, the login, a lazy chunk) a repeat crash instead offers
+// «App zurücksetzen» (resetShell above): the only state a root throw can be reading is the two
+// shell caches, so those go and the incidents stay.
 interface Props {
   children: ReactNode
   /** incident id this boundary guards, for per-incident crash counting. Omit at the root. */
@@ -58,12 +75,19 @@ export class ErrorBoundary extends Component<Props, State> {
     const { scopeId, onCloseIncident, onDiscardLocal } = this.props
     // Reopening this incident has already failed once → offer the destructive path too.
     const looping = isLooping(this.state.crash, scopeId ?? '', Date.now())
+    // …and at the root, where there is no incident to close, the repeat offers the shell reset
+    const rootLoop = looping && !scopeId
     return (
       <div className="login" role="alert">
         <div className="login-card eb-card">
           <div className="login-name" style={{ fontSize: 18 }}>{eb.title}</div>
-          <p className="eb-body">{looping ? eb.bodyRepeat : eb.body}</p>
+          <p className="eb-body">{rootLoop ? eb.bodyRepeatRoot : looping ? eb.bodyRepeat : eb.body}</p>
           <div className="eb-actions">
+            {rootLoop && (
+              <button type="button" className="ip-btn primary" onClick={() => void resetShell()}>
+                {eb.resetShell}
+              </button>
+            )}
             {/* On a repeat crash, reloading is the action that demonstrably does NOT work — so
                 closing the incident becomes the primary and reload steps back to secondary. */}
             <button
@@ -89,6 +113,7 @@ export class ErrorBoundary extends Component<Props, State> {
             )}
           </div>
           {looping && onDiscardLocal && <p className="eb-warn">{eb.discardLocalHint}</p>}
+          {rootLoop && <p className="eb-warn">{eb.resetShellHint}</p>}
         </div>
       </div>
     )

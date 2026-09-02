@@ -54,7 +54,7 @@ const modul3: PlanDocument = {
 const tafel: PlanDocument = {
   id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape',
 }
-const sym: SymbolsApi = { ready: false, order: [], symbols: [], byName: {} }
+const sym: SymbolsApi = { ready: false, error: false, reload: () => {}, order: [], symbols: [], byName: {} }
 
 const pair = (x: number, y: number, lng: number, lat: number): GeorefPair =>
   ({ plan: { x, y }, lngLat: { lng, lat }, kind: 'gesetzt' })

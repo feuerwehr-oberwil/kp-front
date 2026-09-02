@@ -13,7 +13,9 @@ export interface CoordPicker {
   setAim: (c: LngLat | null) => void
   picked: LngLat | null
   setPicked: (c: LngLat | null) => void
-  /** the toolbar button: off→aim, aim→off (cancel), set→aim (re-pick) */
+  /** the toolbar button: off→aim, aim→off (cancel), set→off (done). A locked point is never
+   *  cycled back into aiming — that re-armed the crosshair behind the operator's back and
+   *  swallowed the next map tap (02.09.); a new point is the button pressed twice. */
   cycle: () => void
   /** point to show in the readout: the locked pick (set), or the live crosshair / map
    *  centre (aim), or nothing (off) */
@@ -22,9 +24,10 @@ export interface CoordPicker {
 
 /**
  * One-shot coordinate crosshair: `off` (hidden) → `aim` (follows cursor) → `set` (locked
- * on click). When the create-incident form requests a location, `createPickActive` drops
- * straight into aim. `viewCenter` is the live map centre used as the aim fallback before
- * the cursor has moved.
+ * on click) → `off` again. Every exit — the toolbar button, the readout's ✕, Escape — is
+ * `setMode('off')`; nothing leads from `set` back into `aim`. When the create-incident form
+ * requests a location, `createPickActive` drops straight into aim. `viewCenter` is the live
+ * map centre used as the aim fallback before the cursor has moved.
  */
 export function useCoordPicker(createPickActive: boolean, viewCenter: LngLat): CoordPicker {
   const [mode, setMode] = useState<CoordMode>('off')
@@ -39,7 +42,7 @@ export function useCoordPicker(createPickActive: boolean, viewCenter: LngLat): C
 
   const cycle = () => {
     setAim(null); setPicked(null)
-    setMode((m) => (m === 'aim' ? 'off' : 'aim'))
+    setMode((m) => (m === 'off' ? 'aim' : 'off'))
   }
   const readout = mode === 'set' ? picked : mode === 'aim' ? (aim ?? viewCenter) : null
 

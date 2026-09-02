@@ -56,7 +56,7 @@ const umrisse: PlanDocument = {
 const tafel: PlanDocument = {
   id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape',
 }
-const sym: SymbolsApi = { ready: false, order: [], symbols: [], byName: {} }
+const sym: SymbolsApi = { ready: false, error: false, reload: () => {}, order: [], symbols: [], byName: {} }
 // an annotation somebody drew on the Umrisse sheet BEFORE it became selection-only
 const oldNote: BoardAnno = { id: 'a1', kind: 'text', x: 0.4, y: 0.4, floor: 0, text: 'Alte Notiz' }
 
@@ -556,7 +556,7 @@ describe('the Absperrkreis on a plan', () => {
 describe('the Rotation’s placement magnet pauses the board pan', () => {
   const S = appConfig.copy.shapes
   const symApi: SymbolsApi = {
-    ready: true, order: ['Gefahren'],
+    ready: true, error: false, reload: () => {}, order: ['Gefahren'],
     symbols: [{ cat: 'Gefahren', name: 'VKF Feuer', svg: '<svg viewBox="0 0 10 10"></svg>' }],
     byName: { 'VKF Feuer': '<svg viewBox="0 0 10 10"></svg>' },
   }
