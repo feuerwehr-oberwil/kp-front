@@ -52,7 +52,7 @@ function fmtAgo(ms: number | null): string {
 export function OfflineReadinessSheet({
   onClose, probeUrls, symbolsReady, planCount, objectLabel,
   weatherOk, weatherError, personnelCount, syncStatus, lastSyncedAt,
-  onSyncNow, onLoadAll, loading, progress,
+  onSyncNow, onLoadAll, onCancel, loading, progress,
 }: {
   onClose: () => void
   /** URLs probed against the SW Cache for real offline presence. tiles = the incident-centre
@@ -70,6 +70,8 @@ export function OfflineReadinessSheet({
   onSyncNow: () => void
   /** warm everything cacheable (tiles, plans, symbols, geojson) + refresh the roster */
   onLoadAll: () => void
+  /** abort a running download — what is already stored stays stored, the button returns */
+  onCancel: () => void
   loading: boolean
   progress: { done: number; total: number } | null
 }) {
@@ -242,7 +244,12 @@ export function OfflineReadinessSheet({
             </div>
             <div className="or-prog-meta">
               <span>{o.loadingForOffline}</span>
-              <span className="or-prog-pct">{progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0} %</span>
+              <span className="or-prog-end">
+                <span className="or-prog-pct">{progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0} %</span>
+                {/* the download had no way out until 02.09.: three workers on a dead WLAN ran until
+                    their timeouts, and the button under them was gone for the duration */}
+                <button type="button" className="ip-btn ghost or-prog-cancel" onClick={onCancel}>{o.cancel}</button>
+              </span>
             </div>
           </div>
         ) : justLoaded ? (

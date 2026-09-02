@@ -23,7 +23,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, leaveLink = false, navKey, sheetOpen = false,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -62,8 +62,11 @@ export function IncidentSwitcher({
   /** push edits queued while offline (also auto-fires on reconnect) */
   /** awaited so the button can spin for the round trip and report the outcome */
   onSyncNow: () => void | Promise<void>
-  /** absent for an Einsatz-Link session — there is no login to leave and no way back in */
+  /** leave the session. For an Einsatz-Link session this is «Link-Sitzung beenden» (`leaveLink`):
+   *  the link cookie is shed and the phone lands on the normal login. */
   onLogout?: () => void
+  /** the session is an Einsatz-Link — the logout button carries the link's own label */
+  leaveLink?: boolean
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
   navKey?: string
@@ -354,7 +357,7 @@ export function IncidentSwitcher({
               <span className="ip-menu-username">{user.display_name}</span>
               <span className="ip-menu-userrole">{roleLabel(user.role)}</span>
             </span>
-            {onLogout && <button className="ip-menu-logout" onClick={() => { onLogout(); setOpen(false) }}><Icon id="logout" /> {cp.logout}</button>}
+            {onLogout && <button className="ip-menu-logout" onClick={() => { onLogout(); setOpen(false) }}><Icon id="logout" /> {leaveLink ? appConfig.copy.incidentLink.leave : cp.logout}</button>}
           </div>
           <div className="ip-menu-foot">
             {/* No manual "check for updates" — a fresh deploy surfaces itself via the automatic

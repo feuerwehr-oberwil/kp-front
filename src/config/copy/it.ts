@@ -1740,6 +1740,11 @@ export const it: Localizable<Copy> = {
   meldeleiste: {
     region: 'Messaggi',
   },
+  session: {
+    expiredTitle: 'Accesso scaduto',
+    expiredHint: 'Le modifiche restano su questo dispositivo e si sincronizzano dopo l’accesso',
+    relogin: 'Accedi di nuovo',
+  },
   tabLock: {
     title: 'Aperto in un’altra scheda',
     hint: 'Questa scheda è in sola lettura – la modifica è attiva nell’altra scheda.',
@@ -1881,6 +1886,7 @@ export const it: Localizable<Copy> = {
     dlTightConfirm: 'Carica ridotto',
     dlNoSpace: 'Memoria insufficiente per il set offline (solo {free} liberi). Libera spazio sul dispositivo.',
     loadingForOffline: 'Caricamento per l’offline …',
+    cancel: 'Annulla',
     loadAll: 'Carica tutto per l’offline',
     foot: 'Carica carta, piani, simboli e condotte di questo intervento su questo dispositivo. Meteo e ricerca oggetti richiedono una connessione e non sono disponibili offline.',
     dlDone: 'Carta pronta offline – {n} tasselli',
@@ -2025,6 +2031,7 @@ export const it: Localizable<Copy> = {
     errorHint: 'Riprovare. Se il problema persiste, avvisare il comando d\'intervento.',
     retry: 'Riprova',
     unavailable: 'Questo intervento non è raggiungibile al momento. Ricarica la pagina appena hai di nuovo segnale.',
+    leave: 'Termina sessione del link',
   },
   incidentSwitcher: {
     noIncident: 'Nessun intervento',

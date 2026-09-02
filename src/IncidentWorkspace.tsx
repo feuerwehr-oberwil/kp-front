@@ -3997,6 +3997,12 @@ export function IncidentWorkspace({
   // `maptool-<tool>` on the root drives the map cursor (see .maptool-* in app.css) the way the
   // plan canvas's own `tool-<tool>` does. Gated on mapUI so an armed tool can never leak a
   // crosshair onto Checkliste, Atemschutz or the plan.
+  /* An Einsatz-Link session's one way out (02.09.): shed the link cookie (logout is liveness-
+   * exempt on the server) and land on the normal login. To «/», not a reload: on /l/<token> a
+   * reload would redeem the token again and land right back here. Used by the lite board's
+   * «Abmelden», the launcher footer (App) and the Einsatz-Menü. */
+  const leaveLinkSession = () => { void logout().then(() => window.location.assign('/')) }
+
   /* The Atemschutzüberwachung, as ONE element used by both branches below — the full workspace
    * and the handed-over «Tafel pur» (asLink). Extracted so the prop list exists once: a board
    * that drifts between the two would be the same failure the twin doctrine names, on a surface
@@ -4059,9 +4065,7 @@ export function IncidentWorkspace({
       // nothing else on that screen does.
       lite={asLink ? {
         subtitle: [incidentMeta.title, incidentMeta.address].filter(Boolean).join(' · '),
-        // to «/», not a reload: on /l/<token> a reload would redeem the token again and land
-        // right back on this board
-        onLeave: () => { void logout().then(() => window.location.assign('/')) },
+        onLeave: leaveLinkSession,
       } : undefined}
     />
   )
@@ -4371,8 +4375,9 @@ export function IncidentWorkspace({
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onOfflineReadiness={() => setOfflineReadyOpen(true)}
             onSyncNow={syncNow}
-            // a link session has no login to leave (and no way back in) — see App's landing card
-            onLogout={linkScoped ? undefined : () => { void logout() }}
+            // a link session sheds its link cookie instead (leaveLinkSession above)
+            onLogout={linkScoped ? leaveLinkSession : () => { void logout() }}
+            leaveLink={linkScoped}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
             sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
           />
@@ -5838,6 +5843,7 @@ export function IncidentWorkspace({
           lastSyncedAt={lastSyncedAt}
           onSyncNow={syncNow}
           onLoadAll={() => { void downloadOffline(); void reloadPersonnel() }}
+          onCancel={cancelOffline}
           loading={offlineProgress != null}
           progress={offlineProgress}
         />

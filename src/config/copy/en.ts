@@ -1685,6 +1685,11 @@ export const en: Localizable<Copy> = {
   meldeleiste: {
     region: 'Messages',
   },
+  session: {
+    expiredTitle: 'Sign-in expired',
+    expiredHint: 'Changes stay on this device and sync once you are signed in again',
+    relogin: 'Sign in again',
+  },
   tabLock: {
     title: 'Open in another tab',
     hint: 'This tab is read-only – editing is active in the other tab.',
@@ -1828,6 +1833,7 @@ export const en: Localizable<Copy> = {
     dlTightConfirm: 'Load reduced',
     dlNoSpace: 'Not enough storage for the offline set (only {free} free). Please free up space on the device.',
     loadingForOffline: 'Loading for offline …',
+    cancel: 'Cancel',
     loadAll: 'Load everything for offline',
     foot: 'Loads map, plans, symbols and utility lines for this incident onto this device. Weather and object search need a connection and are not available offline.',
     wsDropped: 'Skipped {n} corrupted entries while loading',
@@ -1968,6 +1974,7 @@ export const en: Localizable<Copy> = {
     errorHint: 'Please try again. If it persists, tell the incident commander.',
     retry: 'Try again',
     unavailable: 'This incident is not reachable right now. Reload the page once you have signal again.',
+    leave: 'End link session',
   },
   incidentSwitcher: {
     noIncident: 'No incident',

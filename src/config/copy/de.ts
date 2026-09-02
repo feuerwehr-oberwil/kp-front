@@ -2514,6 +2514,13 @@ export const de = {
     region: 'Meldungen',
   },
   // single-editor tab lock: a second browser tab on the SAME incident is read-only
+  // the session cookie expired mid-Einsatz (api.ts · SESSION_EXPIRED_EVENT): every request 401s
+  // and nothing used to say so. No ✕ — the row ends only by signing in again.
+  session: {
+    expiredTitle: 'Anmeldung abgelaufen',
+    expiredHint: 'Änderungen bleiben auf diesem Gerät und werden nach der Anmeldung synchronisiert',
+    relogin: 'Neu anmelden',
+  },
   tabLock: {
     title: 'In einem anderen Tab geöffnet',
     hint: 'Dieser Tab ist nur zum Lesen – die Bearbeitung läuft im anderen Tab.',
@@ -2771,6 +2778,8 @@ export const de = {
     dlTightConfirm: 'Reduziert laden',
     dlNoSpace: 'Zu wenig Speicher für den Offline-Vorrat (nur {free} frei). Bitte Platz auf dem Gerät freigeben.',
     loadingForOffline: 'Wird für offline geladen …',
+    // aborts the running download; the tiles already stored stay stored
+    cancel: 'Abbrechen',
     loadAll: 'Alles für offline laden',
     foot: 'Lädt Karte, Pläne, Symbole und Leitungen für diesen Einsatz auf dieses Gerät. Wetter und Objektsuche brauchen eine Verbindung und sind offline nicht verfügbar.',
     // workspace load gate (lib/workspace sanitizeWorkspace): honest reporting, never silent
@@ -2955,6 +2964,9 @@ export const de = {
     // the Einsatz could not be loaded after opening the link (signal gone) – the landing page
     // says so instead of showing an empty incident list
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
+    // the alarm/view link session's only door out: drop the link cookie and land on the normal
+    // login (a private phone used to be bound to the link for the cookie's whole 12 h)
+    leave: 'Link-Sitzung beenden',
   },
   // Standort teilen — the question put to your own phone and what the pill says afterwards.
   // Deliberately without marketing text: who sees what and when is spelled out in full, because

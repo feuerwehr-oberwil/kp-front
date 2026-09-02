@@ -39,6 +39,7 @@ import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, pickBootIncident, sameIncidentList, saveReviewedIncident } from './lib/incidentAlerts'
 import { EinsatzWizard, DatenquellenPanel, FeedbackPrompt, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
+import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
 import { HelpOverlay } from './components/HelpOverlay'
@@ -91,7 +92,7 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
 
 
 export default function App() {
-  const { user, logout } = useAuth()
+  const { user, logout, sessionExpired } = useAuth()
   const isEditor = user?.role === 'editor'
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. The backend answers
   // 403 for everything outside a read allowlist — reports, printing, push, the incident LIST —
@@ -637,6 +638,10 @@ export default function App() {
           Do not add a sixth floating card: either the message has a PLACE — then it belongs in
           that surface, the way ShiftConflictNotice does — or it belongs in this strip. */}
       <Meldeleiste />
+      {/* the session cookie died mid-Einsatz (lib/auth · sessionExpired): every request 401s,
+          the badge cannot say why. Published HERE so it shows with or without an open Einsatz;
+          it ends only by signing in again, which is what its one button does. */}
+      {sessionExpired && <SessionExpiredMeldung onRelogin={() => void logout()} />}
       {activeId && activeMeta && syncRef.current ? (
         <ErrorBoundary
           /* Keyed on activeId ONLY (not `remount`): a background remount — the live-follow
@@ -754,6 +759,14 @@ export default function App() {
               }</p>
             )}
             <div className="ip-emptyapp-actions">
+              {/* the link's Einsatz could not be fetched: the sentence above says so, and this is
+                  the one thing the responder can do about it — a link session has no other
+                  affordance on this card */}
+              {linkScoped && openIncidents.length === 0 && (
+                <button className="ip-btn primary block" onClick={() => location.reload()}>
+                  <Icon id="rotate" />{appConfig.copy.incidentLink.retry}
+                </button>
+              )}
               {isEditor && (
                 <button className="ip-btn primary block" onClick={() => setOverlay('create')}>
                   <Icon id="plus" />{appConfig.copy.intake.manualIncident}
@@ -776,9 +789,13 @@ export default function App() {
                   <span className="ip-menu-username">{user?.display_name ?? ''}</span>
                   <span className="ip-menu-userrole">{roleLabel(user?.role ?? 'viewer')}</span>
                 </span>
-                {/* no Abmelden on a link session: there is no login to leave, /api/auth/logout
-                    is refused, and tapping it would strand a responder with no way back in */}
-                {!linkScoped && <button className="ip-foot-logout" onClick={() => void logout()}><Icon id="logout" />{appConfig.copy.incidentSwitcher.logout}</button>}
+                {/* a link session has no login to leave — but it CAN shed the link cookie (logout is
+                    liveness-exempt on the server), which is the only way this phone gets back to
+                    the normal login before the cookie's 12 h are up. To «/», not a reload: on
+                    /l/<token> a reload would redeem the token again. */}
+                {linkScoped
+                  ? <button className="ip-foot-logout" onClick={() => { void logout().then(() => window.location.assign('/')) }}><Icon id="logout" />{appConfig.copy.incidentLink.leave}</button>
+                  : <button className="ip-foot-logout" onClick={() => void logout()}><Icon id="logout" />{appConfig.copy.incidentSwitcher.logout}</button>}
               </div>
               <div className="ip-emptyapp-utils">
                 <button className="ip-foot-util" onClick={() => setLandingSheet('settings')}><Icon id="gear" />{appConfig.copy.settings.title}</button>

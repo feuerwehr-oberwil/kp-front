@@ -1684,6 +1684,11 @@ export const fr: Localizable<Copy> = {
   meldeleiste: {
     region: 'Messages',
   },
+  session: {
+    expiredTitle: 'Connexion expirée',
+    expiredHint: 'Les modifications restent sur cet appareil et seront synchronisées après la connexion',
+    relogin: 'Se reconnecter',
+  },
   tabLock: {
     title: 'Ouvert dans un autre onglet',
     hint: 'Cet onglet est en lecture seule – l’édition est active dans l’autre onglet.',
@@ -1825,6 +1830,7 @@ export const fr: Localizable<Copy> = {
     dlTightConfirm: 'Charger en réduit',
     dlNoSpace: 'Stockage insuffisant pour le jeu hors ligne (seulement {free} libres). Libérez de l’espace sur l’appareil.',
     loadingForOffline: 'Chargement pour le hors ligne …',
+    cancel: 'Annuler',
     loadAll: 'Tout charger pour le hors ligne',
     foot: 'Charge la carte, les plans, les symboles et les conduites de cette intervention sur cet appareil. La météo et la recherche d’objet nécessitent une connexion et ne sont pas disponibles hors ligne.',
     dlDone: 'Carte prête hors ligne – {n} tuiles',
@@ -1969,6 +1975,7 @@ export const fr: Localizable<Copy> = {
     errorHint: 'Merci de réessayer. Si cela persiste, avertir le commandant d\'intervention.',
     retry: 'Réessayer',
     unavailable: 'Cette intervention n\'est pas accessible pour le moment. Recharge la page dès que tu as du réseau.',
+    leave: 'Terminer la session du lien',
   },
   incidentSwitcher: {
     noIncident: 'Aucune intervention',
