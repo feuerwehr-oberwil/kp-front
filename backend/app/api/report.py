@@ -23,10 +23,11 @@ from .. import storage
 from ..auth.dependencies import CurrentUser
 from ..database import get_db
 from ..models import DeploymentConfig as DeploymentConfigRow
-from ..models import DiveraEmergency, Incident, Media, ReferenceDataset
+from ..models import DiveraEmergency, Media, ReferenceDataset
 from ..report_pdf import ReportPayload, compose_report_pdf
 from ..schichtplan_pdf import compose_schichtplan_pdf
 from ..zeitplan_pdf import ZeitplanPayload, compose_zeitplan_pdf
+from .incidents import get_incident_or_404
 
 router = APIRouter(tags=["report"])
 
@@ -213,9 +214,7 @@ async def report_pdf(
     figures: list[UploadFile] = File(default=[]),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-    if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    inc = await get_incident_or_404(db, incident_id)
 
     # Legacy figures are keyed by the multipart filename (krokiKey / plan.key / photoKey).
     figs: dict[str, bytes] = {}
@@ -272,9 +271,7 @@ async def zeitplan_pdf(
     Read-only output like the rapport, so CurrentUser rather than CurrentEditor: a viewer
     coming to relieve the shift may print the sheet they are walking into.
     """
-    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-    if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    inc = await get_incident_or_404(db, incident_id)
     pdf, data = await anyio.to_thread.run_sync(compose_zeitplan_from_payload, payload)
     return Response(
         content=pdf,

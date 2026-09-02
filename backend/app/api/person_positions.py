@@ -47,6 +47,7 @@ from ..auth.capture_limiter import position_limiter
 from ..auth.dependencies import CurrentUser
 from ..database import dialect_insert, execute_dml, get_db
 from ..models import Incident, Personnel, PersonPosition
+from .incidents import INCIDENT_NOT_FOUND, get_incident_or_404
 
 #: A second device claiming a person who is already sharing is refused while the incumbent is
 #: still alive. Past that, last claim wins — a responder who swapped phones (or reinstalled)
@@ -105,9 +106,11 @@ async def _open_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
     (`_incident_still_open` refuses first); this covers the signed-in path and the race where
     an Einsatz is closed while a phone is mid-flight.
     """
-    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-    if inc is None or not inc.is_open:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    inc = await get_incident_or_404(db, incident_id)
+    if not inc.is_open:
+        # Deliberately the SAME answer as «no such incident»: a phone must not learn from a
+        # 403-vs-404 that an Einsatz it may no longer report into exists.
+        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
     return inc
 
 

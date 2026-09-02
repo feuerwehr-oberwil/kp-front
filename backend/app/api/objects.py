@@ -13,9 +13,10 @@ from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrA
 from ..config import settings
 from ..database import get_db
 from ..geo_util import haversine_m
-from ..models import Incident, ObjectSite, ReferenceDataset
+from ..models import ObjectSite, ReferenceDataset
 from ..plans import store_plan
 from ..schemas import ObjectIn, ObjectOut, ObjectWithPlans, ReferenceDatasetOut
+from .incidents import get_incident_or_404
 
 router = APIRouter(prefix="/objects", tags=["objects"])
 
@@ -238,9 +239,7 @@ def _norm_addr(s: str | None) -> str:
 
 @incidents_objects_router.get("/{incident_id}/objects", response_model=list[ObjectWithPlans])
 async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)):
-    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-    if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    inc = await get_incident_or_404(db, incident_id)
     objs = list((await db.execute(select(ObjectSite))).scalars())
 
     # Address match wins over pure proximity: geocoding "Strasse Nr" to a precise building

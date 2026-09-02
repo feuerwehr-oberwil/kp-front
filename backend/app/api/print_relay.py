@@ -33,6 +33,7 @@ from ..credentials import load as load_credentials
 from ..database import execute_dml, get_db
 from ..models import Incident, PrintJob
 from ..report_pdf import ReportPayload
+from .incidents import get_incident_or_404
 from .report import (
     compose_report_from_payload,
     compose_zeitplan_from_payload,
@@ -238,9 +239,7 @@ async def report_print(
     payload: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-    if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    inc = await get_incident_or_404(db, incident_id)
     job = await enqueue_print_job(db, inc, payload, kind="report", requested_by=user.id)
     return {"job_id": str(job.id), "status": job.status}
 
@@ -257,9 +256,7 @@ async def zeitplan_print(
     monochrome: it is rules, marks and bars, and a colour cartridge is a consumable."""
     if not relay_available():
         raise HTTPException(status_code=403, detail="Stationsdrucker nicht konfiguriert")
-    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-    if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    inc = await get_incident_or_404(db, incident_id)
     pdf, data = compose_zeitplan_from_payload(payload)
     job = PrintJob(
         incident_id=inc.id,
@@ -287,9 +284,7 @@ async def report_print_prewarm(
     enqueue render is near-instant. Best-effort: no printer side effects, never fails hard."""
     if not relay_available():
         return {"ok": False}
-    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-    if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    await get_incident_or_404(db, incident_id)  # 404 rather than warming a cache for nothing
     await warm_report_from_payload(payload)
     return {"ok": True}
 

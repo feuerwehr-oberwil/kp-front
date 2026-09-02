@@ -33,6 +33,7 @@ from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import get_db
 from ..models import Incident, Media, SttJob
+from .incidents import get_incident_or_404
 
 router = APIRouter(tags=["media"])
 logger = logging.getLogger(__name__)
@@ -297,9 +298,7 @@ async def download_media_archive(
     reaches this route — it is not on the allowlist, and must not be: the QR poster's scope
     is contributing, not carrying away the whole Einsatz's media.
     """
-    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-    if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    inc = await get_incident_or_404(db, incident_id)
     rows = list(
         (await db.execute(select(Media).where(Media.incident_id == incident_id).order_by(Media.created_at))).scalars()
     )

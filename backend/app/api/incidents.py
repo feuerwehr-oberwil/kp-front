@@ -53,8 +53,16 @@ def _json_safe(v: object) -> object:
     return v.isoformat() if isinstance(v, datetime) else v
 
 
-async def _get(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) -> Incident:
-    """`lock` takes the row FOR UPDATE — for a check-then-set like minting a link secret, where
+#: What every surface says when the incident behind an id is not there. One string, because
+#: it is also the answer a caller must not be able to tell apart from «not yours» — six
+#: routers outside this one raise it through `get_incident_or_404` below.
+INCIDENT_NOT_FOUND = "Einsatz nicht gefunden"
+
+
+async def get_incident_or_404(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) -> Incident:
+    """The incident behind a path id, or 404 — the load every incident-scoped route opens with.
+
+    `lock` takes the row FOR UPDATE — for a check-then-set like minting a link secret, where
     two editors reading NULL in the same window would otherwise both write, and the QR the
     first one already showed encodes a secret the second one overwrote."""
     stmt = select(Incident).where(Incident.id == incident_id)
@@ -62,7 +70,7 @@ async def _get(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) 
         stmt = stmt.with_for_update()
     inc = (await db.execute(stmt)).scalar_one_or_none()
     if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
     return inc
 
 
@@ -135,7 +143,7 @@ async def create_incident(body: IncidentCreate, user: CurrentEditor, db: AsyncSe
 
 @router.get("/{incident_id}", response_model=IncidentFull)
 async def get_incident(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)) -> Incident:
-    return await _get(db, incident_id)
+    return await get_incident_or_404(db, incident_id)
 
 
 async def _latch_editor_opened(db: AsyncSession, incident_id: uuid.UUID) -> None:
@@ -155,7 +163,7 @@ async def _rev(db: AsyncSession, incident_id: uuid.UUID) -> int:
     """The workspace revision alone — a cheap int column, no JSONB. 404 if the incident is gone."""
     rev = (await db.execute(select(Incident.workspace_rev).where(Incident.id == incident_id))).scalar_one_or_none()
     if rev is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
     return rev
 
 
@@ -198,7 +206,7 @@ async def get_workspace(
                     rev = await _rev(db, incident_id)
         if since == rev:
             return Response(status_code=status.HTTP_304_NOT_MODIFIED)
-    inc = await _get(db, incident_id)
+    inc = await get_incident_or_404(db, incident_id)
     if latch and since is None:
         await _latch_editor_opened(db, incident_id)
     return WorkspaceOut(workspace=inc.map_workspace_json, workspace_rev=inc.workspace_rev)
@@ -230,7 +238,7 @@ async def apply_workspace_put(
         ),
     )
     if result.rowcount == 0:
-        inc = await _get(db, incident_id)
+        inc = await get_incident_or_404(db, incident_id)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
@@ -260,7 +268,7 @@ async def apply_workspace_put(
 async def put_workspace(
     incident_id: uuid.UUID, body: WorkspacePut, user: CurrentEditor, db: AsyncSession = Depends(get_db)
 ) -> WorkspaceOut:
-    await _get(db, incident_id)  # 404 if the incident doesn't exist
+    await get_incident_or_404(db, incident_id)  # 404 if the incident doesn't exist
     await _latch_editor_opened(db, incident_id)
     return await apply_workspace_put(db, incident_id, body, user_id=user.id)
 
@@ -284,7 +292,7 @@ async def put_workspace_trupps(
     retries) rather than a silent overwrite. Editors may use it too — same route, same rules —
     and only they latch `editor_opened_at`; a link session is not «the KP has this incident».
     """
-    inc = await _get(db, incident_id)
+    inc = await get_incident_or_404(db, incident_id)
     link = is_atemschutz_link(user)
     if not link:
         await _latch_editor_opened(db, incident_id)
@@ -305,7 +313,7 @@ async def put_workspace_trupps(
 async def patch_incident(
     incident_id: uuid.UUID, body: IncidentPatch, user: CurrentEditor, db: AsyncSession = Depends(get_db)
 ) -> Incident:
-    inc = await _get(db, incident_id)
+    inc = await get_incident_or_404(db, incident_id)
     data = body.model_dump(exclude_unset=True)
     # The public demo has exactly one prepared running incident and one prepared archive.
     # Visitors may edit their contents, but changing either lifecycle leaves the next magazine
@@ -451,7 +459,7 @@ async def get_view_link(
     incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)
 ) -> ViewLinkOut:
     """What the Rapport shows: the live link, or that there is none."""
-    inc = await _get(db, incident_id)
+    inc = await get_incident_or_404(db, incident_id)
     return ViewLinkOut(
         enabled=bool(inc.view_link_key),
         token=_view_link_token(inc.view_link_key) if inc.view_link_key else None,
@@ -463,7 +471,7 @@ async def create_view_link(
     incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
 ) -> ViewLinkOut:
     """Mint the link, or hand back the one that already exists."""
-    inc = await _get(db, incident_id)
+    inc = await get_incident_or_404(db, incident_id)
     if not inc.view_link_key:
         inc.view_link_key = secrets.token_urlsafe(32)
         await db.flush()
@@ -487,7 +495,7 @@ async def revoke_view_link(
 ) -> ViewLinkOut:
     """Revoke it. The URL stops working AND every session already open on it ends — checked per
     request in auth/incident_link, because a link that cannot expire has to be killable."""
-    inc = await _get(db, incident_id)
+    inc = await get_incident_or_404(db, incident_id)
     if inc.view_link_key:
         inc.view_link_key = None
         await db.flush()
@@ -537,7 +545,7 @@ async def create_einsatz_link(
     """
     from .incident_link import mint_incident_link_token, no_minting_key, station_minting_key
 
-    inc = await _get(db, incident_id, lock=True)
+    inc = await get_incident_or_404(db, incident_id, lock=True)
     key = await station_minting_key(db)
     if not key:
         raise no_minting_key()
@@ -609,7 +617,7 @@ async def get_atemschutz_link(
     """The live link, or that there is none. Readable on a closed Einsatz too — the QR panel
     has to be able to show that a link is still standing, which is what makes revoking it a
     deliberate act rather than something forgotten."""
-    inc = await _get(db, incident_id)
+    inc = await get_incident_or_404(db, incident_id)
     return ViewLinkOut(
         enabled=bool(inc.atemschutz_link_key),
         token=_atemschutz_link_token(inc.atemschutz_link_key) if inc.atemschutz_link_key else None,
@@ -627,7 +635,7 @@ async def create_atemschutz_link(
     «not in this state», not the exchange's deliberately blind 404. A minted link would be dead
     on arrival anyway — `enforce_link_scope` requires the Einsatz to be open on every request.
     """
-    inc = await _get(db, incident_id, lock=True)
+    inc = await get_incident_or_404(db, incident_id, lock=True)
     if not inc.is_open:
         raise HTTPException(
             status_code=409,
@@ -655,7 +663,7 @@ async def revoke_atemschutz_link(
 ) -> ViewLinkOut:
     """Take it back mid-Einsatz. The URL stops working AND the phone that already has it open
     is refused on its next request (auth/incident_link · `_atemschutz_key_unchanged`)."""
-    inc = await _get(db, incident_id)
+    inc = await get_incident_or_404(db, incident_id)
     if inc.atemschutz_link_key:
         inc.atemschutz_link_key = None
         await db.flush()
@@ -703,7 +711,7 @@ async def delete_incident(
     ⚠️ The deletion is logged at WARNING before it happens, because the audit chain that would
     otherwise record it is one of the things being deleted.
     """
-    inc = await _get(db, incident_id)
+    inc = await get_incident_or_404(db, incident_id)
     if await is_demo_deployment(db):
         raise HTTPException(status_code=403, detail="In der Demo können Einsätze nicht gelöscht werden.")
     if not inc.is_exercise:
