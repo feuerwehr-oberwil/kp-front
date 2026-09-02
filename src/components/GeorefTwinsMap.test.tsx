@@ -13,6 +13,7 @@ vi.mock('react-map-gl/maplibre', () => ({
 }))
 
 import { GeorefTwinsMap } from './GeorefTwinsMap'
+import { sheetPeeked } from '../lib/sheetPeek'
 
 afterEach(cleanup)
 
@@ -138,6 +139,30 @@ describe('the whole drag on a Plan twin, from the press to the release', () => {
     expect(coord[0]).toBeCloseTo(7.7, 6)             // +100 px east across 1000 px/deg
     // the map's own pan is taken away for the drag and handed straight back
     expect(setDragPan.mock.calls.map((c) => c[0])).toEqual([false, true])
+  })
+
+  /**
+   * ⚠️ THE «nur auf einer Achse» regression (02.09.).
+   *
+   * This gesture is by construction the one that runs with a sheet open: the touch shortcut that
+   * lets a twin drag on the FIRST travel is armed by `instant: selected`, and a twin counts as
+   * selected exactly when its source-backed panel is up. On a phone that .ctx owns the bottom
+   * 46–88 dvh, so the drag had the full screen width sideways and a strip downward — pull a
+   * mirrored Feuer down and it went under the glass on the first centimetre and never came back.
+   * Every other object drag on both surfaces has peeked the sheet away since 28.08.
+   */
+  it('peeks the phone detail sheet away for the drag, and gives it straight back', () => {
+    const onMove = vi.fn()
+    const setDragPan = vi.fn()
+    render(<GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }} zoom={18} selectedKey="modul1:a1"
+      onOpen={() => {}} onMove={onMove} project={project} unproject={unproject} setDragPan={setDragPan} />)
+    const mark = screen.getByRole('button')
+    fireEvent.pointerDown(mark, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
+    expect(sheetPeeked()).toBe(false)          // a press alone is not a drag
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 100, clientY: 180 })
+    expect(sheetPeeked()).toBe(true)           // …and now the surface below is free
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 100, clientY: 180 })
+    expect(sheetPeeked()).toBe(false)
   })
 
   it('drags a SELECTED twin on the first travel, exactly like the native symbol beside it', () => {

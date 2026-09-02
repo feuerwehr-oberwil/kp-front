@@ -90,7 +90,10 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
         // Match the source marker: no selection tap is needed first (that made the mirror feel
         // inert) — the press itself decides, through the shared hold. A tap opens the panel and
         // paints the halo; a hold moves the source.
-        const movable = interactive && canDrag
+        // ⚠️ …and nothing drags while a pile is FANNED, the native's own rule (MapMarkers ·
+        // canDrag): a fanned glyph stands off its real position, so the gesture anchors at the
+        // true coord and the mark would leap the spoke's length out from under the finger.
+        const movable = interactive && canDrag && !spoke
         const name = twinName(a)
         const veh = a.symbol === appConfig.symbols.vehicleName
         // Plan rotation is paper-relative. Plan-up points at bearing −fit.rotationDeg, then the

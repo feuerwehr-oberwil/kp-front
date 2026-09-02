@@ -6,6 +6,15 @@
  *  buzz, a quick flick stays a map pan, and every armed sample is re-anchored through the LIVE
  *  map transform so a pinch under the finger cannot teleport the mark.
  *
+ *  ⚠️ On a phone the drag also peeks the detail sheet away (lib/sheetPeek), because this gesture
+ *  is by construction the one that runs with a sheet open: the touch shortcut that lets a twin
+ *  drag on the FIRST travel is armed by `instant: selected`, and a twin is «selected» exactly
+ *  when its source-backed panel is up. Without the peek the .ctx owned the bottom 46–88 dvh of
+ *  the screen for the whole drag: sideways had the full width, downward had a strip, and a
+ *  mirrored symbol pulled down vanished under the glass on the first centimetre — «lässt sich
+ *  nur auf einer Achse ziehen» (02.09.). Every other object drag on both surfaces has had it
+ *  since 28.08.; the twins were the one family that never asked.
+ *
  *  ⚠️ A twin must never be a react-map-gl `draggable` Marker. That claims the pointer on
  *  pointerdown and suppresses the map's own pan, so any pan starting on a projection drags the
  *  projection instead of the map — the failure mode `useHoldToDrag`'s header describes, and the
@@ -13,6 +22,7 @@
  */
 import { useRef } from 'react'
 import { useHoldToDrag } from './useHoldToDrag'
+import { beginSheetPeek, endSheetPeek } from './sheetPeek'
 import type { LngLat } from '../types'
 
 export interface MapTwinDragDeps<T> {
@@ -42,7 +52,7 @@ export function useMapTwinDrag<T>({ project, unproject, setDragPan, onMove }: Ma
   const hold = useHoldToDrag()
   /** the live drag — re-anchored from the LAST written coord on every move. One ref for the whole
    *  layer: only one projection is ever dragged at a time. */
-  const drag = useRef<{ lx: number; ly: number; last: LngLat } | null>(null)
+  const drag = useRef<{ lx: number; ly: number; last: LngLat; moved: boolean } | null>(null)
   /** the surface handed over everything a drag needs — per-mark permission is `movable` */
   const canDrag = !!onMove && !!project && !!unproject
 
@@ -56,7 +66,7 @@ export function useMapTwinDrag<T>({ project, unproject, setDragPan, onMove }: Ma
       onTap,
       onHoldStart: () => {
         setDragPan?.(false)
-        drag.current = { lx: ev.clientX, ly: ev.clientY, last: anchor }
+        drag.current = { lx: ev.clientX, ly: ev.clientY, last: anchor, moved: false }
         onMove?.(twin, anchor, 'start')
       },
       onDragMove: (mx, my) => {
@@ -67,12 +77,19 @@ export function useMapTwinDrag<T>({ project, unproject, setDragPan, onMove }: Ma
         const nc = unproject?.({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
         if (!nc) return
         st.lx = mx; st.ly = my; st.last = nc
+        // ⚠️ On the FIRST real sample, not in onHoldStart — and that ordering is the whole point.
+        // Taking the pan away above makes MapLibre deactivate its own drag handler, which fires
+        // `dragend`, which is wired to `endSheetPeek` (MapView · onDragEnd). A peek armed before
+        // that would be torn straight back down. The native marker beside this one arms it in
+        // exactly the same place (MapMarkers · st.moved).
+        if (!st.moved) { st.moved = true; beginSheetPeek() }
         onMove?.(twin, nc, 'move')
       },
       onDragEnd: () => {
         const st = drag.current
         drag.current = null
         setDragPan?.(true)
+        endSheetPeek() // …and the sheet comes back to the height it had
         if (st) onMove?.(twin, st.last, 'end')
       },
     }, { mode: ev.pointerType === 'mouse' || instant ? 'mouse' : 'touch', canDrag: movable })

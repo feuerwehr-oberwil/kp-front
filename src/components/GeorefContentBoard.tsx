@@ -24,6 +24,7 @@ import { LockChip } from './LockChip'
 import { TwinTeamPill } from './TwinTeamPill'
 import type { GeorefFit } from '../lib/georef'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { contentTwinName, type BoardDrawingTwin, type BoardEntityTwin } from '../lib/georefTwins'
 import { WbInkLayer, WbVertexHandles } from './WbControls'
 import { ShapeGlyph, shapeAspect } from '../lib/shapes'
@@ -133,6 +134,8 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
       if (!d.moved) {
         if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
         d.moved = true
+        // the phone's .ctx sheet steps aside for the drag, as it does for the sheet's own chips
+        beginSheetPeek()
         onMoveTeam!(d.entity, d.base, 'start')
       }
       onMoveTeam!(d.entity, {
@@ -144,6 +147,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
       const d = chipDrag.current
       if (!d || d.pid !== ev.pointerId) return
       chipDrag.current = null
+      endSheetPeek()
       if (d.moved) {
         onMoveTeam!(d.entity, {
           x: Math.max(0, Math.min(1, d.base.x + (ev.clientX - d.x) / sW)),
@@ -151,7 +155,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
         }, 'end')
       } else if (jump) jump()
     },
-    onPointerCancel: () => { const d = chipDrag.current; chipDrag.current = null; if (d?.moved) onMoveTeam!(d.entity, d.base, 'end') },
+    onPointerCancel: () => { const d = chipDrag.current; chipDrag.current = null; endSheetPeek(); if (d?.moved) onMoveTeam!(d.entity, d.base, 'end') },
   })
   const drawingDrag = useRef<{
     pid: number; x: number; y: number; drawing: Drawing; moved: boolean; last: LngLat[]
@@ -191,6 +195,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
       if (!d.moved) {
         if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
         d.moved = true
+        beginSheetPeek()
         onDrawingCoords(d.drawing.id, d.drawing.coords, 'start')
       }
       d.last = movedDrawingCoords(d.drawing, dx, dy)
@@ -200,12 +205,14 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
       const d = drawingDrag.current
       if (!d || d.pid !== ev.pointerId) return
       drawingDrag.current = null
+      endSheetPeek()
       if (d.moved) onDrawingCoords?.(d.drawing.id, d.last, 'end')
       else onOpenDrawing?.(d.drawing)
     },
     onPointerCancel: () => {
       const d = drawingDrag.current
       drawingDrag.current = null
+      endSheetPeek()
       if (d?.moved) onDrawingCoords?.(d.drawing.id, d.last, 'end')
     },
   })

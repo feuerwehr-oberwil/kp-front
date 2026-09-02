@@ -29,6 +29,7 @@
 import { HubretterBoom, TacticalSymbol } from '../lib/symbolRender'
 import { useRef } from 'react'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import type { SymbolProps } from '../types'
 import s from './GeorefTwins.module.css'
 
@@ -139,6 +140,9 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
       // its own 4 px, so two twins standing next to each other answered a nudge differently
       if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
       d.moved = true
+      // on a phone the .ctx sheet owns the bottom half of the surface — it steps aside for the
+      // length of the drag, exactly as every native chip drag makes it (lib/sheetPeek)
+      beginSheetPeek()
       onMove?.('start', 0, 0)
     }
     onMove?.('move', dx, dy)
@@ -148,6 +152,7 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
     if (!d || d.id !== e.pointerId) return
     drag.current = null
     dragged.current = d.moved
+    endSheetPeek() // …and comes back to the height it had
     if (d.moved) onMove?.('end', e.clientX - d.x, e.clientY - d.y)
   }
   return (
