@@ -149,3 +149,10 @@ ignore_errors = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+# SQLAlchemy's async layer hops through greenlets, so every request handler body runs
+# inside one. Without this, coverage.py traces only the import-time lines and reports a
+# fiction: the whole suite measured 74 % instead of 82 %, and `tests/test_capture.py`
+# alone 47 % instead of 83 %. Keep `thread` alongside it for the scheduler's jobs.
+concurrency = ["greenlet", "thread"]
