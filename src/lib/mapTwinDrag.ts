@@ -28,6 +28,11 @@ export interface MapTwinGestureOpts {
   /** this particular mark may be moved (a locked source, an anchored endpoint or a read-only
    *  surface says no) — it gates the MOVE only, a tap still opens the editor */
   movable: boolean
+  /** this mark is already SELECTED, so a touch drags on the first travel instead of waiting out
+   *  the 180 ms hold — the native marker's own rule (MapMarkers · `mode`), and the twin has to
+   *  answer alike or the mirror of a symbol you have just tapped refuses the drag its original
+   *  accepts. The deliberate hold stays for an unselected mark, so a flick across one still pans. */
+  instant?: boolean
   /** tap (a press that never became a drag). Reported by the hook rather than by the browser
    *  click, which a slightly-moved touch often never fires at all. */
   onTap?: () => void
@@ -41,7 +46,11 @@ export function useMapTwinDrag<T>({ project, unproject, setDragPan, onMove }: Ma
   /** the surface handed over everything a drag needs — per-mark permission is `movable` */
   const canDrag = !!onMove && !!project && !!unproject
 
-  const begin = (ev: React.PointerEvent, twin: T, anchor: LngLat, { movable, onTap }: MapTwinGestureOpts) => {
+  const begin = (ev: React.PointerEvent, twin: T, anchor: LngLat, { movable, instant, onTap }: MapTwinGestureOpts) => {
+    // React-level only, and that is the point: the map's DragPan listens NATIVELY on the
+    // container, below React's delegated root, so this cannot take the pan away from it (a pan
+    // starting on a twin still pans). What it does stop is a React parent reading the press as
+    // «tapped elsewhere» — the pan itself is handed back by setDragPan once the drag arms.
     ev.stopPropagation()
     hold.begin({ clientX: ev.clientX, clientY: ev.clientY, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
       onTap,
@@ -66,7 +75,7 @@ export function useMapTwinDrag<T>({ project, unproject, setDragPan, onMove }: Ma
         setDragPan?.(true)
         if (st) onMove?.(twin, st.last, 'end')
       },
-    }, { mode: ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: movable })
+    }, { mode: ev.pointerType === 'mouse' || instant ? 'mouse' : 'touch', canDrag: movable })
   }
 
   return { begin, canDrag, cancel: hold.cancel }

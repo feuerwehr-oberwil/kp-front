@@ -102,6 +102,57 @@ describe('a Plan twin on the Karte', () => {
   })
 })
 
+/**
+ * The whole gesture, on the composed layer — not on the hook.
+ *
+ * This is the «Zwilling lässt sich nicht verschieben» report (01.09.), walked end to end: the
+ * press on the mark, the arm, the samples, the write-through to the SOURCE twin, the map's pan
+ * being taken away for the drag and handed straight back on release.
+ *
+ * ⚠️ The selected case is the regression. An already-selected NATIVE symbol drags on the first
+ * travel (MapMarkers · `mode`), so the operator who has just tapped a mirrored Feuer and pulls it
+ * gets nothing if its mirror still insists on the 180 ms hold — «kann gespiegelte Symbole nicht
+ * verschieben», with the object sitting there wearing its halo.
+ */
+describe('the whole drag on a Plan twin, from the press to the release', () => {
+  const drag = (opts: { selected?: boolean; pointerType?: 'mouse' | 'touch' } = {}) => {
+    const onMove = vi.fn()
+    const setDragPan = vi.fn()
+    render(<GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }} zoom={18}
+      selectedKey={opts.selected ? 'modul1:a1' : undefined}
+      onOpen={() => {}} onMove={onMove} project={project} unproject={unproject} setDragPan={setDragPan} />)
+    const mark = screen.getByRole('button')
+    fireEvent.pointerDown(mark, { pointerId: 1, isPrimary: true, pointerType: opts.pointerType ?? 'touch', clientX: 100, clientY: 100 })
+    for (const step of [20, 60, 100]) fireEvent.pointerMove(window, { pointerId: 1, clientX: 100 + step, clientY: 100 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 200, clientY: 100 })
+    return { onMove, setDragPan }
+  }
+
+  it('press-drags at once with a mouse, and writes the ground coordinate to the SOURCE', () => {
+    const { onMove, setDragPan } = drag({ pointerType: 'mouse' })
+    const phases = onMove.mock.calls.map((c) => c[2])
+    expect(phases[0]).toBe('start')
+    expect(phases[phases.length - 1]).toBe('end')
+    const [source, coord] = onMove.mock.calls[onMove.mock.calls.length - 1]
+    expect(source.annoId).toBe('a1')                 // the plan annotation, never the projection
+    expect(coord[0]).toBeCloseTo(7.7, 6)             // +100 px east across 1000 px/deg
+    // the map's own pan is taken away for the drag and handed straight back
+    expect(setDragPan.mock.calls.map((c) => c[0])).toEqual([false, true])
+  })
+
+  it('drags a SELECTED twin on the first travel, exactly like the native symbol beside it', () => {
+    const { onMove } = drag({ selected: true })
+    expect(onMove.mock.calls[0]?.[2]).toBe('start')
+    expect(onMove.mock.calls[onMove.mock.calls.length - 1]?.[1][0]).toBeCloseTo(7.7, 6)
+  })
+
+  it('…and still leaves an UNSELECTED twin\'s flick to the map', () => {
+    const { onMove, setDragPan } = drag()
+    expect(onMove).not.toHaveBeenCalled()
+    expect(setDragPan).not.toHaveBeenCalled()
+  })
+})
+
 // D-24/D-10: a projection is presentation-equivalent to the object beside it, and that includes
 // answering to the surface's ONE label pass and stepping out of a fat-finger pile with it.
 describe('a Plan twin inside the map\'s own arbitration', () => {

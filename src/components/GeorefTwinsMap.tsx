@@ -139,7 +139,7 @@ export const GeorefTwinsMap = memo(function GeorefTwinsMap({ twins, byName, zoom
               title={fillTemplate(C.twinFromPlan, { name, plan: t.planCode })}
               onOpen={() => onOpen(t)}
               // the layer's shared hold gesture runs the press and hands back ground coordinates
-              onGesture={(ev) => begin(ev, t, t.coord, { movable, onTap: () => onOpen(t) })}
+              onGesture={(ev) => begin(ev, t, t.coord, { movable, instant: selected, onTap: () => onOpen(t) })}
               gestureMovable={movable}
               interactive={interactive}
               selected={selected}

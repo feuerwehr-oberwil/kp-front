@@ -128,7 +128,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
       title={fillTemplate(appConfig.copy.whiteboard.georef.twinFromPlan, { name: contentTwinName(twin.anno), plan: twin.planCode })}
       data-twin=""
       onClick={(ev) => { if (ev.detail === 0) onOpenTwin?.(twin) }}
-      onPointerDown={(ev) => beginGesture(ev, twin, anchor, { movable, onTap: onOpenTwin ? () => onOpenTwin(twin) : undefined })}>
+      onPointerDown={(ev) => beginGesture(ev, twin, anchor, { movable, instant: isSelected(twin.key), onTap: onOpenTwin ? () => onOpenTwin(twin) : undefined })}>
       {isSelected(twin.key) && <span className="sel-halo" aria-hidden />}
       {children}
     </button>
