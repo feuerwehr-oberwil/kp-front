@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Entity, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
-import { apiGetRaw } from './api'
 import { isDemoMode } from './deploymentConfig'
 import { stepWalkers, syncWalkers, type Walker } from './demoCrewWalk'
 import { formatTime, initials } from './format'
 import { xmlEscape } from './svg'
+import { useFeedPoll } from './useFeedPoll'
 
 const cfg = appConfig.personGps
 
@@ -69,6 +69,10 @@ export function personSymbolSvg(name: string, dimmed = false): string {
  * everyone out, short enough that "he's at the Weiher" isn't asserted off a half-hour-old fix.
  */
 export const PERSON_STALE_AFTER_MS = 5 * 60_000
+
+/** 403 = this session may not look (a link-scoped responder phone), 404 = the route isn't there
+ *  (an older backend). Neither answer changes by asking again, so the poll stops for good. */
+const POSITIONS_DEAD_STATUSES = [403, 404] as const
 
 /** How old a fix reads as, in whole minutes ("vor 12 min"); 0 = just now. */
 export const ageMinutes = (at: number, now: number): number => Math.max(0, Math.floor((now - at) / 60_000))
@@ -143,7 +147,6 @@ export function usePersonPositions(incidentId: string | null, enabled: boolean, 
   // the minute interval below, and every poll that brings data, so the clock is fresh exactly
   // when there is something new to date.
   const [now, setNow] = useState(() => Date.now())
-  const timer = useRef<number | null>(null)
   const lastSig = useRef<string>('')
 
   // On the demo the same layer is fed by a local simulation instead of the backend (which
@@ -179,70 +182,40 @@ export function usePersonPositions(incidentId: string | null, enabled: boolean, 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- demoKey/centerKey stand in for demoSim
   }, [active, simulated, demoKey, centerKey])
 
+  const polling = active && !simulated
   useEffect(() => {
-    if (!active || simulated) {
-      // Nothing to tear down and nothing to clear: what callers SEE is derived from `active`
-      // below, so switching off empties the picture without writing state from an effect. The
-      // signature is reset so a later reactivation re-publishes rather than dedupes itself away.
-      lastSig.current = ''
-      return
-    }
-    let alive = true
-    let busy = false // one round at a time — a half-open link must not stack a request per tick
-    const url = `/api/incidents/${incidentId}/positions`
-    const stop = () => {
-      if (timer.current != null) {
-        window.clearInterval(timer.current)
-        timer.current = null
-      }
-    }
+    // Nothing to tear down and nothing to clear: what callers SEE is derived from `active`
+    // below, so switching off empties the picture without writing state from an effect. The
+    // signature is reset so a later reactivation re-publishes rather than dedupes itself away.
+    if (!polling) lastSig.current = ''
+  }, [polling])
 
-    const poll = async () => {
-      if (busy) return
-      busy = true
-      try {
-        const res = await apiGetRaw(url) // bounded (20 s); non-2xx comes back as a Response
-        // 403/404 = this session may not look, or the route isn't there (older backend).
-        // Stop for good rather than retry on a cadence: neither answer changes by asking again.
-        if (res.status === 403 || res.status === 404) {
-          stop()
-          return
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data: PersonPositionDto[] = await res.json()
-        if (!alive) return
-        const list: LivePerson[] = data.map((p) => ({
-          personId: p.person_id,
-          displayName: p.display_name,
-          coord: [p.lng, p.lat] as LngLat,
-          at: new Date(p.ts).getTime(),
-          accuracyM: p.accuracy_m ?? null,
-        }))
-        const sig = positionsSignature(list)
-        if (sig !== lastSig.current) {
-          lastSig.current = sig
-          setPeople(list)
-          // A poll that changed nothing must NOT touch the clock: a parked crew reports the
-          // same coordinates every 15 s, and re-dating them would re-render the whole map
-          // overlay tree for a minute counter nobody is watching.
-          setNow(Date.now())
-        }
-        setError(null)
-      } catch (e) {
-        if (!alive) return
-        setError(e instanceof Error ? e.message : 'Standorte nicht erreichbar')
-      } finally {
-        busy = false
+  useFeedPoll<PersonPositionDto[]>({
+    path: `/api/incidents/${incidentId}/positions`,
+    pollMs: cfg.pollMs,
+    enabled: polling,
+    deadStatuses: POSITIONS_DEAD_STATUSES,
+    onData: (data) => {
+      const list: LivePerson[] = data.map((p) => ({
+        personId: p.person_id,
+        displayName: p.display_name,
+        coord: [p.lng, p.lat] as LngLat,
+        at: new Date(p.ts).getTime(),
+        accuracyM: p.accuracy_m ?? null,
+      }))
+      const sig = positionsSignature(list)
+      if (sig !== lastSig.current) {
+        lastSig.current = sig
+        setPeople(list)
+        // A poll that changed nothing must NOT touch the clock: a parked crew reports the
+        // same coordinates every 15 s, and re-dating them would re-render the whole map
+        // overlay tree for a minute counter nobody is watching.
+        setNow(Date.now())
       }
-    }
-
-    void poll()
-    timer.current = window.setInterval(poll, cfg.pollMs)
-    return () => {
-      alive = false
-      stop()
-    }
-  }, [active, incidentId, simulated])
+      setError(null)
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : 'Standorte nicht erreichbar'),
+  })
 
   // Re-render once a minute so the ages advance — only while somebody is sharing, so an empty
   // layer costs nothing at all.

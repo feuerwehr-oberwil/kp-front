@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { apiGetRaw } from './api'
+import { useFeedPoll } from './useFeedPoll'
+import { TRACCAR_DEAD_STATUSES } from './useVehiclePositions'
 
 const cfg = appConfig.gps
 
@@ -71,55 +72,26 @@ export function trailsToGeoJSON(trails: VehicleTrail[]): TrailFeatureCollection 
  */
 export function useVehicleTrails(enabled: boolean): TrailFeatureCollection {
   const [trails, setTrails] = useState<TrailFeatureCollection>(EMPTY_TRAILS)
-  const timer = useRef<number | null>(null)
+
+  useFeedPoll<VehicleTrail[]>({
+    path: `${cfg.trailsPath}?minutes=${cfg.trailMinutes}`,
+    pollMs: cfg.trailsPollMs,
+    enabled,
+    // same contract as the positions poll — see TRACCAR_DEAD_STATUSES
+    deadStatuses: TRACCAR_DEAD_STATUSES,
+    onData: (data) => setTrails(trailsToGeoJSON(data)),
+    // No onError, deliberately, unlike the positions poll: a missing track is a missing
+    // decoration; the vehicles themselves keep their own error and staleness handling, and a
+    // second error surface for the same dead Traccar would just be noise.
+  })
 
   useEffect(() => {
     if (!enabled) return
-    let alive = true
-    let busy = false // one round at a time — a half-open link must not stack a request per tick
-    const path = `${cfg.trailsPath}?minutes=${cfg.trailMinutes}` // apiGetRaw adds the API origin
-    const stop = () => {
-      if (timer.current != null) {
-        window.clearInterval(timer.current)
-        timer.current = null
-      }
-    }
-
-    const poll = async () => {
-      if (busy) return
-      busy = true
-      try {
-        const res = await apiGetRaw(path) // bounded (20 s); non-2xx comes back as a Response
-        // Same contract as the positions poll: 503 = no Traccar in this deployment, 404 = no
-        // backend at all. Neither is going to fix itself, so stop rather than heartbeat.
-        if (res.status === 503 || res.status === 404) {
-          stop()
-          return
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data: VehicleTrail[] = await res.json()
-        if (!alive) return
-        setTrails(trailsToGeoJSON(data))
-      } catch {
-        // Deliberately silent, unlike the positions poll. A missing track is a missing
-        // decoration; the vehicles themselves keep their own error and staleness handling, and
-        // a second error surface for the same dead Traccar would just be noise.
-      } finally {
-        busy = false
-      }
-    }
-
-    void poll()
-    timer.current = window.setInterval(poll, cfg.trailsPollMs)
-    return () => {
-      alive = false
-      stop()
-      // Clear on the way OUT rather than on the way in. Switching the layer off must not leave
-      // a frozen track behind that still looks current — and doing it here instead of in the
-      // effect body keeps the sync-setState-in-effect rule satisfied (on unmount React simply
-      // discards the update).
-      setTrails(EMPTY_TRAILS)
-    }
+    // Clear on the way OUT rather than on the way in. Switching the layer off must not leave a
+    // frozen track behind that still looks current — and doing it in a cleanup instead of an
+    // effect body keeps the sync-setState-in-effect rule satisfied (on unmount React simply
+    // discards the update).
+    return () => setTrails(EMPTY_TRAILS)
   }, [enabled])
 
   return trails

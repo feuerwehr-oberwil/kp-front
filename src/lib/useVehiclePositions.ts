@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Entity, VehiclePosition } from '../types'
 import { appConfig } from '../config/appConfig'
-import { apiGetRaw } from './api'
 import { formatTime } from './format'
 import { xmlEscape } from './svg'
+import { useFeedPoll } from './useFeedPoll'
 
 const cfg = appConfig.gps
 
@@ -109,6 +109,15 @@ export interface VehiclePositionsApi {
 export const GPS_STALE_AFTER_MS = 60_000
 
 /**
+ * What ends the Traccar polls for this session. 503 = this deployment has no Traccar configured;
+ * 404 = no such route (no backend at all, or an older one). Either way the layer stays empty by
+ * design, so an unconfigured deployment costs one request per app load instead of a 15 s
+ * heartbeat — the battery concern that motivated the old build-time skip, which wrongly also
+ * disabled the same-origin prod path. Shared with the trails feed, which has the same contract.
+ */
+export const TRACCAR_DEAD_STATUSES = [503, 404] as const
+
+/**
  * A signature of only the map-relevant state of the fleet — id, position and rotation per vehicle.
  * Two polls with the same signature render identically, so we can skip the `setVehicles` (and the
  * full map/overlay re-render it triggers) between them. Deliberately excludes the detail-panel
@@ -145,7 +154,6 @@ export function useVehiclePositions(): VehiclePositionsApi {
     stale: false,
     ageMs: null,
   })
-  const timer = useRef<number | null>(null)
   // Last-known position per device, keyed by entity id. A vehicle is never
   // removed once seen — offline devices stay on the map at their latest position,
   // and a poll that happens to omit a device doesn't make it disappear.
@@ -156,76 +164,39 @@ export function useVehiclePositions(): VehiclePositionsApi {
   // signature of the last vehicle list we pushed to state — lets us skip re-rendering when a poll
   // returns the same positions (a parked fleet), so an idle map stays genuinely idle between moves.
   const lastSig = useRef<string>('')
-  // one round at a time: on a half-open link a round can take the full 20 s bound, and a tick
-  // that ignored that stacked a new pending request every 15 s (useIncidentWatch does the same)
-  const busy = useRef(false)
 
-  useEffect(() => {
-    let alive = true
-    const stop = () => {
-      if (timer.current != null) {
-        window.clearInterval(timer.current)
-        timer.current = null
+  useFeedPoll<VehiclePosition[]>({
+    path: cfg.positionsPath,
+    pollMs: cfg.pollMs,
+    deadStatuses: TRACCAR_DEAD_STATUSES,
+    onData: (data) => {
+      for (const p of data) {
+        const id = String(p.device_id)
+        // Seed from the reported course the first time we see a device: `lastCourse` is
+        // per-session, so after an app reload — the normal case, the tablet is opened once the
+        // vehicles are already parked at the incident — nothing has moved under our eyes and
+        // every truck would point neutrally east. Traccar keeps the last fix's course on a
+        // stopped device, so that value IS the direction it is standing in.
+        if ((isMoving(p.speed, p.course) || !lastCourse.current.has(id)) && p.course != null) {
+          lastCourse.current.set(id, p.course)
+        }
+        const heading = lastCourse.current.get(id) ?? null
+        const e = toEntity(p, heading)
+        known.current.set(e.id, e)
       }
-    }
-
-    const poll = async () => {
-      if (busy.current) return
-      busy.current = true
-      try {
-        // apiGetRaw: bounded (20 s), and it prepends the deployment's API origin itself — the
-        // path alone goes in. Non-2xx comes back as a Response so the stop logic below can read it.
-        const res = await apiGetRaw(cfg.positionsPath)
-        // 503 = this deployment has no Traccar configured (404 = no backend at all): the layer
-        // stays empty by design, so stop polling — an unconfigured deployment costs one request
-        // per app load, not a 15 s heartbeat (the battery concern that motivated the old
-        // build-time skip, which wrongly also disabled the same-origin prod path).
-        if (res.status === 503 || res.status === 404) {
-          stop()
-          return
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data: VehiclePosition[] = await res.json()
-        if (!alive) return
-        for (const p of data) {
-          const id = String(p.device_id)
-          // Seed from the reported course the first time we see a device: `lastCourse` is
-          // per-session, so after an app reload — the normal case, the tablet is opened once the
-          // vehicles are already parked at the incident — nothing has moved under our eyes and
-          // every truck would point neutrally east. Traccar keeps the last fix's course on a
-          // stopped device, so that value IS the direction it is standing in.
-          if ((isMoving(p.speed, p.course) || !lastCourse.current.has(id)) && p.course != null) {
-            lastCourse.current.set(id, p.course)
-          }
-          const heading = lastCourse.current.get(id) ?? null
-          const e = toEntity(p, heading)
-          known.current.set(e.id, e)
-        }
-        const list = Array.from(known.current.values())
-        const sig = vehiclesSignature(list)
-        // only re-render when something actually moved — a static fleet reports the same positions
-        // every poll, and re-setting an identical array would churn the entire map overlay tree.
-        if (sig !== lastSig.current) {
-          lastSig.current = sig
-          setVehicles(list)
-        }
-        setError(null)
-        lastOkRef.current = Date.now()
-      } catch (e) {
-        if (!alive) return
-        setError(e instanceof Error ? e.message : 'GPS nicht erreichbar')
-      } finally {
-        busy.current = false
+      const list = Array.from(known.current.values())
+      const sig = vehiclesSignature(list)
+      // only re-render when something actually moved — a static fleet reports the same positions
+      // every poll, and re-setting an identical array would churn the entire map overlay tree.
+      if (sig !== lastSig.current) {
+        lastSig.current = sig
+        setVehicles(list)
       }
-    }
-
-    void poll()
-    timer.current = window.setInterval(poll, cfg.pollMs)
-    return () => {
-      alive = false
-      stop()
-    }
-  }, [])
+      setError(null)
+      lastOkRef.current = Date.now()
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : 'GPS nicht erreichbar'),
+  })
 
   // Re-evaluate staleness on the poll cadence. A dead feed produces NO state changes on its
   // own — `setError` with an identical message re-renders nothing — so without this the map
