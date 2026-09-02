@@ -97,13 +97,32 @@
 .ip-card-pill.ip-status-pending { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 16%, transparent); }
 .ip-card-pill.ip-status-error, .ip-card-pill.ip-status-storage {
   color: var(--red-strong); background: color-mix(in srgb, var(--red) 14%, transparent); }
-/* the Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen (Sync lives up in the
-   title row). Wraps rather than overflows on a narrow phone. */
-.ip-card-acts { display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+/* The Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen · Teilen (Sync lives
+   up in the title row).
+   ⚠️ ONE LINE, never wrapped (decision 01.09., when Teilen made it three). Three verbs that
+   break to a second row stop reading as one set of choices, and the card grows a line every
+   time the Rapport is incomplete.
+   Measured in the app's own Sora, German (the widest locale) — not guessed:
+     Bearbeiten 70.7 · Teilen 39.1 · Abschliessen 86.2 = 196.0px at 12.5px, 188.1px at 12px,
+     plus the open-Mindestangaben badge — a bare «10», 25.9px incl. padding. It says «3 offen»
+     only in its title/aria-label: the word cost 25px of a row that has to stay on one line.
+   The row gets `menu width − 34px` (menu padding 16 + card margin 4 + border 2 + card padding
+   24, less this row's own −12 bleed). With glyphs that is 3×38 + 2×3 + 196.0 + 30.9 = 346.9px
+   against the 396px a 430px menu gives — which is why .ip-menu's max-width is 430 and not the
+   380 it was before Teilen existed. Below 480px the glyphs go and the label drops to 12px:
+   267.1px, against 297px on a 360px phone and 325px on a 390px one. Only a 320px viewport
+   (260px of row) falls 7px short, and there the label ellipsises rather than wrapping — which
+   is the whole reason it is its own <span>. */
+.ip-card-acts { display: flex; align-items: center; flex-wrap: nowrap; gap: 3px;
   margin: 8px -6px -4px; padding-top: 6px; border-top: 1px solid var(--glass-edge); }
-.ip-card-act { display: inline-flex; align-items: center; gap: 6px; min-height: 40px;
-  padding: 6px 10px; border: none; background: none; border-radius: var(--r-sm);
+.ip-card-act { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; min-width: 0;
+  padding: 6px 9px; border: none; background: none; border-radius: var(--r-sm);
   color: var(--ink); cursor: pointer; font: 600 12.5px var(--body); }
+.ip-card-act > span:not(.ip-badge) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 479px) {
+  .ip-card-act { font-size: 12px; padding: 6px 7px; }
+  .ip-card-act svg { display: none; }
+}
 @media (hover: hover) {
   .ip-card-act:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
 }
@@ -146,7 +165,7 @@
 .ip-menu-label { padding: 4px 12px 2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 
 .ip-menu {
-  position: absolute; top: calc(100% + 8px); left: 0; min-width: min(300px, 88vw); max-width: min(380px, 92vw);
+  position: absolute; top: calc(100% + 8px); left: 0; min-width: min(300px, 88vw); max-width: min(430px, 92vw);
   background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
   box-shadow: var(--shadow); padding: 8px; z-index: var(--z-drawer-menu); max-height: calc(100dvh - 104px); overflow: auto;
 }
@@ -1525,3 +1544,62 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-foot-util .i { width: 15px; height: 15px; color: var(--ink-faint); }
 .ip-emptyapp-ver { margin-top: 18px; text-align: left; font: 600 10.5px var(--mono, var(--body));
   letter-spacing: .02em; color: var(--ink-faint); }
+
+/* ── «Weitergeben»: der Einsatz-Link ────────────────────────────────────────────────────
+   One surface, two doors — the Rapport's own section and the Einsatz-Dropdown's «Teilen»
+   sheet (components/panels/ShareIncident.tsx). It lived under .rp-share-* while the Rapport
+   was the only door; it is an Einsatz thing, so it lives with the Einsatz card now.
+   `.rp-share` itself stays in 17-rapport.css — that is the SECTION around it, not this. */
+.esh { display: flex; flex-direction: column; gap: 11px; align-items: flex-start; }
+/* The kind picker: «Ganzer Einsatz / nur lesen» ↔ «Nur Atemschutz / bedienen». The shared
+   `.useg` track carries one nowrap line per option, and the second line is exactly what makes
+   the choice readable at 3am — so this stacks it. Full width, because two options over a 520px
+   sheet centred on nothing read as a stray toggle rather than the sheet's first question. */
+.esh-kind { width: 100%; }
+.esh-kind .useg { display: flex; width: 100%; }
+.esh-kind .useg-btn { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 1px;
+  min-height: var(--tap); padding: 6px 10px; line-height: 1.2; }
+.esh-kind .useg-btn b { font: 700 12.5px var(--body); }
+/* the differentiator, one notch quieter — it is a qualifier of the label above it, not a
+   second label. Inherits the segment's colour, so the active pill keeps its contrast. */
+.esh-kind .useg-btn small { font: 600 11px var(--body); opacity: .8; }
+.esh-lede { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
+/* The QR is the handover: the Nachbarwehr's phone scans the tablet instead of typing an
+   address. Black on white in BOTH themes — it is a machine target, not a surface. */
+.esh-qr { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 14px; border-radius: var(--r-ctl); background: var(--fill-soft); border: 1px solid var(--border-soft); }
+.esh-qr img { display: block; width: min(224px, 58vw); height: auto; aspect-ratio: 1;
+  padding: 8px; border-radius: 8px; background: #fff; }
+.esh-qr-cap { font: 600 12px var(--body); color: var(--ink-dim); }
+.esh-row { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; width: 100%; }
+/* The WHOLE address copies. A 12px «Kopieren» beside a URL is a miss waiting to happen with a
+   glove on — the same call the Formular rows made with their tick+title target. */
+.esh-url { flex: 1 1 240px; min-width: 0; display: flex; align-items: center; gap: 10px;
+  min-height: var(--tap); padding: 0 12px; border: none; cursor: pointer; text-align: left;
+  border-radius: var(--r-ctl); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+.esh-url code { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font: 600 12.5px var(--mono); color: var(--ink); }
+.esh-url:active { background-image: linear-gradient(var(--press), var(--press)); }
+.esh-copy { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
+.esh-copy .i { width: 16px; height: 16px; }
+.esh-url.copied { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 55%, transparent); }
+.esh-url.copied .esh-copy { color: var(--green); }
+.esh-send { flex: none; }
+/* Red never FILLS an action — it means danger, and revoking is the danger here. */
+.esh-revoke { flex: none; color: var(--red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
+/* Under the address, not behind a tooltip: it is the one thing somebody has to have read
+   BEFORE sending the link on. */
+.esh-warn { display: flex; align-items: flex-start; gap: 8px; margin: 0; width: 100%;
+  padding: 9px 11px; border-radius: var(--r-sm); font-size: 12.5px; line-height: 1.45;
+  background: color-mix(in srgb, var(--amber) 13%, transparent); color: var(--ink-dim); }
+.esh-warn .i { flex: none; width: 15px; height: 15px; margin-top: 1px; color: var(--amber); }
+
+/* ── «Tafel pur»: the Atemschutz-Link shell (IncidentWorkspace · asLink) ────────────────────
+   The board handed to somebody's own phone is the whole app for that session, so the shell is
+   nothing but a full-height column for it to fill. Deliberately NOT a second header: the
+   AtemschutzView header already carries the title and — in lite mode — the Einsatz as its
+   subtitle, and a strip above it would say the same thing twice on the smallest screen we
+   render on. The safe-area insets are the shell's job, because there is no TopBar to own them. */
+.as-link-shell { position: fixed; inset: 0; display: flex; flex-direction: column;
+  background: var(--app-bg); overflow: hidden;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }

@@ -54,8 +54,11 @@ function stripSessionUrls(row: TimelineEvent): TimelineEvent {
   }
 }
 
-const isValidationError = (e: unknown): boolean =>
-  e instanceof ApiError && (e.status === 400 || e.status === 413 || e.status === 422)
+/** A refusal that retrying cannot fix: a malformed row (400/413/422) — or a row this session
+ *  may not write at all (403; an Atemschutz-Link may only send «team» rows). Both are parked
+ *  in `dead` rather than left at the head of the outbox blocking every row queued behind. */
+const isPermanentRejection = (e: unknown): boolean =>
+  e instanceof ApiError && (e.status === 400 || e.status === 403 || e.status === 413 || e.status === 422)
 
 /**
  * Order display rows newest-first by the time they were WRITTEN (`at`).
@@ -234,7 +237,7 @@ export class JournalStore {
       this.emit()
       accepted = true
     } catch (e) {
-      if (isValidationError(e)) {
+      if (isPermanentRejection(e)) {
         if (this.singleMode || this.state.outbox.length === 1) {
           // the poisoned row itself — dead-letter it so the rest of the journal keeps flowing
           // (kept locally + in IDB for diagnosis; the row stays visible on this device)

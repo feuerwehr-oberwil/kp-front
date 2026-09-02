@@ -1182,6 +1182,10 @@ export const de = {
     repeated: '{n}× wiederholt',
     repeatedTitle: 'Diese Meldung wiederholte sich – jede Wiederholung bleibt im Protokoll.',
     correctHint: 'Der ursprüngliche Wortlaut bleibt im Protokoll.',
+    // die Zeile kam über den Atemschutz-Link herein — von einem Handy, das nur die Tafel
+    // bedient und darum bewusst nach keinem Namen gefragt wurde (types · TimelineEvent.via)
+    viaAtemschutzLink: 'Atemschutz-Link',
+    viaAtemschutzLinkTitle: 'Eingetragen auf der abgegebenen Atemschutz-Tafel.',
     // ── the row's detail sheet: a fact table, one line per thing the record actually holds ──
     // ⚠️ Only lines with an answer are printed. A sheet of «–» teaches nothing and turns the one
     // fact that IS there (a correction, a repeat) into something to hunt for.
@@ -1382,6 +1386,13 @@ export const de = {
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
     newTrupp: 'Trupp erstellen',
+    // «Überwachung abgeben» — der QR neben der Glocke: die Tafel dieses Einsatzes auf ein
+    // fremdes Handy geben, damit jemand ohne Login nur den Atemschutz bedient. Nur für
+    // Bearbeiter, und nicht auf der abgegebenen Tafel selbst.
+    shareLink: 'Überwachung abgeben',
+    // …und wenn schon ein Link läuft. Der Knopf sagt nur, DASS es einen gibt – wer ihn drückt,
+    // sieht im Blatt alles Weitere.
+    shareLinkOn: 'Überwachung abgeben – ein Link ist aktiv',
     // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein
     // Leben hängt, sagt selbst, ob ihr Stand gesichert und ihre Uhr richtig ist. Leise reicht
     // incidentSwitcher.savedAt; laut trägt der Chip das Kurzlabel des Zustands plus, wie alt
@@ -2982,6 +2993,11 @@ export const de = {
     archiveShort: 'Abschliessen',
     // der Zähler schon im Menü, damit die Prüfung sichtbar ist, bevor jemand drückt
     archiveOpen: '{n} offen',
+    // «Teilen» in der Karte des aktiven Einsatzes — die zweite Tür zum Einsatz-Link, der bis
+    // 01.09. nur im Rapport stand. Mitten im Einsatz will ihn jemand einer Nachbarwehr
+    // hinhalten und nicht dafür die Abschluss-Fläche öffnen. Gleiche Fläche wie dort.
+    share: 'Einsatz weitergeben',
+    shareShort: 'Teilen',
     noOpenIncidents: 'Keine offenen Einsätze',
     logout: 'Abmelden',
     appVersion: 'App-Version (Build)',
@@ -3435,6 +3451,10 @@ export const de = {
     shareCreateFailed: 'Link erstellen fehlgeschlagen',
     shareCopy: 'Adresse kopieren',
     shareCopied: 'Kopiert',
+    // Der QR ist die eigentliche Übergabe im Einsatz: Tablet hinhalten statt Adresse diktieren.
+    shareScan: 'Mit der Kamera scannen',
+    // Öffnet die Teilen-Funktion des Geräts (Threema, WhatsApp, Mail) — nur wo es eine gibt.
+    shareSend: 'Senden …',
     shareWarn: 'Wer den Link hat, sieht den ganzen Einsatz – Namen der Anwesenden, Fotos und den '
       + 'vollständigen Verlauf.',
     shareRevoke: 'Link aufheben',
@@ -3444,6 +3464,26 @@ export const de = {
       + 'andere Adresse.',
     shareRevokeConfirm: 'Ja, aufheben',
     shareRevokeFailed: 'Link aufheben fehlgeschlagen',
+    // ── Zweite Art Link: «Nur Atemschutz – bedienen» (01.09.) ──
+    // Ein Einsatz kann seine Atemschutz-Überwachung abgeben: wer den Code scannt, bekommt die
+    // Tafel dieses einen Einsatzes auf dem eigenen Handy und bedient sie. Beide Arten wohnen im
+    // selben Blatt, ganz oben die Wahl – darum ist die Zeile darunter kein Satz, sondern das
+    // eine Wort, das die beiden unterscheidet (lesen ↔ bedienen).
+    shareKindLabel: 'Was der Code freigibt',
+    shareKindFull: 'Ganzer Einsatz',
+    shareKindFullSub: 'nur lesen',
+    shareKindAtem: 'Nur Atemschutz',
+    shareKindAtemSub: 'bedienen',
+    shareAsLede: 'Wer den Code scannt, sieht nur die Atemschutz-Überwachung dieses Einsatzes und '
+      + 'bedient sie mit: Trupp anmelden, Kontakt, Druck, Rückzug, Draussen. Keine Karte, kein '
+      + 'Verlauf. Gilt, bis der Einsatz abgeschlossen ist.',
+    shareAsLiveLede: 'Gilt, bis der Einsatz abgeschlossen ist – oder bis du ihn aufhebst.',
+    shareAsWarn: 'Was hier eingetragen wird, steht im Atemschutz-Journal des Rapports. Gib den '
+      + 'Code nur an die Person, die überwacht.',
+    shareAsRevokeTitle: 'Atemschutz-Link aufheben?',
+    shareAsRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer die Tafel gerade offen '
+      + 'hat, kann ab sofort nichts mehr eintragen. Ein neuer Link lässt sich jederzeit erstellen '
+      + '– er ist dann eine andere Adresse.',
     linksCount: '{done} von {n} erledigt',
     linksOpen: 'Öffnen',
     // Der Haken sagt «ich habe das erledigt» – die App sieht nie, ob ein Formular abgeschickt

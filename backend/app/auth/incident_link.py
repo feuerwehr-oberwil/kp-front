@@ -1,4 +1,4 @@
-"""Incident view links — a logged-out, read-only session scoped to one incident.
+"""Incident links — a logged-out session scoped to exactly one incident.
 
 WHAT THIS IS
 ------------
@@ -7,6 +7,34 @@ docs/ALARM-INTEGRATIONS.md) puts a URL into the alert it sends out. A responder 
 personal phone taps it and sees the incident the way a ``viewer`` account sees it: map,
 plans, hydrants, checklists, Verlauf. No login, and nothing that writes, prints, costs
 money or leaves the building.
+
+THE THIRD KIND OF LINK (2026-09-01)
+-----------------------------------
+The description above is the *alarm* link. Two more kinds land on the same door, tell
+themselves apart by one claim, and differ only in what keeps them alive:
+
+  · alarm (``kf``)      — alive while the station's minting key is unchanged AND the Einsatz
+                          is open. Reaches ``LINK_ALLOWED``.
+  · view (``vk``)       — alive while ``Incident.view_link_key`` is unchanged; survives the
+                          Einsatz closing, because that is its normal case. ``LINK_ALLOWED``.
+  · Atemschutz (``ak``) — alive while ``Incident.atemschutz_link_key`` is unchanged AND the
+                          Einsatz is open. Reaches ``LINK_ALLOWED`` ∪ ``ATEMSCHUTZ_LINK_ALLOWED``.
+
+The Atemschutz link is the only one that writes anything the record keeps, and the shape of
+that permission is the whole control. An editor mints it from a running Einsatz and hands the
+QR to somebody who is *not* on the FU — a colleague at the Eingang with a clipboard — who then
+operates the Atemschutzüberwachung of that one Einsatz from their own phone: Trupp anmelden,
+Kontakt, Druck, Rückzug, draussen. No identity is asked for, so what the session may do has to
+be narrow enough that possession of the QR is a proportionate credential.
+
+Narrow means three routes, and one of them is a *slice*: the Atemschutz writer PUTs
+``workspace/trupps``, never ``workspace``. Handing a link holder the whole-document PUT would
+hand them the whole Einsatz — every drawing, every Fläche, every setting — with a stale copy
+able to erase all of it. The slice route reads the server's own blob and replaces exactly the
+``trupps`` key (api/incidents · ``put_workspace_trupps``). The journal and event writes are
+narrowed a second time inside their handlers: only ``kind == "team"`` rows and only
+``atemschutz.*`` op_types, and both are stamped ``atemschutz-link`` so the record says where
+they came from.
 
 TWO KEYS, DELIBERATELY
 ----------------------
@@ -100,6 +128,9 @@ _LIVENESS_EXEMPT: frozenset[tuple[str, str]] = frozenset(
         ("GET", _SPA_FALLBACK),
         ("GET", _WEBMANIFEST),
         ("POST", "/api/incident-link/session"),
+        # Shedding a link session must work even after the link itself has died — it is the
+        # way back to the login screen on that browser (cookies · clear_auth_cookies).
+        ("POST", "/api/auth/logout"),
     }
 )
 
@@ -157,6 +188,9 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/auth/roster"),
         ("POST", "/api/auth/login"),
         ("POST", "/api/admin/login"),
+        # …and so must signing OUT: it is the only way to end a link session by hand, and a
+        # browser that cannot shed the cookie is stuck on that one Einsatz for its TTL.
+        ("POST", "/api/auth/logout"),
         ("GET", "/api/auth/me"),
         ("GET", "/api/config"),
         ("GET", "/api/plan-scales"),
@@ -196,6 +230,29 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/traccar/positions"),
         ("GET", "/api/traccar/trails"),
         ("GET", "/api/weather"),
+    }
+)
+
+#: The extra three an ATEMSCHUTZ link session may reach, on top of everything above — the
+#: complete write surface of «Atemschutzüberwachung von diesem einen Einsatz».
+#:
+#: They are additive, not a replacement: the Atemschutz holder needs the ordinary reads too
+#: (the incident, the workspace, the journal — the surface they are annotating).
+#:
+#:   · the workspace SLICE, never `/workspace` itself. Same optimistic concurrency and the
+#:     same 409 as the full PUT, but it can only replace the `trupps` key — a link holder must
+#:     not be able to overwrite the Karte, the Pläne or the Einstellungen, least of all by
+#:     saving a stale copy of a document they never see.
+#:   · the journal append, narrowed again in the handler to `kind == "team"` rows.
+#:   · the event ingest, narrowed again in the handler to `atemschutz.*` op_types.
+#:
+#: Both narrowings live in the handlers because they are about the CONTENT of a body, which a
+#: (method, path) allowlist cannot see. Refusals there answer with `_Denied`, like here.
+ATEMSCHUTZ_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("PUT", "/api/incidents/{incident_id}/workspace/trupps"),
+        ("POST", "/api/incidents/{incident_id}/journal"),
+        ("POST", "/api/incidents/{incident_id}/events"),
     }
 )
 
@@ -295,6 +352,28 @@ async def _view_key_unchanged(db: AsyncSession, incident_id: str, fingerprint: s
     return secrets.compare_digest(fingerprint, key_fingerprint(current))
 
 
+async def _atemschutz_key_unchanged(db: AsyncSession, incident_id: str, fingerprint: str | None) -> bool:
+    """False once the Atemschutz link is revoked (or re-minted) on this incident.
+
+    The mirror of ``_view_key_unchanged`` on the other column, and it is the lever that makes
+    the link retractable mid-Einsatz: the phone at the Eingang goes home, or the QR ends up
+    somewhere it should not, and the editor takes it back without closing the Einsatz. It is
+    only ONE of two conditions here — closing the Einsatz ends it as well.
+    """
+    from ..models import Incident
+
+    if not fingerprint:
+        return False
+    try:
+        ident = uuid.UUID(incident_id)
+    except (ValueError, AttributeError, TypeError):
+        return False
+    current = (await db.execute(select(Incident.atemschutz_link_key).where(Incident.id == ident))).scalar_one_or_none()
+    if not current:  # revoked → every session born from it ends with the URL
+        return False
+    return secrets.compare_digest(fingerprint, key_fingerprint(current))
+
+
 async def _incident_still_open(db: AsyncSession, incident_id: str) -> bool:
     """Re-checked on EVERY request, not just at exchange.
 
@@ -347,7 +426,11 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     if path is None:  # unrouted (404) — refuse rather than fall through
         raise _Denied()
 
-    if (request.method.upper(), path) not in LINK_ALLOWED:
+    # An Atemschutz session is the only one that widens the list, and it widens it by exactly
+    # three entries. Everything else about this guard is unchanged for it.
+    atemschutz = bool(claims.get("ak"))
+    allowed = (LINK_ALLOWED | ATEMSCHUTZ_LINK_ALLOWED) if atemschutz else LINK_ALLOWED
+    if (request.method.upper(), path) not in allowed:
         raise _Denied()
 
     # Scope check: an allowlisted route naming an incident must name *this* one.
@@ -371,6 +454,16 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     # own view key still says what the session was born from, i.e. nobody revoked it.
     if claims.get("vk"):
         if not await _view_key_unchanged(db, str(scoped), claims.get("vk")):
+            raise _Denied()
+        return
+
+    # An ATEMSCHUTZ link is the alarm link's lifecycle on a per-incident key: it exists while
+    # the Einsatz runs and not one request longer, and the editor can take it back on its own
+    # without rotating the station's key or ending the Einsatz. Both conditions, always.
+    if atemschutz:
+        if not await _atemschutz_key_unchanged(db, str(scoped), claims.get("ak")):
+            raise _Denied()
+        if not await _incident_still_open(db, str(scoped)):
             raise _Denied()
         return
 
@@ -425,6 +518,22 @@ def create_view_session_token(incident_id: str, view_key: str) -> str:
 
     return _encode(
         {"inc": str(incident_id), "scope": "incident-link", "vk": key_fingerprint(view_key)},
+        token_type=LINK_TOKEN_TYPE,
+        expires=settings.incident_link_session_ttl,
+    )
+
+
+def create_atemschutz_session_token(incident_id: str, key: str) -> str:
+    """The same session cookie for an Atemschutz link, marked with `ak`.
+
+    That claim does two things at once, and it is the only thing that separates this session
+    from a read-only one: it widens the allowlist by ``ATEMSCHUTZ_LINK_ALLOWED``, and it
+    selects the liveness rule (this incident's own key, plus the Einsatz still running).
+    """
+    from .security import _encode
+
+    return _encode(
+        {"inc": str(incident_id), "scope": "incident-link", "ak": key_fingerprint(key)},
         token_type=LINK_TOKEN_TYPE,
         expires=settings.incident_link_session_ttl,
     )

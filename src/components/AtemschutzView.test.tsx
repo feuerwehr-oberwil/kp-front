@@ -126,3 +126,41 @@ describe('pointing to a Trupp', () => {
     expect(art?.classList.contains(s.formFlash)).toBe(true)
   })
 })
+
+// «Tafel pur» — the board handed to somebody's own phone through an Atemschutz-Link. The rule
+// worth pinning is the one that keeps it honest: nothing on it may point at a surface that
+// session cannot reach, and the one fact it otherwise could not say — WHICH Einsatz — is said.
+describe('the handed-over board (lite)', () => {
+  const lite = { subtitle: 'Brand · Hauptstrasse 12, Oberwil', onLeave: noop }
+
+  it('names the Einsatz instead of the generic subtitle', () => {
+    mount({ lite })
+    expect(screen.getByText(lite.subtitle)).toBeTruthy()
+    expect(screen.queryByText(az.subtitle)).toBeNull()
+  })
+
+  it('drops Platzieren, Leitung and the order menu — and keeps Kontakt and Bearbeiten', () => {
+    mount({ lite, onOrder: noop, trupps: [aktivTrupp(), { ...aktivTrupp(), id: 'tr2', name: 'Meier' }] })
+    expect(screen.queryByRole('button', { name: az.place })).toBeNull()
+    expect(screen.queryByRole('button', { name: az.linePick })).toBeNull()
+    expect(screen.queryByRole('button', { name: az.orderLabel })).toBeNull()
+    expect(screen.getAllByRole('button', { name: az.edit }).length).toBe(2)
+    expect(screen.getAllByRole('button', { name: az.actContact }).length).toBe(2)
+  })
+
+  it('offers «Überwachung abgeben» only where a door was handed in', () => {
+    mount()
+    expect(screen.queryByRole('button', { name: az.shareLink })).toBeNull()
+    cleanup()
+    const share = vi.fn()
+    mount({ onShareLink: share })
+    fireEvent.click(screen.getByRole('button', { name: az.shareLink }))
+    expect(share).toHaveBeenCalled()
+  })
+
+  // the button's whole «on» state: a link exists. Nothing else — a device counter was dropped.
+  it('says a link is live rather than claiming what the press would do', () => {
+    mount({ onShareLink: noop, shareLinkActive: true })
+    expect(screen.getByRole('button', { name: az.shareLinkOn })).toBeTruthy()
+  })
+})

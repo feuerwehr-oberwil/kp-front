@@ -25,7 +25,7 @@
    primary action in the app that read dark-on-white beside a screen full of light-on-dark. */
 .newBtn { display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer;
   background: var(--btn-primary); color: var(--on-btn-primary); font-family: var(--body); font-size: 14px; font-weight: 700;
-  padding: 11px 16px; border-radius: var(--r-sm); }
+  height: 44px; padding: 0 16px; border-radius: var(--r-sm); }  /* 44px = its icon-button neighbours */
 .newBtn :global(.i) { width: 16px; height: 16px; }
 @media (hover: hover) { .newBtn:hover { background: var(--btn-primary-hover); } }
 /* per-device alarm-sound toggle (visual alarm + wake-lock stay on either way) */
@@ -46,6 +46,12 @@
 @media (hover: hover) { .orderBtn:hover { color: var(--ink); border-color: var(--ink-faint); } }
 .orderBtn[data-popup-open] { color: var(--ink); border-color: var(--ink-faint); }
 .orderBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* «Überwachung abgeben», while a link IS live. Green = a running, healthy state, the same
+   reading the contact clock gives — not an alarm and not the primary action of the header.
+   Tokens only, so it survives the day/night flip and a station's own accent. */
+.shareOn { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, transparent);
+  background: color-mix(in srgb, var(--green) 12%, var(--surface)); }
+
 /* surface-level escalation: an überfällig count badge that's unmissable even if the tone is muted */
 /* A BUTTON that jumps to the Trupp (see AtemschutzView) — so it needs a tap target and a
    pressed state, not just a pill. The 44px floor is the house rule for anything a gloved
@@ -809,7 +815,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      the button shrinks to an icon-only circle so the two never collide on a narrow screen */
   .head { padding: 12px 14px; gap: 10px; }
   .headTitles h2 { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .newBtn { flex: none; padding: 11px; }
+  .newBtn { flex: none; width: 44px; padding: 0; justify-content: center; }
   .newBtn span { display: none; }
   /* the overdue badge is critical — keep it fully informative; the title truncates to make room */
   .overdueBadge { flex: none; padding: 7px 11px; }
@@ -1003,10 +1009,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .rowList .cardBanner { flex-wrap: nowrap; gap: 6px; min-height: 54px; }
 .rowList .collapseBtn { margin-left: 8px; padding-left: 8px; }
 
-/* «+ Trupp anlegen» collapsed to an icon sat at 38px with a 16px glyph beside 44px/18px neighbours
-   — the 16px is right when it has a 14px label next to it, wrong once it is a bare icon. */
+/* «+ Trupp erstellen» collapsed to a bare icon: the 16px glyph is right beside a 14px label,
+   wrong on its own next to the 18px glyphs of its 44px neighbours. */
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .newBtn { padding: 13px; }
   .newBtn :global(.i) { width: 18px; height: 18px; }
 }
 
@@ -1022,3 +1027,12 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    the arrangement does not change identity between devices. */
 .headActs { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end;
   gap: var(--head-gap); flex: 0 0 auto; margin-left: auto; }
+
+/* ⚠️ LAST in the file on purpose: the phone/landscape media queries above re-`inset` the
+   floating `.surface`, and at equal specificity source order is the whole rule.
+   «Tafel pur» — the handed-over board (AtemschutzView · lite) IS the whole screen: no NavRail
+   to clear, no TopBar to sit under, nothing behind it to round a corner against. So the surface
+   stops floating and simply fills its shell (13-incident.css · .as-link-shell). Everything
+   inside it — header, cards, rows, form — is unchanged, which is the point. */
+.surfaceLite { position: static; inset: auto; flex: 1 1 auto; min-height: 0;
+  border-radius: 0; box-shadow: none; }

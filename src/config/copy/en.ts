@@ -851,6 +851,8 @@ export const en: Localizable<Copy> = {
     repeated: 'repeated {n}×',
     repeatedTitle: 'This message repeated – every repeat stays in the record.',
     correctHint: 'The original wording stays in the record.',
+    viaAtemschutzLink: 'SCBA link',
+    viaAtemschutzLinkTitle: 'Entered on the handed-over SCBA board.',
     detailTime: 'Time',
     detailArea: 'Area',
     detailSource: 'Source',
@@ -968,6 +970,8 @@ export const en: Localizable<Copy> = {
     empty: 'No team under monitoring yet.',
     emptyHint: 'Create a team to start monitoring.',
     newTrupp: 'Create team',
+    shareLink: 'Hand over monitoring',
+    shareLinkOn: 'Hand over monitoring – a link is active',
     // sync/clock status in the board header (see de.ts)
     syncStand: '{status} – as of {t}',
     clockSkewChip: 'Device clock is off ({d} min)',
@@ -1947,6 +1951,8 @@ export const en: Localizable<Copy> = {
     report: 'Incident report',
     archive: 'Close incident',
     archiveOpen: '{n} open',
+    share: 'Share incident',
+    shareShort: 'Share',
     noOpenIncidents: 'No open incidents',
     logout: 'Log out',
     appVersion: 'App version (build)',
@@ -2321,6 +2327,8 @@ export const en: Localizable<Copy> = {
     shareCreateFailed: 'Creating the link failed',
     shareCopy: 'Copy address',
     shareCopied: 'Copied',
+    shareScan: 'Scan with the camera',
+    shareSend: 'Send …',
     shareWarn: 'Anyone holding the link sees the whole incident – the names of everyone present, '
       + 'the photos and the full journal.',
     shareRevoke: 'Revoke link',
@@ -2329,6 +2337,20 @@ export const en: Localizable<Copy> = {
       + 'immediately. A new link can be created at any time – it will be a different address.',
     shareRevokeConfirm: 'Yes, revoke',
     shareRevokeFailed: 'Revoking the link failed',
+    shareKindLabel: 'What the code opens',
+    shareKindFull: 'Whole incident',
+    shareKindFullSub: 'read only',
+    shareKindAtem: 'SCBA only',
+    shareKindAtemSub: 'operate',
+    shareAsLede: 'Whoever scans the code sees only this incident’s SCBA monitoring and operates '
+      + 'it: register a team, contact, pressure, withdrawal, out. No map, no log. Valid until '
+      + 'the incident is closed.',
+    shareAsLiveLede: 'Valid until the incident is closed – or until you revoke it.',
+    shareAsWarn: 'Whatever is entered there appears in the report’s SCBA log. Give the code only '
+      + 'to the person doing the monitoring.',
+    shareAsRevokeTitle: 'Revoke the SCBA link?',
+    shareAsRevokeBody: 'The address stops working. Anyone with the board open can no longer enter '
+      + 'anything. A new link can be created at any time – it is then a different address.',
     linksCount: '{done} of {n} done',
     linksOpen: 'Open',
     linksMarkDone: 'Mark {title} as done',
