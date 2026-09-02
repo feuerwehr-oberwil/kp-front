@@ -18,6 +18,10 @@
 @import './styles/02-base.css';
 @import './styles/03-map.css';
 @import './styles/04-topbar.css';
+/* the chrome both side rails wear — the base 05-navrail and 07-toolrail modify, so it has to
+   come before them (a suffix rather than a renumber: 05…20 are cross-referenced by name all
+   over these stylesheets) */
+@import './styles/04b-rail.css';
 @import './styles/05-navrail.css';
 @import './styles/06-contextpanel.css';
 @import './styles/07-toolrail.css';

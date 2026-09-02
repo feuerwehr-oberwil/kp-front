@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Icon } from '../lib/icons'
 import type { RailLabels } from '../lib/prefs'
 import { appConfig } from '../config/appConfig'
-import { clampRailWidth, snapExpanded } from '../lib/navRail'
-import { scrollBehavior } from '../lib/reducedMotion'
+import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE } from '../lib/navRail'
+import { useRail } from '../lib/useRail'
 
 export interface ToolDef {
   id: string
@@ -37,15 +37,12 @@ interface Props {
   className?: string
 }
 
-// the right rail mirrors the left NavRail's travel — compact shows glyphs only,
-// expanded adds labels; it just opens leftward (anchored right) so the grip lives
-// on the LEFT edge and the drag delta is inverted.
-// COMPACT = icon-only width; WIDE = the drag snap threshold / clamp ceiling. The committed
-// expanded width is measured from the content (longest label) so the rail fits it exactly,
-// capped at MAXW.
-/** …and the labelled compact width — see the twin constant in NavRail: the dock beside this rail
- *  positions itself off `--vrail-w`, so the CSS width alone would leave it overlapping. */
-const COMPACT = 60, LABELLED = 88, WIDE = 216, MAXW = 280
+// the right rail mirrors the left NavRail's travel — compact shows glyphs only, expanded adds
+// labels; it just opens leftward (anchored right) so the grip lives on the LEFT edge and the
+// drag delta is inverted. The widths themselves are the shared RAIL_* geometry (lib/navRail).
+/** …but the drag may be pulled further than the rail ever snaps to: a tool label is longer than a
+ *  surface name, so this rail lets the finger keep going past the committed wide width. */
+const MAXW = 280
 
 // Shared right-edge vertical tool rail used by BOTH the Lage map and the Plan
 // whiteboard: an expandable, icon-first rail (matching the left NavRail) with a
@@ -63,108 +60,48 @@ let lastExpanded = false
 export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, footer, className, labels }: Props) {
   const [expanded, setExpandedState] = useState(lastExpanded)
   const setExpanded = (v: boolean) => { lastExpanded = v; setExpandedState(v) }
-  const [dragging, setDragging] = useState(false)
-  const railRef = useRef<HTMLElement>(null)
   const nav = appConfig.copy.navRail
 
-  // "scroll for more" chevrons at whichever edge has hidden tools — mirrors the left NavRail
-  // so the right rail gets the same affordance when the tool list outgrows the viewport.
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [edge, setEdge] = useState({ top: false, bottom: false })
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const update = () => {
-      const top = el.scrollTop > 1
-      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1
-      setEdge((e) => (e.top === top && e.bottom === bottom ? e : { top, bottom }))
-    }
-    update()
-    el.addEventListener('scroll', update, { passive: true })
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null
-    if (ro) { ro.observe(el); for (const c of Array.from(el.children)) ro.observe(c) }
-    window.addEventListener('resize', update)
-    return () => { el.removeEventListener('scroll', update); ro?.disconnect(); window.removeEventListener('resize', update) }
-  }, [tools.length, expanded])
-
-  // pages by a screenful, jumping only over the last one — see the same change on NavRail, and the
-  // reason: at 852×393 this rail shows 2 of 9 tools, so a jump to the end skipped «Symbol», the
-  // main action of the surface, in both directions.
-  const nudge = (dir: 1 | -1) => {
-    const el = scrollRef.current
-    if (!el) return
-    const page = Math.max(el.clientHeight - 50, 50)
-    const rest = dir === 1 ? el.scrollHeight - el.clientHeight - el.scrollTop : el.scrollTop
-    const top = rest <= page ? (dir === 1 ? el.scrollHeight : 0) : el.scrollTop + dir * page
-    el.scrollTo({ top, behavior: scrollBehavior() })
-  }
-
-  // keep the ACTIVE tool visible — same courtesy as the NavRail: picking a tool from the
-  // palette (or a mode change) must never leave its lit button outside the scrolled strip.
-  // `nearest` never moves an already-visible item. (Optional call: jsdom has no scrollIntoView.)
-  useEffect(() => {
-    scrollRef.current?.querySelector('.vrail-tool.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: scrollBehavior() })
-  }, [active])
-
-  // width is published on the document root (like the left rail's --rail-w) so overlays
-  // that sit beside the rail — the tool-option dock — can track it via calc(). Reset on
-  // mount/unmount so a value from the other surface's rail can't leak across.
-  const setW = (px: number) => document.documentElement.style.setProperty('--vrail-w', `${px}px`)
-  // set the width IMMEDIATELY in both directions (mirrors the left NavRail) so expand and
-  // collapse animate the same, smooth way. Earlier this deferred the expanded width to a
-  // layout-effect that briefly forced `width: max-content` to fit the longest label — that
-  // measurement flash interrupted the transition and made expanding look janky.
-  const compactW = labels === 'short' ? LABELLED : COMPACT
-  const apply = (exp: boolean) => { setExpanded(exp); setW(exp ? WIDE : compactW) }
-  useEffect(() => {
-    // …and an expanded rail collapses when the words come on: its chevron is gone in that mode
-    if (labels === 'short' && expanded) { setExpanded(false); setW(compactW); return () => { document.documentElement.style.removeProperty('--vrail-w') } }
-    // a rail remounting already-expanded (surface switch) publishes the WIDE width it shows
-    setW(expanded ? WIDE : compactW)
-    return () => { document.documentElement.style.removeProperty('--vrail-w') }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- pref-driven; `expanded` is read, not tracked
-  }, [compactW, labels])
-
-  // pull the LEFT-edge grip to resize: the rail grows as the pointer moves left, so the
-  // delta is start − current (mirror of the left rail). Labels hide during the drag so
-  // they never clip mid-resize; they fade back in once the rail snaps.
-  const onGripDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId)
-    setDragging(true)
-    e.currentTarget.dataset.startx = String(e.clientX)
-    const cur = railRef.current ? parseFloat(getComputedStyle(railRef.current).getPropertyValue('--vrail-w')) : NaN
-    e.currentTarget.dataset.startw = String(Number.isNaN(cur) ? (expanded ? WIDE : compactW) : cur)
-  }
-  const onGripMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!dragging) return
-    const startX = Number(e.currentTarget.dataset.startx), startW = Number(e.currentTarget.dataset.startw)
-    setW(clampRailWidth(startW + (startX - e.clientX), compactW, MAXW))
-  }
-  const onGripUp = () => {
-    if (!dragging || !railRef.current) return
-    setDragging(false)
-    const w = parseFloat(getComputedStyle(railRef.current).getPropertyValue('--vrail-w')) || compactW
-    apply(snapExpanded(w, (COMPACT + WIDE) / 2))
-  }
+  // The rail mechanic — scroll edges, nudge, reveal, width publish, grip — is lib/useRail,
+  // shared with the left NavRail. Only the content and the policy below are this rail's own.
+  // ⚠️ The width goes out as `--vrail-w` (the left rail's is `--rail-w`) and is RELEASED on
+  // unmount: the Karte and every Modul mount their own ToolRail, and a width from the other
+  // surface's rail must not leak across.
+  const rail = useRail({
+    varName: '--vrail-w',
+    compactW: labels === 'short' ? RAIL_LABELLED : RAIL_COMPACT,
+    wideW: RAIL_WIDE,
+    maxW: MAXW,
+    side: 'right',
+    expanded, setExpanded,
+    labels,
+    itemCount: tools.length,
+    activeSelector: '.vrail-tool.on',
+    revealKey: active,
+    releaseOnUnmount: true,
+  })
 
   return (
-    <aside ref={railRef} className={`vrail${expanded ? ' expanded' : ''}${dragging ? ' dragging' : ''}${labels === 'short' ? ' labelled' : ''} ${className ?? ''}`}>
+    <aside className={`vrail rail${expanded ? ' expanded' : ''}${rail.dragging ? ' dragging' : ''}${labels === 'short' ? ' labelled' : ''} ${className ?? ''}`}>
       {/* ⚠️ NO «Ausklappen» while the words are on. The chevron exists to reveal exactly what this
           setting already shows — with it on, expanding buys 128px of nothing but a second label
           position. It stays for everybody else, which is who it was for: somebody who does not
           know the glyphs yet and wants the names once, without a trip to the Einstellungen. */}
       {labels !== 'short' && (
-        <button className="vrail-exp" onClick={() => apply(!expanded)} aria-label={expanded ? nav.collapse : nav.expand}>
-          <span className="vrail-exp-ic"><Icon id="chevron" /></span><span className="vrail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
+        <button className="vrail-exp rail-exp" onClick={() => rail.apply(!expanded)} aria-label={expanded ? nav.collapse : nav.expand}>
+          <span className="vrail-exp-ic rail-exp-ic"><Icon id="chevron" /></span><span className="vrail-exp-t rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
         </button>
       )}
 
       {/* tools — scroll if the list grows; the pinned footer below never scrolls away.
-          The wrap carries an edge chevron whenever there are hidden tools above/below. */}
-      <div className="vrail-scroll-wrap">
-      {edge.top && <button type="button" className="vrail-more vrail-more-up" aria-label={nav.scrollMore} onClick={() => nudge(-1)}><Icon id="chevron-down" /></button>}
-      {edge.bottom && <button type="button" className="vrail-more vrail-more-down" aria-label={nav.scrollMore} onClick={() => nudge(1)}><Icon id="chevron-down" /></button>}
-      <div ref={scrollRef} className={`vrail-scroll${edge.top ? ' more-top' : ''}${edge.bottom ? ' more-bottom' : ''}`}>
+          The wrap carries an edge chevron whenever there are hidden tools above/below.
+          ⚠️ Every rail element carries its own class AND the shared `rail-*` base (04b-rail.css):
+          the base paints it, the `vrail-*` name is the hook the rest of the cascade keys off —
+          the phone bar rules in 15-mobile.css use several of them. */}
+      <div className="vrail-scroll-wrap rail-scroll-wrap">
+      {rail.edge.top && <button type="button" className="vrail-more rail-more vrail-more-up rail-more-up" aria-label={nav.scrollMore} onClick={() => rail.nudge(-1)}><Icon id="chevron-down" /></button>}
+      {rail.edge.bottom && <button type="button" className="vrail-more rail-more vrail-more-down rail-more-down" aria-label={nav.scrollMore} onClick={() => rail.nudge(1)}><Icon id="chevron-down" /></button>}
+      <div ref={rail.scrollRef} className={`vrail-scroll rail-scroll${rail.edge.top ? ' more-top' : ''}${rail.edge.bottom ? ' more-bottom' : ''}`}>
         {tools.map((t) => {
           // Symbol renders inline among the tools (between selection and drawing) as a plain
           // tool — no special "primary" ink styling, lighting up like any other when active.
@@ -210,8 +147,7 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
       <div className="vrail-nav">{footer}</div>
 
       {/* drag GRIP on the left edge — aria-label only (a native title pops the OS tooltip) */}
-      <button className={`vrail-grip${dragging ? ' drag' : ''}`} aria-label={nav.resize}
-        onPointerDown={onGripDown} onPointerMove={onGripMove} onPointerUp={onGripUp} onPointerCancel={onGripUp} />
+      <button className={`vrail-grip rail-grip${rail.dragging ? ' drag' : ''}`} aria-label={nav.resize} {...rail.gripProps} />
     </aside>
   )
 }

@@ -1,0 +1,90 @@
+/* ============================================================
+   Rail base — the chrome BOTH side rails wear.
+
+   The left navigation rail (.navrail · 05-navrail.css) and the right tool rail
+   (.vrail · 07-toolrail.css) are one mechanic in two mirror images: same glass shell,
+   same scroller with its "scroll for more" chevrons, same expand toggle, same drag
+   grip. Sixteen rules were byte-identical in the two stylesheets, so a fix to one edge
+   of the screen had to be copied by hand to the other. They live here once; each rail's
+   own file keeps only what genuinely differs (which width variable it reads, which edge
+   its grip and glyph column sit on, its row-reverse layout).
+
+   ⚠️ Every element carries BOTH classes — `nav-more rail-more`, `vrail-exp rail-exp`.
+   The per-rail name stays as the override hook the rest of the cascade already uses
+   (15-mobile.css turns each rail into a different bar, 20-touch-floors.css raises both
+   chevrons to the touch floor), and dropping it would break rules outside these files.
+
+   ⚠️ Imported BEFORE 05-navrail and 07-toolrail: this is the base those two modify, and
+   CSS resolves single-class ties by source order. It sits between 04-topbar and
+   05-navrail rather than renumbering the whole manifest.
+   ============================================================ */
+
+/* the glass shell. Each rail keeps its own `width` (it reads a different custom property)
+   and its own placement — .navrail positions itself, .vrail is placed by its wrapper class. */
+.rail { display: flex; flex-direction: column; gap: 4px;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow); border-radius: var(--r-surface); padding: 7px; transition: width .18s var(--ease); }
+.rail.dragging { transition: none; }   /* live-resize follows the pointer without easing lag */
+
+/* the list scrolls if it outgrows the rail; whatever is pinned below it never scrolls away */
+.rail-scroll-wrap { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.rail-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 4px;
+  scrollbar-width: none; }
+.rail-scroll::-webkit-scrollbar { display: none; }
+
+/* explicit "scroll for more" chevron at the overflowing edge — a clear affordance on top of the
+   fade (the fade alone read as "the list just ends"). Unmasked: sits in the wrap, not the
+   masked scroll area. Bounces gently so it reads as interactive, not decorative. */
+/* a real button: it intercepts the tap to scroll, so the half-hidden item under the edge
+   isn't selected instead. Spans the rail width at the overflowing edge. */
+.rail-more { position: absolute; left: 0; right: 0; z-index: 4; display: grid; place-items: center;
+  height: 22px; pointer-events: auto; cursor: pointer; border: none; background: transparent; padding: 0; color: var(--ink); }
+/* a solid backing chip so the scroll chevron reads clearly and never looks like it's stuck on
+   top of a rail glyph */
+.rail-more .i { width: 17px; height: 17px; background: var(--app-bg); border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--app-bg); }
+/* nudge a handful of times, then rest — a PERPETUAL animation over the backdrop-filtered
+   rail keeps the GPU compositing forever (measured battery cost on phones); the keyframes
+   end on the base offset, so the settled chevron still reads as "more" */
+.rail-more-down { bottom: 0; animation: navMoreDown 1.6s var(--ease) 6; }
+.rail-more-up { top: 0; animation: navMoreUp 1.6s var(--ease) 6; }
+.rail-more-up .i { transform: rotate(180deg); }
+@keyframes navMoreDown { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(2px); } }
+@keyframes navMoreUp { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-2px); } }
+
+/* the expand toggle mirrors an item's layout (46px glyph column + label) so the chevron lines
+   up with the glyphs below it; transparent, with an item-style hover. 46px row + 13.5px label,
+   so «Einklappen» reads the same on both sidebars. */
+.rail-exp { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent;
+  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700;
+  padding: 0; width: 100%; margin-bottom: 2px; transition: background .14s var(--ease), color .14s var(--ease); }
+.rail:not(.expanded) .rail-exp, .rail.dragging .rail-exp { justify-content: center; }
+@media (hover: hover) {
+  .rail-exp:hover { background: var(--hover); color: var(--ink); }
+}
+.rail-exp:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.rail-exp-ic { width: 46px; min-width: 46px; display: grid; place-items: center; }
+/* the icon's SIZE and resting rotation are per-rail (the two chevrons point at opposite edges) */
+.rail-exp .i { transition: transform .2s var(--ease); }
+.rail-exp-t { display: none; }
+.rail.expanded:not(.dragging) .rail-exp-t { display: inline; }
+
+/* «Wort unter dem Zeichen» (device pref · railLabels) — the rail tightens its own padding,
+   because every pixel it keeps is one the word does not get. The labelled WIDTH is per-rail
+   (each reads its own variable); see the notes in 05-navrail.css. */
+.rail.labelled:not(.expanded):not(.dragging) { padding: 7px 5px; }
+
+/* drag grip — pull it to resize the rail. Which EDGE it hangs off is per-rail. */
+.rail-grip { position: absolute; top: 0; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
+  cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
+.rail-grip::after { content: ""; width: 4px; height: 38px; border-radius: 3px; background: var(--border); transition: background .14s var(--ease); }
+.rail-grip.drag::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+@media (hover: hover) {
+  .rail-grip:hover::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+}
+/* ⚠️ Kein Ziehgriff, sobald die Wörter an sind — auf JEDEM Gerät, nicht nur auf Touch.
+   Der Ausklapp-Chevron ist in diesem Fall längst weg (siehe `labels !== 'short'` im TSX): mit
+   den Wörtern unter den Zeichen gibt es nichts mehr aufzuklappen. Der Griff war der Rest, den
+   derselbe Entscheid übersehen hat — und er blieb ausgerechnet dort stehen, wo er am wenigsten
+   nützt. Ohne die Wörter bleibt er: dann ist er der Weg, die Beschriftung zu sehen. */
+.rail.labelled .rail-grip { display: none; }

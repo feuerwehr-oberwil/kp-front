@@ -1,4 +1,8 @@
 /* ── left navigation rail (Karte · Pläne · Checkliste) ── */
+/* The shell, the scroller, the "scroll for more" chevrons, the expand toggle and the drag grip
+   are the SHARED rail base (.rail-* · 04b-rail.css), which the right tool rail wears too. What
+   is left here is the left rail's own half: where it sits, which width variable it reads, its
+   46px glyph column, the surface items and the edge fades. */
 /* ⚠️ `max(16px, …)`, not a media query: every horizontal safe-area rule in this codebase sat
    inside a phone `@media` block, which used to mean PORTRAIT only — where the left inset is
    always 0 — and never landscape, the one orientation where it is 44–59px. At 852×393 that put
@@ -6,37 +10,14 @@
    blocks now cover landscape too, so the inset reaches them; this stays unconditional because it
    is a no-op wherever there is no inset. */
 .navrail { position: absolute; left: max(16px, env(safe-area-inset-left)); top: 88px; bottom: 16px; height: max-content; margin-block: auto;
-  z-index: var(--z-chrome); display: flex; flex-direction: column; gap: 4px;
+  z-index: var(--z-chrome);
   /* vertically centred in the same band as the right .tool-rail (top 88 → bottom 16), so the two
      side rails read as a matched pair instead of the left one hanging from the top. */
   max-height: calc(100dvh - 104px);
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  box-shadow: var(--shadow); border-radius: var(--r-surface); padding: 7px; width: var(--rail-w); transition: width .18s var(--ease); }
-/* surfaces scroll if the list grows; the pinned map-controls below stay visible */
-.nav-scroll-wrap { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-.nav-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 4px;
-  scrollbar-width: none; }
-.nav-scroll::-webkit-scrollbar { display: none; }
-/* explicit "scroll for more" chevron at the overflowing edge — a clear affordance on top of the
-   fade (the fade alone read as "the list just ends"). Unmasked: sits in the wrap, not the
-   masked scroll area. Bounces gently so it reads as interactive, not decorative. */
-/* a real button: it intercepts the tap to scroll, so the half-hidden item under the edge
-   isn't selected instead. Spans the rail width at the overflowing edge. */
-.nav-more { position: absolute; left: 0; right: 0; z-index: 4; display: grid; place-items: center;
-  height: 22px; pointer-events: auto; cursor: pointer; border: none; background: transparent; padding: 0; color: var(--ink); }
-/* a solid backing chip so the scroll chevron reads clearly and never looks like it's stuck on
-   top of a rail glyph */
-.nav-more .i { width: 17px; height: 17px; background: var(--app-bg); border-radius: 50%;
-  box-shadow: 0 0 0 4px var(--app-bg); }
+  width: var(--rail-w); }
+/* the press wash is the LEFT rail's alone: its chevron pages a list of surfaces, which is a
+   navigation act — the right rail's pages a tool list and has never carried one */
 .nav-more:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* nudge a handful of times, then rest — a PERPETUAL animation over the backdrop-filtered
-   rail keeps the GPU compositing forever (measured battery cost on phones); the keyframes
-   end on the base offset, so the settled chevron still reads as "more" */
-.nav-more-down { bottom: 0; animation: navMoreDown 1.6s var(--ease) 6; }
-.nav-more-up { top: 0; animation: navMoreUp 1.6s var(--ease) 6; }
-.nav-more-up .i { transform: rotate(180deg); }
-@keyframes navMoreDown { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(2px); } }
-@keyframes navMoreUp { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-2px); } }
 /* fade the edge that has hidden items, so a clipped surface (e.g. Anwesenheit just below the
    fold on an iPad) reads as "scroll for more" instead of looking like the end of the list */
 .nav-scroll.more-bottom:not(.more-top) { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 22px), transparent);
@@ -47,29 +28,14 @@
   mask-image: linear-gradient(180deg, transparent, #000 22px, #000 calc(100% - 22px), transparent); }
 /* width is driven by --rail-w so the rail AND the overlays that track it move as one.
    apply() sets it to 60/216 on toggle; the grip sets it live per-pixel during a drag. */
-.navrail.dragging { transition: none; }   /* live-resize follows the pointer without easing lag */
-/* the expand toggle mirrors a nav-item's layout (46px glyph column + label) so the
-   chevron lines up with the M1/M2 glyphs below; transparent with an item-style hover */
-/* match a nav-item's size: 46px row + 13.5px label, so "Einklappen" reads the same as
-   Karte / Modul 1 etc. (was 40px tall with 12px text → looked smaller) */
-.nav-exp { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent;
-  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700;
-  padding: 0; width: 100%; margin-bottom: 2px; transition: background .14s var(--ease), color .14s var(--ease); }
-.navrail:not(.expanded) .nav-exp, .navrail.dragging .nav-exp { justify-content: center; }
-@media (hover: hover) {
-  .nav-exp:hover { background: var(--hover); color: var(--ink); }
-}
-.nav-exp:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.nav-exp-ic { width: 46px; min-width: 46px; display: grid; place-items: center; }
-/* ⚠️ 22px, the SAME as .nav-glyph .i. Both sit centred in a shared glyph column (46px
+/* the expand toggle wears the shared .rail-exp chrome; what is left is the chevron itself.
+   ⚠️ 22px, the SAME as .nav-glyph .i. Both sit centred in a shared glyph column (46px
    collapsed, 26px expanded), so an 18px chevron was centred 2px inboard of every icon under
    it — the whole column lined up except its first row. The right rail does not have this
    problem because its expanded glyph boxes shrink to the icon and pack against the rail's
    right edge, which aligns their edges rather than their centres. */
-.nav-exp .i { width: 22px; height: 22px; transition: transform .2s var(--ease); }
+.nav-exp .i { width: 22px; height: 22px; }
 .navrail.expanded .nav-exp .i { transform: rotate(180deg); }
-.nav-exp-t { display: none; }
-.navrail.expanded:not(.dragging) .nav-exp-t { display: inline; }
 .nav-sep { height: 1px; flex: none; background: var(--border); margin: 5px 9px; }
 .nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-sm);
   cursor: pointer; color: var(--ink); font: inherit; padding: 0; width: 100%; position: relative; transition: background .14s var(--ease); }
@@ -123,9 +89,9 @@
    asked for with a tap, and two label positions at once reads as a rendering fault. */
 /* ⚠️ 88px, measured — not guessed. «Anwesenheit» needs 76px of Sora at 10.5px, «Atemschutz» 69;
    at 72px all three long surfaces were cut off mid-word, which is worse than no label at all. The
-   rail also tightens its own padding here (7px → 5px), because every pixel it keeps is one the
-   word does not get. Verified with the app's own font at 88px. */
-.navrail.labelled:not(.expanded):not(.dragging) { width: var(--rail-w-labelled, 88px); padding: 7px 5px; }
+   rail also tightens its padding in this mode (7px → 5px, in the shared base), because every
+   pixel it keeps is one the word does not get. Verified with the app's own font at 88px. */
+.navrail.labelled:not(.expanded):not(.dragging) { width: var(--rail-w-labelled, 88px); }
 .navrail.labelled:not(.expanded):not(.dragging) .nav-item { flex-direction: column; gap: 0; height: 56px; justify-content: center; }
 .navrail.labelled:not(.expanded):not(.dragging) .nav-glyph { width: auto; min-width: 0; height: 26px; }
 /* ⚠️ …and the two things that were sized against the 46px glyph column have to come with it: the
@@ -180,19 +146,9 @@
   background: var(--fill-soft); color: color-mix(in srgb, var(--ink) 55%, transparent); pointer-events: none; }
 .nav-item.on .nav-key { border-color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); color: var(--on-accent-ink); background: transparent; }
 @media (hover: hover) and (pointer: fine) { .nav-key { display: block; } }
-.nav-grip { position: absolute; top: 0; right: -7px; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
-  cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
-.nav-grip::after { content: ""; width: 4px; height: 38px; border-radius: 3px; background: var(--border); transition: background .14s var(--ease); }
-.nav-grip.drag::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
-@media (hover: hover) {
-  .nav-grip:hover::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
-}
-/* ⚠️ Kein Ziehgriff, sobald die Wörter an sind — auf JEDEM Gerät, nicht nur auf Touch.
-   Der Ausklapp-Chevron ist in diesem Fall längst weg (siehe `labels !== 'short'` im TSX): mit
-   den Wörtern unter den Zeichen gibt es nichts mehr aufzuklappen. Der Griff war der Rest, den
-   derselbe Entscheid übersehen hat — und er blieb ausgerechnet dort stehen, wo er am wenigsten
-   nützt. Ohne die Wörter bleibt er: dann ist er der Weg, die Beschriftung zu sehen. */
-.navrail.labelled .nav-grip { display: none; }
+/* the grip hangs off the RIGHT edge — this rail is anchored left and opens rightward. The rest
+   of it (the bar, its drag colour, and its absence while the words are on) is the shared base. */
+.nav-grip { right: -7px; }
 /* The rail is TOP-anchored (top:88px) in every mode so it sits in the same place whatever
    surface is active — previously non-plan modes vertically centred it (margin-block:auto),
    which made the rail jump up/down between e.g. Plan and Checkliste. */

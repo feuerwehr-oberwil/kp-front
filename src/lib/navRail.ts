@@ -2,15 +2,32 @@ import type { PlanDocument } from '../types'
 
 // Pure rail geometry + glyph helpers — no DOM/React, so the snap math and the
 // per-document monogram/icon mapping are node-testable in isolation (the live
-// drag wiring in NavRail.tsx just calls these).
+// drag wiring in lib/useRail.ts just calls these).
+
+/** The travel BOTH rails share — the left NavRail and the right ToolRail are one mechanic in two
+ *  mirror images (lib/useRail), so their widths live in one place and cannot drift apart.
+ *
+ *  ⚠️ They have to be numbers here as well as widths in CSS: everything that sits beside a rail
+ *  (the map controls, the docks) is positioned off the published `--rail-w` / `--vrail-w`, so a
+ *  rail that got wider only in the stylesheet would be overlapped by them.
+ *
+ *  RAIL_COMPACT — the icon-only width.
+ *  RAIL_LABELLED — ⚠️ the compact width with room for a word UNDER the glyph («Wort unter dem
+ *    Zeichen», lib/prefs · railLabels): «Anwesenheit» measures 76px in the app's own Sora at
+ *    10.5px, so 88 is what fits with the rail's padding.
+ *  RAIL_WIDE — the committed expanded width. */
+export const RAIL_COMPACT = 60
+export const RAIL_LABELLED = 88
+export const RAIL_WIDE = 216
 
 /** clamp a live drag width into the rail's [min,max] travel */
-export function clampRailWidth(w: number, min = 60, max = 216): number {
+export function clampRailWidth(w: number, min = RAIL_COMPACT, max = RAIL_WIDE): number {
   return Math.max(min, Math.min(max, w))
 }
 
-/** on release, snap to expanded iff the rail was pulled past the snap point */
-export function snapExpanded(width: number, snap = 138): boolean {
+/** on release, snap to expanded iff the rail was pulled past the snap point (the midpoint of the
+ *  compact→wide travel, which is where both rails have always put it) */
+export function snapExpanded(width: number, snap = (RAIL_COMPACT + RAIL_WIDE) / 2): boolean {
   return width > snap
 }
 

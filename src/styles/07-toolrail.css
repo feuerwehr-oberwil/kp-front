@@ -11,28 +11,14 @@
 /* right-edge safe area — see the note on .navrail's `left` (05-navrail.css) */
 .tool-rail { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 88px; bottom: 16px; height: max-content; margin-block: auto;
   z-index: var(--z-dock); max-height: calc(100dvh - 104px); }
+/* The shell, the scroller, its "scroll for more" chevrons, the expand toggle and the drag grip
+   are the SHARED rail base (.rail-* · 04b-rail.css), which the left NavRail wears too. What is
+   left here is this rail's own half: it is anchored to the RIGHT edge, so it opens leftward, its
+   grip sits on the left and every row is row-reversed into a right-edge glyph column. */
 /* width is driven by --vrail-w (compact 64 / wide 212) so the rail expands like the left
    NavRail — but leftward, since it's anchored to the right edge. apply() sets it on toggle;
    the left-edge grip sets it live per-pixel during a drag. */
-.vrail { display: flex; flex-direction: column; gap: 4px; width: var(--vrail-w, 60px); transition: width .18s var(--ease);
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-surface); padding: 7px; box-shadow: var(--shadow); }
-.vrail.dragging { transition: none; }   /* live-resize follows the pointer without easing lag */
-/* tools pack at the top at a compact 4px gap (mirrors the left rail's .nav-scroll), not
-   spread to fill — the pinned footer stays at the bottom and the list scrolls if too tall. */
-.vrail-scroll-wrap { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-.vrail-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column;
-  gap: 4px; scrollbar-width: none; }
-.vrail-scroll::-webkit-scrollbar { display: none; }
-/* "scroll for more" chevron at the overflowing edge — mirrors the left rail's .nav-more
-   (reuses the navMoreUp/navMoreDown keyframes) */
-.vrail-more { position: absolute; left: 0; right: 0; z-index: 4; display: grid; place-items: center;
-  height: 22px; pointer-events: auto; cursor: pointer; border: none; background: transparent; padding: 0; color: var(--ink); }
-.vrail-more .i { width: 17px; height: 17px; background: var(--app-bg); border-radius: 50%;
-  box-shadow: 0 0 0 4px var(--app-bg); }
-.vrail-more-down { bottom: 0; animation: navMoreDown 1.6s var(--ease) 6; } /* capped — see .nav-more-down */
-.vrail-more-up { top: 0; animation: navMoreUp 1.6s var(--ease) 6; }
-.vrail-more-up .i { transform: rotate(180deg); }
+.vrail { width: var(--vrail-w, 60px); }
 /* pinned map-nav footer (folded in from the old top-right cluster): zoom / fit /
    coordinate buttons. Always a single column — it fits the slim compact rail (mirrors the
    left rail's single-column footer) and, by keeping the footer height constant, the tool
@@ -69,26 +55,15 @@
 @media (max-width: 1023px), (pointer: coarse) { .vrail-zoom { display: none; } }
 .vrail-sep-foot { flex: none; margin: 2px 10px; }
 .vrail-compass { display: grid; place-items: center; transition: transform .15s ease; }
-/* expand toggle — mirrors the left rail's, but row-reversed so the chevron sits in the
-   right-edge glyph column (the rail is anchored right and opens leftward) */
-/* match the left rail's .nav-exp exactly: 46px row + 13.5px label, flex:none so the pinned
-   footer can never compress it — so "Einklappen" reads identically on both sidebars */
+/* expand toggle — the shared .rail-exp chrome, but row-reversed so the chevron sits in the
+   right-edge glyph column (the rail is anchored right and opens leftward), and pointing the
+   other way. */
 /* `overflow: hidden` because the rail animates its WIDTH (.18s) while this row keeps a fixed
    46px icon box: mid-collapse the box no longer fits and the chevron painted outside the rail
    for a frame or two, floating over the map. Clipped, it slides under the edge instead. */
-.vrail-exp { overflow: hidden; display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent;
-  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700;
-  padding: 0; width: 100%; margin-bottom: 2px; transition: background .14s var(--ease), color .14s var(--ease); }
-.vrail:not(.expanded) .vrail-exp, .vrail.dragging .vrail-exp { justify-content: center; }
-@media (hover: hover) {
-  .vrail-exp:hover { background: var(--hover); color: var(--ink); }
-}
-.vrail-exp:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.vrail-exp-ic { width: 46px; min-width: 46px; display: grid; place-items: center; }
-.vrail-exp .i { width: 18px; height: 18px; transform: rotate(180deg); transition: transform .2s var(--ease); }
+.vrail-exp { overflow: hidden; flex-direction: row-reverse; }
+.vrail-exp .i { width: 18px; height: 18px; transform: rotate(180deg); }
 .vrail.expanded .vrail-exp .i { transform: rotate(0deg); }
-.vrail-exp-t { display: none; }
-.vrail.expanded:not(.dragging) .vrail-exp-t { display: inline; }
 /* tool buttons mirror the left rail's nav-item: a fixed right-edge glyph column + a
    label that shows only in the committed expanded state (never mid-drag, so it can't clip) */
 .vrail-tool { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none;
@@ -103,7 +78,7 @@
 /* ── «Wort unter dem Zeichen» (device pref · railLabels) — see the twin block in 05-navrail.css.
    Nine tools with no text is the densest thing on this screen for anybody who does not already
    know them, and «Auswahl · Linie · Fläche · Messen» are short enough to sit under the glyph. */
-.vrail.labelled:not(.expanded):not(.dragging) { width: var(--vrail-w-labelled, 88px); padding: 7px 5px; }
+.vrail.labelled:not(.expanded):not(.dragging) { width: var(--vrail-w-labelled, 88px); }
 /* ⚠️ `width: 100%` on BOTH. `.vrail-tool` carries it in its base rule and `.vrail-nbtn` never
    did, so a footer button was sized by its content: its label got 64px where a tool's got 75.
    «Vergrössern» (66.5px in Sora) therefore clipped in the footer while a longer word like
@@ -140,20 +115,9 @@
 /* one-shot actions + the display-mode switch read as discrete push-buttons
    (faint resting fill + hairline), visually distinct from the flat, sticky modal
    tools above — so "press to do X" is never confused with "select a mode" */
-/* drag grip on the LEFT edge — pull it to resize the rail (mirror of the nav-grip) */
-.vrail-grip { position: absolute; top: 0; left: -7px; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
-  cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
-.vrail-grip::after { content: ""; width: 4px; height: 38px; border-radius: 3px; background: var(--border); transition: background .14s var(--ease); }
-.vrail-grip.drag::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
-@media (hover: hover) {
-  .vrail-grip:hover::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
-}
-/* ⚠️ Kein Ziehgriff, sobald die Wörter an sind — auf JEDEM Gerät, nicht nur auf Touch.
-   Der Ausklapp-Chevron ist in diesem Fall längst weg (siehe `labels !== 'short'` im TSX): mit
-   den Wörtern unter den Zeichen gibt es nichts mehr aufzuklappen. Der Griff war der Rest, den
-   derselbe Entscheid übersehen hat — und er blieb ausgerechnet dort stehen, wo er am wenigsten
-   nützt. Ohne die Wörter bleibt er: dann ist er der Weg, die Beschriftung zu sehen. */
-.vrail.labelled .vrail-grip { display: none; }
+/* the grip hangs off the LEFT edge — this rail is anchored right and opens leftward (mirror of
+   the nav-grip). The rest of it is the shared base. */
+.vrail-grip { left: -7px; }
 
 /* rail extras */
 .rbtn:disabled { opacity: var(--disabled); cursor: default; }
