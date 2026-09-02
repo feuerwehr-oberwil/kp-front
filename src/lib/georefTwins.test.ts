@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardTwinAnnosForPrint, boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect,
+  boardTwinAnnosForPrint, boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, clampToSheet, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect, sheetCorners, sheetEdgeEnds, twinPathDelta,
   planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
@@ -172,6 +172,47 @@ describe('movedTwinPath (whole-object drag of a mirrored line/area)', () => {
     const out = movedTwinPath(pts, { x: 0.3, y: 0.3 }, { x: 2, y: -2 })
     expect(out.map((p) => p[0].toFixed(3))).toEqual(['0.600', '1.000', '1.000'])
     expect(out.map((p) => p[1].toFixed(3))).toEqual(['0.000', '0.000', '0.400'])
+  })
+})
+
+/**
+ * ⚠️ The «nur auf einer Achse» constraint, stated. A twin's source lives on a BOUNDED document,
+ * so a drag that crosses the projected paper edge pins that coordinate while the free one keeps
+ * following the finger — the object slides along the edge instead of stopping dead. That is the
+ * right behaviour and it is invisible on a map that draws no paper, so the surface has to be able
+ * to name the edge that is holding (MapView · twinBound).
+ */
+describe('the sheet’s own edge', () => {
+  it('slides along the edge it met, and names it', () => {
+    expect(clampToSheet({ x: 1.4, y: 0.6 })).toEqual({ pt: { x: 1, y: 0.6 }, held: ['right'] })
+    expect(clampToSheet({ x: -0.2, y: 0.3 })).toEqual({ pt: { x: 0, y: 0.3 }, held: ['left'] })
+    expect(clampToSheet({ x: 0.5, y: -0.1 })).toEqual({ pt: { x: 0.5, y: 0 }, held: ['top'] })
+    expect(clampToSheet({ x: 0.5, y: 9 })).toEqual({ pt: { x: 0.5, y: 1 }, held: ['bottom'] })
+    // a corner holds both, and a point on the paper holds nothing
+    expect(clampToSheet({ x: 2, y: 2 }).held).toEqual(['right', 'bottom'])
+    expect(clampToSheet({ x: 0.5, y: 0.5 })).toEqual({ pt: { x: 0.5, y: 0.5 }, held: [] })
+  })
+
+  it('holds a whole PATH by its delta, so the shape stops instead of squashing', () => {
+    const pts: [number, number][] = [[0.1, 0.2], [0.5, 0.2], [0.5, 0.6]]
+    // asked for +2 across: the widest vertex sits at 0.5, so 0.5 is all the sheet has left
+    const out = twinPathDelta(pts, { x: 0.3, y: 0.3 }, { x: 2.3, y: 0.3 })
+    expect(out.dx).toBeCloseTo(0.5, 9)
+    expect(out.dy).toBeCloseTo(0, 9)
+    expect(out.held).toEqual(['right'])
+    expect(twinPathDelta(pts, { x: 0.3, y: 0.3 }, { x: 0.4, y: 0.35 }).held).toEqual([])
+  })
+
+  it('puts the sheet on the ground as four corners and four edges', () => {
+    const [tl, tr, br, bl] = sheetCorners(FIT)
+    // the fit is a square 100 m sheet laid north-up: (0,0) is its top-left corner
+    expect(tl[0]).toBeCloseTo(ORIGIN.lng, 9)
+    expect(tr[0]).toBeGreaterThan(tl[0])   // x grows east
+    expect(bl[1]).toBeLessThan(tl[1])      // …and plan y runs DOWN, so south
+    expect(sheetEdgeEnds(FIT, 'right')).toEqual([tr, br])
+    expect(sheetEdgeEnds(FIT, 'top')).toEqual([tl, tr])
+    expect(sheetEdgeEnds(FIT, 'left')).toEqual([tl, bl])
+    expect(sheetEdgeEnds(FIT, 'bottom')).toEqual([bl, br])
   })
 })
 

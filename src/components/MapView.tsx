@@ -346,6 +346,10 @@ interface Props {
   /** «Fertig» on the selection bar: end the editing state — clear every selection and close the
    *  sheets that were open for it. Exactly what a tap on the empty map already does. */
   onSelectionDone?: () => void
+  /** The sheet a mirrored object is being dragged on, for the length of that drag: its projected
+   *  outline, and whichever of its four edges are HOLDING the drag back right now. Absent when no
+   *  twin is in the hand. See IncidentWorkspace · twinBound for why it exists. */
+  twinBound?: { ring: LngLat[]; held: LngLat[][] } | null
   /** tap on any mirrored content object (line, area, note, shape, Trupp chip): open its
    *  in-place source-backed panel on this surface (GeorefContentMap) */
   onContentTwinOpen?: (twin: MapContentTwin) => void
@@ -384,7 +388,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onSelectionDone, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, onContentTwinUnlock, contentTwinTeam, selectedContentTwinKeys = [], onContentTwinTransform, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
+    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onSelectionDone, twinBound = null, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, onContentTwinUnlock, contentTwinTeam, selectedContentTwinKeys = [], onContentTwinTransform, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -1904,6 +1908,31 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           onEditTwinAnno={readOnly ? undefined : onContentTwinEdit}
           onUnlockTwin={readOnly ? undefined : onContentTwinUnlock}
           project={projectLngLat} unproject={unprojectPoint} setDragPan={setDragPanEnabled} />
+      )}
+
+      {/* ── the sheet a mirrored object is being dragged on ────────────────────────────────
+          A twin's source lives on a BOUNDED document, so a drag that crosses the projected paper
+          edge pins that coordinate and keeps following the finger on the other — which reads as
+          a broken drag right up until you can see the paper. So for the length of the drag the
+          Karte draws it: a quiet dashed rectangle in the link tone (the same one «Deckung
+          prüfen» uses), and the edge that is actually holding, solid and on top. Never --accent;
+          this is a constraint, not an alarm. */}
+      {twinBound && (
+        <>
+          <Source id="s-twin-bound" type="geojson" data={{ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [...twinBound.ring, twinBound.ring[0]] } }}>
+            {/* the white halo every thin line on this map wears over aerials */}
+            <Layer id="l-twin-bound-halo" type="line" layout={{ 'line-join': 'round' }}
+              paint={{ 'line-color': '#fff', 'line-width': 4, 'line-opacity': 0.5 }} />
+            <Layer id="l-twin-bound" type="line" layout={{ 'line-join': 'round' }}
+              paint={{ 'line-color': blue, 'line-width': 1.8, 'line-opacity': 0.6, 'line-dasharray': [3, 2.4] }} />
+          </Source>
+          {twinBound.held.length > 0 && (
+            <Source id="s-twin-bound-held" type="geojson" data={{ type: 'Feature' as const, properties: {}, geometry: { type: 'MultiLineString' as const, coordinates: twinBound.held } }}>
+              <Layer id="l-twin-bound-held" type="line" layout={{ 'line-cap': 'round' }}
+                paint={{ 'line-color': blue, 'line-width': 3.6, 'line-opacity': 0.95 }} />
+            </Source>
+          )}
+        </>
       )}
 
       {/* «Karte verknüpfen»: the numbered reference crosses, drag-to-fine-tune, tap-to-re-place */}

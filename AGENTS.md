@@ -152,7 +152,15 @@ to prod.
   native object beside it. The ONE permitted difference is which surface persists it: a twin is a
   projection, never stored, logged, printed or clocked, and an edit writes the ONE source object.
   A mechanical exception must be real and documented (an anchored endpoint reshapes instead of
-  translating, on both surfaces); «not built on that surface yet» is not one. It follows that a
+  translating, on both surfaces); «not built on that surface yet» is not one. The third real one
+  is the **sheet's edge**: a twin's source lives on a BOUNDED document (plan x/y are fractions of
+  the paper), so a drag on the Karte that crosses the projected edge pins that coordinate and
+  goes on following the finger with the other — the object slides along the edge rather than
+  stopping dead. Right, and invisible on a surface that draws no paper, so for the length of any
+  twin drag the Karte draws the sheet: a dashed outline in the link tone plus the edge that is
+  actually holding, solid, and one `buzz()` the first time it is met (`MapView · twinBound`,
+  `georefTwins · clampToSheet`). The Plan needs none of that — there the bound IS the sheet the
+  operator is looking at. It follows that a
   twin is also inside every SELECTION mechanism of the surface it stands on: the fixed
   `SelectionBar` (for the kinds a native gets it for – ink and a Form), the marquee/group, the
   fat-finger pile's fan, and the magnet. The magnet carries the second real mechanical exception:

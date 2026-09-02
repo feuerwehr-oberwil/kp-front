@@ -14,6 +14,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { BoardAnno, Entity } from '../types'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
 import { fitSimilarity } from '../lib/georef'
+import { clampToSheet, type SheetEdge } from '../lib/georefTwins'
 import type { BoardTwin, MapTwin } from '../lib/georefTwins'
 
 // the map half of the mirror only needs the Marker to place its child somewhere
@@ -98,6 +99,31 @@ describe('a twin dragged across the sheet', () => {
     drag([5000, 5000])
     const [, pt] = onMove.mock.calls[onMove.mock.calls.length - 1]
     expect(pt).toEqual({ x: 1, y: 1 })
+  })
+
+  /**
+   * The board side of the same constraint, and why it needs no chrome: here the bound IS the
+   * sheet the operator is looking at. What it does need is to behave — the point is taken from
+   * the SNAPSHOT plus the pointer's total travel, so it slides along the edge without jumping,
+   * without oscillating, and comes back the moment the finger does.
+   */
+  it('slides along the sheet edge and comes straight back, with no jump on the way', () => {
+    const onMove = vi.fn()
+    renderBoard(onMove)
+    const m = mark()
+    fireEvent.pointerDown(m, { pointerId: 1, clientX: 200, clientY: 200 })
+    const at = (i: number) => onMove.mock.calls[i]?.[1] as { x: number; y: number }
+    // far past the right edge, then down along it, then back onto the paper
+    fireEvent.pointerMove(m, { pointerId: 1, clientX: 2000, clientY: 200 })
+    expect(at(onMove.mock.calls.length - 1)).toEqual({ x: 1, y: 0.5 })
+    fireEvent.pointerMove(m, { pointerId: 1, clientX: 2000, clientY: 300 })
+    expect(at(onMove.mock.calls.length - 1)).toEqual({ x: 1, y: 0.7 })   // free axis still live
+    fireEvent.pointerMove(m, { pointerId: 1, clientX: 300, clientY: 300 })
+    fireEvent.pointerUp(m, { pointerId: 1, clientX: 300, clientY: 300 })
+    // …and back where the finger actually is: +100px of 1000 across, +100px of 500 down
+    const last = onMove.mock.calls[onMove.mock.calls.length - 1][1]
+    expect(last.x).toBeCloseTo(0.6, 9)
+    expect(last.y).toBeCloseTo(0.7, 9)
   })
 
   it('offers no drag at all when the surface does not pass one (locked / viewer)', () => {
@@ -234,6 +260,50 @@ describe('a diagonal drag on a turned, non-square sheet', () => {
     expect(want.y).not.toBeCloseTo(0, 3)
     expect(written.x).toBeCloseTo(0.4 + want.x, 5)
     expect(written.y).toBeCloseTo(0.4 + want.y, 5)
+  })
+
+  /**
+   * ⚠️ THE «nur auf einer Achse» report, in one test (02.09.). It is not a transform bug: the
+   * source lives on a BOUNDED sheet, so a diagonal drag that crosses the projected paper edge
+   * pins that plan coordinate and goes on following the finger with the other. The object slides
+   * along the edge — which is right, and which the Karte now also SHOWS, because a map draws no
+   * paper (MapView · twinBound).
+   */
+  it('slides a mirrored symbol along the sheet edge it met, and names that edge', () => {
+    const feuerEdge: BoardAnno = { ...feuer, x: 0.9, y: 0.4 }
+    let written = { x: feuerEdge.x!, y: feuerEdge.y! }
+    let held: SheetEdge[] = []
+    const Live = () => {
+      const [a, setA] = useState<BoardAnno>(feuerEdge)
+      const { lng, lat } = TURNED_FIT.toMap({ x: a.x!, y: a.y! })
+      const twin = { key: 'm:a1', planId: 'm', planCode: 'M', annoId: 'a1', coord: [lng, lat], anno: a, fit: TURNED_FIT } as MapTwin
+      return <GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }} zoom={18} selectedKey="m:a1"
+        onOpen={() => {}} project={project} unproject={unproject}
+        onMove={(t, coord, phase) => {
+          if (phase === 'start') return
+          const out = clampToSheet(t.fit.toPlan({ lng: coord[0], lat: coord[1] }))
+          written = out.pt; held = out.held
+          setA((prev) => ({ ...prev, ...out.pt }))
+        }} />
+    }
+    render(<Live />)
+    const mark = screen.getByRole('button')
+    // straight along the sheet's own +x axis (30° off east), far past its right-hand edge, while
+    // ALSO travelling down the sheet — one diagonal drag, one axis of it impossible
+    const step = (n: number): [number, number] => [
+      100 + Math.cos(TURN) * n, 100 - Math.sin(TURN) * n + n * 0.4,
+    ]
+    fireEvent.pointerDown(mark, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
+    for (const n of [40, 120, 400]) {
+      const [x, y] = step(n)
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: x, clientY: y })
+    }
+    const [ex, ey] = step(400)
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: ex, clientY: ey })
+    expect(written.x).toBe(1)                        // pinned at the paper's right edge…
+    expect(written.y).toBeGreaterThan(0.4)           // …while the free axis kept following
+    expect(written.y).toBeLessThan(1)
+    expect(held).toEqual(['right'])                  // and the surface can light that edge
   })
 
   it('…and a mirrored Karte object on the PLAN lands where it was dropped, both ways', () => {

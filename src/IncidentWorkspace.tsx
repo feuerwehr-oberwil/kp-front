@@ -70,9 +70,11 @@ import { LayerPanel } from './components/LayerPanel'
 import {
   boardTwinAnnosForPrint, georefPlans, mapContentTwins as projectMapContentTwins, mapTwins as projectMapTwins, mapTwinRows, planAspect, planTwinRows,
   twinPlanImageLayerId, twinPlanImageVisible, twinPlanLayerId, twinVisible, isTwinLayerId, TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardSymbolToEntity, contentTwinName, entityToBoardSymbol, movedTwinPath, onSheet, planGroundWidthM, revealTwinLayer,
+  boardSymbolToEntity, contentTwinName, entityToBoardSymbol, clampToSheet, movedTwinPath, sheetCorners, sheetEdgeEnds, twinPathDelta, onSheet, planGroundWidthM, revealTwinLayer,
   type MapContentTwin, type MapTwin,
 } from './lib/georefTwins'
+import type { SheetEdge } from './lib/georefTwins'
+import { buzz } from './lib/haptics'
 import { glyphFor, twinName } from './lib/twinGlyph'
 import { GeorefTwinPanel } from './components/GeorefTwinPanel'
 import { georefForPlan, getStationPlanScales } from './lib/stationPlanScale'
@@ -2593,6 +2595,10 @@ export function IncidentWorkspace({
       })
       twinGroupOrig.current = { items, centre }
       const plans = [...new Set(items.map((i) => i.planId))]
+      // …and the paper this selection lives on, for the length of the gesture — the same answer
+      // to «why did it stop» the direct drag gets. Only when the selection is on ONE sheet: two
+      // outlines at once say nothing, and one of two would be a lie.
+      if (plans.length === 1 && items[0]) showTwinBound(items[0].fit, [])
       setPlanHistory((m) => plans.reduce((acc, planId) => pushBoardPast(acc, planId, board[planId] ?? []), m))
       return
     }
@@ -2631,6 +2637,7 @@ export function IncidentWorkspace({
       return next
     })
     if (phase === 'end') {
+      endTwinBound()
       items.forEach((i) => emit('board.move', { planId: i.planId, id: i.annoId }))
       twinGroupOrig.current = { items: [], centre: null }
     }
@@ -2854,6 +2861,24 @@ export function IncidentWorkspace({
   /** the live whole-path drag — anchored at the press, because the projection follows the source
    *  mid-drag and a delta added to the moving geometry would compound (GeorefTwinsBoard · from) */
   const twinPathDrag = useRef<{ pts: NonNullable<BoardAnno['pts']>; from: { x: number; y: number } } | null>(null)
+  /**
+   * The sheet a mirrored object is being dragged on, while it is being dragged: its projected
+   * outline, plus whichever edges are HOLDING the drag back right now (MapView · twinBound).
+   *
+   * ⚠️ This is the answer to «das gespiegelte Feuer lässt sich nur auf einer Achse ziehen». The
+   * source lives on a bounded document, so once a drag crosses the projected paper edge that
+   * coordinate pins and only the free one keeps following the finger. Correct — and invisible,
+   * because the Karte draws no paper. Now it does, for the length of the drag.
+   */
+  const [twinBound, setTwinBound] = useState<{ ring: LngLat[]; held: LngLat[][] } | null>(null)
+  /** so the edge buzzes ONCE when it is first met, not on every sample along it */
+  const twinBoundBuzzed = useRef(false)
+  const showTwinBound = (fit: GeorefFit, held: SheetEdge[]) => {
+    if (held.length && !twinBoundBuzzed.current) { twinBoundBuzzed.current = true; buzz() }
+    if (!held.length) twinBoundBuzzed.current = false
+    setTwinBound({ ring: sheetCorners(fit), held: held.map((e) => sheetEdgeEnds(fit, e)) })
+  }
+  const endTwinBound = () => { twinBoundBuzzed.current = false; setTwinBound(null) }
   const moveMapTwinSource = (t: Pick<MapTwin, 'planId' | 'annoId' | 'fit'> & { anno: BoardAnno }, coord: LngLat, phase: 'start' | 'move' | 'end') => {
     if (tacticalLocked) return
     const p = t.fit.toPlan({ lng: coord[0], lat: coord[1] })
@@ -2862,11 +2887,14 @@ export function IncidentWorkspace({
       if (phase === 'start') {
         setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
         twinPathDrag.current = { pts: t.anno.pts, from: p }
+        showTwinBound(t.fit, [])
         return
       }
       const st = twinPathDrag.current
       if (!st) return
       const pts = movedTwinPath(st.pts, st.from, p)
+      if (phase === 'end') endTwinBound()
+      else showTwinBound(t.fit, twinPathDelta(st.pts, st.from, p).held)
       setBoard((all) => ({ ...all, [t.planId]: (all[t.planId] ?? []).map((a) => (a.id === t.annoId ? { ...a, pts } : a)) }))
       if (phase !== 'end') return
       twinPathDrag.current = null
@@ -2879,9 +2907,16 @@ export function IncidentWorkspace({
       return
     }
     // one checkpoint for the whole drag, on the first movement — the map's own model
-    if (phase === 'start') { setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? [])); return }
-    // clamped to the sheet: a plan point outside the paper is not a place on that document
-    const x = Math.max(0, Math.min(1, p.x)), y = Math.max(0, Math.min(1, p.y))
+    if (phase === 'start') {
+      setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
+      showTwinBound(t.fit, [])
+      return
+    }
+    // clamped to the sheet: a plan point outside the paper is not a place on that document. The
+    // two axes clamp INDEPENDENTLY, so the object slides along the edge it met instead of
+    // stopping dead — and the edge it is sliding on lights up while it does.
+    const { pt: { x, y }, held } = clampToSheet(p)
+    if (phase === 'end') endTwinBound(); else showTwinBound(t.fit, held)
     setBoard((all) => ({ ...all, [t.planId]: (all[t.planId] ?? []).map((a) => (a.id === t.annoId ? { ...a, x, y } : a)) }))
     if (phase !== 'end') return
     pushEvent({
@@ -3844,6 +3879,7 @@ export function IncidentWorkspace({
           onTwinOpen={openTwinView}
           onTwinMove={moveMapTwinSource}
           onSelectionDone={finishSelection}
+          twinBound={twinBound}
           onContentTwinOpen={openContentTwinView}
           onContentTwinMove={moveMapTwinSource}
           // round 8 (full 1:1): node pads / «+» / hold-delete on a selected mirrored plan
