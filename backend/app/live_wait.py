@@ -15,7 +15,9 @@ Two properties the callers depend on:
 · **The wake happens after the COMMIT.** A waiter woken while the writer's transaction is still
   open would re-read the *old* state, conclude nothing changed and park again for a full
   timeout — the exact latency the long poll exists to remove. `notify_after_commit` therefore
-  queues the topic on the session and a SQLAlchemy ``after_commit`` hook fires it.
+  hands the wake-up to `transaction_hooks.after_commit`, the module that owns that boundary
+  for every non-database side effect (blob cleanup, outbound notifications) — a wake-up is one
+  more of those, and a rollback drops it there for the same reason it drops the others.
 
 · **Nothing waits on a checked-out DB connection.** The endpoints query, hand the connection
   back (``await db.commit()``), and only then park here. The pool holds 10+10 connections and a
@@ -34,9 +36,9 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
+
+from .transaction_hooks import after_commit
 
 #: How long a long-poll read parks before answering «nothing new». Comfortably under the
 #: reverse-proxy idle timeouts we run behind, and under the client's own request timeout —
@@ -45,9 +47,6 @@ LONG_POLL_TIMEOUT_S = 20.0
 
 #: A thing to follow: ("workspace" | "journal", incident id).
 Topic = tuple[str, uuid.UUID]
-
-#: Session.info key holding the topics to fire once the session's transaction commits.
-_PENDING = "kp_live_wait_pending"
 
 #: topic → the events of the requests currently parked on it. One entry per parked request;
 #: both sides are removed in the waiter's ``finally``, so the dict is bounded by live requests
@@ -77,20 +76,12 @@ def notify_after_commit(db: AsyncSession, topic: Topic) -> None:
     """Queue a wake-up for `topic`, fired when this session's transaction commits.
 
     Called by the writers (workspace PUT, journal append) *while* their transaction is still
-    open — see the module docstring for why the delay matters. A rollback drops the queue.
+    open — see the module docstring for why the delay matters. A rollback drops the queue:
+    that is `transaction_hooks`' after-commit contract, which this rides rather than
+    re-deriving. Several topics may be queued on one session; each fires once, in order,
+    and a second wake for a topic already queued is harmless (it sets a set event again).
     """
-    db.sync_session.info.setdefault(_PENDING, set()).add(topic)
-
-
-@event.listens_for(Session, "after_commit")
-def _fire_pending(session: Session) -> None:
-    for topic in session.info.pop(_PENDING, ()):
-        notify(topic)
-
-
-@event.listens_for(Session, "after_rollback")
-def _drop_pending(session: Session) -> None:
-    session.info.pop(_PENDING, None)
+    after_commit(db, lambda: notify(topic))
 
 
 class Subscription:
