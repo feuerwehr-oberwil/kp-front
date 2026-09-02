@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { audioUnlocked, primeAudio } from './alarm'
+import { audioUnlocked, onAudioState, primeAudio } from './alarm'
 
 const MUTE_KEY = 'kp.atemschutz.alarmMute'
-// The audio state only ever changes via a resume() that resolves asynchronously, and there is no
-// event we subscribe to here — so while the tone is still blocked the flag is re-read on a slow
-// tick. It stops the moment audio runs, which is the normal case after the first Einsatz tap.
+// The context's `statechange` (alarm.ts · onAudioState) is the primary signal; this slow tick is
+// the backstop for a resume() whose transition WebKit does not report. It stops the moment
+// audio runs (the normal case after the first Einsatz tap) — and, on a device whose audio never
+// unlocks (a pure viewer), after the first resume-driven re-check instead of running for good.
 const AUDIO_POLL_MS = 2000
 
 /**
@@ -47,11 +48,30 @@ export function useAtemschutzMute(incidentId: string) {
   }, [incidentId])
 
   const [audioReady, setAudioReady] = useState(audioUnlocked)
+  // true once the app has come back to the foreground at least once — the poll's off switch
+  const [resumed, setResumed] = useState(false)
+  // Re-read on every state transition the context reports, AND when the app resumes
+  // (visibility/focus): a phone call or Siri leaves WebKit's context `'interrupted'` — a state
+  // the old «poll until running, then stop for good» never saw again, so the bell kept saying
+  // «an» over a silent tone. Read afresh, the bell flips back to «nicht freigegeben» and its tap
+  // re-primes (the retry every pip makes in alarm.ts needs a gesture on WebKit).
   useEffect(() => {
-    if (audioReady) return
+    const check = () => setAudioReady(audioUnlocked())
+    const off = onAudioState(check)
+    const onResume = () => { if (!document.hidden) { check(); setResumed(true) } }
+    document.addEventListener('visibilitychange', onResume)
+    window.addEventListener('focus', onResume)
+    return () => {
+      off()
+      document.removeEventListener('visibilitychange', onResume)
+      window.removeEventListener('focus', onResume)
+    }
+  }, [])
+  useEffect(() => {
+    if (audioReady || resumed) return
     const t = setInterval(() => setAudioReady(audioUnlocked()), AUDIO_POLL_MS)
     return () => clearInterval(t)
-  }, [audioReady])
+  }, [audioReady, resumed])
 
   /** Retry the unlock from a user gesture (the bell's own tap). */
   const unlockAudio = useCallback(() => {

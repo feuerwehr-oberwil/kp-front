@@ -42,8 +42,14 @@ export function useVoiceMemo(onClip: (clip: { url: string; secs: number }) => vo
   const start = async () => {
     if (recording) return
     stopWhenReady.current = false
+    // held OUTSIDE the try: once the mic is granted, a failing `new MediaRecorder` (unsupported
+    // mime/hardware) must still release the tracks — iOS otherwise keeps the orange mic indicator
+    // on with nothing in the app to turn it off
+    let stream: MediaStream | null = null
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch { toast(appConfig.copy.toast.micDenied, { icon: 'mic', tone: 'warn' }); return }
+    try {
       const rec = new MediaRecorder(stream); const chunks: Blob[] = []
       const startedAt = Date.now()
       rec.ondataavailable = (e) => e.data.size && chunks.push(e.data)
@@ -56,7 +62,11 @@ export function useVoiceMemo(onClip: (clip: { url: string; secs: number }) => vo
       }
       recRef.current = { rec }; setRecStartedAt(startedAt); setRecording(true); rec.start()
       if (stopWhenReady.current) rec.stop() // stop tapped before the mic was granted
-    } catch { toast(appConfig.copy.toast.micDenied, { icon: 'mic', tone: 'warn' }) }
+    } catch {
+      stream.getTracks().forEach((t) => t.stop())
+      // not «verweigert» — the mic WAS granted; the recorder could not be started
+      toast(appConfig.copy.toast.micFailed, { icon: 'mic', tone: 'warn' })
+    }
   }
   const stop = () => { if (recRef.current?.rec.state === 'recording') recRef.current.rec.stop(); else stopWhenReady.current = true }
   return { recording, recStartedAt, start, stop }

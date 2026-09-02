@@ -460,6 +460,7 @@ export const it: Localizable<Copy> = {
   toast: {
     audioSaved: 'Nota audio salvata ({secs}s)',
     micDenied: 'Nessun accesso al microfono – annotato come segnaposto',
+    micFailed: 'Impossibile avviare la registrazione',
     merged: 'Modifiche unite',
   },
   mapHints: {
@@ -4032,12 +4033,14 @@ export const it: Localizable<Copy> = {
     promptFor: {
       crashLoop: 'L\'app è andata in crash più volte durante un intervento. Cosa stavi facendo?',
       crash: 'L\'app è andata in crash una volta poco fa. Cosa stavi facendo?',
+      renderStorm: 'L\'app ha girato a pieno carico durante un intervento – probabilmente lenta, o la batteria si è scaricata in fretta. Cosa era aperto?',
       storageFull: 'La memoria di questo dispositivo era piena. Si è perso qualcosa?',
       syncConflict: 'Due dispositivi avevano stati diversi. Alla fine mancava qualcosa?',
     },
     kinds: {
       crashLoop: 'crash ripetuto nello stesso intervento',
       crash: 'crash dell\'interfaccia',
+      renderStorm: 'interfaccia sotto carico continuo',
       storageFull: 'memoria del dispositivo piena',
       syncConflict: 'conflitto di sincronizzazione durante l\'unione',
     },

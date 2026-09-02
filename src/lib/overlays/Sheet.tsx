@@ -3,6 +3,7 @@ import { Dialog } from '@base-ui/react/dialog'
 import { Icon } from '../icons'
 import { appConfig } from '../../config/appConfig'
 import { SheetGrip } from '../../components/SheetGrip'
+import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
 
 /**
@@ -52,7 +53,10 @@ export interface SheetProps {
 }
 
 export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide, fit, sheetClassName, grip, initialFocus, modal = 'trap-focus' }: SheetProps) {
-  const cls = ['ip-sheet', 'ui-dialog', wide && 'ip-wide', fit && 'ip-fit', sheetClassName].filter(Boolean).join(' ')
+  // the on-screen keyboard: a phone sheet lifts by margin, a tablet sheet rides up and caps its
+  // height (`is-kb` + `--kb-inset`, see keyboardLift) — without a keyboard neither is rendered
+  const kbInset = useKeyboardInset(open)
+  const cls = ['ip-sheet', 'ui-dialog', wide && 'ip-wide', fit && 'ip-fit', sheetClassName, kbInset > 0 && 'is-kb'].filter(Boolean).join(' ')
   const isOpeningEcho = useDismissGrace(open)
   return (
     <Dialog.Root
@@ -68,7 +72,7 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="ui-backdrop" />
-        <Dialog.Popup className={cls} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined}>
+        <Dialog.Popup className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined}>
           {grip && <SheetGrip onClose={onClose} />}
           <div className="ip-head">
             {title != null && <Dialog.Title>{title}</Dialog.Title>}

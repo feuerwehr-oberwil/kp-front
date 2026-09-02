@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { primeAudio, startAlarm, stopAlarm } from './alarm'
 
@@ -22,15 +23,22 @@ class FakeGain {
 }
 let lastOsc: FakeOsc
 let fakeGain: FakeGain
+let lastCtx: FakeCtx
 class FakeCtx {
-  state: 'suspended' | 'running' | 'closed' = 'suspended'
+  // a string, not the lib's union: WebKit reports the non-standard 'interrupted'
+  state = 'suspended'
   currentTime = 0
   destination = {}
+  private listeners = new Set<() => void>()
   resume = vi.fn(async () => {
     this.state = 'running'
+    this.dispatch()
   })
   createOscillator = vi.fn(() => (lastOsc = new FakeOsc()))
   createGain = vi.fn(() => (fakeGain = new FakeGain()))
+  addEventListener = vi.fn((type: string, fn: () => void) => { if (type === 'statechange') this.listeners.add(fn) })
+  /** what the browser does on every state transition */
+  dispatch() { for (const fn of this.listeners) fn() }
 }
 
 describe('alarm utility', () => {
@@ -86,5 +94,50 @@ describe('alarm utility', () => {
     stopAlarm()
     expect(osc1.stop).toHaveBeenCalled()
     expect(() => stopAlarm()).not.toThrow()
+  })
+})
+
+// A fresh module per test: `ctx` is module state, and these tests need a context of their own
+// to put into a state the lib did not choose — so the constructor hands the instance out.
+describe('alarm — an interrupted context', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.resetModules()
+    ;(globalThis as { AudioContext?: unknown }).AudioContext = function () { return (lastCtx = new FakeCtx()) }
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    delete (globalThis as { AudioContext?: unknown }).AudioContext
+  })
+
+  it('pip resumes a context WebKit left «interrupted» (a call, Siri), not only a suspended one', async () => {
+    const fresh = await import('./alarm')
+    fresh.primeAudio()
+    const c = lastCtx
+    await Promise.resolve() // the unlock's resume settles
+    expect(c.state).toBe('running')
+    c.resume.mockClear()
+    c.state = 'interrupted'
+    const a = new fresh.Alarm()
+    a.set(2) // überfällig → the first pip fires at once
+    expect(c.resume).toHaveBeenCalledTimes(1)
+    a.stop()
+  })
+
+  it('onAudioState hears every statechange, and an unsubscribed listener hears nothing', async () => {
+    const fresh = await import('./alarm')
+    const seen = vi.fn()
+    const off = fresh.onAudioState(seen) // subscribed BEFORE any context exists, like the bell
+    fresh.primeAudio()
+    await Promise.resolve()
+    expect(seen).toHaveBeenCalledTimes(1) // suspended → running
+    expect(fresh.audioUnlocked()).toBe(true)
+    lastCtx.state = 'interrupted'
+    lastCtx.dispatch()
+    expect(seen).toHaveBeenCalledTimes(2)
+    expect(fresh.audioUnlocked()).toBe(false) // …and the bell reads the truth
+    off()
+    lastCtx.dispatch()
+    expect(seen).toHaveBeenCalledTimes(2)
   })
 })

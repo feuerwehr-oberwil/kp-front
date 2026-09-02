@@ -460,6 +460,7 @@ export const fr: Localizable<Copy> = {
   toast: {
     audioSaved: 'Note audio enregistrée ({secs}s)',
     micDenied: 'Pas d’accès au micro – noté comme marqueur',
+    micFailed: 'L’enregistrement n’a pas pu démarrer.',
     merged: 'Modifications fusionnées',
   },
   mapHints: {
@@ -4032,12 +4033,14 @@ export const fr: Localizable<Copy> = {
     promptFor: {
       crashLoop: 'L\'application a planté plusieurs fois pendant une intervention. Que faisais-tu ?',
       crash: 'L\'application a planté une fois à l\'instant. Que faisais-tu ?',
+      renderStorm: 'L\'application a tourné à plein régime pendant une intervention – sans doute lente, ou la batterie vidée rapidement. Qu\'est-ce qui était ouvert ?',
       storageFull: 'La mémoire de cet appareil était pleine. Quelque chose a-t-il été perdu ?',
       syncConflict: 'Deux appareils avaient des états différents. Manquait-il quelque chose au final ?',
     },
     kinds: {
       crashLoop: 'plantage répété dans la même intervention',
       crash: 'plantage de l\'interface',
+      renderStorm: 'interface en charge permanente',
       storageFull: 'mémoire de l\'appareil pleine',
       syncConflict: 'conflit de synchronisation lors de la fusion',
     },

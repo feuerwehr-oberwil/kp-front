@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode, Ref, RefObject } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
+import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
 
 /**
@@ -40,7 +41,8 @@ export interface OverlayProps {
    * plus Space/←/→/↑/↓ transport) — then its own keydown handler calls `onClose` when appropriate.
    */
   dismissEscape?: boolean
-  /** Inline style for the popup frame — e.g. a keyboard-inset `marginBottom` on a bottom sheet. */
+  /** Inline style for the popup frame. Merged OVER the keyboard lift every Overlay applies
+   *  (keyboardLift · `is-kb`), so a surface with its own keyboard answer (the composer) wins. */
   style?: CSSProperties
   /**
    * The popup element itself, for a surface that has to MEASURE its own frame (the journal
@@ -55,6 +57,10 @@ export interface OverlayProps {
 
 export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, popupRef, children }: OverlayProps) {
   const isOpeningEcho = useDismissGrace(open)
+  // the on-screen keyboard, the same way <Sheet> answers it; only an `.ip-sheet` frame has the
+  // CSS for `is-kb`, a bespoke frame gets the margin (its bottom-sheet case) and the variable
+  const lift = keyboardLift(useKeyboardInset(open))
+  const cls = lift && !className.split(' ').includes('is-kb') ? `${className} is-kb` : className
   return (
     <Dialog.Root
       open={open}
@@ -71,7 +77,7 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
     >
       <Dialog.Portal>
         <Dialog.Backdrop className={backdropClassName} />
-        <Dialog.Popup ref={popupRef} className={className} style={style} aria-label={ariaLabel} initialFocus={initialFocus}>
+        <Dialog.Popup ref={popupRef} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus}>
           {children}
         </Dialog.Popup>
       </Dialog.Portal>

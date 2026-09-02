@@ -30,6 +30,11 @@ let osc: OscillatorNode | null = null
 let gainNode: GainNode | null = null
 let timer: ReturnType<typeof setInterval> | null = null
 
+// Fan-out for the context's `statechange` — subscribed BEFORE the context exists (the bell
+// mounts long before the first Einsatz tap primes audio), so the listeners live here and the
+// one DOM listener is attached the moment the context is built.
+const stateListeners = new Set<() => void>()
+
 function getCtx(): AudioContext | null {
   if (ctx) return ctx
   const Ctor =
@@ -37,7 +42,19 @@ function getCtx(): AudioContext | null {
     (globalThis as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!Ctor) return null // no Web Audio (SSR / very old browser) — fail silent
   ctx = new Ctor()
+  ctx.addEventListener('statechange', () => { for (const fn of stateListeners) fn() })
   return ctx
+}
+
+/**
+ * Try to get the context running. `resume()` on anything that is not `running`: browsers
+ * start `suspended`, and WebKit ALSO reports the non-standard `'interrupted'` after a phone
+ * call, Siri or another app taking the audio session — and does not resume a page that was in
+ * the background when the interruption ended. Resuming only on `'suspended'` left the tone
+ * silent while the bell still said «an». A rejected resume (closed context) is swallowed.
+ */
+function resumeIfNeeded(c: AudioContext): void {
+  if (c.state !== 'running') void c.resume().catch(() => {})
 }
 
 /**
@@ -48,8 +65,19 @@ function getCtx(): AudioContext | null {
 export function primeAudio(): boolean {
   const c = getCtx()
   if (!c) return false
-  if (c.state === 'suspended') void c.resume().catch(() => {})
+  resumeIfNeeded(c)
   return c.state !== 'closed'
+}
+
+/**
+ * Subscribe to the AudioContext's state transitions (`statechange`). Fires on the unlock
+ * itself and whenever the OS takes the audio session away, so a caller showing «Ton nicht
+ * freigegeben» can re-read `audioUnlocked()` instead of polling. Returns the unsubscribe.
+ * Never creates a context (see `audioUnlocked`).
+ */
+export function onAudioState(fn: () => void): () => void {
+  stateListeners.add(fn)
+  return () => { stateListeners.delete(fn) }
 }
 
 /**
@@ -70,7 +98,7 @@ export function audioUnlocked(): boolean {
 export function startAlarm(level: AlarmLevel = 'warn') {
   const c = getCtx()
   if (!c) return
-  if (c.state === 'suspended') void c.resume().catch(() => {})
+  resumeIfNeeded(c)
 
   const spec = TONES[level]
 
@@ -283,7 +311,7 @@ export class Alarm {
   private pip() {
     const c = getCtx()
     if (!c) return
-    if (c.state === 'suspended') void c.resume().catch(() => {})
+    resumeIfNeeded(c) // every pip retries — an interrupted context comes back on the next beat
     const critical = this.level >= 2
     // softer pitch + gentler gain than the old piercing beeper (kept a double-pip so it still
     // reads as an urgent alarm, not a notification blip)
