@@ -4,12 +4,16 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { fillTemplate, stripUnprintable } from '../lib/format'
-import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
+import { rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { useLongPress } from '../lib/useLongPress'
 import type { Person } from '../types'
 import type { Slot } from './PersonField'
+import { ComboRank } from './ComboMenu'
 import s from './Atemschutz.module.css'
+// the Dienstgrad chip and the name cell of a roster row live with the picker they were shared
+// with (ComboMenu.module.css) — this list draws the same row, so it draws the same two marks
+import c from './ComboMenu.module.css'
 
 /** A Trupp is a Gruppenführer and two AdF — three slots, always shown. A bigger Trupp is a real
  *  Trupp and simply grows the box (see the render below); three is what the form should be
@@ -266,9 +270,9 @@ export function TruppTeam({
               onClick={() => add({ name: o.name, personId: o.personId })}
             >
               {o.personId && <span className={cx(s.comboDot, o.present ? s.comboDotPresent : s.comboDotOff)} />}
-              {o.rank && <span className={s.comboRank} title={rankLabel(o.rank)}>{rankAbbr(o.rank)}</span>}
+              {o.rank && <ComboRank rank={o.rank} />}
               {o.guest && <span className={s.comboGuest}>{appConfig.copy.anwesenheit.guestBadge}</span>}
-              <span className={s.comboName}>{o.name}</span>
+              <span className={c.name}>{o.name}</span>
               {/* ONE note per row, most operational first: already in a Trupp beats «still at
                   the Magazin», which beats a Funktion, which beats «nicht anwesend». Where
                   somebody IS decides whether they can go under PA at all; a Funktion is only a

@@ -657,7 +657,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .comboDot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .comboDotPresent { background: var(--green); }
 .comboDotOff { background: var(--ink-faint); opacity: .4; }
-.comboName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* «Gast» on a roster option — somebody recorded on this Einsatz who is not on the
    Mannschaftsliste (lib/guests). ⚠️ The SAME blue mark the Anwesenheit screen gives them
    (.guestBadge in Anwesenheit.module.css): one thing, one look for it, on every screen. It
@@ -665,24 +664,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .comboGuest { flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--blue);
   background: color-mix(in srgb, var(--blue) 14%, var(--surface)); border-radius: 5px; padding: 2px 5px; }
 .comboHint { flex: none; font-size: 11px; color: var(--ink-faint); }
-/* rank badge inside a roster option */
-.comboRank {
-  flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--ink-dim);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 5px; padding: 2px 5px;
-}
-/* the roster search, pinned above the list — sticky so it survives a scroll: a filter you have
-   to scroll back up to reach is a filter you stop using */
-.comboSearchRow { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center; gap: 8px;
-  padding: 6px 8px; margin: -4px -4px 2px; background: var(--surface);
-  border-bottom: 1px solid var(--glass-edge); }
-.comboSearchIcon { display: grid; place-items: center; color: var(--ink-faint); flex: none; }
-.comboSearchIcon :global(.i) { width: 15px; height: 15px; }
-.comboSearch { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
-  font-family: var(--body); font-size: 14px; color: var(--ink); padding: 6px 0; }
-.comboSearchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
-  background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
-@media (hover: hover) { .comboSearchClear:hover { background: var(--fill-soft); color: var(--ink); } }
-.comboSearchClear :global(.i) { width: 14px; height: 14px; }
+/* The Dienstgrad chip, the option's name cell and the sticky search row are the SKINLESS parts
+   of this control — identical here and in the global `.combo-*` copy, so ComboMenu draws them
+   from ComboMenu.module.css and neither stylesheet names them any more. */
 
 /* "nur Offiziere" toggle pinned above the roster list */
 .comboToggle {

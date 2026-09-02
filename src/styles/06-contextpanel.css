@@ -232,15 +232,14 @@
 .combo-menu-portal { position: fixed; right: auto; z-index: var(--z-dialog-menu); }
 .combo-opt { width: 100%; display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; border: none;
   background: none; border-radius: var(--r-xs); padding: 8px 9px; min-height: var(--tap); font: 600 13px var(--body); color: var(--ink); }
-/* Dienstgrad chip in a roster option — mirrors the Atemschutz PersonField badge */
-.combo-rank { flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--ink-dim);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 5px; padding: 2px 5px; }
 @media (hover: hover) {
   .combo-opt:hover { background: var(--fill-soft); }
 }
 .combo-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-opt.on { background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue); }
-.combo-opt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The Dienstgrad chip, the option's name cell and the sticky search row are the SKINLESS parts
+   of this control — identical here and in the Atemschutz copy, so ComboMenu draws them from
+   ComboMenu.module.css and neither stylesheet names them any more. */
 /* What is already known about this person, ON the entry. ⚠️ It was a toast that fired three
    seconds AFTER the pick and then vanished — the list is where the decision is made, so the
    list is where the fact belongs. A hint, never a block. */
@@ -248,22 +247,6 @@
 .combo-opt-status.warn { color: var(--accent); }
 .combo-opt-status.info { color: var(--blue-strong); }
 .combo-opt-status.muted { color: var(--ink-faint); font-weight: 600; }
-
-/* the roster search, pinned above the list and sticky so it survives a scroll */
-.combo-search-row { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center; gap: 8px;
-  padding: 6px 8px; margin: -4px -4px 2px; background: var(--surface);
-  border-bottom: 1px solid var(--glass-edge); }
-.combo-search-icon { display: grid; place-items: center; color: var(--ink-faint); flex: none; }
-.combo-search-icon .i { width: 15px; height: 15px; }
-.combo-search { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
-  font-family: var(--body); font-size: 14px; color: var(--ink); padding: 6px 0; }
-.combo-search-clear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
-  background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
-@media (hover: hover) {
-  .combo-search-clear:hover { background: var(--fill-soft); color: var(--ink); }
-}
-.combo-search-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.combo-search-clear .i { width: 14px; height: 14px; }
 
 /* the contradiction a filled roster field carries — under the field, and it stays.
    ⚠️ .field / .kv-row are single-line flex rows, so as a plain sibling the hint landed BESIDE

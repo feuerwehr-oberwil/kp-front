@@ -1,0 +1,44 @@
+/* ============================================================================
+   The parts of a combo menu that were byte-identical in both skins.
+   ============================================================================
+
+   `ComboMenu` is one control worn two ways: the panel/wizard skin (global `.combo-*` in
+   styles/06-contextpanel.css — 13px type on --fill-soft) and the Atemschutz/Rapport skin
+   (`.combo*` in Atemschutz.module.css — 15px type on --surface). Those two skins genuinely
+   differ, and they stay where they are.
+
+   What did NOT differ was copied: the sticky search row, the Dienstgrad chip and the option's
+   name cell were the same declarations in both stylesheets, which is how a fix to one silently
+   never reached the other. ComboMenu renders those three itself, so they are defined here once
+   and no skin has to name them.
+
+   Imported by the component rather than composed or made global — same reasoning as
+   SurfaceControls.module.css: the repo has no `composes:` anywhere, and `.search` is far too
+   generic a name to put in the shared namespace.
+   ============================================================================ */
+
+/* the roster search, pinned above the list — sticky so it survives a scroll: a filter you have
+   to scroll back up to reach is a filter you stop using */
+.searchRow { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; margin: -4px -4px 2px; background: var(--surface);
+  border-bottom: 1px solid var(--glass-edge); }
+.searchIcon { display: grid; place-items: center; color: var(--ink-faint); flex: none; }
+.searchIcon :global(.i) { width: 15px; height: 15px; }
+.search { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
+  font-family: var(--body); font-size: 14px; color: var(--ink); padding: 6px 0; }
+.searchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
+  background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
+@media (hover: hover) { .searchClear:hover { background: var(--fill-soft); color: var(--ink); } }
+/* ⚠️ The Atemschutz skin's copy of this button had no press wash — the one place the two
+   copies had drifted. The wash stays: every other control in both stylesheets has it, and a ✕
+   under a gloved finger that shows nothing reads as a ✕ that did not register. */
+.searchClear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.searchClear :global(.i) { width: 14px; height: 14px; }
+
+/* Dienstgrad chip on a roster row — what makes the officers-first sorting legible at a glance */
+.rank { flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--ink-dim);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 5px; padding: 2px 5px; }
+
+/* the option's name cell: it takes the slack and ellipses, so the marks around it (chip, dot,
+   «Gast», the soft note) keep their room on a narrow field */
+.name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
