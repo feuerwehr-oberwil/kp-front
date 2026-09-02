@@ -29,6 +29,18 @@
 .eb-actions { display: flex; flex-direction: column; gap: 8px; }
 .eb-actions .ip-btn { width: 100%; justify-content: center; }
 .eb-warn { margin: 0; color: var(--ink-faint); font-size: 12.5px; line-height: 1.4; }
+/* SurfaceBoundary — the same card, INSIDE one view. Not the fixed .login cover: it fills the
+   incident's canvas under the chrome (rail, top bar, Meldeleiste all stay live), padded so the
+   card centres in the area a surface actually occupies, and washed so it reads over a busy map. */
+.sb-wrap { position: absolute; inset: 0; z-index: var(--z-surface); display: grid; place-items: center;
+  padding: 88px 16px 16px calc(var(--rail-w) + 28px);
+  background: color-mix(in srgb, var(--app-bg) 72%, transparent); }
+.sb-wrap .eb-card { animation: none; }
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  /* the phone's rail is a bottom bar (Atemschutz.module.css · .surface uses the same insets) */
+  .sb-wrap { padding: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+}
 
 /* brand lockup — app logo + wordmark, separated from the body by a hairline */
 .login-brand { display: flex; align-items: center; gap: 15px; padding-bottom: 22px;

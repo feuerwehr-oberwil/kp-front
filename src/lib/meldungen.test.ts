@@ -6,7 +6,7 @@ import { rankMeldungen, type Meldung, type MeldungKind, type MeldungTone } from 
 // anything that would go away by itself.
 
 const TONE: Record<MeldungKind, MeldungTone> = {
-  atemschutz: 'alarm', alarm: 'alarm', reminder: 'warn', gps: 'warn', review: 'info', tabLock: 'info', update: 'calm', install: 'calm',
+  atemschutz: 'alarm', alarm: 'alarm', reminder: 'warn', gps: 'warn', review: 'info', tabLock: 'info', symbols: 'warn', basemap: 'warn', update: 'calm', install: 'calm',
 }
 const m = (kind: MeldungKind, id: string = kind): Meldung => ({ id, kind, tone: TONE[kind], icon: 'bell', title: kind })
 
@@ -21,9 +21,9 @@ describe('rankMeldungen', () => {
   })
 
   it('orders every kind, so the strip reads best-first from the top down', () => {
-    const all: MeldungKind[] = ['install', 'update', 'tabLock', 'review', 'gps', 'reminder', 'alarm', 'atemschutz']
+    const all: MeldungKind[] = ['install', 'update', 'basemap', 'symbols', 'tabLock', 'review', 'gps', 'reminder', 'alarm', 'atemschutz']
     expect(rankMeldungen(all.map((k) => m(k))).map((r) => r.kind))
-      .toEqual(['atemschutz', 'alarm', 'reminder', 'gps', 'review', 'tabLock', 'update', 'install'])
+      .toEqual(['atemschutz', 'alarm', 'reminder', 'gps', 'review', 'tabLock', 'symbols', 'basemap', 'update', 'install'])
   })
 
   it('keeps arrival order inside one class — two paused GPS connections stay in the order they came', () => {

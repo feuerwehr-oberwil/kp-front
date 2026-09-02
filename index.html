@@ -61,11 +61,21 @@
       stylesheet is a <link> in <head>, so it is styled at first paint without waiting for JS.
       No station wordmark here — that name comes from the deployment config, which is exactly
       what has not loaded yet, and a placeholder that changes would be worse than none.
+
+      The .boot-hint block is CSS-only (fades in after 12 s, see .boot-hint in 08-toasts.css):
+      if the boot path wedges BEFORE React mounts — an IndexedDB open that never answers — this
+      pulse would otherwise run forever with nothing to read and nothing to tap. React replaces
+      the whole markup on mount, so a normal launch never shows it. German inline: the locale
+      is a deployment setting that has not loaded at this point either.
     -->
     <div id="root">
       <div class="login splash boot-splash">
         <div class="loading-card">
           <div class="ping"><span></span><span></span><span class="core"></span></div>
+          <div class="loading-stuck boot-hint" role="status">
+            <div class="loading-stuck-title">Start dauert länger als gewöhnlich</div>
+            <p class="loading-stuck-hint">App schliessen und neu öffnen. Bleibt es dabei: die Website-Daten dieser App im Browser löschen – Einsätze liegen auf dem Server.</p>
+          </div>
         </div>
       </div>
     </div>

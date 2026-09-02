@@ -400,6 +400,10 @@
    with no flicker, and only a start slow enough to look broken ever shows a pulse. `both` keeps
    it fully transparent during the delay rather than painting and then fading. */
 .boot-splash { animation: fade .3s var(--ease) .4s both; }
+/* …and its one sentence, held back much longer: a boot that has not mounted React after 12 s is
+   wedged before any JS could say so (an IndexedDB open that never answers), so the hint is pure
+   CSS. Shares .loading-stuck's type; `both` keeps it invisible until the delay has run. */
+.boot-hint { animation: fade .3s var(--ease) 12s both; }
 .ping { position: relative; width: 72px; height: 72px; display: grid; place-items: center; }
 .ping span { position: absolute; border-radius: 50%; }
 .ping span:not(.core) { width: 100%; height: 100%; border: 2px solid var(--accent); animation: ping 1.8s var(--ease) infinite; }

@@ -109,6 +109,46 @@ describe('the published rows', () => {
     expect(document.querySelector('.ml-act button')).toBeNull()
   })
 
+  // A viewer's device cannot end the alarm, so its row would stand for ever: it gets the one
+  // extra, secondary button that hides the row HERE only, and the sub says it is read-only.
+  it('gives a read-only device «Zur Kenntnis genommen», which hides that row on this device', () => {
+    const went: string[] = []
+    render(
+      <>
+        <AtemschutzAlarmMeldungen
+          trupps={[trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) })]}
+          severities={{ a: 2 }}
+          intervalMin={5}
+          graceSec={60}
+          canEdit={false}
+          onGoToTrupp={(id) => went.push(id)}
+        />
+        <Meldeleiste />
+      </>,
+    )
+    expect(document.querySelector('.ml-sub')?.textContent).toMatch(/nur lesend$/)
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>('.ml-act button')]
+    expect(buttons.map((b) => b.textContent)).toEqual(['Zur Kenntnis genommen', 'Zum Trupp'])
+    expect(buttons[0].className).not.toMatch(/prim/)
+    fireEvent.click(buttons[0])
+    expect(document.querySelector('.ml-row')).toBeNull()
+    expect(went).toEqual([]) // acknowledged, not navigated
+  })
+
+  it('shows an editor no such button and no read-only note', () => {
+    render(
+      <>
+        <AtemschutzAlarmMeldungen
+          trupps={[trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) })]}
+          severities={{ a: 2 }} intervalMin={5} graceSec={60} onGoToTrupp={() => {}}
+        />
+        <Meldeleiste />
+      </>,
+    )
+    expect(document.querySelectorAll('.ml-act button')).toHaveLength(1)
+    expect(document.querySelector('.ml-sub')?.textContent).not.toMatch(/nur lesend/)
+  })
+
   // the tone ⇔ row exception (see the component header): standing on the board, the strip only
   // covered the very controls the alarm points at — withheld, never acknowledged
   it('withholds the rows on the board itself, without muting, and hands them back on leaving', () => {

@@ -722,7 +722,10 @@ export const de = {
     centerIncident: 'Auf Einsatz zentrieren',
     coords: 'Koordinaten abgreifen',
     coordsHint: 'Auf Karte klicken zum Festhalten',
-    coordsLocked: 'Festgehalten – Knopf für neuen Punkt',
+    // the readout's ✕ (and Esc, and the toolbar button) all END the mode — a locked point is
+    // never cycled back into aiming, which is what used to swallow the next map tap (02.09.)
+    coordsLocked: 'Festgehalten – ✕ zum Beenden',
+    coordsExit: 'Koordinaten beenden',
     autoMode: 'Automatisch',
     dayMode: 'Tag',
     nightMode: 'Nacht',
@@ -780,6 +783,12 @@ export const de = {
     glLost: 'Kartenansicht unterbrochen',
     glLostHint: 'Das Gerät hat die Grafikanzeige der Karte freigegeben. Deine Einträge sind gespeichert.',
     glLostAction: 'Karte neu aufbauen',
+    // offline with no cached basemap for this view: the map is a flat colour with symbols on it,
+    // and nothing said why. One Meldeleiste row per Einsatz, gone the moment the link is back.
+    noTilesTitle: 'Keine Basiskarte für diesen Ausschnitt gespeichert',
+    noTilesSub: 'Offline – Objekte und Linien werden ohne Karte gezeigt',
+    noTilesAction: 'Offline-Bereitschaft',
+    noTilesDismiss: 'Ausblenden',
   },
   // "Einsatz eröffnen" / "Einsatzdaten bearbeiten". An alarm opens its Einsatz by itself,
   // so this panel is for the two remaining jobs: a manual create (fully analog Einsatz,
@@ -1624,6 +1633,10 @@ export const de = {
     alarmRowPressureSub: '{bar} bar, Grenze {line} bar – Rückzug anordnen.',
     // Die einzige Taste der Zeile. Keine ✕: ein überfälliger Trupp lässt sich nicht wegwischen.
     alarmRowGo: 'Zum Trupp',
+    // …ausser für ein Gerät, das den Trupp gar nicht beenden KANN (Viewer, Führungsansicht): dort
+    // stünde die Zeile sonst für immer. «Zur Kenntnis genommen» beendet sie nur auf diesem Gerät.
+    alarmRowAck: 'Zur Kenntnis genommen',
+    alarmRowReadOnly: 'nur lesend',
     // back from an opened card to the compact row it was opened from (only shown in that mode —
     // «Übersicht» rather than «Einklappen», because what you go back to is the comparison)
     collapse: 'Zur Übersicht',
@@ -2378,6 +2391,13 @@ export const de = {
     pleaseWait: 'Bitte kurz warten …',
     clearDigit: 'Löschen',
     retry: 'Erneut versuchen',
+    // a 403 on the roster: this device still holds the cookie of an Einsatz-Link whose Einsatz
+    // has ended, and every retry fails identically until that session is dropped
+    linkDeadHint: 'Dieses Gerät hält noch die Sitzung eines beendeten Einsatz-Links. Setze sie zurück, um dich normal anzumelden.',
+    resetSession: 'Sitzung zurücksetzen',
+    // status 0 on the roster: the shared «Gespeicherte Einsätze bleiben offline verfügbar» is
+    // not true from HERE — a device that reaches the login screen is not signed in any more
+    offlineHint: 'Ohne Verbindung ist keine Anmeldung möglich. Gespeicherte Einsätze öffnen sich nur, wenn dieses Gerät noch angemeldet war.',
   },
   // boot Splash: shown while the /me probe, the incident list or a lazy chunk settles. If a
   // stage takes unusually long the splash grows a status line + an action, so a stalled launch
@@ -2397,6 +2417,28 @@ export const de = {
     closeIncident: 'Einsatz schliessen',
     discardLocal: 'Lokale Kopie verwerfen',
     discardLocalHint: 'Verwirft nur die Kopie auf diesem Gerät und lädt den Einsatz neu vom Server. Noch nicht synchronisierte Änderungen von diesem Gerät gehen dabei verloren.',
+    // the ROOT boundary's repeat crash (launcher, login, a lazy chunk — no Einsatz to close):
+    // «App zurücksetzen» drops only the cached incident list and user, never a workspace cache
+    bodyRepeatRoot: 'Die App startet nicht – auch nach dem Neuladen nicht. Setze die lokalen Listen zurück; gespeicherte Einsätze und Änderungen bleiben erhalten.',
+    resetShell: 'App zurücksetzen',
+    resetShellHint: 'Leert nur die Einsatzliste und die Anmeldedaten auf diesem Gerät. Einsätze und ihre Änderungen bleiben gespeichert.',
+  },
+  // one surface's render-throw fallback (SurfaceBoundary): the card sits INSIDE the view, the
+  // rest of the Einsatz — rail, top bar, Meldeleiste, the Atemschutz alarm — keeps running
+  surfaceError: {
+    title: 'Diese Ansicht konnte nicht geladen werden',
+    body: 'Der übrige Einsatz läuft weiter – die Atemschutzüberwachung bleibt aktiv, deine Änderungen sind gespeichert.',
+    retry: 'Ansicht neu aufbauen',
+    toMap: 'Zur Karte',
+    repeatHint: 'Diese Ansicht stürzt wiederholt ab – bitte in der Rückmeldung melden.',
+  },
+  // the tactical symbol pack failed to load (useSymbols): Karte and Kroki run without glyphs
+  // rather than never mounting; the Meldeleiste row offers the reload
+  symbols: {
+    loadFailedTitle: 'Symbolbibliothek konnte nicht geladen werden',
+    loadFailedSub: 'Karte und Kroki laufen ohne Symbolgrafiken weiter',
+    retry: 'Nochmals laden',
+    dismiss: 'Ausblenden',
   },
   // PWA update prompt (UpdateBanner). A new build installs and waits (registerType 'prompt')
   // instead of reloading mid-incident; the operator applies it when it's safe.

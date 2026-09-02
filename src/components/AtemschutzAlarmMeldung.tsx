@@ -27,6 +27,11 @@ import type { Trupp } from '../types'
 //    full, and the strip was covering the controls they need next (the mute bell among them).
 //    The row returns the moment a NEW emergency starts: the tier clearing and re-crossing, or
 //    the reason changing (a Trupp out of contact whose air then also runs out).
+//    ⚠️ One exception, for a device that CANNOT end the alarm (`canEdit` false: a viewer, the
+//    Führungsansicht, a replay): «Zum Trupp» leads to a board it cannot write, so the row would
+//    stand for ever. There it carries a second, secondary «Zur Kenntnis genommen» that hides
+//    THAT row on THIS device only (the same `visited` bookkeeping the jump uses), and the
+//    sub-line says «nur lesend» so nobody mistakes the acknowledgement for a Funkkontakt.
 //  · Only tier 2 — the tier that sounds. The amber «Kontakt fällig» lead is silent and
 //    board-only by doctrine, and a row for it would make the strip nag before anything is wrong.
 //    That keeps the invariant this file exists for: tone ⇔ row — with ONE deliberate exception:
@@ -86,7 +91,7 @@ export function atemschutzAlarmRows(
  * Publish one Meldeleiste row per Trupp in alarm. Renders nothing itself (the strip paints) —
  * mount it wherever the alarm state lives, beside the other publishers.
  */
-export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, graceSec, onAcknowledge, onGoToTrupp, onBoard = false }: {
+export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, graceSec, onAcknowledge, onGoToTrupp, onBoard = false, canEdit = true }: {
   trupps: readonly Trupp[]
   /** per-Trupp tier from the alarm fold; only `2` is published (see the header) */
   severities: Record<string, 1 | 2>
@@ -102,6 +107,9 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
    *  the board mid-alarm brings the rows straight back, and nothing here acknowledges (that
    *  would mute the device behind the operator's back). */
   onBoard?: boolean
+  /** this device can enter the Funkkontakt / Druckmeldung that ends the alarm. False for a
+   *  viewer / the Führungsansicht: the row gains «Zur Kenntnis genommen» (see the header). */
+  canEdit?: boolean
 }) {
   // No 1 Hz tick here, deliberately: the row carries no running clock (that is the TopBar chip's
   // job). The wall clock is only re-read when something about the Trupps changes, and every event
@@ -130,17 +138,29 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
   if (onBoard) return null
   return <>{rows.filter((r) => visited[r.id] !== r.reason).map((r) => (
     <AtemschutzAlarmMeldung key={r.id} row={r} onAcknowledge={onAcknowledge}
-      onGo={(id) => { setVisited((v) => ({ ...v, [r.id]: r.reason })); onGoToTrupp(id) }} />
+      onGo={(id) => { setVisited((v) => ({ ...v, [r.id]: r.reason })); onGoToTrupp(id) }}
+      // a device that cannot end the alarm may at least stop being shouted at by it — the SAME
+      // per-row, per-reason bookkeeping, so a new emergency on the Trupp brings the row back
+      onAck={canEdit ? undefined : () => setVisited((v) => ({ ...v, [r.id]: r.reason }))} />
   ))}</>
 }
 
-function AtemschutzAlarmMeldung({ row, onAcknowledge, onGo }: { row: AtemschutzAlarmRow; onAcknowledge?: () => void; onGo: (id: string) => void }) {
+function AtemschutzAlarmMeldung({ row, onAcknowledge, onGo, onAck }: {
+  row: AtemschutzAlarmRow
+  onAcknowledge?: () => void
+  onGo: (id: string) => void
+  /** present only on a device that cannot edit Trupps — «Zur Kenntnis genommen» */
+  onAck?: () => void
+}) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const az = appConfig.copy.atemschutz
   const pressure = row.reason === 'pressure'
   // the whole crew, leader first — the title ellipsizes, so what does not fit falls away
   const name = [row.name || az.truppFallbackName, ...(row.members ?? [])].filter(Boolean).join(' · ')
   const go = () => { onAcknowledge?.(); onGo(row.id) }
+  const sub = pressure
+    ? fillTemplate(az.alarmRowPressureSub, { bar: row.bar ?? '', line: row.line ?? '' })
+    : az.alarmRowOverdueSub
   useMeldung({
     id: `atemschutz:${row.id}`,
     kind: 'atemschutz',
@@ -149,12 +169,15 @@ function AtemschutzAlarmMeldung({ row, onAcknowledge, onGo }: { row: AtemschutzA
     // learned them on the chip does not have to learn them twice
     icon: pressure ? 'drop' : 'gauge',
     title: fillTemplate(pressure ? az.alarmRowPressure : az.alarmRowOverdue, { name }),
-    sub: pressure
-      ? fillTemplate(az.alarmRowPressureSub, { bar: row.bar ?? '', line: row.line ?? '' })
-      : az.alarmRowOverdueSub,
+    // a read-only device says so on the row, so its acknowledgement is not mistaken for a contact
+    sub: onAck ? `${sub} · ${az.alarmRowReadOnly}` : sub,
     // ONE move, and it is forward: the board is where a Funkkontakt or a Druckmeldung is
-    // entered, i.e. where this row is actually ended.
-    actions: [{ label: az.alarmRowGo, icon: 'gauge', primary: true, onClick: go }],
+    // entered, i.e. where this row is actually ended. The read-only device's second button is
+    // secondary and hides the row here only.
+    actions: [
+      ...(onAck ? [{ label: az.alarmRowAck, onClick: () => { onAcknowledge?.(); onAck() } }] : []),
+      { label: az.alarmRowGo, icon: 'gauge', primary: true, onClick: go },
+    ],
     // …and the Trupp's name is the way there too, like every other row whose message has a place
     // (Meldeleiste · MeldungTitle). The filled button STAYS: this is the loudest row the app can
     // show, and it has to read as actionable at a glance, from across the Kommandoraum — the
