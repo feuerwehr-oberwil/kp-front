@@ -6,19 +6,11 @@
    and top bar, so those chrome elements stay visible. */
 .backdrop { position: fixed; inset: 0; background: var(--app-bg); z-index: var(--z-surface-scrim); }
 
-.surface {
-  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
-  display: flex; flex-direction: column;
-  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
-}
-
-/* THE surface header (tokens · --head-*) — see Atemschutz.module.css; identical by construction. */
-.head {
-  display: flex; align-items: center; gap: var(--head-gap); padding: var(--head-pad); flex-wrap: wrap;
-  background: var(--surface); border-bottom: 1px solid var(--glass-edge);
-}
-.headTitles { flex: 1 1 var(--head-titles-min); min-width: 0; }
-.headActions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+/* geometry + header: the shell every full surface shares (Surface.module.css) */
+.surface { composes: shell from './Surface.module.css'; flex-direction: column; }
+.head { composes: head from './Surface.module.css'; }
+.headTitles { composes: headTitles from './Surface.module.css'; }
+.headActions { composes: headActions from './Surface.module.css'; }
 /* ⚠️ No ellipsis, unlike the Rapport's h2 — that one carries an arbitrary Einsatz name and has
    to truncate; these three are fixed strings the layout is sized for («Atemschutzüberwachung» is
    the longest, and --head-titles-min is wide enough for it). A fixed title that truncates is a
@@ -119,9 +111,7 @@
 
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  /* 78px clears the floating top bar with a visible gap (at 64px the header ran under it) */
-  .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  /* (the full-width inset is the shared shell's — Surface.module.css) */
   /* TWO rows, not three. The actions used to claim a full-width line of their own because the
      Alle/In-Verwendung track sat in them; that track is a filter button on the search line now,
      so all that is left there is the QR read-out — and a whole row for one footnote, above a

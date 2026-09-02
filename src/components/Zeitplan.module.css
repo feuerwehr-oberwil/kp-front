@@ -462,24 +462,6 @@
 }
 .emptyNote svg { width: 14px; height: 14px; flex: none; }
 
-/* ---- per-row controls ---------------------------------------------------------------- */
-
-.dash { color: var(--ink-faint); font: 600 12px var(--mono); }
-.time { flex: none; }
-/* HH:MM needs less than the 82px default, and the two of them plus × plus + share one row with
-   the name — the tap target stays 44px tall, only the width tightens */
-
-
-/* only the sheet still has a delete button — the grid drops a shift by tapping its bar */
-.del {
-  flex: none; display: inline-grid; place-items: center; min-width: 34px; min-height: var(--tap);
-  border: none; background: none; cursor: pointer; color: var(--ink-faint);
-  -webkit-tap-highlight-color: transparent; border-radius: var(--r-sm);
-}
-.del svg { width: 15px; height: 15px; }
-@media (hover: hover) { .del:hover { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); } }
-.del:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-
 /* ---- foot ---------------------------------------------------------------------------- */
 
 /* The colour legend that used to live here is GONE — it moved into the Deckung row, beside the
@@ -490,7 +472,6 @@
 
 /* ---- the per-person sheet ------------------------------------------------------------ */
 
-.sheet { max-width: 520px; }
 /* the planning state, changed right here as well as by tapping the bar on the grid */
 /* align-self: flex-end like every other control in the row (the sheet's .row aligns on the bottom
    edge, which is the one edge a 59px field and a 44px button can share) — centred, it floated 8px

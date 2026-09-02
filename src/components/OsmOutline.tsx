@@ -8,6 +8,7 @@ import { idbGet, idbSet } from '../lib/idb'
 import { apiPost } from '../lib/api'
 import { georefFromPick, M_PER_LAT, matchStoredRings, mPerLon } from '../lib/buildingTransfer'
 import type { LngLat, SrcGeoref } from '../types'
+import { RetryButton } from './RetryButton'
 import s from './OsmOutline.module.css'
 
 // A building footprint as a normalized 0..1 ring in board space (north-up).
@@ -227,13 +228,13 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
   if (error) return (
     <div className={s['wb-osm-hint']}>
       <span>{copy.osmError}</span>
-      <button type="button" className={s['wb-osm-retry']} onClick={retry}>{copy.osmRetry}</button>
+      <RetryButton label={copy.osmRetry} onClick={retry} />
     </div>
   )
   if (!rings) return (
     <div className={s['wb-osm-hint']}>
       <span>{copy.osmLoading}</span>
-      {slow && <button type="button" className={s['wb-osm-retry']} onClick={retry}>{copy.osmRetry}</button>}
+      {slow && <RetryButton label={copy.osmRetry} onClick={retry} />}
     </div>
   )
   if (rings.length === 0) return <div className={s['wb-osm-hint']}>{copy.osmEmpty}</div>

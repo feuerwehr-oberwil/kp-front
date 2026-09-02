@@ -58,22 +58,7 @@
   font-size: 14px;
   pointer-events: none;
 }
-.retry {
-  pointer-events: auto;
-  min-height: 44px;
-  padding: 10px 22px;
-  border: 1px solid var(--glass-line);
-  border-radius: var(--r-pill);
-  background: var(--glass);
-  color: var(--ink);
-  font: 700 12.5px var(--body);
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(16px);
-  transition: filter .14s var(--ease);
-}
-@media (hover: hover) { .retry:hover { filter: brightness(1.06); } }
-.retry:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* (the «Erneut laden» button is the shared <RetryButton> — RetryButton.module.css) */
 /* failure detail — see PdfViewport.module.css for the same two lines on the board */
 .reason {
   max-width: 30ch;

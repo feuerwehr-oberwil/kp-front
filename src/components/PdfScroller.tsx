@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { loadDocTimed, evictPlan, pdfWorkerUrl, PdfFailDetail, RETRY_AFTER_MS } from './PdfViewport'
-import { diagnosePdfFailure, type PdfFailure } from '../lib/pdfDiagnosis'
+import { loadDocTimed, pdfWorkerUrl, PdfFailDetail, usePdfLoad } from './PdfViewport'
+import { diagnosePdfFailure } from '../lib/pdfDiagnosis'
+import { RetryButton } from './RetryButton'
 import s from './PdfScroller.module.css'
 
 // A plain, scrollable multi-page PDF viewer for viewer-only plans (e.g. PV / documentation
@@ -16,11 +17,8 @@ export function PdfScroller({ url }: { url: string }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const pagesRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [attempt, setAttempt] = useState(0)
-  const [slow, setSlow] = useState(false)
-  // why the last attempt failed — see PdfViewport's placeholder for the same two lines
-  const [fail, setFail] = useState<PdfFailure | null>(null)
+  // status / «Erneut laden» / retry — the same machine the board's PdfViewport runs on
+  const { status, setStatus, fail, setFail, attempt, slow, retry } = usePdfLoad(url)
 
   // track the available column width so pages render crisp at the current size
   useEffect(() => {
@@ -32,23 +30,6 @@ export function PdfScroller({ url }: { url: string }) {
     ro?.observe(el)
     return () => ro?.disconnect()
   }, [])
-
-  // «Erneut laden» surfaces once a load has been pending for a while (same model as the
-  // board's PdfViewport placeholder — the cached fast path never flashes the button)
-  useEffect(() => {
-    if (status !== 'loading') { setSlow(false); return }
-    setSlow(false)
-    const t = setTimeout(() => setSlow(true), RETRY_AFTER_MS)
-    return () => clearTimeout(t)
-  }, [status, url, attempt])
-
-  // bust the doc cache and refetch — in-app recovery for a stuck or failed load
-  const retry = () => {
-    evictPlan(url)
-    setStatus('loading')
-    setFail(null)
-    setAttempt((a) => a + 1)
-  }
 
   useEffect(() => {
     const host = pagesRef.current
@@ -87,7 +68,10 @@ export function PdfScroller({ url }: { url: string }) {
         void diagnosePdfFailure(err, pdfWorkerUrl()).then((f) => { if (!cancelled) setFail(f) })
       })
     return () => { cancelled = true }
-  }, [url, width, attempt])
+    // setStatus/setFail are `useState` setters handed through usePdfLoad, so their identity is
+    // stable and they never re-run this — they are listed only because the lint rule cannot see
+    // through the hook's return object to know that.
+  }, [url, width, attempt, setStatus, setFail])
 
   return (
     <div ref={wrapRef} className={s.scroller}>
@@ -96,7 +80,7 @@ export function PdfScroller({ url }: { url: string }) {
           <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
           {fail && <PdfFailDetail fail={fail} reasonClass={s.reason} codeClass={s.code} />}
           {(status === 'error' || slow) && (
-            <button type="button" className={s.retry} onClick={retry}>{appConfig.copy.pdf.retry}</button>
+            <RetryButton label={appConfig.copy.pdf.retry} onClick={retry} />
           )}
         </div>
       )}

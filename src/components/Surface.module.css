@@ -1,0 +1,60 @@
+/* ===== The full-screen surface shell ============================================= */
+/* ONE definition of the geometry every full surface stands in — Atemschutz, Anwesenheit,
+   Mittel, Checkliste and the Rapport — and of the header they all wear.
+
+   It used to be five copies. They carried each other's names in their comments («identical by
+   construction», «see Atemschutz.module.css»), which is the honest admission that a change to
+   the inset, the radius or the head padding had to be made five times or the surfaces drifted
+   apart — the ~33-lockstep-places hazard, in miniature.
+
+   ⚠️ Every selector here is wrapped in `:where()`, which zeroes its specificity, and that is
+   load-bearing rather than decorative. A composing surface still keeps its OWN rules — most of
+   them phone-breakpoint overrides of exactly these properties (`.head { padding: 10px 14px }`)
+   — and those are plain single-class selectors, so a tie would be settled by source order.
+   Source order is not on our side: Vite emits a composed module's CSS AFTER every module that
+   composes it, so an unwrapped base rule here would silently WIN over each surface's phone
+   padding. At specificity 0 this is a base layer that anything a surface says beats, in any
+   order and in both dev and the build.
+
+   Each surface composes what it needs and keeps only its own extras — the flex direction, the
+   controls in its head, its phone paddings. */
+
+/* left inset clears the NavRail (left:16px + --rail-w), matching .mapctl/.basesw so the
+   title isn't hidden behind the rail. No flex-direction: the Checkliste lays its rail out in a
+   ROW, the other four stack — that is the one thing they genuinely disagree about. */
+:where(.shell) {
+  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
+  display: flex;
+  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
+}
+
+/* THE surface header (tokens · --head-*). Its proportions come from the Rapport head: it is the
+   one that had already worked out both problems — a titles block that takes its own row rather
+   than squeezing, and a summary allowed to wrap — so the others were levelled to it.
+   It WRAPS: nowrap meant the badge and the primary button were squeezed rather than moved, and
+   on a narrow tablet panel the title had nowhere to go. */
+:where(.head) {
+  display: flex; align-items: center; gap: var(--head-gap); padding: var(--head-pad); flex-wrap: wrap;
+  background: var(--surface); border-bottom: 1px solid var(--glass-edge);
+}
+/* A real flex BASIS, not `auto`: the actions are asked to wrap before the title is squeezed to
+   nothing. Without it a head full of controls took its width out of the <h2>, which then painted
+   straight out of its collapsed box. */
+:where(.headTitles) { flex: 1 1 var(--head-titles-min); min-width: 0; }
+/* the control cluster at the right end — levelled to --tap by 20-touch-floors */
+:where(.headActions) { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Phone (and a short landscape tablet): the surface takes the full width below the floating top
+   bar — 78px clears it with a visible gap, at 64px the header sat glued under it — and the
+   bottom inset clears the NavRail, which is a bottom bar at these sizes.
+   ⚠️ ONE breakpoint governs the lot. The Rapport was once alone in taking the phone inset at
+   720px while the rail stays vertical down to 600, so through the whole 601–720px band (iPad
+   Split View, a landscape phone) it ran edge-to-edge UNDER a floating rail that covered its own
+   title. Above this breakpoint the rail is at the left and the surfaces leave room for it; below
+   it the rail is a bottom bar and the surfaces take the full width. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  :where(.shell) {
+    inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+}

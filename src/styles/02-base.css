@@ -148,7 +148,7 @@ body {
 :where(*)::-webkit-scrollbar { width: 9px; height: 9px; background: transparent; }
 :where(*)::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--ink) 26%, transparent);
-  border-radius: 999px; border: 2px solid transparent; background-clip: content-box;
+  border-radius: var(--r-pill); border: 2px solid transparent; background-clip: content-box;
 }
 :where(*)::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--ink) 40%, transparent); background-clip: content-box; }
 /* in-flow panes reserve the scrollbar lane up front so content doesn't shift the moment

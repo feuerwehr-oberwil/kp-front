@@ -1,19 +1,11 @@
 /* Anwesenheit surface — mirrors the Atemschutz surface shell (inset card + head), then a
    dense grid of name buttons. Each button tap-cycles frei → anwesend → gegangen → frei, so
    many crew fit on screen without scrolling and the whole board edits in place. */
-.surface {
-  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
-  display: flex; flex-direction: column;
-  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
-}
-
-/* THE surface header (tokens · --head-*) — see Atemschutz.module.css; identical by construction.
-   This head carries ONE row more than the others (the QR read-out), which is what a surface with
-   more to say is allowed to do — it does not get different metrics for it. */
-.head {
-  display: flex; align-items: center; gap: var(--head-gap); padding: var(--head-pad); flex-wrap: wrap;
-  background: var(--surface); border-bottom: 1px solid var(--glass-edge);
-}
+/* geometry + header: the shell every full surface shares (Surface.module.css). This head carries
+   ONE row more than the others (the QR read-out), which is what a surface with more to say is
+   allowed to do — it does not get different metrics for it. */
+.surface { composes: shell from './Surface.module.css'; flex-direction: column; }
+.head { composes: head from './Surface.module.css'; }
 /* the counts, under the title inside the titles block — see AnwesenheitView */
 .headSummary { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); color: var(--ink-dim); }
 /* …and the QR read-out under THAT: same idea, one step quieter, and on a row of its own because
@@ -21,8 +13,8 @@
    draw a gap. */
 .headQr { flex: 1 0 100%; order: 5; margin: 0; line-height: 1; }
 .headQr:empty { display: none; }
-.headTitles { flex: 1 1 var(--head-titles-min); min-width: 0; }
-.headActions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.headTitles { composes: headTitles from './Surface.module.css'; }
+.headActions { composes: headActions from './Surface.module.css'; }
 /* ONE height and ONE corner for every control on this line. They had three: the printer button is
    --tap (44px, the tap floor), the tab switcher came to 40px (34px buttons inside 3px padding) and
    the retry button to ~36px from its own padding — so a row of three controls stepped down twice
@@ -213,10 +205,7 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
-     the header sat glued under it); the bottom inset clears the bottom bar */
-  .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  /* (the full-width inset is the shared shell's — Surface.module.css) */
   .head { padding: 10px 14px; gap: 10px; align-items: center; }
   .headTitles h2 { font-size: 17px; }
   /* keep the counts on a single line so the header stays short (was wrapping to 4 lines and
@@ -263,8 +252,6 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
   .personMain { padding: 7px 12px; gap: 8px; }
 }
 
-/* per-person presence sheet — same shape as the Zeitplan's Schichten sheet so both read alike */
-.sheet { max-width: 480px; }
 /* one recorded block per framed row, each field SAID (von / bis) — two bare clocks side by side
    never told you which was the arrival */
 /* ⚠️ Sora, not --mono. --mono is for FIGURES — a clock, a duration, a pressure — where the

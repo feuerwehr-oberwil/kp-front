@@ -16,22 +16,7 @@
   font-size: 14px;
   pointer-events: none;
 }
-.wb-pdf-retry {
-  pointer-events: auto;
-  min-height: 44px;
-  padding: 10px 22px;
-  border: 1px solid var(--glass-line);
-  border-radius: var(--r-pill);
-  background: var(--glass);
-  color: var(--ink);
-  font: 700 12.5px var(--body);
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(16px);
-  transition: filter .14s var(--ease);
-}
-@media (hover: hover) { .wb-pdf-retry:hover { filter: brightness(1.06); } }
-.wb-pdf-retry:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* (the «Erneut laden» button is the shared <RetryButton> — RetryButton.module.css) */
 /* failure detail — one actionable sentence plus the code to read out (PdfFailDetail).
    The container above is click-through; the code stays selectable on a desk machine. */
 .wb-pdf-reason {

@@ -3,10 +3,10 @@
    a main pane that runs the action checklist or opens the reference playbook.
    Sits below the top bar; light "Karte Minimal" style, gloved-friendly targets.
    Shared by ChecklistsView / ChecklistRunner / ChecklistReference. */
-/* left inset clears the NavRail (left:16px + --rail-w), matching .mapctl/.basesw so the
-   template rail isn't hidden behind the NavRail */
-.cl-surface { position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface); display: flex; gap: 12px;
-  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow); }
+/* geometry: the shell every full surface shares (Surface.module.css). The one thing this
+   surface does differently is the direction — its template rail sits BESIDE the pane, so it
+   keeps the default row and only adds the gap between the two columns. */
+.cl-surface { composes: shell from './Surface.module.css'; gap: 12px; }
 
 /* left rail */
 .cl-rail { flex: 0 0 248px; overflow-y: auto; scrollbar-gutter: stable; padding: 12px; background: var(--surface);
@@ -266,10 +266,9 @@
 }
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
-     the header sat glued under it); the bottom inset clears the NavRail bottom bar */
-  .cl-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); flex-direction: column; gap: 0; }
+  /* (the full-width inset is the shared shell's — Surface.module.css); the rail stacks above
+     the pane rather than beside it */
+  .cl-surface { flex-direction: column; gap: 0; }
   /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding */
   .cl-main { padding: 14px 14px; padding-bottom: calc(14px + var(--fab-safe, 0px)); }
   /* shrink the runner head so the actual phase list leads sooner */

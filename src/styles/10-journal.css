@@ -892,7 +892,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .jr-file:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* offline media-queue chip on a Verlauf row (photo/audio not yet on the server) */
 .jr-media-state { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600;
-  padding: 1px 6px; border-radius: var(--r-pill, 999px); white-space: nowrap;
+  padding: 1px 6px; border-radius: var(--r-pill); white-space: nowrap;
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber-strong) 14%, transparent); }
 .jr-media-state .i { width: 12px; height: 12px; }
 .jr-media-state.failed { color: var(--red-strong, #d33); background: color-mix(in srgb, var(--red-strong, #d33) 14%, transparent); }

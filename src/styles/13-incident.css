@@ -36,7 +36,7 @@
 /* loud offline pill in the switcher header — only shows while offline, so it never causes the
    constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
 .ip-offline-chip { display: inline-flex; align-items: center; gap: 5px; flex: none;
-  padding: 2px 8px; border-radius: 999px; font-size: 12.5px; font-weight: 600; line-height: 1;
+  padding: 2px 8px; border-radius: var(--r-pill); font-size: 12.5px; font-weight: 600; line-height: 1;
   color: var(--amber); background: color-mix(in srgb, var(--amber) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent); }
 .ip-offline-chip .ip-status-dot { width: 7px; height: 7px; }
@@ -87,7 +87,7 @@
    «Einsatzbeginn 20:14 · 1 h 32» never fit on one line, and both are read, not glanced at */
 .ip-card-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
 .ip-card-pill { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%;
-  padding: 3px 9px; border-radius: 999px; font: 600 11.5px var(--body);
+  padding: 3px 9px; border-radius: var(--r-pill); font: 600 11.5px var(--body);
   color: var(--ink-dim); background: color-mix(in srgb, var(--ink-faint) 14%, transparent); }
 .ip-card-pill > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ip-card-pill svg, .ip-card-pill .i { width: 12px; height: 12px; flex: none; }
@@ -310,8 +310,8 @@
 .or-load:disabled { opacity: var(--disabled); cursor: default; }
 /* determinate download progress (replaces the button while warming the caches) */
 .or-prog { display: flex; flex-direction: column; gap: 7px; padding: 4px 2px; }
-.or-prog-track { height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
-.or-prog-fill { height: 100%; border-radius: 999px; background: var(--blue);
+.or-prog-track { height: 10px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.or-prog-fill { height: 100%; border-radius: var(--r-pill); background: var(--blue);
   transition: width .25s var(--ease); min-width: 10px; }
 .or-prog-meta { display: flex; align-items: center; justify-content: space-between; font: 600 12.5px var(--body); color: var(--ink-dim); }
 .or-prog-pct { font-family: var(--mono); font-weight: 700; color: var(--blue-strong); font-variant-numeric: tabular-nums; }
@@ -748,7 +748,7 @@
 /* Übung — same amber as the tablet's .ip-badge-exercise: a drill or a test run must never
    be mistaken for the real Einsatz, on the surface where untrained people tick names off */
 .cv-badge-exercise { display: inline-block; margin-left: 6px; padding: 1px 7px; vertical-align: 1px;
-  border-radius: 999px; font: 800 10.5px var(--body); text-transform: uppercase; letter-spacing: .04em;
+  border-radius: var(--r-pill); font: 800 10.5px var(--body); text-transform: uppercase; letter-spacing: .04em;
   white-space: nowrap; /* wraps to its own line on a narrow phone rather than splitting */
   background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 .cv-input { min-height: 44px; padding: 8px 12px; border-radius: var(--r-ctl); border: 1px solid var(--glass-line);
@@ -876,7 +876,7 @@
 /* state chip: ✓ (anwesend, GREEN like the main app's Anwesenheit grid) / exit-arrow
    (gegangen, muted) — shape + tint together, never colour alone; word = aria-label */
 .cv-person-state { display: grid; place-items: center; width: 26px; height: 26px; flex: none;
-  border-radius: 999px; color: var(--green);
+  border-radius: var(--r-pill); color: var(--green);
   background: color-mix(in srgb, var(--green) 18%, transparent); }
 .cv-person.left .cv-person-state { color: var(--amber-strong);
   background: color-mix(in srgb, var(--amber) 18%, transparent); }
@@ -1039,7 +1039,7 @@
 /* …except in the Rapport sheet, where it LEADS the Anwesenheit/Mittel checklist rather than
    trailing a title, and a chip is the right shape for that */
 .rp-checks .capture-usage-chip { align-self: flex-start; padding: 3px 10px;
-  border-radius: 999px; border: 1px solid var(--glass-line); background: var(--surface-veil);
+  border-radius: var(--r-pill); border: 1px solid var(--glass-line); background: var(--surface-veil);
   font-size: 12.5px; color: var(--ink-dim); }
 /* output bar: plain flow at the page end — sticky ate too much of a small phone screen */
 .cv-pdfbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -1119,11 +1119,11 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    Atemschutz), so the rail stays put and the page changes underneath it. It carries the
    .report-preflight rules above by sharing the class, which is why those keep working. */
 .rp-backdrop { position: fixed; inset: 0; background: var(--app-bg); z-index: var(--z-surface-scrim); }
-.report-preflight-surface {
-  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
-  display: flex; flex-direction: column;
-  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
-}
+/* ⚠️ The geometry itself is NOT here: the element also carries the shared shell class
+   (components/Surface.module.css, applied in ReportPreflight), the same one Atemschutz,
+   Anwesenheit, Mittel and the Checkliste compose. All that is left for this surface is the
+   direction its children stack in. */
+.report-preflight-surface { flex-direction: column; }
 /* The head of a SURFACE, not of a dialog: the shell Anwesenheit and Mittel share — a title with a
    one-line read-out under it on the left, controls levelled to --tap on the right. It wore
    `.ip-head` (a bare 19px title and an ✕) because it used to be a sheet, and that made the one
@@ -1311,17 +1311,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
     align-items: start;
   }
 }
-/* ⚠️ 600px, not 720px — the width every OTHER surface switches at (Anwesenheit, Mittel,
-   Atemschutz), and the width `useIsPhone` itself uses. At 720 the Rapport was alone in taking the
-   phone inset while the NavRail stays a vertical rail down to 600, so through the whole 601–720px
-   band (iPad Split View, a landscape phone) the page ran edge-to-edge UNDER a floating rail that
-   covered its own title — neither a sidebar layout nor a bottom-bar one. One breakpoint governs
-   the lot now: above it the rail is at the left and the surfaces leave room for it, below it the
-   rail is a bottom bar and the surfaces take the full width. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .report-preflight-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
-}
+/* (the phone inset — one breakpoint for every surface, at 600px — is the shared shell's, in
+   components/Surface.module.css.) */
 /* Phone: the cards get the width Anwesenheit's rows get. 22px of body padding plus 16px of card
    padding put the content 38px in from each edge — on a 390px screen that is a fifth of the
    screen spent on margin, and the rapport visibly ran narrower than the surface beside it in the

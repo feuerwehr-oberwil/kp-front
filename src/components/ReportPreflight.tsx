@@ -7,6 +7,8 @@ import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/report
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
 import { rowPhotos } from '../lib/verlauf'
+// the geometry every full surface stands in — the Rapport is the fifth of them
+import surface from './Surface.module.css'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { ShareIncident } from './panels/ShareIncident'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
@@ -1294,7 +1296,7 @@ export function ReportPreflight({
           gap around an inset card makes a form look like something floating over the map, and
           this surface is where somebody sits and writes. */}
       <div className="rp-backdrop" aria-hidden />
-      <div className="report-preflight report-preflight-surface">
+      <div className={cx('report-preflight report-preflight-surface', surface.shell)}>
         {/* The same head every other surface wears (Anwesenheit, Mittel): a title, and under it
             one line of what is actually recorded. It carried a bare title and an ✕ — dialog
             chrome, which is what a page inherits when it used to be a sheet. No ✕ either: a

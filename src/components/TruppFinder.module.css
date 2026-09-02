@@ -48,7 +48,7 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the crew is context, not the answer — it may be long and it yields first */
 .members { color: var(--ink-faint); }
-.chip { flex: none; font: 800 11px var(--body); padding: 3px 8px; border-radius: 999px;
+.chip { flex: none; font: 800 11px var(--body); padding: 3px 8px; border-radius: var(--r-pill);
   background: var(--fill-soft); color: var(--ink-faint); }
 .go { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
 .go svg { width: 16px; height: 16px; }

@@ -108,7 +108,7 @@
 .kf-off {
   position: absolute; z-index: 6; transform: translate(-50%, -50%);
   display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px;
-  border-radius: 999px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  border-radius: var(--r-pill); cursor: pointer; -webkit-tap-highlight-color: transparent;
   border: 1px solid transparent;
   background: var(--btn-primary); color: var(--on-btn-primary);
   font: 800 12px var(--body);

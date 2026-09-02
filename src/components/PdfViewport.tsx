@@ -5,6 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { GIT_SHA } from '../lib/buildInfo'
 import { ByteBudgetCache } from '../lib/byteBudgetCache'
 import { diagnosePdfFailure, type PdfFailure } from '../lib/pdfDiagnosis'
+import { RetryButton } from './RetryButton'
 import s from './PdfViewport.module.css'
 
 // The worker asset's URL, remembered for the diagnosis path: when a PDF fails, whether that
@@ -96,6 +97,42 @@ export function loadDocTimed(url: string): Promise<PDFDocumentProxy> {
 export function evictPlan(url: string) {
   docCache.get(url)?.destroy()
   bitmapCache.delete(url)
+}
+
+/**
+ * The load state both PDF surfaces run on — this viewport (the plan on the board) and the
+ * PdfScroller column. Same three facts, same recovery, and they were written twice:
+ *
+ *  · `status` / `fail`, which the placeholder reads;
+ *  · `slow`, the «Erneut laden» button surfacing only once a load has been pending for a while
+ *    — the cached and prewarmed fast paths must never flash it;
+ *  · `retry()`, which busts every cache for this document (`evictPlan`) and re-bakes. Before it
+ *    existed only a full page reload cleared the module-level caches, which mid-Einsatz means
+ *    leaving the app to get a plan back.
+ *
+ * `attempt` is the re-run key: bump it and the caller's own load effect starts over.
+ */
+export function usePdfLoad(url: string) {
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [fail, setFail] = useState<PdfFailure | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const [slow, setSlow] = useState(false)
+
+  useEffect(() => {
+    if (status !== 'loading') { setSlow(false); return }
+    setSlow(false)
+    const t = setTimeout(() => setSlow(true), RETRY_AFTER_MS)
+    return () => clearTimeout(t)
+  }, [status, url, attempt])
+
+  const retry = () => {
+    evictPlan(url)
+    setStatus('loading')
+    setFail(null)
+    setAttempt((a) => a + 1)
+  }
+
+  return { status, setStatus, fail, setFail, attempt, slow, retry }
 }
 
 interface Props {
@@ -291,32 +328,9 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
   // used to show a silently blank board — surface a lightweight placeholder until the first
   // bitmap paints (mirrors PdfScroller's status line). Reset per document during render
   // (the adjust-state-on-prop-change pattern, no extra effect pass).
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const { status, setStatus, fail, setFail, attempt, slow, retry } = usePdfLoad(url)
   const [statusUrl, setStatusUrl] = useState(url)
-  const [attempt, setAttempt] = useState(0)
-  const [slow, setSlow] = useState(false)
-  // why the last attempt failed — rendered under the message so a field report carries a
-  // cause instead of «geht nicht» (lib/pdfDiagnosis)
-  const [fail, setFail] = useState<PdfFailure | null>(null)
   if (url !== statusUrl) { setStatusUrl(url); setStatus('loading'); setFail(null) }
-
-  // «Erneut laden» surfaces once a load has been pending for a while — the normal
-  // cached/prewarmed fast path never flashes the button
-  useEffect(() => {
-    if (status !== 'loading') { setSlow(false); return }
-    setSlow(false)
-    const t = setTimeout(() => setSlow(true), RETRY_AFTER_MS)
-    return () => clearTimeout(t)
-  }, [status, statusUrl, attempt])
-
-  // bust every cache for this document and re-bake — the in-app recovery for a stuck or
-  // failed load (previously only a full page reload cleared the module-level caches)
-  const retry = () => {
-    evictPlan(url)
-    setStatus('loading')
-    setFail(null)
-    setAttempt((a) => a + 1)
-  }
 
   // base — blit the baked bitmap (instant if cached/prewarmed; a single render otherwise).
   // A plan the prewarm only holds as a small preview paints THAT first, so the switch shows the
@@ -411,7 +425,7 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
           <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
           {fail && <PdfFailDetail fail={fail} reasonClass={s['wb-pdf-reason']} codeClass={s['wb-pdf-code']} />}
           {(status === 'error' || slow) && (
-            <button type="button" className={s['wb-pdf-retry']} onClick={retry}>{appConfig.copy.pdf.retry}</button>
+            <RetryButton label={appConfig.copy.pdf.retry} onClick={retry} />
           )}
         </div>
       )}
