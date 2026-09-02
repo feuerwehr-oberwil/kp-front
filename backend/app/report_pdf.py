@@ -356,9 +356,25 @@ class TruppIn(BaseModel):
     auftrag: str | None = None
     ziel: str | None = None
     lineNumber: str | None = None
+    #: EVERY Eintritt / Austritt this Trupp's log records, oldest first — a crew that went in,
+    #: came out and was sent in again has two of each. Read off the appended rows client-side
+    #: (lib/report · truppRunTimes), never off the card's live `entryTime`/`exitTime`: those hold
+    #: the LAST cycle only, so the header used to print one pair over a table showing another.
+    entryTimes: list[str] = []
+    exitTimes: list[str] = []
+    #: legacy single-cycle fields, kept so a payload queued by an older client (a print job
+    #: waiting in the relay across a deploy) still composes. Folded into the lists on validation.
     entryTime: str | None = None
     exitTime: str | None = None
     readings: list[ReadingIn] = []
+
+    @model_validator(mode="after")
+    def _fold_legacy_times(self) -> TruppIn:
+        if not self.entryTimes and self.entryTime:
+            self.entryTimes = [self.entryTime]
+        if not self.exitTimes and self.exitTime:
+            self.exitTimes = [self.exitTime]
+        return self
 
 
 #: A free remark rides inside a fixed-width table cell. ReportLab cannot split a cell across
@@ -1881,16 +1897,23 @@ def compose_report_pdf(
                 bits.append((L["auftrag"], " · ".join([x for x in (tr.auftrag, tr.ziel) if x])))
             if tr.lineNumber:
                 bits.append((L["line"], str(tr.lineNumber)))
-            if tr.entryTime:
-                bits.append((L["entry"], tr.entryTime))
-                if tr.exitTime:
-                    bits.append((L["exit"], tr.exitTime))
-            elif tr.exitTime:
+            # ⚠️ ONE row each, listing EVERY cycle — «Eintritt: 13:44, 15:16». A Trupp that came
+            # out, got a fresh cylinder and went back in has two of each, and the header used to
+            # carry the card's last pair alone: it printed «Eintritt 15:16 · Austritt 15:22» over
+            # a table whose first row said «Eintritt 13:44», so the two halves of one block
+            # disagreed. One row per cycle was the alternative and reads worse here — the section
+            # has ONE label column sized to the widest label on the page (see below), so repeating
+            # «Eintritt:» four times would spend four lines saying one thing.
+            if tr.entryTimes:
+                bits.append((L["entry"], ", ".join(tr.entryTimes)))
+                if tr.exitTimes:
+                    bits.append((L["exit"], ", ".join(tr.exitTimes)))
+            elif tr.exitTimes:
                 # closed without ever going under PA (atemschutz · truppNeverDeployed). Printing
                 # it as «Austritt» claimed the Trupp came out of something it never went into —
                 # on a Sicherungstrupp that is the difference between a crew that was exposed
                 # and one that was not, which is exactly what this sheet is read for.
-                bits.append((L["notDeployed"], tr.exitTime))
+                bits.append((L["notDeployed"], ", ".join(tr.exitTimes)))
             return bits
 
         # ⚠️ ONE tab stop for the whole section, not one per Trupp. Sized per block, a Trupp with
@@ -1908,7 +1931,14 @@ def compose_report_pdf(
             # finished Einsatz states something that stopped being true before the sheet was
             # printed. The ONE state that outlives the Einsatz — a Trupp that never went under
             # PA — is carried by its own «Nicht eingesetzt» row above (see _meta_bits).
-            story.append(Paragraph(_esc(tr.name), st["h3"]))
+            # ⚠️ ONE block, kept together (02.09.). Name, crew, Auftrag and the Eintritt/Austritt
+            # rows are the KEY to the pressure log under them, and laid out as loose flowables a
+            # page break fell between the two: the header sat at the foot of one sheet and its
+            # Zeiten table opened the next, under nothing. On a safety document read months later
+            # a column of clocks with no crew name above it is unusable. A block taller than a
+            # full frame still splits normally (KeepTogether hands its content back when it fits
+            # nowhere), so a very long log is never made unprintable by this.
+            block: list = [Paragraph(_esc(tr.name), st["h3"])]
             # A TABLE, not one Paragraph per line: as free lines each value started right after
             # its own label, so «AdF 1», «Auftrag / Ziel» and «Eintritt» put their values at three
             # different indents and nothing under the Trupp name lined up. One label column,
@@ -1932,7 +1962,7 @@ def compose_report_pdf(
                         ]
                     )
                 )
-                story.append(meta_tbl)
+                block.append(meta_tbl)
             thead = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colTime", "colKind", "colPressure")]
             body = [
                 [
@@ -1960,8 +1990,9 @@ def compose_report_pdf(
             # the page — the pressure log sat off to the side of the Trupp name and «Auftrag / Ziel»
             # lines it belongs under.
             wrapped.hAlign = "LEFT"
-            story.append(Spacer(1, 3))
-            story.append(wrapped)
+            block.append(Spacer(1, 3))
+            block.append(wrapped)
+            story.append(KeepTogether(block))
             story.append(Spacer(1, 6))
 
     story = _collapse_breaks(story)

@@ -355,6 +355,12 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
   width: min(680px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 32px)); overflow: hidden;
   background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
   display: flex; flex-direction: column; }
+/* Keyboard up (Overlay · useKeyboardInset) — same signal, same shape of fix `.ip-sheet` already
+   uses (13-incident.css `.is-kb`): ride up to a fixed top instead of a vertical centre (whose
+   translateY would otherwise centre the frame on a viewport the keyboard has made shorter, i.e.
+   push the top OFF-SCREEN) and cap the height to what is actually left above the keyboard. */
+.modal.is-kb { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+  height: min(760px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 /* ⚠️ Tighter than the standard .ip-head, and deliberately so: this form has a row that GROWS
    — the drawn Leitungen wrap to a second line of chips as soon as a few hoses exist — and the
    frame is sized to a tablet. The chrome pays for that line, not the fields. 800/17 keeps the
@@ -392,6 +398,17 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
     height: 100dvh; max-height: 100dvh; border-radius: 0; overflow: hidden; }
   .modalHead { padding-top: max(18px, env(safe-area-inset-top)); }
   .modalFoot { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+  /* ⚠️ `100dvh` does not shrink for the iOS keyboard the way it does for the browser chrome —
+     it is measured against the LAYOUT viewport, and the keyboard only shrinks the VISUAL one.
+     Without this the frame kept its full-screen height while the keyboard covered its bottom
+     third, so `.teamList` (flex: 1 1 0, see below) had already "fit" the Mannschaftsliste and
+     the «Name eingeben» link inside room that was not actually visible — no amount of scrolling
+     `.modalBody` reaches a row the keyboard is sitting on top of, because the FRAME around it
+     never got smaller. `is-kb` / `--kb-inset` are the exact signal `.ip-sheet` already answers
+     this way (13-incident.css); this bespoke frame just never listened for it. Shrinking the
+     frame itself lets `.teamList` give the room back and the sheet's own scroll reach every
+     field that is still genuinely on screen (field feedback, 02.09.). */
+  .modal.is-kb { height: calc(100dvh - var(--kb-inset, 0px)); max-height: calc(100dvh - var(--kb-inset, 0px)); }
 }
 /* Gebäude / Modul-6 placement picker */
 /* ⚠️ `height: auto`. It borrows `.modal`, whose 760px is sized for the Trupp FORM — so a picker
@@ -524,6 +541,13 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 .modalFoot { flex: none; display: flex; gap: 10px; justify-content: flex-end; padding: 10px 20px;
   border-top: 1px solid var(--glass-edge); background: var(--glass); }
+/* The submit while it is BLOCKED (canSubmit false) — `aria-disabled`, not the native `disabled`
+   attribute, so the tap still reaches `attemptSubmit` and can point at the missing field instead
+   of doing nothing (field feedback, 02.09.). Same dimmed look `.ip-btn.primary:disabled` gives a
+   real disabled button elsewhere (13-incident.css); the press feedback is switched off by hand
+   since `:active:not(:disabled)` never fires for a button that was never actually disabled. */
+.btnBlocked { opacity: var(--disabled); cursor: default; }
+.btnBlocked:active { background-image: none; }
 /* second, equally valid submit (Wieder einrücken → «Bereitstellen»): outlined rather than ghost,
    because it commits the form just like the primary does – a ghost would read as «abbrechen». */
 
@@ -1071,9 +1095,18 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .cardBig .contactVal { font-size: clamp(52px, 16vw, 64px); }
 .cardBig .kontaktBtn { min-height: 76px; font-size: 20px; }
 .cardBig .kontaktBtn :global(.i) { width: 24px; height: 24px; }
-/* Einsatzzeit, Pause and the Schätzung are the Überwacher-on-the-tablet's numbers; the phone shows
-   the one it acts on — the Druck — and the per-Trupp Verlauf lives on the Rapport. */
+/* Einsatzzeit, Pause and the tiefster-Druck rows are the Überwacher-on-the-tablet's numbers; the
+   phone shows the one it acts on — the Druck — and the per-Trupp Verlauf lives on the Rapport. */
 .cardBig .metaRow, .cardBig .vfoot { display: none; }
+/* ⚠️ …except the Schätzung (field feedback, 02.09.: «Druck hochgerechnet wird nicht angezeigt»).
+   Folding it away with the rest read as complete on a tablet — the Verbrauch is a second, wider
+   surface away — but on THIS phone the Planungshilfe IS the surface: it is the one number that
+   says a Trupp will hit its Alarmdruck before its next Funkkontakt, which is exactly what the
+   Überwacher holding this one card needs to act early rather than wait for the alarm itself.
+   Must come after the blanket `.metaRow` rule above — same selector specificity, source order
+   decides — and `.metaEstimate` carries `.metaRow` too (see the TruppCard render), so this is
+   the one row un-hidden rather than a second, parallel display rule. */
+.cardBig .metaEstimate { display: grid; }
 
 /* The two-step form on the handed-over phone (TruppForm · wizard): a progress bar and a caption
    under the title say where in the two steps somebody is. */

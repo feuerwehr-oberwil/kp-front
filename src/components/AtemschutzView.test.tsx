@@ -185,7 +185,8 @@ describe('the handed-over board on a phone (focus mode)', () => {
 
   it('opens the Trupp form as two steps: the roster first, Druck and Auftrag behind «Weiter»', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
-    mount({ lite: { subtitle: 'Brand', onLeave: noop }, trupps: [aktivTrupp()] })
+    const createTrupp = vi.fn()
+    mount({ lite: { subtitle: 'Brand', onLeave: noop }, trupps: [aktivTrupp()], createTrupp })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
@@ -193,10 +194,15 @@ describe('the handed-over board on a phone (focus mode)', () => {
     fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
     expect(screen.getByText(new RegExp(az.wizardAir))).toBeTruthy()
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
-    // …only the final submit is gated on a valid Trupp
-    expect((screen.getByRole('button', { name: az.start }) as HTMLButtonElement).disabled).toBe(true)
-    // and «Zurück» returns without losing the step
-    fireEvent.click(screen.getByRole('button', { name: az.wizardBack }))
+    // …only the final submit is gated on a valid Trupp — `aria-disabled`, not the native
+    // attribute, so a blocked tap still reaches attemptSubmit (which must not submit) and can
+    // explain itself instead of the browser silently swallowing the click (field feedback, 02.09.)
+    const submitBtn = screen.getByRole('button', { name: az.start })
+    expect(submitBtn.getAttribute('aria-disabled')).toBe('true')
+    // the roster is still empty, so the blocked tap walks back to step 1 (where that lives) —
+    // never a step 2 stuck on «Speichern» with nothing to say why (field feedback, 02.09.)
+    fireEvent.click(submitBtn)
+    expect(createTrupp).not.toHaveBeenCalled()
     expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
   })
 })

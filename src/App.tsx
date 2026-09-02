@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactivateResult } from './types'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
-import { demoClockAnchor, latestTruppStamp, rebaseDemoClocks, type Saved } from './lib/workspace'
+import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { shortAddress, isDemoMode, alarmProviderName } from './lib/deploymentConfig'
 import { fillTemplate, initials, roleLabel } from './lib/format'
@@ -54,13 +54,6 @@ import { installHoldTooltip } from './lib/holdTooltip'
 /** Einstellungen opened from the landing card (no incident): device prefs only. Owns the
  *  pref state itself (mounted only while open, reads/writes the prefs cookie directly);
  *  the synced per-incident section is hidden by omitting settings/onSettings. */
-/** Demo only: the fetched workspace with its Atemschutz clocks pinned to when this tab first
- *  opened this seed. A workspace with no Trupp clocks passes straight through. */
-function rebaseDemoSeed(ws: Saved, incidentId: string): Saved {
-  const stamp = latestTruppStamp(ws)
-  return stamp == null ? ws : rebaseDemoClocks(ws, demoClockAnchor(incidentId, stamp, Date.now()))
-}
-
 function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback?: () => void }) {
   const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   useEffect(() => {
@@ -257,7 +250,7 @@ export default function App() {
     })
     const meta = opts.meta ?? (await getIncident(id))
     if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
-    const { workspace: ws } = await sync.init()
+    const { workspace: ws, rev } = await sync.init()
     if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
     syncRef.current = sync
     setActiveMeta(meta as IncidentMeta)
@@ -273,10 +266,11 @@ export default function App() {
       })
     }
     // Demo: rebase the SCBA clocks to the visitor's ARRIVAL so a late visitor doesn't land on an
-    // overdue alarm (the seed's clocks are as-of the last server reset). Read-only, display only.
-    // The anchor is remembered per tab + seed, so a refresh keeps the clocks running instead of
-    // shunting them backwards — see workspace · demoClockAnchor.
-    const seed = ws ? (isDemoMode() ? rebaseDemoSeed(ws as unknown as Saved, id) : (ws as unknown as Saved)) : null
+    // overdue alarm (the seed's clocks are as-of the last server reset). The anchor is remembered
+    // per tab + seed, so a refresh keeps the clocks running instead of shunting them backwards —
+    // and the UNTOUCHED seed is the only thing it may ever touch, because the demo Einsatz is
+    // shared across devices the moment anyone works it (see workspace · demoSeedRebase).
+    const seed = ws ? (isDemoMode() ? demoSeedRebase(ws as unknown as Saved, id, rev) : (ws as unknown as Saved)) : null
     setWorkspace(seed)
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)

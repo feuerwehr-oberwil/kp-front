@@ -4,6 +4,7 @@ import { anyTruppInField, type AtemschutzAlarmState, deriveTruppLive, peakAtemsc
 import { Alarm, chime, notify } from './alarm'
 import { fillTemplate } from './format'
 import { atemschutzDoctrine, isDemoMode } from './deploymentConfig'
+import { serverNow } from './serverClock'
 import type { Trupp } from '../types'
 
 const SILENT: AtemschutzAlarmState = { peak: 0, urgent: null, severities: {} }
@@ -52,7 +53,10 @@ export function useAtemschutzAlarm({
   const alarmBar = atemschutzDoctrine().alarmBar
   // …and the lower line a Trupp in Rückzug is held to (lib/atemschutz · alarmBarFor)
   const alarmBarRueckzug = atemschutzDoctrine().alarmBarRueckzug
-  const [now, setNow] = useState(() => Date.now())
+  // ⚠️ the DEPLOYMENT's clock, not the device's (lib/serverClock) — the tone, the TopBar chip and
+  // the board must agree across devices, and until 02.09. each one counted in its own device's
+  // time. Offline `serverNow()` is `Date.now()`, so nothing changes where nothing is known.
+  const [now, setNow] = useState(() => serverNow())
   const alarm = useRef<Alarm | null>(null)
   /** last tier seen per Trupp. Its KEYS matter as much as its values: a Trupp that is not in it
    *  yet has never been evaluated by this session, so whatever tier it is on is a state we found,
@@ -79,7 +83,7 @@ export function useAtemschutzAlarm({
   const monitoring = active && anyTruppInField(trupps)
   useEffect(() => {
     if (!monitoring) return
-    const t = setInterval(() => setNow(Date.now()), 1000)
+    const t = setInterval(() => setNow(serverNow()), 1000)
     return () => clearInterval(t)
   }, [monitoring])
 
@@ -87,7 +91,7 @@ export function useAtemschutzAlarm({
   // into überfällig while the tick is asleep. Force an immediate re-evaluation the moment the
   // page becomes visible/focused again so the alarm + notification fire at once.
   useEffect(() => {
-    const onVis = () => { if (document.visibilityState === 'visible') setNow(Date.now()) }
+    const onVis = () => { if (document.visibilityState === 'visible') setNow(serverNow()) }
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('focus', onVis)
     return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', onVis) }

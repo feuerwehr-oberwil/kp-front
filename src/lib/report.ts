@@ -529,6 +529,37 @@ export function readingBarIsMeasured(kind: TruppReading['kind']): boolean {
   return kind !== 'contact' && kind !== 'rueckzug' && kind !== 'exit' && kind !== 'resume'
 }
 
+/**
+ * Every Eintritt and every Austritt this Trupp's LOG records — the header of its
+ * Atemschutz-Detailprotokoll, read off the same rows the table below it prints.
+ *
+ * ⚠️ The log, not `entryTime`/`exitTime`. Those two are the LIVE card's state: a Trupp that goes
+ * in, comes out, is re-registered and goes in again (useTruppActions · reactivateTrupp) overwrites
+ * both, so the header printed the last cycle's Eintritt over the first cycle's rows and a reader
+ * comparing the two saw the sheet contradict itself. They are also the fields the sync merge is
+ * free to re-resolve from ONE side (mergeWorkspace · mergeTrupp), so two devices can leave the
+ * scalar naming an instant the log never recorded — which is exactly what the 02.09. field report
+ * saw: a header «Austritt 15:22» above a table whose Draussen row said 15:27. The appended rows
+ * ARE the record: one source for both halves of the block, and every cycle survives.
+ *
+ * The scalars stay as the per-side FALLBACK, for a Trupp whose log predates the row that would
+ * carry it: `exit` rows only exist since 19.08., and a Trupp registered before 09.08. may carry no
+ * log at all.
+ */
+export function truppRunTimes(
+  readings: readonly Pick<TruppReading, 't' | 'kind'>[] | undefined,
+  fallback: { entryTime?: string; exitTime?: string },
+): { entries: string[]; exits: string[] } {
+  const of = (kind: TruppReading['kind']) =>
+    (readings ?? []).filter((r) => r.kind === kind).map((r) => r.t).filter(Boolean)
+  const entries = of('entry')
+  const exits = of('exit')
+  return {
+    entries: entries.length ? entries : ([fallback.entryTime].filter(Boolean) as string[]),
+    exits: exits.length ? exits : ([fallback.exitTime].filter(Boolean) as string[]),
+  }
+}
+
 export function readingKindLabel(kind: TruppReading['kind']): string {
   const r = appConfig.copy.report
   const az = appConfig.copy.atemschutz

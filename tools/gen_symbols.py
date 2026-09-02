@@ -100,6 +100,20 @@ def zone_circle(label):
     return svg([circle(0, 0, 1, stroke=BLUE, sw=0.1), text(label, 0.8, fill=BLUE)], vb=2.6)
 
 
+def placard(label, fill, w=1.0, h=0.55, fs=0.75):
+    """A wall-mounted installation plate, drawn exactly as it is printed on a Swiss Feuerwehr-
+    Einsatzplan (ISO 23601 / VKF Piktogramm style): a coloured rectangle with its Kürzel — BMA-Z,
+    RWA-BS, FA, AED. Same grammar as the Schadenlage `letter_disc` (colour marks the category,
+    the black outline + black bold text is the identifying mark), just rectangular instead of
+    round because that is the shape every one of these placards actually has on the wall."""
+    margin = 0.15
+    return svg(
+        [path([(-w, -h), (w, -h), (w, h), (-w, h)], stroke=BLACK, sw=0.06, fill=fill, close=True),
+         text(label, fs)],
+        viewbox=f"{fnum(-w - margin)} {fnum(-h - margin)} {fnum(2 * (w + margin))} {fnum(2 * (h + margin))}",
+    )
+
+
 def holding_box(letter):
     """Sammelplatz / Warteraum: wide open rectangle with a big letter."""
     return svg(
@@ -522,6 +536,9 @@ def build() -> list[dict]:
         vb=2.6,
     ))
     add("Personen / Sanität", "VKF Bereich Sanitaet", zone_circle("SAN"))
+    # AED / Defibrillator wall placard — same field report as GB BMA-Z above; the green plate
+    # every Einsatzplan legend already prints next to a first-aid point.
+    add("Personen / Sanität", "FW AED", placard("AED", GREEN, w=0.85, fs=0.68))
 
     # ── Partner
     add("Partner", "VKF Bereich Feuerwehr", zone_circle("FW"))
@@ -561,6 +578,12 @@ def build() -> list[dict]:
          line(0, 0, 0, 1, stroke=BLACK, sw=0.03)],
         vb=2.3,
     ))
+    # Feuerwehranschluss (trockene Steigleitung, Einspeisung) — the red wall placard where a
+    # crew feeds the building's dry riser from outside, same field report as GB BMA-Z/RWA-BS
+    # above. A supply point like the hydrants beside it, not a building installation, so it
+    # lives in Wasser rather than Gebäude; VKF Innenhydrant is the matching Entnahmestelle
+    # INSIDE the building.
+    add("Wasser", "SI Feuerwehranschluss", placard("FA", RED, w=0.68, fs=0.95))
 
     # ── Gebäude
     # fire-resistance walls: the tick count encodes the rating (1=F30, 2=F60, 3=F180)
@@ -641,6 +664,15 @@ def build() -> list[dict]:
          circle(0, 0, 0.16, stroke=RED, sw=0.06, fill=RED)],
         vb=2.0,
     ))
+    # Wand-Piktogramme, added 02.09. after a field report: a reproduced Einsatzplan-Legende
+    # (BMA-Z/RWA-BS/FA placards) had no matching symbols, so a crew could not dock a hose line to
+    # them — only kind:'symbol' annotations are magnetic (lib/hoseSnap; deliberately untouched).
+    # These are the actual placards screwed to the wall next to `GB Brandmeldezentrale` /
+    # `GB Abzug` (the schematic anlage icons above) — not a duplicate, a different object: the
+    # sign that tells an arriving crew where the panel/valve/connection IS, in the exact red/
+    # yellow plate-plus-Kürzel grammar every Swiss Einsatzplan legend already prints.
+    add("Gebäude", "GB BMA-Z", placard("BMA-Z", RED, w=1.05, fs=0.58))
+    add("Gebäude", "GB RWA-BS", placard("RWA-BS", YELLOW, w=1.25, fs=0.5))
     add("Gebäude", "GB Fernsignaltableau", svg(
         [path([(-0.9, -0.6), (0.9, -0.6), (0.9, 0.6), (-0.9, 0.6)], stroke=BLACK, sw=0.06, close=True),
          circle(-0.4, 0, 0.3, stroke=BLACK, sw=0.06),

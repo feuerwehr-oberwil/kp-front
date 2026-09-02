@@ -535,6 +535,32 @@ export function rebaseDemoClocks(ws: Saved, at: number): Saved {
   }
 }
 
+/** The `workspace_rev` a freshly seeded demo incident carries (backend · demo_reset writes 1).
+ *  Anything above it means a visitor's own save has landed on the server. */
+export const DEMO_SEED_REV = 1
+
+/**
+ * Demo only: the fetched workspace with its Atemschutz clocks pinned to this visitor's arrival —
+ * but ONLY while the incident is still the untouched server seed.
+ *
+ * ⚠️ The rev gate is the whole point (field report 02.09.). Demo edits persist and sync like a
+ * real station's, so the demo Einsatz is shared: Manuel opened the Atemschutzüberwachung on a
+ * phone while it stood open on a PC, and the phone's «seit letztem Kontakt» started again at 0:00
+ * against the PC's 4:19 for the same Trupp. The anchor is per tab, so every device that joined
+ * re-pinned the newest contact to ITS own arrival — and then pushed those shifted stamps back
+ * into the shared record on the next save, dragging everybody else's clocks with it. On the one
+ * surface where a clock reading short is a safety failure.
+ *
+ * With the gate, the rebase does what it was built for — a late visitor lands on a fresh scene
+ * rather than a screaming alarm — and stops the moment the incident becomes a worked, shared
+ * record: from the first save on, every device reads the same real timestamps.
+ */
+export function demoSeedRebase(ws: Saved, incidentId: string, rev: number, now: number = Date.now()): Saved {
+  if (rev > DEMO_SEED_REV) return ws
+  const stamp = latestTruppStamp(ws)
+  return stamp == null ? ws : rebaseDemoClocks(ws, demoClockAnchor(incidentId, stamp, now))
+}
+
 /**
  * Derive App's initial state slices from an incident's workspace blob (or empty for a
  * brand-new incident — no demo seed; a fresh incident starts blank). `prefs` carries the

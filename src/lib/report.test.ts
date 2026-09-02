@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { BoardDoc, Drawing, Entity, MittelEntry, PlanDocument, TimelineEvent, Trupp } from '../types'
+import type { BoardDoc, Drawing, Entity, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 
 // The Zeiten grid is built from the deployment's Gruppen/Fahrzeuge, so the rows have to come
 // from a config. Oberwil's shape in miniature: two groups (one with a colour), two vehicles.
@@ -36,6 +36,7 @@ import {
   readingKindLabel,
   spanAwareClock,
   truppAuftragLabel,
+  truppRunTimes,
   truppStatusLabel,
 } from './report'
 
@@ -725,6 +726,47 @@ describe('readingBarIsMeasured (which pressures the Rapport may print)', () => {
   it('stays silent where the value was carried over', () => {
     expect(readingBarIsMeasured('contact')).toBe(false)
     expect(readingBarIsMeasured('rueckzug')).toBe(false)
+  })
+})
+
+// ⚠️ Field report 02.09.: a Trupp went in at 13:44, came out at 15:03, was re-registered and went
+// in again at 15:16. The Detailprotokoll's header printed the LAST pair alone, over a table whose
+// first row said 13:44 — the two halves of one block contradicting each other on a safety document.
+describe('truppRunTimes (the Eintritt/Austritt the header prints)', () => {
+  const r = (t: string, kind: TruppReading['kind']): TruppReading => ({ t, bar: 300, kind })
+
+  it('lists EVERY cycle the log recorded, in the order it happened', () => {
+    const readings = [
+      r('13:44', 'entry'), r('13:50', 'pressure'), r('15:03', 'rueckzug'), r('15:03', 'exit'),
+      r('15:03', 'registered'), r('15:16', 'entry'), r('15:22', 'exit'),
+    ]
+    expect(truppRunTimes(readings, { entryTime: '15:16', exitTime: '15:22' }))
+      .toEqual({ entries: ['13:44', '15:16'], exits: ['15:03', '15:22'] })
+  })
+
+  // The log is the record; the card's two scalars are live state the merge may re-resolve from
+  // one side, so the header must never take an Austritt the table below it cannot show.
+  it('ignores an exitTime the log does not carry', () => {
+    expect(truppRunTimes([r('15:16', 'entry'), r('15:27', 'exit')], { entryTime: '15:16', exitTime: '15:22' }))
+      .toEqual({ entries: ['15:16'], exits: ['15:27'] })
+  })
+
+  it('leaves the Austritt empty while the crew is still in', () => {
+    expect(truppRunTimes([r('15:16', 'entry')], { entryTime: '15:16' }))
+      .toEqual({ entries: ['15:16'], exits: [] })
+  })
+
+  // …per side, so a Trupp exited before `exit` rows existed (19.08.) still prints its Austritt
+  it('falls back to the card for a record written before the log carried that row', () => {
+    expect(truppRunTimes([r('13:44', 'entry')], { entryTime: '13:44', exitTime: '15:03' }))
+      .toEqual({ entries: ['13:44'], exits: ['15:03'] })
+    expect(truppRunTimes(undefined, { entryTime: '13:44', exitTime: '15:03' }))
+      .toEqual({ entries: ['13:44'], exits: ['15:03'] })
+  })
+
+  // a Sicherungstrupp stood down without ever going under PA — an exit and no entry at all
+  it('reports an exit with no entry, so the sheet can say «Nicht eingesetzt»', () => {
+    expect(truppRunTimes([], { exitTime: '15:03' })).toEqual({ entries: [], exits: ['15:03'] })
   })
 })
 

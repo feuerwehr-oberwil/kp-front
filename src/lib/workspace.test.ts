@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { autoActivateLayers, demoClockAnchor, deriveInitial, latestTruppStamp, normalizeBoard, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved, changedSafetySettings} from './workspace'
+import { autoActivateLayers, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, latestTruppStamp, normalizeBoard, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved, changedSafetySettings} from './workspace'
 import type { LayerDef } from '../types'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
@@ -90,6 +90,34 @@ describe('demoClockAnchor — the rebase is pinned once, not on every load', () 
     ] as unknown as Saved['trupps'] })
     expect(latestTruppStamp(blob)).toBe(Date.parse(T(25)))
     expect(latestTruppStamp(ws({ trupps: [] }))).toBeNull()
+  })
+})
+
+// The demo Einsatz is SHARED — edits persist and sync across visitors — so the arrival rebase may
+// only ever touch the untouched server seed. A phone joining a demo somebody is already working
+// re-pinned every contact clock to its own arrival (0:00 against the PC's 4:19) and then pushed
+// those stamps back into the shared record. See workspace · demoSeedRebase.
+describe('demoSeedRebase — only the untouched seed slides', () => {
+  const blob = () => ws({ trupps: [
+    { id: 'A', entryTime: T(0), lastContactTime: T(20), readings: [{ t: T(20) }] },
+  ] as unknown as Saved['trupps'] })
+  const now = Date.UTC(2026, 6, 1, 9, 0, 0)
+
+  it('pins the newest contact to the visitor’s arrival on a freshly seeded demo', () => {
+    const out = demoSeedRebase(blob(), 'inc1', DEMO_SEED_REV, now)
+    expect(Date.parse(out.trupps![0].lastContactTime)).toBe(now)
+  })
+
+  it('leaves the clocks alone once anyone has saved (rev past the seed)', () => {
+    const b = blob()
+    const out = demoSeedRebase(b, 'inc1', DEMO_SEED_REV + 1, now)
+    expect(out).toBe(b)
+    expect(out.trupps![0].lastContactTime).toBe(T(20)) // the real, shared contact time
+  })
+
+  it('passes a workspace with no Trupp clocks straight through', () => {
+    const b = ws({ trupps: [] })
+    expect(demoSeedRebase(b, 'inc1', DEMO_SEED_REV, now)).toBe(b)
   })
 })
 

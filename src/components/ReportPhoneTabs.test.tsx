@@ -71,7 +71,7 @@ describe('Einsatzrapport · phone tabs', () => {
 
   it('switches when a tab is picked', () => {
     const { body } = setup()
-    fireEvent.click(screen.getByRole('button', { name: /Wer & was/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Personal & Mittel/ }))
     expect(body().dataset.phoneTab).toBe('werwas')
   })
 

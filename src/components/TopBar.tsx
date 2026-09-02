@@ -5,6 +5,7 @@ import { fmtElapsedHM } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'
+import { serverNow } from '../lib/serverClock'
 import type { Incident, ReactivateResult, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { loadPrefs, savePrefs } from '../lib/prefs'
@@ -89,9 +90,13 @@ interface Props {
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
 export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
-  const [now, setNow] = useState(() => Date.now())
+  // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
+  // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
+  // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
+  // is how the same Trupp showed two different ages on a phone and a PC. Offline it IS Date.now().
+  const [now, setNow] = useState(() => serverNow())
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
+    const t = setInterval(() => setNow(serverNow()), 1000)
     return () => clearInterval(t)
   }, [])
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0

@@ -140,6 +140,40 @@ export function personStatusHint(
 
 
 /**
+ * The crew names on a Trupp that the ID path did NOT record — the ones still owed an Anwesenheit.
+ *
+ * ⚠️ Why it exists (field report 02.09.): the Trupp form takes a person from the picker OR a
+ * hand-typed name («Name eingeben (Gast/Nachbarwehr)»), and only the first kind leaves a
+ * `leaderPersonId`/`memberPersonIds` entry. Marking the crew present off those ids alone therefore
+ * skipped every Gast: somebody who was under Atemschutz for the whole Einsatz was missing from the
+ * Anwesenheit, from the headcount and from the Personalblatt printed off it.
+ *
+ * `resolve` is the roster lookup (lib/personnel · personIdForName over the pickable list, guests
+ * included), so a name that IS somebody already recorded resolves to them instead of opening a
+ * second row — and a name whose id the Trupp already carries is dropped, because the grouped id
+ * path above has just handled it. Deduplicated by name: the same person typed into two slots is
+ * one person.
+ */
+export function unrecordedCrewNames(
+  trupp: { name?: string; members?: string[]; leaderPersonId?: string; memberPersonIds?: string[] },
+  resolve: (name: string) => string | undefined,
+): string[] {
+  const covered = new Set([trupp.leaderPersonId, ...(trupp.memberPersonIds ?? [])].filter(Boolean) as string[])
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const raw of [trupp.name, ...(trupp.members ?? [])]) {
+    const name = (raw ?? '').trim()
+    if (!name || seen.has(name)) continue
+    seen.add(name)
+    const known = resolve(name)
+    if (known && covered.has(known)) continue
+    out.push(name)
+  }
+  return out
+}
+
+
+/**
  * The Bemerkung a person should carry after being given another job.
  *
  * One person routinely holds two: the Fahrer who then goes under Atemschutz is «Fahrer Pio, AS»,

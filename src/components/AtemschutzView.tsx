@@ -8,6 +8,7 @@ import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
 import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, truppAlarm, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { readingBarIsMeasured, truppStatusLabel } from '../lib/report'
@@ -19,7 +20,7 @@ import type { MarkerOption } from '../lib/placedTrupps'
 import { ClearableInput } from './ClearableInput'
 import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
-import { ensureNotifyPermission, unlockAlarm } from '../lib/alarm'
+import { ensureNotifyPermission, notificationsSupported, unlockAlarm } from '../lib/alarm'
 import { atemschutzDoctrine, isDemoMode } from '../lib/deploymentConfig'
 import type { SyncStatus } from '../lib/api/workspaceSync'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
@@ -181,7 +182,10 @@ export function AtemschutzView({
   lastSyncedAt?: number | null
   /** device-vs-server clock offset (ms, positive = device runs ahead; minute-quantized, null
    *  until the first sample — useIncidentSync). Beyond ±CLOCK_SKEW_WARN_MIN it earns its own
-   *  warning chip: every contact clock on this board is device-local Date.now(). */
+   *  warning chip. The clocks on this board are counted in the DEPLOYMENT's time since 02.09.
+   *  (lib/serverClock), so the chip is no longer about them — it is about a device that is
+   *  minutes out, whose operator will read every other timestamp in the app (Verlauf, Fotos,
+   *  Anwesenheit) as if it were right. */
   clockSkewMs?: number | null
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
@@ -224,6 +228,32 @@ export function AtemschutzView({
     lastShownFocusNonce = externalFocus.nonce
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.nonce])
+  /**
+   * «Passiert, dass ich drücke. Benötigte dann den Code nochmals.» (field feedback, 02.09.,
+   * Safari's own ✕). A `beforeunload` confirm is not the fix here: iOS Safari does not reliably
+   * show one for a plain tab close, and `useIncidentSync` already dropped `beforeunload`
+   * app-wide because it blocks the back/forward cache — adding it back for one surface would
+   * regress that for every surface sharing the page. What actually answers the field report is
+   * that the link session already survives a closed tab: the exchange sets a real cookie good
+   * for `incident_link_session_ttl` (12 h, backend/app/auth/incident_link.py), so revisiting the
+   * SAME address — the original link again, or the bare site — reopens this exact board with no
+   * re-exchange visible at all (auth/dependencies.py falls back to the link cookie once no
+   * normal login is present). Telling the holder that ONCE, the first time this handed-over
+   * board is shown on a device, turns an accidental tap from «I lost the session» into a known,
+   * recoverable non-event — never repeated (localStorage), and never on a device that can reach
+   * the rest of the app anyway (only `lite` needed telling).
+   */
+  useEffect(() => {
+    if (!lite) return
+    const KEY = 'kp.atemschutz.linkReentryHintSeen'
+    try {
+      if (localStorage.getItem(KEY) === '1') return
+      localStorage.setItem(KEY, '1')
+    } catch { /* private mode / storage disabled — show it every time rather than never */ }
+    toast(az.linkReentryHint, { icon: 'info', duration: 9000 })
+    // once per mount only, and `lite` never flips within a session
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // a Trupp awaiting a Gebäude/Modul-6 placement choice (only when >1 target exists)
   const [placePick, setPlacePick] = useState<string | null>(null)
   const handlePlace = (id: string) => {
@@ -241,9 +271,14 @@ export function AtemschutzView({
 
   // per-second tick so the contact clock re-renders (pattern from TopBar's clock). This drives
   // the VISUAL board only; the audible alarm + OS notification run app-wide (useAtemschutzAlarm).
-  const [now, setNow] = useState(() => Date.now())
+  //
+  // ⚠️ `serverNow()`, not `Date.now()` (02.09.): the contact clock is read off the deployment's
+  // clock so a phone and a PC watching the same Trupp show the SAME number. They did not — a
+  // six-second device-clock difference was six seconds of difference on the board, and the
+  // operator has no way to tell which of the two is lying. Offline it IS Date.now().
+  const [now, setNow] = useState(() => serverNow())
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
+    const t = setInterval(() => setNow(serverNow()), 1000)
     return () => clearInterval(t)
   }, [])
 
@@ -448,6 +483,24 @@ export function AtemschutzView({
     unlockAlarm(); void ensureNotifyPermission(); setForm({ mode, trupp, focus })
   }
 
+  /**
+   * The FIRST tap ANYWHERE on this board also counts as the audio unlock (field feedback,
+   * 02.09.: «Ich erhalte keinen Ton … auf dem PC oder Mobile» over a bell visibly showing «nicht
+   * freigegeben»). Browsers only release Web Audio inside a real gesture, and until now the only
+   * gesture THIS surface answered was opening the Trupp-Formular — `App.selectIncident` covers
+   * the normal «open an Einsatz» tap for the full app, but an Atemschutz-Link session's own
+   * first «gesture» is the token exchange during boot, which runs outside any click and leaves
+   * the AudioContext quietly `suspended`. Anyone who only watched the board, or only ever
+   * pressed Kontakt/Druck, could sit through an entire überfällig alarm in total silence.
+   * Idempotent (`primeAudio`/`ensureNotifyPermission` both are) and fires once per mount.
+   */
+  const primedGesture = useRef(false)
+  const primeOnFirstTap = () => {
+    if (primedGesture.current) return
+    primedGesture.current = true
+    unlockAlarm(); void ensureNotifyPermission()
+  }
+
   const submitForm = async (f: TruppFields, standby = false) => {
     if (!form) return
     // One Leitung, one Trupp. Typing a number that someone else is already on used to save
@@ -576,7 +629,15 @@ export function AtemschutzView({
   // What the bell says of itself. The order matters: «nicht freigegeben» only applies while the
   // alarm claims to be on — a muted bell promises no tone anyway, so two warnings about the same
   // silence would be one too many (useAtemschutzMute already folds that into `audioBlocked`).
-  const bellLabel = muted ? az.alarmMuted : audioBlocked ? az.alarmBlocked : az.alarmArmed
+  // ⚠️ «sonst meldet nur die Benachrichtigung» (alarmBlocked) is a PROMISE this browser must be
+  // able to keep — a plain Safari tab on iOS never gets a `Notification` global at all (field
+  // feedback, 02.09.: «Ich erhalte keinen Ton oder Vibration … »), so telling that operator a
+  // fallback exists is worse than saying nothing: it reads as «something will still alert me»
+  // when NOTHING will until the tone itself is unlocked. `notificationsSupported()` is a static
+  // capability check (permission aside), so this never flickers with permission state.
+  const bellLabel = muted ? az.alarmMuted
+    : audioBlocked ? (notificationsSupported() ? az.alarmBlocked : az.alarmBlockedNoFallback)
+    : az.alarmArmed
 
   // What the QR beside the bell says of itself — the same rule as the bell: the state that is
   // TRUE now, not what the press would do.
@@ -630,7 +691,7 @@ export function AtemschutzView({
   )
 
   return (
-    <div className={cx(s.surface, lite && s.surfaceLite)}>
+    <div className={cx(s.surface, lite && s.surfaceLite)} onPointerDownCapture={primeOnFirstTap}>
       <header className={s.head}>
         <div className={s.headTitles}>
           <h2>{az.title}</h2>
@@ -661,7 +722,7 @@ export function AtemschutzView({
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now() })}
           >
-            <Icon id="warn" /><span>{az.overdueBadge.replace('{n}', String(overdueCount))}</span>
+            <Icon id="warn" /><span>{az.overdueBadge(overdueCount)}</span>
           </button>
         )}
         {/* ⚠️ A MENU, not a segmented control. Four options laid out in full needed ~380px in a
@@ -1535,10 +1596,13 @@ function TruppForm({
   /** the Leitungen drawn on either surface (lib/truppLines · leitungOptions) — offered as
    *  quick-picks so the number is chosen from what exists, not typed blind */
   leitungOptions: LeitungOption[]
-  /** the handed-over «Tafel pur» (see AtemschutzView · lite): the Ltg-Nr row goes. A link holder
-   *  has no picture to read a hose number off and no surface to draw one on, so the field could
-   *  only ever be a number typed blind — and one Leitung, one Trupp is enforced against what is
-   *  actually drawn (see submitForm's takeover confirm). The FU sets it on the KP tablet. */
+  /** the handed-over «Tafel pur» (see AtemschutzView · lite): drops the Farbe picker (a
+   *  Lage/Plan matter this session cannot see) and the «Gezeichnet:» quick-picks, which stay
+   *  empty here (`leitungOptions` returns `[]` for a link — no picture to read a hose number
+   *  off, no surface to draw one on). The Ltg-Nr STEPPER stays (field feedback, 02.09.): the
+   *  Überwacher on this phone is told a number over the radio same as on the KP tablet and has
+   *  to be able to write it down somewhere, even typed blind — one Leitung, one Trupp is still
+   *  enforced against what is actually drawn (see submitForm's takeover confirm). */
   lite?: boolean
   /** the handed-over form on a PHONE (decided 02.09.): two steps instead of one scroll — «Wer
    *  geht rein?» with the whole screen for the roster, then «Luft & Auftrag». Nobody has to know
@@ -1608,6 +1672,13 @@ function TruppForm({
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
   }, [focusSection])
+  // The other sections a blocked «Speichern» might have to point at (see `attemptSubmit` below) —
+  // `zielRef` and `conflictRef` are new; `auftragRef` above already existed for the card's own
+  // «Auftrag offen» pill and is reused here so the two paths ring the same field the same way.
+  const teamRef = useRef<HTMLDivElement>(null)
+  const zielRef = useRef<HTMLLabelElement>(null)
+  const pressureRef = useRef<HTMLDivElement>(null)
+  const conflictRef = useRef<HTMLParagraphElement>(null)
 
   // ⚠️ Shown in EVERY mode, including 'edit'. Hiding it there meant a mistyped Eingangsdruck could
   // never be corrected — and it is the number the Verbrauch and the tiefster Druck on the Rapport
@@ -1655,6 +1726,50 @@ function TruppForm({
     }, standby)
   }
 
+  /** Retrigger the same flash-ring `focusSection` gives an opened section (`.formFlash` above),
+   *  imperatively — a second blocked tap must ring again, which a className tied to render state
+   *  alone cannot do without a remount. Mirrors the identical remove/reflow/add idiom the board's
+   *  own card flash uses (AtemschutzView · TruppCard/TruppRow) for the same reason. */
+  const flashSection = (el: HTMLElement | null) => {
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.remove(s.formFlash)
+    void el.offsetWidth
+    el.classList.add(s.formFlash)
+    window.setTimeout(() => el.classList.remove(s.formFlash), 1900)
+  }
+  /**
+   * «Speichern» while the Trupp isn't valid yet used to just sit there disabled — with Art
+   * «Anderes» and an empty Auftrag/Ziel, nothing on screen said why (field feedback, 02.09.:
+   * «weil ich 'Anderes' gewählt habe … Evtl. auch hier ein Blink, Blink → Hinweis»). The button
+   * is no longer natively `disabled` (which swallows the tap outright and cannot explain
+   * itself, and the OS-notification affordance for that ANYWAY-focusable state is `aria-disabled`
+   * instead) — a blocked tap now points at and flashes the one field actually holding it back,
+   * in the same precedence `canSubmit` itself checks. A wizard step whose reason lives on the
+   * OTHER step (the team) walks back to it first.
+   */
+  const attemptSubmit = (standby = false) => {
+    if (canSubmit) { submit(standby); return }
+    if (!leaderOk) {
+      toast(az.saveBlockedTeam, { icon: 'warn', tone: 'warn' })
+      if (wizard && step !== 1) { setStep(1); requestAnimationFrame(() => flashSection(teamRef.current)) }
+      else flashSection(teamRef.current)
+      return
+    }
+    // the conflict already prints its own sentence right on the form (see below) — a toast
+    // repeating it would say the same thing twice, so this only points at it
+    if (assignedConflict) { flashSection(conflictRef.current); return }
+    if (!auftragOk) {
+      toast(az.saveBlockedAuftrag, { icon: 'warn', tone: 'warn' })
+      flashSection(auftragRef.current); flashSection(zielRef.current)
+      return
+    }
+    if (showPressure && pressure <= 0) {
+      toast(az.saveBlockedPressure, { icon: 'warn', tone: 'warn' })
+      flashSection(pressureRef.current)
+    }
+  }
+
   const title = mode === 'edit' ? az.formEditTitle : mode === 'redeploy' ? az.formRedeployTitle : az.formCreateTitle
   const submitLabel = mode === 'edit' ? az.save : mode === 'redeploy' ? az.reenterSubmit : az.start
 
@@ -1683,7 +1798,7 @@ function TruppForm({
               five optional fields between the EL and the two mandatory ones. */}
           {showTeam && (
           <div className={s.formCol}>
-            <div className={s.field}>
+            <div ref={teamRef} className={s.field}>
               <span>{az.sectionTeam}</span>
             {/* One list, leader first. A Trupp is valid with exactly one name (the
                 Gruppenführer), so a two-person Trupp, a four-person Trupp and a mis-tap are all
@@ -1700,7 +1815,7 @@ function TruppForm({
           {showRest && (
           <div className={s.formCol}>
             {showPressure && (
-              <div className={s.field}>
+              <div ref={pressureRef} className={s.field}>
                 <span>{mode === 'redeploy' ? az.newPressureLabel : isEdit ? az.editPressureLabel : az.pressureLabel}</span>
                 <PressureStepper value={pressure} onChange={setPressure} compact />
                 {/* said out loud, because the same ± on the CARD does the opposite: there it is a
@@ -1732,7 +1847,7 @@ function TruppForm({
                 options={cfg.auftrag.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
               />
             </div>
-            <label className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
+            <label ref={zielRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
               <span>{az.zielLabel}</span>
               {/* ✕: a Trupp that comes back and goes in again gets a NEW order, and the old one
                   is not a starting point for typing it — «2. OG Wohnung Nord, 2 Personen
@@ -1749,8 +1864,11 @@ function TruppForm({
             {/* The SAME 1–99 number the DrawEditor stamps on a hose — one type on both sides is
                 what lets a Trupp and a drawn Leitung find each other without anyone re-typing
                 anything (lib/truppLines). A Trupp recorded before this was free text keeps its
-                text below; it is never rewritten. */}
-            {!lite && (
+                text below; it is never rewritten.
+                ⚠️ Shown on the lite form too (field feedback, 02.09.: «Leitung kann ich hier
+                nicht erfassen») — the stepper still works blind, and `leitungOptions` is simply
+                empty for a link session, so the «Gezeichnet:» chips just don't appear (see the
+                `lite` prop doc above). */}
             <div className={cx(s.field, s.lineField)}>
               <span>{az.lineNoLabel}</span>
               {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
@@ -1784,7 +1902,6 @@ function TruppForm({
               </div>
               {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
             </div>
-            )}
             {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
                 normal case (every Trupp a different one); picking is for when the EL would rather
                 read the picture by role — «alle Löschtrupps rot» — and a duplicate is then the
@@ -1812,7 +1929,7 @@ function TruppForm({
           )}
 
           {assignedConflict && (
-            <p className={cx(s.formColWide, s.formWarn)}>
+            <p ref={conflictRef} className={cx(s.formColWide, s.formWarn)}>
               <Icon id="warn" /><span>{fillTemplate(az.assignedConflict, { name: assignedConflict })}</span>
             </p>
           )}
@@ -1840,11 +1957,17 @@ function TruppForm({
             steps back — the ORDER stays as it was, only the emphasis swaps, so nobody has to
             re-learn where the button is. */}
         {mode === 'redeploy' && (
-          <button className="ip-btn primary" disabled={!canSubmit} onClick={() => submit(true)} title={az.reenterStandbyHint}>
+          <button className={cx('ip-btn primary', !canSubmit && s.btnBlocked)} aria-disabled={!canSubmit}
+            onClick={() => attemptSubmit(true)} title={az.reenterStandbyHint}>
             {az.reenterStandby}
           </button>
         )}
-        <button className={mode === 'redeploy' ? 'ip-btn' : 'ip-btn primary'} disabled={!canSubmit} onClick={() => submit()}>{submitLabel}</button>
+        {/* ⚠️ `aria-disabled`, not `disabled` (field feedback, 02.09.): a native `disabled` button
+            swallows the tap before it ever reaches a handler, which is exactly what left
+            «Speichern» unresponsive with nothing to explain why. This one stays clickable and
+            `attemptSubmit` decides — flash the missing field when blocked, submit when not. */}
+        <button className={cx(mode === 'redeploy' ? 'ip-btn' : 'ip-btn primary', !canSubmit && s.btnBlocked)}
+          aria-disabled={!canSubmit} onClick={() => attemptSubmit()}>{submitLabel}</button>
         </>)}
       </div>
     </Overlay>

@@ -9,6 +9,13 @@ import { pickTeamColor } from './teamColors'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
 import { alarmBarFor, currentRunStart, truppAwaitsEntry } from './atemschutz'
+// ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
+// (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
+// tablet six seconds ahead put contact times into the Rapport that no other device agreed with,
+// and it won every merge tie (mergeWorkspace · TRUPP_TIME_FIELDS keeps the LATER stamp). Offline
+// `serverNowIso()` is the device clock, so a station that has never reached the server is
+// unaffected.
+import { serverNowIso } from './serverClock'
 import { resolveMarkerJoin } from './placedTrupps'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
@@ -104,10 +111,16 @@ export function truppEditChanges(prev: Trupp | undefined, f: TruppFields): strin
   const out: string[] = []
   const members = (xs?: string[]) => (xs ?? []).map((x) => x.trim()).filter(Boolean)
   if (prev.name.trim() !== f.name.trim()) out.push(fillTemplate(az.changeLeader, { from: prev.name, to: f.name }))
-  const before = members(prev.members)
-  const after = members(f.members)
-  const gone = before.filter((x) => !after.includes(x))
-  const added = after.filter((x) => !before.includes(x))
+  // ⚠️ Who was IN the Trupp — leader included — not «the AdF list». The two are one crew, and the
+  // form moves people between the slots: promoting an AdF to Gruppenführer and standing the old
+  // one down beside him is ONE change, and diffing the AdF list on its own reported it as three —
+  // «Gruppenführer A → B, B aus dem Trupp genommen, A dazugekommen», i.e. the record claiming a
+  // crew member left and another joined when nobody did either. Compared as a set of names, a
+  // pure role swap leaves both sides equal and only the leader line survives.
+  const before = [prev.name, ...(prev.members ?? [])].map((x) => x.trim()).filter(Boolean)
+  const after = [f.name, ...(f.members ?? [])].map((x) => x.trim()).filter(Boolean)
+  const gone = members(prev.members).filter((x) => !after.includes(x))
+  const added = members(f.members).filter((x) => !before.includes(x))
   if (gone.length) out.push(fillTemplate(az.changeMemberOut, { names: gone.join(', ') }))
   if (added.length) out.push(fillTemplate(az.changeMemberIn, { names: added.join(', ') }))
   if (prev.auftrag !== f.auftrag || (prev.ziel ?? '') !== (f.ziel ?? '')) {
@@ -200,7 +213,7 @@ export function useTruppActions(deps: Deps) {
     // cylinder the Überwacher had read and typed in (08.08. Einsatz).
     const registered: Trupp['readings'] = t.readings?.length
       ? t.readings
-      : [{ t: new Date().toISOString(), bar: t.entryPressureBar, kind: 'registered' }]
+      : [{ t: serverNowIso(), bar: t.entryPressureBar, kind: 'registered' }]
     // a new card joins at the END of the hand-set order, never in the middle of a board somebody
     // arranged — `order` is synced, so it lands the same way on every device. The key comes from
     // nextTruppOrder, which reads the board in the SAME space the comparator sorts in (see there).
@@ -535,7 +548,7 @@ export function useTruppActions(deps: Deps) {
   const recordContact = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
     const snapshot = tr // the Trupp as it was BEFORE the contact — for the undo
-    const now = new Date().toISOString()
+    const now = serverNowIso()
     setTrupps((ts) => ts.map((t) => (t.id === id
       ? { ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] }
       : t)))
@@ -554,7 +567,7 @@ export function useTruppActions(deps: Deps) {
   const recordPressure = (id: string, bar: number) => {
     const tr = trupps.find((t) => t.id === id)
     const snapshot = tr // the Trupp as it was BEFORE the reading — for the undo
-    const now = new Date().toISOString()
+    const now = serverNowIso()
     // Crossing the Alarmdruck is the moment the Trupp has to turn round, and it was visible on
     // the card and nowhere else — the reconstruction afterwards could not say when it happened.
     // Only on the CROSSING, so a Trupp already below the threshold does not repeat it at every
@@ -602,7 +615,7 @@ export function useTruppActions(deps: Deps) {
   const setTruppStatus = (id: string, status: Trupp['status']) => {
     const tr = trupps.find((t) => t.id === id)
     const az = appConfig.copy.atemschutz
-    const now = new Date().toISOString()
+    const now = serverNowIso()
     const isResume = status === 'aktiv' && !!tr?.entryTime // back into the field after a Rückzug
     const impliesContact = status === 'rueckzug' || isResume
     setTrupps((ts) => ts.map((t) => {
@@ -733,7 +746,7 @@ export function useTruppActions(deps: Deps) {
   // so the later «Eingerückt» stamps the entry the same way it does for a brand-new Trupp.
   const reactivateTrupp = (id: string, f: TruppFields, standby = false) => {
     const tr = trupps.find((t) => t.id === id)
-    const now = new Date().toISOString()
+    const now = serverNowIso()
     setTrupps((ts) => ts.map((t) => (t.id === id
       ? { ...t, name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
           leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f),
@@ -881,7 +894,7 @@ export function useTruppActions(deps: Deps) {
     // can still see it. But the Atemschutz page of the Rapport is a safety document: a crew that
     // was under PA and then taken off the Tafel used to vanish from the paper too, readings and
     // entry pressure with it. Every Trupp ever registered now prints.
-    setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, removedAt: new Date().toISOString() } : t)))
+    setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, removedAt: serverNowIso() } : t)))
     if (tr) dropPlacements(tr)
     // A Trupp leaving the Tafel is the one Atemschutz action the Verlauf never recorded: the
     // toast said so and vanished, and the reconstruction afterwards showed a crew that had been

@@ -26,7 +26,7 @@ import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
-import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, type AssignableRole } from './lib/roleAssignment'
+import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -161,6 +161,7 @@ import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
+import { serverNowIso } from './lib/serverClock'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
@@ -1810,7 +1811,14 @@ export function IncidentWorkspace({
     // a caller may stamp `at` explicitly (e.g. a journal entry timed to when the composer was
     // opened, not when Erfassen was pressed); the HH:MM display derives from the same instant.
     const { at: atOverride, ...rest } = ev
-    const at = atOverride ?? new Date().toISOString()
+    // ⚠️ The DEPLOYMENT's clock, not the device's (lib/serverClock). Every Atemschutz stamp is
+    // written that way (useTruppActions · serverNowIso), and a Verlauf row is the same fact said
+    // in words: stamped device-local it drifted away from the row it describes, so the printed
+    // Journal said «Trupp X draussen 15:22» while the Atemschutz-Detailprotokoll of the same
+    // action said 15:27 — two devices, two clocks, one Einsatz (field report 02.09.). Offline
+    // `serverNowIso()` IS `Date.now()`, so nothing changes for a station that never reached the
+    // server.
+    const at = atOverride ?? serverNowIso()
     // a monotonic counter, not randomness: two rows in the same millisecond must never share
     // an id — the server's idempotency skip would silently swallow the second (legal record)
     journal.append({ id: id ?? `e${Date.now()}-${rowSeq.current++}`, t: formatTime(new Date(at)), at, ...rest })
@@ -3689,9 +3697,24 @@ export function IncidentWorkspace({
    *  AdF who stood at the Magazin from one who was under Atemschutz. The link already existed in
    *  one direction (the Trupp picker says «unter AS» about somebody on the list); this is the
    *  same fact read the other way round. Like every auto-Bemerkung it only fills an EMPTY one,
-   *  so anything typed by hand survives. */
-  const ensurePresentFromTrupp = (ids: (string | undefined)[]) =>
-    ensurePresentForRole(ids, appConfig.copy.anwesenheit.roleAtemschutz, true)
+   *  so anything typed by hand survives.
+   *
+   *  ⚠️ …and the crew typed BY HAND, which this used to miss entirely (field report 02.09.). The
+   *  Trupp form's «Name eingeben (Gast/Nachbarwehr)» records a display name and no roster id, so
+   *  the id list above never saw that person: a Gast who had been under Atemschutz for the whole
+   *  Einsatz was absent from the Anwesenheit, from the headcount and from the Personalblatt
+   *  printed off it. Same route a typed name on a symbol has always taken (assignTypedName):
+   *  known to the roster → the person they are, unknown → a Gast row on THIS Einsatz. */
+  const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds'>) => {
+    const role = appConfig.copy.anwesenheit.roleAtemschutz
+    const ids = [f.leaderPersonId, ...(f.memberPersonIds ?? [])]
+    ensurePresentForRole(ids, role, true)
+    // 'presence': being in a Trupp contradicts nothing — the conflict check is about somebody
+    // holding a SECOND job (lib/roleAssignment · roleConflictHint)
+    for (const name of unrecordedCrewNames(f, (n) => personIdForName(rosterIdByName, n))) {
+      assignTypedName(name, 'presence', role)
+    }
+  }
 
   /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
    *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
@@ -3932,12 +3955,15 @@ export function IncidentWorkspace({
     name: canonicalName(t.name, rosterIdByName, rosterById),
     members: t.members?.map((m) => canonicalName(m, rosterIdByName, rosterById)),
   })
-  const createTruppA = (t: Trupp) => { createTrupp(canonTrupp(t)); ensurePresentFromTrupp([t.leaderPersonId, ...(t.memberPersonIds ?? [])]) }
-  const editTruppA = (id: string, f: TruppFields) => { editTrupp(id, canonTrupp(f)); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
+  // ⚠️ The CANONICALISED crew reaches the Anwesenheit too, not the raw form values: a Gast row is
+  // opened under the name that is written down everywhere else, so «Hans Müller» typed into the
+  // Trupp form cannot open a second row beside the roster's «Müller Hans».
+  const createTruppA = (t: Trupp) => { const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
+  const editTruppA = (id: string, f: TruppFields) => { const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
   // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
   // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
   // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
-  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { reactivateTrupp(id, canonTrupp(f), standby); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
+  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE

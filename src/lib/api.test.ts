@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, SESSION_EXPIRED_EVENT, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost, apiPut, isUnverifiable } from './api'
+import { resetServerClock, serverClockOffsetMs } from './serverClock'
 
 // api.ts is the fetch wrapper under EVERY backend call: typed errors, the transparent
 // 401→refresh→retry, 429 Retry-After parsing, offline (status 0) detection, and empty-body
@@ -334,5 +335,26 @@ describe('request — a session that cannot be repaired', () => {
       .mockResolvedValueOnce(json({ ok: 1 }))
     await expect(apiGet('/api/x')).resolves.toEqual({ ok: 1 })
     expect(onExpired).not.toHaveBeenCalled()
+  })
+})
+
+// Every /api/ answer carries the server's clock, and this wrapper is where the app learns it —
+// so the Atemschutz board can count in the deployment's time instead of the device's (see
+// lib/serverClock). It samples on ANY answer, error responses included.
+describe('request — the server clock rides along', () => {
+  afterEach(() => resetServerClock())
+
+  it('learns the offset from X-Server-Time on a plain answer', async () => {
+    fetchMock.mockResolvedValueOnce(json({ ok: 1 }, {
+      headers: { 'Content-Type': 'application/json', 'X-Server-Time': new Date(Date.now() - 6_000).toISOString() },
+    }))
+    await apiGet('/api/x')
+    expect(serverClockOffsetMs()).toBeGreaterThanOrEqual(5_500) // ~6 s ahead, plus test jitter
+  })
+
+  it('learns nothing from an answer without the header (older backend)', async () => {
+    fetchMock.mockResolvedValueOnce(json({ ok: 1 }))
+    await apiGet('/api/x')
+    expect(serverClockOffsetMs()).toBeNull()
   })
 })

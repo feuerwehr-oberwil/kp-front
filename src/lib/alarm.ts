@@ -201,6 +201,19 @@ export function notificationsAllowed(): boolean {
 }
 
 /**
+ * Whether this browser can EVER show an OS notification, permission aside — false on iOS/iPadOS
+ * Safari unless the page has been added to the Home Screen (the `Notification` global does not
+ * exist in a plain Safari tab there at all, iOS 16.4+ included). Distinct from
+ * `notificationsAllowed` (permission not yet decided still answers true here): a bell showing
+ * «Ton nicht freigegeben, sonst meldet die Benachrichtigung» is only honest where a
+ * notification could fire at all — on an unsupported browser NOTHING will alert until the tone
+ * itself is unlocked, and the bell has to say exactly that instead (AtemschutzView · bellLabel).
+ */
+export function notificationsSupported(): boolean {
+  return typeof Notification !== 'undefined'
+}
+
+/**
  * Ask for notification permission. MUST be called from a user gesture (button tap) or the
  * browser ignores it. Safe to call repeatedly; resolves true once granted, false if denied
  * or unsupported. No-op (returns current state) when already decided.
@@ -234,6 +247,11 @@ export async function notify(title: string, opts: { body?: string; tag?: string;
     tag: opts.tag,
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
+    // Android honours this on the tray notification itself — a second, OS-level vibration
+    // channel independent of the in-page Alarm class below (which cannot run once the tab is
+    // backgrounded). Unknown/unsupported elsewhere (iOS has neither `Notification` in a plain
+    // Safari tab nor the property): ignored by spec, not an error.
+    vibrate: [200, 100, 200],
     // carried into the SW notificationclick handler so a tap opens the right tab
     ...(opts.target ? { data: { target: opts.target } } : {}),
     // renotify needs a tag; re-alert (sound/vibrate) even when coalescing onto an existing tag
@@ -330,6 +348,14 @@ export class Alarm {
       o.connect(g).connect(c.destination)
       o.start(start)
       o.stop(start + 0.18)
+    }
+    // Same cadence, the device's own channel: on hardware/browsers that support it (Android
+    // Chrome, most desktops with the API but no motor — a harmless no-op there) this fires
+    // alongside every tone repeat, not just the OS notification's one-shot pattern above. iOS
+    // has never exposed the Vibration API to Safari (Home button or not) — `'vibrate' in
+    // navigator` is simply false there, so this silently does nothing rather than throwing.
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate(critical ? [120, 90, 120] : [90]) } catch { /* unsupported / blocked */ }
     }
   }
 

@@ -727,3 +727,94 @@ def test_pendenzen_section_is_absent_without_any():
     doc = pdfium.PdfDocument(io.BytesIO(compose_report_pdf(payload, {}, {})))
     text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
     assert "Aufträge / Pendenzen" not in text
+
+
+def test_the_header_lists_every_eintritt_and_austritt_the_log_recorded():
+    """⚠️ Field report 02.09.: a Trupp went in at 13:44, came out at 15:03, was re-equipped and
+    went in again at 15:16. The header carried the LAST pair alone — «Eintritt 15:16 · Austritt
+    15:22» — over a table whose first row said «Eintritt 13:44»: the two halves of one block
+    contradicting each other on the sheet that reconstructs who was exposed and for how long."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "02.09.2026 16:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "trupps": [
+                {
+                    "name": "Müller Hans",
+                    "members": ["Meier Anna"],
+                    "entryTimes": ["02.09.2026 13:44", "02.09.2026 15:16"],
+                    "exitTimes": ["02.09.2026 15:03", "02.09.2026 15:22"],
+                    "readings": [
+                        {"t": "02.09.2026 13:44", "kindLabel": "Eintritt", "bar": "300"},
+                        {"t": "02.09.2026 15:03", "kindLabel": "Draussen"},
+                        {"t": "02.09.2026 15:16", "kindLabel": "Eintritt", "bar": "310"},
+                        {"t": "02.09.2026 15:22", "kindLabel": "Draussen"},
+                    ],
+                }
+            ],
+        }
+    )
+    text = _text(compose_report_pdf(payload, {}))
+    assert "Eintritt: 02.09.2026 13:44, 02.09.2026 15:16" in text
+    assert "Austritt: 02.09.2026 15:03, 02.09.2026 15:22" in text
+
+
+def test_a_client_that_still_sends_one_pair_keeps_printing_it():
+    """A print job queued in the relay across a deploy carries the old single-cycle fields; the
+    sheet composes from them unchanged rather than losing the Trupp's clocks."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "02.09.2026 16:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "trupps": [{"name": "Schmid Peter", "entryTime": "03:05", "exitTime": "03:32", "readings": []}],
+        }
+    )
+    text = _text(compose_report_pdf(payload, {}))
+    assert "Eintritt: 03:05" in text and "Austritt: 03:32" in text
+
+
+def test_a_trupps_header_never_leaves_its_pressure_log_on_the_next_page():
+    """⚠️ Name, crew, Auftrag and Eintritt/Austritt are the KEY to the Zeiten table under them.
+    Laid out as loose flowables a page break fell between the two (19.jpg / 21.jpg, 02.09.): the
+    header closed one sheet and the log opened the next under nothing at all — a column of clocks
+    with no crew name above it, on the document a safety review reads.
+
+    Swept across filler lengths, because WHERE the break falls is exactly what a fixed payload
+    cannot pin down."""
+    trupps = [
+        {
+            "name": f"Trupp {n}",
+            "members": ["Meier Anna", "Brunner Thomas"],
+            "auftrag": "Löschen",
+            "ziel": "2. OG",
+            "entryTimes": [f"02.09.2026 1{n}:44"],
+            "exitTimes": [f"02.09.2026 1{n}:58"],
+            "readings": [
+                {"t": f"02.09.2026 1{n}:44", "kindLabel": "Eintritt", "bar": "300"},
+                {"t": f"02.09.2026 1{n}:50", "kindLabel": "Druck", "bar": "250"},
+                {"t": f"02.09.2026 1{n}:58", "kindLabel": "Draussen"},
+            ],
+        }
+        for n in range(1, 6)
+    ]
+    for filler in range(0, 26, 3):
+        payload = ReportPayload.model_validate(
+            {
+                "incident": {"title": "Zimmerbrand", "id": "i"},
+                "generatedAt": "02.09.2026 16:00",
+                "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+                "journal": [
+                    {"timeLabel": f"14:{i:02d}", "area": "Manuell", "text": f"Zeile {i}"} for i in range(filler)
+                ],
+                "trupps": trupps,
+            }
+        )
+        doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+        pages = [doc[i].get_textpage().get_text_range() for i in range(len(doc))]
+        for n in range(1, 6):
+            named = [p for p in pages if f"Trupp {n}" in p]
+            assert named, f"Trupp {n} missing at filler={filler}"
+            # the page carrying the name carries its first logged reading too
+            assert any(f"1{n}:44" in p for p in named), f"Trupp {n} split off its log at filler={filler}"

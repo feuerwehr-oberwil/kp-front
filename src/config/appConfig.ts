@@ -254,6 +254,10 @@ const base = {
       'GB Sprinklerzentrale': 'Sprinklerzentrale',
       'GB Brandmeldezentrale': 'Brandmeldezentrale',
       'GB BMA Melder': 'BMA Melder',
+      'GB BMA-Z': 'BMA-Z',
+      'GB RWA-BS': 'RWA-BS',
+      'SI Feuerwehranschluss': 'Feuerwehranschluss',
+      'FW AED': 'AED',
       'GB Fernsignaltableau': 'Fernsignaltableau',
       'GB Schluesseldepot': 'Schlüsseldepot',
       'GB BA Wand F30': 'Wand F30',
@@ -330,6 +334,8 @@ const base = {
         'FW Warteraum': {},
         'FW Verwundetennest': { controls: ['count', 'floor'] },
         'VKF Bereich Sanitaet': { fields: ['Einheit'] },
+        // AED placard — floor only, like the other Wand-Piktogramme added 02.09.
+        'FW AED': { controls: ['floor'] },
         // ── Führung ── name is the info; only the two person symbols seed 'Name'.
         'VKF KP Front': {},
         // Name = the Einsatzleiter (caption source, fields[0]); Stv. = deputy — both roster pickers
@@ -387,6 +393,9 @@ const base = {
         'WV Loeschweier': { fields: ['Kapazität'] },
         'SI Wasserbezugsort': { fields: ['Kapazität'] },
         'SI Wasserdruckversorgung': {},
+        // Feuerwehranschluss placard (trockene Steigleitung, Einspeisung) — floor only, like the
+        // other Wand-Piktogramme added 02.09.
+        'SI Feuerwehranschluss': { controls: ['floor'] },
         // ── Gebäude ── interior elements: floor badge; walls/doors/stairs also orient.
         'GB BA Wand F30': { controls: ['rotation', 'floor'] },
         'GB BA Wand F60': { controls: ['rotation', 'floor'] },
@@ -405,6 +414,11 @@ const base = {
         // (e.g. «12/3»), captioned under the glyph so the whole KP sees which one went off
         'GB Brandmeldezentrale': { controls: ['floor'], fields: ['Melder-Nr.'] },
         'GB BMA Melder': { controls: ['floor'], fields: ['Melder-Nr.'] },
+        // ── Wand-Piktogramme (02.09.): the placard itself, not the schematic anlage icon above —
+        // a Kroki can carry both, e.g. the BMZ cabinet AND the red plate pointing to it. Floor
+        // only; unlike the two above there is nothing variable to read off a placard.
+        'GB BMA-Z': { controls: ['floor'] },
+        'GB RWA-BS': { controls: ['floor'] },
         'GB Fernsignaltableau': { controls: ['floor'] },
         'GB Schluesseldepot': { controls: ['floor'] },
         // ── Karte ── pure orientation glyphs.

@@ -8,7 +8,7 @@
   "phases": [
     {
       "id": "anfahrt",
-      "title": "Auf Anfahrt",
+      "title": "Auf der Anfahrt",
       "items": [
         { "id": "anfahrt-1", "text": "Objektplan bereitlegen (digital / physisch)", "action": "plan" },
         { "id": "anfahrt-2", "text": "Protokoll / Journal vorbereiten", "action": "journal" },
@@ -17,7 +17,7 @@
     },
     {
       "id": "vor-ort",
-      "title": "Vor Ort & immer",
+      "title": "Vor Ort und fortlaufend",
       "items": [
         { "id": "vor-ort-1", "text": "Absprache mit Einsatzleitung (Überblick)", "milestone": true },
         { "id": "vor-ort-2", "text": "Standort für Führungsunterstützung bestimmen", "milestone": true },

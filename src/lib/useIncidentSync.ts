@@ -307,9 +307,12 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   }, [sync])
 
   // Device-vs-server clock skew, sampled from X-Server-Time on every live-follow poll answer
-  // (api/workspace · onWorkspaceServerTime — the backend stamps all /api/ responses). Every
-  // Atemschutz timestamp is device-local Date.now(), so a tablet minutes off writes wrong
-  // contact times into the legal record and nothing else would notice. Positive = this device
+  // (api/workspace · onWorkspaceServerTime — the backend stamps all /api/ responses). This is
+  // the DIAGNOSTIC half: the correction itself lives in lib/serverClock, which the fetch wrapper
+  // feeds from the same header and which the Atemschutz clocks and stamps now count in. A device
+  // minutes out is still worth saying out loud — everything outside those clocks (Verlauf rows,
+  // media, Anwesenheit) is still stamped device-local, and a clock that far off is a broken
+  // device, not a rounding error. Positive = this device
   // runs ahead. Minute-quantized behind a 45 s dead-band (below) so per-sample network jitter
   // doesn't re-render the tree every poll round; null until the first parseable sample. Crossing the
   // warn threshold (>3 min — CLOCK_SKEW_WARN_MIN, the capture surface's bound) fires ONE toast

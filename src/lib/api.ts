@@ -4,6 +4,7 @@
 // cooldown, …). Reused by every later phase — keep it generic.
 
 import { appConfig } from '../config/appConfig'
+import { noteServerTime } from './serverClock'
 
 // Base URL: empty in dev (Vite proxies /api to the backend), or a fully-qualified
 // origin in a deployment that talks to the backend cross-origin.
@@ -153,7 +154,7 @@ export function eitherSignal(a?: AbortSignal, b?: AbortSignal | null): AbortSign
 }
 
 async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
-  return fetch(`${BASE}${path}`, {
+  const res = await fetch(`${BASE}${path}`, {
     credentials: 'include',
     // API JSON must never come from the HTTP cache: responses carry no Cache-Control, and
     // Safari's heuristic caching served stale poll results (an STT job stuck on "none").
@@ -165,6 +166,12 @@ async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TI
     signal: eitherSignal(timeoutMs > 0 ? timeoutSignal(timeoutMs) : undefined, init?.signal),
     headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
   })
+  // Every /api/ answer carries the server's own clock (backend · api_server_time), so THIS is
+  // the sampling point: the boot config/`/me` fetches already teach lib/serverClock the offset
+  // before the first Atemschutz clock is ever painted, and every later request keeps it honest.
+  // Error responses count too — an offline device learns nothing, and that is handled there.
+  noteServerTime(res.headers.get('X-Server-Time'))
+  return res
 }
 
 // Single-flight refresh: the access token lives 8h, the refresh cookie 7d. When any

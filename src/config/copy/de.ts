@@ -92,7 +92,7 @@ export const de = {
           { kind: 'lead', text: 'Drei feste Zonen: die Bereichsleiste links, die Einsatzleiste oben, die Werkzeugleiste rechts.' },
           { kind: 'sub', text: 'Linke Leiste' },
           { kind: 'list', items: [
-            'Wechselt den Arbeitsbereich: **Karte**, die **Pläne** (Module/Gebäude), **Checkliste**, **Atemschutz**, **Anwesenheit**, **Material**, **Rapport**. Auf jedem Knopf steht sein Buchstabe – der erste des deutschen Worts (Anwesenheit: P wie Personal).',
+            'Je nach Einstellung zeigt die linke Leiste die Bezeichnungen der Arbeitsbereiche oder deren Tastaturkürzel. Die Kürzel entsprechen dem ersten Buchstaben des deutschen Begriffs, bei Anwesenheit steht P für Personal.',
             'Im Kartenbereich sind **Ebenen** und der **Karten**-Umschalter unten angeheftet – immer sichtbar.',
             'Am rechten Rand der Leiste ziehen klappt sie mit Beschriftungen auf bzw. wieder zu.',
           ] },
@@ -144,7 +144,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Die taktische Karte über dem realen Kartenhintergrund (Einsatzgebiet und Umgebung).' },
           { kind: 'list', items: [
-            '**Basiskarte** (zuoberst im Ebenen-Panel) wechselt den Hintergrund: Carto, OpenStreetMap oder Satellit.',
+            '**Grundkarte** (zuoberst im Ebenen-Panel) wechselt den Hintergrund: Carto, OpenStreetMap oder Satellit.',
             '**Vergrössern/Verkleinern**, **Einpassen** und **Koordinaten abgreifen** in der rechten Leiste unten. Beim Abgreifen auf die Karte tippen, um einen Punkt (LV95 + WGS84) festzuhalten; der Kompass richtet wieder nach Norden aus.',
             '**Wind** wird laufend angezeigt (Richtung + Temperatur), damit die Ausbreitungsrichtung sofort ersichtlich ist.',
             '**Fahrzeuge** erscheinen live per GPS (Name + Ausrichtung), die eigene Position als ruhiger blauer Punkt.',
@@ -156,7 +156,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Über **Ebenen** blendest du die Werkleitungs- und Gefahren-Daten ein – geordnet nach Typ.' },
           { kind: 'list', items: [
-            '**Karte** – Taktische Zeichen, Fahrzeuge, Skizzen & Notizen.',
+            '**Inhalte** – Taktische Zeichen, Fahrzeuge, Skizzen & Notizen.',
             'Welche Ebenen es gibt, hängt an den Geodaten dieser Wehr – nichts davon ist mitgeliefert. Üblich sind:',
             '**Abwasser** – Schmutz/Misch, Regen/Rein, Schächte / Gully.',
             '**Gas** – Leitungen.',
@@ -516,6 +516,10 @@ export const de = {
     'GB Sprinklerzentrale': 'Sprinklerzentrale',
     'GB Brandmeldezentrale': 'Brandmeldezentrale',
     'GB BMA Melder': 'BMA Melder',
+    'GB BMA-Z': 'BMA-Z',
+    'GB RWA-BS': 'RWA-BS',
+    'SI Feuerwehranschluss': 'Feuerwehranschluss',
+    'FW AED': 'AED',
     'GB Fernsignaltableau': 'Fernsignaltableau',
     'GB Schluesseldepot': 'Schlüsseldepot',
     'GB BA Wand F30': 'Wand F30',
@@ -596,6 +600,7 @@ export const de = {
     'VKF Sanitaetshilfsstelle': ['Verbandplatz', 'Sanposten', 'Sanhist'],
     'VKF Totensammelstelle': ['Tote', 'Verstorbene'],
     'FW Verwundetennest': ['Verletzte', 'Verwundete'],
+    'FW AED': ['Defibrillator', 'Defi', 'Herzdruckmassage', 'Reanimation', 'Herzstillstand'],
     'VKF Bereich Sanitaet': ['Ambulanz', 'Rettungsdienst', '144'],
     'VKF Bereich Feuerwehr': ['118'],
     'VKF Bereich Polizei': ['117', 'Kantonspolizei'],
@@ -608,6 +613,7 @@ export const de = {
     'WV Loeschweier': ['Weiher', 'Teich', 'Reservoir', 'Löschwasserreserve'],
     'SI Wasserbezugsort': ['Saugstelle', 'Fluss', 'Bach', 'See'],
     'SI Wasserdruckversorgung': ['Druckleitung', 'Reservoir'],
+    'SI Feuerwehranschluss': ['FA', 'Steigleitung', 'trockene Steigleitung', 'Einspeisung', 'Löschwassereinspeisung'],
     'GB BA Wand F30': ['Brandabschnitt', 'Brandmauer', 'Brandschutzwand'],
     'GB BA Wand F60': ['Brandabschnitt', 'Brandmauer', 'Brandschutzwand'],
     'GB BA Wand F180': ['Brandabschnitt', 'Brandmauer', 'Brandschutzwand'],
@@ -621,6 +627,8 @@ export const de = {
     'GB Sprinklerzentrale': ['Sprinkler', 'Löschanlage'],
     'GB Brandmeldezentrale': ['BMA', 'BMZ', 'Brandmeldeanlage', 'Alarmzentrale'],
     'GB BMA Melder': ['Melder', 'Brandmelder', 'Rauchmelder', 'Meldergruppe', 'Handfeuermelder'],
+    'GB BMA-Z': ['BMA', 'BMZ', 'Brandmeldezentrale', 'Brandmeldeanlage', 'Piktogramm', 'Wandschild'],
+    'GB RWA-BS': ['RWA', 'Rauch- und Wärmeabzug', 'Rauchabzug', 'Wärmeabzug', 'Bedienstelle', 'RWA-Zentrale'],
     'GB Fernsignaltableau': ['Brandmeldeanlage', 'Signaltableau'],
     'GB Schluesseldepot': ['Schlüsselrohr', 'Feuerwehrschlüsseldepot'],
     'GB Treppe 8': ['Treppenhaus', 'Stiege', 'Aufgang'],
@@ -649,7 +657,7 @@ export const de = {
     'Personen / Sanität': 'Personen / Sanität',
     'Partner': 'Partner',
   } as Record<string, string>,
-  baseMap: 'Karte',
+  baseMap: 'Grundkarte',
   // floor (Geschoss) short labels — shared by the Plan floor-stack and the report plan labels.
   // ground floor is a literal; upper/basement carry the number via {n}.
   floor: { eg: 'EG', og: '{n}. OG', ug: '{n}. UG' },
@@ -1408,6 +1416,10 @@ export const de = {
     // …und wenn schon ein Link läuft. Der Knopf sagt nur, DASS es einen gibt – wer ihn drückt,
     // sieht im Blatt alles Weitere.
     shareLinkOn: 'Überwachung abgeben – ein Link ist aktiv',
+    // Shown ONCE per device on the handed-over «Tafel pur» (AtemschutzView, field feedback
+    // 02.09.: ein versehentliches Schliessen im Browser brauchte danach wieder den Zugang).
+    // Reassurance, not an instruction – nichts hier muss man sich merken oder tun.
+    linkReentryHint: 'Dieses Gerät bleibt einige Stunden angemeldet – ein Schliessen des Browsers verlangt keinen neuen Link.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Trupp',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
@@ -1545,6 +1557,12 @@ export const de = {
     assignedConflict: '{name} ist bereits in einem anderen Trupp.',
     // when the slot is linked but nameless — used to be a German literal in the code
     assignedFallbackName: 'Diese Person',
+    // «Speichern» blocked (AtemschutzView · TruppForm attemptSubmit, field feedback 02.09.): a
+    // short toast alongside the flash on the field itself, so a blocked tap explains itself
+    // instead of just sitting there. One per reason, in the same order canSubmit checks them.
+    saveBlockedTeam: 'Zuerst einen Gruppenführer eintragen.',
+    saveBlockedAuftrag: '«Anderes» braucht einen Auftrag/Ziel-Text.',
+    saveBlockedPressure: 'Eingangsdruck fehlt.',
     cancel: 'Abbrechen',
     save: 'Speichern',
     start: 'Trupp anmelden',
@@ -1613,12 +1631,13 @@ export const de = {
     // and the Rapport record two different events, and a radio check does not fix this one.
     clockAlarmPressure: 'Alarmdruck',
     clockAlarmLimit: 'Grenze {bar} bar',
-    // header alarm badge ({n} = number of Trupps at tier 2) — a BUTTON: it jumps to the most
+    // header alarm badge (n = number of Trupps at tier 2) — a BUTTON: it jumps to the most
     // urgent one, the way the TopBar chip jumps to this board. ⚠️ «Alarm», not «überfällig»:
     // since 10.08. the Alarmdruck counts too, and the badge must not name only half of what it
     // counts. The key name stays `overdueBadge` – it is read from four locales and a rename buys
-    // nothing; en/fr/it were re-worded with it («in alarm» / «en alarme» / «in allarme»).
-    overdueBadge: '{n} Alarm',
+    // nothing; en/fr/it were re-worded with it («in alarm» / «en alarme» / «in allarme»). A
+    // function, not a template, since German inflects the count: «1 Alarm» vs. «N Alarme».
+    overdueBadge: (n: number) => (n === 1 ? '1 Alarm' : `${n} Alarme`),
     overdueBadgeGo: 'Zu Trupp {name} – dringendster Alarm',
     // cross-surface TopBar chip (shown on any surface while a Trupp is fällig/überfällig)
     chipHint: 'Atemschutz – antippen zur Überwachung',
@@ -1672,6 +1691,11 @@ export const de = {
     alarmArmed: 'Alarm an – Ton und Benachrichtigung · antippen schaltet stumm',
     alarmMuted: 'Alarm stumm – Ton und Benachrichtigung, bis zum Ende dieses Einsatzes · antippen schaltet ein',
     alarmBlocked: 'Ton nicht freigegeben – der Browser hat die Freigabe verweigert · antippen, sonst meldet nur die Benachrichtigung',
+    // …und wo selbst DIE Benachrichtigung nicht existiert (notificationsSupported() false – ein
+    // gewöhnlicher Safari-Tab auf iOS kennt keine Web Notifications): das obige Versprechen wäre
+    // hier eine falsche Beruhigung, also sagt der Knopf ehrlich, dass antippen die einzige
+    // Reichweite ist, die es überhaupt geben kann.
+    alarmBlockedNoFallback: 'Ton nicht freigegeben – antippen aktiviert ihn. Dieser Browser kann keine Benachrichtigung anzeigen.',
     restoreMenu: 'Entfernte Trupps',
     restoreItem: '{name} wiederherstellen',
     // OS notification when a Trupp goes überfällig while the app is backgrounded
@@ -2617,11 +2641,11 @@ export const de = {
     // Offline-Vorbereitung: automatic self-warm shortly after opening an Einsatz (installed app
     // only). Two states — see lib/prefs · offlineAuto for why there is no «nur WLAN» tier.
     offlineAuto: 'Offline-Vorbereitung',
-    offlineAutoSub: 'Lädt Karte & Pläne von selbst kurz nach dem Öffnen',
+    offlineAutoSub: 'Lädt Karte und Pläne kurz nach dem Öffnen des Einsatzes automatisch herunter',
     offlineAutoOn: 'Automatisch',
     offlineAutoOff: 'Nur manuell',
-    keepScreenOn: 'Display anlassen',
-    keepScreenOnSub: 'Bildschirm nicht abdunkeln im Einsatz',
+    keepScreenOn: 'Bildschirm eingeschaltet lassen',
+    keepScreenOnSub: 'Verhindert das Abdunkeln während des Einsatzes',
     keepScreenOnOn: 'Ein',
     keepScreenOnOff: 'Aus',
     // Used to be called «Einsatzleiter-Ansicht»: the mode locks the tactical layer and names no
@@ -2732,7 +2756,7 @@ export const de = {
     // Rather than claim a Bereitschaft that won't hold at 3am, the card says what is missing and
     // leads to the install – or says that there is none here.
     browserTitle: 'Offline erst als installierte App',
-    browserBody: 'Im Browser-Tab ist nichts verlässlich gespeichert: Karten, Pläne und Leitungen können jederzeit gelöscht werden, und der Tab muss beim nächsten Einsatz noch offen sein. Installiert läuft KP Front auch offline.',
+    browserBody: 'Im Browser ist die Offline-Speicherung nicht dauerhaft gewährleistet. Karten, Pläne und Leitungen können vom Browser entfernt werden. Für einen verlässlichen Offline-Betrieb KP Front als App installieren.',
     // Platforms with no install path (desktop Firefox …) — say honestly that there is nothing to
     // install here, instead of pointing at instructions that don't exist.
     browserNoInstall: 'Dieses Gerät bietet keine Installation an. Für den Einsatz offline KP Front auf dem Tablet oder Handy installieren.',
@@ -3369,7 +3393,7 @@ export const de = {
     // Handy (≤600px): die drei Reiter, die den Rapport in drei Bildschirme statt fünf teilen.
     // Tablet und Desktop sehen sie nie — siehe ReportPreflight · PhoneTab.
     tabsLabel: 'Teil des Rapports',
-    tabs: { bericht: 'Bericht', werwas: 'Wer & was', beilagen: 'Beilagen' },
+    tabs: { bericht: 'Bericht', werwas: 'Personal & Mittel', beilagen: 'Beilagen' },
     // a «noch offen» chip is a button: it scrolls to the thing it names and flashes it
     headOpenGo: 'Zu «{step}» springen',
     sectionBericht: 'Bericht & Beteiligte',

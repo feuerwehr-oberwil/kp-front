@@ -59,6 +59,8 @@ const SEAMS: Record<string, string> = {
   Fahrzeugplatz: 'Fahrzeug­platz',
   Angehörigensammelstelle: 'Angehörigen­sammel­stelle',
   Dekontaminationsstelle: 'Dekontaminations­stelle',
+  // ── Wand-Piktogramme (02.09.) ──
+  Feuerwehranschluss: 'Feuerwehr­anschluss',
   // ── caption compounds: values, not symbol names ──
   // What an operator types into a symbol's detail field, where the same rule applies: a
   // Gefahrstoff is recognised by its first component («Salpeter…», «Natron…»). Curated, not

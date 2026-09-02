@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AttendanceState, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
-import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole } from './roleAssignment'
+import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, unrecordedCrewNames } from './roleAssignment'
 
 const trupp = (over: Partial<Trupp>): Trupp => ({
   id: 't1', name: 'Trupp 2', entryPressureBar: 300, entryTime: '', lastContactTime: '',
@@ -189,5 +189,37 @@ describe('personStatusHint', () => {
   it('somebody who has gone home is still the more important fact', () => {
     const st: AttendanceState = { ...left, p1: { ...left.p1, note: 'Fahrer TLF' } }
     expect(personStatusHint('p1', st, [])).toMatchObject({ label: A.statusLeft })
+  })
+})
+
+// ⚠️ Field report 02.09.: a Gast («Bobo DJ») entered through the Trupp form's «Name eingeben
+// (Gast/Nachbarwehr)» was under Atemschutz for the whole Einsatz and appeared on no printed
+// Anwesenheit at all — the crew was marked present off the person IDS, and a typed name has none.
+describe('unrecordedCrewNames (who a Trupp still owes an Anwesenheit)', () => {
+  const roster: Record<string, string> = { 'Meier Anna': 'p1', 'Müller Hans': 'p2' }
+  const resolve = (n: string) => roster[n]
+
+  it('returns the hand-typed Gast and nobody else', () => {
+    expect(unrecordedCrewNames(
+      { name: 'Bobo DJ', members: ['Meier Anna'], memberPersonIds: ['p1'] },
+      resolve,
+    )).toEqual(['Bobo DJ'])
+  })
+
+  it('says nothing when every slot was picked from the roster', () => {
+    expect(unrecordedCrewNames(
+      { name: 'Müller Hans', members: ['Meier Anna'], leaderPersonId: 'p2', memberPersonIds: ['p1'] },
+      resolve,
+    )).toEqual([])
+  })
+
+  // …the picker was bypassed but the name IS somebody on the list: they get their own row through
+  // the normal path rather than a second, guest-shaped one
+  it('returns a roster name the Trupp carries no id for', () => {
+    expect(unrecordedCrewNames({ name: 'Meier Anna' }, resolve)).toEqual(['Meier Anna'])
+  })
+
+  it('counts the same name typed into two slots once', () => {
+    expect(unrecordedCrewNames({ name: 'Bobo DJ', members: ['Bobo DJ', '  '] }, resolve)).toEqual(['Bobo DJ'])
   })
 })

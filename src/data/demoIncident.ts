@@ -45,16 +45,16 @@ export const layers: LayerDef[] = [
 
   // Operational layers: symbols → taktisch, vehicles → fahrzeuge, drawings/notes → markup.
   // Wind/Wetter is always shown via the corner WindBadge (no toggle).
-  { id: 'taktisch', group: 'Karte', label: 'Taktische Zeichen', icon: 'hex', visible: true },
-  { id: 'fahrzeuge', group: 'Karte', label: 'Fahrzeuge', icon: 'truck', visible: true },
+  { id: 'taktisch', group: 'Inhalte', label: 'Taktische Zeichen', icon: 'hex', visible: true },
+  { id: 'fahrzeuge', group: 'Inhalte', label: 'Fahrzeuge', icon: 'truck', visible: true },
   // Off by default on purpose: the tracks answer "where did it come from?", which is an
   // occasional question, and drawn permanently they compete with the tactical symbols.
-  { id: 'fahrzeugspuren', group: 'Karte', label: 'Fahrzeugspuren', icon: 'truck', visible: false },
+  { id: 'fahrzeugspuren', group: 'Inhalte', label: 'Fahrzeugspuren', icon: 'truck', visible: false },
   // Crew members who are sharing their own position (Standort teilen). Visible by default —
   // it stays empty until somebody actually opts in on their phone, and the whole point is to
   // notice the Wassertransport without going looking for a layer toggle first.
-  { id: 'personen', group: 'Karte', label: 'Personen (live)', icon: 'people', visible: true },
-  { id: 'markup', group: 'Karte', label: 'Skizzen & Notizen', icon: 'area', visible: true },
+  { id: 'personen', group: 'Inhalte', label: 'Personen (live)', icon: 'people', visible: true },
+  { id: 'markup', group: 'Inhalte', label: 'Skizzen & Notizen', icon: 'area', visible: true },
 
   // Per-station REFERENCE layers (hydrants, Leitungskataster, canton WMS, …) are NOT bundled
   // here — they're station data that lives in the config/reference store, loaded with the

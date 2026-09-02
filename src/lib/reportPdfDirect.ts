@@ -14,7 +14,7 @@ import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarIsMeasured, readingKindLabel, spanAwareClock, truppAuftragLabel, truppStatusLabel,
+  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarIsMeasured, readingKindLabel, spanAwareClock, truppAuftragLabel, truppRunTimes, truppStatusLabel,
 } from './report'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
@@ -385,7 +385,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       name: t.name, statusLabel: truppStatusLabel(t), members: t.members ?? [], auftrag: truppAuftragLabel(t.auftrag), ziel: t.ziel,
       // the numeric Leitung, else the free text an older record still carries verbatim
       lineNumber: t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim() || undefined,
-      entryTime: t.entryTime ? formatDateTime(t.entryTime) : undefined, exitTime: t.exitTime ? formatDateTime(t.exitTime) : undefined,
+      // ⚠️ ALL cycles, read off the log — a Trupp that went in twice has two Eintritte and two
+      // Austritte, and the header used to print the LAST pair over the FIRST cycle's rows (see
+      // lib/report · truppRunTimes for why the card's own entryTime/exitTime are not the source).
+      ...(() => {
+        const { entries, exits } = truppRunTimes(t.readings, { entryTime: t.entryTime, exitTime: t.exitTime })
+        return { entryTimes: entries.map(formatDateTime), exitTimes: exits.map(formatDateTime) }
+      })(),
       // ⚠️ A Trupp whose log is empty still has a pressure somebody read off the cylinder and
       // typed in. Trupps registered from 2026-08-09 open their log with it (useTruppActions ·
       // createTrupp); one recorded BEFORE that has only `entryPressureBar`, and printing «Kein

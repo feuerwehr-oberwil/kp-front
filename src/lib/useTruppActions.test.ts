@@ -755,6 +755,19 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
       .toEqual(['Gruppenführer Keller Anna → Schmid Peter'])
   })
 
+  // Field report 02.09.: only the role was swapped, and the row read «Gruppenführer A → B, B aus
+  // dem Trupp genommen, A dazugekommen» — the record asserting a departure and an arrival that
+  // never happened, on the same crew, in one sentence.
+  it('reads a pure role swap as ONE statement — nobody left, nobody joined', () => {
+    expect(truppEditChanges(prev, fields({ name: 'Meier Hans', members: ['Keller Anna', 'Frei Nina'] })))
+      .toEqual(['Gruppenführer Keller Anna → Meier Hans'])
+  })
+
+  it('still names a real departure when the leader is handed over at the same time', () => {
+    expect(truppEditChanges(prev, fields({ name: 'Meier Hans', members: ['Keller Anna'] })))
+      .toEqual(['Gruppenführer Keller Anna → Meier Hans', 'Frei Nina aus dem Trupp genommen'])
+  })
+
   // «Auftrag angepasst» named nothing: read back an hour later it could be a new order, a
   // corrected floor or a fixed typo, and that is precisely what the Verlauf is read for.
   it('names the Auftrag the Trupp now has, Ziel included', () => {

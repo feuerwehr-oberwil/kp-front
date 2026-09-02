@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { deriveTruppLive, truppAlarm } from '../lib/atemschutz'
+import { serverNow } from '../lib/serverClock'
 import { fillTemplate } from '../lib/format'
 import { useMeldung } from '../lib/useMeldung'
 import type { Trupp } from '../types'
@@ -117,9 +118,11 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
   // or `severities` anyway. A stale reading cannot mis-word a row: the pressure half of
   // `truppAlarm` never looks at the clock, and the contact half is only ever consulted for a
   // Trupp the fold has already rated tier 2. So this render cannot disagree with the next one,
-  // which is why the impure read is fine where it stands.
-  // eslint-disable-next-line react-hooks/purity -- justified directly above
-  const rows = atemschutzAlarmRows(trupps, severities, Date.now(), intervalMin, graceSec, atemschutzDoctrine())
+  // which is why the impure read is fine where it stands. (It reads the DEPLOYMENT's clock like
+  // every other Atemschutz surface — lib/serverClock — so two devices can never word the same
+  // alarm differently. The linter no longer sees the impurity through that call; the
+  // justification above is why it would be allowed anyway.)
+  const rows = atemschutzAlarmRows(trupps, severities, serverNow(), intervalMin, graceSec, atemschutzDoctrine())
   // «Zum Trupp» took the operator to the alarm — the row goes with it (see the header). Keyed by
   // id AND reason, so the same emergency stays acknowledged while a different one resurfaces.
   const [visited, setVisited] = useState<Record<string, AtemschutzAlarmRow['reason']>>({})

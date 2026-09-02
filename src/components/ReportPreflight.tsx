@@ -194,7 +194,7 @@ const STEP_TAB: Record<AbschlussStep, PhoneTab> = {
 // return lands where they left off, not back at the top. A deliberate close (X / overlay /
 // Abbrechen / Abschliessen) resets it, so a later fresh open starts at the top again.
 // ⚠️ The phone TAB rides in the same box and for the same reason: the Appell is «Rapport →
-// Wer & was → hop to Anwesenheit to correct → back», and a return that landed on «Bericht»
+// Personal & Mittel → hop to Anwesenheit to correct → back», and a return that landed on «Bericht»
 // would cost a tap on every single round trip. A genuinely fresh open — another Einsatz, or
 // after Abschliessen — still starts on «Bericht».
 // ⚠️ …and so does WHAT WILL PRINT: the print-section toggles (incl. the Kroki's Quer/Hoch and
@@ -2042,7 +2042,7 @@ export function ReportPreflight({
               They still belong together and still read in this order (it is the printed one):
               all four answer «wer und was war da», and all four are filled in after the fact. */}
           <div className="rp-checks">
-            {/* Rides with «Wer & was» on a phone — it reports on what the poster wrote, which is
+            {/* Rides with «Personal & Mittel» on a phone — it reports on what the poster wrote, which is
                 Anwesenheit and Mittel. Hidden by CSS rather than by a wrapper element: the chip
                 renders nothing until the first QR write, and an empty wrapper would still cost
                 this flex column one gap on every Einsatz that never used the poster. */}
