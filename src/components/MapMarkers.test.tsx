@@ -1,0 +1,64 @@
+// @vitest-environment jsdom
+/**
+ * The Formen on the Karte: what a finger can actually land on, and what a selected one shows.
+ *
+ * jsdom lays nothing out, so the pad's own pixels are CSS (03-map.css · .shape-glyph::before).
+ * What is pinned here is the wiring that decides WHICH box the pad hugs — a Form opts out of the
+ * marker's square long-side pad, and the box left for the pad is the shape's own, per axis.
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import type { Entity, LngLat } from '../types'
+
+vi.mock('react-map-gl/maplibre', () => ({
+  Marker: ({ children }: { children: ReactNode }) => <div data-testid="marker">{children}</div>,
+}))
+
+import { MapMarkers } from './MapMarkers'
+
+afterEach(cleanup)
+
+const at: LngLat = [7.6, 47.5]
+const shape = (id: string, extra: Partial<Entity>): Entity =>
+  ({ id, kind: 'shape', layer: 'lage', coord: at, shape: 'square', sizeM: 45, ...extra }) as Entity
+// a run of 300 m, stored the way both surfaces store one (lib/shapes · rotationBox)
+const rotation = shape('rot', { shape: 'rotation', sizeM: 345, aspect: 0.13, rotation: 40 })
+const rechteck = shape('sq', { shape: 'square', sizeM: 45 })
+
+const show = (entities: Entity[], selectedId: string | null = null) => render(
+  <MapMarkers entities={entities} byName={{}} isVisible={() => true} selectedId={selectedId}
+    zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
+    onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
+    onDelete={() => {}} onShapeTransform={() => {}} />,
+)
+describe('what a finger lands on when it reaches for a Form', () => {
+  // ⚠️ THE «Klickfläche der Rotation» regression (01.09.). The marker's own pad is ONE square of
+  // max(width, height): on a Rechteck that is its box, on a Rotation it is a square as wide as
+  // the run is long — hundreds of px of hit area over empty ground above and below the loop.
+  // A Form's pad follows its own box instead, which is why the marker's square is switched off.
+  it('gives a Form no square long-side pad — its hit box is its own box', () => {
+    const { container } = show([rotation])
+    const marker = container.querySelector('.marker')!
+    expect(marker.className).toContain('marker-shape')
+  })
+
+  it('…while a placed symbol keeps the square pad it was written for', () => {
+    const { container } = show([{ id: 's1', kind: 'symbol', layer: 'lage', coord: at, symbol: 'Feuer' } as Entity])
+    expect(container.querySelector('.marker')!.className).not.toContain('marker-shape')
+  })
+
+  // the box the pad hugs: a Rechteck's is square, a Rotation's is long and flat — and it is the
+  // SAME element on both, so one rule covers both kinds and both surfaces
+  it('leaves each kind its own two-sided box for the pad to hug', () => {
+    const { container } = show([rechteck])
+    const sq = container.querySelector<HTMLElement>('.shape-glyph')!
+    expect(parseFloat(sq.style.height)).toBeCloseTo(parseFloat(sq.style.width), 6)
+    cleanup()
+    const { container: c2 } = show([rotation])
+    const rot = c2.querySelector<HTMLElement>('.shape-glyph')!
+    expect(parseFloat(rot.style.height)).toBeCloseTo(parseFloat(rot.style.width) * 0.13, 3)
+    // …and it turns with the run, so the pad drawn inside it does too
+    expect(rot.style.transform).toContain('rotate(40deg)')
+  })
+})

@@ -604,6 +604,50 @@ describe('the Rotation’s placement magnet pauses the board pan', () => {
   })
 })
 
+// ── the Rotation on the Kroki ────────────────────────────────────────────────────────────────
+// Its box and its chrome, the halves of «Klickfläche wie beim Rechteck» and «gleiche Griffe wie
+// bei der Fläche». The pad's own pixels are CSS (03-map.css · .shape-glyph::before, shared with
+// the Karte); what the surface owes it is the two-sided box to hug.
+describe('a Rotation on the plan sheet', () => {
+  const S = appConfig.copy.shapes
+  // a run stored the way both surfaces store one (lib/shapes · rotationBox)
+  const loop: BoardAnno = { id: 'r1', kind: 'shape', shape: 'rotation', x: 0.5, y: 0.5, sizeN: 0.42, aspect: 0.13, rotation: 25, floor: 0 }
+  const rect: BoardAnno = { id: 'q1', kind: 'shape', shape: 'square', x: 0.3, y: 0.3, sizeN: 0.1, floor: 0 }
+
+  beforeEach(() => {
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('draws the same pad host the Rechteck has — its own box, on its own bearing', () => {
+    const { container } = renderPlan([rect])
+    const sq = container.querySelector<HTMLElement>('.shape-glyph')!
+    expect(parseFloat(sq.style.height)).toBeCloseTo(parseFloat(sq.style.width), 6)
+    cleanup()
+    const { container: c2 } = renderPlan([loop])
+    const rot = c2.querySelector<HTMLElement>('.shape-glyph')!
+    expect(parseFloat(rot.style.height)).toBeCloseTo(parseFloat(rot.style.width) * 0.13, 3)
+    expect(rot.style.transform).toContain('rotate(25deg)')
+  })
+
+  // 01.09. vocabulary: on the object itself only GEOMETRY grips, and every one of them blue.
+  // A Rotation is its two ends — each sets the run's length AND its bearing — so it carries no
+  // rotate knob, no stem and no size grip; moving and turning the whole loop is the fixed bar's.
+  it('wears its two end grips and nothing else — no knob, no stem, no size grip', () => {
+    const { container } = renderPlan([loop])
+    fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+    const ends = container.querySelectorAll('.handle.shape-end')
+    expect(ends).toHaveLength(2)
+    for (const g of ends) expect(g.getAttribute('aria-label')).toBe(S.endHint)
+    expect(container.querySelector('.shape-stem')).toBeNull()
+    expect(container.querySelector('.shape-rotate')).toBeNull()
+    expect(container.querySelector('.shape-resize, .shape-width')).toBeNull()
+    // …and no grip paints itself: the blue is the shared .shape-end rule, never an inline fill
+    for (const g of ends) expect((g as HTMLElement).style.background).toBe('')
+  })
+})
+
 // ── the fixed selection bar (components/SelectionBar) ────────────────────────────────────────
 // It replaced the group pill AND the map's floating hub on 01.09.: one bar, in one place, for a
 // single Linie, an Absperrkreis, a Form and a Mehrfach group alike.

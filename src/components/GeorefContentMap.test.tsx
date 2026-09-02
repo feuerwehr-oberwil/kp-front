@@ -76,6 +76,20 @@ describe('broader Plan content on the Karte', () => {
     expect(screen.getAllByTestId('source').length).toBe(2)
   })
 
+  // …and the same hit box, which is a Form's own box grown a little (03-map.css ·
+  // .shape-glyph::before). The pad is drawn INSIDE the glyph, so a pointer-inert glyph has a
+  // pointer-inert pad: a tappable mirrored Rotation would have answered over the middle of its
+  // run and nowhere else, however long the run was.
+  it('lets a tappable mirrored Form carry the shared hit pad, and a locked one stay click-through', () => {
+    const twins = [point({ id: 'rot', kind: 'shape', x: 0.5, y: 0.5, shape: 'rotation', sizeN: 0.42, aspect: 0.13 })]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive onOpenTwin={() => {}} />)
+    expect(container.querySelector('.shape-glyph')!.className).toBe('shape-glyph')
+    cleanup()
+    const locked = [point({ id: 'rot', kind: 'shape', x: 0.5, y: 0.5, shape: 'rotation', sizeN: 0.42, aspect: 0.13, locked: true })]
+    const { container: c2 } = render(<GeorefContentMap twins={locked} zoom={18} bearing={0} interactive onOpenTwin={() => {}} />)
+    expect(c2.querySelector('.shape-glyph')!.className).not.toBe('shape-glyph')
+  })
+
   it('a mirrored shape carries the source geometry: stretched box and Stopp-Balken', () => {
     const twins = [point({ id: 'sq', kind: 'shape', x: 0.5, y: 0.5, shape: 'square', sizeN: 0.2, aspect: 2 })]
     const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} />)

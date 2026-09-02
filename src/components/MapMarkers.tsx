@@ -645,7 +645,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           <div
             // `dragging` is its own class, not folded into `sel`: the two look the same but mean
             // different things, and only the drag should change the cursor (see .marker.dragging).
-            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''}${draggingId === e.id ? ' dragging' : ''}${spoke ? ' fanned' : ''} ${raised ? 'sel' : ''}`}
+            // `marker-shape` takes the square touch pad off a Form: its hit area follows its own
+            // box, per axis and turning with it (03-map.css · .shape-glyph::before).
+            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${e.kind === 'shape' ? ' marker-shape' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''}${draggingId === e.id ? ' dragging' : ''}${spoke ? ' fanned' : ''} ${raised ? 'sel' : ''}`}
             style={{ ['--gpx' as string]: `${gpx}px`, ...(spoke ? { ['--fan-dx' as string]: `${spoke.dx}px`, ['--fan-dy' as string]: `${spoke.dy}px` } : null) }}
             // Tap selects; press-and-hold (touch) / press-and-drag (mouse) moves. A quick flick stays
             // a map pan/zoom. Not while editing a note's text (the input owns the pointer).

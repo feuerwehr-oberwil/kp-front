@@ -35,14 +35,16 @@
 /* Fat-finger touch slop: an invisible hit pad a little larger than the glyph, so a tap that
    lands just shy of the symbol still selects it. Because markers are DOM nodes ABOVE the map
    canvas, this pad also wins over any area/Absperrkreis drawn underneath (those live on the
-   canvas). Not on notes: they're already a wide pill and own inline-text editing.
+   canvas). Not on notes: they're already a wide pill and own inline-text editing. Not on
+   Formen either: a shape's box has two different sides, and squaring the pad off the longer one
+   is what made a Rotation swallow the ground around it — theirs hugs its own box (.shape-glyph).
    ⚠️ Where two pads OVERLAP the CSS no longer decides. It used to: equal z-index falls back to
    DOM order = placement order = the alarm's history, so a tap between the Wasserbezugsort and
    the Kleinlöscher you set after it always gave you the Kleinlöscher. The winner is now picked
    in JS by NEAREST CENTRE, and a tap that covers more than one fans the pile out
    (MapMarkers · pileAt / fanOffsets). Keep the pad modest all the same — it is what the hit
    test measures against. */
-.marker:not(.marker-note)::before {
+.marker:not(.marker-note):not(.marker-shape)::before {
   content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 0;
   width: max(calc(var(--gpx) + 20px), 44px); height: max(calc(var(--gpx) + 20px), 44px);
 }
@@ -156,6 +158,19 @@
    No transform transition: rotation must track the pointer 1:1 (a transition makes
    it lag and feel janky). The body shows a move cursor — drag it to reposition. */
 .shape-glyph { line-height: 0; cursor: move; }
+/* THE hit pad of a Form — the shape's OWN box grown by the same 20px of slop a symbol's pad
+   carries, per axis, with the 44px glove floor on each side. Drawn inside the glyph, so it turns
+   with the shape and covers the run wherever the run points; and stated once, so the Karte, the
+   Kroki and a mirrored Form answer a finger identically. The `transform` every renderer sets on
+   this box is what makes it the pad's containing block, whatever its `position`.
+   ⚠️ Per AXIS, not squared off the long side. The marker pad above is ONE square of
+   max(width, height): right for a Rechteck, whose box is square-ish, and wrong for a Rotation,
+   where a 500px run drew a 520px square of hit area and swallowed every tap on the empty ground
+   above and below the loop. The Kroki had the opposite half of the same bug — a `.wb-anno`
+   carried no pad at all, so a lean loop (its width is capped in metres, a few dozen px however
+   long the run gets) was a sub-44px band a glove could not land on. */
+.shape-glyph::before { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: max(calc(100% + 20px), 44px); height: max(calc(100% + 20px), 44px); }
 .shape-glyph .shape-svg { width: 100%; height: 100%; display: block;
   filter: drop-shadow(0 1px 1px rgba(15, 22, 34, .4)) drop-shadow(0 3px 6px rgba(30, 45, 70, .25)); }
 /* shapes show their rotate/resize handles when selected; a quick one-shot bounce on the

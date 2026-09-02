@@ -419,16 +419,21 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
           // stops at (lib/mapView · shapePx). A twin-only «12 and no ceiling» let a big mirrored
           // Rechteck keep growing past the size the object beside it is capped to.
           const px = Math.max(24, Math.min(SHAPE_MAX_PX[kind], projectedPx(t.coord, [edge.lng, edge.lat], zoom)))
+          // a LOCKED shape is click-through, exactly like the map's own locked shape entity
+          // (MapMarkers · lockedShape): no tap, no drag, and the centre LockChip is the way back
+          const inert = !interactive || !onOpenTwin || a.locked
           // height follows the source's stretched box (BoardAnno.aspect — height per plan
-          // WIDTH unit, same as the sheet renders it), so the mirror keeps its geometry
+          // WIDTH unit, same as the sheet renders it), so the mirror keeps its geometry.
+          // ⚠️ The tappable one is NOT pointer-inert: the box carries the Form's shared hit pad
+          // (03-map.css · .shape-glyph::before), and the pad of a dead element is dead too — a
+          // mirrored Rotation would have been the middle of its own run and nothing else. The
+          // press still lands on the button around it; this only lets the pad reach the finger.
           const glyph = (
-            <span className={`${s.contentMap} shape-glyph`} style={{ display: 'block', width: px, height: px * shapeAspect(kind, a.aspect), transform: `rotate(${(a.rotation ?? 0) - t.fit.rotationDeg - bearing}deg)` }}>
+            <span className={inert ? `${s.contentMap} shape-glyph` : 'shape-glyph'} style={{ display: 'block', width: px, height: px * shapeAspect(kind, a.aspect), transform: `rotate(${(a.rotation ?? 0) - t.fit.rotationDeg - bearing}deg)` }}>
               <ShapeGlyph kind={kind} color={a.color ?? DEFAULT_INK} stop={a.stop} aspect={a.aspect} carrier={a.carrier} reverse={a.reverse} strokeW={a.strokeW} boxPx={px} fillOpacity={a.fillOpacity} hatch={a.hatch} sharpCorners={a.sharpCorners} />
             </span>
           )
-          // a LOCKED shape is click-through, exactly like the map's own locked shape entity
-          // (MapMarkers · lockedShape): no tap, no drag, and the centre LockChip is the way back
-          if (!interactive || !onOpenTwin || a.locked) {
+          if (inert) {
             return <Fragment key={t.key}>
               <Marker longitude={t.coord[0]} latitude={t.coord[1]} anchor="center" style={INERT}>{glyph}</Marker>
               {a.locked && onUnlockTwin && (
