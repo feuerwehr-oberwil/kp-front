@@ -35,6 +35,7 @@ import type { BoardAnno, Drawing, Entity, LngLat, PlanDocument } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { circlePolygon } from './geo'
+import { circleRingN } from './planScale'
 
 /** How far past the sheet edge a projected map object may sit and still be drawn — 2 % of the
  *  sheet. Enough that a hydrant on the kerb outside the plan frame is not lost to a rounding
@@ -224,8 +225,14 @@ export interface MapContentTwin {
   coords?: LngLat[]
 }
 
-/** Plan → Karte projections for lines, areas, notes, shapes and Atemschutz resource markers.
- *  Tactical symbols stay in `mapTwins`, where their existing selection/move behavior lives. */
+/** Plan → Karte projections for lines, areas, cordons, notes, shapes and Atemschutz resource
+ *  markers. Tactical symbols stay in `mapTwins`, where their existing selection/move behavior
+ *  lives.
+ *
+ *  An Absperrkreis crosses as BOTH: its centre (`coord` — it is a point object, and that is what
+ *  a whole-object drag writes back) and a projected ring (`coords`), because the Karte can only
+ *  paint a circle of PLAN radius as a polygon. The mirror image of what the other direction has
+ *  always done with a map circle (boardDrawingTwins). */
 export function mapContentTwins(
   plans: GeorefPlan[],
   board: Record<string, BoardAnno[] | undefined>,
@@ -244,6 +251,21 @@ export function mapContentTwins(
         if (coords.length >= min) out.push({ ...base, coords })
         continue
       }
+      if (anno.kind === 'circle' && anno.x != null && anno.y != null && (anno.radiusN ?? 0) > 0) {
+        // the sheet's aspect, back out of the two numbers the fit already carries
+        // (planGroundWidthM = scaleMPerU · aspect) — the ring is round in PLAN pixels, so it
+        // needs the same aspect correction every plan length does (lib/planScale)
+        const ar = plan.fit.scaleMPerU > 0 ? plan.widthM / plan.fit.scaleMPerU : 1
+        const c = plan.fit.toMap({ x: anno.x, y: anno.y })
+        const ring = circleRingN(anno.x, anno.y, anno.radiusN ?? 0, ar).map(([x, y]) => {
+          const p = plan.fit.toMap({ x, y })
+          return [p.lng, p.lat] as LngLat
+        }).filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
+        if (Number.isFinite(c.lng) && Number.isFinite(c.lat) && ring.length >= 3) {
+          out.push({ ...base, coord: [c.lng, c.lat], coords: ring })
+        }
+        continue
+      }
       if ((anno.kind === 'text' || anno.kind === 'shape' || anno.kind === 'resource') && anno.x != null && anno.y != null) {
         const p = plan.fit.toMap({ x: anno.x, y: anno.y })
         if (Number.isFinite(p.lng) && Number.isFinite(p.lat)) out.push({ ...base, coord: [p.lng, p.lat] })
@@ -253,17 +275,110 @@ export function mapContentTwins(
   return out
 }
 
-/** Whole-object translation of a mirrored path (a projected Plan line or area dragged on the
- *  Karte): every vertex moves by the same plan-space delta. The DELTA — not each vertex — is
- *  clamped to the sheet, because clamping vertices one by one would squash the shape against
- *  the paper edge instead of stopping it there. Vertex-level editing stays with the source.
- *  Generic over the vertex tuple so a `BoardPoint`'s optional per-point floor rides along
- *  untouched — a drag moves the line on the paper, never between storeys. */
+// ── the sheet's edge: ONE domain, enforced and drawn from the same two numbers ────────────────
+
+/**
+ * THE clamp domain of a plan annotation: 0..1 on both axes of its own sheet — x a fraction of the
+ * width, y a fraction of the height, y running down (see the module header on «Plan» space).
+ *
+ * ⚠️ Every writer that enforces this bound AND the outline the Karte DRAWS for it read these two
+ * numbers and nothing else, through the helpers below. That is the whole point of stating it
+ * here: the first version of the outline was derived beside the clamp rather than from it, and a
+ * rectangle drawn from a second definition — a footprint, a preview's extent, a differently
+ * recovered aspect — is a promise about where a drag will stop that the drag does not keep.
+ */
+export const SHEET_MIN = 0
+export const SHEET_MAX = 1
+
+/** …the same rectangle as four corners, in paper order: top-left, top-right, bottom-right,
+ *  bottom-left. The one list `sheetCorners` projects and every clamp is measured against. */
+export const SHEET_DOMAIN: readonly PlanPt[] = [
+  { x: SHEET_MIN, y: SHEET_MIN }, { x: SHEET_MAX, y: SHEET_MIN },
+  { x: SHEET_MAX, y: SHEET_MAX }, { x: SHEET_MIN, y: SHEET_MAX },
+]
+
+/**
+ * The four bounds of a plan sheet, named as the operator sees them on the paper.
+ *
+ * ⚠️ This is why a mirrored object on the Karte can stop following the finger on ONE axis and go
+ * on following it on the other, which reads as a broken drag until you can see the paper: the
+ * source lives on a BOUNDED document, so crossing the projected edge pins that coordinate while
+ * the free one keeps moving. It is the right behaviour — a plan point outside the paper is not a
+ * place on that document — and it is only legible with the sheet's outline drawn.
+ */
+export type SheetEdge = 'left' | 'right' | 'top' | 'bottom'
+
+/**
+ * One axis of the bound: how far a move may actually go, and which edge shortened it.
+ * `lo`/`hi` are the room left on the low and the high side of that axis.
+ *
+ * ⚠️ A selection WIDER than the sheet has no in-sheet position at all — the bounds invert, and
+ * clamping through them would teleport it by half a sheet. That axis freezes instead; the edge
+ * the move was pushing against still reports, because the operator is entitled to know which one
+ * is holding (GeorefContentBoard has followed the same rule on the Plan since 01.09.).
+ */
+function holdAxis(want: number, lo: number, hi: number, low: SheetEdge, high: SheetEdge): { d: number; held?: SheetEdge } {
+  if (lo > hi) return { d: 0, held: want > 0 ? high : want < 0 ? low : undefined }
+  const d = Math.max(lo, Math.min(hi, want))
+  return { d, held: d > want ? low : d < want ? high : undefined }
+}
+
+/**
+ * THE bound, for everything that moves a mirrored object: the plan-space delta a selection may
+ * actually take from where it stands, and the edges that shortened it.
+ *
+ * The DELTA is clamped, never the individual points, because clamping points one by one would
+ * squash a shape against the paper edge instead of stopping it there — and because the two axes
+ * clamp INDEPENDENTLY, which is what makes the motion a slide along the edge rather than a stop.
+ */
+export function sheetShift(pts: readonly PlanPt[], want: { x: number; y: number } = { x: 0, y: 0 }): { dx: number; dy: number; held: SheetEdge[] } {
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
+  const x = holdAxis(want.x, SHEET_MIN - Math.min(...xs), SHEET_MAX - Math.max(...xs), 'left', 'right')
+  const y = holdAxis(want.y, SHEET_MIN - Math.min(...ys), SHEET_MAX - Math.max(...ys), 'top', 'bottom')
+  return { dx: x.d, dy: y.d, held: [x.held, y.held].filter((e): e is SheetEdge => !!e) }
+}
+
+/** Put ONE plan point on its sheet, naming the edges that held it back. */
+export function clampToSheet(p: PlanPt): { pt: PlanPt; held: SheetEdge[] } {
+  const { dx, dy, held } = sheetShift([p])
+  return { pt: { x: p.x + dx, y: p.y + dy }, held }
+}
+
+/** …and the delta a whole PATH may take (a projected Plan line or area dragged on the Karte). */
+export function twinPathDelta(pts: readonly (readonly [number, number, ...number[]])[], from: PlanPt, to: PlanPt): { dx: number; dy: number; held: SheetEdge[] } {
+  return sheetShift(pts.map(([x, y]) => ({ x, y })), { x: to.x - from.x, y: to.y - from.y })
+}
+
+/** Whole-object translation of a mirrored path: every vertex moves by the same clamped plan-space
+ *  delta (`twinPathDelta`). Vertex-level editing stays with the source. Generic over the vertex
+ *  tuple so a `BoardPoint`'s optional per-point floor rides along untouched — a drag moves the
+ *  line on the paper, never between storeys. */
 export function movedTwinPath<P extends readonly [number, number, ...rest: number[]]>(pts: readonly P[], from: PlanPt, to: PlanPt): P[] {
-  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
-  const dx = Math.max(-Math.min(...xs), Math.min(1 - Math.max(...xs), to.x - from.x))
-  const dy = Math.max(-Math.min(...ys), Math.min(1 - Math.max(...ys), to.y - from.y))
+  const { dx, dy } = twinPathDelta(pts, from, to)
   return pts.map((p) => { const [x, y, ...rest] = p; return [x + dx, y + dy, ...rest] as unknown as P })
+}
+
+/** The clamp domain itself, on the ground — `SHEET_DOMAIN` through the very fit the drag's
+ *  write-through inverts. Nothing else may derive this rectangle. */
+export function sheetCorners(fit: GeorefFit): LngLat[] {
+  return SHEET_DOMAIN.map((p) => { const c = fit.toMap(p); return [c.lng, c.lat] as LngLat })
+}
+
+/** …and the two ends of ONE of its edges, for the edge that is holding a drag back. */
+export function sheetEdgeEnds(fit: GeorefFit, edge: SheetEdge): [LngLat, LngLat] {
+  const [tl, tr, br, bl] = sheetCorners(fit)
+  return edge === 'left' ? [tl, bl] : edge === 'right' ? [tr, br] : edge === 'top' ? [tl, tr] : [bl, br]
+}
+
+/** What the Karte draws while a mirrored object is in the hand: the clamp domain, and whichever
+ *  of its edges are holding right now. Built HERE rather than at the call site, so no surface can
+ *  hand itself a rectangle the writers do not enforce (MapView · twinBound). */
+export interface TwinBound {
+  ring: LngLat[]
+  held: LngLat[][]
+}
+export function twinBoundOf(fit: GeorefFit, held: readonly SheetEdge[]): TwinBound {
+  return { ring: sheetCorners(fit), held: held.map((e) => sheetEdgeEnds(fit, e)) }
 }
 
 /** The name a mirrored non-symbol object answers to — its own label/text where it has one, else
@@ -278,6 +393,7 @@ export function contentTwinName(o: { kind?: string; label?: string; text?: strin
     case 'resource': case 'team': return C.whiteboard.team
     case 'shape': return C.shapes.names[o.shape ?? ''] ?? C.shapes.kindLabel
     case 'area': return C.whiteboard.area
+    case 'circle': return C.drawingEditor.circle
     case 'draw': return C.whiteboard.line
     default: return C.whiteboard.georef.twinUnnamed
   }
@@ -382,12 +498,18 @@ export function boardDrawingTwins(drawings: Drawing[], fit: GeorefFit, margin = 
         color: drawing.color, width: drawing.width, dashed: drawing.dashed,
         arrow: drawing.arrow, arrowStop: drawing.arrowStop, marker: drawing.marker, showDistance: drawing.showDistance,
         label: drawing.label, fillOpacity: drawing.fillOpacity,
+        // ⚠️ Schraffur crosses too. It is FKS MEANING, not decoration — a «betroffene Fläche»
+        // mirrored as an ordinary washed one says something else about the ground (01.09.).
+        hatch: drawing.hatch,
         labelDx: labelAt && mid ? labelAt.x - mid[0] : undefined,
         labelDy: labelAt && mid ? labelAt.y - mid[1] : undefined,
         endDx: endAt && tagBase ? endAt.x - tagBase[0] : undefined,
         endDy: endAt && tagBase ? endAt.y - tagBase[1] : undefined,
         teilstueck: drawing.teilstueck, content: drawing.content, lineNo: drawing.lineNo,
         floorTag: drawing.floorTag, truppId: drawing.truppId,
+        // ⚠️ The lock crosses too. Without it a Fläche locked on the Karte was still draggable
+        // through its mirror on the Plan, which defeats the whole point of locking it (01.09.).
+        locked: drawing.locked,
       },
     })
   }
@@ -430,7 +552,7 @@ type _EntityKeysAccounted = Assert<Exclude<keyof Entity, (typeof ENTITY_MAP_ONLY
  *  floor-stack TILE INDEX that must never be read as `Entity.floor`'s signed badge, while `storey`
  *  is the badge and becomes exactly that. */
 const BOARD_PLAN_ONLY = [
-  'kind', 'pts', 'x', 'y', 'text', 'wN', 'sizeN', 'reachN', 'width', 'dashed', 'arrow', 'arrowStop', 'marker',
+  'kind', 'pts', 'x', 'y', 'text', 'wN', 'sizeN', 'reachN', 'radiusN', 'width', 'dashed', 'arrow', 'arrowStop', 'marker',
   'showDistance', 'labelDx', 'labelDy', 'teilstueck', 'content', 'lineNo', 'floorTag',
   'endDx', 'endDy', 'fillOpacity', 'hatch', 't', 'trail', 'truppId', 'floor', 'locked',
   'startAttachment', 'endAttachment', 'storey',

@@ -1,5 +1,6 @@
 import type { Spread } from '../types'
 import { SPREAD_DIRS, boundedKey, hasSpread, normalizeSpread, type SpreadDir } from './spread'
+import { DEFAULT_INK } from './lineStyle'
 
 // Shared rendering of a placed FireGIS tactical symbol — used IDENTICALLY by the
 // Lage map (MapView) and the Plan whiteboard (Whiteboard), so the glyph, the
@@ -18,7 +19,7 @@ export const needsWhite = (svg: string) => svg.includes('fill="none"')
 // the app blue when a symbol has no colour of its own.
 export const symColor = (svg: string): string => {
   const colours = [...svg.matchAll(/(?:fill|stroke)="(#[0-9a-fA-F]{6})"/g)].map((m) => m[1].toLowerCase())
-  return colours.find((c) => c !== '#000000') ?? '#1f6feb'
+  return colours.find((c) => c !== '#000000') ?? DEFAULT_INK
 }
 
 // signed storey label for the badge: +2, -1, 0 (EG)

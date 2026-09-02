@@ -251,6 +251,25 @@
 .step-clear:disabled { opacity: var(--disabled); cursor: default; }
 .step-clear .i { width: 14px; height: 14px; }
 
+/* ── The app's own slider (components/Slider) ────────────────────────────────────────────────
+   Shared chrome, like `.step` above it: a 44px hit band with a thin painted track inside, so a
+   gloved finger has a target while the row stays as quiet as a 4px rail. Colours come off
+   `currentColor` — the one caller today is the Ebenen card's Deckkraft row, which is white ink
+   on --ink-fill, and the same markup has to read on a light sheet without being re-themed.
+   ⚠️ `touch-action: none` is what makes the drag a drag: without it the first vertical wobble
+   hands the gesture to the panel's scroller and the value stops following the finger. */
+.uslider { position: relative; display: block; flex: 1; min-width: 0; height: var(--tap); cursor: pointer;
+  touch-action: none; -webkit-tap-highlight-color: transparent; }
+.uslider-track { position: absolute; inset-inline: 9px; top: 50%; height: 4px; margin-top: -2px;
+  border-radius: 2px; background: color-mix(in srgb, currentColor 24%, transparent); }
+.uslider-fill { position: absolute; inset-block: 0; left: 0; border-radius: 2px; background: var(--blue); }
+.uslider-thumb { position: absolute; top: 50%; width: 18px; height: 18px; margin-top: -9px; margin-left: -9px;
+  border-radius: 50%; background: var(--blue); box-shadow: 0 1px 3px rgba(10, 20, 40, .45); }
+.uslider:focus-visible { outline: none; }
+.uslider:focus-visible .uslider-thumb { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 45%, transparent); }
+/* the house press wash, on the thumb — nothing moves, per the touch vocabulary */
+.uslider:active .uslider-thumb { background-image: linear-gradient(var(--press), var(--press)); }
+
 /* symbol search modal */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(20, 28, 40, .45); backdrop-filter: blur(2px); z-index: var(--z-dialog-scrim);
   display: grid; place-items: center; animation: fade .12s ease; }

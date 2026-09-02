@@ -40,7 +40,7 @@
 /* path vertices — small dot, but a 44px transparent hit pad (::after) so a fingertip can
    grab one to drag, or press-and-hold to delete, without a precise aim. touch-action:none
    keeps the press from scrolling/panning before the long-press timer fires. */
-.measure-handle, .draw-handle { position: relative; width: 18px; height: 18px; border-radius: 50%; background: var(--on-accent-ink);
+.measure-handle, .draw-handle { position: relative; width: 24px; height: 24px; border-radius: 50%; background: var(--on-accent-ink);
   border: 3px solid var(--blue); box-shadow: 0 1px 3px rgba(30, 45, 70, .4); cursor: grab; box-sizing: border-box; touch-action: none; }
 .measure-handle::after, .draw-handle::after { content: ''; position: absolute; left: 50%; top: 50%;
   width: 44px; height: 44px; transform: translate(-50%, -50%); }
@@ -233,38 +233,105 @@
   .draw-editor .de-trupp-go:hover { color: var(--blue); }
 }
 
-/* Selected-drawing edit handles (reshape vertices + move grip + rotor) — each gets a transparent
-   hit pad.
-   ⚠️ The grip's pad was deliberately kept UNDER the 44px floor, because move/delete/rotate used to
-   cluster around the drawing centre and full-size pads would have overlapped onto the destructive
-   ✕. The ✕ left the canvas on 01.09., so that reason is gone and the constraint went with it: the
-   grip is the one control on the cluster you reach for by hand, and it was reported twice as hard
-   to hit. 34px + a 7px pad = 48, which is also what HUB_NODE_CLEARANCE_PX now keeps clear of the
-   node handles beside it. */
-.draw-move { position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--blue); color: var(--on-fill);
-  display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); border: 2px solid #fff; }
-.draw-move::after { content: ''; position: absolute; inset: -7px; }
-.draw-move:active { cursor: grabbing; }
-.draw-move .i { width: 18px; height: 18px; }
-/* edit hub sits at the drawing's centre: a rotor knob straight up, the delete ✕ to
-   the upper-right, with the move grip (separate marker) filling the centre */
-.draw-edit-hub { position: relative; }
-.draw-del { position: absolute; left: 0; top: 0; transform: translate(16px, -16px);
-  width: 24px; height: 24px; border-radius: 50%; background: var(--red, #e23); color: var(--on-accent-ink); border: 2px solid #fff;
-  display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); padding: 0; }
-.draw-del .i { width: 13px; height: 13px; }
-.draw-del::after { content: ''; position: absolute; inset: -7px; }
-.draw-rotor { position: absolute; left: 0; top: 0; pointer-events: none; }
-.draw-rotor button { pointer-events: auto; }
-/* 34px of stem, not 24: the grip's pad now reaches 24px up and the rotor's 20px down, so at the
-   old distance the two overlapped and a press meant for «verschieben» could land on «drehen». */
-.draw-stem { position: absolute; left: 0; bottom: 0; width: 2px; height: 34px; transform: translateX(-50%); background: var(--blue); }
-.draw-rotate { position: absolute; left: 0; bottom: 34px; transform: translateX(-50%);
-  width: 28px; height: 28px; border-radius: 50%; background: var(--blue); color: var(--on-fill); border: 2px solid #fff;
-  display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); padding: 0; }
-.draw-rotate:active { cursor: grabbing; }
-.draw-rotate::after { content: ''; position: absolute; inset: -6px; }
-.draw-rotate .i { width: 15px; height: 15px; }
+/* ── the selection bar ────────────────────────────────────────────────────────────────
+   ONE bar, bottom-centre of the Lage map and of the Plan board, for every selection there is
+   (components/SelectionBar). It replaced three floating grammars on 01.09.: the map's edit hub
+   (a move grip with a rotor tethered above it), the map's group grip, and the plan's group pill
+   — all three grew at the selection's own centre, on top of the ink and of the vertex handles
+   the finger was reaching for.
+   Same bottom inset as .coord-read (07-toolrail.css), and the phone rules for the two live in one
+   place (15-mobile.css) so they cannot drift apart or land on the bottom bars.
+   Glass, not an ink-fill slab: it sits over the map and must not read as another dark dock. */
+/* FIXED, not absolute: the two surfaces hang it in containers that end in different places —
+   the map's fills the screen, the plan's canvas already stops above the phone's two bottom bars —
+   and «always the same spot» has to mean the same spot on the SCREEN. Nothing above it carries a
+   transform, so the viewport is the containing block on both. */
+.sel-bar { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
+  display: flex; align-items: center; gap: 8px; padding: 6px;
+  border-radius: var(--r-cluster); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); box-shadow: var(--shadow); animation: pop .16s var(--ease); }
+/* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action) —
+   solid blue, the app's one colour for an action grip that transforms the whole object.
+   Square and icon-only: nothing appears or disappears inside them (the turn's degrees are read on
+   the surface now — .sel-turn), so the bar never re-flows under the finger that is using it. */
+.sel-bar-act { width: 52px; height: 44px; border: none; border-radius: var(--r-sm); padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--blue); color: var(--on-fill); cursor: grab; touch-action: none;
+  transition: background-color .14s var(--ease), box-shadow .14s var(--ease); }
+.sel-bar-act:active { cursor: grabbing; }
+@media (hover: hover) {
+  .sel-bar-act:not(.on):hover { background: var(--blue-strong); }
+}
+/* TAPPED rather than dragged, ✥ / ⟳ arm the same writers for the whole surface (the bar is
+   pinned bottom-centre, so pulling the grip DOWN runs the finger off the screen).
+   ⚠️ An armed grip is an ARMED TOOL, and it is painted like one: `--ink-fill`, exactly what the
+   tool rail marks its active tool with (.vrail-tool.on) — a deeper shade of the resting blue was
+   read as a hover, not as a mode. The blue ring around it keeps it in the bar's own family. The
+   ring is drawn OUTSIDE the button and the fill arrives on a transition, so nothing moves and
+   nothing flickers when a mode goes on or off. */
+.sel-bar-act.on { background: var(--ink-fill); color: var(--on-accent-ink);
+  box-shadow: 0 0 0 2px var(--glass), 0 0 0 4px var(--blue); }
+@media (hover: hover) { .sel-bar-act.on:hover { background: var(--ink-fill-hover); } }
+@media (prefers-reduced-motion: reduce) { .sel-bar-act { transition: none; } }
+.sel-bar-act .i { width: 19px; height: 19px; }
+
+/* …and the whole surface says which mode is on, under the cursor that will act on it. Mouse-only
+   by nature; a gloved tablet reads the lit button and the cleared grips instead.
+   ⚠️ The bar's own grips keep `cursor: grab` (a direct rule beats this inherited one), because
+   dragging them is still the small adjustment it always was. */
+body[data-sel-arm="move"] .maplibregl-map,
+body[data-sel-arm="move"] .wb-canvas { cursor: move; }
+/* CSS has no rotate cursor, so this is the app's own ⟳ glyph (lib/icons · #rotate) as a 24px
+   data-URI: a white halo under a dark stroke, so it stays legible over any basemap, hotspot in
+   the middle, `grab` for anything that cannot load it. */
+body[data-sel-arm="rotate"] .maplibregl-map,
+body[data-sel-arm="rotate"] .wb-canvas {
+  cursor: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23ffffff' stroke-width='5'%3E%3Cpath d='M20 11a8 8 0 1 1-2.4-5.7'/%3E%3Cpath d='M20 4v4.2h-4.2'/%3E%3C/g%3E%3Cg stroke='%231f2937' stroke-width='2.4'%3E%3Cpath d='M20 11a8 8 0 1 1-2.4-5.7'/%3E%3Cpath d='M20 4v4.2h-4.2'/%3E%3C/g%3E%3C/svg%3E") 12 12, grab;
+}
+/* «Fertig» carries its word: it is the way OUT of the editing state, and the bar's only label.
+   ⚠️ NOT «Löschen» (02.09.) — deleting belongs in the object's own editor sheet and on the Delete
+   key, not on chrome sitting two taps from every grip. */
+.sel-bar-done { height: 44px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+@media (hover: hover) {
+  .sel-bar-done:hover { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); }
+}
+.sel-bar-done:active { background-image: linear-gradient(var(--press), var(--press)); }
+
+/* ── the grips step aside while the whole object is moving (lib/transformChrome) ──────────────
+   A selected Linie wears a pad on every vertex, a «+» in every gap, Verlängern on both ends and
+   a detach ring on each attachment; a Form wears rotate/resize/cage. All of that answers «where
+   exactly», none of it answers «where to», and under a whole-object drag it travels along as a
+   cloud of blue furniture over the very shape being aimed. Painted only — nothing is unmounted,
+   so no gesture and no state is touched, and every grip is back on release. */
+body.sel-transforming .handle,
+body.sel-transforming .draw-handle,
+body.sel-transforming .measure-insert,
+body.sel-transforming .draw-grow,
+body.sel-transforming .line-detach-chip,
+body.sel-transforming .node-del,
+body.sel-transforming .marker-rotate,
+body.sel-transforming .shape-rotor,
+body.sel-transforming .wb-vertex,
+body.sel-transforming .wb-vins,
+body.sel-transforming .wb-grow { display: none; }
+
+/* ── the turn, on the surface (components/SelectionTurn) ──────────────────────────────────────
+   The pivot the object turns about, the radius the finger is swinging, and the degrees — beside
+   the object, not on a button at the far edge of a tablet held at arm's length. Pointer-inert
+   throughout: it is painted over a live gesture and must never take a sample from it. */
+.sel-turn { position: fixed; inset: 0; z-index: var(--z-chrome); pointer-events: none; }
+.sel-turn-arm { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.sel-turn-arm line { stroke: var(--blue); stroke-width: 2; stroke-dasharray: 5 5; stroke-linecap: round; opacity: .85; }
+/* the pivot wears the geometry-point look the rest of the app uses: white, ringed in blue */
+.sel-turn-pivot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
+  background: var(--on-accent-ink); border: 3px solid var(--blue); box-sizing: border-box; }
+/* …and the number hangs off the fingertip, the way a dragged node's cumulative label hangs off
+   its vertex — never centred under the finger that is changing it */
+.sel-turn-deg { position: absolute; transform: translate(-50%, calc(-100% - 14px));
+  padding: 3px 8px; border-radius: var(--r-sm); background: var(--blue); color: var(--on-fill);
+  font-family: var(--mono); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  white-space: nowrap; box-shadow: var(--shadow); }
 /* WebGL context lost: centred over the (now blank) canvas, above the map chrome but below
    sheets/toasts. Persistent by design — it stays until the operator rebuilds the map. */
 .map-gl-lost { position: absolute; z-index: var(--z-blocking-scrim); left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -282,15 +349,6 @@
 /* plan Mehrfach (lasso) marquee box — client coords, so fixed positioning */
 .wb-marquee { position: fixed; z-index: var(--z-dock); pointer-events: none; border: 1.5px solid var(--blue);
   background: color-mix(in srgb, var(--blue) 10%, transparent); border-radius: 2px; }
-/* plan group handles (≥2 selected) — move grip + delete at the combined centre */
-.wb-group-acts { position: absolute; top: 0; left: 0; z-index: 7;
-  display: flex; gap: 6px; background: var(--ink-fill); border-radius: var(--r-ctl); padding: 5px; box-shadow: var(--shadow); }
-.wb-pa-move { background: var(--blue); cursor: grab; touch-action: none; }
-@media (hover: hover) {
-  .wb-pa-move:hover { background: var(--blue); filter: brightness(1.08); }
-}
-.wb-pa-move:active { cursor: grabbing; }
-
 
 /* ── the number, while a node is in the hand ──
    The cumulative label hangs 12px over its vertex — i.e. under the fingertip of the very drag

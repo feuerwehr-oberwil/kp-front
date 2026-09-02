@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ROTATION_ASPECT_MIN, ROTATION_MAX_M, ROTATION_W_M, SHAPE_TWO_POINT, rotationBox, rotationRun, rotationWidth, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MIN_M, SHAPE_MIN_N, SHAPE_ORDER, SHAPE_STROKE_DEFAULT, SQUARE_FILL_DEFAULT, rotationInner, rotationViewBox, shapeAspect, shapeAspectMax, shapeStrokeFactor, squareInner, squareViewBox } from './shapes'
+import { ROTATION_ASPECT_MIN, ROTATION_MAX_M, ROTATION_MAX_N, SHAPE_MAX_M, SHAPE_MAX_N, ROTATION_W_M, SHAPE_TWO_POINT, rotationBox, rotationRun, rotationWidth, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MIN_M, SHAPE_MIN_N, SHAPE_ORDER, SHAPE_STROKE_DEFAULT, SQUARE_FILL_DEFAULT, rotationInner, rotationViewBox, shapeAspect, shapeAspectMax, shapeStrokeFactor, squareInner, squareViewBox } from './shapes'
 import type { ShapeKind } from '../types'
 
 describe('SHAPE_ORDER / SHAPE_DEFS', () => {
@@ -54,6 +54,23 @@ describe('the Rotation loop', () => {
   // make it enormous in both axes (MapMarkers · shapeMove keeps the width and stretches this).
   it('may be drawn far past the 500 m every other shape is capped at', () => {
     expect(ROTATION_MAX_M).toBeGreaterThan(5000)
+    expect(SHAPE_MAX_M.rotation).toBe(ROTATION_MAX_M)
+    expect(SHAPE_MAX_N.rotation).toBe(ROTATION_MAX_N)
+  })
+
+  // A10 · ONE ceiling per unit domain. The drag and the ± stepper both clamp to these records
+  // (MapMarkers · shapeMove / Whiteboard · rotMove / ShapeEditor · onScale) — before 02.09. the
+  // Lage's stepper carried its own 800 m and grew a Rechteck its own drag then refused to touch.
+  it('caps every ordinary Form at one number per unit domain', () => {
+    for (const kind of SHAPE_ORDER.filter((k) => k !== 'rotation')) {
+      expect(SHAPE_MAX_M[kind]).toBe(500)
+      expect(SHAPE_MAX_N[kind]).toBe(0.9)
+    }
+    // …and a ceiling is always above the floor the same drag clamps to
+    for (const kind of SHAPE_ORDER) {
+      expect(SHAPE_MAX_M[kind]).toBeGreaterThan(SHAPE_MIN_M)
+      expect(SHAPE_MAX_N[kind]).toBeGreaterThan(SHAPE_MIN_N)
+    }
   })
 
   it('falls back to its own default aspect, not to square', () => {

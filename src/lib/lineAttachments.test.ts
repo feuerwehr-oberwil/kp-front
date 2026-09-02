@@ -3,7 +3,8 @@ import type { LineAttachment } from '../types'
 import {
   advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress,
   DETACH_SHOW_PROGRESS, EMPTY_DWELL, endpointCapacity, flipLine,
-  forkDims, forkPortPoint, gpsGuard, incomingAttachments, materializeEndpoint, moveLineBody,
+  forkDims, forkPortPoint, gpsGuard, incomingAttachments, isMagnetAnno, isMagnetEntity,
+  materializeEndpoint, moveLineBody,
   nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
   wouldCreateCycle, type AttachableLine, type MagneticTarget,
 } from './lineAttachments'
@@ -271,5 +272,23 @@ describe('flipLine', () => {
     // start = the Haus it now leaves from, end = the TLF — both still ON their object
     expect(resolved[0]).toEqual([5, 0])
     expect(resolved[resolved.length - 1]).toEqual([0, 0])
+  })
+})
+
+// ONE list per frame, because it used to be four hand-maintained copies of the same sentence
+// (MapView · candidatesAt / trackPlaceMagnet, MapMarkers · trackEndMagnet, Whiteboard ·
+// planCandidatesAt) and nothing stopped them drifting apart.
+describe('what a magnet may dock onto', () => {
+  it('accepts only the kinds that state a PLACE — a symbol, a vehicle, a crew', () => {
+    expect(['symbol', 'vehicle', 'team'].map((kind) => isMagnetEntity({ kind } as never))).toEqual([true, true, true])
+    // ground, paper and a silhouette are not places a hose ends
+    expect(['shape', 'note', 'photo', 'person'].map((kind) => isMagnetEntity({ kind } as never))).toEqual([false, false, false, false])
+  })
+
+  it('says the same in the Plan\'s own vocabulary — a Trupp chip is a `resource` there', () => {
+    expect(isMagnetAnno({ kind: 'symbol' })).toBe(true)
+    expect(isMagnetAnno({ kind: 'resource' })).toBe(true)
+    expect(['draw', 'area', 'circle', 'text', 'shape'].map((kind) => isMagnetAnno({ kind } as never))).toEqual([false, false, false, false, false])
+    expect(isMagnetAnno({})).toBe(false)
   })
 })

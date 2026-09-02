@@ -18,6 +18,21 @@ export interface MagneticTarget {
   port?: number
 }
 
+/**
+ * What a Leitung endpoint, a placement and a Rotation end may dock onto — ONE list per frame,
+ * because it used to be four hand-maintained copies (MapView · candidatesAt and
+ * trackPlaceMagnet, MapMarkers · trackEndMagnet, Whiteboard · planCandidatesAt) and nothing
+ * stopped them drifting apart.
+ *
+ * Only objects that STATE A PLACE: a symbol, a vehicle, a crew. A Fläche is ground, a note is
+ * paper, a Form is a silhouette — none of them is somewhere a hose ends.
+ */
+export const MAGNET_ENTITY_KINDS: readonly Entity['kind'][] = ['symbol', 'vehicle', 'team']
+export const isMagnetEntity = (e: Pick<Entity, 'kind'>): boolean => MAGNET_ENTITY_KINDS.includes(e.kind)
+/** …and the same set in the Plan's own vocabulary (a Trupp chip is a `resource` there). */
+export const MAGNET_ANNO_KINDS: readonly NonNullable<BoardAnno['kind']>[] = ['symbol', 'resource']
+export const isMagnetAnno = (a: Partial<Pick<BoardAnno, 'kind'>>): boolean => !!a.kind && MAGNET_ANNO_KINDS.includes(a.kind)
+
 export const MAGNET_RADIUS_PX = 32
 export const MAGNET_DWELL_MS = 350
 export const DETACH_RADIUS_PX = 44

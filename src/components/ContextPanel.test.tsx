@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { ContextPanel, type SymbolView } from './ContextPanel'
 import type { SymbolControl } from '../types'
+import { appConfig } from '../config/appConfig'
 
 afterEach(cleanup)
 
@@ -354,5 +355,25 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
     })
     expect(screen.getByText('Fahrer')).toBeTruthy()
     expect(screen.queryByRole('button', { name: SWAP })).toBeNull()
+  })
+})
+
+// D-06: a Georeferenz twin's plaque is read-only because its KIND has no editor on this surface,
+// not because the object is protected — and its original's own panel offers Löschen.
+describe('ContextPanel — Löschen on an otherwise read-only panel', () => {
+  // rendered twice on purpose (pinned footer + the phone's inline copy); CSS shows exactly one
+  const del = () => screen.queryAllByRole('button', { name: appConfig.copy.delete })
+
+  it('is hidden on a read-only panel, as it always was', () => {
+    setup({ readOnly: true })
+    expect(del()).toHaveLength(0)
+  })
+
+  it('…and back when the caller says so, without unlocking anything else', () => {
+    const props = setup({ readOnly: true, allowDelete: true })
+    fireEvent.click(del()[0])
+    expect(props.onDelete).toHaveBeenCalled()
+    // the fields stay read-only: `allowDelete` is about ONE button, not about the panel
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 })

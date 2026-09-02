@@ -100,8 +100,46 @@ to prod.
   when the value must genuinely differ *per Einsatz* and be identical on every device.
 - **Lage and Plan should stay as close as possible in every regard** – same tools, controls,
   and behavior. Only the implementation that *must* differ because of the drawing surface /
-  relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`, and
-  `src/lib/lineStyle.ts`; the renderers stay separate only for that surface-specific part.
+  relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`,
+  `SelectionBar` and `src/lib/lineStyle.ts` / `src/lib/selectionTransform.ts`; the renderers stay
+  separate only for that surface-specific part.
+- **One selection bar, one edit-chrome vocabulary** (decided 01.09.). Moving, turning and
+  deleting a selection – a single Linie/Fläche/Absperrkreis, a Form, or a Mehrfach group – happen
+  on the fixed `SelectionBar` at the bottom of each surface, never on floating chrome grown at the
+  object's own centre. **✥ and ⟳ answer two gestures** (02.09.): a *drag on the grip* moves /
+  dials straight away, for the small adjustment; a *tap* arms that grip as a surface **mode**
+  (`lib/useArmedTransform`), and while it is on, a drag anywhere on the Karte or the Kroki moves
+  the selection by the drag delta or turns it about its centre, following the pointer's bearing.
+  The mode exists because of where the bar sits: pinned bottom-centre, pulling ✥ *downward* runs
+  the finger off the screen within ~28px. Only one of the two is ever armed; tapping it again,
+  Esc, a selection change and a tool change all disarm, and while armed the surface answers no
+  taps at all – a press that never travels is nothing, so nothing can be placed, selected or
+  deselected under the finger. **The bar has three slots and no fourth: ✥ · ⟳ · Fertig.** The
+  turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
+  swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
+  two grips are icon-only and never re-flow mid-gesture. «Fertig» ends the editing state
+  (disarm + clear the selection + close its sheets); **«Löschen» is not on the bar** – an object
+  is deleted from its own editor sheet and with the Delete key, which on both surfaces reaches a
+  Mehrfach group and a mirrored selection too. On the object itself only **geometry** grips live:
+  vertex, «+» midpoint, Verlängern, Verbindung lösen, the radius ring, and a shape's own
+  rotate/resize handles – and all of them step aside for the length of a transform
+  (`lib/transformChrome`, a body class), because they answer «where exactly» and a whole-object
+  drag is asking «where to».
+  Colour is one family: a geometry point is white-filled with a `--blue` ring, an action grip that
+  transforms the whole object is solid `--blue`, `--amber` means the SECOND axis and nothing else,
+  `--red` means delete, and `--accent` stays alarm/relationship – never «selected». Node dots are
+  24px on both surfaces. Every grip whose press-and-hold is its own gesture carries
+  `data-holdaction`, or the app-wide hold-tooltip eats its release.
+- **The editor sheets have one control per kind of question** (decided 01.09., same sweep). A
+  yes/no property is the `OnOff` Segmented pair (`components/Segmented`) – never a single chip
+  whose text or glyph flips, which said «An» on one row and showed a state on the next. A number
+  is the shared `Stepper`; where the two surfaces cannot agree on a unit (a Form's size is metres
+  on the Karte and a share of the sheet on a Plan) it is `ScaleStepper`, the same chrome handing
+  the caller a ×-factor. A one-press action is a `.de-action` row, in the grammar «Verbindung
+  lösen» already had – it is not given toggle chrome, because it has no state to be in. Rows are
+  grouped in `.de-group`, so the hairline falls where the subject changes. And **no native form
+  control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
+  instead of a number field, `components/Slider` instead of `<input type="range">`.
 - **A georef twin is the object itself, seen from the other side.** Once a plan carries a
   georeference, annotations mirror between the surfaces (`src/lib/georefTwins.ts`,
   `GeorefTwins*` / `GeorefContent*`). A twin is **interaction- AND presentation-equivalent** to
@@ -114,7 +152,26 @@ to prod.
   native object beside it. The ONE permitted difference is which surface persists it: a twin is a
   projection, never stored, logged, printed or clocked, and an edit writes the ONE source object.
   A mechanical exception must be real and documented (an anchored endpoint reshapes instead of
-  translating, on both surfaces); «not built on that surface yet» is not one.
+  translating, on both surfaces); «not built on that surface yet» is not one. The third real one
+  is the **sheet's edge**: a twin's source lives on a BOUNDED document (plan x/y are fractions of
+  the paper), so a drag on the Karte that crosses the projected edge pins that coordinate and
+  goes on following the finger with the other — the object slides along the edge rather than
+  stopping dead. Right, and invisible on a surface that draws no paper, so for the length of any
+  twin drag the Karte draws the sheet: a dashed outline in the link tone plus the edge that is
+  actually holding, solid, and one `buzz()` the first time it is met (`MapView · twinBound`).
+  ⚠️ **The drawn rectangle and the enforced bound are ONE definition** — `georefTwins ·
+  SHEET_DOMAIN`, projected through the very fit the drag's write-through inverts. Every writer
+  (the direct drag, the whole-path drag, the bar's own twin move) measures against it through
+  `sheetShift`, and no surface may derive that rectangle from anywhere else: a footprint, a
+  preview's extent or a second-hand aspect turns the outline into a promise the drag does not
+  keep. The Plan needs no such chrome — there the bound IS the sheet under the finger. It follows that a
+  twin is also inside every SELECTION mechanism of the surface it stands on: the fixed
+  `SelectionBar` (for the kinds a native gets it for – ink and a Form), the marquee/group, the
+  fat-finger pile's fan, and the magnet. The magnet carries the second real mechanical exception:
+  an endpoint docked on a twin stores an attachment naming an object in the OTHER document, which
+  both live surfaces resolve but the print/export adapters cannot – there, and after a far-side
+  delete, it falls back to the stored coordinate the way every unresolvable attachment does
+  (`resolveLinePoints`).
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live

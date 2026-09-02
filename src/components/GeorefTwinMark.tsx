@@ -26,25 +26,23 @@
  *     of the recorded incident, and the vehicle feed is the present tense. The caller gates it
  *     (IncidentWorkspace passes empty lists while `replayActive`).
  */
-import { TacticalSymbol } from '../lib/symbolRender'
+import { HubretterBoom, TacticalSymbol } from '../lib/symbolRender'
 import { useRef } from 'react'
+import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import type { SymbolProps } from '../types'
 import s from './GeorefTwins.module.css'
 
 /**
  * The one mark, positioned by its caller.
  *
- * The same symbol renderer carries the source's caption decision across — and its storey badge
- * and Entwicklung spread arrows too, drawn exactly as the source draws them (doctrine 30.08.:
- * presentation-equivalent, never re-aimed through the fit). Only the Hubretter boom
- * remains source-only: metre-scaled geometry the projection has no honest length for.
+ * The same symbol renderer carries the source's caption decision across — and its storey badge,
+ * its Entwicklung spread arrows and a Hubretter's boom too, drawn exactly as the source draws
+ * them (doctrine 30.08.: presentation-equivalent, never re-aimed through the fit). The boom's
+ * LENGTH is resolved by each renderer in its own surface's units — metres on the Karte, a sheet
+ * fraction on the Plan — because that is the one thing the two frames cannot share.
  */
-/** Pointer travel that turns a tap into a drag. Small — the operator is aiming at a symbol they
- *  can already see, so the gesture is deliberate from the first millimetre — but not zero, or a
- *  fingertip's own wobble on a glove would move the object on every tap. */
-const DRAG_SLOP_PX = 4
-
-export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, caption, title, onOpen, onMove, nativeDrag = false, interactive = true, selected = false, style, className }: {
+export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floorTo, spread, overlay, boom, caption, title, onOpen, onMove, onGesture, gestureMovable = false, interactive = true, selected = false, network = false, style, className, children }: {
   svg: string
   sizePx: number
   rotation: number
@@ -58,6 +56,9 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
   /** a composite's fan/ladder over the base body, already aimed by the caller (lib/twinGlyph ·
    *  overlayFor) — without it a mirrored Grosslüfter was just a bare vehicle body */
   overlay?: { svg: string; rotation?: number; scale?: number }
+  /** a Hubretter's articulated boom over the base body, already aimed and sized by the caller
+   *  (lib/twinGlyph · boomFor) — without it a mirrored Hubretter was a bare Fahrzeug */
+  boom?: { lengthPx: number; deg: number }
   /** Exactly the caption the source surface gives this symbol. Null means neither source nor
    *  projection invents a name plaque merely because it crossed the georeference. */
   caption?: string | null
@@ -74,16 +75,21 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
    */
   onMove?: (phase: 'start' | 'move' | 'end', dx: number, dy: number) => void
   /**
-   * The SURROUNDING surface owns the drag — used on the Karte, where a MapLibre `Marker` is
-   * `draggable` and runs the gesture itself.
+   * The SURROUNDING surface owns the whole gesture — used on the Karte, where the press is fed
+   * to the shared hold-to-drag (lib/mapTwinDrag) so a projection behaves exactly like the native
+   * marker beside it: mouse press-drags at once, touch arms only after a still 180 ms hold plus
+   * its buzz, and anything shorter stays a map pan.
    *
-   * ⚠️ It exists because the usual `stopPropagation()` cannot do the job there. MapLibre listens
-   * on the map container, which is an ANCESTOR of this element, while React delegates from the
-   * app root ABOVE that — so by the time this component's handler runs and stops the event, the
-   * map has already begun a drag-pan and the twin would slide with the whole map under it. A
-   * Marker that owns the gesture suppresses the pan itself, which is what it is for.
+   * ⚠️ The map half must NOT run the `onMove` gesture below, and must NOT be a react-map-gl
+   * `draggable` Marker either: that claims the pointer on pointerdown and suppresses the map's
+   * pan, so every pan starting on a twin dragged the twin (the exact failure `useHoldToDrag` was
+   * written to avoid). With the press delegated, the tap arrives through the hold's own onTap —
+   * this element's click then only serves the keyboard (detail 0).
    */
-  nativeDrag?: boolean
+  onGesture?: (ev: React.PointerEvent<HTMLButtonElement>) => void
+  /** with `onGesture`: whether that gesture may actually move the object — the grab cursor is
+   *  the hand's answer to «kann ich das anfassen» and must not promise a move the surface refuses */
+  gestureMovable?: boolean
   /** the surface is in its resting state and the tap may open the details. False ⇒ inert (see
    *  .inert): a tool is armed, or the pairing mode is running, and the tap belongs to that. */
   interactive?: boolean
@@ -91,25 +97,35 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
    *  source object. Movement is available immediately, matching each source surface's direct
    *  drag grammar; selection changes only the visual state. */
   selected?: boolean
+  /** this projection is a node of the surrounding surface's relationship network — the same
+   *  «Verbunden» ring its native neighbours wear (11-measure.css · .network-halo) */
+  network?: boolean
   style?: React.CSSProperties
   className?: string
+  /** surface-owned chrome drawn INSIDE the mark — currently only the fan's hairline home
+   *  (GeorefTwinsMap), which has to sit in the mark's own stacking box to point back at the
+   *  true position. */
+  children?: React.ReactNode
 }) {
   // The live gesture. A ref, not state: it is written on every pointer sample, and nothing about
   // the mark's appearance depends on it — the position it produces arrives back as a new `pt`.
   const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null)
   // survives past pointerup so the click that follows can tell a drag from a tap
   const dragged = useRef(false)
-  const draggable = interactive && !!onMove && !nativeDrag
+  const draggable = interactive && !!onMove && !onGesture
   // the cursor answers «kann ich das anfassen», which is true in BOTH modes — whether this
-  // component runs the gesture or the surrounding Marker does is an implementation detail the
+  // component runs the gesture or the surrounding surface does is an implementation detail the
   // hand cannot see
-  const movable = interactive && (!!onMove || nativeDrag)
+  const movable = interactive && (!!onMove || gestureMovable)
 
   const down = (e: React.PointerEvent<HTMLButtonElement>) => {
+    // delegated mode: the surface's shared hold gesture takes the press whole, deliberately
+    // WITHOUT stopping it — a pan that starts on a twin has to reach the map, or the projection
+    // steals it (D-03)
+    if (onGesture) { if (interactive) onGesture(e); return }
     // the surrounding surface must not ALSO start a pan under the finger — the same reason the
-    // plan's capture layer stops this event (components/GeorefMode · own). NOT in `nativeDrag`
-    // mode, where the surface is deliberately the one running the gesture.
-    if (!nativeDrag) e.stopPropagation()
+    // plan's capture layer stops this event (components/GeorefMode · own).
+    e.stopPropagation()
     if (!draggable) return
     e.currentTarget.setPointerCapture?.(e.pointerId)
     drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false }
@@ -120,8 +136,13 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
     const dx = e.clientX - d.x, dy = e.clientY - d.y
     // …the first sample past the slop opens the drag, so a tap that never travels stays a tap
     if (!d.moved) {
-      if (Math.hypot(dx, dy) < DRAG_SLOP_PX) return
+      // the SHARED deadzone every drag on both surfaces uses (useHoldToDrag) — this layer had
+      // its own 4 px, so two twins standing next to each other answered a nudge differently
+      if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
       d.moved = true
+      // on a phone the .ctx sheet owns the bottom half of the surface — it steps aside for the
+      // length of the drag, exactly as every native chip drag makes it (lib/sheetPeek)
+      beginSheetPeek()
       onMove?.('start', 0, 0)
     }
     onMove?.('move', dx, dy)
@@ -131,6 +152,7 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
     if (!d || d.id !== e.pointerId) return
     drag.current = null
     dragged.current = d.moved
+    endSheetPeek() // …and comes back to the height it had
     if (d.moved) onMove?.('end', e.clientX - d.x, e.clientY - d.y)
   }
   return (
@@ -152,13 +174,23 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
       onPointerCancel={up}
       // ⚠️ A drag must not also open the panel. The click fires after pointerup on the same
       // element, and `drag.current` is already cleared by then, so the "did it travel" answer is
-      // carried by this flag rather than read back off the gesture.
-      onClick={(e) => { e.stopPropagation(); if (!dragged.current) onOpen(); dragged.current = false }}
+      // carried by this flag rather than read back off the gesture. In delegated mode the tap
+      // comes from the hold gesture instead, so only the KEYBOARD's click (detail 0) opens here.
+      onClick={(e) => {
+        e.stopPropagation()
+        if (onGesture) { if (e.detail === 0) onOpen(); return }
+        if (!dragged.current) onOpen()
+        dragged.current = false
+      }}
     >
+      {children}
       {selected && <span className="sel-halo" aria-hidden />}
+      {network && <span className="network-halo" aria-hidden />}
       <TacticalSymbol svg={svg} sizePx={sizePx} rotation={rotation} count={count}
         floor={floor} floorFrom={floorFrom} floorTo={floorTo}
         spread={spread} overlay={overlay} caption={caption} />
+      {/* boom AFTER the body → paints on top, the way both source surfaces mount it */}
+      {boom && <HubretterBoom lengthPx={boom.lengthPx} deg={boom.deg} />}
     </button>
   )
 }

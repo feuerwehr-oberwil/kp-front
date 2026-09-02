@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { unitLen, pathUnits, calibrate, pathMetres, polyAreaM2, isStale, type NPoint } from './planScale'
+import { unitLen, pathUnits, calibrate, pathMetres, polyAreaM2, isStale, circleRadiusM, circleRadiusN, circleRingN, type NPoint } from './planScale'
 
 describe('unitLen — aspect correction', () => {
   it('is plain Euclidean on a square page (ar = 1)', () => {
@@ -72,5 +72,47 @@ describe('isStale', () => {
   it('is true once the plan aspect drifts past the threshold', () => {
     const s = calibrate([0, 0], [0.5, 0], 10, 1.414)!
     expect(isStale(s, 0.7)).toBe(true)
+  })
+})
+
+// ── Absperrkreis on a plan (types · BoardAnno.radiusN) ──────────────────────────────────────
+// The radius is stored as a fraction of the plan WIDTH, so every answer about it has to run
+// through the same aspect correction a length does — otherwise a cordon on a 2:1 sheet reads
+// (and prints) as an ellipse, or states half the metres it covers.
+describe('circleRadiusM / circleRadiusN', () => {
+  it('is the plain radius on a square page (ar = 1, 1 unit = 1 m)', () => {
+    const s = calibrate([0, 0], [1, 0], 1, 1)! // mPerU = 1
+    expect(circleRadiusM(0.25, s.mPerU, 1)).toBeCloseTo(0.25, 9)
+  })
+
+  it('aspect-corrects: the same fraction covers more ground on a wide sheet', () => {
+    expect(circleRadiusM(0.25, 4, 2)).toBeCloseTo(2, 9) // 0.25 · 2 · 4
+  })
+
+  it('round-trips metres → fraction → metres', () => {
+    const n = circleRadiusN(25, 4, 1.5)!
+    expect(circleRadiusM(n, 4, 1.5)).toBeCloseTo(25, 9)
+  })
+
+  it('answers null where the sheet cannot say — no factor, degenerate aspect', () => {
+    expect(circleRadiusN(25, 0, 1.5)).toBeNull()
+    expect(circleRadiusN(25, 4, 0)).toBeNull()
+  })
+})
+
+describe('circleRingN', () => {
+  it('is round in PIXELS, not in normalized units: the y radius carries the aspect', () => {
+    const ring = circleRingN(0.5, 0.5, 0.2, 2, 4)
+    expect(ring).toHaveLength(4)
+    expect(ring[0][0]).toBeCloseTo(0.7, 9)   // east: x + radiusN
+    expect(ring[0][1]).toBeCloseTo(0.5, 9)
+    expect(ring[1][0]).toBeCloseTo(0.5, 9)   // south: y + radiusN · ar
+    expect(ring[1][1]).toBeCloseTo(0.9, 9)
+  })
+
+  it('is open (last point is not the first), like every other normalized ring here', () => {
+    const ring = circleRingN(0.5, 0.5, 0.1, 1, 8)
+    expect(ring).toHaveLength(8)
+    expect(ring[7]).not.toEqual(ring[0])
   })
 })

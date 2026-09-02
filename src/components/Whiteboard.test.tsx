@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { BoardAnno, BuildingDoc, PlanDocument, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import type { SymbolsApi } from '../lib/useSymbols'
@@ -412,5 +412,539 @@ describe('Plan round 3 (29.08.)', () => {
     fireEvent.pointerDown(screen.getByText('Hallo'))
     expect(container.querySelector('.note-grips')).toBeNull()
     expect(screen.getAllByRole('button', { name: appConfig.copy.delete }).length).toBeGreaterThan(0)
+  })
+})
+
+// ── A23 · read-only never gets grips ────────────────────────────────────────────────────────
+// The Karte states the rule and the reason (MapView · editDraw): «read-only never gets handles —
+// grabbable-looking vertices would move under the finger and snap back, the worst kind of 3am
+// lie». On the Plan they did more than lie: the surface's readOnly is broader than the write
+// guard upstream, so on a phone with the Verlauf open the grips actually wrote.
+describe('a locked plan surface hands out no reshape grips', () => {
+  const W = appConfig.copy.whiteboard
+  // `focus` is the door a read-only surface still has into a selection («Leitung zeigen», the
+  // ContextPanel's Verbindungen list) — and it only opens once the board has been measured, so
+  // jsdom needs a size for both the viewport (clientWidth) and the sheet (rect).
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+  const focused = (annoId: string) => ({ x: 0.5, y: 0.5, floor: 0, annoId, nonce: 1 })
+
+  it('gives the selected Leitung its node grips while the surface is editable', () => {
+    const { container } = renderPlan([line], { focus: focused('l1') })
+    expect(container.querySelectorAll('.wb-vertex').length).toBeGreaterThan(0)
+  })
+
+  it('renders none of them read-only — no node, no «+», no Verlängern', () => {
+    const { container } = renderPlan([line], { focus: focused('l1'), readOnly: true })
+    expect(container.querySelectorAll('.wb-vertex')).toHaveLength(0)
+    expect(container.querySelector('.wb-vins')).toBeNull()
+    expect(container.querySelector('.wb-grow')).toBeNull()
+  })
+
+  it('writes nothing when a grip is dragged anyway (a stale handle, a synthetic event)', () => {
+    const { container, onChange } = renderPlan([line], { focus: focused('l1') })
+    const grip = container.querySelector('.wb-vertex')!
+    cleanup()
+    const locked = renderPlan([line], { focus: focused('l1'), readOnly: true })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerMove(grip, { clientX: 300, clientY: 300, pointerId: 1 })
+    expect(onChange).not.toHaveBeenCalled()
+    expect(locked.onChange).not.toHaveBeenCalled()
+  })
+
+  it('still opens the read-only editor — the EL may ask how long the Leitung is', () => {
+    renderPlan([line], { focus: focused('l1'), readOnly: true })
+    expect(screen.getByText(appConfig.copy.drawingEditor.drawing)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
+  })
+})
+
+// ── A4 · Absperrkreis / Gefahrenradius on the Plan ──────────────────────────────────────────
+// The one object type that existed on the Karte and nowhere else. A cordon is a POINT with an
+// extent — centre plus a radius stored as a fraction of the plan width (types · BoardAnno.radiusN)
+// — so it is placed, moved and sized by the Karte's own gestures, and only its metres wait for
+// the sheet's Maßstab.
+describe('the Absperrkreis on a plan', () => {
+  const W = appConfig.copy.whiteboard
+  const C = appConfig.drawing
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  const cordon: BoardAnno = { id: 'k1', kind: 'circle', x: 0.5, y: 0.5, floor: 0, radiusN: 0.2, color: C.circleColor }
+  const ink = (c: HTMLElement) => c.querySelector('.wb-ink')!
+  const ring = (c: HTMLElement) => c.querySelector('.wb-ink-svg circle[style]')!
+  const placed = (onChange: ReturnType<typeof vi.fn>) => onChange.mock.calls[onChange.mock.calls.length - 1][0] as BoardAnno[]
+
+  it('is dragged out from its centre, exactly like the Karte’s', () => {
+    const { container, onChange } = renderPlan([])
+    fireEvent.click(screen.getByRole('button', { name: 'Absperrkreis' }))
+    const el = ink(container)
+    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(el, { clientX: 300, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 300, clientY: 200, pointerId: 1 })
+    const [a] = placed(onChange)
+    expect(a).toMatchObject({ kind: 'circle', x: 0.5, y: 0.5, floor: 0 })
+    expect(a.radiusN).toBeCloseTo(0.25, 6) // 100 of 400 px
+  })
+
+  it('drops a real cordon on a tap alone — the tool never does «nothing»', () => {
+    const { container, onChange } = renderPlan([])
+    fireEvent.click(screen.getByRole('button', { name: 'Absperrkreis' }))
+    const el = ink(container)
+    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    expect(placed(onChange)[0].radiusN).toBe(C.circleInitialRadiusN)
+  })
+
+  it('paints its ring and, once tapped, hands over the radius grip', () => {
+    const { container } = renderPlan([cordon])
+    expect(container.querySelectorAll('.wb-ink-svg circle').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: W.dragRadius })).toBeNull()
+    fireEvent.pointerDown(ring(container), { clientX: 200, clientY: 200, pointerId: 1 })
+    expect(screen.getByRole('button', { name: W.dragRadius })).toBeTruthy()
+  })
+
+  // a cordon is grabbed anywhere on its face, so the centre follows the DELTA — moving it to the
+  // grab point would shift the ring out from under the hand
+  it('moves by the pointer’s travel, not to the pointer', () => {
+    const { container, onChange } = renderPlan([cordon])
+    fireEvent.pointerDown(ring(container), { clientX: 280, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(ring(container), { clientX: 320, clientY: 200, pointerId: 1 })
+    const [a] = placed(onChange)
+    expect(a.x).toBeCloseTo(0.6, 6) // 0.5 + 40/400
+    expect(a.y).toBeCloseTo(0.5, 6)
+  })
+
+  it('states no metres on an uncalibrated sheet — that would be a number nobody measured', () => {
+    const { container } = renderPlan([cordon])
+    expect(container.querySelector('.wb-line-label')).toBeNull()
+  })
+
+  it('states its radius once the sheet is calibrated against its Maßstab', () => {
+    // ar matches the landscape A4 the blank Tafel is measured at (1 / (1 / 1.414))
+    const { container } = renderPlan([cordon], { planScale: { tafel: { mPerU: 100, refM: 10, ar: 1.414 } } })
+    expect(container.querySelector('.wb-line-label')?.textContent).toMatch(/m$/)
+  })
+
+  it('never wears vertex grips — it is centre + radius, not a polyline', () => {
+    const { container } = renderPlan([cordon])
+    fireEvent.pointerDown(ring(container), { clientX: 200, clientY: 200, pointerId: 1 })
+    expect(container.querySelectorAll('.wb-vertex')).toHaveLength(1) // the radius grip, nothing else
+    expect(container.querySelector('.wb-vins')).toBeNull()
+  })
+})
+
+// ── A8 · the placement magnet holds the board still ─────────────────────────────────────────
+// The Karte pauses dragPan while a claim ring fills, with the reason written out (MapView ·
+// placePanPaused): a finger holding still for the dwell wobbles past the pan slop, the pan that
+// starts kills the claim AND eats the tap, and the ring can never be ridden to the end on a real
+// device. The Plan kept its 8 px tap threshold live through the very same moment.
+describe('the Rotation’s placement magnet pauses the board pan', () => {
+  const S = appConfig.copy.shapes
+  const symApi: SymbolsApi = {
+    ready: true, order: ['Gefahren'],
+    symbols: [{ cat: 'Gefahren', name: 'VKF Feuer', svg: '<svg viewBox="0 0 10 10"></svg>' }],
+    byName: { 'VKF Feuer': '<svg viewBox="0 0 10 10"></svg>' },
+  }
+  const target: BoardAnno = { id: 's1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Feuer' }
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  const armRotation = () => {
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.symbol }))
+    fireEvent.click(screen.getByRole('button', { name: S.names.rotation }))
+  }
+  const shapes = (onChange: ReturnType<typeof vi.fn>) => {
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1]
+    return ((last?.[0] ?? []) as BoardAnno[]).filter((a) => a.kind === 'shape')
+  }
+
+  it('rides a 9 px glove wobble on the target and still lays the point down', () => {
+    const { container, onChange } = renderPlan([target], { sym: symApi })
+    armRotation()
+    const el = container.querySelector('.wb-ink')!
+    // dead on the symbol (0.5/0.5 of a 400 px sheet), then the wobble the ring is meant to absorb
+    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(el, { clientX: 209, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 209, clientY: 200, pointerId: 1 })
+    // the second point finishes the run — it only exists if the first tap survived the wobble
+    fireEvent.pointerDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    expect(shapes(onChange)).toHaveLength(1)
+  })
+
+  it('still lets a deliberate drag off the ring pan and lay nothing down', () => {
+    const { container, onChange } = renderPlan([target], { sym: symApi })
+    armRotation()
+    const el = container.querySelector('.wb-ink')!
+    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(el, { clientX: 380, clientY: 200, pointerId: 1 }) // well out of the ring
+    fireEvent.pointerUp(el, { clientX: 380, clientY: 200, pointerId: 1 })
+    fireEvent.pointerDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    expect(shapes(onChange)).toHaveLength(0) // that second tap is only the FIRST point now
+  })
+})
+
+// ── the Rotation on the Kroki ────────────────────────────────────────────────────────────────
+// Its box and its chrome, the halves of «Klickfläche wie beim Rechteck» and «gleiche Griffe wie
+// bei der Fläche». The pad's own pixels are CSS (03-map.css · .shape-glyph::before, shared with
+// the Karte); what the surface owes it is the two-sided box to hug.
+describe('a Rotation on the plan sheet', () => {
+  const S = appConfig.copy.shapes
+  // a run stored the way both surfaces store one (lib/shapes · rotationBox)
+  const loop: BoardAnno = { id: 'r1', kind: 'shape', shape: 'rotation', x: 0.5, y: 0.5, sizeN: 0.42, aspect: 0.13, rotation: 25, floor: 0 }
+  const rect: BoardAnno = { id: 'q1', kind: 'shape', shape: 'square', x: 0.3, y: 0.3, sizeN: 0.1, floor: 0 }
+
+  beforeEach(() => {
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('draws the same pad host the Rechteck has — its own box, on its own bearing', () => {
+    const { container } = renderPlan([rect])
+    const sq = container.querySelector<HTMLElement>('.shape-glyph')!
+    expect(parseFloat(sq.style.height)).toBeCloseTo(parseFloat(sq.style.width), 6)
+    cleanup()
+    const { container: c2 } = renderPlan([loop])
+    const rot = c2.querySelector<HTMLElement>('.shape-glyph')!
+    expect(parseFloat(rot.style.height)).toBeCloseTo(parseFloat(rot.style.width) * 0.13, 3)
+    expect(rot.style.transform).toContain('rotate(25deg)')
+  })
+
+  // 01.09. vocabulary: on the object itself only GEOMETRY grips, and every one of them blue.
+  // A Rotation is its two ends — each sets the run's length AND its bearing — so it carries no
+  // rotate knob, no stem and no size grip; moving and turning the whole loop is the fixed bar's.
+  it('wears its two end grips and nothing else — no knob, no stem, no size grip', () => {
+    const { container } = renderPlan([loop])
+    fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+    const ends = container.querySelectorAll('.handle.shape-end')
+    expect(ends).toHaveLength(2)
+    for (const g of ends) {
+      expect(g.getAttribute('aria-label')).toBe(S.endHint)
+      expect(g.hasAttribute('data-holdaction')).toBe(true)
+    }
+    expect(container.querySelector('.shape-stem')).toBeNull()
+    expect(container.querySelector('.shape-rotate')).toBeNull()
+    expect(container.querySelector('.shape-resize, .shape-width')).toBeNull()
+    // …and no grip paints itself: the blue is the shared .shape-end rule, never an inline fill
+    for (const g of ends) expect((g as HTMLElement).style.background).toBe('')
+  })
+
+})
+
+// ── the fixed selection bar (components/SelectionBar) ────────────────────────────────────────
+// It replaced the group pill AND the map's floating hub on 01.09.: one bar, in one place, for a
+// single Linie, an Absperrkreis, a Form and a Mehrfach group alike.
+describe('the plan’s selection bar', () => {
+  const D = appConfig.copy.drawingEditor
+  const R = appConfig.copy.shapes.rotate
+  const bar = () => screen.queryByRole('toolbar', { name: D.selectionBar })
+  const circle: BoardAnno = { id: 'k1', kind: 'circle', x: 0.5, y: 0.5, radiusN: 0.2, floor: 0 }
+  const box: BoardAnno = { id: 'f1', kind: 'shape', shape: 'square', x: 0.3, y: 0.3, sizeN: 0.1, floor: 0, rotation: 10 }
+
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('is absent until something is selected, then carries ✥ · ⟳ · Löschen', () => {
+    const { container } = renderPlan([line])
+    expect(bar()).toBeNull()
+    fireEvent.pointerDown(hitShape(container))
+    expect(bar()).toBeTruthy()
+    expect(within(bar()!).getByRole('button', { name: D.move })).toBeTruthy()
+    expect(within(bar()!).getByRole('button', { name: R })).toBeTruthy()
+  })
+
+  it('moves the whole selection by the ✥ drag, in one undo step', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerMove(grip, { clientX: 180, clientY: 100, pointerId: 1 }) // +80px of a 400px board
+    fireEvent.pointerUp(grip, { clientX: 180, clientY: 100, pointerId: 1 })
+    const moved = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
+    expect(moved.pts[0][0]).toBeCloseTo(0.4) // 0.2 + 80/400
+    expect(moved.pts[1][0]).toBeCloseTo(1.0)
+    expect(moved.pts[0][1]).toBeCloseTo(0.2) // untouched across
+  })
+
+  it('turns a Form about the selection centre and its own bearing with it', () => {
+    const { container, onChange } = renderPlan([box])
+    fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+    // the Form keeps its own knob on the glyph; the bar's is the one in the toolbar
+    const dialBtn = within(bar()!).getByRole('button', { name: R })
+    fireEvent.pointerDown(dialBtn, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(dialBtn, { clientX: 380, clientY: 200, pointerId: 1 }) // 180px = +90°
+    fireEvent.pointerUp(dialBtn, { clientX: 380, clientY: 200, pointerId: 1 })
+    const turned = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'f1')
+    expect(turned.rotation).toBe(100) // 10° + 90°
+    // a single object turns about ITSELF, so it stays where it was
+    expect(turned.x).toBeCloseTo(0.3)
+    expect(turned.y).toBeCloseTo(0.3)
+  })
+
+  /**
+   * ⚠️ 02.09., in lockstep with the Karte: a selected Form wears no halo and its body drags
+   * nothing. Its grips are the precise ones; moving the whole thing is the bar's ✥, dragged for
+   * the small adjustment or armed for the whole sheet. A body drag meant a reach for an end grip
+   * that landed a few pixels short pulled the loop away instead.
+   */
+  it('gives a selected Form no halo, and no body drag either', () => {
+    const { container, onChange } = renderPlan([box])
+    const glyph = container.querySelector('.wb-shape')!
+    fireEvent.pointerDown(glyph, { pointerId: 1, clientX: 100, clientY: 100 })
+    expect(container.querySelector('.sel-halo')).toBeNull()
+    fireEvent.pointerMove(glyph, { pointerId: 1, clientX: 200, clientY: 180 })
+    fireEvent.pointerUp(glyph, { pointerId: 1, clientX: 200, clientY: 180 })
+    const out = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
+    expect(out?.find((a) => a.id === 'f1')?.x ?? 0.3).toBeCloseTo(0.3)
+  })
+
+  it('…while a placed symbol keeps its halo and its body drag', () => {
+    const sym: BoardAnno = { id: 'y1', kind: 'symbol', symbol: 'Feuer', x: 0.3, y: 0.3, floor: 0 }
+    const { container, onChange } = renderPlan([sym])
+    const chip = container.querySelector('.wb-anno')!
+    fireEvent.pointerDown(chip, { pointerId: 1, clientX: 100, clientY: 100 })
+    expect(container.querySelector('.sel-halo')).toBeTruthy()
+    fireEvent.pointerMove(chip, { pointerId: 1, clientX: 200, clientY: 100 })
+    fireEvent.pointerUp(chip, { pointerId: 1, clientX: 200, clientY: 100 })
+    const out = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
+    expect(out?.find((a) => a.id === 'y1')?.x ?? 0.3).toBeGreaterThan(0.3)
+  })
+
+  it('offers no ⟳ for an Absperrkreis — a centre and a radius have no angle', () => {
+    const { container } = renderPlan([circle])
+    fireEvent.pointerDown(container.querySelector('.wb-ink-svg circle[style]')!)
+    expect(bar()).toBeTruthy()
+    expect(within(bar()!).queryByRole('button', { name: R })).toBeNull()
+  })
+
+  // ── ✥ / ⟳ as tap-toggles (02.09.) ───────────────────────────────────────────────────────
+  // The bar is pinned bottom-centre, so pulling ✥ DOWN runs the finger off the screen. A tap
+  // arms the same writers for the whole sheet instead (lib/useArmedTransform).
+  it('arms ✥ on a tap, then moves the selection from a drag on the paper itself', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    expect(within(bar()!).getByRole('button', { name: D.moveArmed }).getAttribute('aria-pressed')).toBe('true')
+    // …now a drag anywhere, including straight DOWN, which the grip had no room for
+    const canvas = container.querySelector('.wb-canvas')!
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
+    fireEvent.pointerMove(window, { clientX: 40, clientY: 160, pointerId: 2 })
+    fireEvent.pointerUp(window, { clientX: 40, clientY: 160, pointerId: 2 })
+    const moved = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
+    expect(moved.pts[0][1]).toBeCloseTo(0.5)   // 0.2 + 120/400
+    expect(moved.pts[0][0]).toBeCloseTo(0.2)   // untouched across
+  })
+
+  it('turns the selection about its centre while ⟳ is armed, following the pointer', () => {
+    const { container, onChange } = renderPlan([box])
+    fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+    const dialBtn = within(bar()!).getByRole('button', { name: R })
+    fireEvent.pointerDown(dialBtn, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(dialBtn, { clientX: 100, clientY: 100, pointerId: 1 })
+    // the Form sits at (0.3, 0.3) of a 400px board → its centre is client (120, 120)
+    const canvas = container.querySelector('.wb-canvas')!
+    fireEvent.pointerDown(canvas, { clientX: 220, clientY: 120, pointerId: 2, isPrimary: true }) // due east
+    fireEvent.pointerMove(window, { clientX: 120, clientY: 220, pointerId: 2 })                  // due south
+    fireEvent.pointerUp(window, { clientX: 120, clientY: 220, pointerId: 2 })
+    const turned = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'f1')
+    expect(turned.rotation).toBe(100)          // 10° + a quarter turn clockwise
+  })
+
+  it('keeps the selection under a tap that never travels while armed', () => {
+    const { container } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    const canvas = container.querySelector('.wb-canvas')!
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
+    fireEvent.pointerUp(window, { clientX: 40, clientY: 40, pointerId: 2 })
+    fireEvent.click(canvas)
+    // an empty-paper press normally clears the selection; while armed it is simply nothing
+    expect(bar()).toBeTruthy()
+    expect(within(bar()!).getByRole('button', { name: D.moveArmed })).toBeTruthy()
+  })
+
+  // ⚠️ «Löschen» left the bar on 02.09.: its third slot is «Fertig», which ENDS the editing state
+  // — nothing selected, no mode armed, the sheets that were open for it closed. Deleting stays on
+  // the Delete key and in the object's own editor sheet (see the A21 block below).
+  it('ends the editing state on «Fertig», and offers no trash at all', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    expect(within(bar()!).queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+    fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.done }))
+    expect(bar()).toBeNull()
+    // …and it deletes nothing on the way out
+    expect(onChange.mock.calls.length === 0
+      || onChange.mock.calls[onChange.mock.calls.length - 1][0].some((a: BoardAnno) => a.id === 'l1')).toBe(true)
+  })
+
+  it('drops an armed mode with the editing state', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    expect(within(bar()!).getByRole('button', { name: D.moveArmed })).toBeTruthy()
+    fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.done }))
+    expect(bar()).toBeNull()
+    // …and a drag on the sheet is a plain board gesture again, not a move of what was selected
+    const canvas = container.querySelector('.wb-canvas')!
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
+    fireEvent.pointerMove(window, { clientX: 40, clientY: 160, pointerId: 2 })
+    fireEvent.pointerUp(window, { clientX: 40, clientY: 160, pointerId: 2 })
+    const out = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
+    expect(out?.find((a) => a.id === 'l1')?.pts?.[0][1] ?? 0.2).toBeCloseTo(0.2)
+  })
+
+  it('is the SAME bar for a Mehrfach group — one drag moves every boxed object', () => {
+    const { container, onChange } = renderPlan([line, box])
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+    const stage = container.querySelector('.wb-stage > div')!
+    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    expect(bar()).toBeTruthy()
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 2 })
+    fireEvent.pointerMove(grip, { clientX: 100, clientY: 140, pointerId: 2 }) // +40px down of 400
+    fireEvent.pointerUp(grip, { clientX: 100, clientY: 140, pointerId: 2 })
+    const out = onChange.mock.calls[onChange.mock.calls.length - 1][0] as BoardAnno[]
+    expect(out.find((a) => a.id === 'l1')!.pts![0][1]).toBeCloseTo(0.3) // 0.2 + 40/400
+    expect(out.find((a) => a.id === 'f1')!.y).toBeCloseTo(0.4)          // 0.3 + 40/400
+  })
+
+  it('hands out no bar at all on a read-only surface', () => {
+    renderPlan([line], { readOnly: true, focus: { x: 0.5, y: 0.5, floor: 0, annoId: 'l1', nonce: 1 } })
+    expect(bar()).toBeNull()
+  })
+
+  // ── A21 · Delete / Backspace ───────────────────────────────────────────────────────────────
+  // The Karte has bound the key since the beginning; the Kroki had only Escape. Same semantics,
+  // reaching for exactly what the bar's trash reaches for.
+  const press = (key: 'Delete' | 'Backspace', target: Element | Window = window) => fireEvent.keyDown(target, { key })
+  const survives = (onChange: ReturnType<typeof vi.fn>, id: string) =>
+    onChange.mock.calls.length === 0 || onChange.mock.calls[onChange.mock.calls.length - 1][0].some((a: BoardAnno) => a.id === id)
+
+  it('deletes the selection by Delete, and by Backspace', () => {
+    for (const key of ['Delete', 'Backspace'] as const) {
+      const { container, onChange } = renderPlan([line])
+      fireEvent.pointerDown(hitShape(container))
+      press(key)
+      expect(survives(onChange, 'l1')).toBe(false)
+      cleanup()
+    }
+  })
+
+  it('deletes a whole Mehrfach group by the key, exactly as a single object goes', () => {
+    const { container, onChange } = renderPlan([line, box])
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+    const stage = container.querySelector('.wb-stage > div')!
+    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    press('Delete')
+    expect(survives(onChange, 'l1')).toBe(false)
+    expect(survives(onChange, 'f1')).toBe(false)
+  })
+
+  // ⚠️ The one that matters on a sheet full of Notiz textareas and Trupp names: Backspace in a
+  // field is a character, never a delete.
+  it('stays out of the way while a field owns the press', () => {
+    const { container, onChange } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    const field = document.createElement('input')
+    container.appendChild(field)
+    press('Backspace', field)
+    expect(survives(onChange, 'l1')).toBe(true)
+  })
+
+  it('deletes nothing on a read-only surface', () => {
+    const { onChange } = renderPlan([line], { readOnly: true, focus: { x: 0.5, y: 0.5, floor: 0, annoId: 'l1', nonce: 1 } })
+    press('Delete')
+    expect(survives(onChange, 'l1')).toBe(true)
+  })
+
+  // ── A22 · Cmd/Ctrl+D ───────────────────────────────────────────────────────────────────────
+  // The key resolved on the Plan and then did nothing (lib/hotkeys decodes it surface-agnostically;
+  // IncidentWorkspace only dispatched it on the Karte). Same semantics as the map's here.
+  type Keys = NonNullable<React.ComponentProps<typeof Whiteboard>['keysRef']>
+  const withKeys = (annos: BoardAnno[], extra: Partial<React.ComponentProps<typeof Whiteboard>> = {}) => {
+    const keysRef: Keys = { current: null }
+    const log = vi.fn()
+    return { ...renderPlan(annos, { keysRef, log, ...extra }), keysRef, log }
+  }
+  const out = (onChange: ReturnType<typeof vi.fn>) => onChange.mock.calls[onChange.mock.calls.length - 1][0] as BoardAnno[]
+
+  it('duplicates the one selected object a visible nudge away, and selects the copy', () => {
+    const { container, onChange, keysRef, log } = withKeys([line])
+    fireEvent.pointerDown(hitShape(container))
+    act(() => { keysRef.current!.duplicate() })
+    const annos = out(onChange)
+    expect(annos).toHaveLength(2)
+    const copy = annos.find((a) => a.id !== 'l1')!
+    expect(copy.kind).toBe('draw')
+    expect(copy.pts![0][0]).toBeCloseTo(0.22) // 0.2 + DUP_OFFSET_N
+    expect(copy.pts![0][1]).toBeCloseTo(0.22)
+    // one «Objekt dupliziert» row, pointing at the COPY — which is also what the selection
+    // moved to (setSelId). ⚠️ `annos` is a controlled prop here, so the copy never comes back
+    // into this render; the journal row is what says which object the surface handed on to.
+    expect(log).toHaveBeenCalledWith('layers', appConfig.copy.log.duplicated, expect.objectContaining({ annoId: copy.id }))
+  })
+
+  // ⚠️ A recorded track belongs to the Trupp that walked it (`teamLocked` refuses to delete one),
+  // so a copy that inherited it would fabricate a movement history AND arrive undeletable.
+  it('never copies a Trupp’s recorded trail', () => {
+    const trupp: BoardAnno = { id: 'r1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: 'A1', trail: [{ x: 0.1, y: 0.1, floor: 0, t: '2026-09-02T08:00:00Z' }] }
+    const { container, onChange, keysRef } = withKeys([trupp])
+    fireEvent.pointerDown(container.querySelector('.wb-anno')!)
+    act(() => { keysRef.current!.duplicate() })
+    const copy = out(onChange).find((a) => a.id !== 'r1')!
+    expect(copy.trail).toBeUndefined()
+  })
+
+  it('stays out of a Mehrfach group and off a read-only sheet — as on the Karte', () => {
+    const { container, onChange, keysRef } = withKeys([line, box])
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+    const stage = container.querySelector('.wb-stage > div')!
+    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    act(() => { keysRef.current!.duplicate() })
+    expect(onChange).not.toHaveBeenCalled()
+
+    cleanup()
+    const ro = withKeys([line], { readOnly: true, focus: { x: 0.5, y: 0.5, floor: 0, annoId: 'l1', nonce: 1 } })
+    act(() => { ro.keysRef.current!.duplicate() })
+    expect(ro.onChange).not.toHaveBeenCalled()
   })
 })

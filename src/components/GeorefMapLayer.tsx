@@ -14,6 +14,7 @@ import { georefDispatch, georefMatching, GEOREF_TAP_SLOP_PX, peekGeorefPhoneTarg
 import { GeorefPopoverCard } from './GeorefMode'
 import { fitSimilarity } from '../lib/georef'
 import { motionDuration } from '../lib/reducedMotion'
+import { uiBlue } from '../lib/themeToken'
 import s from './GeorefMode.module.css'
 
 /** Zoom levels above the live map the loupe shows.
@@ -142,13 +143,6 @@ export function GeorefMapMarks({ mode, map }: { mode: GeorefModeState; map: MlMa
 
 // --- «Deckung prüfen» -------------------------------------------------------------------------
 
-/** The link tone, read off the live theme — a GL paint property cannot take a CSS variable, and
- *  a frozen hex would be the one blue in the app that does not follow day/night. */
-function blueTone(): string {
-  const v = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim()
-  return v || '#1f6feb'
-}
-
 /**
  * The sheet's own outline, laid on the map — the check no residual can perform.
  *
@@ -199,7 +193,9 @@ export function GeorefCheckOutline({ mode, map }: { mode: GeorefModeState; map: 
   }, [map, mode.check, mode.planId, mode.pairs, mode.aspect, valid])
   if (!fit || !valid) return null
   const ring = [...corners, corners[0]]
-  const tone = blueTone()
+  // the link tone, read off the live theme (lib/themeToken) — a GL paint property cannot take a
+  // CSS variable, and a frozen hex would be the one blue in the app that does not follow day/night
+  const tone = uiBlue()
   const data = {
     type: 'Feature' as const,
     properties: {},

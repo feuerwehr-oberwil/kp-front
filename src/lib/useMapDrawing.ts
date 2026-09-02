@@ -305,6 +305,18 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       emit('draw.edit', { id, patch: { coords } })
     }
   }
+  // an Absperrkreis's radius, dragged on its ring grip (MapView) — the same phased shape as
+  // editDrawingCoords, so the whole drag is one undo step and one Verlauf row
+  const editDrawingRadius = (id: string, radiusM: number, phase: 'start' | 'move' | 'end') => {
+    if (tacticalLocked) return
+    if (phase === 'start') { beginDrag(); return }
+    setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === id ? { ...dr, radiusM } : dr)) }))
+    if (phase === 'end') {
+      endDrag()
+      noteDrawingEdit(drawings.find((dr) => dr.id === id), { radiusM })
+      emit('draw.edit', { id, patch: { radiusM } })
+    }
+  }
   // drag a line's distance/text label to a georeferenced anchor (WGS84 [lng,lat]) — stays pinned
   // to the ground at any zoom/bearing; folds into one undo step like editDrawingCoords
   // ('start' snapshots, 'move' streams, 'end' commits).
@@ -417,16 +429,26 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const draftActive = (tool === 'area' && areaMode === 'nodes' && draft.length >= 3) || (tool === 'line' && lineMode === 'nodes' && draft.length >= 2)
   // node-mode line taps seed the draft (like the area/measure tools), so the freehand gesture is off
   const lineNodes = tool === 'line' && lineMode === 'nodes'
-  /** the canvas drag draws a shape right now (a Linie or a Fläche) rather than panning */
-  const freehandArmed = (tool === 'line' && lineMode === 'freehand') || (tool === 'area' && areaMode === 'freehand')
+  /**
+   * WHICH shape the canvas drag lays down right now — a Linie or a Fläche — or null while the drag
+   * still pans. The kind, not a bare «armed»: only a Leitung's two ends can carry an attachment
+   * (`onFreehand` above hands an area's straight back), so only a line stroke may raise the
+   * endpoint magnet (A7 · MapView · onFreehandPointer). It used to be a boolean, the ring was
+   * bound unconditionally, and a Fläche drawn across a Hydrant filled a ConnectRing whose
+   * attachment was thrown away on release — the Plan has never raised one there.
+   */
+  const freehandKind: 'line' | 'area' | null =
+    tool === 'line' && lineMode === 'freehand' ? 'line'
+    : tool === 'area' && areaMode === 'freehand' ? 'area'
+    : null
 
   return {
     draft, setDraft,
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed, drawMarker, setDrawMarker,
     linePreset, setLinePreset, lineMode, setLineMode, areaMode, setAreaMode,
-    draftActive, lineNodes, freehandArmed, selectedDrawing,
+    draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
+    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   }
 }

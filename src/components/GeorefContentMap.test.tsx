@@ -6,13 +6,21 @@ import type { ReactNode } from 'react'
 import type { MapContentTwin } from '../lib/georefTwins'
 import type { BoardAnno } from '../types'
 
+type Feat = { properties: Record<string, unknown> }
 vi.mock('react-map-gl/maplibre', () => ({
-  Source: ({ children }: { children: ReactNode }) => <div data-testid="source">{children}</div>,
-  Layer: () => <i data-testid="layer" />,
+  Source: ({ children, id, data }: { children: ReactNode; id?: string; data?: { features?: Feat[] } }) => (
+    <div data-testid="source" data-id={id} data-props={JSON.stringify(data?.features?.map((f) => f.properties) ?? [])}>{children}</div>
+  ),
+  Layer: ({ id }: { id?: string }) => <i data-testid="layer" data-id={id} />,
   Marker: ({ children }: { children: ReactNode }) => <div data-testid="marker">{children}</div>,
 }))
 
 import { GeorefContentMap } from './GeorefContentMap'
+import { GEOREF_CONTENT_PICK_LAYERS } from '../lib/mapView'
+
+const layerIds = () => screen.getAllByTestId('layer').map((l) => l.dataset.id)
+const inkProps = (container: HTMLElement): Record<string, unknown>[] =>
+  JSON.parse(container.querySelector<HTMLElement>('[data-id="s-georef-content"]')?.dataset.props ?? '[]')
 
 afterEach(cleanup)
 
@@ -68,6 +76,20 @@ describe('broader Plan content on the Karte', () => {
     expect(screen.getAllByTestId('source').length).toBe(2)
   })
 
+  // …and the same hit box, which is a Form's own box grown a little (03-map.css ·
+  // .shape-glyph::before). The pad is drawn INSIDE the glyph, so a pointer-inert glyph has a
+  // pointer-inert pad: a tappable mirrored Rotation would have answered over the middle of its
+  // run and nowhere else, however long the run was.
+  it('lets a tappable mirrored Form carry the shared hit pad, and a locked one stay click-through', () => {
+    const twins = [point({ id: 'rot', kind: 'shape', x: 0.5, y: 0.5, shape: 'rotation', sizeN: 0.42, aspect: 0.13 })]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive onOpenTwin={() => {}} />)
+    expect(container.querySelector('.shape-glyph')!.className).toBe('shape-glyph')
+    cleanup()
+    const locked = [point({ id: 'rot', kind: 'shape', x: 0.5, y: 0.5, shape: 'rotation', sizeN: 0.42, aspect: 0.13, locked: true })]
+    const { container: c2 } = render(<GeorefContentMap twins={locked} zoom={18} bearing={0} interactive onOpenTwin={() => {}} />)
+    expect(c2.querySelector('.shape-glyph')!.className).not.toBe('shape-glyph')
+  })
+
   it('a mirrored shape carries the source geometry: stretched box and Stopp-Balken', () => {
     const twins = [point({ id: 'sq', kind: 'shape', x: 0.5, y: 0.5, shape: 'square', sizeN: 0.2, aspect: 2 })]
     const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} />)
@@ -87,23 +109,61 @@ describe('broader Plan content on the Karte', () => {
       point({ id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1' }),
     ]
     const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive onOpenTwin={onOpenTwin} />)
-    // the pathless kinds are their own hit target; the line gets a grip at its midpoint
-    expect(container.querySelectorAll('button')).toHaveLength(3)
+    // ⚠️ the pathless kinds are their own hit target; the LINE has none — its ink answers over
+    // its whole length through MapView's interactiveLayerIds, and it wears no midpoint grip any
+    // more (D-25), exactly like the map's own Linie
+    expect(container.querySelectorAll('button')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /Linie/ })).toBeNull()
     const note = screen.getByRole('button', { name: /Abschnitt Ost/ })
     fireEvent.pointerDown(note, { pointerId: 1, isPrimary: true, clientX: 50, clientY: 50 })
     fireEvent.pointerUp(note, { pointerId: 1, clientX: 50, clientY: 50 })
     expect(onOpenTwin).toHaveBeenCalledWith(expect.objectContaining({ annoId: 'note' }))
-    const grip = screen.getByRole('button', { name: /Linie/ })
-    fireEvent.pointerDown(grip, { pointerId: 2, isPrimary: true, clientX: 50, clientY: 50 })
-    fireEvent.pointerUp(grip, { pointerId: 2, clientX: 50, clientY: 50 })
-    expect(onOpenTwin).toHaveBeenCalledWith(expect.objectContaining({ annoId: 'line' }))
   })
 
-  it('the open panel marks its projection with the selection halo', () => {
-    const twins = [point({ id: 'note', kind: 'text', x: 0.5, y: 0.5, text: 'Abschnitt Ost' })]
-    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
-      selectedKey="note" onOpenTwin={() => {}} />)
-    expect(container.querySelector('.sel-halo')).toBeTruthy()
+  /**
+   * ⚠️ NONE of the kinds this layer hit-targets wears a selection halo, and that is the native's
+   * own rule rather than a twin one (MapMarkers · `raised && kind !== 'note' && kind !== 'team'
+   * && kind !== 'shape'`). A selected mirrored «Trupp 10» came up wearing a 104px blue ring the
+   * original beside it does not wear (02.09.): a Trupp says «selected» by becoming its context
+   * pill, a Notiz by its own selected chrome, and a Form by its grips and the bar.
+   */
+  it('leaves the halo off a mirrored Trupp, Notiz and Form alike, as their natives do', () => {
+    const form = render(<GeorefContentMap zoom={18} bearing={0} interactive selectedKey="form" onOpenTwin={() => {}}
+      twins={[point({ id: 'form', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.1 })]} />)
+    expect(form.container.querySelector('.sel-halo')).toBeNull()
+    cleanup()
+    const team = render(<GeorefContentMap zoom={18} bearing={0} interactive selectedKey="team" onOpenTwin={() => {}}
+      twins={[point({ id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 10' })]} />)
+    expect(team.container.querySelector('.sel-halo')).toBeNull()
+    expect(team.container.querySelector('.team-dot')).toBeTruthy()
+    cleanup()
+    const note = render(<GeorefContentMap zoom={18} bearing={0} interactive selectedKey="note" onOpenTwin={() => {}}
+      twins={[point({ id: 'note', kind: 'text', x: 0.5, y: 0.5, text: 'Abschnitt Ost' })]} />)
+    expect(note.container.querySelector('.sel-halo')).toBeNull()
+    // …its own selected chrome instead, the very rule the native note follows (08-toasts.css)
+    expect(note.container.querySelector('.note-pill.twin-sel')).toBeTruthy()
+  })
+
+  // …and the SELECTED Trupp, the one the report was about: its context pill is the selection,
+  // and there is no ring around it either.
+  it('never drags a mirrored Form by its body — the bar is its move path', () => {
+    const onMoveTwin = vi.fn()
+    const { container } = render(<GeorefContentMap zoom={18} bearing={0} interactive selectedKey="form"
+      onOpenTwin={() => {}} onMoveTwin={onMoveTwin} project={project} unproject={unproject}
+      twins={[point({ id: 'form', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.1 })]} />)
+    const btn = container.querySelector('button')!
+    fireEvent.pointerDown(btn, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 180, clientY: 160 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 180, clientY: 160 })
+    expect(onMoveTwin).not.toHaveBeenCalled()
+  })
+
+  it('shows the mirrored Trupp’s context pill without a ring around it', () => {
+    const acts = { rename: vi.fn(), pick: vi.fn(), color: vi.fn(), mark: vi.fn(), clearTrail: vi.fn(), remove: vi.fn(), showTrupp: vi.fn(), toOriginal: vi.fn() }
+    const { container } = render(<GeorefContentMap zoom={18} bearing={0} interactive selectedKey="team"
+      onOpenTwin={() => {}} teamActions={acts}
+      twins={[point({ id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 10' })]} />)
+    expect(container.querySelector('.sel-halo')).toBeNull()
   })
 
   it('a mouse press-drag on a Trupp chip moves the source chip instead of panning the map', () => {
@@ -118,29 +178,16 @@ describe('broader Plan content on the Karte', () => {
     expect(coord[0]).toBeCloseTo(point({ id: 'x', kind: 'resource' }).coord![0] + 0.05, 5)
   })
 
-  it('…and a grip drag moves ANY unanchored line whole — only an attached endpoint blocks it', () => {
-    // round 8 (full 1:1): the old isLeitung tap-only guard fell — a numbered Leitung drags like
-    // any line. Only a line whose endpoint is ANCHORED keeps its whole-drag off (translating
-    // stored pts would fork against the plan's re-resolution; its grips reshape it instead).
+  it('a mirrored line has no move handle of its own — the selection bar carries the move', () => {
+    // D-25/D-13: the midpoint grip existed only because the ink was pointer-dead. The map's own
+    // Linie has no body grip either; both are moved from the one fixed bar (components/SelectionBar).
     const onMoveTwin = vi.fn()
     const twins: MapContentTwin[] = [
       { ...point({ id: 'ltg', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.1]], lineNo: 1 }), coords: [[7.5, 47.5], [7.501, 47.5]] },
-      {
-        ...point({
-          id: 'anchored', kind: 'draw', pts: [[0.1, 0.3], [0.8, 0.3]],
-          startAttachment: { target: { kind: 'object', id: 'hydrant' }, routing: 'direct' },
-        }),
-        coords: [[7.5, 47.49], [7.501, 47.49]],
-      },
     ]
-    render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
       onOpenTwin={() => {}} onMoveTwin={onMoveTwin} project={project} unproject={unproject} setDragPan={() => {}} />)
-    const grips = screen.getAllByRole('button')
-    mouseDrag(grips[0], [100, 100], [150, 100])
-    expect(onMoveTwin.mock.calls.some(([t, , ph]) => t.annoId === 'ltg' && ph === 'end')).toBe(true)
-    onMoveTwin.mockClear()
-    mouseDrag(grips[1], [100, 100], [150, 100])
-    expect(onMoveTwin).not.toHaveBeenCalled()
+    expect(container.querySelectorAll('button')).toHaveLength(0)
   })
 
   it('the selected mirrored line wears the map\'s native vertex vocabulary', () => {
@@ -160,5 +207,138 @@ describe('broader Plan content on the Karte', () => {
     expect(phase).toBe('commit')
     expect(patch.pts).toHaveLength(3)
     expect(patch.pts[1][0]).toBeCloseTo(0.45, 6)
+  })
+
+  // ⚠️ D-04 (01.09.): the mirrored ink used to live in a Source PER twin, with generated layer
+  // ids that MapView's `interactiveLayerIds` could never name — so a 40 m mirrored Leitung was
+  // pointer-dead everywhere except its midpoint dot. One collection with fixed ids gives the
+  // projections the native's own 18 px hit band and its selection halo.
+  it('carries the map’s own registered ink layers, hit band included', () => {
+    const twins: MapContentTwin[] = [
+      { ...point({ id: 'line', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.8]] }), coords: [[7.5, 47.5], [7.501, 47.499]] },
+      { ...point({ id: 'flaeche', kind: 'area', pts: [[0.1, 0.1], [0.8, 0.1], [0.8, 0.8]] }), coords: [[7.5, 47.5], [7.501, 47.5], [7.501, 47.499]] },
+    ]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} />)
+    // ONE source for both, not one per object
+    expect(container.querySelectorAll('[data-id="s-georef-content"]')).toHaveLength(1)
+    for (const id of GEOREF_CONTENT_PICK_LAYERS) expect(layerIds()).toContain(id)
+    expect(layerIds()).toContain('l-georef-content-sel')
+  })
+
+  // D-16, safety-relevant: the loudest thing the Lage says about people being overdue has to
+  // cross the mirror — the end tag's tone alone did not.
+  it('gives a mirrored Leitung of an überfällig Trupp the Atemschutz alarm halo', () => {
+    const twins: MapContentTwin[] = [
+      { ...point({ id: 'ltg', kind: 'draw', pts: [[0.1, 0.1], [0.8, 0.1]], lineNo: 1 }), coords: [[7.5, 47.5], [7.501, 47.5]] },
+      { ...point({ id: 'plain', kind: 'draw', pts: [[0.1, 0.3], [0.8, 0.3]] }), coords: [[7.5, 47.49], [7.501, 47.49]] },
+    ]
+    const trupps = [{ id: 't1', name: 'Meier Anna', lineNo: 1, status: 'in' }] as never
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0}
+      trupps={trupps} truppSeverities={{ t1: 2 }} />)
+    expect(layerIds()).toContain('l-georef-content-atemschutz')
+    expect(inkProps(container).map((f) => f.truppTone)).toEqual(['crit', ''])
+  })
+
+  // D-07: the lock is a property of the OBJECT, so it has to hold through the mirror too —
+  // otherwise a deliberately locked Sektor-Fläche is still draggable from the other surface.
+  it('a locked source goes click-through here as well, with the LockChip as the only way back', () => {
+    const onUnlockTwin = vi.fn()
+    const twins: MapContentTwin[] = [
+      { ...point({ id: 'sektor', kind: 'area', pts: [[0.1, 0.1], [0.8, 0.1], [0.8, 0.8]], locked: true }), coords: [[7.5, 47.5], [7.501, 47.5], [7.501, 47.499]] },
+    ]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
+      selectedKey={twins[0].key} onOpenTwin={() => {}} onEditTwinAnno={() => {}} onUnlockTwin={onUnlockTwin}
+      project={project} unproject={unproject} setDragPan={() => {}} />)
+    // no grip and no vertex handles, even though it is the SELECTED twin — the LockChip is the
+    // only button the object has left
+    const buttons = container.querySelectorAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0].className).toContain('draw-lock-chip')
+    expect(document.querySelectorAll('.draw-handle')).toHaveLength(0)
+    // the ink itself says so, so MapView skips it when resolving a click
+    expect(inkProps(container)[0].locked).toBe(true)
+  })
+
+  it('a locked mirrored Form takes no tap and no drag', () => {
+    const twins = [point({ id: 'sq', kind: 'shape', x: 0.5, y: 0.5, shape: 'square', sizeN: 0.2, locked: true })]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} interactive
+      onOpenTwin={() => {}} onUnlockTwin={() => {}} project={project} unproject={unproject} setDragPan={() => {}} />)
+    expect(container.querySelector('.shape-glyph')).toBeTruthy()
+    // the LockChip is the ONLY button left
+    const buttons = container.querySelectorAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0].className).toContain('draw-lock-chip')
+  })
+})
+
+describe('presentation equivalence on the Karte (01.09.)', () => {
+  it('carries the Schraffur across and paints it in its own fill layer', () => {
+    const twins: MapContentTwin[] = [{
+      ...point({ id: 'a', kind: 'area', pts: [[0.1, 0.1], [0.8, 0.1], [0.8, 0.8]], hatch: true }),
+      coords: [[7.5, 47.5], [7.501, 47.5], [7.501, 47.499]],
+    }]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} />)
+    expect(inkProps(container)[0].hatch).toBe(true)
+    expect(layerIds()).toContain('l-georef-content-hatch')
+    // …and MapView picks that layer, or a hatched Fläche would be pointer-dead over its fill
+    expect(GEOREF_CONTENT_PICK_LAYERS).toContain('l-georef-content-hatch')
+  })
+
+  it('uses the MAP surface default line weight, not the plan sheet default', () => {
+    const twins: MapContentTwin[] = [
+      { ...point({ id: 'l', kind: 'draw', pts: [[0, 0], [1, 1]] }), coords: [[7.5, 47.5], [7.501, 47.499]] },
+    ]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={18} bearing={0} />)
+    expect(inkProps(container)[0].width).toBe(4)
+  })
+
+  it('sizes a mirrored Form in the map band and lets its halo follow the box', () => {
+    // 0.4 plan units ≈ 0.0004° ≈ far past the 900px ceiling at this zoom
+    const twins = [point({ id: 'big', kind: 'shape', x: 0.1, y: 0.5, shape: 'square', sizeN: 0.4 })]
+    const { container } = render(<GeorefContentMap twins={twins} zoom={22} bearing={0} interactive selectedKey="big"
+      onOpenTwin={() => {}} project={project} unproject={unproject} setDragPan={() => {}} />)
+    const glyph = container.querySelector<HTMLElement>('.shape-glyph')!
+    const px = parseFloat(glyph.style.width)
+    expect(px).toBeLessThanOrEqual(900)
+    expect(px).toBeGreaterThanOrEqual(24)
+    // the halo box tracks the shape instead of the old fixed 44px
+    expect(container.querySelector<HTMLElement>('button')!.style.getPropertyValue('--hbox')).toBe(`${Math.max(px, 56)}px`)
+  })
+
+  it('a mirrored Trupp states «raus», its recorded times, and answers the Spuren switch', () => {
+    const anno: BoardAnno = {
+      id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1', truppId: 't1',
+      trail: [{ x: 0.4, y: 0.4, t: '08:12' }, { x: 0.45, y: 0.45, t: '08:20' }],
+    }
+    const trupps = [{ id: 't1', name: 'Trupp 1', status: 'raus' } as never]
+    const { container, rerender } = render(<GeorefContentMap twins={[point(anno)]} zoom={18} bearing={0} trupps={trupps} />)
+    expect(container.querySelector('.team-dot')?.className).toContain('raus')
+    expect(screen.getByText('08:12')).toBeTruthy()
+    expect(screen.getByText('08:20')).toBeTruthy()
+    rerender(<GeorefContentMap twins={[point(anno)]} zoom={18} bearing={0} trupps={trupps} hiddenTrails={new Set(['team'])} />)
+    expect(screen.queryByText('08:12')).toBeNull()
+  })
+
+  it('gives the selected mirrored Trupp the full context bar, not a plaque', () => {
+    const anno: BoardAnno = { id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1' }
+    const remove = vi.fn()
+    const acts = {
+      rename: vi.fn(), pick: vi.fn(), color: vi.fn(), mark: vi.fn(), clearTrail: vi.fn(),
+      remove, showTrupp: vi.fn(), toOriginal: vi.fn(),
+    }
+    const { container } = render(<GeorefContentMap twins={[point(anno)]} zoom={18} bearing={0} interactive
+      selectedKey="team" teamActions={acts} onOpenTwin={() => {}}
+      project={project} unproject={unproject} setDragPan={() => {}} />)
+    expect(container.querySelector('.wb-resource-pill')).toBeTruthy()
+    const del = container.querySelector<HTMLButtonElement>('.wb-pa-del')!
+    fireEvent.click(del)
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(remove.mock.calls[0][0].annoId).toBe('team')
+  })
+
+  it('lets the map label pass suppress a mirrored Trupp name', () => {
+    const anno: BoardAnno = { id: 'team', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 1' }
+    render(<GeorefContentMap twins={[point(anno)]} zoom={18} bearing={0} suppressedLabels={new Set(['tteam:team'])} />)
+    expect(screen.queryByText('Trupp 1')).toBeNull()
   })
 })

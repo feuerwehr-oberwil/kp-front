@@ -18,13 +18,13 @@
  * measured on the SOURCE geometry (geodesic, lib/geo) — the map already knows the truth, so a
  * mirrored line reads its Länge even on a sheet that was never calibrated.
  */
-import { useRef, useState, type CSSProperties } from 'react'
-import { Icon } from '../lib/icons'
-import { Menu, Popover, PopoverClose } from '../lib/overlays'
+import { useRef, type CSSProperties } from 'react'
 import { LineMarker } from './LineMarker'
-import { MenuPick } from './MenuPick'
+import { LockChip } from './LockChip'
+import { TwinTeamPill } from './TwinTeamPill'
 import type { GeorefFit } from '../lib/georef'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { contentTwinName, type BoardDrawingTwin, type BoardEntityTwin } from '../lib/georefTwins'
 import { WbInkLayer, WbVertexHandles } from './WbControls'
 import { ShapeGlyph, shapeAspect } from '../lib/shapes'
@@ -32,8 +32,8 @@ import { TacticalSymbol } from '../lib/symbolRender'
 import { glyphFor } from '../lib/twinGlyph'
 import { noteScale, noteWPx } from '../lib/notes'
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
-import { fmtArea, fmtDistance, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
-import { EXTEND_STEP_PX, lerpPoint, lookbackPoint, markerGlyph, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
+import { fmtArea, fmtDistance, haversineM, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
+import { DEFAULT_INK, EXTEND_STEP_PX, lerpPoint, lookbackPoint, markerGlyph, markerParamsAlong, markerSpacing } from '../lib/lineStyle'
 import { EndTag, TeilstueckFork, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { appConfig } from '../config/appConfig'
@@ -41,12 +41,12 @@ import { fillTemplate } from '../lib/format'
 import type { BoardAnno, Drawing, Entity, LngLat, Trupp } from '../types'
 import s from './GeorefTwins.module.css'
 
-export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords, onDrawingDetach, selectedTeamId, onSelectTeam, teamActions, hiddenTrails, onToggleTrail }: {
+export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH, byName, trupps = [], truppSeverities, interactive = false, selectedDrawingId, selectedEntityId, selectedKeys = [], onOpenTeam, onMoveTeam, onOpenDrawing, onDrawingCoords, onDrawingRadius, onDrawingDetach, onUnlockDrawing, onUnlockEntity, selectedTeamId, onSelectTeam, teamActions, hiddenTrails, onToggleTrail }: {
   entities: BoardEntityTwin[]
   drawings: BoardDrawingTwin[]
   fit: GeorefFit
-  /** width / height of the fitted sheet; turns ground metres into plan-width fractions */
-  planAspect: number
+  /** ground width of the fitted sheet in metres; turns ground metres into plan-width fractions */
+  planWidthM: number
   sW: number
   sH: number
   byName: Record<string, string>
@@ -56,6 +56,11 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   /** the sheet is at rest (pan tool, no pairing) — only then may a projection answer a tap */
   interactive?: boolean
   selectedDrawingId?: string | null
+  /** the mirrored Karte note/Form whose panel is open — it wears the selection state its
+   *  original wears on the Karte, so the open panel says which object it belongs to */
+  selectedEntityId?: string | null
+  /** …and every mirrored member of a Mehrfach group, which lights up the same way (D-09) */
+  selectedKeys?: string[]
   /** Tap on a mirrored team chip, note or shape: open its in-place source-backed panel (the
    *  workspace decides — a team chip used to jump surfaces, which read as a bug). The name is
    *  historic: Whiteboard wires it as `onTwinJump`, generic over every entity kind. */
@@ -70,9 +75,19 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
   onOpenDrawing?: (drawing: Drawing) => void
   /** Whole-line and vertex drags write WGS84 coordinates to the one map-owned drawing. */
   onDrawingCoords?: (drawingId: string, coords: LngLat[], phase: 'start' | 'move' | 'end') => void
+  /** the ring grip of a mirrored Absperrkreis: a ground radius in metres, written to the one
+   *  Karte circle. The sheet's own cordon has exactly this grip (WbCircleHandle) — the mirror
+   *  had only the whole-body drag, so it could not be resized from here at all. */
+  onDrawingRadius?: (drawingId: string, radiusM: number, phase: 'start' | 'move' | 'end') => void
   /** clear one endpoint's attachment — grabbing an attached endpoint's grip detaches it first
    *  (the magnet machinery lives on the Karte; dragging the stored coord would fork the mirror) */
   onDrawingDetach?: (drawingId: string, endpoint: 'start' | 'end') => void
+  /** Unlock a mirrored Karte line/area (its LockChip's only job). A locked source is
+   *  click-through on BOTH surfaces — the lock is a property of the object, not of the sheet it
+   *  happens to be drawn on — so the chip is the only door back in here too. */
+  onUnlockDrawing?: (drawingId: string) => void
+  /** …the same for a mirrored Karte Form (Entity.locked). */
+  onUnlockEntity?: (entityId: string) => void
   /** the selected mirrored Truppmarker (Whiteboard holds it beside its other twin selections,
    *  so the shared outside-tap dismissal closes it like everything else) */
   selectedTeamId?: string | null
@@ -100,8 +115,6 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
    *  must be added to a FIXED point (GeorefTwinsBoard carries the same warning). One ref: only
    *  one mark is ever dragged at a time. */
   const chipDrag = useRef<{ pid: number; x: number; y: number; base: { x: number; y: number }; entity: Entity; moved: boolean } | null>(null)
-  // inline rename on the selected team pill (the bar's pen) — same grammar as the sheet's own chip
-  const [renamingTeamId, setRenamingTeamId] = useState<string | null>(null)
   /** The shared tap/drag handlers of every interactive point mark in this layer — one grammar
    *  for the chip, the note and the shape, matching the sheet's own chipDown (deadzone first,
    *  a tap is never a nudge). */
@@ -121,6 +134,8 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
       if (!d.moved) {
         if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
         d.moved = true
+        // the phone's .ctx sheet steps aside for the drag, as it does for the sheet's own chips
+        beginSheetPeek()
         onMoveTeam!(d.entity, d.base, 'start')
       }
       onMoveTeam!(d.entity, {
@@ -132,6 +147,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
       const d = chipDrag.current
       if (!d || d.pid !== ev.pointerId) return
       chipDrag.current = null
+      endSheetPeek()
       if (d.moved) {
         onMoveTeam!(d.entity, {
           x: Math.max(0, Math.min(1, d.base.x + (ev.clientX - d.x) / sW)),
@@ -139,7 +155,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
         }, 'end')
       } else if (jump) jump()
     },
-    onPointerCancel: () => { const d = chipDrag.current; chipDrag.current = null; if (d?.moved) onMoveTeam!(d.entity, d.base, 'end') },
+    onPointerCancel: () => { const d = chipDrag.current; chipDrag.current = null; endSheetPeek(); if (d?.moved) onMoveTeam!(d.entity, d.base, 'end') },
   })
   const drawingDrag = useRef<{
     pid: number; x: number; y: number; drawing: Drawing; moved: boolean; last: LngLat[]
@@ -179,6 +195,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
       if (!d.moved) {
         if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
         d.moved = true
+        beginSheetPeek()
         onDrawingCoords(d.drawing.id, d.drawing.coords, 'start')
       }
       d.last = movedDrawingCoords(d.drawing, dx, dy)
@@ -188,12 +205,14 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
       const d = drawingDrag.current
       if (!d || d.pid !== ev.pointerId) return
       drawingDrag.current = null
+      endSheetPeek()
       if (d.moved) onDrawingCoords?.(d.drawing.id, d.last, 'end')
       else onOpenDrawing?.(d.drawing)
     },
     onPointerCancel: () => {
       const d = drawingDrag.current
       drawingDrag.current = null
+      endSheetPeek()
       if (d?.moved) onDrawingCoords?.(d.drawing.id, d.last, 'end')
     },
   })
@@ -248,6 +267,48 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
     el.addEventListener('pointerup', finish)
     el.addEventListener('pointercancel', finish)
   }
+  /** The ring grip of a mirrored Absperrkreis, in the sheet's own «drag from the centre outward»
+   *  grammar (Whiteboard · rotDown 'radius'): the pointer's distance from the projected centre is
+   *  the radius, converted back to GROUND metres because that is the unit the one Karte circle
+   *  stores. Self-contained like the vertex gesture above, and for the same reason. */
+  const beginRadiusGesture = (drawing: Drawing, e: React.PointerEvent) => {
+    if (!onDrawingRadius) return
+    e.stopPropagation(); e.preventDefault()
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture?.(e.pointerId)
+    const pid = e.pointerId
+    const board = el.closest('.wb-board')?.getBoundingClientRect()
+    const c = fit.toPlan({ lng: drawing.coords[0][0], lat: drawing.coords[0][1] })
+    if (!board?.width) return
+    const cx = board.left + c.x * sW, cy = board.top + c.y * sH
+    const st = { moved: false, last: drawing.radiusM ?? 0 }
+    const radiusAt = (ev: PointerEvent) => {
+      // board px → sheet fraction → ground: the ring is round on PAPER, so the radius is measured
+      // from the centre to the dragged point through the fit, not through a plan-width factor
+      const edge = fit.toMap({ x: c.x + (ev.clientX - cx) / sW, y: c.y + (ev.clientY - cy) / sH })
+      return Math.max(1, haversineM(drawing.coords[0], [edge.lng, edge.lat]))
+    }
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== pid) return
+      if (!st.moved) {
+        if (Math.hypot(ev.clientX - cx, ev.clientY - cy) < 1) return
+        st.moved = true
+        onDrawingRadius(drawing.id, drawing.radiusM ?? 0, 'start')
+      }
+      st.last = radiusAt(ev)
+      onDrawingRadius(drawing.id, st.last, 'move')
+    }
+    const finish = (ev: PointerEvent) => {
+      if (ev.pointerId !== pid) return
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', finish)
+      el.removeEventListener('pointercancel', finish)
+      if (st.moved) onDrawingRadius(drawing.id, st.last, 'end')
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', finish)
+    el.addEventListener('pointercancel', finish)
+  }
   /** The native surface's full vertex vocabulary (WbVertexHandles) on a mirrored drawing —
    *  grips, «+» midpoints, hold-to-delete, Verlängern arrows. 1:1, doctrine 30.08. round 8. */
   const twinVertexProps = (drawing: Drawing) => ({
@@ -288,19 +349,29 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
     }]
   })
   const ink = [...drawings.map((d) => d.anno), ...trailAnnos]
-  // PlanScale/georef units are aspect-corrected: one normalized sheet width is ar·mPerU metres.
-  const planWidthM = Math.max(0.001, fit.scaleMPerU * planAspect)
-
+  /** anno id → Atemschutz alarm tone, so a mirrored Leitung wears the SAME halo the sheet's own
+   *  Leitungen wear (WbControls · truppTones). It is the loudest thing either surface says about
+   *  people being overdue; the end tag alone did not carry it across (01.09.). */
+  const truppTones = Object.fromEntries(drawings.flatMap(({ anno }) => {
+    const tr = anno.kind === 'draw' ? truppForLine(anno, trupps) : undefined
+    const tone = tr ? truppLineTone(tr, truppSeverities?.[tr.id] ?? 0) : 'idle'
+    return tone === 'warn' || tone === 'crit' ? [[anno.id, tone] as const] : []
+  }))
   return (
     // not aria-hidden any more: the mirrored team chips answer a tap (onOpenTeam)
     <div className={s.contentBoard}>
-      <WbInkLayer annos={ink} draft={null} draftFloor={0} color="#1f6feb" width={5} dashed={false}
-        hiddenTrails={new Set()} mapY={(_floor, y) => y} />
+      {/* `selId` is the PROJECTED anno's id, not the map drawing's — the same blue outline the
+          sheet's own selected Linie/Fläche wears (WbControls · WbInkLayer). */}
+      <WbInkLayer annos={ink} draft={null} draftFloor={0} color={DEFAULT_INK} width={5} dashed={false}
+        hiddenTrails={new Set()} mapY={(_floor, y) => y} truppTones={truppTones}
+        selId={drawings.find((t) => t.drawing.id === selectedDrawingId)?.anno.id} />
       {interactive && (onOpenDrawing || onDrawingCoords) && (
         <svg className={s.drawingHits} width={sW} height={sH} viewBox={`0 0 ${sW} ${sH}`} aria-hidden={false}>
           {drawings.map(({ key, anno, drawing }) => {
             const pts = (anno.pts ?? []).map(([x, y]) => `${x * sW},${y * sH}`).join(' ')
-            if (!pts) return null
+            // a LOCKED source has no hit surface at all — its ink is click-through here exactly
+            // as it is on the Karte, and the LockChip below is the only tap target it keeps
+            if (!pts || drawing.locked) return null
             const common = {
               role: 'button', tabIndex: 0, 'aria-label': lineLabel(drawing),
               className: s.drawingHit,
@@ -320,16 +391,49 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           hold-to-delete, Verlängern), every gesture writing the one map source. Attached
           endpoints keep their grips: grabbing one detaches (beginVertexGesture). */}
       {interactive && onDrawingCoords && drawings.flatMap((t) => {
-        if (t.drawing.id !== selectedDrawingId || t.drawing.kind === 'circle') return []
+        if (t.drawing.id !== selectedDrawingId || t.drawing.kind === 'circle' || t.drawing.locked) return []
         return [<WbVertexHandles key={`vh-${t.key}`} anno={t.anno} sW={sW} sH={sH}
           mapY={(_f, y) => y} {...twinVertexProps(t.drawing)} />]
       })}
+      {/* …and a mirrored Absperrkreis gets the ring grip instead — a cordon has no vertices, and
+          without it the mirror could be moved but never resized (the sheet's own has one). */}
+      {interactive && onDrawingRadius && drawings.flatMap((t) => {
+        if (t.drawing.id !== selectedDrawingId || t.drawing.kind !== 'circle' || t.drawing.locked || !t.anno.pts?.length) return []
+        const c = fit.toPlan({ lng: t.drawing.coords[0][0], lat: t.drawing.coords[0][1] })
+        const r = Math.max(1, Math.max(...t.anno.pts.map(([x, y]) => Math.hypot((x - c.x) * sW, (y - c.y) * sH))))
+        return [<button key={`cr-${t.key}`} className="wb-vertex"
+          title={appConfig.copy.whiteboard.dragRadius} aria-label={appConfig.copy.whiteboard.dragRadius} data-holdaction
+          style={{ left: 0, top: 0, transform: `translate(${c.x * sW + r}px, ${c.y * sH}px) translate(-50%, -50%)` }}
+          onPointerDown={(ev) => beginRadiusGesture(t.drawing, ev)}
+          onClick={(ev) => ev.stopPropagation()} />]
+      })}
+      {/* unlock chip on every locked mirrored line/area/Form — the click-through ink's only tap
+          target, a SHORT HOLD to unlock, at the same anchor the sheet's own locked annotations
+          use (Whiteboard · wb-lock-anchor): an area at its centroid, a line at its middle vertex,
+          a Form at its centre. Absent where editing is locked anyway. */}
+      {interactive && (onUnlockDrawing || onUnlockEntity) && [
+        ...(onUnlockDrawing ? drawings.filter(({ drawing }) => drawing.locked).flatMap(({ key, anno, drawing }) => {
+          const pts = anno.pts ?? []
+          if (!pts.length) return []
+          const at = anno.kind === 'area'
+            ? [pts.reduce((sum, q) => sum + q[0], 0) / pts.length, pts.reduce((sum, q) => sum + q[1], 0) / pts.length]
+            : pts[Math.floor((pts.length - 1) / 2)]
+          return [<span key={`lk-${key}`} className="wb-lock-anchor" style={{ left: at[0] * sW, top: at[1] * sH }}>
+            <LockChip onUnlock={() => onUnlockDrawing(drawing.id)} />
+          </span>]
+        }) : []),
+        ...(onUnlockEntity ? entities.filter(({ entity }) => entity.kind === 'shape' && entity.locked).map(({ key, entity, pt }) => (
+          <span key={`lk-${key}`} className="wb-lock-anchor" style={{ left: pt.x * sW, top: pt.y * sH }}>
+            <LockChip onUnlock={() => onUnlockEntity(entity.id)} />
+          </span>
+        )) : []),
+      ]}
       {/* line/area decorations — the same feature set the sheet's own annotations render
           (Whiteboard's decor pass), minus every drag affordance: this layer is a projection. */}
       {drawings.flatMap(({ key, anno, drawing }) => {
         if (!anno.pts?.length) return []
         const bpx = anno.pts.map(([x, y]) => [x * sW, y * sH] as [number, number])
-        const color = anno.color || '#1f6feb'
+        const color = anno.color || DEFAULT_INK
         const isArea = anno.kind === 'area'
         const out: React.ReactNode[] = []
 
@@ -412,6 +516,23 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
         }
         return out
       })}
+      {/* trail breadcrumbs — the dot + timestamp at every RECORDED position, exactly as the
+          sheet's own Trupp trail reads (Whiteboard · wb-trail-dot). The dashed path alone is a
+          route; the times are the record. */}
+      {entities.flatMap(({ entity }) => {
+        if (entity.kind !== 'team' || !entity.trail?.length || hiddenTrails?.has(entity.id)) return []
+        return entity.trail.map(({ coord, t }, i) => {
+          const p = fit.toPlan({ lng: coord[0], lat: coord[1] })
+          return (
+            <div key={`twin-dot-${entity.id}-${i}`}
+              className={`wb-trail-dot ${selectedTeamId === entity.id ? 'sel' : ''}`}
+              style={{ transform: `translate(${p.x * sW}px, ${p.y * sH}px) translate(-50%, -50%)` }}>
+              <span className="wb-trail-mark" style={{ background: entity.color || appConfig.drawing.teamColors[0] }} />
+              <i>{t}</i>
+            </div>
+          )
+        })
+      })}
       {entities.map(({ key, entity, pt }) => {
         const pos: CSSProperties = { left: pt.x * sW, top: pt.y * sH }
         const jump = interactive && onOpenTeam ? () => onOpenTeam(entity) : undefined
@@ -419,18 +540,29 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
         const tappable = !!jump || movable
         const grabStyle = movable ? { touchAction: 'none' as const, cursor: 'grab' } : null
         const title = fillTemplate(appConfig.copy.whiteboard.georef.twinFromMap, { name: contentTwinName(entity) })
+        const selected = selectedEntityId === entity.id || selectedKeys.includes(key)
         if (entity.kind === 'shape') {
-          const px = Math.max(12, ((entity.sizeM ?? 40) / planWidthM) * sW)
+          // ⚠️ no twin-only floor: the sheet's own Form is a bare `sizeN × sW` (Whiteboard), so a
+          // 12 px floor made a small mirrored Form bigger than the original standing beside it.
+          // The 44 px hit pad (.contentTap::after) is what keeps a tiny one tappable.
+          const px = ((entity.sizeM ?? 40) / planWidthM) * sW
           // sizeM is the WIDTH; the height follows the source's stretched box (Entity.aspect)
           const kind = entity.shape ?? 'square'
-          const style = { ...pos, width: px, height: px * shapeAspect(kind, entity.aspect), transform: `translate(-50%, -50%) rotate(${(entity.rotation ?? 0) + fit.rotationDeg}deg)` }
-          const glyph = <ShapeGlyph kind={kind} color={entity.color ?? '#1f6feb'} stop={entity.stop} aspect={entity.aspect} carrier={entity.carrier} reverse={entity.reverse} strokeW={entity.strokeW} boxPx={px} fillOpacity={entity.fillOpacity} hatch={entity.hatch} sharpCorners={entity.sharpCorners} />
-          if (!tappable) {
+          const style = { ...pos, width: px, height: px * shapeAspect(kind, entity.aspect), transform: `translate(-50%, -50%) rotate(${(entity.rotation ?? 0) + fit.rotationDeg}deg)`, ['--hbox' as string]: `${Math.max(px, 56)}px` }
+          const glyph = <ShapeGlyph kind={kind} color={entity.color ?? DEFAULT_INK} stop={entity.stop} aspect={entity.aspect} carrier={entity.carrier} reverse={entity.reverse} strokeW={entity.strokeW} boxPx={px} fillOpacity={entity.fillOpacity} hatch={entity.hatch} sharpCorners={entity.sharpCorners} />
+          // a LOCKED Form is click-through, exactly as it is on the Karte (MapMarkers ·
+          // lockedShape) — the LockChip above is the only door back in
+          if (!tappable || entity.locked) {
             return <div key={key} className={`${s.contentPoint} shape-glyph`} style={style}>{glyph}</div>
           }
-          return <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} shape-glyph`}
-            style={{ ...style, ...grabStyle }} title={title} data-twin=""
-            {...pointHandlers(entity, pt, movable, jump)}>{glyph}</button>
+          // ⚠️ A Form carries neither a selection halo nor a body drag on either surface any
+          // more (02.09.): it is selected to be worked with its own grips, and moved from the
+          // bar's ✥. The mirror answers exactly as the native beside it does.
+          return <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} shape-glyph${selected ? ' twin-sel' : ''}`}
+            style={style} title={title} data-twin=""
+            {...pointHandlers(entity, pt, false, jump)}>
+            {glyph}
+          </button>
         }
         if (entity.kind === 'note') {
           const tinted = !entity.notePlain && !!entity.color
@@ -442,7 +574,7 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
           } as CSSProperties
           const text = entity.label || appConfig.copy.whiteboard.text
           if (!tappable) return <span key={key} className={`${s.contentPoint} ${cls}`} style={style}>{text}</span>
-          return <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} ${cls}`}
+          return <button key={key} type="button" className={`${s.contentPoint} ${s.contentTap} ${cls}${selected ? ' twin-sel' : ''}`}
             style={{ ...style, ...grabStyle }} title={title} data-twin=""
             {...pointHandlers(entity, pt, movable, jump)}>{text}</button>
         }
@@ -487,106 +619,36 @@ export function GeorefContentBoard({ entities, drawings, fit, planAspect, sW, sH
               </button>
             )
           }
-          // Selected: the SAME pill + context bar the original wears on the Karte (twin
-          // equivalence) — cap, name (inline rename for a loose marker), timestamp, and the
-          // identical action row, plus one twin-only door: «Auf Karte zeigen».
+          // Selected: the SAME pill + context bar the original wears on the Karte — and, since
+          // 01.09., the very same component the Karte's own mirror uses (components/TwinTeamPill),
+          // so the two halves of the mirror can no longer drift apart.
           const acts = teamActions!
-          const trailCount = entity.trail?.length ?? 0
-          const boundAlive = !!entity.truppId && trupps.some((t) => t.id === entity.truppId && !t.removedAt)
           return (
             <span key={key} className={s.contentPoint} style={teamStyle(true)} data-twin="">
-              {/* hit shell again (see the resting dot above): the pill span carries the native
-                  class untouched, so its flex row, padding and background can never lose a
-                  cascade or button-quirk fight */}
-              <button type="button" className={s.contentTap}
-                style={grabStyle ?? undefined} title={title}
-                {...pointHandlers(entity, pt, movable)}>
-                <span className={`wb-resource-pill ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as CSSProperties}>
-                  <span className="wb-resource-cap" />
-                  <span className="wb-resource-body">
-                    <span className="wb-resource-name">
-                      {renamingTeamId === entity.id
-                        ? <input className="wb-resource-input" autoFocus defaultValue={entity.label ?? ''}
-                            onPointerDown={(ev) => ev.stopPropagation()}
-                            onBlur={(ev) => { acts.rename(entity.id, ev.target.value); setRenamingTeamId(null) }}
-                            onKeyDown={(ev) => {
-                              if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur()
-                              if (ev.key === 'Escape') { ev.stopPropagation(); setRenamingTeamId(null) }
-                            }} />
-                        : <b>{entity.label}</b>}
-                      {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
-                    </span>
-                    {entity.t && <i className="wb-resource-time">{entity.t}</i>}
-                  </span>
-                </span>
-              </button>
-              <div className="wb-pill-acts" onPointerDown={(ev) => ev.stopPropagation()}>
-                {!entity.truppId && (
-                  <button className="wb-pa" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
-                    onClick={() => setRenamingTeamId(entity.id)}><Icon id="pen" /></button>
-                )}
-                {entity.truppId && (
-                  <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp}
-                    onClick={() => acts.showTrupp(entity.truppId!)}><Icon id="warn" /></button>
-                )}
-                {(!!entity.truppId || trupps.some((t) => !t.removedAt && t.status !== 'raus')) && (
-                  <Menu
-                    popupClassName="de-menu-pop"
-                    itemClassName={() => 'de-menu-item'}
-                    trigger={
-                      <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
-                        <Icon id="people" />
-                      </button>
-                    }
-                    items={[
-                      { label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={!entity.truppId} />, onClick: () => acts.pick(entity.id, undefined) },
-                      ...trupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === entity.truppId)).map((t) => ({
-                        label: <MenuPick label={t.name} on={t.id === entity.truppId} />,
-                        onClick: () => acts.pick(entity.id, t.id),
-                      })),
-                    ]}
-                  />
-                )}
-                {!boundAlive && (
-                  <Popover
-                    ariaLabel={appConfig.copy.atemschutz.colorLabel}
-                    popupClassName="wb-pa-colors"
-                    trigger={
-                      <button className="wb-pa" title={appConfig.copy.atemschutz.colorLabel} aria-label={appConfig.copy.atemschutz.colorLabel}>
-                        <span className="wb-pa-swatch" style={{ background: entity.color || 'transparent' }} />
-                      </button>
-                    }
-                  >
-                    <PopoverClose className={`ctx-team-auto${entity.color ? '' : ' on'}`} onClick={() => acts.color(entity, null)}>
-                      {appConfig.copy.atemschutz.colorAuto}
-                    </PopoverClose>
-                    {appConfig.drawing.teamColors.map((c) => (
-                      <PopoverClose key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} onClick={() => acts.color(entity, c)}>
-                        <span style={{ background: c }} />
-                      </PopoverClose>
-                    ))}
-                  </Popover>
-                )}
-                <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition}
-                  onClick={() => acts.mark(entity.id)}><Icon id="flag" /></button>
-                {trailCount > 0 && onToggleTrail && (() => {
-                  const shown = !hiddenTrails?.has(entity.id)
-                  return (
-                    <button className="wb-pa" title={shown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
-                      aria-label={appConfig.copy.whiteboard.trails} aria-pressed={shown} onClick={() => onToggleTrail(entity.id)}>
-                      <Icon id={shown ? 'eye' : 'eyeoff'} />
-                    </button>
-                  )
-                })()}
-                {/* the twin's one extra door: pan the Karte to the original */}
-                <button className="wb-pa" title={appConfig.copy.contextPanel.showOnMap} aria-label={appConfig.copy.contextPanel.showOnMap}
-                  onClick={() => acts.toOriginal(entity)}><Icon id="external" /></button>
-                {trailCount > 0
-                  ? <button className="wb-pa wb-pa-del-off" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked}
-                      onClick={() => acts.clearTrail(entity.id)}><Icon id="trash" /></button>
-                  : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
-                      onClick={() => acts.remove(entity.id)}><Icon id="trash" /></button>}
-              </div>
+              <TwinTeamPill
+                name={entity.label ?? ''} time={entity.t} color={teamCol} colorSet={entity.color}
+                originalLabel={appConfig.copy.contextPanel.showOnMap}
+                raus={isRaus} truppId={entity.truppId} trailCount={entity.trail?.length ?? 0}
+                trailShown={!hiddenTrails?.has(entity.id)} trupps={trupps}
+                acts={{
+                  rename: (name) => acts.rename(entity.id, name),
+                  pick: (truppId) => acts.pick(entity.id, truppId),
+                  color: (c) => acts.color(entity, c),
+                  mark: () => acts.mark(entity.id),
+                  clearTrail: () => acts.clearTrail(entity.id),
+                  remove: () => acts.remove(entity.id),
+                  showTrupp: acts.showTrupp,
+                  toOriginal: () => acts.toOriginal(entity),
+                  toggleTrail: () => onToggleTrail?.(entity.id),
+                }}
+                hit={(children) => (
+                  // hit shell again (see the resting dot above): the pill span carries the native
+                  // class untouched, so its flex row, padding and background can never lose a
+                  // cascade or button-quirk fight
+                  <button type="button" className={s.contentTap}
+                    style={grabStyle ?? undefined} title={title}
+                    {...pointHandlers(entity, pt, movable)}>{children}</button>
+                )} />
             </span>
           )
         }
