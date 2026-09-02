@@ -68,7 +68,7 @@ describe('the armed mode’s lifecycle', () => {
     armWith('✥')
     expect(state()).toBe('move:—')
     armWith('⟳')                       // only ever one of the two
-    expect(state()).toBe('rotate:—')
+    expect(state()).toBe('rotate:0')            // the guide seats its pivot the moment ⟳ is armed
     armWith('⟳')
     expect(state()).toBe('off:—')
   })
@@ -180,7 +180,7 @@ describe('a drag on the surface while ⟳ is armed', () => {
     expect(onRotate.mock.calls[onRotate.mock.calls.length - 1][0]).toBeCloseTo(270, 6)
     fireEvent.pointerUp(window, { pointerId: 3, clientX: CENTRE.x, clientY: CENTRE.y - 100 })
     expect(onRotate.mock.calls[onRotate.mock.calls.length - 1]).toEqual([270, 'end'])
-    expect(state()).toBe('rotate:—')   // the read-out belongs to the gesture only
+    expect(state()).toBe('rotate:0')   // the arm is gone with the finger; the pivot stays seated while ⟳ is armed
   })
 
   it('starts at 0° wherever the finger lands, and again on the next press', () => {

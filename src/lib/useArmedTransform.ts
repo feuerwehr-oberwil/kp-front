@@ -53,8 +53,9 @@ const wrapDeg = (d: number) => ((d + 180) % 360 + 360) % 360 - 180
 /** The live turn, in CLIENT px — what the on-surface guide is drawn from (components/SelectionTurn) */
 export interface ArmedTurn {
   cx: number; cy: number
-  /** where the finger is, so the guide can draw the radius the operator is swinging */
-  px: number; py: number
+  /** where the finger is, so the guide can draw the radius the operator is swinging — absent
+   *  while ⟳ is armed but no finger is down yet: then the guide shows the pivot and 0° alone */
+  px?: number; py?: number
   deg: number
 }
 
@@ -99,10 +100,19 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
     if (!el) return
     const exempt = (t: EventTarget | null) => !!(t as HTMLElement | null)?.closest?.(EXEMPT)
     /** close the write the gesture opened, whatever ends it (release, cancel, disarm) */
+    /** the guide with no finger on it: the pivot and 0°, shown for as long as ⟳ is armed — a tap
+     *  on the grip used to change nothing on the surface until a drag began, so nothing said
+     *  where the turn would happen or that the mode was on at all (field report 02.09.) */
+    const idle = () => {
+      if (armed !== 'rotate') { setTurn(null); return }
+      const c = cb.current.centreClient()
+      setTurn(c ? { cx: c.x, cy: c.y, deg: 0 } : null)
+    }
+    idle()
     const close = () => {
       const st = live.current
       live.current = null
-      setTurn(null)
+      idle()
       cb.current.onGrab?.(false)
       if (!st?.on) return
       if (armed === 'move') cb.current.onMove(st.lx - st.x0, st.ly - st.y0, 'end')
@@ -173,12 +183,14 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
       window.removeEventListener('pointercancel', up, true)
       window.removeEventListener('keydown', key)
       close()
+      setTurn(null) // the mode is over — `close` alone would re-seat the pivot for it
     }
   }, [armed])
 
   return {
     armed,
-    /** the live turn, for the on-surface guide — null unless ⟳ is armed AND being dragged */
+    /** the live turn, for the on-surface guide — the pivot alone while ⟳ is armed, pivot + arm +
+     *  degrees while it is being dragged, null otherwise */
     turn,
     /** a tap on ✥ / ⟳ — the same grip disarms, the other one takes the mode over */
     toggle: (mode: ArmMode) => setArm((cur) =>

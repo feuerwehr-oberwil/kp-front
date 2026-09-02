@@ -3669,8 +3669,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     onPointerDown={(e) => rotDown(e, a.id, 'width')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp}
                     onClick={(e) => e.stopPropagation()}><Icon id="resize" /></button>
                 )}
-                {/* generic shape: tethered rotor knob + corner resize grip, identical to the
-                    Lage map — both rotate with the shape so the handles stay attached */}
+                {/* generic shape: its size grips, riding the shape's rotation (identical to the
+                    Lage map). The rotate knob left on 02.09. — the SelectionBar's ⟳ is the one
+                    way to turn a Form. */}
                 {a.kind === 'shape' && selId === a.id && tool === 'pan' && !readOnly && !a.locked && (() => {
                   // CSS anchors the knob/grip off a SQUARE --hbox; a stretched shape overrides
                   // them inline so the knob rides the real top edge and the grip the real
@@ -3700,13 +3701,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       </div>
                     )
                   }
+                  // no rotate knob on a Form (02.09.) — the bar's ⟳ turns it; see MapMarkers
                   return (
                   <div className="shape-rotor" style={{ transform: `rotate(${a.rotation ?? 0}deg)` }}>
-                    <span className="shape-stem" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} />
-                    <button className="handle shape-rotate" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} aria-label={appConfig.copy.shapes.rotate} data-holdaction
-                      onPointerDown={(e) => rotDown(e, a.id)} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
-                      <Icon id="rotate" />
-                    </button>
                     {/* ── ONE GRIP PER AXIS on a Rechteck and a Rotation (01.09.) ── the ↔ on the
                         right edge moves the x-axis, the ↕ on the bottom edge the y-axis: each grip
                         stands ON the axis it controls. Identical to the Lage map (MapMarkers); the

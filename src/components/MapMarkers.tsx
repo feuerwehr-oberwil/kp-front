@@ -1094,18 +1094,13 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   </div>
                 )
               }
+              // ── No rotate knob on a Form (02.09.) ── turning the whole object is the fixed
+              // SelectionBar's ⟳ (a drag dials, a tap arms the surface), and a second rotor on the
+              // shape's own edge said the same thing twice. Only its SIZE grips stay: they answer
+              // «how big», which the bar cannot. The rotor wrapper remains so the grips ride the
+              // shape's rotation; directional symbols keep their knob (they are not on the bar).
               return (
               <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
-                <span className="shape-stem" style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }} />
-                <TransformHandle
-                  className="handle shape-rotate"
-                  icon="rotate"
-                  style={{ top: `calc(50% - ${hbH / 2 + 18}px)` }}
-                  title={appConfig.copy.shapes.rotate}
-                  onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'rotate')}
-                  onMove={shapeMove}
-                  onEnd={shapeUp}
-                />
                 {/* ── ONE GRIP PER AXIS on a Rechteck and a Rotation (01.09.) ──
                     Both handles used to be corner grips wearing the same «resize» glyph, so
                     nothing on screen said which of the two sizes a drag would change. Now the ↔

@@ -131,9 +131,10 @@ describe('what a selected Form shows on the Karte', () => {
     expect(container.querySelector('.shape-resize, .shape-width')).toBeNull()
   })
 
-  it('…and a Rechteck the knob and one grip per axis, from the same family', () => {
+  it('…and a Rechteck one grip per axis, from the same family — and no knob (the bar turns it)', () => {
     const { container } = show([rechteck], 'sq')
-    expect(container.querySelector('.shape-rotate')).toBeTruthy()
+    expect(container.querySelector('.shape-rotate')).toBeNull()
+    expect(container.querySelector('.shape-stem')).toBeNull()
     expect(container.querySelector('.shape-resize.shape-axis-x')).toBeTruthy()
     expect(container.querySelector('.shape-width.shape-axis-y')).toBeTruthy()
     for (const g of container.querySelectorAll('.handle')) noInlineFill(g)
