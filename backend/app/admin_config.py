@@ -48,7 +48,6 @@ import argparse
 import asyncio
 import difflib
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any, get_args, get_origin
@@ -56,6 +55,7 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 
+from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .config_history import emptied_sections, keep_previous
 from .database import async_session_maker
 from .models import DeploymentConfig, DeploymentConfigHistory
@@ -254,17 +254,11 @@ def _push(
     * ``If-Match`` carries the version just read, so a deployment that changed underneath this
       push is a 409 rather than a silent overwrite.
     """
-    import httpx  # lazy: only `push` needs the network
-
     base = base.rstrip("/")
-    with httpx.Client(base_url=base, timeout=120.0) as c:
-        r = c.post("/api/admin/login", json={"secret": admin_secret})
-        if r.status_code != 200:
-            _fail(f"ERROR: admin login to {base} failed ({r.status_code}): {r.text[:200]}")
-
+    with admin_client(base, admin_secret, timeout=120.0) as c:
         got = c.get("/api/config")
         if got.status_code != 200:
-            _fail(f"ERROR: GET /api/config failed ({got.status_code}): {got.text[:200]}")
+            fail(f"ERROR: GET /api/config failed ({got.status_code}): {got.text[:200]}")
         remote = got.json()
         version = remote.get("version")
         # ⚠️ Strip the RESPONSE-ONLY fields before comparing. `integrations` is env-derived,
@@ -296,12 +290,12 @@ def _push(
         headers = {"If-Match": version} if version else {}
         put = c.put("/api/config", json=doc_json, headers=headers)
         if put.status_code == 409:
-            _fail(
+            fail(
                 "ERROR: the deployment's config changed while this push was being prepared. "
                 "Nothing was written — re-run to pick up the newer document."
             )
         if put.status_code != 200:
-            _fail(f"ERROR: PUT /api/config failed ({put.status_code}): {put.text[:300]}")
+            fail(f"ERROR: PUT /api/config failed ({put.status_code}): {put.text[:300]}")
 
     print(f"OK: pushed to {base}. Top-level keys set: {_summary(doc_json)}")
     if carried:
@@ -309,12 +303,6 @@ def _push(
     print(f"    {_vocabulary_line(doc_json)}")
     _report_notes(raw, doc_json)
     return 0
-
-
-def _fail(message: str) -> None:
-    """Print an error to stderr and exit non-zero (nothing written)."""
-    print(message, file=sys.stderr)
-    raise SystemExit(1)
 
 
 def _format_validation_error(path: Path, err: ValidationError) -> str:
@@ -336,17 +324,17 @@ def _read_and_validate(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as e:
-        _fail(f"ERROR: cannot read {path}: {e}")
+        fail(f"ERROR: cannot read {path}: {e}")
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        _fail(f"ERROR: {path} is not valid JSON: {e}")
+        fail(f"ERROR: {path} is not valid JSON: {e}")
     if not isinstance(data, dict):
-        _fail(f"ERROR: {path} must contain a JSON object at the top level, got {type(data).__name__}.")
+        fail(f"ERROR: {path} must contain a JSON object at the top level, got {type(data).__name__}.")
     try:
         doc = DeploymentConfigIn(**data)
     except ValidationError as e:
-        _fail(_format_validation_error(path, e))
+        fail(_format_validation_error(path, e))
     return data, doc.model_dump(mode="json")
 
 
@@ -638,13 +626,7 @@ async def _amain(argv: list[str]) -> int:
     )
     p_push = sub.add_parser("push", help="publish a file to a RUNNING deployment via its API (no DB access needed)")
     p_push.add_argument("file")
-    p_push.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
-    p_push.add_argument(
-        "--admin-secret",
-        default=os.environ.get("KP_ADMIN_SECRET"),
-        help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)",
-    )
-    p_push.add_argument("--dry-run", action="store_true", help="authenticate + report only, do not write")
+    add_push_args(p_push, dry_run_help="authenticate + report only, do not write")
     p_push.add_argument(
         "--force",
         action="store_true",
@@ -684,8 +666,7 @@ async def _amain(argv: list[str]) -> int:
         print(_vocabulary_line(doc_json))
         return 0
     if args.cmd == "push":
-        if not args.base or not args.admin_secret:
-            _fail("ERROR: push needs --base and --admin-secret (or KP_BASE_URL / KP_ADMIN_SECRET).")
+        require_push_target(args)
         raw, doc_json = _read_and_validate(Path(args.file))
         return _push(raw, doc_json, args.base, args.admin_secret, args.dry_run, args.force)
     if args.cmd == "load":

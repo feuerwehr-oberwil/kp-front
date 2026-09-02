@@ -1,10 +1,10 @@
 """The one shape every secret-gated surface uses: 403 when off, 401 when wrong.
 
-Half a dozen surfaces are guarded by a single long-lived secret rather than a login — the
-alarm intake, the Divera and FireHub webhooks, the Traccar fake feed, the print relay, the
+Seven surfaces are guarded by a single long-lived secret rather than a login — the alarm
+intake, the Divera and FireHub webhooks, the Traccar fake feed, the print relay, the
 statistics export, the Erfassungs-Poster. Each of them read its secret, refused with a 403
 when none was configured, accepted the token from a query parameter or a header, compared it
-in constant time and answered 401 otherwise: the same eight lines, written out eight times.
+in constant time and answered 401 otherwise: the same eight lines, once per surface.
 
 The rule they encode is a security decision and must not drift, so it lives here once:
 

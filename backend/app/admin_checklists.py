@@ -38,7 +38,6 @@ import argparse
 import asyncio
 import json
 import mimetypes
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -47,6 +46,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from sqlalchemy import select
 
 from . import storage
+from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
 from .database import async_session_maker
 from .models import ReferenceDataset
@@ -136,11 +136,6 @@ EXAMPLE_MANIFEST: dict[str, Any] = {
 }
 
 
-def _fail(message: str) -> None:
-    print(message, file=sys.stderr)
-    raise SystemExit(1)
-
-
 # --- manifest validation (no DB) --------------------------------------------------------
 
 
@@ -149,20 +144,20 @@ def _read_manifest(path: Path) -> list[ChecklistEntry]:
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as e:
-        _fail(f"ERROR: cannot read {path}: {e}")
+        fail(f"ERROR: cannot read {path}: {e}")
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        _fail(f"ERROR: {path} is not valid JSON: {e}")
+        fail(f"ERROR: {path} is not valid JSON: {e}")
     if isinstance(data, dict) and isinstance(data.get("checklists"), list):
         data = data["checklists"]
     if not isinstance(data, list):
-        _fail(f'ERROR: {path} must be a JSON list of entries (or {{"checklists": [...]}}).')
+        fail(f'ERROR: {path} must be a JSON list of entries (or {{"checklists": [...]}}).')
     entries: list[ChecklistEntry] = []
     seen: set[str] = set()
     for i, item in enumerate(data):
         if not isinstance(item, dict):
-            _fail(f"ERROR: {path}[{i}] is not an object.")
+            fail(f"ERROR: {path}[{i}] is not an object.")
         try:
             entry = ChecklistEntry(**item)
         except ValidationError as e:
@@ -170,9 +165,9 @@ def _read_manifest(path: Path) -> list[ChecklistEntry]:
             for err in e.errors():
                 field = ".".join(str(p) for p in err["loc"]) or "(root)"
                 lines.append(f"  {field}: {err['msg']} [{err['type']}]")
-            _fail("\n".join(lines))
+            fail("\n".join(lines))
         if entry.id in seen:
-            _fail(f"ERROR: {path}: duplicate entry id {entry.id!r}.")
+            fail(f"ERROR: {path}: duplicate entry id {entry.id!r}.")
         seen.add(entry.id)
         entries.append(entry)
     return entries
@@ -188,17 +183,17 @@ def _validate_template_json(src: Path, entry: ChecklistEntry) -> None:
     try:
         tpl = json.loads(src.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
-        _fail(f"ERROR: {src} is not readable JSON: {e}")
+        fail(f"ERROR: {src} is not readable JSON: {e}")
     if not isinstance(tpl, dict):
-        _fail(f"ERROR: {src} must be a JSON object (a ChecklistTemplate).")
+        fail(f"ERROR: {src} must be a JSON object (a ChecklistTemplate).")
     if tpl.get("id") != entry.id:
-        _fail(f"ERROR: {src}: template id {tpl.get('id')!r} != manifest id {entry.id!r}.")
+        fail(f"ERROR: {src}: template id {tpl.get('id')!r} != manifest id {entry.id!r}.")
     if tpl.get("kind") != entry.kind:
-        _fail(f"ERROR: {src}: template kind {tpl.get('kind')!r} != manifest kind {entry.kind!r}.")
+        fail(f"ERROR: {src}: template kind {tpl.get('kind')!r} != manifest kind {entry.kind!r}.")
     has_phases = isinstance(tpl.get("phases"), list) and tpl["phases"]
     has_entries = isinstance(tpl.get("entries"), list) and tpl["entries"]
     if bool(has_phases) == bool(has_entries):
-        _fail(f"ERROR: {src}: needs exactly one of 'phases' (action/rapport) or 'entries' (reference).")
+        fail(f"ERROR: {src}: needs exactly one of 'phases' (action/rapport) or 'entries' (reference).")
 
 
 def _validate_files(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple[int, int]:
@@ -207,7 +202,7 @@ def _validate_files(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple
     for e in entries:
         src = _resolve(manifest_path, e.file)
         if not src.is_file():
-            _fail(
+            fail(
                 f"ERROR: {manifest_path}: entry {e.id!r} template file not found: {src}"
                 + template_hint(manifest_path, complete_example="examples/demo-data/checklists.manifest.json")
             )
@@ -215,7 +210,7 @@ def _validate_files(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple
         for a in e.assets:
             asrc = _resolve(manifest_path, a.file)
             if not asrc.is_file():
-                _fail(
+                fail(
                     f"ERROR: {manifest_path}: entry {e.id!r} asset p{a.page} file not found: {asrc}"
                     + template_hint(manifest_path, complete_example="examples/demo-data/checklists.manifest.json")
                 )
@@ -335,14 +330,9 @@ def _push(
     """Push templates + their assets to a RUNNING deployment over its HTTP API. Each is PUT to
     /api/reference/<id> (the server writes its OWN volume). Authenticates with the deployment
     ADMIN_SECRET (not an editor PIN). Returns (templates, assets) written."""
-    import httpx  # lazy: only `push` needs the network
-
     base = base.rstrip("/")
     total_assets = sum(len(e.assets) for e in entries)
-    with httpx.Client(base_url=base, timeout=180.0) as c:
-        r = c.post("/api/admin/login", json={"secret": admin_secret})
-        if r.status_code != 200:
-            _fail(f"ERROR: admin login to {base} failed ({r.status_code}): {r.text[:200]}")
+    with admin_client(base, admin_secret, timeout=180.0) as c:
         if dry_run:
             print(
                 f"OK (dry-run): authenticated to {base}; would upsert {len(entries)} template(s) "
@@ -367,7 +357,7 @@ def _push(
                 data=form,
             )
             if rt.status_code != 200:
-                _fail(f"ERROR: upload template {e.id!r} failed ({rt.status_code}): {rt.text[:200]}")
+                fail(f"ERROR: upload template {e.id!r} failed ({rt.status_code}): {rt.text[:200]}")
             n_tpl += 1
             for a in e.assets:
                 asrc = _resolve(manifest_path, a.file)
@@ -376,13 +366,13 @@ def _push(
                     files={"file": (asrc.name, asrc.read_bytes(), _content_type(asrc))},
                 )
                 if ra.status_code != 200:
-                    _fail(f"ERROR: upload asset {e.id}:p{a.page} failed ({ra.status_code}): {ra.text[:200]}")
+                    fail(f"ERROR: upload asset {e.id}:p{a.page} failed ({ra.status_code}): {ra.text[:200]}")
                 n_assets += 1
             print(f"  ↑ {e.title}  ({len(e.assets)} asset(s))")
         # prune ghosts server-side: delete any checklists:* not in this manifest (rename/removal safety)
         rp = c.post("/api/reference/checklists/prune", json=sorted(_expected_ids(entries)))
         if rp.status_code != 200:
-            _fail(f"ERROR: prune failed ({rp.status_code}): {rp.text[:200]}")
+            fail(f"ERROR: prune failed ({rp.status_code}): {rp.text[:200]}")
         pruned = rp.json().get("pruned", [])
         if pruned:
             print(f"  ✗ pruned {len(pruned)} stale dataset(s): {', '.join(pruned)}")
@@ -435,13 +425,7 @@ async def _amain(argv: list[str]) -> int:
     p_load.add_argument("--dry-run", action="store_true", help="validate only, do not write")
     p_push = sub.add_parser("push", help="upload templates + assets to a RUNNING deployment via its API")
     p_push.add_argument("manifest")
-    p_push.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
-    p_push.add_argument(
-        "--admin-secret",
-        default=os.environ.get("KP_ADMIN_SECRET"),
-        help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)",
-    )
-    p_push.add_argument("--dry-run", action="store_true", help="authenticate + report only, do not upload/write")
+    add_push_args(p_push, dry_run_help="authenticate + report only, do not upload/write")
     sub.add_parser("show", help="print the stored checklist templates + asset counts")
 
     args = parser.parse_args(argv)
@@ -465,8 +449,7 @@ async def _amain(argv: list[str]) -> int:
         print(f"OK: upserted {n_tpl} template(s) and wrote {written} asset(s) to the reference store{extra}.")
         return 0
     if args.cmd == "push":
-        if not args.base or not args.admin_secret:
-            _fail("ERROR: push needs --base and --admin-secret (or KP_BASE_URL / KP_ADMIN_SECRET).")
+        require_push_target(args)
         path = Path(args.manifest)
         entries = _read_manifest(path)
         if not args.dry_run:

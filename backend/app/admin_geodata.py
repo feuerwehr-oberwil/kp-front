@@ -38,7 +38,6 @@ are rejected (convert at the edge first; see scripts in the private data repo).
 import argparse
 import asyncio
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any, Literal
@@ -47,6 +46,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from sqlalchemy import select
 
 from . import storage
+from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
 from .config_history import keep_previous
 from .database import async_session_maker
@@ -131,11 +131,6 @@ EXAMPLE_MANIFEST: list[dict[str, Any]] = [
 ]
 
 
-def _fail(message: str) -> None:
-    print(message, file=sys.stderr)
-    raise SystemExit(1)
-
-
 # --- manifest + GeoJSON validation (no DB) ----------------------------------------------
 
 
@@ -144,20 +139,20 @@ def _read_manifest(path: Path) -> list[GeodataManifestEntry]:
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as e:
-        _fail(f"ERROR: cannot read {path}: {e}")
+        fail(f"ERROR: cannot read {path}: {e}")
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        _fail(f"ERROR: {path} is not valid JSON: {e}")
+        fail(f"ERROR: {path} is not valid JSON: {e}")
     if isinstance(data, dict) and isinstance(data.get("layers"), list):
         data = data["layers"]
     if not isinstance(data, list):
-        _fail(f'ERROR: {path} must be a JSON list of layers (or {{"layers": [...]}}).')
+        fail(f'ERROR: {path} must be a JSON list of layers (or {{"layers": [...]}}).')
     entries: list[GeodataManifestEntry] = []
     seen: set[str] = set()
     for i, item in enumerate(data):
         if not isinstance(item, dict):
-            _fail(f"ERROR: {path}[{i}] is not an object.")
+            fail(f"ERROR: {path}[{i}] is not an object.")
         try:
             entry = GeodataManifestEntry(**item)
         except ValidationError as e:
@@ -166,9 +161,9 @@ def _read_manifest(path: Path) -> list[GeodataManifestEntry]:
             for err in e.errors():
                 field = ".".join(str(p) for p in err["loc"]) or "(root)"
                 lines.append(f"  {field}: {err['msg']} [{err['type']}]")
-            _fail("\n".join(lines))
+            fail("\n".join(lines))
         if entry.id in seen:
-            _fail(f"ERROR: {path}: duplicate layer id {entry.id!r}.")
+            fail(f"ERROR: {path}: duplicate layer id {entry.id!r}.")
         seen.add(entry.id)
         entries.append(entry)
     return entries
@@ -179,22 +174,22 @@ def _validate_geojson_wgs84(path: Path) -> int:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except OSError as e:
-        _fail(f"ERROR: cannot read GeoJSON {path}: {e}")
+        fail(f"ERROR: cannot read GeoJSON {path}: {e}")
     except json.JSONDecodeError as e:
-        _fail(f"ERROR: {path} is not valid JSON: {e}")
+        fail(f"ERROR: {path} is not valid JSON: {e}")
     if (
         not isinstance(data, dict)
         or data.get("type") != "FeatureCollection"
         or not isinstance(data.get("features"), list)
     ):
-        _fail(f"ERROR: {path} is not a GeoJSON FeatureCollection.")
+        fail(f"ERROR: {path} is not a GeoJSON FeatureCollection.")
     # Sample the first coordinate pair to catch the classic mistake — LV95 E/N (millions of
     # metres) shipped where WGS84 lon/lat is expected. Any |value| > 180 can't be lon/lat.
     sample = _first_coord(data["features"])
     if sample is not None:
         x, y = sample
         if abs(x) > 180 or abs(y) > 90:
-            _fail(
+            fail(
                 f"ERROR: {path} coordinates look like LV95/projected ({x:.1f}, {y:.1f}), not WGS84 "
                 "[lng, lat]. Reproject to EPSG:4326 before loading."
             )
@@ -342,17 +337,12 @@ def _push(
     direct DB load this works against a remote server: each GeoJSON is PUT to the reference
     store (the server writes its OWN volume) and the config is PUT to /api/config. Authenticates
     with the deployment ADMIN_SECRET (not an editor PIN). Returns (files_uploaded, layers_written)."""
-    import httpx  # lazy: only `push` needs the network
-
     base = base.rstrip("/")
     files = [e for e in entries if e.kind == "geojson" and e.file]
-    with httpx.Client(base_url=base, timeout=180.0) as c:
-        r = c.post("/api/admin/login", json={"secret": admin_secret})
-        if r.status_code != 200:
-            _fail(f"ERROR: admin login to {base} failed ({r.status_code}): {r.text[:200]}")
+    with admin_client(base, admin_secret, timeout=180.0) as c:
         cfg_resp = c.get("/api/config")
         if cfg_resp.status_code != 200:
-            _fail(f"ERROR: GET /api/config failed ({cfg_resp.status_code}): {cfg_resp.text[:200]}")
+            fail(f"ERROR: GET /api/config failed ({cfg_resp.status_code}): {cfg_resp.text[:200]}")
         cfg = cfg_resp.json()
         cfg.pop("integrations", None)  # env-derived, read-only (mirrors ConfigEditor's PUT)
         version = cfg.pop("version", None)  # response-only field; it belongs in the header
@@ -371,7 +361,7 @@ def _push(
                 data=form,
             )
             if rr.status_code != 200:
-                _fail(f"ERROR: upload geo:{e.slug()} failed ({rr.status_code}): {rr.text[:200]}")
+                fail(f"ERROR: upload geo:{e.slug()} failed ({rr.status_code}): {rr.text[:200]}")
             uploaded += 1
             print(f"  ↑ geo:{e.slug()} ({src.name})")
         # ⚠️ The version just read, sent back as If-Match. This PUT replaces the WHOLE document
@@ -382,14 +372,14 @@ def _push(
         cfg["referenceLayers"] = _to_reference_layers(entries)
         pc = c.put("/api/config", json=cfg, headers={"If-Match": version} if version else {})
         if pc.status_code in (409, 412):
-            _fail(
+            fail(
                 f"ERROR: the config on {base} changed while this push was being prepared. "
                 f"{uploaded} GeoJSON file(s) were uploaded, so an existing layer with the same "
                 "dataset id may already serve the new bytes; referenceLayers was not changed. "
                 "Re-run to reconcile the files with the newer document."
             )
         if pc.status_code != 200:
-            _fail(f"ERROR: PUT /api/config failed ({pc.status_code}): {pc.text[:300]}")
+            fail(f"ERROR: PUT /api/config failed ({pc.status_code}): {pc.text[:300]}")
     return uploaded, len(entries)
 
 
@@ -410,7 +400,7 @@ def _validate_files(manifest_path: Path, entries: list[GeodataManifestEntry]) ->
         if e.kind == "geojson" and e.file:
             src = _resolve(manifest_path, e)
             if not src.is_file():
-                _fail(
+                fail(
                     f"ERROR: {manifest_path}: layer {e.id!r} file not found: {src}"
                     + template_hint(manifest_path, complete_example="examples/demo-data/geodata.manifest.json")
                 )
@@ -438,13 +428,7 @@ async def _amain(argv: list[str]) -> int:
     )
     p_push = sub.add_parser("push", help="upload GeoJSON + config to a RUNNING deployment via its API")
     p_push.add_argument("manifest")
-    p_push.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
-    p_push.add_argument(
-        "--admin-secret",
-        default=os.environ.get("KP_ADMIN_SECRET"),
-        help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)",
-    )
-    p_push.add_argument("--dry-run", action="store_true", help="authenticate + report only, do not upload/write")
+    add_push_args(p_push, dry_run_help="authenticate + report only, do not upload/write")
     sub.add_parser("show", help="print the stored referenceLayers")
 
     args = parser.parse_args(argv)
@@ -478,8 +462,7 @@ async def _amain(argv: list[str]) -> int:
         )
         return 0
     if args.cmd == "push":
-        if not args.base or not args.admin_secret:
-            _fail("ERROR: push needs --base and --admin-secret (or KP_BASE_URL / KP_ADMIN_SECRET).")
+        require_push_target(args)
         path = Path(args.manifest)
         entries = _read_manifest(path)
         if not args.dry_run:

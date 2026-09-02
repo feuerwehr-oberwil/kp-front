@@ -32,8 +32,9 @@ Einsatzrapport; falls back to ``logo`` when unset), ``favicon`` (browser tab),
 
 import argparse
 import os
-import sys
 from pathlib import Path
+
+from .admin_cli import add_base_arg, admin_client, fail
 
 SLOTS = ("logo", "reportLogo", "favicon", "iconPng192", "iconPng512")
 
@@ -57,24 +58,14 @@ def _stable_key(slot: str, suffix: str) -> str:
     return f"branding/{slot}{suffix}"
 
 
-def _fail(msg: str) -> None:
-    print(msg, file=sys.stderr)
-    raise SystemExit(1)
-
-
 def _push(slot: str, path: Path, base: str, admin_secret: str) -> str:
-    import httpx  # lazy: only `push` needs the network
-
     ctype = _CONTENT_TYPES.get(path.suffix.lower())
     if ctype is None:
-        _fail(f"ERROR: {path.suffix or path.name!r} is not an allowed image type ({', '.join(sorted(_CONTENT_TYPES))})")
-    with httpx.Client(base_url=base.rstrip("/"), timeout=120.0) as c:
-        r = c.post("/api/admin/login", json={"secret": admin_secret})
-        if r.status_code != 200:
-            _fail(f"ERROR: admin login to {base} failed ({r.status_code}): {r.text[:200]}")
+        fail(f"ERROR: {path.suffix or path.name!r} is not an allowed image type ({', '.join(sorted(_CONTENT_TYPES))})")
+    with admin_client(base, admin_secret, timeout=120.0) as c:
         up = c.post(f"/api/branding/{slot}", files={"file": (path.name, path.read_bytes(), ctype)})
         if up.status_code not in (200, 201):
-            _fail(f"ERROR: upload of {path.name} to {slot} failed ({up.status_code}): {up.text[:300]}")
+            fail(f"ERROR: upload of {path.name} to {slot} failed ({up.status_code}): {up.text[:300]}")
         assets = (up.json().get("identity") or {}).get("assets") or {}
         return str(assets.get(slot) or "")
 
@@ -96,7 +87,7 @@ async def _load(slot: str, path: Path) -> str:
     try:
         _check_icon(slot, data)
     except HTTPException as e:
-        _fail(f"ERROR: {e.detail}")
+        fail(f"ERROR: {e.detail}")
 
     key = _stable_key(slot, path.suffix.lower())
     storage.put_bytes(key, data)
@@ -127,7 +118,7 @@ def _show(base: str) -> dict:
     with httpx.Client(base_url=base.rstrip("/"), timeout=30.0) as c:
         r = c.get("/api/config")  # public: the login screen needs branding before auth
         if r.status_code != 200:
-            _fail(f"ERROR: GET /api/config failed ({r.status_code}): {r.text[:200]}")
+            fail(f"ERROR: GET /api/config failed ({r.status_code}): {r.text[:200]}")
         return (r.json().get("identity") or {}).get("assets") or {}
 
 
@@ -138,7 +129,7 @@ def main() -> None:
     p_push = sub.add_parser("push", help="upload an image into a branding slot of a RUNNING deployment")
     p_push.add_argument("slot", choices=SLOTS)
     p_push.add_argument("file")
-    p_push.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
+    add_base_arg(p_push)
     p_push.add_argument(
         "--secret", default=os.environ.get("KP_ADMIN_SECRET"), help="ADMIN_SECRET (env KP_ADMIN_SECRET)"
     )
@@ -148,7 +139,7 @@ def main() -> None:
     p_load.add_argument("file")
 
     p_show = sub.add_parser("show", help="print the branding asset URLs a deployment currently serves")
-    p_show.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
+    add_base_arg(p_show)
 
     a = ap.parse_args()
 
@@ -157,10 +148,10 @@ def main() -> None:
 
         path = Path(a.file)
         if not path.is_file():
-            _fail(f"ERROR: {path} not found")
+            fail(f"ERROR: {path} not found")
         # the same allowlist the HTTP upload applies — a typo fails here, not as a broken image
         if path.suffix.lower() not in _CONTENT_TYPES:
-            _fail(
+            fail(
                 f"ERROR: {path.suffix or path.name!r} is not an allowed image type ({', '.join(sorted(_CONTENT_TYPES))})"
             )
         url = asyncio.run(_load(a.slot, path))
@@ -168,7 +159,7 @@ def main() -> None:
         return
 
     if not a.base:
-        _fail("ERROR: set --base or KP_BASE_URL to the deployment URL")
+        fail("ERROR: set --base or KP_BASE_URL to the deployment URL")
 
     if a.cmd == "show":
         assets = _show(a.base)  # once, not once per slot
@@ -177,10 +168,10 @@ def main() -> None:
         return
 
     if not a.secret:
-        _fail("ERROR: set --secret or KP_ADMIN_SECRET to the deployment ADMIN_SECRET")
+        fail("ERROR: set --secret or KP_ADMIN_SECRET to the deployment ADMIN_SECRET")
     path = Path(a.file)
     if not path.is_file():
-        _fail(f"ERROR: {path} not found")
+        fail(f"ERROR: {path} not found")
     url = _push(a.slot, path, a.base, a.secret)
     print(f"OK: {a.slot} ← {path.name} → {url}")
 

@@ -43,7 +43,6 @@ import argparse
 import asyncio
 import hashlib
 import json
-import os
 import sys
 import uuid
 from dataclasses import dataclass, field
@@ -54,6 +53,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from sqlalchemy import func, select
 
 from . import storage
+from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
 from .database import async_session_maker
 from .models import ObjectSite, ReferenceDataset
@@ -230,11 +230,6 @@ EXAMPLE_MANIFEST: dict[str, Any] = {
 }
 
 
-def _fail(message: str) -> None:
-    print(message, file=sys.stderr)
-    raise SystemExit(1)
-
-
 # --- manifest validation (no DB) --------------------------------------------------------
 
 
@@ -243,20 +238,20 @@ def _read_manifest(path: Path) -> list[ObjectEntry]:
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as e:
-        _fail(f"ERROR: cannot read {path}: {e}")
+        fail(f"ERROR: cannot read {path}: {e}")
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        _fail(f"ERROR: {path} is not valid JSON: {e}")
+        fail(f"ERROR: {path} is not valid JSON: {e}")
     if isinstance(data, dict) and isinstance(data.get("objects"), list):
         data = data["objects"]
     if not isinstance(data, list):
-        _fail(f'ERROR: {path} must be a JSON list of objects (or {{"objects": [...]}}).')
+        fail(f'ERROR: {path} must be a JSON list of objects (or {{"objects": [...]}}).')
     objects: list[ObjectEntry] = []
     seen: set[uuid.UUID] = set()
     for i, item in enumerate(data):
         if not isinstance(item, dict):
-            _fail(f"ERROR: {path}[{i}] is not an object.")
+            fail(f"ERROR: {path}[{i}] is not an object.")
         try:
             entry = ObjectEntry(**item)
         except ValidationError as e:
@@ -264,9 +259,9 @@ def _read_manifest(path: Path) -> list[ObjectEntry]:
             for err in e.errors():
                 field = ".".join(str(p) for p in err["loc"]) or "(root)"
                 lines.append(f"  {field}: {err['msg']} [{err['type']}]")
-            _fail("\n".join(lines))
+            fail("\n".join(lines))
         if entry.object_id in seen:
-            _fail(f"ERROR: {path}: duplicate object id {entry.object_id} ({entry.name!r}).")
+            fail(f"ERROR: {path}: duplicate object id {entry.object_id} ({entry.name!r}).")
         seen.add(entry.object_id)
         objects.append(entry)
     return objects
@@ -290,17 +285,17 @@ def _validate_files(manifest_path: Path, objects: list[ObjectEntry]) -> int:
         for p in o.plans:
             src = _resolve(manifest_path, p)
             if not src.is_file():
-                _fail(
+                fail(
                     f"ERROR: {manifest_path}: object {o.object_id} plan {p.module!r} file not found: {src}"
                     + template_hint(manifest_path, complete_example="examples/demo-data/objects.manifest.json")
                 )
             raw = src.read_bytes()
             if raw[:5] != b"%PDF-":
-                _fail(f"ERROR: {src} is not a PDF (missing %PDF- header).")
+                fail(f"ERROR: {src} is not a PDF (missing %PDF- header).")
             if p.sha256:
                 actual = hashlib.sha256(raw).hexdigest()
                 if actual != p.sha256:
-                    _fail(
+                    fail(
                         f"ERROR: {src} is not the plan this manifest pins.\n"
                         f"       expected sha256 {p.sha256}\n"
                         f"       actual   sha256 {actual}  ({len(raw)} bytes)\n"
@@ -414,17 +409,12 @@ def _push(manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secr
     objects it CREATED and which it updated. An upsert answers 200 either way, and «upserted 3
     objects» is the sentence that hid a fresh-station install writing an object nobody expected.
     """
-    import httpx  # lazy: only `push` needs the network
-
     base = base.rstrip("/")
     res = WriteResult()
-    with httpx.Client(base_url=base, timeout=180.0) as c:
-        r = c.post("/api/admin/login", json={"secret": admin_secret})
-        if r.status_code != 200:
-            _fail(f"ERROR: admin login to {base} failed ({r.status_code}): {r.text[:200]}")
+    with admin_client(base, admin_secret, timeout=180.0) as c:
         rl = c.get("/api/objects")
         if rl.status_code != 200:
-            _fail(f"ERROR: reading the objects already at {base} failed ({rl.status_code}): {rl.text[:200]}")
+            fail(f"ERROR: reading the objects already at {base} failed ({rl.status_code}): {rl.text[:200]}")
         known: set[str] = {str(o["id"]) for o in rl.json()}
 
         for o in objects:
@@ -448,7 +438,7 @@ def _push(manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secr
                 },
             )
             if ro.status_code != 200:
-                _fail(f"ERROR: upsert object {oid} failed ({ro.status_code}): {ro.text[:200]}")
+                fail(f"ERROR: upsert object {oid} failed ({ro.status_code}): {ro.text[:200]}")
             attached = 0
             for p in o.plans:
                 src = _resolve(manifest_path, p)
@@ -478,7 +468,7 @@ def _push(manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secr
                     )
                     continue
                 if rp.status_code != 200:
-                    _fail(f"ERROR: upload {oid}/{p.module} failed ({rp.status_code}): {rp.text[:200]}")
+                    fail(f"ERROR: upload {oid}/{p.module} failed ({rp.status_code}): {rp.text[:200]}")
                 res.plans_written += 1
                 attached += 1
             print(f"  {'+' if is_new else '~'} {o.name}  ({attached}/{len(o.plans)} plan PDF(s))")
@@ -532,13 +522,7 @@ async def _amain(argv: list[str]) -> int:
     p_load.add_argument("--dry-run", action="store_true", help="validate only, do not write")
     p_push = sub.add_parser("push", help="upload objects + PDFs to a RUNNING deployment via its API")
     p_push.add_argument("manifest")
-    p_push.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
-    p_push.add_argument(
-        "--admin-secret",
-        default=os.environ.get("KP_ADMIN_SECRET"),
-        help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)",
-    )
-    p_push.add_argument("--dry-run", action="store_true", help="authenticate + report only, do not upload/write")
+    add_push_args(p_push, dry_run_help="authenticate + report only, do not upload/write")
     sub.add_parser("show", help="print the stored objects + plan counts")
 
     args = parser.parse_args(argv)
@@ -559,8 +543,7 @@ async def _amain(argv: list[str]) -> int:
             return 0
         return (await _load(path, objects)).report(where="in the local reference store")
     if args.cmd == "push":
-        if not args.base or not args.admin_secret:
-            _fail("ERROR: push needs --base and --admin-secret (or KP_BASE_URL / KP_ADMIN_SECRET).")
+        require_push_target(args)
         path = Path(args.manifest)
         objects = _read_manifest(path)
         if not args.dry_run:
