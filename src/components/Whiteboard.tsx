@@ -3442,8 +3442,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(${a.kind === 'resource' ? `${selId === a.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px` : '-50%'}, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px`, ...(a.kind === 'shape' && a.locked ? { pointerEvents: 'none' as const } : null) }}
                 onPointerDown={(e) => chipDown(e, a.id)}
                 // double-tap still opens the on-surface textarea; the panel steps aside so the
-                // two editors for one text never stream keystrokes side by side
-                onDoubleClick={(e) => { if ((a.kind === 'text' || a.kind === 'resource') && tool === 'pan') { e.stopPropagation(); setEditId(a.id); setSelId(a.id); if (a.kind === 'text') setNotePanelId(null) } }}
+                // two editors for one text never stream keystrokes side by side.
+                // ⚠️ `!readOnly` mirrors the editors this arms: on a read-only surface the pill
+                // renders without `acts`, so `renaming` mounts no input and nothing ever fires
+                // the blur that clears `editId` — a viewer's double-tap latched it for the whole
+                // mount. The guard is the fix; do NOT mount the editor here instead (its blur
+                // would commit a patch from a read-only session).
+                onDoubleClick={(e) => { if ((a.kind === 'text' || a.kind === 'resource') && tool === 'pan' && !readOnly) { e.stopPropagation(); setEditId(a.id); setSelId(a.id); if (a.kind === 'text') setNotePanelId(null) } }}
               >
                 {relationship.objectIds.has(a.id) && selId !== a.id && <span className="network-halo" />}
                 {/* selection halo — the same accent ring the Lage map draws, so a selected

@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
+from ..deployment_config import config_row
 from ..models import DeploymentConfig
 
 logger = logging.getLogger("kp.telemetry")
@@ -79,10 +80,7 @@ async def set_consent(db: AsyncSession, value: str) -> str:
     """
     if value not in VALID_CONSENT:
         raise ValueError(f"telemetry consent must be one of {sorted(VALID_CONSENT)}")
-    row = await _row(db)
-    if row is None:
-        row = DeploymentConfig(id=1)
-        db.add(row)
+    row = await config_row(db)
     row.telemetry_consent = value
     logger.info("telemetry consent set to %s", value)
     return value
@@ -100,9 +98,7 @@ async def get_install_id(db: AsyncSession, *, mint: bool = False) -> str | None:
         return str(row.telemetry_install_id)
     if not mint:
         return None
-    if row is None:
-        row = DeploymentConfig(id=1)
-        db.add(row)
+    row = await config_row(db)
     row.telemetry_install_id = uuid.uuid4()
     logger.info("telemetry install id minted: %s", row.telemetry_install_id)
     return str(row.telemetry_install_id)
@@ -116,10 +112,7 @@ async def regenerate_install_id(db: AsyncSession) -> str:
     have no way to bridge the two. Paired with the mail address in PRIVACY.md for the other
     half (asking us to delete what is already there, by quoting the old id).
     """
-    row = await _row(db)
-    if row is None:
-        row = DeploymentConfig(id=1)
-        db.add(row)
+    row = await config_row(db)
     row.telemetry_install_id = uuid.uuid4()
     logger.info("telemetry install id regenerated")
     return str(row.telemetry_install_id)

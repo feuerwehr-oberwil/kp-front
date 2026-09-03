@@ -19,8 +19,12 @@
 }
 .replay-banner b { font-weight: 800; letter-spacing: .04em; }
 .replay-sub { font-weight: 600; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A still dot, deliberately. It carried `animation: recPulse` for months without ever pulsing —
+   a module localizes the name, so the global keyframes were never reached — and nobody missed it:
+   the banner already says in words that this is the past. A pulse belongs on the composer's REC
+   dot, where something really is running. */
 .replay-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--on-accent-ink); flex: none;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, .35); animation: recPulse 1.6s ease-in-out infinite; }
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .35); }
 .replay-exit {
   margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 5px;
   border: none; background: rgba(255, 255, 255, .22); color: var(--on-accent-ink); cursor: pointer;

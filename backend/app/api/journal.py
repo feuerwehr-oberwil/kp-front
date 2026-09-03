@@ -21,6 +21,7 @@ from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, JournalEntry
 from ..schemas import JournalAppendIn, JournalEntryOut, JournalPage
+from .incidents import INCIDENT_NOT_FOUND
 
 router = APIRouter(prefix="/incidents", tags=["journal"])
 
@@ -34,7 +35,7 @@ async def _ensure(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = Fals
         q = q.with_for_update()
     exists = (await db.execute(q)).scalar_one_or_none()
     if exists is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
 
 
 async def _rows_since(db: AsyncSession, incident_id: uuid.UUID, since_seq: int) -> list[JournalEntryOut]:

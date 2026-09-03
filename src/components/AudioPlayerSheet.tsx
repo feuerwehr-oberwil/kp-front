@@ -6,6 +6,7 @@ import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtDuration } from '../lib/format'
 import { ApiError, apiGet, apiPatch, apiPost, timeoutSignal } from '../lib/api'
+import { linkSessionHeaders } from '../lib/linkMode'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases, type PhraseMatch } from '../lib/quickPhrases'
 import { acceptName, suggestLinks } from '../lib/journalEntry'
@@ -35,7 +36,9 @@ function usePeaks(audioUrl: string | undefined): Peaks {
     const poll = async () => {
       try {
         // bounded like every other request: 60 tries is a bound on attempts, not on time
-        const r = await fetch(`${audioUrl}/peaks`, { cache: 'no-store', signal: timeoutSignal(20_000) })
+        const r = await fetch(`${audioUrl}/peaks`, {
+          cache: 'no-store', signal: timeoutSignal(20_000), headers: linkSessionHeaders(),
+        })
         if (!alive) return
         if (r.status === 202 && tries++ < 60) { setTimeout(poll, 2500); return }
         if (!r.ok) { setPeaks({ status: 'none', values: null }); return }

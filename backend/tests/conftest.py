@@ -4,8 +4,12 @@ Runs against ``DATABASE_URL`` when set (CI provides a postgres:16 service), othe
 ephemeral in-memory SQLite (``sqlite+aiosqlite``). The postgres-specific column types
 (JSONB, the postgres UUID) are taught to render on SQLite via lightweight ``@compiles``
 shims so the *whole* schema — incidents, audit chain, revoked_tokens — stands up locally
-without a database server. Behaviour the tests assert (optimistic-lock UPDATE, blocklist
-PK lookup, hash chain) is dialect-agnostic, so SQLite is a faithful stand-in here.
+without a database server. Every timestamp column in the schema declares
+``DateTime(timezone=True)``; SQLite's own DATETIME impl silently drops the tzinfo on write
+and hands back a naive datetime on read, which is not what asyncpg does, so that impl is
+swapped for one that reattaches UTC on the way out. Behaviour the tests assert
+(optimistic-lock UPDATE, blocklist PK lookup, hash chain) is dialect-agnostic, so SQLite is
+a faithful stand-in here.
 
 Fixtures:
 - ``engine`` / ``db_session``: a rolled-back async session per test.
@@ -35,8 +39,14 @@ TEST_PIN = "135790"[:6]
 
 
 def _install_sqlite_shims() -> None:
-    """Teach SQLite to render the postgres-only column types used across the schema."""
+    """Teach SQLite to render the postgres-only column types used across the schema, and to
+    round-trip a tz-aware ``DateTime`` the way a real Postgres/asyncpg pair does."""
+    from datetime import UTC
+
+    from sqlalchemy import DateTime
+    from sqlalchemy.dialects import sqlite as sqlite_dialect
     from sqlalchemy.dialects.postgresql import JSONB, UUID
+    from sqlalchemy.dialects.sqlite.pysqlite import SQLiteDialect_pysqlite
     from sqlalchemy.ext.compiler import compiles
 
     @compiles(JSONB, "sqlite")
@@ -46,6 +56,26 @@ def _install_sqlite_shims() -> None:
     @compiles(UUID, "sqlite")
     def _compile_uuid(type_, compiler, **kw):
         return "CHAR(36)"
+
+    class _TZAwareSQLiteDateTime(sqlite_dialect.DATETIME):
+        """Same on-disk string as SQLite's own DATETIME impl; only the read side differs,
+        reattaching UTC so a ``timezone=True`` column answers with an aware datetime here
+        too — every timestamp in this schema declares one, so nothing here is ever meant
+        to stay naive."""
+
+        def result_processor(self, dialect, coltype):
+            process = super().result_processor(dialect, coltype)
+
+            def process_and_localize(value):
+                value = process(value)
+                return value.replace(tzinfo=UTC) if value is not None and value.tzinfo is None else value
+
+            return process_and_localize
+
+    # `aiosqlite`'s dialect has no colspecs of its own — it inherits pysqlite's, which is
+    # where `DateTime` actually resolves to SQLite's DATETIME impl. Mutated in place (not
+    # reassigned) so that inheritance keeps seeing it.
+    SQLiteDialect_pysqlite.colspecs[DateTime] = _TZAwareSQLiteDateTime
 
 
 @pytest.fixture(scope="session")

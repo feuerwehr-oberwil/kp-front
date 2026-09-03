@@ -82,6 +82,7 @@ from ..auth.incident_link import (
     create_view_session_token,
 )
 from ..database import get_db
+from ..deployment_config import config_row
 from ..models import DeploymentConfig, Incident
 
 router = APIRouter(prefix="/incident-link", tags=["incident-link"])
@@ -100,15 +101,6 @@ class LinkTokenIn(BaseModel):
 # Gated by the deployment admin (ADMIN_SECRET session), NOT the editor role: handing this key
 # to an alerting system grants it the power to open read sessions on every incident the
 # station will ever have, which is deployment administration.
-
-
-async def _config_row(db: AsyncSession) -> DeploymentConfig:
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    if row is None:
-        row = DeploymentConfig(id=1, config_json=None)
-        db.add(row)
-        await db.flush()
-    return row
 
 
 #: The refusal both link doors share: the station never set a minting key, so nothing can mint a
@@ -156,7 +148,7 @@ def mint_incident_link_token(incident_id: str, key: str) -> str:
 
 @router.get("/secret")
 async def get_link_key(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
-    row = await _config_row(db)
+    row = await config_row(db)
     return {"configured": bool(row.incident_link_key), "token": row.incident_link_key}
 
 
@@ -164,7 +156,7 @@ async def get_link_key(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db))
 async def rotate_link_key(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
     """Mint a fresh minting key — every link already sent out stops working at once, so the
     alerting system has to be reconfigured with the new one in the same breath."""
-    row = await _config_row(db)
+    row = await config_row(db)
     # HS256 requires at least 256 bits of key material (RFC 7518 §3.2). Older releases
     # minted 18 bytes; those keys remain valid for compatibility, while every rotation now
     # meets the full requirement.
@@ -175,7 +167,7 @@ async def rotate_link_key(_admin: CurrentAdmin, db: AsyncSession = Depends(get_d
 
 @router.delete("/secret")
 async def disable_link(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
-    row = await _config_row(db)
+    row = await config_row(db)
     row.incident_link_key = None
     await db.flush()
     return {"configured": False}

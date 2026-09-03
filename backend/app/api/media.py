@@ -33,7 +33,7 @@ from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import get_db
 from ..models import Incident, Media, SttJob
-from .incidents import get_incident_or_404
+from .incidents import INCIDENT_NOT_FOUND, get_incident_or_404
 
 router = APIRouter(tags=["media"])
 logger = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ async def upload_media(
         raise HTTPException(status_code=422, detail="kind muss 'photo', 'audio' oder 'file' sein")
     inc = (await db.execute(select(Incident.id).where(Incident.id == incident_id))).scalar_one_or_none()
     if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
 
     content_type = file.content_type or "application/octet-stream"
     allowed = {"photo": _ALLOWED_PHOTO, "audio": _ALLOWED_AUDIO}.get(kind, _ALLOWED_FILE)

@@ -19,6 +19,7 @@ import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays 
 import type { BoardAnno, BoardPoint, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
+import { newId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
@@ -42,7 +43,7 @@ import { useUndoableDoc } from './lib/useUndoableDoc'
 import { useUndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
-import { toast, confirmDialog } from './lib/ui'
+import { toast, confirmDialog, undoToast } from './lib/ui'
 import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
 import { loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
@@ -1507,7 +1508,7 @@ export function IncidentWorkspace({
     if (!canWriteRecord) return
     const at = new Date().toISOString()
     for (const file of files) {
-      const id = `att${Date.now()}${Math.random().toString(36).slice(2, 6)}`
+      const id = newId('att')
       const localUrl = URL.createObjectURL(file)
       void (async () => {
         // the Beilagen list shows a session thumbnail, never the camera file (lib/mediaUrl) —
@@ -2314,7 +2315,7 @@ export function IncidentWorkspace({
       return
     }
     if (tool === 'shape' && pendingShape) {
-      const id = `sh${Date.now()}`; const def = SHAPE_DEFS[pendingShape]
+      const id = newId('sh'); const def = SHAPE_DEFS[pendingShape]
       const name = appConfig.copy.shapes.names[pendingShape]
       // ── A Rotation is laid between two PLACES (lib/shapes · SHAPE_TWO_POINT) ──────────────
       // The first tap is the Wasserbezug, the second the Brandstelle, and the loop's centre,
@@ -2347,7 +2348,7 @@ export function IncidentWorkspace({
       log('area', fillTemplate(appConfig.copy.log.shapePlaced, { name }), 'symbol', undefined, id)
       emit('entity.add', { id, kind: 'shape', entity: { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, shape: pendingShape, color: def.defaultColor, label: name, ...geom } })
     } else if (tool === 'symbol' && pending) {
-      const id = `p${Date.now()}`; const s = pending
+      const id = newId('p'); const s = pending
       // shared seeding (label / subtitle / fields / vehicle rotation) — identical to
       // the Plan placement path so a symbol carries the same structure on both surfaces
       // A driven vehicle is stored on the Fahrzeuge layer, so it toggles with the live GPS
@@ -2363,7 +2364,7 @@ export function IncidentWorkspace({
       log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, id)
       emit('entity.add', { id, symbol: s, entity })
     } else if (tool === 'note') {
-      const id = `n${Date.now()}`
+      const id = newId('n')
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
       // straight into typing on the surface; the detail panel waits for the ⚙
       setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id); setTool('select'); log('type', appConfig.copy.log.notePlaced, 'note', undefined, id)
@@ -2491,7 +2492,7 @@ export function IncidentWorkspace({
     if (selectedId) {
       const src = doc.entities.find((e) => e.id === selectedId)
       if (!src || src.live || !Array.isArray(src.coord)) return
-      const id = `p${Date.now()}`
+      const id = newId('p')
       const copy: Entity = { ...src, id, coord: [src.coord[0] + DUP_OFFSET, src.coord[1] - DUP_OFFSET] }
       commit((d) => ({ ...d, entities: [...d.entities, copy] }))
       setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
@@ -2499,7 +2500,7 @@ export function IncidentWorkspace({
     } else if (selectedDrawingId) {
       const src = doc.drawings.find((dr) => dr.id === selectedDrawingId)
       if (!src) return
-      const id = `sh${Date.now()}`
+      const id = newId('sh')
       const copy: Drawing = { ...src, id, coords: src.coords.map(([x, y]) => [x + DUP_OFFSET, y - DUP_OFFSET] as LngLat) }
       commit((d) => ({ ...d, drawings: [...d.drawings, copy] }))
       setSelectedDrawingId(id); setSelectedId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
@@ -5458,14 +5459,12 @@ export function IncidentWorkspace({
             if (hasWork) {
               // confirm-with-undo: the previous stack (floors + markings) is restorable in place,
               // and the toast repeats the counts — «Gebäude ersetzt» alone never said what happened.
-              toast(amend.legacy
+              undoToast(amend.legacy
                 ? (markCount > 0 ? fillTemplate(wb.buildingReplacedMarks, { n: markCount }) : wb.buildingReplaced)
                 : amend.dropped > 0 ? fillTemplate(wb.buildingReplacedCarriedDropped, { n: amend.carried, d: amend.dropped })
                 : markCount > 0 ? fillTemplate(wb.buildingReplacedCarried, { n: amend.carried })
-                : wb.buildingReplacedKept, {
-                icon: 'undo',
-                action: { label: appConfig.copy.undo, onClick: () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) } },
-              })
+                : wb.buildingReplacedKept,
+                () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) })
             }
           }}
           // the two faces of the ONE «Gebäude» rail tile. Both plan ids stay real documents —
@@ -5480,10 +5479,8 @@ export function IncidentWorkspace({
             setBuilding((b) => (b ? { ...b, floors: dir > 0 ? [...b.floors, newFloor] : [newFloor, ...b.floors] } : b))
             // confirm-with-undo (standing rule): the undo also sweeps any annotation already
             // dropped on the brand-new storey so nothing orphans
-            toast(appConfig.copy.whiteboard.floorAdded, {
-              icon: 'undo',
-              action: { label: appConfig.copy.undo, onClick: () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: (b.gebaeude ?? []).filter((a) => (a.floor ?? 0) !== newFloor) })) } },
-            })
+            undoToast(appConfig.copy.whiteboard.floorAdded,
+              () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: (b.gebaeude ?? []).filter((a) => (a.floor ?? 0) !== newFloor) })) })
           }}
           onRemoveFloor={(floor) => {
             const prevBuilding = building
@@ -5514,10 +5511,8 @@ export function IncidentWorkspace({
               return { ...b, gebaeude }
             })
             // confirm-with-undo: the removed storey's annotations come back with it
-            toast(appConfig.copy.whiteboard.floorRemoved, {
-              icon: 'undo',
-              action: { label: appConfig.copy.undo, onClick: () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) } },
-            })
+            undoToast(appConfig.copy.whiteboard.floorRemoved,
+              () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) })
           }}
           sym={sym}
           rosterNames={rosterNames}

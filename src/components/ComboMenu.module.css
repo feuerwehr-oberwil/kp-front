@@ -13,7 +13,8 @@
    and no skin has to name them.
 
    Imported by the component rather than composed or made global — same reasoning as
-   SurfaceControls.module.css: the repo has no `composes:` anywhere, and `.search` is far too
+   SurfaceControls.module.css: `composes:` pulls the whole donor rule in at the donor's
+   specificity, which is what the surface modules use it for, while `.search` is far too
    generic a name to put in the shared namespace.
    ============================================================================ */
 

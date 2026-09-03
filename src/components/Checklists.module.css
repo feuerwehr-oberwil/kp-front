@@ -110,7 +110,6 @@
 .cl-empty-hint { font-size: 13px; color: var(--ink-faint); font-style: italic; padding: 4px 2px; }
 
 /* --- reference playbook --- */
-.cl-ref { display: flex; gap: 20px; height: 100%; max-width: 1000px; margin: 0 auto; }
 .cl-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--r-ctl);
   padding: 9px 12px; box-shadow: 0 0 0 1px var(--border-soft); }
 .cl-search :global(.i) { width: 15px; height: 15px; color: var(--ink-faint); flex: none; }

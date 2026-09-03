@@ -17,7 +17,7 @@ export function StatsAdminView() {
   return (
     <SecretCard
       secret={secret}
-      copy={{ ...C, tokenLabel: C.tokenLabel }}
+      copy={C}
       docsUrl={`${D.repo}${D.statsExport}`}
       example={(token) =>
         `curl -H "X-Stats-Token: ${token}" ${window.location.origin}/api/stats/incidents?year=${new Date().getFullYear()}`}

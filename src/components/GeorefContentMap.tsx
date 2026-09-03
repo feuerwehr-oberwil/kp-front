@@ -85,7 +85,7 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
    *  only door back into a locked object on this surface (MapView · lockChips) */
   onUnlockTwin?: (twin: MapContentTwin) => void
   /** The mirrored Truppmarker's context bar — the SAME bar the original wears on the Plan, and
-   *  the same one a native Trupp wears here (MapMarkers · wb-pill-acts). Every action writes the
+   *  the same one a native Trupp wears here (TwinTeamPill · wb-pill-acts). Every action writes the
    *  ONE plan annotation; absent on a locked surface, where the read-only plaque takes over. */
   teamActions?: {
     rename: (twin: MapContentTwin, name: string) => void

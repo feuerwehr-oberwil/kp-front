@@ -47,10 +47,25 @@ def patch_httpx(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _reset_geocode_bias_cache():
+def _reset_geocode_bias_cache(monkeypatch):
     """`_resolve_bias`'s TTL cache is process-global state; a value another test (in this
     file or, in a full run, another test module exercising search()/geocode()) leaves behind
-    would otherwise leak into whichever test happens to run next."""
+    would otherwise leak into whichever test happens to run next.
+
+    Also stands in for `app.database.async_session_maker` with "no config row" by default:
+    `_resolve_bias` opens ITS OWN session straight off that name rather than the
+    request-scoped `get_db` the `client`/`db_session` fixtures override (see the dedicated
+    `_resolve_bias` tests below for why), so without this, every `search()`/`geocode()` call
+    in this file reaches whatever real database `settings.database_url` happens to resolve
+    to on the machine running the suite. Locally that is the dev Postgres instance, which
+    carries an actual seeded `map.geocoder` config — silently overriding the `settings.*`
+    values a test just monkeypatched and making the bias assertions pass or fail depending
+    on what is sitting in someone's local database rather than on the test's own setup. A
+    test that wants the DB half of `_resolve_bias` back (the four below) re-patches this
+    itself, which simply wins for the rest of that test."""
+    import app.database as database_module
+
+    monkeypatch.setattr(database_module, "async_session_maker", _fake_session_maker(None))
     geocode._bias_cache = None
     yield
     geocode._bias_cache = None

@@ -192,9 +192,11 @@ to prod.
   place. Base UI portals Backdrop+Popup as siblings, so scrim = `.ui-backdrop` and centering =
   `.ip-sheet.ui-dialog` (see app.css). **Modal surfaces only** – the non-modal map tool-docks
   (`MapViewsMenu` views popover, the `.ctx` tool editors, the incident `ip-menu`) stay
-  hand-rolled: a focus-trapping/scroll-locking primitive would break map interaction. `Combo`
-  and the tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a
-  tablet tap model don't map cleanly to Base UI Select/Tooltip).
+  hand-rolled: a focus-trapping/scroll-locking primitive would break map interaction. The
+  tap-open picker (`ComboMenu`, worn by `Combo` and the Atemschutz `PersonField`) and the
+  tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a tablet tap
+  model don't map cleanly to Base UI Select/Tooltip); the admin `Select` stays hand-rolled too,
+  keyboard-driven and unportalled.
 - **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
   `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
   and the geocoder bbox. Reference-layer GeoJSON (hydrants, …) must be WGS84.
@@ -251,7 +253,9 @@ to prod.
   Hydrants/Leitungskataster/canton-WMS layers, Modul PDFs, and the FU/EL checklist templates +
   playbook diagrams don't live in this repo – they're loaded into a deployment from a *private data
   repo* via `admin_geodata` / `admin_objects` / `admin_checklists` (each a
-  `schema|example|validate|load|push|show` CLI keyed off `KP_ADMIN_SECRET`). The frontend turns
+  `schema|example|validate|load|push|show` CLI keyed off `KP_ADMIN_SECRET`; they share their
+  flags, refusals and push session with `admin_config`/`admin_branding` via `app/admin_cli.py`).
+  The frontend turns
   config geodata into map layers (`referenceLayersFromConfig` → `deriveInitial`); missing object
   plans fall back only to OSM outlines + `Tafel`, never bundled `/public` PDFs; checklist templates
   are fetched from the `checklists:<id>` reference datasets (`loadTemplates` in

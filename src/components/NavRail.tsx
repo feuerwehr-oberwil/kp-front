@@ -68,7 +68,7 @@ export function NavRail(p: Props) {
           know the glyphs yet and wants the names once, without a trip to the Einstellungen. */}
       {p.labels !== 'short' && (
         <button className="nav-exp rail-exp" onClick={() => rail.apply(!expanded)} aria-label={expanded ? nav.collapse : nav.expand}>
-          <span className="nav-exp-ic rail-exp-ic"><Icon id="chevron" /></span><span className="nav-exp-t rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
+          <span className="nav-exp-ic rail-exp-ic"><Icon id="chevron" /></span><span className="rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
         </button>
       )}
 
@@ -78,9 +78,9 @@ export function NavRail(p: Props) {
           ⚠️ Every rail element carries its own class AND the shared `rail-*` base (04b-rail.css):
           the base paints it, the `nav-*` name is the hook the rest of the cascade keys off — the
           phone bar rules in 15-mobile.css use several of them. */}
-      <div className="nav-scroll-wrap rail-scroll-wrap">
-      {rail.edge.top && <button type="button" className="nav-more rail-more nav-more-up rail-more-up" aria-label={nav.scrollMore} onClick={() => rail.nudge(-1)}><Icon id="chevron-down" /></button>}
-      {rail.edge.bottom && <button type="button" className="nav-more rail-more nav-more-down rail-more-down" aria-label={nav.scrollMore} onClick={() => rail.nudge(1)}><Icon id="chevron-down" /></button>}
+      <div className="rail-scroll-wrap">
+      {rail.edge.top && <button type="button" className="nav-more rail-more rail-more-up" aria-label={nav.scrollMore} onClick={() => rail.nudge(-1)}><Icon id="chevron-down" /></button>}
+      {rail.edge.bottom && <button type="button" className="nav-more rail-more rail-more-down" aria-label={nav.scrollMore} onClick={() => rail.nudge(1)}><Icon id="chevron-down" /></button>}
       <div ref={rail.scrollRef} className={`nav-scroll rail-scroll${rail.edge.top ? ' more-top' : ''}${rail.edge.bottom ? ' more-bottom' : ''}`}>
         <button className={`nav-item${p.mode === 'map' ? ' on' : ''}`} aria-pressed={p.mode === 'map'} aria-label={nav.map} onClick={() => p.onMode('map')}>
           <span className="nav-glyph"><Icon id="map" /></span>

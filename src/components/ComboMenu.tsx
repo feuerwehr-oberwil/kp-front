@@ -9,10 +9,14 @@ import c from './ComboMenu.module.css'
 
 /**
  * The tap-to-open picker every roster/value field in the app is made of — the machinery, not
- * the policy. It was hand-rolled three times (the global Combo, the Atemschutz PersonField and
- * the admin Select) and the three copies cross-referenced each other in their comments, which
- * is the shape of duplication that drifts: the maxHeight cap was fixed twice, months apart, and
- * the search row's press wash only ever reached one of them.
+ * the policy. It was hand-rolled twice (the global Combo and the Atemschutz PersonField) and the
+ * two copies cross-referenced each other in their comments, which is the shape of duplication
+ * that drifts: the maxHeight cap was fixed twice, months apart, and the search row's press wash
+ * only ever reached one of them.
+ *
+ * The admin `Select` (admin/ui.tsx) deliberately stays out: it is keyboard-driven with
+ * active-descendant navigation and is not portalled, so adopting this machinery would cost it
+ * that. It is not a forgotten third call site.
  *
  * What lives here: open/typing/search state, the portalled menu and where it is put, dismissal,
  * the search row, the «nur Offiziere» row, the free-type escape and the empty row.

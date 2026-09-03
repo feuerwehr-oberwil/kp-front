@@ -394,8 +394,12 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
      never got smaller. `is-kb` / `--kb-inset` are the exact signal `.ip-sheet` already answers
      this way (13-incident.css); this bespoke frame just never listened for it. Shrinking the
      frame itself lets `.teamList` give the room back and the sheet's own scroll reach every
-     field that is still genuinely on screen (field feedback, 02.09.). */
-  .modal.is-kb { height: calc(100dvh - var(--kb-inset, 0px)); max-height: calc(100dvh - var(--kb-inset, 0px)); }
+     field that is still genuinely on screen (field feedback, 02.09.).
+     ⚠️ `:global()`. `is-kb` is a GLOBAL class — lib/overlays/Overlay appends it as a literal
+     string — and an unscoped `.is-kb` in a *.module.css compiles to a hashed name that nothing
+     ever wears, so this rule shipped dead. Written this way the emitted selector keeps the
+     literal `.is-kb`. */
+  .modal:global(.is-kb) { height: calc(100dvh - var(--kb-inset, 0px)); max-height: calc(100dvh - var(--kb-inset, 0px)); }
 }
 /* Gebäude / Modul-6 placement picker */
 /* ⚠️ `height: auto`. It borrows `.modal`, whose 760px is sized for the Trupp FORM — so a picker

@@ -86,7 +86,10 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
  * operator is at an Einsatz and a modal in the way of a tick costs more than the mistake does.
  * That trade only holds while every one of them looks and behaves the same, and they were seven
  * hand-written copies of the same three lines (Zeitplan, Schichtbänder, Anwesenheit), so the
- * icon and the «Rückgängig» label are decided here, once.
+ * undo icon and the «Rückgängig» label are decided here, once — for the toasts whose only
+ * subject IS the undo. The domain toasts keep writing the action out, because each carries its
+ * own icon (radio, drop, trash, pen, move, check) and that glyph is what names the edit; they
+ * are not an unfinished sweep.
  */
 export function undoToast(text: string, onUndo: () => void): number {
   return toast(text, { icon: 'undo', action: { label: appConfig.copy.undo, onClick: onUndo } })

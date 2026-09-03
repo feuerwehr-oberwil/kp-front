@@ -956,7 +956,8 @@ export type AttendanceState = Record<string, AttendanceEntry>
 /** One planned availability block of the Schichtenplanung (see lib/shifts). A PLAN — it never
  *  writes attendance; executing it is the ordinary Anwesenheit tick, which stamps the real time. */
 export interface Shift {
-  /** `'sh'+Date.now()` — prefixed timestamp, like every other id here */
+  /** `newId('sh')` — `sh<ms>-<seq><rand>`, a prefixed timestamp that survives two
+   *  tablets planning in the same millisecond (see lib/ids) */
   id: string
   personId: string
   /** ISO start of the planned availability */
@@ -986,7 +987,7 @@ export interface Shift {
  *  full set for 66 people, and mergeById would have to resolve duplicates of something that should
  *  never have existed. An inert row cannot collide. */
 export interface ShiftBand {
-  /** `'bd'+Date.now()` — prefixed timestamp, like every other id here */
+  /** `newId('bd')` — `bd<ms>-<seq><rand>`, see lib/ids */
   id: string
   /** what the crew calls this watch — «Früh», «Nacht» */
   label: string

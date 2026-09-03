@@ -328,7 +328,9 @@ async def test_verify_pinpoints_a_tampered_payload(client, editor, db_session):
     rows = list(
         (
             await db_session.execute(
-                select(IncidentEvent).where(IncidentEvent.incident_id == inc).order_by(IncidentEvent.seq.asc())
+                select(IncidentEvent)
+                .where(IncidentEvent.incident_id == uuid.UUID(inc))
+                .order_by(IncidentEvent.seq.asc())
             )
         ).scalars()
     )
@@ -357,7 +359,9 @@ async def test_verify_pinpoints_a_forged_hash_even_when_the_payload_matches(clie
     rows = list(
         (
             await db_session.execute(
-                select(IncidentEvent).where(IncidentEvent.incident_id == inc).order_by(IncidentEvent.seq.asc())
+                select(IncidentEvent)
+                .where(IncidentEvent.incident_id == uuid.UUID(inc))
+                .order_by(IncidentEvent.seq.asc())
             )
         ).scalars()
     )

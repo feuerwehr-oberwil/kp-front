@@ -7,6 +7,10 @@ common was written out five times — the ``_fail`` that exits non-zero, the
 ``--base``/``--admin-secret``/``--dry-run`` flags with their environment fallbacks, the
 "neither given" refusal, and the login-then-write httpx session.
 
+``admin_branding`` shares the ``_fail`` and the session but keeps its own ``--secret`` flag and
+its own two refusals: the flag name and those exact strings are quoted in the setup guide and
+pinned by tests, and renaming an operator's flag to tidy a docstring is not a fix.
+
 What is NOT here, deliberately: the subcommand skeleton and the ``push`` bodies. They look
 alike from a distance and are not — one uploads GeoJSON and rewrites ``referenceLayers``
 under an ``If-Match``, one PUTs objects and their plan PDFs, one refuses to empty a populated

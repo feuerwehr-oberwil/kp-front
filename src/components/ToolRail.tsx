@@ -89,7 +89,7 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
           know the glyphs yet and wants the names once, without a trip to the Einstellungen. */}
       {labels !== 'short' && (
         <button className="vrail-exp rail-exp" onClick={() => rail.apply(!expanded)} aria-label={expanded ? nav.collapse : nav.expand}>
-          <span className="vrail-exp-ic rail-exp-ic"><Icon id="chevron" /></span><span className="vrail-exp-t rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
+          <span className="vrail-exp-ic rail-exp-ic"><Icon id="chevron" /></span><span className="rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
         </button>
       )}
 
@@ -99,8 +99,8 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
           the base paints it, the `vrail-*` name is the hook the rest of the cascade keys off —
           the phone bar rules in 15-mobile.css use several of them. */}
       <div className="vrail-scroll-wrap rail-scroll-wrap">
-      {rail.edge.top && <button type="button" className="vrail-more rail-more vrail-more-up rail-more-up" aria-label={nav.scrollMore} onClick={() => rail.nudge(-1)}><Icon id="chevron-down" /></button>}
-      {rail.edge.bottom && <button type="button" className="vrail-more rail-more vrail-more-down rail-more-down" aria-label={nav.scrollMore} onClick={() => rail.nudge(1)}><Icon id="chevron-down" /></button>}
+      {rail.edge.top && <button type="button" className="vrail-more rail-more rail-more-up" aria-label={nav.scrollMore} onClick={() => rail.nudge(-1)}><Icon id="chevron-down" /></button>}
+      {rail.edge.bottom && <button type="button" className="vrail-more rail-more rail-more-down" aria-label={nav.scrollMore} onClick={() => rail.nudge(1)}><Icon id="chevron-down" /></button>}
       <div ref={rail.scrollRef} className={`vrail-scroll rail-scroll${rail.edge.top ? ' more-top' : ''}${rail.edge.bottom ? ' more-bottom' : ''}`}>
         {tools.map((t) => {
           // Symbol renders inline among the tools (between selection and drawing) as a plain

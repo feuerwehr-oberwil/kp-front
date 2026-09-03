@@ -4,7 +4,10 @@
    No backdrop scrim — the map stays draggable/clickable underneath, like the tool docks. */
 .pop { z-index: var(--z-floating-card); width: 232px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
   background: var(--ink-fill); color: var(--on-accent-ink); border-radius: var(--r-surface);
-  box-shadow: var(--shadow); padding: 10px; animation: popIn .15s var(--ease); }
+  box-shadow: var(--shadow); padding: 10px; }
+/* No entry animation: the `animation: popIn` this rule used to carry never ran (a module
+   localizes the name, so the global keyframes were unreachable), and the menu is opened dozens
+   of times an Einsatz — 150 ms before it is usable, every time, is not worth the flourish. */
 /* sits in the same place as the measure/draw ToolDock: vertically centred, just left of the
    right tool rail, and tracking its width (--vrail-w) — see .wb-dock-map */
 .dock { position: fixed; right: calc(var(--vrail-w, 60px) + 26px); top: 50%; transform: translateY(-50%); }

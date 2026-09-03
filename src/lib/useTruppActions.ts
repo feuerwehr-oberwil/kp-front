@@ -6,6 +6,7 @@ import { fillTemplate, formatTime } from './format'
 import { toast, confirmDialog } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
+import { newId } from './ids'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
 import { alarmBarFor, currentRunStart, truppAwaitsEntry } from './atemschutz'
@@ -327,7 +328,7 @@ export function useTruppActions(deps: Deps) {
     // explicit target (from the placement picker) wins; else default to the Gebäude
     // floor-stack when a building exists, otherwise Modul 6
     const planId = targetPlanId ?? (building ? gebaeudeDoc.id : 'modul6')
-    const annoId = `trupp${Date.now()}`
+    const annoId = newId('trupp')
     const chip: BoardAnno = { id: annoId, kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: truppLabel(tr.name), t: formatTime(new Date()), color: teamColor(id), trail: [], truppId: id }
     dropPlacements(tr)
     setBoard((b) => ({ ...b, [planId]: [...(b[planId] ?? []), chip] }))
@@ -345,7 +346,7 @@ export function useTruppActions(deps: Deps) {
   const placeTruppOnMap = (id: string, atCoord?: LngLat) => {
     const tr = trupps.find((t) => t.id === id)
     if (!tr) return
-    const entityId = `trupp${Date.now()}`
+    const entityId = newId('trupp')
     const marker: Entity = {
       id: entityId, kind: 'team', layer: appConfig.defaults.operationalLayerId,
       coord: atCoord ?? mapCenter(), label: truppLabel(tr.name), t: formatTime(new Date()),

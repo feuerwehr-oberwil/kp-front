@@ -17,6 +17,7 @@ from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, IncidentEvent
 from ..schemas import EventBatchIn, EventOut, SnapshotOut, VehicleSampleOut
+from .incidents import INCIDENT_NOT_FOUND
 
 router = APIRouter(prefix="/incidents", tags=["events"])
 
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/incidents", tags=["events"])
 async def _ensure(db: AsyncSession, incident_id: uuid.UUID) -> None:
     exists = (await db.execute(select(Incident.id).where(Incident.id == incident_id))).scalar_one_or_none()
     if exists is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
 
 
 @router.get("/{incident_id}/events", response_model=list[EventOut])

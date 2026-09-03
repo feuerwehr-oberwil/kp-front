@@ -20,6 +20,7 @@ from ..geocode import geocode
 from ..models import DiveraEmergency, Incident
 from ..push import notify_new_alarm
 from ..schemas import DiveraEmergencyOut, DiveraTakeBody, DiveraWebhookPayload, IncidentFull
+from .incidents import get_incident_or_404
 
 router = APIRouter(prefix="/divera", tags=["divera"])
 
@@ -262,9 +263,7 @@ async def attach(
         raise HTTPException(status_code=404, detail="Alarm nicht im Pool")
     if em.is_taken:
         raise HTTPException(status_code=409, detail="Alarm bereits übernommen")
-    inc = await db.get(Incident, incident_id)
-    if inc is None:
-        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    inc = await get_incident_or_404(db, incident_id)
     if inc.is_archived:
         raise HTTPException(status_code=409, detail="Einsatz ist archiviert")
 

@@ -2,6 +2,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
 import { toast, confirmDialog } from './ui'
 import { pickTeamColor } from './teamColors'
+import { newId } from './ids'
 import { nextTeamName } from './placedTrupps'
 import type { Doc } from './workspace'
 import type { Entity, LngLat, TimelineEvent } from '../types'
@@ -29,7 +30,7 @@ interface TeamMarkerActionsDeps {
 export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId, mirroredTeamNames }: TeamMarkerActionsDeps) {
   const placeGenericTeam = (c: LngLat) => {
     const teams = entities.filter((e) => e.kind === 'team')
-    const id = `trupp${Date.now()}`
+    const id = newId('trupp')
     // No claim to any particular slot, so: the first colour nobody on the Lage is wearing.
     // The old `colors[teams.length]` collided with an Atemschutz Trupp of the same index and
     // repeated itself after a deletion (see teamColors.ts).
