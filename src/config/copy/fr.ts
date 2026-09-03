@@ -991,7 +991,6 @@ export const fr: Localizable<Copy> = {
     kindAtemschutzHint: 'Avec pression et horloge de contact',
     kindPlain: 'Sans ARI',
     kindPlainHint: 'Mission et durée seulement',
-    kindPlainNote: 'Pas de pression d\u2019entrée, pas d\u2019intervalle de contact : ce binôme apparaît sous «Autres binômes» et jamais dans la partie ARI du rapport. Le type ne peut plus être modifié ensuite.',
     empty: 'Aucun binôme en surveillance.',
     emptyHint: 'Créez un binôme pour démarrer la surveillance.',
     newTrupp: 'Créer un binôme',

@@ -960,14 +960,26 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .formCol > .field:has(> .team) { flex: none; min-height: auto; }
   .team { flex: none; }
   .teamList { flex: none; max-height: 38dvh; }
-  /* …except in the WIZARD (handed-over phone), which shows ONE column per step: on step 1 the
-     Mannschaftsliste is the only thing on screen, so the 38dvh box above just left the bottom
-     half of the sheet empty. The grow chain from the tablet layout comes back — and the grid
-     row itself must be told to take the sheet's height, because a lone column has no taller
-     sibling to stretch against. Everything is scoped with :has(.team) so step 2 (whose formCol
-     becomes :first-child once the team column unmounts) keeps its natural height. */
-  .modalWizard .modalBody:has(.team) { grid-template-rows: 1fr; }
-  .modalWizard .modalBody > .formCol:has(.team) { min-height: 0; }
+  /* …except in the WIZARD, which since 03.09. is EVERY phone's layout and shows one step at a
+     time: on step 1 the Mannschaftsliste should take whatever that step leaves over, so the
+     38dvh box above just left the bottom of the sheet empty. The grow chain from the tablet
+     layout comes back.
+     ⚠️ A FLEX COLUMN, not a grid row template. Step 1 does NOT have a fixed number of children:
+     while creating on the main board it carries the «Art des Trupps» tiles (.formColWide) above
+     the list and can carry the Anwesenheits-Warnung below it, while the handed-over link's
+     wizard — and an edit walked back to step 1 — have the Trupp column alone. `grid-template-rows:
+     1fr` handed the whole sheet to whichever child came FIRST (the tiles) and dropped the list
+     into an implicit row below the fold; any fixed `auto 1fr` would starve the list the moment
+     the chooser is not there. As a column every other child takes the height it needs and the
+     Trupp column takes the rest, for any number of them. Everything stays scoped with :has(.team)
+     so step 2 (whose formCol becomes :first-child once the team column unmounts) keeps the grid
+     and its natural height. */
+  .modalWizard .modalBody:has(.team) { display: flex; flex-direction: column; }
+  /* ⚠️ basis 0 + min-height 0, i.e. «take exactly what the other children leave over», NOT
+     `auto`: sized from its own content the column would be as tall as the WHOLE roster
+     (`.teamList` scrolls, but its max-content is every person on it), and the sheet — not the
+     list — would be the scroller again. */
+  .modalWizard .modalBody > .formCol:has(.team) { flex: 1 1 0; min-height: 0; }
   .modalWizard .formCol > .field:has(> .team) { flex: 1 1 0; min-height: 0; }
   .modalWizard .team { flex: 1 1 auto; min-height: 0; }
   .modalWizard .teamList { flex: 1 1 0; max-height: none; }

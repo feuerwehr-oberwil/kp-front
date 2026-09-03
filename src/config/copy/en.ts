@@ -989,7 +989,6 @@ export const en: Localizable<Copy> = {
     kindAtemschutzHint: 'With pressure and contact clock',
     kindPlain: 'Without SCBA',
     kindPlainHint: 'Order and time only',
-    kindPlainNote: 'No entry pressure, no contact interval: this team appears under «Other teams» and never in the SCBA part of the report. The type cannot be changed later.',
     empty: 'No team under monitoring yet.',
     emptyHint: 'Create a team to start monitoring.',
     newTrupp: 'Create team',

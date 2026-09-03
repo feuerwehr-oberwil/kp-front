@@ -1422,7 +1422,6 @@ export const de = {
     kindAtemschutzHint: 'Mit Druck und Kontaktuhr',
     kindPlain: 'Ohne Atemschutz',
     kindPlainHint: 'Nur Auftrag und Zeit',
-    kindPlainNote: 'Kein Eingangsdruck, kein Kontakt-Intervall: dieser Trupp erscheint unter «Weitere Trupps» und steht nie im Atemschutz-Teil des Rapports. Die Art lässt sich später nicht mehr wechseln.',
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
     newTrupp: 'Trupp erstellen',
