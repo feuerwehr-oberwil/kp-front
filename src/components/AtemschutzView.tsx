@@ -1000,10 +1000,11 @@ export function AtemschutzView({
           // ⚠️ EVERY phone, not only the handed-over one (03.09.). `compact` is `useIsPhone`, so a
           // tablet — where the whole form stands in one glance — keeps the single screen; the
           // wizard exists for the 375px case, and the app's own phone layout had exactly the fold
-          // the link board got the wizard for. Outside the link, step 2 additionally carries
-          // Leitung and Farbe (both gated `!lite`), which is why its caption asks what the Trupp
-          // is doing rather than naming the Luft. And EVERY Art of Trupp walks those two steps —
-          // a Trupp ohne Atemschutz simply gets a shorter step 2 (no Druck) — see TruppForm.
+          // the link board got the wizard for. Outside the link, step 2 additionally carries the
+          // «Art des Trupps» tiles at its top plus Leitung and Farbe (all gated `!lite`), which is
+          // why its caption asks what the Trupp is doing rather than naming the Luft. And EVERY
+          // Art of Trupp walks those two steps — a Trupp ohne Atemschutz simply gets a shorter
+          // step 2 (no Druck) — see TruppForm.
           wizard={compact}
           onAddGuest={onAddGuest}
           onCancel={() => setForm(null)} onSubmit={submitForm}
@@ -1921,10 +1922,14 @@ function TruppCard({
  *     step 2, and only the final submit gates on a valid Trupp — a wizard that can trap you at
  *     3am would be worse than the fold.
  *   · ⚠️ EVERY kind of Trupp gets those two steps (03.09.). Until then the wizard was PA-only, so
- *     tapping «Ohne Atemschutz» — on step 1, under your thumb — collapsed the form to one screen
- *     and re-flowed everything below it. THAT was the jarring part, not the length of step 2: a
- *     form must not restructure itself because the Art toggle moved. A plain Trupp's step 2 is
- *     simply shorter (Kanal · Auftrag · Ziel, and no Druck — `showPressure` already gates it).
+ *     tapping «Ohne Atemschutz» collapsed the form to one screen and re-flowed everything below
+ *     it. THAT was the jarring part, not the length of step 2: a form must not restructure itself
+ *     because the Art toggle moved. A plain Trupp's step 2 is simply shorter (Kanal · Auftrag ·
+ *     Ziel, and no Druck — `showPressure` already gates it).
+ *   · ⚠️ «Art des Trupps» rides with the fields it GOVERNS, so in the wizard it leads step 2 and
+ *     step 1 is the Mannschaft alone (03.09.). Adding or dropping the Druck row directly under
+ *     the tile that asked for it is ordinary form behaviour; what it must never do is change
+ *     which step you are on or what the other step contains.
  *
  * Leads with the AUFTRAG (what the Trupp is sent to do — the order you check them against on every
  * Kontakt), then the Trupp; the Druck section belongs to Atemschutz alone, and «Art des Trupps»
@@ -2069,10 +2074,12 @@ function TruppForm({
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
   const canSubmit = auftragOk && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
   const [step, setStep] = useState<1 | 2>(mode === 'create' ? 1 : 2)
-  // ⚠️ The KIND has no say in this (03.09., see the note above the component). It used to —
-  // `wizard && isPa` — and the price was a form that re-flowed under the thumb that had just
-  // tapped «Ohne Atemschutz», on the very step that tile lives on. A plain Trupp walks the same
-  // two steps; its step 2 is just shorter, because `showPressure` drops the Druck by itself.
+  // ⚠️ The KIND has no say in WHETHER there is a wizard (03.09., see the note above the
+  // component). It used to — `wizard && isPa` — and the price was a form that collapsed from two
+  // steps to one under the thumb that had just tapped «Ohne Atemschutz». A plain Trupp walks the
+  // same two steps; its step 2 is just shorter, because `showPressure` drops the Druck by itself.
+  // ⚠️ `showRest` also carries the «Art des Trupps» chooser (see the JSX): the tiles belong above
+  // the fields they govern, and every one of those is in here.
   const showTeam = !wizard || step === 1
   const showRest = !wizard || step === 2
 
@@ -2164,10 +2171,14 @@ function TruppForm({
               Leitung und Farbe, so naming it after the cylinder would describe a third of it —
               and since 03.09. a Trupp ohne Atemschutz walks the same two steps, where there is no
               cylinder at all. Both captions therefore hold for BOTH Arten, and neither is
-              kind-aware on purpose: «Art des Trupps» is chosen on step 1, so a caption that
-              switched with the tile would rewrite the heading under the thumb that tapped it.
-              Step 1 asks «Wer bildet den Trupp?» for the same reason — «Wer geht rein?» was true
-              only while the wizard was PA-only (copy · atemschutz.wizardWho). */}
+              kind-aware on purpose — now more than ever: «Art des Trupps» LEADS step 2, so a
+              caption that switched with the tile would rewrite the heading two rows above the
+              thumb that just tapped it. It stays «Was machen sie?» and covers the Art as well —
+              unter oder ohne Atemschutz zu arbeiten IS part of what they do, and a two-clause
+              heading («Was für ein Trupp – und was macht er?») buys nothing a glance can use.
+              Step 1 asks «Wer bildet den Trupp?» and is now purely that — the names, nothing
+              else; «Wer geht rein?» was true only while the wizard was PA-only (copy ·
+              atemschutz.wizardWho). */}
           <div className={s.stepCap}>
             {fillTemplate(az.wizardStep, { n: step })} · {step === 1 ? az.wizardWho : az.wizardWhat}
           </div>
@@ -2179,15 +2190,24 @@ function TruppForm({
               Everything else is refinement and lives one tap away — on a phone the old order put
               five optional fields between the EL and the two mandatory ones. */}
           {/* ── «Art des Trupps» ────────────────────────────────────────────────────────────
-              FIRST, spanning the form, and only while creating one: it decides what the rest of
-              this form even asks (Druck), which section the card lands in, and whether the Trupp
-              is on the Atemschutz page of the Rapport — so it cannot sit below the fields it
-              governs. Never on the handed-over Tafel: that session operates the
-              Atemschutzüberwachung, so «ohne Atemschutz» is not a thing it may create.
+              Only while CREATING one (the kind is immutable afterwards), and always ABOVE THE
+              FIELDS IT GOVERNS — it decides what the rest of this form even asks (Druck), which
+              Auftrag list is offered, which section the card lands in and whether the Trupp is on
+              the Atemschutz page of the Rapport. That rule, not a fixed position, is what places
+              it, and the two layouts read it the same way:
+                · one screen (tablet/desktop): the governed fields are the whole form, so the
+                  chooser is first and spans both columns above them.
+                · wizard (phone): the governed fields are step 2, so it leads step 2 — hence
+                  `showRest`, not `showTeam`. The one thing the Art does NOT govern is who is in
+                  the Trupp, which is why step 1 is the Mannschaft alone (03.09.). Ordering it
+                  before the team column in JSX is therefore only about the single-screen case;
+                  in the wizard the two never render together anyway.
+              Never on the handed-over Tafel: that session operates the Atemschutzüberwachung, so
+              «ohne Atemschutz» is not a thing it may create.
               Two labelled tiles rather than a Segmented pair: the choice is not a yes/no property
               of a Trupp, it is which of two different things is being registered, and each side
               says what it brings with it (recognition over recall). */}
-          {mode === 'create' && !lite && showTeam && (
+          {mode === 'create' && !lite && showRest && (
             <div className={s.formColWide}>
               <div className={s.field}>
                 <span>{az.kindLabel}</span>
