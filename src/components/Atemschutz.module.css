@@ -203,6 +203,9 @@
 .kenn { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; padding: 0 14px 12px;
   font-size: 12.5px; color: var(--ink-dim); }
 .kennCrew { font-weight: 700; }
+/* «Rückzug» — a fact the band does not name (see the Kennzeile in TruppCard). Amber and in the
+   card's own voice, never a second alarm colour: the tier lives in the band and only there. */
+.kennState { font-weight: 800; color: var(--amber-strong); }
 .kennSep { color: var(--ink-faint); }
 .kennAuftrag { font-weight: 700; color: var(--blue); }
 /* the ABSENT Auftrag — dashed and amber, because a Trupp with no job is a question to be asked */
@@ -252,6 +255,10 @@
 /* ── 4 Hinweis — usually empty, and then it costs nothing ────────────────────────────────────
    Rendered even when there is nothing to say: the grid aligns zone by zone (`.grid`, subgrid),
    so a card that simply left this out would pull every zone below it out of line. */
+/* the hint that used to be a block of its own under the identity: what «Einrücken» is for, on a
+   Trupp still at the door. It is a hint, so it lives in the hint zone — and only on a card where
+   it is true, which is one under Atemschutz. */
+.preHint { font-size: 12px; line-height: 1.35; color: var(--ink-dim); }
 .noteZone { padding: 10px 14px 0; }
 .noteZone:empty { padding: 0; }
 
@@ -336,6 +343,10 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .zonePanelRow b { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink); }
 /* the VERLAUF footer — the card's bottom row: latest event as preview, tap expands the log */
 .vfoot { border-top: 1px solid var(--glass-edge); background: var(--fill-soft, rgba(0, 0, 0, .045)); }
+/* a Trupp created without Atemschutz starts with NO readings and has no contact times either
+   (useTruppActions), so this zone can be genuinely empty — and an empty zone must cost nothing
+   but its place in the grid, not a hairline and a grey strip across the foot of the card */
+.vfoot:empty { border-top: 0; background: transparent; }
 .vrow { display: flex; align-items: center; gap: 8px; width: 100%; border: none; cursor: pointer;
   background: transparent; text-align: left; padding: 0 14px; min-height: var(--tap);
   font: 700 12.5px var(--body); color: var(--ink-dim); -webkit-tap-highlight-color: transparent; }
@@ -600,7 +611,6 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 /* NOT --accent on hover: that token is this deployment's brand red, so the whole chip lit up
    red — which reads as an error, not as "you can tap this". Blue is the app's interactive ink. */
-@media (hover: hover) { .tagGo:hover { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); } }
 
 /* Leitung Nr.: stepper and the drawn Leitungen on ONE line, wrapping only when they must */
 .lineRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -709,7 +719,6 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
   .cardFlash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
 }
 
-@media (hover: hover) { .tagAuftragOpen:hover { color: var(--ink); border-color: var(--ink-faint); } }
 
 
 /* gloved ±pressure stepper (wizard + Druck-aktualisieren modal) */
@@ -941,6 +950,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* respect reduced-motion: the überfällig signal is carried by colour + the state WORD + the
    badge, so dropping the pulse loses no information for users who opt out of animation */
 @media (prefers-reduced-motion: reduce) {
+  .bandCrit .bandVal, .overdueBadge { animation: none; }
 }
 
 /* ⚠️ Must come AFTER .teamList's own rule — same specificity, so source order decides.
@@ -1153,7 +1163,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 }
 .rowList .card { animation: az-cardOpen .17s var(--ease) both; transform-origin: top center; }
 /* the chevron turns with the state instead of cutting to it */
-.trowChevron :global(.i), .headBack :global(.i) { transition: transform .17s var(--ease); }
+.trowChevron :global(.i) { transition: transform .17s var(--ease); }
 
 @media (prefers-reduced-motion: reduce) {
   .rowList .card { animation: none; }

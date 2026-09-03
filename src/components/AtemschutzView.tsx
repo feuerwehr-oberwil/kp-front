@@ -646,7 +646,11 @@ export function AtemschutzView({
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
       onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
-      onMove={order === 'manuell' && !compact ? onMove : undefined}
+      // ⚠️ never on a work squad. The arrows move one GLOBAL order while the board renders two
+      // filtered sections, so a step can swap a Trupp past the section boundary and look like it
+      // did nothing — and these Trupps never had them (they lived on `PlainTruppRow`, which had
+      // no such control at all). See the note on `.cardActs`' old ‹ › pair above.
+      onMove={order === 'manuell' && !compact && isAtemschutzTrupp(t) ? onMove : undefined}
       onPickLine={pickTruppLine}
       onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)}
       // «Tafel pur»: everything that points at the Karte or a drawn Leitung is unreachable from
@@ -1414,15 +1418,25 @@ function TruppCard({
    * also what the grid's `subgrid` needs — see the zone list above. */
   const pressureCrit = monitored && alarm.reason === 'pressure'
   const preEntry = status === 'angemeldet'
-  const bandWord = !monitored || preEntry
+  /* ⚠️ «Draussen» does NOT get a contact word. A Trupp that has come out has no running clock
+     (deriveTruppLive) and no tier, so the tier ladder would have called it «Kontakt ok» over
+     «–:––» — an OK statement about somebody nobody is watching, and `truppStatusLabel`'s
+     distinction between «Draussen» and «Nicht eingesetzt» would have reached no screen at all.
+     What the Überwacher needs from then on is the break clock, so that is what the band holds. */
+  const out = status === 'raus'
+  const bandWord = out || preEntry || !monitored
     ? (preEntry ? az.bandPreEntry : statusLabel)
     : pressureCrit ? az.clockAlarmPressure
     : sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
-  const bandSub = preEntry ? az.preEntryHint
-    : !monitored ? az.elapsed
+  const bandSub = out ? az.outFor
+    // ⚠️ the long «…sobald der Trupp unter Atemschutz…» hint is NOT the sub-line: it repeats the
+    // word above it and it names Atemschutz, which a work squad does not have. It is a hint, and
+    // it sits in the hint zone (below) on the cards it is actually true for.
+    : preEntry || !monitored ? az.elapsed
     : pressureCrit ? fillTemplate(az.clockAlarmLimit, { bar: line })
     : az.sinceContact
-  const bandValue = preEntry ? fmtClock(null)
+  const bandValue = out ? fmtClock(live.outSec)
+    : preEntry ? fmtClock(null)
     : !monitored ? fmtClock(t.entryTime ? live.elapsedSec : null)
     : pressureCrit ? `${live.currentBar} bar`
     : fmtClock(live.sinceContactSec)
@@ -1475,7 +1489,9 @@ function TruppCard({
       { label: az.moveForward, onClick: () => onMove(t.id, 1) },
     ] : []),
     ...(canEdit ? [{ kind: 'sep' as const }, { label: az.remove, onClick: doDelete, danger: true }] : []),
-  ]
+  // ⚠️ a separator may never LEAD. On a Trupp that has come out and was never placed, every row
+  // above «Entfernen» is withheld and the menu opened on a bare rule.
+  ].filter((it, i, all) => !('kind' in it && it.kind === 'sep') || all.slice(0, i).some((p) => !('kind' in p)))
 
   const crewNames = t.members?.filter(Boolean) ?? []
   const crew = crewNames.join(' · ')
@@ -1531,6 +1547,14 @@ function TruppCard({
           were louder than the name above them. Two of the entries are still buttons: the missing
           Auftrag, and the Leitung that has actually been drawn. */}
       <div className={s.kenn}>
+        {/* ⚠️ «Rückzug» is a FACT and it is not a tier: a Trupp on its way out with a calm clock
+            reads «Kontakt ok» in the band, and for a viewer — whose action bar is empty — the
+            amber top border would otherwise be the only thing saying so. It also changes the
+            turn-back pressure (alarmBarFor), so it must never be carried by colour alone. Only
+            for the states the band does not already name. */}
+        {monitored && status === 'rueckzug' && (
+          <><span className={s.kennState}>{statusLabel}</span><span className={s.kennSep} aria-hidden>·</span></>
+        )}
         {!!crewNames.length && <><span className={s.kennCrew}>{crew}</span><span className={s.kennSep} aria-hidden>·</span></>}
         {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door), so its
             ABSENCE has to be visible — a Trupp with no job is a question the Überwacher has to be
@@ -1556,9 +1580,13 @@ function TruppCard({
           the third of four rows in the value table below — the only input on the card, filed
           among numbers that are only ever read. */}
       <div className={cx(s.block, sev === 1 && s.blockWarn, sev >= 2 && s.blockCrit)}>
+        {/* ⚠️ a live region ONLY where a clock is being watched. A work squad's band holds its
+            Einsatzzeit, which changes every second — as a polite live region that is one spoken
+            announcement per second per Trupp, for a number nobody is being alerted about. */}
         <div className={cx(s.band, sev === 1 && s.bandWarn, sev >= 2 && s.bandCrit)}
-          role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
-          aria-label={`${bandWord} — ${bandValue} ${bandSub}`}>
+          role={monitored ? 'status' : undefined}
+          aria-live={!monitored ? undefined : sev >= 2 ? 'assertive' : 'polite'}
+          aria-label={monitored ? `${bandWord} — ${bandValue} ${bandSub}` : undefined}>
           <span className={s.bandTxt}>
             <span className={s.bandWord}>{bandWord}</span>
             <small className={s.bandSub}>{bandSub}</small>
@@ -1579,6 +1607,7 @@ function TruppCard({
           Always rendered, usually empty: the grid aligns zone by zone (subgrid), so a card that
           simply left this out would pull every zone below it out of line with its neighbours. */}
       <div className={s.noteZone}>
+        {monitored && preEntry && <div className={s.preHint}>{az.preEntryHint}</div>}
         {airNote && (
           <div className={s.airNote} role="status" aria-live="polite">
             <Icon id="warn" /><span>{airNote}</span>
@@ -1650,7 +1679,9 @@ function TruppCard({
         {/* The break clock. Once a Trupp is out its Einsatzzeit is finished and stands still —
             what the Überwacher needs from then on is how long the crew has been resting before
             it can be sent in again, so that is the number that keeps running. */}
-        {live.outSec != null && (
+        {/* …unless the band is already holding it, which is the whole of what a card says once a
+            Trupp is out (see `bandValue` above) */}
+        {live.outSec != null && !out && (
           <div className={s.metaRow}>
             <span>{az.outFor}</span>
             <b>{fmtClock(live.outSec)}</b>

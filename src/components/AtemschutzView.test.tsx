@@ -110,6 +110,32 @@ describe('the contact times (the head of the Verlauf)', () => {
   })
 })
 
+/* The three things the card says about a STATE rather than a tier. Each of them was reachable
+ * only in code for a while after the card redesign — the band's tier ladder had swallowed the
+ * lifecycle word — and each is a fact a viewer, who has no action bar to read it off, would
+ * otherwise get from a 5px border colour alone. */
+describe('the state a tier cannot say', () => {
+  it('names «Rückzug» beside the crew, where the band is still saying «Kontakt ok»', () => {
+    mount({ trupps: [{ ...aktivTrupp(), status: 'rueckzug' }], canEdit: false })
+    expect(screen.getByText(az.clockOk)).toBeTruthy()           // the tier, unchanged
+    expect(screen.getByText(az.status.rueckzug)).toBeTruthy()   // …and the fact it cannot carry
+  })
+
+  it('gives a Trupp that is out its break clock, not an «ok» about a clock nobody watches', () => {
+    mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
+    expect(screen.getByText(az.status.raus)).toBeTruthy()
+    expect(screen.getByText(az.outFor)).toBeTruthy()
+    expect(screen.queryByText(az.clockOk)).toBeNull()
+    expect(screen.queryByText(az.sinceContact)).toBeNull()
+  })
+
+  it('keeps «Einrücken» explained on a Trupp under Atemschutz — and only there', () => {
+    mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }] })
+    expect(screen.getByText(az.preEntryHint)).toBeTruthy()
+    expect(screen.getByText(az.bandPreEntry)).toBeTruthy()
+  })
+})
+
 describe('the Verlauf footer (the removed «Draussen: hh:mm» line, generalised)', () => {
   it('previews the LATEST event with its bar, and expands the full log in place', () => {
     mount()
@@ -163,10 +189,13 @@ describe('the handed-over board (lite)', () => {
     expect(screen.getAllByRole('button', { name: az.actContact }).length).toBe(2)
     // the secondary controls are one ⋯ per card now — the rule about what it may offer is the same
     expect(screen.getAllByRole('button', { name: az.cardMenu }).length).toBe(2)
-    fireEvent.click(screen.getAllByRole('button', { name: az.cardMenu })[0])
-    expect(await screen.findByRole('menuitem', { name: az.edit })).toBeTruthy()
-    expect(screen.queryByRole('menuitem', { name: az.place })).toBeNull()
-    expect(screen.queryByRole('menuitem', { name: az.linePick })).toBeNull()
+    for (const trigger of screen.getAllByRole('button', { name: az.cardMenu })) {
+      fireEvent.click(trigger)
+      expect(await screen.findByRole('menuitem', { name: az.edit })).toBeTruthy()
+      expect(screen.queryByRole('menuitem', { name: az.place })).toBeNull()
+      expect(screen.queryByRole('menuitem', { name: az.linePick })).toBeNull()
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    }
   })
 
   it('offers «Überwachung abgeben» only where a door was handed in', () => {
@@ -228,15 +257,19 @@ describe('the handed-over board on a phone (focus mode)', () => {
   // header and its own flattened clock — and a phone-only arrangement of a safety card is a
   // second thing to keep in step with the first. The card the phone gets here is the card the
   // tablet grid and the row list get; what makes it fit is that the card itself got denser.
-  it('uses the same card as every other board — no phone-only arrangement', () => {
+  it('uses the same card as every other board — same seven zones, in the same order', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [aktivTrupp()] })
-    const card = document.querySelector(`.${s.card}`)
-    expect(card?.querySelector(`.${s.cardHead}`)).toBeTruthy()
-    expect(card?.querySelector(`.${s.kenn}`)).toBeTruthy()
-    expect(card?.querySelector(`.${s.band}`)).toBeTruthy()
+    const card = document.querySelector(`.${s.card}`)!
+    // ⚠️ the whole zone list, in order, and NOTHING besides — that is the invariant the grid's
+    // `subgrid` alignment rests on, and it is what a phone-only arrangement would break first.
+    // Asserting «.cardHead exists» proves nothing: it exists on every card at every width.
+    // the FIRST class of each child: the block also carries its tier, which is not the point here
+    expect([...card.children].map((c) => c.className.trim().split(/\s+/)[0])).toEqual([
+      s.cardHead, s.kenn, s.block, s.noteZone, s.actZone, s.plinth, s.vfoot,
+    ])
     // Kontakt is still an in-card control, not a pinned screen-edge bar
-    expect(card?.querySelector(`.${s.kontaktBtn}`)).toBeTruthy()
+    expect(card.querySelector(`.${s.kontaktBtn}`)).toBeTruthy()
     // the header's own row now carries just the Einsatz title (see the bottom-rail test below
     // for the dropped kicker and the relocated bell/«+ Trupp»)
     expect(document.querySelector(`.${s.headRow}`)).toBeTruthy()
@@ -274,6 +307,9 @@ describe('the handed-over board on a phone (focus mode)', () => {
  * layout but the card's own restraint, so that is what these tests pin: no clock, no Druck, no
  * Kontakt, and never an alarm colour. */
 describe('the board with Trupps that are not under Atemschutz', () => {
+  // ⚠️ restored here rather than at the end of the one phone test below: a failure before that
+  // line would otherwise leave every later test in this block running in phone mode.
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
   const plainTrupp = (): Trupp => ({
     id: 'tr9', kind: 'einfach', name: 'Gerber', members: ['Stalder'],
     auftrag: 'sichern', ziel: 'Zufahrt Hauptstrasse', funkkanal: 1,
@@ -320,7 +356,6 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     // …and back, through the same control the Atemschutz half uses
     fireEvent.click(screen.getByRole('button', { name: az.collapse }))
     expect(document.querySelector(`.${s.card}`)).toBeNull()
-    vi.mocked(useIsPhone).mockReturnValue(false) // the rest of this block is the tablet board
   })
 
   it('says so when the Atemschutz half is empty rather than leaving a bare heading', () => {
@@ -331,10 +366,12 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(document.querySelectorAll(`.${s.cardPlain}`)).toHaveLength(1)
   })
 
-  it('offers the row the one lifecycle step its state actually has', () => {
+  it('offers the one lifecycle step its state actually has — and no Rückzug it cannot take', () => {
     const setTruppStatus = vi.fn()
     mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' }, setTruppStatus })
     expect(screen.queryByRole('button', { name: az.actEnter })).toBeNull() // it is already in
+    // Rückzug lowers the turn-back pressure (alarmBarFor) and there is no cylinder to lower it on
+    expect(screen.queryByRole('button', { name: az.actRueckzug })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.actExit }))
     expect(setTruppStatus).toHaveBeenCalledWith('tr9', 'raus')
   })
