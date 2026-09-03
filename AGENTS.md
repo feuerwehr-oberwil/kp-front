@@ -67,9 +67,10 @@ to prod.
   order). Same-object conflicts can stay simple for now. To add a synced collection: extend
   `HasId` and register it in `WsShape`. (`Person`/roster is the exception – it carries
   `updatedAt` because it's pulled from Divera, not merged.)
-- **IDs are prefixed timestamps, not UUIDs** – `'p'+Date.now()`, `'sh'+Date.now()`,
-  `'e'+Date.now()+'-'+i`. Offline-friendly, no DB roundtrip; don't reach for
-  `crypto.randomUUID()`.
+- **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
+  (`<prefix><ms>-<seq><rand>`) for records the app mints and syncs; plain
+  `'p'+Date.now()` survives in older call sites. Offline-friendly, no DB roundtrip;
+  don't reach for `crypto.randomUUID()`.
 - **Incident records are append-only where it matters.** Verlauf is the human operational journal
   plus selected meaningful system events; audit/events record committed domain actions. Don't add
   mutate/delete shortcuts for production records; lifecycle changes (reminders, media transcripts,
