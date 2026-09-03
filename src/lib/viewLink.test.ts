@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { createShareLink, fetchShareLink, mintEinsatzLink, revokeShareLink, viewLinkUrl } from './viewLink'
+import { createShareLink, fetchShareLink, revokeShareLink, shareDoors, viewLinkUrl } from './viewLink'
 
 const apiGet = vi.fn()
 const apiPost = vi.fn()
@@ -49,13 +49,17 @@ describe('the endpoint each kind talks to', () => {
     expect(apiPost).toHaveBeenCalledWith('/api/incidents/i1/atemschutz-link', {})
     expect(apiDelete).toHaveBeenCalledWith('/api/incidents/i1/atemschutz-link')
   })
+})
 
-  // The station's own Einsatz-Link has no GET and no DELETE on purpose: it is derived from the
-  // Einsatz and the station key, so there is nothing stored to read back or revoke.
-  it('only mints the Einsatz-Link, on /einsatz-link', async () => {
-    await mintEinsatzLink('i1')
-    expect(apiPost).toHaveBeenCalledWith('/api/incidents/i1/einsatz-link', {})
-    expect(apiGet).not.toHaveBeenCalled()
-    expect(apiDelete).not.toHaveBeenCalled()
+// Which doors «Teilen» offers. The one thing worth pinning: the Atemschutz link dies with the
+// Einsatz (404), so after the Abschluss it must not be on offer — and the read-only one, which
+// outlives it and is exactly the one wanted days later, must still be.
+describe('the doors on offer', () => {
+  it('offers both while the Einsatz runs, read-only first', () => {
+    expect(shareDoors().map((d) => d.kind)).toEqual(['view', 'atemschutz'])
+  })
+
+  it('drops the Atemschutz door once the Einsatz is abgeschlossen', () => {
+    expect(shareDoors({ archived: true }).map((d) => d.kind)).toEqual(['view'])
   })
 })

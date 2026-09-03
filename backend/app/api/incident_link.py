@@ -104,11 +104,13 @@ class LinkTokenIn(BaseModel):
 
 
 #: The refusal both link doors share: the station never set a minting key, so nothing can mint a
-#: link and nothing can redeem one. Answered with a STRUCTURED detail, because the app has to tell
-#: this 403 apart from every other one — «In der Verwaltung einrichten» is an instruction, and
-#: offering it for a 403 that means something else sends the operator to a screen that cannot help
-#: (src/components/panels/ShareIncident · EinsatzLinkSheet). The German sentence stays exactly as
-#: it was, for the readers who are people; `code` is for the one reader that is not.
+#: link and nothing can redeem one. Answered with a STRUCTURED detail so a caller can tell this
+#: 403 apart from every other one — «In der Verwaltung einrichten» is an instruction, and offering
+#: it for a 403 that means something else sends the operator to a screen that cannot help.
+#: ⚠️ No screen in kp-front reads `code` any more (03.09.: nothing mints an Einsatz-Link by hand
+#: — see src/lib/viewLink). It stays because it is part of the wire answer the alerting
+#: integration and the exchange below share; the German sentence is for the readers who are
+#: people, `code` for the ones that are not.
 NO_MINTING_KEY_CODE = "link_key_missing"
 NO_MINTING_KEY_DETAIL = "Einsatz-Links deaktiviert (kein Link-Schlüssel gesetzt)"
 

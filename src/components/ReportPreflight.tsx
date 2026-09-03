@@ -2320,7 +2320,9 @@ export function ReportPreflight({
           {canEdit && (
             <section className="report-pre-section rp-share" data-tab="beilagen">
               <h3>{P.shareHead}</h3>
-              <ShareIncident incidentId={incident.id} />
+              {/* `archived` because the Rapport is most often opened AFTER the Abschluss, and
+                  the Atemschutz link is dead by then — a tab leading to a 404 belongs to nobody. */}
+              <ShareIncident incidentId={incident.id} archived={incident.is_archived} />
             </section>
           )}
 

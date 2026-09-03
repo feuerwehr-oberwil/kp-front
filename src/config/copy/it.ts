@@ -1643,12 +1643,6 @@ export const it: Localizable<Copy> = {
     gpsFrozen: 'GPS congelato',
     gpsFrozenHint: 'Il feed GPS in tempo reale non risponde. I veicoli restano sull’ultima posizione nota.',
     share: 'Condividi',
-    shareEinsatz: 'Link dell’intervento (sola lettura)',
-    shareEinsatzSub: 'Centrale, CI, corpo vicino – termina con la chiusura',
-    shareAtemschutz: 'Link del sorvegliante APR',
-    shareAtemschutzSub: 'Cedere la sorveglianza – usare, non solo leggere',
-    shareRapport: 'Link del rapporto (sola lettura)',
-    shareRapportSub: 'Comune, corpo vicino – resta valido dopo la chiusura',
   },
   stepper: {
     less: 'meno',
@@ -2406,8 +2400,11 @@ export const it: Localizable<Copy> = {
     linksHead: 'Moduli e link',
     shareHead: 'Condividere',
     shareLede: 'Un link a questo solo intervento – carta, piani, diario, foto, orari. '
-      + 'Sola lettura, senza login, nulla è modificabile.',
-    shareLiveLede: 'Valido finché non lo revochi – anche dopo la chiusura dell’intervento.',
+      + 'Sola lettura, senza login, nulla è modificabile. Per la centrale, il CI e un corpo '
+      + 'vicino durante l’intervento – e per il comune e i corpi vicini dopo: resta valido oltre '
+      + 'la chiusura.',
+    shareLiveLede: 'Per la centrale, il CI e un corpo vicino durante l’intervento – e per il '
+      + 'comune e i corpi vicini dopo. Resta valido oltre la chiusura, finché non lo revochi.',
     shareCreate: 'Crea link',
     shareBusy: 'Creazione del link …',
     shareCreateFailed: 'Creazione del link non riuscita',
@@ -2418,7 +2415,7 @@ export const it: Localizable<Copy> = {
     shareWarn: 'Chi ha il link vede l’intero intervento – i nomi dei presenti, le foto e il '
       + 'diario completo.',
     shareRevoke: 'Revoca link',
-    shareRevokeTitle: 'Revocare il link dell’intervento?',
+    shareRevokeTitle: 'Revocare il link a tutto l’intervento?',
     shareRevokeBody: 'L’indirizzo smetterà di funzionare. Chi lo ha aperto perde subito l’accesso. '
       + 'Un nuovo link può essere creato in qualsiasi momento – sarà un altro indirizzo.',
     shareRevokeConfirm: 'Sì, revoca',
@@ -2438,17 +2435,6 @@ export const it: Localizable<Copy> = {
     shareAsRevokeBody: 'L’indirizzo smetterà di funzionare. Chi ha la tabella aperta non può più '
       + 'inserire nulla. Un nuovo link può essere creato in qualsiasi momento – sarà un altro '
       + 'indirizzo.',
-    shareStationTitle: 'Link dell’intervento',
-    shareStationLede: 'Un link a esattamente questo intervento – carta, piani, diario, foto, '
-      + 'orari. Sola lettura, senza login. Vale finché l’intervento non è chiuso.',
-    shareStationWarn: 'Chi ha il link vede tutto l’intervento – i nomi dei presenti, le foto e '
-      + 'il diario completo.',
-    shareStationSetup: 'I link dell’intervento non sono configurati per questo corpo. Da '
-      + 'configurare nell’Amministrazione sotto «Einsatz-Link».',
-    shareStationClosed: 'L’intervento è concluso – non è più possibile creare un link '
-      + 'dell’intervento. Il link del rapporto resta valido.',
-    shareStationDenied: 'Questo account non è autorizzato a creare un link dell’intervento.',
-    shareStationFailed: 'Creazione del link dell’intervento non riuscita – riprovare',
     linksCount: '{done} di {n} fatti',
     linksOpen: 'Apri',
     linksMarkDone: 'Segna {title} come fatto',

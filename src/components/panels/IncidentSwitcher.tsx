@@ -48,12 +48,11 @@ export function IncidentSwitcher({
    *  (IncidentWorkspace · confirmAndComplete); absent for viewers / read-only views / an
    *  already-closed incident */
   onArchive?: () => void
-  /** «Teilen» — open the SAME three-way chooser the Einsatzkopf's Teilen button opens
-   *  (`TeilenSheet`), for the ACTIVE incident. It used to go straight to the Rapport's view
-   *  link, which made the door decide which of the three links you got; since 03.09. the row
-   *  decides. Kept because of the phone, where the Teilen button has no room in the bar
-   *  (15-mobile.css · `.tb-act-teilen`) and this is the way to all three. Omitted for viewers,
-   *  read-only views and an Einsatz-Link session, which may not mint one. */
+  /** «Teilen» — open the SAME share sheet the Einsatzkopf's Teilen button opens
+   *  (`ShareIncidentSheet`), for the ACTIVE incident, on the same read-only tab; the sheet's
+   *  tabs are what picks between the two links (03.09.). Kept because of the phone, where the
+   *  Teilen button has no room in the bar (15-mobile.css · `.tb-act-teilen`) and this is the way
+   *  in. Omitted for viewers, read-only views and a link session, which may not mint one. */
   onShare?: () => void
   /** how many Mindestangaben are still open, shown as a badge on that row. The check used to
    *  happen only after the press, and only on the other door — see confirmAndComplete. */
