@@ -464,15 +464,47 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(screen.getByText(az.pressureLabel)).toBeTruthy() // everything is already there
   })
 
-  it('drops the wizard for a Trupp without Atemschutz — there is nothing to split off', () => {
+  /* ⚠️ Reversed on 03.09. This test used to pin «wizard off for a Trupp without Atemschutz».
+   * That made the form RESTRUCTURE itself under the thumb that had just tapped «Ohne Atemschutz»
+   * — the tile lives on step 1 — which is the jarring part, not the length of step 2. */
+  it('keeps the two steps for a Trupp without Atemschutz, with a step 2 that has no Druck', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    expect(screen.getByRole('button', { name: az.wizardNext })).toBeTruthy()
     fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
-    expect(screen.queryByRole('button', { name: az.wizardNext })).toBeNull()
-    // one screen: the roster AND the Auftrag are both on it
+    // step 1 is unchanged by the tap: same caption, same Mannschaftsliste, same «Weiter»
+    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
     expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
+    // …and step 2 is the same step, minus the one field a Verkehrstrupp has no cylinder for
+    expect(screen.getByText(new RegExp(az.wizardWhat))).toBeTruthy()
+    expect(screen.getByText(az.funkkanalSection)).toBeTruthy()
     expect(screen.getByText(az.zielLabel)).toBeTruthy()
+    expect(screen.queryByText(az.pressureLabel)).toBeNull()
+  })
+
+  /* The walk-back keys off the wizard alone, so a plain Trupp gets the same «Speichern» that
+   * points at the missing Gruppenführer instead of sitting there doing nothing (02.09.). */
+  it('walks a plain Trupp back to step 1 when the Gruppenführer is missing', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const createTrupp = vi.fn()
+    mount({ trupps: [aktivTrupp()], createTrupp })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
+    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    expect(createTrupp).not.toHaveBeenCalled()
+    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+  })
+
+  /* ONE placeholder for every Auftrag (03.09.): «z. B. 2OG links» proposed a storey to a
+   * Verkehrstrupp, so the generic sentence is now the only one. */
+  it('uses the same Auftrag/Ziel placeholder whichever Auftrag is picked', () => {
+    mount({ trupps: [aktivTrupp()] }) // tablet: one screen, everything is on it
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    const ziel = () => screen.getByPlaceholderText(az.zielPlaceholder)
+    expect(ziel()).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: az.auftragLabels.anderes }))
+    expect(ziel()).toBeTruthy()
   })
 })

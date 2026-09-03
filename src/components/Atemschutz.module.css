@@ -1297,19 +1297,40 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* «Art des Trupps» (TruppForm, create only): two labelled tiles, not a Segmented pair — the
    choice is not a yes/no property of one thing but WHICH of two things is being registered, and
    each side has to say what it brings.
-   ⚠️ The COLUMN gap is `.modalBody`'s own (22px) and is not a free choice: the tiles sit in a
-   `.formColWide` directly above the form's two columns, so with any other gap the two tiles cut
-   the width at a different place than the fields under them and read as a separate control that
-   happens to be near the form. Matched, they read as the column headers of what follows. The ROW
-   gap stays tight (8px) — stacked, they are two options in a list, not two columns.
-   The breakpoint is `.modalBody`'s for the same reason: between 421 and 560px the body was still
-   two columns while the tiles had already stacked, so the one thing they are aligned to was gone.
-   Move one, move both. */
+   ⚠️ The COLUMN gap is `.modalBody`'s own (22px) ON THE TABLET and is not a free choice there:
+   the tiles sit in a `.formColWide` directly above the form's TWO columns, so with any other gap
+   they cut the width at a different place than the fields under them and read as a separate
+   control that happens to be near the form. Matched, they read as the column headers of what
+   follows. The ROW gap stays tight (8px).
+   ⚠️ …and below 560px that argument is void, because `.modalBody` is ONE column there — nothing
+   is left to line up with, so the phone spends the difference on the tiles instead (see below). */
 .kindSeg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 22px; }
-@media (max-width: 560px) { .kindSeg { grid-template-columns: 1fr; } }
 .kindOpt { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 10px 14px;
   border: 2px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
   text-align: left; cursor: pointer; font-family: var(--body); color: var(--ink); }
+/* ⚠️ TWO COLUMNS ON THE PHONE TOO (03.09.) — they used to stack here, and side by side they cost
+   half the height. That is what step 1 of the wizard needs: the tiles sit above the
+   Mannschaftsliste, which takes whatever they leave over (`.modalWizard .modalBody:has(.team)`).
+   What has to give for that is the TILE, not the column count. At a 375px viewport the sheet is
+   the full width, `.modalBody` takes 20px each side, and a 10px gutter leaves ~163px per tile —
+   ~135px inside the border and padding. «Unter Atemschutz» at 800 14px needs ~117px of that, so
+   it fits on ONE line only once the icon stops sitting BESIDE it: stacked above, the text gets
+   the whole width. The subtitle wraps to two lines and is meant to; the grid stretches both tiles
+   to the same height regardless. Same arithmetic holds at 360px (~127px of text width). */
+@media (max-width: 560px) {
+  .kindSeg { gap: 8px 10px; }
+  /* `stretch`, not the base rule's `center`: turned on its side, «center» would centre the text
+     block horizontally AND shrink-wrap it, and the title has to have the tile's full width to
+     stay on one line. */
+  .kindOpt { flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 12px; }
+}
+/* …and the last stop. Below ~340px («inside» is ~107px) the title wraps anyway, the tile grows
+   two lines taller, and two columns stop buying anything over the stack — so there they stack,
+   one option per row, as they did everywhere before 03.09. */
+@media (max-width: 340px) {
+  .kindSeg { grid-template-columns: 1fr; }
+  .kindOpt { flex-direction: row; align-items: center; gap: 10px; padding: 10px 14px; }
+}
 .kindOpt :global(.i) { width: 20px; height: 20px; flex: none; color: var(--ink-faint); }
 .kindOptTxt { min-width: 0; }
 .kindOptTxt b { display: block; font: 800 14px var(--body); }

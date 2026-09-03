@@ -1002,8 +1002,8 @@ export function AtemschutzView({
           // wizard exists for the 375px case, and the app's own phone layout had exactly the fold
           // the link board got the wizard for. Outside the link, step 2 additionally carries
           // Leitung and Farbe (both gated `!lite`), which is why its caption asks what the Trupp
-          // is doing rather than naming the Luft. A Trupp without Atemschutz overrides it to a
-          // single screen — see TruppForm.
+          // is doing rather than naming the Luft. And EVERY Art of Trupp walks those two steps —
+          // a Trupp ohne Atemschutz simply gets a shorter step 2 (no Druck) — see TruppForm.
           wizard={compact}
           onAddGuest={onAddGuest}
           onCancel={() => setForm(null)} onSubmit={submitForm}
@@ -1912,17 +1912,19 @@ function TruppCard({
  * that, because the screen it was written for is not the only one any more:
  *   · On anything with room — tablet, desktop — it is ONE screen. Nothing is behind a step,
  *     nothing has to be walked to, and the whole Trupp is visible while it is being formed.
- *   · On a PHONE it is two steps (`wizard`): «Wer geht rein?» with the entire screen for the
- *     roster, then «Was machen sie?». Handed over by QR since 02.09., the main board's phone
+ *   · On a PHONE it is two steps (`wizard`): «Wer bildet den Trupp?» with the entire screen for
+ *     the roster, then «Was machen sie?». Handed over by QR since 02.09., the main board's phone
  *     layout since 03.09. — the same form, so nobody learns two. The reason is the same one that
  *     turned the phone board into rows: at 375px the single screen put Druck, Kanal and Auftrag
  *     below a fold nobody knew was there, and the fields that start the safety clock were the
  *     ones that fell off. Steps can be walked freely in both directions, editing starts on
  *     step 2, and only the final submit gates on a valid Trupp — a wizard that can trap you at
  *     3am would be worse than the fold.
- *   · A Trupp WITHOUT Atemschutz never gets the wizard, on any screen: it has no Druck and no
- *     Kanal-plus-Luft half to split off, so the two steps would be «Wer» and a short remainder —
- *     a step boundary that exists only because the code has one.
+ *   · ⚠️ EVERY kind of Trupp gets those two steps (03.09.). Until then the wizard was PA-only, so
+ *     tapping «Ohne Atemschutz» — on step 1, under your thumb — collapsed the form to one screen
+ *     and re-flowed everything below it. THAT was the jarring part, not the length of step 2: a
+ *     form must not restructure itself because the Art toggle moved. A plain Trupp's step 2 is
+ *     simply shorter (Kanal · Auftrag · Ziel, and no Druck — `showPressure` already gates it).
  *
  * Leads with the AUFTRAG (what the Trupp is sent to do — the order you check them against on every
  * Kontakt), then the Trupp; the Druck section belongs to Atemschutz alone, and «Art des Trupps»
@@ -1956,8 +1958,8 @@ function TruppForm({
    *  takeover confirm). The FU sets it on the KP tablet. */
   lite?: boolean
   /** two steps instead of one scroll — set for ANY phone since 03.09. (it was the handed-over
-   *  board's own layout from 02.09.). See the two-shapes note above the component; a Trupp
-   *  without Atemschutz overrides it to false, because it has nothing to split. */
+   *  board's own layout from 02.09.), and for any Art of Trupp. See the two-shapes note above the
+   *  component: nothing about the Art may change the SHAPE of the form, only its step 2. */
   wizard?: boolean
   /** record a hand-typed Gast on the Anwesenheit as well — being put in a Trupp IS being here */
   onAddGuest?: (name: string) => string | undefined
@@ -2067,12 +2069,12 @@ function TruppForm({
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
   const canSubmit = auftragOk && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
   const [step, setStep] = useState<1 | 2>(mode === 'create' ? 1 : 2)
-  // ⚠️ A Trupp without Atemschutz has no second step worth walking to (see the note above), so
-  // picking «Ohne Atemschutz» on step 1 collapses the form back to one screen — everything that
-  // was behind «Weiter» is simply already there.
-  const wizardOn = wizard && isPa
-  const showTeam = !wizardOn || step === 1
-  const showRest = !wizardOn || step === 2
+  // ⚠️ The KIND has no say in this (03.09., see the note above the component). It used to —
+  // `wizard && isPa` — and the price was a form that re-flowed under the thumb that had just
+  // tapped «Ohne Atemschutz», on the very step that tile lives on. A plain Trupp walks the same
+  // two steps; its step 2 is just shorter, because `showPressure` drops the Druck by itself.
+  const showTeam = !wizard || step === 1
+  const showRest = !wizard || step === 2
 
   const dropDraft = () => { clearAuftrag(); clearZiel(); clearTeam() }
   const submit = (standby = false) => {
@@ -2124,7 +2126,7 @@ function TruppForm({
     if (canSubmit) { submit(standby); return }
     if (!leaderOk) {
       toast(az.saveBlockedTeam, { icon: 'warn', tone: 'warn' })
-      if (wizardOn && step !== 1) { setStep(1); requestAnimationFrame(() => flashSection(teamRef.current)) }
+      if (wizard && step !== 1) { setStep(1); requestAnimationFrame(() => flashSection(teamRef.current)) }
       else flashSection(teamRef.current)
       return
     }
@@ -2148,18 +2150,24 @@ function TruppForm({
   // portal to <body> so the modal escapes the .surface stacking context (z-index 20) and covers
   // the TopBar ("+ Eintrag", z-index 40) instead of rendering beneath it
   return (
-    <Overlay open onClose={onCancel} className={cx(s.modal, wizardOn && s.modalWizard)} ariaLabel={title}>
+    <Overlay open onClose={onCancel} className={cx(s.modal, wizard && s.modalWizard)} ariaLabel={title}>
       <div className={s.modalHead}>
         <h3>{title}</h3>
         <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
       </div>
-      {wizardOn && (
+      {wizard && (
         <>
           <div className={s.steps} aria-hidden><span className={s.stepOn} /><span className={cx(step === 2 && s.stepOn)} /></div>
           {/* both captions are the step's QUESTION — steps can be walked freely, so step 2 must
               say what it asks even when nobody is picked yet.
               ⚠️ «Was machen sie?», not «Luft»: outside the handed-over board step 2 also carries
-              Leitung und Farbe, so naming it after the cylinder would describe a third of it. */}
+              Leitung und Farbe, so naming it after the cylinder would describe a third of it —
+              and since 03.09. a Trupp ohne Atemschutz walks the same two steps, where there is no
+              cylinder at all. Both captions therefore hold for BOTH Arten, and neither is
+              kind-aware on purpose: «Art des Trupps» is chosen on step 1, so a caption that
+              switched with the tile would rewrite the heading under the thumb that tapped it.
+              Step 1 asks «Wer bildet den Trupp?» for the same reason — «Wer geht rein?» was true
+              only while the wizard was PA-only (copy · atemschutz.wizardWho). */}
           <div className={s.stepCap}>
             {fillTemplate(az.wizardStep, { n: step })} · {step === 1 ? az.wizardWho : az.wizardWhat}
           </div>
@@ -2260,8 +2268,12 @@ function TruppForm({
               {/* ✕: a Trupp that comes back and goes in again gets a NEW order, and the old one
                   is not a starting point for typing it — «2. OG Wohnung Nord, 2 Personen
                   vermisst» had to be select-all-deleted by hand on a phone, mid-Einsatz. */}
+              {/* ⚠️ ONE placeholder, for every Auftrag and both Arten (03.09.). It used to switch
+                  — «z. B. 2OG links» normally, the generic sentence only under «Anderes» — and a
+                  storey reference is Atemschutz vocabulary: under Auftrag «Verkehr» the example
+                  proposed a place that does not exist there. */}
               <ClearableInput
-                value={ziel} placeholder={isAnderes ? az.zielOtherPlaceholder : az.zielPlaceholder}
+                value={ziel} placeholder={az.zielPlaceholder}
                 // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
                 // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
                 maxLength={60}
@@ -2351,12 +2363,12 @@ function TruppForm({
         {/* the house button family — three private classes here were the last of this modal's own
             design system (see Atemschutz.module.css · .modal) */}
         {/* the ONLY control that throws the draft away — ✕ and the backdrop keep it */}
-        {wizardOn && step === 2 ? (
+        {wizard && step === 2 ? (
           <button className="ip-btn ghost" onClick={() => setStep(1)}>{az.wizardBack}</button>
         ) : (
           <button className="ip-btn ghost" onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
         )}
-        {wizardOn && step === 1 ? (
+        {wizard && step === 1 ? (
           /* never disabled — the steps can be walked freely; only the final submit gates on a
              valid Trupp (canSubmit) */
           <button className="ip-btn primary" onClick={() => setStep(2)}>{az.wizardNext}</button>

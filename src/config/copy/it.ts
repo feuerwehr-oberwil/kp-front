@@ -999,8 +999,10 @@ export const it: Localizable<Copy> = {
     linkReentryHint: 'Il link riporta a questa tavola – se la pagina viene chiusa per errore, basta aprire di nuovo il codice QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Squadra',
-    /** the two-step form on the handed-over phone (TruppForm · wizard) */
-    wizardWho: 'Chi entra?',
+    /** the two-step form on ANY phone, for any kind of team (TruppForm · wizard). Step 1 no
+     *  longer asks «who goes in?» — una squadra senza ARA non entra da nessuna parte, and its
+     *  kind is chosen on that very step (see de.ts). */
+    wizardWho: 'Chi compone la squadra?',
     wizardWhat: 'Cosa fanno?',
     wizardNext: 'Avanti',
     wizardBack: 'Indietro',
@@ -1028,8 +1030,8 @@ export const it: Localizable<Copy> = {
       anderes: 'Altro',
     },
     zielLabel: 'Compito / obiettivo',
-    zielPlaceholder: 'es. 2° piano sinistra',
-    zielOtherPlaceholder: 'Descrivi il compito',
+    // UN solo segnaposto per entrambi i tipi di squadra e per ogni incarico (vedi de.ts).
+    zielPlaceholder: 'Descrivi il compito',
     zielClear: 'Svuota compito / obiettivo',
     leaderLabel: 'Capogruppo',
     memberLabel: 'Milito',

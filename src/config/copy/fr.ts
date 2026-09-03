@@ -999,8 +999,10 @@ export const fr: Localizable<Copy> = {
     linkReentryHint: 'Le lien ramène à ce tableau – si la page est fermée par mégarde, il suffit d’ouvrir à nouveau le code QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Binôme',
-    /** the two-step form on the handed-over phone (TruppForm · wizard) */
-    wizardWho: 'Qui entre ?',
+    /** the two-step form on ANY phone, for any kind of team (TruppForm · wizard). Step 1 no
+     *  longer asks «who goes in?» — a binôme sans ARI n'entre nulle part, and its kind is chosen
+     *  on that very step (see de.ts). */
+    wizardWho: 'Qui compose le binôme ?',
     wizardWhat: 'Que font-ils ?',
     wizardNext: 'Suivant',
     wizardBack: 'Retour',
@@ -1028,8 +1030,8 @@ export const fr: Localizable<Copy> = {
       anderes: 'Autre',
     },
     zielLabel: 'Mission / but',
-    zielPlaceholder: 'p. ex. 2e étage gauche',
-    zielOtherPlaceholder: 'Décrire la mission',
+    // UN seul placeholder pour les deux types de binôme et chaque mission (voir de.ts).
+    zielPlaceholder: 'Décrire la mission',
     zielClear: 'Vider mission / but',
     leaderLabel: 'Chef de groupe',
     memberLabel: 'Sapeur-pompier',
