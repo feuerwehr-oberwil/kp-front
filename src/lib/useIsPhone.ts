@@ -38,7 +38,11 @@ export function useMediaQuery(query: string): boolean {
 // ⚠️ This string is the JS half of a rule the stylesheets carry too — the same trio of
 // conditions heads every phone `@media` block in src/styles and the CSS modules. They decide the
 // same layout from two places and MUST be changed together; a JS/CSS disagreement here means a
-// phone bottom sheet inside a desktop shell.
+// phone bottom sheet inside a desktop shell. The sharpest case is TruppForm's two-step wizard
+// (AtemschutzView · `wizard={compact}`, Atemschutz.module.css): this hook decides WHETHER there
+// are two steps, that file decides what a step looks like. Its blocks sat at a bare 560px until
+// 03.09., so every viewport this query called a phone but that one did not — 561–600px wide, and
+// every landscape phone — showed one step of a wizard laid out on the tablet's two-column grid.
 export const PHONE_QUERY = '(max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px)'
 
 export function useIsPhone(): boolean {
