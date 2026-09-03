@@ -113,7 +113,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import type { AtemschutzAlarmState } from './lib/atemschutz'
+import { isAtemschutzTrupp, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { Whiteboard } from './components/Whiteboard'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -5694,7 +5694,11 @@ export function IncidentWorkspace({
           // ⚠️ `allTrupps`, here and on the `trupps` prop below — the two places that print. A Trupp
           // taken off the Tafel was still under PA, and its readings, entry pressure and times are
           // exactly what the Atemschutz page exists to record (types · Trupp.removedAt).
-          truppCount={allTrupps.length}
+          // ⚠️ …and PA only: this number decides whether the Atemschutz page is offered at all and
+          // is printed in its own toggle («Atemschutz (3)»). A plain work squad never appears on
+          // that page (lib/reportPdfDirect), so counting it would offer an empty page on an
+          // Einsatz where nobody went under PA.
+          truppCount={allTrupps.filter(isAtemschutzTrupp).length}
           attendanceCount={Object.keys(attendance).length}
           mittelCount={mittelLineCount(mittel)}
           mittel={mittel}

@@ -12,8 +12,20 @@
 // The view layer (AtemschutzView) feeds it a Trupp + the current wall-clock time and renders
 // the derived live numbers + the contact-clock alarm tier.
 
-import type { Trupp, TruppReading } from '../types'
+import type { Trupp, TruppKind, TruppReading } from '../types'
 import { pad2 } from './format'
+
+/**
+ * Is this Trupp under Atemschutz — i.e. does anything in this module apply to it at all?
+ *
+ * ⚠️ THE one place the discriminator is resolved. `Trupp.kind` is absent on every Trupp recorded
+ * before 03.09. and absent means `atemschutz` (see types · TruppKind), so a raw `t.kind ===
+ * 'atemschutz'` test would silently drop every historical crew out of the monitoring. Read it
+ * through here and that mistake is unavailable.
+ */
+export function isAtemschutzTrupp(t: { kind?: TruppKind }): boolean {
+  return (t.kind ?? 'atemschutz') === 'atemschutz'
+}
 
 export interface TruppLive {
   /** seconds under PA: entryTime → exitTime, or → now while still in. A Trupp that is out has
@@ -24,7 +36,8 @@ export interface TruppLive {
   /** seconds since the Trupp came out (exitTime → now); null while it is still in. The break
    *  clock: how long this crew has been resting / re-equipping before it can go back in. */
   outSec: number | null
-  /** seconds since the last contact; null while not in the field (angemeldet / raus) */
+  /** seconds since the last contact; null while not in the field (angemeldet / raus) — and always
+   *  null for a Trupp that is not under PA, which has no contact clock at all (see below) */
   sinceContactSec: number | null
   /** the current pressure to display (last logged, or entry pressure until the first reading) */
   currentBar: number
@@ -66,7 +79,15 @@ export function deriveTruppLive(
 
   // "in the field" = entered and not yet out — robust to any non-terminal status (incl. legacy
   // data), so the contact clock is never silently dead for a Trupp that is actually inside.
-  const inField = entry > 0 && t.status !== 'angemeldet' && t.status !== 'raus' && !t.exitTime
+  //
+  // ⚠️ …and only for a Trupp under PA. A plain work squad (types · TruppKind `einfach`) has no
+  // cylinder and no Funkkontakt-Intervall, so it has no contact clock — and `sinceContactSec ===
+  // null` is what the whole alarm path already reads as «nothing is being watched here»:
+  // `truppAlarm` returns tier 0 outright, `peakAtemschutzAlarm` skips the Trupp, the board's card
+  // tone, sort and header badge follow, and the status below can never overlay to `ueberfaellig`.
+  // One line, and every downstream surface is right — rather than a `kind` check at each of them.
+  const inField = isAtemschutzTrupp(t)
+    && entry > 0 && t.status !== 'angemeldet' && t.status !== 'raus' && !t.exitTime
   const contactT = ms(t.lastContactTime) || entry // fall back to entry until the first contact
   const sinceContactSec = inField ? Math.max(0, Math.round((now - contactT) / SEC)) : null
   const overdue = sinceContactSec != null && sinceContactSec >= contactIntervalMin * 60 + contactGraceSec
@@ -86,10 +107,14 @@ export function deriveTruppLive(
  * same "in the field" condition `deriveTruppLive` uses, but time-independent, so it can gate the
  * app-wide per-second tick: when NO Trupp is in the field (the common case for much of a shift —
  * none deployed yet, or all already raus) there is nothing to count down, so the whole 1 Hz clock
- * (and the top-to-bottom re-render it drives) can stay off. Mirrors the `inField` local above.
+ * (and the top-to-bottom re-render it drives) can stay off. Mirrors the `inField` local above,
+ * the kind gate included — a plain work squad running its Einsatzzeit needs no app-wide 1 Hz tick,
+ * because nothing outside the board is watching a clock for it. (The board's own tick is
+ * unconditional, so its Einsatzzeit still counts up while it is on screen.)
  */
 export function truppInField(t: Trupp): boolean {
-  return ms(t.entryTime) > 0 && t.status !== 'angemeldet' && t.status !== 'raus' && !t.exitTime
+  return isAtemschutzTrupp(t)
+    && ms(t.entryTime) > 0 && t.status !== 'angemeldet' && t.status !== 'raus' && !t.exitTime
 }
 
 /** Whether any Trupp needs the contact clock right now — the gate for the app-wide 1 Hz tick. */

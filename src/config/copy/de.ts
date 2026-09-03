@@ -1403,7 +1403,26 @@ export const de = {
   },
   atemschutz: {
     title: 'Atemschutzüberwachung',
+    // Der Titel über der Tafel in der VOLLEN App (Mock «Sektionen», 03.09.): die Fläche trägt seit
+    // 03.09. beide Abschnitte – die Atemschutzkarten oben, die Arbeitstrupps darunter –, und
+    // «Atemschutzüberwachung» über einer Zeile «Verkehr» wäre schlicht falsch. Die abgegebene
+    // Tafel («Tafel pur») behält `title`: dort gibt es nur den Atemschutz.
+    boardTitle: 'Trupps',
     subtitle: 'Lückenlose Überwachung jedes Atemschutztrupps',
+    // Abschnittsköpfe der Tafel. Die Linie ist die Trennung, das Wort das Versprechen: was oben
+    // steht, wird überwacht – was unten steht, nicht.
+    sectionAtemschutz: 'Atemschutz',
+    sectionAtemschutzEmpty: 'Zurzeit ist kein Trupp unter Atemschutz.',
+    sectionPlain: 'Weitere Trupps',
+    sectionPlainHint: 'Ohne Atemschutz – keine Druck- und keine Kontaktüberwachung.',
+    // «Art des Trupps» – die EINE Entscheidung beim Anlegen, danach nicht mehr änderbar
+    // (types · Trupp.kind). Beide Optionen sagen, was sie mitbringen, nicht was sie sind.
+    kindLabel: 'Art des Trupps',
+    kindAtemschutz: 'Unter Atemschutz',
+    kindAtemschutzHint: 'Mit Druck und Kontaktuhr',
+    kindPlain: 'Ohne Atemschutz',
+    kindPlainHint: 'Nur Auftrag und Zeit',
+    kindPlainNote: 'Kein Eingangsdruck, kein Kontakt-Intervall: dieser Trupp erscheint unter «Weitere Trupps» und steht nie im Atemschutz-Teil des Rapports. Die Art lässt sich später nicht mehr wechseln.',
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
     newTrupp: 'Trupp erstellen',
@@ -1421,9 +1440,12 @@ export const de = {
     linkReentryHint: 'Der Link führt zurück auf diese Tafel – wird die Seite versehentlich geschlossen, einfach den QR-Code nochmals öffnen.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Trupp',
-    /** the two-step form on the handed-over phone (TruppForm · wizard) */
+    /** the two-step form on ANY phone (TruppForm · wizard) — the handed-over Tafel since 02.09.,
+     *  the main board's phone layout since 03.09. Step 2 carries Druck, Kanal, Auftrag/Ziel and
+     *  — outside the link — Leitung und Farbe, weshalb die Frage nach dem WAS und nicht nach der
+     *  Luft gestellt wird (der Schlüssel hiess bis 03.09. `wizardAir`). */
     wizardWho: 'Wer geht rein?',
-    wizardAir: 'Was machen sie?',
+    wizardWhat: 'Was machen sie?',
     wizardNext: 'Weiter',
     wizardBack: 'Zurück',
     wizardStep: 'Schritt {n} von 2',
@@ -3812,11 +3834,16 @@ export const de = {
     alreadyBooked: '{role}',
     // Hints, never blocks: the app says what it knows and lets people decide.
     conflictUnderPa: '{name} ist unter AS – Trupp {trupp}.',
+    // …und dasselbe für einen Trupp OHNE Atemschutz (types · TruppKind `einfach`, 03.09.):
+    // «unter AS» über einem Verkehrstrupp wäre eine falsche Aussage darüber, wo jemand war.
+    conflictInTrupp: '{name} ist im Trupp {trupp}.',
     // the same thing as a short badge ON the list row — that is where it is decided, not after
     // ⚠️ «AS», not «PA» (10.08.). PA is the Pressluftatmer — the device. What this badge says
     // is that somebody is under ATEMSCHUTZ, which is the doctrine word, the name of the board
     // and the name of the whole surface. One thing, one abbreviation.
     statusUnderPa: 'unter AS',
+    // …und für einen Trupp ohne Atemschutz (siehe conflictInTrupp). Gleicher Slot, gleiche Länge.
+    statusInTrupp: 'im Trupp',
     conflictElInTrupp: '{name} ist Einsatzleiter und zugleich im Trupp {trupp}.',
     conflictLeft: '{name} ist als «gegangen» erfasst.',
     // ⚠️ No «{total} Mannschaft». How big the Wehr is is the one number everybody already

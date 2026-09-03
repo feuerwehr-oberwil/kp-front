@@ -977,7 +977,19 @@ export const en: Localizable<Copy> = {
   },
   atemschutz: {
     title: 'SCBA monitoring',
+    // the board title in the FULL app — it carries both sections since 03.09. (see de.ts)
+    boardTitle: 'Teams',
     subtitle: 'Gap-free monitoring of every SCBA team',
+    sectionAtemschutz: 'SCBA',
+    sectionAtemschutzEmpty: 'No team is under SCBA right now.',
+    sectionPlain: 'Other teams',
+    sectionPlainHint: 'Without SCBA – no pressure and no contact monitoring.',
+    kindLabel: 'Type of team',
+    kindAtemschutz: 'Under SCBA',
+    kindAtemschutzHint: 'With pressure and contact clock',
+    kindPlain: 'Without SCBA',
+    kindPlainHint: 'Order and time only',
+    kindPlainNote: 'No entry pressure, no contact interval: this team appears under «Other teams» and never in the SCBA part of the report. The type cannot be changed later.',
     empty: 'No team under monitoring yet.',
     emptyHint: 'Create a team to start monitoring.',
     newTrupp: 'Create team',
@@ -988,7 +1000,7 @@ export const en: Localizable<Copy> = {
     liteNewTab: 'Team',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
     wizardWho: 'Who goes in?',
-    wizardAir: 'What are they doing?',
+    wizardWhat: 'What are they doing?',
     wizardNext: 'Next',
     wizardBack: 'Back',
     wizardStep: 'Step {n} of 2',
@@ -2546,7 +2558,9 @@ export const en: Localizable<Copy> = {
     alreadyBooked: '{role}',
     // hints, never blocks
     conflictUnderPa: '{name} is under SCBA – team {trupp}.',
+    conflictInTrupp: '{name} is in team {trupp}.',
     statusUnderPa: 'under SCBA',
+    statusInTrupp: 'in a team',
     conflictElInTrupp: '{name} is incident commander and also in team {trupp}.',
     conflictLeft: '{name} is recorded as «left».',
     summary: '{present} present',

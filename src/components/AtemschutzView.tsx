@@ -7,13 +7,13 @@ import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, truppAlarm, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, pressureAlarm, truppAlarm, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { readingBarIsMeasured, truppStatusLabel } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
-import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
+import type { AttendanceState, Person, Trupp, TruppFields, TruppKind } from '../types'
 import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import type { MarkerOption } from '../lib/placedTrupps'
@@ -74,7 +74,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
+  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, onShareLink, shareLinkActive = false, lite,
@@ -190,6 +190,19 @@ export function AtemschutzView({
   clockSkewMs?: number | null
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
+  /* ── «Tafel pur» sees the Atemschutz and NOTHING else (decided 03.09.) ─────────────────────
+   * The handed-over board exists to operate the Atemschutzüberwachung — that is what the QR
+   * promises, what the link's backend allowlist permits and the whole reason a stranger's phone
+   * is looking at this Einsatz at all (see `lite` below). A Verkehrstrupp on it would be a row
+   * that carries no clock, cannot be reached from any other surface of that session, and quietly
+   * widens what «Überwachung abgeben» hands over. So a link session's board is filtered here,
+   * at the source: no section, no rows, and no way to create one (the form's Art chooser is
+   * `!lite` too). The Trupps still exist — they are simply not this session's business. */
+  const trupps = useMemo(() => (lite ? allTrupps.filter(isAtemschutzTrupp) : allTrupps), [allTrupps, lite])
+  const removedTrupps = useMemo(
+    () => (lite ? allRemovedTrupps.filter(isAtemschutzTrupp) : allRemovedTrupps),
+    [allRemovedTrupps, lite],
+  )
   // the shared create / edit / re-deploy form — null when closed
   const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp; focus?: 'auftrag' } | null>(null)
   /**
@@ -429,6 +442,19 @@ export function AtemschutzView({
    * sort answers «zeig mir die brauchbaren zuerst», and a Trupp nobody needs on the board any more
    * can be deleted — the Rapport keeps it either way (types · Trupp.removedAt). */
   const board = sortTrupps(trupps)
+  /* ── Two sections, one board (mock «Sektionen», decided 03.09.) ────────────────────────────
+   * Atemschutz on top with today's cards, entirely untouched, then a ruled «Weitere Trupps» with
+   * the plain work squads as single rows. The split is the whole point of this variant: the PA
+   * safety signal must not be diluted by rows that carry no clock, and the eye has to know at a
+   * glance which half it is in. Sorting happens ONCE, over the whole board (`sortTrupps` above),
+   * and the split preserves that order inside each section — so «Dringlichkeit» and the hand-set
+   * order mean the same thing they always did, just within their own half. */
+  const paBoard = board.filter(isAtemschutzTrupp)
+  const plainBoard = board.filter((t) => !isAtemschutzTrupp(t))
+  /* Sections appear the moment the board holds a Trupp without Atemschutz, and not before: an
+   * Einsatz where everybody went in under PA — every Einsatz recorded until today — gets exactly
+   * the board it had, with no headings, no counts and no empty second half to read past. */
+  const sectioned = plainBoard.length > 0
 
   // Called from the card's action handlers — i.e. after render, so it simply closes over the
   // arrangement the operator is currently looking at. (A ref would have to be written during
@@ -526,6 +552,10 @@ export function AtemschutzView({
     if (form.mode === 'create') {
       createTrupp({
         id: `tr${Date.now()}`,
+        // ⚠️ WRITTEN ONLY for the new kind. Absent means «unter Atemschutz» (types · TruppKind),
+        // and stamping the default onto every new Trupp would make the blob claim a decision
+        // nobody made — and make every pre-03.09. record look different from a fresh one.
+        ...(f.kind === 'einfach' ? { kind: f.kind } : {}),
         name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
         leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds,
         entryPressureBar: f.pressure, entryTime: '', lastContactTime: '', lowestBar: f.pressure,
@@ -733,7 +763,14 @@ export function AtemschutzView({
             </div>
           ) : (
             <>
-              <h2>{az.title}</h2>
+              {/* ⚠️ «Trupps» in the full app, «Atemschutzüberwachung» on the handed-over Tafel
+                  (03.09.). The board carries both sections now, and the old title over a row
+                  reading «Verkehr» would have named something that is not there. The link
+                  session sees only the Atemschutz, so for it the old title stays TRUE — and it
+                  is the one screen whose holder has nothing else telling them what they are
+                  looking at. The subtitle is unchanged either way: it describes the half of the
+                  board a life depends on. */}
+              <h2>{lite ? az.title : az.boardTitle}</h2>
               {/* ⚠️ On the handed-over Tafel the subtitle is the EINSATZ, not the generic sentence
                   about what the board is for. Nothing else on that screen names it, and «welcher
                   Einsatz ist das» is the first question somebody scanning a code from a stranger's
@@ -863,10 +900,48 @@ export function AtemschutzView({
              moved to the bottom rail below (mock 03: «status where the eyes land, actions where
              the thumb lives»). */
           <div className={s.focusCard}>{cards(board.filter((t) => t.id === focusId))}</div>
-        ) : (
+        ) : !sectioned ? (
           <div ref={listRef} className={cx(compact ? s.rowList : s.grid, compact && openRow && s.rowListOpen)}>
-            {cards(board)}
+            {cards(paBoard)}
           </div>
+        ) : (
+          <>
+            <div className={s.sect}>
+              <span className={s.sectTitle}><Icon id="gauge" />{az.sectionAtemschutz}</span>
+              <span className={s.sectCount}>{paBoard.length}</span>
+            </div>
+            {paBoard.length === 0 ? (
+              // in-context empty state: the head alone over nothing reads as a bug, and «nobody
+              // is under PA right now» is a fact the Überwacher wants stated, not implied
+              <p className={s.sectEmpty}>{az.sectionAtemschutzEmpty}</p>
+            ) : (
+              <div ref={listRef} className={cx(compact ? s.rowList : s.grid, compact && openRow && s.rowListOpen)}>
+                {cards(paBoard)}
+              </div>
+            )}
+            <div className={cx(s.sect, s.sectSecond)}>
+              <span className={s.sectTitle}><Icon id="people" />{az.sectionPlain}</span>
+              <span className={s.sectCount}>{plainBoard.length}</span>
+            </div>
+            {/* said once, under the rule, rather than on every row: what these Trupps do NOT have
+                is the same fact for all of them, and repeating it per row would make the section
+                shout louder than the one above it */}
+            <p className={s.sectHint}>{az.sectionPlainHint}</p>
+            <div className={s.plainList}>
+              {plainBoard.map((t) => (
+                <PlainTruppRow
+                  key={t.id} t={t} live={live.get(t.id)!} color={truppColors[t.id]} canEdit={canEdit}
+                  focusNonce={activeFocus?.id === t.id ? activeFocus.nonce : undefined}
+                  lite={!!lite}
+                  onStatus={(id, st) => { freezeOrder(); setTruppStatus(id, st) }}
+                  onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
+                  onDelete={deleteTrupp} onRestore={restoreTrupp}
+                  onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
+                  onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -923,7 +998,14 @@ export function AtemschutzView({
           assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
           leitungOptions={leitungOptions(form.trupp?.id)}
           lite={!!lite}
-          wizard={!!lite && compact}
+          // ⚠️ EVERY phone, not only the handed-over one (03.09.). `compact` is `useIsPhone`, so a
+          // tablet — where the whole form stands in one glance — keeps the single screen; the
+          // wizard exists for the 375px case, and the app's own phone layout had exactly the fold
+          // the link board got the wizard for. Outside the link, step 2 additionally carries
+          // Leitung and Farbe (both gated `!lite`), which is why its caption asks what the Trupp
+          // is doing rather than naming the Luft. A Trupp without Atemschutz overrides it to a
+          // single screen — see TruppForm.
+          wizard={compact}
           onAddGuest={onAddGuest}
           onCancel={() => setForm(null)} onSubmit={submitForm}
         />
@@ -1185,6 +1267,151 @@ function TruppRow({
           collapse control it turns into points back up, so the pair reads as one toggle. */}
       <span className={s.trowChevron}><Icon id="chevron-down" /></span>
     </button>
+  )
+}
+
+/**
+ * One Trupp WITHOUT Atemschutz, as a single row — the «Weitere Trupps» half of the board
+ * (mock «Sektionen», decided 03.09.).
+ *
+ * Half the height of a card and deliberately quieter: no status band, no clock field, no Druck,
+ * no Kontakt. That restraint IS the feature — the section above it is a safety board, and a work
+ * squad drawn with the same weight would teach the eye to skim both. What the row carries is
+ * everything such a Trupp actually has: who, what, where, and how long it has been at it.
+ *
+ * ⚠️ Not a collapsed card. There is nothing further to open: every fact about this Trupp is on
+ * the row, and the two things a card adds (contact clock, Druckverlauf) do not exist for it. So
+ * its controls sit on the row itself rather than one tap deeper — the opposite trade from
+ * `TruppRow`, which hides controls precisely because its card has more to show.
+ */
+function PlainTruppRow({
+  t, live, color, canEdit, focusNonce, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onShowLine, hasLine, drawnLineNo, lite = false,
+}: {
+  t: Trupp
+  live: TruppLive
+  /** the colour this Trupp wears on the Karte / the Plan — the same dot the cards carry */
+  color?: string
+  canEdit: boolean
+  /** this is the row somebody was just sent to — scroll it under their eyes and mark it */
+  focusNonce?: number
+  onStatus: (id: string, status: Trupp['status']) => void
+  onEdit: (focus?: 'auftrag') => void
+  onReenter: () => void
+  onDelete: (id: string) => void
+  onRestore: (t: Trupp) => void
+  onPlace: (id: string) => void
+  onShowPlan: (id: string) => void
+  onShowLine: (id: string) => void
+  hasLine: boolean
+  drawnLineNo?: number
+  /** the handed-over «Tafel pur» never renders this row at all (AtemschutzView filters it out),
+   *  so this only exists to keep ONE rule about surface-pointing controls in the file */
+  lite?: boolean
+}) {
+  const az = appConfig.copy.atemschutz
+  const status = live.status
+  const inField = t.status === 'aktiv' || t.status === 'rueckzug'
+  const auftrag = auftragTypeLabel(t)
+  const lineTag = drawnLineNo != null ? String(drawnLineNo)
+    : t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim()
+  const crew = (t.members ?? []).filter(Boolean).join(' · ')
+  // ⚠️ The number is always the Einsatzzeit; the LABEL under it says which state that time is in.
+  // A row whose clock is frozen («Draussen») must not read like one that is still counting.
+  const stateLabel = status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)
+  const rowRef = useRef<HTMLDivElement>(null)
+  // the same pointing gesture the cards answer — a nonce, so a repeat tap replays it
+  useEffect(() => {
+    const el = rowRef.current
+    if (focusNonce == null || !el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.remove(s.cardFlash)
+    void el.offsetWidth
+    el.classList.add(s.cardFlash)
+    const timer = window.setTimeout(() => el.classList.remove(s.cardFlash), 1900)
+    // cleanup UNDOES the mark — see TruppRow for why clearing the timer alone is not enough
+    return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
+  }, [focusNonce])
+
+  // delete-now + Rückgängig toast — the same contract the card gives (house rule)
+  const doDelete = () => {
+    const snapshot = t
+    onDelete(t.id)
+    toast(fillTemplate(az.removedToast, { name: t.name }), {
+      icon: 'trash',
+      action: { label: appConfig.copy.undo, onClick: () => onRestore(snapshot) },
+    })
+  }
+
+  return (
+    <div ref={rowRef} className={cx(s.prow, status === 'angemeldet' && s.prowIdle, status === 'raus' && s.prowOut)}>
+      <div className={s.prowId}>
+        <div className={s.prowName}>
+          <span className={s.prowDot} style={color ? { background: color } : undefined} aria-hidden />
+          <span className={s.prowNameTxt}>{t.name}</span>
+        </div>
+        {crew && <div className={s.prowCrew}>{crew}</div>}
+      </div>
+      <div className={s.prowTask}>
+        {/* same rule as the card, canEdit included: a Trupp with no job is a question that has to
+            be VISIBLE — hiding the gap from a viewer would hide the thing worth asking about */}
+        {auftrag
+          ? <span className={cx(s.tag, s.tagAuftrag)}>{auftrag}</span>
+          : <button type="button" className={cx(s.tag, s.tagAuftragOpen)} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>}
+        {t.ziel && <span className={s.tagZiel}>{t.ziel}</span>}
+        {lineTag && (hasLine && !lite ? (
+          <button type="button" className={cx(s.tag, s.tagGo)} title={az.lineShow} onClick={() => onShowLine(t.id)}>
+            {az.lineField} {lineTag}<Icon id="chevron" />
+          </button>
+        ) : (
+          <span className={s.tag}>{az.lineField} {lineTag}</span>
+        ))}
+        {t.funkkanal != null && <span className={s.tag}>Kanal {t.funkkanal}</span>}
+      </div>
+      <div className={s.prowSince}>
+        <b>{fmtClock(t.entryTime ? live.elapsedSec : null)}</b>
+        <small>{inField ? az.elapsed : stateLabel}</small>
+      </div>
+      <div className={s.prowActs}>
+        {/* ONE lifecycle button, whichever the state actually offers — the card's two-button bar
+            has no room here and no second choice worth the width: «Nicht eingesetzt» is a
+            Sicherungstrupp's exit, and a Sicherungstrupp is by definition under PA. */}
+        {canEdit && status === 'angemeldet' && (
+          <button type="button" className={cx(s.prowAct, s.prowActGo)} onClick={() => onStatus(t.id, 'aktiv')}>
+            <Icon id="flag" /><span>{az.actEnter}</span>
+          </button>
+        )}
+        {canEdit && inField && (
+          <button type="button" className={s.prowAct} onClick={() => onStatus(t.id, 'raus')}>
+            <Icon id="logout" /><span>{az.actExit}</span>
+          </button>
+        )}
+        {canEdit && status === 'raus' && (
+          <button type="button" className={cx(s.prowAct, s.prowActGo)} onClick={onReenter}>
+            <Icon id="flag" /><span>{az.actReenter}</span>
+          </button>
+        )}
+        {canEdit && status !== 'raus' && (
+          <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={() => onEdit()}>
+            <Icon id="pen" />
+          </button>
+        )}
+        {/* the placement pair, exactly as on a card: placed ⇒ GO there, not placed ⇒ put it down */}
+        {lite ? null : (t.annoId || t.entityId) ? (
+          <button className={s.iconBtn} aria-label={t.entityId ? az.showOnMap : az.showOnPlan} title={t.entityId ? az.showOnMap : az.showOnPlan} onClick={() => onShowPlan(t.id)}>
+            <Icon id={t.entityId ? 'map' : 'doc'} />
+          </button>
+        ) : canEdit && status !== 'raus' && (
+          <button className={s.iconBtn} aria-label={az.place} title={az.place} onClick={() => onPlace(t.id)}>
+            <Icon id="footprint" />
+          </button>
+        )}
+        {canEdit && (
+          <button className={`${s.iconBtn} ${s.danger}`} aria-label={az.remove} title={az.remove} onClick={doDelete}>
+            <Icon id="trash" />
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -1679,10 +1906,29 @@ function TruppCard({
   )
 }
 
-// One shared single-screen form for create / edit / re-deploy (3am tenet: no multi-step wizard).
-// Leads with the AUFTRAG (what the Trupp is sent to do — the order you check them against on every
-// Kontakt), then the Trupp; the Druck section shows only when a fresh cylinder is involved
-// (create + re-deploy), never on a plain edit where the live pressure must not be disturbed.
+/**
+ * ONE shared form for create / edit / re-deploy, in one of two shapes.
+ *
+ * ⚠️ The rule used to be «single screen, never a wizard» (3am tenet) and it is now narrower than
+ * that, because the screen it was written for is not the only one any more:
+ *   · On anything with room — tablet, desktop — it is ONE screen. Nothing is behind a step,
+ *     nothing has to be walked to, and the whole Trupp is visible while it is being formed.
+ *   · On a PHONE it is two steps (`wizard`): «Wer geht rein?» with the entire screen for the
+ *     roster, then «Was machen sie?». Handed over by QR since 02.09., the main board's phone
+ *     layout since 03.09. — the same form, so nobody learns two. The reason is the same one that
+ *     turned the phone board into rows: at 375px the single screen put Druck, Kanal and Auftrag
+ *     below a fold nobody knew was there, and the fields that start the safety clock were the
+ *     ones that fell off. Steps can be walked freely in both directions, editing starts on
+ *     step 2, and only the final submit gates on a valid Trupp — a wizard that can trap you at
+ *     3am would be worse than the fold.
+ *   · A Trupp WITHOUT Atemschutz never gets the wizard, on any screen: it has no Druck and no
+ *     Kanal-plus-Luft half to split off, so the two steps would be «Wer» and a short remainder —
+ *     a step boundary that exists only because the code has one.
+ *
+ * Leads with the AUFTRAG (what the Trupp is sent to do — the order you check them against on every
+ * Kontakt), then the Trupp; the Druck section belongs to Atemschutz alone, and «Art des Trupps»
+ * is asked once, at creation, because it cannot be changed afterwards (types · Trupp.kind).
+ */
 function TruppForm({
   mode, initial, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, lite = false, wizard = false, onAddGuest, onCancel, onSubmit,
 }: {
@@ -1710,9 +1956,9 @@ function TruppForm({
    *  Leitung, one Trupp is enforced against what is actually drawn regardless (see submitForm's
    *  takeover confirm). The FU sets it on the KP tablet. */
   lite?: boolean
-  /** the handed-over form on a PHONE (decided 02.09.): two steps instead of one scroll — «Wer
-   *  geht rein?» with the whole screen for the roster, then «Luft & Auftrag». Nobody has to know
-   *  that Druck, Art and Auftrag were waiting below the fold. Editing starts on step 2. */
+  /** two steps instead of one scroll — set for ANY phone since 03.09. (it was the handed-over
+   *  board's own layout from 02.09.). See the two-shapes note above the component; a Trupp
+   *  without Atemschutz overrides it to false, because it has nothing to split. */
   wizard?: boolean
   /** record a hand-typed Gast on the Anwesenheit as well — being put in a Trupp IS being here */
   onAddGuest?: (name: string) => string | undefined
@@ -1758,7 +2004,14 @@ function TruppForm({
     // would fight the operator's own edits
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  // a fresh cylinder for create / re-deploy; edit never touches pressure
+  /* «Art des Trupps» — asked once, on creation, and read-only ever after (types · Trupp.kind).
+   * An existing Trupp answers from its own record, so re-deploying or editing one can never
+   * change what it was: its Druckverlauf, its Alarmdruck crossing and its place in the Rapport
+   * all hang off this one word. The chooser below is therefore rendered for `create` only. */
+  const [kind, setKind] = useState<TruppKind>(initial?.kind ?? 'atemschutz')
+  const isPa = kind === 'atemschutz'
+  // a fresh cylinder for create / re-deploy; edit never touches pressure. A Trupp without
+  // Atemschutz has no cylinder at all — 0, and the field is not shown (see `showPressure`).
   const [pressure, setPressure] = useState<number>(() => {
     const dz = atemschutzDoctrine()
     return mode === 'edit' ? (initial?.entryPressureBar ?? dz.defaultPressureBar) : dz.defaultPressureBar
@@ -1789,7 +2042,9 @@ function TruppForm({
   // ⚠️ Shown in EVERY mode, including 'edit'. Hiding it there meant a mistyped Eingangsdruck could
   // never be corrected — and it is the number the Verbrauch and the tiefster Druck on the Rapport
   // are measured against. In edit mode it corrects what was recorded; it never counts as a contact.
-  const showPressure = true
+  // ⚠️ …but only for a Trupp under PA: there is no cylinder to read on a Verkehrstrupp, and a
+  // «Speichern» blocked on `pressure > 0` for a number that does not exist would be a dead button.
+  const showPressure = isPa
   const isEdit = mode === 'edit'
   const isAnderes = auftrag === 'anderes'
   // ⚠️ The Auftrag no longer BLOCKS. It is behind the fold now, and a Trupp standing at the door
@@ -1809,8 +2064,12 @@ function TruppForm({
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
   const canSubmit = auftragOk && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
   const [step, setStep] = useState<1 | 2>(mode === 'create' ? 1 : 2)
-  const showTeam = !wizard || step === 1
-  const showRest = !wizard || step === 2
+  // ⚠️ A Trupp without Atemschutz has no second step worth walking to (see the note above), so
+  // picking «Ohne Atemschutz» on step 1 collapses the form back to one screen — everything that
+  // was behind «Weiter» is simply already there.
+  const wizardOn = wizard && isPa
+  const showTeam = !wizardOn || step === 1
+  const showRest = !wizardOn || step === 2
 
   const dropDraft = () => { clearAuftrag(); clearZiel(); clearTeam() }
   const submit = (standby = false) => {
@@ -1825,10 +2084,14 @@ function TruppForm({
       ziel: ziel.trim() || undefined,
       lineNo: lineNo ?? undefined,
       funkkanal: Number.isFinite(funkkanal) ? funkkanal : undefined,
-      pressure,
+      // 0 for a Trupp without Atemschutz — there is no cylinder, and the field was never shown.
+      // The create path is the ONLY reader of `kind` (types · TruppFields); editTrupp and
+      // reactivateTrupp deliberately ignore it, which is what makes the kind immutable.
+      pressure: isPa ? pressure : 0,
       leaderPersonId: team[0].personId,
       memberPersonIds: memberPersonIds.length ? memberPersonIds : undefined,
       color, // null = automatic
+      kind,
     }, standby)
   }
 
@@ -1858,7 +2121,7 @@ function TruppForm({
     if (canSubmit) { submit(standby); return }
     if (!leaderOk) {
       toast(az.saveBlockedTeam, { icon: 'warn', tone: 'warn' })
-      if (wizard && step !== 1) { setStep(1); requestAnimationFrame(() => flashSection(teamRef.current)) }
+      if (wizardOn && step !== 1) { setStep(1); requestAnimationFrame(() => flashSection(teamRef.current)) }
       else flashSection(teamRef.current)
       return
     }
@@ -1882,18 +2145,20 @@ function TruppForm({
   // portal to <body> so the modal escapes the .surface stacking context (z-index 20) and covers
   // the TopBar ("+ Eintrag", z-index 40) instead of rendering beneath it
   return (
-    <Overlay open onClose={onCancel} className={cx(s.modal, wizard && s.modalWizard)} ariaLabel={title}>
+    <Overlay open onClose={onCancel} className={cx(s.modal, wizardOn && s.modalWizard)} ariaLabel={title}>
       <div className={s.modalHead}>
         <h3>{title}</h3>
         <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
       </div>
-      {wizard && (
+      {wizardOn && (
         <>
           <div className={s.steps} aria-hidden><span className={s.stepOn} /><span className={cx(step === 2 && s.stepOn)} /></div>
           {/* both captions are the step's QUESTION — steps can be walked freely, so step 2 must
-              say what it asks even when nobody is picked yet */}
+              say what it asks even when nobody is picked yet.
+              ⚠️ «Was machen sie?», not «Luft»: outside the handed-over board step 2 also carries
+              Leitung und Farbe, so naming it after the cylinder would describe a third of it. */}
           <div className={s.stepCap}>
-            {fillTemplate(az.wizardStep, { n: step })} · {step === 1 ? az.wizardWho : az.wizardAir}
+            {fillTemplate(az.wizardStep, { n: step })} · {step === 1 ? az.wizardWho : az.wizardWhat}
           </div>
         </>
       )}
@@ -1902,6 +2167,38 @@ function TruppForm({
           {/* ⚠️ ORDER. What starts the clock comes first: who goes in, and with how much air.
               Everything else is refinement and lives one tap away — on a phone the old order put
               five optional fields between the EL and the two mandatory ones. */}
+          {/* ── «Art des Trupps» ────────────────────────────────────────────────────────────
+              FIRST, spanning the form, and only while creating one: it decides what the rest of
+              this form even asks (Druck), which section the card lands in, and whether the Trupp
+              is on the Atemschutz page of the Rapport — so it cannot sit below the fields it
+              governs. Never on the handed-over Tafel: that session operates the
+              Atemschutzüberwachung, so «ohne Atemschutz» is not a thing it may create.
+              Two labelled tiles rather than a Segmented pair: the choice is not a yes/no property
+              of a Trupp, it is which of two different things is being registered, and each side
+              says what it brings with it (recognition over recall). */}
+          {mode === 'create' && !lite && showTeam && (
+            <div className={s.formColWide}>
+              <div className={s.field}>
+                <span>{az.kindLabel}</span>
+                <div className={s.kindSeg} role="radiogroup" aria-label={az.kindLabel}>
+                  <button type="button" role="radio" aria-checked={isPa}
+                    className={cx(s.kindOpt, isPa && s.on)} onClick={() => setKind('atemschutz')}>
+                    <Icon id="gauge" />
+                    <span className={s.kindOptTxt}><b>{az.kindAtemschutz}</b><span>{az.kindAtemschutzHint}</span></span>
+                  </button>
+                  <button type="button" role="radio" aria-checked={!isPa}
+                    className={cx(s.kindOpt, !isPa && s.on)} onClick={() => setKind('einfach')}>
+                    <Icon id="people" />
+                    <span className={s.kindOptTxt}><b>{az.kindPlain}</b><span>{az.kindPlainHint}</span></span>
+                  </button>
+                </div>
+                {/* said out loud on the side that is the exception — and it says the one thing
+                    that cannot be undone (types · Trupp.kind) before the Trupp exists */}
+                {!isPa && <p className={s.fieldNote}>{az.kindPlainNote}</p>}
+              </div>
+            </div>
+          )}
+
           {showTeam && (
           <div className={s.formCol}>
             <div ref={teamRef} className={s.field}>
@@ -2049,12 +2346,12 @@ function TruppForm({
         {/* the house button family — three private classes here were the last of this modal's own
             design system (see Atemschutz.module.css · .modal) */}
         {/* the ONLY control that throws the draft away — ✕ and the backdrop keep it */}
-        {wizard && step === 2 ? (
+        {wizardOn && step === 2 ? (
           <button className="ip-btn ghost" onClick={() => setStep(1)}>{az.wizardBack}</button>
         ) : (
           <button className="ip-btn ghost" onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
         )}
-        {wizard && step === 1 ? (
+        {wizardOn && step === 1 ? (
           /* never disabled — the steps can be walked freely; only the final submit gates on a
              valid Trupp (canSubmit) */
           <button className="ip-btn primary" onClick={() => setStep(2)}>{az.wizardNext}</button>
@@ -2066,7 +2363,10 @@ function TruppForm({
             waits. So on re-deploy «Bereitstellen» carries the primary weight and «Einrücken»
             steps back — the ORDER stays as it was, only the emphasis swaps, so nobody has to
             re-learn where the button is. */}
-        {mode === 'redeploy' && (
+        {/* ⚠️ Under PA only. «Bereitstellen» exists because a re-equipped Trupp is as often held
+            back as Sicherungstrupp as it is sent in — and a Sicherungstrupp is by definition a
+            crew standing by under Atemschutz. A work squad has one way back in. */}
+        {mode === 'redeploy' && isPa && (
           <button className={cx('ip-btn primary', !canSubmit && s.btnBlocked)} aria-disabled={!canSubmit}
             onClick={() => attemptSubmit(true)} title={az.reenterStandbyHint}>
             {az.reenterStandby}
@@ -2076,7 +2376,8 @@ function TruppForm({
             swallows the tap before it ever reaches a handler, which is exactly what left
             «Speichern» unresponsive with nothing to explain why. This one stays clickable and
             `attemptSubmit` decides — flash the missing field when blocked, submit when not. */}
-        <button className={cx(mode === 'redeploy' ? 'ip-btn' : 'ip-btn primary', !canSubmit && s.btnBlocked)}
+        {/* …and it takes the primary weight back when «Bereitstellen» is not there to carry it */}
+        <button className={cx(mode === 'redeploy' && isPa ? 'ip-btn' : 'ip-btn primary', !canSubmit && s.btnBlocked)}
           aria-disabled={!canSubmit} onClick={() => attemptSubmit()}>{submitLabel}</button>
         </>)}
       </div>

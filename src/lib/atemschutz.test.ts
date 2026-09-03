@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed } from './atemschutz'
+import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -439,5 +439,53 @@ describe('alarmBarFor', () => {
     expect(working.peak).toBe(2)
     expect(working.urgent?.reason).toBe('pressure')
     expect(leaving.peak).toBe(0)
+  })
+})
+
+/* ── Trupps WITHOUT Atemschutz (types · TruppKind, 03.09.) ─────────────────────────────────────
+ * The board grew a second section for plain work squads. Everything in this module is about
+ * cylinders and contact intervals, so none of it may apply to one — and the gate sits in exactly
+ * two places (`isAtemschutzTrupp` reading the discriminator, `deriveTruppLive` refusing to start
+ * a contact clock). These tests pin that the whole alarm path inherits it. */
+describe('a Trupp without Atemschutz', () => {
+  const plain: Trupp = { ...base, kind: 'einfach', entryPressureBar: 0, lowestBar: 0 }
+
+  it('resolves an ABSENT kind as Atemschutz — no record written before 03.09. changes meaning', () => {
+    expect(isAtemschutzTrupp(base)).toBe(true)
+    expect(isAtemschutzTrupp({ kind: 'atemschutz' })).toBe(true)
+    expect(isAtemschutzTrupp({ kind: 'einfach' })).toBe(false)
+  })
+
+  it('runs an Einsatzzeit but no contact clock, and can never overlay to ueberfaellig', () => {
+    // an hour past the interval + Nachfrist — a PA Trupp would be überfällig long since
+    const live = deriveTruppLive(plain, REF + 60 * 60_000, 5, 60)
+    expect(live.elapsedSec).toBe(3600) // the row's «Einsatzzeit» still counts
+    expect(live.sinceContactSec).toBeNull()
+    expect(live.overdue).toBe(false)
+    expect(live.status).toBe('aktiv')
+    // …and the PA Trupp beside it, same times, still escalates
+    expect(deriveTruppLive(base, REF + 60 * 60_000, 5, 60).status).toBe('ueberfaellig')
+  })
+
+  it('is silent in truppAlarm even at 0 bar and an hour out of contact', () => {
+    const now = REF + 60 * 60_000
+    const live = deriveTruppLive(plain, now, 5, 60)
+    expect(truppAlarm(plain, live, 5, 60, { alarmBar: 100, alarmBarRueckzug: 50 })).toEqual({
+      sev: 0, reason: null, line: null,
+    })
+  })
+
+  it('never reaches the cross-surface alarm (tone, TopBar chip, NavRail dot)', () => {
+    const state = peakAtemschutzAlarm([plain], REF + 60 * 60_000, 5, 60, 100, 50)
+    expect(state.peak).toBe(0)
+    expect(state.urgent).toBeNull()
+    expect(state.severities).toEqual({})
+  })
+
+  it('does not arm the app-wide 1 Hz tick on its own', () => {
+    expect(truppInField(plain)).toBe(false)
+    expect(anyTruppInField([plain])).toBe(false)
+    // one PA Trupp in the field is still enough to arm it
+    expect(anyTruppInField([plain, base])).toBe(true)
   })
 })

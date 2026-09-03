@@ -72,6 +72,8 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
     Pressure wins when both reasons apply, matching ``truppAlarm``: a radio check cannot
     resolve a crew at its Alarmdruck. The expected-pressure estimate is deliberately absent;
     it remains a Planungshilfe and never raises an alarm.
+
+    Only Trupps under Atemschutz are considered — see the ``kind`` gate in the loop.
     """
     settings_ws = workspace.get("settings") or {}
     interval_min = settings_ws.get("contactIntervalMin")
@@ -95,6 +97,14 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
     alarm_bar_rueckzug = min(alarm_bar_rueckzug, alarm_bar)
     out = []
     for t in workspace.get("trupps") or []:
+        # ⚠️ Trupps under PA only. A plain work squad (``kind: "einfach"`` — src/types.ts ·
+        # TruppKind) has no cylinder and no Funkkontakt-Intervall, so neither reason below can
+        # apply to it; without this gate its ``entryPressureBar`` of 0 sits at or below every
+        # configured Alarmdruck and the sweep would push «Alarmdruck erreicht» for a Verkehrstrupp
+        # every 30 s. ABSENT means ``atemschutz`` — every Trupp recorded before 03.09. carries no
+        # field at all, and this mirrors ``isAtemschutzTrupp`` in lib/atemschutz.ts.
+        if (t.get("kind") or "atemschutz") != "atemschutz":
+            continue
         entry = _ms(t.get("entryTime"))
         if not entry or t.get("status") in ("angemeldet", "raus") or t.get("exitTime"):
             continue

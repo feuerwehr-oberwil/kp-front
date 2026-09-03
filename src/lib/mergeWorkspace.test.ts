@@ -288,6 +288,25 @@ describe('mergeWorkspace — trupps: field-level three-way merge', () => {
     expect((t.readings as { t: string; kind: string }[]).map((r) => r.kind)).toEqual(['entry', 'pressure', 'contact'])
   })
 
+  /* ── the kind discriminator (types · TruppKind, 03.09.) ────────────────────────────────────
+   * `kind` decides whether a Trupp is watched at all — its contact clock, its Alarmdruck, its
+   * place on the Atemschutz page of the Rapport and the server-side überfällig push all hang off
+   * it. It is written once and never edited (see Trupp.kind), so the ONLY thing this merge has to
+   * promise is that a concurrent edit somewhere else on the object cannot drop it or invent one. */
+  it('carries `kind` through a two-device edit, and never invents one for a Trupp that has none', () => {
+    const plainBase = { ...baseTrupp, kind: 'einfach', entryPressureBar: 0, lowestBar: 0, readings: [] }
+    // the AdFU renames the Trupp on the tablet while the EL sets its Funkkanal on the phone
+    const t = mergedTrupp2(plainBase, { ...plainBase, name: 'Verkehr' }, { ...plainBase, funkkanal: 3 })
+    expect(t.kind).toBe('einfach')
+    expect(t.name).toBe('Verkehr')
+    expect(t.funkkanal).toBe(3)
+    // …and a Trupp recorded before the field existed keeps no field at all: ABSENT means
+    // «unter Atemschutz» (lib/atemschutz · isAtemschutzTrupp), so a stray default would be a
+    // change of meaning smuggled in by a sync
+    const pa = mergedTrupp({ ...baseTrupp, name: 'Meier T.' }, { ...baseTrupp, funkkanal: 11 })
+    expect('kind' in pa).toBe(false)
+  })
+
   it('dedupes a reading row present on both sides (it appears once)', () => {
     const shared = { t: T2, bar: 150, kind: 'pressure' } // reached both devices via an earlier sync
     const mine = { ...baseTrupp, readings: [...baseTrupp.readings, shared] }

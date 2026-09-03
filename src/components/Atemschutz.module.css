@@ -80,6 +80,77 @@
    on every screen size (see AtemschutzView · board). The rule is kept out of the sheet rather than
    left behind styling nothing. */
 
+/* ===========================================================================================
+   Two sections — «Atemschutz» over «Weitere Trupps» (mock «Sektionen», 03.09.)
+   ===========================================================================================
+   The rule is the divider, the word is the promise: everything above it is überwacht, everything
+   below it is not. Rendered only once the board actually holds a Trupp without Atemschutz
+   (AtemschutzView · `sectioned`), so an ordinary Einsatz never pays a heading for a distinction
+   it does not make. */
+.sect { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+.sectTitle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--ink-dim); }
+.sectTitle :global(.i) { width: 15px; height: 15px; color: var(--ink-faint); }
+.sectCount { font: 800 11px var(--mono); color: var(--ink-faint); background: var(--fill-soft, rgba(0, 0, 0, .045));
+  border-radius: 999px; padding: 2px 8px; }
+/* the rule itself: whatever width the title leaves */
+.sect::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--glass-edge); }
+.sectSecond { margin-top: 26px; }
+/* said once under the second rule, not per row (see AtemschutzView) */
+.sectHint { font-size: 11.5px; font-weight: 600; color: var(--ink-faint); margin: -4px 0 12px; }
+.sectEmpty { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
+
+/* ── «Weitere Trupps»: a row, not a card ───────────────────────────────────────────────────
+   Half the height, no status band, no clock field, no Druck — the row carries exactly what a
+   work squad has: who, what, where, since when. The lighter weight is the point: the section
+   above it is what the surface exists for. */
+.plainList { display: flex; flex-direction: column; gap: 8px; }
+.prow { display: grid; grid-template-columns: minmax(150px, 1.1fr) minmax(190px, 1.4fr) 96px auto;
+  align-items: center; gap: 14px;
+  background: var(--surface); border-radius: var(--r-ctl); padding: 10px 12px;
+  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm);
+  /* LEFT, where a card carries its band on top — a row has no banner to tint, and the stripe is
+     what makes the state readable without a second colour anywhere else on the line */
+  border-left: 5px solid var(--ink-faint); }
+.prowId { min-width: 0; }
+.prowName { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; font-weight: 800; color: var(--ink); }
+.prowNameTxt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the Truppfarbe — the same identity dot the cards carry, so a row and a symbol on the Karte
+   read as the same Trupp */
+.prowDot { flex: none; width: 11px; height: 11px; border-radius: 50%; background: var(--ink-faint);
+  box-shadow: 0 0 0 1px var(--glass-edge); }
+.prowCrew { font-size: 12px; color: var(--ink-faint); margin-top: 2px; padding-left: 19px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prowTask { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.prowSince { text-align: right; }
+.prowSince b { font: 700 13px var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.prowSince small { display: block; margin-top: 3px; font: 600 9.5px var(--body); letter-spacing: .05em;
+  text-transform: uppercase; color: var(--ink-faint); }
+.prowActs { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
+/* the ONE lifecycle button on the row — labelled, because «Raus» and «Einrücken» must never be
+   guessed from a glyph; `--r-sm` and `--tap` like every other button in the app */
+.prowAct { display: inline-flex; align-items: center; gap: 7px; min-height: var(--tap); padding: 0 14px;
+  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-sm);
+  font: 700 13px var(--body); color: var(--ink-dim); cursor: pointer; }
+.prowAct :global(.i) { width: 15px; height: 15px; }
+@media (hover: hover) { .prowAct:hover { color: var(--ink); border-color: var(--ink-faint); } }
+.prowAct:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.prowActGo { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 35%, var(--glass-edge)); }
+@media (hover: hover) { .prowActGo:hover { color: var(--green-strong); border-color: var(--green); } }
+/* registered but not out yet — the same blue «still to come» the board uses everywhere else */
+.prowIdle { border-left-color: var(--blue); }
+.prowIdle .prowSince b { color: var(--blue); }
+/* finished — grey and dimmed, exactly what `.st-raus` does to a card */
+.prowOut { border-left-color: var(--ink-faint); opacity: .86; }
+/* ⚠️ On a phone the four tracks do not fit 375px: name and Auftrag stack, and the clock joins the
+   action row so the row still reads left-to-right as «who · what · how long · what now». */
+@media (max-width: 600px) {
+  .prow { grid-template-columns: 1fr auto; gap: 8px 10px; }
+  .prowId, .prowTask { grid-column: 1 / -1; }
+  .prowSince { grid-column: 1; text-align: left; }
+  .prowActs { grid-column: 2; }
+}
+
 /* --- monitoring card --- */
 .card { background: var(--surface); border-radius: var(--r-surface); overflow: hidden;
   box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm); display: flex; flex-direction: column;
@@ -355,7 +426,8 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    ⚠️ `:global(.is-kb)`, never a bare `.is-kb`. `is-kb` is a GLOBAL class — lib/overlays/Overlay
    appends it as a literal string — while this is a CSS MODULE, where every unqualified class is
    hashed. So `.modal.is-kb` compiled to a selector nothing ever wears and the rule shipped dead,
-   on the iPad this form is used on.
+   on the iPad this form is used on. It matters more since 03.09.: the two-step form is now every
+   phone's layout, and its footer is where «Weiter» and «Speichern» live.
    ⚠️ It was DELETED once (7a2605c) as unused CSS, which it truthfully was — dead for exactly the
    reason fixed here. Restored rather than left out: without it the centred tablet dialog keeps
    centring itself on a viewport the keyboard has halved, which is the complaint it answers. */
@@ -1170,7 +1242,28 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .cardBig .kontaktBtn { min-height: 52px; font-size: 15px; }
 .cardBig .kontaktBtn :global(.i) { width: 20px; height: 20px; }
 
-/* The two-step form on the handed-over phone (TruppForm · wizard): a progress bar and a caption
+/* «Art des Trupps» (TruppForm, create only): two labelled tiles, not a Segmented pair — the
+   choice is not a yes/no property of one thing but WHICH of two things is being registered, and
+   each side has to say what it brings. Two columns where they fit, stacked where they don't. */
+.kindSeg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 420px) { .kindSeg { grid-template-columns: 1fr; } }
+.kindOpt { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 10px 14px;
+  border: 2px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
+  text-align: left; cursor: pointer; font-family: var(--body); color: var(--ink); }
+.kindOpt :global(.i) { width: 20px; height: 20px; flex: none; color: var(--ink-faint); }
+.kindOptTxt { min-width: 0; }
+.kindOptTxt b { display: block; font: 800 14px var(--body); }
+.kindOptTxt span { display: block; margin-top: 2px; font: 600 11.5px var(--body); color: var(--ink-faint); }
+@media (hover: hover) { .kindOpt:hover { border-color: var(--ink-faint); } }
+.kindOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* ⚠️ INK, not --blue. Blue means «in progress / normal status» on this board and --accent means
+   alarm; the chosen tile is neither — it is simply the one that is selected, which is what the
+   ink outline says everywhere else in this form (see .colorAuto.on's own blue, which marks a
+   VALUE, not a branch of the form). */
+.kindOpt.on { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
+.kindOpt.on :global(.i) { color: var(--ink); }
+
+/* The two-step form on a phone (TruppForm · wizard): a progress bar and a caption
    under the title say where in the two steps somebody is. */
 .steps { display: flex; gap: 6px; padding: 0 18px 6px; }
 .steps span { flex: 1 1 0; height: 5px; border-radius: 3px; background: var(--border); }

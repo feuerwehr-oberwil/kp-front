@@ -12,6 +12,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { intervalsOf, isPresent } from './attendanceIntervals'
 import { ortOf } from './attendanceOrt'
+import { isAtemschutzTrupp } from './atemschutz'
 import type { AttendanceState, Trupp } from '../types'
 
 /** The roles a conflict is checked for. `el` covers leading the Einsatz and reporting to the
@@ -93,7 +94,12 @@ export function roleConflictHint(
   const inTrupp = trupps.find((t) => t.status !== 'raus'
     && (t.leaderPersonId === personId || (t.memberPersonIds ?? []).includes(personId)))
   if (inTrupp) {
-    return fillTemplate(role === 'el' ? A.conflictElInTrupp : A.conflictUnderPa, { name, trupp: inTrupp.name })
+    // ⚠️ «unter AS» only when they actually are (03.09.): a Trupp without Atemschutz (types ·
+    // TruppKind) carries no cylinder, and saying so about somebody in the Verkehrstrupp is a
+    // false statement about where they were — on the surface that feeds the Personalblatt.
+    const tpl = role === 'el' ? A.conflictElInTrupp
+      : isAtemschutzTrupp(inTrupp) ? A.conflictUnderPa : A.conflictInTrupp
+    return fillTemplate(tpl, { name, trupp: inTrupp.name })
   }
   // «gegangen» = a closed block exists and none is open. Somebody who was never recorded at all
   // is not a contradiction — that is precisely the person this assignment is about to add.
@@ -123,7 +129,8 @@ export function personStatusHint(
   const A = appConfig.copy.anwesenheit
   const inTrupp = trupps.find((t) => t.status !== 'raus'
     && (t.leaderPersonId === personId || (t.memberPersonIds ?? []).includes(personId)))
-  if (inTrupp) return { label: A.statusUnderPa, tone: 'warn' }
+  // same rule as roleConflictHint: only a PA Trupp earns «unter AS»
+  if (inTrupp) return { label: isAtemschutzTrupp(inTrupp) ? A.statusUnderPa : A.statusInTrupp, tone: 'warn' }
   const e = attendance[personId]
   if (!e) return { label: A.statusFrei, tone: 'muted' }
   if (!isPresent(e)) return { label: A.statusLeft, tone: 'muted' }
