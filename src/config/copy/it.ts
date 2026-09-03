@@ -985,7 +985,7 @@ export const it: Localizable<Copy> = {
     newTrupp: 'Crea squadra',
     shareLink: 'Cedi la sorveglianza',
     shareLinkOn: 'Cedi la sorveglianza – un link è attivo',
-    linkReentryHint: 'Questo dispositivo resta collegato per alcune ore – chiudere il browser non richiede un nuovo link.',
+    linkReentryHint: 'Il link riporta a questa tavola – se la pagina viene chiusa per errore, basta aprire di nuovo il codice QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Squadra',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
@@ -1626,6 +1626,13 @@ export const it: Localizable<Copy> = {
     recording: 'REC',
     gpsFrozen: 'GPS congelato',
     gpsFrozenHint: 'Il feed GPS in tempo reale non risponde. I veicoli restano sull’ultima posizione nota.',
+    share: 'Condividi',
+    shareEinsatz: 'Link dell’intervento (sola lettura)',
+    shareEinsatzSub: 'Centrale, CI, corpo vicino – termina con la chiusura',
+    shareAtemschutz: 'Link del sorvegliante APR',
+    shareAtemschutzSub: 'Cedere la sorveglianza – usare, non solo leggere',
+    shareRapport: 'Link del rapporto (sola lettura)',
+    shareRapportSub: 'Comune, corpo vicino – resta valido dopo la chiusura',
   },
   stepper: {
     less: 'meno',
@@ -1656,8 +1663,6 @@ export const it: Localizable<Copy> = {
     pleaseWait: 'Attendi un momento…',
     clearDigit: 'Cancella',
     retry: 'Riprova',
-    linkDeadHint: 'Questo dispositivo conserva ancora la sessione di un link d’intervento concluso. Reimpostala per accedere normalmente.',
-    resetSession: 'Reimposta sessione',
     offlineHint: 'Senza connessione non è possibile accedere. Gli interventi salvati si aprono solo se questo dispositivo era ancora connesso.',
   },
   splash: {
@@ -2040,7 +2045,6 @@ export const it: Localizable<Copy> = {
     errorHint: 'Riprovare. Se il problema persiste, avvisare il comando d\'intervento.',
     retry: 'Riprova',
     unavailable: 'Questo intervento non è raggiungibile al momento. Ricarica la pagina appena hai di nuovo segnale.',
-    leave: 'Termina sessione del link',
   },
   incidentSwitcher: {
     noIncident: 'Nessun intervento',
@@ -2418,6 +2422,17 @@ export const it: Localizable<Copy> = {
     shareAsRevokeBody: 'L’indirizzo smetterà di funzionare. Chi ha la tabella aperta non può più '
       + 'inserire nulla. Un nuovo link può essere creato in qualsiasi momento – sarà un altro '
       + 'indirizzo.',
+    shareStationTitle: 'Link dell’intervento',
+    shareStationLede: 'Un link a esattamente questo intervento – carta, piani, diario, foto, '
+      + 'orari. Sola lettura, senza login. Vale finché l’intervento non è chiuso.',
+    shareStationWarn: 'Chi ha il link vede tutto l’intervento – i nomi dei presenti, le foto e '
+      + 'il diario completo.',
+    shareStationSetup: 'I link dell’intervento non sono configurati per questo corpo. Da '
+      + 'configurare nell’Amministrazione sotto «Einsatz-Link».',
+    shareStationClosed: 'L’intervento è concluso – non è più possibile creare un link '
+      + 'dell’intervento. Il link del rapporto resta valido.',
+    shareStationDenied: 'Questo account non è autorizzato a creare un link dell’intervento.',
+    shareStationFailed: 'Creazione del link dell’intervento non riuscita – riprovare',
     linksCount: '{done} di {n} fatti',
     linksOpen: 'Apri',
     linksMarkDone: 'Segna {title} come fatto',

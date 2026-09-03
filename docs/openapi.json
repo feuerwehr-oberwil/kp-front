@@ -2096,6 +2096,66 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/einsatz-link": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Create Einsatz Link",
+        "description": "Hand back the read-only Einsatz-Link for this Einsatz, minting it on the spot.\n\nTwo refusals, and they are deliberately different statuses because the operator can act on\nonly one of them:\n  · 403 — no minting key: the whole link surface is off, exactly as the exchange answers it\n    (api/incident_link · `open_link_session`). Nothing to be done on the Schadenplatz, so the\n    sheet points at der Verwaltung instead of offering a retry.\n  · 409 — the Einsatz is finished: an alarm link dies the moment it closes, so minting one\n    would hand over an address that never worked. Not the exchange's blind 404, because the\n    caller is a signed-in editor who already knows this Einsatz exists.",
+        "operationId": "create_einsatz_link_api_incidents__incident_id__einsatz_link_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewLinkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/atemschutz-link": {
       "get": {
         "tags": [

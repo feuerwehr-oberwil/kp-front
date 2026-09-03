@@ -17,6 +17,7 @@ vi.mock('./authMediaCache', () => ({ syncMediaCacheAuth }))
 import { ApiError, SESSION_EXPIRED_EVENT } from './api'
 import { idbGet } from './idb'
 import * as deploymentConfig from './deploymentConfig'
+import * as linkMode from './linkMode'
 import type { DeploymentConfig } from './deploymentConfig'
 import { AuthProvider, useAuth } from './auth'
 
@@ -132,6 +133,21 @@ describe('AuthProvider — demo auto-login', () => {
     expect(apiPost).not.toHaveBeenCalled()
     await waitFor(() => expect(syncMediaCacheAuth).toHaveBeenCalledWith(null))
   })
+
+  // …and never on a link page, demo or not. There every request speaks for the LINK session
+  // (lib/linkMode), so a login signed in here is one the server then refuses on every call —
+  // a visitor whose link had lapsed would sit inside a wholly broken app instead of the honest
+  // «Link abgelaufen» card, whose reload re-exchanges the token still in the address bar.
+  it('does NOT auto-login on a link page, even on the demo', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
+    vi.spyOn(linkMode, 'linkPageOwnsSession').mockReturnValue(true)
+    apiGet.mockRejectedValue(new ApiError(401, 'unauth'))
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+    expect(apiPost).not.toHaveBeenCalled()
+  })
 })
 
 describe('AuthProvider — a server that could not be asked', () => {
@@ -165,34 +181,20 @@ describe('AuthProvider — a server that could not be asked', () => {
   })
 })
 
-describe('AuthProvider — a dead Einsatz-Link cookie', () => {
-  // The Einsatz a link named has closed; while its cookie lives every credential-gated route
-  // (roster, login, /me) answers 403, so the kiosk login is unreachable on that phone for up to
-  // 12 h. Logout is exempt from that liveness check: shed the cookie, ask once more.
-  it('sheds the cookie through logout and re-probes exactly once', async () => {
+describe('AuthProvider — a stale Einsatz-Link cookie', () => {
+  // A link cookie no longer reaches the ordinary app at all: every request says which session
+  // it is asking with (lib/linkMode), so the bare site's /me is the plain 401 that leads to the
+  // login screen. The old repair — POST /api/auth/logout, then probe once more — is gone with
+  // the trap it repaired: it signed the DEVICE out over a single 403, whatever had caused it.
+  it('never signs this device out over a refusal', async () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-    apiGet
-      .mockRejectedValueOnce(new ApiError(403, 'Für diesen Einsatz-Link nicht freigegeben'))
-      .mockRejectedValueOnce(new ApiError(401, 'unauth'))
-    apiPost.mockResolvedValue(undefined)
+    apiGet.mockRejectedValue(new ApiError(403, 'Für diesen Einsatz-Link nicht freigegeben'))
 
     const { result } = renderHook(() => useAuth(), { wrapper })
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(apiPost).toHaveBeenCalledWith('/api/auth/logout')
-    expect(apiGet).toHaveBeenCalledTimes(2)
-    expect(result.current.user).toBeNull() // → the ordinary login screen, not a 403 dead end
-    expect(idbDel).toHaveBeenCalledWith('kp-front-user')
-  })
-
-  it('does not loop when the re-probe is refused again', async () => {
-    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-    apiGet.mockRejectedValue(new ApiError(403, 'nope'))
-    apiPost.mockResolvedValue(undefined)
-
-    const { result } = renderHook(() => useAuth(), { wrapper })
-    await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(apiGet).toHaveBeenCalledTimes(2)
-    expect(apiPost).toHaveBeenCalledTimes(1)
+    expect(apiGet).toHaveBeenCalledTimes(1) // asked once, believed once
+    expect(apiPost).not.toHaveBeenCalled()  // …and nothing was ended on this browser
+    expect(result.current.user).toBeNull()
   })
 })
 

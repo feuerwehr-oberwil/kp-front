@@ -15,7 +15,8 @@ import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { AuthProvider, useAuth } from '../lib/auth'
 import App from '../App'
-import { linkTokenFromPath, openIncidentLink, type LinkFailure } from '../lib/incidentLink'
+import { openIncidentLink, type LinkFailure } from '../lib/incidentLink'
+import { linkTokenFromPath } from '../lib/linkMode'
 
 type State =
   | { phase: 'opening' }

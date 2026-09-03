@@ -783,13 +783,13 @@ export default function App() {
                   <span className="ip-menu-username">{user?.display_name ?? ''}</span>
                   <span className="ip-menu-userrole">{roleLabel(user?.role ?? 'viewer')}</span>
                 </span>
-                {/* a link session has no login to leave — but it CAN shed the link cookie (logout is
-                    liveness-exempt on the server), which is the only way this phone gets back to
-                    the normal login before the cookie's 12 h are up. To «/», not a reload: on
-                    /l/<token> a reload would redeem the token again. */}
-                {linkScoped
-                  ? <button className="ip-foot-logout" onClick={() => { void logout().then(() => window.location.assign('/')) }}><Icon id="logout" />{appConfig.copy.incidentLink.leave}</button>
-                  : <button className="ip-foot-logout" onClick={() => void logout()}><Icon id="logout" />{appConfig.copy.incidentSwitcher.logout}</button>}
+                {/* ⚠️ No «Abmelden» for a link session (02.09.). A link is the literal page: it
+                    signs nothing in on this phone and therefore has nothing to sign out — the
+                    bare site is whoever it was before the link was tapped, and stays so (lib/
+                    linkMode). The button here used to end the DEVICE's own session. */}
+                {!linkScoped && (
+                  <button className="ip-foot-logout" onClick={() => void logout()}><Icon id="logout" />{appConfig.copy.incidentSwitcher.logout}</button>
+                )}
               </div>
               <div className="ip-emptyapp-utils">
                 <button className="ip-foot-util" onClick={() => setLandingSheet('settings')}><Icon id="gear" />{appConfig.copy.settings.title}</button>

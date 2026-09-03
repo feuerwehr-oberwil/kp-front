@@ -1416,8 +1416,9 @@ export const de = {
     shareLinkOn: 'Überwachung abgeben – ein Link ist aktiv',
     // Shown ONCE per device on the handed-over «Tafel pur» (AtemschutzView, field feedback
     // 02.09.: ein versehentliches Schliessen im Browser brauchte danach wieder den Zugang).
-    // Reassurance, not an instruction – nichts hier muss man sich merken oder tun.
-    linkReentryHint: 'Dieses Gerät bleibt einige Stunden angemeldet – ein Schliessen des Browsers verlangt keinen neuen Link.',
+    // Reassurance, not an instruction. ⚠️ Es geht um den LINK, nie um dieses Gerät: der Link
+    // meldet niemanden an, und genau diesen Eindruck darf der Satz nicht erwecken (02.09.).
+    linkReentryHint: 'Der Link führt zurück auf diese Tafel – wird die Seite versehentlich geschlossen, einfach den QR-Code nochmals öffnen.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Trupp',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
@@ -2366,6 +2367,19 @@ export const de = {
     // one-minute-old ones.
     gpsFrozen: 'GPS eingefroren',
     gpsFrozenHint: 'Der Live-GPS-Feed antwortet nicht. Die Fahrzeuge stehen auf ihrer zuletzt bekannten Position.',
+    // ── «Teilen»: die EINE Stelle, an der etwas weitergegeben wird (03.09.) ──
+    // Drei Adressen, ein Ort – im Einsatzkopf, wo der Einsatz benannt ist. Vorher standen sie an
+    // drei Türen (Rapport, Einsatz-Karte, Atemschutz-Tafel), und welche man erwischte entschied,
+    // welche Art Link man bekam. Jetzt entscheidet die Zeile, nicht die Tür.
+    // ⚠️ Die zweite Zeile beantwortet BEIDE Fragen, die man um 3 Uhr hat: wem gebe ich das – und
+    // wie lange gilt es. «Nur lesen» allein unterschied die erste und die dritte Zeile nicht.
+    share: 'Teilen',
+    shareEinsatz: 'Einsatz-Link (nur lesen)',
+    shareEinsatzSub: 'Zentrale, EL, Nachbarwehr – endet mit dem Abschluss',
+    shareAtemschutz: 'Truppüberwacher-Link',
+    shareAtemschutzSub: 'Überwachung abgeben – bedienen, nicht nur lesen',
+    shareRapport: 'Rapport-Link (nur lesen)',
+    shareRapportSub: 'Gemeinde, Nachbarwehr – bleibt nach dem Abschluss gültig',
   },
   // shared compact ±stepper chrome (Stepper.tsx — used everywhere incl. the Einstellungen sheet)
   stepper: {
@@ -2421,8 +2435,6 @@ export const de = {
     retry: 'Erneut versuchen',
     // a 403 on the roster: this device still holds the cookie of an Einsatz-Link whose Einsatz
     // has ended, and every retry fails identically until that session is dropped
-    linkDeadHint: 'Dieses Gerät hält noch die Sitzung eines beendeten Einsatz-Links. Setze sie zurück, um dich normal anzumelden.',
-    resetSession: 'Sitzung zurücksetzen',
     // status 0 on the roster: the shared «Gespeicherte Einsätze bleiben offline verfügbar» is
     // not true from HERE — a device that reaches the login screen is not signed in any more
     offlineHint: 'Ohne Verbindung ist keine Anmeldung möglich. Gespeicherte Einsätze öffnen sich nur, wenn dieses Gerät noch angemeldet war.',
@@ -2992,9 +3004,6 @@ export const de = {
     // the Einsatz could not be loaded after opening the link (signal gone) – the landing page
     // says so instead of showing an empty incident list
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
-    // the alarm/view link session's only door out: drop the link cookie and land on the normal
-    // login (a private phone used to be bound to the link for the cookie's whole 12 h)
-    leave: 'Link-Sitzung beenden',
   },
   // Standort teilen — the question put to your own phone and what the pill says afterwards.
   // Deliberately without marketing text: who sees what and when is spelled out in full, because
@@ -3609,6 +3618,25 @@ export const de = {
     shareAsRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer die Tafel gerade offen '
       + 'hat, kann ab sofort nichts mehr eintragen. Ein neuer Link lässt sich jederzeit erstellen '
       + '– er ist dann eine andere Adresse.',
+    // ── Dritte Art Link: der Einsatz-Link aus dem Einsatzkopf (02.09.) ──
+    // Genau der Link, den die Alarmierung ohnehin in jeden Alarm schreibt – nur hier erzeugt,
+    // damit ihn mitten im Einsatz jemand der Zentrale oder einer Nachbarwehr hinhalten kann. Er
+    // wird nicht gespeichert: die Adresse ergibt sich aus dem Einsatz und dem Schlüssel der Wehr,
+    // darum gibt es hier kein «Aufheben» – er endet mit dem Abschluss.
+    shareStationTitle: 'Einsatz-Link',
+    shareStationLede: 'Ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. '
+      + 'Nur lesen, kein Login. Gilt, bis der Einsatz abgeschlossen ist.',
+    shareStationWarn: 'Wer den Link hat, sieht den ganzen Einsatz – Namen der Anwesenden, Fotos '
+      + 'und den vollständigen Verlauf.',
+    shareStationSetup: 'Einsatz-Links sind für diese Wehr nicht eingerichtet. In der Verwaltung '
+      + 'unter «Einsatz-Link» einrichten.',
+    // ⚠️ Drei Absagen, drei Sätze – nur die letzte darf «nochmals versuchen» sagen. Ein Wiederholen
+    // anzubieten, wo sich nie etwas ändert, ist schlimmer als ein klares Nein: um 03:00 wird der
+    // Knopf gedrückt, bis jemand aufgibt. «Zu spät» nennt darum gleich den Link, der noch gilt.
+    shareStationClosed: 'Der Einsatz ist abgeschlossen – dafür lässt sich kein Einsatz-Link mehr '
+      + 'erstellen. Der Rapport-Link gilt weiter.',
+    shareStationDenied: 'Einsatz-Link erstellen ist für dieses Konto nicht freigegeben.',
+    shareStationFailed: 'Einsatz-Link erstellen fehlgeschlagen – nochmals versuchen',
     linksCount: '{done} von {n} erledigt',
     linksOpen: 'Öffnen',
     // Der Haken sagt «ich habe das erledigt» – die App sieht nie, ob ein Formular abgeschickt

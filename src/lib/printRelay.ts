@@ -7,6 +7,7 @@
 
 import { appConfig } from '../config/appConfig'
 import { timeoutSignal } from './api'
+import { linkSessionHeaders } from './linkMode'
 
 // Mirror api.ts's base so a cross-origin deployment still resolves (Vite proxies /api in dev).
 const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
@@ -16,6 +17,12 @@ const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
 // half-open link an unbounded status poll held the «Wird gedruckt …» toast open for ever.
 const FETCH_TIMEOUT_MS = 20_000
 const bounded = () => ({ signal: timeoutSignal(FETCH_TIMEOUT_MS) })
+
+// …and every relay request says WHICH session it is asking with, exactly as an api.ts request
+// does (api · rawFetch — the invariant is «every /api call», not «every call through the
+// client»). These endpoints are ours and same-origin; the transport's own headers, when there
+// are any, carry the capture poster token and never this one, so they merge after it.
+const relayHeaders = (t: PrintTransport): Record<string, string> => ({ ...linkSessionHeaders(), ...t.headers })
 
 export interface PrintRelayStatus {
   available: boolean
@@ -56,7 +63,7 @@ export function capturePrintTransport(token: string): PrintTransport {
 /** null = unknown (offline / error) — treat like unavailable and hide the button. */
 export async function fetchPrintStatus(t: PrintTransport): Promise<PrintRelayStatus | null> {
   try {
-    const res = await fetch(t.statusUrl, { credentials: 'include', headers: t.headers, ...bounded() })
+    const res = await fetch(t.statusUrl, { credentials: 'include', headers: relayHeaders(t), ...bounded() })
     if (!res.ok) return null
     const body = await res.json()
     return { available: !!body.available, online: !!body.online }
@@ -72,7 +79,7 @@ export async function enqueuePrint(t: PrintTransport, incidentId: string, payloa
   const res = await fetch(t.enqueueUrl(incidentId), {
     method: 'POST',
     credentials: 'include',
-    headers: t.headers,
+    headers: relayHeaders(t),
     body: form,
     ...bounded(),
   })
@@ -99,7 +106,7 @@ export interface PrintJobState {
  *    last known state. Folding 404 into null used to keep a swept job «offen» for ever. */
 export async function fetchJobStatus(t: PrintTransport, jobId: string): Promise<PrintJobState | 'gone' | null> {
   try {
-    const res = await fetch(t.jobUrl(jobId), { credentials: 'include', headers: t.headers, ...bounded() })
+    const res = await fetch(t.jobUrl(jobId), { credentials: 'include', headers: relayHeaders(t), ...bounded() })
     if (res.status === 404) return 'gone'
     if (!res.ok) return null
     const body = await res.json()
@@ -145,7 +152,7 @@ export async function prewarmPrint(t: PrintTransport, incidentId: string, payloa
     await fetch(t.prewarmUrl(incidentId), {
       method: 'POST',
       credentials: 'include',
-      headers: t.headers,
+      headers: relayHeaders(t),
       body: form,
       ...bounded(),
     })
@@ -166,7 +173,7 @@ export async function cancelPrint(t: PrintTransport, jobId: string): Promise<Can
     const res = await fetch(t.cancelUrl(jobId), {
       method: 'DELETE',
       credentials: 'include',
-      headers: t.headers,
+      headers: relayHeaders(t),
       ...bounded(),
     })
     if (res.ok) return 'cancelled'

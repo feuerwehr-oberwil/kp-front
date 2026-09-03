@@ -3,6 +3,7 @@ import { apiGet, apiPost, ApiError, isUnverifiable, SESSION_EXPIRED_EVENT } from
 import { idbGet, idbSet, idbDel } from './idb'
 import { getDeploymentConfig, isDemoMode, loadDeploymentConfig } from './deploymentConfig'
 import { syncMediaCacheAuth } from './authMediaCache'
+import { linkPageOwnsSession } from './linkMode'
 
 // The demo's public PIN (shown to every visitor) — used to auto-sign-in on demo instances so
 // there's no login screen. Only ever sent when isDemoMode() is true; real stations never use it.
@@ -104,6 +105,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // login with the public demo PIN. Failure falls through to the normal login screen.
   const tryDemoAutoLogin = async (): Promise<AuthUser | null> => {
     if (!isDemoMode()) return null
+    // ⚠️ Never on a link page. A `/l/<token>` page speaks only for its own link session (lib/
+    // linkMode), so signing an account in there would hand it a login every request then refuses
+    // to use — a demo visitor whose link had lapsed would sit inside a fully broken app instead
+    // of the honest «Link abgelaufen» card, whose reload re-exchanges the token in the address.
+    if (linkPageOwnsSession()) return null
     try {
       const roster = await apiGet<RosterEntry[]>('/api/auth/roster')
       const editor = roster.find((r) => r.role === 'editor') ?? roster[0]
@@ -120,26 +126,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // On mount, ask the backend who we are. A 401 just means "not logged in" (normal
   // cold-start) — on the demo we then auto-sign-in. A server that could not be asked (offline,
   // timeout, restarting — api · isUnverifiable) falls back to the cached user so an installed
-  // PWA opens straight into the app with no signal. A 403 is a DEAD Einsatz-Link cookie: the
-  // Einsatz that link named has closed, and while the cookie lives every credential-gated route
-  // (roster, login, /me) is refused — the kiosk login is unreachable on that phone for up to
-  // 12 h. `POST /api/auth/logout` is exempt from that liveness check for exactly this
-  // (backend · incident_link · _LIVENESS_EXEMPT), so shed the cookie and ask ONCE more; the
-  // re-probe then lands on the ordinary 401 → login path.
+  // PWA opens straight into the app with no signal.
+  //
+  // This probe used to answer a 403 by POSTing `/api/auth/logout` and asking once more: a dead
+  // Einsatz-Link cookie made every credential-gated route refuse, and the kiosk login was
+  // unreachable behind it for up to 12 h. That trap is gone at the root (02.09.) — the ordinary
+  // app tells the server it is not a link page, so a link cookie is not read here at all
+  // (lib/linkMode · backend auth/incident_link · LINK_MODE_HEADER) — and the repair itself was
+  // the coupling the maintainer named: one 403 for any reason at all signed the device out.
   useEffect(() => {
     let alive = true
     void (async () => {
       const cached = await readCachedUser()
       const probe = () => apiGet<AuthUser>('/api/auth/me', cached ? { timeoutMs: CACHED_PROBE_TIMEOUT_MS } : undefined)
       try {
-        let u: AuthUser
-        try {
-          u = await probe()
-        } catch (e) {
-          if (!(e instanceof ApiError && e.status === 403)) throw e
-          await apiPost('/api/auth/logout').catch(() => { /* best-effort: the re-probe says what is left */ })
-          u = await probe()
-        }
+        const u: AuthUser = await probe()
         // The boot config was fetched BEFORE this probe, and `/api/config` is public: with the
         // access cookie expired and only the refresh cookie alive it answered as an ANONYMOUS
         // caller — no 401, so no refresh — and silently withheld the CARTO key and the Rapport

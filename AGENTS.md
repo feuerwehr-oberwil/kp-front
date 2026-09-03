@@ -211,7 +211,18 @@ to prod.
   `CurrentAtemschutzWriter` on exactly three routes – `PUT …/workspace/trupps`, `POST …/journal`
   (`kind: 'team'` rows only) and `POST …/events` (`atemschutz.*` only); the allowlist and the
   liveness rules live in `backend/app/auth/incident_link.py`. Never widen the full workspace PUT
-  to a link session.
+  to a link session. **A link is the literal page and touches nothing on the device** (02.09.):
+  its cookie has to be site-wide (an `<img>` carries no header), so the PAGE says which session
+  it is asking with — `X-Incident-Link: off` from the app and `/admin`, `use` from the
+  handed-over Atemschutz board, nothing from a subresource or an alarm/view link page
+  (`src/lib/linkMode.ts` ↔ `LINK_MODE_HEADER`). Consequences to keep true: the bare site after a
+  link visit is whoever it was before, an Atemschutz link no longer signs the phone out to win
+  precedence, `logout` is off the allowlist, and **no link surface offers «Abmelden»** — leaving
+  a link is closing the page, and coming back is the link URL. Two rules that fall out of the
+  same model and are easy to break: a page sending `use` with no live link session is **401, never
+  the device's login** (falling through would turn a lapsed board into the phone owner's account),
+  and the device's own «Abmelden» **does** clear the link cookie — headerless requests (typed
+  address, `<img>`, service worker) answer as the link guest otherwise.
 - **Per-station config has four layers:** national defaults (code) → per-station deployment
   config (DB/admin) → secrets (env) → per-incident (workspace). One deployment = one station
   (**single-tenant**, no multi-tenancy). See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).

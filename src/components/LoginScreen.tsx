@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { apiGet, apiPost, ApiError } from '../lib/api'
+import { apiGet, ApiError } from '../lib/api'
 import { useAuth, type RosterEntry } from '../lib/auth'
 import { Brand } from './Brand'
 import { demoNote } from '../lib/deploymentConfig'
@@ -42,14 +42,10 @@ export function LoginScreen() {
     return () => { alive = false }
   }, [attempt])
 
-  // A 403 on the roster means this device still holds the cookie of an Einsatz-Link whose
-  // Einsatz has ended; every retry fails the same way until it is dropped. Logout is
-  // liveness-exempt on the server, so it works precisely in this state. Errors are swallowed —
-  // the re-probe that follows says whether it helped.
-  const resetSession = async () => {
-    try { await apiPost('/api/auth/logout', {}) } catch { /* the retry below shows the outcome */ }
-    setAttempt((n) => n + 1)
-  }
+  // («Sitzung zurücksetzen» stood here until 02.09.: a dead Einsatz-Link cookie made the roster
+  // answer 403, and the only way past it was shedding that cookie from this screen. The login
+  // screen now tells the server it is not a link page — lib/linkMode — so a link cookie cannot
+  // reach this request at all, and the rescue had nothing left to rescue.)
 
   return (
     <div className="login">
@@ -61,19 +57,17 @@ export function LoginScreen() {
 
         {selected
           ? <LoginPinPad user={selected} onLogin={login} onBack={() => setSelected(null)} />
-          : <Roster roster={roster} error={rosterError} onPick={setSelected} onRetry={() => setAttempt((n) => n + 1)}
-              onResetSession={() => void resetSession()} />}
+          : <Roster roster={roster} error={rosterError} onPick={setSelected} onRetry={() => setAttempt((n) => n + 1)} />}
       </div>
     </div>
   )
 }
 
-/** The instruction under a failed roster load. Two cases get login-specific wording: offline,
+/** The instruction under a failed roster load. One case gets login-specific wording: offline,
  *  where the shared «Gespeicherte Einsätze bleiben offline verfügbar» is not true from a screen
- *  the device only reaches when it is NOT signed in; and 403, the dead Einsatz-Link session. */
+ *  the device only reaches when it is NOT signed in. */
 function rosterHint(e: ApiError): string | undefined {
   if (e.status === 0) return appConfig.copy.login.offlineHint
-  if (e.status === 403) return appConfig.copy.login.linkDeadHint
   return e.hint
 }
 
@@ -85,17 +79,13 @@ interface RosterError {
   code?: number
 }
 
-function Roster({ roster, error, onPick, onRetry, onResetSession }: {
+function Roster({ roster, error, onPick, onRetry }: {
   roster: RosterEntry[] | null
   error: RosterError | null
   onPick: (r: RosterEntry) => void
   onRetry: () => void
-  /** drop the dead Einsatz-Link session and probe again — offered on a 403 only */
-  onResetSession: () => void
 }) {
   if (error) {
-    // on a 403 the retry demonstrably fails the same way, so the reset leads and retry steps back
-    const linkDead = error.code === 403
     return (
       <div className="login-state login-state-err">
         <div className="login-err-head">
@@ -106,10 +96,7 @@ function Roster({ roster, error, onPick, onRetry, onResetSession }: {
         {error.code !== undefined && (
           <p className="login-err-code">{fillTemplate(appConfig.copy.errors.httpCode, { code: error.code })}</p>
         )}
-        {linkDead && (
-          <button type="button" className="ip-btn primary" onClick={onResetSession}>{appConfig.copy.login.resetSession}</button>
-        )}
-        <button type="button" className="ip-btn" style={linkDead ? { marginTop: 8 } : undefined} onClick={onRetry}>{appConfig.copy.login.retry}</button>
+        <button type="button" className="ip-btn" onClick={onRetry}>{appConfig.copy.login.retry}</button>
       </div>
     )
   }

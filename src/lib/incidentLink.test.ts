@@ -9,7 +9,7 @@ vi.mock('./api', async () => {
 
 import { ApiError } from './api'
 import {
-  LINK_NOT_READY_ATTEMPTS, exchangeLinkToken, linkTokenFromPath, openIncidentLink,
+  LINK_NOT_READY_ATTEMPTS, exchangeLinkToken, openIncidentLink,
   type LinkExchange,
 } from './incidentLink'
 
@@ -18,21 +18,6 @@ const TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJpbmMiOiJhYmMifQ.sig-part_1'
 // braces matter: a beforeEach that RETURNS something hands vitest a teardown callback, and
 // mockReset() returns the mock itself — vitest would then call it after every test.
 beforeEach(() => { apiPost.mockReset() })
-
-describe('linkTokenFromPath', () => {
-  it('reads the token out of /l/<token> (with and without a trailing slash)', () => {
-    expect(linkTokenFromPath(`/l/${TOKEN}`)).toBe(TOKEN)
-    expect(linkTokenFromPath(`/l/${TOKEN}/`)).toBe(TOKEN)
-  })
-
-  it('rejects anything that is not a link URL', () => {
-    expect(linkTokenFromPath('/')).toBeNull()
-    expect(linkTokenFromPath('/l/')).toBeNull()
-    expect(linkTokenFromPath('/l/short')).toBeNull()      // too short to be a minted token
-    expect(linkTokenFromPath(`/l/${TOKEN}/extra`)).toBeNull()
-    expect(linkTokenFromPath(`/e/${TOKEN}`)).toBeNull()   // the capture poster, not a link
-  })
-})
 
 describe('exchangeLinkToken', () => {
   it('returns the incident on success', async () => {
@@ -70,21 +55,17 @@ describe('exchangeLinkToken', () => {
   })
 })
 
-describe('openIncidentLink — which link sheds the browser\'s own login', () => {
-  const ok = { ok: true as const, incidentId: 'i1' }
-  it('an Atemschutz link logs the browser out BEFORE the exchange', async () => {
-    const calls: string[] = []
-    const logout = vi.fn(async () => { calls.push('logout') })
-    const exchange = vi.fn(async () => { calls.push('exchange'); return ok })
-    await openIncidentLink('aSECRET', { exchange, logout })
-    expect(calls).toEqual(['logout', 'exchange'])
-  })
-  it('an alarm link and a view link keep whoever is signed in', async () => {
-    const logout = vi.fn(async () => {})
-    const exchange = vi.fn(async () => ok)
-    await openIncidentLink('eyJhbGciOi.jwt.sig', { exchange, logout })
-    await openIncidentLink('vSECRET', { exchange, logout })
-    expect(logout).not.toHaveBeenCalled()
+describe('openIncidentLink — opening a link touches no login', () => {
+  // An Atemschutz link used to POST /api/auth/logout before exchanging, so the handed-over
+  // board would outrank a session the phone's owner had of their own. That made tapping a link
+  // an act on the DEVICE; precedence is now the page's to state (lib/linkMode).
+  it('sends nothing but the exchange, for every kind of link', async () => {
+    const exchange = vi.fn(async () => ({ ok: true as const, incidentId: 'i1' }))
+    for (const token of ['aSECRET', 'vSECRET', 'eyJhbGciOi.jwt.sig']) {
+      await openIncidentLink(token, { exchange })
+    }
+    expect(exchange).toHaveBeenCalledTimes(3)
+    expect(apiPost).not.toHaveBeenCalled() // no /api/auth/logout, no anything else
   })
 })
 

@@ -33,6 +33,7 @@ from datetime import UTC, datetime, timedelta
 import jwt
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app import storage
 from app.auth.cookies import ACCESS_COOKIE
@@ -51,6 +52,17 @@ SPA_FALLBACK = ("GET", "/{full_path:path}")
 INVALID_TOKEN_DETAIL = "Einsatz-Link ungültig oder abgelaufen"
 NOT_AVAILABLE_DETAIL = "Einsatz nicht (mehr) verfügbar"
 DENIED_DETAIL = "Für diesen Einsatz-Link nicht freigegeben"
+
+#: The one 403 the app has to recognise rather than merely display — «die Station hat keinen
+#: Link-Schlüssel», which is the only refusal «In der Verwaltung einrichten» is an answer to.
+NO_KEY_CODE = "link_key_missing"
+NO_KEY_DETAIL = "Einsatz-Links deaktiviert (kein Link-Schlüssel gesetzt)"
+
+#: What a PAGE says it is asking with (auth/incident_link · LINK_MODE_HEADER). The SPA sends
+#: one of these on every request; a bare cookie jar no longer decides. Sending neither is the
+#: subresource case (media in an <img>, the service worker) and keeps the original rule.
+BARE_SITE = {"X-Incident-Link": "off"}  # the ordinary app / the login screen / /admin
+LINK_PAGE = {"X-Incident-Link": "use"}  # /l/a… — the handed-over board answers for itself
 
 
 # --- fixtures ---------------------------------------------------------------------------
@@ -307,30 +319,86 @@ async def test_me_reports_a_link_scoped_viewer(client, link_key, incident):
 # --- containment ------------------------------------------------------------------------
 
 
-async def test_logout_ends_a_link_session(client, link_key, incident):
-    """«Abmelden» is the way back to the login on a browser holding a link cookie."""
+async def test_the_bare_site_ignores_a_link_cookie(client, link_key, incident, db_session):
+    """A link is the literal page and nothing more (02.09.). The ordinary app says so on every
+    request (`LINK_MODE_HEADER` = "off"), so the phone that tapped an alert this morning is
+    simply logged out at `/` — the ordinary 401 that leads to the login screen, not a viewer
+    session it never asked for, and not the 403 dead end a link cookie used to leave behind
+    once its Einsatz had closed."""
     await _open_link(client)
-    assert (await client.get("/api/auth/me")).status_code == 200
-    r = await client.post("/api/auth/logout")
-    assert r.status_code == 200, r.text
-    assert (await client.get("/api/auth/me")).status_code == 401
+    assert (await client.get("/api/auth/me")).status_code == 200  # …on the link page itself
+    assert (await client.get("/api/auth/me", headers=BARE_SITE)).status_code == 401
 
-
-async def test_logout_still_works_once_the_einsatz_has_closed(client, link_key, incident, db_session):
-    """The frontend relies on this (lib/auth · the 403 re-probe): a member who scanned a link
-    on their own phone opens the app at / after the Einsatz closed. Every credential-gated
-    route is refused while the dead cookie lives — but logout is liveness-exempt, sheds the
-    cookie, and the next /me is the ordinary 401 that leads to the login screen."""
-    await _open_link(client)
     incident.status = "geschlossen"
     incident.closed_at = datetime.now(UTC)
     await db_session.commit()
-    assert (await client.get("/api/auth/me")).status_code == 403  # the trap, as designed
+    assert (await client.get("/api/auth/me", headers=BARE_SITE)).status_code == 401
+    assert (await client.get("/api/auth/roster", headers=BARE_SITE)).status_code == 200
 
-    r = await client.post("/api/auth/logout")
+
+async def test_a_link_page_cannot_sign_this_device_out(client, link_key, incident, editor):
+    """The other half of «just the literal page»: opening a link must not change what this
+    device is logged in as. Logout is off the allowlist, so even a stray call from a link page
+    cannot reach the device's own cookies."""
+    await _login_editor(client, editor)
+    await _open_link(client)  # both cookies in the jar
+
+    r = await client.post("/api/auth/logout", headers=LINK_PAGE)
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+    assert client.cookies.get(ACCESS_COOKIE)
+    # …and the account is untouched on the bare site.
+    r = await client.get("/api/auth/me", headers=BARE_SITE)
     assert r.status_code == 200, r.text
+    assert r.json()["role"] == "editor"
+
+
+async def test_a_use_page_with_no_live_link_is_nobody(client, link_key, incident, editor):
+    """The failure «use» must never have. A page that says it IS the link and has no live link
+    session falls through to nothing — NOT to whatever login the device holds.
+
+    That fall-through would have been the whole feature inverted: the handed-over Atemschutz
+    board, once its 12 h session lapsed, would quietly become the phone owner's full account —
+    no allowlist, no incident scope, writes stamped with their user_id, and revoking the link
+    changing nothing. The link app recovers from the 401 by re-exchanging the token still
+    standing in its own address bar (src/link/LinkApp · LinkSession → reload).
+    """
+    await _login_editor(client, editor)
+
+    # never opened on this page
+    assert (await client.get("/api/auth/me", headers=LINK_PAGE)).status_code == 401
+    # …and a DEAD one is no better than none — including on the reads that go through
+    # `get_user_or_admin`, which must not answer as the login either.
+    await _open_link(client)
+    assert (await client.get("/api/auth/me", headers=LINK_PAGE)).status_code == 200
+    assert (await client.get("/api/personnel", headers=LINK_PAGE)).status_code == 200
+    client.cookies.set(LINK_COOKIE, "no-longer-a-token")
+    assert (await client.get("/api/auth/me", headers=LINK_PAGE)).status_code == 401
+    assert (await client.get("/api/personnel", headers=LINK_PAGE)).status_code == 401
+
+    # …and through all of it the device's own login is untouched.
+    assert (await client.get("/api/auth/me", headers=BARE_SITE)).json()["role"] == "editor"
+
+
+async def test_abmelden_sheds_the_link_session_too(client, link_key, incident, editor):
+    """The one direction that stays coupled, and deliberately: «Abmelden» means «I am done on
+    this device», so it drops the link cookie along with the login.
+
+    Not because the app reads that cookie — it says "off" and never does — but because the
+    requests the browser makes with NO header of ours (a typed address, an `<img>`, the service
+    worker) keep answering as the link guest for the rest of the 12 h TTL. On the shared tablet
+    that is the whole point of signing out.
+    """
+    await _login_editor(client, editor)
+    await _open_link(client)
+    assert client.cookies.get(LINK_COOKIE)
+
+    r = await client.post("/api/auth/logout", headers=BARE_SITE)
+    assert r.status_code == 200, r.text
+    assert not client.cookies.get(LINK_COOKIE)
+    assert not client.cookies.get(ACCESS_COOKIE)
+    # a headerless request — the subresource case — is now nobody, not the link's viewer
     assert (await client.get("/api/auth/me")).status_code == 401
-    assert (await client.get("/api/auth/roster")).status_code == 200
 
 
 async def test_explicitly_excluded_routes_are_refused(client, link_key, incident):
@@ -1066,6 +1134,25 @@ async def test_atemschutz_session_reports_its_kind(client, editor, incident):
     assert me["link_incident_id"] == str(incident.id)
 
 
+async def test_the_handed_over_board_answers_for_itself_on_a_signed_in_phone(client, editor, incident):
+    """«Überwachung abgeben» to a colleague whose phone is signed in as well.
+
+    The board is what that page has to show — the FU handed the QR over, not an account — and
+    it used to be bought by signing the phone OUT first (lib/incidentLink · shedSession), which
+    is precisely the coupling this is. The page now says it is a link page and gets the link
+    session, while the login it did not ask about keeps working everywhere else.
+    """
+    token = await _mint_atemschutz_link(client, editor, incident)
+    await _login_editor(client, editor)  # …and the colleague is a member too
+    assert (await client.post("/api/incident-link/session", json={"token": token})).status_code == 200
+
+    me = (await client.get("/api/auth/me", headers=LINK_PAGE)).json()
+    assert me["link_kind"] == "atemschutz"
+    assert me["link_incident_id"] == str(incident.id)
+    # …and the same browser, on the bare site, is still nobody but themselves.
+    assert (await client.get("/api/auth/me", headers=BARE_SITE)).json()["role"] == "editor"
+
+
 async def test_a_read_only_link_says_so(client, link_key, editor, incident):
     """The other two kinds must not accidentally claim the write app."""
     await _open_link(client)
@@ -1284,3 +1371,262 @@ async def test_an_atemschutz_link_to_a_closed_einsatz_answers_404(client, editor
         r = await client.post("/api/incident-link/session", json={"token": probe})
         assert r.status_code == 401, probe
         assert r.json()["detail"] == INVALID_TOKEN_DETAIL
+
+
+# --- the alarm link, minted in the app ------------------------------------------------------
+#
+# `POST …/einsatz-link` is not a fourth kind of link: it is the FIRST one, produced by an editor
+# on the Schadenplatz instead of by the alerting system, so the Zentrale/EL/Nachbarwehr can be
+# handed a live read-only view mid-Einsatz. So what these prove is mostly that nothing about the
+# resulting session is new — same key, same allowlist, same two liveness conditions — plus the
+# permission matrix on the mint itself, which is the actually new surface.
+
+
+async def _mint_einsatz_link(client, editor, incident) -> str:
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/einsatz-link")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["enabled"] is True
+    client.cookies.delete(ACCESS_COOKIE)  # from here on we are whoever was handed the address
+    return body["token"]
+
+
+async def test_einsatz_link_needs_the_station_key(client, editor, incident):
+    """Fail-closed, and with the exchange's own answer for it: no minting key → the whole link
+    surface is off. 403 rather than the 409 a finished Einsatz gets, because the sheet has to
+    tell the two apart — one sends the operator to der Verwaltung, the other is just «zu spät»."""
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/einsatz-link")
+    assert r.status_code == 403, r.text
+    # Structured, because the sheet has to tell THIS 403 from every other one: only this one
+    # earns «In der Verwaltung einrichten». The German sentence is still there for people.
+    assert r.json()["detail"] == {"code": NO_KEY_CODE, "message": NO_KEY_DETAIL}
+
+    # …and the exchange answers it identically, so the app can never offer a link nothing redeems
+    r = await client.post("/api/incident-link/session", json={"token": _mint()})
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == {"code": NO_KEY_CODE, "message": NO_KEY_DETAIL}
+
+
+async def test_other_403s_carry_no_such_code(client, link_key, viewer, incident):
+    """The discrimination has to cut both ways: a refusal that is NOT «kein Schlüssel» must not
+    look like one, or the sheet sends the operator to a Verwaltung screen that cannot help. A
+    viewer's «Bearbeiter-Berechtigung erforderlich» is the 403 they will actually hit."""
+    r = await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": "135790"})
+    assert r.status_code == 200, r.text
+    r = await client.post(f"/api/incidents/{incident.id}/einsatz-link")
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == "Bearbeiter-Berechtigung erforderlich"
+
+
+async def test_einsatz_link_needs_an_editor(client, viewer, link_key, incident):
+    """A viewer may read this Einsatz. Minting an address that lets anybody else read it is a
+    different power, and it is the editor's."""
+    r = await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": "135790"})
+    assert r.status_code == 200, r.text
+    assert (await client.post(f"/api/incidents/{incident.id}/einsatz-link")).status_code == 403
+
+
+async def test_einsatz_link_is_refused_without_any_session(client, link_key, incident):
+    assert (await client.post(f"/api/incidents/{incident.id}/einsatz-link")).status_code in (401, 403)
+
+
+async def test_a_link_session_cannot_mint_another_link(client, link_key, editor, incident):
+    """The containment that matters most: a read-only holder handing the Einsatz on to further
+    people would make the allowlist a suggestion. Refused for all three kinds, with the one
+    message every other refusal uses."""
+    await _open_link(client)
+    r = await client.post(f"/api/incidents/{incident.id}/einsatz-link")
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+    _forget_link(client)
+
+    for token in (
+        await _mint_view_link(client, editor, incident),
+        await _mint_atemschutz_link(client, editor, incident),
+    ):
+        await client.post("/api/incident-link/session", json={"token": token})
+        r = await client.post(f"/api/incidents/{incident.id}/einsatz-link")
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"] == DENIED_DETAIL
+        _forget_link(client)
+
+
+async def test_einsatz_link_cannot_be_minted_on_a_finished_einsatz(client, editor, link_key, incident, db_session):
+    """It has the alarm link's lifetime, so on a closed Einsatz it would be dead on arrival —
+    409 rather than an address that never works."""
+    incident.is_archived = True
+    await db_session.commit()
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/einsatz-link")
+    assert r.status_code == 409, r.text
+    detail = r.json()["detail"]
+    assert "abgeschlossen" in detail
+    assert "—" not in detail, "house style is the spaced en dash (–)"
+
+
+async def test_einsatz_link_is_the_same_address_every_time(client, editor, link_key, incident):
+    """Derived, not stored — so «wo war der Link nochmal» hands back the one already circulating
+    instead of a second, equally valid address nobody can tell from the first."""
+    first = await _mint_einsatz_link(client, editor, incident)
+    await _login_editor(client, editor)
+    again = (await client.post(f"/api/incidents/{incident.id}/einsatz-link")).json()["token"]
+    assert again == first
+
+
+async def test_einsatz_link_opens_a_read_only_alarm_session(client, editor, link_key, incident):
+    """The whole claim: an app-minted token is an ALARM link. Same session, same `link_kind`,
+    same excluded routes — nothing about it is a new kind of access."""
+    token = await _mint_einsatz_link(client, editor, incident)
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 200, r.text
+    assert r.json()["incident_id"] == str(incident.id)
+
+    me = (await client.get("/api/auth/me")).json()
+    assert me["role"] == "viewer" and me["link_scoped"] is True
+    assert me["link_kind"] == "alarm"
+    assert (await client.get(f"/api/incidents/{incident.id}/workspace")).status_code == 200
+    # …and it is still only a link session
+    assert (await client.post(f"/api/incidents/{incident.id}/report/pdf", json={})).status_code == 403
+    assert (
+        await client.put(f"/api/incidents/{incident.id}/workspace/trupps", json={"trupps": [], "base_rev": 0})
+    ).status_code == 403
+
+
+async def test_einsatz_link_works_for_an_einsatz_no_alarm_ever_named(client, editor, link_key, db_session):
+    """The reason an app-minted token names the incident by id: a manual Einsatz — and every
+    Übung — has no `source_ref` at all, so the (src, ref) pair the alerting system uses could
+    not name it. This is precisely the Einsatz somebody wants to share during a drill."""
+    inc = Incident(title="Übung Hauptstrasse", source="manual", status="offen", is_exercise=True)
+    db_session.add(inc)
+    await db_session.commit()
+    await db_session.refresh(inc)
+
+    token = await _mint_einsatz_link(client, editor, inc)
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 200, r.text
+    assert r.json()["incident_id"] == str(inc.id)
+
+
+async def test_einsatz_link_stays_scoped_to_its_own_incident(client, editor, link_key, incident, db_session):
+    other = _incident(title="Anderer Einsatz", source_ref="alarm-other-el")
+    db_session.add(other)
+    await db_session.commit()
+    await db_session.refresh(other)
+
+    token = await _mint_einsatz_link(client, editor, incident)
+    await client.post("/api/incident-link/session", json={"token": token})
+    assert (await client.get(f"/api/incidents/{other.id}/workspace")).status_code == 403
+
+
+async def test_einsatz_link_dies_with_the_einsatz_and_with_the_key(client, editor, link_key, incident, db_session):
+    """Both liveness conditions of the alarm link, unchanged — closing the Einsatz ends it, and
+    so does rotating the station's key, which is the only way to take one back early."""
+    token = await _mint_einsatz_link(client, editor, incident)
+    await client.post("/api/incident-link/session", json={"token": token})
+    assert (await client.get(f"/api/incidents/{incident.id}/workspace")).status_code == 200
+
+    row = await _config_row(db_session)
+    row.incident_link_key = "rotated-to-something-else-at-least-32-bytes"
+    await db_session.commit()
+    r = await client.get(f"/api/incidents/{incident.id}/workspace")
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+    # …and the URL itself no longer verifies against the new key
+    _forget_link(client)
+    assert (await client.post("/api/incident-link/session", json={"token": token})).status_code == 401
+
+    row.incident_link_key = MINT_KEY
+    incident.status = "geschlossen"
+    incident.closed_at = datetime.now(UTC)
+    await db_session.commit()
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 404, r.text
+    assert r.json()["detail"] == NOT_AVAILABLE_DETAIL
+
+
+async def test_a_forged_incident_claim_is_the_one_refusal(client, link_key, incident):
+    """The `inc` claim is only ever read after the station key's own signature held, but a
+    malformed one is attacker-supplied all the same — a refusal, never a 500."""
+    for bad in ("not-a-uuid", "", 42, str(uuid.uuid4())):
+        r = await client.post(
+            "/api/incident-link/session",
+            json={"token": jwt.encode({"type": LINK_TOKEN_TYPE, "inc": bad}, MINT_KEY, algorithm="HS256")},
+        )
+        assert r.status_code in (401, 404), f"{bad!r} → {r.status_code} {r.text[:120]}"
+        assert LINK_COOKIE not in r.cookies
+
+
+async def test_minting_records_one_row_in_the_chain(client, editor, link_key, incident, db_session):
+    """«Der laufende Einsatz wurde ausserhalb der FU lesbar» is worth a row — once. Showing the
+    same QR again is not a second such moment, and there is no stored secret to tell them apart,
+    so the chain itself is asked."""
+    from app.models import IncidentEvent
+
+    await _mint_einsatz_link(client, editor, incident)
+    await _login_editor(client, editor)
+    await client.post(f"/api/incidents/{incident.id}/einsatz-link")
+
+    rows = list(
+        (await db_session.execute(select(IncidentEvent).where(IncidentEvent.source == "einsatz-link"))).scalars()
+    )
+    assert len(rows) == 1, "one row per Einsatz, not per look"
+    assert rows[0].payload_json == {"einsatz_link": True}
+
+
+async def test_one_row_per_einsatz_holds_on_every_engine(client, editor, link_key, incident, db_session):
+    """What ENFORCES «once» is the partial unique index, not the check-then-append that reads
+    for it. The handler's SELECT is a race, and the incident-row lock it runs under is a no-op
+    on SQLite — so on a dev machine a StrictMode double mount wrote the moment into the hash
+    chain twice. The database refuses the second row whatever the engine.
+    """
+    from app.audit import append_event
+    from app.models import IncidentEvent
+
+    await _mint_einsatz_link(client, editor, incident)
+    other = _incident(title="Zweiter Einsatz", source_ref="alarm-second-el")
+    db_session.add(other)
+    await db_session.commit()
+
+    # In the savepoint the handler itself uses, so the loser of the race loses harmlessly and
+    # the session (and the chain) stay usable — which is the other half of the fix.
+    with pytest.raises(IntegrityError):
+        async with db_session.begin_nested():
+            await append_event(
+                db_session,
+                incident_id=incident.id,
+                op_type="meta.change",
+                source="einsatz-link",
+                payload={"einsatz_link": True},
+            )
+
+    # …and it is per Einsatz, not global: the next Einsatz gets its own row.
+    await append_event(
+        db_session,
+        incident_id=other.id,
+        op_type="meta.change",
+        source="einsatz-link",
+        payload={"einsatz_link": True},
+    )
+    await db_session.commit()
+    rows = (
+        await db_session.execute(select(IncidentEvent.incident_id).where(IncidentEvent.source == "einsatz-link"))
+    ).scalars()
+    assert sorted(str(i) for i in rows) == sorted({str(incident.id), str(other.id)})
+
+
+async def test_losing_the_mint_race_still_hands_back_the_link(client, editor, link_key, incident, monkeypatch):
+    """The loser of that race must still get its token: both callers are the same sheet asking
+    the same question, and «der Link liess sich nicht erstellen» because somebody else recorded
+    the moment first would be a 500 for no reason at all."""
+    from app import audit
+
+    async def _already_there(*_a, **_kw):
+        raise IntegrityError("INSERT …", None, Exception("duplicate key"))
+
+    monkeypatch.setattr(audit, "append_event", _already_there)
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/einsatz-link")
+    assert r.status_code == 200, r.text
+    assert r.json()["token"]

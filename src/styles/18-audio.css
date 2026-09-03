@@ -555,6 +555,14 @@
 .tb-uhr-val { font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); }
 .tb-uhr-row .tb-uhr-chk { width: 16px; height: 16px; color: var(--green); flex: none; visibility: hidden; }
 .tb-uhr-row.on .tb-uhr-chk { visibility: visible; }
+/* «Teilen»: the same dropdown, but each row carries a second line saying WHO the address is for
+   — the question at 3am is «wem gebe ich das». Two lines need the row's height back, and the
+   label stops being a single centred string. */
+.tb-teilen-menu { min-width: 268px; }
+.tb-teilen-menu .tb-uhr-row { height: auto; min-height: var(--tap); padding-block: 8px; align-items: flex-start; }
+.tb-teilen-menu .tb-uhr-row .i { margin-top: 1px; }
+.tb-teilen-menu .tb-uhr-lbl { display: flex; flex-direction: column; gap: 2px; }
+.tb-teilen-menu .tb-uhr-lbl small { font: 600 11.5px var(--body); color: var(--ink-dim); }
 
 /* ERG response block inside the UN-hazard readout */
 .un-erg { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--glass-edge); }

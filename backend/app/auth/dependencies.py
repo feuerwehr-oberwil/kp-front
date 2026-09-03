@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..database import get_db
 from ..models import User
-from .incident_link import read_link_session
+from .incident_link import link_page_owns_session, read_link_session
 from .security import admin_token_is_current, decode_token
 from .token_blocklist import token_blocklist
 
@@ -101,14 +101,27 @@ async def get_current_user(
     access_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # An incident-link session, when THIS page is one — which the page says rather than the
+    # cookie jar implying it (auth/incident_link · LINK_MODE_HEADER · read_link_session). On
+    # the ordinary app that is never true, so a link cookie left over from an alert tapped
+    # this morning changes nothing about who this device is; on a link page it is the answer
+    # even where the device also holds a login, whose own cookies are left untouched.
+    claims = read_link_session(request)
+    if claims and claims.get("inc"):
+        guest = _link_guest(claims)
+        request.state.user = guest
+        return guest
+    if link_page_owns_session(request):
+        # …and a page that said "use" is that session or it is NOBODY. Falling through to the
+        # device's access token here was the whole feature inverted: a handed-over Atemschutz
+        # board whose link cookie had expired (or was never set, or was shed) quietly became
+        # the phone OWNER's full login — no link allowlist, no incident scope, writes stamped
+        # with their user_id, and revoking the link changing nothing. 401 instead, which is
+        # also what `get_user_or_admin` below already answers, so the two agree. The link app
+        # recovers by re-exchanging the token still standing in its own address bar
+        # (src/link/LinkApp · LinkSession → reload → openIncidentLink).
+        raise _credentials_exc
     if not access_token:
-        # No real session: fall back to an incident-link session if one is present. The
-        # link cookie is only ever consulted here, after a genuine login has been ruled out.
-        claims = read_link_session(request)
-        if claims and claims.get("inc"):
-            guest = _link_guest(claims)
-            request.state.user = guest
-            return guest
         raise _credentials_exc
     try:
         payload = decode_token(access_token)
@@ -222,6 +235,17 @@ async def get_user_or_admin(
     """Read access for surfaces shared by the field app AND the /admin UI (roster, Traccar
     status). The /admin surface is admin-secret-only (no kiosk login), so an admin session
     must satisfy these too — resolving to None (no user identity), like the CLI."""
+    # …unless the caller is a LINK page, which answers as its own session even on a device that
+    # is signed in — or as nothing at all (auth/incident_link · link_page_owns_session). Handled
+    # first and completely, so this dependency cannot resolve such a page to the device's login
+    # or to the operator's admin session. Same rule as get_current_user, whose comment says why.
+    if link_page_owns_session(request):
+        claims = read_link_session(request)
+        if claims and claims.get("inc"):
+            guest = _link_guest(claims)
+            request.state.user = guest
+            return guest
+        raise _credentials_exc
     if access_token:
         try:
             return await get_current_user(request, access_token, db)

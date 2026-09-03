@@ -12,6 +12,7 @@ import { ortOf } from './attendanceOrt'
 import { currentLineFor } from './mittel'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from './format'
+import { linkSessionHeaders } from './linkMode'
 
 // --- pure mutations -------------------------------------------------------------------
 
@@ -341,10 +342,18 @@ async function req<T>(token: string, path: string, init?: RequestInit): Promise<
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), REQ_TIMEOUT_MS)
   try {
+    // Not the api client: the poster token is this surface's whole identity and a 15 s abort
+    // clock its own. It is still an /api call, so the session-mode header rides first — the
+    // poster page is never a link page, and must not be read as one (api · rawFetch).
     const r = await fetch(`/api/capture${path}`, {
       ...init,
       signal: ctl.signal,
-      headers: { 'Content-Type': 'application/json', 'X-Capture-Token': token, ...(init?.headers ?? {}) },
+      headers: {
+        ...linkSessionHeaders(),
+        'Content-Type': 'application/json',
+        'X-Capture-Token': token,
+        ...(init?.headers ?? {}),
+      },
     })
     const serverTime = r.headers.get('X-Server-Time')
     if (serverTime) serverTimeListener?.(serverTime)
@@ -381,7 +390,7 @@ export const captureApi = {
     const form = new FormData()
     form.append('file', blob, filename)
     const res = await withTimeout(fetch(`/api/capture/incidents/${id}/media`, {
-      method: 'POST', headers: { 'X-Capture-Token': token }, body: form,
+      method: 'POST', headers: { ...linkSessionHeaders(), 'X-Capture-Token': token }, body: form,
     }), 60_000)
     if (!res.ok) throw new CaptureError(res.status, `HTTP ${res.status}`)
     return (await res.json()) as { id: string; url: string }

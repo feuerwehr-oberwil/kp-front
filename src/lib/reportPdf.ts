@@ -6,6 +6,7 @@
 // store; nothing is captured or uploaded from the browser anymore.
 
 import { downloadBlob } from './download'
+import { linkSessionHeaders } from './linkMode'
 
 // Mirror api.ts's base so a cross-origin deployment still resolves (Vite proxies /api in dev).
 const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
@@ -30,7 +31,10 @@ export async function downloadReportPdf(
   const res = await fetch(transport?.url ?? `${BASE}/api/incidents/${encodeURIComponent(incidentId)}/report/pdf`, {
     method: 'POST',
     credentials: 'include',
-    headers: transport?.headers,
+    // A bare `fetch` (the answer is a PDF blob, not JSON), so the session-mode header the api
+    // client adds for free has to be spread by hand — see api · rawFetch for the invariant.
+    // Ahead of the transport's own headers, which carry the capture poster token and never this.
+    headers: { ...linkSessionHeaders(), ...transport?.headers },
     body: form,
   })
   if (!res.ok) throw new Error(`Rapport-PDF fehlgeschlagen (${res.status})`)

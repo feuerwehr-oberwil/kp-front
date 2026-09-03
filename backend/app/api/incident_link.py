@@ -46,9 +46,24 @@ colleague at the Eingang who keeps the Atemschutzüberwachung. Same door, same s
 credential lookup, same per-incident revocation as the view link; the lifetime is the alarm
 link's instead (the Einsatz closes, the link dies), and it is the one kind that may write.
 What it may write is three routes and two content rules, all in auth/incident_link.
+
+THE ALARM LINK, MINTED IN THE APP (2026-09-02)
+----------------------------------------------
+Not a fourth kind — the *first* one, produced by somebody other than the alerting system. An
+editor on the Schadenplatz hands the Zentrale, the EL or a Nachbarwehr a live read-only view
+mid-Einsatz (api/incidents · `create_einsatz_link` → `mint_incident_link_token` below). The
+token is signed with the station's own minting key, opens the same read-only session, and dies
+under exactly the same two conditions: the Einsatz closes, or the key is rotated.
+
+The one thing that differs is how the token NAMES its Einsatz. `src`/`ref` exist so an alerting
+system never has to learn our incident UUIDs; we are not an alerting system, and a manually
+created Einsatz or an Übung carries no `source_ref` at all — so an app-minted token names the
+incident by its id (`inc`). Same signature, same key, same authority: the key already means «may
+open a read session on any incident this station has».
 """
 
 import secrets
+import uuid
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -94,6 +109,49 @@ async def _config_row(db: AsyncSession) -> DeploymentConfig:
         db.add(row)
         await db.flush()
     return row
+
+
+#: The refusal both link doors share: the station never set a minting key, so nothing can mint a
+#: link and nothing can redeem one. Answered with a STRUCTURED detail, because the app has to tell
+#: this 403 apart from every other one — «In der Verwaltung einrichten» is an instruction, and
+#: offering it for a 403 that means something else sends the operator to a screen that cannot help
+#: (src/components/panels/ShareIncident · EinsatzLinkSheet). The German sentence stays exactly as
+#: it was, for the readers who are people; `code` is for the one reader that is not.
+NO_MINTING_KEY_CODE = "link_key_missing"
+NO_MINTING_KEY_DETAIL = "Einsatz-Links deaktiviert (kein Link-Schlüssel gesetzt)"
+
+
+def no_minting_key() -> HTTPException:
+    """One 403, raised from both directions — the exchange that verifies a token and the in-app
+    mint that signs one. Fail CLOSED: no key configured → the whole link surface is off."""
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={"code": NO_MINTING_KEY_CODE, "message": NO_MINTING_KEY_DETAIL},
+    )
+
+
+async def station_minting_key(db: AsyncSession) -> str | None:
+    """The station's minting key, or None when the feature was never set up.
+
+    One lookup for both directions — the exchange below reads it to VERIFY a token, and the
+    in-app mint (api/incidents · `create_einsatz_link`) reads it to SIGN one. «Kein Schlüssel»
+    has to mean the same thing on both sides or the app would offer a link nothing can redeem.
+    """
+    return (
+        await db.execute(select(DeploymentConfig.incident_link_key).where(DeploymentConfig.id == 1))
+    ).scalar_one_or_none()
+
+
+def mint_incident_link_token(incident_id: str, key: str) -> str:
+    """An alarm link for one Einsatz we already know the id of — see «THE ALARM LINK, MINTED IN
+    THE APP» above. The inverse of `open_link_session`, kept beside it so the two cannot drift.
+
+    Deliberately carries no `exp`. The session it opens is bounded on EVERY request by the two
+    conditions that matter (the Einsatz still running, the station's key unchanged), and PyJWT
+    serialises the same claims to the same string — so re-opening the sheet shows the QR that is
+    already circulating rather than a second, equally valid address.
+    """
+    return jwt.encode({"type": LINK_TOKEN_TYPE, "inc": str(incident_id)}, key, algorithm=LINK_ALGORITHM)
 
 
 @router.get("/secret")
@@ -210,14 +268,11 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
     if body.token.startswith(ATEMSCHUTZ_TOKEN_PREFIX):
         return await _open_atemschutz_session(body.token, response, db)
 
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    key = row.incident_link_key if row else None
+    # Through the same helper the in-app mint uses, so «kein Schlüssel» cannot come to mean two
+    # different things: the app must never offer a link this exchange would then refuse.
+    key = await station_minting_key(db)
     if not key:
-        # Fail CLOSED: no minting key configured → the whole link surface is off.
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Einsatz-Links deaktiviert (kein Link-Schlüssel gesetzt)",
-        )
+        raise no_minting_key()
 
     try:
         # Signature AND `exp` are checked here; an expired token raises a JWTError subclass.
@@ -231,20 +286,33 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
         # this is a discriminator compared after the signature already held, not a secret.
         raise _invalid_token()
 
-    src, ref = claims.get("src"), claims.get("ref")
-    if not isinstance(src, str) or not isinstance(ref, str | int) or not src or str(ref) == "":
-        raise _invalid_token()
+    # An app-minted token names the Einsatz by our own id; the alerting system's names it by the
+    # (src, ref) pair it knows. Both are signed with the same key and carry the same authority —
+    # only the lookup differs. `inc` first, because a token carrying it has nothing else to try.
+    ours = claims.get("inc")
+    if ours is not None:
+        if not isinstance(ours, str):
+            raise _invalid_token()
+        try:
+            ident = uuid.UUID(ours)
+        except (ValueError, AttributeError, TypeError):
+            raise _invalid_token() from None
+        inc = (await db.execute(select(Incident).where(Incident.id == ident))).scalar_one_or_none()
+    else:
+        src, ref = claims.get("src"), claims.get("ref")
+        if not isinstance(src, str) or not isinstance(ref, str | int) or not src or str(ref) == "":
+            raise _invalid_token()
 
-    inc = (
-        await db.execute(select(Incident).where(Incident.source == src, Incident.source_ref == str(ref)))
-    ).scalar_one_or_none()
-    if inc is None:
-        # No incident under that (src, ref) — but the alarm may still be waiting in an intake
-        # pool, in which case the responder holding this link is the reason to open it. This
-        # is the whole point of the exchange: the link must not depend on someone else having
-        # picked the alarm up on a tablet first (production, 2026-08-02). The lookup is
-        # source-agnostic and lives in `alarms`, so nothing here learns what Divera is.
-        inc = await open_pooled_alarm(db, source=src, ref=str(ref))
+        inc = (
+            await db.execute(select(Incident).where(Incident.source == src, Incident.source_ref == str(ref)))
+        ).scalar_one_or_none()
+        if inc is None:
+            # No incident under that (src, ref) — but the alarm may still be waiting in an intake
+            # pool, in which case the responder holding this link is the reason to open it. This
+            # is the whole point of the exchange: the link must not depend on someone else having
+            # picked the alarm up on a tablet first (production, 2026-08-02). The lookup is
+            # source-agnostic and lives in `alarms`, so nothing here learns what Divera is.
+            inc = await open_pooled_alarm(db, source=src, ref=str(ref))
     if inc is None or not inc.is_open:
         # Unknown, archived, or already closed — one answer for all three (no probing). An
         # alarm that no pool knows either falls in here, indistinguishable from the rest.

@@ -720,6 +720,11 @@
      uses on the right, and the bar fits again. Still 44px, still tappable, still everywhere. */
   .tb-share { position: fixed; top: calc(76px + env(safe-area-inset-top));
     left: max(10px, env(safe-area-inset-left)); z-index: var(--z-map-util-raised); }
+  /* «Teilen» in the head is a TABLET control. Same 44px budget as above, already spent on undo ·
+     redo · Verlauf · Eintrag — a fifth one is what pushed the Standort-Pille off the edge, and
+     unlike that pille this one is not something the phone must reach in the middle of a gesture.
+     The Einsatz-Karte's own «Teilen» is the door here, and it opens the same sheets. */
+  .tb-act-teilen { display: none; }
   /* …and the GPS caveat keeps clear of that slot, reserved or not: a chip that jumps sideways
      when somebody starts sharing is worse than one that sits 52px in. */
   .tb-gps { position: fixed; top: calc(76px + env(safe-area-inset-top));

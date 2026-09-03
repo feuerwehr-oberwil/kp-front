@@ -9,6 +9,7 @@ import { shiftsFor, sortBands } from './shifts'
 import { rankAbbr, rankLabel } from './rank'
 import { intervalsOf } from './attendanceIntervals'
 import { editorPrintTransport, enqueuePrint } from './printRelay'
+import { linkSessionHeaders } from './linkMode'
 
 const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
 
@@ -100,6 +101,8 @@ export async function downloadZeitplanPdf(incidentId: string, payload: ZeitplanP
   const res = await fetch(`${BASE}/api/incidents/${encodeURIComponent(incidentId)}/zeitplan/pdf`, {
     method: 'POST',
     credentials: 'include',
+    // bare `fetch` for the blob, so the session-mode header rides by hand (api · rawFetch)
+    headers: linkSessionHeaders(),
     body: form,
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)

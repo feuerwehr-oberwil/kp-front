@@ -3,9 +3,11 @@
 // personal phone, in the dark, once every few months; the whole surface is one screen and it
 // has to be right the first time.
 //
-// Everything decidable lives HERE rather than in the screen: parsing the token out of the path,
-// what each HTTP status means to the person holding the phone, and the retry policy for the one
-// failure that may fix itself on its own. The screen is then a pure render of one state.
+// Everything decidable lives HERE rather than in the screen: what each HTTP status means to the
+// person holding the phone, and the retry policy for the one failure that may fix itself on its
+// own. The screen is then a pure render of one state. Reading the token out of the address and
+// telling the three kinds of link apart is lib/linkMode's — every request asks that same module
+// which session this page speaks with, so the two can never disagree.
 
 import { ApiError, apiPost } from './api'
 
@@ -23,24 +25,6 @@ export type LinkFailure = 'disabled' | 'invalid' | 'notReady' | 'offline' | 'err
 export type LinkExchange =
   | { ok: true; incidentId: string }
   | { ok: false; reason: LinkFailure }
-
-// The alerting system mints a JWT offline, so the token is base64url segments joined by dots.
-// Anything else in the path isn't a link we can exchange — say so without a round trip.
-const LINK_PATH = /^\/l\/([A-Za-z0-9._-]{8,})\/?$/
-
-/** Which kind of link a token is, by the marker the backend puts in front of the secret
- *  (api/incident_link · VIEW_TOKEN_PREFIX / ATEMSCHUTZ_TOKEN_PREFIX); a JWT has neither. */
-export function linkKindFromToken(token: string): 'alarm' | 'view' | 'atemschutz' {
-  if (token.startsWith('a')) return 'atemschutz'
-  if (token.startsWith('v')) return 'view'
-  return 'alarm'
-}
-
-/** The token in `/l/<token>`, or null when the path isn't a link URL at all. */
-export function linkTokenFromPath(pathname: string): string | null {
-  const m = LINK_PATH.exec(pathname)
-  return m ? m[1] : null
-}
 
 /**
  * Trade the link token for the httpOnly session cookie. One attempt, no retry — the retry
@@ -72,22 +56,16 @@ export const LINK_NOT_READY_DELAY_MS = 4_000
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-/** Drop whatever login this browser holds. Best-effort: with no session it is a no-op, and a
- *  failure must not stop the exchange — the worst case is the full app instead of the board. */
-const shedSession = () => apiPost('/api/auth/logout').then(() => undefined, () => undefined)
-
 /**
  * Open a link: exchange, and re-exchange while the incident is merely not ingested YET.
  * `onPending` fires before each wait so the screen can name the state it's in (attempt 1 =
- * the first retry). Injectable `exchange`/`sleep`/`logout` keep the policy testable.
+ * the first retry). Injectable `exchange`/`sleep` keep the policy testable.
  *
- * An ATEMSCHUTZ link first sheds any real login on this browser. A real session outranks a
- * link session on the server (a leftover link cookie must never narrow an editor), so on a
- * phone that is signed in the scan used to open the whole app instead of the handed-over
- * board — and for a signed-in viewer a board whose every tap the server refuses. «Überwachung
- * abgeben» means THIS phone becomes the Überwachung; its own login comes back through
- * «Abmelden» → login. The alarm and view links keep the old rule: a signed-in member who taps
- * an alert link stays who they are.
+ * ⚠️ It touches NOTHING but the link cookie — no login is shed, none is created. An Atemschutz
+ * link used to sign the browser out first, so that the handed-over board would win over a
+ * session the phone's owner had of their own; that made the link a thing that reaches into the
+ * device, which is exactly what it must not be. The precedence is now the page's to state
+ * (lib/linkMode · linkPageOwnsSession), and it lasts only as long as the page.
  */
 export async function openIncidentLink(
   token: string,
@@ -95,12 +73,10 @@ export async function openIncidentLink(
     onPending?: (attempt: number) => void
     exchange?: (token: string) => Promise<LinkExchange>
     sleep?: (ms: number) => Promise<void>
-    logout?: () => Promise<void>
   } = {},
 ): Promise<LinkExchange> {
   const exchange = opts.exchange ?? exchangeLinkToken
   const sleep = opts.sleep ?? wait
-  if (linkKindFromToken(token) === 'atemschutz') await (opts.logout ?? shedSession)()
   let result = await exchange(token)
   for (
     let attempt = 1;

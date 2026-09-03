@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { apiGet, apiUpload, ApiError } from '../lib/api'
 import { downloadBlob } from '../lib/download'
+import { linkSessionHeaders } from '../lib/linkMode'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { useConfig } from './ConfigContext'
@@ -62,9 +63,14 @@ type State =
   | { kind: 'error'; message: string }
 
 /** The station's own file, straight from the server. A binary GET, so it goes around the JSON
- *  `apiGet` rather than through it; cookies still ride along (the admin session is httpOnly). */
+ *  `apiGet` rather than through it; cookies still ride along (the admin session is httpOnly),
+ *  and so does the session-mode header every /api call owes (api · rawFetch) — /admin is the
+ *  ordinary app and must never be answered as some link cookie's viewer. */
 async function downloadWorkbook(): Promise<void> {
-  const res = await fetch('/api/station-workbook/export', { credentials: 'include' })
+  const res = await fetch('/api/station-workbook/export', {
+    credentials: 'include',
+    headers: linkSessionHeaders(),
+  })
   if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`)
   const today = new Date().toISOString().slice(0, 10)
   downloadBlob(await res.blob(), `stationsdaten-${today}.xlsx`)

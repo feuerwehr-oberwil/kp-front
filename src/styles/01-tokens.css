@@ -1,4 +1,13 @@
 :root {
+  /* Tells the UA which palette our OWN chrome is drawn in — the in-app day/night toggle,
+     not the OS setting. Without it Safari defaults native surfaces it paints itself
+     (scrollbars, form controls, and — the one that actually bit us — the iOS keyboard's
+     accessory bar with the field Prev/Next chevrons and Done) to LIGHT regardless of our
+     theme, so focusing a field on a form with several inputs (Atemschutz Trupp: Auftrag/
+     Ziel, Funkkanal, Druck…) popped a bright white bar above the keyboard in night mode.
+     A lone field with nothing to tab to (the roster search) never gets that bar, which is
+     why it looked clean and Ziel did not. */
+  color-scheme: light;
   /* Field-readable glass: opaque enough to hold contrast over aerial imagery
      and in daylight, with a faint dark hairline so edges read on any base map. */
   --glass: rgba(255, 255, 255, .9);
@@ -219,6 +228,7 @@
    flips for free. Accent hues are nudged brighter so they stay legible on dark.
    --------------------------------------------------------------------------- */
 :root[data-theme="night"] {
+  color-scheme: dark;
   /* near-opaque so glass panels (Ebenen, ctx, Verlauf, rails) read properly dark
      instead of letting the map bleed through the blur */
   --glass: rgba(20, 26, 36, .97);

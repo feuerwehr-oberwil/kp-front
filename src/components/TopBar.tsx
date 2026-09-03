@@ -12,6 +12,7 @@ import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { condition, fromLabel, fromLabelLong, windArrowRotation } from './WindBadge'
+import { teilenRows, type ShareDoor } from '../lib/viewLink'
 
 type ClockMode = 'elapsed' | 'now' | 'start'
 const CLOCK_MODES: ClockMode[] = ['elapsed', 'now', 'start']
@@ -76,6 +77,12 @@ interface Props {
    *  say so on the screen they are already looking at, and it is the only such control a
    *  link-scoped session gets (Einstellungen is hidden for those). */
   shareSlot?: React.ReactNode
+  /** «Teilen» — THE place this app hands an Einsatz to somebody, in the head where the Einsatz is
+   *  named (03.09.). All three links live here; the row decides which, not which door you found.
+   *  Editors only: every entry mints something that lets a stranger read — or, for the
+   *  Truppüberwacher, operate — this Einsatz, so the whole button is absent for viewers, for a
+   *  read-only/archived surface and for a link session. Omitted ⇒ nothing renders. */
+  onShare?: (door: ShareDoor) => void
   /** The Einsatz is closed and open read-only. It rides HERE, beside its name, rather than as a
    *  banner in the message layer: «Nur ansehen» is a property of the incident, and the incident
    *  lives in the head (23.08.). The chip carries the two deliberate exits with it. */
@@ -89,7 +96,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, onShare, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -232,6 +239,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
               </>}
           </button>
         )}
+        <TeilenMenu onShare={onShare} archived={archived} />
         {/* wrapped in a stable class so the phone rule can lift it out of the bar — see
             .tb-share in app.css. The bar's four 44px actions do not fit a 390px screen. */}
         {shareSlot && <span className="tb-share">{shareSlot}</span>}
@@ -290,6 +298,48 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         })()}
       </div>
     </div>
+  )
+}
+
+/** «Teilen» — all three handovers of an Einsatz in one place, on the same labelled-dropdown
+ *  pattern as the Einsatzuhr and the Abschluss chip beside it (`tb-uhr-menu`). Every row names
+ *  what it does, who it is for and how long it lasts, because at 3am the question is «wem gebe
+ *  ich das» and not «welche Art Link ist das». Nothing is minted by opening the menu — each row
+ *  opens its own sheet.
+ *
+ *  The rows come from `lib/viewLink · teilenRows`, so the phone's `TeilenSheet` offers
+ *  exactly the same three: on a phone `.tb-act-teilen` steps aside (15-mobile.css, the bar's 44px
+ *  budget is spoken for) and the Einsatz-Karte's «Teilen» opens that sheet instead.
+ *
+ *  Editor-only, and it arrives as ONE optional callback: a viewer, a read-only surface and a link
+ *  session render no button at all rather than one that then refuses.
+ *
+ *  After the Abschluss the same rule applies per ROW instead of to the button: `teilenRows`
+ *  drops the two links that die with the Einsatz and keeps the Rapport-Link, which is the one
+ *  somebody comes back for. With none left the button goes too. */
+function TeilenMenu({ onShare, archived }: { onShare?: (door: ShareDoor) => void; archived?: boolean }) {
+  const C = appConfig.copy.topBar
+  const rows = teilenRows({ archived })
+  if (!onShare || rows.length === 0) return null
+  return (
+    <Popover
+      side="bottom"
+      align="end"
+      popupClassName="tb-uhr-menu tb-teilen-menu"
+      ariaLabel={C.share}
+      trigger={
+        <button type="button" className="tb-act icon tb-act-teilen" title={C.share} aria-label={C.share}>
+          <Icon id="share-ios" />
+        </button>
+      }
+    >
+      {rows.map((r) => (
+        <PopoverClose key={r.door} className="tb-uhr-row" onClick={() => onShare(r.door)}>
+          <Icon id={r.icon} />
+          <span className="tb-uhr-lbl">{r.label}<small>{r.sub}</small></span>
+        </PopoverClose>
+      ))}
+    </Popover>
   )
 }
 

@@ -36,6 +36,20 @@ narrowed a second time inside their handlers: only ``kind == "team"`` rows and o
 ``atemschutz.*`` op_types, and both are stamped ``atemschutz-link`` so the record says where
 they came from.
 
+WHOSE SESSION IS THIS (2026-09-02)
+----------------------------------
+A link is «just the literal page». Opening one must not change what the *device* is logged in
+as, and a device login must not change what the link page shows. The link cookie is site-wide
+— it has to be, because ``<img src="/api/media/…">`` and the service worker cannot carry a
+header — so its mere PRESENCE used to decide what the whole browser was: the bare site
+answered as the link's viewer, a dead link cookie 403'd the login screen behind it, and the
+Atemschutz link «solved» the other direction by logging the phone OUT of its own account
+before exchanging.
+
+The page therefore says which session it is asking with, on every request the SPA makes
+(``LINK_MODE_HEADER``, set in src/lib/api.ts · rawFetch). Nothing is inferred from a cookie
+that happens to be lying around.
+
 TWO KEYS, DELIBERATELY
 ----------------------
 1. ``DeploymentConfig.incident_link_key`` — the station's *minting* key, shared with the
@@ -102,6 +116,21 @@ from .security import decode_token
 
 LINK_COOKIE = "link_session"
 
+#: How a PAGE tells the server which session it is asking with — see "WHOSE SESSION IS THIS".
+#: Three cases, and the third is why this is a header and not a second cookie:
+#:
+#:   "off"  — the ordinary app, /admin, the login screen. The link cookie is none of this
+#:            page's business and is not read at all, however long it still lives.
+#:   "use"  — this page IS the link, and its link session is the authority: read the link
+#:            cookie even when the device also holds a login of its own. Only the Atemschutz
+#:            link sends this, because the handed-over Tafel has to be the Tafel on a phone
+#:            whose owner happens to be signed in as well — WITHOUT touching that login.
+#:   absent — a subresource the browser fetches with no headers of ours (media in an <img>,
+#:            the service worker, the manifest, the SPA shell), and the alarm/view link pages:
+#:            the original rule, i.e. a link cookie counts only where there is no login. A
+#:            signed-in member who taps an alert link stays who they are.
+LINK_MODE_HEADER = "X-Incident-Link"
+
 #: The SPA fallback route in spa.py.
 _SPA_FALLBACK = "/{full_path:path}"
 
@@ -128,9 +157,6 @@ _LIVENESS_EXEMPT: frozenset[tuple[str, str]] = frozenset(
         ("GET", _SPA_FALLBACK),
         ("GET", _WEBMANIFEST),
         ("POST", "/api/incident-link/session"),
-        # Shedding a link session must work even after the link itself has died — it is the
-        # way back to the login screen on that browser (cookies · clear_auth_cookies).
-        ("POST", "/api/auth/logout"),
     }
 )
 
@@ -188,9 +214,11 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/auth/roster"),
         ("POST", "/api/auth/login"),
         ("POST", "/api/admin/login"),
-        # …and so must signing OUT: it is the only way to end a link session by hand, and a
-        # browser that cannot shed the cookie is stuck on that one Einsatz for its TTL.
-        ("POST", "/api/auth/logout"),
+        # Signing OUT is deliberately NOT here (02.09.). A link is the literal page and owns
+        # no session on this device: it cannot end one either. Nothing needs it any more —
+        # the bare site ignores a link cookie outright (LINK_MODE_HEADER), so there is no
+        # «stuck on that one Einsatz» state left to escape from — and refusing it is what
+        # makes «tapping a link never logs this phone out» true even of a future stray call.
         ("GET", "/api/auth/me"),
         ("GET", "/api/config"),
         ("GET", "/api/plan-scales"),
@@ -261,20 +289,33 @@ ATEMSCHUTZ_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
 _INCIDENT_PARAMS = ("incident_id",)
 
 
+def link_page_owns_session(request: Request) -> bool:
+    """True when the page making this request IS a link page that answers for itself
+    (``LINK_MODE_HEADER`` = "use"). Then the link session outranks any login the device
+    holds — and, just as importantly, leaves that login alone."""
+    return request.headers.get(LINK_MODE_HEADER) == "use"
+
+
 def read_link_session(request: Request) -> dict | None:
     """The link session's claims, or None when this request isn't one.
 
     This answers *who the caller is*, not *what they may reach* — the second question is
     ``enforce_link_scope``'s, and conflating them broke the feature on the one browser that
-    matters most. Only a real user session wins here, because only that is an identity
-    ``get_current_user`` can resolve. An admin cookie is deliberately NOT consulted: admin
-    endpoints authorise on the secret and resolve to no user at all, so treating one as an
-    identity leaves a link holder with none — every read 401s, on the operator's own
-    browser, for as long as their admin session lasts.
+    matters most. An admin cookie is deliberately NOT consulted: admin endpoints authorise on
+    the secret and resolve to no user at all, so treating one as an identity leaves a link
+    holder with none — every read 401s, on the operator's own browser, for as long as their
+    admin session lasts.
+
+    Which of the two cookies wins is the PAGE's answer, not this cookie jar's — see
+    ``LINK_MODE_HEADER``. A page that is not a link page is never a link session, even while
+    a link cookie is still lying in the browser; a page that is one is never anything else.
     """
     from .cookies import ACCESS_COOKIE
 
-    if request.cookies.get(ACCESS_COOKIE):
+    mode = request.headers.get(LINK_MODE_HEADER)
+    if mode == "off":
+        return None
+    if mode != "use" and request.cookies.get(ACCESS_COOKIE):
         return None
     raw = request.cookies.get(LINK_COOKIE)
     if not raw:

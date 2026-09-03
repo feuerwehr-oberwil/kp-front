@@ -166,12 +166,13 @@ export function AtemschutzView({
    * Trupp on the Karte, picking or showing a Leitung, moving a card in the board order, and the
    * order menu itself. `subtitle` replaces the generic one, because the one thing this screen
    * must say and otherwise could not is WHICH Einsatz it is watching.
+   *
+   * ⚠️ It carries no «Abmelden» and no other way «off» the board (02.09.). The link is the
+   * literal page: it owns no login on this phone to end, and the button that stood beside the
+   * bell ended the phone's OWN one. Leaving is closing the page; coming back is the link.
    */
   lite?: {
     subtitle: string
-    /** «Abmelden»: end the link session and go back to the login. The lite shell has no menu,
-     *  so this is the ONE way off the handed-over board on that browser. */
-    onLeave: () => void
   }
   /** The incident's sync lifecycle (useIncidentSync), rendered in the board's OWN header
    *  (safety review 01.09.): the surface a life depends on must say itself whether what it
@@ -233,15 +234,17 @@ export function AtemschutzView({
    * Safari's own ✕). A `beforeunload` confirm is not the fix here: iOS Safari does not reliably
    * show one for a plain tab close, and `useIncidentSync` already dropped `beforeunload`
    * app-wide because it blocks the back/forward cache — adding it back for one surface would
-   * regress that for every surface sharing the page. What actually answers the field report is
-   * that the link session already survives a closed tab: the exchange sets a real cookie good
-   * for `incident_link_session_ttl` (12 h, backend/app/auth/incident_link.py), so revisiting the
-   * SAME address — the original link again, or the bare site — reopens this exact board with no
-   * re-exchange visible at all (auth/dependencies.py falls back to the link cookie once no
-   * normal login is present). Telling the holder that ONCE, the first time this handed-over
-   * board is shown on a device, turns an accidental tap from «I lost the session» into a known,
-   * recoverable non-event — never repeated (localStorage), and never on a device that can reach
-   * the rest of the app anyway (only `lite` needed telling).
+   * regress that for every surface sharing the page. What answers the field report is that the
+   * ADDRESS is the way back: opening the same link again — from the message it arrived in, the
+   * browser's own history, or the QR held out a second time — puts this exact board back, and
+   * the exchange behind it is invisible.
+   *
+   * ⚠️ It says the LINK, not the device (reworded 02.09.). It used to promise that «this device
+   * stays signed in for a few hours», which was true of the cookie and wrong about everything
+   * else: a link signs nothing in, and the sentence taught the one thing a handed-over board
+   * must never suggest — that scanning somebody's QR did something to this phone's own login.
+   * Once per device (localStorage), and only on the handed-over board, which is the only screen
+   * whose holder cannot simply reach the rest of the app.
    */
   useEffect(() => {
     if (!lite) return
@@ -649,6 +652,21 @@ export function AtemschutzView({
   // TRUE now, not what the press would do.
   const shareLabel = shareLinkActive ? az.shareLinkOn : az.shareLink
 
+  // ⚠️ ONE bell, THREE honest states — and every one of them says what is TRUE now, not what the
+  // press would do (see `bellLabel` above). Rendered as ONE element so the header (every board)
+  // and the lite/phone bottom rail (mock 03 · focusMode) share the exact same button rather than
+  // two copies that could drift.
+  const bellButton = (
+    <button
+      className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
+      onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
+      aria-pressed={muted}
+      aria-label={bellLabel} title={bellLabel}
+    >
+      <Icon id={muted ? 'bell-off' : 'bell'} />
+    </button>
+  )
+
   /* ── The board's own sync/clock line, under the subtitle ──────────────────────────────────
    * Same vocabulary as the incident switcher (its copy, its chip classes — learned once):
    * quiet while the record is safe (tick / amber dot + «Gespeichert um HH:MM» in the
@@ -674,7 +692,11 @@ export function AtemschutzView({
         <span className={cx('az-sync-quiet', syncStatus === 'pending' && 'az-sync-pending')}
           title={syncStatus === 'pending' ? cpSync.badgePending : savedAtText}>
           {syncStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
-          <span>{savedAtText}</span>
+          {/* On the lite/phone focus board (mock 03) the header row has no width to spare for
+              the whole sentence — the check icon already says «saved», so this shrinks to the
+              bare time. The full «Gespeichert um HH:MM» stays in `title` (a11y/hover) and is
+              what the tablet header keeps saying out loud (focusMode false). */}
+          <span>{focusMode ? (lastSyncedAt != null ? formatTime(new Date(lastSyncedAt)) : null) : savedAtText}</span>
         </span>
       ) : syncStatus ? (
         <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
@@ -698,15 +720,28 @@ export function AtemschutzView({
 
   return (
     <div className={cx(s.surface, lite && s.surfaceLite)} onPointerDownCapture={primeOnFirstTap}>
-      <header className={s.head}>
-        <div className={s.headTitles}>
-          <h2>{az.title}</h2>
-          {/* ⚠️ On the handed-over Tafel the subtitle is the EINSATZ, not the generic sentence
-              about what the board is for. Nothing else on that screen names it, and «welcher
-              Einsatz ist das» is the first question somebody scanning a code from a stranger's
-              tablet has. Not a second header — this line already exists. */}
-          <p>{lite ? lite.subtitle : az.subtitle}</p>
-          {syncLine}
+      <header className={cx(s.head, focusMode && s.headCompact)}>
+        <div className={cx(s.headTitles, focusMode && s.headTitlesCompact)}>
+          {focusMode ? (
+            /* mock 03: the kicker is GONE here — «Atemschutzüberwachung» cost a whole row's
+               height to repeat what the whole screen is already for, and the strip below already
+               reads «Trupp». Only the Einsatz's own name earns this line, alongside the shrunk
+               sync state (see `syncLine` above); the bell stays right of it, in `.headActs`. */
+            <div className={s.headRow}>
+              <h2>{lite ? lite.subtitle : az.subtitle}</h2>
+              {syncLine}
+            </div>
+          ) : (
+            <>
+              <h2>{az.title}</h2>
+              {/* ⚠️ On the handed-over Tafel the subtitle is the EINSATZ, not the generic sentence
+                  about what the board is for. Nothing else on that screen names it, and «welcher
+                  Einsatz ist das» is the first question somebody scanning a code from a stranger's
+                  tablet has. Not a second header — this line already exists. */}
+              <p>{lite ? lite.subtitle : az.subtitle}</p>
+              {syncLine}
+            </>
+          )}
         </div>
         {/* ⚠️ ONE group, not four siblings. `.head` wraps, and as direct children the badge, the
             sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
@@ -784,12 +819,6 @@ export function AtemschutzView({
             ]}
           />
         )}
-        {/* ⚠️ ONE bell, THREE honest states — and every one of them says what is TRUE now, not
-            what the press would do. The label used to be the action («Alarmton ausschalten», so
-            the tone must be on), which was a claim the button could not keep: the alarm needs an
-            AudioContext the browser only releases inside a gesture, and nothing on this screen
-            guaranteed one. «Nicht freigegeben» outranks «an» because it is the state somebody has
-            to act on — and its tap retries the unlock instead of muting. See useAtemschutzMute. */}
         {/* «Überwachung abgeben»: the QR, beside the bell, because the realistic handover in an
             Einsatz is «Handy scannen lassen» and the FU is standing on THIS page when they
             decide to. Green while a link is live — the same 44px square as the two controls
@@ -804,21 +833,12 @@ export function AtemschutzView({
             <Icon id="qr" />
           </button>
         )}
-        {lite && (
-          <button type="button" className={s.orderBtn} onClick={lite.onLeave}
-            aria-label={appConfig.copy.incidentSwitcher.logout} title={appConfig.copy.incidentSwitcher.logout}>
-            <Icon id="logout" />
-          </button>
-        )}
-        <button
-          className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
-          onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
-          aria-pressed={muted}
-          aria-label={bellLabel} title={bellLabel}
-        >
-          <Icon id={muted ? 'bell-off' : 'bell'} />
-        </button>
-        {/* in focus mode the strip's own «+ Trupp» tab is the door — not a second one up here */}
+        {/* ⚠️ Stays HERE even on the lite/phone focus board (maintainer correction, 03.09.): an
+            earlier pass moved it down beside the strip, but the review put it back — top row,
+            right side, beside the shrunk «Gespeichert» check. Only the chip strip and the
+            compact «+» actually belong in the bottom rail. */}
+        {bellButton}
+        {/* in focus mode «+ Trupp» lives in the rail beside the strip — not a second one up here */}
         {canEdit && !focusMode && (
           <button className={s.newBtn} onClick={() => openForm('create')}>
             <Icon id="plus-bold" /><span>{az.newTrupp}</span>
@@ -833,48 +853,68 @@ export function AtemschutzView({
             <Icon id="warn" />
             <p>{az.empty}</p>
             <span>{az.emptyHint}</span>
-            {canEdit && focusMode && (
-              <button className={s.newBtn} onClick={() => openForm('create')}>
-                <Icon id="plus-bold" /><span>{az.newTrupp}</span>
-              </button>
-            )}
+            {/* «+ Trupp» lives in the bottom rail below (focusMode) whether or not the board is
+                empty — the rail renders regardless of `trupps.length`, so there is no second
+                door to keep in sync here. */}
           </div>
         ) : focusMode ? (
-          <>
-            <div className={s.strip} role="tablist" aria-label={az.title}>
-              {board.map((t) => {
-                const lv = live.get(t.id)!
-                const sev = alarms.get(t.id)!.sev
-                return (
-                  <button
-                    key={t.id} type="button" role="tab" aria-selected={t.id === focusId}
-                    className={cx(s.tab, t.id === focusId && s.tabOn, sev === 1 && s.tabWarn, sev >= 2 && s.tabCrit, lv.sinceContactSec == null && s.tabIdle)}
-                    onClick={() => setPicked(t.id)}
-                  >
-                    {/* ⚠️ NO Truppfarbe dot here (round 2 review): the lite board drops every
-                        colour accent — the Lage/plan identity a colour normally carries means
-                        nothing on a screen that never shows the Lage or the plan. The full name
-                        is what identifies the Trupp here, so it wraps rather than clips (a name
-                        like «Binggeli Michael» was cut mid-word against this chip's width). */}
-                    <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
-                    <span className={s.tabClock}>{fmtClock(lv.sinceContactSec)}</span>
-                  </button>
-                )
-              })}
-              {canEdit && (
-                <button type="button" className={cx(s.tab, s.tabNew)} onClick={() => openForm('create')} aria-label={az.newTrupp}>
-                  <span className={s.tabName}><Icon id="plus-bold" />{az.liteNewTab}</span>
-                </button>
-              )}
-            </div>
-            <div className={s.focusCard}>{cards(board.filter((t) => t.id === focusId))}</div>
-          </>
+          /* top-aligned: the card takes only what it needs, never stretched to fill the port
+             (`.focusCard`'s own `align-items: flex-start`) — the strip that used to sit above it
+             moved to the bottom rail below (mock 03: «status where the eyes land, actions where
+             the thumb lives»). */
+          <div className={s.focusCard}>{cards(board.filter((t) => t.id === focusId))}</div>
         ) : (
           <div ref={listRef} className={cx(compact ? s.rowList : s.grid, compact && openRow && s.rowListOpen)}>
             {cards(board)}
           </div>
         )}
       </div>
+
+      {/* ── Bottom rail (mock 03, maintainer correction 03.09. — twice: the bell was tried down
+          here and put back in the header) ────────────────────────────────────────────────────
+          The chip strip and «+ Trupp» move down here, into the thumb zone, mirroring the app's
+          own phone bottom bars (`--rail-h`, src/styles/15-mobile.css): status/selection where
+          the eyes land (the content above), actions where the thumb already rests. Rendered
+          regardless of `trupps.length` so «+ Trupp» is always reachable even on an empty board —
+          the strip's own grid then simply draws no tabs. Generous bottom padding
+          (`env(safe-area-inset-bottom)`) keeps a thumb reaching for Kontakt or a tab away from
+          Safari's own bottom chrome. */}
+      {focusMode && (
+        <div className={s.bottomRail}>
+          <div className={s.strip} role="tablist" aria-label={az.title}>
+            {board.map((t) => {
+              const lv = live.get(t.id)!
+              const sev = alarms.get(t.id)!.sev
+              return (
+                <button
+                  key={t.id} type="button" role="tab" aria-selected={t.id === focusId}
+                  className={cx(s.tab, t.id === focusId && s.tabOn, sev === 1 && s.tabWarn, sev >= 2 && s.tabCrit, lv.sinceContactSec == null && s.tabIdle)}
+                  onClick={() => setPicked(t.id)}
+                >
+                  {/* ⚠️ NO Truppfarbe dot here (round 2 review): the lite board drops every
+                      colour accent — the Lage/plan identity a colour normally carries means
+                      nothing on a screen that never shows the Lage or the plan. The full name
+                      is what identifies the Trupp here, so it wraps rather than clips (a name
+                      like «Binggeli Michael» was cut mid-word against this chip's width). */}
+                  <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
+                  <span className={s.tabClock}>{fmtClock(lv.sinceContactSec)}</span>
+                </button>
+              )
+            })}
+          </div>
+          {/* «+ Trupp» no longer eats a full chip row (`.tabNew` used to be its own
+              `grid-column: 1 / -1`) — it is a compact icon button at the rail's own trailing
+              end, so it never competes with the chip grid for width. The bell stays in the
+              header (maintainer correction, 03.09.) — this rail carries chips + «+» only. */}
+          {canEdit && (
+            <div className={s.railActs}>
+              <button type="button" className={s.orderBtn} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
+                <Icon id="plus-bold" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {form && (
         <TruppForm
@@ -1280,117 +1320,167 @@ function TruppCard({
     })
   }
 
+  /* ── the pieces BOTH shells render, built once ──────────────────────────────────────────────
+   * The card has two shells: the tablet's banner + name block, and the phone focus card's
+   * condensed toprow + metaline (`big`, density redesign mock 02). Only the WRAPPERS may fork –
+   * the action group, the crew names and the Auftrag/Ziel/Leitung/Kanal chips are built here, so
+   * a new chip or a copy change can never land in one shell and be missed in the other.
+   *
+   * `big` is only ever set together with `lite`, and focus mode passes neither `onMove` nor
+   * `onCollapse` (AtemschutzView · focusMode). So on the phone card the group below collapses to
+   * exactly Bearbeiten + Entfernen – every control that points at a Karte/Plan this session
+   * cannot reach is already withheld by `lite` itself, which is the right place for that rule.
+   */
+  const actions = (
+    /* The actions ride in their own group so they wrap as a block if a card ever gets narrow
+       enough — the status word must never be the thing that gets abbreviated. */
+    <div className={s.cardActs}>
+      {/* Only while the hand-set order is the one on screen: moving a card under any other
+          sort would rearrange something the sort is about to rearrange back. */}
+      {onMove && canEdit && !lite && (
+        <>
+          <button className={s.iconBtn} aria-label={az.moveBack} title={az.moveBack} onClick={() => onMove(t.id, -1)}>
+            <Icon id="chevron-left" />
+          </button>
+          <button className={s.iconBtn} aria-label={az.moveForward} title={az.moveForward} onClick={() => onMove(t.id, 1)}>
+            <Icon id="chevron" />
+          </button>
+        </>
+      )}
+      {canEdit && status !== 'raus' && (
+        <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={() => onEdit()}>
+          <Icon id="pen" />
+        </button>
+      )}
+      {lite ? null : (t.annoId || t.entityId) ? (
+        <button className={s.iconBtn} aria-label={t.entityId ? az.showOnMap : az.showOnPlan} title={t.entityId ? az.showOnMap : az.showOnPlan} onClick={() => onShowPlan(t.id)}>
+          <Icon id={t.entityId ? 'map' : 'doc'} />
+        </button>
+      ) : canEdit && status !== 'raus' && (
+        <button className={s.iconBtn} aria-label={az.place} title={az.place} onClick={() => onPlace(t.id)}>
+          <Icon id="footprint" />
+        </button>
+      )}
+      {/* The Leitung this Trupp works on — the same shape as the placement button above it:
+          nothing drawn yet ⇒ pick one, drawn ⇒ GO there. Letting go of a Leitung is not an
+          icon: it is clearing the number in the form (or «Kein Trupp» on the line itself),
+          which is where the operator already is when they change their mind. */}
+      {lite ? null : hasLine ? (
+        <button className={s.iconBtn} aria-label={az.lineShow} title={az.lineShow} onClick={() => onShowLine(t.id)}>
+          <Icon id="drop" />
+        </button>
+      ) : canEdit && status !== 'raus' && (
+        <button className={s.iconBtn} aria-label={az.linePick} title={az.linePick} onClick={() => onPickLine(t.id)}>
+          <Icon id="drop" />
+        </button>
+      )}
+      {canEdit && (
+        <button className={`${s.iconBtn} ${s.danger}`} aria-label={az.remove} title={az.remove} onClick={doDelete}>
+          <Icon id="trash" />
+        </button>
+      )}
+      {/* Back to the row. Present only while the board is in compact mode, where this card was
+          opened FROM a row — otherwise there is nothing to collapse to.
+          ⚠️ LAST, i.e. the rightmost control — deliberately the pixel the row's own «›» sat on.
+          With the collapse first, that pixel belonged to «Entfernen»: tap a row to open it, tap
+          the same spot again, and you deleted the Trupp. Now the same place toggles the card
+          open and shut, and it shields the destructive button behind it. */}
+      {onCollapse && (
+        <button className={`${s.iconBtn} ${s.collapseBtn}`} aria-label={az.collapse} title={az.collapse} onClick={onCollapse}>
+          <Icon id="chevron-up" />
+        </button>
+      )}
+    </div>
+  )
+
+  // The crew as one string; each shell decides only where it sits (its own line on the tablet,
+  // inline before the chips on the phone card).
+  const crewNames = t.members?.filter(Boolean) ?? []
+  const crew = crewNames.join(' · ')
+
+  const tags = (
+    <div className={s.tags}>
+      {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door),
+          so its ABSENCE has to be visible — a Trupp with no job on the card is a question
+          the Überwacher has to be able to see, not one nobody thinks to ask. */}
+      {auftrag
+        ? <span className={cx(s.tag, s.tagAuftrag)}>{auftrag}</span>
+        : <button type="button" className={cx(s.tag, s.tagAuftragOpen)} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>}
+      {t.ziel && <span className={s.tagZiel}>{t.ziel}</span>}
+      {/* the numeric Leitung, else the free text an older record still carries verbatim */}
+      {/* ⚠️ On the lite board the number still SHOWS (a Trupp's Leitung is a fact the
+          Überwacher needs) but stops being a jump: there is no Karte to land on – which is
+          also why the phone focus card, always `lite`, never grows the button. */}
+      {lineTag && (hasLine && !lite ? (
+        <button type="button" className={cx(s.tag, s.tagGo)} title={az.lineShow} onClick={() => onShowLine(t.id)}>
+          {az.lineField} {lineTag}<Icon id="chevron" />
+        </button>
+      ) : (
+        <span className={s.tag}>{az.lineField} {lineTag}</span>
+      ))}
+      {t.funkkanal != null && <span className={s.tag}>Kanal {t.funkkanal}</span>}
+    </div>
+  )
+
   return (
     /* ⚠️ The border/banner colour follows the TIER, not the lifecycle status: a Trupp at its
        Alarmdruck is red even while it is «Im Einsatz». The WORD stays the lifecycle state —
        what kind of alarm it is belongs to the clock block, which says so in full. */
     <div ref={cardRef} data-az-open={onCollapse ? "" : undefined}
       className={cx(s.card, big && s.cardBig, s[`st-${sev >= 2 ? 'ueberfaellig' : status}`])}>
-      <div className={s.cardBanner}>
-        {/* ⚠️ NO dot in front of the status. A card already carries one coloured disc — the
-            Truppfarbe beside the name, which is the Trupp's identity on the Lage and the plan.
-            A second disc at the top of the same card, in a status colour, was read as that
-            identity: «warum ist Trupp 2 plötzlich grün». The word is the state, the top border
-            and the banner tint already carry its colour, and the one dot on the card means the
-            one thing. */}
-        <span className={s.statusLabel}>{statusLabel}</span>
-        {/* The actions ride in their own group so they wrap as a block if a card ever gets narrow
-            enough — the status word must never be the thing that gets abbreviated. */}
-        <div className={s.cardActs}>
-          {/* Back to the row. Present only while the board is in compact mode, where this card was
-              opened FROM a row — otherwise there is nothing to collapse to. */}
-          {/* Only while the hand-set order is the one on screen: moving a card under any other
-              sort would rearrange something the sort is about to rearrange back. */}
-          {onMove && canEdit && !lite && (
-            <>
-              <button className={s.iconBtn} aria-label={az.moveBack} title={az.moveBack} onClick={() => onMove(t.id, -1)}>
-                <Icon id="chevron-left" />
-              </button>
-              <button className={s.iconBtn} aria-label={az.moveForward} title={az.moveForward} onClick={() => onMove(t.id, 1)}>
-                <Icon id="chevron" />
-              </button>
-            </>
-          )}
-          {canEdit && status !== 'raus' && (
-            <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={() => onEdit()}>
-              <Icon id="pen" />
-            </button>
-          )}
-          {lite ? null : (t.annoId || t.entityId) ? (
-            <button className={s.iconBtn} aria-label={t.entityId ? az.showOnMap : az.showOnPlan} title={t.entityId ? az.showOnMap : az.showOnPlan} onClick={() => onShowPlan(t.id)}>
-              <Icon id={t.entityId ? 'map' : 'doc'} />
-            </button>
-          ) : canEdit && status !== 'raus' && (
-            <button className={s.iconBtn} aria-label={az.place} title={az.place} onClick={() => onPlace(t.id)}>
-              <Icon id="footprint" />
-            </button>
-          )}
-          {/* The Leitung this Trupp works on — the same shape as the placement button above it:
-              nothing drawn yet ⇒ pick one, drawn ⇒ GO there. Letting go of a Leitung is not an
-              icon: it is clearing the number in the form (or «Kein Trupp» on the line itself),
-              which is where the operator already is when they change their mind. */}
-          {lite ? null : hasLine ? (
-            <button className={s.iconBtn} aria-label={az.lineShow} title={az.lineShow} onClick={() => onShowLine(t.id)}>
-              <Icon id="drop" />
-            </button>
-          ) : canEdit && status !== 'raus' && (
-            <button className={s.iconBtn} aria-label={az.linePick} title={az.linePick} onClick={() => onPickLine(t.id)}>
-              <Icon id="drop" />
-            </button>
-          )}
-          {canEdit && (
-            <button className={`${s.iconBtn} ${s.danger}`} aria-label={az.remove} title={az.remove} onClick={doDelete}>
-              <Icon id="trash" />
-            </button>
-          )}
-          {/* ⚠️ LAST, i.e. the rightmost control — deliberately the pixel the row's own «›» sat on.
-              With the collapse first, that pixel belonged to «Entfernen»: tap a row to open it, tap
-              the same spot again, and you deleted the Trupp. Now the same place toggles the card
-              open and shut, and it shields the destructive button behind it. */}
-          {onCollapse && (
-            <button className={`${s.iconBtn} ${s.collapseBtn}`} aria-label={az.collapse} title={az.collapse} onClick={onCollapse}>
-              <Icon id="chevron-up" />
-            </button>
-          )}
-        </div>
-      </div>
+      {big ? (
+        /* ── condensed identity: the lite/phone focus card (density redesign, mock 02) ──
+           Name, its status pill and the actions share ONE row; crew and the chips share the
+           next. Purely a different arrangement of the SAME pieces built above – nothing here
+           may grow content of its own. */
+        <>
+          <div className={s.toprow}>
+            <span className={s.toprowName}>{t.name}</span>
+            <span className={s.toprowPill}>{statusLabel}</span>
+            {actions}
+          </div>
+          <div className={s.metaline}>
+            {!!crewNames.length && (
+              <>
+                <span className={s.metalineCrew}>{crew}</span>
+                <span className={s.metalineSep}>·</span>
+              </>
+            )}
+            {tags}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className={s.cardBanner}>
+            {/* ⚠️ NO dot in front of the status. A card already carries one coloured disc — the
+                Truppfarbe beside the name, which is the Trupp's identity on the Lage and the plan.
+                A second disc at the top of the same card, in a status colour, was read as that
+                identity: «warum ist Trupp 2 plötzlich grün». The word is the state, the top border
+                and the banner tint already carry its colour, and the one dot on the card means the
+                one thing. */}
+            <span className={s.statusLabel}>{statusLabel}</span>
+            {actions}
+          </div>
 
-      <div className={s.cardName}>
-        {/* the colour this Trupp wears on the Lage / plan, so the card and the symbol out there
-            read as the same Trupp. EVERY Trupp has one, the automatically-coloured ones included
-            (useTruppActions · truppColors) — a hole in this column read as «no colour» on a board
-            where colour is identity.
-            ⚠️ NOT on the lite board (round 2 review): a link session never sees the Lage or the
-            plan, so the colour carries no identity there — it read as an arbitrary dot on
-            somebody's phone. The normal app keeps it exactly as above. */}
-        <div className={s.nameRow}>
-          {color && !lite && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
-          <span className={s.nameStatic}>{t.name}</span>
-        </div>
-        {!!t.members?.filter(Boolean).length && (
-          <div className={s.members}>{t.members.filter(Boolean).join(' · ')}</div>
-        )}
-        <div className={s.tags}>
-            {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door),
-                so its ABSENCE has to be visible — a Trupp with no job on the card is a question
-                the Überwacher has to be able to see, not one nobody thinks to ask. */}
-            {auftrag
-              ? <span className={cx(s.tag, s.tagAuftrag)}>{auftrag}</span>
-              : <button type="button" className={cx(s.tag, s.tagAuftragOpen)} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>}
-            {t.ziel && <span className={s.tagZiel}>{t.ziel}</span>}
-            {/* the numeric Leitung, else the free text an older record still carries verbatim */}
-            {/* ⚠️ On the lite board the number still SHOWS (a Trupp's Leitung is a fact the
-                Überwacher needs) but stops being a jump: there is no Karte to land on. */}
-            {lineTag && (hasLine && !lite ? (
-              <button type="button" className={cx(s.tag, s.tagGo)} title={az.lineShow} onClick={() => onShowLine(t.id)}>
-                {az.lineField} {lineTag}<Icon id="chevron" />
-              </button>
-            ) : (
-              <span className={s.tag}>{az.lineField} {lineTag}</span>
-            ))}
-            {t.funkkanal != null && <span className={s.tag}>Kanal {t.funkkanal}</span>}
-        </div>
-      </div>
+          <div className={s.cardName}>
+            {/* the colour this Trupp wears on the Lage / plan, so the card and the symbol out there
+                read as the same Trupp. EVERY Trupp has one, the automatically-coloured ones included
+                (useTruppActions · truppColors) — a hole in this column read as «no colour» on a board
+                where colour is identity.
+                ⚠️ NOT on the lite board (round 2 review): a link session never sees the Lage or the
+                plan, so the colour carries no identity there — it read as an arbitrary dot on
+                somebody's phone. The normal app keeps it exactly as above. */}
+            <div className={s.nameRow}>
+              {color && !lite && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
+              <span className={s.nameStatic}>{t.name}</span>
+            </div>
+            {!!crewNames.length && (
+              <div className={s.members}>{crew}</div>
+            )}
+            {tags}
+          </div>
+        </>
+      )}
 
       {t.status === 'angemeldet' ? (
         <div className={s.preEntry}>{az.preEntryHint}</div>
@@ -1403,11 +1493,12 @@ function TruppCard({
           {live.sinceContactSec != null ? (
             <button
               type="button"
-              className={cx(s.contactClock, s.zoneClock, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
+              className={cx(s.contactClock, s.zoneClock, big && s.clockBand, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
               aria-expanded={timesOpen} title={az.zoneTimes}
               onClick={() => setTimesOpen((o) => !o)}
             >
               <div
+                className={big ? s.clockBandInner : undefined}
                 role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
                 aria-label={`${clockState} — ${clockValue} ${clockLabel}`}
               >
@@ -1419,13 +1510,15 @@ function TruppCard({
             </button>
           ) : (
             <div
-              className={cx(s.contactClock, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
+              className={cx(s.contactClock, big && s.clockBand, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
               role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
               aria-label={`${clockState} — ${clockValue} ${clockLabel}`}
             >
-              <div className={s.contactState}>{clockState}</div>
-              <div className={s.contactVal}>{clockValue}</div>
-              <div className={s.contactLbl}>{clockLabel}</div>
+              <div className={big ? s.clockBandInner : undefined}>
+                <div className={s.contactState}>{clockState}</div>
+                <div className={s.contactVal}>{clockValue}</div>
+                <div className={s.contactLbl}>{clockLabel}</div>
+              </div>
             </div>
           )}
           {timesOpen && live.sinceContactSec != null && (() => {

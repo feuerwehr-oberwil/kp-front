@@ -37,11 +37,20 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str |
 
 
 def clear_auth_cookies(response: Response) -> None:
+    """«Abmelden» sheds everything this browser is – its login AND any link session.
+
+    The link cookie goes too, and that does not undo the decoupling. Opening a link still does
+    not sign this device out, and the SPA never reads a link cookie once a page has said it is
+    not one (auth/incident_link · LINK_MODE_HEADER); the direction that still matters is the
+    one nothing else covers. The link cookie is site-wide and lasts 12 h, so requests the
+    browser makes with NO header of ours – an address typed into the bar, an ``<img
+    src="/api/media/…">``, the service worker – keep answering as the link guest long after
+    the person handed the tablet back. «Abmelden» is the one gesture that means «I am done on
+    this device», so it is the one place that must end that too. A link page loses nothing: it
+    has no Abmelden of its own (src/App), and its token is still in its address bar.
+    """
     response.delete_cookie(ACCESS_COOKIE, path="/")
     response.delete_cookie(REFRESH_COOKIE, path="/")
-    # A link session ends the same way. Without this, «Abmelden» on a phone that opened an
-    # Einsatz-Link left the link cookie behind, and the browser landed on the linked Einsatz
-    # again at every visit with no way back to the login (auth/incident_link · LINK_COOKIE).
     response.delete_cookie(LINK_COOKIE, path="/")
 
 

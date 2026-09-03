@@ -298,12 +298,16 @@ describe('the page says what the workbook is not', () => {
 
   it('downloads the station’s own file as the template and the undo', async () => {
     const blob = new Blob([new Uint8Array([80, 75])])
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, blob: async () => blob }))
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => blob })
+    vi.stubGlobal('fetch', fetchMock)
     mount()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: C.download })) })
 
     expect(downloadBlob).toHaveBeenCalledTimes(1)
     expect(downloadBlob.mock.calls[0][1]).toMatch(/^stationsdaten-\d{4}-\d{2}-\d{2}\.xlsx$/)
+    // A binary GET goes around the api client, so it has to carry the session-mode header by
+    // hand (api · rawFetch): /admin is the ordinary app, never some link cookie's viewer.
+    expect(fetchMock.mock.calls[0][1].headers['X-Incident-Link']).toBe('off')
     vi.unstubAllGlobals()
   })
 })

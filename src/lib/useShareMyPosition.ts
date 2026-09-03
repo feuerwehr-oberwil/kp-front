@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { isDemoMode } from './deploymentConfig'
 import { haversineM } from './geo'
+import { linkSessionHeaders } from './linkMode'
 import { loadPrefs, savePrefs, type SharePositionPref } from './prefs'
 import type { LngLat } from '../types'
 
@@ -171,7 +172,9 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
     if (isDemoMode()) return
     if (!incidentId || !current?.personId || !current.deviceId) return
     const url = `/api/incidents/${incidentId}/positions/${current.personId}?device=${encodeURIComponent(current.deviceId)}`
-    void fetch(url, { method: 'DELETE' }).catch(() => {})
+    // Bare `fetch` because this one is fire-and-forget — no ApiError, no refresh-and-retry, no
+    // toast. It still has to say which session it is asking with (api · rawFetch).
+    void fetch(url, { method: 'DELETE', headers: linkSessionHeaders() }).catch(() => {})
   }, [incidentId])
 
   const stop = useCallback(() => {
@@ -213,9 +216,11 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
         accuracy_m: accuracyM,
         ts: new Date(at).toISOString(),
       }
+      // Bare `fetch` because a 409 is an ANSWER here, not an error to be thrown (see below) —
+      // so the session-mode header rides by hand, as it must on every /api call (api · rawFetch).
       const res = await fetch(`/api/incidents/${incidentId}/positions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...linkSessionHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       if (!alive) return

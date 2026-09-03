@@ -249,6 +249,28 @@ describe('useShareMyPosition', () => {
     unmount()
   })
 
+  it('says which session it is asking with, on the report AND on the delete', async () => {
+    // Both go out as bare `fetch`es (a 409 is an answer here, and the delete is fire-and-forget),
+    // so they miss everything the api client adds — including the header that decides which
+    // session the server reads (api · rawFetch, lib/linkMode). Without it a stray Einsatz-Link
+    // cookie in this browser decides who reported this position.
+    const geo = stubGeo()
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useShareMyPosition(INC, true))
+
+    act(() => { result.current.start({ id: P1, displayName: 'Meier Hans' }) })
+    await act(async () => { geo.push(fix(7.5, 47.5)) })
+    const post = fetchMock.mock.calls[0][1]
+    expect(post.headers['X-Incident-Link']).toBe('off')
+    expect(post.headers['Content-Type']).toBe('application/json') // …and the old header survives
+
+    fetchMock.mockClear()
+    await act(async () => { result.current.stop() })
+    expect(fetchMock.mock.calls[0][1].headers['X-Incident-Link']).toBe('off')
+    unmount()
+  })
+
   it('throttles: a phone standing still reports on the heartbeat, not per fix', async () => {
     const geo = stubGeo()
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))

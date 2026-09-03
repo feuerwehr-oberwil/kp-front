@@ -49,6 +49,68 @@
         if (m) m.setAttribute('content', t === 'night' ? '#0d1118' : '#eef3f7')
       } catch (e) { /* private mode / storage disabled — day default stands */ }
     </script>
+    <!--
+      Critical CSS for the static boot splash below (#root markup), so it renders correctly with
+      ZERO external resources loaded — the one window where the real stylesheet (a <link>, hence
+      async) cannot be trusted to have arrived: a cold cache, a stalled asset, or the offline
+      first-load this splash exists for in the first place. Without this the same window showed
+      an unstyled flash of raw German text on white.
+
+      Same selectors as src/styles/08-toasts.css (.login/.boot-splash/.loading-card/.ping/
+      .loading-stuck/.boot-hint) and src/styles/02-base.css (html background) on purpose: once
+      the real stylesheet loads it sits AFTER this block in the cascade, so at equal specificity
+      it simply wins and takes over — no !important tug-of-war, no double-maintenance beyond
+      keeping the two copies' declarations in sync (a pointing comment sits at both). The theme
+      read (data-theme, falling back to prefers-color-scheme) already happened above, before this
+      block, so --ink/--accent/--app-bg below just resolve against whichever the script set —
+      a night launch never paints the day gradient first.
+
+      ⚠️ Same cascade trap 8b3de29 fixed: .loading-stuck.boot-hint must stay a compound selector
+      (below the plain .loading-stuck rule) or a bare .boot-hint loses the cascade to the
+      delay-less .loading-stuck fade. The 12s delay is deliberately exempt from reduced-motion —
+      it IS the feature (a boot wedged before React can say so needs the wait, not an instant
+      hint) — so reduced-motion re-asserts it with !important exactly as the real stylesheet does.
+    -->
+    <style>
+      :root {
+        --ease: cubic-bezier(.2, .7, .3, 1);
+        --accent: #e8392b;
+        --ink: #1b2330;
+        --ink-dim: #4d586a;
+        --border-soft: rgba(0, 0, 0, .06);
+        --app-bg: radial-gradient(120% 90% at 50% -10%, #eef3f7 0%, #dfe6ec 45%, #d3dce4 100%);
+      }
+      :root[data-theme="night"] {
+        --accent: #ff5a4d;
+        --ink: #e8edf4;
+        --ink-dim: #a4b0c2;
+        --border-soft: rgba(255, 255, 255, .07);
+        --app-bg: radial-gradient(120% 90% at 50% -10%, #1a2230 0%, #131922 45%, #0d1118 100%);
+      }
+      html, body { margin: 0; }
+      html { background: var(--app-bg); }
+      .login { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
+        background: var(--app-bg); color: var(--ink); font-family: system-ui, sans-serif; }
+      .boot-splash { animation: fade .3s var(--ease) .4s both; }
+      .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px;
+        animation: fade .3s var(--ease); }
+      .ping { position: relative; width: 72px; height: 72px; display: grid; place-items: center; }
+      .ping span { position: absolute; border-radius: 50%; }
+      .ping span:not(.core) { width: 100%; height: 100%; border: 2px solid var(--accent);
+        animation: ping 1.8s var(--ease) infinite; }
+      .ping span:nth-child(2) { animation-delay: .6s; }
+      .ping .core { position: static; width: 13px; height: 13px; background: var(--accent); }
+      @keyframes ping { 0% { transform: scale(.25); opacity: .9; } 80%, 100% { transform: scale(1); opacity: 0; } }
+      .loading-stuck { display: flex; flex-direction: column; align-items: center; gap: 10px;
+        max-width: 30ch; text-align: center; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+      .loading-stuck-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+      .loading-stuck-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+      .loading-stuck.boot-hint { animation: fade .3s var(--ease) 12s both; }
+      @media (prefers-reduced-motion: reduce) {
+        .loading-stuck.boot-hint { animation-delay: 12s !important; }
+      }
+      @keyframes fade { from { opacity: 0; } }
+    </style>
   </head>
   <body>
     <!--
@@ -57,16 +119,21 @@
       until then #root is empty — a blank screen with nothing to look at and nothing to tap.
       Reported from the field 2026-08-03 as "it looked broken for a few seconds".
 
-      Same markup and classes as <Splash>, so React replacing this on mount is invisible; the
-      stylesheet is a <link> in <head>, so it is styled at first paint without waiting for JS.
+      Same markup and classes as <Splash>, so React replacing this on mount is invisible. Styled
+      TWICE on purpose: the real stylesheet is a <link> in <head>, which is async and cannot be
+      trusted to have resolved yet — this is exactly the window a stalled asset or a cold cache
+      shows up in — so the <style> block above this comment inlines the same rules to render
+      correctly with zero external resources loaded, and the real stylesheet simply overrides it
+      once it does arrive (see the pointing comments on both sides).
       No station wordmark here — that name comes from the deployment config, which is exactly
       what has not loaded yet, and a placeholder that changes would be worse than none.
 
-      The .boot-hint block is CSS-only (fades in after 12 s, see .boot-hint in 08-toasts.css):
-      if the boot path wedges BEFORE React mounts — an IndexedDB open that never answers — this
-      pulse would otherwise run forever with nothing to read and nothing to tap. React replaces
-      the whole markup on mount, so a normal launch never shows it. German inline: the locale
-      is a deployment setting that has not loaded at this point either.
+      The .boot-hint block is CSS-only (fades in after 12 s, see .boot-hint in 08-toasts.css and
+      its inline twin above): if the boot path wedges BEFORE React mounts — an IndexedDB open
+      that never answers — this pulse would otherwise run forever with nothing to read and
+      nothing to tap. React replaces the whole markup on mount, so a normal launch never shows
+      it. German inline: the locale is a deployment setting that has not loaded at this point
+      either.
     -->
     <div id="root">
       <div class="login splash boot-splash">

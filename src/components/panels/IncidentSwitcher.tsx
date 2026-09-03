@@ -23,7 +23,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, leaveLink = false, navKey, sheetOpen = false,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -48,9 +48,12 @@ export function IncidentSwitcher({
    *  (IncidentWorkspace · confirmAndComplete); absent for viewers / read-only views / an
    *  already-closed incident */
   onArchive?: () => void
-  /** «Teilen» — open the Weitergeben sheet (the read-only Einsatz-Link + its QR) for the
-   *  ACTIVE incident. In the card because the link belongs to this Einsatz, not to the app;
-   *  omitted for viewers and for an Einsatz-Link session, which may not mint one. */
+  /** «Teilen» — open the SAME three-way chooser the Einsatzkopf's Teilen button opens
+   *  (`TeilenSheet`), for the ACTIVE incident. It used to go straight to the Rapport's view
+   *  link, which made the door decide which of the three links you got; since 03.09. the row
+   *  decides. Kept because of the phone, where the Teilen button has no room in the bar
+   *  (15-mobile.css · `.tb-act-teilen`) and this is the way to all three. Omitted for viewers,
+   *  read-only views and an Einsatz-Link session, which may not mint one. */
   onShare?: () => void
   /** how many Mindestangaben are still open, shown as a badge on that row. The check used to
    *  happen only after the press, and only on the other door — see confirmAndComplete. */
@@ -62,11 +65,10 @@ export function IncidentSwitcher({
   /** push edits queued while offline (also auto-fires on reconnect) */
   /** awaited so the button can spin for the round trip and report the outcome */
   onSyncNow: () => void | Promise<void>
-  /** leave the session. For an Einsatz-Link session this is «Link-Sitzung beenden» (`leaveLink`):
-   *  the link cookie is shed and the phone lands on the normal login. */
+  /** End the login on this device. ⚠️ Absent for an Einsatz-Link session (02.09.): a link owns
+   *  no login here to end — leaving it is closing the page — and the row used to sign the
+   *  device's own account out with it. */
   onLogout?: () => void
-  /** the session is an Einsatz-Link — the logout button carries the link's own label */
-  leaveLink?: boolean
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
   navKey?: string
@@ -357,7 +359,7 @@ export function IncidentSwitcher({
               <span className="ip-menu-username">{user.display_name}</span>
               <span className="ip-menu-userrole">{roleLabel(user.role)}</span>
             </span>
-            {onLogout && <button className="ip-menu-logout" onClick={() => { onLogout(); setOpen(false) }}><Icon id="logout" /> {leaveLink ? appConfig.copy.incidentLink.leave : cp.logout}</button>}
+            {onLogout && <button className="ip-menu-logout" onClick={() => { onLogout(); setOpen(false) }}><Icon id="logout" /> {cp.logout}</button>}
           </div>
           <div className="ip-menu-foot">
             {/* No manual "check for updates" — a fresh deploy surfaces itself via the automatic

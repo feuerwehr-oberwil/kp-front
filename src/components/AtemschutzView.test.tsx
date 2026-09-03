@@ -134,7 +134,7 @@ describe('pointing to a Trupp', () => {
 // worth pinning is the one that keeps it honest: nothing on it may point at a surface that
 // session cannot reach, and the one fact it otherwise could not say — WHICH Einsatz — is said.
 describe('the handed-over board (lite)', () => {
-  const lite = { subtitle: 'Brand · Hauptstrasse 12, Oberwil', onLeave: noop }
+  const lite = { subtitle: 'Brand · Hauptstrasse 12, Oberwil' }
 
   it('names the Einsatz instead of the generic subtitle', () => {
     mount({ lite })
@@ -147,6 +147,9 @@ describe('the handed-over board (lite)', () => {
     expect(screen.queryByRole('button', { name: az.place })).toBeNull()
     expect(screen.queryByRole('button', { name: az.linePick })).toBeNull()
     expect(screen.queryByRole('button', { name: az.orderLabel })).toBeNull()
+    // …and no «Abmelden» (02.09.): the link owns no login on this phone, and the button that
+    // stood beside the bell ended the phone's own one (lib/linkMode).
+    expect(screen.queryByRole('button', { name: appConfig.copy.incidentSwitcher.logout })).toBeNull()
     expect(screen.getAllByRole('button', { name: az.edit }).length).toBe(2)
     expect(screen.getAllByRole('button', { name: az.actContact }).length).toBe(2)
   })
@@ -174,7 +177,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
   afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
   it('shows a tab per Trupp and exactly one card, and a tab picks its Trupp', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
-    mount({ lite: { subtitle: 'Brand · Hauptstrasse 12', onLeave: noop }, trupps: [aktivTrupp(), { ...aktivTrupp(), id: 'tr2', name: 'Meier' }] })
+    mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [aktivTrupp(), { ...aktivTrupp(), id: 'tr2', name: 'Meier' }] })
     expect(screen.getAllByRole('tab')).toHaveLength(2)
     expect(document.querySelectorAll(`.${s.card}`)).toHaveLength(1)
     fireEvent.click(screen.getByRole('tab', { name: /Meier/ }))
@@ -186,7 +189,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
   it('opens the Trupp form as two steps: the roster first, Druck and Auftrag behind «Weiter»', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
-    mount({ lite: { subtitle: 'Brand', onLeave: noop }, trupps: [aktivTrupp()], createTrupp })
+    mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp()], createTrupp })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
@@ -204,5 +207,51 @@ describe('the handed-over board on a phone (focus mode)', () => {
     fireEvent.click(submitBtn)
     expect(createTrupp).not.toHaveBeenCalled()
     expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+  })
+
+  // Density redesign (mock 02, 03.09.): the tablet's separate banner + name rows condense into
+  // one identity row and one crew/chips row, and the hero clock flattens into a band — all so
+  // 3–4 Trupps plus the focused card fit a phone screen without scrolling. Kontakt itself stays
+  // on the card (a maintainer correction reverted an earlier sticky-footer attempt).
+  it('condenses the focused card into a toprow + metaline, and flattens the clock into a band', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [aktivTrupp()] })
+    const card = document.querySelector(`.${s.card}`)
+    expect(card?.querySelector(`.${s.toprow}`)).toBeTruthy()
+    expect(card?.querySelector(`.${s.metaline}`)).toBeTruthy()
+    expect(card?.querySelector(`.${s.clockBand}`)).toBeTruthy()
+    // superseded by `.toprow` — the old two-row banner/name split no longer renders here
+    expect(card?.querySelector(`.${s.cardBanner}`)).toBeNull()
+    expect(card?.querySelector(`.${s.cardName}`)).toBeNull()
+    // Kontakt is still an in-card control, not a pinned screen-edge bar
+    expect(card?.querySelector(`.${s.kontaktBtn}`)).toBeTruthy()
+    // the header's own row now carries just the Einsatz title (see the bottom-rail test below
+    // for the dropped kicker and the relocated bell/«+ Trupp»)
+    expect(document.querySelector(`.${s.headRow}`)).toBeTruthy()
+  })
+
+  // Maintainer correction (mock 03, 03.09.): the header sheds its kicker entirely, and the chip
+  // strip + «+ Trupp» move into a bottom rail in the thumb zone — «status where the eyes land,
+  // actions where the thumb lives». The card above stays top-aligned. A second review put the
+  // bell BACK in the header (an earlier pass had tried it in the rail too) — only chips + the
+  // compact «+» belong down there.
+  it('drops the header kicker and moves the strip + «+ Trupp» into a bottom rail — the bell stays put', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [aktivTrupp(), { ...aktivTrupp(), id: 'tr2', name: 'Meier' }] })
+    // the fixed «Atemschutzüberwachung» kicker is gone — only the Einsatz's own name remains
+    expect(screen.queryByText(az.title)).toBeNull()
+    expect(screen.getByText('Brand · Hauptstrasse 12')).toBeTruthy()
+    const rail = document.querySelector(`.${s.bottomRail}`)
+    expect(rail).toBeTruthy()
+    // the strip (its tabs, unchanged) now lives INSIDE the rail, not above the card
+    expect(rail?.querySelector(`.${s.strip}`)).toBeTruthy()
+    expect(rail?.querySelectorAll(`.${s.tab}`).length).toBe(2)
+    // the bell stays in the header's own action group — NOT in the rail
+    expect(document.querySelector(`.${s.headActs} .${s.muteBtn}`)).toBeTruthy()
+    expect(rail?.querySelector(`.${s.muteBtn}`)).toBeNull()
+    // «+ Trupp» is a compact icon button at the rail's end, not its own full-width chip
+    const addBtn = screen.getByRole('button', { name: az.newTrupp })
+    expect(rail?.contains(addBtn)).toBe(true)
+    expect(addBtn.classList.contains(s.tab)).toBe(false)
   })
 })

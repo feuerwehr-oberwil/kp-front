@@ -300,6 +300,17 @@ and its writes are exactly three routes – the `trupps` slice of the workspace,
 rows and `atemschutz.*` audit events, all stamped `atemschutz-link`. It dies when the Einsatz is
 closed or the link is revoked. Everything else below applies to it unchanged.
 
+Since 2026-09-02 an editor can also mint **this** link – the alarm one – from inside the app:
+«Teilen › Einsatz-Link (nur lesen)» in the Einsatzkopf (`POST /api/incidents/{id}/einsatz-link`),
+so the Zentrale, the EL or a Nachbarwehr can be handed a live read-only view mid-Einsatz. It is
+signed with the same station key, opens the same read-only session and dies under the same two
+conditions (Einsatz closed, or key rotated), so nothing about the session differs. The only
+difference is inside the token: an app-minted one names the incident by its own id (`inc`) rather
+than by `src`/`ref`, because that pair exists so an *alerting system* never has to learn our
+UUIDs – and a manually created Einsatz or an Übung carries no `source_ref` at all. With no
+`incident_link_key` configured the endpoint answers 403, exactly like the exchange, and the app
+points at Verwaltung › Einsatz-Link.
+
 ```
 alert text …  https://front.example.org/l/<token>
                        │  responder taps it
@@ -418,8 +429,22 @@ missing claims and expiry are all just "this link doesn't work"), and unknown, c
 archived incidents are one `404`, so a link cannot be used to find out which Einsätze the
 station has.
 
-A **real login always wins**: if the person tapping the link is also a logged-in user, the
-access cookie takes precedence and a stale link cookie can never narrow what they may do.
+**A link is the literal page, and nothing on the device.** Opening one never changes what that
+browser is signed in as, and a login on that browser never changes what the link page shows.
+The link session's cookie is site-wide (an `<img src="/api/media/…">` cannot carry a header), so
+the *page* says which session it is asking with, on every request – `X-Incident-Link: off` from
+the ordinary app and `/admin`, `use` from the handed-over Atemschutz board, and nothing at all
+from a subresource or an alarm/view link page, where a real login still wins. So: the bare site
+after a link visit is whoever it was before, an Atemschutz link opens the board even on a phone
+that is signed in (it used to log that phone out first), and nothing inside a link session can
+end a session on the device – `POST /api/auth/logout` is deliberately off the allowlist.
+
+The one direction that stays coupled is **«Abmelden» on the device**: it clears the link cookie
+along with the login. Not because the app reads that cookie – it says `off` and never does – but
+because the requests the browser makes with *no* header of ours (a typed address, an `<img>`, the
+service worker) still answer as the link guest for the rest of the 12 h TTL, and «Abmelden» is
+the one gesture that means «I am done on this device». A link page loses nothing by it: it has no
+«Abmelden», and its token is still standing in its own address bar.
 `GET /api/auth/me` reports `link_scoped` and `link_incident_id` for a link session, so the app
 can hide the controls that would 403 instead of showing dead buttons.
 

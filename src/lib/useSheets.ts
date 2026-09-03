@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ShareLinkKind } from './viewLink'
+import type { ShareSheet } from './viewLink'
 
 /** Transient open-state for the workspace's overlays, popovers and sheets — none of it
  *  synced, all of it purely local UI. Grouped here to keep the workspace component's state
@@ -17,11 +17,12 @@ export function useSheets() {
   const [helpOpen, setHelpOpen] = useState(false)
   const [installGuideOpen, setInstallGuideOpen] = useState(false)
   const [offlineReadyOpen, setOfflineReadyOpen] = useState(false)
-  /** «Weitergeben» — the Einsatz-Link + QR. Not a boolean: which KIND the sheet opens on is
+  /** «Weitergeben» — the Einsatz-Link + QR. Not a boolean: which link the sheet opens on is
    *  part of the door, not a setting inside it. The Einsatz-Karte means «Ganzer Einsatz»
-   *  ('view'), the QR beside the Atemschutz bell means «Nur Atemschutz» ('atemschutz'), and
-   *  `null` is closed. */
-  const [shareLink, setShareLink] = useState<ShareLinkKind | null>(null)
+   *  ('view'), the QR beside the Atemschutz bell means «Nur Atemschutz» ('atemschutz'), the
+   *  Teilen menu in the Einsatzkopf means the station's read-only Einsatz-Link ('einsatz',
+   *  its own sheet — it has nothing to choose and nothing to revoke), and `null` is closed. */
+  const [shareLink, setShareLink] = useState<ShareSheet | null>(null)
   return {
     viewsOpen, setViewsOpen,
     paletteOpen, setPaletteOpen,

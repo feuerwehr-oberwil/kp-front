@@ -983,7 +983,7 @@ export const en: Localizable<Copy> = {
     newTrupp: 'Create team',
     shareLink: 'Hand over monitoring',
     shareLinkOn: 'Hand over monitoring – a link is active',
-    linkReentryHint: 'This device stays signed in for a few hours – closing the browser does not need a new link.',
+    linkReentryHint: 'The link leads back to this board – if the page is closed by accident, simply open the QR code again.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Team',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
@@ -1627,6 +1627,13 @@ export const en: Localizable<Copy> = {
     recording: 'REC',
     gpsFrozen: 'GPS frozen',
     gpsFrozenHint: 'The live GPS feed is not responding. Vehicles are shown at their last known position.',
+    share: 'Share',
+    shareEinsatz: 'Incident link (read only)',
+    shareEinsatzSub: 'Dispatch, IC, neighbouring brigade – ends when the incident closes',
+    shareAtemschutz: 'SCBA monitor link',
+    shareAtemschutzSub: 'Hand the monitoring over – operate, not just read',
+    shareRapport: 'Report link (read only)',
+    shareRapportSub: 'Municipality, neighbouring brigade – stays valid after the incident closes',
   },
   stepper: {
     less: 'less',
@@ -1657,8 +1664,6 @@ export const en: Localizable<Copy> = {
     pleaseWait: 'Please wait a moment…',
     clearDigit: 'Delete',
     retry: 'Try again',
-    linkDeadHint: 'This device still holds the session of an incident link that has ended. Reset it to sign in normally.',
-    resetSession: 'Reset session',
     offlineHint: 'Signing in needs a connection. Saved incidents only open if this device was still signed in.',
   },
   splash: {
@@ -1983,7 +1988,6 @@ export const en: Localizable<Copy> = {
     errorHint: 'Please try again. If it persists, tell the incident commander.',
     retry: 'Try again',
     unavailable: 'This incident is not reachable right now. Reload the page once you have signal again.',
-    leave: 'End link session',
   },
   incidentSwitcher: {
     noIncident: 'No incident',
@@ -2415,6 +2419,17 @@ export const en: Localizable<Copy> = {
     shareAsRevokeTitle: 'Revoke the SCBA link?',
     shareAsRevokeBody: 'The address stops working. Anyone with the board open can no longer enter '
       + 'anything. A new link can be created at any time – it is then a different address.',
+    shareStationTitle: 'Incident link',
+    shareStationLede: 'A link to exactly this incident – map, plans, log, photos, times. Read '
+      + 'only, no login. Valid until the incident is closed.',
+    shareStationWarn: 'Anyone holding the link sees the whole incident – the names of everyone '
+      + 'present, photos, and the complete log.',
+    shareStationSetup: 'Incident links are not set up for this brigade. Set one up in '
+      + 'Administration under «Einsatz-Link».',
+    shareStationClosed: 'The incident is closed – no incident link can be created for it any '
+      + 'more. The report link stays valid.',
+    shareStationDenied: 'This account is not allowed to create an incident link.',
+    shareStationFailed: 'Creating the incident link failed – try again',
     linksCount: '{done} of {n} done',
     linksOpen: 'Open',
     linksMarkDone: 'Mark {title} as done',

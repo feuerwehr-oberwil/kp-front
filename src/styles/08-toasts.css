@@ -398,7 +398,12 @@
 /* Static pre-React boot splash (markup in index.html). Held back briefly: a warm launch mounts
    React well inside this delay, so the ordinary case still goes straight to the login screen
    with no flicker, and only a start slow enough to look broken ever shows a pulse. `both` keeps
-   it fully transparent during the delay rather than painting and then fading. */
+   it fully transparent during the delay rather than painting and then fading.
+   ⚠️ index.html inlines this rule (plus .login/.loading-card/.ping/.loading-stuck/.boot-hint
+   below and the --ink/--accent/--app-bg tokens they use) in a <style> block, so the splash still
+   renders before this stylesheet — or if it never arrives — has loaded. Keep both copies in
+   sync; same selectors there on purpose, so this rule simply overrides the inline one once it
+   loads (equal specificity, later in the cascade). */
 .boot-splash { animation: fade .3s var(--ease) .4s both; }
 .ping { position: relative; width: 72px; height: 72px; display: grid; place-items: center; }
 .ping span { position: absolute; border-radius: 50%; }
@@ -420,7 +425,10 @@
    ⚠️ Compound selector, BELOW .loading-stuck: the element carries both classes, and a bare
    `.boot-hint` above that rule lost the cascade to its delay-less `animation: fade` — prod showed
    the hint at first paint (02.09.). And the delay IS the feature, so it survives the global
-   reduced-motion stilling (03-map.css zeroes every animation-delay with !important). */
+   reduced-motion stilling (03-map.css zeroes every animation-delay with !important).
+   ⚠️ index.html inlines this exact compound rule (and the reduced-motion exemption below) in its
+   own <style> block, so the SAME trap and the SAME exemption apply before this stylesheet has
+   loaded. Keep both in sync. */
 .loading-stuck.boot-hint { animation: fade .3s var(--ease) 12s both; }
 @media (prefers-reduced-motion: reduce) {
   .loading-stuck.boot-hint { animation-delay: 12s !important; }

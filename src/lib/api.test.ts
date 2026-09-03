@@ -88,6 +88,23 @@ describe('request — error mapping', () => {
     await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 403, detail: 'PIN gesperrt', hint: undefined })
   })
 
+  // …and when the same answer carries a NAME, keep both halves. Two 403s on one route can mean
+  // «diese Wehr hat die Funktion nie eingerichtet» (an instruction) and «dieses Konto darf das
+  // nicht» (nothing to do); a screen keying on the status alone shows the wrong one half the time.
+  it('reads a {code, message} detail as both, so a caller can tell two refusals apart', async () => {
+    fetchMock.mockResolvedValueOnce(
+      json({ detail: { code: 'link_key_missing', message: 'Einsatz-Links deaktiviert' } }, { status: 403 }),
+    )
+    await expect(apiGet('/api/x')).rejects.toMatchObject({
+      status: 403, detail: 'Einsatz-Links deaktiviert', code: 'link_key_missing', hint: undefined,
+    })
+  })
+
+  it('leaves `code` unset for a plain string detail — nothing was named', async () => {
+    fetchMock.mockResolvedValueOnce(json({ detail: 'PIN gesperrt' }, { status: 403 }))
+    await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 403, code: undefined })
+  })
+
   it('falls back to the bare status for something we have no reading of', async () => {
     fetchMock.mockResolvedValueOnce(new Response('', { status: 399, statusText: '' }))
     await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 399, detail: 'HTTP 399' })

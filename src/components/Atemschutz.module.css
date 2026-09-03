@@ -1064,22 +1064,65 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   gap: var(--head-gap); flex: 0 0 auto; margin-left: auto; }
 
 /* «Ein Trupp, ein Bildschirm» — the handed-over board on a phone (AtemschutzView · focusMode).
-   The header swaps its weights: the kicker says what this screen is, the Einsatz is the title. */
+   ⚠️ mock 03 (maintainer correction, 03.09.): the kicker is DROPPED here rather than shrunk —
+   the head is just the Einsatz title plus the shrunk sync state, sharing one row with the bell
+   (unchanged position — a second correction put it back after an earlier pass moved it to the
+   bottom rail). The tablet «Tafel pur» (lite but not compact) is unaffected and keeps its own
+   two-line kicker/title stack, unchanged. */
 .surfaceLite .headTitles h2 { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
 .surfaceLite .headTitles p { font-size: 17px; font-weight: 800; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Tighter than the phone default (`.head { padding: 12px 14px }`) — the compound selector
+   (2 classes) beats that single-class rule regardless of source order, so this wins without
+   depending on where either happens to sit in the file. Only the head's OWN padding shrinks;
+   the gap to the card below is otherwise just `.focusCard`'s already-zero top padding. */
+.head.headCompact { padding-top: 8px; padding-bottom: 8px; }
+.headTitlesCompact { display: flex; flex-direction: column; min-width: 0; }
+/* the ONLY `h2` inside `.headRow` is the repurposed Einsatz title (no kicker survives beside
+   it) — «orientation, not information» (maintainer review, 03.09.): a modest weight, not the
+   tablet's hero size, and EXPLICITLY not-uppercase/not-tracked — `.surfaceLite .headTitles h2`
+   above still matches this same element (same 2-class+element specificity), and a property this
+   rule does not also set (text-transform, letter-spacing) would otherwise keep leaking through
+   from it regardless of which rule is declared last, which is exactly how the kicker's small
+   caps ended up on the full-size Einsatz title the first time. */
+.headTitlesCompact .headRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.headTitlesCompact .headRow h2 { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 700; color: var(--ink);
+  text-transform: none; letter-spacing: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* «Gespeichert um» shrinks to the check + bare time rather than disappearing — the safety
+   review (01.09.) asked that this one surface always says whether what it shows is saved, so it
+   stays, just tiny and inline beside the title: quiet text at rest, and still the app-wide loud
+   chip (`.ip-offline-chip`) the instant the record is not. */
+.headTitlesCompact :global(.az-syncline) { flex: none; margin-top: 0; }
+.headTitlesCompact :global(.az-sync-quiet) { font-size: 10.5px; }
+.headTitlesCompact :global(.az-sync-quiet .i) { width: 11px; height: 11px; }
 .bodyFocus { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-/* A wrapping grid, NOT a horizontal strip (02.09.): every Trupp stays in view, three to a row,
-   and a fifth one starts a second row instead of hiding off the right edge. */
-.strip { flex: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; padding: 10px 12px; }
+.focusCard { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; padding: 0 12px 12px; }
+/* ── Bottom rail (mock 03, maintainer correction 03.09.) ─────────────────────────────────────
+   The strip and «+ Trupp» move DOWN, out of `.body`, into a rail that sits in the thumb zone —
+   the same idea the app's own phone bottom bars use (`--rail-h`, src/styles/15-mobile.css):
+   status/selection where the eyes land (the content above stays top-aligned), actions where the
+   thumb already rests. The bell stays in the header (put back after a first pass moved it here
+   too) — this rail carries chips and the compact «+» only. A plain flex child of `.surfaceLite`'s
+   own column (`.surface` is `display: flex; flex-direction: column`), so — like the header above
+   it — it needs neither `position: fixed` nor `sticky` to sit at the screen's own edge. Generous,
+   EXPLICIT bottom padding (not just the safe-area inset) — a field tester's mis-tap into Safari's
+   own bottom chrome cost him his session, and this rail is the last thing his thumb touches
+   before it. */
+.bottomRail { flex: none; display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--glass-edge); background: var(--surface); }
+/* A wrapping grid, NOT a horizontal strip (02.09., unchanged by the move down here): every
+   Trupp stays in view, three to a row, and a fifth one starts a second row instead of hiding
+   off the right edge. `flex: 1 1 auto` — the rail's main occupant — so `.railActs` beside it
+   only ever costs the grid its own fixed width, never a whole row. */
+.strip { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
 .tab { min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   padding: 6px 10px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .tab:active { background-image: linear-gradient(var(--press), var(--press)); }
 .tabName { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .tabName :global(.i) { width: 14px; height: 14px; }
-/* The Trupp name, not the «+ Trupp» tab: no icon to sit beside, so it may wrap onto a second
-   line rather than clip — «Binggeli Michael» read as «Binggeli Michae» against this chip's
-   min-width before this (round 2 review). `.tab`'s min-height is a minimum, not a cap, so the
-   chip grows with it. */
+/* The Trupp name may wrap onto a second line rather than clip — «Binggeli Michael» read as
+   «Binggeli Michae» against this chip's min-width before this (round 2 review). `.tab`'s
+   min-height is a minimum, not a cap, so the chip grows with it. */
 .tabNameWrap { display: block; width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
 .tabClock { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--green); }
 .tabIdle .tabClock { color: var(--ink-faint); }
@@ -1087,18 +1130,45 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tabCrit { background: color-mix(in srgb, var(--red) 12%, var(--surface)); border-color: var(--red); }
 .tabCrit .tabClock { color: var(--red); }
 .tabOn { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink) inset; }
-.tabNew { grid-column: 1 / -1; min-height: 44px; border-style: dashed; color: var(--ink-dim); } /* its own full-width row */
-.focusCard { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; padding: 0 12px 12px; }
+/* «+ Trupp», at the rail's OWN trailing end — a fixed-width column beside the chip grid, so it
+   never costs the grid a whole row the way the old full-width «+ Trupp» tab
+   (`grid-column: 1 / -1`) did. Reuses the header's own icon-button chrome (`.orderBtn`) rather
+   than inventing a second 44px-square style. The bell stays in the header, not here. */
+.railActs { flex: none; display: flex; align-items: center; }
 /* As tall as its content, never stretched: the card should fit the screen with Druck and the
    actions in view, and only scroll when it truly cannot. Nothing shrinks under its content
    (sections overlapped when they did). */
 .focusCard .card { flex: none; width: 100%; max-height: 100%; display: flex; flex-direction: column; overflow-y: auto; }
 .focusCard .card > * { flex: 0 0 auto; }
-.cardBig .cardName { min-height: 0; padding-bottom: 8px; }
-.cardBig .contactClock { padding: 16px 12px 14px; }
-.cardBig .contactVal { font-size: clamp(52px, 16vw, 64px); }
-.cardBig .kontaktBtn { min-height: 76px; font-size: 20px; }
-.cardBig .kontaktBtn :global(.i) { width: 24px; height: 24px; }
+/* ── condensed identity (density redesign, mock 02) — `big` only ever coincides with `lite`
+   (AtemschutzView · focusMode) ──────────────────────────────────────────────────────────────
+   Name, its status pill and edit/delete share ONE row; crew and the Auftrag/Ziel/Leitung/Kanal
+   chips share the next — replacing the tablet's separate banner + name block, which cost this
+   one-Trupp-per-screen board two rows it does not have to spare. */
+.toprow { display: flex; align-items: center; gap: 8px; padding: 11px 14px 4px; }
+.toprowName { flex: 1 1 auto; min-width: 0; font-size: 17px; font-weight: 800; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toprowPill { flex: none; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--ink-dim); background: var(--fill-soft); border-radius: var(--r-pill); padding: 3px 9px; white-space: nowrap; }
+.st-aktiv .toprowPill { color: var(--green); background: color-mix(in srgb, var(--green) 16%, transparent); }
+.st-rueckzug .toprowPill { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 18%, transparent); }
+.st-ueberfaellig .toprowPill { color: var(--red); background: color-mix(in srgb, var(--red) 16%, transparent); }
+.metaline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 14px 10px; font-size: 12.5px; }
+.metalineCrew { color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.metalineSep { color: var(--ink-faint); }
+.metaline .tags { margin-top: 0; }
+
+/* the since-Funkkontakt clock as a flat band, not the tablet's tall centred hero: state + value
+   + label stay one glance, «Zeiten ›» sits beside them instead of tucked into a corner. Still the
+   loudest element on the card (3am tenet: big enough to read at arm's length) — its SHAPE
+   changed, not its role, its tap-to-fold behaviour, or its warn/crit colours. */
+.cardBig .clockBand { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  text-align: left; padding: 12px 14px; }
+.cardBig .clockBandInner { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cardBig .clockBand .contactState { margin-bottom: 0; }
+.cardBig .clockBand .contactVal { font-size: clamp(32px, 10vw, 40px); }
+.cardBig .clockBand .contactLbl { margin-top: 0; }
+.cardBig .clockBand .zoneCue { position: static; flex: none; align-self: flex-end; }
 /* Einsatzzeit, Pause and the tiefster-Druck rows are the Überwacher-on-the-tablet's numbers; the
    phone shows the one it acts on — the Druck — and the per-Trupp Verlauf lives on the Rapport. */
 .cardBig .metaRow, .cardBig .vfoot { display: none; }
@@ -1111,6 +1181,12 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    decides — and `.metaEstimate` carries `.metaRow` too (see the TruppCard render), so this is
    the one row un-hidden rather than a second, parallel display rule. */
 .cardBig .metaEstimate { display: grid; }
+/* Kontakt stays ON the card (maintainer correction, 03.09.: no sticky/fixed footer) — only
+   compacted, like everything else here: the old hero sizing (76px/20px) was buying «the thumb
+   cannot miss it» with space this density redesign no longer has to spare. Still comfortably
+   above the 44px floor and inside the primary-action band the 3am tenet asks for (~48–56px). */
+.cardBig .kontaktBtn { min-height: 52px; font-size: 15px; }
+.cardBig .kontaktBtn :global(.i) { width: 20px; height: 20px; }
 
 /* The two-step form on the handed-over phone (TruppForm · wizard): a progress bar and a caption
    under the title say where in the two steps somebody is. */

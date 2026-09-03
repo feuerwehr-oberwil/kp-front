@@ -985,7 +985,7 @@ export const fr: Localizable<Copy> = {
     newTrupp: 'Créer un binôme',
     shareLink: 'Transmettre la surveillance',
     shareLinkOn: 'Transmettre la surveillance – un lien est actif',
-    linkReentryHint: 'Cet appareil reste connecté pendant quelques heures – fermer le navigateur ne nécessite pas un nouveau lien.',
+    linkReentryHint: 'Le lien ramène à ce tableau – si la page est fermée par mégarde, il suffit d’ouvrir à nouveau le code QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Binôme',
     /** the two-step form on the handed-over phone (TruppForm · wizard) */
@@ -1626,6 +1626,13 @@ export const fr: Localizable<Copy> = {
     recording: 'REC',
     gpsFrozen: 'GPS figé',
     gpsFrozenHint: 'Le flux GPS en direct ne répond plus. Les véhicules restent à leur dernière position connue.',
+    share: 'Partager',
+    shareEinsatz: 'Lien d’intervention (lecture seule)',
+    shareEinsatzSub: 'Centrale, CI, corps voisin – prend fin à la clôture',
+    shareAtemschutz: 'Lien du surveillant ARI',
+    shareAtemschutzSub: 'Céder la surveillance – utiliser, pas seulement lire',
+    shareRapport: 'Lien du rapport (lecture seule)',
+    shareRapportSub: 'Commune, corps voisin – reste valable après la clôture',
   },
   stepper: {
     less: 'moins',
@@ -1656,8 +1663,6 @@ export const fr: Localizable<Copy> = {
     pleaseWait: 'Un instant, s’il te plaît…',
     clearDigit: 'Effacer',
     retry: 'Réessayer',
-    linkDeadHint: 'Cet appareil garde encore la session d’un lien d’intervention terminé. Réinitialise-la pour te connecter normalement.',
-    resetSession: 'Réinitialiser la session',
     offlineHint: 'Sans connexion, aucune connexion au compte n’est possible. Les interventions enregistrées ne s’ouvrent que si cet appareil était encore connecté.',
   },
   splash: {
@@ -1984,7 +1989,6 @@ export const fr: Localizable<Copy> = {
     errorHint: 'Merci de réessayer. Si cela persiste, avertir le commandant d\'intervention.',
     retry: 'Réessayer',
     unavailable: 'Cette intervention n\'est pas accessible pour le moment. Recharge la page dès que tu as du réseau.',
-    leave: 'Terminer la session du lien',
   },
   incidentSwitcher: {
     noIncident: 'Aucune intervention',
@@ -2419,6 +2423,17 @@ export const fr: Localizable<Copy> = {
     shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a le tableau ouvert ne peut plus '
       + 'rien saisir. Un nouveau lien peut être créé à tout moment – ce sera alors une autre '
       + 'adresse.',
+    shareStationTitle: 'Lien d’intervention',
+    shareStationLede: 'Un lien vers exactement cette intervention – carte, plans, journal, '
+      + 'photos, horaires. Lecture seule, sans connexion. Valable jusqu’à la clôture.',
+    shareStationWarn: 'Qui a le lien voit toute l’intervention – les noms des personnes '
+      + 'présentes, les photos et le journal complet.',
+    shareStationSetup: 'Les liens d’intervention ne sont pas configurés pour ce corps. À '
+      + 'configurer dans l’Administration sous « Einsatz-Link ».',
+    shareStationClosed: 'L’intervention est clôturée – plus aucun lien d’intervention ne peut '
+      + 'être créé. Le lien du rapport reste valable.',
+    shareStationDenied: 'Ce compte n’est pas autorisé à créer un lien d’intervention.',
+    shareStationFailed: 'Échec de la création du lien d’intervention – réessayer',
     linksCount: '{done} sur {n} faits',
     linksOpen: 'Ouvrir',
     linksMarkDone: 'Marquer {title} comme fait',

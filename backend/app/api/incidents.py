@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
@@ -499,6 +500,88 @@ async def revoke_view_link(
             payload={"view_link": False},
         )
     return ViewLinkOut(enabled=False, token=None)
+
+
+# --- the Einsatz-Link, minted from inside the app -----------------------------------------
+#
+# «Die Zentrale soll live mitschauen.» Exactly the link a responder taps out of an alarm — the
+# station's minting key signs it, the read-only allowlist bounds it, and it dies when the Einsatz
+# is closed or the key is rotated (auth/incident_link). What is new is only who can produce one:
+# until now that was the alerting system alone, so handing the EL or a Nachbarwehr a live view
+# mid-Einsatz was something nobody at the Schadenplatz could do.
+#
+# NOTHING IS STORED, and that is the difference from the two link trios above. The token is
+# derived from the incident id and the station key, so there is no per-incident secret, no GET to
+# read one back and no DELETE to revoke one: taking it back is rotating the key in der Verwaltung
+# — which takes every alarm link with it, deliberately — or closing the Einsatz. Deriving it also
+# makes minting naturally idempotent: asking twice hands back the address already circulating.
+
+#: `IncidentEvent.source` for the row below. String(16) in the model — keep it short.
+EINSATZ_LINK_SOURCE = "einsatz-link"
+
+
+@router.post("/{incident_id}/einsatz-link", response_model=ViewLinkOut)
+async def create_einsatz_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Hand back the read-only Einsatz-Link for this Einsatz, minting it on the spot.
+
+    Two refusals, and they are deliberately different statuses because the operator can act on
+    only one of them:
+      · 403 — no minting key: the whole link surface is off, exactly as the exchange answers it
+        (api/incident_link · `open_link_session`). Nothing to be done on the Schadenplatz, so the
+        sheet points at der Verwaltung instead of offering a retry.
+      · 409 — the Einsatz is finished: an alarm link dies the moment it closes, so minting one
+        would hand over an address that never worked. Not the exchange's blind 404, because the
+        caller is a signed-in editor who already knows this Einsatz exists.
+    """
+    from .incident_link import mint_incident_link_token, no_minting_key, station_minting_key
+
+    inc = await _get(db, incident_id, lock=True)
+    key = await station_minting_key(db)
+    if not key:
+        raise no_minting_key()
+    if not inc.is_open:
+        raise HTTPException(
+            status_code=409,
+            detail="Einsatz ist abgeschlossen – dafür kann kein Einsatz-Link mehr erstellt werden",
+        )
+
+    # One row per Einsatz, not per look: the moment worth recording is «the running Lage became
+    # readable outside the FU», and re-opening the sheet to show the same QR again is not a
+    # second such moment. There is no stored secret to tell the two apart, so the chain itself is
+    # asked. The secret never goes in — an audit trail is read by more people than the link is.
+    #
+    # ⚠️ The SELECT is only the fast path. What ENFORCES «one row» is the partial unique index on
+    # (incident_id) where source = 'einsatz-link' (models · IncidentEvent), because check-then-
+    # append is a race and the incident-row lock above does not settle it everywhere: SQLite has
+    # no row locks, so on a dev machine a StrictMode double mount wrote the row twice into the
+    # hash chain. The savepoint is what lets the loser lose harmlessly — the duplicate INSERT is
+    # rolled back to it, the winner's row and the chain stand, and both callers get the same
+    # token, which is the answer they came for either way.
+    from ..models import IncidentEvent
+
+    seen = (
+        await db.execute(
+            select(IncidentEvent.id)
+            .where(IncidentEvent.incident_id == inc.id, IncidentEvent.source == EINSATZ_LINK_SOURCE)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if seen is None:
+        try:
+            async with db.begin_nested():
+                await audit.append_event(
+                    db,
+                    incident_id=inc.id,
+                    op_type="meta.change",
+                    source=EINSATZ_LINK_SOURCE,
+                    user_id=user.id,
+                    payload={"einsatz_link": True},
+                )
+        except IntegrityError:
+            pass
+    return ViewLinkOut(enabled=True, token=mint_incident_link_token(str(inc.id), key))
 
 
 # --- the Atemschutz link -----------------------------------------------------------------

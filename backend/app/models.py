@@ -571,7 +571,22 @@ class IncidentEvent(Base):
     prev_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     hash: Mapped[str] = mapped_column(Text, nullable=False)
 
-    __table_args__ = (UniqueConstraint("incident_id", "seq", name="uq_incident_events_seq"),)
+    __table_args__ = (
+        UniqueConstraint("incident_id", "seq", name="uq_incident_events_seq"),
+        # «Der Einsatz-Link wurde erstellt» is recorded ONCE per Einsatz, and this is what makes
+        # that true rather than the check-then-append that reads for it (api/incidents ·
+        # create_einsatz_link). The endpoint mints on sheet-open, so a React StrictMode double
+        # mount fires two of them at once — and the incident-row lock the appender takes is a
+        # no-op on SQLite, so in dev both read «no row yet» and both wrote one into the hash
+        # chain. A partial unique index is the one guard that holds on every engine.
+        Index(
+            "uq_incident_events_einsatz_link",
+            "incident_id",
+            unique=True,
+            postgresql_where=text("source = 'einsatz-link'"),
+            sqlite_where=text("source = 'einsatz-link'"),
+        ),
+    )
 
 
 class PushSubscription(Base):

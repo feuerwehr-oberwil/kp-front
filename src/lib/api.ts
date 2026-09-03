@@ -5,6 +5,7 @@
 
 import { appConfig } from '../config/appConfig'
 import { noteServerTime } from './serverClock'
+import { linkPageOwnsSession, linkSessionHeaders } from './linkMode'
 
 // Base URL: empty in dev (Vite proxies /api to the backend), or a fully-qualified
 // origin in a deployment that talks to the backend cross-origin.
@@ -108,6 +109,13 @@ export class ApiError extends Error {
    *  the file is hand-edited and the shape is the whole question (admin/ConfigContext ·
    *  describeRejectedFields). */
   fields?: { path: string; msg: string; kind?: string; input?: unknown }[]
+  /** WHICH refusal this is, when the backend named one — a `{code, message}` detail rather than
+   *  a bare string. The status alone is often too coarse to act on: two 403s on the same route
+   *  can mean «diese Wehr hat die Funktion nie eingerichtet» (an instruction: der Verwaltung) and
+   *  «dieses Konto darf das nicht» (nothing to do), and a screen that keys on the status shows
+   *  the wrong one of those half the time. `detail` still carries the German sentence, so a
+   *  caller that does not know the code loses nothing. */
+  code?: string
   constructor(status: number, detail: string, retryAfter?: number) {
     super(detail)
     this.name = 'ApiError'
@@ -153,6 +161,25 @@ export function eitherSignal(a?: AbortSignal, b?: AbortSignal | null): AbortSign
   return ctrl.signal
 }
 
+/**
+ * One request to our own backend: cookies, the JSON cache ban, the timeout — and the header
+ * that says WHICH session this page is asking with.
+ *
+ * ⚠️ The invariant, and it is not local to this function: **every `/api` request the app makes
+ * carries `X-Incident-Link`** (lib/linkMode · `linkSessionHeaders()`). The link session rides a
+ * site-wide cookie because a subresource can carry no header of ours, so a request that stays
+ * silent leaves the server inferring the session from whatever Einsatz-Link cookie happens to
+ * be lying in this browser — the abolished precedence (backend/app/auth/incident_link.py ·
+ * `LINK_MODE_HEADER`). One bare `fetch` is enough to bring it back for that route: the ordinary
+ * app would answer as a link viewer, or the handed-over Atemschutz board as the device's login.
+ *
+ * So: a NEW request goes through this client and inherits it. A callsite that genuinely cannot
+ * — a Blob or streaming response, a FormData body, its own abort clock, a poster token — keeps
+ * its `fetch` and spreads `linkSessionHeaders()` into its `headers`, ahead of the caller's own
+ * (reportPdf, zeitplanPrint, printRelay, captureClient, useShareMyPosition, StationWorkbookView
+ * all do). Nothing under `/api` is exempt; a cross-origin URL (tiles, swisstopo) is not ours and
+ * must not carry it.
+ */
 async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
   const res = await fetch(`${BASE}${path}`, {
     credentials: 'include',
@@ -164,7 +191,11 @@ async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TI
     // timeoutMs: 0 to opt out. Everything else is bounded (see DEFAULT_TIMEOUT_MS). Set AFTER
     // the spread so a caller's `signal` joins the timeout instead of silently replacing it.
     signal: eitherSignal(timeoutMs > 0 ? timeoutSignal(timeoutMs) : undefined, init?.signal),
-    headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
+    // …and WHICH session this page is asking with (lib/linkMode · the X-Incident-Link header).
+    // The ordinary app never borrows an Einsatz-Link cookie left in the browser, and a link
+    // page never borrows — or touches — the device's login. Before the caller's own headers,
+    // so nothing but a deliberate override can misstate it.
+    headers: { Accept: 'application/json', ...linkSessionHeaders(), ...(init?.headers ?? {}) },
   })
   // Every /api/ answer carries the server's own clock (backend · api_server_time), so THIS is
   // the sampling point: the boot config/`/me` fetches already teach lib/serverClock the offset
@@ -202,8 +233,10 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
   }
 
   // 401 on a non-auth path → attempt one refresh + retry. /api/auth/* is excluded so a
-  // failing login/refresh can't loop.
-  if (res.status === 401 && !isAuthPath) {
+  // failing login/refresh can't loop, and so is a page whose own link session is the
+  // authority: its 401 is about the LINK, and refreshing would renew a device login the link
+  // page has no business touching (and could not use anyway).
+  if (res.status === 401 && !isAuthPath && !linkPageOwnsSession()) {
     const ok = await tryRefresh()
     if (ok) {
       try {
@@ -226,9 +259,18 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
     let detail = mapped?.detail ?? res.statusText ?? ''
     let hint = mapped?.hint
     let fields: { path: string; msg: string; kind?: string; input?: unknown }[] | undefined
+    let code: string | undefined
     try {
       const body = await res.json()
       if (body && typeof body.detail === 'string') { detail = body.detail; hint = undefined }
+      // …or the same answer with a name on it: `{code, message}`, for the refusals a screen has
+      // to TELL APART rather than merely display (see ApiError.code). The message is the same
+      // German sentence a string detail would have carried, so nothing is lost by ignoring code.
+      else if (body?.detail && typeof body.detail === 'object' && typeof body.detail.message === 'string') {
+        detail = body.detail.message
+        code = typeof body.detail.code === 'string' ? body.detail.code : undefined
+        hint = undefined
+      }
       else if (Array.isArray(body?.detail)) {
         // Kept as structured pairs as well as the flattened line: the flattened one is English
         // Pydantic prose and only a caller that knows the document can say what it means (see
@@ -252,6 +294,7 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
     const err = new ApiError(res.status, detail, Number.isFinite(retryAfter) ? retryAfter : undefined)
     err.hint = hint
     err.fields = fields
+    err.code = code
     throw err
   }
 
