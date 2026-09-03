@@ -498,14 +498,30 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* The two ± steppers (Funkkanal · Eingangsdruck). Spans the modal, then splits itself: two
    columns where they fit, one where they don't — and a single child fills the row rather than
    sitting beside a gap. */
-@media (max-width: 560px) { .modalBody { grid-template-columns: 1fr; } }
+/* ⚠️ THE PHONE GATE OF THIS FILE — and it is `PHONE_QUERY` (lib/useIsPhone.ts) verbatim, not a
+   width of its own. TruppForm's two-step wizard is switched on in JS by `useIsPhone()`
+   (AtemschutzView · `wizard={compact}`); these blocks are the layout that step lives in. The two
+   halves decide the same thing and MUST move together.
+   ⚠️ They did not, until 03.09.: the wizard's rules sat at a bare `max-width: 560px`. Between 561
+   and 600 — and, worse, on EVERY landscape phone, which the trio's second clause counts as a
+   phone up to 1000px wide — one step at a time rendered against the TABLET's two-column grid: the
+   single Trupp column took half the frame with an empty second column beside it, and the sheet
+   was still a 760px centred box on a 390px-tall viewport. If this gate ever changes, change
+   `PHONE_QUERY` with it (and vice versa), or that band comes straight back.
+   The one narrower step below it is `max-width: 340px` (`.kindSeg`), which is a real width
+   argument about the tiles and not a second device gate. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .modalBody { grid-template-columns: 1fr; }
+}
 
 
 /* ⚠️ On a phone the form is a full-height sheet, not a centred box. The centred dialog was
    ~180px shorter than the screen while its content was twice as tall, which is what forced the
    person list into its OWN scroll box — a scroller inside a scroller, under your thumb. Full
-   height means exactly one thing scrolls. */
-@media (max-width: 560px) {
+   height means exactly one thing scrolls.
+   Same gate as the column collapse above (= `PHONE_QUERY`), deliberately: a 580px-wide window is
+   a phone by the app's own definition, so it gets the phone's frame as well as its column count. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .modal { top: 0; left: 0; transform: none; width: 100vw;
     height: 100dvh; max-height: 100dvh; border-radius: 0; overflow: hidden; }
   .modalHead { padding-top: max(18px, env(safe-area-inset-top)); }
@@ -535,8 +551,10 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    only there for the day a station has a dozen plans to place onto. */
 .placeModal { width: min(360px, calc(100vw - 32px)); height: auto; max-height: calc(100dvh - 32px); }
 /* …and it stays a centred card on a phone as well: the full-height sheet above exists so the
-   form's person list has exactly one scroller, which a two-row picker has no use for. */
-@media (max-width: 560px) {
+   form's person list has exactly one scroller, which a two-row picker has no use for.
+   ⚠️ This is the COUNTER-rule to the block above and must carry the identical gate: the moment
+   the sheet's gate is wider than this one, a picker between the two widths goes full-screen. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .placeModal { top: 50%; left: 50%; transform: translate(-50%, -50%);
     width: min(360px, calc(100vw - 32px)); height: auto; max-height: calc(100dvh - 32px);
     border-radius: var(--r-hero); }
@@ -949,8 +967,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    On the phone the columns stack, so «fill the rest of the column» would mean «fill the rest of
    the sheet» and the Eingangsdruck — the one field besides the names you cannot skip — would end
    up a dozen rows below the fold. There the list is a fixed box again. Two letters in the search
-   above it and it is three rows anyway. */
-@media (max-width: 560px) {
+   above it and it is three rows anyway.
+   ⚠️ Gate = `PHONE_QUERY` (see the modal block above). Everything below is the WIZARD's own
+   layout, and the wizard is switched on by `useIsPhone()` — same condition, one source. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* Stacked, the columns are rows of ONE grid whose height is the sheet's — so «fill what is
      left» has no meaning and «may shrink below my content» is actively harmful. Both take the
      height they need and the sheet scrolls them, which is what the full-height sheet is for. */
@@ -1312,8 +1332,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    they cut the width at a different place than the fields under them and read as a separate
    control that happens to be near the form. Matched, they read as the column headers of what
    follows. The ROW gap stays tight (8px).
-   ⚠️ …and below 560px that argument is void, because `.modalBody` is ONE column there — nothing
-   is left to line up with, so the phone spends the difference on the tiles instead (see below). */
+   ⚠️ …and on a PHONE that argument is void, because `.modalBody` is ONE column there — nothing
+   is left to line up with, so the phone spends the difference on the tiles instead (see below).
+   Which is why the gap below rides the same `PHONE_QUERY` gate as the column collapse and not a
+   width of its own: the two are the same decision read twice. */
 .kindSeg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 22px; }
 .kindOpt { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 10px 14px;
   border: 2px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
@@ -1327,8 +1349,13 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    ~135px inside the border and padding. «Unter Atemschutz» at 800 14px needs ~117px of that, so
    it fits on ONE line only once the icon stops sitting BESIDE it: stacked above, the text gets
    the whole width. The subtitle wraps to two lines and is meant to; the grid stretches both tiles
-   to the same height regardless. Same arithmetic holds at 360px (~127px of text width). */
-@media (max-width: 560px) {
+   to the same height regardless. Same arithmetic holds at 360px (~127px of text width).
+   ⚠️ Gate = `PHONE_QUERY`, like every phone block in this file. On a WIDE landscape phone the
+   tile has room the stack does not need (~325px), so the icon-above-text layout costs ~27px of
+   height it need not — accepted on purpose: a second, width-only gate here is exactly the kind of
+   near-miss that produced the 561–600 hole, and on a landscape phone step 2 scrolls either way.
+   A tile too narrow even stacked is handled one step down, at 340px. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .kindSeg { gap: 8px 10px; }
   /* `stretch`, not the base rule's `center`: turned on its side, «center» would centre the text
      block horizontally AND shrink-wrap it, and the title has to have the tile's full width to
