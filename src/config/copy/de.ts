@@ -225,7 +225,7 @@ export const de = {
             '**Wer geht rein**: drei Slots, der oberste ist der **GF** – die ganze Zeile antippen macht jemanden zum Gruppenführer, das **✕** entfernt ihn. Ein grösserer Trupp hängt einfach weitere Zeilen an.',
             'Über die **Personensuche** wird das ganze Personal gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
             '**Eingangsdruck** (bar) und **Funkkanal** stehen rechts daneben.',
-            'Darunter der **Auftrag**: Art (Retten · Löschen · Absuchen · Sichern · Erkunden · Anderes), **Ziel / Ort** in Klartext, **Leitung Nr.** (die bereits gezeichneten Leitungen stehen als Schnellwahl daneben) und die **Farbe** auf Karte und Plan.',
+            'Darunter der **Auftrag**: Art – unter Atemschutz Retten · Löschen · Absuchen · Sichern · Erkunden · Anderes, ohne Atemschutz Verkehr · Sanität · Wasserversorgung · Sichern · Bereitstellung · Anderes –, **Ziel / Ort** in Klartext, **Leitung Nr.** (die bereits gezeichneten Leitungen stehen als Schnellwahl daneben) und die **Farbe** auf Karte und Plan.',
             'Der Auftrag hält niemanden auf: **Trupp anmelden** geht auch ohne ihn. Die Karte trägt dann **«Auftrag offen»**, und ein Tipp darauf öffnet das Formular.',
             'Getippte Angaben bleiben erhalten, wenn das Fenster mit **✕** oder per Klick daneben geschlossen wird – nur **Abbrechen** verwirft sie.',
           ] },
@@ -1466,7 +1466,9 @@ export const de = {
     sectionTeam: 'Trupp',
     auftragLabel: 'Art',
     auftragOpen: 'Auftrag offen',
-    // DISPLAY labels for the Auftrag types, keyed by the auftrag `id` (appConfig.atemschutz.auftrag).
+    // DISPLAY labels for the Auftrag types, keyed by the auftrag `id`. ONE flat map over BOTH
+    // lists (appConfig.atemschutz.auftrag = unter Atemschutz, .auftragEinfach = ohne) — which is
+    // why `sichern` and `anderes` read the same on both kinds of card: they ARE the same id.
     // de = current German labels; en/fr/it translate. The stored auftrag value is always the id —
     // only the label localizes; falls back to the config label when a key is missing.
     auftragLabels: {
@@ -1475,6 +1477,10 @@ export const de = {
       absuchen: 'Absuchen',
       sichern: 'Sichern',
       erkunden: 'Erkunden',
+      verkehr: 'Verkehr',
+      sanitaet: 'Sanität',
+      wasser: 'Wasserversorgung',
+      bereitstellung: 'Bereitstellung',
       anderes: 'Anderes',
     } as Record<string, string>,
     zielLabel: 'Auftrag / Ziel',

@@ -1,6 +1,6 @@
 import type { AttendanceState, BoardAnno, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
-import { appConfig } from '../config/appConfig'
+import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
 import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
@@ -498,11 +498,15 @@ export function truppStatusLabel(t: Trupp | Trupp['status']): string {
 
 /** The Auftrag TYPE as it reads, not as it is stored. The stored value is the config id
  *  (`loeschen`, `retten`), and the print sent it straight through — so the Atemschutz sheet
- *  said «loeschen», umlaut and capital and all. Same resolution the Atemschutz view uses. */
+ *  said «loeschen», umlaut and capital and all. THE resolver: the board, the card chip, the
+ *  «Auftrag» sort and the Rapport all read a label through here.
+ *  ⚠️ It searches BOTH Auftrag lists (`allAuftragTypes`), never just the one matching the
+ *  Trupp's kind — a Trupp recorded before the split, or one whose kind was mis-picked, carries
+ *  an id from the other list and must still render its word rather than a blank chip. */
 export function truppAuftragLabel(auftrag?: string): string | undefined {
   if (!auftrag) return undefined
   const known = appConfig.copy.atemschutz.auftragLabels[auftrag]
-    ?? appConfig.atemschutz.auftrag.find((a) => a.id === auftrag)?.label
+    ?? allAuftragTypes.find((a) => a.id === auftrag)?.label
   if (known) return known
   // An id neither list knows — a Trupp from an older workspace, or a station that renamed its
   // Auftrag types. Print it the way an id READS rather than the way it is stored: the ids are
