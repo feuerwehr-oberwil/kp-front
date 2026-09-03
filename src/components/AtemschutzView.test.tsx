@@ -312,6 +312,21 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(setTruppStatus).toHaveBeenCalledWith('tr9', 'raus')
   })
 
+  /* ⚠️ The row is LIGHTER than a card, not smaller in function: it has no card behind it to open,
+   * so every control it drops is a control that is gone. The 03.09. phone pass tightened the row
+   * to three bands and this is the seam it must not cross — bearbeiten, setzen and entfernen stay
+   * ON the row, next to the lifecycle step (pinned above). */
+  it('keeps bearbeiten · setzen · entfernen on the row itself, not behind an opening tap', () => {
+    const deleteTrupp = vi.fn()
+    mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' }, deleteTrupp })
+    const row = document.querySelector(`.${s.prow}`)!
+    for (const label of [az.edit, az.place, az.remove]) {
+      expect(row.contains(screen.getByRole('button', { name: label }))).toBe(true)
+    }
+    fireEvent.click(screen.getByRole('button', { name: az.remove }))
+    expect(deleteTrupp).toHaveBeenCalledWith('tr9')
+  })
+
   // The handed-over Tafel operates the Atemschutzüberwachung and nothing else — that is what the
   // QR promises and what the link's backend allowlist permits.
   it('hides plain Trupps entirely on the handed-over board, and offers no way to create one', () => {
