@@ -617,7 +617,11 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .placeOptCap { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px;
   vertical-align: baseline; }
 
-.formWarn { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--red-strong);
+/* ⚠️ `flex-direction: row` is not the default here, it is a CORRECTION. The Zuteilungs-Warnung is
+   the one element wearing `.formColWide` AND this class (AtemschutzView · assignedConflict), and
+   `.formColWide` is a flex COLUMN — so without this the ⚠️ sat centred ABOVE its sentence instead
+   of beside it, which reads as a heading rather than as a warning about the line under it. */
+.formWarn { margin: 0; display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--red-strong);
   background: color-mix(in srgb, var(--red) 9%, transparent); border-radius: var(--r-ctl); padding: 10px 12px; }
 .formWarn :global(.i) { width: 16px; height: 16px; flex: none; }
 .field { display: flex; flex-direction: column; gap: 5px; }
