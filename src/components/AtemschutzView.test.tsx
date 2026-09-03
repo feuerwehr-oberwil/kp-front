@@ -5,7 +5,7 @@
 // (a Druckmeldung must never cost an opening tap); its ± only stages a pending value and the
 // explicit «Bestätigen» commits.
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
@@ -366,6 +366,52 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(made.kind).toBe('einfach')
     expect(made.entryPressureBar).toBe(0)
   })
+
+  /* ── The Auftrag vocabulary follows the kind (03.09.) ──────────────────────────────────────
+   * A Verkehrstrupp was being offered «Löschen» — the PA list, on a card that is read at a
+   * glance. Each kind now has its own six words (config · atemschutz.auftrag / .auftragEinfach),
+   * and the tiles swap with the «Art des Trupps» answer above them. */
+  it('offers the Auftrag list belonging to the chosen Art des Trupps', () => {
+    mount({ trupps: [] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    const tiles = () => within(screen.getByRole('group', { name: az.auftragLabel }))
+      .getAllByRole('button').map((b) => b.textContent)
+    expect(tiles()).toEqual(['Retten', 'Löschen', 'Absuchen', 'Sichern', 'Erkunden', 'Anderes'])
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    expect(tiles()).toEqual(['Verkehr', 'Sanität', 'Wasserversorgung', 'Sichern', 'Bereitstellung', 'Anderes'])
+    expect(tiles()).not.toContain('Löschen')
+  })
+
+  /* ⚠️ …but only the OFFER is narrowed. Every Trupp recorded before 03.09. carries a PA id, and
+   * a kind can be mis-picked — the label resolver searches BOTH lists (lib/report ·
+   * truppAuftragLabel), so the chip says the word rather than going blank or, worse, offering
+   * «Auftrag offen» over an Auftrag that is set. An incident is a legal record. */
+  it('renders an Auftrag stored from the OTHER kind’s list, both ways round', () => {
+    mount({
+      trupps: [{ ...aktivTrupp(), auftrag: 'verkehr' }, { ...plainTrupp(), auftrag: 'loeschen' }],
+      truppColors: { tr1: '#e8392b', tr9: '#e2920a' },
+    })
+    expect(screen.getByText('Verkehr')).toBeTruthy()   // PA card wearing a non-PA id
+    expect(screen.getByText('Löschen')).toBeTruthy()   // plain row wearing a PA id
+    expect(screen.queryByRole('button', { name: az.auftragOpen })).toBeNull()
+  })
+
+  // «Anderes» is the escape hatch on BOTH lists — it is the same shared id — so it has to keep
+  // demanding the word that says what the order actually was.
+  it.each([['atemschutz', az.kindAtemschutz], ['einfach', az.kindPlain]])(
+    'holds the save until «Anderes» has a Ziel (%s)', (_kind, kindLabel) => {
+      const createTrupp = vi.fn()
+      mount({ createTrupp, trupps: [] })
+      fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+      fireEvent.click(screen.getByRole('radio', { name: new RegExp(kindLabel) }))
+      typeGuest('Gerber Urs')
+      fireEvent.click(within(screen.getByRole('group', { name: az.auftragLabel })).getByText('Anderes'))
+      fireEvent.click(screen.getByRole('button', { name: az.start }))
+      expect(createTrupp).not.toHaveBeenCalled()
+      fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: 'Zufahrt sperren' } })
+      fireEvent.click(screen.getByRole('button', { name: az.start }))
+      expect(createTrupp).toHaveBeenCalledTimes(1)
+    })
 
   // ⚠️ A default is never STAMPED: absent means «unter Atemschutz» (types · TruppKind), so a
   // fresh PA Trupp has to look exactly like every record written before 03.09.

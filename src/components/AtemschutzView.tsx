@@ -11,9 +11,9 @@ import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClo
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
-import { readingBarIsMeasured, truppStatusLabel } from '../lib/report'
+import { readingBarIsMeasured, truppAuftragLabel, truppStatusLabel } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
-import type { AttendanceState, Person, Trupp, TruppFields, TruppKind } from '../types'
+import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields, TruppKind } from '../types'
 import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import type { MarkerOption } from '../lib/placedTrupps'
@@ -30,7 +30,7 @@ import { truppOrderKey } from '../lib/useTruppActions'
 import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 
-const cfg = appConfig.atemschutz // static, non-doctrine parts only (auftrag list)
+const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
 // at the top of each component/helper below rather than captured here at module-load, so the
 // locale AND the deployment config resolved at boot apply.
@@ -55,13 +55,6 @@ type FormMode = 'create' | 'edit' | 'redeploy'
 
 /** How the board is arranged — mirrors Prefs.atemschutzOrder. */
 export type TruppOrder = 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
-
-/** Resolve a Trupp's Auftrag type to its display label (the order detail lives in `ziel`). */
-function auftragTypeLabel(t: Trupp): string | null {
-  if (!t.auftrag) return null
-  // localized label wins; fall back to the config label (stored value stays the auftrag id)
-  return appConfig.copy.atemschutz.auftragLabels[t.auftrag] ?? cfg.auftrag.find((a) => a.id === t.auftrag)?.label ?? null
-}
 
 /** snap a raw bar value to the step grid, clamped to [0, ceiling] */
 function snapBar(v: number): number {
@@ -391,7 +384,13 @@ export function AtemschutzView({
     }
     if (order === 'name') return a.name.localeCompare(b.name, 'de') || orderKey(a) - orderKey(b)
     if (order === 'auftrag') {
-      return (auftragTypeLabel(a) ?? '￿').localeCompare(auftragTypeLabel(b) ?? '￿', 'de') || orderKey(a) - orderKey(b)
+      // ⚠️ By the LABEL on the card, not by a list index — which is what keeps this coherent now
+      // that there are two Auftrag lists (config · atemschutz.auftrag + .auftragEinfach). Two
+      // indices would collide («Retten» and «Verkehr» are both #1); the word the operator reads
+      // orders both vocabularies in one alphabet, and the board is split into its PA and
+      // non-PA sections anyway, so the two lists never actually interleave. A Trupp with no
+      // Auftrag sorts last (￿), an id from the other list sorts by its own word.
+      return (truppAuftragLabel(a.auftrag) ?? '￿').localeCompare(truppAuftragLabel(b.auftrag) ?? '￿', 'de') || orderKey(a) - orderKey(b)
     }
     if (order === 'dringlichkeit') {
       // the tier first, then how far past its own line — the ranking the badge and the TopBar
@@ -1311,7 +1310,7 @@ function PlainTruppRow({
   const az = appConfig.copy.atemschutz
   const status = live.status
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
-  const auftrag = auftragTypeLabel(t)
+  const auftrag = truppAuftragLabel(t.auftrag)
   const lineTag = drawnLineNo != null ? String(drawnLineNo)
     : t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim()
   const crew = (t.members ?? []).filter(Boolean).join(' · ')
@@ -1490,7 +1489,7 @@ function TruppCard({
     return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
   }, [focusNonce])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
-  const auftrag = auftragTypeLabel(t)
+  const auftrag = truppAuftragLabel(t.auftrag)
   const sev = alarm.sev
   const dz = atemschutzDoctrine()
   // Planungshilfe: measured consumption history wins; the configured assumption is used only
@@ -2010,6 +2009,10 @@ function TruppForm({
    * all hang off this one word. The chooser below is therefore rendered for `create` only. */
   const [kind, setKind] = useState<TruppKind>(initial?.kind ?? 'atemschutz')
   const isPa = kind === 'atemschutz'
+  // …and the Auftrag tiles follow it: each kind has its own six-word vocabulary (config ·
+  // atemschutz.auftrag / .auftragEinfach). Only the OFFER is narrowed — an already-stored value
+  // from the other list keeps rendering everywhere (lib/report · truppAuftragLabel).
+  const auftragTypes: { id: TruppAuftrag; label: string }[] = isPa ? cfg.auftrag : cfg.auftragEinfach
   // a fresh cylinder for create / re-deploy; edit never touches pressure. A Trupp without
   // Atemschutz has no cylinder at all — 0, and the field is not shown (see `showPressure`).
   const [pressure, setPressure] = useState<number>(() => {
@@ -2243,11 +2246,16 @@ function TruppForm({
                 (field decision 30.08.): the gap on the card is the pair, not one field. */}
             <div ref={auftragRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
               <span>{az.auftragLabel}</span>
+              {/* The list that matches the Trupp's KIND — a Verkehrstrupp was being offered
+                  «Löschen» (field report 03.09.). Both lists are six tiles, so the form keeps
+                  its shape; `sichern` and `anderes` are literally the same id on both sides
+                  (config · atemschutz.auftragEinfach), so switching the tiles above cannot
+                  invalidate a value that is already picked. */}
               <Segmented
                 ariaLabel={az.auftragLabel}
                 value={auftrag ?? undefined}
                 onChange={(v) => setAuftrag(v)}
-                options={cfg.auftrag.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
+                options={auftragTypes.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
               />
             </div>
             <label ref={zielRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>

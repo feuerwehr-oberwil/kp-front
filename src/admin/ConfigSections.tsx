@@ -12,7 +12,7 @@ import { FleetAttributesViewer } from './FleetAttributesViewer'
 import { ModulesViewer } from './ModulesViewer'
 import { ObjectsView, GeodataView } from './DataView'
 import { BrandingFields } from './BrandingFields'
-import { appConfig } from '../config/appConfig'
+import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, roundedMinutes } from '../lib/attendanceHours'
 import { DEFAULT_ATTENDANCE_MERGE_GAP_MIN } from '../lib/attendanceIntervals'
@@ -886,10 +886,13 @@ export function DoctrineSection() {
           says «read this Lage by role» — every Löschtrupp red — and the EL can still override any
           single Trupp. Left as swatches, not a free colour input: these have to be the SAME ten
           colours the Trupp form and the plan chip offer, or the picture stops agreeing with
-          itself. */}
+          itself.
+          ⚠️ BOTH Auftrag lists (config · allAuftragTypes), PA first, each id once: the colour is
+          keyed by the stored id and a Trupp ohne Atemschutz wears it exactly like one under PA,
+          so offering only the PA words would leave «Verkehr» with no way to be coloured. */}
       <h3 className="adm-fieldgroup">{C.groupAuftragColors}</h3>
       <p className="adm-hint">{C.auftragColorsTip}</p>
-      {appConfig.atemschutz.auftrag.map((a) => {
+      {allAuftragTypes.map((a) => {
         const value = auftragColors?.[a.id]
         return (
           <Field key={a.id} label={appConfig.copy.atemschutz.auftragLabels[a.id] ?? a.label}>

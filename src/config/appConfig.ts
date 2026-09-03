@@ -1,4 +1,4 @@
-import type { LayerId, SymbolControl } from '../types'
+import type { AtemschutzAuftrag, EinfachAuftrag, LayerId, SymbolControl } from '../types'
 import { getCopy, type Copy } from './copy'
 
 /** One symbol's curated defaults: which built-in steppers make sense for it
@@ -557,7 +557,9 @@ const base = {
      *  A Schätzung only — kept out of alarm math; it never replaces a real reading. */
     cylinderLiters: 7,
     estConsumptionLPerMin: 50,
-    /** Auftrag types offered in the wizard (FKS); the actual order + location go in `ziel` */
+    /** Auftrag types offered to a Trupp UNDER Atemschutz (FKS); the actual order + location
+     *  go in `ziel`. ⚠️ One of TWO lists — see `auftragEinfach` below and types · TruppAuftrag;
+     *  anything resolving a stored id back to a label has to search both. */
     auftrag: [
       { id: 'retten', label: 'Retten' },
       { id: 'loeschen', label: 'Löschen' },
@@ -565,7 +567,20 @@ const base = {
       { id: 'sichern', label: 'Sichern' },
       { id: 'erkunden', label: 'Erkunden' },
       { id: 'anderes', label: 'Anderes' },
-    ] as { id: 'retten' | 'loeschen' | 'absuchen' | 'sichern' | 'erkunden' | 'anderes'; label: string }[],
+    ] as { id: AtemschutzAuftrag; label: string }[],
+    /** …and the list for a Trupp OHNE Atemschutz (types · TruppKind `einfach`): the jobs a plain
+     *  work squad is actually given. Its own list because the PA vocabulary is wrong on those
+     *  cards — a Verkehrstrupp was being offered «Löschen».
+     *  ⚠️ `sichern` and `anderes` are the SAME ids as above, not copies: they mean the same
+     *  thing for both kinds, so a stored value keeps meaning what it meant. */
+    auftragEinfach: [
+      { id: 'verkehr', label: 'Verkehr' },
+      { id: 'sanitaet', label: 'Sanität' },
+      { id: 'wasser', label: 'Wasserversorgung' },
+      { id: 'sichern', label: 'Sichern' },
+      { id: 'bereitstellung', label: 'Bereitstellung' },
+      { id: 'anderes', label: 'Anderes' },
+    ] as { id: EinfachAuftrag; label: string }[],
   },
   // Mittel (material-use) catalogue defaults. A deployment overrides `catalogue`/`sources` via
   // its station config (DeploymentMittel); these national defaults give a usable picker out of
@@ -594,6 +609,21 @@ const base = {
     planAheadHours: 168,
   },
 } as const
+
+/**
+ * Every Auftrag type that exists, both kinds, each id ONCE (the two lists share `sichern` and
+ * `anderes`), PA order first.
+ *
+ * ⚠️ This is what anything reading a STORED value has to go through — the label resolution
+ * (lib/report · truppAuftragLabel) and the station's colour-per-Auftrag picker. Only the form
+ * itself picks a single list, by the Trupp's kind; every other surface must still render an id
+ * from the other list, because an incident is a legal record and Trupps predating the split
+ * carry PA ids regardless of what they were.
+ */
+export const allAuftragTypes: { id: AtemschutzAuftrag | EinfachAuftrag; label: string }[] = [
+  ...base.atemschutz.auftrag,
+  ...base.atemschutz.auftragEinfach.filter((e) => !base.atemschutz.auftrag.some((p) => p.id === e.id)),
+]
 
 // `copy` is sourced from the active locale (see ./copy): `appConfig.copy.*` resolves
 // the user's language at read time via the getter below. The rest of `appConfig` is the

@@ -762,6 +762,23 @@ export interface SymbolLibrary { order: string[]; symbols: SymbolMeta[] }
  */
 export type TruppKind = 'atemschutz' | 'einfach'
 
+/**
+ * What a Trupp was sent to do — the TYPE, offered as a short list of tiles; the order itself
+ * goes in `ziel`. There are two lists, one per `TruppKind` (config · atemschutz.auftrag /
+ * atemschutzEinfach), because a Verkehrstrupp being offered «Löschen» is the wrong vocabulary
+ * on a card that is read at a glance.
+ *
+ * ⚠️ `sichern` and `anderes` are DELIBERATELY shared between the two lists: they mean the same
+ * thing for both kinds, so the stored value keeps meaning what it meant and a Trupp whose kind
+ * was mis-picked keeps a valid Auftrag. Everything else belongs to exactly one list — but the
+ * union is flat and NOT narrowed per kind: an incident is a legal record, and a Trupp created
+ * before 03.09. (or under the other kind) still carries whatever id it was given. Every reader
+ * resolves the label through `truppAuftragLabel`, which searches BOTH lists.
+ */
+export type AtemschutzAuftrag = 'retten' | 'loeschen' | 'absuchen' | 'sichern' | 'erkunden' | 'anderes'
+export type EinfachAuftrag = 'verkehr' | 'sanitaet' | 'wasser' | 'sichern' | 'bereitstellung' | 'anderes'
+export type TruppAuftrag = AtemschutzAuftrag | EinfachAuftrag
+
 /** the editable descriptive fields of a Trupp, shared by the create / edit / re-deploy form */
 /** `color: null` from the form means «zurück auf automatisch» — distinct from `undefined`, which
  *  is «this form doesn't carry a colour». See Trupp.color.
@@ -848,8 +865,9 @@ export interface Trupp {
   name: string
   /** other team members (for the board card; the chip shows only the leader) */
   members?: string[]
-  /** the Trupp's order type; the actual order + location goes in `ziel` */
-  auftrag?: 'retten' | 'loeschen' | 'absuchen' | 'sichern' | 'erkunden' | 'anderes'
+  /** the Trupp's order type, from the list matching its `kind`; the actual order + location
+   *  goes in `ziel`. See TruppAuftrag — the two lists overlap on purpose. */
+  auftrag?: TruppAuftrag
   /** the actual order + location in plain words ("2. OG Wohnung links, Person vermisst").
    *  Required when `auftrag === 'anderes'` (carries the custom order). */
   ziel?: string

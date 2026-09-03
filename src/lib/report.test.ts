@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { allAuftragTypes } from '../config/appConfig'
 import type { BoardDoc, Drawing, Entity, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 
 // The Zeiten grid is built from the deployment's Gruppen/Fahrzeuge, so the rows have to come
@@ -529,6 +530,16 @@ describe('truppAuftragLabel (Auftrag on the Atemschutz sheet)', () => {
   it('resolves the stored id to its display label', () => {
     expect(truppAuftragLabel('loeschen')).toBe('Löschen')
     expect(truppAuftragLabel('retten')).toBe('Retten')
+  })
+
+  // ⚠️ THE regression this file exists to hold since the Auftrag list split in two (03.09.):
+  // the resolver reads one flat label map over BOTH lists, so an id from either one renders its
+  // word — on the board, on the card and on the sheet — whichever kind the Trupp turned out to
+  // be. Miss one and a Trupp that already carries the other list's id shows a blank chip, on a
+  // record that is legally what happened.
+  it('resolves every id in BOTH Auftrag lists, not just the Atemschutz one', () => {
+    for (const a of allAuftragTypes) expect(truppAuftragLabel(a.id)).toBe(a.label)
+    expect(allAuftragTypes.map((a) => a.id)).toContain('verkehr')
   })
 
   it('spells an unknown id instead of printing it raw — «loeschen», not «loeschen»', () => {
