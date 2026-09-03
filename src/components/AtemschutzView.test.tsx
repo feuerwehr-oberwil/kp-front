@@ -445,6 +445,18 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(screen.getByText(az.colorLabel)).toBeTruthy()
   })
 
+  /* ⚠️ Step 1 carries TWO things on the main board — «Art des Trupps» above the Mannschaftsliste
+   * — where the handed-over link's step 1 carries only the list. The layout was written for the
+   * link's single child (Atemschutz.module.css · .modalWizard .modalBody:has(.team)) and gave the
+   * whole sheet to the tiles, so the list sat below the fold with nothing to say it was there. */
+  it('puts the Art des Trupps chooser AND the Mannschaftsliste on step 1', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [aktivTrupp()] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    expect(screen.getByText(az.kindLabel)).toBeTruthy()
+    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+  })
+
   it('a tablet keeps the single screen — the wizard is for 375px, not for touch', () => {
     mount({ trupps: [aktivTrupp()] }) // useIsPhone false
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))

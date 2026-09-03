@@ -991,7 +991,6 @@ export const it: Localizable<Copy> = {
     kindAtemschutzHint: 'Con pressione e orologio dei contatti',
     kindPlain: 'Senza ARA',
     kindPlainHint: 'Solo incarico e tempo',
-    kindPlainNote: 'Nessuna pressione iniziale, nessun intervallo di contatto: questa squadra compare sotto «Altre squadre» e mai nella parte ARA del rapporto. Il tipo non è più modificabile in seguito.',
     empty: 'Ancora nessuna squadra in sorveglianza.',
     emptyHint: 'Crea una squadra per avviare la sorveglianza.',
     newTrupp: 'Crea squadra',

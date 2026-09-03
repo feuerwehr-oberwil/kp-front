@@ -2195,9 +2195,6 @@ function TruppForm({
                     <span className={s.kindOptTxt}><b>{az.kindPlain}</b><span>{az.kindPlainHint}</span></span>
                   </button>
                 </div>
-                {/* said out loud on the side that is the exception — and it says the one thing
-                    that cannot be undone (types · Trupp.kind) before the Trupp exists */}
-                {!isPa && <p className={s.fieldNote}>{az.kindPlainNote}</p>}
               </div>
             </div>
           )}
