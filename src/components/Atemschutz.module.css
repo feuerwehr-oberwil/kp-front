@@ -98,6 +98,13 @@
 .sectSecond { margin-top: 26px; }
 /* said once under the second rule, not per row (see AtemschutzView) */
 .sectHint { font-size: 11.5px; font-weight: 600; color: var(--ink-faint); margin: -4px 0 12px; }
+/* …and NOT on a phone. It is ~60 characters — two full lines at 375px, plus its margin, spent on
+   a section that is often one entry tall. It earns that on a tablet, where the two halves sit side
+   by side in a grid and the distinction has to be named; on a phone the board is one column, so
+   the sentence sits between the Atemschutz rows and the rows that answer it, and the contrast is
+   already the loudest thing on screen: the rule, the heading, and rows with no clock, no Druck and
+   no Kontakt where the ones above them have all three. */
+@media (max-width: 600px) { .sectHint { display: none; } }
 .sectEmpty { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
 
 /* ── «Weitere Trupps»: a row, not a card ───────────────────────────────────────────────────
@@ -108,7 +115,10 @@
 .prow { display: grid; grid-template-columns: minmax(150px, 1.1fr) minmax(190px, 1.4fr) 96px auto;
   align-items: center; gap: 14px;
   background: var(--surface); border-radius: var(--r-ctl); padding: 10px 12px;
-  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm);
+  /* FLAT — a ring, no lift. `--shadow-sm` is what a monitoring CARD wears, and a row wearing the
+     same elevation reads as a card that merely happens to be short. The hierarchy this section
+     exists for is carried by weight as much as by height. */
+  box-shadow: 0 0 0 1px var(--border-soft);
   /* LEFT, where a card carries its band on top — a row has no banner to tint, and the stripe is
      what makes the state readable without a second colour anywhere else on the line */
   border-left: 5px solid var(--ink-faint); }
@@ -142,13 +152,43 @@
 .prowIdle .prowSince b { color: var(--blue); }
 /* finished — grey and dimmed, exactly what `.st-raus` does to a card */
 .prowOut { border-left-color: var(--ink-faint); opacity: .86; }
-/* ⚠️ On a phone the four tracks do not fit 375px: name and Auftrag stack, and the clock joins the
-   action row so the row still reads left-to-right as «who · what · how long · what now». */
+/* ⚠️ On a phone the four tracks do not fit 375px, and the first stacking of them cost the section
+   its whole point: name, crew, a WRAPPING chip row and a WRAPPING action row came to ~200px —
+   taller than the Atemschutz row right above it (`.trow`, ~64px), so the half of the board with no
+   clock, no Druck and no Kontakt was the half that took the most screen. That is the hierarchy
+   backwards (field feedback, 03.09.).
+   Three bands instead of five, and nothing is dropped:
+     1 · who — name and crew on ONE line (the crew is a second fact about the same thing, and its
+         own line cost as much height as the chip row under it)
+     2 · what and where — the chips, with the Einsatzzeit at the end of the same band
+     3 · what now — the lifecycle button and the three icon actions, all still on the row and all
+         still `--tap`, because a work squad has no card behind it to hide a control on.
+   ⚠️ Explicit `grid-row`s, not auto-placement: band 2 is two cells wide and bands 1 and 3 span the
+   full width, which auto-placement resolves by pushing `.prowSince` onto a band of its own. */
 @media (max-width: 600px) {
-  .prow { grid-template-columns: 1fr auto; gap: 8px 10px; }
-  .prowId, .prowTask { grid-column: 1 / -1; }
-  .prowSince { grid-column: 1; text-align: left; }
-  .prowActs { grid-column: 2; }
+  /* ⚠️ the clock track is FIXED, not `auto`: bands 1 and 3 span both columns, and an intrinsic
+     track grows to take a spanning item's contribution — the action band would have widened the
+     clock column to the width of «Wieder einrücken» and taken that width off the chips. 78px is
+     what «EINSATZZEIT» measures at 9.5px, the widest thing the cell ever holds. */
+  .prow { grid-template-columns: minmax(0, 1fr) 78px; gap: 6px 10px; padding: 9px 11px; }
+  /* band 1 — «Verkehr · Gerber Urs · Stalder Nina» on one line. The CREW takes the ellipsis: it is
+     the fact you can lose and still know which Trupp the row is (`max-width` so a long name cannot
+     push it out of the line entirely — then both ellipse). */
+  .prowId { grid-row: 1; grid-column: 1 / -1; display: flex; align-items: baseline; gap: 7px; }
+  .prowName { flex: 0 0 auto; max-width: 60%; font-size: 15.5px; }
+  .prowCrew { flex: 0 1 auto; min-width: 0; margin-top: 0; padding-left: 0; }
+  /* the separator the stacked layout got for free from the line break */
+  .prowCrew::before { content: '· '; }
+  /* band 2 — what and where, and how long they have been at it */
+  .prowTask { grid-row: 2; grid-column: 1; }
+  .prowSince { grid-row: 2; grid-column: 2; }
+  /* band 3 — one line of controls, and the reason the band is only one line: with the Einsatzzeit
+     out of this row the four controls have the FULL width («Raus melden» ~122px + 3 × 44px + gaps
+     ≈ 265px against ~318px at 375px), where before they shared it with the clock and wrapped onto
+     a second 44px band. `wrap` is kept as the safety valve for a 320px screen with the longest
+     label («Wieder einrücken») — a wrapped row is taller, an overflowing one scrolls the page. */
+  .prowActs { grid-row: 3; grid-column: 1 / -1; gap: 3px; }
+  .prowAct { padding: 0 12px; gap: 6px; }
 }
 
 /* --- monitoring card --- */
@@ -1244,9 +1284,17 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 /* «Art des Trupps» (TruppForm, create only): two labelled tiles, not a Segmented pair — the
    choice is not a yes/no property of one thing but WHICH of two things is being registered, and
-   each side has to say what it brings. Two columns where they fit, stacked where they don't. */
-.kindSeg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-@media (max-width: 420px) { .kindSeg { grid-template-columns: 1fr; } }
+   each side has to say what it brings.
+   ⚠️ The COLUMN gap is `.modalBody`'s own (22px) and is not a free choice: the tiles sit in a
+   `.formColWide` directly above the form's two columns, so with any other gap the two tiles cut
+   the width at a different place than the fields under them and read as a separate control that
+   happens to be near the form. Matched, they read as the column headers of what follows. The ROW
+   gap stays tight (8px) — stacked, they are two options in a list, not two columns.
+   The breakpoint is `.modalBody`'s for the same reason: between 421 and 560px the body was still
+   two columns while the tiles had already stacked, so the one thing they are aligned to was gone.
+   Move one, move both. */
+.kindSeg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 22px; }
+@media (max-width: 560px) { .kindSeg { grid-template-columns: 1fr; } }
 .kindOpt { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 10px 14px;
   border: 2px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
   text-align: left; cursor: pointer; font-family: var(--body); color: var(--ink); }
