@@ -427,8 +427,8 @@ describe('the board with Trupps that are not under Atemschutz', () => {
 
 /* ── The two-step form on ANY phone (03.09.) ──────────────────────────────────────────────────
  * The wizard was the handed-over board's own layout; the main board's phone view had the same
- * fold and now shares it. The two differences that matter: outside the link step 2 also carries
- * Leitung und Farbe, and a Trupp without Atemschutz has no second step at all. */
+ * fold and now shares it. What differs outside the link: step 2 additionally carries the «Art des
+ * Trupps» tiles at its top plus Leitung und Farbe. Every Art of Trupp walks the same two steps. */
 describe('the Trupp form on the main board’s phone layout', () => {
   afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
 
@@ -445,16 +445,18 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(screen.getByText(az.colorLabel)).toBeTruthy()
   })
 
-  /* ⚠️ Step 1 carries TWO things on the main board — «Art des Trupps» above the Mannschaftsliste
-   * — where the handed-over link's step 1 carries only the list. The layout was written for the
-   * link's single child (Atemschutz.module.css · .modalWizard .modalBody:has(.team)) and gave the
-   * whole sheet to the tiles, so the list sat below the fold with nothing to say it was there. */
-  it('puts the Art des Trupps chooser AND the Mannschaftsliste on step 1', () => {
+  /* ⚠️ «Art des Trupps» belongs ABOVE THE FIELDS IT GOVERNS, and every one of those (Druck,
+   * Auftrag, Kanal, Ziel) is on step 2 — so on the phone the chooser leads step 2 and step 1 is
+   * the Mannschaft alone (03.09.). The one thing the Art does not govern is who is in the Trupp. */
+  it('leads step 2 with the Art des Trupps chooser and leaves step 1 the Mannschaft alone', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    expect(screen.getByText(az.kindLabel)).toBeTruthy()
     expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+    expect(screen.queryByText(az.kindLabel)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
+    expect(screen.getByText(az.kindLabel)).toBeTruthy()
+    expect(screen.queryByText(az.sectionTeam)).toBeNull()
   })
 
   it('a tablet keeps the single screen — the wizard is for 375px, not for touch', () => {
@@ -462,25 +464,35 @@ describe('the Trupp form on the main board’s phone layout', () => {
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     expect(screen.queryByRole('button', { name: az.wizardNext })).toBeNull()
     expect(screen.getByText(az.pressureLabel)).toBeTruthy() // everything is already there
+    // …and there the chooser is still FIRST and spans the form, above the two columns it governs
+    const body = document.querySelector(`.${s.modalBody}`)
+    expect(body?.firstElementChild?.className).toContain(s.formColWide)
+    expect(body?.firstElementChild?.textContent).toContain(az.kindLabel)
   })
 
   /* ⚠️ Reversed on 03.09. This test used to pin «wizard off for a Trupp without Atemschutz».
-   * That made the form RESTRUCTURE itself under the thumb that had just tapped «Ohne Atemschutz»
-   * — the tile lives on step 1 — which is the jarring part, not the length of step 2. */
+   * That made the form RESTRUCTURE itself under the thumb that had just tapped «Ohne Atemschutz»,
+   * which is the jarring part, not the length of step 2. The tap now only adds and drops the
+   * Druck row directly beneath the tiles — ordinary form behaviour — and never moves the step or
+   * touches step 1. */
   it('keeps the two steps for a Trupp without Atemschutz, with a step 2 that has no Druck', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
-    // step 1 is unchanged by the tap: same caption, same Mannschaftsliste, same «Weiter»
-    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
-    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
-    // …and step 2 is the same step, minus the one field a Verkehrstrupp has no cylinder for
+    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    // the step itself is unchanged by the tap: same caption, same chooser, same rest of the step
     expect(screen.getByText(new RegExp(az.wizardWhat))).toBeTruthy()
+    expect(screen.getByText(az.kindLabel)).toBeTruthy()
     expect(screen.getByText(az.funkkanalSection)).toBeTruthy()
     expect(screen.getByText(az.zielLabel)).toBeTruthy()
+    // …minus the one field a Verkehrstrupp has no cylinder for
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
+    // and step 1 is untouched — walking back finds the Mannschaft where it was left
+    fireEvent.click(screen.getByRole('button', { name: az.wizardBack }))
+    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
   })
 
   /* The walk-back keys off the wizard alone, so a plain Trupp gets the same «Speichern» that
@@ -490,11 +502,12 @@ describe('the Trupp form on the main board’s phone layout', () => {
     const createTrupp = vi.fn()
     mount({ trupps: [aktivTrupp()], createTrupp })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
     fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
     fireEvent.click(screen.getByRole('button', { name: az.start }))
     expect(createTrupp).not.toHaveBeenCalled()
     expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
   })
 
   /* ONE placeholder for every Auftrag (03.09.): «z. B. 2OG links» proposed a storey to a

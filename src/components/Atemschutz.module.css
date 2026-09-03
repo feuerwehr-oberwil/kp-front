@@ -965,15 +965,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      38dvh box above just left the bottom of the sheet empty. The grow chain from the tablet
      layout comes back.
      ⚠️ A FLEX COLUMN, not a grid row template. Step 1 does NOT have a fixed number of children:
-     while creating on the main board it carries the «Art des Trupps» tiles (.formColWide) above
-     the list and can carry the Anwesenheits-Warnung below it, while the handed-over link's
-     wizard — and an edit walked back to step 1 — have the Trupp column alone. `grid-template-rows:
-     1fr` handed the whole sheet to whichever child came FIRST (the tiles) and dropped the list
-     into an implicit row below the fold; any fixed `auto 1fr` would starve the list the moment
-     the chooser is not there. As a column every other child takes the height it needs and the
-     Trupp column takes the rest, for any number of them. Everything stays scoped with :has(.team)
-     so step 2 (whose formCol becomes :first-child once the team column unmounts) keeps the grid
-     and its natural height. */
+     usually it is the Trupp column alone (the «Art des Trupps» tiles moved to step 2 on 03.09.,
+     where the fields they govern are), but it still picks up the Anwesenheits-Warnung below the
+     list. `grid-template-rows: 1fr` handed the whole sheet to whichever child came FIRST and
+     dropped the list into an implicit row below the fold; any fixed `auto 1fr` would starve the
+     list the moment the extra child is not there. As a column every other child takes the height
+     it needs and the Trupp column takes the rest, for any number of them — which is why this
+     survived the tiles leaving unchanged. Everything stays scoped with :has(.team) so step 2 —
+     where the tiles now lead and the whole step simply scrolls — keeps the grid and its natural
+     height. */
   .modalWizard .modalBody:has(.team) { display: flex; flex-direction: column; }
   /* ⚠️ basis 0 + min-height 0, i.e. «take exactly what the other children leave over», NOT
      `auto`: sized from its own content the column would be as tall as the WHOLE roster
@@ -1309,8 +1309,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   border: 2px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
   text-align: left; cursor: pointer; font-family: var(--body); color: var(--ink); }
 /* ⚠️ TWO COLUMNS ON THE PHONE TOO (03.09.) — they used to stack here, and side by side they cost
-   half the height. That is what step 1 of the wizard needs: the tiles sit above the
-   Mannschaftsliste, which takes whatever they leave over (`.modalWizard .modalBody:has(.team)`).
+   half the height. That is what the wizard's step 2 needs: the tiles LEAD that step (they govern
+   what it asks) and everything the step is actually for — Eingangsdruck, Funkkanal, Auftrag —
+   follows underneath, so ~64px of stacked tile is ~64px of the Druck pushed towards the fold.
    What has to give for that is the TILE, not the column count. At a 375px viewport the sheet is
    the full width, `.modalBody` takes 20px each side, and a 10px gutter leaves ~163px per tile —
    ~135px inside the border and padding. «Unter Atemschutz» at 800 14px needs ~117px of that, so
