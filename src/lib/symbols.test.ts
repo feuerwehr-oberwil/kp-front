@@ -12,26 +12,38 @@ describe('symbolControls — gating of which steppers a symbol exposes', () => {
     expect(got(symbolControls('VKF Fahrzeug'))).toEqual(want('rotation'))
   })
 
-  it('returns the exact preset controls for a known symbol (floor + spread)', () => {
-    expect(got(symbolControls('VKF Feuer'))).toEqual(want('floor', 'spread'))
+  it('returns the exact preset controls for a known symbol (floorRange + spread)', () => {
+    // ⚠️ VKF Feuer moved from a single 'floor' to 'floorRange' (03.09.) — damage spans storeys
+    // as often as it sits on one; a single-storey fire is still one tap (fill only «von»).
+    expect(got(symbolControls('VKF Feuer'))).toEqual(want('floorRange', 'spread'))
   })
 
   it('returns count + floor for a symbol whose preset lists both', () => {
     expect(got(symbolControls('VKF Rettungen'))).toEqual(want('count', 'floor'))
   })
 
-  it('returns rotation + floor for a building wall symbol', () => {
-    expect(got(symbolControls('GB BA Wand F30'))).toEqual(want('rotation', 'floor'))
+  it('returns rotation + floorRange for a building wall symbol', () => {
+    // ⚠️ the F30/F60/F180 walls moved to 'floorRange' alongside stairs/lift (03.09.) — a
+    // Brandabschnitt boundary is drawn once for the storeys it separates.
+    expect(got(symbolControls('GB BA Wand F30'))).toEqual(want('rotation', 'floorRange'))
   })
 
   it('returns floorRange for a stairs/lift symbol', () => {
     expect(got(symbolControls('GB Lift'))).toEqual(want('floorRange'))
   })
 
+  it('returns floorRange (not floor+floorRange) for a symbol newly extended to the range control', () => {
+    // the design choice (03.09.): 'floorRange' REPLACES 'floor' rather than joining it — declaring
+    // both would show a redundant floor stepper alongside the von/bis pair in ContextPanel (see
+    // ContextPanel.test.tsx), so every extended symbol drops 'floor' the same way Treppe/Lift do.
+    expect(got(symbolControls('GB Kamin'))).toEqual(want('floorRange'))
+    expect(got(symbolControls('FW Gefahr G'))).toEqual(want('floorRange'))
+  })
+
   it('an explicit by-name match takes precedence over the category fallback', () => {
     // 'VKF Feuer' is in category 'Schadenlage' (byCat → ['floor']) but its by-name
-    // preset (['floor','spread']) must win.
-    expect(got(symbolControls('VKF Feuer', 'Schadenlage'))).toEqual(want('floor', 'spread'))
+    // preset (['floorRange','spread']) must win.
+    expect(got(symbolControls('VKF Feuer', 'Schadenlage'))).toEqual(want('floorRange', 'spread'))
   })
 
   it('falls back to the category preset when the name is unknown', () => {
@@ -177,11 +189,15 @@ describe('presets that were silently absent', () => {
   it('every Schadenlage symbol can name a storey', () => {
     // Beschädigung / Teil- / Totalzerstörung / Überschwemmung had NO preset at all, so they were
     // the only damage symbols with no floor — «Teilzerstörung» with no storey is exactly the
-    // statement a Kroki cannot afford to leave vague.
+    // statement a Kroki cannot afford to leave vague. Most of these later moved from a single
+    // 'floor' to the von/bis 'floorRange' (03.09.) — either still names a storey.
     for (const n of ['FW Beschaedigung', 'FW Teilzerstoerung', 'FW Totalzerstoerung', 'FW Ueberschwemmung',
-                     'VKF Feuer', 'VKF Rauch', 'VKF Wasser', 'VKF Unfall']) {
-      expect(symbolControls(n).has('floor'), n).toBe(true)
+                     'VKF Feuer', 'VKF Rauch', 'VKF Wasser']) {
+      const c = symbolControls(n)
+      expect(c.has('floor') || c.has('floorRange'), n).toBe(true)
     }
+    // VKF Unfall wasn't extended — still the plain single-storey stepper.
+    expect(symbolControls('VKF Unfall').has('floor')).toBe(true)
   })
 
   it('every place people are collected can count them', () => {

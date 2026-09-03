@@ -281,17 +281,23 @@ const base = {
     // library symbols — keep it the single source for both fields and gating.
     presets: {
       byName: {
-        // ── Schadenlage ── on a storey (floor badge); the label carries the rest.
-        'VKF Feuer': { controls: ['floor', 'spread'] },
+        // ── Schadenlage ── on a storey; the label carries the rest. Damage of this kind
+        // rarely sits on exactly one floor (a fire climbs, smoke drifts up the stairwell,
+        // water runs down) — von/bis (03.09.) says the span in one badge instead of forcing
+        // a second symbol per storey. A single-storey case is still one tap: fill only
+        // «von» and the badge shows just that value (see floorRangeBadge).
+        'VKF Feuer': { controls: ['floorRange', 'spread'] },
         // ⚠️ These four carried NO preset at all, so they were the only Schadenlage symbols
         // without a storey — while Feuer, Rauch, Wasser, Unfall, Explosion, Gefahrstoffe and
         // Rettungen all have one. Damage in a building happens on a floor, and «Teilzerstörung»
         // with no storey is exactly the statement a Kroki cannot afford to leave vague.
-        'FW Beschaedigung': { controls: ['floor'] },
-        'FW Teilzerstoerung': { controls: ['floor'] },
-        'FW Totalzerstoerung': { controls: ['floor'] },
-        'FW Ueberschwemmung': { controls: ['floor'] },
-        'VKF Rauch': { controls: ['floor', 'spread'] },
+        // ⚠️ Beschädigung/Teilzerstörung/Totalzerstörung upgraded to von/bis alongside Feuer
+        // (03.09.) — a Totalzerstörung spans a house's floors as often as a single storey does.
+        'FW Beschaedigung': { controls: ['floorRange'] },
+        'FW Teilzerstoerung': { controls: ['floorRange'] },
+        'FW Totalzerstoerung': { controls: ['floorRange'] },
+        'FW Ueberschwemmung': { controls: ['floorRange'] },
+        'VKF Rauch': { controls: ['floorRange', 'spread'] },
         // ⚠️ «Vermisst» and «eingesperrt» are STATES of a Rettung, not symbols of their own.
         // The count and the storey were already here; what the map could not say was whether
         // those three on the 2nd floor are still unaccounted for or known and trapped, which
@@ -309,14 +315,17 @@ const base = {
           fieldOptions: { Status: ['vermisst', 'eingesperrt', 'gerettet'] },
         },
         'VKF Unfall': { controls: ['floor'] },
-        'VKF Gefaehrliche Stoffe': { controls: ['floor', 'spread'], fields: ['Stoff'] },
-        'VKF Wasser': { controls: ['floor', 'spread'] },
+        // von/bis (03.09.): Gefahrstoffe and Wasser spread through a building the same way
+        // Feuer/Rauch do, above.
+        'VKF Gefaehrliche Stoffe': { controls: ['floorRange', 'spread'], fields: ['Stoff'] },
+        'VKF Wasser': { controls: ['floorRange', 'spread'] },
         'FW Gefahr Ex': { controls: ['floor'] },
         // ── Gefahren ── floor badge; hazmat seeds just the substance. The generic hazard
         // seeds a 'Gefahr' row (caption via fields[0]): the glyph alone says only «something
         // dangerous here» — WHAT it is («Einsturz», «Dachlawine») is the map's actual message.
         'FW Gefahr allgemein': { controls: ['floor'], fields: ['Gefahr'] },
-        'FW Gefahr G': { controls: ['floor'], fields: ['Stoff'] },
+        // Gas leaks/rises through more than one storey as often as a fire does (03.09.: von/bis).
+        'FW Gefahr G': { controls: ['floorRange'], fields: ['Stoff'] },
         'FW Gefahr C': { controls: ['floor'], fields: ['Stoff'] },
         // Gefahrentafel = orange UN placard; UN-Nr first (future lookup UN→Stoff fills the rest),
         // but the substance is what an operator reads off the map → caption on 'Stoff'.
@@ -393,16 +402,19 @@ const base = {
         'SI Wasserbezugsort': { fields: ['Kapazität'] },
         'SI Wasserdruckversorgung': {},
         // ── Gebäude ── interior elements: floor badge; walls/doors/stairs also orient.
-        'GB BA Wand F30': { controls: ['rotation', 'floor'] },
-        'GB BA Wand F60': { controls: ['rotation', 'floor'] },
-        'GB BA Wand F180': { controls: ['rotation', 'floor'] },
+        // The fire-rated walls (F30/F60/F180) are a Brandabschnitt boundary, drawn once for the
+        // storeys it separates — von/bis (03.09.), same reasoning as stairs/lift below.
+        'GB BA Wand F30': { controls: ['rotation', 'floorRange'] },
+        'GB BA Wand F60': { controls: ['rotation', 'floorRange'] },
+        'GB BA Wand F180': { controls: ['rotation', 'floorRange'] },
         'GB Ture BS R30': { controls: ['rotation', 'floor'] },
         'GB Ture Durchgang': { controls: ['rotation', 'floor'] },
         // stairs & lift span storeys → a von/bis range badge (e.g. -1/+3) instead of a single floor badge
         'GB Treppe 8': { controls: ['rotation', 'floorRange'] },
         'GB Lift': { controls: ['floorRange'] },
-        'GB Kamin': { controls: ['floor'] },
-        'GB Abzug': { controls: ['rotation', 'floor'] },
+        // Kamin/Abzug run the full height of a building, like the shaft they mark — von/bis (03.09.).
+        'GB Kamin': { controls: ['floorRange'] },
+        'GB Abzug': { controls: ['rotation', 'floorRange'] },
         'SI Schieber': { controls: ['floor'], fields: ['Status'] },   // auf/zu
         'GB Elektrotableau': { controls: ['floor'] },
         'GB Sprinklerzentrale': { controls: ['floor'] },
