@@ -10,6 +10,7 @@ import { useVehiclePresenceLog } from './lib/useVehiclePresenceLog'
 import { usePersonPositions } from './lib/usePersonPositions'
 import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
+import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
@@ -293,6 +294,8 @@ export function IncidentWorkspace({
   // reconstructed state. Owned by useReplay; `active` feeds the lock derivations below.
   // the top bar and the nav rail stay put while iOS pans the page under a keyboard
   useViewportPan()
+  // …and the field you are actually typing in stays above it (one listener for the whole app)
+  useScrollFocusIntoView()
   const { active: replayActive, setActive: setReplayActive, ws: replayWs, onState: onReplayState, onVehicles: onReplayVehicles, exit: exitReplay, entities: replayEntities, board: replayBoard, building: replayBuilding } = useReplay()
   const readOnly = baseReadOnly || replayActive
   // Führungsansicht: an EDITOR's deliberate hands-off mode — tactical editing locked

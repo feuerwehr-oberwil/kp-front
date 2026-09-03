@@ -158,6 +158,13 @@ body {
 .ctx-body, .history-list, .sym-scroll, .pp-list, .roster, .rp-people, .cv-people,
 .report-preflight > .ip-body, .ip-objlist, .ip-launch-list, .help-toc, .help-content { scrollbar-gutter: stable; }
 
+/* Breathing room for every scroll that REVEALS a field — Safari's own «keep the caret visible»
+   pass and lib/useScrollFocusIntoView both honour it. Without it a `block: 'nearest'` scroll stops
+   with the input's border flush against the edge of its scroller, so on an iPad the field sits
+   directly on the keyboard and its label — the only thing saying what you are typing into — is
+   already out of the box. 24px at the bottom because that is the side a keyboard comes from. */
+input, textarea, select { scroll-margin-block: 16px 24px; }
+
 /* native number-input spinners off app-wide — counts use steppers or plain typing */
 input[type='number']::-webkit-outer-spin-button, input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type='number'] { -moz-appearance: textfield; appearance: textfield; }

@@ -5,7 +5,7 @@ import { Icon } from '../lib/icons'
 import { boundedKey, normalizeSpread, tidySpread, type SpreadDir } from '../lib/spread'
 import { openPhoto } from '../lib/ui'
 import { formatSymbolName, stripUnprintable } from '../lib/format'
-import { SheetGrip, useSheetDrag } from './SheetGrip'
+import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
 import { ERG_VERSION, lookupErg } from '../lib/erg'
@@ -483,7 +483,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
   const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
   return (
-    <div className="ctx">
+    <CtxShell>
       <SheetGrip onClose={onClose} />
       {/* the whole header drags the sheet too, not just the 44×5px grip above it */}
       <div className="ctx-head" {...sheetDrag}>
@@ -919,6 +919,6 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
 
       {caprow}
       {actions}
-    </div>
+    </CtxShell>
   )
 }
