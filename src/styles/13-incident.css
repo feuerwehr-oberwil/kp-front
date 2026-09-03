@@ -398,6 +398,16 @@
 .ip-sheet.ui-dialog.is-kb { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
   height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 .ip-sheet.ip-fit.ui-dialog.is-kb { height: auto; max-height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
+/* …and the same answer for every OTHER dialog, because `.ip-sheet` was never the only one with a
+   text field in it: TruppFinder, the Hilfe overlay, the map pickers (`.mp-sheet`, with its address
+   search), the Plan-Maßstab metre entry and the Mittel-Bemerkung all centre themselves with their
+   own `translate(-50%, -50%)`, and each one of them centred on a viewport the keyboard had made
+   shorter — pushing the field, and often the top of the frame, off the screen. One rule instead of
+   six copies: three classes (`:not()` weighs as one), so it outranks every `.x.ui-dialog` pair
+   that owns the centring, and `.ip-sheet` opts out because it is handled above with its own 800px
+   frame. Without a keyboard `is-kb` is absent and none of this exists. */
+.ui-dialog.is-kb:not(.ip-sheet) { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+  max-height: calc(100dvh - 24px - var(--kb-inset, 0px)); }
 /* ── overlays leave the way they came ──
    Base UI keeps [data-starting-style]/[data-ending-style] on Backdrop + Popup and delays the
    unmount until a running transition ends — so these four rules give every shared primitive

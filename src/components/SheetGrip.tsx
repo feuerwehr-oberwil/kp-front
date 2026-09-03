@@ -1,5 +1,6 @@
-import { useRef } from 'react'
+import { useRef, type CSSProperties, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
+import { useKeyboardInset } from '../lib/useKeyboardInset'
 
 /**
  * The drag gesture behind the phone bottom sheet, as handlers any element can wear.
@@ -90,5 +91,28 @@ export function SheetGrip({ onClose }: { onClose?: () => void }) {
     <button className="sheet-grip" aria-label={appConfig.copy.sheetGrip} {...drag}>
       <span />
     </button>
+  )
+}
+
+/**
+ * The `.ctx` root shared by ContextPanel, DrawEditor and ShapeEditor. It is NOT an `<Overlay>`,
+ * so nothing hands it the keyboard the way lib/overlays hands it to every dialog — it has to ask.
+ * `.ctx` is `position: absolute` with a max-height measured against 100dvh, and dvh does not
+ * shrink for the iOS keyboard (it never has), so on an iPad the bottom of a tall panel sat behind
+ * the keys while its own `.ctx-body` scroller was convinced everything already fit. This publishes
+ * the measured keyboard height as `--kb-inset`, which 06-contextpanel.css subtracts from `.ctx`'s
+ * max-height (same signal `.ip-sheet` answers in 13-incident.css). No margin lift — an absolutely
+ * positioned box hung from `top` ignores it.
+ *
+ * `className` adds each editor's own modifier (DrawEditor/ShapeEditor both add `draw-editor`) —
+ * kept a plain string, not a class-list util, because there is only ever the one optional extra.
+ */
+export function CtxShell({ className, children }: { className?: string; children: ReactNode }) {
+  const kbInset = useKeyboardInset()
+  return (
+    <div className={className ? `ctx ${className}` : 'ctx'}
+      style={kbInset > 0 ? ({ '--kb-inset': `${kbInset}px` } as CSSProperties) : undefined}>
+      {children}
+    </div>
   )
 }

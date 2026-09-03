@@ -348,6 +348,19 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
   width: min(680px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 32px)); overflow: hidden;
   background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
   display: flex; flex-direction: column; }
+/* Keyboard up (Overlay · useKeyboardInset) — same signal, same shape of fix `.ip-sheet` already
+   uses (13-incident.css `.is-kb`): ride up to a fixed top instead of a vertical centre (whose
+   translateY would otherwise centre the frame on a viewport the keyboard has made shorter, i.e.
+   push the top OFF-SCREEN) and cap the height to what is actually left above the keyboard.
+   ⚠️ `:global(.is-kb)`, never a bare `.is-kb`. `is-kb` is a GLOBAL class — lib/overlays/Overlay
+   appends it as a literal string — while this is a CSS MODULE, where every unqualified class is
+   hashed. So `.modal.is-kb` compiled to a selector nothing ever wears and the rule shipped dead,
+   on the iPad this form is used on.
+   ⚠️ It was DELETED once (7a2605c) as unused CSS, which it truthfully was — dead for exactly the
+   reason fixed here. Restored rather than left out: without it the centred tablet dialog keeps
+   centring itself on a viewport the keyboard has halved, which is the complaint it answers. */
+.modal:global(.is-kb) { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+  height: min(760px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 /* ⚠️ Tighter than the standard .ip-head, and deliberately so: this form has a row that GROWS
    — the drawn Leitungen wrap to a second line of chips as soon as a few hoses exist — and the
    frame is sized to a tablet. The chrome pays for that line, not the fields. 800/17 keeps the
@@ -394,12 +407,14 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
      never got smaller. `is-kb` / `--kb-inset` are the exact signal `.ip-sheet` already answers
      this way (13-incident.css); this bespoke frame just never listened for it. Shrinking the
      frame itself lets `.teamList` give the room back and the sheet's own scroll reach every
-     field that is still genuinely on screen (field feedback, 02.09.).
-     ⚠️ `:global()`. `is-kb` is a GLOBAL class — lib/overlays/Overlay appends it as a literal
-     string — and an unscoped `.is-kb` in a *.module.css compiles to a hashed name that nothing
-     ever wears, so this rule shipped dead. Written this way the emitted selector keeps the
-     literal `.is-kb`. */
-  .modal:global(.is-kb) { height: calc(100dvh - var(--kb-inset, 0px)); max-height: calc(100dvh - var(--kb-inset, 0px)); }
+     field that is still genuinely on screen (field feedback, 02.09.). */
+  /* …and `:global(.is-kb)` for the same reason as the rule above: hashed, this matched nothing.
+     ⚠️ `top`/`transform` are re-stated here, not inherited from the phone `.modal` block above it:
+     that block is a single class and the ride-up rule is two, so the moment the ride-up went live
+     its `translateX(-50%)` would have applied to a sheet that is `left: 0; width: 100vw` — half
+     the form off the left edge. A phone sheet is already flush to the top; it only shrinks. */
+  .modal:global(.is-kb) { top: 0; transform: none;
+    height: calc(100dvh - var(--kb-inset, 0px)); max-height: calc(100dvh - var(--kb-inset, 0px)); }
 }
 /* Gebäude / Modul-6 placement picker */
 /* ⚠️ `height: auto`. It borrows `.modal`, whose 760px is sized for the Trupp FORM — so a picker
