@@ -964,17 +964,27 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      time: on step 1 the Mannschaftsliste should take whatever that step leaves over, so the
      38dvh box above just left the bottom of the sheet empty. The grow chain from the tablet
      layout comes back.
-     ⚠️ A FLEX COLUMN, not a grid row template. Step 1 does NOT have a fixed number of children:
-     usually it is the Trupp column alone (the «Art des Trupps» tiles moved to step 2 on 03.09.,
-     where the fields they govern are), but it still picks up the Anwesenheits-Warnung below the
-     list. `grid-template-rows: 1fr` handed the whole sheet to whichever child came FIRST and
-     dropped the list into an implicit row below the fold; any fixed `auto 1fr` would starve the
-     list the moment the extra child is not there. As a column every other child takes the height
-     it needs and the Trupp column takes the rest, for any number of them — which is why this
-     survived the tiles leaving unchanged. Everything stays scoped with :has(.team) so step 2 —
-     where the tiles now lead and the whole step simply scrolls — keeps the grid and its natural
-     height. */
-  .modalWizard .modalBody:has(.team) { display: flex; flex-direction: column; }
+     ⚠️ A FLEX COLUMN, not a grid row template — and on BOTH steps, not only the one carrying the
+     Mannschaftsliste. Neither step has a fixed number of children: step 1 is usually the Trupp
+     column alone but picks up the Anwesenheits-Warnung below the list, and step 2 leads with the
+     «Art des Trupps» tiles only while CREATING a full Trupp (in edit/redeploy and on the lite
+     Atemschutz link its single child is the field column). `grid-template-rows: 1fr` handed the
+     whole sheet to whichever child came FIRST and dropped the list into an implicit row below the
+     fold; any fixed `auto 1fr` would starve whichever child is not there. As a column every child
+     takes the height it needs, the Trupp column — and only it, via the :has(.team) rules below —
+     takes the rest, and any surplus lands at the BOTTOM of the sheet.
+     ⚠️ That last part is why this is no longer scoped to :has(.team) (03.09., second pass): step 2
+     has no `.team`, so it stayed a grid with two auto rows, and a grid's default
+     `align-content: normal` ⇒ stretch splits the sheet's leftover height ACROSS the rows. The
+     tiles' row grew ~100px taller than the tiles, `.formColWide` stacked its content at the top of
+     it, and the surplus read as a hole between «Art des Trupps» and «Funkkanal» — leftover room
+     between two fields rather than under the last one.
+     ⚠️ Scoped to the phone `.modalWizard` on purpose: the tablet/single-screen `.modalBody` is a
+     real two-column grid and `.formColWide`'s `grid-column: 1 / -1` means nothing in flex. */
+  .modalWizard .modalBody { display: flex; flex-direction: column;
+    /* one rhythm down the step instead of a 12/10/10/10 ladder: the gap between the tile block
+       and the field column is this row-gap, the gaps inside the column are `.formCol`'s 10px */
+    gap: 10px; }
   /* ⚠️ basis 0 + min-height 0, i.e. «take exactly what the other children leave over», NOT
      `auto`: sized from its own content the column would be as tall as the WHOLE roster
      (`.teamList` scrolls, but its max-content is every person on it), and the sheet — not the
