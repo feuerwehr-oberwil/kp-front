@@ -1640,9 +1640,17 @@ export const de = {
     pressureRose: 'Höher als zuletzt ({from} bar) – vertippt?',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
-    // Tap zones on the card (29.08.): the remaining clock cue is text, not an icon.
+    // the readings, under the contact times that head the same expander (03.09.)
+    readingsHead: 'Ablesungen',
+    // ⚠️ No longer a tap zone on the clock (03.09.): the clock is a display again, and «Zeiten»
+    // is what the Verlauf's timing head is called — plus the preview on a Trupp that has times
+    // but no readings yet.
     zoneTimes: 'Zeiten',
-    // the folded timing rows behind the Kontaktuhr zone
+    // the ⋯ on the card: Bearbeiten · Platzieren · Leitung · Sortierung · Entfernen, as words
+    cardMenu: 'Weitere Aktionen',
+    // the state band on a Trupp still at the door — the long sentence below it stays the hint
+    bandPreEntry: 'Noch nicht eingerückt',
+    // the folded timing rows, now the head of the Verlauf
     lastContactAt: 'Letzter Kontakt',
     nextContactDue: 'Nächster fällig',
     contactIntervalLabel: 'Kontakt-Intervall',

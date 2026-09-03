@@ -1214,6 +1214,11 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   font: 600 13.5px var(--body); color: var(--ink); }
 .rp-print-menu-item[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
 .rp-print-menu-item[data-disabled] { opacity: var(--disabled); }
+/* the one destructive row a menu may carry (Trupp · Entfernen). Behind a separator and red, so it
+   is never mistaken for the neutral rows above it — the row list version of the rule the card's
+   bin button used to carry as extra separation and a red hover. */
+.rp-print-menu-danger { color: var(--red); }
+.rp-print-menu-danger[data-highlighted] { background: color-mix(in srgb, var(--red) 11%, transparent); }
 /* Shared menu parts (see lib/overlays · Menu). The indicator keeps its BOX whether or not it is
    ticked — `keepMounted` plus a hidden tick — so the labels in a checkbox menu line up in one
    column instead of shifting sideways as things are switched on and off. */

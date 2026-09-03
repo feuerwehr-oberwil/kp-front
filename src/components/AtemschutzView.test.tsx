@@ -92,16 +92,20 @@ describe('the inline Druckmeldung', () => {
   })
 })
 
-describe('the Kontakt zone (tap the clock, fold the times)', () => {
-  it('shows and hides the timing rows — and never records a Kontakt', () => {
+/* The timing rows used to hide behind a tap on the clock itself — an affordance findable only by
+ * knowing that five grey characters at the band's edge meant «tap me». They are the head of the
+ * Verlauf now, behind a word, and the band went back to being a display. */
+describe('the contact times (the head of the Verlauf)', () => {
+  it('folds the timing rows out of the Verlauf — and the band is no longer a control', () => {
     const props = mount()
+    expect(screen.queryByRole('button', { name: new RegExp(az.clockOk) })).toBeNull()
     expect(screen.queryByText(az.lastContactAt)).toBeNull() // collapsed by default
-    const clock = screen.getByRole('button', { name: new RegExp(az.clockOk) })
-    fireEvent.click(clock)
+    const row = screen.getByRole('button', { name: new RegExp(az.verlauf) })
+    fireEvent.click(row)
     expect(screen.getByText(az.lastContactAt)).toBeTruthy()
     expect(screen.getByText(az.nextContactDue)).toBeTruthy()
     expect(props.recordContact).not.toHaveBeenCalled()
-    fireEvent.click(clock)
+    fireEvent.click(row)
     expect(screen.queryByText(az.lastContactAt)).toBeNull()
   })
 })
@@ -150,16 +154,19 @@ describe('the handed-over board (lite)', () => {
     expect(screen.queryByText(az.subtitle)).toBeNull()
   })
 
-  it('drops Platzieren, Leitung and the order menu — and keeps Kontakt and Bearbeiten', () => {
+  it('drops Platzieren, Leitung and the order menu — and keeps Kontakt and Bearbeiten', async () => {
     mount({ lite, onOrder: noop, trupps: [aktivTrupp(), { ...aktivTrupp(), id: 'tr2', name: 'Meier' }] })
-    expect(screen.queryByRole('button', { name: az.place })).toBeNull()
-    expect(screen.queryByRole('button', { name: az.linePick })).toBeNull()
     expect(screen.queryByRole('button', { name: az.orderLabel })).toBeNull()
     // …and no «Abmelden» (02.09.): the link owns no login on this phone, and the button that
     // stood beside the bell ended the phone's own one (lib/linkMode).
     expect(screen.queryByRole('button', { name: appConfig.copy.incidentSwitcher.logout })).toBeNull()
-    expect(screen.getAllByRole('button', { name: az.edit }).length).toBe(2)
     expect(screen.getAllByRole('button', { name: az.actContact }).length).toBe(2)
+    // the secondary controls are one ⋯ per card now — the rule about what it may offer is the same
+    expect(screen.getAllByRole('button', { name: az.cardMenu }).length).toBe(2)
+    fireEvent.click(screen.getAllByRole('button', { name: az.cardMenu })[0])
+    expect(await screen.findByRole('menuitem', { name: az.edit })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: az.place })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: az.linePick })).toBeNull()
   })
 
   it('offers «Überwachung abgeben» only where a door was handed in', () => {
@@ -217,20 +224,17 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
   })
 
-  // Density redesign (mock 02, 03.09.): the tablet's separate banner + name rows condense into
-  // one identity row and one crew/chips row, and the hero clock flattens into a band — all so
-  // 3–4 Trupps plus the focused card fit a phone screen without scrolling. Kontakt itself stays
-  // on the card (a maintainer correction reverted an earlier sticky-footer attempt).
-  it('condenses the focused card into a toprow + metaline, and flattens the clock into a band', () => {
+  // ⚠️ NO second card for this board (03.09.). It had one — `cardBig`, with its own condensed
+  // header and its own flattened clock — and a phone-only arrangement of a safety card is a
+  // second thing to keep in step with the first. The card the phone gets here is the card the
+  // tablet grid and the row list get; what makes it fit is that the card itself got denser.
+  it('uses the same card as every other board — no phone-only arrangement', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [aktivTrupp()] })
     const card = document.querySelector(`.${s.card}`)
-    expect(card?.querySelector(`.${s.toprow}`)).toBeTruthy()
-    expect(card?.querySelector(`.${s.metaline}`)).toBeTruthy()
-    expect(card?.querySelector(`.${s.clockBand}`)).toBeTruthy()
-    // superseded by `.toprow` — the old two-row banner/name split no longer renders here
-    expect(card?.querySelector(`.${s.cardBanner}`)).toBeNull()
-    expect(card?.querySelector(`.${s.cardName}`)).toBeNull()
+    expect(card?.querySelector(`.${s.cardHead}`)).toBeTruthy()
+    expect(card?.querySelector(`.${s.kenn}`)).toBeTruthy()
+    expect(card?.querySelector(`.${s.band}`)).toBeTruthy()
     // Kontakt is still an in-card control, not a pinned screen-edge bar
     expect(card?.querySelector(`.${s.kontaktBtn}`)).toBeTruthy()
     // the header's own row now carries just the Einsatz title (see the bottom-rail test below
@@ -264,10 +268,11 @@ describe('the handed-over board on a phone (focus mode)', () => {
   })
 })
 
-/* ── Trupps ohne Atemschutz — «Sektionen» (mock 02, decided 03.09.) ───────────────────────────
- * One board, two sections. The point of this variant is that the PA safety signal is not
- * diluted, so the tests pin the SEPARATION (a plain Trupp gets a row and none of the monitoring
- * controls) rather than the section's own styling. */
+/* ── Trupps ohne Atemschutz — «Sektionen» (decided 03.09.) ────────────────────────────────────
+ * One board, two sections, and — since the card redesign — ONE footprint: the same row, the same
+ * card, the same tap to open. What keeps the PA safety signal undiluted is not a second, lighter
+ * layout but the card's own restraint, so that is what these tests pin: no clock, no Druck, no
+ * Kontakt, and never an alarm colour. */
 describe('the board with Trupps that are not under Atemschutz', () => {
   const plainTrupp = (): Trupp => ({
     id: 'tr9', kind: 'einfach', name: 'Gerber', members: ['Stalder'],
@@ -279,29 +284,51 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     mount()
     expect(screen.queryByText(az.sectionAtemschutz)).toBeNull()
     expect(screen.queryByText(az.sectionPlain)).toBeNull()
-    expect(document.querySelector(`.${s.plainList}`)).toBeNull()
+    expect(document.querySelector(`.${s.cardPlain}`)).toBeNull()
   })
 
-  it('splits into «Atemschutz» + «Weitere Trupps» and gives the plain Trupp a row, not a card', () => {
+  it('splits into «Atemschutz» + «Weitere Trupps» and gives both halves the SAME card', () => {
     mount({ trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
     expect(screen.getByText(az.sectionAtemschutz)).toBeTruthy()
     expect(screen.getByText(az.sectionPlain)).toBeTruthy()
     expect(screen.getByText(az.sectionPlainHint)).toBeTruthy()
-    // the PA half keeps its card; the work squad is one row in the second half
-    expect(document.querySelectorAll(`.${s.card}`)).toHaveLength(1)
-    const rows = document.querySelectorAll(`.${s.prow}`)
-    expect(rows).toHaveLength(1)
-    expect(rows[0].textContent).toContain('Gerber')
-    // …and the row carries NONE of the monitoring vocabulary: no clock, no Druck, no Kontakt
-    expect(rows[0].querySelector(`.${s.kontaktBtn}`)).toBeNull()
-    expect(rows[0].textContent).not.toContain('bar')
+    const cards = [...document.querySelectorAll(`.${s.card}`)]
+    expect(cards).toHaveLength(2)
+    const plain = cards.find((c) => c.textContent?.includes('Gerber'))!
+    // same shell — and NONE of the monitoring vocabulary: no clock, no Druck, no Kontakt
+    expect(plain.classList.contains(s.cardPlain)).toBe(true)
+    expect(plain.querySelector(`.${s.kontaktBtn}`)).toBeNull()
+    expect(plain.textContent).not.toContain('bar')
     expect(screen.getAllByRole('button', { name: az.actContact })).toHaveLength(1) // the PA card's
+  })
+
+  /* ⚠️ The seam Bastian asked for by name (03.09.): on a phone the two halves must have the EXACT
+   * same footprint. A work squad drawn at a different height in the same scroll teaches the eye
+   * that these are two kinds of object, when the whole point of the section head is that they are
+   * one board — and it made the half with no clock and no Druck the half that took the most
+   * screen. Same row, same tap, same way back. */
+  it('gives a work squad the same row and the same opening tap on a phone', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
+    const rows = [...document.querySelectorAll(`.${s.trow}`)]
+    expect(rows).toHaveLength(2)
+    expect(document.querySelector(`.${s.card}`)).toBeNull() // nothing open yet
+    fireEvent.click(rows.find((r) => r.textContent?.includes('Gerber'))!)
+    const card = document.querySelector(`.${s.card}`)!
+    expect(card.textContent).toContain('Gerber')
+    expect(card.classList.contains(s.cardPlain)).toBe(true)
+    // …and back, through the same control the Atemschutz half uses
+    fireEvent.click(screen.getByRole('button', { name: az.collapse }))
+    expect(document.querySelector(`.${s.card}`)).toBeNull()
+    vi.mocked(useIsPhone).mockReturnValue(false) // the rest of this block is the tablet board
   })
 
   it('says so when the Atemschutz half is empty rather than leaving a bare heading', () => {
     mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
     expect(screen.getByText(az.sectionAtemschutzEmpty)).toBeTruthy()
-    expect(document.querySelectorAll(`.${s.card}`)).toHaveLength(0)
+    // the one card on the board is the work squad's, and it is the plain one
+    expect(document.querySelectorAll(`.${s.card}`)).toHaveLength(1)
+    expect(document.querySelectorAll(`.${s.cardPlain}`)).toHaveLength(1)
   })
 
   it('offers the row the one lifecycle step its state actually has', () => {
@@ -312,18 +339,18 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(setTruppStatus).toHaveBeenCalledWith('tr9', 'raus')
   })
 
-  /* ⚠️ The row is LIGHTER than a card, not smaller in function: it has no card behind it to open,
-   * so every control it drops is a control that is gone. The 03.09. phone pass tightened the row
-   * to three bands and this is the seam it must not cross — bearbeiten, setzen and entfernen stay
-   * ON the row, next to the lifecycle step (pinned above). */
-  it('keeps bearbeiten · setzen · entfernen on the row itself, not behind an opening tap', () => {
+  /* ⚠️ Same ⋯ as every other card, and every entry a WORD. These used to be glyphs on the row
+   * itself — a pen, a footprint, a bin — on the argument that a Trupp with nothing to open must
+   * keep its controls in reach. It has something to open (its Verlauf), and a footprint that
+   * means «platzieren» is exactly the knowledge that is gone after six months without practice. */
+  it('puts bearbeiten · platzieren · entfernen behind the same ⋯ as every other card', async () => {
     const deleteTrupp = vi.fn()
     mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' }, deleteTrupp })
-    const row = document.querySelector(`.${s.prow}`)!
-    for (const label of [az.edit, az.place, az.remove]) {
-      expect(row.contains(screen.getByRole('button', { name: label }))).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    for (const label of [az.edit, az.place]) {
+      expect(await screen.findByRole('menuitem', { name: label })).toBeTruthy()
     }
-    fireEvent.click(screen.getByRole('button', { name: az.remove }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.remove }))
     expect(deleteTrupp).toHaveBeenCalledWith('tr9')
   })
 
@@ -332,15 +359,16 @@ describe('the board with Trupps that are not under Atemschutz', () => {
   it('hides plain Trupps entirely on the handed-over board, and offers no way to create one', () => {
     mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
     expect(screen.queryByText('Gerber')).toBeNull()
-    expect(document.querySelector(`.${s.plainList}`)).toBeNull()
+    expect(document.querySelector(`.${s.cardPlain}`)).toBeNull()
     expect(screen.queryByText(az.sectionPlain)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     expect(screen.queryByText(az.kindLabel)).toBeNull()
   })
 
-  it('asks «Art des Trupps» once, on creation only — the kind is fixed afterwards', () => {
+  it('asks «Art des Trupps» once, on creation only — the kind is fixed afterwards', async () => {
     mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
-    fireEvent.click(screen.getAllByRole('button', { name: az.edit })[0])
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
     expect(screen.queryByText(az.kindLabel)).toBeNull()
     // …and editing one never asks for a cylinder it does not have
     expect(screen.queryByText(az.editPressureLabel)).toBeNull()

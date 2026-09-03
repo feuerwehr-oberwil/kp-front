@@ -653,7 +653,6 @@ export function AtemschutzView({
       // this session, and a control that will fail is worse than no control (see `lite` above).
       lite={!!lite}
       onCollapse={compact && !focusMode ? () => setOpenRow(null) : undefined}
-      big={focusMode}
     />
     )
   ))
@@ -904,7 +903,11 @@ export function AtemschutzView({
             {cards(paBoard)}
           </div>
         ) : (
-          <>
+          /* ⚠️ ONE scroll wrapper around both sections, and it is what carries `listRef`. The
+             open-card spacer measures the card marked `data-az-open` inside this element — with
+             the ref on the first section's list, opening a Trupp in the SECOND one found no card
+             and bought no room, so the card parked itself against a list that could not scroll. */
+          <div ref={listRef} className={cx(compact && openRow && s.rowListOpen)}>
             <div className={s.sect}>
               <span className={s.sectTitle}><Icon id="gauge" />{az.sectionAtemschutz}</span>
               <span className={s.sectCount}>{paBoard.length}</span>
@@ -914,9 +917,7 @@ export function AtemschutzView({
               // is under PA right now» is a fact the Überwacher wants stated, not implied
               <p className={s.sectEmpty}>{az.sectionAtemschutzEmpty}</p>
             ) : (
-              <div ref={listRef} className={cx(compact ? s.rowList : s.grid, compact && openRow && s.rowListOpen)}>
-                {cards(paBoard)}
-              </div>
+              <div className={compact ? s.rowList : s.grid}>{cards(paBoard)}</div>
             )}
             <div className={cx(s.sect, s.sectSecond)}>
               <span className={s.sectTitle}><Icon id="people" />{az.sectionPlain}</span>
@@ -926,21 +927,15 @@ export function AtemschutzView({
                 is the same fact for all of them, and repeating it per row would make the section
                 shout louder than the one above it */}
             <p className={s.sectHint}>{az.sectionPlainHint}</p>
-            <div className={s.plainList}>
-              {plainBoard.map((t) => (
-                <PlainTruppRow
-                  key={t.id} t={t} live={live.get(t.id)!} color={truppColors[t.id]} canEdit={canEdit}
-                  focusNonce={activeFocus?.id === t.id ? activeFocus.nonce : undefined}
-                  lite={!!lite}
-                  onStatus={(id, st) => { freezeOrder(); setTruppStatus(id, st) }}
-                  onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
-                  onDelete={deleteTrupp} onRestore={restoreTrupp}
-                  onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
-                  onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)}
-                />
-              ))}
-            </div>
-          </>
+            {/* ⚠️ The SAME rows and the same cards as above (03.09.). They used to be their own
+                half-height `PlainTruppRow` with its controls on the row, on the argument that a
+                Trupp without a contact clock has nothing further to open. It does: its Verlauf.
+                And on a phone two different footprints in one scroll taught the eye that these
+                are two kinds of object, when the point of the section head is that they are one
+                board. What keeps them apart is the card's own restraint — no tint, no clock, no
+                Kontakt — not a second layout. */}
+            <div className={compact ? s.rowList : s.grid}>{cards(plainBoard)}</div>
+          </div>
         )}
       </div>
 
@@ -1189,20 +1184,28 @@ function TruppRow({
   const status = live.status
   // the same derivations the card makes, so a row and its card never disagree about state
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
-  const sev = alarm.sev
+  // forced to 0 off the Atemschutz section — see TruppCard for why no work squad may ever wear
+  // one of the alarm tones, whatever a future alarm rule computes for it
+  const sev = isAtemschutzTrupp(t) ? alarm.sev : 0
   // The Planungshilfe — «how much air do they have RIGHT NOW», which is the other half of «who is
   // closest to their limit» and the reason the clock alone is not enough. Marked «≈» and tinted
   // when it crosses the Alarmdruck; it is a projection, never a measurement, so it must not look
   // like the logged Druck. Same source and same rule as the card (estimatePressure / pressureAlarm).
   const dz = atemschutzDoctrine()
-  const estimate = inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
+  const monitored = isAtemschutzTrupp(t)
+  const estimate = monitored && inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
   const estimateLow = pressureAlarm(estimate?.bar ?? null, alarmBarFor(t, dz))
   // ⚠️ «Draussen» and «angemeldet» are NOT one tone. They were both `trowIdle` (blue) while the
   // list still had a «Raus»-Abschnitt to tell them apart — and that section is gone (17.08.), so a
   // spent Trupp now sits between two running ones and has to say so by itself. Grey and dimmed,
   // the same reading the card gives it (.st-raus); blue stays what it means everywhere else on
   // this board: registered, still to come.
-  const tone = sev >= 2 ? s.trowCrit : sev === 1 ? s.trowWarn : inField ? '' : status === 'raus' ? s.trowOut : s.trowIdle
+  // ⚠️ A Trupp WITHOUT Atemschutz gets the SAME row — same height, same columns, same tap — so a
+  // phone board reads as one list rather than two kinds of thing. What differs is only what the
+  // row can truthfully say: its clock is the Einsatzzeit, not a contact clock; it carries no
+  // Schätzung and no «Kontakt», because there is nothing to check in and no cylinder to run down.
+  const tone = !monitored ? (status === 'raus' ? s.trowOut : status === 'angemeldet' ? s.trowIdle : s.trowPlain)
+    : sev >= 2 ? s.trowCrit : sev === 1 ? s.trowWarn : inField ? '' : status === 'raus' ? s.trowOut : s.trowIdle
   const rowRef = useRef<HTMLButtonElement>(null)
   // A nonce, not a boolean: tapping the same alarm again must replay the pointing gesture.
   useEffect(() => {
@@ -1235,7 +1238,7 @@ function TruppRow({
             column that would otherwise show it is hidden at every width a row is ever rendered at
             (rows are phone-only, ≤600px), so without this the one row whose alarm is about a
             number showed a projection instead of the reading that raised it. */}
-        {alarm.reason === 'pressure' ? (
+        {monitored && alarm.reason === 'pressure' ? (
           <span className={cx(s.trowEst, s.trowEstLow)}>{live.currentBar} bar</span>
         ) : estimate && (
           <span className={cx(s.trowEst, estimateLow && s.trowEstLow)}>
@@ -1245,14 +1248,18 @@ function TruppRow({
       </span>
       <span className={s.trowState}>{status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)}</span>
       <span className={s.trowClock}>
-        <span className={s.trowClockVal}>{fmtClock(live.sinceContactSec)}</span>
-        <span className={s.trowSub}>{az.sinceContact}</span>
+        <span className={s.trowClockVal}>
+          {monitored ? fmtClock(live.sinceContactSec) : fmtClock(t.entryTime ? live.elapsedSec : null)}
+        </span>
+        <span className={s.trowSub}>{monitored ? az.sinceContact : az.elapsed}</span>
       </span>
-      <span className={s.trowPress}>{live.currentBar}<span className={s.trowPressUnit}> bar</span></span>
+      <span className={s.trowPress}>
+        {monitored && <>{live.currentBar}<span className={s.trowPressUnit}> bar</span></>}
+      </span>
       {/* ⚠️ always rendered, even when there is no button in it: these are fixed grid tracks, so a
           missing cell would pull every column after it out of line on that one row */}
       <span className={s.trowAct}>
-        {canEdit && inField && (
+        {monitored && canEdit && inField && (
           // stopPropagation: the row itself opens the card, and the one thing you must be able to
           // do without opening anything is confirm the radio check
           <span role="button" tabIndex={0}
@@ -1271,157 +1278,39 @@ function TruppRow({
 }
 
 /**
- * One Trupp WITHOUT Atemschutz, as a single row — the «Weitere Trupps» half of the board
- * (mock «Sektionen», decided 03.09.).
+ * One Trupp as a card — ONE arrangement, at every width and on every board (03.09.).
  *
- * Half the height of a card and deliberately quieter: no status band, no clock field, no Druck,
- * no Kontakt. That restraint IS the feature — the section above it is a safety board, and a work
- * squad drawn with the same weight would teach the eye to skim both. What the row carries is
- * everything such a Trupp actually has: who, what, where, and how long it has been at it.
+ * There used to be three drawings of this object: this card, `cardBig` for the handed-over phone
+ * board, and `PlainTruppRow` for a Trupp without Atemschutz. Three drawings of one thing drift
+ * apart, and these had begun to. This is the card; what varies is only what a Trupp actually HAS.
  *
- * ⚠️ Not a collapsed card. There is nothing further to open: every fact about this Trupp is on
- * the row, and the two things a card adds (contact clock, Druckverlauf) do not exist for it. So
- * its controls sit on the row itself rather than one tap deeper — the opposite trade from
- * `TruppRow`, which hides controls precisely because its card has more to show.
+ * Seven zones, always all seven — the grid aligns them across a row with `subgrid` (see `.grid`
+ * in Atemschutz.module.css), so none of them may be conditionally absent, only empty:
+ *
+ *   1 Kopf       ‹ zurück · Truppfarbe · Name · ⋯
+ *   2 Kennzeile  Mannschaft · Auftrag · Ziel · Leitung · Kanal, in one grey
+ *   3 Block      the state band, «Kontakt» and the Druck setter — everything one ENTERS
+ *   4 Hinweis    the Alarmdruck note, for the case where only the projection has crossed
+ *   5 Aktionen   the lifecycle buttons
+ *   6 Sockel     Einsatzzeit · Schätzung · tiefster Druck — everything one LOOKS UP
+ *   7 Verlauf    the per-Trupp log, with the contact times as its head
+ *
+ * ⚠️ The state is said ONCE, in the band. It used to be said three times over: «Überfällig» in
+ * the banner, «Überfällig» again as the clock's state word — at tier 2 those are literally the
+ * same string — above «Seit letztem Kontakt», a label for a card that is about nothing else.
+ *
+ * ⚠️ The secondary controls are a MENU with words, not a row of glyphs. Every one of them
+ * already had a German name that only ever surfaced in a `title`: «Platzieren», «Leitung
+ * wählen», «Karte nach vorne schieben». That a footprint means «platzieren» and a droplet means
+ * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
-function PlainTruppRow({
-  t, live, color, canEdit, focusNonce, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onShowLine, hasLine, drawnLineNo, lite = false,
-}: {
-  t: Trupp
-  live: TruppLive
-  /** the colour this Trupp wears on the Karte / the Plan — the same dot the cards carry */
-  color?: string
-  canEdit: boolean
-  /** this is the row somebody was just sent to — scroll it under their eyes and mark it */
-  focusNonce?: number
-  onStatus: (id: string, status: Trupp['status']) => void
-  onEdit: (focus?: 'auftrag') => void
-  onReenter: () => void
-  onDelete: (id: string) => void
-  onRestore: (t: Trupp) => void
-  onPlace: (id: string) => void
-  onShowPlan: (id: string) => void
-  onShowLine: (id: string) => void
-  hasLine: boolean
-  drawnLineNo?: number
-  /** the handed-over «Tafel pur» never renders this row at all (AtemschutzView filters it out),
-   *  so this only exists to keep ONE rule about surface-pointing controls in the file */
-  lite?: boolean
-}) {
-  const az = appConfig.copy.atemschutz
-  const status = live.status
-  const inField = t.status === 'aktiv' || t.status === 'rueckzug'
-  const auftrag = truppAuftragLabel(t.auftrag)
-  const lineTag = drawnLineNo != null ? String(drawnLineNo)
-    : t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim()
-  const crew = (t.members ?? []).filter(Boolean).join(' · ')
-  // ⚠️ The number is always the Einsatzzeit; the LABEL under it says which state that time is in.
-  // A row whose clock is frozen («Draussen») must not read like one that is still counting.
-  const stateLabel = status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)
-  const rowRef = useRef<HTMLDivElement>(null)
-  // the same pointing gesture the cards answer — a nonce, so a repeat tap replays it
-  useEffect(() => {
-    const el = rowRef.current
-    if (focusNonce == null || !el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    el.classList.remove(s.cardFlash)
-    void el.offsetWidth
-    el.classList.add(s.cardFlash)
-    const timer = window.setTimeout(() => el.classList.remove(s.cardFlash), 1900)
-    // cleanup UNDOES the mark — see TruppRow for why clearing the timer alone is not enough
-    return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
-  }, [focusNonce])
-
-  // delete-now + Rückgängig toast — the same contract the card gives (house rule)
-  const doDelete = () => {
-    const snapshot = t
-    onDelete(t.id)
-    toast(fillTemplate(az.removedToast, { name: t.name }), {
-      icon: 'trash',
-      action: { label: appConfig.copy.undo, onClick: () => onRestore(snapshot) },
-    })
-  }
-
-  return (
-    <div ref={rowRef} className={cx(s.prow, status === 'angemeldet' && s.prowIdle, status === 'raus' && s.prowOut)}>
-      <div className={s.prowId}>
-        <div className={s.prowName}>
-          <span className={s.prowDot} style={color ? { background: color } : undefined} aria-hidden />
-          <span className={s.prowNameTxt}>{t.name}</span>
-        </div>
-        {crew && <div className={s.prowCrew}>{crew}</div>}
-      </div>
-      <div className={s.prowTask}>
-        {/* same rule as the card, canEdit included: a Trupp with no job is a question that has to
-            be VISIBLE — hiding the gap from a viewer would hide the thing worth asking about */}
-        {auftrag
-          ? <span className={cx(s.tag, s.tagAuftrag)}>{auftrag}</span>
-          : <button type="button" className={cx(s.tag, s.tagAuftragOpen)} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>}
-        {t.ziel && <span className={s.tagZiel}>{t.ziel}</span>}
-        {lineTag && (hasLine && !lite ? (
-          <button type="button" className={cx(s.tag, s.tagGo)} title={az.lineShow} onClick={() => onShowLine(t.id)}>
-            {az.lineField} {lineTag}<Icon id="chevron" />
-          </button>
-        ) : (
-          <span className={s.tag}>{az.lineField} {lineTag}</span>
-        ))}
-        {t.funkkanal != null && <span className={s.tag}>Kanal {t.funkkanal}</span>}
-      </div>
-      <div className={s.prowSince}>
-        <b>{fmtClock(t.entryTime ? live.elapsedSec : null)}</b>
-        <small>{inField ? az.elapsed : stateLabel}</small>
-      </div>
-      <div className={s.prowActs}>
-        {/* ONE lifecycle button, whichever the state actually offers — the card's two-button bar
-            has no room here and no second choice worth the width: «Nicht eingesetzt» is a
-            Sicherungstrupp's exit, and a Sicherungstrupp is by definition under PA. */}
-        {canEdit && status === 'angemeldet' && (
-          <button type="button" className={cx(s.prowAct, s.prowActGo)} onClick={() => onStatus(t.id, 'aktiv')}>
-            <Icon id="flag" /><span>{az.actEnter}</span>
-          </button>
-        )}
-        {canEdit && inField && (
-          <button type="button" className={s.prowAct} onClick={() => onStatus(t.id, 'raus')}>
-            <Icon id="logout" /><span>{az.actExit}</span>
-          </button>
-        )}
-        {canEdit && status === 'raus' && (
-          <button type="button" className={cx(s.prowAct, s.prowActGo)} onClick={onReenter}>
-            <Icon id="flag" /><span>{az.actReenter}</span>
-          </button>
-        )}
-        {canEdit && status !== 'raus' && (
-          <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={() => onEdit()}>
-            <Icon id="pen" />
-          </button>
-        )}
-        {/* the placement pair, exactly as on a card: placed ⇒ GO there, not placed ⇒ put it down */}
-        {lite ? null : (t.annoId || t.entityId) ? (
-          <button className={s.iconBtn} aria-label={t.entityId ? az.showOnMap : az.showOnPlan} title={t.entityId ? az.showOnMap : az.showOnPlan} onClick={() => onShowPlan(t.id)}>
-            <Icon id={t.entityId ? 'map' : 'doc'} />
-          </button>
-        ) : canEdit && status !== 'raus' && (
-          <button className={s.iconBtn} aria-label={az.place} title={az.place} onClick={() => onPlace(t.id)}>
-            <Icon id="footprint" />
-          </button>
-        )}
-        {canEdit && (
-          <button className={`${s.iconBtn} ${s.danger}`} aria-label={az.remove} title={az.remove} onClick={doDelete}>
-            <Icon id="trash" />
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false, big = false,
+  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
   alarm: TruppAlarm
-  /** the Funkkontakt-Intervall (min) — the Kontakt zone's folded times name the next due time */
+  /** the Funkkontakt-Intervall (min) — the Verlauf's timing head names the next due time */
   intervalMin: number
   /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors) — set for
    *  every Trupp, automatic ones included */
@@ -1452,24 +1341,22 @@ function TruppCard({
   onCollapse?: () => void
   /** the handed-over «Tafel pur» (see AtemschutzView · lite): drop every control that points at
    *  a surface this session cannot reach — Platzieren, auf Plan zeigen, Leitung wählen/zeigen,
-   *  and the board-order arrows. Kontakt, Druck, Rückzug, Draussen, Bearbeiten and Entfernen
-   *  all stay: they are what the board was handed over FOR. */
+   *  and the board-order rows. Kontakt, Druck, Rückzug, Draussen, Bearbeiten and Entfernen all
+   *  stay: they are what the board was handed over FOR. */
   lite?: boolean
-  /** the ONE card filling a phone screen (AtemschutzView · focusMode): giant clock, thumb-sized
-   *  Kontakt, and the Planungshilfe rows folded away — the Druck stays */
-  big?: boolean
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   const status = live.status
+  /* A Trupp WITHOUT Atemschutz has no contact clock, no Druck and no Schätzung. It gets this same
+   * card with those zones empty — and never a tint, never an alarm colour, never a «Kontakt»
+   * button. That restraint is the statement: nothing on it may look like something being
+   * monitored. What it does have — who, what, where, how long — sits exactly where the monitored
+   * card carries the same facts, so the two read as one board rather than two. */
+  const monitored = isAtemschutzTrupp(t)
   // «Draussen» on a Trupp that never went under PA claims it came out of something. Only that
   // one word differs — the state, the section and the actions are the same (truppNeverDeployed).
   const statusLabel = status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)
   const [logOpen, setLogOpen] = useState(false)
-  /* The Kontakt zone's fold (29.08. Tapzonen): the rarely-needed timing rows (letzter Kontakt,
-   * nächster fällig, Intervall) sit behind a tap on the clock itself, collapsed by default —
-   * the countdown always stays visible. Like every zone on this card it only shows/hides;
-   * commits stay on the explicit buttons. */
-  const [timesOpen, setTimesOpen] = useState(false)
   // ⚠️ The jump has to LAND. Switching to the Überwachung and leaving a wall of cards was the
   // complaint: on a long list the Trupp somebody was sent to was off-screen, so the answer to
   // «why can I not tick this person» was still a search. The nonce replays both scroll and ring
@@ -1491,11 +1378,14 @@ function TruppCard({
   }, [focusNonce])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = truppAuftragLabel(t.auftrag)
-  const sev = alarm.sev
+  // ⚠️ forced to 0 off the Atemschutz section rather than trusted from `alarm`: every tint, every
+  // border and every button colour on this card keys off `sev`, and a work squad must never be
+  // able to wear one of them, whatever a future alarm rule decides to compute for it.
+  const sev = monitored ? alarm.sev : 0
   const dz = atemschutzDoctrine()
   // Planungshilfe: measured consumption history wins; the configured assumption is used only
   // until enough confirmed Druck values exist. It never replaces a reading or drives an alarm.
-  const estimate = inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
+  const estimate = monitored && inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
   const readings = t.readings ?? []
   // Alarmdruck – EITHER the logged Druck or the expected-pressure Schätzung is enough. Air burns
   // down between radio checks, so a reading that still looked fine at the last Kontakt is exactly
@@ -1503,25 +1393,39 @@ function TruppCard({
   // the single audible alarm (see lib/atemschutz).
   // …against THIS Trupp's line: in Rückzug it is the lower one (lib/atemschutz · alarmBarFor)
   const line = alarmBarFor(t, dz)
-  const pressureLow = pressureAlarm(live.currentBar, line)
+  const pressureLow = monitored && pressureAlarm(live.currentBar, line)
   const estimateLow = pressureAlarm(estimate?.bar ?? null, line)
-  /* The MEASURED crossing is the alarm and it lives in the clock block below (`alarm.reason`),
-   * where the card's loudest element is. This strip is what is left: the case where only the
-   * PROJECTION has crossed — a Planungshilfe, which must never look like a logged reading and
-   * must never raise the tier (lib/atemschutz · truppAlarm). */
-  const airNote = inField && estimateLow && !pressureLow
+  /* The MEASURED crossing is the alarm and it lives in the band above, where the card's loudest
+   * element is. This strip is what is left: the case where only the PROJECTION has crossed — a
+   * Planungshilfe, which must never look like a logged reading and must never raise the tier
+   * (lib/atemschutz · truppAlarm). */
+  const airNote = monitored && inField && estimateLow && !pressureLow
     ? fillTemplate(az.alarmNoteEst, { bar: line })
     : null
 
-  /* The clock block is the ALARM block: same three lines, same height, same typography — the
-   * word and the number swap for a pressure alarm, because a radio check does not fix that one
-   * and the word must never say «überfällig» for it (the Verlauf records two different events).
-   * The state word carries the tier as TEXT, so it survives colourblindness and a muted alarm. */
-  const pressureCrit = alarm.reason === 'pressure'
-  const clockState = pressureCrit ? az.clockAlarmPressure
+  /* ── the band: the state, said once, over the number it is about ───────────────────────────
+   * The word and the number swap for a pressure alarm, because a radio check does not fix that
+   * one and the word must never read «überfällig» for it (the Verlauf records two different
+   * events). The state word carries the tier as TEXT, so it survives colourblindness and a muted
+   * alarm — which is why the band may never be colour alone.
+   *
+   * A Trupp still at the door has no clock to show, and one without Atemschutz has none at all:
+   * both keep the band and fill it with what they DO have, rather than leaving a hole. That is
+   * also what the grid's `subgrid` needs — see the zone list above. */
+  const pressureCrit = monitored && alarm.reason === 'pressure'
+  const preEntry = status === 'angemeldet'
+  const bandWord = !monitored || preEntry
+    ? (preEntry ? az.bandPreEntry : statusLabel)
+    : pressureCrit ? az.clockAlarmPressure
     : sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
-  const clockValue = pressureCrit ? `${live.currentBar} bar` : fmtClock(live.sinceContactSec)
-  const clockLabel = pressureCrit ? fillTemplate(az.clockAlarmLimit, { bar: line }) : az.sinceContact
+  const bandSub = preEntry ? az.preEntryHint
+    : !monitored ? az.elapsed
+    : pressureCrit ? fillTemplate(az.clockAlarmLimit, { bar: line })
+    : az.sinceContact
+  const bandValue = preEntry ? fmtClock(null)
+    : !monitored ? fmtClock(t.entryTime ? live.elapsedSec : null)
+    : pressureCrit ? `${live.currentBar} bar`
+    : fmtClock(live.sinceContactSec)
 
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
   // as typed either way — an incident is a legal record, so nothing rewrites what was entered.
@@ -1547,234 +1451,197 @@ function TruppCard({
     })
   }
 
-  /* ── the pieces BOTH shells render, built once ──────────────────────────────────────────────
-   * The card has two shells: the tablet's banner + name block, and the phone focus card's
-   * condensed toprow + metaline (`big`, density redesign mock 02). Only the WRAPPERS may fork –
-   * the action group, the crew names and the Auftrag/Ziel/Leitung/Kanal chips are built here, so
-   * a new chip or a copy change can never land in one shell and be missed in the other.
+  /* ── the ⋯ menu ────────────────────────────────────────────────────────────────────────────
+   * The same conditions the four icon buttons carried, now as sentences. Two of them are PAIRS
+   * that used to share one glyph and mean opposite things depending on state — nothing placed
+   * yet ⇒ put it down, placed ⇒ go there — which is precisely the kind of thing an icon cannot
+   * say and a word says for free.
    *
-   * `big` is only ever set together with `lite`, and focus mode passes neither `onMove` nor
-   * `onCollapse` (AtemschutzView · focusMode). So on the phone card the group below collapses to
-   * exactly Bearbeiten + Entfernen – every control that points at a Karte/Plan this session
-   * cannot reach is already withheld by `lite` itself, which is the right place for that rule.
-   */
-  const actions = (
-    /* The actions ride in their own group so they wrap as a block if a card ever gets narrow
-       enough — the status word must never be the thing that gets abbreviated. */
-    <div className={s.cardActs}>
-      {/* Only while the hand-set order is the one on screen: moving a card under any other
-          sort would rearrange something the sort is about to rearrange back. */}
-      {onMove && canEdit && !lite && (
-        <>
-          <button className={s.iconBtn} aria-label={az.moveBack} title={az.moveBack} onClick={() => onMove(t.id, -1)}>
-            <Icon id="chevron-left" />
-          </button>
-          <button className={s.iconBtn} aria-label={az.moveForward} title={az.moveForward} onClick={() => onMove(t.id, 1)}>
-            <Icon id="chevron" />
-          </button>
-        </>
-      )}
-      {canEdit && status !== 'raus' && (
-        <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={() => onEdit()}>
-          <Icon id="pen" />
-        </button>
-      )}
-      {lite ? null : (t.annoId || t.entityId) ? (
-        <button className={s.iconBtn} aria-label={t.entityId ? az.showOnMap : az.showOnPlan} title={t.entityId ? az.showOnMap : az.showOnPlan} onClick={() => onShowPlan(t.id)}>
-          <Icon id={t.entityId ? 'map' : 'doc'} />
-        </button>
-      ) : canEdit && status !== 'raus' && (
-        <button className={s.iconBtn} aria-label={az.place} title={az.place} onClick={() => onPlace(t.id)}>
-          <Icon id="footprint" />
-        </button>
-      )}
-      {/* The Leitung this Trupp works on — the same shape as the placement button above it:
-          nothing drawn yet ⇒ pick one, drawn ⇒ GO there. Letting go of a Leitung is not an
-          icon: it is clearing the number in the form (or «Kein Trupp» on the line itself),
-          which is where the operator already is when they change their mind. */}
-      {lite ? null : hasLine ? (
-        <button className={s.iconBtn} aria-label={az.lineShow} title={az.lineShow} onClick={() => onShowLine(t.id)}>
-          <Icon id="drop" />
-        </button>
-      ) : canEdit && status !== 'raus' && (
-        <button className={s.iconBtn} aria-label={az.linePick} title={az.linePick} onClick={() => onPickLine(t.id)}>
-          <Icon id="drop" />
-        </button>
-      )}
-      {canEdit && (
-        <button className={`${s.iconBtn} ${s.danger}`} aria-label={az.remove} title={az.remove} onClick={doDelete}>
-          <Icon id="trash" />
-        </button>
-      )}
-      {/* Back to the row. Present only while the board is in compact mode, where this card was
-          opened FROM a row — otherwise there is nothing to collapse to.
-          ⚠️ LAST, i.e. the rightmost control — deliberately the pixel the row's own «›» sat on.
-          With the collapse first, that pixel belonged to «Entfernen»: tap a row to open it, tap
-          the same spot again, and you deleted the Trupp. Now the same place toggles the card
-          open and shut, and it shields the destructive button behind it. */}
-      {onCollapse && (
-        <button className={`${s.iconBtn} ${s.collapseBtn}`} aria-label={az.collapse} title={az.collapse} onClick={onCollapse}>
-          <Icon id="chevron-up" />
-        </button>
-      )}
-    </div>
-  )
+   * «Entfernen» is last, behind a rule, and red. It is the reason the back control could move to
+   * the other end of the header (see below). */
+  const menuItems = [
+    ...(canEdit && status !== 'raus' ? [{ label: az.edit, onClick: () => onEdit() }] : []),
+    ...(lite ? [] : (t.annoId || t.entityId)
+      ? [{ label: t.entityId ? az.showOnMap : az.showOnPlan, onClick: () => onShowPlan(t.id) }]
+      : canEdit && status !== 'raus' ? [{ label: az.place, onClick: () => onPlace(t.id) }] : []),
+    ...(lite ? [] : hasLine
+      ? [{ label: az.lineShow, onClick: () => onShowLine(t.id) }]
+      : canEdit && status !== 'raus' ? [{ label: az.linePick, onClick: () => onPickLine(t.id) }] : []),
+    // Only while the hand-set order is the one on screen: moving a card under any other sort
+    // would rearrange something the sort is about to rearrange back.
+    ...(onMove && canEdit && !lite ? [
+      { kind: 'sep' as const },
+      { label: az.moveBack, onClick: () => onMove(t.id, -1) },
+      { label: az.moveForward, onClick: () => onMove(t.id, 1) },
+    ] : []),
+    ...(canEdit ? [{ kind: 'sep' as const }, { label: az.remove, onClick: doDelete, danger: true }] : []),
+  ]
 
-  // The crew as one string; each shell decides only where it sits (its own line on the tablet,
-  // inline before the chips on the phone card).
   const crewNames = t.members?.filter(Boolean) ?? []
   const crew = crewNames.join(' · ')
 
-  const tags = (
-    <div className={s.tags}>
-      {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door),
-          so its ABSENCE has to be visible — a Trupp with no job on the card is a question
-          the Überwacher has to be able to see, not one nobody thinks to ask. */}
-      {auftrag
-        ? <span className={cx(s.tag, s.tagAuftrag)}>{auftrag}</span>
-        : <button type="button" className={cx(s.tag, s.tagAuftragOpen)} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>}
-      {t.ziel && <span className={s.tagZiel}>{t.ziel}</span>}
-      {/* the numeric Leitung, else the free text an older record still carries verbatim */}
-      {/* ⚠️ On the lite board the number still SHOWS (a Trupp's Leitung is a fact the
-          Überwacher needs) but stops being a jump: there is no Karte to land on – which is
-          also why the phone focus card, always `lite`, never grows the button. */}
-      {lineTag && (hasLine && !lite ? (
-        <button type="button" className={cx(s.tag, s.tagGo)} title={az.lineShow} onClick={() => onShowLine(t.id)}>
-          {az.lineField} {lineTag}<Icon id="chevron" />
-        </button>
-      ) : (
-        <span className={s.tag}>{az.lineField} {lineTag}</span>
-      ))}
-      {t.funkkanal != null && <span className={s.tag}>Kanal {t.funkkanal}</span>}
-    </div>
-  )
+  const lastReading = readings.length > 0 ? readings[readings.length - 1] : null
+  // the folded timing rows: they were a tap ZONE on the clock itself, findable only by knowing
+  // that five grey characters at the band's edge meant «tap me». They are now the head of the
+  // Verlauf, behind a word — and the band went back to being a display, not a button.
+  const timesShown = monitored && live.sinceContactSec != null
+  const lastContactAt = live.sinceContactSec != null ? now - live.sinceContactSec * 1000 : null
+  const hm = (ms: number) => fmtTime(new Date(ms).toISOString())
 
   return (
-    /* ⚠️ The border/banner colour follows the TIER, not the lifecycle status: a Trupp at its
-       Alarmdruck is red even while it is «Im Einsatz». The WORD stays the lifecycle state —
-       what kind of alarm it is belongs to the clock block, which says so in full. */
+    /* ⚠️ The border colour follows the TIER, not the lifecycle status: a Trupp at its Alarmdruck
+       is red even while it is «Im Einsatz». The WORD stays the lifecycle state — what kind of
+       alarm it is belongs to the band, which says so in full. */
     <div ref={cardRef} data-az-open={onCollapse ? "" : undefined}
-      className={cx(s.card, big && s.cardBig, s[`st-${sev >= 2 ? 'ueberfaellig' : status}`])}>
-      {big ? (
-        /* ── condensed identity: the lite/phone focus card (density redesign, mock 02) ──
-           Name, its status pill and the actions share ONE row; crew and the chips share the
-           next. Purely a different arrangement of the SAME pieces built above – nothing here
-           may grow content of its own. */
-        <>
-          <div className={s.toprow}>
-            <span className={s.toprowName}>{t.name}</span>
-            <span className={s.toprowPill}>{statusLabel}</span>
-            {actions}
-          </div>
-          <div className={s.metaline}>
-            {!!crewNames.length && (
-              <>
-                <span className={s.metalineCrew}>{crew}</span>
-                <span className={s.metalineSep}>·</span>
-              </>
-            )}
-            {tags}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className={s.cardBanner}>
-            {/* ⚠️ NO dot in front of the status. A card already carries one coloured disc — the
-                Truppfarbe beside the name, which is the Trupp's identity on the Lage and the plan.
-                A second disc at the top of the same card, in a status colour, was read as that
-                identity: «warum ist Trupp 2 plötzlich grün». The word is the state, the top border
-                and the banner tint already carry its colour, and the one dot on the card means the
-                one thing. */}
-            <span className={s.statusLabel}>{statusLabel}</span>
-            {actions}
-          </div>
+      className={cx(s.card, !monitored && s.cardPlain, s[`st-${sev >= 2 ? 'ueberfaellig' : status}`])}>
 
-          <div className={s.cardName}>
-            {/* the colour this Trupp wears on the Lage / plan, so the card and the symbol out there
-                read as the same Trupp. EVERY Trupp has one, the automatically-coloured ones included
-                (useTruppActions · truppColors) — a hole in this column read as «no colour» on a board
-                where colour is identity.
-                ⚠️ NOT on the lite board (round 2 review): a link session never sees the Lage or the
-                plan, so the colour carries no identity there — it read as an arbitrary dot on
-                somebody's phone. The normal app keeps it exactly as above. */}
-            <div className={s.nameRow}>
-              {color && !lite && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
-              <span className={s.nameStatic}>{t.name}</span>
-            </div>
-            {!!crewNames.length && (
-              <div className={s.members}>{crew}</div>
-            )}
-            {tags}
-          </div>
-        </>
-      )}
+      {/* ── 1 Kopf ─────────────────────────────────────────────────────────────────────────── */}
+      <div className={s.cardHead}>
+        {/* ⚠️ LEFT, and that is only safe because «Entfernen» moved into the menu. The collapse
+            used to be pinned to the far RIGHT precisely to shield the bin sitting beside it: tap
+            a row to open it, tap the same pixel again, and the Trupp was gone. With nothing
+            destructive up here any more, back belongs where back belongs. */}
+        {onCollapse && (
+          <button type="button" className={s.headBack} aria-label={az.collapse} title={az.collapse} onClick={onCollapse}>
+            <Icon id="chevron-up" />
+          </button>
+        )}
+        {/* the colour this Trupp wears on the Lage / plan, so the card and the symbol out there
+            read as the same Trupp.
+            ⚠️ NOT on the lite board: a link session never sees the Lage or the plan, so the
+            colour carries no identity there — it read as an arbitrary dot on somebody's phone. */}
+        {color && !lite && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
+        <span className={s.nameStatic}>{t.name}</span>
+        {menuItems.length > 0 && (
+          <Menu
+            trigger={
+              <button type="button" className={s.headMenu} aria-label={az.cardMenu} title={az.cardMenu}>
+                <Icon id="more-vert" />
+              </button>
+            }
+            popupClassName="rp-print-menu"
+            itemClassName={(danger) => cx('rp-print-menu-item', danger && 'rp-print-menu-danger')}
+            items={menuItems}
+          />
+        )}
+      </div>
 
-      {t.status === 'angemeldet' ? (
-        <div className={s.preEntry}>{az.preEntryHint}</div>
-      ) : (
-        <div className={s.contactWrap}>
-          {/* KONTAKT zone (29.08. Tapzonen): while a contact clock is running, the clock block is
-              also the tap target that folds the timing details in and out. It is an OPEN-ONLY
-              affordance beside the explicit buttons — it never logs a Kontakt (that stays on the
-              big button below). A Trupp with no running clock (raus, –:––) keeps the plain block. */}
-          {live.sinceContactSec != null ? (
-            <button
-              type="button"
-              className={cx(s.contactClock, s.zoneClock, big && s.clockBand, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
-              aria-expanded={timesOpen} title={az.zoneTimes}
-              onClick={() => setTimesOpen((o) => !o)}
-            >
-              <div
-                className={big ? s.clockBandInner : undefined}
-                role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
-                aria-label={`${clockState} — ${clockValue} ${clockLabel}`}
-              >
-                <div className={s.contactState}>{clockState}</div>
-                <div className={s.contactVal}>{clockValue}</div>
-                <div className={s.contactLbl}>{clockLabel}</div>
-              </div>
-              <span className={s.zoneCue}>{az.zoneTimes}</span>
-            </button>
-          ) : (
-            <div
-              className={cx(s.contactClock, big && s.clockBand, sev === 1 && s.contactWarn, sev >= 2 && s.contactCrit)}
-              role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
-              aria-label={`${clockState} — ${clockValue} ${clockLabel}`}
-            >
-              <div className={big ? s.clockBandInner : undefined}>
-                <div className={s.contactState}>{clockState}</div>
-                <div className={s.contactVal}>{clockValue}</div>
-                <div className={s.contactLbl}>{clockLabel}</div>
-              </div>
-            </div>
-          )}
-          {timesOpen && live.sinceContactSec != null && (() => {
-            const lastContactAt = now - live.sinceContactSec * 1000
-            const hm = (t: number) => fmtTime(new Date(t).toISOString())
-            return (
-              <div className={s.zonePanel}>
-                <div className={s.zonePanelRow}><span>{az.lastContactAt}</span><b>{hm(lastContactAt)}</b></div>
-                <div className={s.zonePanelRow}><span>{az.nextContactDue}</span><b>{hm(lastContactAt + intervalMin * 60_000)}</b></div>
-                <div className={s.zonePanelRow}><span>{az.contactIntervalLabel}</span><b>{fillTemplate(az.contactIntervalValue, { min: intervalMin })}</b></div>
-              </div>
-            )
-          })()}
-          {canEdit && inField && (
+      {/* ── 2 Kennzeile ────────────────────────────────────────────────────────────────────────
+          One line, one grey, dot separators — five pill-shaped chips of four different colours
+          were louder than the name above them. Two of the entries are still buttons: the missing
+          Auftrag, and the Leitung that has actually been drawn. */}
+      <div className={s.kenn}>
+        {!!crewNames.length && <><span className={s.kennCrew}>{crew}</span><span className={s.kennSep} aria-hidden>·</span></>}
+        {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door), so its
+            ABSENCE has to be visible — a Trupp with no job is a question the Überwacher has to be
+            able to see, not one nobody thinks to ask. */}
+        {auftrag
+          ? <span className={s.kennAuftrag}>{auftrag}</span>
+          : <button type="button" className={s.kennOpen} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>}
+        {t.ziel && <><span className={s.kennSep} aria-hidden>·</span><span>{t.ziel}</span></>}
+        {/* ⚠️ On the lite board the number still SHOWS (a Trupp's Leitung is a fact the Überwacher
+            needs) but stops being a jump: there is no Karte to land on. */}
+        {lineTag && <><span className={s.kennSep} aria-hidden>·</span>
+          {hasLine && !lite
+            ? <button type="button" className={s.kennGo} title={az.lineShow} onClick={() => onShowLine(t.id)}>
+                {az.lineField} {lineTag}<Icon id="chevron" />
+              </button>
+            : <span>{az.lineField} {lineTag}</span>}
+        </>}
+        {t.funkkanal != null && <><span className={s.kennSep} aria-hidden>·</span><span>Kanal {t.funkkanal}</span></>}
+      </div>
+
+      {/* ── 3 Block: everything one ENTERS ─────────────────────────────────────────────────────
+          The band, «Kontakt» and the Druck setter in one framed object. The Druck used to sit as
+          the third of four rows in the value table below — the only input on the card, filed
+          among numbers that are only ever read. */}
+      <div className={cx(s.block, sev === 1 && s.blockWarn, sev >= 2 && s.blockCrit)}>
+        <div className={cx(s.band, sev === 1 && s.bandWarn, sev >= 2 && s.bandCrit)}
+          role="status" aria-live={sev >= 2 ? 'assertive' : 'polite'}
+          aria-label={`${bandWord} — ${bandValue} ${bandSub}`}>
+          <span className={s.bandTxt}>
+            <span className={s.bandWord}>{bandWord}</span>
+            <small className={s.bandSub}>{bandSub}</small>
+          </span>
+          <span className={s.bandVal}>{bandValue}</span>
+        </div>
+        {monitored && canEdit && inField && (
+          <>
             <button className={cx(s.kontaktBtn, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)} onClick={() => onContact(t.id)}>
               <Icon id="radio" /><span>{az.actContact}</span>
             </button>
-          )}
-        </div>
-      )}
+            <PressureInline key={snapBar(live.currentBar)} value={snapBar(live.currentBar)} alarmBar={line} onCommit={(bar) => onPressure(t.id, bar)} />
+          </>
+        )}
+      </div>
 
-      {airNote && (
-        <div className={s.airNote} role="status" aria-live="polite">
-          <Icon id="warn" /><span>{airNote}</span>
-        </div>
-      )}
+      {/* ── 4 Hinweis ─────────────────────────────────────────────────────────────────────────
+          Always rendered, usually empty: the grid aligns zone by zone (subgrid), so a card that
+          simply left this out would pull every zone below it out of line with its neighbours. */}
+      <div className={s.noteZone}>
+        {airNote && (
+          <div className={s.airNote} role="status" aria-live="polite">
+            <Icon id="warn" /><span>{airNote}</span>
+          </div>
+        )}
+      </div>
 
-      <div className={s.meta}>
-        {t.entryTime && (
+      {/* ── 5 Aktionen: the lifecycle bar stays explicit — only these buttons commit a status ── */}
+      <div className={s.actZone}>
+        {canEdit && preEntry && (
+          <div className={s.actions}>
+            {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
+                was the bin — which throws away the one record that says a crew stood ready, on a
+                document that is the legal account of the Einsatz. This closes it like any other
+                Trupp: under «Draussen», break clock running, «Wieder einrücken» right there.
+                ⚠️ Only under Atemschutz: a Sicherungstrupp is by definition under PA, so on a
+                work squad this is a second button offering an answer to a question nobody asks. */}
+            {monitored && (
+              <button className={cx(s.actBtn, s.actStandDown)} title={az.actNotDeployedHint}
+                onClick={() => onStatus(t.id, 'raus')}>
+                <Icon id="logout" /><span>{az.actNotDeployed}</span>
+              </button>
+            )}
+            <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
+              <Icon id="flag" /><span>{az.actEnter}</span>
+            </button>
+          </div>
+        )}
+        {canEdit && inField && (
+          <div className={s.actions}>
+            {/* Rückzug is an Atemschutz manoeuvre — it lowers the turn-back pressure (alarmBarFor)
+                and there is no pressure to lower on a Trupp without a cylinder. */}
+            {monitored && (t.status === 'aktiv' ? (
+              <button className={cx(s.actBtn, s.actRueckzug)} onClick={() => onStatus(t.id, 'rueckzug')}>
+                <Icon id="undo" /><span>{az.actRueckzug}</span>
+              </button>
+            ) : (
+              <button className={cx(s.actBtn, s.actContinue)} onClick={() => onStatus(t.id, 'aktiv')}>
+                <Icon id="redo" /><span>{az.actContinue}</span>
+              </button>
+            ))}
+            <button className={cx(s.actBtn, s.actExit)} onClick={askExit}>
+              <Icon id="logout" /><span>{az.actExit}</span>
+            </button>
+          </div>
+        )}
+        {/* No exit timestamp line here: the exit event is in the per-Trupp Verlauf and on the
+            Rapport, and what the Überwacher needs NOW is the running break clock below (outFor). */}
+        {status === 'raus' && canEdit && (
+          <div className={s.actions}>
+            <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
+              <Icon id="flag" /><span>{az.actReenter}</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── 6 Sockel: everything one LOOKS UP ──────────────────────────────────────────────────
+          Deliberately the quiet end of the card: same small rows the card has always used, no
+          separators, dimmed ground. A Trupp without Atemschutz has only its break clock to put
+          here — its Einsatzzeit is the number in the band. */}
+      <div className={s.plinth}>
+        {monitored && t.entryTime && (
           <div className={s.metaRow}>
             <span>{az.elapsed}</span>
             <b>{fmtClock(live.elapsedSec)}</b>
@@ -1800,15 +1667,15 @@ function TruppCard({
               : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}</small>
           </div>
         )}
-        {canEdit && inField ? (
-          <PressureInline key={snapBar(live.currentBar)} value={snapBar(live.currentBar)} alarmBar={line} onCommit={(bar) => onPressure(t.id, bar)} />
-        ) : (
+        {/* the setter lives in the block above while it can be used; this is the read-only face
+            of the same number, for a viewer or a Trupp that is no longer in the field */}
+        {monitored && !(canEdit && inField) && (
           <div className={s.metaRow}>
             <span>{az.currentPressure}</span>
             <b className={cx(pressureLow && s.metaAlarm)}>{live.currentBar} bar</b>
           </div>
         )}
-        {live.lowestBar < live.currentBar && (
+        {monitored && live.lowestBar < live.currentBar && (
           <div className={s.metaRow}>
             <span>{az.lowestPressure}</span>
             <b>{live.lowestBar} bar</b>
@@ -1816,92 +1683,68 @@ function TruppCard({
         )}
       </div>
 
-      {/* The lifecycle bar stays explicit: only these buttons commit status changes. */}
-      {canEdit && t.status === 'angemeldet' && (
-        <div className={s.actions}>
-          {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
-              was the bin — which throws away the one record that says a crew stood ready, on a
-              document that is the legal account of the Einsatz. This closes it like any other
-              Trupp: under «Draussen», break clock running, «Wieder einrücken» right there.
-              ⚠️ LEFT of «Eingerückt», which is the shape every other pair on this card has:
-              the quiet way out on the left, the action the card exists for on the right, under
-              the thumb. It read the other way round for one afternoon (09.08.). */}
-          <button className={cx(s.actBtn, s.actStandDown)} title={az.actNotDeployedHint}
-            onClick={() => onStatus(t.id, 'raus')}>
-            <Icon id="logout" /><span>{az.actNotDeployed}</span>
-          </button>
-          <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
-            <Icon id="flag" /><span>{az.actEnter}</span>
-          </button>
-        </div>
-      )}
-      {canEdit && inField && (
-        <div className={s.actions}>
-          {t.status === 'aktiv' ? (
-            <button className={cx(s.actBtn, s.actRueckzug)} onClick={() => onStatus(t.id, 'rueckzug')}>
-              <Icon id="undo" /><span>{az.actRueckzug}</span>
-            </button>
-          ) : (
-            <button className={cx(s.actBtn, s.actContinue)} onClick={() => onStatus(t.id, 'aktiv')}>
-              <Icon id="redo" /><span>{az.actContinue}</span>
-            </button>
-          )}
-          <button className={cx(s.actBtn, s.actExit)} onClick={askExit}>
-            <Icon id="logout" /><span>{az.actExit}</span>
-          </button>
-        </div>
-      )}
-      {/* No exit timestamp line here: the exit event is in the per-Trupp Verlauf and on the
-          Rapport, and what the Überwacher needs NOW is the running break clock above (outFor). */}
-      {status === 'raus' && canEdit && (
-        <div className={s.actions}>
-          <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
-            <Icon id="flag" /><span>{az.actReenter}</span>
-          </button>
-        </div>
-      )}
-      {/* The preview always carries the latest event (Kontakt, Druck, Ausgerückt, …), not just
-          the one special case after coming out. Expanding it only shows the per-Trupp log. */}
-      {readings.length > 0 && (() => {
-        const last = readings[readings.length - 1]
-        const lastWhat = (az.readingKind[last.kind] ?? last.kind)
-          + (readingBarIsMeasured(last.kind) ? ` ${last.bar} bar` : '')
-        return (
-          <div className={s.vfoot}>
+      {/* ── 7 Verlauf ─────────────────────────────────────────────────────────────────────────
+          One expander, not two: the contact times are the head of this Trupp's log, which is
+          what they factually are. The preview carries the latest event (Kontakt, Druck,
+          Ausgerückt, …) so the closed row already answers «and then?». */}
+      <div className={s.vfoot}>
+        {(lastReading || timesShown) && (
+          <>
             <button type="button" className={s.vrow} aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
               <Icon id="history" /><span className={s.vrowLbl}>{az.verlauf}</span>
               <span className={s.vrowLast}>
-                {fillTemplate(az.verlaufLatest, { time: fmtTime(last.t), what: lastWhat })}
+                {lastReading
+                  ? fillTemplate(az.verlaufLatest, {
+                      time: fmtTime(lastReading.t),
+                      what: (az.readingKind[lastReading.kind] ?? lastReading.kind)
+                        + (readingBarIsMeasured(lastReading.kind) ? ` ${lastReading.bar} bar` : ''),
+                    })
+                  : az.zoneTimes}
               </span>
               <Icon id={logOpen ? 'chevron-up' : 'chevron-down'} className={s.logChev} />
             </button>
-            {logOpen && (() => {
-              // ⚠️ The log spans EVERY deployment since 18.08. («Wieder einrücken» appends rather
-              // than starting a new one, so the first bottle still prints on the Rapport). The card
-              // header, though, is about the crew that is inside NOW — Eingangsdruck, tiefster
-              // Druck. Without a boundary the two contradict each other: «tiefster Druck 300» over
-              // a row saying 120. Everything before the current run is dimmed and gets a line.
-              const from = currentRunStart(readings)
-              return (
-                <ul className={s.logList}>
-                  {[...readings].reverse().map((r, i) => {
-                    const idx = readings.length - 1 - i
-                    return (
-                      <li key={idx} className={cx(s.logRow, idx < from && s.logRowPast, idx === from && from > 0 && s.logRowRunStart)}>
-                        <span className={s.logTime}>{fmtTime(r.t)}</span>
-                        {/* …and the same on the board: a Kontakt shows no bar, because the one it
-                            carries is the last reported value, not a fresh reading */}
-                        <span className={s.logBar}>{readingBarIsMeasured(r.kind) ? `${r.bar} bar` : ''}</span>
-                        <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )
-            })()}
-          </div>
-        )
-      })()}
+            {logOpen && (
+              <div className={s.vopen}>
+                {timesShown && lastContactAt != null && (
+                  <div className={s.zonePanel}>
+                    <div className={s.zonePanelRow}><span>{az.lastContactAt}</span><b>{hm(lastContactAt)}</b></div>
+                    <div className={s.zonePanelRow}><span>{az.nextContactDue}</span><b>{hm(lastContactAt + intervalMin * 60_000)}</b></div>
+                    <div className={s.zonePanelRow}><span>{az.contactIntervalLabel}</span><b>{fillTemplate(az.contactIntervalValue, { min: intervalMin })}</b></div>
+                  </div>
+                )}
+                {readings.length > 0 && (() => {
+                  // ⚠️ The log spans EVERY deployment since 18.08. («Wieder einrücken» appends
+                  // rather than starting a new one, so the first bottle still prints on the
+                  // Rapport). The card's own numbers, though, are about the crew that is inside
+                  // NOW — Eingangsdruck, tiefster Druck. Without a boundary the two contradict
+                  // each other: «tiefster Druck 300» over a row reading 120. Everything before
+                  // the current run is dimmed and gets a line.
+                  const from = currentRunStart(readings)
+                  return (
+                    <>
+                      {timesShown && <div className={s.readHead}>{az.readingsHead}</div>}
+                      <ul className={s.logList}>
+                        {[...readings].reverse().map((r, i) => {
+                          const idx = readings.length - 1 - i
+                          return (
+                            <li key={idx} className={cx(s.logRow, idx < from && s.logRowPast, idx === from && from > 0 && s.logRowRunStart)}>
+                              <span className={s.logTime}>{fmtTime(r.t)}</span>
+                              {/* …and the same on the board: a Kontakt shows no bar, because the
+                                  one it carries is the last reported value, not a fresh reading */}
+                              <span className={s.logBar}>{readingBarIsMeasured(r.kind) ? `${r.bar} bar` : ''}</span>
+                              <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </>
+                  )
+                })()}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
