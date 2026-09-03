@@ -19,12 +19,22 @@ import { realCoord, fmtWhen } from './_shared'
 // via the review row, not in a gating wizard. Dismissed alarms are remembered PER DEVICE
 // (localStorage), so a given alarm only ever nags once on this device — across reloads, and
 // whether it's X'd or taken.
+//
+// One exception to «take leads» (`attachFirst`): an Einsatz started by hand — the Übung above
+// all — has no alarm behind it, so its Zeiten stay empty until one is attached and taking this
+// dispatch would open a second Einsatz next to the one the crew is in. There, «Zu Einsatz» is
+// the filled action. Same two buttons, swapped emphasis; nothing is hidden either way.
 const ALARM_MAX_AGE_MS = 3 * 60 * 60 * 1000 // only surface dispatches < 3h old
 
-export function IncomingAlarmBanner({ alarms, taking, onTake, onAttach }: {
+export function IncomingAlarmBanner({ alarms, taking, attachFirst, onTake, onAttach }: {
   alarms: DiveraAlarm[]
   /** divera_id currently being taken (disables its button) */
   taking: number | null
+  /** The open Einsatz was started by hand (Übung included), so no alarm routes anything to it
+   *  yet: its Zeiten stay empty until one is attached, and a take would put this dispatch in a
+   *  SECOND Einsatz beside the one the crew is working in. So «Zu Einsatz» leads and Öffnen
+   *  follows — one tap, and the times land where the operator is looking. */
+  attachFirst: boolean
   onTake: (a: DiveraAlarm) => void
   /** attach this alarm to the active incident (split dispatch; the caller confirms) */
   onAttach: (a: DiveraAlarm) => void
@@ -42,6 +52,13 @@ export function IncomingAlarmBanner({ alarms, taking, onTake, onAttach }: {
   // next, and the landing launch list always carries the whole pool
   const top = live[0]
   const busy = top != null && taking === top.divera_id
+  // The same two actions either way — only which one is filled, and reads first, changes.
+  const actionsFor = (a: DiveraAlarm) => {
+    const take = { label: busy ? ix.alarmOpening : ix.alarmOpen, icon: busy ? 'rotate' : 'truck', busy, primary: !attachFirst, disabled: busy, onClick: () => onTake(a) }
+    // split dispatch: this alarm may be the Einsatz that's already open — join it
+    const attach = { label: ix.attachShort, icon: 'swap', primary: attachFirst, disabled: busy, onClick: () => onAttach(a) }
+    return attachFirst ? [attach, take] : [take, attach]
+  }
   useMeldung(top == null ? null : {
     id: `alarm:${top.divera_id}`,
     kind: 'alarm',
@@ -49,11 +66,7 @@ export function IncomingAlarmBanner({ alarms, taking, onTake, onAttach }: {
     icon: 'bell',
     title: `${ix.newDiveraAlarm} — ${top.title}`,
     sub: `${shortAddress(top.address) ?? ix.addressUnknown} · ${fmtWhen(top.received_at)}`,
-    actions: [
-      { label: busy ? ix.alarmOpening : ix.alarmOpen, icon: busy ? 'rotate' : 'truck', busy, primary: true, disabled: busy, onClick: () => onTake(top) },
-      // split dispatch: this alarm may be the Einsatz that's already open — join it
-      { label: ix.attachShort, icon: 'swap', disabled: busy, onClick: () => onAttach(top) },
-    ],
+    actions: actionsFor(top),
     dismiss: { label: ix.hide, onClick: () => setDismissed(dismissAlarm(top.divera_id)) },
   })
   return null

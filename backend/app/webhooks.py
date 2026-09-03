@@ -1,9 +1,13 @@
 """Outbound incident webhooks — the OSS-clean delivery layer for alarm side effects.
 
 kp-front core knows nothing about printers, pagers, or chat bots: it POSTs one JSON payload
-to every URL in `alarms.webhooks` when an incident is created (manual, Divera take,
-auto-open, or generic intake), and the station wires whatever adapter it likes (see
+to every URL in `alarms.webhooks`, and the station wires whatever adapter it likes (see
 docs/ALARM-INTEGRATIONS.md — e.g. a few-line forwarder to kp-rueck's QR slip printer).
+
+Two events, both to the same URLs, told apart by `event` — receivers switch on it:
+
+* `incident.created` — an Einsatz opened (manual, Divera take, auto-open, generic intake);
+* `alarm.attached`   — an upstream alarm was pinned onto an Einsatz that already existed.
 
 Fail-open by design: delivery runs detached from the request (own task, own HTTP client,
 no DB session), retries with backoff, and only ever logs — an unreachable receiver must
@@ -12,6 +16,7 @@ never delay or break alarm intake.
 
 import asyncio
 import logging
+from collections.abc import Callable
 from functools import partial
 from urllib.parse import urlsplit
 
@@ -66,6 +71,22 @@ def build_incident_payload(inc: Incident, capture_token: str | None) -> dict:
     }
 
 
+def build_alarm_attached_payload(inc: Incident, source: str, source_ref: str) -> dict:
+    """The `alarm.attached` body: which upstream alarm now routes to which incident.
+
+    An attach opens nothing. A second dispatch for the same physical Einsatz (Nachalarm,
+    reworded group dispatch) is pinned onto an incident that already exists — very often a
+    manually created one or an Übung, whose own `source`/`source_ref` say nothing about the
+    alarm. So the alarm rides in its own block: a receiver holding something pending for
+    THAT alarm learns where it belongs now, instead of waiting out its retry cadence.
+    """
+    return {
+        "event": "alarm.attached",
+        "incident": {"id": str(inc.id), "title": inc.title, "source": inc.source},
+        "alarm": {"source": source, "source_ref": source_ref},
+    }
+
+
 async def _deliver(url: str, payload: dict) -> None:
     for delay in RETRY_DELAYS_S:
         if delay:
@@ -81,12 +102,13 @@ async def _deliver(url: str, payload: dict) -> None:
     logger.error("Incident webhook %s gave up after %d attempts", url, len(RETRY_DELAYS_S))
 
 
-async def notify_incident_created(db: AsyncSession, inc: Incident) -> int:
-    """Queue delivery to every configured webhook. Returns how many were queued.
+async def _notify(db: AsyncSession, build_payload: Callable[[str | None], dict]) -> int:
+    """Queue one event's delivery to every configured webhook. Returns how many were queued.
 
-    Reads config + capture token NOW (while the session is alive), but starts detached
-    delivery only after COMMIT. A later audit/incident write failure therefore cannot tell
-    another system about an Einsatz which does not exist. Fired tasks own no DB state.
+    Reads config + capture token NOW (while the session is alive) and hands the token to
+    `build_payload`, but starts detached delivery only after COMMIT. A later audit/incident
+    write failure therefore cannot tell another system about an Einsatz — or an attach —
+    which never happened. Fired tasks own no DB state.
     """
     try:
         from sqlalchemy import select
@@ -99,7 +121,7 @@ async def notify_incident_created(db: AsyncSession, inc: Incident) -> int:
         if not urls:
             return 0
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        payload = build_incident_payload(inc, row.capture_secret if row else None)
+        payload = build_payload(row.capture_secret if row else None)
         for url in urls:
             # Keep a strong reference once started. asyncio only holds a WEAK one, so a
             # fire-and-forget task can otherwise be collected mid-flight.
@@ -108,3 +130,16 @@ async def notify_incident_created(db: AsyncSession, inc: Incident) -> int:
     except Exception:  # webhooks must never break intake
         logger.exception("Scheduling incident webhooks failed")
         return 0
+
+
+async def notify_incident_created(db: AsyncSession, inc: Incident) -> int:
+    """An Einsatz opened — announce it, with the capture deep link where one is composable."""
+    return await _notify(db, partial(build_incident_payload, inc))
+
+
+async def notify_alarm_attached(db: AsyncSession, inc: Incident, source: str, source_ref: str) -> int:
+    """A pooled alarm was attached to an existing Einsatz — announce where it routes now.
+
+    No capture link: nothing was created, and the incident has had its own since it opened.
+    """
+    return await _notify(db, lambda _capture_token: build_alarm_attached_payload(inc, source, source_ref))

@@ -205,7 +205,7 @@ Payload sent (as of 2026-08):
   address degrades to street-only for older payloads. Personnel/response data exists in FireHub
   but is not sent by webhook yet.
 
-## 2. Outbound: incident-created webhooks – `alarms.webhooks`
+## 2. Outbound: incident webhooks – `alarms.webhooks`
 
 Deployment config (`docs/CONFIGURATION.md` §1):
 
@@ -215,9 +215,14 @@ Deployment config (`docs/CONFIGURATION.md` §1):
 }
 ```
 
+Two events go to every URL – **fail-open**: retried (0s/2s/8s), logged, never blocking or
+delaying intake. **Switch on `event`:** a receiver that acts on everything it is handed
+(prints a slip, pages someone) would act twice for one Einsatz.
+
+### `incident.created`
+
 Every incident creation (manual wizard, Divera take, Divera auto-open, generic intake)
-POSTs this JSON to each URL – **fail-open**: retried (0s/2s/8s), logged, never blocking or
-delaying intake:
+POSTs this JSON:
 
 ```jsonc
 {
@@ -245,6 +250,26 @@ pipeline (§1, `POST /api/alarms/milestones`) answers 404 until the incident exi
 subscribes to this webhook and delivers its queued times the moment one opens, instead of
 waiting out its retry cadence.
 
+### `alarm.attached`
+
+A dispatch center may split one physical Einsatz into several alarms (Nachalarm, reworded
+group dispatch), and an Einsatz opened by hand (incl. an Übung) has no alarm at all until
+one is attached to it – `POST /api/divera/pool/{divera_id}/attach/{incident_id}`. Nothing
+is created there, so `incident.created` does not fire; this does:
+
+```jsonc
+{
+  "event": "alarm.attached",
+  "incident": { "id": "…", "title": "Übung Atemschutz", "source": "manual" },
+  "alarm":    { "source": "divera", "source_ref": "36591264" }
+}
+```
+
+The attached alarm sits in its own block because the incident's own `source`/`source_ref`
+describe how the *Einsatz* was opened, which after an attach is no longer where its times
+come from. Everything a sender holds pending for `alarm.source_ref` now belongs to
+`incident.id` – the same flush as above, for the case where the incident already existed.
+
 ### Example adapter: kp-rueck thermal QR slip
 
 If the station runs [kp-rueck](https://github.com/feuerwehr-oberwil/kp-rueck) with its print
@@ -262,6 +287,8 @@ app = FastAPI()
 @app.post("/kp-front")
 async def incident_created(req: Request):
     p = await req.json()
+    if p.get("event") != "incident.created":
+        return {"ok": True}  # an attach is not a new Einsatz — one slip per Einsatz
     inc, url = p["incident"], p.get("capture_url")
     label = f"{inc['title']}\n{inc.get('address') or ''}\nAlarm: {inc['started_at'][11:16]}"
     # kp-rueck's endpoint has a TRAILING SLASH, requires `title`, calls the payload field
