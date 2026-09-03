@@ -1440,10 +1440,15 @@ export const de = {
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Trupp',
     /** the two-step form on ANY phone (TruppForm · wizard) — the handed-over Tafel since 02.09.,
-     *  the main board's phone layout since 03.09. Step 2 carries Druck, Kanal, Auftrag/Ziel and
-     *  — outside the link — Leitung und Farbe, weshalb die Frage nach dem WAS und nicht nach der
-     *  Luft gestellt wird (der Schlüssel hiess bis 03.09. `wizardAir`). */
-    wizardWho: 'Wer geht rein?',
+     *  the main board's phone layout since 03.09., und seit 03.09. für JEDE Art von Trupp. Step 2
+     *  carries Druck (nur unter Atemschutz), Kanal, Auftrag/Ziel and — outside the link — Leitung
+     *  und Farbe, weshalb die Frage nach dem WAS und nicht nach der Luft gestellt wird (der
+     *  Schlüssel hiess bis 03.09. `wizardAir`).
+     *  ⚠️ Schritt 1 fragt NICHT mehr «Wer geht rein?»: seit der Wizard auch für einen Trupp ohne
+     *  Atemschutz gilt, geht ein Verkehrstrupp nirgends rein – und die Art des Trupps wird auf
+     *  genau diesem Schritt gewählt, die Frage müsste also unter dem Daumen umspringen. Eine
+     *  Formulierung für beide Arten, und sie benennt, was der Schritt liefert: den Trupp. */
+    wizardWho: 'Wer bildet den Trupp?',
     wizardWhat: 'Was machen sie?',
     wizardNext: 'Weiter',
     wizardBack: 'Zurück',
@@ -1483,8 +1488,11 @@ export const de = {
       anderes: 'Anderes',
     } as Record<string, string>,
     zielLabel: 'Auftrag / Ziel',
-    zielPlaceholder: 'z. B. 2OG links',
-    zielOtherPlaceholder: 'Auftrag beschreiben',
+    // EIN Platzhalter für jede Art – bis 03.09. stand hier «z. B. 2OG links» und nur bei Art
+    // «Anderes» der allgemeine Satz. Ein Stockwerk ist Atemschutz-Vokabular: unter Art «Verkehr»
+    // oder «Sanität» schlug das Beispiel einen Ort vor, den es dort gar nicht gibt. Der
+    // allgemeine Satz stimmt für beide Arten von Trupp und für jeden Eintrag beider Auftragslisten.
+    zielPlaceholder: 'Auftrag beschreiben',
     zielClear: 'Auftrag / Ziel löschen',
     // Order of the cards on the board. Überfällige Trupps ALWAYS sit at the top – that is not a
     // setting, it is the reason this board exists.

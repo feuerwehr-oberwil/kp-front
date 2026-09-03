@@ -997,8 +997,10 @@ export const en: Localizable<Copy> = {
     linkReentryHint: 'The link leads back to this board – if the page is closed by accident, simply open the QR code again.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Team',
-    /** the two-step form on the handed-over phone (TruppForm · wizard) */
-    wizardWho: 'Who goes in?',
+    /** the two-step form on ANY phone, for any kind of team (TruppForm · wizard). Step 1 no
+     *  longer asks «who goes in?» — a team without SCBA goes nowhere in, and its kind is chosen
+     *  on that very step (see de.ts). */
+    wizardWho: 'Who is in the team?',
     wizardWhat: 'What are they doing?',
     wizardNext: 'Next',
     wizardBack: 'Back',
@@ -1026,8 +1028,9 @@ export const en: Localizable<Copy> = {
       anderes: 'Other',
     },
     zielLabel: 'Assignment / target',
-    zielPlaceholder: 'e.g. 2nd floor left',
-    zielOtherPlaceholder: 'Describe the assignment',
+    // ONE placeholder for every kind of team and every Auftrag (see de.ts): a storey reference
+    // was SCBA vocabulary and read as nonsense under «Traffic».
+    zielPlaceholder: 'Describe the assignment',
     zielClear: 'Clear assignment / target',
     leaderLabel: 'Team leader',
     memberLabel: 'Member',
