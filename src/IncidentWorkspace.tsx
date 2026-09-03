@@ -145,7 +145,7 @@ import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } from './lib/useObjectPlans'
 import { PlanPicker } from './components/PlanPicker'
-import { EinsatzLinkSheet, FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet, ShareIncidentSheet, TeilenSheet } from './components/panels'
+import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet, ShareIncidentSheet } from './components/panels'
 import { fetchShareLink } from './lib/viewLink'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
@@ -632,12 +632,12 @@ export function IncidentWorkspace({
   const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, shareLink, setShareLink } = useSheets()
   /** Who may hand a link out at all — an editor on a live view, and never a link session itself
    *  (a link may not mint further links). Says nothing about WHICH link: after the Abschluss only
-   *  the Rapport-Link is still a thing, and that is `teilenRows`' business (lib/viewLink). */
+   *  the read-only link is still a thing, and that is `shareDoors`' business (lib/viewLink). */
   const canShareLink = canEditIncident && !readOnly && !linkScoped
-  /** …and the two links that DIE with the Abschluss — the Einsatz-Link (the server answers 409)
-   *  and the Truppüberwacher-Link (its session 404s). A door straight to one of them, with no
-   *  row list to filter, has to close when the Einsatz does, or it offers an address that never
-   *  worked. Same guard the «Einsatz abschliessen» row uses further down. */
+  /** …and the ONE link that DIES with the Abschluss — the Truppüberwacher-Link (its session
+   *  404s). A door straight to it, bypassing the sheet's own tabs, has to close when the Einsatz
+   *  does, or it offers an address that never worked. Same guard the «Einsatz abschliessen» row
+   *  uses further down. */
   const canShareLive = canShareLink && !incidentMeta.is_archived
   /** Is there an Atemschutz-Link on this Einsatz right now? ONE request per incident, and
    *  deliberately never polled: the QR in the Atemschutz header only claims that a link EXISTS,
@@ -4363,13 +4363,13 @@ export function IncidentWorkspace({
         }} />}
         // «Teilen» in the head — THE place an Einsatz is handed to somebody (03.09.), on the
         // surface the FU is already looking at instead of behind the Abschluss or the Atemschutz
-        // board. Each row routes to the sheet that door used to own, so nothing is reimplemented
-        // and no path shows a different set of links. Same gate as every minting door
+        // board. One press opens the share sheet on its read-only tab; the tabs are the chooser,
+        // so no path can show a different set of links. Same gate as every minting door
         // (`canShareLink`): editors, never a viewer, a read-only surface or a link session — the
         // button is absent rather than present and then refusing. After the Abschluss the gate
-        // moves to the ROWS (`archived` below → teilenRows): the Rapport-Link is exactly the one
-        // wanted days later, so the menu stays — with only that row in it.
-        onShare={canShareLink ? (door) => setShareLink(door) : undefined}
+        // moves INSIDE the sheet (`archived` below → shareDoors): the read-only link is exactly
+        // the one wanted days later, so the button stays — with only that door behind it.
+        onShare={canShareLink ? () => setShareLink('view') : undefined}
         // «Einsatz abgeschlossen»: a mode of the incident, so it stands beside the Einsatzname
         // instead of floating as a fifth banner. Its two exits ride in the chip's menu.
         archived={incidentMeta.is_archived}
@@ -4404,13 +4404,11 @@ export function IncidentWorkspace({
             // can be read before the row is pressed, not only after.
             onArchive={canEditIncident && !readOnly && !incidentMeta.is_archived ? () => { void confirmAndComplete() } : undefined}
             archiveOpenCount={abschlussMissing.length}
-            // «Teilen» — the SAME three-way choice the Einsatzkopf's button opens, as a sheet
-            // (03.09.). It no longer goes straight to one link: this row used to be the view
-            // link's own door, which meant which of the three you got was decided by which door
-            // you happened to find. It stays because of the phone — there the Teilen button in
-            // the bar has no room (15-mobile.css · .tb-act-teilen), and this is that device's way
-            // to all three, so a phone is not offered fewer links than a tablet.
-            onShare={canShareLink ? () => setShareLink('menu') : undefined}
+            // «Teilen» — the SAME sheet the Einsatzkopf's button opens, on the same tab. It
+            // stays because of the phone: there the Teilen button in the bar has no room
+            // (15-mobile.css · .tb-act-teilen), and this is that device's way in, so a phone is
+            // not offered fewer links than a tablet.
+            onShare={canShareLink ? () => setShareLink('view') : undefined}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onOfflineReadiness={() => setOfflineReadyOpen(true)}
@@ -5857,20 +5855,13 @@ export function IncidentWorkspace({
         />
       )}
       {helpOpen && <HelpOverlay onClose={() => setHelpOpen(false)} />}
-      {/* The chooser itself — for the doors that cannot open a dropdown (the phone, the Einsatz-
-          Karte's «Teilen»). Picking a row replaces it with that row's own sheet. */}
-      {shareLink === 'menu' && (
-        <TeilenSheet archived={incidentMeta.is_archived} onPick={(door) => setShareLink(door)} onClose={() => setShareLink(null)} />
-      )}
-      {/* Its own sheet, not a third segment: the station's Einsatz-Link is derived rather than
-          stored, so there is nothing on it to choose and nothing to revoke. */}
-      {shareLink === 'einsatz' && (
-        <EinsatzLinkSheet incidentId={incidentMeta.id} onClose={() => setShareLink(null)} />
-      )}
-      {(shareLink === 'view' || shareLink === 'atemschutz') && (
+      {/* ONE sheet for every «Teilen» door — its own tabs are the chooser (03.09.). `archived`
+          drops the Atemschutz tab, which dies with the Einsatz. */}
+      {shareLink && (
         <ShareIncidentSheet
           incidentId={incidentMeta.id}
           initialKind={shareLink}
+          archived={incidentMeta.is_archived}
           onClose={() => setShareLink(null)}
           // the Atemschutz header's own button paints its «ein Link läuft» tint from this,
           // so minting or revoking one is reflected the moment the sheet closes

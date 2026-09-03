@@ -1559,32 +1559,16 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   letter-spacing: .02em; color: var(--ink-faint); }
 
 /* ── «Teilen»: die Links eines Einsatzes ────────────────────────────────────────────────
-   One surface, reached from the Einsatzkopf's Teilen menu (and rendered inline by the Rapport's
-   own «Weitergeben» section) — components/panels/ShareIncident.tsx. It lived under .rp-share-*
+   One surface, opened by every «Teilen» door (and rendered inline by the Rapport's own
+   «Weitergeben» section) — components/panels/ShareIncident.tsx. It lived under .rp-share-*
    while the Rapport was the only door; it is an Einsatz thing, so it lives with the Einsatz card
    now. `.rp-share` itself stays in 17-rapport.css — that is the SECTION around it, not this. */
 .esh { display: flex; flex-direction: column; gap: 11px; align-items: flex-start; }
-/* The chooser, for the doors that cannot open the Einsatzkopf's dropdown — the phone, and the
-   Einsatz-Karte's «Teilen» row. Same three rows, same order, same second line; a sheet instead of
-   a popover, so a phone is not offered fewer links than a tablet. Rows, not buttons: they carry
-   `--r-ctl` and a chevron, because each one leads somewhere rather than doing something. */
-.esh-doors { gap: 8px; align-self: stretch; }
-.esh-door { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px;
-  padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: var(--r-ctl);
-  background: var(--fill-soft); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-@media (hover: hover) {
-  .esh-door:hover { background: var(--hover); }
-}
-.esh-door:active { background-image: linear-gradient(var(--press), var(--press)); }
-.esh-door > .i { flex: none; width: 20px; height: 20px; color: var(--ink-dim); }
-.esh-door-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.esh-door-t b { font: 700 13.5px var(--body); }
-.esh-door-t small { font: 600 11.5px var(--body); color: var(--ink-dim); }
-.esh-door-go { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
-/* The kind picker: «Ganzer Einsatz / nur lesen» ↔ «Nur Atemschutz / bedienen». The shared
-   `.useg` track carries one nowrap line per option, and the second line is exactly what makes
-   the choice readable at 3am — so this stacks it. Full width, because two options over a 520px
-   sheet centred on nothing read as a stray toggle rather than the sheet's first question. */
+/* The chooser — and it IS the chooser (03.09.): «Ganzer Einsatz / nur lesen» ↔ «Nur Atemschutz /
+   bedienen», with no menu in front of the sheet. The shared `.useg` track carries one nowrap
+   line per option, and the second line is exactly what makes the choice readable at 3am — so
+   this stacks it. Full width, because two options over a 520px sheet centred on nothing read as
+   a stray toggle rather than the sheet's first question. */
 .esh-kind { width: 100%; }
 .esh-kind .useg { display: flex; width: 100%; }
 .esh-kind .useg-btn { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 1px;

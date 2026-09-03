@@ -1,42 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
-import { ApiError } from '../../lib/api'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
 import { confirmDialog, toast } from '../../lib/ui'
-import { createShareLink, fetchShareLink, mintEinsatzLink, revokeShareLink, teilenRows, viewLinkUrl, type ShareDoor, type ShareLink, type ShareLinkKind } from '../../lib/viewLink'
+import { createShareLink, fetchShareLink, revokeShareLink, shareDoors, viewLinkUrl, type ShareLink, type ShareLinkKind } from '../../lib/viewLink'
 import { Segmented } from '../Segmented'
 import { Modal } from './_shared'
 
 // «Teilen» — every way this app hands an Einsatz to somebody, in one file.
 //
-// ONE PLACE, THREE ROWS (03.09.)
-// ------------------------------
-// There used to be three doors and each one led to a different link, so which of the three you
-// got was decided by which door you happened to find: the Rapport's «Weitergeben» section minted
-// the view link, the Einsatz-Karte's «Teilen» minted the view link, and the QR beside the
-// Atemschutz bell minted the Atemschutz one. The Einsatzkopf's Teilen button
-// (components/TopBar · TeilenMenu) is now THE place, and the ROW decides — the list is
-// `lib/viewLink · teilenRows`, and `TeilenSheet` below renders the identical three for the phone
-// and the Einsatz-Karte, where a dropdown does not fit.
+// ONE SHEET, TWO TABS (03.09.)
+// ----------------------------
+// «Teilen» opens THIS surface directly, and the tab decides which link you get. There is no
+// chooser step in front of it any more: a menu whose rows lead to a sheet that then shows the
+// same choice again is one question asked twice.
 //
-// What survives of the old doors, and why:
-//   · the Rapport's section renders `ShareIncident` INLINE — it is this surface, not a second
-//     door to it, and the view link's whole purpose is handing the finished Einsatzakte out from
-//     exactly there;
-//   · the QR beside the Atemschutz bell is contextual: it lands straight on «Nur Atemschutz»,
-//     because standing on the Tafel deciding to hand it over, that is the only thing it could
-//     have meant.
+// It used to be three links, and the top two said the same sentence — «der ganze Einsatz, nur
+// lesen» — differing only in how long they lasted. So they are one link now, and it is the one
+// that always works: the `view` link carries a secret of its own on the incident row, so it
+// needs no station key AND it survives the Abschluss. (The alerting gateway's JWT still exists
+// on the wire and in every alarm text — nothing mints one by hand any more; see lib/viewLink.)
 //
-// The kinds (see lib/viewLink):
-//   · «Ganzer Einsatz – nur lesen»  — the view link, read-only, outlives the Einsatz.
-//   · «Nur Atemschutz – bedienen»   — the Atemschutz link: the Überwachungstafel of this one
-//                                     Einsatz on somebody else's phone, and they operate it.
-//   · the Einsatz-Link                — the alarm link, minted here (`EinsatzLinkSheet`): read-only
-//                                     and dead at the Abschluss, so it has no sheet of choices.
-// Everything below a choice — QR, address, Senden, Aufheben — is the same block for all of them;
-// only the sentences differ, because what the code hands over is the ONE thing somebody has to
-// have read before sending it on.
+// The two doors (see lib/viewLink · shareDoors):
+//   · «Ganzer Einsatz – nur lesen» — Karte, Pläne, Verlauf, Fotos, Zeiten. For the Zentrale, den
+//                                    EL or a Nachbarwehr mid-Einsatz, and for der Gemeinde or a
+//                                    Nachbarwehr afterwards: it outlives the Abschluss.
+//   · «Nur Atemschutz – bedienen»  — the Überwachungstafel of this one Einsatz on somebody
+//                                    else's phone, and they operate it. Dies at the Abschluss.
+//
+// Where this surface is reached from, and why each is contextual rather than a link of its own:
+//   · «Teilen» im Einsatzkopf and on der Einsatz-Karte — the plain way in, opens on the
+//     read-only tab;
+//   · the Rapport's «Weitergeben» section renders `ShareIncident` INLINE — it is this surface,
+//     not a second door to it, and handing the finished Einsatzakte out belongs exactly there;
+//   · the QR beside the Atemschutz bell lands straight on «Nur Atemschutz», because standing on
+//     the Tafel deciding to hand it over, that is the only thing it could have meant.
+//
+// Everything below the tabs — QR, address, Senden, Aufheben — is the same block for both; only
+// the sentences differ, because what the link hands over is the ONE thing somebody has to have
+// read before sending it on.
 //
 // The QR is what makes the handover work at all. The realistic handover in an Einsatz is
 // «Tablet hinhalten», not «Adresse kopieren» — and the code is drawn from the address as soon
@@ -46,14 +48,13 @@ import { Modal } from './_shared'
 
 /** ONE address, presented the one way this app presents an address to hand over: the QR that
  *  makes «Tablet hinhalten» work, the whole URL as the copy target, and the device's own Teilen
- *  sheet where that exists. Extracted so the Einsatz-Link sheet below is the same surface rather
- *  than a second copy-button grammar; `children` takes whatever else belongs on that row (the
- *  view/Atemschutz links put «Link aufheben» there — the Einsatz-Link has nothing to revoke).
+ *  sheet where that exists. `children` takes whatever else belongs on that row — both links put
+ *  «Link aufheben» there.
  *
  *  The QR is drawn lazily: `qrcode` otherwise ships only in the admin chunk, and there is no
  *  reason for every field device to carry it. Its absence is never fatal — no QR still leaves the
  *  address, which is the part that always works. */
-export function ShareLinkCode({ url, children }: { url: string; children?: React.ReactNode }) {
+function ShareLinkCode({ url, children }: { url: string; children?: React.ReactNode }) {
   const C = appConfig.copy.preflight
   // keyed by the address it encodes, so a revoked-then-reminted link can never flash the old
   // code — and so nothing has to be reset when the address goes away
@@ -118,16 +119,26 @@ function kindCopy(kind: ShareLinkKind) {
     : { lede: C.shareLede, liveLede: C.shareLiveLede, warn: C.shareWarn, revokeTitle: C.shareRevokeTitle, revokeBody: C.shareRevokeBody }
 }
 
-/** The surface itself. Fetches its own link state per kind, so every door is one line to mount.
+/** The surface itself, and the chooser: the tabs ARE how somebody picks which link they are
+ *  handing over. Fetches its own link state per kind, so every door is one line to mount.
  *  `onState` reports the selected kind's link back — the Atemschutz board's own button paints
- *  its «ein Link läuft» tint from it without a second request. */
-export function ShareIncident({ incidentId, initialKind = 'view', onState }: {
+ *  its «ein Link läuft» tint from it without a second request.
+ *
+ *  `archived` drops the Atemschutz tab: that link dies with the Einsatz (404), so after the
+ *  Abschluss it is not a choice but a dead end — see `lib/viewLink · shareDoors`. */
+export function ShareIncident({ incidentId, initialKind = 'view', archived, onState }: {
   incidentId: string
   initialKind?: ShareLinkKind
+  archived?: boolean
   onState?: (kind: ShareLinkKind, link: ShareLink) => void
 }) {
   const C = appConfig.copy.preflight
-  const [kind, setKind] = useState<ShareLinkKind>(initialKind)
+  const doors = shareDoors({ archived })
+  const [picked, setPicked] = useState<ShareLinkKind>(initialKind)
+  // Derived, never synced: a kind that is not on offer (the Atemschutz link on a closed Einsatz,
+  // reached through the QR beside the bell) must not be what the sheet shows — with the tabs
+  // gone there would be no way back off it.
+  const kind = doors.some((d) => d.kind === picked) ? picked : doors[0].kind
   // Keyed by kind, so switching back to one already fetched is instant instead of a second
   // «noch keiner» flash over a link that exists. Never mints anything — see the effect below.
   const [links, setLinks] = useState<Partial<Record<ShareLinkKind, ShareLink>>>({})
@@ -169,19 +180,21 @@ export function ShareIncident({ incidentId, initialKind = 'view', onState }: {
   const kc = kindCopy(kind)
 
   /* ⚠️ TWO LINES per segment, and the second one is the whole point: «Ganzer Einsatz» and «Nur
-     Atemschutz» say what the code shows, but the difference that matters at 3am is lesen ↔
+     Atemschutz» say what the link shows, but the difference that matters at 3am is lesen ↔
      bedienen. The shared `.useg` control is a one-line track, so `.esh-kind` gives it the
-     stacked geometry (13-incident.css) rather than a second segmented control existing. */
-  const picker = (
+     stacked geometry (13-incident.css) rather than a second segmented control existing.
+     Absent with one door left (an abgeschlossener Einsatz): a chooser offering one choice is a
+     question with one answer, and it would read as if something were missing. */
+  const picker = doors.length > 1 && (
     <div className="esh-kind">
       <Segmented<ShareLinkKind>
         ariaLabel={C.shareKindLabel}
         value={kind}
-        onChange={setKind}
-        options={[
-          { value: 'view', label: <><b>{C.shareKindFull}</b><small>{C.shareKindFullSub}</small></> },
-          { value: 'atemschutz', label: <><b>{C.shareKindAtem}</b><small>{C.shareKindAtemSub}</small></> },
-        ]}
+        onChange={setPicked}
+        options={doors.map((d) => ({
+          value: d.kind,
+          label: <><b>{d.label}</b><small>{d.sub}</small></>,
+        }))}
       />
     </div>
   )
@@ -220,118 +233,22 @@ export function ShareIncident({ incidentId, initialKind = 'view', onState }: {
   )
 }
 
-/** The Einsatz-Dropdown's and the Atemschutz board's door: the same surface as a sheet of its
- *  own. `initialKind` is which link the door means — the QR beside the bell opens straight on
- *  «Nur Atemschutz», because that is the only one it could have meant. `fit` — there are at
- *  most seven things on it, and the uniform 800px frame would be mostly empty below them. */
-export function ShareIncidentSheet({ incidentId, initialKind, onClose, onState }: {
+/** The plain door: the same surface as a sheet of its own — «Teilen» im Einsatzkopf, «Teilen»
+ *  auf der Einsatz-Karte, and the QR beside the Atemschutz bell. `initialKind` is which tab the
+ *  door means; only the QR passes one, because standing on the Tafel it is the only link it
+ *  could have meant. `fit` — there are at most seven things on it, and the uniform 800px frame
+ *  would be mostly empty below them. */
+export function ShareIncidentSheet({ incidentId, initialKind, archived, onClose, onState }: {
   incidentId: string
   initialKind?: ShareLinkKind
+  archived?: boolean
   onClose: () => void
   onState?: (kind: ShareLinkKind, link: ShareLink) => void
 }) {
   return (
     <Modal title={appConfig.copy.incidentSwitcher.share} onClose={onClose} fit>
-      <div className="esh"><ShareIncident incidentId={incidentId} initialKind={initialKind} onState={onState} /></div>
-    </Modal>
-  )
-}
-
-/** The same three-way choice as the Einsatzkopf's dropdown, as a sheet — for the doors that
- *  cannot open a dropdown: the phone (where the bar's 44px budget leaves no room for the Teilen
- *  button) and the Einsatz-Karte's own «Teilen» row inside the Einsatz-Dropdown.
- *
- *  It exists so a phone is not offered fewer links than a tablet. Picking a row hands the choice
- *  back up and this sheet gives way to the chosen one — it is a fork in the road, never a place
- *  that mints anything itself.
- *
- *  `archived` is passed straight to `teilenRows`, so this sheet and the Einsatzkopf's dropdown
- *  offer the same rows on a closed Einsatz — the Rapport-Link only. */
-export function TeilenSheet({ onPick, onClose, archived }: { onPick: (door: ShareDoor) => void; onClose: () => void; archived?: boolean }) {
-  return (
-    <Modal title={appConfig.copy.topBar.share} onClose={onClose} fit>
-      <div className="esh esh-doors">
-        {teilenRows({ archived }).map((r) => (
-          <button key={r.door} type="button" className="esh-door" onClick={() => onPick(r.door)}>
-            <Icon id={r.icon} />
-            <span className="esh-door-t"><b>{r.label}</b><small>{r.sub}</small></span>
-            <Icon id="chevron" className="esh-door-go" />
-          </button>
-        ))}
-      </div>
-    </Modal>
-  )
-}
-
-/** Why a mint was refused, in the operator's terms rather than the server's. Four answers, and
- *  only ONE of them is «nochmals versuchen» — offering a retry for a refusal that will never
- *  change its mind is worse than a plain «geht nicht», because it is an instruction that fails.
- *
- *  · `setup`  — this Wehr has no Link-Schlüssel. The one refusal der Verwaltung can fix, and the
- *               only one that earns that instruction. Recognised by the backend's own code
- *               (api/incident_link · NO_MINTING_KEY_CODE), not by the bare status: every other
- *               403 would otherwise send somebody to a settings screen that cannot help.
- *  · `closed` — the Einsatz is abgeschlossen. «Zu spät», not a failure: this link dies with the
- *               Einsatz, and the Rapport-Link is the one that is still good.
- *  · `denied` — a 403 that is not the above, i.e. this account may not mint. Nothing to retry.
- *  · `failed` — offline, a server that fell over, anything unnamed. This one may fix itself. */
-type MintFailure = 'setup' | 'closed' | 'denied' | 'failed'
-
-const NO_KEY_CODE = 'link_key_missing'
-
-function mintFailure(e: unknown): MintFailure {
-  if (!(e instanceof ApiError)) return 'failed'
-  if (e.status === 409) return 'closed'
-  if (e.status === 403) return e.code === NO_KEY_CODE ? 'setup' : 'denied'
-  return 'failed'
-}
-
-/** «Einsatz-Link (nur lesen)» — the Teilen menu in the Einsatzkopf (02.09.).
- *
- *  The link the Alarmierung already puts into every alarm, minted here instead: the Zentrale, the
- *  EL or a Nachbarwehr is handed a live read-only view of THIS Einsatz, mid-Einsatz. It carries
- *  no choice and nothing to revoke — the address is derived from the Einsatz and the station's
- *  key, and it ends when the Einsatz is abgeschlossen — so this is one sentence, the code, and
- *  what the link hands over, rather than a second segmented control.
- *
- *  Minted on open, because that is what the menu entry said it would do. */
-export function EinsatzLinkSheet({ incidentId, onClose }: { incidentId: string; onClose: () => void }) {
-  const C = appConfig.copy.preflight
-  const [state, setState] = useState<{ at: 'busy' } | { at: 'link'; url: string } | { at: MintFailure }>({ at: 'busy' })
-
-  useEffect(() => {
-    let alive = true
-    void mintEinsatzLink(incidentId)
-      .then((l) => { if (alive) setState({ at: 'link', url: viewLinkUrl(l) }) })
-      .catch((e: unknown) => { if (alive) setState({ at: mintFailure(e) }) })
-    return () => { alive = false }
-  }, [incidentId])
-
-  return (
-    <Modal title={C.shareStationTitle} onClose={onClose} fit>
       <div className="esh">
-        {state.at === 'busy' && <p className="esh-lede">{C.shareBusy}</p>}
-        {state.at === 'setup' && (
-          <p className="esh-warn"><Icon id="warn" />{C.shareStationSetup}</p>
-        )}
-        {state.at === 'closed' && (
-          <p className="esh-warn"><Icon id="warn" />{C.shareStationClosed}</p>
-        )}
-        {state.at === 'denied' && (
-          <p className="esh-warn"><Icon id="warn" />{C.shareStationDenied}</p>
-        )}
-        {state.at === 'failed' && (
-          <p className="esh-warn"><Icon id="warn" />{C.shareStationFailed}</p>
-        )}
-        {state.at === 'link' && (
-          <>
-            <p className="esh-lede">{C.shareStationLede}</p>
-            <ShareLinkCode url={state.url} />
-            {/* Says what the link hands over, under the address rather than behind a tooltip —
-                the one thing somebody has to have read BEFORE sending it on. */}
-            <p className="esh-warn"><Icon id="warn" />{C.shareStationWarn}</p>
-          </>
-        )}
+        <ShareIncident incidentId={incidentId} initialKind={initialKind} archived={archived} onState={onState} />
       </div>
     </Modal>
   )

@@ -1643,12 +1643,6 @@ export const fr: Localizable<Copy> = {
     gpsFrozen: 'GPS figé',
     gpsFrozenHint: 'Le flux GPS en direct ne répond plus. Les véhicules restent à leur dernière position connue.',
     share: 'Partager',
-    shareEinsatz: 'Lien d’intervention (lecture seule)',
-    shareEinsatzSub: 'Centrale, CI, corps voisin – prend fin à la clôture',
-    shareAtemschutz: 'Lien du surveillant ARI',
-    shareAtemschutzSub: 'Céder la surveillance – utiliser, pas seulement lire',
-    shareRapport: 'Lien du rapport (lecture seule)',
-    shareRapportSub: 'Commune, corps voisin – reste valable après la clôture',
   },
   stepper: {
     less: 'moins',
@@ -2406,8 +2400,12 @@ export const fr: Localizable<Copy> = {
     linksHead: 'Formulaires & liens',
     shareHead: 'Transmettre',
     shareLede: 'Un lien vers cette intervention uniquement – carte, plans, journal, photos, heures. '
-      + 'Lecture seule, sans connexion, rien ne peut être modifié.',
-    shareLiveLede: 'Valable jusqu’à ce que vous le révoquiez – même après la clôture.',
+      + 'Lecture seule, sans connexion, rien ne peut être modifié. Pour la centrale, le CI et un '
+      + 'corps voisin pendant l’intervention – et pour la commune et les corps voisins après : il '
+      + 'reste valable au-delà de la clôture.',
+    shareLiveLede: 'Pour la centrale, le CI et un corps voisin pendant l’intervention – et pour '
+      + 'la commune et les corps voisins après. Reste valable au-delà de la clôture, jusqu’à ce '
+      + 'que vous le révoquiez.',
     shareCreate: 'Créer le lien',
     shareBusy: 'Création du lien …',
     shareCreateFailed: 'La création du lien a échoué.',
@@ -2418,7 +2416,7 @@ export const fr: Localizable<Copy> = {
     shareWarn: 'Toute personne disposant du lien voit l’intervention entière – les noms des '
       + 'présents, les photos et le journal complet.',
     shareRevoke: 'Révoquer le lien',
-    shareRevokeTitle: 'Révoquer le lien d’intervention ?',
+    shareRevokeTitle: 'Révoquer le lien vers toute l’intervention ?',
     shareRevokeBody: 'L’adresse cessera de fonctionner. Qui l’a ouverte perd l’accès '
       + 'immédiatement. Un nouveau lien peut être créé à tout moment – ce sera une autre adresse.',
     shareRevokeConfirm: 'Oui, révoquer',
@@ -2439,17 +2437,6 @@ export const fr: Localizable<Copy> = {
     shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a le tableau ouvert ne peut plus '
       + 'rien saisir. Un nouveau lien peut être créé à tout moment – ce sera alors une autre '
       + 'adresse.',
-    shareStationTitle: 'Lien d’intervention',
-    shareStationLede: 'Un lien vers exactement cette intervention – carte, plans, journal, '
-      + 'photos, horaires. Lecture seule, sans connexion. Valable jusqu’à la clôture.',
-    shareStationWarn: 'Qui a le lien voit toute l’intervention – les noms des personnes '
-      + 'présentes, les photos et le journal complet.',
-    shareStationSetup: 'Les liens d’intervention ne sont pas configurés pour ce corps. À '
-      + 'configurer dans l’Administration sous « Einsatz-Link ».',
-    shareStationClosed: 'L’intervention est clôturée – plus aucun lien d’intervention ne peut '
-      + 'être créé. Le lien du rapport reste valable.',
-    shareStationDenied: 'Ce compte n’est pas autorisé à créer un lien d’intervention.',
-    shareStationFailed: 'Échec de la création du lien d’intervention – réessayer',
     linksCount: '{done} sur {n} faits',
     linksOpen: 'Ouvrir',
     linksMarkDone: 'Marquer {title} comme fait',

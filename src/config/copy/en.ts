@@ -1644,12 +1644,6 @@ export const en: Localizable<Copy> = {
     gpsFrozen: 'GPS frozen',
     gpsFrozenHint: 'The live GPS feed is not responding. Vehicles are shown at their last known position.',
     share: 'Share',
-    shareEinsatz: 'Incident link (read only)',
-    shareEinsatzSub: 'Dispatch, IC, neighbouring brigade – ends when the incident closes',
-    shareAtemschutz: 'SCBA monitor link',
-    shareAtemschutzSub: 'Hand the monitoring over – operate, not just read',
-    shareRapport: 'Report link (read only)',
-    shareRapportSub: 'Municipality, neighbouring brigade – stays valid after the incident closes',
   },
   stepper: {
     less: 'less',
@@ -2404,8 +2398,12 @@ export const en: Localizable<Copy> = {
     linksHead: 'Forms & links',
     shareHead: 'Share',
     shareLede: 'A link to this incident alone – map, plans, journal, photos, times. '
-      + 'Read-only, no login, nothing can be changed.',
-    shareLiveLede: 'Valid until you revoke it – including after the incident is closed.',
+      + 'Read-only, no login, nothing can be changed. For dispatch, the IC and a neighbouring '
+      + 'brigade during the incident – and for the municipality and neighbouring brigades '
+      + 'afterwards: it outlives the closure.',
+    shareLiveLede: 'For dispatch, the IC and a neighbouring brigade during the incident – and '
+      + 'for the municipality and neighbouring brigades afterwards. It outlives the closure, '
+      + 'until you revoke it.',
     shareCreate: 'Create link',
     shareBusy: 'Creating link …',
     shareCreateFailed: 'Creating the link failed',
@@ -2416,7 +2414,7 @@ export const en: Localizable<Copy> = {
     shareWarn: 'Anyone holding the link sees the whole incident – the names of everyone present, '
       + 'the photos and the full journal.',
     shareRevoke: 'Revoke link',
-    shareRevokeTitle: 'Revoke the incident link?',
+    shareRevokeTitle: 'Revoke the link to the whole incident?',
     shareRevokeBody: 'The address stops working. Anyone who has it open right now loses access '
       + 'immediately. A new link can be created at any time – it will be a different address.',
     shareRevokeConfirm: 'Yes, revoke',
@@ -2435,17 +2433,6 @@ export const en: Localizable<Copy> = {
     shareAsRevokeTitle: 'Revoke the SCBA link?',
     shareAsRevokeBody: 'The address stops working. Anyone with the board open can no longer enter '
       + 'anything. A new link can be created at any time – it is then a different address.',
-    shareStationTitle: 'Incident link',
-    shareStationLede: 'A link to exactly this incident – map, plans, log, photos, times. Read '
-      + 'only, no login. Valid until the incident is closed.',
-    shareStationWarn: 'Anyone holding the link sees the whole incident – the names of everyone '
-      + 'present, photos, and the complete log.',
-    shareStationSetup: 'Incident links are not set up for this brigade. Set one up in '
-      + 'Administration under «Einsatz-Link».',
-    shareStationClosed: 'The incident is closed – no incident link can be created for it any '
-      + 'more. The report link stays valid.',
-    shareStationDenied: 'This account is not allowed to create an incident link.',
-    shareStationFailed: 'Creating the incident link failed – try again',
     linksCount: '{done} of {n} done',
     linksOpen: 'Open',
     linksMarkDone: 'Mark {title} as done',

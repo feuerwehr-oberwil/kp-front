@@ -2396,18 +2396,10 @@ export const de = {
     gpsFrozen: 'GPS eingefroren',
     gpsFrozenHint: 'Der Live-GPS-Feed antwortet nicht. Die Fahrzeuge stehen auf ihrer zuletzt bekannten Position.',
     // ── «Teilen»: die EINE Stelle, an der etwas weitergegeben wird (03.09.) ──
-    // Drei Adressen, ein Ort – im Einsatzkopf, wo der Einsatz benannt ist. Vorher standen sie an
-    // drei Türen (Rapport, Einsatz-Karte, Atemschutz-Tafel), und welche man erwischte entschied,
-    // welche Art Link man bekam. Jetzt entscheidet die Zeile, nicht die Tür.
-    // ⚠️ Die zweite Zeile beantwortet BEIDE Fragen, die man um 3 Uhr hat: wem gebe ich das – und
-    // wie lange gilt es. «Nur lesen» allein unterschied die erste und die dritte Zeile nicht.
+    // Ein Knopf im Einsatzkopf, wo der Einsatz benannt ist – er öffnet direkt das Teilen-Blatt.
+    // WELCHEN Link man weitergibt, entscheiden dessen zwei Reiter (preflight · shareKind*), nicht
+    // ein Menü davor: die Frage zweimal zu stellen war der eigentliche Umweg.
     share: 'Teilen',
-    shareEinsatz: 'Einsatz-Link (nur lesen)',
-    shareEinsatzSub: 'Zentrale, EL, Nachbarwehr – endet mit dem Abschluss',
-    shareAtemschutz: 'Truppüberwacher-Link',
-    shareAtemschutzSub: 'Überwachung abgeben – bedienen, nicht nur lesen',
-    shareRapport: 'Rapport-Link (nur lesen)',
-    shareRapportSub: 'Gemeinde, Nachbarwehr – bleibt nach dem Abschluss gültig',
   },
   // shared compact ±stepper chrome (Stepper.tsx — used everywhere incl. the Einstellungen sheet)
   stepper: {
@@ -3598,14 +3590,21 @@ export const de = {
     // «Formulare & Links» – die eigenen Formulare der Wehr (Verwaltung › Rapport). Der ganze
     // Abschnitt fehlt, wo keine konfiguriert sind, darum braucht es keinen leeren Zustand.
     linksHead: 'Formulare & Links',
-    // ── Weitergeben: der Einsatz-Link ──
+    // ── Weitergeben: der Lese-Link auf den ganzen Einsatz ──
     // Eigene Sektion unter der Checkliste (Entscheid 01.09.). Der Link ist ein Ergebnis des
     // Rapports, kein Häkchen – und die Warnung steht UNTER der Adresse, nicht in einem Tooltip:
     // sie ist das eine, was jemand gelesen haben muss, bevor er ihn verschickt.
+    // ⚠️ Diese zwei Sätze sind die EINZIGE Stelle, an der dieser Link erklärt wird (03.09.) –
+    // seit er auch das kann, wofür es früher einen zweiten «Einsatz-Link» gab. Darum nennen sie
+    // beide Zielgruppen UND beide Zeiträume: mitten im Einsatz und lange danach. Wer nur die
+    // Hälfte liest, greift sonst wieder zum falschen Link – den es nun nicht mehr gibt.
     shareHead: 'Weitergeben',
     shareLede: 'Ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. '
-      + 'Nur lesen, kein Login, nichts lässt sich ändern.',
-    shareLiveLede: 'Gilt, bis du ihn aufhebst – auch nachdem der Einsatz abgeschlossen ist.',
+      + 'Nur lesen, kein Login, nichts lässt sich ändern. Für Zentrale, EL und Nachbarwehr '
+      + 'mitten im Einsatz – und für Gemeinde und Nachbarwehr danach: er gilt über den '
+      + 'Abschluss hinaus.',
+    shareLiveLede: 'Für Zentrale, EL und Nachbarwehr mitten im Einsatz – und für Gemeinde und '
+      + 'Nachbarwehr danach. Gilt über den Abschluss hinaus, bis du ihn aufhebst.',
     shareCreate: 'Link erstellen',
     shareBusy: 'Link wird erstellt …',
     shareCreateFailed: 'Link erstellen fehlgeschlagen',
@@ -3618,7 +3617,10 @@ export const de = {
     shareWarn: 'Wer den Link hat, sieht den ganzen Einsatz – Namen der Anwesenden, Fotos und den '
       + 'vollständigen Verlauf.',
     shareRevoke: 'Link aufheben',
-    shareRevokeTitle: 'Einsatz-Link aufheben?',
+    // ⚠️ Heisst so, wie der Reiter darüber heisst («Ganzer Einsatz»), und NICHT «Einsatz-Link»:
+    // so hiess der abgeschaffte zweite Lese-Link, und in der Verwaltung heisst so weiterhin der
+    // Schlüssel der Alarmierung. Ein Name pro Link.
+    shareRevokeTitle: 'Link zum ganzen Einsatz aufheben?',
     shareRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer sie gerade offen hat, sieht '
       + 'ab sofort nichts mehr. Ein neuer Link lässt sich jederzeit erstellen – er ist dann eine '
       + 'andere Adresse.',
@@ -3629,6 +3631,9 @@ export const de = {
     // Tafel dieses einen Einsatzes auf dem eigenen Handy und bedient sie. Beide Arten wohnen im
     // selben Blatt, ganz oben die Wahl – darum ist die Zeile darunter kein Satz, sondern das
     // eine Wort, das die beiden unterscheidet (lesen ↔ bedienen).
+    // ⚠️ Diese Wahl IST seit 03.09. die Auswahl: die zwei Reiter stehen für die zwei Türen von
+    // «Teilen», ein Menü davor gibt es nicht mehr. Nach dem Abschluss fällt der Atemschutz-Reiter
+    // weg (der Link stirbt mit dem Einsatz) – dann steht das Blatt ohne Wahl da.
     // ⚠️ «Link», nie «Code» (02.09.): geteilt wird eine Adresse – QR ist nur einer der Wege,
     // sie aufs andere Gerät zu bringen, und der ganze übrige Abschnitt sagt schon «Link».
     shareKindLabel: 'Was der Link freigibt',
@@ -3646,25 +3651,11 @@ export const de = {
     shareAsRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer die Tafel gerade offen '
       + 'hat, kann ab sofort nichts mehr eintragen. Ein neuer Link lässt sich jederzeit erstellen '
       + '– er ist dann eine andere Adresse.',
-    // ── Dritte Art Link: der Einsatz-Link aus dem Einsatzkopf (02.09.) ──
-    // Genau der Link, den die Alarmierung ohnehin in jeden Alarm schreibt – nur hier erzeugt,
-    // damit ihn mitten im Einsatz jemand der Zentrale oder einer Nachbarwehr hinhalten kann. Er
-    // wird nicht gespeichert: die Adresse ergibt sich aus dem Einsatz und dem Schlüssel der Wehr,
-    // darum gibt es hier kein «Aufheben» – er endet mit dem Abschluss.
-    shareStationTitle: 'Einsatz-Link',
-    shareStationLede: 'Ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. '
-      + 'Nur lesen, kein Login. Gilt, bis der Einsatz abgeschlossen ist.',
-    shareStationWarn: 'Wer den Link hat, sieht den ganzen Einsatz – Namen der Anwesenden, Fotos '
-      + 'und den vollständigen Verlauf.',
-    shareStationSetup: 'Einsatz-Links sind für diese Wehr nicht eingerichtet. In der Verwaltung '
-      + 'unter «Einsatz-Link» einrichten.',
-    // ⚠️ Drei Absagen, drei Sätze – nur die letzte darf «nochmals versuchen» sagen. Ein Wiederholen
-    // anzubieten, wo sich nie etwas ändert, ist schlimmer als ein klares Nein: um 03:00 wird der
-    // Knopf gedrückt, bis jemand aufgibt. «Zu spät» nennt darum gleich den Link, der noch gilt.
-    shareStationClosed: 'Der Einsatz ist abgeschlossen – dafür lässt sich kein Einsatz-Link mehr '
-      + 'erstellen. Der Rapport-Link gilt weiter.',
-    shareStationDenied: 'Einsatz-Link erstellen ist für dieses Konto nicht freigegeben.',
-    shareStationFailed: 'Einsatz-Link erstellen fehlgeschlagen – nochmals versuchen',
+    // ⚠️ Hier stand bis 03.09. eine dritte Art Link: der Einsatz-Link der Alarmierung, von Hand
+    // erzeugt. Er sagte denselben Satz wie der Lese-Link oben, brauchte aber den Schlüssel der
+    // Wehr und starb mit dem Abschluss – also war er als Übergabe immer die schlechtere Hälfte
+    // derselben Sache. Weg ist nur die Tür: die Alarmierung schreibt diesen Link weiterhin in
+    // jeden Alarm, und die App löst ihn weiterhin ein (lib/incidentLink).
     linksCount: '{done} von {n} erledigt',
     linksOpen: 'Öffnen',
     // Der Haken sagt «ich habe das erledigt» – die App sieht nie, ob ein Formular abgeschickt

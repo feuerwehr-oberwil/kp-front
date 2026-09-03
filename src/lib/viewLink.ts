@@ -1,75 +1,62 @@
-// The Einsatz's shareable links — one door (`/l/<token>`), three kinds.
+// The Einsatz's shareable links — one door (`/l/<token>`), two kinds.
 //
-//   · `view`       — one Einsatz, read-only, no login: handed to somebody OUTSIDE the station so
-//                    they can see in one go what was done (a Gemeinde, a Nachbarwehr, an
-//                    insurer). It SURVIVES the Einsatz being closed, because that is the normal
-//                    case for it, and it is revoked on its own.
+//   · `view`       — the whole Einsatz, read-only, no login: Karte, Pläne, Verlauf, Fotos,
+//                    Zeiten. Handed to the Zentrale, the EL or a Nachbarwehr DURING the Einsatz
+//                    and to der Gemeinde or a Nachbarwehr AFTER it — it is one and the same
+//                    thing to the person sending it, so it is one link. It has a secret of its
+//                    own on the incident row, so it needs no station key (it always works) and
+//                    it SURVIVES the Abschluss, until it is revoked.
 //   · `atemschutz` — one Einsatz, only the Atemschutzüberwachung, and it may be OPERATED: a
 //                    non-FU scans the QR and runs the Tafel from their own phone. It DIES with
 //                    the Einsatz — a closed incident answers 404, which the link app already
 //                    renders as its «nicht bereit» state.
-//   · `einsatz`    — the ALARM link, minted here instead of by the alerting system (02.09.):
-//                    a live read-only view handed to the Zentrale, the EL or a Nachbarwehr
-//                    mid-Einsatz. It dies when the Einsatz is closed or the station rotates its
-//                    key, so it has no state of its own — hence `mintEinsatzLink` below and no
-//                    fetch/revoke pair.
+//
+// ⚠️ There is a THIRD kind of `/l/<token>` on the wire that this module deliberately does not
+// mint: the alerting gateway's JWT, signed with the station's `incident_link_key` and written
+// into every alarm text (lib/alarmText · LINK_PREFIX). It is a WIRE CONTRACT — the backend keeps
+// minting and exchanging it (`POST /api/incidents/<id>/einsatz-link`, `POST
+// /api/incident-link/session`) — but no UI mints one by hand any more (03.09.): it dies at the
+// Abschluss and needs a station key, so as a hand-over it was strictly worse than `view`, which
+// says the same sentence and always works. Exchange lives in lib/incidentLink, untouched.
 //
 // The server returns only the token; the address is composed here from the browser's own origin,
-// so nothing in the deployment has to be told what it is reachable under. All three land on the
+// so nothing in the deployment has to be told what it is reachable under. Both land on the
 // same `/l/<token>` path — the exchange decides what the session may do from the token itself.
 
 import { appConfig } from '../config/appConfig'
 import { apiDelete, apiGet, apiPost } from './api'
 
-/** Which of the Einsatz's two STORED links a call is about — the two with a secret on the
- *  incident row, and therefore the two that can be read back and revoked. */
+/** Which of the Einsatz's two links a call is about — both have a secret on the incident row,
+ *  and are therefore both readable back and revocable. */
 export type ShareLinkKind = 'view' | 'atemschutz'
 
-/** One of the three handovers «Teilen» offers. The Einsatz-Link is its own sheet rather than a
- *  third segment beside the other two: it has nothing to revoke and nothing to choose, so it
- *  would be a segmented option answering a different question from its neighbours. */
-export type ShareDoor = ShareLinkKind | 'einsatz'
-
-/** What the workspace currently has open: one of the three, or `'menu'` — the chooser itself,
- *  for the doors that cannot show a dropdown (the phone, where the Einsatzkopf's Teilen button
- *  does not fit, and the Einsatz-Karte's own «Teilen»). `null` is closed. */
-export type ShareSheet = ShareDoor | 'menu'
-
-/** «Teilen» — the three handovers, in the order somebody reaches for them: the running Einsatz
- *  first, because that is the one wanted with a Schadenplatz underfoot; the Rapport last, because
- *  it is the one wanted days later at a desk.
+/** «Teilen» — the two handovers, in the order somebody reaches for them, and in the shape the
+ *  sheet's own chooser wants (components/panels/ShareIncident): a two-line label whose SECOND
+ *  line is the distinction that matters at 3am — lesen ↔ bedienen.
  *
- *  ONE list, two containers — the Einsatzkopf's dropdown (components/TopBar · TeilenMenu) and the
- *  `TeilenSheet` the phone and the Einsatz-Karte open (components/panels/ShareIncident). It lives
- *  here rather than beside either of them so neither can grow a fourth row the other doesn't have.
  *  A function, not a module constant: `appConfig.copy` is a getter and a capture at import time
  *  would freeze the language (see config/copy · getCopy).
  *
- *  ⚠️ The second line answers BOTH 3am questions — wem gebe ich das, und wie lange gilt es. The
- *  first and third row are otherwise the same sentence («ganzer Einsatz, nur lesen»), and which
- *  one somebody wants is decided entirely by whether the Einsatz is still running.
- *
- *  Which is also why `archived` drops rows rather than disabling them: two of the three links DIE
- *  with the Abschluss — the backend refuses to mint an Einsatz-Link on a closed Einsatz (409) and
- *  an Atemschutz link to one answers 404 — so after it they are not choices, they are dead ends.
- *  The Rapport-Link is the one that outlives the Einsatz, and it is precisely the one wanted days
- *  later, so the menu stays open on exactly that row. */
-export function teilenRows(opts: { archived?: boolean } = {}): TeilenRow[] {
-  const C = appConfig.copy.topBar
-  const rows: TeilenRow[] = [
-    { door: 'einsatz', icon: 'eye', label: C.shareEinsatz, sub: C.shareEinsatzSub, livesPastAbschluss: false },
-    { door: 'atemschutz', icon: 'gauge', label: C.shareAtemschutz, sub: C.shareAtemschutzSub, livesPastAbschluss: false },
-    { door: 'view', icon: 'doc', label: C.shareRapport, sub: C.shareRapportSub, livesPastAbschluss: true },
+ *  `archived` drops a door rather than disabling it: the Atemschutz link DIES with the Abschluss
+ *  (a closed incident answers 404), so afterwards it is not a choice, it is a dead end. The
+ *  read-only link is the one that outlives the Einsatz — and precisely the one wanted days later
+ *  — so a closed Einsatz is shared through that one alone, with no chooser to make. */
+export function shareDoors(opts: { archived?: boolean } = {}): ShareDoorRow[] {
+  const C = appConfig.copy.preflight
+  const rows: ShareDoorRow[] = [
+    { kind: 'view', label: C.shareKindFull, sub: C.shareKindFullSub, livesPastAbschluss: true },
+    { kind: 'atemschutz', label: C.shareKindAtem, sub: C.shareKindAtemSub, livesPastAbschluss: false },
   ]
   return opts.archived ? rows.filter((r) => r.livesPastAbschluss) : rows
 }
 
-interface TeilenRow {
-  door: ShareDoor
-  icon: string
+interface ShareDoorRow {
+  kind: ShareLinkKind
+  /** what the link shows */
   label: string
+  /** …and what the holder may do with it — the half a glance actually needs */
   sub: string
-  /** Does this link still work once the Einsatz is abgeschlossen? Only the Rapport's does. */
+  /** Does this link still work once the Einsatz is abgeschlossen? Only the read-only one does. */
   livesPastAbschluss: boolean
 }
 
@@ -109,15 +96,4 @@ export function createShareLink(incidentId: string, kind: ShareLinkKind): Promis
 /** Revoke it. The URL stops working, and so does every session already open on it. */
 export function revokeShareLink(incidentId: string, kind: ShareLinkKind): Promise<ShareLink> {
   return apiDelete<ShareLink>(linkUrl(incidentId, kind))
-}
-
-/** The read-only Einsatz-Link, minted with the station's own key (the one the Alarmierung uses).
- *
- *  Derived rather than stored, so asking twice hands back the address already circulating and
- *  there is nothing to fetch or revoke: it ends when the Einsatz is closed, or when the station
- *  rotates the key in der Verwaltung. Two refusals worth telling apart at the call site — 403 is
- *  «kein Link-Schlüssel eingerichtet», which nobody can fix on the Schadenplatz, and 409 is a
- *  finished Einsatz. */
-export function mintEinsatzLink(incidentId: string): Promise<ShareLink> {
-  return apiPost<ShareLink>(`/api/incidents/${incidentId}/einsatz-link`, {})
 }
