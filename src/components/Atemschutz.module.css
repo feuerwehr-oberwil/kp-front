@@ -483,10 +483,17 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* two columns (Trupp · Druck + Weitere Angaben) so the create form fits without scrolling on a
    tablet; warnings span the full width. Collapses to one column on a phone, in the order that
    matters there: who goes in, with how much air, then everything else. */
+/* ⚠️ ONE vertical rhythm for the whole form, 10px, the same number the wizard's step already
+   carries (`.modalWizard .modalBody`, 03.09.): this row-gap is what separates the «Art des
+   Trupps» block from the field columns under it, and it sits directly above `.formCol`'s own
+   10px between two fields — 12 against 10 read as a ladder nobody chose. The COLUMN gap (22px)
+   is a different question and stays where it is; it is argued at `.kindSeg` below. */
 .modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto;
-  padding: 4px 20px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 22px;
-  /* `stretch`, not `start`: the Trupp column has to be as tall as the form for its list to have
-     anything to grow into */
+  padding: 4px 20px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px;
+  /* `stretch`, not `start`: the Trupp column has to be as tall as ITS ROW for its list to have
+     anything to grow into. This only says the column fills the row; how tall that row is, and
+     which row gets the frame's leftover height, is the row template below — and until 03.09.
+     nothing said it, which is the whole of the gap defect. */
   align-items: stretch; }
 .formCol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 /* ⚠️ ONLY the Trupp column may be squeezed below its content — that is what lets its list fill
@@ -494,7 +501,37 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    what it needs, and a grid row shorter than its content does not scroll, it PAINTS OVER the
    next one: on a phone the roster rows drew straight through Eingangsdruck and Funkkanal. */
 .modalBody > .formCol:first-child { min-height: 0; }
-.formColWide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
+.formColWide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; }
+
+/* WHICH ROW takes the frame's leftover height — the one holding the two columns, never the tiles.
+   ⚠️ `.modal` has a HEIGHT, not a ceiling (see its own note), so on anything but the shortest
+   tablet the body is taller than the form. With no row template at all, a grid resolves
+   `align-content` to `normal` ⇒ stretch and splits that surplus EQUALLY across its auto rows, so
+   «Art des Trupps» was handed half of it — and `.formColWide` stacks its content at the top of
+   its row, so the half showed up as a hole between the tiles and the fields. A hole that changed
+   size with the tile you had just tapped: «Ohne Atemschutz» drops Eingangsdruck (`showPressure`),
+   the form gets ~70px shorter, and ~35px of that went straight into the gap under the tiles
+   (field report 03.09.).
+   ONE idea, TWO mechanisms — and they cannot be one rule. Phone and tablet both say «exactly one
+   block grows, every other child is content-height»; the phone can say it per ITEM because its
+   step is a plain stack (`.modalWizard .modalBody`, flex, `flex: 1 1 0` on the Trupp column),
+   while here the children are a real two-column grid whose tiles span it with
+   `grid-column: 1 / -1` — flex cannot express that, and a grid sizes rows, not items. So the
+   tablet says the same thing in the only place it can: the track list.
+   Three shapes, and the `:has()` is what tells them apart:
+     · create, full form → the tiles lead, the two columns are the SECOND row  → `auto 1fr`
+     · edit · re-deploy · the lite Atemschutz link → no tiles at all           → `1fr`
+     · either of those plus the `assignedConflict` warning — a `.formColWide` too, but it always
+       renders LAST, so it lands in an implicit auto row. Nothing has to size it: an `fr` track
+       absorbs the free space before `align-content` ever runs, so no auto row can be stretched
+       once the columns row is the 1fr.
+   Hence `:first-child` rather than a bare `:has(> .formColWide)`, which the warning would match
+   in the no-tiles shapes and hand the 1fr row to the tiles that are not there. That the tiles ARE
+   the first child is not an assumption — it is pinned by AtemschutzView.test.tsx («a tablet keeps
+   the single screen»), because it is also a copy rule: the chooser stands above the fields it
+   governs. */
+.modalBody { grid-template-rows: 1fr; }
+.modalBody:has(> .formColWide:first-child) { grid-template-rows: auto 1fr; }
 /* The two ± steppers (Funkkanal · Eingangsdruck). Spans the modal, then splits itself: two
    columns where they fit, one where they don't — and a single child fills the row rather than
    sitting beside a gap. */
@@ -1000,10 +1037,20 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      it, and the surplus read as a hole between «Art des Trupps» and «Funkkanal» — leftover room
      between two fields rather than under the last one.
      ⚠️ Scoped to the phone `.modalWizard` on purpose: the tablet/single-screen `.modalBody` is a
-     real two-column grid and `.formColWide`'s `grid-column: 1 / -1` means nothing in flex. */
+     real two-column grid and `.formColWide`'s `grid-column: 1 / -1` means nothing in flex. The
+     tablet had the SAME hole under the tiles for the same reason and gets the same idea — exactly
+     one block grows — expressed the only way a grid can, as a row template (`.modalBody`'s
+     `grid-template-rows`, above). It can afford one because there the two field columns share a
+     single row, so «which row grows» has one answer per form shape and a `:has()` picks it; here
+     every child is its own row and there is no shape-independent number of them. */
   .modalWizard .modalBody { display: flex; flex-direction: column;
     /* one rhythm down the step instead of a 12/10/10/10 ladder: the gap between the tile block
-       and the field column is this row-gap, the gaps inside the column are `.formCol`'s 10px */
+       and the field column is this row-gap, the gaps inside the column are `.formCol`'s 10px.
+       ⚠️ Since 03.09. this is a RESTATEMENT, not an override — the tablet's `.modalBody` carries
+       the same 10px now (the 12 was the last of that ladder). It stays written out because in a
+       flex column `gap` means one axis, and the base rule's second value — the 22px COLUMN gap,
+       which exists so the tiles cut the width where the two columns do — has nothing to line up
+       with on a phone. */
     gap: 10px; }
   /* ⚠️ basis 0 + min-height 0, i.e. «take exactly what the other children leave over», NOT
      `auto`: sized from its own content the column would be as tall as the WHOLE roster
