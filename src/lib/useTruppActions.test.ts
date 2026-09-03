@@ -690,6 +690,23 @@ describe('moveTrupp (hand-set board order)', () => {
     actions.moveTrupp('c', -1)
     expect(asShown(state.trupps)[0]).toBe('c')
   })
+
+  /* ⚠️ …and it steps within the card's OWN section (03.09.). The board draws Atemschutz and
+   * «Weitere Trupps» apart, so a neighbour in the global key space that lives in the other half
+   * is invisible — jumping over it is the same dead button the removedAt filter above exists to
+   * prevent. */
+  it('steps past the next card of the SAME kind, not over one in the other section', () => {
+    const { actions, state } = board(
+      baseTrupp({ id: 'pa1', order: 1 }),
+      baseTrupp({ id: 'plain', order: 2, kind: 'einfach' }),
+      baseTrupp({ id: 'pa2', order: 3 }),
+    )
+    actions.moveTrupp('pa2', -1)
+    // pa2 lands ahead of pa1 — the section it is actually shown in — rather than between the
+    // two, where the Atemschutz half would look unchanged
+    const pa = (ts: Trupp[]) => handOrder(ts.filter((t) => t.kind !== 'einfach')).map((e) => e.t.id)
+    expect(pa(state.trupps)).toEqual(['pa2', 'pa1'])
+  })
 })
 
 describe('hand-set board order (the key AtemschutzView sorts on)', () => {
@@ -808,6 +825,17 @@ describe('useTruppActions — the Eingangsdruck opens the Druckverlauf', () => {
     })
     const t = state.trupps.find((x) => x.id === 'T9')!
     expect(t.readings).toEqual([{ t: expect.any(String), bar: 300, kind: 'registered' }])
+  })
+
+  // …and a Trupp without Atemschutz opens no Druckverlauf at all: there is no cylinder, and a
+  // «0 bar» row would be a measurement the app invented on a legal record.
+  it('a Trupp ohne Atemschutz starts with an empty log', () => {
+    const { actions, state } = harness(baseTrupp({}))
+    actions.createTrupp({
+      id: 'T8', kind: 'einfach', name: 'Verkehr', entryPressureBar: 0, entryTime: '',
+      lastContactTime: '', lowestBar: 0, status: 'angemeldet', readings: [],
+    })
+    expect(state.trupps.find((x) => x.id === 'T8')!.readings).toEqual([])
   })
 })
 

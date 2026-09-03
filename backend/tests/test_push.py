@@ -53,6 +53,17 @@ class TestDueTrupps:
         }
         assert due_trupps(ws, {}, NOW) == []
 
+    def test_a_trupp_without_atemschutz_never_fires(self):
+        """``kind: "einfach"`` (src/types.ts · TruppKind) is a plain work squad: no cylinder,
+        no Funkkontakt-Intervall. Both reasons must skip it — and the pressure one is the
+        dangerous half, because its ``entryPressureBar`` of 0 sits at or below every configured
+        Alarmdruck, so without the gate the sweep would push «Alarmdruck erreicht» for the
+        Verkehrstrupp every 30 s. An ABSENT kind still means Atemschutz."""
+        plain = trupp("plain", "2026-07-02T13:00:00Z", kind="einfach", entryPressureBar=0)
+        pa = trupp("pa", "2026-07-02T13:00:00Z")  # no kind at all — a record from before 03.09.
+        assert due_trupps({"trupps": [plain]}, {"alarmBar": 60}, NOW) == []
+        assert [t["id"] for t in due_trupps({"trupps": [plain, pa]}, {}, NOW)] == ["pa"]
+
     def test_doctrine_and_incident_settings_override(self):
         ws = {"trupps": [trupp("a", "2026-07-02T14:03:00Z")]}  # 7 min
         # deployment doctrine stretches the window past 7 min → not due

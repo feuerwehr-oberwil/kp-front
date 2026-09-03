@@ -9,7 +9,7 @@ import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
-import { alarmBarFor, currentRunStart, truppAwaitsEntry } from './atemschutz'
+import { alarmBarFor, currentRunStart, isAtemschutzTrupp, truppAwaitsEntry } from './atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
 // (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
 // tablet six seconds ahead put contact times into the Rapport that no other device agreed with,
@@ -212,9 +212,14 @@ export function useTruppActions(deps: Deps) {
     // `entryPressureBar`, and the log started at «Eingerückt»: a Sicherungstrupp that was never
     // sent in therefore printed «Kein Druckverlauf erfasst» on the Rapport under a Trupp whose
     // cylinder the Überwacher had read and typed in (08.08. Einsatz).
+    // ⚠️ …and ONLY for a Trupp under PA. A plain work squad has no cylinder, so the row would open
+    // its Druckverlauf with a «0 bar» reading nobody took — a measurement invented by the app on a
+    // legal record. Its lifecycle rows (Eingerückt / Draussen) still append as usual.
     const registered: Trupp['readings'] = t.readings?.length
       ? t.readings
-      : [{ t: serverNowIso(), bar: t.entryPressureBar, kind: 'registered' }]
+      : isAtemschutzTrupp(t)
+        ? [{ t: serverNowIso(), bar: t.entryPressureBar, kind: 'registered' }]
+        : []
     // a new card joins at the END of the hand-set order, never in the middle of a board somebody
     // arranged — `order` is synced, so it lands the same way on every device. The key comes from
     // nextTruppOrder, which reads the board in the SAME space the comparator sorts in (see there).
@@ -236,7 +241,14 @@ export function useTruppActions(deps: Deps) {
     // ⚠️ over the VISIBLE Trupps only. A soft-deleted one (types · Trupp.removedAt) still sits in
     // the array, so «nach oben» swapped places with a card nobody can see: the board did not move,
     // and the second tap was the one that appeared to work. At 3am that reads as a dead button.
-    const ordered = handOrder(ts.filter((t) => !t.removedAt))
+    // ⚠️ …and only within the moved Trupp's OWN section (03.09.). The board draws Atemschutz and
+    // «Weitere Trupps» apart (AtemschutzView), so a card whose neighbour in the global key space
+    // sits in the other section jumped over something invisible — the same dead button in a new
+    // costume. One key space, two sections: a move steps to the next card of the same kind.
+    const self = ts.find((t) => t.id === id)
+    if (!self) return ts
+    const ordered = handOrder(ts.filter((t) =>
+      !t.removedAt && isAtemschutzTrupp(t) === isAtemschutzTrupp(self)))
     const next = nextMoveOrder(ordered, ordered.findIndex((e) => e.t.id === id), dir)
     if (next === null) return ts
     return ts.map((t) => (t.id === id ? { ...t, order: next } : t))

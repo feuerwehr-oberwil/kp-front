@@ -16,6 +16,7 @@ import type { ReportDraft } from './report'
 import {
   annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarIsMeasured, readingKindLabel, spanAwareClock, truppAuftragLabel, truppRunTimes, truppStatusLabel,
 } from './report'
+import { isAtemschutzTrupp } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
@@ -384,7 +385,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     // six months later has no way to look it up: it has to travel with the document.
     atemschutzIntervalMin: args.contactIntervalMin,
     atemschutzGraceSec: args.contactGraceSec,
-    trupps: (draft.options.atemschutz ? trupps : []).map((t) => ({
+    // ⚠️ Trupps UNDER PA only (03.09.). This feeds the Atemschutz page — a safety document about
+    // cylinders, contact intervals and Alarmdruck. A plain work squad (types · TruppKind
+    // `einfach`) has none of those, so a row for it would print an Eingangsdruck of 0 bar and an
+    // empty Druckverlauf under a heading that asserts it was monitored. It is not silently lost:
+    // its Verlauf lines (angemeldet / eingerückt / draussen) are on the printed Journal like
+    // every other action. (A place of its own in the Rapport is a separate, open question.)
+    trupps: (draft.options.atemschutz ? trupps.filter(isAtemschutzTrupp) : []).map((t) => ({
       name: t.name, statusLabel: truppStatusLabel(t), members: t.members ?? [], auftrag: truppAuftragLabel(t.auftrag), ziel: t.ziel,
       // the numeric Leitung, else the free text an older record still carries verbatim
       lineNumber: t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim() || undefined,

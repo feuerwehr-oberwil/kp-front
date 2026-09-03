@@ -743,10 +743,31 @@ export interface SymbolLibrary { order: string[]; symbols: SymbolMeta[] }
  *  contact (last + lowest) as a record, with Rückzug/Mindest shown as static reminders — it
  *  is NOT extrapolated into a countdown. Status: angemeldet → aktiv → rueckzug → ueberfaellig
  *  (contact overdue), or `raus` once the team is out. */
+/**
+ * What KIND of Trupp this is — the one discriminator on the Tafel.
+ *
+ * ⚠️ ABSENT means `atemschutz`, and that is load-bearing rather than a convenience default: every
+ * Trupp recorded before 2026-09-03 went in under PA, an Einsatz is a legal record, and a stored
+ * object may never change meaning because the app learned a new word. So the field is only ever
+ * WRITTEN for the new kind, and every reader resolves it through `isAtemschutzTrupp`
+ * (lib/atemschutz) rather than testing the raw field.
+ *
+ * A literal union, not a boolean: it names both states in the blob a human (and the backend's
+ * push sweep, which reads the raw JSON) will read, it narrows in TypeScript, and it has room for
+ * a third kind. A `withoutPa?: boolean` would have said the interesting case as a negation.
+ *
+ * `einfach` = a plain work squad: Verkehr, Sanität, Wasser. Same crew, Auftrag, Leitung, Funkkanal,
+ * colour and placement as any other Trupp — but no cylinder, no contact clock, no Alarmdruck, and
+ * never on the Atemschutz page of the Rapport. See AtemschutzView for the board's two sections.
+ */
+export type TruppKind = 'atemschutz' | 'einfach'
+
 /** the editable descriptive fields of a Trupp, shared by the create / edit / re-deploy form */
 /** `color: null` from the form means «zurück auf automatisch» — distinct from `undefined`, which
- *  is «this form doesn't carry a colour». See Trupp.color. */
-export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null }
+ *  is «this form doesn't carry a colour». See Trupp.color.
+ *  `kind` rides along for the CREATE path only — it is fixed once the Trupp exists (see
+ *  Trupp.kind), so `editTrupp`/`reactivateTrupp` deliberately never patch it. */
+export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind }
 
 /**
  * One Beilage to the Einsatzrapport — a photo that belongs to the REPORT rather than to the
@@ -801,6 +822,19 @@ export interface TruppReading {
 
 export interface Trupp {
   id: string
+  /**
+   * Atemschutz or a plain work squad — see `TruppKind`. ABSENT = `atemschutz`, so no existing
+   * record changes meaning and nothing has to be migrated.
+   *
+   * ⚠️ FIXED at creation, on purpose. A PA Trupp carries an Eingangsdruck, a contact clock, a
+   * Druckverlauf and possibly a recorded Alarmdruck-Überschreitung — a safety record with nowhere
+   * to live on a plain row, and one that would vanish from the Atemschutz page of the Rapport the
+   * moment the kind flipped. The other direction is worse: it would assert a cylinder and a
+   * Funkkontakt-Intervall nobody ever watched. So the form offers the choice once (create) and
+   * never again; a wrong pick is undone by deleting the Trupp (undoable, and the record keeps it
+   * via `removedAt`) and registering it anew.
+   */
+  kind?: TruppKind
   /** Taken off the Tafel (ISO), rather than removed from the record.
    *
    * ⚠️ A Trupp that was ever registered is part of what happened, and the Atemschutz page of the

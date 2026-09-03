@@ -61,6 +61,14 @@ const mount = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => {
   return props
 }
 
+/** Name a Gruppenführer by hand in the open Trupp form — the roster is empty in these tests, so
+ *  «Name eingeben» is the only door (TruppTeam · teamTypeName). */
+const typeGuest = (name: string) => {
+  fireEvent.click(screen.getByRole('button', { name: az.teamTypeName }))
+  fireEvent.change(screen.getByLabelText(az.typeName), { target: { value: name } })
+  fireEvent.click(screen.getByRole('button', { name: az.teamAdd }))
+}
+
 describe('the inline Druckmeldung', () => {
   it('offers ± immediately and commits only after a changed value is confirmed', () => {
     const props = mount()
@@ -195,7 +203,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
     // the steps walk freely — an empty roster still passes «Weiter»…
     fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
-    expect(screen.getByText(new RegExp(az.wizardAir))).toBeTruthy()
+    expect(screen.getByText(new RegExp(az.wizardWhat))).toBeTruthy()
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
     // …only the final submit is gated on a valid Trupp — `aria-disabled`, not the native
     // attribute, so a blocked tap still reaches attemptSubmit (which must not submit) and can
@@ -253,5 +261,145 @@ describe('the handed-over board on a phone (focus mode)', () => {
     const addBtn = screen.getByRole('button', { name: az.newTrupp })
     expect(rail?.contains(addBtn)).toBe(true)
     expect(addBtn.classList.contains(s.tab)).toBe(false)
+  })
+})
+
+/* ── Trupps ohne Atemschutz — «Sektionen» (mock 02, decided 03.09.) ───────────────────────────
+ * One board, two sections. The point of this variant is that the PA safety signal is not
+ * diluted, so the tests pin the SEPARATION (a plain Trupp gets a row and none of the monitoring
+ * controls) rather than the section's own styling. */
+describe('the board with Trupps that are not under Atemschutz', () => {
+  const plainTrupp = (): Trupp => ({
+    id: 'tr9', kind: 'einfach', name: 'Gerber', members: ['Stalder'],
+    auftrag: 'sichern', ziel: 'Zufahrt Hauptstrasse', funkkanal: 1,
+    entryPressureBar: 0, entryTime: iso(20 * 60_000), lastContactTime: '', status: 'aktiv',
+  })
+
+  it('leaves an all-Atemschutz board exactly as it was — no headings, no second half', () => {
+    mount()
+    expect(screen.queryByText(az.sectionAtemschutz)).toBeNull()
+    expect(screen.queryByText(az.sectionPlain)).toBeNull()
+    expect(document.querySelector(`.${s.plainList}`)).toBeNull()
+  })
+
+  it('splits into «Atemschutz» + «Weitere Trupps» and gives the plain Trupp a row, not a card', () => {
+    mount({ trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
+    expect(screen.getByText(az.sectionAtemschutz)).toBeTruthy()
+    expect(screen.getByText(az.sectionPlain)).toBeTruthy()
+    expect(screen.getByText(az.sectionPlainHint)).toBeTruthy()
+    // the PA half keeps its card; the work squad is one row in the second half
+    expect(document.querySelectorAll(`.${s.card}`)).toHaveLength(1)
+    const rows = document.querySelectorAll(`.${s.prow}`)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].textContent).toContain('Gerber')
+    // …and the row carries NONE of the monitoring vocabulary: no clock, no Druck, no Kontakt
+    expect(rows[0].querySelector(`.${s.kontaktBtn}`)).toBeNull()
+    expect(rows[0].textContent).not.toContain('bar')
+    expect(screen.getAllByRole('button', { name: az.actContact })).toHaveLength(1) // the PA card's
+  })
+
+  it('says so when the Atemschutz half is empty rather than leaving a bare heading', () => {
+    mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
+    expect(screen.getByText(az.sectionAtemschutzEmpty)).toBeTruthy()
+    expect(document.querySelectorAll(`.${s.card}`)).toHaveLength(0)
+  })
+
+  it('offers the row the one lifecycle step its state actually has', () => {
+    const setTruppStatus = vi.fn()
+    mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' }, setTruppStatus })
+    expect(screen.queryByRole('button', { name: az.actEnter })).toBeNull() // it is already in
+    fireEvent.click(screen.getByRole('button', { name: az.actExit }))
+    expect(setTruppStatus).toHaveBeenCalledWith('tr9', 'raus')
+  })
+
+  // The handed-over Tafel operates the Atemschutzüberwachung and nothing else — that is what the
+  // QR promises and what the link's backend allowlist permits.
+  it('hides plain Trupps entirely on the handed-over board, and offers no way to create one', () => {
+    mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
+    expect(screen.queryByText('Gerber')).toBeNull()
+    expect(document.querySelector(`.${s.plainList}`)).toBeNull()
+    expect(screen.queryByText(az.sectionPlain)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    expect(screen.queryByText(az.kindLabel)).toBeNull()
+  })
+
+  it('asks «Art des Trupps» once, on creation only — the kind is fixed afterwards', () => {
+    mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
+    fireEvent.click(screen.getAllByRole('button', { name: az.edit })[0])
+    expect(screen.queryByText(az.kindLabel)).toBeNull()
+    // …and editing one never asks for a cylinder it does not have
+    expect(screen.queryByText(az.editPressureLabel)).toBeNull()
+    cleanup()
+    mount()
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    expect(screen.getByText(az.kindLabel)).toBeTruthy()
+  })
+
+  it('creates a Trupp «ohne Atemschutz» with the kind stamped and no Eingangsdruck', () => {
+    const createTrupp = vi.fn()
+    mount({ createTrupp, personnel: [], trupps: [] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    // the Druck field is there for Atemschutz…
+    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    // …and gone the moment it is not
+    expect(screen.queryByText(az.pressureLabel)).toBeNull()
+    typeGuest('Gerber Urs')
+    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    expect(createTrupp).toHaveBeenCalledTimes(1)
+    const made = createTrupp.mock.calls[0][0] as Trupp
+    expect(made.kind).toBe('einfach')
+    expect(made.entryPressureBar).toBe(0)
+  })
+
+  // ⚠️ A default is never STAMPED: absent means «unter Atemschutz» (types · TruppKind), so a
+  // fresh PA Trupp has to look exactly like every record written before 03.09.
+  it('writes no kind at all for a Trupp under Atemschutz', () => {
+    const createTrupp = vi.fn()
+    mount({ createTrupp, trupps: [] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    typeGuest('Meier Thomas')
+    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    expect('kind' in (createTrupp.mock.calls[0][0] as object)).toBe(false)
+  })
+})
+
+/* ── The two-step form on ANY phone (03.09.) ──────────────────────────────────────────────────
+ * The wizard was the handed-over board's own layout; the main board's phone view had the same
+ * fold and now shares it. The two differences that matter: outside the link step 2 also carries
+ * Leitung und Farbe, and a Trupp without Atemschutz has no second step at all. */
+describe('the Trupp form on the main board’s phone layout', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+
+  it('walks two steps and puts Leitung and Farbe on step 2 (they are not on the link’s)', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [aktivTrupp()] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+    expect(screen.queryByText(az.lineNoLabel)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
+    expect(screen.getByText(new RegExp(az.wizardWhat))).toBeTruthy()
+    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    expect(screen.getByText(az.lineNoLabel)).toBeTruthy()
+    expect(screen.getByText(az.colorLabel)).toBeTruthy()
+  })
+
+  it('a tablet keeps the single screen — the wizard is for 375px, not for touch', () => {
+    mount({ trupps: [aktivTrupp()] }) // useIsPhone false
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    expect(screen.queryByRole('button', { name: az.wizardNext })).toBeNull()
+    expect(screen.getByText(az.pressureLabel)).toBeTruthy() // everything is already there
+  })
+
+  it('drops the wizard for a Trupp without Atemschutz — there is nothing to split off', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [aktivTrupp()] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    expect(screen.getByRole('button', { name: az.wizardNext })).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    expect(screen.queryByRole('button', { name: az.wizardNext })).toBeNull()
+    // one screen: the roster AND the Auftrag are both on it
+    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+    expect(screen.getByText(az.zielLabel)).toBeTruthy()
   })
 })

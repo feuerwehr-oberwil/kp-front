@@ -33,6 +33,20 @@ describe('roleConflictHint', () => {
     expect(hint).toContain('Trupp 2')
   })
 
+  /* ⚠️ «unter AS» only when they actually are (03.09.). A Trupp without Atemschutz (types ·
+   * TruppKind) carries no cylinder — and this hint feeds the surface the Personalblatt is built
+   * from, so «unter AS» about the Verkehrstrupp is a false statement about where somebody was. */
+  it('says «im Trupp», not «unter AS», for a Trupp without Atemschutz', () => {
+    const plain = [trupp({ kind: 'einfach', name: 'Verkehr', memberPersonIds: ['p1'] })]
+    const hint = roleConflictHint('p1', 'fahrer', 'Schmid Peter', present, plain)
+    expect(hint).toContain('Verkehr')
+    expect(hint).not.toContain('AS')
+    expect(personStatusHint('p1', present, plain)).toMatchObject({ label: appConfig.copy.anwesenheit.statusInTrupp })
+    // …and the PA Trupp beside it still says so
+    expect(personStatusHint('p1', present, [trupp({ memberPersonIds: ['p1'] })]))
+      .toMatchObject({ label: appConfig.copy.anwesenheit.statusUnderPa })
+  })
+
   it('flags the Einsatzleiter going in with a Trupp — then nobody is leading', () => {
     const hint = roleConflictHint('p1', 'el', 'Schmid Peter', present, [trupp({ leaderPersonId: 'p1' })])
     expect(hint).toContain('Einsatzleiter')

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf } from './reportPdfDirect'
+import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf } from './reportPdfDirect'
 import { TILE_AR } from './whiteboard'
-import type { BoardAnno, BuildingDoc, PlanDocument, TimelineEvent } from '../types'
+import type { BoardAnno, BuildingDoc, PlanDocument, TimelineEvent, Trupp } from '../types'
 
 describe('planAnnosForPdf', () => {
   it('resolves a plan shape to a client-rendered svg glyph with its plan-relative size', () => {
@@ -181,5 +181,38 @@ describe('einsatzleiterForPdf', () => {
     const events = [row('e2', '2026-08-30T00:15:00', 'Huber Beat'), row('e1', '2026-08-29T22:30:00', 'Meier Anna')]
     expect(einsatzleiterForPdf('Huber Beat', events, overnight))
       .toBe('Meier Anna (bis 30.08. 00:15), Huber Beat (ab 30.08. 00:15)')
+  })
+})
+
+/* ── The Atemschutz page is a SAFETY document (03.09.) ────────────────────────────────────────
+ * It is about cylinders, contact intervals and the Alarmdruck. A Trupp without Atemschutz
+ * (types · TruppKind) has none of those, so it is not on that page — it would print an
+ * Eingangsdruck of 0 bar and an empty Druckverlauf under a heading asserting it was monitored.
+ * Its own actions still reach the paper through the printed Journal. */
+describe('buildDirectReportPayload · trupps', () => {
+  const trupp = (over: Partial<Trupp>): Trupp => ({
+    id: 'x', name: 'X', entryPressureBar: 300, entryTime: '2026-09-03T10:00:00.000Z',
+    lastContactTime: '2026-09-03T10:00:00.000Z', status: 'aktiv', readings: [], ...over,
+  })
+  const payload = (trupps: Trupp[], atemschutz = true) => buildDirectReportPayload({
+    incident: { id: 'i1', title: 'Brand', started_at: '2026-09-03T09:50:00.000Z' } as never,
+    draft: {
+      meta: {}, generatedAt: '2026-09-03T12:00:00.000Z',
+      proof: {}, options: { atemschutz },
+    } as never,
+    trupps, attendance: {}, events: [], plans: [],
+  }) as { trupps: { name: string }[] }
+
+  it('prints Trupps under Atemschutz and leaves the plain work squads off the page', () => {
+    const out = payload([trupp({ id: 'a', name: 'Meier' }), trupp({ id: 'b', name: 'Verkehr', kind: 'einfach', entryPressureBar: 0 })])
+    expect(out.trupps.map((t) => t.name)).toEqual(['Meier'])
+  })
+
+  it('a Trupp with no kind is one under Atemschutz — every record written before 03.09.', () => {
+    expect(payload([trupp({ name: 'Meier' })]).trupps.map((t) => t.name)).toEqual(['Meier'])
+  })
+
+  it('still prints nothing at all when the Atemschutz page is switched off', () => {
+    expect(payload([trupp({ name: 'Meier' })], false).trupps).toEqual([])
   })
 })
