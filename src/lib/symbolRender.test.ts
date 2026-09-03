@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+import { createElement } from 'react'
 import { describe, it, expect } from 'vitest'
-import { luefterVariant, LUEFTER, LUEFTER_EXTRACT, boomKnuckle } from './symbolRender'
+import { render } from '@testing-library/react'
+import { luefterVariant, LUEFTER, LUEFTER_EXTRACT, boomKnuckle, TacticalSymbol } from './symbolRender'
 import { symbolControls } from './symbols'
 
 describe('luefterVariant — Lüfter airflow direction', () => {
@@ -44,5 +47,20 @@ describe('boomKnuckle — auto-articulated Hubretter boom knuckle', () => {
 
   it('a zero-length boom degenerates to the base point', () => {
     expect(boomKnuckle([7, 3], [7, 3])).toEqual([7, 3])
+  })
+})
+
+describe('TacticalSymbol — legacy `floor` keeps rendering after a symbol moves to floorRange', () => {
+  // ⚠️ Several symbols (VKF Feuer, GB Kamin, …) moved from the single `floor` control to the
+  // von/bis `floorRange` control (03.09.) — but an already-placed symbol still carries its old
+  // plain `floor` value, not floorFrom/floorTo. TacticalSymbol must keep drawing that as a
+  // normal badge: `hasRange` only activates when `floor == null` (see the component), so a
+  // legacy value takes the plain-badge branch regardless of what the symbol's CURRENT preset
+  // declares as editable.
+  it('renders a plain storey badge for a legacy floor value, not an empty range', () => {
+    const { container } = render(createElement(TacticalSymbol, { svg: '<svg></svg>', sizePx: 32, floor: 2 }))
+    const badge = container.querySelector('.sym-floor')
+    expect(badge?.textContent).toBe('+2')
+    expect(container.querySelectorAll('.sym-floor')).toHaveLength(1)
   })
 })
