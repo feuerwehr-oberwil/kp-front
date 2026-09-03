@@ -289,6 +289,14 @@ async def attach(
         user_id=user.id,
         payload={"divera_id": em.divera_id, "attached": True},
     )
+    from ..webhooks import notify_alarm_attached
+
+    # The milestone sender queues this alarm's times and is refused with 404 until something
+    # says where they belong; the attach IS that moment. Without the hook they only land on
+    # its next retry tick — a Zeiten grid that stays empty for a cadence step while somebody
+    # stands in front of the tablet. Fires after COMMIT only, so a rolled-back attach never
+    # points another system at a route that does not exist.
+    await notify_alarm_attached(db, inc, "divera", str(em.divera_id))
     return {"ok": True, "incident_id": str(inc.id)}
 
 

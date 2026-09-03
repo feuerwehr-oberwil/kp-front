@@ -1,5 +1,7 @@
 """Outbound incident webhooks (alarms.webhooks) — payload shape + scheduling contract.
 
+Two events share the delivery layer: `incident.created` and `alarm.attached`.
+
 Delivery itself is fire-and-forget httpx; most tests above patch `_deliver` out entirely
 (scheduling is what they're proving). The tests below patch one layer deeper — a
 MockTransport-backed AsyncClient (same technique as test_weather.py) — to exercise
@@ -15,7 +17,7 @@ from sqlalchemy import select
 
 from app import alarms, webhooks
 from app.config import settings
-from app.models import DeploymentConfig, Incident
+from app.models import DeploymentConfig, DiveraEmergency, Incident
 
 
 @pytest.fixture
@@ -115,6 +117,65 @@ async def test_no_webhooks_configured_is_a_noop(client, db_session, editor, capt
     assert lr.status_code == 200
     r = await client.post("/api/incidents", json={"title": "Still"})
     assert r.status_code == 201
+    assert capture_deliveries == []
+
+
+# --- alarm.attached: the second event, and the only one a manual Einsatz ever gets --------
+
+
+async def _manual_incident_and_pool_alarm(db, divera_id=36123120):
+    inc = Incident(
+        title="Übung Atemschutz", source="manual", status="offen", is_exercise=True, started_at=datetime.now(UTC)
+    )
+    em = DiveraEmergency(
+        divera_id=divera_id, title="Brandmeldeanlage", address="Bachweg 1", received_at=datetime.now(UTC)
+    )
+    db.add_all([inc, em])
+    await db.commit()
+    return inc, em
+
+
+async def test_attach_announces_which_alarm_now_routes_here(client, db_session, editor, capture_deliveries):
+    """An Übung is created by hand, so nothing ever announced it to the milestone sender.
+
+    Attaching the alarm is what makes its times belong here — and until this event existed,
+    they only arrived on the sender's next retry tick, minutes after the operator's tap.
+    """
+    import asyncio
+
+    await _set_webhooks(db_session, ["https://hook.example.org/c"])
+    inc, em = await _manual_incident_and_pool_alarm(db_session)
+    lr = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    assert lr.status_code == 200
+
+    r = await client.post(f"/api/divera/pool/{em.divera_id}/attach/{inc.id}")
+    assert r.status_code == 200
+    await asyncio.sleep(0)
+
+    assert len(capture_deliveries) == 1
+    url, payload = capture_deliveries[0]
+    assert url == "https://hook.example.org/c"
+    assert payload["event"] == "alarm.attached"
+    # the ATTACHED alarm's id, not the incident's own provenance — that stays "manual"
+    assert payload["alarm"] == {"source": "divera", "source_ref": str(em.divera_id)}
+    assert payload["incident"]["id"] == str(inc.id)
+    assert payload["incident"]["source"] == "manual"
+
+
+async def test_a_refused_attach_announces_nothing(client, db_session, editor, capture_deliveries):
+    """Telling a sender to route times at an attach that did not happen is worse than silence."""
+    import asyncio
+
+    await _set_webhooks(db_session, ["https://hook.example.org/c"])
+    inc, em = await _manual_incident_and_pool_alarm(db_session)
+    em.is_taken = True  # already claimed elsewhere → 409
+    await db_session.commit()
+    lr = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    assert lr.status_code == 200
+
+    r = await client.post(f"/api/divera/pool/{em.divera_id}/attach/{inc.id}")
+    assert r.status_code == 409
+    await asyncio.sleep(0)
     assert capture_deliveries == []
 
 

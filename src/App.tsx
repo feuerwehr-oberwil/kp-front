@@ -825,11 +825,14 @@ export default function App() {
 
       {/* incoming-alarm banner: a fresh dispatch finds the EL MID-INCIDENT, one tap from
           opening on the live map (the landing announces alarms via its launch card — one
-          surface per screen). Anhängen attaches to the ACTIVE incident (split dispatch). */}
+          surface per screen). Anhängen attaches to the ACTIVE incident (split dispatch) —
+          and leads the row when that incident was made by hand, because that is the only
+          way its Zeiten ever fill (a manual Einsatz has no alarm routing times to it). */}
       {isEditor && activeMeta != null && (
         <IncomingAlarmBanner
           alarms={poolAlarms}
           taking={taking}
+          attachFirst={activeMeta.source === 'manual'}
           onTake={(a) => void takeAndOpen(a)}
           onAttach={(a) => void attachToActive(a)}
         />
