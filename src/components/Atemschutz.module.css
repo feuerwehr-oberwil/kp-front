@@ -70,20 +70,22 @@
    Trupp's Verlauf pumped empty space into every neighbour's belly — worse than the ragged
    bottoms `stretch` was once chosen against (the clocks the board is compared BY stay
    top-aligned either way). */
-/* ⚠️ 288px, not 270. A card carrying all six actions needs 264px of buttons plus the banner's
-   own 20px of padding, and below that the group breaks — which puts the DELETE alone on a row of
-   its own, the loudest button in the quietest place. 270 was chosen to fit three cards on a
-   landscape tablet (300 fitted only two); 288 is the smallest width that keeps the action row
-   whole, so it buys the row back while staying under the 300 that cost the third column. */
-/* ⚠️ `subgrid` is what keeps a ROW of cards on one baseline, zone by zone — it replaced a
-   `min-height: 108px` reserve on the old name block, which existed for exactly this and only
-   ever fitted the crew sizes somebody had thought of. Each card spans the same seven rows and
-   every row is as tall as the tallest card in that band, whatever a Trupp turns out to carry.
-   Where `subgrid` is unsupported the declaration is dropped and the cards simply stack
-   unaligned — the same picture as before, never a broken one. */
+/* ⚠️ 288px, not 270. 270 was chosen to fit three cards on a landscape tablet (300 fitted only
+   two); 288 is what the lifecycle row needs to stay ONE row — below it the pair breaks and the
+   loudest button lands alone under the quiet one. Since 04.09. that row is inset (24px of card
+   padding + an 8px gap), so 256px reach the two buttons at the floor: enough for the row, and at
+   the very floor a long primary label («Rückzug melden») wraps to two lines rather than the pair
+   breaking apart. The tablet never sees it — three columns there are ~350px each. */
+/* ⚠️ `subgrid` is GONE (04.09.) — it aligned all seven zones across a row, and it paid for that
+   by making every row as tall as the tallest card in it. What that looked like on a real board:
+   a Trupp that is «Draussen» has no Kontakt button and no Druck-Setter, so its framed block was
+   stretched into an empty grey box the height of a neighbour's; a Trupp with no Verlauf got a
+   blank strip across its foot. The alignment that was actually WORTH having is the one the eye
+   compares by — the clocks — and that one is bought by a two-line reserve on the Kennzeile
+   (`.kenn`) over a fixed-height head, not by coupling the whole card. Everything below the band
+   is now free: each card ends where its content ends. */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
-  grid-template-rows: repeat(7, auto); gap: 16px; align-items: stretch; }
-.grid .card { grid-row: span 7; display: grid; grid-template-rows: subgrid; }
+  gap: 16px; align-items: start; }
 /* ⚠️ The «Raus»-Abschnitt this separated is GONE (17.08.) — a Trupp that came back keeps its slot
    on every screen size (see AtemschutzView · board). The rule is kept out of the sheet rather than
    left behind styling nothing. */
@@ -179,10 +181,10 @@
 .airNote :global(.i) { width: 17px; height: 17px; flex: none; color: var(--red); }
 
 /* ══ The card, zone by zone (03.09.) ═══════════════════════════════════════════════════════════
-   ONE arrangement at every width and on every board — see TruppCard for the zone list and for
-   why none of the seven may be conditionally absent. The zones that can be empty (`.noteZone`,
-   `.plinth`, `.vfoot`) drop their own padding and rules when they are, so an empty zone costs
-   nothing but still holds its place in the grid's `subgrid` alignment. */
+   ONE arrangement at every width and on every board — see TruppCard for the zone list. The zones
+   that can be empty (`.noteZone`, `.actZone`, `.plinth`, `.vfoot`) drop their own padding and
+   rules when they are, so a zone with nothing to say costs nothing: since 04.09. the cards no
+   longer share grid rows, so it takes no height either. */
 
 /* ── 1 Kopf: back on the left, the name, the ⋯ on the right ─────────────────────────────────── */
 .cardHead { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 8px 8px 8px 14px; }
@@ -200,7 +202,19 @@
    under the name paid for a whole extra row to say something that fits here. Two entries stay
    buttons, because they are the two that go somewhere: the missing Auftrag, and a Leitung that
    has actually been drawn. */
-.kenn { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; padding: 0 14px 12px;
+/* ⚠️ The two-line RESERVE is the whole of what is left of the old cross-card alignment (04.09.,
+   Mockup B). The head is a fixed 56px, so reserving two Kennzeilen-Zeilen here makes the band —
+   the clock the board is compared BY — start at the same height on every card in a row, without
+   coupling a single zone below it. `line-height` is set explicitly so the reserve is arithmetic
+   and not whatever the font happens to resolve `normal` to: 12px padding + 2 × 17.5px + the 4px
+   row gap = 51px, plus 2px so that the dashed «Auftrag offen» pill — the one item here that is
+   taller than a text line — does not push a two-line Kennzeile out of its own reserve.
+   `align-content: flex-start` keeps a ONE-line Kennzeile at the top of that
+   reserve instead of centring it in the empty space and pushing the text out of line with its
+   neighbours. A Kennzeile that genuinely runs to three lines still pushes its own band down —
+   deliberate: clipping a Trupp's Auftrag or Ziel to keep a row tidy is the wrong trade. */
+.kenn { display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start;
+  gap: 4px 7px; padding: 0 14px 12px; min-height: 53px; line-height: 1.4;
   font-size: 12.5px; color: var(--ink-dim); }
 .kennCrew { font-weight: 700; }
 /* «Rückzug» — a fact the band does not name (see the Kennzeile in TruppCard). Amber and in the
@@ -253,8 +267,9 @@
   border-top: 1px solid var(--glass-edge); }
 
 /* ── 4 Hinweis — usually empty, and then it costs nothing ────────────────────────────────────
-   Rendered even when there is nothing to say: the grid aligns zone by zone (`.grid`, subgrid),
-   so a card that simply left this out would pull every zone below it out of line. */
+   Rendered even when there is nothing to say: one card, one zone list, on every board (see
+   TruppCard). An empty zone collapses to nothing at all — since the cards no longer share grid
+   rows (04.09.) that is the whole cost of keeping it. */
 /* the hint that used to be a block of its own under the identity: what «Einrücken» is for, on a
    Trupp still at the door. It is a hint, so it lives in the hint zone — and only on a card where
    it is true, which is one under Atemschutz. */
@@ -263,17 +278,23 @@
 .noteZone:empty { padding: 0; }
 
 /* ── 5 Aktionen ─────────────────────────────────────────────────────────────────────────────
-   The lifecycle bar keeps its own full-bleed shape — these are the two buttons that change what
-   is TRUE about a Trupp, and they are deliberately not part of the framed input block above. */
-.actZone { margin-top: 12px; }
-.actZone:empty { margin-top: 0; }
+   ⚠️ Not a full-bleed strip any more (04.09.). Edge to edge, «Wieder einrücken» read as a green
+   BAND across the foot of the card rather than as a button somebody presses, and the two-button
+   row read as a segmented control. They are buttons, so they now sit in the card's own 12px
+   gutter — the same gutter the framed block above uses — with a real radius and a gap between
+   them. They stay outside that frame: the block is what one ENTERS, these change what is TRUE
+   about a Trupp. */
+.actZone { padding: 12px 12px 0; }
+.actZone:empty { padding: 0; }
 
 /* ── 6 Sockel: everything one LOOKS UP ──────────────────────────────────────────────────────
    The quiet end of the card, on the same dimmed ground as the Verlauf below it: same small rows
    the card has always used (`.metaRow`), no separators, nothing competing with the band. */
-.plinth { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px;
+/* The 12px above it is the gutter the inset action row opened up (`.actZone`): the dimmed ground
+   starts below the buttons, not against them. */
+.plinth { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; padding: 12px 14px;
   background: var(--fill-soft, rgba(0, 0, 0, .045)); border-top: 1px solid var(--glass-edge); }
-.plinth:empty { padding: 0; border-top: 0; }
+.plinth:empty { margin-top: 0; padding: 0; border-top: 0; }
 
 /* ── 7 Verlauf: the log, with the contact times as its head ─────────────────────────────────── */
 .vopen { padding-bottom: 2px; }
@@ -345,7 +366,7 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .vfoot { border-top: 1px solid var(--glass-edge); background: var(--fill-soft, rgba(0, 0, 0, .045)); }
 /* a Trupp created without Atemschutz starts with NO readings and has no contact times either
    (useTruppActions), so this zone can be genuinely empty — and an empty zone must cost nothing
-   but its place in the grid, not a hairline and a grey strip across the foot of the card */
+   at all, not a hairline and a grey strip across the foot of the card */
 .vfoot:empty { border-top: 0; background: transparent; }
 .vrow { display: flex; align-items: center; gap: 8px; width: 100%; border: none; cursor: pointer;
   background: transparent; text-align: left; padding: 0 14px; min-height: var(--tap);
@@ -372,32 +393,55 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .logBar { font-family: var(--mono); font-weight: 700; color: var(--ink); }
 .logKind { color: var(--ink-dim); font-weight: 600; }
 
-/* one row of equal-width lifecycle actions; the 1px gap over the edge colour draws the dividers */
-.actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; background: var(--glass-edge);
-  border-top: 1px solid var(--glass-edge); }
+/* ⚠️ Hierarchy by WIDTH, not by equal thirds (04.09.). The row used to be equal-width cells over
+   a 1px grid — which drew two buttons of identical weight and let the quiet «Raus melden» claim
+   exactly as much of the card as the decision beside it. Here the card's own action takes the
+   room (`1fr`, filled) and the quiet way out takes only its words (`auto`, no fill, no border) —
+   still a full 48px target, still a real button, just not one that competes.
+   ⚠️ The order in the markup is therefore fixed: QUIET first, LOUD second (see TruppCard). And
+   the primary keeps at least half the row, so a long secondary label («Nicht eingesetzt») can
+   never end up the widest thing in it. */
+.actions { display: grid; grid-auto-flow: column; grid-template-columns: minmax(0, auto) minmax(50%, 1fr);
+  gap: 8px; }
+/* a single action («Wieder einrücken») owns the whole row rather than half of it */
+.actions:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
 .actBtn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
-  background: var(--surface); font-family: var(--body); font-size: 14px; font-weight: 700; color: var(--ink);
-  padding: 14px 10px; min-height: 48px; }
+  background: transparent; font-family: var(--body); font-size: 14px; font-weight: 700; color: var(--ink-dim);
+  padding: 12px; min-height: 48px; min-width: 0; border-radius: var(--r-sm); }
 .actBtn :global(.i) { width: 16px; height: 16px; }
 /* press wash for the whole lifecycle row — every variant below rides on .actBtn */
 .actBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.actEnter { color: var(--on-accent-ink); background: var(--green); }
+.actEnter { color: var(--on-accent-ink); background: var(--green); font-weight: 800; }
 @media (hover: hover) { .actEnter:hover { background: var(--green-solid-hover); } }
-.actRueckzug { color: var(--amber-strong); }
+/* ⚠️ The loud half of the in-field row is loud through WIDTH, WEIGHT and an outline — never
+   through a filled area (decided 04.09.). A tint was tried and dropped: amber as a SURFACE is
+   this card's warn tier (`.bandWarn`, `.blockWarn`), so a permanently amber-filled button would
+   put a second amber field on every card in the field, and two of them on a card that is actually
+   warning. The colour stays in the word; the fill stays the band's. */
+.actRueckzug { color: var(--amber-strong); font-weight: 800;
+  box-shadow: inset 0 0 0 1px var(--glass-edge); }
 @media (hover: hover) { .actRueckzug:hover { background: color-mix(in srgb, var(--amber) 10%, transparent); } }
-/* call off a Rückzug — back into the field (forward/positive) */
-.actContinue { color: var(--green-strong); }
+/* call off a Rückzug — back into the field (forward/positive). Same restraint, same reason: green
+   as a surface means «in field, contact fresh» here. */
+.actContinue { color: var(--green-strong); font-weight: 800;
+  box-shadow: inset 0 0 0 1px var(--glass-edge); }
 @media (hover: hover) { .actContinue:hover { background: color-mix(in srgb, var(--green) 9%, transparent); } }
-/* end monitoring — neutral, not a reassuring green check (green = "in field, contact fresh") */
+/* end monitoring — neutral, not a reassuring green check (green = "in field, contact fresh").
+   This is the quiet half: no fill and no outline, so the row has exactly one loud button. */
 .actExit { color: var(--ink-dim); }
 @media (hover: hover) { .actExit:hover { background: var(--fill-soft); color: var(--ink); } }
-/* «Nicht eingesetzt» sits beside the green «Eingerückt» and must not compete with it: entering
+/* «Nicht eingesetzt» sits beside the green «Einrücken» and must not compete with it: entering
    the field is the action this card exists for, standing the Trupp down is the quiet one. Same
    weight as «Raus», which is the same kind of decision. */
 .actStandDown { color: var(--ink-dim); }
 @media (hover: hover) { .actStandDown:hover { background: var(--fill-soft); color: var(--ink); } }
-/* re-deploy an exited Trupp — prominent filled action on the otherwise-quiet raus card */
-.actReenter { color: var(--on-accent-ink); background: var(--green); }
+/* A quiet button that is ALONE in the row has nothing to be quiet against — a Trupp without
+   Atemschutz in the field only ever offers «Raus melden». It keeps its restraint (no fill, never
+   green) but gets an outline, so it still reads as a button rather than as a line of text. */
+.actions > .actExit:only-child, .actions > .actStandDown:only-child {
+  box-shadow: inset 0 0 0 1px var(--glass-edge); }
+/* re-deploy an exited Trupp — the only action on that card, so it takes the whole row */
+.actReenter { color: var(--on-accent-ink); background: var(--green); font-weight: 800; }
 @media (hover: hover) { .actReenter:hover { background: var(--green-solid-hover); } }
 /* Status colour on the card's TOP BORDER, and only there. The tint and the word that used to
    repeat it in a banner are gone: the state is said once, in the band (.band / .bandWarn /

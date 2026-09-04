@@ -11,7 +11,7 @@ import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
 import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
-import type { AttendanceState, Trupp } from '../types'
+import type { AttendanceState, Trupp, TruppReading } from '../types'
 
 afterEach(cleanup)
 beforeAll(() => {
@@ -133,6 +133,27 @@ describe('the state a tier cannot say', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }] })
     expect(screen.getByText(az.preEntryHint)).toBeTruthy()
     expect(screen.getByText(az.bandPreEntry)).toBeTruthy()
+  })
+})
+
+/* The lifecycle row stopped being a segmented strip of equal cells on 04.09.: it is `auto` + `1fr`
+ * (see `.actions`), so which button is loud and which is quiet is decided by the ORDER in the
+ * markup — quiet first. A refactor that reorders these buttons silently swaps their weights, and
+ * nothing on screen would say so. */
+describe('the lifecycle row: quiet button first', () => {
+  it('puts «Raus melden» before the decision beside it, on both in-field states', () => {
+    for (const status of ['aktiv', 'rueckzug'] as const) {
+      cleanup()
+      mount({ trupps: [{ ...aktivTrupp(), status }] })
+      const labels = [...document.querySelectorAll(`.${s.actions} .${s.actBtn}`)].map((b) => b.textContent)
+      expect(labels).toEqual([az.actExit, status === 'aktiv' ? az.actRueckzug : az.actContinue])
+    }
+  })
+
+  it('leaves the pre-entry row led by «Nicht eingesetzt», with «Einrücken» taking the room', () => {
+    mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }] })
+    const labels = [...document.querySelectorAll(`.${s.actions} .${s.actBtn}`)].map((b) => b.textContent)
+    expect(labels).toEqual([az.actNotDeployed, az.actEnter])
   })
 })
 
@@ -261,8 +282,8 @@ describe('the handed-over board on a phone (focus mode)', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [aktivTrupp()] })
     const card = document.querySelector(`.${s.card}`)!
-    // ⚠️ the whole zone list, in order, and NOTHING besides — that is the invariant the grid's
-    // `subgrid` alignment rests on, and it is what a phone-only arrangement would break first.
+    // ⚠️ the whole zone list, in order, and NOTHING besides — one card means one zone list, and
+    // that is what a phone-only arrangement would break first.
     // Asserting «.cardHead exists» proves nothing: it exists on every card at every width.
     // the FIRST class of each child: the block also carries its tier, which is not the point here
     expect([...card.children].map((c) => c.className.trim().split(/\s+/)[0])).toEqual([
@@ -356,6 +377,25 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     // …and back, through the same control the Atemschutz half uses
     fireEvent.click(screen.getByRole('button', { name: az.collapse }))
     expect(document.querySelector(`.${s.card}`)).toBeNull()
+  })
+
+  /* ⚠️ A work squad's log is real and stays — angemeldet / eingerückt / draussen is its
+   * chronology — but every row of it carries a bar of 0: `createTrupp` opens the log with an
+   * Eingangsdruck a Trupp without Atemschutz was never asked for. The card printed «Eingerückt
+   * 0 bar» under a card that says nothing else about pressure, which reads as a measurement
+   * rather than as the absence of one (field report, 04.09.). */
+  it('shows a work squad its Verlauf without inventing a Druck for it', () => {
+    const readings: TruppReading[] = [
+      { t: iso(20 * 60_000), bar: 0, kind: 'registered' },
+      { t: iso(18 * 60_000), bar: 0, kind: 'entry' },
+    ]
+    mount({ trupps: [{ ...plainTrupp(), readings }], truppColors: { tr9: '#e2920a' } })
+    const card = () => document.querySelector(`.${s.card}`)!
+    expect(card().textContent).not.toContain('bar')
+    // …and the rows are still there to read: open the log and the chronology is intact
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.verlauf) }))
+    expect(screen.getByText(az.readingKind.entry)).toBeTruthy()
+    expect(card().textContent).not.toContain('bar')
   })
 
   it('says so when the Atemschutz half is empty rather than leaving a bare heading', () => {

@@ -13,7 +13,7 @@ import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { readingBarIsMeasured, truppAuftragLabel, truppStatusLabel } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
-import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields, TruppKind } from '../types'
+import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields, TruppKind, TruppReading } from '../types'
 import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import type { MarkerOption } from '../lib/placedTrupps'
@@ -1288,8 +1288,9 @@ function TruppRow({
  * board, and `PlainTruppRow` for a Trupp without Atemschutz. Three drawings of one thing drift
  * apart, and these had begun to. This is the card; what varies is only what a Trupp actually HAS.
  *
- * Seven zones, always all seven — the grid aligns them across a row with `subgrid` (see `.grid`
- * in Atemschutz.module.css), so none of them may be conditionally absent, only empty:
+ * Seven zones, always all seven — one card means one zone list, whatever a Trupp turns out to
+ * carry; a zone with nothing to say renders empty and costs nothing (see `.grid` in
+ * Atemschutz.module.css, where the cards stopped sharing grid rows on 04.09.):
  *
  *   1 Kopf       ‹ zurück · Truppfarbe · Name · ⋯
  *   2 Kennzeile  Mannschaft · Auftrag · Ziel · Leitung · Kanal, in one grey
@@ -1302,6 +1303,10 @@ function TruppRow({
  * ⚠️ The state is said ONCE, in the band. It used to be said three times over: «Überfällig» in
  * the banner, «Überfällig» again as the clock's state word — at tier 2 those are literally the
  * same string — above «Seit letztem Kontakt», a label for a card that is about nothing else.
+ *
+ * ⚠️ In the Aktionen zone the QUIET button comes first in the markup and the loud one second.
+ * The row is `auto` + `1fr` (see `.actions`): the card's own action takes the room, the quiet way
+ * out takes only its words. Swapping the order swaps the weights.
  *
  * ⚠️ The secondary controls are a MENU with words, not a row of glyphs. Every one of them
  * already had a German name that only ever surfaced in a `title`: «Platzieren», «Leitung
@@ -1497,6 +1502,14 @@ function TruppCard({
   const crew = crewNames.join(' · ')
 
   const lastReading = readings.length > 0 ? readings[readings.length - 1] : null
+  /* ⚠️ A Trupp WITHOUT Atemschutz has no cylinder, so every row of its log carries a bar of 0 —
+   * the `entryPressureBar` a work squad was never asked for (useTruppActions · createTrupp). The
+   * Verlauf printed «Eingerückt 0 bar» on a card that otherwise says nothing about pressure at
+   * all, which reads as a measurement rather than as the absence of one. The Rapport already
+   * leaves these Trupps off the Atemschutz page for exactly this reason (lib/reportPdfDirect);
+   * the board now says as little about their Druck as the paper does. The rows themselves stay:
+   * angemeldet / eingerückt / draussen is this Trupp's chronology and the log is the record. */
+  const barShown = (kind: TruppReading['kind']) => monitored && readingBarIsMeasured(kind)
   // the folded timing rows: they were a tap ZONE on the clock itself, findable only by knowing
   // that five grey characters at the band's edge meant «tap me». They are now the head of the
   // Verlauf, behind a word — and the band went back to being a display, not a button.
@@ -1638,6 +1651,11 @@ function TruppCard({
         )}
         {canEdit && inField && (
           <div className={s.actions}>
+            {/* ⚠️ «Raus melden» FIRST — the quiet column (see the note on the zone above). On a
+                Trupp without Atemschutz it is the only button, and then it takes the whole row. */}
+            <button className={cx(s.actBtn, s.actExit)} onClick={askExit}>
+              <Icon id="logout" /><span>{az.actExit}</span>
+            </button>
             {/* Rückzug is an Atemschutz manoeuvre — it lowers the turn-back pressure (alarmBarFor)
                 and there is no pressure to lower on a Trupp without a cylinder. */}
             {monitored && (t.status === 'aktiv' ? (
@@ -1649,9 +1667,6 @@ function TruppCard({
                 <Icon id="redo" /><span>{az.actContinue}</span>
               </button>
             ))}
-            <button className={cx(s.actBtn, s.actExit)} onClick={askExit}>
-              <Icon id="logout" /><span>{az.actExit}</span>
-            </button>
           </div>
         )}
         {/* No exit timestamp line here: the exit event is in the per-Trupp Verlauf and on the
@@ -1728,7 +1743,7 @@ function TruppCard({
                   ? fillTemplate(az.verlaufLatest, {
                       time: fmtTime(lastReading.t),
                       what: (az.readingKind[lastReading.kind] ?? lastReading.kind)
-                        + (readingBarIsMeasured(lastReading.kind) ? ` ${lastReading.bar} bar` : ''),
+                        + (barShown(lastReading.kind) ? ` ${lastReading.bar} bar` : ''),
                     })
                   : az.zoneTimes}
               </span>
@@ -1761,8 +1776,9 @@ function TruppCard({
                             <li key={idx} className={cx(s.logRow, idx < from && s.logRowPast, idx === from && from > 0 && s.logRowRunStart)}>
                               <span className={s.logTime}>{fmtTime(r.t)}</span>
                               {/* …and the same on the board: a Kontakt shows no bar, because the
-                                  one it carries is the last reported value, not a fresh reading */}
-                              <span className={s.logBar}>{readingBarIsMeasured(r.kind) ? `${r.bar} bar` : ''}</span>
+                                  one it carries is the last reported value, not a fresh reading —
+                                  and a Trupp without Atemschutz shows none at all (barShown) */}
+                              <span className={s.logBar}>{barShown(r.kind) ? `${r.bar} bar` : ''}</span>
                               <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
                             </li>
                           )
