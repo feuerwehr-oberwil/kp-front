@@ -6,10 +6,12 @@ lands in (STORED membership, never matching clocks), what a drifted shift prints
 line counts, and that the endpoint dispatches to this composer rather than the other one.
 """
 
+import io
 import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from PIL import Image as PILImage
 
 from app.schichtplan_pdf import (
     _MARK_AVAILABLE,
@@ -21,6 +23,13 @@ from app.schichtplan_pdf import (
     compose_schichtplan_pdf,
 )
 from app.zeitplan_pdf import ZeitplanPayload
+
+
+def _png(w: int = 12, h: int = 8) -> bytes:
+    buf = io.BytesIO()
+    PILImage.new("RGB", (w, h), (200, 210, 220)).save(buf, "PNG")
+    return buf.getvalue()
+
 
 T0 = datetime(2026, 7, 26, 7, 0, tzinfo=UTC)
 
@@ -187,6 +196,19 @@ def test_compose_says_so_rather_than_drawing_an_empty_table_without_bands():
 def test_compose_survives_a_block_with_no_end():
     p = _payload([_row("Meier Anna", [{"from": _h(0), "confirmed": True, "bandId": "bd1"}])])
     assert compose_schichtplan_pdf(p).startswith(b"%PDF")
+
+
+def test_compose_prints_a_logo_when_given_one_and_survives_without_it():
+    # same letterhead the rapport prints — see report_pdf's own `test_the_station_logo_actually_
+    # reaches_the_sheet` for the len(with) > len(without) idiom this mirrors.
+    p = _payload([_row("Meier Anna", [{"from": _h(0), "to": _h(5), "confirmed": True, "bandId": "bd1"}])])
+    without = compose_schichtplan_pdf(p)
+    with_logo = compose_schichtplan_pdf(p, logo=_png())
+    assert without.startswith(b"%PDF")
+    assert with_logo.startswith(b"%PDF")
+    assert len(with_logo) > len(without)
+    # unreadable bytes are never worth failing the sheet over — same as no logo at all
+    assert compose_schichtplan_pdf(p, logo=b"not-an-image").startswith(b"%PDF")
 
 
 # ---- the endpoint dispatches on the sheet -------------------------------------------------

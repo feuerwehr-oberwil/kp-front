@@ -6,14 +6,23 @@ what the axis spans), the auth/404/422 paths, and that a viewer may print — so
 relieve the shift needs the sheet they are walking into.
 """
 
+import io
 import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from PIL import Image as PILImage
+from sqlalchemy import select
 
 from app.zeitplan_pdf import MAX_ROWS, MAX_SPAN_H, ZeitplanPayload, _window, compose_zeitplan_pdf
 
 T0 = datetime(2026, 7, 26, 12, 0, tzinfo=UTC)
+
+
+def _png(w: int = 12, h: int = 8) -> bytes:
+    buf = io.BytesIO()
+    PILImage.new("RGB", (w, h), (200, 210, 220)).save(buf, "PNG")
+    return buf.getvalue()
 
 
 def _iso(dt: datetime) -> str:
@@ -179,6 +188,19 @@ def test_compose_survives_an_open_block_and_an_empty_plan():
     assert compose_zeitplan_pdf(ZeitplanPayload(incidentTitle="Leer"))[:5] == b"%PDF-"
 
 
+def test_compose_prints_a_logo_when_given_one_and_survives_without_it():
+    # same letterhead the rapport prints — see report_pdf's own `test_the_station_logo_actually_
+    # reaches_the_sheet` for the len(with) > len(without) idiom this mirrors.
+    p = ZeitplanPayload.model_validate(_payload())
+    without = compose_zeitplan_pdf(p)
+    with_logo = compose_zeitplan_pdf(p, logo=_png())
+    assert without[:5] == b"%PDF-"
+    assert with_logo[:5] == b"%PDF-"
+    assert len(with_logo) > len(without)
+    # unreadable bytes are never worth failing the sheet over — same as no logo at all
+    assert compose_zeitplan_pdf(p, logo=b"not-an-image")[:5] == b"%PDF-"
+
+
 # --------------------------------------------------------------------------- endpoint
 
 
@@ -192,6 +214,40 @@ async def test_zeitplan_pdf_endpoint(client, editor):
     assert r.content[:5] == b"%PDF-"
     # named after the SHEET — see zeitplan_filename; the two must not collide in Downloads
     assert "Verfuegbarkeiten_" in r.headers.get("content-disposition", "")
+
+
+@pytest.mark.asyncio
+async def test_the_configured_logo_reaches_the_zeitplan_endpoint(client, editor, db_session):
+    """The Schichtplan/Verfügbarkeiten PDFs are a second consumer of the SAME station logo the
+    rapport resolves (`api/report.py::_resolve_logo_bytes`), plumbed through the endpoint rather
+    than re-resolved inside either composer. End-to-end on purpose, mirroring
+    test_report_pdf.py's own `test_the_station_logo_actually_reaches_the_sheet`."""
+    from app import storage
+    from app.models import DeploymentConfig
+
+    key = "branding/test-logo-zeitplan.png"
+    storage.put_bytes(key, _png(120, 60))
+    row = (await db_session.execute(select(DeploymentConfig))).scalars().first()
+    if row is None:
+        row = DeploymentConfig(id=1, config_json={})
+        db_session.add(row)
+    row.config_json = {**(row.config_json or {}), "identity": {"assets": {"reportLogo": f"/api/branding/file/{key}"}}}
+    # `client` serves each request off its OWN session (see conftest's `_override_get_db`) — a
+    # flush only makes the row visible inside `db_session`'s own uncommitted transaction, so the
+    # endpoint's request would see the config unchanged.
+    await db_session.commit()
+
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    with_logo = await client.post(f"/api/incidents/{inc}/zeitplan/pdf", data={"payload": json.dumps(_payload())})
+    assert with_logo.status_code == 200
+    assert with_logo.content[:5] == b"%PDF-"
+
+    row.config_json = {**(row.config_json or {}), "identity": {"assets": {}}}
+    await db_session.commit()
+    without_logo = await client.post(f"/api/incidents/{inc}/zeitplan/pdf", data={"payload": json.dumps(_payload())})
+    assert without_logo.status_code == 200
+    assert len(with_logo.content) > len(without_logo.content)
 
 
 @pytest.mark.asyncio

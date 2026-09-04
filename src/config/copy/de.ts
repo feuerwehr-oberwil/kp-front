@@ -2914,7 +2914,7 @@ export const de = {
     // (iOS clears caches after days without use, and the tab then has to still be open at all).
     // Rather than claim a Bereitschaft that won't hold at 3am, the card says what is missing and
     // leads to the install – or says that there is none here.
-    browserTitle: 'Offline erst als installierte App',
+    browserTitle: 'Offline zuverlässig als installierte App',
     browserBody: 'Im Browser ist die Offline-Speicherung nicht dauerhaft gewährleistet. Karten, Pläne und Leitungen können vom Browser entfernt werden. Für einen verlässlichen Offline-Betrieb KP Front als App installieren.',
     // Platforms with no install path (desktop Firefox …) — say honestly that there is nothing to
     // install here, instead of pointing at instructions that don't exist.
@@ -4130,10 +4130,10 @@ export const de = {
     brokenShift: 'Diese Schicht endet vor ihrem Anfang – zum Korrigieren antippen',
     now: 'jetzt',
     coverage: 'Deckung',
-    coverageHint: 'Drei Linien: grau verfügbar, blau geplant, grün tatsächlich anwesend – wo die grüne Linie einbricht, ist die Lücke.',
+    coverageHint: 'Drei Linien: grau verfügbar, blau eingeteilt, grün tatsächlich anwesend – wo die grüne Linie einbricht, ist die Lücke.',
     // The coverage row expands: the curve says WHERE the gap is, the numbers say HOW MANY.
     // Collapsed by default – the shape reads at a glance, the digits cost three lines.
-    coverageExpand: 'Zahlen zeigen – wie viele verfügbar, geplant und anwesend sind',
+    coverageExpand: 'Zahlen zeigen – wie viele verfügbar, eingeteilt und anwesend sind',
     coverageCollapse: 'Zahlen ausblenden',
     planned: 'verfügbar',
     actual: 'anwesend',
@@ -4150,9 +4150,13 @@ export const de = {
     sheetSchichtplanTitle: 'Schichtplan',
     sheetVerfuegbarkeitenTitle: 'Verfügbarkeiten',
     // «66 Personen · 2 Schichten · Stand 09:14» – the number doubles as a check that the filter
-    // above is set the way it was meant to be
-    sheetContent: '{people} Personen · Stand {t}',
-    sheetContentBands: '{people} Personen · {bands} Schichten · Stand {t}',
+    // above is set the way it was meant to be. Both counts inflect on their own («1 Person»,
+    // «1 Schicht») – as functions, like `intake.objectPlans`, so the singular isn't lost when
+    // composed into the sentence below.
+    peopleCount: (n: number) => (n === 1 ? '1 Person' : `${n} Personen`),
+    bandsCount: (n: number) => (n === 1 ? '1 Schicht' : `${n} Schichten`),
+    sheetContent: '{people} · Stand {t}',
+    sheetContentBands: '{people} · {bands} · Stand {t}',
     sheetSchichtplanHint: 'Die Wachen quer, die Namen längs, Häkchen dazwischen – das Führungsformular, wie es die Mannschaft kennt.',
     sheetVerfuegbarkeitenHint: 'Wer von wann bis wann kann, unabhängig von jeder Schicht – auch alle, die in keiner stehen.',
     pdf: 'Als PDF',
@@ -4178,12 +4182,12 @@ export const de = {
     // direct operation on the grid – like the paper form you fill in
     fromStart: 'ab Beginn',
     sheetHint: 'Zeiten hier anpassen · Zustand rechts umschalten · gelöscht wird nur hier.',
-    laneHint: 'Ziehen trägt Verfügbarkeit ein · Balken tippen macht daraus einen Plan · ziehen verschiebt · gedrückt halten öffnet die Schichten',
+    laneHint: 'Ziehen erfasst die Verfügbarkeit · Balken antippen teilt die Person ein · Ziehen verschiebt den Balken · Gedrückt halten öffnet die Schichten',
     // Three states of a row: what somebody OFFERS, what was ASSIGNED out of it, and what actually
     // happened. A bar tap switches the first two, the third comes from the Anwesenheit and is
     // never written here.
     available: 'verfügbar',
-    confirmed: 'geplant',
+    confirmed: 'eingeteilt',
     toggleHint: 'Tippen macht daraus «{state}»',
     zoomIn: 'Zeitraum enger',
     zoomOut: 'Zeitraum weiter',

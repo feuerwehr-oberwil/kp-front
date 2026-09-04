@@ -28,9 +28,19 @@ from pydantic import BaseModel, Field, field_validator
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
-from reportlab.platypus import BaseDocTemplate, Flowable, Frame, PageBreak, PageTemplate, Paragraph, Spacer
+from reportlab.platypus import (
+    BaseDocTemplate,
+    Flowable,
+    Frame,
+    PageBreak,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
-from .report_pdf import _esc, _NumberedCanvas, _styles
+from .report_pdf import _esc, _logo_flowable, _NumberedCanvas, _styles
 
 #: The station's wall clock. The client sends UTC ISO stamps (`toISOString()`), so every label
 #: on this sheet has to be converted before it is printed — rendering the aware datetime directly
@@ -323,8 +333,13 @@ class _Grid(Flowable):
         c.drawString(1.5 * mm, top - self.HEAD_H + 2 * mm, "WER")
 
 
-def compose_zeitplan_pdf(payload: ZeitplanPayload) -> bytes:
-    """One landscape sheet with the Wer × Zeit grid, ready to hang up."""
+def compose_zeitplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None) -> bytes:
+    """One landscape sheet with the Wer × Zeit grid, ready to hang up.
+
+    ``logo`` is the station's already-resolved letterhead mark (see
+    ``api/report.py::_resolve_logo``) — this module never reaches into the deployment config
+    itself. Missing or unreadable, exactly like the rapport, simply prints no logo.
+    """
     st = _styles()
     buf = io.BytesIO()
     lw, lh = landscape(A4)
@@ -360,15 +375,35 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload) -> bytes:
         if x
     )
 
-    story: list = [
+    title_block = [
         # «VERFÜGBARKEITEN», not «ZEITPLAN»: the paper menu offers the two sheets by name, and a
         # page headed differently from the entry that produced it is the first thing that makes
         # somebody wonder whether they printed the wrong one.
         Paragraph("VERFÜGBARKEITEN", st["title"]),
         Paragraph(_esc(payload.incidentTitle), st["eyebrow"]),
         Paragraph(_esc(subtitle), st["muted"]),
-        Spacer(1, 4 * mm),
     ]
+    # Same letterhead shape as the rapport: mark and title on one line, modest — a Führungsformular
+    # stays a working sheet, not a cover page.
+    story: list
+    logo_img = _logo_flowable(logo)
+    if logo_img is None:
+        story = [*title_block, Spacer(1, 4 * mm)]
+    else:
+        logo_w = logo_img.drawWidth + 5 * mm
+        head_tbl = Table([[logo_img, title_block]], colWidths=[logo_w, inner_w - logo_w])
+        head_tbl.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        story = [head_tbl, Spacer(1, 4 * mm)]
 
     # a page each, so a big Mannschaft prints as several sheets instead of one unreadable one;
     # every sheet is padded out to full height, because a Führungsformular is meant to be written

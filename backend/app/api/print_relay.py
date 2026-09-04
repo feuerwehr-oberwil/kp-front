@@ -35,6 +35,7 @@ from ..models import Incident, PrintJob
 from ..report_pdf import ReportPayload
 from .incidents import get_incident_or_404
 from .report import (
+    _resolve_logo_bytes,
     compose_report_from_payload,
     compose_zeitplan_from_payload,
     report_filename,
@@ -257,7 +258,8 @@ async def zeitplan_print(
     if not relay_available():
         raise HTTPException(status_code=403, detail="Stationsdrucker nicht konfiguriert")
     inc = await get_incident_or_404(db, incident_id)
-    pdf, data = compose_zeitplan_from_payload(payload)
+    # same letterhead as the downloaded sheet — the relay print is not the poor sibling
+    pdf, data = compose_zeitplan_from_payload(payload, await _resolve_logo_bytes(db))
     job = PrintJob(
         incident_id=inc.id,
         kind="zeitplan",

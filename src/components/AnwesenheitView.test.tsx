@@ -3,6 +3,8 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AnwesenheitView } from './AnwesenheitView'
 import { appConfig } from '../config/appConfig'
+import { applyLocale } from '../config/copy'
+import { fillTemplate } from '../lib/format'
 import type { AttendanceState, Person } from '../types'
 
 afterEach(cleanup)
@@ -77,5 +79,44 @@ describe('a guest can be opened and removed like anybody else', () => {
     fireEvent.click(screen.getByRole('button', { name: A.openBlocks.replace('{name}', 'Muster Felix') }))
     fireEvent.click(screen.getByRole('button', { name: new RegExp(A.removeGuest) }))
     expect(onClear).toHaveBeenCalledWith(expect.objectContaining({ id: 'g1', guest: true }))
+  })
+})
+
+// The print-dialog line («24 Personen · 1 Schicht · Stand 13:13», PaperSheet's `sheetContent(Bands)`)
+// used to interpolate a bare count, so «1 Schichten»/«1 Personen» printed on paper. Both counts now
+// inflect on their own (`zeitplan.peopleCount`/`bandsCount`, same function-per-count idiom as
+// `intake.objectPlans`) before they are dropped into the template — this pins the singular AND the
+// composed sentence PaperSheet actually renders, in German and in one overlay locale.
+describe('the Zeitplan print sheet inflects its two counts correctly', () => {
+  afterEach(() => applyLocale('de-CH'))
+
+  it('says «1 Person» / «1 Schicht», not the bare number, in German', () => {
+    const Z = appConfig.copy.zeitplan
+    expect(Z.peopleCount(1)).toBe('1 Person')
+    expect(Z.peopleCount(2)).toBe('2 Personen')
+    expect(Z.bandsCount(1)).toBe('1 Schicht')
+    expect(Z.bandsCount(2)).toBe('2 Schichten')
+  })
+
+  it('composes the Schichtplan sheet line the way PaperSheet does', () => {
+    const Z = appConfig.copy.zeitplan
+    expect(fillTemplate(Z.sheetContentBands, { people: Z.peopleCount(24), bands: Z.bandsCount(1), t: '13:13' }))
+      .toBe('24 Personen · 1 Schicht · Stand 13:13')
+    expect(fillTemplate(Z.sheetContentBands, { people: Z.peopleCount(1), bands: Z.bandsCount(1), t: '13:13' }))
+      .toBe('1 Person · 1 Schicht · Stand 13:13')
+  })
+
+  it('composes the Verfügbarkeiten sheet line (no Schichten count) the same way', () => {
+    const Z = appConfig.copy.zeitplan
+    expect(fillTemplate(Z.sheetContent, { people: Z.peopleCount(1), t: '13:13' })).toBe('1 Person · Stand 13:13')
+  })
+
+  it('inflects in English too, once the locale overlay applies', () => {
+    applyLocale('en')
+    const Z = appConfig.copy.zeitplan
+    expect(Z.peopleCount(1)).toBe('1 person')
+    expect(Z.bandsCount(1)).toBe('1 shift')
+    expect(fillTemplate(Z.sheetContentBands, { people: Z.peopleCount(1), bands: Z.bandsCount(1), t: '13:13' }))
+      .toBe('1 person · 1 shift · as of 13:13')
   })
 })

@@ -76,6 +76,16 @@ async def _resolve_logo(db: AsyncSession, figs: dict[str, bytes]) -> None:
         return  # the rapport prints without it — a missing logo is never worth failing over
 
 
+async def _resolve_logo_bytes(db: AsyncSession) -> bytes | None:
+    """The same resolution `_resolve_logo` does for the rapport's figs dict, for the
+    Schichtplan/Verfügbarkeiten composers — they take the logo as a plain argument rather than
+    through the figs-dict convention the rapport's asset pipeline uses (they have no other
+    server-resolved assets to share that dict with)."""
+    figs: dict[str, bytes] = {}
+    await _resolve_logo(db, figs)
+    return figs.get(_LOGO_KEY)
+
+
 async def resolve_report_assets(db: AsyncSession, data: ReportPayload, figs: dict[str, bytes]) -> dict[str, bytes]:
     """Load the server-owned assets the composer needs: journal photos from the media
     store (keyed `photo:<url>` into `figs`) and plan PDFs from the reference store
@@ -242,10 +252,12 @@ def zeitplan_filename(title: str, sheet: str = "verfuegbarkeiten") -> str:
     return f"{stem}_{safe}.pdf"
 
 
-def compose_zeitplan_from_payload(payload: str) -> tuple[bytes, ZeitplanPayload]:
+def compose_zeitplan_from_payload(payload: str, logo: bytes | None = None) -> tuple[bytes, ZeitplanPayload]:
     """Parse + render one of the two Schichtenplanung sheets. Its own path: no map tiles, no plan
-    PDFs, no media — either sheet is names and times, so neither needs the rapport's asset
-    resolution.
+    PDFs, no media — either sheet is names and times, so neither needs the rapport's full asset
+    resolution. The one server-resolved asset both DO want, for the same reason the rapport does
+    (a Führungsformular that leaves the building should say whose it is), is the station logo —
+    resolved by the caller (`_resolve_logo_bytes`) and handed in here, never re-resolved per sheet.
 
     The two composers are separate modules and neither carries a switch: they are different
     questions with different shapes (Wer × Zeit over continuous time vs Wer × Schicht over discrete
@@ -256,7 +268,7 @@ def compose_zeitplan_from_payload(payload: str) -> tuple[bytes, ZeitplanPayload]
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False)) from e
     compose = compose_schichtplan_pdf if data.sheet == "schichtplan" else compose_zeitplan_pdf
-    return compose(data), data
+    return compose(data, logo), data
 
 
 @router.post("/incidents/{incident_id}/zeitplan/pdf")
@@ -272,7 +284,8 @@ async def zeitplan_pdf(
     coming to relieve the shift may print the sheet they are walking into.
     """
     inc = await get_incident_or_404(db, incident_id)
-    pdf, data = await anyio.to_thread.run_sync(compose_zeitplan_from_payload, payload)
+    logo = await _resolve_logo_bytes(db)
+    pdf, data = await anyio.to_thread.run_sync(compose_zeitplan_from_payload, payload, logo)
     return Response(
         content=pdf,
         media_type="application/pdf",

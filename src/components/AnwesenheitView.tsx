@@ -246,8 +246,8 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
     >
       <p className={s.paperContent}>
         {schicht
-          ? fillTemplate(Z.sheetContentBands, { people: people.length, bands, t: hhmm(openedAt) })
-          : fillTemplate(Z.sheetContent, { people: people.length, t: hhmm(openedAt) })}
+          ? fillTemplate(Z.sheetContentBands, { people: Z.peopleCount(people.length), bands: Z.bandsCount(bands), t: hhmm(openedAt) })
+          : fillTemplate(Z.sheetContent, { people: Z.peopleCount(people.length), t: hhmm(openedAt) })}
       </p>
       <p className={s.paperHint}>{schicht ? Z.sheetSchichtplanHint : Z.sheetVerfuegbarkeitenHint}</p>
     </Sheet>

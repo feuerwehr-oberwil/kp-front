@@ -31,7 +31,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import BaseDocTemplate, Frame, PageBreak, PageTemplate, Paragraph, Spacer, Table, TableStyle
 
-from .report_pdf import _esc, _NumberedCanvas, _styles
+from .report_pdf import _esc, _logo_flowable, _NumberedCanvas, _styles
 from .zeitplan_pdf import TZ, ZeitplanBand, ZeitplanBlock, ZeitplanPayload, ZeitplanRow
 
 #: rows per sheet — as many names as fit UNDER the heading and ABOVE the Deckung line at a height
@@ -221,8 +221,13 @@ def _page(rows: list[ZeitplanRow], bands: list[ZeitplanBand], width: float, with
     return t
 
 
-def compose_schichtplan_pdf(payload: ZeitplanPayload) -> bytes:
-    """One portrait A4 per ~34 names, ready to hang up."""
+def compose_schichtplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None) -> bytes:
+    """One portrait A4 per ~34 names, ready to hang up.
+
+    ``logo`` is the station's already-resolved letterhead mark (see
+    ``api/report.py::_resolve_logo``) — this module never reaches into the deployment config
+    itself. Missing or unreadable, exactly like the rapport, simply prints no logo.
+    """
     st = _styles()
     buf = io.BytesIO()
     pw, ph = A4
@@ -267,12 +272,32 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload) -> bytes:
         if assigned
         else "Noch niemand eingeteilt – das ganze Personal steht zum Ausfüllen von Hand."
     )
-    story: list = [
+    title_block = [
         Paragraph("SCHICHTPLAN", st["title"]),
         Paragraph(_esc(payload.incidentTitle), st["eyebrow"]),
         Paragraph(_esc(subtitle), st["muted"]),
-        Spacer(1, 4 * mm),
     ]
+    # Same letterhead shape as the rapport: mark and title on one line, modest — a Führungsformular
+    # stays a working sheet, not a cover page.
+    story: list
+    logo_img = _logo_flowable(logo)
+    if logo_img is None:
+        story = [*title_block, Spacer(1, 4 * mm)]
+    else:
+        lw = logo_img.drawWidth + 5 * mm
+        head_tbl = Table([[logo_img, title_block]], colWidths=[lw, inner_w - lw])
+        head_tbl.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        story = [head_tbl, Spacer(1, 4 * mm)]
 
     if not bands:
         # cannot happen from the surface (the menu withholds this sheet without bands) but a
