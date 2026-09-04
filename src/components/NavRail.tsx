@@ -20,7 +20,7 @@ interface Props {
   activePlanId: string
   onSelectPlan: (id: string) => void
   /** Atemschutz contact-clock alarm tier (0 silent · 1 fällig · 2 überfällig) — drives a
-   *  cross-surface dot on the Atemschutz item so a due Trupp is visible from any surface */
+   *  cross-surface dot on the «Trupps» item so a due Trupp is visible from any surface */
   azSeverity?: 0 | 1 | 2
   /** trailing slot after the surface list — the phone's 🔧 Bearbeiten toggle lives here
    *  (bar swap: tapping it replaces this surface bar with the tool rail) */
@@ -136,7 +136,11 @@ export function NavRail(p: Props) {
           <span className="nav-key" aria-hidden>{SURFACE_KEY.checklists}</span>
         </button>
         <button className={`nav-item${p.mode === 'atemschutz' ? ' on' : ''}`} aria-pressed={p.mode === 'atemschutz'} aria-label={appConfig.copy.modes.atemschutz} onClick={() => p.onMode('atemschutz')}>
-          <span className="nav-glyph"><Icon id="gauge" />{(p.azSeverity ?? 0) >= 2 ? <span className="nav-live nav-alarm crit" /> : null}</span>
+          {/* ⚠️ A STOPWATCH, not the pressure dial this item wore until 04.09. The surface is
+              «Trupps» now and it carries work squads too — a Manometer names a cylinder half of
+              them do not have, while the clocks (Kontaktuhr, Einsatzzeit, Pause) are what every
+              Trupp on it has and what the alarm dot beside it is about. */}
+          <span className="nav-glyph"><Icon id="stopwatch" />{(p.azSeverity ?? 0) >= 2 ? <span className="nav-live nav-alarm crit" /> : null}</span>
           <span className="nav-label">{appConfig.copy.modes.atemschutz}</span>
           <span className="nav-key" aria-hidden>{SURFACE_KEY.atemschutz}</span>
         </button>

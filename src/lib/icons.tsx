@@ -75,6 +75,12 @@ export function IconSprite() {
       <symbol id="select" viewBox="0 0 24 24"><path d="M6 3.5 6 20 10.2 15.8 13 21 15.2 20 12.4 14.6 18.5 14.5z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" /></symbol>
       <symbol id="history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></symbol>
       <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3.5 2" /></symbol>
+      {/* Die Trupp-Tafel im Navigationsband. A stopwatch, not the #gauge it wore until 04.09.: a
+          pressure dial named the cylinder, and the surface is about the CLOCKS — Kontaktuhr,
+          Einsatzzeit, Pause —, which a Trupp ohne Atemschutz also has and a bottle it does not.
+          Distinct from #clock and #history at 20px because of the crown and the side button: a
+          stopwatch is a clock somebody STARTED, which is exactly what a Trupp is. */}
+      <symbol id="stopwatch" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5" /><path d="M9.5 2.5h5M12 2.5V6M12 13.5V9.2M18.6 7.5 20 6.1" /></symbol>
       <symbol id="hourglass" viewBox="0 0 24 24"><path d="M6 4h12M6 20h12M8 4l4 8 4-8M8 20l4-8 4 8" /></symbol>
       <symbol id="check" viewBox="0 0 24 24"><path d="M5 12.5 10 17 19 7" stroke-width="2.2" /></symbol>
       {/* Am Einsatzort: the map's own position pin, so «vor Ort» on the crew list and a dot on

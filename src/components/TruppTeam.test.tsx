@@ -87,9 +87,11 @@ describe('TruppTeam', () => {
     setup()
     expect(screen.getAllByRole('option')).toHaveLength(4)
     fireEvent.change(screen.getByPlaceholderText('Person suchen …'), { target: { value: 'bru' } })
+    // one hit, plus the Gast row every non-empty query grows at the end of the list (see below)
     const hits = screen.getAllByRole('option')
-    expect(hits).toHaveLength(1)
+    expect(hits).toHaveLength(2)
     expect(hits[0].textContent).toContain('Brunner Thomas')
+    expect(hits[1].textContent).toContain('Gast / Nachbarwehr')
   })
 
   it('shows somebody already in another Trupp, but does not offer them', () => {
@@ -99,58 +101,71 @@ describe('TruppTeam', () => {
     expect(taken.textContent).toContain('in einem Trupp')
   })
 
-  it('keeps a typed name for a guest, without a roster link', () => {
+  /* ── The Gast door (04.09.) ─────────────────────────────────────────────────────────────────
+   * There is no «Name eingeben (Gast / Nachbarwehr)» row any more, and no second input behind it.
+   * The SEARCH is the name entry, and the list grows one action row for whatever is typed. What
+   * this buys is reachability: the old link closed the block BELOW the roster, so the one case
+   * the Mannschaft cannot answer was the case whose answer sat furthest away.
+   */
+  const guestRow = (name: string) =>
+    screen.getByRole('option', { name: `«${name}» als Gast / Nachbarwehr hinzufügen` })
+
+  it('offers the Gast row only once something is typed, and takes the name from the search', () => {
     const onChange = setup()
-    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
-    const input = screen.getByLabelText('Name eingeben …')
-    fireEvent.change(input, { target: { value: 'Nachbarwehr Keller' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+    // at rest the list is the Mannschaft and nothing else — no permanent Gast row
+    expect(screen.getAllByRole('option')).toHaveLength(personnel.length)
+    expect(screen.queryByRole('option', { name: /Gast \/ Nachbarwehr/ })).toBeNull()
+
+    fireEvent.change(screen.getByPlaceholderText('Person suchen …'), { target: { value: 'Nachbarwehr Keller' } })
+    fireEvent.click(guestRow('Nachbarwehr Keller'))
     expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }])
   })
 
-  // Enter and «+» used to be the only commits: typing a Gast and then tapping «Trupp starten»
-  // silently discarded the name — the member the operator could SEE was not in the Trupp they
-  // started. The field now commits when focus leaves it, which lands before any tap's click.
-  it('commits a typed name when focus leaves the field', () => {
+  // …and it disappears again with the query, rather than standing over a roster that has the
+  // person on it: an empty search is «show me everybody», not «I am about to type a stranger».
+  it('drops the Gast row again when the query is cleared', () => {
+    setup()
+    const search = screen.getByPlaceholderText('Person suchen …')
+    fireEvent.change(search, { target: { value: 'Kel' } })
+    expect(guestRow('Kel')).toBeTruthy()
+    fireEvent.change(search, { target: { value: '' } })
+    expect(screen.queryByRole('option', { name: /Gast \/ Nachbarwehr/ })).toBeNull()
+  })
+
+  /* Enter keeps the keyboard flow one step and never has to be aimed: with matches on screen it
+   * takes the first one that can be taken; with NO matches the query can only have been a name. */
+  it('picks the first match on Enter while the Mannschaft still has one', () => {
     const onChange = setup()
-    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
-    const input = screen.getByLabelText('Name eingeben …')
-    fireEvent.change(input, { target: { value: 'Nachbarwehr Keller' } })
-    fireEvent.blur(input)
-    expect(onChange).toHaveBeenCalledTimes(1)
+    const search = screen.getByPlaceholderText('Person suchen …')
+    fireEvent.change(search, { target: { value: 'bru' } })
+    fireEvent.keyDown(search, { key: 'Enter' })
+    expect(onChange).toHaveBeenCalledWith([{ name: 'Brunner Thomas', personId: 'p3' }])
+  })
+
+  it('commits the Gast on Enter when nothing matches', () => {
+    const onChange = setup()
+    const search = screen.getByPlaceholderText('Person suchen …')
+    fireEvent.change(search, { target: { value: 'Nachbarwehr Keller' } })
+    expect(screen.queryAllByRole('option', { name: /Meier|Huber|Brunner|Graf/ })).toHaveLength(0)
+    fireEvent.keyDown(search, { key: 'Enter' })
     expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }])
   })
 
-  // tapping «+» blurs the field first — the blur is the commit, and the click that follows must
-  // not add the same name a second time
-  it('does not double-add when the blur and the «+» click race', () => {
+  /* ⚠️ THE REVERSAL the shared field pays for (04.09.). The old dedicated name field committed on
+   * blur and on unmount, because a name typed there could only ever have been a name and dropping
+   * it silently left the member the operator could SEE out of the Trupp they started. This field
+   * is a search first: a half-typed «Hub» is a query in progress, and auto-committing it would put
+   * a person called «Hub» in the Trupp the moment focus moved on. The commit is explicit now — the
+   * action row, or Enter with nothing left to match. */
+  it('never turns a half-typed query into a member by itself', () => {
     const onChange = setup()
-    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
-    const input = screen.getByLabelText('Name eingeben …')
-    fireEvent.change(input, { target: { value: 'Nachbarwehr Keller' } })
-    const plus = screen.getByRole('button', { name: 'Hinzufügen' })
-    fireEvent.blur(input, { relatedTarget: plus })
-    fireEvent.click(plus)
-    expect(onChange).toHaveBeenCalledTimes(1)
-  })
-
-  // …the row's own ✕ is the ONE deliberate discard: its pointerdown beats the blur, so the
-  // name the operator is throwing away is not snuck into the Trupp on the way out
-  it('lets the ✕ discard the typed name without the blur committing it', () => {
-    const onChange = setup()
-    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
-    const input = screen.getByLabelText('Name eingeben …')
-    fireEvent.change(input, { target: { value: 'Tippfehler' } })
-    const cancel = screen.getByRole('button', { name: 'Abbrechen' })
-    fireEvent.pointerDown(cancel)
-    fireEvent.blur(input, { relatedTarget: cancel })
-    fireEvent.click(cancel)
+    const search = screen.getByPlaceholderText('Person suchen …')
+    fireEvent.change(search, { target: { value: 'Hub' } })
+    fireEvent.blur(search)
     expect(onChange).not.toHaveBeenCalled()
   })
 
-  // the modal can be torn down around a still-focused field (no blur fires then) — the typed
-  // Gast must reach the Trupp anyway
-  it('commits a typed name on unmount', () => {
+  it('does not commit a half-typed query on unmount either', () => {
     const onChange = vi.fn<(next: Slot[]) => void>()
     const { unmount } = render(
       <TruppTeam
@@ -158,19 +173,33 @@ describe('TruppTeam', () => {
         presentIds={new Set()} assignedIds={new Set()}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
-    fireEvent.change(screen.getByLabelText('Name eingeben …'), { target: { value: 'Nachbarwehr Keller' } })
+    fireEvent.change(screen.getByPlaceholderText('Person suchen …'), { target: { value: 'Nachbarwehr Kel' } })
     unmount()
-    expect(onChange).toHaveBeenCalledTimes(1)
-    expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }])
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  // the Gast reaches the Anwesenheit too, and the slot keeps the id it was filed under — that is
+  // what makes the Trupp card and the Personalblatt the same person rather than two lookalikes
+  it('files the Gast on the Anwesenheit and keeps the id it comes back with', () => {
+    const onChange = vi.fn<(next: Slot[]) => void>()
+    const onAddGuest = vi.fn(() => 'guest-7')
+    render(
+      <TruppTeam
+        value={[]} onChange={onChange} personnel={personnel} legacyRoster={[]}
+        presentIds={new Set()} assignedIds={new Set()} onAddGuest={onAddGuest}
+      />,
+    )
+    fireEvent.change(screen.getByPlaceholderText('Person suchen …'), { target: { value: 'Keller Urs' } })
+    fireEvent.click(guestRow('Keller Urs'))
+    expect(onAddGuest).toHaveBeenCalledWith('Keller Urs')
+    expect(onChange).toHaveBeenCalledWith([{ name: 'Keller Urs', personId: 'guest-7' }])
   })
 
   // an empty slot looks like the field it is not — the tap has to hand the caret on, or the
-  // first-time user sits there waiting for a keyboard that never opens
-  // …and it points at the GAST link too: whoever is not on the Mannschaft gets no answer from
-  // the search field or the list, so the one control that has one must not stay dark. Highlight
-  // only — the caret stays in the search field.
-  it('points an empty slot at the search field, the list and the Gast link', async () => {
+  // first-time user sits there waiting for a keyboard that never opens. The LIST blinks with the
+  // field: «where do I type» is not the question, «where are the names» is — and since 04.09. the
+  // Gast door is a row of that same list, so the blink already covers it.
+  it('points an empty slot at the search field and the list', async () => {
     setup()
     const slot = screen.getAllByTitle('Person suchen …')[0]
     expect(slot.querySelector('input')).toBe(null)
@@ -178,9 +207,9 @@ describe('TruppTeam', () => {
     expect(document.activeElement).toBe(screen.getByLabelText('Person suchen …'))
     // the flash is armed a frame later (pointAtSearch restarts it even mid-blink)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Name eingeben/ }).className).toContain('linkBtnHint')
+      expect(screen.getByRole('listbox').className).toContain('teamListHint')
     })
-    expect(screen.getByRole('listbox').className).toContain('teamListHint')
+    expect(screen.getByLabelText('Person suchen …').closest('label')!.className).toContain('teamSearchHint')
     expect(document.activeElement).toBe(screen.getByLabelText('Person suchen …'))
   })
 

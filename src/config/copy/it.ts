@@ -24,7 +24,9 @@ import type { Copy, Localizable } from './index'
 
 export const it: Localizable<Copy> = {
   loadingSubtitle: 'Caricamento mappa e libreria simboli …',
-  modes: { map: 'Mappa', plans: 'Piano', checklists: 'Checklist', atemschutz: 'Autoprotezione', anwesenheit: 'Presenza', rapport: 'Rapporto',
+  // «Squadre», come `atemschutz.boardTitle` — la superficie porta anche le squadre senza APR, e
+  // «Autoprotezione» sopra una squadra viabilità era semplicemente falso (vedi la nota in de.ts).
+  modes: { map: 'Mappa', plans: 'Piano', checklists: 'Checklist', atemschutz: 'Squadre', anwesenheit: 'Presenza', rapport: 'Rapporto',
     mittel: 'Materiale',
   },
   navRail: { map: 'Mappa', plansGroup: 'Piani', assign: 'Assegna piano', expand: 'Espandi', collapse: 'Comprimi', resize: 'Adatta barra',
@@ -52,7 +54,7 @@ export const it: Localizable<Copy> = {
             '**Situazione** – la carta tattica con simboli, linee, superfici e i livelli delle condotte.',
             '**Piano** – i piani degli oggetti (Moduli 1–6, sagome degli edifici) come lavagna, piano per piano.',
             '**Checklist** – checklist d’intervento eseguibili.',
-            '**Autoprotezione** – sorveglianza delle squadre impiegate con tempo e pressione.',
+            '**Squadre** – sorveglianza delle squadre impiegate con tempo e pressione, con e senza autoprotezione.',
           ] },
           { kind: 'note', text: 'Principio guida: utilizzabile alle 3 di notte, dopo sei mesi senza pratica. Riconoscere invece di ricordare, usabile con i guanti e offline.' },
         ],
@@ -91,7 +93,7 @@ export const it: Localizable<Copy> = {
           { kind: 'sub', text: 'Cambiare area' },
           { kind: 'list', items: [
             'I numeri aprono il modulo di piano con quel numero – quali esistono dipende dai moduli del corpo: [[1]] modulo 1, [[2]] o [[3]] il modulo «2/3», [[4]] modulo 4 …',
-            '[[K]] Carta · [[C]] Checklist · [[A]] Protezione respiratoria · [[P]] Presenza · [[M]] Materiale · [[R]] Rapporto – ogni tasto è la prima lettera della parola TEDESCA, perché è a quella che la scorciatoia è legata.',
+            '[[K]] Carta · [[C]] Checklist · [[A]] Squadre (A come Atemschutz) · [[P]] Presenza · [[M]] Materiale · [[R]] Rapporto – ogni tasto è la prima lettera della parola TEDESCA, perché è a quella che la scorciatoia è legata.',
             '[[⌘]] [[[]] / [[⌘]] [[]]] scorre tutte le aree una per una (anche Dintorni ed Edificio, che non hanno numero).',
           ] },
           { kind: 'sub', text: 'Strumenti (uguali in Situazione e Piano)' },
@@ -187,7 +189,7 @@ export const it: Localizable<Copy> = {
         ],
       },
       {
-        id: 'atemschutz', title: 'Sorveglianza autoprotezione', icon: 'gauge',
+        id: 'atemschutz', title: 'Squadre e sorveglianza autoprotezione', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Sorveglianza senza lacune di ogni squadra ARA secondo FKS – il segnale di sicurezza è il **tempo dall’ultimo contatto radio**, non un tempo residuo stimato.' },
           { kind: 'sub', text: 'Creare una squadra' },
@@ -1053,7 +1055,6 @@ export const it: Localizable<Copy> = {
     zielClear: 'Svuota compito / obiettivo',
     leaderLabel: 'Capogruppo',
     memberLabel: 'Milito',
-    guestNamePlaceholder: 'Nome',
     teamEmpty: 'Nessuno nella squadra. Tocca un nome qui sotto.',
     teamSearchPlaceholder: 'Cerca persona …',
     teamNoMatches: 'Nessun risultato',
@@ -1062,8 +1063,7 @@ export const it: Localizable<Copy> = {
     teamRemove: 'Togli {name} dalla squadra',
     teamTaken: 'in una squadra',
     teamManual: 'ospite',
-    teamTypeName: 'Digita un nome (ospite / rinforzo)',
-    teamAdd: 'Aggiungi',
+    teamGuestAdd: 'Aggiungi «{name}» come ospite / rinforzo',
     lineNoLabel: 'Linea n.',
     lineLegacyNote: 'Registrato prima: «{value}»',
     lineOptsLabel: 'Disegnate:',
@@ -1125,6 +1125,7 @@ export const it: Localizable<Copy> = {
     readingsHead: 'Letture',
     cardMenu: 'Altre azioni',
     bandPreEntry: 'Non ancora entrata',
+    bandRegisteredAt: 'annunciata alle',
     zoneTimes: 'Orari',
     lastContactAt: 'Ultimo contatto',
     nextContactDue: 'Prossimo contatto',
@@ -1432,7 +1433,7 @@ export const it: Localizable<Copy> = {
     placeTeam: '{name} posizionato sul piano',
     selectTrupp: 'Quale squadra?',
     newTeam: 'Nuova squadra',
-    showTrupp: 'Mostra in autoprotezione',
+    showTrupp: 'Mostra in Squadre',
     markPosition: 'Segna posizione',
     positionMarked: '{name}: posizione segnata',
     clearTrail: 'Cancella traccia',
@@ -2317,7 +2318,7 @@ export const it: Localizable<Copy> = {
     proofBroken: 'Catena di hash interrotta',
     proofBrokenAt: 'Catena di hash interrotta al #{seq}',
     areaManual: 'Manuale',
-    areaAtemschutz: 'Autoprotezione',
+    areaAtemschutz: 'Squadre',
     areaAnwesenheit: 'Presenze',
     areaMittel: 'Materiale',
     areaChecklist: 'Checklist',
@@ -2448,6 +2449,8 @@ export const it: Localizable<Copy> = {
     shareCreate: 'Crea link',
     shareBusy: 'Creazione del link …',
     shareLoading: 'Caricamento del link …',
+    shareLoadFailed: 'Non è stato possibile caricare il link.',
+    shareRetry: 'Riprova',
     shareCreateFailed: 'Creazione del link non riuscita',
     shareCopy: 'Copia indirizzo',
     shareCopied: 'Copiato',
@@ -2464,15 +2467,15 @@ export const it: Localizable<Copy> = {
     shareKindLabel: 'Cosa apre il link',
     shareKindFull: 'Intero intervento',
     shareKindFullSub: 'sola lettura',
-    shareKindAtem: 'Solo APR',
+    shareKindAtem: 'Solo squadre',
     shareKindAtemSub: 'operare',
-    shareAsLede: 'Chi apre il link vede solo la sorveglianza APR di questo intervento e la '
-      + 'usa: annunciare una squadra, contatto, pressione, ripiegamento, fuori. Nessuna carta, '
-      + 'nessun diario. Vale finché l’intervento non è chiuso.',
+    shareAsLede: 'Chi apre il link vede solo la lavagna delle squadre di questo intervento – la '
+      + 'sorveglianza APR – e la usa: annunciare una squadra, contatto, pressione, ripiegamento, '
+      + 'fuori. Nessuna carta, nessun diario. Vale finché l’intervento non è chiuso.',
     shareAsLiveLede: 'Vale finché l’intervento non è chiuso – o finché non lo revochi.',
     shareAsWarn: 'Quanto viene inserito lì compare nel diario APR del rapporto. Dai il link '
       + 'solo alla persona che sorveglia.',
-    shareAsRevokeTitle: 'Revocare il link APR?',
+    shareAsRevokeTitle: 'Revocare il link alla lavagna delle squadre?',
     shareAsRevokeBody: 'L’indirizzo smetterà di funzionare. Chi ha la tabella aperta non può più '
       + 'inserire nulla. Un nuovo link può essere creato in qualsiasi momento – sarà un altro '
       + 'indirizzo.',
@@ -4001,7 +4004,7 @@ export const it: Localizable<Copy> = {
     hint: 'Cerca anche i nomi all\'interno di una squadra.',
     noMatches: 'Nessuna squadra trovata',
     empty: 'Nessuna squadra posata.',
-    emptyHint: 'Le squadre si posano sulla situazione o su un piano – dalla scheda ARA o con lo strumento squadra.',
+    emptyHint: 'Le squadre si posano sulla situazione o su un piano – dalla scheda della squadra sotto «Squadre» o con lo strumento squadra.',
     raus: 'uscito',
   },
   symbolAliases: {

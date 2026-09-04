@@ -186,16 +186,21 @@
    rules when they are, so a zone with nothing to say costs nothing: since 04.09. the cards no
    longer share grid rows, so it takes no height either. */
 
-/* ── 1 Kopf: back on the left, the name, the ⋯ on the right ─────────────────────────────────── */
+/* ── 1 Kopf: the name, the ⋯, and the collapse chevron at the far right ───────────────────────
+   ⚠️ The chevron sits where the CLOSED row's chevron sits (04.09.). It was on the left until then,
+   which meant the toggle changed ends between its two states and the pixel that had just opened
+   the card became the ⋯ — the one control up here whose menu can delete the Trupp. See TruppCard. */
 .cardHead { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 8px 8px 8px 14px; }
+/* the chevron is the LAST child and the ⋯ sits inside it — order in the markup, so nothing here
+   has to re-sort them */
 .cardHead .nameStatic { flex: 1 1 auto; min-width: 0; padding: 0; }
 .headBack, .headMenu { flex: none; display: grid; place-items: center; width: 44px; height: 44px;
   border: none; background: transparent; color: var(--ink-faint); border-radius: var(--r-sm); cursor: pointer; }
 .headBack :global(.i), .headMenu :global(.i) { width: 19px; height: 19px; }
 @media (hover: hover) { .headBack:hover, .headMenu:hover { background: var(--fill-soft, rgba(0, 0, 0, .045)); color: var(--ink); } }
 .headBack:active, .headMenu:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* the 44px target hangs into the card's own padding so the GLYPH still sits on the text edge */
-.headBack { margin-left: -8px; }
+/* (no pull of its own any more: since 04.09. the chevron sits at the head's trailing edge, where
+   the ⋯ used to, and the head's own 8px right padding is the inset both of them want) */
 
 /* ── 2 Kennzeile: Mannschaft · Auftrag · Ziel · Leitung · Kanal, in ONE grey ─────────────────
    Five pill-shaped chips in four colours were louder than the name above them, and the crew line
@@ -248,6 +253,17 @@
   color: var(--ink-faint); }
 .bandVal { flex: none; font-family: var(--mono); font-size: 40px; font-weight: 800; line-height: 1;
   color: var(--ink); font-variant-numeric: tabular-nums; }
+/* ⚠️ The band of a Trupp that is OUT (04.09.). The 40px bold number is the loudest thing on this
+   board and it belongs to the crews that are INSIDE — that is the whole reading order of the
+   surface. A break clock in the same weight put a Trupp nobody is watching at the top of the eye's
+   list, and on «Nicht eingesetzt», where the number is a static Anmeldezeit, it shouted a fact
+   that asks for nothing at all. Same facts, quiet type — no tint, no pulse, no urgency: those are
+   the alarm tiers' own (.bandWarn / .bandCrit), and an out Trupp never carries one (sev is 0 once
+   the contact clock stops). Declared BEFORE the tier rules so nothing here can outrank them. */
+.bandQuiet { padding-top: 9px; padding-bottom: 9px; }
+.bandQuiet .bandVal { font-size: 19px; font-weight: 700; color: var(--ink-dim); }
+.bandQuiet .bandWord { color: var(--ink-faint); }
+
 .bandWarn { background: color-mix(in srgb, var(--amber) 12%, transparent); }
 .bandWarn .bandWord { color: var(--amber-strong); }
 .bandWarn .bandVal { color: var(--amber); }
@@ -711,9 +727,8 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    spec; only how many fit on a row is this form's business. */
 .field :global(.useg-btn) { flex: 1 0 26%; font-weight: 700; }
 
-.linkBtn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
-  background: transparent; color: var(--blue-strong); font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 4px 2px; }
-.linkBtn :global(.i) { width: 14px; height: 14px; }
+/* (`.linkBtn` is gone with the «Name eingeben (Gast / Nachbarwehr)» row it drew, 04.09. — the
+   search field IS the guest entry now, and its door is the last row of the list. See TruppTeam.) */
 
 .modalFoot { flex: none; display: flex; gap: 10px; justify-content: flex-end; padding: 10px 20px;
   border-top: 1px solid var(--glass-edge); background: var(--glass); }
@@ -909,20 +924,16 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    the question somebody tapping an empty slot is asking — they are looking for a name, and the
    answer is «pick one from down here», where typing is only the way to narrow it. Blinking the
    two together points at the whole answer instead of at half of it.
-   ⚠️ …and so does the GAST link (.linkBtnHint below). A person who is not on the Mannschaft is
-   exactly the case where the field and the list have no answer, and the one control that does
-   was the one control the gesture left dark. Highlight only — the caret stays in the search
-   field, because typing a Gast name is the exception, not what the tap asked for. */
+   (The Gast link used to blink with them. It is gone — since 04.09. the answer for somebody who
+   is not on the Mannschaft is the last ROW of this list, so the list is already the thing being
+   pointed at, and the caret still stays in the search field.) */
 @keyframes teamSearchFlash {
   0%, 30%, 70% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
   15%, 50%, 100% { box-shadow: 0 0 0 3px transparent; }
 }
-.teamSearchHint, .teamListHint, .linkBtnHint { animation: teamSearchFlash 1.1s ease-out 1; }
-/* the link is a bare text button (no border, no fill), so the ring needs the button radius of
-   its own to read as a ring rather than a box */
-.linkBtnHint { border-radius: var(--r-sm); }
+.teamSearchHint, .teamListHint { animation: teamSearchFlash 1.1s ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
-  .teamSearchHint, .teamListHint, .linkBtnHint { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
+  .teamSearchHint, .teamListHint { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
 }
 .teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
 .teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
@@ -935,7 +946,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* Bounded, so the Auftrag column beside it stays reachable without scrolling the whole modal.
    ~5 rows: enough that the search is usually unnecessary, short enough to keep the footer in
    view — the button that actually starts the Trupp must never be below the fold. */
-/* fills whatever the slots, the search and the Gast link leave over — down to eight rows, which
+/* fills whatever the slots and the search leave over — down to eight rows, which
    is a Trupp plus the crew you are choosing it from. 208px was a fixed box that wasted the room
    a tall modal has and starved a ten-person Trupp of the room it needs. */
 .teamList { list-style: none; margin: 0; padding: 4px; flex: 1 1 0; min-height: 168px; overflow-y: auto;
@@ -947,18 +958,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .teamAtStation { color: var(--blue-strong); font-weight: 700; }
 @media (hover: hover) { .teamOptTaken:hover { background: none; } }
 
-.teamTypeRow { display: flex; align-items: center; gap: 8px; }
-.teamTypeInput { flex: 1 1 auto; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
-  padding: 11px 12px; background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink);
-  outline: none; }
-.teamTypeInput:focus { border-color: var(--ink); }
-/* a (+), not a word: the row already says what is being typed */
-.teamTypeAdd { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
-  color: var(--ink); cursor: pointer; }
-@media (hover: hover) { .teamTypeAdd:hover:not(:disabled) { border-color: var(--ink-faint); } }
-.teamTypeAdd:disabled { opacity: var(--disabled); cursor: default; }
-.teamTypeAdd :global(.i) { width: 17px; height: 17px; }
+/* ⚠️ THE GAST DOOR — the last row of the list, and only while something is typed (04.09.). It
+   replaces the «Name eingeben (Gast / Nachbarwehr)» link that used to close the whole block,
+   below the roster: on a 66-person Mannschaft the one case the list cannot answer was the case
+   whose answer sat furthest away, and it asked for a name in a second field the first one had
+   already been given. It borrows `.comboType`'s ink (the same «take what is typed» row the
+   ComboMenu draws) and `.comboOpt`'s 44px geometry, so it is a full tap target without a size of
+   its own — and, being a list row, it needs neither a sticky layer nor reserved space.
+   (Nothing new to declare: `.comboType` and `.comboOpt` above already draw it. This note is here
+   because the rules that used to stand in this spot were the second field's.) */
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
@@ -1062,7 +1070,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .trowPlain .trowClockVal { color: var(--ink-dim); }
 .trowOut { border-left-color: var(--ink-faint);
   background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
-.trowOut .trowClockVal { color: var(--ink-dim); }
+/* ⚠️ …and SMALL, not merely grey (04.09., the card's `.bandQuiet` read once more on the row). A
+   row that is out has no contact clock, so the cell holds «–:––» — 25px of mono nothing, in the
+   size the board reserves for the crews it is watching. Grey alone did not take it out of the
+   scan; the size does. */
+.trowOut .trowClockVal { font-size: 17px; font-weight: 700; color: var(--ink-dim); }
 
 /* identity — the only elastic track, so it takes whatever the fixed ones leave */
 .trowId { min-width: 0; }

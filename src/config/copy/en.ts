@@ -23,7 +23,9 @@ import type { Copy, Localizable } from './index'
 
 export const en: Localizable<Copy> = {
   loadingSubtitle: 'Loading map & symbol library …',
-  modes: { map: 'Map', plans: 'Plan', checklists: 'Checklist', atemschutz: 'SCBA', anwesenheit: 'Attendance', mittel: 'Material', rapport: 'Report' },
+  // «Teams», matching `atemschutz.boardTitle` — the surface carries work squads too, so naming it
+  // «SCBA» told a traffic-control team it was in the wrong place (see de.ts for the full note).
+  modes: { map: 'Map', plans: 'Plan', checklists: 'Checklist', atemschutz: 'Teams', anwesenheit: 'Attendance', mittel: 'Material', rapport: 'Report' },
   navRail: { map: 'Map', plansGroup: 'Plans', assign: 'Assign plan', expand: 'Expand', collapse: 'Collapse', resize: 'Resize bar',
     scrollMore: 'Show more',
   },
@@ -53,7 +55,7 @@ export const en: Localizable<Copy> = {
             '**Situation** – the tactical map with symbols, lines, areas and the utility layers.',
             '**Plan** – the object plans (Modules 1–6, building outlines) as a whiteboard, storey by storey.',
             '**Checklist** – runnable incident checklists.',
-            '**SCBA** – monitoring of deployed teams with time and pressure.',
+            '**Teams** – monitoring of deployed teams with time and pressure, with and without SCBA.',
           ] },
           { kind: 'note', text: 'Guiding principle: usable at 3am, after six months without practice. Recognition over recall, usable with gloves and offline.' },
         ],
@@ -92,7 +94,7 @@ export const en: Localizable<Copy> = {
           { kind: 'sub', text: 'Switching areas' },
           { kind: 'list', items: [
             'Numbers open the plan module with that number – which ones exist depends on this brigade’s modules: [[1]] module 1, [[2]] or [[3]] the «2/3» module, [[4]] module 4 …',
-            '[[K]] Map · [[C]] Checklist · [[A]] SCBA · [[P]] Attendance · [[M]] Materiel · [[R]] Report – each is the first letter of the GERMAN word, because that is what the key is bound to.',
+            '[[K]] Map · [[C]] Checklist · [[A]] Teams (A as in Atemschutz) · [[P]] Attendance · [[M]] Materiel · [[R]] Report – each is the first letter of the GERMAN word, because that is what the key is bound to.',
             '[[⌘]] [[[]] / [[⌘]] [[]]] steps through all areas one at a time (including Surroundings and Building, which have no number).',
           ] },
           { kind: 'sub', text: 'Tools (identical in Situation and Plan)' },
@@ -188,7 +190,7 @@ export const en: Localizable<Copy> = {
         ],
       },
       {
-        id: 'atemschutz', title: 'SCBA monitoring', icon: 'gauge',
+        id: 'atemschutz', title: 'Teams & SCBA monitoring', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Gap-free monitoring of every SCBA team per FKS – the safety signal is the **time since last radio contact**, not an estimated remaining time.' },
           { kind: 'sub', text: 'Create a team' },
@@ -1053,7 +1055,6 @@ export const en: Localizable<Copy> = {
     zielClear: 'Clear assignment / target',
     leaderLabel: 'Team leader',
     memberLabel: 'Member',
-    guestNamePlaceholder: 'Name',
     teamEmpty: 'Nobody on this team yet. Tap a name below.',
     teamSearchPlaceholder: 'Search person …',
     teamNoMatches: 'No match',
@@ -1062,8 +1063,7 @@ export const en: Localizable<Copy> = {
     teamRemove: 'Take {name} off the team',
     teamTaken: 'on a team',
     teamManual: 'guest',
-    teamTypeName: 'Type a name (guest / mutual aid)',
-    teamAdd: 'Add',
+    teamGuestAdd: 'Add «{name}» as a guest / mutual aid',
     lineNoLabel: 'Line no.',
     lineLegacyNote: 'Previously recorded: “{value}”',
     lineOptsLabel: 'Drawn:',
@@ -1132,6 +1132,7 @@ export const en: Localizable<Copy> = {
     readingsHead: 'Readings',
     cardMenu: 'More actions',
     bandPreEntry: 'Not yet deployed',
+    bandRegisteredAt: 'registered at',
     zoneTimes: 'Times',
     lastContactAt: 'Last contact',
     nextContactDue: 'Next due',
@@ -1433,7 +1434,7 @@ export const en: Localizable<Copy> = {
     selectTrupp: 'Which team?',
     newTeam: 'New team',
     truppPlacedHere: 'already here',
-    showTrupp: 'Show in SCBA',
+    showTrupp: 'Show in Teams',
     markPosition: 'Mark position',
     positionMarked: '{name}: position marked',
     clearTrail: 'Clear trail',
@@ -1853,7 +1854,7 @@ export const en: Localizable<Copy> = {
   },
   offline: {
     title: 'Offline readiness',
-    browserTitle: 'Offline needs the installed app',
+    browserTitle: 'Reliably offline as the installed app',
     browserBody: 'Nothing is reliably stored in a browser tab: map tiles, plans and utility layers can be cleared at any time, and the tab has to still be open at the next incident. Installed, KP Front runs with no signal.',
     browserNoInstall: 'This device offers no installation. For use without a signal, install KP Front on the tablet or phone.',
     syncNow: 'Sync now',
@@ -2316,7 +2317,7 @@ export const en: Localizable<Copy> = {
     proofBroken: 'Hash chain broken',
     proofBrokenAt: 'Hash chain broken at #{seq}',
     areaManual: 'Manual',
-    areaAtemschutz: 'SCBA',
+    areaAtemschutz: 'Teams',
     areaAnwesenheit: 'Attendance',
     areaMittel: 'Material',
     areaChecklist: 'Checklist',
@@ -2449,6 +2450,8 @@ export const en: Localizable<Copy> = {
     shareCreate: 'Create link',
     shareBusy: 'Creating link …',
     shareLoading: 'Loading link …',
+    shareLoadFailed: 'The link could not be loaded.',
+    shareRetry: 'Try again',
     shareCreateFailed: 'Creating the link failed',
     shareCopy: 'Copy address',
     shareCopied: 'Copied',
@@ -2465,15 +2468,15 @@ export const en: Localizable<Copy> = {
     shareKindLabel: 'What the link opens',
     shareKindFull: 'Whole incident',
     shareKindFullSub: 'read only',
-    shareKindAtem: 'SCBA only',
+    shareKindAtem: 'Teams only',
     shareKindAtemSub: 'operate',
-    shareAsLede: 'Whoever opens the link sees only this incident’s SCBA monitoring and operates '
-      + 'it: register a team, contact, pressure, withdrawal, out. No map, no log. Valid until '
-      + 'the incident is closed.',
+    shareAsLede: 'Whoever opens the link sees only this incident’s team board – the SCBA '
+      + 'monitoring – and operates it: register a team, contact, pressure, withdrawal, out. No '
+      + 'map, no log. Valid until the incident is closed.',
     shareAsLiveLede: 'Valid until the incident is closed – or until you revoke it.',
     shareAsWarn: 'Whatever is entered there appears in the report’s SCBA log. Give the link only '
       + 'to the person doing the monitoring.',
-    shareAsRevokeTitle: 'Revoke the SCBA link?',
+    shareAsRevokeTitle: 'Revoke the link to the team board?',
     shareAsRevokeBody: 'The address stops working. Anyone with the board open can no longer enter '
       + 'anything. A new link can be created at any time – it is then a different address.',
     linksCount: '{done} of {n} done',
@@ -4184,7 +4187,7 @@ export const en: Localizable<Copy> = {
     hint: 'Also searches names within a team.',
     noMatches: 'No team found',
     empty: 'No team placed yet.',
-    emptyHint: 'Teams are placed on the situation or on a plan — from the SCBA card or with the team tool.',
+    emptyHint: 'Teams are placed on the situation or on a plan — from the team card under «Teams» or with the team tool.',
     raus: 'out',
   },
   symbolAliases: {

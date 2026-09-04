@@ -2409,19 +2409,6 @@ export function ReportPreflight({
             )}
           </div>
 
-          {/* ── Weitergeben ─────────────────────────────────────────────────────────────
-              A section of its own, below the checklist. Never on paper: the printed Rapport is
-              the record, and «wer darf das hier lesen» is not part of it. Absent for a viewer —
-              handing the Einsatzakte out of the station is an editor's decision. */}
-          {canEdit && (
-            <section className="report-pre-section rp-share" data-tab="beilagen">
-              <h3>{P.shareHead}</h3>
-              {/* `archived` because the Rapport is most often opened AFTER the Abschluss, and
-                  the Atemschutz link is dead by then — a tab leading to a 404 belongs to nobody. */}
-              <ShareIncident incidentId={incident.id} archived={incident.is_archived} />
-            </section>
-          )}
-
           {/* The Kroki, on the page. It was a modal that opened on the press of PDF / Ausdrucken,
               so the crop was chosen blind for the whole time the rapport was being written and
               then decided in a hurry, on top of a surface that had itself just stopped being a
@@ -2464,6 +2451,25 @@ export function ReportPreflight({
                   captionMode={scene?.captionMode ?? 'auto'}
                   onViewChange={(v) => patchOpt({ krokiView: v })}
                 />
+            </section>
+          )}
+
+          {/* ── Weitergeben ─────────────────────────────────────────────────────────────
+              A section of its own (01.09.), and since 04.09. the LAST one on the page. Never on
+              paper: the printed Rapport is the record, and «wer darf das hier lesen» is not part
+              of it. Absent for a viewer — handing the Einsatzakte out of the station is an
+              editor's decision.
+              ⚠️ It used to sit between «Formulare & Links» and the Kroki, in the middle of the
+              column, where a QR the size of a hand cut the checklist in two and read as a step in
+              it. It is not one: handing the Einsatzakte out is what one does AFTER the rapport is
+              written, so it closes the page instead of interrupting it. Nothing about the section
+              itself changed — same `data-tab`, same surface, same «Teilen» sheet inline. */}
+          {canEdit && (
+            <section className="report-pre-section rp-share" data-tab="beilagen">
+              <h3>{P.shareHead}</h3>
+              {/* `archived` because the Rapport is most often opened AFTER the Abschluss, and
+                  the Atemschutz link is dead by then — a tab leading to a 404 belongs to nobody. */}
+              <ShareIncident incidentId={incident.id} archived={incident.is_archived} />
             </section>
           )}
 

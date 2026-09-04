@@ -64,12 +64,11 @@ const mount = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => {
   return props
 }
 
-/** Name a Gruppenführer by hand in the open Trupp form — the roster is empty in these tests, so
- *  «Name eingeben» is the only door (TruppTeam · teamTypeName). */
+/** Name a Gruppenführer by hand in the open Trupp form. Since 04.09. the SEARCH field is the
+ *  guest entry (TruppTeam): type the name, then take the Gast row the list grows for it. */
 const typeGuest = (name: string) => {
-  fireEvent.click(screen.getByRole('button', { name: az.teamTypeName }))
-  fireEvent.change(screen.getByLabelText(az.typeName), { target: { value: name } })
-  fireEvent.click(screen.getByRole('button', { name: az.teamAdd }))
+  fireEvent.change(screen.getByLabelText(az.teamSearchPlaceholder), { target: { value: name } })
+  fireEvent.click(screen.getByRole('option', { name: fillTemplate(az.teamGuestAdd, { name }) }))
 }
 
 describe('the inline Druckmeldung', () => {
@@ -132,6 +131,42 @@ describe('the state a tier cannot say', () => {
     expect(screen.queryByText(az.sinceContact)).toBeNull()
   })
 
+  /* ⚠️ «Nicht eingesetzt» gets NO running clock (04.09.). A Sicherungstrupp that was stood down
+   * without ever going under PA wore the break clock under «Draussen seit» — the card's loudest
+   * element, ticking — which claims the crew came out of something AND presses for a recovery
+   * nobody has to take. What it has is the moment it was announced: a time, not a duration. */
+  it('gives a Trupp that never went in its Anmeldezeit, and no clock at all', () => {
+    mount({ trupps: [{
+      ...aktivTrupp(), status: 'raus', entryTime: '', exitTime: iso(5 * 60_000),
+      readings: [{ t: iso(40 * 60_000), bar: 300, kind: 'registered' }],
+    }] })
+    expect(screen.getByText(az.statusNotDeployed)).toBeTruthy()
+    expect(screen.getByText(az.bandRegisteredAt)).toBeTruthy()
+    // the break clock's own caption is exactly what must NOT stand over this card
+    expect(screen.queryByText(az.outFor)).toBeNull()
+    // …and the value beside it is a wall-clock time, never a running mm:ss
+    const band = document.querySelector(`.${s.bandVal}`)!
+    expect(band.textContent).toMatch(/^\d{2}:\d{2}$/)
+  })
+
+  /* …and BOTH out states hand the loud type back. The 40px bold number belongs to the crews that
+   * are inside — that is the reading order of the whole board — and a break clock in the same
+   * weight put a Trupp nobody is watching at the top of the eye's list. */
+  it('draws both out states quietly, and leaves the loud band to the crews inside', () => {
+    for (const t of [
+      { ...aktivTrupp(), status: 'raus' as const, exitTime: iso(5 * 60_000) },
+      { ...aktivTrupp(), status: 'raus' as const, entryTime: '', exitTime: iso(5 * 60_000),
+        readings: [{ t: iso(40 * 60_000), bar: 300, kind: 'registered' as const }] },
+    ]) {
+      cleanup()
+      mount({ trupps: [t] })
+      expect(document.querySelector(`.${s.band}`)!.className).toContain(s.bandQuiet)
+    }
+    cleanup()
+    mount() // still inside: this is the one card that keeps the big number
+    expect(document.querySelector(`.${s.band}`)!.className).not.toContain(s.bandQuiet)
+  })
+
   it('keeps «Einrücken» explained on a Trupp under Atemschutz — and only there', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }] })
     expect(screen.getByText(az.preEntryHint)).toBeTruthy()
@@ -182,6 +217,31 @@ describe('an abgeschlossener Einsatz (frozenAt)', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+/* ⚠️ Field report, 04.09.: opening a Trupp on the phone moved the toggle's chevron from the right
+ * edge of the row to the LEFT edge of the card head, «to make room for the ⋯» — and the pixel the
+ * thumb had just pressed became the ⋯, whose menu carries «Entfernen». One control drawn twice has
+ * to stay in one place; the far-right slot was originally kept clear to shield a bin that has been
+ * inside the ⋯ since 03.09. */
+describe('the row ⇄ card toggle keeps its place', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+
+  it('leaves the collapse chevron at the trailing edge, with the ⋯ inside it', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [aktivTrupp()] })
+    // the closed row: the chevron is the row's last child
+    const row = document.querySelector(`.${s.trow}`)!
+    expect(row.lastElementChild!.className).toContain(s.trowChevron)
+
+    fireEvent.click(row)
+    const head = document.querySelector(`.${s.cardHead}`)!
+    const chevron = screen.getByRole('button', { name: az.collapse })
+    const menu = screen.getByRole('button', { name: az.cardMenu })
+    expect(head.lastElementChild).toBe(chevron)
+    // …and the ⋯ sits before it, never in the slot the chevron was tapped in
+    expect(chevron.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
   })
 })
 
@@ -711,5 +771,31 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(ziel()).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: az.auftragLabels.anderes }))
     expect(ziel()).toBeTruthy()
+  })
+})
+
+/* ⚠️ Field report, 04.09.: on a 66-person Mannschaft the Gast door — «Name eingeben (Gast /
+ * Nachbarwehr)», the second field — sat BELOW the whole roster list, so the one case the list
+ * cannot answer was the case whose answer sat furthest away. There is no second field any more:
+ * the SEARCH is the name entry, and the door is the last row of the list, present only while
+ * something is typed. The full behaviour is pinned in TruppTeam.test.tsx; this one checks that
+ * the form the operator actually opens still gets a Gast into the Trupp. */
+describe('the Gast door in the person picker', () => {
+  const roster = Array.from({ length: 40 }, (_, i) => ({
+    id: `p${i}`, displayName: `Muster ${String(i).padStart(2, '0')}`, active: true,
+    updatedAt: '2026-09-04T06:00:00.000Z',
+  }))
+
+  it('takes a Gast straight out of the search, with no second field to find', () => {
+    mount({ trupps: [aktivTrupp()], personnel: roster })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    const list = screen.getByRole('listbox', { name: az.sectionTeam })
+
+    // at rest the list is the Mannschaft and nothing else — no permanent Gast row
+    expect(within(list).getAllByRole('option').length).toBe(roster.length)
+    typeGuest('Frei Nadja')
+    expect(screen.getByText('Frei Nadja')).toBeTruthy()
+    // …and the query is cleared, so the list is the whole Mannschaft again for the next member
+    expect((screen.getByLabelText(az.teamSearchPlaceholder) as HTMLInputElement).value).toBe('')
   })
 })

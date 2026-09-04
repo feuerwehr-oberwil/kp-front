@@ -188,6 +188,27 @@ export function truppNeverDeployed(t: Trupp): boolean {
 }
 
 /**
+ * When this Trupp was ANNOUNCED at the Tafel (epoch ms), or null on a record that carries no
+ * `registered` row at all.
+ *
+ * The one honest «seit wann» for a Trupp that never went in (`truppNeverDeployed`): its card used
+ * to run the break clock under «Draussen seit», which is a statement about a crew coming back out
+ * of something — and a ticking number urging a recovery nobody has to take. What it has instead is
+ * the moment somebody put it on the board, and that is a TIME, not a duration: it does not tick.
+ *
+ * The LAST such row, not the first: «Wieder einrücken» as Sicherungstrupp appends a fresh
+ * `registered` (useTruppActions · reactivateTrupp · standby), and the card is about the run the
+ * crew is in now — the same boundary `currentRunStart` draws for the pressure numbers.
+ */
+export function truppRegisteredAt(t: Trupp): number | null {
+  const readings = t.readings ?? []
+  for (let i = readings.length - 1; i >= 0; i--) {
+    if (readings[i].kind === 'registered') return ms(readings[i].t) || null
+  }
+  return null
+}
+
+/**
  * Alarm tier from the contact clock alone: 0 silent · 1 fällig · 2 overdue.
  * Tier 1 is the amber "Kontakt fällig" from the interval mark (FKS-Standard: 5 min); tier 2 is
  * the hard überfällig alarm once the `contactGraceSec` on top has passed too (default: +1 min).

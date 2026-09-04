@@ -56,21 +56,23 @@ export function TruppTeam({
   onAddGuest?: (name: string) => string | undefined
 }) {
   const az = appConfig.copy.atemschutz
+  /* ONE field (04.09.). There used to be two: a search, and — after the whole roster list — a
+   * «Name eingeben (Gast / Nachbarwehr)» link that unfolded a second input. On a 66-person
+   * Mannschaft that link sat below the list, so the one case where the list has no answer was the
+   * case where the answer was furthest away; and the two fields asked the same question («wer»)
+   * in two places, one of which had to be found first.
+   * So the search IS the guest entry: type a name, and if the Mannschaft cannot answer, the last
+   * row of the list offers to take that name as a Gast. Nothing is typed twice and there is no
+   * permanent Gast row standing over a roster that usually has the person on it. */
   const [q, setQ] = useState('')
-  // the guest / Nachbarwehr path — the ONE place a keyboard opens on this surface
-  const [typing, setTyping] = useState(false)
-  const [typed, setTyped] = useState('')
-  const typedRef = useRef<HTMLInputElement>(null)
   // An empty slot LOOKS like the field it is not: people tap it and wait for a keyboard. It
-  // stays a slot — names are picked from the Mannschaft below — so the tap points at the search,
-  // at the list AND at the Gast link: caret in the field, and all three blink once so the eye
-  // follows the finger. Same pointing gesture the card flash makes (.cardFlash), never a state
-  // that stays.
+  // stays a slot — names are picked from the Mannschaft below — so the tap points at the search
+  // AND at the list: caret in the field, and both blink once so the eye follows the finger. Same
+  // pointing gesture the card flash makes (.cardFlash), never a state that stays.
   // ⚠️ Not just the field. The search is only how you NARROW the list; the list is where the
   // names actually are, and blinking the field alone sent people looking for a keyboard again.
-  // ⚠️ …and the Gast link with them: when the person is NOT on the Mannschaft, neither the field
-  // nor the list can answer, and the control that can was the only one left dark. It is a
-  // highlight, not a focus steal — the search field stays where the caret goes.
+  // (The Gast link used to blink with them. It is gone — the answer for somebody who is not on
+  // the Mannschaft now appears IN the list, so the list is already the thing being pointed at.)
   const searchRef = useRef<HTMLInputElement>(null)
   const [hint, setHint] = useState(false)
   const pointAtSearch = () => {
@@ -142,42 +144,46 @@ export function TruppTeam({
   const promoteByHold = (i: number) => { heldAt.current = Date.now(); promote(i) }
   const clickAfterHold = () => Date.now() - heldAt.current < 600
 
-  const submitTyped = () => {
-    const name = typed.trim()
-    if (!name) return
-    // A Gast under PA was at the Einsatz — that is not in question, it is the premise of putting
-    // them in a Trupp. They used to have to be added to the Anwesenheit by hand afterwards, and
-    // a name that only ever existed on a Trupp card reaches neither the Personalblatt nor the
-    // statistics export.
-    // ⚠️ …and the slot keeps the id the Anwesenheit gave them, so the two rows are the SAME
-    // person to everything downstream: the roster row locks and wears the PA badge, the picker
-    // says «in einem Trupp», and «einer, ein Trupp» holds for a Nachbarwehr too. Added by name
-    // only, the Gast was two unrelated entries that happened to read alike.
-    add({ name, personId: onAddGuest?.(name) })
-    setTyped('')
-    setTyping(false)
+  /** What the query would be taken as, if it is taken as a name at all. */
+  const typedName = q.trim()
+
+  /* The Gast / Nachbarwehr commit. Deliberately EXPLICIT — a tap on the action row, or Enter on a
+   * query the Mannschaft cannot answer.
+   * ⚠️ It no longer commits on blur or on unmount (04.09.), and that reversal is the price of the
+   * shared field: a half-typed «Hub» is a SEARCH in progress, and the old auto-commit would have
+   * put a person called «Hub» in the Trupp the moment the field lost focus. The rule it replaced
+   * («a typed name is never silently dropped») was about a field that could only ever have been a
+   * name; this one is a name only once somebody says so.
+   *
+   * A Gast under PA was at the Einsatz — that is not in question, it is the premise of putting
+   * them in a Trupp. They used to have to be added to the Anwesenheit by hand afterwards, and a
+   * name that only ever existed on a Trupp card reaches neither the Personalblatt nor the
+   * statistics export.
+   * ⚠️ …and the slot keeps the id the Anwesenheit gave them, so the two rows are the SAME person
+   * to everything downstream: the roster row locks and wears the PA badge, the picker says «in
+   * einem Trupp», and «einer, ein Trupp» holds for a Nachbarwehr too. Added by name only, the
+   * Gast was two unrelated entries that happened to read alike. */
+  const addGuest = () => {
+    if (!typedName) return
+    add({ name: typedName, personId: onAddGuest?.(typedName) })
   }
-  /* A typed name is COMMITTED, never silently dropped. Enter and «+» were the only commits, so
-   * typing a Gast and then tapping «Trupp starten» (or anything else) discarded the name without
-   * a word — the member the operator could see in the field was not in the Trupp they started.
-   * So the field commits when focus leaves it: the blur lands before the tap's click, which is
-   * exactly what lets the form's submit see the member. Tapping «+» is covered by the same blur
-   * (never twice — the commit clears `typed` before the click could re-read it); the row's own
-   * ✕ is the ONE deliberate discard, so its pointerdown (which fires before the blur) raises a
-   * flag the blur respects. */
-  const typedCancel = useRef(false)
-  const onTypedBlur = () => {
-    if (typedCancel.current) { typedCancel.current = false; return }
-    submitTyped()
+
+  /* Enter keeps the keyboard flow one step, and it never has to be aimed: with matches on screen
+   * it takes the first one that can be taken (the list is already sorted the way the hand
+   * expects — present first, then seniority); with NO matches the query can only have been a
+   * name, so it becomes the Gast. A list whose every match is already in another Trupp does
+   * nothing: those rows are shown greyed for a reason, and inventing a Gast with the same name is
+   * the one outcome nobody meant. */
+  const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    if (filtered.length) {
+      const first = filtered.find((o) => !o.taken)
+      if (first) add({ name: first.name, personId: first.personId })
+      return
+    }
+    addGuest()
   }
-  // …and once more on unmount, for the teardown paths where no blur fires (the modal closing
-  // around a still-focused field). Via a per-render ref so the cleanup sees the latest text;
-  // after a blur commit `typed` is already empty, so this can never double-add.
-  const flushTyped = useRef<(() => void) | null>(null)
-  useEffect(() => {
-    flushTyped.current = () => { if (!typedCancel.current) submitTyped() }
-  })
-  useEffect(() => () => flushTyped.current?.(), [])
 
   return (
     <div className={s.team}>
@@ -247,12 +253,17 @@ export function TruppTeam({
       </ul>
 
       {/* THE MANNSCHAFT. A search box rather than a scroll list: on a 66-person roster the old
-          dropdown was the surface people complained about first. */}
+          dropdown was the surface people complained about first — and since 04.09. it is also
+          where a Gast is typed, so this is the ONE field on the block. `maxLength` is the name's,
+          not the search's: whatever stands here can end up on the Personalblatt.
+          ⚠️ `stripUnprintable` on the way IN, for the same reason — the query is a search until
+          the moment it is committed as a name, and there is no second field left to clean it. */}
       <label className={cx(s.teamSearch, hint && s.teamSearchHint)}>
         <Icon id="search" />
         <input
           ref={searchRef}
-          value={q} onChange={(e) => setQ(e.target.value)} inputMode="search"
+          value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} inputMode="search"
+          maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
           placeholder={az.teamSearchPlaceholder} aria-label={az.teamSearchPlaceholder}
         />
         {q && (
@@ -288,39 +299,27 @@ export function TruppTeam({
           </li>
         ))}
         {!filtered.length && <li className={s.comboEmpty}>{needle ? az.teamNoMatches : az.noRoster}</li>}
+        {/* THE GAST DOOR, and it exists only while something is typed (04.09.). It carries the
+            query in its own label, so the row states what pressing it will do rather than opening
+            a second field to say it again — «"Keller" als Gast / Nachbarwehr hinzufügen». With an
+            empty query there is nothing to take and no row: a permanent «Name eingeben» line over
+            a roster that usually HAS the person was the old shape, and it is what put the escape
+            hatch below 66 rows in the first place.
+            ⚠️ LAST, under the matches, and that is not a reachability problem: a name the
+            Mannschaft cannot answer leaves few matches or none, so this row is right under the
+            thumb exactly when it is the row that is wanted. */}
+        {typedName && (
+          <li>
+            <button
+              type="button" className={cx(s.comboOpt, s.comboType)}
+              role="option" aria-selected={false} onClick={addGuest}
+            >
+              <Icon id="type" />
+              <span className={c.name}>{fillTemplate(az.teamGuestAdd, { name: typedName })}</span>
+            </button>
+          </li>
+        )}
       </ul>
-
-      {/* Guests / Nachbarwehr / an AdF whose roster row never synced. Same escape hatch the slot
-          picker had, in the same words — it is the one control here that opens a keyboard. */}
-      {typing ? (
-        <div className={s.teamTypeRow}>
-          <input
-            ref={typedRef} autoFocus className={s.teamTypeInput} value={typed} maxLength={40}
-            placeholder={az.guestNamePlaceholder} aria-label={az.typeName}
-            // focusing also drops a stale cancel flag (a ✕ press that never became a click)
-            onFocus={(e) => { typedCancel.current = false; caretToEnd(e) }}
-            onChange={(e) => setTyped(stripUnprintable(e.target.value))}
-            onBlur={onTypedBlur}
-            onKeyDown={(e) => {
-              // Escape empties the field first, so neither a blur nor the unmount flush re-adds it
-              if (e.key === 'Enter') { e.preventDefault(); submitTyped() }
-              else if (e.key === 'Escape') { setTyped(''); setTyping(false) }
-            }}
-          />
-          <button
-            type="button" className={s.teamTypeAdd} disabled={!typed.trim()}
-            title={az.teamAdd} aria-label={az.teamAdd} onClick={submitTyped}
-          ><Icon id="plus" /></button>
-          {/* the explicit discard — its pointerdown beats the input's blur (see onTypedBlur) */}
-          <button type="button" className={s.slotRemove} aria-label={az.cancel} title={az.cancel}
-            onPointerDown={() => { typedCancel.current = true }}
-            onClick={() => { typedCancel.current = false; setTyped(''); setTyping(false) }}><Icon id="close" /></button>
-        </div>
-      ) : (
-        <button type="button" className={cx(s.linkBtn, hint && s.linkBtnHint)} onClick={() => setTyping(true)}>
-          <Icon id="type" /><span>{az.teamTypeName}</span>
-        </button>
-      )}
     </div>
   )
 }

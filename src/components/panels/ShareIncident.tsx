@@ -143,10 +143,20 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
   // Keyed by kind, so switching back to one already fetched is instant instead of a second
   // «noch keiner» flash over a link that exists. Never mints anything — see the effect below.
   const [links, setLinks] = useState<Partial<Record<ShareLinkKind, ShareLink>>>({})
+  /* ⚠️ …and «die Frage kam nicht durch» is a THIRD state (04.09., field report: the sheet was
+     reopened and stood on «Link erstellen» although a link existed; creating again then showed
+     the QR). The mount fetch swallowed its failures in a bare `.catch(() => {})`, which left the
+     cache entry undefined for good — so the sheet either sat on «wird geladen» until it was
+     closed, or, worse, a stale/partial cache dropped it to the create layout over a link that was
+     already handed out. Nothing about a failed GET says there is no link, so this state renders
+     neither: it says the load failed and offers the question again. (Minting twice would not
+     actually orphan anything — POST hands back the existing secret, api/incidents · idempotent —
+     but it is still an answer the sheet has no business inventing.) */
+  const [failed, setFailed] = useState<Partial<Record<ShareLinkKind, boolean>>>({})
   const link = links[kind] ?? null
   // ⚠️ «Noch nicht gefragt» and «gibt es keinen» are two different states, and collapsing them
   // into one `null` is what made this sheet flash. See the pending branch below.
-  const pending = links[kind] === undefined
+  const pending = links[kind] === undefined && !failed[kind]
   const [busy, setBusy] = useState(false)
 
   // `onState` is read through a ref: a caller passing an inline arrow must not re-run the fetch.
@@ -155,6 +165,9 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
 
   const setLink = (k: ShareLinkKind, l: ShareLink) => {
     setLinks((prev) => ({ ...prev, [k]: l }))
+    // an answer clears the failure it replaces — a retry that lands must leave no trace of the
+    // attempt that did not
+    setFailed((prev) => (prev[k] ? { ...prev, [k]: false } : prev))
     report.current?.(k, l)
   }
 
@@ -166,6 +179,21 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
   // set on mount, not only cleared on unmount: StrictMode runs mount → cleanup → mount, and a
   // ref left false after that would drop every fetch answer for the life of the sheet
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+
+  /** Ask the server for one door's state. It RECORDS a rejection instead of swallowing it, so
+   *  «asked and refused» can never be confused with «not asked yet» — that pair is what the
+   *  layouts below branch on, and a bare `.catch(() => {})` is how they got confused in the first
+   *  place. Also the retry: the same call the mount makes, so a link that loads on the second try
+   *  is in no different a state than one that loaded on the first.
+   *  ⚠️ It writes nothing SYNCHRONOUSLY — the mount effect calls it in a loop, and clearing a
+   *  stale failure from in here would be a setState inside an effect body. The retry clears its
+   *  own, which is the only caller that can have one to clear. */
+  const load = (k: ShareLinkKind) => {
+    void fetchShareLink(incidentId, k)
+      .then((l) => { if (mounted.current) setLink(k, l) })
+      .catch(() => { if (mounted.current) setFailed((prev) => ({ ...prev, [k]: true })) })
+  }
+
   /* ⚠️ EVERY door on offer is fetched on MOUNT, not just the one on screen (04.09.). Fetching per
      tab meant that the first switch swapped in a kind nothing was known about yet, so the sheet
      fell back to the whole «noch keiner» layout — lede plus «Link erstellen» — and then jumped to
@@ -177,7 +205,7 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
   useEffect(() => {
     for (const d of doors) {
       if (links[d.kind]) continue // already known — switching kinds must not re-ask
-      void fetchShareLink(incidentId, d.kind).then((l) => { if (mounted.current) setLink(d.kind, l) }).catch(() => {})
+      load(d.kind)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `links` is the cache this reads, not a trigger
   }, [incidentId, doorKeys])
@@ -224,6 +252,25 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
         <p className="esh-lede esh-pending" aria-busy="true">
           <Icon id="rotate" className="spin" />{C.shareLoading}
         </p>
+      </>
+    )
+  }
+  /* ⚠️ …and the same restraint when the question came back unanswered. «Konnte nicht geladen
+     werden» is not «es gibt keinen»: the ONE thing this branch must never do is offer «Link
+     erstellen», because that button mints and the sheet has no idea whether an address is already
+     out there. So it says what happened and hands back the same question. Above the create branch
+     on purpose — `!url` is true here too, and this is the more specific truth. */
+  if (failed[kind]) {
+    return (
+      <>
+        {picker}
+        <p className="esh-warn" role="status"><Icon id="warn" />{C.shareLoadFailed}</p>
+        {/* clearing the failure first is what puts the sheet back on the quiet «wird geladen» row
+            while the second attempt is in flight — otherwise the retry looks like it did nothing */}
+        <button type="button" className="ip-btn"
+          onClick={() => { setFailed((prev) => ({ ...prev, [kind]: false })); load(kind) }}>
+          <Icon id="rotate" />{C.shareRetry}
+        </button>
       </>
     )
   }

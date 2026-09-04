@@ -91,10 +91,11 @@ test('core surfaces render and survive reload', async ({ page }) => {
   await expect(page.locator('.whiteboard').first()).toBeVisible()
   await expectNoCrash(page, 'Plan')
 
-  // Atemschutz (SCBA board) — a heavy surface; prove it switches in and mounts clean.
-  await page.getByRole('button', { name: 'Atemschutz', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Atemschutz', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expectNoCrash(page, 'Atemschutz')
+  // Trupps (the Atemschutz/SCBA board, renamed 04.09. — it carries work squads too) — a heavy
+  // surface; prove it switches in and mounts clean.
+  await page.getByRole('button', { name: 'Trupps', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Trupps', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expectNoCrash(page, 'Trupps')
 
   // ⚠️ Checkliste / Anwesenheit / Material / Rapport are NOT driven here yet. Adding
   // them turned main red: the first three switched in, «Material» never reported

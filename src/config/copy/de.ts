@@ -23,8 +23,16 @@ export interface HelpSection { id: string; title: string; icon: string; blocks: 
 
 export const de = {
   loadingSubtitle: 'Karte & Symbolbibliothek werden geladen …',
-  modes: { map: 'Karte', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Atemschutz', anwesenheit: 'Anwesenheit', mittel: 'Material', rapport: 'Rapport' },
-  // the left navigation rail (Karte · Pläne group · Checkliste · Atemschutz)
+  // ⚠️ «Trupps», nicht «Atemschutz» (04.09.). Die Fläche führt seit 03.09. BEIDE Arten Trupp — die
+  // Atemschutztrupps oben, die Arbeitstrupps darunter (atemschutz.sectionPlain) —, und ein Bereich,
+  // der «Atemschutz» heisst, sagt einem Verkehrstrupp, er gehöre nicht hierher. Der Schlüssel bleibt
+  // `atemschutz`: er benennt die Route, nicht das Wort auf dem Schild. Die Taste bleibt ebenfalls
+  // [[A]] (lib/hotkeys · SURFACE_KEY) — Tasten umzustellen kostet die Hand mehr als der Name ihr
+  // bringt. Was «Atemschutzüberwachung» heisst, heisst weiterhin so: der gedruckte Abschnitt
+  // (report.atemschutz), sein Haken (preflight.toggleAtemschutz) und die abgegebene Tafel
+  // (atemschutz.title) — das sind Namen des Sicherheitsnachweises, nicht des Bereichs.
+  modes: { map: 'Karte', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Trupps', anwesenheit: 'Anwesenheit', mittel: 'Material', rapport: 'Rapport' },
+  // the left navigation rail (Karte · Pläne group · Checkliste · Trupps)
   // (no «Objekt wählen» any more: the rail is pure navigation, the object sits on the
   //  plan surface – see whiteboard.objectLabel)
   navRail: { map: 'Karte', plansGroup: 'Pläne', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
@@ -39,8 +47,8 @@ export const de = {
     // shown INSTEAD of the list when nothing is placed anywhere — the honest answer, and it
     // says where a Trupp comes from rather than leaving an empty box
     empty: 'Noch kein Trupp platziert.',
-    emptyHint: 'Trupps werden auf der Karte oder auf einem Plan platziert – über die Atemschutz-Karte oder das Trupp-Werkzeug.',
-    // the row's own status word, when the Atemschutz board says the Trupp has come back out
+    emptyHint: 'Trupps werden auf der Karte oder auf einem Plan platziert – über die Truppkarte unter «Trupps» oder das Trupp-Werkzeug.',
+    // the row's own status word, when the Trupp board says the Trupp has come back out
     raus: 'raus',
   },
   panels: { layers: 'Ebenen', history: 'Verlauf' },
@@ -78,7 +86,7 @@ export const de = {
             '**Karte** – die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
             '**Pläne** – Module und Gebäudeansichten dieser Wehr als taktische Arbeitsflächen, stockwerkweise.',
             '**Checkliste** – abarbeitbare Einsatz-Checklisten.',
-            '**Atemschutz** – Überwachung der eingesetzten Trupps mit Zeit und Druck.',
+            '**Trupps** – Überwachung der eingesetzten Trupps mit Zeit und Druck, mit und ohne Atemschutz.',
             '**Anwesenheit** – wer im Einsatz ist, mit Zeiten und Bemerkung; auch Gäste («Weitere Person»).',
             '**Material** – was eingesetzt wurde, aus dem Katalog oder frei erfasst.',
             '**Rapport** – der Einsatzrapport: ein vorausgefülltes Formular, das über den ganzen Einsatz hinweg ergänzt und am Schluss gedruckt wird.',
@@ -120,7 +128,7 @@ export const de = {
           { kind: 'sub', text: 'Bereiche wechseln' },
           { kind: 'list', items: [
             'Zahlen öffnen das Plan-Modul mit dieser Nummer – welche es gibt, richtet sich nach den Modulen dieser Wehr: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
-            '[[K]] Karte · [[C]] Checkliste · [[A]] Atemschutz · [[P]] Anwesenheit · [[M]] Material · [[R]] Rapport – jeweils der erste Buchstabe des Bereichs (Anwesenheit: P wie Personal).',
+            '[[K]] Karte · [[C]] Checkliste · [[A]] Trupps (A wie Atemschutz) · [[P]] Anwesenheit · [[M]] Material · [[R]] Rapport – jeweils der erste Buchstabe des Bereichs (Anwesenheit: P wie Personal).',
             '[[⌘]] [[[]] / [[⌘]] [[]]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
           { kind: 'sub', text: 'Werkzeuge (Karte & Plan gleich)' },
@@ -217,7 +225,7 @@ export const de = {
         ],
       },
       {
-        id: 'atemschutz', title: 'Atemschutzüberwachung', icon: 'gauge',
+        id: 'atemschutz', title: 'Trupps & Atemschutzüberwachung', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS – das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
           { kind: 'sub', text: 'Trupp erstellen' },
@@ -1531,10 +1539,8 @@ export const de = {
     moveForward: 'Karte nach hinten schieben',
     leaderLabel: 'Gruppenführer',
     memberLabel: 'AdF',
-    // ⚠️ NOT «(optional)». This is the row you opened in order to enter a Gast — the + beside
-    // it is disabled until it says something, so «optional» described the field before it
-    // existed rather than the one in front of you.
-    guestNamePlaceholder: 'Name',
+    // (`guestNamePlaceholder` / `teamAdd` are gone with the second field they belonged to — see
+    //  `teamGuestAdd` below. `typeName` stays: PersonField still opens a name field of its own.)
     // Trupp selection (TruppTeam) — a list to tap instead of three fixed fields. The three
     // fields could name a Trupp but not rearrange it: whoever was typed first was Gruppenführer
     // forever. The star is the correction, and it costs one tap.
@@ -1560,8 +1566,15 @@ export const de = {
     // roster row never synced. The SAME word the Anwesenheit uses for the same person
     // (anwesenheit.guestBadge): one thing, one name for it, on both screens.
     teamManual: 'Gast',
-    teamTypeName: 'Name eingeben (Gast / Nachbarwehr)',
-    teamAdd: 'Hinzufügen',
+    // Die Gast-Tür, seit 04.09. die LETZTE Zeile der Mannschaftsliste statt eines eigenen
+    // «Name eingeben»-Links darunter: das Suchfeld ist auch die Namenseingabe, und diese Zeile
+    // erscheint nur, solange etwas getippt ist. Sie trägt den getippten Namen selbst, damit die
+    // Zeile sagt, was der Tipp tut, statt ein zweites Feld zu öffnen, das es nochmals sagt.
+    // ⚠️ «Gast / Nachbarwehr» bleibt wörtlich stehen: das sind die beiden Fälle, die man an
+    // dieser Stelle wiedererkennen muss – und «Gast» ist dasselbe Wort, das die Anwesenheit für
+    // dieselbe Person führt (anwesenheit.guestBadge · teamManual oben).
+    // ⚠️ «hinzufügen», nicht «erstellen»: die Person kommt zu einem Trupp dazu, der schon da ist.
+    teamGuestAdd: '«{name}» als Gast / Nachbarwehr hinzufügen',
     // Leitung: the same number as on the drawn Leitung (Karte/Plan) — that is how Trupp and
     // Schlauchleitung find each other, without anybody typing anything twice.
     lineNoLabel: 'Leitung Nr.',
@@ -1684,6 +1697,11 @@ export const de = {
     cardMenu: 'Weitere Aktionen',
     // the state band on a Trupp still at the door — the long sentence below it stays the hint
     bandPreEntry: 'Noch nicht eingerückt',
+    // ⚠️ Die Unterzeile eines Trupps, der NIE eingerückt ist (truppNeverDeployed): keine laufende
+    // Uhr, sondern die Uhrzeit der Anmeldung. Bis 04.09. stand über ihm «Draussen seit» und eine
+    // tickende, fette Uhr – ein Sicherungstrupp, der nie unter Atemschutz war, las sich damit wie
+    // einer in der Erholungspause, und die Uhr drängte auf etwas, was niemand tun muss.
+    bandRegisteredAt: 'angemeldet um',
     // the folded timing rows, now the head of the Verlauf
     lastContactAt: 'Letzter Kontakt',
     nextContactDue: 'Nächster fällig',
@@ -2141,7 +2159,7 @@ export const de = {
     // A Trupp stands in exactly ONE place. Tapping it again in this list MOVES it — what was
     // meant was almost always a second Trupp. Hence greyed out instead of selectable.
     truppPlacedHere: 'schon hier',
-    showTrupp: 'Im Atemschutz zeigen',
+    showTrupp: 'Bei den Trupps zeigen',
     markPosition: 'Position markieren',
     positionMarked: '{name}: Position markiert',
     clearTrail: 'Spur löschen',
@@ -3472,7 +3490,11 @@ export const de = {
     // journalArea — the "Bereich" column value for a printed journal row. The names are the app's
     // own surface names (copy.modes), so a row can be found again where it was created.
     areaManual: 'Manuell',
-    areaAtemschutz: 'Atemschutz',
+    // ⚠️ «Trupps», mit dem Bereich (copy.modes, 04.09.). Die Spalte sammelt JEDE Truppzeile —
+    // auch die eines Trupps ohne Atemschutz —, und «Atemschutz» über einer Zeile «Verkehrstrupp
+    // angemeldet» wäre auf einem Rechtsdokument schlicht falsch. Der gedruckte ABSCHNITT heisst
+    // weiterhin «Atemschutzüberwachung» (report.atemschutz): der benennt den Sicherheitsnachweis.
+    areaAtemschutz: 'Trupps',
     areaAnwesenheit: 'Anwesenheit',
     areaMittel: 'Material',
     areaChecklist: 'Checkliste',
@@ -3729,6 +3751,13 @@ export const de = {
     // Solange die Antwort noch aussteht: «noch nicht gefragt» ist nicht «gibt es keinen», und
     // solange das offen ist, darf die Karte weder «Link erstellen» noch eine Adresse behaupten.
     shareLoading: 'Link wird geladen …',
+    // …und wenn die Frage gar nicht beantwortet wurde (offline, Server weg). ⚠️ Das ist NICHT
+    // «gibt es keinen»: bis 04.09. verschluckte das Blatt den Fehler und stand danach entweder
+    // ewig auf «wird geladen» oder — schlimmer — auf «Link erstellen» über einem Link, den es
+    // längst gab. Also sagt es, was passiert ist, und bietet die Frage nochmals an; erstellt
+    // wird erst wieder, wenn die Antwort da ist.
+    shareLoadFailed: 'Link konnte nicht geladen werden.',
+    shareRetry: 'Nochmals versuchen',
     shareCreateFailed: 'Link erstellen fehlgeschlagen',
     shareCopy: 'Adresse kopieren',
     shareCopied: 'Kopiert',
@@ -3761,15 +3790,21 @@ export const de = {
     shareKindLabel: 'Was der Link freigibt',
     shareKindFull: 'Ganzer Einsatz',
     shareKindFullSub: 'nur lesen',
-    shareKindAtem: 'Nur Atemschutz',
+    // ⚠️ «Nur Trupps» (04.09.), wie der Bereich jetzt heisst (copy.modes) — der Reiter benennt die
+    // TÜR, und die Tür führt auf die Trupp-Tafel. Was hinter ihr bedient wird, ist trotzdem die
+    // Atemschutzüberwachung, und genau das muss der Lauftext darunter weiterhin sagen: der Link
+    // gibt eine Sicherheitsaufgabe aus der Hand, nicht eine Liste.
+    shareKindAtem: 'Nur Trupps',
     shareKindAtemSub: 'bedienen',
-    shareAsLede: 'Wer den Link öffnet, sieht nur die Atemschutz-Überwachung dieses Einsatzes und '
-      + 'bedient sie mit: Trupp anmelden, Kontakt, Druck, Rückzug, Draussen. Keine Karte, kein '
-      + 'Verlauf. Gilt, bis der Einsatz abgeschlossen ist.',
+    shareAsLede: 'Wer den Link öffnet, sieht nur die Trupp-Tafel dieses Einsatzes – die '
+      + 'Atemschutzüberwachung – und bedient sie mit: Trupp anmelden, Kontakt, Druck, Rückzug, '
+      + 'Draussen. Keine Karte, kein Verlauf. Gilt, bis der Einsatz abgeschlossen ist.',
     shareAsLiveLede: 'Gilt, bis der Einsatz abgeschlossen ist – oder bis du ihn aufhebst.',
     shareAsWarn: 'Was hier eingetragen wird, steht im Atemschutz-Journal des Rapports. Gib den '
       + 'Link nur an die Person, die überwacht.',
-    shareAsRevokeTitle: 'Atemschutz-Link aufheben?',
+    // …und heisst wie der Reiter darüber («Nur Trupps»), dieselbe Regel wie bei shareRevokeTitle:
+    // ein Name pro Link.
+    shareAsRevokeTitle: 'Link zur Trupp-Tafel aufheben?',
     shareAsRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer die Tafel gerade offen '
       + 'hat, kann ab sofort nichts mehr eintragen. Ein neuer Link lässt sich jederzeit erstellen '
       + '– er ist dann eine andere Adresse.',

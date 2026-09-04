@@ -7,7 +7,7 @@ import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
@@ -1458,22 +1458,38 @@ function TruppCard({
      distinction between «Draussen» and «Nicht eingesetzt» would have reached no screen at all.
      What the Überwacher needs from then on is the break clock, so that is what the band holds. */
   const out = status === 'raus'
+  /* ⚠️ «Nicht eingesetzt» gets NO running clock (04.09.). A Sicherungstrupp that was stood down
+     without ever going under PA wore the break clock — big, bold, ticking, under «Draussen seit» —
+     and the whole treatment was a lie twice over: it claimed the crew had come out of something,
+     and its urgency pressed for a recovery nobody has to take. What it has is the moment it was
+     announced, which is a TIME and does not tick (lib/atemschutz · truppRegisteredAt). A record
+     old enough to carry no `registered` row simply shows the word alone rather than a dash. */
+  const neverDeployed = out && truppNeverDeployed(t)
+  const registeredAt = neverDeployed ? truppRegisteredAt(t) : null
   const bandWord = out || preEntry || !monitored
     ? (preEntry ? az.bandPreEntry : statusLabel)
     : pressureCrit ? az.clockAlarmPressure
     : sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
-  const bandSub = out ? az.outFor
+  const bandSub = neverDeployed ? (registeredAt != null ? az.bandRegisteredAt : '')
+    : out ? az.outFor
     // ⚠️ the long «…sobald der Trupp unter Atemschutz…» hint is NOT the sub-line: it repeats the
     // word above it and it names Atemschutz, which a work squad does not have. It is a hint, and
     // it sits in the hint zone (below) on the cards it is actually true for.
     : preEntry || !monitored ? az.elapsed
     : pressureCrit ? fillTemplate(az.clockAlarmLimit, { bar: line })
     : az.sinceContact
-  const bandValue = out ? fmtClock(live.outSec)
+  const bandValue = neverDeployed ? (registeredAt != null ? fmtTime(new Date(registeredAt).toISOString()) : '')
+    : out ? fmtClock(live.outSec)
     : preEntry ? fmtClock(null)
     : !monitored ? fmtClock(t.entryTime ? live.elapsedSec : null)
     : pressureCrit ? `${live.currentBar} bar`
     : fmtClock(live.sinceContactSec)
+  /* ⚠️ A Trupp that is OUT does not get the card's loudest element (04.09.). The 40px bold number
+     is reserved for a crew that is inside — that is the whole reading order of this board — and a
+     break clock in the same weight put a Trupp nobody is watching at the top of the eye's list.
+     Same facts, quiet type: `.bandQuiet` (Atemschutz.module.css). Covers both out states, the
+     never-deployed one included, which is a static time and had even less business shouting. */
+  const bandQuiet = out
 
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
   // as typed either way — an incident is a legal record, so nothing rewrites what was entered.
@@ -1558,15 +1574,6 @@ function TruppCard({
 
       {/* ── 1 Kopf ─────────────────────────────────────────────────────────────────────────── */}
       <div className={s.cardHead}>
-        {/* ⚠️ LEFT, and that is only safe because «Entfernen» moved into the menu. The collapse
-            used to be pinned to the far RIGHT precisely to shield the bin sitting beside it: tap
-            a row to open it, tap the same pixel again, and the Trupp was gone. With nothing
-            destructive up here any more, back belongs where back belongs. */}
-        {onCollapse && (
-          <button type="button" className={s.headBack} aria-label={az.collapse} title={az.collapse} onClick={onCollapse}>
-            <Icon id="chevron-up" />
-          </button>
-        )}
         {/* the colour this Trupp wears on the Lage / plan, so the card and the symbol out there
             read as the same Trupp.
             ⚠️ NOT on the lite board: a link session never sees the Lage or the plan, so the
@@ -1584,6 +1591,23 @@ function TruppCard({
             itemClassName={(danger) => cx('rp-print-menu-item', danger && 'rp-print-menu-danger')}
             items={menuItems}
           />
+        )}
+        {/* ⚠️ THE CHEVRON STAYS PUT (04.09., field report). This toggle is one control drawn
+            twice: on the closed row it is the ⌄ at the far right, and opening the card used to
+            move its ⌃ to the far LEFT — so the pixel the thumb had just pressed became the ⋯,
+            whose menu carries «Entfernen». A toggle that swaps ends between its two states is not
+            one control any more, and here the swap handed a mis-tap the one destructive menu on
+            the card. So it keeps the right edge, outside the ⋯, and the pair reads down the same
+            column as the Verlauf's own chevron at the foot of the card.
+            (It takes the trailing inset the ⋯ used to have — the head's own 8px right padding —
+            so `.headBack` no longer needs a pull of its own.)
+            The far-right slot was originally left free to shield a BIN that used to sit up here;
+            that bin has been inside the ⋯ since 03.09., and «open a menu» is a mis-tap one can
+            walk back out of. */}
+        {onCollapse && (
+          <button type="button" className={s.headBack} aria-label={az.collapse} title={az.collapse} onClick={onCollapse}>
+            <Icon id="chevron-up" />
+          </button>
         )}
       </div>
 
@@ -1627,14 +1651,17 @@ function TruppCard({
       <div className={cx(s.block, sev === 1 && s.blockWarn, sev >= 2 && s.blockCrit)}>
         {/* ⚠️ a live region ONLY where a clock is being watched. A work squad's band holds its
             Einsatzzeit, which changes every second — as a polite live region that is one spoken
-            announcement per second per Trupp, for a number nobody is being alerted about. */}
-        <div className={cx(s.band, sev === 1 && s.bandWarn, sev >= 2 && s.bandCrit)}
+            announcement per second per Trupp, for a number nobody is being alerted about.
+            ⚠️ The spoken label joins only the pieces that EXIST: a never-deployed Trupp on a record
+            with no `registered` row has neither a sub-line nor a value, and «Nicht eingesetzt — »
+            read out with the dash still attached is a sentence that promises a number. */}
+        <div className={cx(s.band, bandQuiet && s.bandQuiet, sev === 1 && s.bandWarn, sev >= 2 && s.bandCrit)}
           role={monitored ? 'status' : undefined}
           aria-live={!monitored ? undefined : sev >= 2 ? 'assertive' : 'polite'}
-          aria-label={monitored ? `${bandWord} — ${bandValue} ${bandSub}` : undefined}>
+          aria-label={monitored ? [bandWord, [bandValue, bandSub].filter(Boolean).join(' ')].filter(Boolean).join(' — ') : undefined}>
           <span className={s.bandTxt}>
             <span className={s.bandWord}>{bandWord}</span>
-            <small className={s.bandSub}>{bandSub}</small>
+            {bandSub && <small className={s.bandSub}>{bandSub}</small>}
           </span>
           <span className={s.bandVal}>{bandValue}</span>
         </div>

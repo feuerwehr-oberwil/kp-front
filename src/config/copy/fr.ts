@@ -24,7 +24,9 @@ import type { Copy, Localizable } from './index'
 
 export const fr: Localizable<Copy> = {
   loadingSubtitle: 'Chargement de la carte et de la bibliothèque de symboles …',
-  modes: { map: 'Carte', plans: 'Plan', checklists: 'Checklist', atemschutz: 'ARI', anwesenheit: 'Présence', rapport: 'Rapport',
+  // «Binômes», comme `atemschutz.boardTitle` — la surface porte aussi les binômes sans ARI, et
+  // «ARI» au-dessus d’un binôme circulation était faux (voir la note dans de.ts).
+  modes: { map: 'Carte', plans: 'Plan', checklists: 'Checklist', atemschutz: 'Binômes', anwesenheit: 'Présence', rapport: 'Rapport',
     mittel: 'Matériel',
   },
   navRail: { map: 'Carte', plansGroup: 'Plans', assign: 'Attribuer le plan', expand: 'Déplier', collapse: 'Replier', resize: 'Ajuster la barre',
@@ -52,7 +54,7 @@ export const fr: Localizable<Copy> = {
             '**Situation** – la carte tactique avec symboles, lignes, surfaces et les couches des réseaux.',
             '**Plan** – les plans d’objet (modules 1–6, contours de bâtiment) sous forme de tableau blanc, étage par étage.',
             '**Checklist** – listes de contrôle d’intervention à dérouler.',
-            '**ARI** – surveillance des binômes engagés avec temps et pression.',
+            '**Binômes** – surveillance des binômes engagés avec temps et pression, avec ou sans ARI.',
           ] },
           { kind: 'note', text: 'Principe directeur : utilisable à 3 h du matin, après six mois sans entraînement. Reconnaître plutôt que retenir, utilisable avec des gants et hors ligne.' },
         ],
@@ -91,7 +93,7 @@ export const fr: Localizable<Copy> = {
           { kind: 'sub', text: 'Changer de zone' },
           { kind: 'list', items: [
             'Les chiffres ouvrent le module de plan portant ce numéro – ceux qui existent dépendent des modules du corps : [[1]] module 1, [[2]] ou [[3]] le module « 2/3 », [[4]] module 4 …',
-            '[[K]] Carte · [[C]] Checklist · [[A]] Protection respiratoire · [[P]] Présence · [[M]] Matériel · [[R]] Rapport – chaque touche est la première lettre du mot ALLEMAND, car c’est à elle que le raccourci est lié.',
+            '[[K]] Carte · [[C]] Checklist · [[A]] Binômes (A comme Atemschutz) · [[P]] Présence · [[M]] Matériel · [[R]] Rapport – chaque touche est la première lettre du mot ALLEMAND, car c’est à elle que le raccourci est lié.',
             '[[⌘]] [[[]] / [[⌘]] [[]]] parcourt toutes les zones une à une (y compris Environs et Bâtiment, qui n’ont pas de numéro).',
           ] },
           { kind: 'sub', text: 'Outils (identiques en Situation et en Plan)' },
@@ -187,7 +189,7 @@ export const fr: Localizable<Copy> = {
         ],
       },
       {
-        id: 'atemschutz', title: 'Surveillance ARI', icon: 'gauge',
+        id: 'atemschutz', title: 'Binômes et surveillance ARI', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Surveillance sans faille de chaque binôme ARI selon FKS – le signal de sécurité est le **temps depuis le dernier contact radio**, et non une autonomie restante estimée.' },
           { kind: 'sub', text: 'Créer un binôme' },
@@ -1053,7 +1055,6 @@ export const fr: Localizable<Copy> = {
     zielClear: 'Vider mission / but',
     leaderLabel: 'Chef de groupe',
     memberLabel: 'Sapeur-pompier',
-    guestNamePlaceholder: 'Nom',
     teamEmpty: 'Personne dans l’équipe. Touchez un nom ci-dessous.',
     teamSearchPlaceholder: 'Rechercher une personne …',
     teamNoMatches: 'Aucun résultat',
@@ -1062,8 +1063,7 @@ export const fr: Localizable<Copy> = {
     teamRemove: 'Retirer {name} de l’équipe',
     teamTaken: 'dans une équipe',
     teamManual: 'invité',
-    teamTypeName: 'Saisir un nom (invité / renfort)',
-    teamAdd: 'Ajouter',
+    teamGuestAdd: 'Ajouter «{name}» comme invité / renfort',
     lineNoLabel: 'Conduite n°',
     lineLegacyNote: 'Saisie précédente : « {value} »',
     lineOptsLabel: 'Dessinées :',
@@ -1125,6 +1125,7 @@ export const fr: Localizable<Copy> = {
     readingsHead: 'Relevés',
     cardMenu: 'Autres actions',
     bandPreEntry: 'Pas encore engagée',
+    bandRegisteredAt: 'annoncée à',
     zoneTimes: 'Heures',
     lastContactAt: 'Dernier contact',
     nextContactDue: 'Prochain contact',
@@ -1432,7 +1433,7 @@ export const fr: Localizable<Copy> = {
     placeTeam: '{name} placé sur le plan',
     selectTrupp: 'Quel binôme ?',
     newTeam: 'Nouvelle équipe',
-    showTrupp: 'Montrer dans ARI',
+    showTrupp: 'Montrer dans Binômes',
     markPosition: 'Marquer la position',
     positionMarked: '{name} : position marquée',
     clearTrail: 'Effacer la trace',
@@ -2317,7 +2318,7 @@ export const fr: Localizable<Copy> = {
     proofBroken: 'Chaîne de hash rompue',
     proofBrokenAt: 'Chaîne de hash rompue à #{seq}',
     areaManual: 'Manuel',
-    areaAtemschutz: 'ARI',
+    areaAtemschutz: 'Binômes',
     areaAnwesenheit: 'Présences',
     areaMittel: 'Matériel',
     areaChecklist: 'Checklist',
@@ -2449,6 +2450,8 @@ export const fr: Localizable<Copy> = {
     shareCreate: 'Créer le lien',
     shareBusy: 'Création du lien …',
     shareLoading: 'Chargement du lien …',
+    shareLoadFailed: 'Le lien n’a pas pu être chargé.',
+    shareRetry: 'Réessayer',
     shareCreateFailed: 'La création du lien a échoué.',
     shareCopy: 'Copier l’adresse',
     shareCopied: 'Copié',
@@ -2465,16 +2468,16 @@ export const fr: Localizable<Copy> = {
     shareKindLabel: 'Ce que le lien donne',
     shareKindFull: 'Intervention entière',
     shareKindFullSub: 'lecture seule',
-    shareKindAtem: 'ARI uniquement',
+    shareKindAtem: 'Binômes uniquement',
     shareKindAtemSub: 'utiliser',
-    shareAsLede: 'Qui ouvre le lien ne voit que la surveillance ARI de cette intervention et '
-      + 'l’utilise : annoncer un binôme, contact, pression, repli, sorti. Pas de carte, pas de '
-      + 'journal. Valable jusqu’à la clôture de l’intervention.',
+    shareAsLede: 'Qui ouvre le lien ne voit que le tableau des binômes de cette intervention – la '
+      + 'surveillance ARI – et l’utilise : annoncer un binôme, contact, pression, repli, sorti. '
+      + 'Pas de carte, pas de journal. Valable jusqu’à la clôture de l’intervention.',
     shareAsLiveLede: 'Valable jusqu’à la clôture de l’intervention – ou jusqu’à ce que vous le '
       + 'révoquiez.',
     shareAsWarn: 'Ce qui y est saisi figure au journal ARI du rapport. Ne donnez le lien qu’à la '
       + 'personne qui surveille.',
-    shareAsRevokeTitle: 'Révoquer le lien ARI ?',
+    shareAsRevokeTitle: 'Révoquer le lien vers le tableau des binômes ?',
     shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a le tableau ouvert ne peut plus '
       + 'rien saisir. Un nouveau lien peut être créé à tout moment – ce sera alors une autre '
       + 'adresse.',
@@ -4002,7 +4005,7 @@ export const fr: Localizable<Copy> = {
     hint: 'Cherche aussi les noms au sein d\'un binôme.',
     noMatches: 'Aucun binôme trouvé',
     empty: 'Aucun binôme placé.',
-    emptyHint: 'Les binômes se placent sur la situation ou sur un plan – depuis la carte ARI ou avec l\'outil binôme.',
+    emptyHint: 'Les binômes se placent sur la situation ou sur un plan – depuis la fiche du binôme sous «Binômes» ou avec l\'outil binôme.',
     raus: 'sorti',
   },
   symbolAliases: {

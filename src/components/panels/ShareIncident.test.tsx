@@ -151,6 +151,53 @@ describe('… und «Nur Atemschutz – bedienen»', () => {
     expect(createShareLink).not.toHaveBeenCalled()
   })
 
+  /* ⚠️ …and the same trap through the OTHER door (04.09., field report): the sheet was reopened
+   * and stood on «Link erstellen» although a link existed; creating again then produced the QR.
+   * The mount fetch swallowed every rejection in a bare `.catch(() => {})`, so a door whose GET
+   * failed kept an undefined cache entry — «nicht gefragt» forever, and the sheet either sat on
+   * «wird geladen» or dropped to the create layout. Nothing about a failed GET says there is no
+   * link, so neither layout may be drawn: the failure is stated and the question offered again. */
+  it('never offers «Link erstellen» when the state could not be loaded at all', async () => {
+    vi.mocked(fetchShareLink).mockRejectedValue(new Error('offline'))
+    render(<ShareIncident incidentId="i1" />)
+
+    await screen.findByText(C.shareLoadFailed)
+    expect(screen.queryByText(C.shareCreate)).toBeNull()
+    // …and it does not sit on the spinner either: that state promises an answer is coming
+    expect(screen.queryByText(C.shareLoading)).toBeNull()
+    expect(createShareLink).not.toHaveBeenCalled()
+  })
+
+  it('asks again on «Nochmals versuchen», and shows the link that was there all along', async () => {
+    vi.mocked(fetchShareLink).mockRejectedValue(new Error('offline'))
+    render(<ShareIncident incidentId="i1" />)
+    await screen.findByText(C.shareLoadFailed)
+
+    vi.mocked(fetchShareLink).mockResolvedValue(on)
+    fireEvent.click(screen.getByText(C.shareRetry))
+
+    await screen.findByText(/\/l\/tok123$/)
+    // the failure leaves no trace once an answer lands
+    expect(screen.queryByText(C.shareLoadFailed)).toBeNull()
+    expect(createShareLink).not.toHaveBeenCalled()
+  })
+
+  // One door failing must not take the other one's answer down with it — they are separate
+  // requests and the tabs are how somebody gets to the one that did work.
+  it('keeps a door that loaded when the other one’s request failed', async () => {
+    vi.mocked(fetchShareLink).mockImplementation(async (_id, kind) => {
+      if (kind === 'atemschutz') throw new Error('offline')
+      return on
+    })
+    render(<ShareIncident incidentId="i1" />)
+    await screen.findByText(/\/l\/tok123$/)
+
+    fireEvent.click(screen.getByText(C.shareKindAtem))
+    expect(screen.getByText(C.shareLoadFailed)).toBeTruthy()
+    fireEvent.click(screen.getByText(C.shareKindFull))
+    expect(screen.getByText(/\/l\/tok123$/)).toBeTruthy()
+  })
+
   it('offers nothing to press while a door’s state is still unknown', async () => {
     let answer!: (l: ShareLink) => void
     vi.mocked(fetchShareLink).mockReturnValue(new Promise<ShareLink>((r) => { answer = r }))

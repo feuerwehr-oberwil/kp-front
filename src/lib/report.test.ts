@@ -208,7 +208,7 @@ describe('report journal rows', () => {
     ]
     const rows = journalRows(events, plans)
     expect(rows.map((r) => r.id)).toEqual(['old', 'new'])
-    expect(rows[0].area).toBe('Atemschutz')
+    expect(rows[0].area).toBe('Trupps')
     expect(rows[1].area).toBe('Manuell')
   })
 
@@ -229,7 +229,7 @@ describe('report journal rows', () => {
     const byId = new Map(journalRows(events, plans, undefined, null, { includeBookkeeping: true })
       .map((r) => [r.id, r.area]))
     expect(byId.get('meta')).toBe('Rapport')
-    expect(byId.get('az')).toBe('Atemschutz')
+    expect(byId.get('az')).toBe('Trupps')
     expect(byId.get('anw')).toBe('Anwesenheit')
     expect(byId.get('mit')).toBe('Material')
     expect(byId.get('qr')).toBe('Anwesenheit')
@@ -380,7 +380,7 @@ describe('journalDisc · what the Verlauf’s disc says a row is', () => {
     // ⚠️ THE bug the chip's tint had: an Atemschutz row is drawn on the map surface, and the
     // tint may not claim «Lage» while the word says «Atemschutz».
     const az: TimelineEvent = { id: 'a', t: '22:02', at, icon: 'radio', text: 'Funkkontakt Trupp 1', kind: 'team', surface: 'map' }
-    expect(journalDisc(az, plans)).toEqual({ label: 'Atemschutz', surface: null })
+    expect(journalDisc(az, plans)).toEqual({ label: 'Trupps', surface: null })
     // …and a Pendenz written on the Plan is a Pendenz, not a Plan row
     const pnd: TimelineEvent = { id: 'r', t: '22:03', at, icon: 'type', text: 'Lüfter prüfen', kind: 'journal', surface: 'plan', planId: 'm1', reminder: { op: 'created', id: 'p1' } }
     expect(journalDisc(pnd, plans)).toEqual({ label: 'Pendenz', surface: null })
