@@ -1739,12 +1739,26 @@ export const de = {
       // benennt das EREIGNIS – der Trupp ist ausgetreten. «Draussen» ist der Zustand danach, und
       // der steht auf der Karte («Draussen», «Draussen seit»). Auf dem gedruckten Blatt las die
       // Zeile deshalb quer zu ihren Nachbarn: «Angemeldet / Eintritt / Draussen».
-      alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Austritt', resume: 'Wiedereinstieg',
+      // ⚠️ «Rückzug abgebrochen», nicht «Wiedereinstieg» (04.09., Feldtest Manuel). Niemand ist
+      // wieder eingestiegen: der Trupp war nie draussen, sondern auf dem Rückweg, und der Rückzug
+      // wurde abgeblasen. «Wiedereinstieg» behauptete einen Vorgang, den es nicht gab – auf dem
+      // Blatt direkt neben der Zeile, die den Rückzug selbst festhält.
+      alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Austritt', resume: 'Rückzug abgebrochen',
       // Die beiden Enden der überwachten Strecke, wenn die Art nachträglich geändert wurde
       // (types · TruppReading). «Unter Atemschutz» trägt den Eingangsdruck der Flasche, die
       // in diesem Moment aufgedreht wurde – der Eintritt des Trupps bleibt, wo er war.
       paOn: 'Unter Atemschutz', paOff: 'Atemschutz beendet',
     } as Record<string, string>,
+    /**
+     * Die Eintritts-Ablesung eines Trupps OHNE Atemschutz, auf der Karte selbst – «Eingerückt –
+     * ohne Atemschutz» (04.09., Feldtest Manuel). Dieselbe Frage wie im Verlauf (siehe
+     * `logEntryNoAs`), nur an der anderen Stelle, an der sie gelesen wird.
+     *
+     * ⚠️ Nach der HEUTIGEN Art des Trupps beschriftet, nicht nach dem Zustand von damals: wurde
+     * die Art mitten im Einsatz geändert, stehen die `paOn`/`paOff`-Zeilen ohnehin genau dort im
+     * Protokoll und sagen es genauer, als eine nachträglich umgedeutete Eintrittszeile es könnte.
+     */
+    readingNoAs: '{what} – ohne Atemschutz',
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
     clockWarn: 'Kontakt fällig',
@@ -1872,14 +1886,33 @@ export const de = {
     // Die Knöpfe heissen weiter «Einrücken» / «Raus melden»: die drückt, wer an der Tafel steht
     // und weiss, was gemeint ist – gelesen wird der Rapport von Leuten, die nicht dabei waren.
     logEntry: 'Trupp {name}: Eintritt',
+    /**
+     * …und dieselbe Zeile für einen Trupp OHNE Atemschutz (04.09., Feldtest Manuel).
+     *
+     * Auf seinem Rapport stand «Atemschutz beendet» um 16:15 und gleich darunter ein blosses
+     * «Eingerückt» – wer das liest, kann nicht sagen, ob die Mannschaft mit oder ohne Maske
+     * hineingegangen ist, und genau das ist die Frage, die man an eine Eintrittszeile stellt.
+     *
+     * ⚠️ Nur die EINTRITTS-Zeilen (Eintritt, erneuter Eintritt) tragen den Zusatz. Auf jeder
+     * Kontakt- und Druckmeldung wäre er Tapete, und der Atemschutz-Eintritt bleibt unverändert:
+     * er ist der Normalfall, und sein Eingangsdruck sagt es ohnehin.
+     */
+    logEntryNoAs: 'Trupp {name}: Eintritt – ohne Atemschutz',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
     // Rückzug and Fortsetzen reset the contact clock; that has to be in the Verlauf, otherwise
     // the clock jumps in the record for no visible reason.
     logRueckzug: 'Trupp {name}: Rückzug – gilt als Funkkontakt',
-    logContinue: 'Trupp {name}: Einsatz fortgesetzt – gilt als Funkkontakt',
-    // Fallback for when the form was saved without anything having changed.
-    logEdit: 'Trupp {name}: bearbeitet',
+    /**
+     * ⚠️ EINE Zeile, die zuerst sagt, was aus dem Rückzug wurde (04.09., Feldtest Manuel).
+     * Vorher standen «Rückzug» und «Einsatz fortgesetzt» direkt untereinander – gelesen wie ein
+     * Widerspruch, weil nichts die beiden verband. Jetzt nimmt die zweite Zeile die erste
+     * ausdrücklich zurück und sagt im selben Satz, was stattdessen gilt.
+     * ⚠️ «gilt als Funkkontakt» fällt hier weg: mehr als zwei Halbsätze liest an der Tafel
+     * niemand. Dass der Kontakt zählt, steht in der Rückzugszeile darüber und – mit Uhrzeit – in
+     * der Ablesung selbst (readingKind.resume, dieselben Worte).
+     */
+    logContinue: 'Trupp {name}: Rückzug abgebrochen – Einsatz fortgesetzt',
     // The normal case: the row SAYS what changed. «Auftrag angepasst» used to appear even when
     // an AdF had been taken out of the Trupp – and that is exactly what somebody asks about
     // afterwards.
@@ -1887,6 +1920,20 @@ export const de = {
     changeLeader: 'Gruppenführer {from} → {to}',
     changeMemberOut: '{names} aus dem Trupp genommen',
     changeMemberIn: '{names} dazugekommen',
+    /**
+     * …und WER JETZT DRIN IST (04.09., Feldtest Manuel).
+     *
+     * Die Zeile zählte bisher nur die Differenz auf. Wer sie sechs Monate später liest, muss die
+     * Mannschaft daraus im Kopf zusammenrechnen – aus einer Anmeldezeile weiter oben und zwei
+     * Halbsätzen hier. Die Antwort steht jetzt daneben, im selben Satz.
+     *
+     * ⚠️ Die Namen mit « / », wie überall sonst, wo diese App eine Mannschaft schreibt
+     * (lib/atemschutz · truppLogName): die Zeile ist bereits eine Komma-Liste von Änderungen, und
+     * eine zweite Komma-Liste darin liest sich als deren Fortsetzung.
+     * ⚠️ Nur wenn sich die Zusammensetzung geändert hat – ein reiner Wechsel des Gruppenführers
+     * ist dieselbe Mannschaft und braucht sie nicht.
+     */
+    changeCrewNow: 'Neu: {crew}',
     // ⚠️ Says WHAT the Auftrag now is, not that a field was touched. «Auftrag angepasst» was the
     // one line on this row that named nothing: read back an hour later it could mean a new order,
     // a corrected floor or a typo fixed in the Ziel, and the Verlauf is read precisely to find out
@@ -1895,7 +1942,16 @@ export const de = {
     changeAuftragCleared: 'Auftrag entfernt',
     changeLine: 'Leitung {n}',
     changeLineCleared: 'Leitung gelöst',
-    changeFunkkanal: 'Funkkanal {n}',
+    /**
+     * ⚠️ VON → NACH, wie beim Eingangsdruck (04.09., Feldtest Manuel: «Trupp Antoine DJ:
+     * Funkkanal 12» – gesetzt? geändert? bloss bestätigt?). Dieselbe Sprache, die die
+     * Sicherheitswerte längst sprechen (`logSafetyFunkkanal`), also eine Stimme für eine Sache.
+     * Beim ERSTEN Kanal gibt es kein Vorher, das man nennen könnte: dann sagt die Zeile, dass er
+     * gesetzt wurde – ein «– → 12» wäre ein Strich, den niemand lesen muss.
+     */
+    changeFunkkanal: 'Funkkanal {from} → {to}',
+    changeFunkkanalSet: 'Funkkanal {n} gesetzt',
+    changeFunkkanalCleared: 'Funkkanal entfernt',
     changeColor: 'Farbe geändert',
     // A corrected Eingangsdruck names BOTH numbers: the record has to show what it used to say,
     // because everything derived from it (Verbrauch, tiefster Druck) was computed from the old one.
@@ -1914,8 +1970,12 @@ export const de = {
     logColor: 'Trupp {name}: Farbe geändert',
     logExit: 'Trupp {name}: Austritt',
     logReenter: 'Trupp {name}: erneuter Eintritt – Eingangsdruck {bar} bar',
-    /** …ohne Flasche, also ohne die Zahl – siehe die Notiz bei `logRegister`. */
+    /** …ohne Flasche, also ohne die Zahl – siehe die Notiz bei `logRegister`. ⚠️ Das ist NICHT
+     *  dasselbe wie «ohne Atemschutz»: hier fehlt bloss die Messung. Ein Trupp, der ohne
+     *  Atemschutz zurückgeht, sagt das ausdrücklich (`logReenterNoAs`). */
     logReenterPlain: 'Trupp {name}: erneuter Eintritt',
+    /** …und der Trupp, der ohne Atemschutz zurückgeht – siehe `logEntryNoAs`. */
+    logReenterNoAs: 'Trupp {name}: erneuter Eintritt – ohne Atemschutz',
     logStandby: 'Trupp {name} bereitgestellt – noch kein Eintritt',
     logAlarm: 'Atemschutz-Alarm: Trupp {name} – {status}',
     /**

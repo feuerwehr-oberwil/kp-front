@@ -187,13 +187,16 @@ describe('the state a tier cannot say', () => {
  * (see `.actions`), so which button is loud and which is quiet is decided by the ORDER in the
  * markup — quiet first. A refactor that reorders these buttons silently swaps their weights, and
  * nothing on screen would say so. */
-describe('the lifecycle row: quiet button first', () => {
-  it('puts «Raus melden» before the decision beside it, on both in-field states', () => {
+/* ⚠️ «Raus melden» used to lead this row (the quiet button first). Reversed 04.09. on Manuel's
+ * feedback: the row is read while both steps are still ahead, so it runs in the order the Einsatz
+ * runs — the crew is called back, then it comes out. */
+describe('the lifecycle row: in the order the Einsatz runs', () => {
+  it('puts the Rückzug decision before «Raus melden», on both in-field states', () => {
     for (const status of ['aktiv', 'rueckzug'] as const) {
       cleanup()
       mount({ trupps: [{ ...aktivTrupp(), status }] })
       const labels = [...document.querySelectorAll(`.${s.actions} .${s.actBtn}`)].map((b) => b.textContent)
-      expect(labels).toEqual([az.actExit, status === 'aktiv' ? az.actRueckzug : az.actContinue])
+      expect(labels).toEqual([status === 'aktiv' ? az.actRueckzug : az.actContinue, az.actExit])
     }
   })
 
@@ -500,7 +503,10 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(card().textContent).not.toContain('bar')
     // …and the rows are still there to read: open the log and the chronology is intact
     fireEvent.click(screen.getByRole('button', { name: new RegExp(az.verlauf) }))
-    expect(screen.getByText(az.readingKind.entry)).toBeTruthy()
+    // ⚠️ …and the Eintritt SAYS what went in (04.09., Manuel): «Atemschutz beendet» followed by a
+    // bare «Eingerückt» left the reader unable to tell whether the crew was wearing masks.
+    expect(screen.getByText(fillTemplate(az.readingNoAs, { what: az.readingKind.entry }))).toBeTruthy()
+    expect(screen.queryByText(az.readingKind.entry)).toBeNull()
     expect(card().textContent).not.toContain('bar')
   })
 
@@ -831,7 +837,56 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(body?.firstElementChild?.textContent).toContain(az.kindLabel)
   })
 
-  /* ⚠️ Reversed on 03.09., and it still holds: the Art must never restructure the FORM, only
+  /* ── The Reihenfolge menu (04.09., Feldtest Manuel) ───────────────────────────────────────────
+ * Two comparators, two findings: «den länger andauernden Einsatz zuerst» (the AS half already did
+ * that through its contact clock — this is the answer for everything that has no clock), and
+ * crews that are draussen or standing by sitting left of the ones actually working. */
+describe('the Reihenfolge menu', () => {
+  const plain = (id: string, name: string, over: Partial<Trupp> = {}): Trupp => ({
+    id, kind: 'einfach', name, entryPressureBar: 0, entryTime: iso(10 * 60_000),
+    lastContactTime: '', status: 'aktiv', ...over,
+  })
+  const names = () => [...document.querySelectorAll(`.${s.nameStatic}`)].map((e) => e.textContent)
+
+  it('Dringlichkeit: among equals, the deployment that has run longest comes first', () => {
+    mount({ order: 'dringlichkeit', trupps: [
+      plain('t1', 'Kurz', { entryTime: iso(5 * 60_000) }),
+      plain('t2', 'Lang', { entryTime: iso(45 * 60_000) }),
+    ] })
+    expect(names()).toEqual(['Lang', 'Kurz'])
+  })
+
+  // ⚠️ a FINISHED deployment keeps its total for the card to print, and it must not buy the card
+  // a place at the top of an urgency sort
+  it('…and a Trupp that has come out does not outrank one still out there', () => {
+    mount({ order: 'dringlichkeit', trupps: [
+      plain('t1', 'Fertig', { entryTime: iso(120 * 60_000), status: 'raus', exitTime: iso(60 * 60_000) }),
+      plain('t2', 'Drin', { entryTime: iso(5 * 60_000) }),
+    ] })
+    expect(names()).toEqual(['Drin', 'Fertig'])
+  })
+
+  it('Auftrag: the crews out there first, then who is waiting, then who has finished', () => {
+    mount({ order: 'auftrag', trupps: [
+      // «Bereitstellung» leads the alphabet — under the old comparator it led the board
+      plain('t1', 'Fertig', { auftrag: 'bereitstellung', status: 'raus', exitTime: iso(5 * 60_000) }),
+      plain('t2', 'Wartet', { auftrag: 'sanitaet', status: 'angemeldet', entryTime: '' }),
+      plain('t3', 'Drin', { auftrag: 'verkehr' }),
+    ] })
+    expect(names()).toEqual(['Drin', 'Wartet', 'Fertig'])
+  })
+
+  it('…and within one of those groups the Auftrag still orders the alphabet, with none last', () => {
+    mount({ order: 'auftrag', trupps: [
+      plain('t1', 'Ohne'),
+      plain('t2', 'Verkehr', { auftrag: 'verkehr' }),
+      plain('t3', 'Sanität', { auftrag: 'sanitaet' }),
+    ] })
+    expect(names()).toEqual(['Sanität', 'Verkehr', 'Ohne'])
+  })
+})
+
+/* ⚠️ Reversed on 03.09., and it still holds: the Art must never restructure the FORM, only
    * what «Luft & Funk» contains. The tap adds and drops the Druck row inside the open section —
    * ordinary form behaviour — and never moves which section is open or what the others hold. */
   it('keeps the same three sections for a Trupp without Atemschutz, minus the Druck', () => {

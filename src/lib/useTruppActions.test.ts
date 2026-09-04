@@ -42,8 +42,10 @@ function harness(
   seed?: { board?: BoardDoc; entities?: Entity[]; drawings?: Drawing[] },
   /** capture the Verlauf lines this action writes (icon, text) */
   log: (icon: string, text: string) => void = () => {},
-  /** …and, where a test is about idempotency, the ROW ID the action chose (see logTruppAlarm) */
-  rows?: { text: string; id?: string }[],
+  /** …and, where a test is about idempotency, the ROW ID the action chose (see logTruppAlarm) —
+   *  plus the SUBJECT the row names, which is what lets the Verlauf tell a repeat from a second
+   *  real cycle (lib/verlauf · repeatRuns) */
+  rows?: { text: string; id?: string; subjectId?: string }[],
 ) {
   const state = {
     trupps: [trupp],
@@ -63,8 +65,8 @@ function harness(
     setBoard: ((a) => { state.board = apply(state.board, a) }) as Dispatch<SetStateAction<BoardDoc>>,
     setDocRaw: ((a) => { state.doc = apply(state.doc, a) }) as Dispatch<SetStateAction<Doc>>,
     building: null,
-    log: (icon: string, text: string, _k?: unknown, _a?: unknown, _e?: unknown, opts?: { rowId?: string }) => {
-      rows?.push({ text, id: opts?.rowId })
+    log: (icon: string, text: string, _k?: unknown, _a?: unknown, _e?: unknown, opts?: { rowId?: string; subjectId?: string }) => {
+      rows?.push({ text, id: opts?.rowId, subjectId: opts?.subjectId })
       log(icon, text)
     },
     logPlan: () => {}, emit: () => {},
@@ -260,6 +262,25 @@ describe('useTruppActions — hoch- und zurückstufen', () => {
 // A Rückzug is ordered by the EL / Truppüberwacher or reported by the Trupp, and a Fortsetzen
 // means the Trupp was reached and sent back in. Both are radio contacts, so both must reset the
 // contact clock — otherwise the card keeps showing «überfällig» for a Trupp somebody just spoke to.
+/* ⚠️ «Rückzug» and «Einsatz fortgesetzt» stood under each other and read as a contradiction
+ * (04.09., Feldtest Manuel). The second row takes the first back in so many words now, and the
+ * reading kind says the same thing («Rückzug abgebrochen») instead of claiming a «Wiedereinstieg»
+ * nobody made — the Trupp was never out. */
+describe('useTruppActions — calling off a Rückzug', () => {
+  it('writes ONE row that takes the Rückzug back and says what holds instead', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(
+      baseTrupp({ status: 'rueckzug', readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'rueckzug' }] }),
+      undefined, (_i, text) => lines.push(text),
+    )
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual(['Trupp Keller Anna: Rückzug abgebrochen – Einsatz fortgesetzt'])
+    // the reading keeps its own kind, and the Art column now reads the same words
+    expect(state.trupps[0].readings?.[1]).toMatchObject({ kind: 'resume' })
+    expect(appConfig.copy.atemschutz.readingKind.resume).toBe('Rückzug abgebrochen')
+  })
+})
+
 describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () => {
   const stale = { lastContactTime: '2026-07-06T10:00:00Z', readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' as const }] }
 
@@ -483,6 +504,60 @@ describe('useTruppActions — a second tap on a state the Trupp already holds re
   })
 })
 
+/* ── The same tap twice inside ONE frame (04.09., Manuel's Rapport) ───────────────────────────
+ * The state guards above read the Trupp as the render sees it — and two taps that land in the
+ * same frame BOTH see the pre-tap Trupp, because React has not re-rendered in between. That is
+ * how «erneuter Eintritt 2×» reached Antoine's card at 16:24. These tests use ONE actions object
+ * for both calls, which is exactly that situation. */
+describe('useTruppActions — two taps in one frame', () => {
+  beforeEach(() => { ui.toasts.length = 0 })
+
+  it('«Raus melden» twice writes ONE Austritt and stamps one exit', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(baseTrupp({ status: 'aktiv' }), undefined, (_i, text) => lines.push(text))
+    actions.setTruppStatus('T1', 'raus')
+    actions.setTruppStatus('T1', 'raus')
+    expect(lines).toEqual([`Trupp ${state.trupps[0].name}: Austritt`])
+    expect(state.trupps[0].readings?.filter((r) => r.kind === 'exit')).toHaveLength(1)
+    expect(ui.toasts).toHaveLength(1)
+  })
+
+  it('«Einrücken» twice does not add a «Einsatz fortgesetzt» behind the Eintritt', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(
+      baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] }),
+      undefined, (_i, text) => lines.push(text),
+    )
+    actions.setTruppStatus('T1', 'aktiv')
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual([`Trupp ${state.trupps[0].name}: Eintritt`])
+    expect(state.trupps[0].readings?.map((r) => r.kind)).toEqual(['entry'])
+  })
+
+  it('«Wieder einrücken» twice re-deploys once', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(
+      baseTrupp({ status: 'raus', exitTime: '2026-07-06T10:30:00Z' }),
+      undefined, (_i, text) => lines.push(text),
+    )
+    const f: TruppFields = { name: 'Keller Anna', pressure: 300 }
+    actions.reactivateTrupp('T1', f)
+    actions.reactivateTrupp('T1', f)
+    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar'])
+    expect(state.trupps[0].readings?.filter((r) => r.kind === 'entry')).toHaveLength(1)
+  })
+
+  /* ⚠️ …and the rows NAME their Trupp, so the Verlauf can tell a repeated line from a second real
+   * cycle: «Austritt · Eintritt · Austritt» must stay three rows (lib/verlauf · repeatRuns). */
+  it('files every lifecycle row under the Trupp it is about', () => {
+    const rows: { text: string; subjectId?: string }[] = []
+    const { actions } = harness(baseTrupp({ status: 'aktiv' }), undefined, () => {}, rows)
+    actions.recordContact('T1')
+    actions.setTruppStatus('T1', 'raus')
+    expect(rows.map((r) => r.subjectId)).toEqual(['T1', 'T1'])
+  })
+})
+
 /* ── «Wieder einrücken» is a full edit, and the record has to say so (04.09., Feldtest:
  * «Funkkanal wird gar nicht protokolliert») ───────────────────────────────────────────────── */
 describe('useTruppActions — what changed on the way back in', () => {
@@ -499,7 +574,42 @@ describe('useTruppActions — what changed on the way back in', () => {
     actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300, auftrag: 'retten', ziel: '2OG links', funkkanal: 7 })
     expect(lines).toEqual([
       'Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar',
-      'Trupp Keller Anna: Auftrag Retten – 2OG links, Funkkanal 7',
+      'Trupp Keller Anna: Auftrag Retten – 2OG links, Funkkanal 5 → 7',
+    ])
+  })
+
+  /* ── ⚠️ The crew is COMPOSED, not changed (04.09., Manuel's Rapport) ────────────────────────
+   * His sheet read «Trupp Bachmann Reto / Pfister Markus / Einstein Albert bereitgestellt» and
+   * directly under it «Amrein Patrick, Lüthi Sandra aus dem Trupp genommen, Pfister Markus,
+   * Einstein Albert dazugekommen» — naming two people the journal had never shown in that Trupp.
+   * They were the crew of the deployment that had ENDED, and «Wieder einrücken» does not change a
+   * crew: it says who goes in this time, which the standby/re-entry row above already names in
+   * full. Everything else the form can change is still reported. */
+  it('never reports the last deployment’s crew as having been taken out of this one', () => {
+    const { actions, lines } = lined(out({
+      name: 'Bachmann Reto', members: ['Amrein Patrick', 'Lüthi Sandra'], auftrag: 'loeschen', funkkanal: 5,
+    }))
+    actions.reactivateTrupp('T1', {
+      name: 'Bachmann Reto', members: ['Pfister Markus', 'Einstein Albert'],
+      pressure: 300, auftrag: 'loeschen', funkkanal: 5,
+    }, true)
+    expect(lines).toEqual([
+      'Trupp Bachmann Reto / Pfister Markus / Einstein Albert bereitgestellt – noch kein Eintritt',
+    ])
+    expect(lines.join(' ')).not.toContain('Amrein Patrick')
+    expect(lines.join(' ')).not.toContain('genommen')
+  })
+
+  it('…and still reports what the re-deploy form DID change beside the crew', () => {
+    const { actions, lines } = lined(out({
+      name: 'Bachmann Reto', members: ['Amrein Patrick'], auftrag: 'loeschen', funkkanal: 5,
+    }))
+    actions.reactivateTrupp('T1', {
+      name: 'Bachmann Reto', members: ['Pfister Markus'], pressure: 300, auftrag: 'retten', funkkanal: 7,
+    })
+    expect(lines).toEqual([
+      'Trupp Bachmann Reto / Pfister Markus: erneuter Eintritt – Eingangsdruck 300 bar',
+      'Trupp Bachmann Reto: Auftrag Retten, Funkkanal 5 → 7',
     ])
   })
 
@@ -512,7 +622,7 @@ describe('useTruppActions — what changed on the way back in', () => {
   it('leaves the Eingangsdruck out of the re-entry row for a Trupp ohne Atemschutz', () => {
     const { actions, lines } = lined(out({ kind: 'einfach', entryPressureBar: 0 }))
     actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 0, auftrag: 'loeschen', funkkanal: 5, kind: 'einfach' })
-    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt'])
+    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – ohne Atemschutz'])
   })
 
   /* ── The ART is answered afresh for each deployment (04.09., Feldtest: «Bei Wieder einrücken
@@ -533,9 +643,10 @@ describe('useTruppActions — what changed on the way back in', () => {
     // …and no paOff: the Atemschutz-Einsatz ended at its Austritt, not now
     expect(t.readings?.some((r) => r.kind === 'paOff')).toBe(false)
     expect(lines).toEqual([
-      'Trupp Keller Anna: erneuter Eintritt',
-      // ⚠️ the Art rides in the CHANGES row — same wording as the ⋯ «Bearbeiten» path, and first
-      // in the list, because it is the entry that turns a safety watch off
+      // ⚠️ the Eintritt SAYS it went in without masks (04.09., Manuel) …
+      'Trupp Keller Anna: erneuter Eintritt – ohne Atemschutz',
+      // … and the Art CHANGING rides in the changes row — same wording as the ⋯ «Bearbeiten»
+      // path, and first in the list, because it is the entry that turns a safety watch off
       'Trupp Keller Anna: nicht mehr unter Atemschutz',
     ])
   })
@@ -1061,14 +1172,20 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
       .toEqual([fillTemplate(appConfig.copy.atemschutz.changePressure, { from: '300', to: '280' })])
   })
 
-  it('names the AdF who was taken out — the question asked afterwards', () => {
+  /* ⚠️ …and every crew change ends with WHO IS IN IT NOW (04.09., Feldtest Manuel). The row used
+   * to state the difference alone, so the crew had to be reassembled in the reader's head out of
+   * a registration row further up and two half-sentences here. */
+  it('names the AdF who was taken out — the question asked afterwards — and who is left', () => {
     expect(truppEditChanges(prev, fields({ members: ['Meier Hans'] })))
-      .toEqual(['Frei Nina aus dem Trupp genommen'])
+      .toEqual(['Frei Nina aus dem Trupp genommen', 'Neu: Keller Anna / Meier Hans'])
   })
 
   it('names who joined, and reports a swap as both', () => {
     expect(truppEditChanges(prev, fields({ members: ['Meier Hans', 'Graf Stefan'] })))
-      .toEqual(['Frei Nina aus dem Trupp genommen', 'Graf Stefan dazugekommen'])
+      .toEqual([
+        'Frei Nina aus dem Trupp genommen', 'Graf Stefan dazugekommen',
+        'Neu: Keller Anna / Meier Hans / Graf Stefan',
+      ])
   })
 
   it('names the outgoing AND incoming Gruppenführer', () => {
@@ -1086,7 +1203,17 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
 
   it('still names a real departure when the leader is handed over at the same time', () => {
     expect(truppEditChanges(prev, fields({ name: 'Meier Hans', members: ['Keller Anna'] })))
-      .toEqual(['Gruppenführer Keller Anna → Meier Hans', 'Frei Nina aus dem Trupp genommen'])
+      .toEqual([
+        'Gruppenführer Keller Anna → Meier Hans', 'Frei Nina aus dem Trupp genommen',
+        'Neu: Meier Hans / Keller Anna',
+      ])
+  })
+
+  // ⚠️ …but a pure role swap is the SAME people, so it gets no «Neu:» — the sentence would answer
+  // a question nobody asked and repeat the crew that just did not change
+  it('says nothing about the composition when only the role moved', () => {
+    expect(truppEditChanges(prev, fields({ name: 'Meier Hans', members: ['Keller Anna', 'Frei Nina'] })))
+      .toEqual(['Gruppenführer Keller Anna → Meier Hans'])
   })
 
   // «Auftrag angepasst» named nothing: read back an hour later it could be a new order, a
@@ -1111,12 +1238,79 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
     expect(truppEditChanges(baseTrupp({ ...prev, lineNo: 3 }), fields())).toEqual(['Leitung gelöst'])
   })
 
-  it('reports the Funkkanal, which used to vanish into «Auftrag angepasst»', () => {
-    expect(truppEditChanges(prev, fields({ funkkanal: 12 }))).toEqual(['Funkkanal 12'])
+  /* ⚠️ BOTH numbers, like the Eingangsdruck (04.09., Feldtest Manuel: «Trupp Antoine DJ:
+   * Funkkanal 12» — set? changed? merely confirmed?). Same voice as the Sicherheitswerte row
+   * (logSafetyFunkkanal), so the app says it one way. */
+  it('names the Funkkanal it came from and the one it went to', () => {
+    expect(truppEditChanges(prev, fields({ funkkanal: 12 }))).toEqual(['Funkkanal 11 → 12'])
+  })
+
+  it('says a FIRST channel was set — there is no «from» to name', () => {
+    expect(truppEditChanges(baseTrupp({ ...prev, funkkanal: undefined }), fields({ funkkanal: 12 })))
+      .toEqual(['Funkkanal 12 gesetzt'])
+  })
+
+  it('…and says so when the channel was taken away rather than printing a dash', () => {
+    expect(truppEditChanges(prev, fields({ funkkanal: undefined }))).toEqual(['Funkkanal entfernt'])
   })
 
   it('says nothing when the form was saved unchanged', () => {
     expect(truppEditChanges(prev, fields({ funkkanal: 11 }))).toEqual([])
+  })
+})
+
+/* ⚠️ Manuel's Rapport again: «Trupp Brunner Thomas: bearbeitet» at 16:20 — a row that says a
+ * change was made and names none. The form writes it whenever it is saved without touching a
+ * tracked field, which is exactly when there is nothing to report. */
+describe('useTruppActions — an edit that changed nothing says nothing', () => {
+  beforeEach(() => { ui.toasts.length = 0 })
+  const same: TruppFields = { name: 'Keller Anna', pressure: 300, auftrag: 'loeschen', funkkanal: 5 }
+
+  it('writes no Verlauf row and no toast when the form comes back unchanged', () => {
+    const lines: string[] = []
+    const { actions } = harness(
+      baseTrupp({ auftrag: 'loeschen', funkkanal: 5 }), undefined, (_i, text) => lines.push(text),
+    )
+    actions.editTrupp('T1', same)
+    expect(lines).toEqual([])
+    expect(ui.toasts).toEqual([])
+  })
+
+  it('…and still names the change when there is one', () => {
+    const lines: string[] = []
+    const { actions } = harness(
+      baseTrupp({ auftrag: 'loeschen', funkkanal: 5 }), undefined, (_i, text) => lines.push(text),
+    )
+    actions.editTrupp('T1', { ...same, funkkanal: 7 })
+    expect(lines).toEqual(['Trupp Keller Anna: Funkkanal 5 → 7'])
+  })
+})
+
+/* ⚠️ «Atemschutz beendet» at 16:15 and a bare «Eingerückt» right after it (04.09., Manuel): the
+ * sheet did not say what had gone in. The ENTRY rows carry the Art now — and only those. */
+describe('useTruppActions — an Eintritt says which kind of Trupp went in', () => {
+  const waiting = (over: Partial<Trupp>): Trupp =>
+    baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [], ...over })
+
+  it('says «ohne Atemschutz» on a work squad going in', () => {
+    const lines: string[] = []
+    const { actions } = harness(waiting({ kind: 'einfach', entryPressureBar: 0 }), undefined, (_i, t) => lines.push(t))
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual(['Trupp Keller Anna: Eintritt – ohne Atemschutz'])
+  })
+
+  it('leaves an Atemschutz Eintritt as it was — the norm needs no label', () => {
+    const lines: string[] = []
+    const { actions } = harness(waiting({}), undefined, (_i, t) => lines.push(t))
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual(['Trupp Keller Anna: Eintritt'])
+  })
+
+  it('says nothing about the Art on the rows that are not an Eintritt', () => {
+    const lines: string[] = []
+    const { actions } = harness(baseTrupp({ kind: 'einfach', entryPressureBar: 0 }), undefined, (_i, t) => lines.push(t))
+    actions.setTruppStatus('T1', 'raus')
+    expect(lines).toEqual(['Trupp Keller Anna: Austritt'])
   })
 })
 

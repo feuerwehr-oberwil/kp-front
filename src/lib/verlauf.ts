@@ -133,6 +133,17 @@ const REPEAT_WINDOW_MS = 2 * 60_000
  * «Lüfter gelöscht 2×» where each pair was two different symbols removed a few seconds apart.
  * See types · TimelineEvent.subjectId for why it is not simply `entityId`.
  *
+ * ⚠️ A run ENDS when something else happens to the same object (04.09., Manuel's Rapport).
+ * Brunner's card read «Austritt 16:19 · Eingerückt 16:20 · Austritt 16:20» and the sheet printed
+ * one row, «Austritt 2×» — a second, real deployment cycle folded into the first, because the two
+ * Austritte matched each other across the Eintritt standing between them. A repeat is a line the
+ * app could not stop saying; a line that comes back AFTER the object has done something else is
+ * news. So an object holds at most ONE open run: anything else about it closes what was open.
+ *
+ * ⚠️ Rows about no object at all keep the old, purely text+time rule. There the run key is all
+ * that is known, and rows that share it are the app re-stating a state (an überfällige
+ * Kontaktuhr); closing those runs against each other would collapse nothing at all.
+ *
  * ⚠️ Display only. Every row stays in the append-only record and in the hash chain; this decides
  * what is worth READING. The count is shown («6×») rather than silently swallowed — a reader has
  * to be able to tell «this happened once» from «this happened and would not stop».
@@ -151,25 +162,33 @@ export function repeatRuns(events: TimelineEvent[]): {
   const hidden = new Set<string>()
   const lastAt = new Map<string, string>()
   const open = new Map<string, { id: string; lastMs: number }>()
+  /** the ONE run each object currently has open — see the note above. Objectless rows are absent
+   *  from here and fall back to the text+time rule alone. */
+  const openOf = new Map<string, string>()
   const chrono = events
     .filter((e) => e.at && !isHandWritten(e))
     .sort((a, b) => Date.parse(a.at!) - Date.parse(b.at!))
   for (const e of chrono) {
     const text = e.text.trim()
     if (!text) continue
+    const obj = e.entityId ?? e.annoId ?? e.subjectId ?? ''
     // NUL joins the two halves so an object id can never run into the text and fake a match.
-    const key = `${e.entityId ?? e.annoId ?? e.subjectId ?? ''}\u0000${text}`
+    const key = `${obj}\u0000${text}`
     const ms = Date.parse(e.at!)
     if (!Number.isFinite(ms)) continue
     const run = open.get(key)
-    if (run && ms - run.lastMs <= REPEAT_WINDOW_MS) {
+    // …and, for a row that names its object, only while nothing else has happened to it since
+    if (run && ms - run.lastMs <= REPEAT_WINDOW_MS && (!obj || openOf.get(obj) === key)) {
       counts.set(run.id, (counts.get(run.id) ?? 1) + 1)
       hidden.add(e.id)
       lastAt.set(run.id, e.at!)
       run.lastMs = ms
       continue
     }
+    // a fresh run under the same key REPLACES the closed one, so the second Austritt keeps its own
+    // row rather than joining a run the Eintritt between them had already ended
     open.set(key, { id: e.id, lastMs: ms })
+    if (obj) openOf.set(obj, key)
   }
   return { counts, hidden, lastAt }
 }

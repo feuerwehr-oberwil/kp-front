@@ -210,9 +210,23 @@ function commandRoles(people: JournalLink[], heldAt?: Map<string, string>): Jour
 function shortRole(note: string): string | undefined {
   if (!note) return undefined
   const A = appConfig.copy.anwesenheit
-  if (note === A.roleEinsatzleiter) return A.roleEinsatzleiterShort
-  if (note === A.roleEinsatzleiterStv) return A.roleEinsatzleiterStvShort
-  return note
+  const truppLeader = fillTemplate(A.roleLeader, { role: A.roleTrupp })
+  const parts = note.split(',').map((p) => p.trim()).filter(Boolean)
+    .map((p) => {
+      if (p === A.roleEinsatzleiter) return A.roleEinsatzleiterShort
+      if (p === A.roleEinsatzleiterStv) return A.roleEinsatzleiterStvShort
+      // ⚠️ «(Trupp)» is dropped and «(Trupp-GF)» shortened to «GF» (04.09., Manuel's Rapport).
+      // On the Anwesenheitsliste those two words earn their place: they are what tells an AdF who
+      // was in a Trupp from one who stayed at the Magazin. In a Verlauf row they cannot — the row
+      // is ABOUT a Trupp, and «Trupp Brunner Thomas (Trupp) / Müller Hans (Trupp)» says the same
+      // word three times. What is still worth printing there is who led it. The Atemschutz
+      // variants stay whole: «(AS)» beside a name in a row about something else is news.
+      if (p === A.roleTrupp) return ''
+      if (p === truppLeader) return appConfig.copy.atemschutz.leaderBadge
+      return p
+    })
+    .filter(Boolean)
+  return parts.join(', ') || undefined
 }
 
 /** One marked stretch of an entry's text. */

@@ -352,6 +352,31 @@ describe('journalVocabulary · the Trupps', () => {
     expect(vocab.filter((l) => l.kind === 'trupp')).toHaveLength(1)
   })
 
+  /* ── «(Trupp)» says nothing here (04.09., Manuel's Rapport) ─────────────────────────────────
+   * On the Anwesenheitsliste those words earn their place — they tell an AdF who was in a Trupp
+   * from one who stayed at the Magazin. In a Verlauf row about a Trupp they cannot: «Trupp
+   * Brunner Thomas (Trupp) / Müller Hans (Trupp)» says the same word three times. What is still
+   * worth printing is who LED it, so «Trupp-GF» is trimmed to the bare badge. Display only — the
+   * Anwesenheit and its print keep the whole note. */
+  it('drops the «Trupp» Funktion from the row and shortens «Trupp-GF» to «GF»', () => {
+    const plain: AttendanceState = { p1: present('Meier Anna', 'Trupp-GF'), p2: present('Müller Hans', 'Trupp') }
+    const vocab = journalVocabulary(personnel, plain, undefined, [trupp({ kind: 'einfach' })])
+    expect(linkMarkup('Trupp Meier Anna / Müller Hans eingerückt', vocab, (x) => x))
+      .toBe('<b>Trupp Meier Anna</b> (GF) / <b>Müller Hans</b> eingerückt')
+  })
+
+  it('leaves the Atemschutz Funktionen whole — «(AS)» beside a name is news', () => {
+    const vocab = journalVocabulary(personnel, attendance, undefined, [trupp({})])
+    expect(linkMarkup('Meier Anna und Müller Hans', vocab, (x) => x))
+      .toBe('<b>Meier Anna</b> (AS-GF) und <b>Müller Hans</b> (AS)')
+  })
+
+  it('keeps the rest of a Funktion list when the Trupp part is dropped', () => {
+    const both: AttendanceState = { p1: present('Meier Anna', 'Fahrer PIO, Trupp') }
+    const vocab = journalVocabulary(personnel, both, undefined, [])
+    expect(linkMarkup('Meier Anna fährt', vocab, (x) => x)).toBe('<b>Meier Anna</b> (Fahrer PIO) fährt')
+  })
+
   it('says nothing when the Einsatz has no Trupps — and nothing about a nameless one', () => {
     expect(journalVocabulary(personnel, attendance).some((l) => l.kind === 'trupp')).toBe(false)
     expect(vocabOf([trupp({ name: '  ' })]).some((l) => l.kind === 'trupp')).toBe(false)

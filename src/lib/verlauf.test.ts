@@ -201,6 +201,57 @@ describe('repeatRuns', () => {
     expect(counts.get('n1')).toBe(3)
   })
 
+  /* ── A run ENDS when something else happens to the same object (04.09., Manuel's Rapport) ──
+   * His card read «Austritt 16:19 · Eingerückt 16:20 · Austritt 16:20» and the printed sheet
+   * carried one row, «Austritt 2×» at 16:19: a second, real deployment cycle folded into the
+   * first because the two Austritte matched each other across the Eintritt between them. */
+  it('⚠️ breaks the run when the same Trupp does something else in between', () => {
+    const rows = [
+      row('x1', '2026-09-04T14:19:00.000Z', 'Trupp Brunner Thomas: Austritt', { subjectId: 'tr1' }),
+      row('e1', '2026-09-04T14:20:00.000Z', 'Trupp Brunner Thomas: Eintritt', { subjectId: 'tr1' }),
+      row('x2', '2026-09-04T14:20:40.000Z', 'Trupp Brunner Thomas: Austritt', { subjectId: 'tr1' }),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden.size).toBe(0)
+    expect(counts.size).toBe(0)
+  })
+
+  // …and the other side of the same rule: a burst with nothing in between is still one row
+  it('still folds a burst about one Trupp that nothing interrupts', () => {
+    const rows = [
+      row('x1', '2026-09-04T14:19:00.000Z', 'Trupp Brunner Thomas: Austritt', { subjectId: 'tr1' }),
+      row('x2', '2026-09-04T14:19:01.000Z', 'Trupp Brunner Thomas: Austritt', { subjectId: 'tr1' }),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden).toEqual(new Set(['x2']))
+    expect(counts.get('x1')).toBe(2)
+  })
+
+  // …and a row about ANOTHER object does not break it: the run belongs to its own object
+  it('is not broken by what happens to a different Trupp in between', () => {
+    const rows = [
+      row('x1', '2026-09-04T14:19:00.000Z', 'Trupp Brunner Thomas: Austritt', { subjectId: 'tr1' }),
+      row('o1', '2026-09-04T14:19:20.000Z', 'Trupp Meier Anna: Eintritt', { subjectId: 'tr2' }),
+      row('x2', '2026-09-04T14:19:40.000Z', 'Trupp Brunner Thomas: Austritt', { subjectId: 'tr1' }),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden).toEqual(new Set(['x2']))
+    expect(counts.get('x1')).toBe(2)
+  })
+
+  // ⚠️ Rows that name NO object keep the old rule — the app re-stating a state («Kontakt
+  // überfällig») is the case the fold exists for, and there is no object to break the run with.
+  it('keeps folding objectless rows across whatever stands between them', () => {
+    const rows = [
+      row('a', '2026-09-04T14:19:00.000Z', 'Kontakt überfällig'),
+      row('b', '2026-09-04T14:19:10.000Z', 'Etwas anderes ist passiert'),
+      row('c', '2026-09-04T14:19:20.000Z', 'Kontakt überfällig'),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden).toEqual(new Set(['c']))
+    expect(counts.get('a')).toBe(2)
+  })
+
   it('leaves hand-written rows alone — somebody who typed it twice meant it twice', () => {
     const rows = [
       row('a', '2026-08-19T20:00:00.000Z', 'Wasser marsch', { kind: 'journal', icon: 'type' }),

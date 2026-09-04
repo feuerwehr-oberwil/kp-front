@@ -7,7 +7,7 @@ import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
@@ -389,6 +389,28 @@ export function AtemschutzView({
   // mid-board. Also the stable tiebreak for the derived sorts, so two Trupps that compare equal
   // by name/Auftrag keep the slots the hand gave them.
   const orderKey = (t: Trupp) => truppOrderKey(t, trupps.findIndex((x) => x.id === t.id))
+  /**
+   * How long this crew has been out there, as the tiebreak both derived sorts need — 0 for
+   * anybody who is not (04.09., Manuel: «den länger andauernden Einsatz zuerst»).
+   *
+   * ⚠️ `truppStillDeployed`, not the raw `elapsedSec`. That number is FROZEN at the Austritt and
+   * keeps its total, so a crew that worked for an hour and came out would outrank every Trupp
+   * actually inside — an urgency sort putting the finished ones on top. Only a running
+   * deployment has a length that means anything here.
+   */
+  const runningSec = (t: Trupp) => (truppStillDeployed(t) ? live.get(t.id)?.elapsedSec ?? 0 : 0)
+  /**
+   * Where a Trupp stands in the work, as a rank: 0 out there · 1 waiting to go · 2 finished.
+   *
+   * The «Auftrag» sort is read to answer «who is doing what», and it used to answer it with a
+   * plain alphabet — so a Trupp that had come out an hour ago, and one still standing at the
+   * vehicle, sat left of the crews actually working (04.09., Manuel). The alphabet still orders
+   * within each rank; what changed is that the crews the question is about come first.
+   *
+   * ⚠️ ONLY in this derived sort. «Wie gesetzt» keeps every card in its slot for the whole
+   * Einsatz, finished or not — that is the promise that mode exists for (see the note below).
+   */
+  const workRank = (t: Trupp) => (truppStillDeployed(t) ? 0 : t.status === 'raus' ? 2 : 1)
   const baseSort = (list: Trupp[]) => [...list].sort((a, b) => {
     if (order !== 'manuell') {
       const alarm = Number(sevOf(b.id) >= 2) - Number(sevOf(a.id) >= 2)
@@ -402,6 +424,10 @@ export function AtemschutzView({
       // orders both vocabularies in one alphabet, and the board is split into its PA and
       // non-PA sections anyway, so the two lists never actually interleave. A Trupp with no
       // Auftrag sorts last (￿), an id from the other list sorts by its own word.
+      // …behind WHERE the Trupp stands in the work: out there, waiting, finished (`workRank`).
+      // A Trupp with no Auftrag at all still sorts last within its own rank (￿).
+      const rank = workRank(a) - workRank(b)
+      if (rank) return rank
       return (truppAuftragLabel(a.auftrag) ?? '￿').localeCompare(truppAuftragLabel(b.auftrag) ?? '￿', 'de') || orderKey(a) - orderKey(b)
     }
     if (order === 'dringlichkeit') {
@@ -411,6 +437,12 @@ export function AtemschutzView({
       if (tier) return tier
       const by = urgency(b) - urgency(a)
       if (by) return by
+      // …and among cards that are equally urgent, the deployment that has been RUNNING LONGEST
+      // (04.09., Manuel). Under PA the clock above already orders them — this is the answer for
+      // everything it cannot see: a Trupp ohne Atemschutz has no Funkkontakt-Intervall, so every
+      // one of them tied here and fell back to the board's hand-set order.
+      const longest = runningSec(b) - runningSec(a)
+      if (longest) return longest
     }
     return orderKey(a) - orderKey(b)
   })
@@ -1558,6 +1590,20 @@ function TruppCard({
    * 0-bar rows survive into a Trupp that IS monitored now, where `monitored` no longer hides
    * them (useTruppActions · editTrupp · kindPatch). */
   const barShown = (r: Pick<TruppReading, 'kind' | 'bar'>) => monitored && readingBarShown(r)
+  /**
+   * What a reading row is CALLED — «Eingerückt», and on a Trupp without Atemschutz «Eingerückt –
+   * ohne Atemschutz» (04.09., Feldtest Manuel: «Atemschutz beendet» and then a bare «Eingerückt»
+   * left the reader unable to say what had gone in).
+   *
+   * ⚠️ The ENTRY row only, and by the Trupp's CURRENT Art. The same two decisions the Verlauf
+   * line makes (copy · atemschutz.logEntryNoAs, readingNoAs): every row would be wallpaper, and a
+   * Trupp whose Art was changed mid-run carries `paOn`/`paOff` rows right there in this list,
+   * which say it more precisely than a re-labelled Eintritt could.
+   */
+  const readingLabel = (r: Pick<TruppReading, 'kind'>) => {
+    const what = az.readingKind[r.kind] ?? r.kind
+    return !monitored && r.kind === 'entry' ? fillTemplate(az.readingNoAs, { what }) : what
+  }
   // the folded timing rows: they were a tap ZONE on the clock itself, findable only by knowing
   // that five grey characters at the band's edge meant «tap me». They are now the head of the
   // Verlauf, behind a word — and the band went back to being a display, not a button.
@@ -1710,12 +1756,14 @@ function TruppCard({
         )}
         {canEdit && inField && (
           <div className={s.actions}>
-            {/* ⚠️ «Raus melden» FIRST — the quiet column (see the note on the zone above). On a
-                Trupp without Atemschutz it is the only button, and then it takes the whole row. */}
-            <button className={cx(s.actBtn, s.actExit)} onClick={askExit}>
-              <Icon id="logout" /><span>{az.actExit}</span>
-            </button>
-            {/* Rückzug is an Atemschutz manoeuvre — it lowers the turn-back pressure (alarmBarFor)
+            {/* ⚠️ IN THE ORDER THE EINSATZ RUNS (04.09., Feldtest Manuel): Rückzug first, «Raus
+                melden» after it — the crew is called back, then it comes out. It used to be the
+                other way round, on the argument that the exit belongs in the quiet left column;
+                but this row is read while both steps are still ahead, and a row that runs
+                backwards is read backwards. Each button keeps its own weight and icon, so nothing
+                about which is which changed. On a Trupp without Atemschutz «Raus melden» is still
+                the only button, and then it takes the whole row.
+                Rückzug is an Atemschutz manoeuvre — it lowers the turn-back pressure (alarmBarFor)
                 and there is no pressure to lower on a Trupp without a cylinder. */}
             {monitored && (t.status === 'aktiv' ? (
               <button className={cx(s.actBtn, s.actRueckzug)} onClick={() => onStatus(t.id, 'rueckzug')}>
@@ -1726,6 +1774,9 @@ function TruppCard({
                 <Icon id="redo" /><span>{az.actContinue}</span>
               </button>
             ))}
+            <button className={cx(s.actBtn, s.actExit)} onClick={askExit}>
+              <Icon id="logout" /><span>{az.actExit}</span>
+            </button>
           </div>
         )}
         {/* No exit timestamp line here: the exit event is in the per-Trupp Verlauf and on the
@@ -1838,7 +1889,7 @@ function TruppCard({
                                   one it carries is the last reported value, not a fresh reading —
                                   and a Trupp without Atemschutz shows none at all (barShown) */}
                               <span className={s.logBar}>{barShown(r) ? `${r.bar} bar` : ''}</span>
-                              <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
+                              <span className={s.logKind}>{readingLabel(r)}</span>
                             </li>
                           )
                         })}
