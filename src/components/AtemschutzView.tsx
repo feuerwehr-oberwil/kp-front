@@ -7,11 +7,11 @@ import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, pressureAlarm, truppAlarm, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
-import { readingBarIsMeasured, truppAuftragLabel, truppStatusLabel } from '../lib/report'
+import { readingBarShown, truppAuftragLabel, truppStatusLabel } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields, TruppKind, TruppReading } from '../types'
 import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
@@ -573,6 +573,21 @@ export function AtemschutzView({
         status: 'angemeldet', readings: [],
       })
     } else if (form.mode === 'edit' && form.trupp) {
+      /* Turning the Überwachung OFF on a crew that is inside is the one change in this form that
+       * takes a safety watch away, so it is said out loud first. Only while the Trupp is actually
+       * in the field: correcting an Art on a Trupp that has come out, or one still at the door,
+       * costs nobody anything and needs no dialog. Cancel returns to the form with the tile still
+       * on «ohne Atemschutz», so the operator can put it back rather than start over. */
+      if (f.kind === 'einfach' && truppInField(form.trupp)) {
+        const ok = await confirmDialog({
+          title: fillTemplate(az.kindOffTitle, { name: form.trupp.name }),
+          message: az.kindOffMsg,
+          confirmLabel: az.kindOffConfirm,
+          cancelLabel: appConfig.copy.cancel,
+          danger: true,
+        })
+        if (!ok) return
+      }
       editTrupp(form.trupp.id, f)
     } else if (form.mode === 'redeploy' && form.trupp) {
       reactivateTrupp(form.trupp.id, f, standby)
@@ -1523,8 +1538,11 @@ function TruppCard({
    * all, which reads as a measurement rather than as the absence of one. The Rapport already
    * leaves these Trupps off the Atemschutz page for exactly this reason (lib/reportPdfDirect);
    * the board now says as little about their Druck as the paper does. The rows themselves stay:
-   * angemeldet / eingerückt / draussen is this Trupp's chronology and the log is the record. */
-  const barShown = (kind: TruppReading['kind']) => monitored && readingBarIsMeasured(kind)
+   * angemeldet / eingerückt / draussen is this Trupp's chronology and the log is the record.
+   * ⚠️ The zero check inside `readingBarShown` is what carries this after an UPGRADE: those same
+   * 0-bar rows survive into a Trupp that IS monitored now, where `monitored` no longer hides
+   * them (useTruppActions · editTrupp · kindPatch). */
+  const barShown = (r: Pick<TruppReading, 'kind' | 'bar'>) => monitored && readingBarShown(r)
   // the folded timing rows: they were a tap ZONE on the clock itself, findable only by knowing
   // that five grey characters at the band's edge meant «tap me». They are now the head of the
   // Verlauf, behind a word — and the band went back to being a display, not a button.
@@ -1758,7 +1776,7 @@ function TruppCard({
                   ? fillTemplate(az.verlaufLatest, {
                       time: fmtTime(lastReading.t),
                       what: (az.readingKind[lastReading.kind] ?? lastReading.kind)
-                        + (barShown(lastReading.kind) ? ` ${lastReading.bar} bar` : ''),
+                        + (barShown(lastReading) ? ` ${lastReading.bar} bar` : ''),
                     })
                   : az.zoneTimes}
               </span>
@@ -1793,7 +1811,7 @@ function TruppCard({
                               {/* …and the same on the board: a Kontakt shows no bar, because the
                                   one it carries is the last reported value, not a fresh reading —
                                   and a Trupp without Atemschutz shows none at all (barShown) */}
-                              <span className={s.logBar}>{barShown(r.kind) ? `${r.bar} bar` : ''}</span>
+                              <span className={s.logBar}>{barShown(r) ? `${r.bar} bar` : ''}</span>
                               <span className={s.logKind}>{az.readingKind[r.kind] ?? r.kind}</span>
                             </li>
                           )
@@ -1915,12 +1933,20 @@ function TruppForm({
     // would fight the operator's own edits
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  /* «Art des Trupps» — asked once, on creation, and read-only ever after (types · Trupp.kind).
-   * An existing Trupp answers from its own record, so re-deploying or editing one can never
-   * change what it was: its Druckverlauf, its Alarmdruck crossing and its place in the Rapport
-   * all hang off this one word. The chooser below is therefore rendered for `create` only. */
+  /* «Art des Trupps» — asked on creation, and changeable while EDITING one (04.09.). What the
+   * board could not do until then is the ordinary case: a Verkehrstrupp that ends up going in
+   * under PA, and a Trupp registered under Atemschutz by mistake. Both were a delete and a
+   * re-registration, which throws away the record of a crew that was already working.
+   * ⚠️ Re-deploy still answers from the Trupp's own record: «Wieder einrücken» is about sending
+   * the same Trupp in again, and the two decisions must not ride on one button.
+   * ⚠️ The change is not free — it starts or stops a safety watch. `editTrupp` owns what that
+   * writes (contact clock, `paOn`/`paOff` row), and the confirm in front of a downgrade lives in
+   * `submitForm` below, where saying no still leaves the operator in the form. */
   const [kind, setKind] = useState<TruppKind>(initial?.kind ?? 'atemschutz')
   const isPa = kind === 'atemschutz'
+  /** This edit is turning the Überwachung ON — the Trupp had no cylinder until a moment ago, so
+   *  the Druck field asks for a first Eingangsdruck rather than offering a correction. */
+  const upgrading = mode === 'edit' && isPa && !!initial && !isAtemschutzTrupp(initial)
   // …and the Auftrag tiles follow it: each kind has its own six-word vocabulary (config ·
   // atemschutz.auftrag / .auftragEinfach). Only the OFFER is narrowed — an already-stored value
   // from the other list keeps rendering everywhere (lib/report · truppAuftragLabel).
@@ -1929,7 +1955,10 @@ function TruppForm({
   // Atemschutz has no cylinder at all — 0, and the field is not shown (see `showPressure`).
   const [pressure, setPressure] = useState<number>(() => {
     const dz = atemschutzDoctrine()
-    return mode === 'edit' ? (initial?.entryPressureBar ?? dz.defaultPressureBar) : dz.defaultPressureBar
+    // ⚠️ `||`, not `??`: a Trupp without Atemschutz carries 0 and has no number to correct, so
+    // upgrading one from this form would open the stepper at 0 — a value the submit then refuses,
+    // with the operator left to find out why. It gets the station's default, like a new Trupp.
+    return mode === 'edit' ? (initial?.entryPressureBar || dz.defaultPressureBar) : dz.defaultPressureBar
   })
   // No autofocus: on a tablet the on-screen keyboard would immediately cover the form's other
   // fields. The EL taps the field they want first.
@@ -2002,8 +2031,8 @@ function TruppForm({
       lineNo: lineNo ?? undefined,
       funkkanal: Number.isFinite(funkkanal) ? funkkanal : undefined,
       // 0 for a Trupp without Atemschutz — there is no cylinder, and the field was never shown.
-      // The create path is the ONLY reader of `kind` (types · TruppFields); editTrupp and
-      // reactivateTrupp deliberately ignore it, which is what makes the kind immutable.
+      // ⚠️ On an UPGRADE this is the Eingangsdruck of a cylinder opened just now, and editTrupp
+      // logs it as such (`paOn`) rather than correcting the Eintritt the Trupp already has.
       pressure: isPa ? pressure : 0,
       leaderPersonId: team[0].personId,
       memberPersonIds: memberPersonIds.length ? memberPersonIds : undefined,
@@ -2095,7 +2124,8 @@ function TruppForm({
               Everything else is refinement and lives one tap away — on a phone the old order put
               five optional fields between the EL and the two mandatory ones. */}
           {/* ── «Art des Trupps» ────────────────────────────────────────────────────────────
-              Only while CREATING one (the kind is immutable afterwards), and always ABOVE THE
+              While creating one and while EDITING one (04.09. — not on re-deploy, see above),
+              and always ABOVE THE
               FIELDS IT GOVERNS — it decides what the rest of this form even asks (Druck), which
               Auftrag list is offered, which section the card lands in and whether the Trupp is on
               the Atemschutz page of the Rapport. That rule, not a fixed position, is what places
@@ -2112,7 +2142,7 @@ function TruppForm({
               Two labelled tiles rather than a Segmented pair: the choice is not a yes/no property
               of a Trupp, it is which of two different things is being registered, and each side
               says what it brings with it (recognition over recall). */}
-          {mode === 'create' && !lite && showRest && (
+          {(mode === 'create' || mode === 'edit') && !lite && showRest && (
             <div className={s.formColWide}>
               <div className={s.field}>
                 <span>{az.kindLabel}</span>
@@ -2152,11 +2182,16 @@ function TruppForm({
           <div className={s.formCol}>
             {showPressure && (
               <div ref={pressureRef} className={s.field}>
-                <span>{mode === 'redeploy' ? az.newPressureLabel : isEdit ? az.editPressureLabel : az.pressureLabel}</span>
+                {/* ⚠️ An UPGRADE is not a correction. The Trupp had no cylinder a moment ago, so
+                    this is a first Eingangsdruck being recorded, not the record being rewritten —
+                    and «Eingangsdruck korrigieren» over an empty stepper would say the opposite of
+                    what is happening (04.09.). */}
+                <span>{mode === 'redeploy' ? az.newPressureLabel
+                  : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel}</span>
                 <PressureStepper value={pressure} onChange={setPressure} compact />
                 {/* said out loud, because the same ± on the CARD does the opposite: there it is a
                     Druckmeldung and resets the contact clock. Here it corrects the record. */}
-                {isEdit && <p className={s.fieldNote}>{az.editPressureHint}</p>}
+                {isEdit && !upgrading && <p className={s.fieldNote}>{az.editPressureHint}</p>}
               </div>
             )}
 

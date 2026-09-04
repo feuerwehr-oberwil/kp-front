@@ -1662,6 +1662,10 @@ export const de = {
     readingKind: {
       registered: 'Angemeldet', entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck',
       alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Draussen', resume: 'Wiedereinstieg',
+      // Die beiden Enden der überwachten Strecke, wenn die Art nachträglich geändert wurde
+      // (types · TruppReading). «Unter Atemschutz» trägt den Eingangsdruck der Flasche, die
+      // in diesem Moment aufgedreht wurde – der Eintritt des Trupps bleibt, wo er war.
+      paOn: 'Unter Atemschutz', paOff: 'Atemschutz beendet',
     } as Record<string, string>,
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
@@ -1790,6 +1794,17 @@ export const de = {
     // A corrected Eingangsdruck names BOTH numbers: the record has to show what it used to say,
     // because everything derived from it (Verbrauch, tiefster Druck) was computed from the old one.
     changePressure: 'Eingangsdruck {from} → {to} bar',
+    // Die einzige Änderung im Formular, die eine Überwachung ein- oder ausschaltet – deshalb
+    // steht sie in der Verlaufszeile immer zuerst (useTruppActions · truppEditChanges).
+    changeKindPa: 'jetzt unter Atemschutz',
+    changeKindPlain: 'nicht mehr unter Atemschutz',
+    // Rückfrage, bevor einem Trupp im Einsatz die Überwachung genommen wird. Sie zählt auf,
+    // was aufhört – nicht, was passiert: was aufhört, ist das, was niemand merkt.
+    kindOffTitle: '{name}: Atemschutz-Überwachung beenden?',
+    kindOffMsg: 'Der Trupp ist im Einsatz. Ohne Atemschutz laufen Kontaktuhr und Druck nicht '
+      + 'weiter, und es gibt keinen Alarm mehr für ihn. Alles bisher Erfasste bleibt im Verlauf '
+      + 'und im Rapport.',
+    kindOffConfirm: 'Überwachung beenden',
     logColor: 'Trupp {name}: Farbe geändert',
     logExit: 'Trupp {name} draussen',
     logReenter: 'Trupp {name} wieder eingerückt – Eingangsdruck {bar} bar',

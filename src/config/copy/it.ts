@@ -1119,6 +1119,7 @@ export const it: Localizable<Copy> = {
       alarm: 'Pressione d\'allarme',
       rueckzug: 'Ripiegamento',
       exit: 'Fuori', resume: 'Rientro',
+      paOn: 'Sotto ARA', paOff: 'Sorveglianza ARA conclusa',
     },
     clockOk: 'Contatto ok',
     clockWarn: 'Contatto in scadenza',
@@ -1216,6 +1217,13 @@ export const it: Localizable<Copy> = {
     changeFunkkanal: 'Canale radio {n}',
     changeColor: 'Colore modificato',
     changePressure: 'Pressione d\'ingresso {from} → {to} bar',
+    changeKindPa: 'ora sotto ARA',
+    changeKindPlain: 'non più sotto ARA',
+    kindOffTitle: '{name}: terminare la sorveglianza ARA?',
+    kindOffMsg: 'La squadra è in servizio. Senza ARA l’orologio di contatto e la pressione non '
+      + 'proseguono e non c’è più alcun allarme per lei. Tutto quanto registrato finora resta '
+      + 'nel registro e nel rapporto.',
+    kindOffConfirm: 'Terminare la sorveglianza',
     logColor: 'Squadra {name}: colore modificato',
     logPressureAlarm: 'Squadra {name}: pressione {bar} bar – pressione d\'allarme raggiunta',
     logRemoved: 'Squadra {name} eliminata',

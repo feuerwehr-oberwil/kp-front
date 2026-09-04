@@ -14,7 +14,7 @@ import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarIsMeasured, readingKindLabel, spanAwareClock, truppAuftragLabel, truppRunTimes, truppStatusLabel,
+  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppRunTimes, truppStatusLabel,
 } from './report'
 import { isAtemschutzTrupp } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
@@ -410,11 +410,12 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // legal document is worse than a missing one.
       readings: ((t.readings?.length ? t.readings : [{ t: '', bar: t.entryPressureBar, kind: 'registered' as const }])
         // ⚠️ no bar on a Kontakt/Rückzug row — that number was carried over, not read off a gauge
-        // (lib/report · readingBarIsMeasured)
+        // — and none on a row of 0, which is a Trupp that had no cylinder when it was written
+        // (lib/report · readingBarShown)
         .map((rr) => ({
           t: rr.t ? formatDateTime(rr.t) : '',
           kindLabel: readingKindLabel(rr.kind),
-          bar: rr.bar != null && readingBarIsMeasured(rr.kind) ? String(rr.bar) : undefined,
+          bar: rr.bar != null && readingBarShown(rr) ? String(rr.bar) : undefined,
         }))),
     })),
     journal: draft.options.journal ? journal : [],

@@ -184,6 +184,73 @@ describe('useTruppActions placement (one place per Trupp)', () => {
   })
 })
 
+/* The Art of a Trupp, changed after the fact (04.09.). Until then a Verkehrstrupp that ended up
+ * going in under PA had to be deleted and registered again — throwing away the record of a crew
+ * that was already working. What matters is not the flag but what it drags along: a safety watch
+ * starts or stops, and the log has to be able to say when. */
+describe('useTruppActions — hoch- und zurückstufen', () => {
+  const plain = (over: Partial<Trupp> = {}): Trupp => baseTrupp({
+    kind: 'einfach', entryPressureBar: 0, lowestBar: 0,
+    readings: [{ t: '2026-07-06T10:00:00Z', bar: 0, kind: 'entry' }],
+    ...over,
+  })
+
+  it('starts the Überwachung NOW, not at the Eintritt', () => {
+    const { actions, state } = harness(plain({ lastContactTime: '' }))
+    const before = Date.now()
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300, kind: 'atemschutz' })
+
+    const t = state.trupps[0]
+    expect(t.kind).toBe('atemschutz')
+    // ⚠️ the contact clock is stamped at the change. Counted from the Eintritt, a crew that has
+    // been inside for forty minutes would be überfällig in the same second — with the tone going
+    // off over a Trupp nobody had failed to reach.
+    expect(Date.parse(t.lastContactTime)).toBeGreaterThanOrEqual(before)
+    // …and the Einsatzzeit is NOT restarted: putting a mask on does not re-send the crew
+    expect(t.entryTime).toBe('2026-07-06T10:00:00Z')
+  })
+
+  it('logs the Eingangsdruck as its own row instead of rewriting the Eintritt', () => {
+    const { actions, state } = harness(plain())
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300, kind: 'atemschutz' })
+
+    const readings = state.trupps[0].readings ?? []
+    expect(readings).toHaveLength(2)
+    // the Eintritt stays exactly as it was recorded — the Trupp did NOT go in under PA
+    expect(readings[0]).toMatchObject({ kind: 'entry', bar: 0 })
+    expect(readings[1]).toMatchObject({ kind: 'paOn', bar: 300 })
+    // …and everything the card measures against is the new cylinder
+    expect(state.trupps[0].entryPressureBar).toBe(300)
+    expect(state.trupps[0].lowestBar).toBe(300)
+  })
+
+  it('keeps the whole Atemschutz record when a Trupp is stood down to a work squad', () => {
+    const t = baseTrupp({
+      lastPressureBar: 180, lowestBar: 180,
+      readings: [
+        { t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' },
+        { t: '2026-07-06T10:20:00Z', bar: 180, kind: 'pressure' },
+      ],
+    })
+    const { actions, state } = harness(t)
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300, kind: 'einfach' })
+
+    const now = state.trupps[0]
+    expect(now.kind).toBe('einfach')
+    // the Atemschutz-Einsatz happened and the sheet still prints it — only the watching stops
+    expect(now.entryPressureBar).toBe(300)
+    expect(now.lowestBar).toBe(180)
+    expect(now.readings?.slice(0, 2)).toEqual(t.readings)
+    expect(now.readings?.[2]).toMatchObject({ kind: 'paOff', bar: 180 })
+  })
+
+  it('leaves a Trupp alone when the Art did not actually change', () => {
+    const { actions, state } = harness(baseTrupp({ readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' }] }))
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300, kind: 'atemschutz' })
+    expect(state.trupps[0].readings).toHaveLength(1) // no paOn row for a Trupp that already was one
+  })
+})
+
 // A Rückzug is ordered by the EL / Truppüberwacher or reported by the Trupp, and a Fortsetzen
 // means the Trupp was reached and sent back in. Both are radio contacts, so both must reset the
 // contact clock — otherwise the card keeps showing «überfällig» for a Trupp somebody just spoke to.
@@ -751,6 +818,19 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
     name: 'Keller Anna', members: ['Meier Hans', 'Frei Nina'], pressure: 300, funkkanal: 11, ...over,
   } as TruppFields)
   const prev = baseTrupp({ name: 'Keller Anna', members: ['Meier Hans', 'Frei Nina'], funkkanal: 11 })
+
+  // ⚠️ FIRST in the line, not somewhere in the middle: it is the only change here that turns a
+  // safety watch on or off, and the Verlauf is where somebody reads back what was watched when.
+  it('leads with the Art, and says nothing about it when it did not change', () => {
+    const az = appConfig.copy.atemschutz
+    expect(truppEditChanges(prev, fields({ kind: 'einfach', pressure: 280 })))
+      .toEqual([az.changeKindPlain, fillTemplate(az.changePressure, { from: '300', to: '280' })])
+    expect(truppEditChanges({ ...prev, kind: 'einfach' }, fields({ kind: 'atemschutz' })))
+      .toEqual([az.changeKindPa])
+    // an ABSENT kind means Atemschutz, so a plain Trupp edited where the chooser is not shown
+    // must not read as a downgrade
+    expect(truppEditChanges({ ...prev, kind: 'einfach' }, fields())).toEqual([])
+  })
 
   it('names both numbers when the Eingangsdruck was corrected', () => {
     expect(truppEditChanges(prev, fields({ pressure: 280 })))

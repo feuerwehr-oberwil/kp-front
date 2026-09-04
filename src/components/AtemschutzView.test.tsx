@@ -473,17 +473,31 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(screen.queryByText(az.kindLabel)).toBeNull()
   })
 
-  it('asks «Art des Trupps» once, on creation only — the kind is fixed afterwards', async () => {
+  /* ⚠️ Changeable while EDITING since 04.09. A Verkehrstrupp that ends up going in under PA, and a
+   * Trupp registered under Atemschutz by mistake, were both a delete and a re-registration until
+   * then — which throws away the record of a crew that was already working. */
+  it('offers «Art des Trupps» when editing, and asks for a cylinder the moment it is needed', async () => {
     mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
     fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
-    expect(screen.queryByText(az.kindLabel)).toBeNull()
-    // …and editing one never asks for a cylinder it does not have
-    expect(screen.queryByText(az.editPressureLabel)).toBeNull()
-    cleanup()
-    mount()
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     expect(screen.getByText(az.kindLabel)).toBeTruthy()
+    // …and no Druck while it is still a work squad: there is no cylinder to ask about
+    expect(screen.queryByText(az.pressureLabel)).toBeNull()
+    expect(screen.queryByText(az.editPressureLabel)).toBeNull()
+
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindAtemschutz) }))
+    // an upgrade records a FIRST Eingangsdruck — never «korrigieren», which would claim the Trupp
+    // already had one
+    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    expect(screen.queryByText(az.editPressureLabel)).toBeNull()
+  })
+
+  // …but not on «Wieder einrücken»: that button is about sending the same Trupp in again, and the
+  // two decisions must not ride on one press.
+  it('does not offer the Art on a re-deploy', async () => {
+    mount({ trupps: [{ ...plainTrupp(), status: 'raus', exitTime: iso(60_000) }], truppColors: { tr9: '#e2920a' } })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    expect(screen.queryByText(az.kindLabel)).toBeNull()
   })
 
   it('creates a Trupp «ohne Atemschutz» with the kind stamped and no Eingangsdruck', () => {

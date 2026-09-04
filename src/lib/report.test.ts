@@ -34,6 +34,7 @@ import {
   personalForPdf,
   proofLabel,
   readingBarIsMeasured,
+  readingBarShown,
   readingKindLabel,
   spanAwareClock,
   truppAuftragLabel,
@@ -737,6 +738,20 @@ describe('readingBarIsMeasured (which pressures the Rapport may print)', () => {
   it('stays silent where the value was carried over', () => {
     expect(readingBarIsMeasured('contact')).toBe(false)
     expect(readingBarIsMeasured('rueckzug')).toBe(false)
+    // the Überwachung ending is the same shape — nobody read a gauge for it
+    expect(readingBarIsMeasured('paOff')).toBe(false)
+    // …but the cylinder that was just opened carries its Eingangsdruck
+    expect(readingBarIsMeasured('paOn')).toBe(true)
+  })
+
+  /* ⚠️ Zero is not a pressure. A Trupp registered without Atemschutz carries 0 on every row of its
+   * log, and those rows survive it being upgraded later (types · TruppReading `paOn`) — which puts
+   * them on the Atemschutz page of the Rapport, where «Eingerückt 0 bar» reads as an empty
+   * cylinder: the one number on that sheet nobody may misread. */
+  it('prints no bar for a row written before the Trupp had a cylinder', () => {
+    expect(readingBarShown({ kind: 'entry', bar: 0 })).toBe(false)
+    expect(readingBarShown({ kind: 'entry', bar: 300 })).toBe(true)
+    expect(readingBarShown({ kind: 'contact', bar: 300 })).toBe(false)
   })
 })
 

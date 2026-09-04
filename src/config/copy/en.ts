@@ -1125,6 +1125,7 @@ export const en: Localizable<Copy> = {
       alarm: 'Alarm pressure',
       rueckzug: 'Withdrawal',
       exit: 'Out', resume: 'Re-entry',
+      paOn: 'Under SCBA', paOff: 'SCBA monitoring ended',
     },
     clockOk: 'Contact ok',
     clockWarn: 'Contact due',
@@ -1215,6 +1216,13 @@ export const en: Localizable<Copy> = {
     changeFunkkanal: 'Radio channel {n}',
     changeColor: 'Colour changed',
     changePressure: 'Entry pressure {from} → {to} bar',
+    changeKindPa: 'now under SCBA',
+    changeKindPlain: 'no longer under SCBA',
+    kindOffTitle: '{name}: end SCBA monitoring?',
+    kindOffMsg: 'The team is deployed. Without SCBA the contact clock and the pressure stop, '
+      + 'and there is no alarm for it any more. Everything recorded so far stays in the log '
+      + 'and on the report.',
+    kindOffConfirm: 'End monitoring',
     logColor: 'Team {name}: colour changed',
     logPressureAlarm: 'Team {name}: pressure {bar} bar — alarm pressure reached',
     logRemoved: 'Team {name} deleted',

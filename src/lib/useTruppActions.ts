@@ -135,6 +135,15 @@ export function truppEditChanges(prev: Trupp | undefined, f: TruppFields): strin
     out.push(fillTemplate(az.changeFunkkanal, { n: f.funkkanal == null ? '–' : String(f.funkkanal) }))
   }
   if (f.color !== undefined && (prev.color ?? null) !== (f.color ?? null)) out.push(az.changeColor)
+  // ⚠️ FIRST among the changes, not somewhere in the middle of the sentence: it is the only one
+  // here that turns a safety watch on or off, and the Verlauf is where somebody reads back what
+  // was being monitored when. The form answers this field from the Trupp's own record wherever
+  // the chooser is not shown (re-deploy, the handed-over Tafel), so it can only differ when
+  // somebody actually pressed one of the two tiles — but an ABSENT kind would compare as
+  // «Atemschutz» and report a downgrade on every plain Trupp, hence the explicit guard.
+  if (f.kind !== undefined && (f.kind === 'atemschutz') !== isAtemschutzTrupp(prev)) {
+    out.unshift(f.kind === 'atemschutz' ? az.changeKindPa : az.changeKindPlain)
+  }
   // both numbers, because everything already derived from the old one (Verbrauch, tiefster Druck)
   // was computed against it — «Eingangsdruck geändert» would not let anybody redo that arithmetic
   if (f.pressure !== prev.entryPressureBar) {
@@ -718,7 +727,41 @@ export function useTruppActions(deps: Deps) {
       const lowestBar = Math.min(bar, ...readings.slice(from).map((r) => r.bar))
       return { entryPressureBar: bar, readings, lowestBar }
     }
-    updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}) })
+    /**
+     * The Art of a Trupp, changed after the fact — a work squad that ends up going in under PA,
+     * or one registered under Atemschutz by mistake (04.09.). It is the one field here that
+     * changes what the app WATCHES, so it writes more than itself:
+     *
+     * · Hochstufen starts the Überwachung NOW. The contact clock is stamped at this moment, not
+     *   at the Eintritt — a crew that has been inside for forty minutes would otherwise be
+     *   überfällig in the same second, with the tone going off over a Trupp nobody had failed to
+     *   reach. The log gets a `paOn` row carrying the Eingangsdruck: the cylinder was opened now,
+     *   and that is what «tiefster Druck» is measured from. `entryTime` is NOT touched — the
+     *   crew's Einsatzzeit is unbroken by putting a mask on.
+     * · Zurückstufen ends it. Everything measured stays on the record (readings, Eingangsdruck,
+     *   tiefster Druck): the Atemschutz-Einsatz happened, and the sheet still prints it. What
+     *   stops is the watching, and a `paOff` row says when. The confirm in front of this lives in
+     *   the form (AtemschutzView · submitForm), where the operator can still change their mind.
+     */
+    const kindPatch = (t: Trupp): Partial<Trupp> => {
+      const nowPa = (f.kind ?? 'atemschutz') === 'atemschutz'
+      if (nowPa === isAtemschutzTrupp(t)) return {}
+      const at = new Date().toISOString()
+      if (!nowPa) {
+        return { kind: 'einfach', readings: [...(t.readings ?? []), { t: at, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'paOff' }] }
+      }
+      return {
+        kind: 'atemschutz',
+        entryPressureBar: bar,
+        lowestBar: bar,
+        lastContactTime: at,
+        readings: [...(t.readings ?? []), { t: at, bar, kind: 'paOn' }],
+      }
+    }
+    // ⚠️ the kind patch comes LAST: on an upgrade it owns `readings`, `entryPressureBar` and
+    // `lowestBar` outright, and `pressurePatch` would otherwise have rewritten the old Eintritt
+    // row to the new Eingangsdruck — claiming the Trupp went in under PA all along.
+    updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}), ...(tr ? kindPatch(tr) : {}) })
     // Clearing (or changing) the Leitung number in the form IS how a Trupp lets go of a hose —
     // that is where the operator already is when they change their mind, so the card needs no
     // «lösen» icon. The anchor goes with it, or the tag would survive its own number.

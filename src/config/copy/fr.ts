@@ -1119,6 +1119,7 @@ export const fr: Localizable<Copy> = {
       alarm: 'Pression d\'alarme',
       rueckzug: 'Repli',
       exit: 'Sorti', resume: 'Reprise',
+      paOn: 'Sous ARI', paOff: 'Surveillance ARI terminée',
     },
     clockOk: 'Contact ok',
     clockWarn: 'Contact à faire',
@@ -1216,6 +1217,13 @@ export const fr: Localizable<Copy> = {
     changeFunkkanal: 'Canal radio {n}',
     changeColor: 'Couleur modifiée',
     changePressure: 'Pression d\'entrée {from} → {to} bar',
+    changeKindPa: 'désormais sous ARI',
+    changeKindPlain: 'plus sous ARI',
+    kindOffTitle: '{name} : terminer la surveillance ARI ?',
+    kindOffMsg: 'Le binôme est engagé. Sans ARI, l’horloge de contact et la pression '
+      + 's’arrêtent, et il n’y a plus d’alarme pour lui. Tout ce qui a été saisi reste dans le '
+      + 'journal et sur le rapport.',
+    kindOffConfirm: 'Terminer la surveillance',
     logColor: 'Binôme {name} : couleur modifiée',
     logPressureAlarm: 'Binôme {name} : pression {bar} bar – pression d\'alarme atteinte',
     logRemoved: 'Binôme {name} supprimé',

@@ -832,9 +832,18 @@ export interface TruppReading {
    * truth, and the one row saying the crew went back IN was indistinguishable from a radio
    * check. The safety clock is unchanged: a `resume` resets it exactly like a Kontakt.
    *
+   * ⚠️ `paOn` / `paOff` are the two ends of the MONITORED stretch (04.09.). A Trupp's Art can be
+   * changed after the fact — a work squad that ends up going in under PA, or one registered under
+   * Atemschutz by mistake (useTruppActions · editTrupp) — and the moment the Überwachung starts or
+   * stops is the one thing about that change a safety document has to be able to say. `paOn`
+   * carries the Eingangsdruck of the cylinder that was just opened; `paOff` carries the last value
+   * known, like a `contact` does. Neither opens or closes a DEPLOYMENT: the Eintritt/Austritt pair
+   * stays `entry`/`exit` (lib/report · truppRunTimes), because the crew's Einsatzzeit is unbroken
+   * by putting a mask on.
+   *
    * Rows written before these kinds existed keep theirs — the log is append-only.
    */
-  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug' | 'exit' | 'resume'
+  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug' | 'exit' | 'resume' | 'paOn' | 'paOff'
 }
 
 export interface Trupp {

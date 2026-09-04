@@ -528,8 +528,23 @@ export function truppAuftragLabel(auftrag?: string): string | undefined {
  */
 export function readingBarIsMeasured(kind: TruppReading['kind']): boolean {
   // …and neither is the Austritt or the Wiedereinstieg: both carry the last reported value
-  // forward exactly like a Kontakt does (useTruppActions · setTruppStatus).
-  return kind !== 'contact' && kind !== 'rueckzug' && kind !== 'exit' && kind !== 'resume'
+  // forward exactly like a Kontakt does (useTruppActions · setTruppStatus). `paOff` is the same
+  // shape — the Überwachung ended, nobody read a gauge for it — while `paOn` carries the
+  // Eingangsdruck of the cylinder that was just opened, which IS a reading.
+  return kind !== 'contact' && kind !== 'rueckzug' && kind !== 'exit' && kind !== 'resume' && kind !== 'paOff'
+}
+
+/**
+ * …and whether this row may PRINT its bar at all.
+ *
+ * ⚠️ Zero is not a pressure. A Trupp that was registered without Atemschutz carries a bar of 0 on
+ * every row of its log — nobody was ever asked for an Eingangsdruck — and those rows survive the
+ * Trupp being upgraded later (types · TruppReading `paOn`), which puts them on the Atemschutz page
+ * of the Rapport. «Eingerückt 0 bar» reads as an empty cylinder, which is the one number on that
+ * sheet nobody may misread. The row stays, the column is blank for it.
+ */
+export function readingBarShown(r: Pick<TruppReading, 'kind' | 'bar'>): boolean {
+  return readingBarIsMeasured(r.kind) && r.bar > 0
 }
 
 /**
@@ -575,6 +590,9 @@ export function readingKindLabel(kind: TruppReading['kind']): string {
   // the two that complete the chronology — the crew came out, or went back in
   if (kind === 'exit') return az.readingKind.exit
   if (kind === 'resume') return az.readingKind.resume
+  // …and the two ends of the monitored stretch, where the Art was changed after the fact
+  if (kind === 'paOn') return az.readingKind.paOn
+  if (kind === 'paOff') return az.readingKind.paOff
   return az.readingKind.pressure
 }
 
