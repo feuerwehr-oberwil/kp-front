@@ -532,7 +532,9 @@ export function IncidentWorkspace({
   // removed (types · Trupp.removedAt) so the Rapport can still print it — and everything else in
   // this component, from the alarm host to the map markers to the roster lock, must never see it
   // again. Filtering here is what makes that true by construction instead of by fifteen call
-  // sites remembering. `allTrupps` goes to exactly two places: what is SAVED, and what is PRINTED.
+  // sites remembering. `allTrupps` goes to exactly three places, and all three are the RECORD
+  // rather than the board: what is SAVED, what is PRINTED, and the journal's vocabulary — a row
+  // that named a Trupp keeps naming it after the crew has come out (see `journalVocab`).
   const trupps = useMemo(() => allTrupps.filter((t) => !t.removedAt), [allTrupps])
   // …and the other half: what was taken off the board, newest first. The Atemschutz header offers
   // them back, so the delete's six-second toast is the fast way and not the only one.
@@ -3649,9 +3651,12 @@ export function IncidentWorkspace({
     const byId = new Map(linkedTrupps.map((t) => [t.id, t.name]))
     return new Map([...truppOfPerson].map(([personId, truppId]) => [personId, byId.get(truppId) ?? '']))
   }, [truppOfPerson, linkedTrupps])
+  // ⚠️ …and the TRUPPS themselves, as «Trupp Meier Anna» (journalLinks · journalVocabulary). Off
+  // `allTrupps`, the unfiltered slice: a Trupp that has come out or been taken off the board is
+  // still named in the rows written while it was working, and those must keep their marking.
   const journalVocab = useMemo(
-    () => journalVocabulary(pickablePersonnel, attendance, truppNameOfPerson),
-    [pickablePersonnel, attendance, truppNameOfPerson],
+    () => journalVocabulary(pickablePersonnel, attendance, truppNameOfPerson, allTrupps),
+    [pickablePersonnel, attendance, truppNameOfPerson, allTrupps],
   )
   // active-member names feeding the symbol detail comboboxes (Einsatzleiter / Offizier / Fahrer)
   // ⚠️ Built from the PICKABLE roster, guests included. These names fill the dropdowns on a
@@ -3741,8 +3746,14 @@ export function IncidentWorkspace({
 
   /** `groupTemplate` folds the per-person rows into ONE line naming the whole crew — see the
    *  Trupp caller below for why. It is the TEMPLATE and not a flag because the two kinds of Trupp
-   *  read differently: «Unter AS: …» is a sentence, «Unter Trupp: …» is not. */
-  const ensurePresentForRole = (ids: (string | undefined)[], roleNote?: string, groupTemplate?: string) => {
+   *  read differently: «Unter AS: …» is a sentence, «Unter Trupp: …» is not.
+   *  `noteFor` overrides the Funktion for ONE of them — the Gruppenführer's «AS-GF» beside his
+   *  crew's «AS» (lib/roleAssignment · truppRoleNote). Only the note differs: the crew line still
+   *  names the whole Trupp under its own Funktion, because that is the fact being recorded. */
+  const ensurePresentForRole = (
+    ids: (string | undefined)[], roleNote?: string, groupTemplate?: string,
+    noteFor?: (id: string) => string | undefined,
+  ) => {
     // Not on an Atemschutz-Link session: its Anwesenheit write is a no-op (the slice never
     // carries attendance), and a Verlauf row claiming «anwesend · AS» over a record that never
     // changed would be a lie on paper. The tablet marks the crew present when it takes the Trupp.
@@ -3752,8 +3763,9 @@ export function IncidentWorkspace({
     // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
     // then goes under Atemschutz is «Fahrer Pio, AS». See lib/roleAssignment · mergeRoleNote for
     // when a part replaces an earlier one instead of joining it.
+    const noteOf = (id: string) => noteFor?.(id) ?? roleNote
     const needNote = roleNote
-      ? wanted.filter((id) => mergeRoleNote(attendance[id]?.note, roleNote) !== (attendance[id]?.note ?? '').trim())
+      ? wanted.filter((id) => mergeRoleNote(attendance[id]?.note, noteOf(id)!) !== (attendance[id]?.note ?? '').trim())
       : []
     if (!fresh.length && !needNote.length) return
     // through the history, like every other write to this slice — being made Fahrer or EL puts
@@ -3770,7 +3782,7 @@ export function IncidentWorkspace({
       // …stamped, so «wer ist jetzt EL» has an answer that does not depend on a sort order
       // (types · AttendanceEntry.noteAt)
       const at = new Date().toISOString()
-      for (const id of needNote) if (next[id]) next[id] = { ...next[id], note: mergeRoleNote(next[id].note, roleNote!), noteAt: at }
+      for (const id of needNote) if (next[id]) next[id] = { ...next[id], note: mergeRoleNote(next[id].note, noteOf(id)!), noteAt: at }
       return next
     })
     // ONE row per person, not one for the presence and a second for the remark: naming a Fahrer
@@ -3793,13 +3805,13 @@ export function IncidentWorkspace({
     for (const id of fresh) {
       const name = rosterById.get(id)?.displayName ?? id
       log('people', noted.has(id) && roleNote
-        ? fillTemplate(A.logPresentAs, { name, role: roleNote })
+        ? fillTemplate(A.logPresentAs, { name, role: noteOf(id)! })
         : `${name} anwesend`, 'team')
     }
     // somebody already on the list who has just been given the job: the role is the news
     for (const id of needNote) {
       if (fresh.includes(id)) continue
-      log('people', fillTemplate(A.logNote, { name: rosterById.get(id)?.displayName ?? id, note: roleNote ?? '–' }), 'team')
+      log('people', fillTemplate(A.logNote, { name: rosterById.get(id)?.displayName ?? id, note: noteOf(id) ?? '–' }), 'team')
     }
   }
   /** ⚠️ Being in a Trupp is a JOB, and the Anwesenheit should say so. It marked the crew present
@@ -3820,15 +3832,19 @@ export function IncidentWorkspace({
    *  the name on its first mention (lib/journalLinks), so a row about a Trupp without Atemschutz
    *  read «Müller Hans (AS)»: a statement about where somebody was, on the surface the
    *  Personalblatt is printed from. The list itself has drawn the distinction since 03.09.
-   *  («unter AS» / «im Trupp»); this is the same fact written onto the row. */
+   *  («unter AS» / «im Trupp»); this is the same fact written onto the row.
+   *  ⚠️ …and the GRUPPENFÜHRER gets the «-GF» variant of it, wherever his name came from: the
+   *  picker (`leaderPersonId`) or the keyboard (the first name `unrecordedCrewNames` returns is
+   *  `f.name`, which IS the leader — see types · Trupp.name). */
   const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds' | 'kind'>) => {
-    const { role, groupTemplate } = truppRoleNote(f)
+    const { role, leaderRole, groupTemplate } = truppRoleNote(f)
     const ids = [f.leaderPersonId, ...(f.memberPersonIds ?? [])]
-    ensurePresentForRole(ids, role, groupTemplate)
+    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined))
     // 'presence': being in a Trupp contradicts nothing — the conflict check is about somebody
     // holding a SECOND job (lib/roleAssignment · roleConflictHint)
+    const lead = f.name.trim()
     for (const name of unrecordedCrewNames(f, (n) => personIdForName(rosterIdByName, n))) {
-      assignTypedName(name, 'presence', role)
+      assignTypedName(name, 'presence', name === lead ? leaderRole : role)
     }
   }
 

@@ -822,8 +822,10 @@ export type TruppAuftrag = AtemschutzAuftrag | EinfachAuftrag
 /** the editable descriptive fields of a Trupp, shared by the create / edit / re-deploy form */
 /** `color: null` from the form means «zurück auf automatisch» — distinct from `undefined`, which
  *  is «this form doesn't carry a colour». See Trupp.color.
- *  `kind` rides along for the CREATE path only — it is fixed once the Trupp exists (see
- *  Trupp.kind), so `editTrupp`/`reactivateTrupp` deliberately never patch it. */
+ *  `kind` rides along on every path (04.09.): it is answered when the Trupp is created, corrected
+ *  while it is being edited, and asked again for each re-deployment — a crew that fought the fire
+ *  under PA goes back in to clear up without it. `editTrupp` and `reactivateTrupp` each own what
+ *  that change writes, because it starts or stops a safety watch (see Trupp.kind). */
 export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind }
 
 /**
@@ -892,13 +894,18 @@ export interface Trupp {
    * Atemschutz or a plain work squad — see `TruppKind`. ABSENT = `atemschutz`, so no existing
    * record changes meaning and nothing has to be migrated.
    *
-   * ⚠️ FIXED at creation, on purpose. A PA Trupp carries an Eingangsdruck, a contact clock, a
-   * Druckverlauf and possibly a recorded Alarmdruck-Überschreitung — a safety record with nowhere
-   * to live on a plain row, and one that would vanish from the Atemschutz page of the Rapport the
-   * moment the kind flipped. The other direction is worse: it would assert a cylinder and a
-   * Funkkontakt-Intervall nobody ever watched. So the form offers the choice once (create) and
-   * never again; a wrong pick is undone by deleting the Trupp (undoable, and the record keeps it
-   * via `removedAt`) and registering it anew.
+   * ⚠️ CHANGEABLE, and every change is written down (04.09. — it used to be fixed at creation, so
+   * a wrong pick meant deleting the Trupp and registering it anew, throwing away the record of a
+   * crew that had already been working). What made it look fixed is real and is what the writers
+   * have to protect: a PA Trupp carries an Eingangsdruck, a contact clock, a Druckverlauf and
+   * possibly a recorded Alarmdruck-Überschreitung, and none of that may quietly disappear from
+   * the Atemschutz page of the Rapport — nor may the other direction assert a cylinder and a
+   * Funkkontakt-Intervall nobody watched. So the flip is owned by two places, and only those:
+   *   · `editTrupp` (useTruppActions · kindPatch) corrects the Art of the RUNNING deployment.
+   *     Everything measured stays; a `paOn`/`paOff` row marks where the watched stretch begins
+   *     or ends, and hochstufen stamps the contact clock NOW rather than at the Eintritt.
+   *   · `reactivateTrupp` answers it afresh for the NEXT deployment («Wieder einrücken»), where
+   *     the run boundary is the new entry row itself and no paOn/paOff is needed.
    */
   kind?: TruppKind
   /** Taken off the Tafel (ISO), rather than removed from the record.

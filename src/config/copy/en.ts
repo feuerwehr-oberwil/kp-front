@@ -1069,7 +1069,7 @@ export const en: Localizable<Copy> = {
     teamRemove: 'Take {name} off the team',
     teamTaken: 'on a team',
     teamManual: 'guest',
-    teamGuestAdd: 'Add «{name}» as a guest / mutual aid',
+    teamGuestAdd: 'Add «{name}» as a guest',
     lineNoLabel: 'Line no.',
     lineLegacyNote: 'Previously recorded: “{value}”',
     lineOptsLabel: 'Drawn:',
@@ -1192,6 +1192,8 @@ export const en: Localizable<Copy> = {
     alarmNotifyTitle: 'SCBA overdue',
     alarmNotifyBody: 'Team {name} overdue – establish contact.',
     status: { angemeldet: 'Registered', aktiv: 'Deployed', rueckzug: 'Withdrawing', ueberfaellig: 'Overdue', raus: 'Out' },
+    // how a team is NAMED in running text — see the German base for why the word is part of it
+    truppTerm: 'Team {name}',
     logRegister: 'Team {name} registered – entry pressure {bar} bar',
     logRegisterPlain: 'Team {name} registered',
     logPlaced: 'Team {name} placed on plan',
@@ -2608,6 +2610,9 @@ export const en: Localizable<Copy> = {
     roleOffizier: 'Officer {funktion}',
     roleAtemschutz: 'SCBA',
     roleTrupp: 'Team',
+    // the Gruppenführer's own Funktion — ONE hyphenated token, so it stays unambiguous inside the
+    // comma list a Bemerkung is («SCBA-Lead, Driver TLF»). See the German base for the reasoning.
+    roleLeader: '{role}-Lead',
     roleOffizierPlain: 'Officer',
     alreadyBooked: '{role}',
     // hints, never blocks

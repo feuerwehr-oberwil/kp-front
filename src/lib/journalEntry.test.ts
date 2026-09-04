@@ -93,6 +93,22 @@ describe('typing a term', () => {
     expect(suggestLinks('EL ', posts).map((l) => l.name)).not.toContain('EL')
   })
 
+  /* ⚠️ The composer's own path to a Trupp (04.09.): the term is «Trupp Meier Anna», so typing the
+   * WORD offers every Trupp of this Einsatz — three letters for the whole board — and typing the
+   * Gruppenführer's name reaches both his person entry and the Trupp he leads. A Trupp that has
+   * come out is still offered; it just ranks behind a live one. */
+  it('offers the Trupps by their word and by their Gruppenführer', () => {
+    const teams: JournalLink[] = [
+      { name: 'Meier Anna', kind: 'person', present: true },
+      { name: 'Trupp Meier Anna', kind: 'trupp', present: true },
+      { name: 'Trupp Bucher Leo', kind: 'trupp', present: false },
+    ]
+    // both score the same on «Trup», so the one still in the field is offered first
+    expect(suggestLinks('Trup', teams).map((l) => l.name))
+      .toEqual(['Trupp Meier Anna', 'Trupp Bucher Leo'])
+    expect(suggestLinks('Meier', teams).map((l) => l.name)).toContain('Trupp Meier Anna')
+  })
+
   it('breaks a score tie on who is actually here', () => {
     const tie: JournalLink[] = [
       { name: 'Brunner Thomas', kind: 'person', present: false },

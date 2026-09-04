@@ -166,13 +166,23 @@ describe('mergeRoleNote', () => {
     expect(mergeRoleNote('Fahrer TLF, Einsatzleiter', 'Stv. Einsatzleiter')).toBe('Fahrer TLF, Stv. Einsatzleiter')
   })
 
-  /* ⚠️ …and so do «AS» and «Trupp» (04.09.): a place in a Trupp is ONE job, and its Art can be
-   * changed after the fact (useTruppActions · editTrupp · kindPatch). Joined, the crew of a
-   * Verkehrstrupp that later went under PA would read «Trupp, AS». */
-  it('⚠️ AS and Trupp replace each other — one place in one team', () => {
+  /* ⚠️ …and so do the FOUR words for a place in a Trupp (04.09.): «AS», «AS-GF», «Trupp»,
+   * «Trupp-GF». It is one job however it is spelled, and both halves of the spelling move on
+   * their own — the Art is changeable after the fact (useTruppActions · editTrupp · kindPatch)
+   * and the Gruppenführer can be swapped for an AdF in the same form. */
+  it('⚠️ AS · AS-GF · Trupp · Trupp-GF replace each other — one place in one team', () => {
     expect(mergeRoleNote('Trupp', 'AS')).toBe('AS')
     expect(mergeRoleNote('AS', 'Trupp')).toBe('Trupp')
     expect(mergeRoleNote('Fahrer TLF, Trupp', 'AS')).toBe('Fahrer TLF, AS')
+    // taking the Trupp over, and handing it back
+    expect(mergeRoleNote('AS', 'AS-GF')).toBe('AS-GF')
+    expect(mergeRoleNote('AS-GF', 'AS')).toBe('AS')
+    // …and the Art changing under a Gruppenführer, with the rest of the row surviving it. Both
+    // directions happen on «Wieder einrücken» (useTruppActions · reactivateTrupp → workspace ·
+    // ensurePresentFromTrupp): the crew goes back in with or without masks, and the note follows.
+    expect(mergeRoleNote('Trupp-GF', 'AS-GF')).toBe('AS-GF')
+    expect(mergeRoleNote('AS-GF', 'Trupp-GF')).toBe('Trupp-GF')
+    expect(mergeRoleNote('Fahrer PIO, AS-GF', 'Trupp')).toBe('Fahrer PIO, Trupp')
   })
 
   it('handles the empty cases', () => {
@@ -223,11 +233,12 @@ describe('truppRoleNote (what a place in a Trupp writes onto the Anwesenheit)', 
   const A = appConfig.copy.anwesenheit
 
   it('files a Trupp ohne Atemschutz as «Trupp», on its own crew line', () => {
-    expect(truppRoleNote({ kind: 'einfach' })).toEqual({ role: A.roleTrupp, groupTemplate: A.logRoleGroupTrupp })
+    expect(truppRoleNote({ kind: 'einfach' }))
+      .toEqual({ role: 'Trupp', leaderRole: 'Trupp-GF', groupTemplate: A.logRoleGroupTrupp })
   })
 
   it('keeps «AS» for a Trupp under Atemschutz — absent kind included (types · TruppKind)', () => {
-    const pa = { role: A.roleAtemschutz, groupTemplate: A.logRoleGroup }
+    const pa = { role: 'AS', leaderRole: 'AS-GF', groupTemplate: A.logRoleGroup }
     expect(truppRoleNote({ kind: 'atemschutz' })).toEqual(pa)
     expect(truppRoleNote({})).toEqual(pa)
   })

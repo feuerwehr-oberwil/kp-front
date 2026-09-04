@@ -824,8 +824,9 @@ export function ReportPreflight({
     try {
       await downloadDirectReportPdf({
         incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, twinAnnos, building,
-        // the printed journal marks the same terms the app marks (lib/journalLinks)
-        vocab: journalVocabulary(personnel, attendance),
+        // the printed journal marks the same terms the app marks (lib/journalLinks) — the Trupps
+        // included, or the paper would mark every name in a row except the crew it is about
+        vocab: journalVocabulary(personnel, attendance, undefined, trupps),
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       // The PDF itself used to be the only feedback, and it still is the proof — but it is also

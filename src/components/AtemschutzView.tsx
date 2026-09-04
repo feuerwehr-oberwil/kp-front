@@ -2014,11 +2014,18 @@ function TruppForm({
    * board could not do until then is the ordinary case: a Verkehrstrupp that ends up going in
    * under PA, and a Trupp registered under Atemschutz by mistake. Both were a delete and a
    * re-registration, which throws away the record of a crew that was already working.
-   * ⚠️ Re-deploy still answers from the Trupp's own record: «Wieder einrücken» is about sending
-   * the same Trupp in again, and the two decisions must not ride on one button.
-   * ⚠️ The change is not free — it starts or stops a safety watch. `editTrupp` owns what that
-   * writes (contact clock, `paOn`/`paOff` row), and the confirm in front of a downgrade lives in
-   * `submitForm` below, where saying no still leaves the operator in the form. */
+   * ⚠️ …and on RE-DEPLOY too, reversing «the two decisions must not ride on one button» the same
+   * day (Feldtest: «Bei Wieder einrücken (AS) habe ich keine Auswahl ob mit oder ohne AS»). The
+   * reasoning was that «Wieder einrücken» sends the SAME Trupp in again — but what comes back
+   * from the vehicle is very often a different job: the crew that fought the fire under PA goes
+   * back in to clear up without it, and the Verkehrstrupp that has finished puts masks on for the
+   * cellar. Each re-deployment is its own Einsatz of that crew, and the Art belongs to the
+   * deployment, not to the card. Answering from the record was not the safe default either: it
+   * silently re-armed a contact clock over a crew that was no longer under Atemschutz.
+   * ⚠️ The change is not free — it starts or stops a safety watch. `editTrupp` / `reactivateTrupp`
+   * own what that writes, and the confirm in front of a downgrade lives in `submitForm` below,
+   * where saying no still leaves the operator in the form. (A re-deploy needs none: the Trupp is
+   * out, so there is no running watch to take away.) */
   const [kind, setKind] = useState<TruppKind>(initial?.kind ?? 'atemschutz')
   const isPa = kind === 'atemschutz'
   /** This edit is turning the Überwachung ON — the Trupp had no cylinder until a moment ago, so
@@ -2234,12 +2241,13 @@ function TruppForm({
    * Written once and placed twice: on one screen they fill the two columns, on the stack they
    * are the bodies of the three sections. That is what keeps the two layouts the same form —
    * same fields, same order, same words, only a different way of reaching them. */
-  /* ⚠️ While creating one AND while editing one (04.09., commit «the Art of a Trupp can be
-   * changed after the fact») — not on re-deploy: «Wieder einrücken» is about sending the same
-   * Trupp in again, and the two decisions must not ride on one button. The change is not free,
-   * it starts or stops a safety watch; `editTrupp` owns what that writes and the confirm in front
-   * of a downgrade lives in `submitForm`. */
-  const kindChooser = (mode === 'create' || mode === 'edit') && !lite ? (
+  /* ⚠️ In EVERY mode of this form (04.09.): creating one, editing one, and sending one back in —
+   * see the note at `kind` above for why the re-deploy fork was reversed the same day. The one
+   * place it is not asked is the handed-over Tafel, whose whole board is Atemschutz (`lite`).
+   * Everything downstream already follows the answer rather than the record: the Druck field and
+   * the submit gate (`showPressure`), the Auftrag vocabulary, and «Bereitstellen», which is a
+   * Sicherungstrupp and therefore under PA by definition. */
+  const kindChooser = !lite ? (
     <div className={s.field}>
       <span>{az.kindLabel}</span>
       <div className={s.kindSeg} role="radiogroup" aria-label={az.kindLabel}>

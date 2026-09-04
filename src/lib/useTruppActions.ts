@@ -203,16 +203,6 @@ export function useTruppActions(deps: Deps) {
   const { trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing } = deps
 
   /**
-   * The crew, with the Gruppenführer marked — what the Anmeldung and the Eintritt rows name.
-   *
-   * ⚠️ Only THOSE rows (04.09., Feldtest). Who leads the Trupp is part of registering it and of
-   * sending it in; repeating the tag on every Funkkontakt and every Druckmeldung would put it on
-   * three quarters of the Journal for a fact that has not changed since the first line.
-   */
-  const crewWithLeader = (t: { name?: string; members?: readonly string[] }) =>
-    truppLogName(t, appConfig.copy.atemschutz.leaderBadge)
-
-  /**
    * Does this Trupp's Anmeldung/Eintritt have an Eingangsdruck to name?
    *
    * ⚠️ Two ways it does not (04.09., Feldtest — «Trupp … angemeldet – Eingangsdruck 0 bar»): a
@@ -267,11 +257,13 @@ export function useTruppActions(deps: Deps) {
     setTrupps((ts) => [...ts, { ...t, readings: registered, order: t.order ?? nextTruppOrder(ts) }])
     // with the Eingangsdruck: it is the number the whole pressure trend is measured from, and
     // the Verlauf used to start the story without it — but only where there IS one to name
-    // (see `hasEntryPressure`), and with the Gruppenführer marked (see `crewWithLeader`)
+    // (see `hasEntryPressure`). Who LEADS the crew is not written into this sentence: it is the
+    // Gruppenführer's Anwesenheits-Funktion, and the Verlauf prints that behind his name on its
+    // own (lib/roleAssignment · truppRoleNote, lib/journalLinks · linkRanges).
     const az = appConfig.copy.atemschutz
     log('flag', fillTemplate(
       hasEntryPressure(t, t.entryPressureBar) ? az.logRegister : az.logRegisterPlain,
-      { name: crewWithLeader(t), bar: String(t.entryPressureBar) },
+      { name: truppLogName(t), bar: String(t.entryPressureBar) },
     ), 'team')
     emit('atemschutz.register', { id: t.id })
   }
@@ -722,10 +714,7 @@ export function useTruppActions(deps: Deps) {
       : status === 'rueckzug' ? az.logRueckzug
       : status === 'raus' ? (neverDeployed ? az.logNotDeployed : az.logExit) : null
     const icon = status === 'raus' ? 'logout' : status === 'rueckzug' ? 'undo' : 'flag'
-    // the Eintritt names WHO LEADS the crew going in; the rows about a Trupp that is already in
-    // the field do not repeat it (see `crewWithLeader`)
-    const isEntry = tpl === az.logEntry
-    const line = tpl ? fillTemplate(tpl, { name: tr ? (isEntry ? crewWithLeader(tr) : truppLogName(tr)) : '' }) : null
+    const line = tpl ? fillTemplate(tpl, { name: tr ? truppLogName(tr) : '' }) : null
     if (line) log(icon, line, 'team')
     emit('atemschutz.status', { id, status })
     /* ⚠️ EVERY transition is undoable, not only «Raus» (23.08.). Three of the four touch the
@@ -862,9 +851,28 @@ export function useTruppActions(deps: Deps) {
      * the contact clock, the Eingangsdruck and the whole running deployment. */
     if (tr && !isOutTrupp(tr)) return
     const now = serverNowIso()
+    /**
+     * The ART of the deployment that is starting now (04.09., Feldtest: «Bei Wieder einrücken (AS)
+     * habe ich keine Auswahl ob mit oder ohne AS»).
+     *
+     * The crew that fought the fire under PA goes back in to clear up without it, and the
+     * Verkehrstrupp that has finished puts masks on for the cellar — so the form asks again, and
+     * this is where the answer lands. Only when it CHANGED: `kind` is absent on every Trupp
+     * recorded as «unter Atemschutz» (types · TruppKind), and stamping the default onto a card
+     * that was not re-answered would make the record claim a decision nobody made.
+     *
+     * ⚠️ No `paOn`/`paOff` row, unlike the correction in `editTrupp`. Those two mark where the
+     * watched stretch begins or ends INSIDE a running deployment. Here the boundary is the entry
+     * row appended below: the previous Atemschutz-Einsatz already ended at its Austritt, and a
+     * «Atemschutz beendet» stamped at the moment the crew goes back in would put the end of the
+     * old watch after the start of the new deployment.
+     */
+    const nowPa = (f.kind ?? (tr ? (isAtemschutzTrupp(tr) ? 'atemschutz' : 'einfach') : 'atemschutz')) === 'atemschutz'
+    const kindPatch: Partial<Trupp> = !tr || nowPa === isAtemschutzTrupp(tr) ? {}
+      : { kind: nowPa ? 'atemschutz' : 'einfach' }
     setTrupps((ts) => ts.map((t) => (t.id === id
       ? { ...t, name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
-          leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f),
+          leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...kindPatch,
           status: standby ? 'angemeldet' : 'aktiv',
           entryTime: standby ? '' : now, lastContactTime: standby ? '' : now, exitTime: undefined,
           entryPressureBar: f.pressure, lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: f.pressure,
@@ -876,24 +884,39 @@ export function useTruppActions(deps: Deps) {
           // «current» in the log is everything from here on (lib/atemschutz · currentRunStart).
           // standby is the create path exactly: the fresh cylinder was read, so the run opens with
           // that reading rather than empty (see createTrupp)
+          // ⚠️ …and the row is appended for a Trupp WITHOUT Atemschutz as well, carrying bar 0.
+          // It is not a measurement — it is WHEN this crew went back in, and the printed
+          // Detailprotokoll reads its Eintritt/Austritt spans off exactly these rows (report ·
+          // truppRunTimes), so a plain re-deployment would otherwise leave the sheet showing the
+          // first cycle and not the second. The Druck column stays empty on its own: only a
+          // measured, positive value prints (report · readingBarShown).
           readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' }] }
       : t)))
     if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
     if (tr) recolorPlacement({ ...tr, color: f.color === null ? undefined : f.color ?? tr.color, auftrag: f.auftrag })
     const az = appConfig.copy.atemschutz
-    // ⚠️ The Art rides on the TRUPP, not on the form (types · TruppKind — «Wieder einrücken»
-    // never asks the question again), so the Eingangsdruck is only named where that Trupp
-    // actually has one to name. `logStandby` carries no number at all.
-    const reenterTpl = hasEntryPressure(tr ?? {}, f.pressure) ? az.logReenter : az.logReenterPlain
-    log('flag', fillTemplate(standby ? az.logStandby : reenterTpl, { name: crewWithLeader(f), bar: String(f.pressure ?? '') }), 'team')
+    // ⚠️ Against the NEW Art, not the card's old one: a Trupp going back in without Atemschutz has
+    // no cylinder to name, and one going in under it has a fresh one. `logStandby` carries no
+    // number at all.
+    const reenterTpl = hasEntryPressure({ kind: nowPa ? 'atemschutz' : 'einfach' }, f.pressure)
+      ? az.logReenter : az.logReenterPlain
+    log('flag', fillTemplate(standby ? az.logStandby : reenterTpl, { name: truppLogName(f), bar: String(f.pressure ?? '') }), 'team')
     /* …and WHAT WAS CHANGED on the way back in (04.09., Feldtest: «Funkkanal wird gar nicht
-     * protokolliert»). The re-deploy form is the full Trupp form — Auftrag, Ziel, Funkkanal,
+     * protokolliert»). The re-deploy form is the full Trupp form — Art, Auftrag, Ziel, Funkkanal,
      * Leitung, Mannschaft — and every one of those edits used to vanish behind the re-entry row:
      * the Trupp went back in on channel 7 and the record still said 5. Same sentence the ⋯
      * «Bearbeiten» writes, so there is one wording for one kind of fact; nothing is written when
      * nothing moved, and the fresh cylinder is not reported as a correction (see
-     * truppEditChanges · opts.pressure). */
+     * truppEditChanges · opts.pressure).
+     *
+     * ⚠️ The ART rides in this row too, rather than in a re-entry line of its own. A third
+     * wording for «jetzt unter Atemschutz» would have to exist beside the two this app already
+     * has, and it would buy nothing: this row is written anyway whenever the Auftrag came back
+     * changed — which on a re-deployment it almost always did — so the special line would be an
+     * EXTRA row in the common case rather than one fewer. `truppEditChanges` puts the Art first
+     * in the list, for the reason documented there: it is the only entry that turns a safety
+     * watch on or off. */
     const changes = truppEditChanges(tr, f, { pressure: false })
     if (changes.length) log('pen', fillTemplate(az.logEditFields, { name: f.name, changes: changes.join(', ') }), 'team')
     emit('atemschutz.status', { id, status: standby ? 'angemeldet' : 'aktiv' })

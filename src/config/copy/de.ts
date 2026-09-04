@@ -1582,11 +1582,15 @@ export const de = {
     // «Name eingeben»-Links darunter: das Suchfeld ist auch die Namenseingabe, und diese Zeile
     // erscheint nur, solange etwas getippt ist. Sie trägt den getippten Namen selbst, damit die
     // Zeile sagt, was der Tipp tut, statt ein zweites Feld zu öffnen, das es nochmals sagt.
-    // ⚠️ «Gast / Nachbarwehr» bleibt wörtlich stehen: das sind die beiden Fälle, die man an
-    // dieser Stelle wiedererkennen muss – und «Gast» ist dasselbe Wort, das die Anwesenheit für
-    // dieselbe Person führt (anwesenheit.guestBadge · teamManual oben).
+    // ⚠️ Nur noch «Gast» (04.09., Feldtest – die Zeile lief über): der getippte Name steht mit
+    // drin, und bei einem langen Namen blieb vom Satz «"lkjlkjlkjlkj" als Gast / Nachbarwe…»
+    // übrig – abgeschnitten war ausgerechnet das Wort, das sagt, was der Tipp tut. «Gast» ist
+    // dasselbe Wort, das die Anwesenheit für dieselbe Person führt (anwesenheit.guestBadge ·
+    // teamManual oben), und eine Nachbarwehr wird hier genauso erfasst; das musste die Zeile nie
+    // aufzählen. (Die Zeile kürzt sauber mit Ellipse – ComboMenu.module.css · .name –, aber eine
+    // Beschriftung, die auf die Ellipse baut, ist keine.)
     // ⚠️ «hinzufügen», nicht «erstellen»: die Person kommt zu einem Trupp dazu, der schon da ist.
-    teamGuestAdd: '«{name}» als Gast / Nachbarwehr hinzufügen',
+    teamGuestAdd: '«{name}» als Gast hinzufügen',
     // Leitung: the same number as on the drawn Leitung (Karte/Plan) — that is how Trupp and
     // Schlauchleitung find each other, without anybody typing anything twice.
     lineNoLabel: 'Leitung Nr.',
@@ -1828,6 +1832,21 @@ export const de = {
     alarmNotifyBody: 'Trupp {name} überfällig – Kontakt herstellen.',
     // status labels
     status: { angemeldet: 'Angemeldet', aktiv: 'Im Einsatz', rueckzug: 'Rückzug', ueberfaellig: 'Überfällig', raus: 'Draussen' } as Record<string, string>,
+    /**
+     * Wie ein Trupp im Fliesstext heisst – «Trupp Meier Anna».
+     *
+     * Ein Trupp trägt keine Nummer: sein Name IST der Name des Gruppenführers (types · Trupp.name).
+     * Genau deshalb braucht der Verlauf diese Form. Als blosser Personenname wäre der Trupp vom
+     * Menschen nicht zu unterscheiden – und die Person steht ohnehin schon im Wortschatz. Mit dem
+     * Wort davor ist er ein eigener Begriff: er wird im Journal und auf dem Rapport als Trupp
+     * markiert, und wer «Trupp» tippt, bekommt alle Trupps dieses Einsatzes vorgeschlagen
+     * (lib/journalLinks · journalVocabulary).
+     *
+     * ⚠️ Wortgleich mit den Logzeilen unten («Trupp {name}: Austritt»), damit die App ihre eigenen
+     * Zeilen wiedererkennt. Wird das hier geändert, ohne die Zeilen mitzuändern, markiert der
+     * Verlauf seine eigenen Einträge nicht mehr.
+     */
+    truppTerm: 'Trupp {name}',
     // Verlauf templates ({name}, {bar}, {status})
     //
     // ⚠️ ZWEI Fassungen, und die Wahl trifft der Druck, nicht die Länge der Zeile (04.09.,
@@ -4025,6 +4044,22 @@ export const de = {
     // Atemschutz war. Dieselbe Unterscheidung, die die Personenliste längst macht
     // («unter AS» / «im Trupp»), nur auf der Zeile selbst.
     roleTrupp: 'Trupp',
+    /**
+     * …und der GRUPPENFÜHRER dieses Trupps – «AS-GF», «Trupp-GF» (04.09., Feldtest).
+     *
+     * Die Zeile «Trupp Brunner Thomas / Müller Hans / Schmid Peter angemeldet» nannte drei
+     * gleichwertige Namen; wer für den Trupp antwortet, stand nirgends. Es ist eine FUNKTION,
+     * keine Verzierung der Logzeile: hier eingetragen, druckt der Verlauf sie ohnehin hinter den
+     * Namen (lib/journalLinks), und sie steht zusätzlich auf der Anwesenheitsliste und auf dem
+     * Personalblatt – wo ein Wort in einer einzelnen Logzeile nie hingekommen wäre.
+     *
+     * ⚠️ EIN Token mit Bindestrich, nicht «GF, AS». Die Bemerkung ist eine Komma-Liste von
+     * Funktionen («AS-GF, Fahrer PIO»), und «GF» als eigenes Glied liesse offen, wovon jemand
+     * Gruppenführer ist – und würde beim nächsten Job zwischen zwei fremde Glieder rutschen.
+     * ⚠️ Auch allein sinnvoll: bei einem Ein-Mann-Trupp sagt «AS-GF» weiterhin, was die Person
+     * IST – anders als ein Zusatz in der Logzeile, der dort niemanden mehr unterschieden hätte.
+     */
+    roleLeader: '{role}-GF',
     roleOffizierPlain: 'Offizier',
     // Soft warning in the person picker (Atemschutz): whoever already has a role is probably
     // already committed – they can still be picked, always.

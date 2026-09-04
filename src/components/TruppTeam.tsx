@@ -301,7 +301,9 @@ export function TruppTeam({
         {!filtered.length && <li className={s.comboEmpty}>{needle ? az.teamNoMatches : az.noRoster}</li>}
         {/* THE GAST DOOR, and it exists only while something is typed (04.09.). It carries the
             query in its own label, so the row states what pressing it will do rather than opening
-            a second field to say it again — «"Keller" als Gast / Nachbarwehr hinzufügen». With an
+            a second field to say it again — «"Keller" als Gast hinzufügen». The label is short
+            BECAUSE it carries the name: the row ellipsizes (ComboMenu.module.css · .name), and a
+            longer sentence spent that budget on words instead of on the typed name. With an
             empty query there is nothing to take and no row: a permanent «Name eingeben» line over
             a roster that usually HAS the person was the old shape, and it is what put the escape
             hatch below 66 rows in the first place.

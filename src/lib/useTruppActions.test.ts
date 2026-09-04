@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useTruppActions, truppEditChanges, handOrder, nextTruppOrder, LAGE_TARGET } from './useTruppActions'
 import type { BoardDoc, Drawing, Entity, Trupp, TruppFields } from '../types'
 import { appConfig } from '../config/appConfig'
-import { anyTruppInField, truppNeverDeployed } from './atemschutz'
+import { anyTruppInField, isAtemschutzTrupp, truppNeverDeployed } from './atemschutz'
 import { fillTemplate } from './format'
 import type { Doc } from './workspace'
 
@@ -381,11 +381,12 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
 })
 
 /* ── What the crew rows SAY (04.09., Feldtest) ────────────────────────────────────────────────
- * Three findings off one afternoon's screenshots, all in the same sentence:
- * «Trupp Brunner Thomas (AS) / Müller Hans (AS) / Schmid Peter (AS) angemeldet – Eingangsdruck
- * 0 bar» — a measurement nobody took, on a Trupp with no cylinder, whose Gruppenführer is
- * indistinguishable from his AdF. */
-describe('the Anmeldung/Eintritt rows — the crew, the leader, and no invented Druck', () => {
+ * Off one afternoon's screenshots: «Trupp Brunner Thomas (AS) / Müller Hans (AS) / Schmid Peter
+ * (AS) angemeldet – Eingangsdruck 0 bar» — a measurement nobody took, on a Trupp with no
+ * cylinder. Who LEADS the crew is the other half of that finding and is NOT fixed here: the
+ * Gruppenführer wears «AS-GF» as his Funktion, which the Verlauf prints behind his name by
+ * itself (lib/roleAssignment · truppRoleNote). These rows stay plain names. */
+describe('the Anmeldung/Eintritt rows — the crew, and no invented Druck', () => {
   const crew = { name: 'Brunner Thomas', members: ['Müller Hans', 'Schmid Peter'] }
   const fresh = (over: Partial<Trupp>): Trupp => baseTrupp({
     ...crew, status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [], ...over,
@@ -398,7 +399,7 @@ describe('the Anmeldung/Eintritt rows — the crew, the leader, and no invented 
   it('leaves the Eingangsdruck out for a Trupp OHNE Atemschutz — there is no cylinder to read', () => {
     const { actions, lines } = lined(fresh({ kind: 'einfach', entryPressureBar: 0 }))
     actions.createTrupp(fresh({ kind: 'einfach', entryPressureBar: 0 }))
-    expect(lines[0]).toBe('Trupp GF Brunner Thomas / Müller Hans / Schmid Peter angemeldet')
+    expect(lines[0]).toBe('Trupp Brunner Thomas / Müller Hans / Schmid Peter angemeldet')
     expect(lines[0]).not.toContain('bar')
   })
 
@@ -411,20 +412,21 @@ describe('the Anmeldung/Eintritt rows — the crew, the leader, and no invented 
   it('keeps the Eingangsdruck where one was actually measured', () => {
     const { actions, lines } = lined(fresh({ entryPressureBar: 300 }))
     actions.createTrupp(fresh({ entryPressureBar: 300 }))
-    expect(lines[0]).toBe('Trupp GF Brunner Thomas / Müller Hans / Schmid Peter angemeldet – Eingangsdruck 300 bar')
+    expect(lines[0]).toBe('Trupp Brunner Thomas / Müller Hans / Schmid Peter angemeldet – Eingangsdruck 300 bar')
   })
 
-  it('marks the Gruppenführer on the Eintritt too — and nowhere else', () => {
+  // ⚠️ No role word anywhere in these strings (reverted 04.09., same day): every one of them
+  // would arrive a second time behind the same name, because the Verlauf renders each person's
+  // Funktion on their first mention in the row.
+  it('names the crew the same way on the Eintritt and on every row after it', () => {
     const { actions, lines } = lined(fresh({ entryPressureBar: 300 }))
     actions.setTruppStatus('T1', 'aktiv')
-    expect(lines[0]).toBe('Trupp GF Brunner Thomas / Müller Hans / Schmid Peter: Eintritt')
-    // a Funkkontakt is about a Trupp that is already in — repeating who leads it on every radio
-    // check would put the tag on three quarters of the Journal
+    expect(lines[0]).toBe('Trupp Brunner Thomas / Müller Hans / Schmid Peter: Eintritt')
     actions.recordContact('T1')
     expect(lines[1]).toBe('Trupp Brunner Thomas / Müller Hans / Schmid Peter: Kontakt bestätigt')
   })
 
-  it('does not tag a one-man Trupp: the badge distinguishes him from nobody', () => {
+  it('invents nobody on a one-man Trupp', () => {
     const solo = fresh({ name: 'Brunner Thomas', members: undefined, entryPressureBar: 300 })
     const { actions, lines } = lined(solo)
     actions.createTrupp(solo)
@@ -509,8 +511,56 @@ describe('useTruppActions — what changed on the way back in', () => {
 
   it('leaves the Eingangsdruck out of the re-entry row for a Trupp ohne Atemschutz', () => {
     const { actions, lines } = lined(out({ kind: 'einfach', entryPressureBar: 0 }))
-    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 0, auftrag: 'loeschen', funkkanal: 5 })
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 0, auftrag: 'loeschen', funkkanal: 5, kind: 'einfach' })
     expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt'])
+  })
+
+  /* ── The ART is answered afresh for each deployment (04.09., Feldtest: «Bei Wieder einrücken
+   * (AS) habe ich keine Auswahl ob mit oder ohne AS») ─────────────────────────────────────────
+   * The crew that fought the fire under PA goes back in to clear up without it, and the
+   * Verkehrstrupp that has finished puts masks on for the cellar. */
+  it('sends a Trupp back in WITHOUT Atemschutz: no watch, no invented Druck, and the row says so', () => {
+    const { actions, lines, state } = lined(out({ entryPressureBar: 300, lowestBar: 60, lastPressureBar: 60 }))
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 0, auftrag: 'loeschen', funkkanal: 5, kind: 'einfach' })
+    const t = state.trupps[0]
+    expect(t.kind).toBe('einfach')
+    expect(isAtemschutzTrupp(t)).toBe(false)
+    // nothing is being watched any more — the same gate every alarm surface reads
+    expect(anyTruppInField([t])).toBe(false)
+    // the Eintritt of THIS deployment still lands in the log: the printed Detailprotokoll reads
+    // its spans off these rows, so a plain re-deployment must not go missing from the sheet
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'entry', bar: 0 })
+    // …and no paOff: the Atemschutz-Einsatz ended at its Austritt, not now
+    expect(t.readings?.some((r) => r.kind === 'paOff')).toBe(false)
+    expect(lines).toEqual([
+      'Trupp Keller Anna: erneuter Eintritt',
+      // ⚠️ the Art rides in the CHANGES row — same wording as the ⋯ «Bearbeiten» path, and first
+      // in the list, because it is the entry that turns a safety watch off
+      'Trupp Keller Anna: nicht mehr unter Atemschutz',
+    ])
+  })
+
+  it('sends a plain Trupp back in UNDER Atemschutz, on the fresh cylinder it was given', () => {
+    const { actions, lines, state } = lined(out({ kind: 'einfach', entryPressureBar: 0, lowestBar: 0 }))
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300, auftrag: 'loeschen', funkkanal: 5, kind: 'atemschutz' })
+    const t = state.trupps[0]
+    expect(isAtemschutzTrupp(t)).toBe(true)
+    expect(t.entryPressureBar).toBe(300)
+    expect(t.lowestBar).toBe(300)
+    expect(anyTruppInField([t])).toBe(true) // the contact clock runs again
+    expect(t.readings?.some((r) => r.kind === 'paOn')).toBe(false)
+    expect(lines).toEqual([
+      'Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar',
+      'Trupp Keller Anna: jetzt unter Atemschutz',
+    ])
+  })
+
+  it('says nothing about the Art when the Trupp goes back in as what it was', () => {
+    const { actions, lines } = lined(out({ entryPressureBar: 300 }))
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300, auftrag: 'loeschen', funkkanal: 5, kind: 'atemschutz' })
+    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar'])
+    // …and the card is not stamped with a decision nobody made (types · TruppKind: absent = PA)
+    expect('kind' in (lined(out({ entryPressureBar: 300 })).state.trupps[0] as object)).toBe(false)
   })
 })
 

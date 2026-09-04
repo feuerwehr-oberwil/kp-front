@@ -91,7 +91,7 @@ describe('TruppTeam', () => {
     const hits = screen.getAllByRole('option')
     expect(hits).toHaveLength(2)
     expect(hits[0].textContent).toContain('Brunner Thomas')
-    expect(hits[1].textContent).toContain('Gast / Nachbarwehr')
+    expect(hits[1].textContent).toContain('als Gast hinzufügen')
   })
 
   it('shows somebody already in another Trupp, but does not offer them', () => {
@@ -102,19 +102,22 @@ describe('TruppTeam', () => {
   })
 
   /* ── The Gast door (04.09.) ─────────────────────────────────────────────────────────────────
-   * There is no «Name eingeben (Gast / Nachbarwehr)» row any more, and no second input behind it.
+   * There is no «Name eingeben (Gast/Nachbarwehr)» row any more, and no second input behind it.
    * The SEARCH is the name entry, and the list grows one action row for whatever is typed. What
    * this buys is reachability: the old link closed the block BELOW the roster, so the one case
    * the Mannschaft cannot answer was the case whose answer sat furthest away.
    */
+  // ⚠️ «als Gast hinzufügen», short (04.09., Feldtest): the row carries the typed name, and on a
+  // long one the sentence ran off the end — «"lkjlkjlkjlkj" als Gast / Nachbarwe…» cut exactly
+  // the word that says what the tap does.
   const guestRow = (name: string) =>
-    screen.getByRole('option', { name: `«${name}» als Gast / Nachbarwehr hinzufügen` })
+    screen.getByRole('option', { name: `«${name}» als Gast hinzufügen` })
 
   it('offers the Gast row only once something is typed, and takes the name from the search', () => {
     const onChange = setup()
     // at rest the list is the Mannschaft and nothing else — no permanent Gast row
     expect(screen.getAllByRole('option')).toHaveLength(personnel.length)
-    expect(screen.queryByRole('option', { name: /Gast \/ Nachbarwehr/ })).toBeNull()
+    expect(screen.queryByRole('option', { name: /als Gast hinzufügen/ })).toBeNull()
 
     fireEvent.change(screen.getByPlaceholderText('Person suchen …'), { target: { value: 'Nachbarwehr Keller' } })
     fireEvent.click(guestRow('Nachbarwehr Keller'))
@@ -129,7 +132,7 @@ describe('TruppTeam', () => {
     fireEvent.change(search, { target: { value: 'Kel' } })
     expect(guestRow('Kel')).toBeTruthy()
     fireEvent.change(search, { target: { value: '' } })
-    expect(screen.queryByRole('option', { name: /Gast \/ Nachbarwehr/ })).toBeNull()
+    expect(screen.queryByRole('option', { name: /als Gast hinzufügen/ })).toBeNull()
   })
 
   /* Enter keeps the keyboard flow one step and never has to be aimed: with matches on screen it

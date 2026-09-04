@@ -82,12 +82,23 @@ export function rosterFieldRole(
  *
  * The group line is carried along rather than derived at the call site because the two do not
  * take the same shape: «Unter AS: …» is a sentence, «Unter Trupp: …» is not.
+ *
+ * ⚠️ `leaderRole` is the GRUPPENFÜHRER's own Funktion — «AS-GF», «Trupp-GF» (04.09., Feldtest:
+ * «Trupp Brunner Thomas / Müller Hans / Schmid Peter angemeldet» named three equal people and
+ * nobody who answers for them). Written as a Funktion rather than as a word in that one log
+ * line, it reaches everything the note reaches: the Verlauf prints it behind his name on its
+ * first mention (lib/journalLinks · linkRanges), and it stands on the Anwesenheitsliste and on
+ * the Personalblatt as well. One hyphenated TOKEN on purpose — see copy · anwesenheit.roleLeader
+ * for why it is not «GF, AS» — and `truppSlot` below keeps all four of these one slot.
  */
-export function truppRoleNote(t: { kind?: TruppKind }): { role: string; groupTemplate: string } {
+export function truppRoleNote(t: { kind?: TruppKind }): { role: string; leaderRole: string; groupTemplate: string } {
   const A = appConfig.copy.anwesenheit
-  return isAtemschutzTrupp(t)
-    ? { role: A.roleAtemschutz, groupTemplate: A.logRoleGroup }
-    : { role: A.roleTrupp, groupTemplate: A.logRoleGroupTrupp }
+  const role = isAtemschutzTrupp(t) ? A.roleAtemschutz : A.roleTrupp
+  return {
+    role,
+    leaderRole: fillTemplate(A.roleLeader, { role }),
+    groupTemplate: isAtemschutzTrupp(t) ? A.logRoleGroup : A.logRoleGroupTrupp,
+  }
 }
 
 /**
@@ -220,16 +231,25 @@ export function unrecordedCrewNames(
  * stepped back reading «Einsatzleiter, Stv. Einsatzleiter»: an Anwesenheitsliste claiming somebody
  * is both, on the one row a Rapport quotes.
  *
- * ⚠️ «AS» and «Trupp» are the second such pair (04.09.): being in a Trupp is ONE job, and the Art
- * of that Trupp can be changed after the fact (useTruppActions · editTrupp · kindPatch). Without
- * this the crew of a Verkehrstrupp that later went under PA would read «Trupp, AS» — two jobs for
- * one place in one team.
+ * ⚠️ A place in a Trupp is the second such slot (04.09.), and it holds FOUR words: «AS», «AS-GF»,
+ * «Trupp», «Trupp-GF». Being in a Trupp is one job however you spell it, and both halves of the
+ * spelling move on their own — the Art can be changed after the fact (useTruppActions · editTrupp
+ * · kindPatch) and the Gruppenführer can be swapped for an AdF in the same form. Any pair of them
+ * left to the leading-word rule would stack: «Trupp, AS» on a Verkehrstrupp that went under PA,
+ * «AS, AS-GF» on somebody who took the Trupp over. All four are one slot, so the last one written
+ * is what the row says.
  */
+const truppSlot = (): string[] => {
+  const A = appConfig.copy.anwesenheit
+  return [A.roleAtemschutz, A.roleTrupp]
+    .flatMap((role) => [role, fillTemplate(A.roleLeader, { role })])
+    .map((s) => s.trim().toLowerCase())
+}
 const sameSlot = (a: string, b: string): boolean => {
   const A = appConfig.copy.anwesenheit
   const slots = [
     [A.roleEinsatzleiter.toLowerCase(), A.roleEinsatzleiterStv.toLowerCase()],
-    [A.roleAtemschutz.toLowerCase(), A.roleTrupp.toLowerCase()],
+    truppSlot(),
   ]
   const [x, y] = [a.trim().toLowerCase(), b.trim().toLowerCase()]
   return slots.some((pair) => pair.includes(x) && pair.includes(y))

@@ -1069,7 +1069,7 @@ export const it: Localizable<Copy> = {
     teamRemove: 'Togli {name} dalla squadra',
     teamTaken: 'in una squadra',
     teamManual: 'ospite',
-    teamGuestAdd: 'Aggiungi «{name}» come ospite / rinforzo',
+    teamGuestAdd: 'Aggiungi «{name}» come ospite',
     lineNoLabel: 'Linea n.',
     lineLegacyNote: 'Registrato prima: «{value}»',
     lineOptsLabel: 'Disegnate:',
@@ -1184,6 +1184,8 @@ export const it: Localizable<Copy> = {
     alarmNotifyTitle: 'Autoprotezione in ritardo',
     alarmNotifyBody: 'Squadra {name} in ritardo – stabilire il contatto.',
     status: { angemeldet: 'Annunciata', aktiv: 'In intervento', rueckzug: 'Ritiro', ueberfaellig: 'In ritardo', raus: 'Fuori' },
+    // come si CHIAMA una squadra nel testo corrente — vedi la base tedesca
+    truppTerm: 'Squadra {name}',
     logRegister: 'Squadra {name} annunciata – pressione d’ingresso {bar} bar',
     logRegisterPlain: 'Squadra {name} annunciata',
     logPlaced: 'Squadra {name} posizionata sul piano',
@@ -2650,6 +2652,9 @@ export const it: Localizable<Copy> = {
     roleOffizier: 'Ufficiale {funktion}',
     roleAtemschutz: 'ARA',
     roleTrupp: 'Squadra',
+    // la funzione del caposquadra — UN solo token con trattino, così resta univoco nell’elenco di
+    // funzioni separate da virgole («ARA-CS, Autista TLF»).
+    roleLeader: '{role}-CS',
     roleOffizierPlain: 'Ufficiale',
     alreadyBooked: '{role}',
     conflictUnderPa: '{name} è sotto ARA – squadra {trupp}.',

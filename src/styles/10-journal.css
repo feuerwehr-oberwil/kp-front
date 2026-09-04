@@ -639,6 +639,11 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* …and the same five in the Verlauf, where there is real text to colour rather than a backdrop */
 .jr-link { font-weight: 700; }
 .jr-link-person { color: var(--blue-strong); }
+/* A Trupp wears the MANNSCHAFT's ink rather than a sixth one: «Trupp Meier Anna» and «Meier Anna»
+   are the same people, and the only colour still free in the palette is red — which on this
+   surface means alarm. The two composer backdrops need no rule of their own: blue IS their
+   default wash (see `.jc-text-marks mark` above and .ap-add-marks in 18-audio.css). */
+.jr-link-trupp { color: var(--blue-strong); }
 .jr-link-material { color: var(--green-strong); }
 .jr-link-partner { color: var(--amber-strong); }
 .jr-link-vehicle { color: var(--accent); }

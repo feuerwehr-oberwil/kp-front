@@ -1,5 +1,6 @@
 import { appConfig } from '../config/appConfig'
-import type { AttendanceState, Person } from '../types'
+import { fillTemplate } from './format'
+import type { AttendanceState, Person, Trupp } from '../types'
 import { isPresent } from './attendanceIntervals'
 import { getDeploymentConfig } from './deploymentConfig'
 import { rankOrder } from './rank'
@@ -13,12 +14,12 @@ import { rankOrder } from './rank'
  * NAMES in the sentence are real — spelled the way the rest of the app spells them, and visible
  * as links rather than as prose.
  *
- * So the vocabulary is everything the Einsatz has words for: the Mannschaft, the station's
- * Mittel, the Partnerorganisationen, the Fahrzeuge and the Alarmgruppen. Typing three letters
- * of any of them offers the full form; whatever is in the text afterwards is marked, in the
- * composer, in the Verlauf and on the printed Rapport.
+ * So the vocabulary is everything the Einsatz has words for: the Mannschaft, the Trupps they are
+ * working in, the station's Mittel, the Partnerorganisationen, the Fahrzeuge and the
+ * Alarmgruppen. Typing three letters of any of them offers the full form; whatever is in the text
+ * afterwards is marked, in the composer, in the Verlauf and on the printed Rapport.
  */
-export type LinkKind = 'person' | 'material' | 'partner' | 'vehicle' | 'group'
+export type LinkKind = 'person' | 'material' | 'partner' | 'vehicle' | 'group' | 'trupp'
 
 /**
  * What a marked stretch of text can be: one of the Einsatz's own words — or an address.
@@ -94,6 +95,9 @@ export function journalVocabulary(
   attendance: AttendanceState,
   /** personId → the Trupp they are in right now, for the chip's hint (see JournalLink.hint) */
   truppOf?: Map<string, string>,
+  /** every Trupp of this Einsatz — the UNFILTERED slice, removed and `raus` ones included (see
+   *  `teams` below) */
+  trupps?: Trupp[],
 ): JournalLink[] {
   const cfg = getDeploymentConfig()
   const people: JournalLink[] = personnel
@@ -106,6 +110,40 @@ export function journalVocabulary(
     .sort((a, b) => Number(b.present) - Number(a.present)
       || rankOrder(personnel.find((p) => p.id === a.id)?.rank) - rankOrder(personnel.find((p) => p.id === b.id)?.rank)
       || a.name.localeCompare(b.name, 'de'))
+  /**
+   * The Trupps of this Einsatz, as «Trupp Meier Anna» (copy · atemschutz.truppTerm).
+   *
+   * ⚠️ WITH the word in front, which is what makes them a term at all: a Trupp carries no number,
+   * its name IS its Gruppenführer's (types · Trupp.name), and that name is already in the
+   * vocabulary as a person. Bare, the two entries would fight over the same letters and the
+   * Trupp would never win a single range. With the word it is longer than the person's name, so
+   * «Trupp Meier Anna» marks as the Trupp and a bare «Meier Anna» still marks as her — and it is
+   * the same spelling the app's own rows use, so the Verlauf marks what it wrote itself.
+   *
+   * ⚠️ EVERY Trupp, `raus` and taken off the board included. The Verlauf is a record: a row from
+   * two hours ago names a Trupp that has since come out, and a term that stopped being marked
+   * when the crew finished would leave the printed Rapport marking the first half of the Einsatz
+   * and not the second. Being live only decides ORDER — `present` is what breaks a tie between
+   * two equally good matches in the composer's suggestions (lib/journalEntry · suggestLinks).
+   *
+   * The `role` is the Gruppenführer's own Funktion, matched by name so a Gast leading a Trupp
+   * gets it too: the row then reads «Trupp Brunner Thomas (AS-GF) / Müller Hans (AS)», which is
+   * what the suffix said before the Trupp term existed to swallow that first name.
+   */
+  const roleOfName = new Map(people.map((p) => [p.name.trim().toLowerCase(), p.role]))
+  const seenTeam = new Set<string>()
+  const teams: JournalLink[] = (trupps ?? []).flatMap((t) => {
+    const lead = (t.name ?? '').trim()
+    const name = lead ? fillTemplate(appConfig.copy.atemschutz.truppTerm, { name: lead }) : ''
+    // two Trupps under the same Gruppenführer (a re-registration) are one term, not two chips
+    if (!name || seenTeam.has(name)) return []
+    seenTeam.add(name)
+    return [{
+      name, kind: 'trupp' as const,
+      present: !t.removedAt && t.status !== 'raus',
+      role: roleOfName.get(lead.toLowerCase()),
+    }]
+  })
   const materials: JournalLink[] = (cfg.mittel?.catalogue ?? [])
     .map((m) => ({ name: m.label, kind: 'material' as const }))
   const partners: JournalLink[] = (cfg.report?.partnerOrgs ?? [])
@@ -116,7 +154,7 @@ export function journalVocabulary(
   const groups: JournalLink[] = (cfg.alarms?.groups ?? [])
     .map((g) => ({ name: g.color ? `${g.label} (${g.color})` : g.label, kind: 'group' as const }))
   const heldAt = new Map(Object.entries(attendance).flatMap(([id, a]) => (a.noteAt ? [[id, a.noteAt] as const] : [])))
-  return [...commandRoles(people, heldAt), ...people, ...materials, ...partners, ...vehicles, ...groups]
+  return [...commandRoles(people, heldAt), ...people, ...teams, ...materials, ...partners, ...vehicles, ...groups]
     .filter((l) => !!l.name?.trim())
 }
 

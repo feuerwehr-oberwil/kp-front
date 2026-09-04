@@ -139,21 +139,18 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
  * Nothing is invented: a Trupp with no members recorded prints exactly its name, which for a
  * genuine one-man Trupp is the truth and for a half-entered one is the same gap it always was.
  *
- * `leaderTag` marks the Gruppenführer on the rows where WHO LEADS is part of the fact — the
- * Anmeldung and the Eintritt (04.09., Feldtest): the crew printed as three equal names, so the
- * record could not say who was answering for the Trupp. Passed in rather than read from the copy
- * so this module stays free of the config (the caller hands over `atemschutz.leaderBadge`).
- *
- * ⚠️ BEFORE the name, not «(GF)» behind it, and only when somebody is with him. Behind it would
- * stack: the Verlauf appends each person's Anwesenheits-Funktion to their first mention
- * (lib/journalLinks), so a tagged leader read «Brunner Thomas (AS) (GF)». And on a one-man Trupp
- * the tag distinguishes him from nobody.
+ * ⚠️ PLAIN NAMES, and the Gruppenführer is not marked in here (reverted 04.09., same day). A
+ * «GF » in front of the leader was one wording of the fact; the record now carries the other,
+ * and the better one: the Anwesenheits-Funktion says «AS-GF», and the Verlauf appends each
+ * person's Funktion to their first mention in a row (lib/journalLinks · linkRanges). So the row
+ * reads «Brunner Thomas (AS-GF) / Müller Hans (AS)» without this module writing anything about
+ * roles — and the same tag then also stands on the Anwesenheitsliste and on the Personalblatt,
+ * which a word in one log line never would (lib/roleAssignment · truppRoleNote).
  */
-export function truppLogName(t: { name?: string; members?: readonly string[] }, leaderTag?: string): string {
+export function truppLogName(t: { name?: string; members?: readonly string[] }): string {
   const lead = (t.name ?? '').trim()
   const rest = (t.members ?? []).map((m) => m.trim()).filter((m) => m && m !== lead)
-  const head = leaderTag && lead && rest.length ? `${leaderTag} ${lead}` : lead
-  return [head, ...rest].filter(Boolean).join(' / ')
+  return [lead, ...rest].filter(Boolean).join(' / ')
 }
 
 /**

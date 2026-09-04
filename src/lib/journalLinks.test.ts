@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { JournalLink } from './journalLinks'
 import { journalVocabulary, linkMarkup, linkParts, linkRanges } from './journalLinks'
-import type { AttendanceState, Person } from '../types'
+import type { AttendanceState, Person, Trupp } from '../types'
 
 const vocab: JournalLink[] = [
   { name: 'Meier', kind: 'person' },
@@ -294,6 +294,67 @@ describe('journalVocabulary · the command posts', () => {
     expect(el).toBeTruthy()
     expect(el?.role).toBeUndefined()
     expect(linkParts('EL → Sanität', vocab).find((p) => p.kind)?.text).toBe('EL')
+  })
+})
+
+/* ── The Trupps of this Einsatz are words too (04.09.) ───────────────────────────────────────
+ * The vocabulary knew the Mannschaft, the Mittel, the Partnerorganisationen, die Fahrzeuge and
+ * the Alarmgruppen — and not the thing half the Verlauf is about. */
+describe('journalVocabulary · the Trupps', () => {
+  const person = (id: string, displayName: string): Person => ({ id, displayName, active: true, updatedAt: '2026-09-04T06:00:00.000Z' })
+  const present = (displayNameSnapshot: string, note?: string) =>
+    ({ status: 'present' as const, displayNameSnapshot, note, intervals: [{ from: '2026-09-04T06:00:00.000Z' }] })
+  const trupp = (over: Partial<Trupp>): Trupp => ({
+    id: 't1', name: 'Meier Anna', entryPressureBar: 300, entryTime: '2026-09-04T06:10:00.000Z',
+    lastContactTime: '2026-09-04T06:10:00.000Z', status: 'aktiv', ...over,
+  })
+  const personnel = [person('p1', 'Meier Anna'), person('p2', 'Müller Hans')]
+  const attendance: AttendanceState = { p1: present('Meier Anna', 'AS-GF'), p2: present('Müller Hans', 'AS') }
+  const vocabOf = (trupps: Trupp[]) => journalVocabulary(personnel, attendance, undefined, trupps)
+
+  it('offers each Trupp as «Trupp <Gruppenführer>», carrying his Funktion', () => {
+    expect(vocabOf([trupp({})]).find((l) => l.kind === 'trupp'))
+      .toMatchObject({ name: 'Trupp Meier Anna', present: true, role: 'AS-GF' })
+  })
+
+  // ⚠️ The whole reason the word is part of the term: bare, it would be the leader's own name,
+  // which the vocabulary already carries as a person.
+  it('marks the Trupp on the long form and the person on the short one, word-bounded', () => {
+    const vocab = vocabOf([trupp({})])
+    expect(linkParts('Trupp Meier Anna vor', vocab).filter((p) => p.kind))
+      .toMatchObject([{ text: 'Trupp Meier Anna', kind: 'trupp' }])
+    expect(linkParts('Meier Anna meldet', vocab).filter((p) => p.kind))
+      .toMatchObject([{ text: 'Meier Anna', kind: 'person' }])
+    // …and not inside a longer word: «Trupps» is prose, «Truppführer» is a rank
+    expect(linkParts('Alle Truppführer melden', vocab).some((p) => p.kind === 'trupp')).toBe(false)
+  })
+
+  it('prints the Trupp in bold on the Rapport, with its Gruppenführer named once', () => {
+    expect(linkMarkup('Trupp Meier Anna / Müller Hans angemeldet', vocabOf([trupp({})]), (x) => x))
+      .toBe('<b>Trupp Meier Anna</b> (AS-GF) / <b>Müller Hans</b> (AS) angemeldet')
+  })
+
+  /* ⚠️ A Trupp that has come out, or been taken off the board, KEEPS its word: the rows written
+   * while it was working still name it, and a term that stopped being marked halfway through
+   * would leave the printed Rapport marking one half of the Einsatz and not the other. Only the
+   * ordering knows the difference (`present` breaks a tie in the composer's suggestions). */
+  it('keeps naming a Trupp that is raus or removed, and only ranks it lower', () => {
+    const done = vocabOf([trupp({ status: 'raus', exitTime: '2026-09-04T07:00:00.000Z' })])
+    expect(done.find((l) => l.kind === 'trupp')).toMatchObject({ name: 'Trupp Meier Anna', present: false })
+    expect(linkParts('Trupp Meier Anna draussen', done).filter((p) => p.kind))
+      .toMatchObject([{ text: 'Trupp Meier Anna', kind: 'trupp' }])
+    const gone = vocabOf([trupp({ removedAt: '2026-09-04T07:05:00.000Z' })])
+    expect(gone.find((l) => l.kind === 'trupp')).toMatchObject({ present: false })
+  })
+
+  it('offers one chip for a Trupp that was registered twice under the same Gruppenführer', () => {
+    const vocab = vocabOf([trupp({ id: 't1', status: 'raus' }), trupp({ id: 't2' })])
+    expect(vocab.filter((l) => l.kind === 'trupp')).toHaveLength(1)
+  })
+
+  it('says nothing when the Einsatz has no Trupps — and nothing about a nameless one', () => {
+    expect(journalVocabulary(personnel, attendance).some((l) => l.kind === 'trupp')).toBe(false)
+    expect(vocabOf([trupp({ name: '  ' })]).some((l) => l.kind === 'trupp')).toBe(false)
   })
 })
 

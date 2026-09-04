@@ -1069,7 +1069,7 @@ export const fr: Localizable<Copy> = {
     teamRemove: 'Retirer {name} de l’équipe',
     teamTaken: 'dans une équipe',
     teamManual: 'invité',
-    teamGuestAdd: 'Ajouter «{name}» comme invité / renfort',
+    teamGuestAdd: 'Ajouter «{name}» comme invité',
     lineNoLabel: 'Conduite n°',
     lineLegacyNote: 'Saisie précédente : « {value} »',
     lineOptsLabel: 'Dessinées :',
@@ -1184,6 +1184,8 @@ export const fr: Localizable<Copy> = {
     alarmNotifyTitle: 'ARI en retard',
     alarmNotifyBody: 'Binôme {name} en retard – établir le contact.',
     status: { angemeldet: 'Annoncé', aktiv: 'En intervention', rueckzug: 'Repli', ueberfaellig: 'En retard', raus: 'Sorti' },
+    // comment un binôme est NOMMÉ dans le texte courant — voir la base allemande
+    truppTerm: 'Binôme {name}',
     logRegister: 'Binôme {name} annoncé – pression d’entrée {bar} bar',
     logRegisterPlain: 'Binôme {name} annoncé',
     logPlaced: 'Binôme {name} placé sur le plan',
@@ -2652,6 +2654,9 @@ export const fr: Localizable<Copy> = {
     roleOffizier: 'Officier {funktion}',
     roleAtemschutz: 'ARI',
     roleTrupp: 'Binôme',
+    // la fonction du chef de binôme — UN seul jeton avec trait d’union, pour rester lisible dans la
+    // liste de fonctions séparée par des virgules (« ARI-CG, Chauffeur TLF »).
+    roleLeader: '{role}-CG',
     roleOffizierPlain: 'Officier',
     alreadyBooked: '{role}',
     conflictUnderPa: '{name} est sous ARI – binôme {trupp}.',

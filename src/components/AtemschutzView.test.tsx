@@ -13,7 +13,7 @@ import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
 import { clearAllDrafts } from '../lib/draftKeep'
-import type { AttendanceState, Trupp, TruppReading } from '../types'
+import type { AttendanceState, Trupp, TruppFields, TruppReading } from '../types'
 
 afterEach(cleanup)
 // ⚠️ …and the kept DRAFTS with it (lib/draftKeep is a module-level store): a form that was
@@ -567,12 +567,51 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(screen.queryByText(az.editPressureLabel)).toBeNull()
   })
 
-  // …but not on «Wieder einrücken»: that button is about sending the same Trupp in again, and the
-  // two decisions must not ride on one press.
-  it('does not offer the Art on a re-deploy', async () => {
-    mount({ trupps: [{ ...plainTrupp(), status: 'raus', exitTime: iso(60_000) }], truppColors: { tr9: '#e2920a' } })
+  /* ⚠️ …and on «Wieder einrücken» too (04.09., Feldtest: «Bei Wieder einrücken (AS) habe ich
+   * keine Auswahl ob mit oder ohne AS»), reversing «the two decisions must not ride on one press»
+   * from the same day. Each re-deployment is its own Einsatz of that crew: the Trupp that fought
+   * the fire under PA goes back in to clear up without it. */
+  it('asks the Art again on a re-deploy, and sends a Trupp back in WITHOUT Atemschutz', () => {
+    const reactivateTrupp = vi.fn()
+    mount({
+      reactivateTrupp,
+      trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }],
+    })
     fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
-    expect(screen.queryByText(az.kindLabel)).toBeNull()
+    expect(screen.getByText(az.kindLabel)).toBeTruthy()
+    // a fresh cylinder is what the form opens on…
+    expect(screen.getByText(az.newPressureLabel)).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    // …and there is none to ask for once the crew goes back in without a mask
+    expect(screen.queryByText(az.newPressureLabel)).toBeNull()
+    // «Bereitstellen» goes with it: a Sicherungstrupp is by definition a crew standing by under PA
+    expect(screen.queryByRole('button', { name: az.reenterStandby })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    expect(reactivateTrupp).toHaveBeenCalledTimes(1)
+    const [, fields] = reactivateTrupp.mock.calls[0] as [string, TruppFields]
+    expect(fields.kind).toBe('einfach')
+    expect(fields.pressure).toBe(0)
+  })
+
+  // the other direction: the Verkehrstrupp that has finished puts masks on for the cellar — and
+  // then the Eingangsdruck is asked for and gates the save, exactly as it does on a new Trupp
+  it('asks for an Eingangsdruck when a plain Trupp goes back in under Atemschutz', () => {
+    const reactivateTrupp = vi.fn()
+    mount({
+      reactivateTrupp,
+      trupps: [{ ...plainTrupp(), status: 'raus', exitTime: iso(60_000) }],
+      truppColors: { tr9: '#e2920a' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    expect(screen.queryByText(az.newPressureLabel)).toBeNull()
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindAtemschutz) }))
+    // the station's default cylinder, not the 0 bar the plain card carries — a stepper opening on
+    // a value the submit then refuses is the dead button this form does not have
+    expect(screen.getByText(az.newPressureLabel)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    const [, fields] = reactivateTrupp.mock.calls[0] as [string, TruppFields]
+    expect(fields.kind).toBe('atemschutz')
+    expect(fields.pressure).toBe(atemschutzDoctrine().defaultPressureBar)
   })
 
   it('creates a Trupp «ohne Atemschutz» with the kind stamped and no Eingangsdruck', () => {
