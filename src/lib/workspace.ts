@@ -85,6 +85,16 @@ export interface ReportMeta {
   printJob?: { id: string; at: string }
   /** Gerettete: people / animals (counts; absent ≠ 0 — absent means not recorded) */
   gerettete?: { personen?: number; tiere?: number }
+  /** «Keine» — nobody and nothing was rescued, said out loud (04.09., Rapport-Review).
+   *
+   *  ⚠️ The whole point is that `gerettete` being absent no longer has to carry four meanings at
+   *  once. On the 03.09. Rapport the field was empty, and empty could mean: nobody was rescued ·
+   *  it was never looked into · it was rescued but not recorded · it does not apply here. With
+   *  this flag, empty means exactly one of them — not recorded — and the other answer has
+   *  somewhere to go. Same escape `kontaktpersonNone`, `rueckmeldungNone` and
+   *  `mittelConfirmedNone` already are; the word is «Keine» rather than «Entfällt» because a
+   *  rescue is a thing that either happened or did not, not a section that can be irrelevant. */
+  geretteteNone?: boolean
   /** who recorded via the Erfassung (/e/) — comma-separated, each person once */
   erfasser?: string
   /** Rückmeldung to the ELZ: who reported back, and when */

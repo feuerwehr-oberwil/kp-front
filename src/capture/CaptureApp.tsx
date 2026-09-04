@@ -87,6 +87,12 @@ const STEP_TARGET: Record<AbschlussStep, Section | 'abschluss'> = {
   kontaktperson: 'angaben',
   kurzbericht: 'angaben',
   rueckmeldung: 'abschluss',
+  // ⚠️ The poster cannot settle a divergence and must not pretend to (04.09.). The two values
+  // and the choice between them live on the Rapport, where the person closing the Einsatz is
+  // sitting; a chip here would open the Personen list and point at nothing. It lands on the
+  // list the divergence is ABOUT, which is the honest floor — and `openConflicts` is never
+  // handed to this page's facts, so the chip does not appear here at all.
+  abweichungen: 'personen',
 }
 /** …and the steps that land on a FIELD, which is where the cursor belongs. Anwesenheit and
  *  Material land on a list instead, and focusing their search box would raise the keyboard

@@ -9,7 +9,7 @@ import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
-import { alarmBarFor, currentRunStart, isAtemschutzTrupp, truppAwaitsEntry } from './atemschutz'
+import { alarmBarFor, currentRunStart, isAtemschutzTrupp, truppAwaitsEntry, truppLogName } from './atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
 // (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
 // tablet six seconds ahead put contact times into the Rapport that no other device agreed with,
@@ -166,7 +166,11 @@ interface Deps {
   /** raw Lage-doc setter (no undo snapshot — placement mirrors the plan chip's setBoard) */
   setDocRaw: Dispatch<SetStateAction<Doc>>
   building: BuildingDoc | null
-  log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string) => void
+  /** `rowId` mints the Verlauf row under a CALLER-CHOSEN id instead of a fresh one. Only for
+   *  rows a fact can produce more than once — the same Atemschutz-Alarm evaluated on three
+   *  tablets is one alarm, and the server skips a row id it already holds (backend ·
+   *  journal.append_rows). Everything else leaves it alone and gets a fresh id. */
+  log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   logPlan: (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) => void
   emit: (op_type: string, payload?: Record<string, unknown>) => void
   setMode: (m: Mode) => void
@@ -235,7 +239,7 @@ export function useTruppActions(deps: Deps) {
     setTrupps((ts) => [...ts, { ...t, readings: registered, order: t.order ?? nextTruppOrder(ts) }])
     // with the Eingangsdruck: it is the number the whole pressure trend is measured from, and
     // the Verlauf used to start the story without it
-    log('flag', fillTemplate(appConfig.copy.atemschutz.logRegister, { name: t.name, bar: String(t.entryPressureBar) }), 'team')
+    log('flag', fillTemplate(appConfig.copy.atemschutz.logRegister, { name: truppLogName(t), bar: String(t.entryPressureBar) }), 'team')
     emit('atemschutz.register', { id: t.id })
   }
   const updateTrupp = (id: string, patch: Partial<Trupp>) =>
@@ -574,11 +578,11 @@ export function useTruppActions(deps: Deps) {
     setTrupps((ts) => ts.map((t) => (t.id === id
       ? { ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] }
       : t)))
-    log('radio', fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr?.name ?? '' }), 'team')
+    log('radio', fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr ? truppLogName(tr) : '' }), 'team')
     emit('atemschutz.contact', { id })
     if (snapshot) {
       // names the Trupp, because the whole failure mode is having meant a different one
-      toast(fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr?.name ?? '' }), {
+      toast(fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr ? truppLogName(tr) : '' }), {
         icon: 'radio',
         action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
       })
@@ -607,7 +611,7 @@ export function useTruppActions(deps: Deps) {
       : t)))
     const line = fillTemplate(
       crossed ? appConfig.copy.atemschutz.logPressureAlarm : appConfig.copy.atemschutz.logPressure,
-      { name: tr?.name ?? '', bar },
+      { name: tr ? truppLogName(tr) : '', bar },
     )
     log(crossed ? 'warn' : 'drop', line, 'team')
     emit('atemschutz.pressure', { id, bar })
@@ -672,7 +676,7 @@ export function useTruppActions(deps: Deps) {
       : status === 'rueckzug' ? az.logRueckzug
       : status === 'raus' ? (neverDeployed ? az.logNotDeployed : az.logExit) : null
     const icon = status === 'raus' ? 'logout' : status === 'rueckzug' ? 'undo' : 'flag'
-    const line = tpl ? fillTemplate(tpl, { name: tr?.name ?? '' }) : null
+    const line = tpl ? fillTemplate(tpl, { name: tr ? truppLogName(tr) : '' }) : null
     if (line) log(icon, line, 'team')
     emit('atemschutz.status', { id, status })
     /* ⚠️ EVERY transition is undoable, not only «Raus» (23.08.). Three of the four touch the
@@ -823,7 +827,7 @@ export function useTruppActions(deps: Deps) {
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
     if (tr) recolorPlacement({ ...tr, color: f.color === null ? undefined : f.color ?? tr.color, auftrag: f.auftrag })
     const az = appConfig.copy.atemschutz
-    log('flag', fillTemplate(standby ? az.logStandby : az.logReenter, { name: f.name, bar: String(f.pressure ?? '') }), 'team')
+    log('flag', fillTemplate(standby ? az.logStandby : az.logReenter, { name: truppLogName(f), bar: String(f.pressure ?? '') }), 'team')
     emit('atemschutz.status', { id, status: standby ? 'angemeldet' : 'aktiv' })
   }
   /**
@@ -937,11 +941,36 @@ export function useTruppActions(deps: Deps) {
     if (tr) unlinkTruppLine(tr.id)
   }
 
-  // an escalation crossed into warn/critical — record it once in the Verlauf
-  const logTruppAlarm = (id: string, status: Trupp['status']) => {
+  /**
+   * An escalation crossed into warn/critical — record it once in the Verlauf.
+   *
+   * ⚠️ ONCE ACROSS THE WHOLE EINSATZ, not once per device (04.09.). Every tablet watching the
+   * board runs its own alarm engine, and all of them cross into überfällig within a second or
+   * two of each other, so the record grew one «Überfällig» line per open device: the 03.09.
+   * Einsatz has Fabich's 06:50 alarm twice, four seconds apart, for a Trupp about which nothing
+   * had happened in between. The row is therefore minted under a DETERMINISTIC id built from
+   * the Trupp and the Funkkontakt-Turnus the alarm belongs to — the server keeps the first and
+   * silently skips every later one with the same id (backend · journal.append_rows), which is
+   * the same idempotency an offline outbox retry already relies on. Two genuinely different
+   * alarms differ in their turnus, so nothing that deserves its own line loses one.
+   */
+  const logTruppAlarm = (id: string, status: Trupp['status'], turnus = '') => {
     const tr = trupps.find((t) => t.id === id)
-    log('warn', fillTemplate(appConfig.copy.atemschutz.logAlarm, { name: tr?.name ?? '', status: appConfig.copy.atemschutz.status[status] ?? status }), 'team')
+    log('warn', fillTemplate(appConfig.copy.atemschutz.logAlarm, { name: tr ? truppLogName(tr) : '', status: appConfig.copy.atemschutz.status[status] ?? status }), 'team',
+      undefined, undefined, { rowId: `azal-${id}-${turnus}` })
     emit('atemschutz.alarm', { id, status })
+  }
+  /** …and the line that ends it, naming what ended it. Read off the Trupp's OWN log — the same
+   *  readings the printed Druckprotokoll shows — so the row can never claim a Funkkontakt where
+   *  the record holds a Druckmeldung. Idempotent the same way, on the same turnus. */
+  const logTruppAlarmCleared = (id: string, turnus: string) => {
+    const tr = trupps.find((t) => t.id === id)
+    const az = appConfig.copy.atemschutz
+    const last = tr?.readings?.[tr.readings.length - 1]?.kind
+    const reason = (last && az.alarmClearedBy[last]) || az.alarmClearedOther
+    log('radio', fillTemplate(az.logAlarmCleared, { name: tr ? truppLogName(tr) : '', reason }), 'team',
+      undefined, undefined, { rowId: `azcl-${id}-${turnus}` })
+    emit('atemschutz.alarm.cleared', { id })
   }
   const deleteTrupp = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
@@ -1023,5 +1052,5 @@ export function useTruppActions(deps: Deps) {
     return out
   }
 
-  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
 }

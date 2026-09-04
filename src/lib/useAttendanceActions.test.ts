@@ -122,3 +122,31 @@ describe('the Bemerkung survives a row cycled to «frei» and back', () => {
     expect(cleared.notes.current.p1).toBeUndefined()
   })
 })
+
+// ⚠️ 04.09.: the mirror image of the capture side's stamp (lib/captureClient). Without both, a
+// divergence row cannot name its two sides and is back to «diese» vs «jene».
+describe('every write from this surface is stamped «am Kommandoposten»', () => {
+  const person = { id: 'p1', displayName: 'Keller Anna', active: true, updatedAt: STARTED }
+
+  it('stamps an entry this surface created', () => {
+    const { actions, state } = harness()
+    actions.markPresent(person)
+    expect(state.attendance.p1.source).toBe('kp')
+  })
+
+  it('stamps an entry this surface CHANGED, whichever action did it', () => {
+    const { actions, state } = harness({
+      p1: { status: 'present', displayNameSnapshot: 'Keller Anna', source: 'capture' },
+    })
+    actions.setAttendanceNote('p1', 'Fahrer TLF')
+    expect(state.attendance.p1.source).toBe('kp')
+    expect(state.attendance.p1.note).toBe('Fahrer TLF')
+  })
+
+  it('⚠️ leaves a row nobody touched alone — the stamp says who WROTE it, not who was looking', () => {
+    const fromBogen = { status: 'present' as const, displayNameSnapshot: 'Muster Beat', source: 'capture' as const }
+    const { actions, state } = harness({ p1: { status: 'present', displayNameSnapshot: 'Keller Anna' }, p2: fromBogen })
+    actions.setAttendanceNote('p1', 'Einsatzleiter')
+    expect(state.attendance.p2).toBe(fromBogen)
+  })
+})

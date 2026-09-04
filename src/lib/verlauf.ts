@@ -121,11 +121,17 @@ const REPEAT_WINDOW_MS = 2 * 60_000
  * Verlauf and the printed journal show the first of them and say how often it repeated, instead
  * of the same sentence twenty times.
  *
- * The run key is **text + object** (`entityId ?? annoId`), never text alone. Two different
- * Notizen dropped seconds apart both write «Notiz gesetzt», and two shapes drawn in one burst
- * both write the same line — on text alone those collapsed to «Notiz gesetzt 2×», which claims
- * one thing happened twice where two things happened once. Rows about no object at all (an
+ * The run key is **text + object** (`entityId ?? annoId ?? subjectId`), never text alone. Two
+ * different Notizen dropped seconds apart both write «Notiz gesetzt», and two shapes drawn in one
+ * burst both write the same line — on text alone those collapsed to «Notiz gesetzt 2×», which
+ * claims one thing happened twice where two things happened once. Rows about no object at all (an
  * überfällige Kontaktuhr) share the empty object key and collapse exactly as before.
+ *
+ * ⚠️ `subjectId` is the half that was missing (04.09.). A DELETION names its object and then
+ * cannot point at it, and a drawing edit has no jump target at all, so both wrote rows with no
+ * object key — and the 03.09. Rapport printed «Feuerwehr gelöscht 2×», «Polizei gelöscht 2×»,
+ * «Lüfter gelöscht 2×» where each pair was two different symbols removed a few seconds apart.
+ * See types · TimelineEvent.subjectId for why it is not simply `entityId`.
  *
  * ⚠️ Display only. Every row stays in the append-only record and in the hash chain; this decides
  * what is worth READING. The count is shown («6×») rather than silently swallowed — a reader has
@@ -152,7 +158,7 @@ export function repeatRuns(events: TimelineEvent[]): {
     const text = e.text.trim()
     if (!text) continue
     // NUL joins the two halves so an object id can never run into the text and fake a match.
-    const key = `${e.entityId ?? e.annoId ?? ''}\u0000${text}`
+    const key = `${e.entityId ?? e.annoId ?? e.subjectId ?? ''}\u0000${text}`
     const ms = Date.parse(e.at!)
     if (!Number.isFinite(ms)) continue
     const run = open.get(key)

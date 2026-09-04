@@ -71,7 +71,10 @@ describe('stepDone', () => {
   })
 
   it('missingSteps lists everything open, in step order', () => {
-    expect(missingSteps(facts())).toEqual(ABSCHLUSS_STEPS)
+    // ⚠️ all of them EXCEPT «Abweichungen» (04.09.): that step is satisfied by there being
+    // nothing to answer, which is the ordinary Einsatz — an empty rapport has no divergences.
+    expect(missingSteps(facts())).toEqual(ABSCHLUSS_STEPS.filter((s) => s !== 'abweichungen'))
+    expect(missingSteps(facts({ openConflicts: 1 }))).toEqual(ABSCHLUSS_STEPS)
     const done = facts({
       reportMeta: {
         endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true,
@@ -230,5 +233,22 @@ describe('an end can never land before its start', () => {
 
   it('gives an unreadable stamp back unchanged rather than inventing one', () => {
     expect(keepEndAfterStart('nonsense', 'also nonsense')).toBe('also nonsense')
+  })
+})
+
+// ⚠️ 04.09.: the 03.09. Rapport was closed at 11:41 with three unanswered «bitte prüfen» lines.
+// The step makes that visible; it deliberately does NOT block (see the note in abschluss.ts).
+describe('the «Abweichungen» step', () => {
+  const base = { reportMeta: {}, attendanceCount: 1, mittelCount: 0 }
+  it('is done when nothing is open — the ordinary Einsatz never produces a divergence', () => {
+    expect(stepDone('abweichungen', base)).toBe(true)
+  })
+  it('is open while one is unanswered', () => {
+    expect(stepDone('abweichungen', { ...base, openConflicts: 2 })).toBe(false)
+    expect(missingSteps({ ...base, openConflicts: 2 })).toContain('abweichungen')
+  })
+  it('⚠️ reads as done for a caller that does not know about divergences at all', () => {
+    // the QR poster hands no `openConflicts`, and it must never show a step it cannot settle
+    expect(missingSteps(base)).not.toContain('abweichungen')
   })
 })

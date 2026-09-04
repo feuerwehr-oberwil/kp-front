@@ -33,16 +33,22 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
 
   // ── Inhalt: the FKS device letter (S/W/H/P). Unset is not «cleared» — it is Wasser, a value
   // of its own, and the row says so the way the editor does.
+  //
+  // ⚠️ A REPLACEMENT says so («Typ auf Gegenfeuer geändert»), the same rule every symbol field
+  // already follows (lib/entityEdit). Written as a bare «Typ: X» each time, somebody dialling
+  // through the presets left three consecutive rows — «Typ: Nasse Haltelinie», «Typ: Gegenfeuer»,
+  // «Typ: Wasser» (03.09., 07:52) — that read on paper as three properties holding at once
+  // rather than as one line whose type was corrected twice.
   if ((prev.content ?? '') !== (next.content ?? '')) {
-    const value = next.content ? (appConfig.copy.lineDecor[next.content] ?? next.content) : E.contentPlain
-    out.push(fillTemplate(L.fieldSet, { field: E.content, value }))
+    const label = (c: string | undefined) => (c ? (appConfig.copy.lineDecor[c] ?? c) : E.contentPlain)
+    out.push(fillTemplate(prev.content ? L.fieldChanged : L.fieldSet, { field: E.content, value: label(next.content) }))
   }
 
   // ── Leitung Nr.: the identity the Atemschutzüberwachung knows its hose by ──
   if (prev.lineNo !== next.lineNo) {
     out.push(next.lineNo == null
       ? fillTemplate(L.fieldCleared, { field: E.lineNo })
-      : fillTemplate(L.fieldSet, { field: E.lineNo, value: String(next.lineNo) }))
+      : fillTemplate(prev.lineNo == null ? L.fieldSet : L.fieldChanged, { field: E.lineNo, value: String(next.lineNo) }))
   }
 
   // ── Stockwerk badge — same wording as a symbol's storey (lib/entityEdit) ──
@@ -57,7 +63,9 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
     const labels: Record<LineEnding, string> = {
       none: E.endingNone, arrow: E.endingArrow, arrowStop: E.endingArrowStop, teilstueck: E.endingTeilstueck,
     }
-    out.push(fillTemplate(L.fieldSet, { field: E.ending, value: labels[endingOf(next)] }))
+    // …and the same «geändert» rule: a line that HAD an Abschluss and got another one is a
+    // correction, not a second Abschluss standing beside the first.
+    out.push(fillTemplate(endingOf(prev) === 'none' ? L.fieldSet : L.fieldChanged, { field: E.ending, value: labels[endingOf(next)] }))
   }
 
   return out

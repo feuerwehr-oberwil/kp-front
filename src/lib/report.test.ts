@@ -347,6 +347,21 @@ describe('journalArea · one glyph, one Bereich — without breaking the record'
     // …and that is what leaves 'clock' free to mean only this, on the poster's Zeiten row
     expect(journalArea(ev({ icon: 'clock', text: 'Zeiten erfasst: Meier Anna' }), plans)).toBe('Anwesenheit')
   })
+
+  // ⚠️ 03.09.: the last two lines of the Rapport read «Kroki Rapport abgeschlossen» and «Kroki
+  // Einsatz abgeschlossen» — a Bereich that sends the reader to the map for an act performed in
+  // the Rapport. Server rows carry neither `kind` nor `surface`, so they fell through the whole
+  // chain; the `sys` id prefix is the one thing every one of them has, in every record already.
+  it('⚠️ reads the rows the SERVER wrote about the incident itself as «System», never as Kroki', () => {
+    const sys = (icon: string, text: string): TimelineEvent => ({ id: 'sysc401cdb8f94e', t: '', at, icon, text })
+    expect(journalArea(sys('check', 'Rapport abgeschlossen'), plans)).toBe('System')
+    expect(journalArea(sys('flag', 'Einsatz abgeschlossen'), plans)).toBe('System')
+    expect(journalArea(sys('undo', 'Einsatz wiedereröffnet (Nachtrag)'), plans)).toBe('System')
+    // the Divera-fed alarm/Fahrzeug rows come down the same pipe
+    expect(journalArea(sys('truck', 'Gr. 2 alarmiert 05:50'), plans)).toBe('System')
+    // …and a CLIENT row keeps classifying exactly as it did: no local id starts with 'sys'
+    expect(journalArea(ev({ id: 'e1788409060031-04', icon: 'hex', kind: 'symbol', text: 'Symbol gesetzt' }), plans)).toBe('Kroki')
+  })
 })
 
 describe('journalDisc · what the Verlauf’s disc says a row is', () => {
@@ -610,11 +625,11 @@ describe('changedReportMetaFields (what the Verlauf row says)', () => {
     expect(changedReportMetaFields(base, { ...base, remarks: 'Zugang Hinterhof' })).toEqual(['Bemerkungen geschrieben'])
     const written = { ...base, remarks: 'Zugang Hinterhof' }
     expect(changedReportMetaFields(written, { ...written, remarks: 'Zugang Hof' })).toEqual(['Bemerkungen überarbeitet'])
-    expect(changedReportMetaFields(written, { ...written, remarks: '' })).toEqual(['Bemerkungen geleert'])
+    expect(changedReportMetaFields(written, { ...written, remarks: '' })).toEqual(['Bemerkungen entfernt'])
   })
 
   it('reports a cleared short field as cleared, not as an empty quote', () => {
-    expect(changedReportMetaFields(base, { ...base, einsatzleiter: '' })).toEqual(['Einsatzleiter geleert'])
+    expect(changedReportMetaFields(base, { ...base, einsatzleiter: '' })).toEqual(['Einsatzleiter entfernt'])
   })
 
   it('stays silent when nothing worth a line moved', () => {
@@ -910,6 +925,17 @@ describe('normalizeReportMeta («entfällt» clears when the answer arrives)', (
       .toEqual({})
   })
 
+  // ⚠️ 04.09.: «Keine» is the fourth field with this shape. A counted rescue and «es gab keine»
+  // are the same contradiction, and the poster's steppers write the same field as the Rapport's.
+  it('clears geretteteNone the moment a rescue is counted — from either surface', () => {
+    expect(normalizeReportMeta({ gerettete: { personen: 2 } }, { geretteteNone: true }))
+      .toEqual({ gerettete: { personen: 2 }, geretteteNone: false })
+    expect(normalizeReportMeta({ gerettete: { tiere: 12 } }, { geretteteNone: true }).geretteteNone).toBe(false)
+    // a zero is not a rescue — the patch goes through untouched, so the standing answer lives on
+    const zeros = { gerettete: { personen: 0, tiere: 0 } }
+    expect(normalizeReportMeta(zeros, { geretteteNone: true })).toBe(zeros)
+  })
+
   it('leaves an unrelated patch untouched — same reference, so callers can no-op cheaply', () => {
     const patch = { summary: 'Brand im Keller' }
     expect(normalizeReportMeta(patch, { kontaktpersonNone: true })).toBe(patch)
@@ -963,7 +989,7 @@ describe('einsatzleiterSuccession (who led, since when)', () => {
 
   it('ignores rows that only mention the word, and cleared fields', () => {
     const events = [
-      row('e2', '2026-08-29T13:00:00.000Z', 'Rapportangaben: Einsatzleiter geleert'),
+      row('e2', '2026-08-29T13:00:00.000Z', 'Rapportangaben: Einsatzleiter entfernt'),
       row('e1', '2026-08-29T12:00:00.000Z', 'Einsatzleiter noch nicht bestimmt'),
     ]
     expect(einsatzleiterSuccession(events)).toEqual([])

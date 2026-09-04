@@ -221,6 +221,40 @@ export function attendanceForPickedName(
  * untouched, so a concurrent KP tablet's map work survives the PUT.
  */
 export function applyAction(ws: Workspace | null, action: CaptureAction, nowIso: string): Workspace {
+  const after = _applyAction(ws, action, nowIso)
+  // ⚠️ An UNDO re-asserts a value, it does not author one. `restoreAttendance` is the way back
+  // from the destructive third tap, and it puts the entry back verbatim — stamping it here would
+  // have the undo quietly rewrite a field, and would claim the Bogen wrote times the
+  // Kommandoposten had recorded. Same rule every other undo in the app follows.
+  return action.kind === 'restoreAttendance' ? after : stampCaptureSource(ws, after)
+}
+
+/**
+ * Every attendance entry this surface changed is stamped «am Erfassungsbogen» (04.09.).
+ *
+ * ⚠️ At the boundary, not inside the six branches that build an entry — the one failure that
+ * must be impossible is a writer forgetting the stamp, because an unstamped entry is
+ * indistinguishable from one the Kommandoposten wrote, and the whole reason `source` exists is
+ * that a divergence row has to be able to name its two sides («Angabe vom Erfassungsbogen»).
+ * The tablet's side does the same thing in the same shape (lib/useAttendanceActions).
+ *
+ * Only entries that actually CHANGED — re-stamping a row this action never touched would claim
+ * the poster wrote it.
+ */
+function stampCaptureSource(before: Workspace | null, after: Workspace): Workspace {
+  const next = (after as { attendance?: Record<string, AttendanceEntry> }).attendance
+  if (!next) return after
+  const prev = ((before ?? {}) as { attendance?: Record<string, AttendanceEntry> }).attendance ?? {}
+  let out: Record<string, AttendanceEntry> | undefined
+  for (const [id, e] of Object.entries(next)) {
+    if (e === prev[id] || e.source === 'capture') continue
+    out ??= { ...next }
+    out[id] = { ...e, source: 'capture' }
+  }
+  return out ? { ...(after as Record<string, unknown>), attendance: out } : after
+}
+
+function _applyAction(ws: Workspace | null, action: CaptureAction, nowIso: string): Workspace {
   const base: Record<string, unknown> = { ...(ws ?? {}) }
   if (action.kind === 'addAttachment' || action.kind === 'removeAttachment') {
     const list = [...((base.attachments as { id: string }[] | undefined) ?? [])]

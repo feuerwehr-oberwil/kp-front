@@ -42,6 +42,8 @@ function harness(
   seed?: { board?: BoardDoc; entities?: Entity[]; drawings?: Drawing[] },
   /** capture the Verlauf lines this action writes (icon, text) */
   log: (icon: string, text: string) => void = () => {},
+  /** …and, where a test is about idempotency, the ROW ID the action chose (see logTruppAlarm) */
+  rows?: { text: string; id?: string }[],
 ) {
   const state = {
     trupps: [trupp],
@@ -61,7 +63,11 @@ function harness(
     setBoard: ((a) => { state.board = apply(state.board, a) }) as Dispatch<SetStateAction<BoardDoc>>,
     setDocRaw: ((a) => { state.doc = apply(state.doc, a) }) as Dispatch<SetStateAction<Doc>>,
     building: null,
-    log, logPlan: () => {}, emit: () => {},
+    log: (icon: string, text: string, _k?: unknown, _a?: unknown, _e?: unknown, opts?: { rowId?: string }) => {
+      rows?.push({ text, id: opts?.rowId })
+      log(icon, text)
+    },
+    logPlan: () => {}, emit: () => {},
     setMode: () => {}, setActivePlanId: () => {}, setPanel: () => {}, setPlanFocus: () => {},
     mapCenter: () => [7.53, 47.41],
     focusMapEntity: () => {},
@@ -365,12 +371,46 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     expect(lines).toEqual([`Trupp ${t.name} nicht eingesetzt`])
   })
 
-  it('a Trupp that DID go in is logged as «draussen», not «nicht eingesetzt»', () => {
+  it('a Trupp that DID go in is logged as «Austritt», not «nicht eingesetzt»', () => {
     const lines: string[] = []
     const { actions, state } = harness(baseTrupp({ status: 'aktiv' }), undefined, (_i, text) => lines.push(text))
     actions.setTruppStatus('T1', 'raus')
     expect(truppNeverDeployed(state.trupps[0])).toBe(false)
-    expect(lines).toEqual([`Trupp ${state.trupps[0].name} draussen`])
+    expect(lines).toEqual([`Trupp ${state.trupps[0].name}: Austritt`])
+  })
+})
+
+// ⚠️ 03.09.: the Rapport carried seven «Überfällig» lines and not one ending, and Fabich's 06:50
+// alarm twice — once per open tablet. Both halves are pinned here.
+describe('the Atemschutz-Alarm rows — what ended it, and once for the whole Einsatz', () => {
+  /** the harness with the row's id + text, which is what these two fixes are about */
+  const rowHarness = (trupp: Trupp, rows: { text: string; id?: string }[]) => harness(trupp, undefined, () => {}, rows)
+
+  it('names the whole crew and mints the row under the Trupp + Turnus, not the device clock', () => {
+    const rows: { text: string; id?: string }[] = []
+    const { actions } = rowHarness(baseTrupp({ name: 'Fabich Mischa', members: ['Dürring Jan'] }), rows)
+    actions.logTruppAlarm('T1', 'ueberfaellig', '2026-07-06T10:00:00Z')
+    actions.logTruppAlarm('T1', 'ueberfaellig', '2026-07-06T10:00:00Z') // a second device, same turnus
+    expect(rows[0].text).toBe('Atemschutz-Alarm: Trupp Fabich Mischa / Dürring Jan – Überfällig')
+    expect(rows[0].id).toBe('azal-T1-2026-07-06T10:00:00Z')
+    expect(rows[1].id).toBe(rows[0].id) // …so the server keeps exactly one of them
+  })
+
+  it('reads what ENDED the alarm off the Trupp’s own log, never guesses it', () => {
+    const cases: [Trupp['readings'], string][] = [
+      [[{ t: 'x', bar: 200, kind: 'contact' }], 'Funkkontakt'],
+      [[{ t: 'x', bar: 200, kind: 'pressure' }], 'Druckmeldung'],
+      [[{ t: 'x', bar: 200, kind: 'rueckzug' }], 'Rückzug'],
+      [[{ t: 'x', bar: 200, kind: 'exit' }], 'Austritt'],
+      [undefined, 'Kontakt wiederhergestellt'], // nothing to read — the alarm ended all the same
+    ]
+    for (const [readings, reason] of cases) {
+      const rows: { text: string; id?: string }[] = []
+      const { actions } = rowHarness(baseTrupp({ name: 'Fabich Mischa', readings }), rows)
+      actions.logTruppAlarmCleared('T1', '2026-07-06T10:00:00Z')
+      expect(rows[0].text).toBe(`Atemschutz-Alarm beendet: Trupp Fabich Mischa – ${reason}`)
+      expect(rows[0].id).toBe('azcl-T1-2026-07-06T10:00:00Z')
+    }
   })
 })
 

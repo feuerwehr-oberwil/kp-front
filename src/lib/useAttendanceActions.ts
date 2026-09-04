@@ -44,7 +44,27 @@ interface AttendanceActionsDeps {
  * Presence is a record: every tick/removal/correction is a Verlauf event, and «frei» is
  * confirm-with-undo. Pure orchestration over the synced attendance slice — no state of its own.
  */
-export function useAttendanceActions({ attendance, setAttendance, blockedAttendanceIds, startedAt, reportDoneAt, noteMemory, log }: AttendanceActionsDeps) {
+export function useAttendanceActions({ attendance, setAttendance: setAttendanceRaw, blockedAttendanceIds, startedAt, reportDoneAt, noteMemory, log }: AttendanceActionsDeps) {
+  /**
+   * Every write from THIS surface is stamped «am Kommandoposten» (04.09.).
+   *
+   * ⚠️ Wrapped around the setter rather than sprinkled over the dozen places that build an entry,
+   * because the one thing that must not happen is a writer forgetting: an unstamped entry is
+   * indistinguishable from one the QR-Bogen wrote, and the whole reason `source` exists is that
+   * a divergence row has to be able to name its two sides. Only entries that actually CHANGED
+   * are stamped — re-stamping a row nobody touched would claim this tablet wrote it.
+   */
+  const setAttendance: AttendanceActionsDeps['setAttendance'] = (action) => setAttendanceRaw((cur) => {
+    const next = typeof action === 'function' ? action(cur) : action
+    if (next === cur) return cur
+    let out: typeof next | undefined
+    for (const [id, e] of Object.entries(next)) {
+      if (e === cur[id] || e.source === 'kp') continue
+      out ??= { ...next }
+      out[id] = { ...e, source: 'kp' }
+    }
+    return out ?? next
+  })
   const markPresent = (p: Person) => {
     // Adding a block while one is still running is a relief in place: close the current one at
     // this moment and open the next. Without this the sheet's «Weiterer Block» would leave two

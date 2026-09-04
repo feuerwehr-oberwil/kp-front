@@ -176,6 +176,20 @@ describe('repeatRuns', () => {
     expect(repeatRuns(rows).hidden.size).toBe(0)
   })
 
+  // ⚠️ …and the third key, for the rows that name an object they cannot POINT at. On 03.09. the
+  // Rapport printed «Feuerwehr gelöscht 2×», «Polizei gelöscht 2×» and «Lüfter gelöscht 2×» —
+  // every one of those pairs was two different symbols removed a few seconds apart, and «2×»
+  // said one thing had happened twice.
+  it('⚠️ never merges two deletions of different objects, which carry no jump target', () => {
+    const rows = [
+      row('d1', '2026-09-03T04:49:03.000Z', 'Feuerwehr gelöscht', { kind: undefined, icon: 'close', subjectId: 'p1788410546821' }),
+      row('d2', '2026-09-03T04:49:08.000Z', 'Feuerwehr gelöscht', { kind: undefined, icon: 'close', subjectId: 'p1788410533547' }),
+    ]
+    const { counts, hidden } = repeatRuns(rows)
+    expect(hidden.size).toBe(0)
+    expect(counts.size).toBe(0)
+  })
+
   it('still collapses a run about ONE object', () => {
     const rows = [
       row('n1', '2026-08-19T20:00:00.000Z', 'Notiz gesetzt', { kind: 'symbol', entityId: 'e100' }),

@@ -30,7 +30,7 @@ const trupp = (over: Partial<Trupp> = {}): Trupp => ({
 })
 
 const host = (trupps: Trupp[], onState: (s: AtemschutzAlarmState) => void) => (
-  <AtemschutzAlarmHost trupps={trupps} muted active logAlarm={() => {}}
+  <AtemschutzAlarmHost trupps={trupps} muted active logAlarm={() => {}} logAlarmCleared={() => {}}
     intervalMin={5} graceSec={60} onState={onState} />
 )
 
@@ -44,7 +44,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 describe('the mute reaches the OS notification, not only the tone', () => {
   it('posts the überfällig notification while the alarm is on', () => {
     render(
-      <AtemschutzAlarmHost trupps={[trupp()]} muted={false} active logAlarm={() => {}}
+      <AtemschutzAlarmHost trupps={[trupp()]} muted={false} active logAlarm={() => {}} logAlarmCleared={() => {}}
         intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) })
@@ -53,7 +53,7 @@ describe('the mute reaches the OS notification, not only the tone', () => {
 
   it('stays silent on the same crossing while muted', () => {
     render(
-      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={() => {}}
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={() => {}} logAlarmCleared={() => {}}
         intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) })
@@ -70,7 +70,7 @@ describe('the mute reaches the OS notification, not only the tone', () => {
 describe('the notification names the emergency it is about', () => {
   it('does not call a Trupp at its Alarmdruck «überfällig»', () => {
     render(
-      <AtemschutzAlarmHost trupps={[trupp({ lastPressureBar: 90 })]} muted={false} active logAlarm={() => {}}
+      <AtemschutzAlarmHost trupps={[trupp({ lastPressureBar: 90 })]} muted={false} active logAlarm={() => {}} logAlarmCleared={() => {}}
         intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     act(() => { vi.advanceTimersByTime(1000) })
@@ -83,7 +83,7 @@ describe('the notification names the emergency it is about', () => {
   it('posts pressure immediately when an already-overdue Trupp crosses the Alarmdruck', () => {
     const overdue = trupp({ lastContactTime: new Date(T0 - 10 * 60_000).toISOString() })
     const { rerender } = render(
-      <AtemschutzAlarmHost trupps={[overdue]} muted={false} active logAlarm={() => {}}
+      <AtemschutzAlarmHost trupps={[overdue]} muted={false} active logAlarm={() => {}} logAlarmCleared={() => {}}
         intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     act(() => { vi.advanceTimersByTime(1000) })
@@ -92,7 +92,7 @@ describe('the notification names the emergency it is about', () => {
 
     rerender(
       <AtemschutzAlarmHost trupps={[{ ...overdue, lastPressureBar: 90, lastPressureTime: new Date(T0 + 1000).toISOString() }]}
-        muted={false} active logAlarm={() => {}} intervalMin={5} graceSec={60} onState={() => {}} />,
+        muted={false} active logAlarm={() => {}} logAlarmCleared={() => {}} intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     expect(notify).toHaveBeenCalledTimes(1)
     const [title, opts] = vi.mocked(notify).mock.calls[0]
@@ -157,8 +157,9 @@ describe('AtemschutzAlarmHost · the überfällig line is written once per real 
 
   it('does not re-log a Trupp who was already overdue when the app started', () => {
     const logAlarm = vi.fn()
+    const logAlarmCleared = vi.fn()
     render(
-      <AtemschutzAlarmHost trupps={[overdueTrupp()]} muted active logAlarm={logAlarm}
+      <AtemschutzAlarmHost trupps={[overdueTrupp()]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
         intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     act(() => { vi.advanceTimersByTime(5 * 60_000) })
@@ -170,13 +171,14 @@ describe('AtemschutzAlarmHost · the überfällig line is written once per real 
   // spent before any Trupp had been seen.
   it('does not re-log when the Trupps land after the first evaluation', () => {
     const logAlarm = vi.fn()
+    const logAlarmCleared = vi.fn()
     const { rerender } = render(
-      <AtemschutzAlarmHost trupps={[]} muted active logAlarm={logAlarm}
+      <AtemschutzAlarmHost trupps={[]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
         intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     act(() => { vi.advanceTimersByTime(1000) })
     rerender(
-      <AtemschutzAlarmHost trupps={[overdueTrupp()]} muted active logAlarm={logAlarm}
+      <AtemschutzAlarmHost trupps={[overdueTrupp()]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
         intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     act(() => { vi.advanceTimersByTime(5 * 60_000) })
@@ -185,8 +187,9 @@ describe('AtemschutzAlarmHost · the überfällig line is written once per real 
 
   it('DOES log a crossing this session watched happen', () => {
     const logAlarm = vi.fn()
+    const logAlarmCleared = vi.fn()
     render(
-      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm}
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
         intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     expect(logAlarm).not.toHaveBeenCalled()
@@ -198,11 +201,87 @@ describe('AtemschutzAlarmHost · the überfällig line is written once per real 
     expect(logAlarm).toHaveBeenCalledTimes(1)
   })
 
+  // ⚠️ 03.09.: Fabich's 06:50 alarm stands twice in the record, four seconds apart, because two
+  // tablets each wrote their own copy. The row is minted under an id built from the Trupp and
+  // the Funkkontakt-Turnus, which is the same on every device (useTruppActions · logTruppAlarm).
+  it('⚠️ hands the alarm its Funkkontakt-Turnus, so every device mints the same row', () => {
+    const logAlarm = vi.fn()
+    const logAlarmCleared = vi.fn()
+    render(
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) })
+    expect(logAlarm.mock.calls[0][2]).toBe(new Date(T0).toISOString())
+  })
+
+  // ⚠️ 03.09.: seven «Überfällig» lines, not one ending. On paper a reader could not tell a crew
+  // that had been reached from one that walked out from one nobody ever answered for.
+  it('⚠️ closes the alarm when its cause goes away, under the SAME turnus', () => {
+    const logAlarm = vi.fn()
+    const logAlarmCleared = vi.fn()
+    const { rerender } = render(
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) })
+    expect(logAlarm).toHaveBeenCalledTimes(1)
+    expect(logAlarmCleared).not.toHaveBeenCalled()
+    // the Funkkontakt that ends it
+    const reached = trupp({ lastContactTime: new Date(T0 + 7 * 60_000).toISOString() })
+    rerender(
+      <AtemschutzAlarmHost trupps={[reached]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(logAlarmCleared).toHaveBeenCalledTimes(1)
+    expect(logAlarmCleared.mock.calls[0]).toEqual(['t1', new Date(T0).toISOString()])
+  })
+
+  it('⚠️ an Austritt closes it too — that is the case the record used to swallow', () => {
+    const logAlarm = vi.fn()
+    const logAlarmCleared = vi.fn()
+    const { rerender } = render(
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) })
+    const out = trupp({ status: 'raus', exitTime: new Date(T0 + 7 * 60_000).toISOString() })
+    rerender(
+      <AtemschutzAlarmHost trupps={[out]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(logAlarmCleared).toHaveBeenCalledTimes(1)
+    // …and only once: the Trupp stays raus for the rest of the Einsatz
+    act(() => { vi.advanceTimersByTime(10 * 60_000) })
+    expect(logAlarmCleared).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes nothing it never opened — a Trupp that simply comes out writes no alarm row', () => {
+    const logAlarm = vi.fn()
+    const logAlarmCleared = vi.fn()
+    const { rerender } = render(
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(60_000) })
+    const out = trupp({ status: 'raus', exitTime: new Date(T0 + 60_000).toISOString() })
+    rerender(
+      <AtemschutzAlarmHost trupps={[out]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
+        intervalMin={5} graceSec={60} onState={() => {}} />,
+    )
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(logAlarm).not.toHaveBeenCalled()
+    expect(logAlarmCleared).not.toHaveBeenCalled()
+  })
+
   it('does not write passive visitors alarm crossings into the shared demo journal', () => {
     const demo = vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
     const logAlarm = vi.fn()
+    const logAlarmCleared = vi.fn()
     render(
-      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm}
+      <AtemschutzAlarmHost trupps={[trupp()]} muted active logAlarm={logAlarm} logAlarmCleared={logAlarmCleared}
         intervalMin={5} graceSec={60} onState={() => {}} />,
     )
     act(() => { vi.advanceTimersByTime(6 * 60_000 + 2000) })

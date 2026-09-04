@@ -81,4 +81,52 @@ describe('useVehiclePresenceLog', () => {
     const log = run([north(20), north(600)], { enabled: false })
     expect(log).not.toHaveBeenCalled()
   })
+
+  // ⚠️ 03.09.: the TLF and the PIO each printed «hat den Einsatzort verlassen» three times, at
+  // the identical second, with no arrival between any of them. Both were parked in the band
+  // between the rings, where a vehicle with no history used to be baselined as «vor Ort» — so
+  // every re-baseline re-armed a departure that had already been recorded.
+  it('⚠️ a vehicle first seen BETWEEN the rings is not booked «vor Ort»', () => {
+    // parked ~200 m out, seen for the first time there — the app knows nothing about whether it
+    // ever was at the Einsatzort, and the drift past the far ring is therefore no departure.
+    const log = run([north(200), north(600)])
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('⚠️ does not report a SECOND departure after a feed gap', () => {
+    const log = vi.fn()
+    const props = { v: [tlf(north(20))] }
+    const { rerender } = renderHook(
+      ({ v }: { v: Entity[] }) => useVehiclePresenceLog({ vehicles: v, center: CENTER, enabled: true, log }),
+      { initialProps: props },
+    )
+    const settle = (coord: LngLat) => {
+      rerender({ v: [tlf(coord)] })
+      vi.advanceTimersByTime(120_000)
+      rerender({ v: [tlf(coord)] })
+    }
+    settle(north(600))                                   // it leaves — one line, correctly
+    rerender({ v: [] }); vi.advanceTimersByTime(120_000) // the feed goes quiet
+    settle(north(200))                                   // …and comes back mid-band
+    settle(north(600))                                   // …and drifts out again
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0][1]).toBe('TLF hat den Einsatzort verlassen')
+  })
+
+  it('⚠️ a feed gap does not swallow the arrival that follows it', () => {
+    const log = vi.fn()
+    const { rerender } = renderHook(
+      ({ v }: { v: Entity[] }) => useVehiclePresenceLog({ vehicles: v, center: CENTER, enabled: true, log }),
+      { initialProps: { v: [tlf(north(900))] } },
+    )
+    rerender({ v: [] })                 // Traccar restarts / the tablet loses the network
+    vi.advanceTimersByTime(300_000)
+    for (const coord of [north(30), north(30)]) {
+      rerender({ v: [tlf(coord)] })
+      vi.advanceTimersByTime(120_000)
+      rerender({ v: [tlf(coord)] })
+    }
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0][1]).toBe('TLF vor Ort')
+  })
 })

@@ -41,6 +41,21 @@ describe('applyAction', () => {
     expect((next.attendance as Record<string, AttendanceEntry>).p1.status).toBe('present')
   })
 
+  // ⚠️ 04.09.: without a stamp, an entry from the Bogen is indistinguishable from one the
+  // Kommandoposten wrote — and a divergence row then cannot name its two sides.
+  it('⚠️ stamps every attendance entry it changed as «vom Erfassungsbogen»', () => {
+    const ws = { attendance: {} }
+    const next = applyAction(ws, { kind: 'cycleAttendance', personId: 'p1', name: 'Meier' }, NOW)
+    expect((next.attendance as Record<string, AttendanceEntry>).p1.source).toBe('capture')
+  })
+
+  it('…and leaves an entry this action never touched alone — the stamp says who WROTE it', () => {
+    const kp: AttendanceEntry = { status: 'present', displayNameSnapshot: 'Keller', source: 'kp' }
+    const ws = { attendance: { p1: {}, p2: kp } as unknown as Record<string, AttendanceEntry> }
+    const next = applyAction(ws, { kind: 'setAttendanceNote', personId: 'p1', note: 'Fahrer TLF' }, NOW)
+    expect((next.attendance as Record<string, AttendanceEntry>).p2).toBe(kp)
+  })
+
   it('setMeta patches reportMeta fields, preserving the rest', () => {
     const ws = { reportMeta: { summary: 'BMA' } }
     const next = applyAction(ws, { kind: 'setMeta', patch: { endedAt: NOW, kontaktperson: 'Frau Muster' } }, NOW)

@@ -422,6 +422,89 @@ export function Select({ value, onChange, options, ariaLabel, mono }: {
   )
 }
 
+/**
+ * Type, or pick a name off a list — the combo the Kommandant field wears (04.09.).
+ *
+ * ⚠️ Why this and not `Select`. The 03.09. Rapport printed the Kommandant as «Paul Hauptmann»
+ * beside an Einsatzleiter called «Hauptmann Paul» — the same person, written in two orders,
+ * because this was a free text box while the whole Personalstamm is «Nachname Vorname». A plain
+ * `Select` would fix the order but shut out the two cases a station really has: a config edited
+ * before any roster exists, and a Kommandant who is not in this station's own list. So the
+ * roster is the FIRST answer and free text is the last one, which is exactly how the Rapport
+ * already asks for the Einsatzleiter.
+ *
+ * ⚠️ It never materialises a value on render. Empty is the honest starting state — this page
+ * PUTs the whole config document, so a name that appeared by itself would be saved as a decision
+ * nobody made (the same trap `resolveLocaleChoice` exists for one field up).
+ */
+export function NameCombo({ value, onChange, options, placeholder, ariaLabel }: {
+  value: string
+  onChange: (v: string) => void
+  /** the roster, in ITS OWN order and spelling — empty means «no list», and the control is
+   *  then a plain text field with no list to open */
+  options: string[]
+  placeholder?: string
+  ariaLabel?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+  const listId = useId()
+  const q = value.trim().toLowerCase()
+  // an exact hit is not a suggestion — once the field says what the list says, the popup has
+  // nothing left to offer and would just sit over the next field
+  const matches = options.filter((o) => o.toLowerCase() !== q && (!q || o.toLowerCase().includes(q))).slice(0, 8)
+  const show = open && matches.length > 0
+
+  useEffect(() => {
+    if (!show) return
+    const onDoc = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDoc)
+    return () => document.removeEventListener('pointerdown', onDoc)
+  }, [show])
+
+  const choose = (v: string) => { onChange(v); setOpen(false) }
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((a) => Math.min(matches.length - 1, a + 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(0, a - 1)) }
+    // ⚠️ Enter only commits a HIGHLIGHTED suggestion. Otherwise it must leave the typed text
+    // alone: the free-text case is the whole reason this is not a Select, and silently swapping
+    // what somebody typed for the nearest roster name is the failure it exists to avoid.
+    else if (e.key === 'Enter' && show && matches[active]) { e.preventDefault(); choose(matches[active]) }
+    else if (e.key === 'Escape') setOpen(false)
+  }
+
+  return (
+    <div className={`adm-select adm-combo${show ? ' open' : ''}`} ref={ref}>
+      <input
+        className="adm-input" type="text" value={value} placeholder={placeholder} aria-label={ariaLabel}
+        role="combobox" aria-expanded={show} aria-controls={listId} aria-autocomplete="list"
+        onChange={(e) => { onChange(e.target.value); setActive(0); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKey}
+      />
+      {show && (
+        <ul className="adm-select-list" role="listbox" id={listId} aria-label={ariaLabel}>
+          {matches.map((o, i) => (
+            <li
+              key={o} role="option" aria-selected={o === value}
+              className={`adm-select-opt${i === active ? ' active' : ''}`}
+              onMouseEnter={() => setActive(i)}
+              onPointerDown={(e) => { e.preventDefault(); choose(o) }}
+              onClick={() => choose(o)}
+            >
+              <span className="adm-select-opt-label">{o}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 // --- Secret tokens -------------------------------------------------------------------
 //
 // Three admin surfaces manage a shared secret with the backend: the Statistik-Export token,

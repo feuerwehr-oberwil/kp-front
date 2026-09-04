@@ -529,6 +529,11 @@
 .adm-select-opt-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .adm-select-tick { width: 15px; height: 15px; flex: none; color: var(--blue); }
 .adm-select-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 0; border-color: var(--blue); }
+/* NameCombo — a text field that offers the Personalstamm while you type (ui.tsx · NameCombo).
+   It borrows the listbox above wholesale; only the trigger differs, because the whole point is
+   that a name NOT on the list can still be typed. */
+.adm-combo > .adm-input { width: 100%; }
+.adm-combo.open > .adm-input { border-color: var(--blue); background: var(--surface); }
 
 /* ── load / error states ──────────────────────────────────────────────────── */
 .adm-state {

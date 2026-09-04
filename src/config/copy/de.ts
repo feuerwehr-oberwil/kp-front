@@ -1065,7 +1065,7 @@ export const de = {
     entityEdited: '{name}: {changes}',
     fieldSet: '{field}: {value}',
     fieldChanged: '{field} auf {value} geändert',
-    fieldCleared: '{field} geleert',
+    fieldCleared: '{field} entfernt',
     labelSet: 'Beschriftung «{value}»',
     labelCleared: 'Beschriftung entfernt',
     floorSet: 'Stockwerk {value}',
@@ -1080,7 +1080,7 @@ export const de = {
     // such a sentence exists elsewhere is no record of it, least of all on a printed Rapport
     // where the Kroki cannot be clicked.
     noteWritten: 'Notiz «{value}»',
-    notesCleared: 'Notiz geleert',
+    notesCleared: 'Notiz entfernt',
     /** a Fläche / Linie / Absperrkreis given a name — same rule as the note above. Naming a shape
      *  is how «die Fläche da» becomes «Sammelplatz», and it used to reach the document without a
      *  row: the Verlauf said a Fläche had been drawn and never what it turned out to be. */
@@ -1247,6 +1247,25 @@ export const de = {
     attendanceConflictTimes: 'unterschiedliche Zeiten erfasst',
     // nothing above matched — an entry gained a field this row does not know about yet
     attendanceConflictOther: 'abweichende Angaben zusammengeführt',
+    /* ⚠️ Eine Abweichung wird ENTSCHIEDEN, nicht bloss quittiert (04.09., Rapport-Review). Der
+       Rapport vom 03.09. wurde um 11:41 mit drei offenen «bitte prüfen»-Zeilen abgeschlossen –
+       und ein Warnhinweis im Verlauf beweist nicht, dass jemand hingeschaut hat. Die Auflösung
+       ist eine eigene, angehängte Zeile: sie nennt, was übernommen wurde und wer es entschieden
+       hat, und lässt die Zeile stehen, die gewarnt hat. */
+    attendanceConflictResolved: 'Abweichung {name} geprüft – {taken}, {by}',
+    attendanceConflictByUnknown: 'ohne Namen',
+    // die zwei Seiten, wo bekannt beim Namen genannt – siehe attendanceConflict · sideLabel
+    attendanceConflictFromKp: 'Angabe vom Kommandoposten',
+    attendanceConflictFromCapture: 'Angabe vom Erfassungsbogen',
+    attendanceConflictKeepBoth: 'beide Angaben stimmen so',
+    attendanceConflictOpenEnd: 'offen',
+    // die Knöpfe auf der Karte
+    attendanceConflictTake: '{side} übernehmen',
+    attendanceConflictKeep: 'Beide stimmen so',
+    attendanceConflictOpenTitle: 'Abweichungen',
+    attendanceConflictOpenCount: '{n} offen',
+    attendanceConflictNoneOpen: 'Keine offen',
+    attendanceConflictCheckedAt: 'geprüft {t} · {by}',
     // system row appended when a three-way sync merge saw BOTH sides change the SAME
     // Atemschutz-Trupp concurrently (e.g. Druckmeldung on the tablet, Funkkontakt on the
     // phone). Unlike attendance the merge is field-level and drops nothing — the row exists
@@ -1781,7 +1800,13 @@ export const de = {
     logPlaced: 'Trupp {name} auf Plan platziert',
     logPlacedMap: 'Trupp {name} auf der Karte platziert',
     placeLage: 'Karte',
-    logEntry: 'Trupp {name} eingerückt',
+    // ⚠️ «Eintritt», nicht «eingerückt» (04.09., Rapport-Review). Im Feuerwehrdeutsch heisst
+    // einrücken zuerst einmal: zurück ins Magazin. Die Zeile sagte also im Verlauf das Gegenteil
+    // dessen, was passiert war – und die Atemschutzübersicht daneben schrieb für denselben
+    // Moment längst «Eintritt». Ein Wort für eine Sache, und zwar das, das auf Papier stimmt.
+    // Die Knöpfe heissen weiter «Einrücken» / «Raus melden»: die drückt, wer an der Tafel steht
+    // und weiss, was gemeint ist – gelesen wird der Rapport von Leuten, die nicht dabei waren.
+    logEntry: 'Trupp {name}: Eintritt',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
     // Rückzug and Fortsetzen reset the contact clock; that has to be in the Verlauf, otherwise
@@ -1822,10 +1847,34 @@ export const de = {
       + 'und im Rapport.',
     kindOffConfirm: 'Überwachung beenden',
     logColor: 'Trupp {name}: Farbe geändert',
-    logExit: 'Trupp {name} draussen',
-    logReenter: 'Trupp {name} wieder eingerückt – Eingangsdruck {bar} bar',
-    logStandby: 'Trupp {name} bereitgestellt – noch nicht eingerückt',
+    logExit: 'Trupp {name}: Austritt',
+    logReenter: 'Trupp {name}: erneuter Eintritt – Eingangsdruck {bar} bar',
+    logStandby: 'Trupp {name} bereitgestellt – noch kein Eintritt',
     logAlarm: 'Atemschutz-Alarm: Trupp {name} – {status}',
+    /**
+     * …und wann er vorbei war, und wodurch (04.09., Rapport-Review).
+     *
+     * Der Verlauf hielt bisher nur den Beginn fest. Auf dem gedruckten Rapport stand damit eine
+     * Reihe von «Überfällig» ohne ein einziges Ende – und wer das später liest, kann nicht
+     * unterscheiden zwischen «der Trupp wurde erreicht», «der Trupp kam heraus» und «der Alarm
+     * lief ins Leere». Genau diese Unterscheidung ist der Nachweis, den die
+     * Atemschutzüberwachung schuldet.
+     *
+     * Die Zeile wird NICHT von Hand quittiert: quittiert wird ein Alarm dadurch, dass seine
+     * Ursache weg ist. Was sie beendet hat, steht deshalb im Text – aus der letzten Messung des
+     * Trupps gelesen, also aus derselben Reihe, die das Druckprotokoll druckt.
+     */
+    logAlarmCleared: 'Atemschutz-Alarm beendet: Trupp {name} – {reason}',
+    alarmClearedBy: {
+      exit: 'Austritt',
+      contact: 'Funkkontakt',
+      pressure: 'Druckmeldung',
+      rueckzug: 'Rückzug',
+      resume: 'Einsatz fortgesetzt',
+    } as Record<string, string>,
+    /** Fallback, wenn die letzte Messung nichts hergibt – der Alarm ist trotzdem beendet, und
+     *  eine Zeile, die das sagt, ist mehr wert als gar keine. */
+    alarmClearedOther: 'Kontakt wiederhergestellt',
     // The Alarmdruck used to be visible only on the card – the record was missing the moment the
     // Trupp had to turn back. Only on CROSSING it, not on every value below it.
     //
@@ -3251,6 +3300,7 @@ export const de = {
       kontaktperson: 'Kontaktperson',
       kurzbericht: 'Kurzbericht',
       rueckmeldung: 'Rückmeldung ELZ',
+      abweichungen: 'Abweichungen',
     },
     ausgerueckt: 'Ausgerückt',
     ende: 'Einsatzende',
@@ -3427,6 +3477,12 @@ export const de = {
     areaMittel: 'Material',
     areaChecklist: 'Checkliste',
     areaRapport: 'Rapport',
+    // ⚠️ Die Zeilen, die der SERVER selbst schreibt (Rapport abgeschlossen, Einsatz
+    // abgeschlossen, Einsatz wiedereröffnet). Sie tragen weder `kind` noch `surface`, fielen
+    // deshalb bis 04.09. ans Ende der Kette durch und standen im gedruckten Journal unter
+    // «Kroki» – ein Abschluss, den niemand auf der Karte ausgelöst hat. Kein Bereich der App,
+    // sondern der Einsatz selbst: «System».
+    areaSystem: 'System',
     // ⚠️ «Kroki» again (10.08.), reversing the 09.08. rename to «Lage». The reasoning then was
     // that this column names SURFACES and the Kroki is the printed picture. In the hand it read
     // the other way round: somebody looking for what happened to the tactical picture searched
@@ -3539,6 +3595,15 @@ export const de = {
     geretteteLageTake: 'Übernehmen',
     gerettetePersonen: 'Personen',
     geretteteTiere: 'Tiere',
+    // ⚠️ «Keine», nicht «Entfällt» (04.09., Rapport-Review). Ein leeres Feld hiess bisher
+    // gleichzeitig «niemand gerettet», «nicht abgeklärt», «nicht erfasst» und «hier nicht
+    // relevant»; mit dieser Antwort heisst leer nur noch das dritte. Das Wort ist «Keine»,
+    // weil eine Rettung entweder stattgefunden hat oder nicht – anders als eine Kontaktperson,
+    // die es bei einem Fehlalarm schlicht nicht GIBT (darum dort «Entfällt»).
+    geretteteNone: 'Keine',
+    geretteteNoneHint: 'Es wurde niemand und nichts gerettet',
+    // …und was auf dem Papier steht, wenn die Frage beantwortet wurde
+    geretteteNonePrint: 'keine',
     gruppenLabel: 'Alarmierung Gruppen',
     fahrzeugeLabel: 'Ausrückzeiten der Fahrzeuge',
     ausgeruecktDerived: 'aus den Fahrzeugzeiten übernommen',
@@ -3577,7 +3642,13 @@ export const de = {
     metaValue: '{label} «{value}»',
     metaWritten: 'geschrieben',
     metaRewritten: 'überarbeitet',
-    metaCleared: 'geleert',
+    // ⚠️ «entfernt», nicht «geleert» (04.09., Rapport-Review). «Rückmeldung ELZ geleert» ist
+    // technisch richtig und semantisch offen: Feldinhalt gelöscht? Rückmeldung zurückgesetzt?
+    // Person entfernt? Zeitpunkt entfernt? Der Rest dieser Datei sagt für genau denselben
+    // Vorgang längst «entfernt» (Beschriftung, Stockwerk, Ausbreitung, Partner-Bemerkung) –
+    // und die Hausregel dahinter (25.08.): gelöscht wird ein Record, entfernt wird eine
+    // Angabe, deren Träger bestehen bleibt.
+    metaCleared: 'entfernt',
     // ⚠️ THE STRUCTURED FIELDS SAY WHAT THEY BECAME (10.08.). Six fields used to write nothing
     // but their own name — «Rückmeldung ELZ», «Partnerorganisationen», «Alarmzeiten» — so the
     // Verlauf recorded that a field had been touched and never what it now said. Worse, each of
@@ -3589,6 +3660,10 @@ export const de = {
     metaRueckmeldungTime: 'Rückmeldung ELZ um {t}',
     metaRueckmeldungName: 'Rückmeldung ELZ durch {name}',
     metaGerettete: 'Gerettete: {value}',
+    // «Keine» ist eine ausgesprochene Antwort und wird als solche festgehalten – wie bei
+    // Kontaktperson und Rückmeldung ELZ (metaNoneOn/Off).
+    metaGeretteteNone: 'Gerettete: keine',
+    metaGeretteteNoneOff: 'Gerettete: «keine» widerrufen',
     metaPartnerAdded: 'Partnerorganisation {org} ergänzt',
     metaPartnerRemoved: 'Partnerorganisation {org} entfernt',
     metaPartnerNote: 'Partnerorganisation {org} – Bemerkung: {note}',
@@ -3596,11 +3671,11 @@ export const de = {
     // an organisation whose name is still being typed: named as such rather than as «‹› ergänzt»
     metaPartnerUnnamed: 'Partnerorganisation erfasst',
     metaGruppe: 'Alarmzeit {gruppe}: {t}',
-    metaGruppeCleared: 'Alarmzeit {gruppe} geleert',
+    metaGruppeCleared: 'Alarmzeit {gruppe} entfernt',
     metaFahrzeugAus: '{fahrzeug} ausgerückt {t}',
     metaFahrzeugVorOrt: '{fahrzeug} vor Ort {t}',
     metaFahrzeugZurueck: '{fahrzeug} zurück {t}',
-    metaFahrzeugCleared: '{fahrzeug}: Zeit geleert',
+    metaFahrzeugCleared: '{fahrzeug}: Zeit entfernt',
     // the two states read identically as «Material «keine»» — one of them says the opposite
     metaMittelNoneOn: 'Material: «keine verwendet» bestätigt',
     metaMittelNoneOff: 'Material: «keine verwendet» widerrufen',
@@ -4719,7 +4794,8 @@ export const de = {
       languageDefault: 'Deutsch (Standard)',
       pickLanguage: 'Sprache wählen',
       kommandant: 'Kommandant',
-      kommandantTip: 'Name des Kommandanten – wird auf dem Einsatzrapport neben der Unterschriftszeile «Kommandant» vorgedruckt. Leer = nur die Beschriftung.',
+      kommandantTip: 'Name des Kommandanten – wird auf dem Einsatzrapport neben der Unterschriftszeile «Kommandant» vorgedruckt. Leer = nur die Beschriftung. Aus dem Personalstamm wählen, damit die Schreibweise zum Rest des Rapports passt.',
+      kommandantPlaceholder: 'Aus dem Personalstamm wählen oder eintippen …',
       // Der erste Abschnitt der In-App-Hilfe – der Text, den jede neue AdF als Erstes liest.
       helpIntro: 'Einleitung in der Hilfe',
       helpIntroTip: 'Steht zuoberst unter «Was kann KP Front?». Ein bis zwei Sätze in den Worten der Wehr – wofür diese App bei euch da ist. Leer = der mitgelieferte Text.',

@@ -23,7 +23,7 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
 
   it('reports a cleared field as cleared, not as an empty value', () => {
     const prev = sym({ fields: { Name: 'Meier Hans' } })
-    expect(entityEditChanges(prev, sym({ fields: { Name: '  ' } }))).toEqual(['Name geleert'])
+    expect(entityEditChanges(prev, sym({ fields: { Name: '  ' } }))).toEqual(['Name entfernt'])
   })
 
   it('names the Stockwerk it turned out to be on', () => {
@@ -54,7 +54,7 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
   })
 
   it('says a note was emptied without quoting the emptiness', () => {
-    expect(entityEditChanges(sym({ notes: 'alt' }), sym({ notes: '  ' }))).toEqual(['Notiz geleert'])
+    expect(entityEditChanges(sym({ notes: 'alt' }), sym({ notes: '  ' }))).toEqual(['Notiz entfernt'])
   })
 
   // A Notiz box keeps its TEXT in `label`, so it must not be announced as a «Beschriftung».
@@ -88,7 +88,7 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
     expect(entityEditChanges(gefahr({ fields: { Gefahr: 'Einsturz' } }), gefahr({ fields: { Gefahr: 'Wassertiefe 10m' } })))
       .toEqual(['auf Wassertiefe 10m geändert'])
     expect(entityEditChanges(gefahr({ fields: { Gefahr: 'Einsturz' } }), gefahr({ fields: { Gefahr: '' } })))
-      .toEqual(['geleert'])
+      .toEqual(['entfernt'])
   })
 
   it('matches the name case-insensitively and untrimmed, and leaves other fields named', () => {

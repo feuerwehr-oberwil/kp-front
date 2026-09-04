@@ -31,6 +31,7 @@ import {
 } from '../lib/report'
 import { missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
+import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
 import { incidentDays } from '../lib/zeitplanFormat'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
@@ -189,6 +190,8 @@ const STEP_TAB: Record<AbschlussStep, PhoneTab> = {
   rueckmeldung: 'bericht',
   anwesenheit: 'werwas',
   mittel: 'werwas',
+  // an Anwesenheits-Abweichung is about who was there — it rides with the Anwesenheit it is about
+  abweichungen: 'werwas',
 }
 
 // The preflight UNMOUNTS while the operator hops to Anwesenheit / Mittel / Verlauf («Zurück
@@ -226,7 +229,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, twinAnnos, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, twinAnnos, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -305,6 +308,11 @@ export function ReportPreflight({
    *  sheet and reveal the surface — same tools on every incident size */
   onOpenAnwesenheit?: () => void
   onOpenMittel?: () => void
+  /** Settle one Anwesenheits-Abweichung: write the chosen value into the record (or leave the
+   *  merge alone for «beide stimmen so») AND append the row that says so. ONE call, because the
+   *  two halves must not drift apart — a record change with no line, or a line about a change
+   *  that never landed, are both worse than the warning it replaces. */
+  onResolveConflict?: (open: OpenConflict, choice: 0 | 1 | 'both') => void
   /** «Einsatz abschliessen» — runs the confirm (the shared one, see IncidentWorkspace ·
    *  confirmAndComplete), stamps report_done_at and closes. Resolves TRUE only when the Einsatz
    *  was actually handed over, so a cancelled confirm changes nothing here either. Omit for
@@ -1058,6 +1066,9 @@ export function ReportPreflight({
   }
   const P = appConfig.copy.preflight
   const A = appConfig.copy.abschluss
+  // the Verlauf's own namespace — the divergence rows are written there, so the card that
+  // settles them speaks in the same words the row does
+  const C = appConfig.copy.journal
 
   // «Formulare & Links» — the station's OWN paperwork (config `report.links`, see
   // lib/reportLinks). No config, no section: a Wehr that has no such forms never sees an empty
@@ -1131,7 +1142,12 @@ export function ReportPreflight({
   // FORM (field feedback 2026-07-17), so an incident with no records still wants the tick-off
   // roster and the amount stubs on paper. Everything else follows its content.
 
-  const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount }
+  /* Anwesenheits-Abweichungen the record still owes an answer for — derived from the Verlauf
+     itself (append-only: settling one APPENDS a row, it never rewrites the one that warned).
+     Rows raised before 04.09. carry no structured payload and are deliberately not returned;
+     an item nobody can close would leave the step open for ever on every past Einsatz. */
+  const conflicts = useMemo(() => openConflicts(events), [events])
+  const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount, openConflicts: conflicts.length }
   const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
   // People whose presence blocks cannot be turned into a duration — almost always a still-open
   // block borrowing an Einsatzende that lies BEFORE it. They fall out of BOTH Einsatzstunden
@@ -1779,6 +1795,31 @@ export function ReportPreflight({
                       onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
                   </div>
                 </div>
+                {/* ⚠️ «Keine» — the answer an empty pair of steppers could not give (04.09.,
+                    Rapport-Review). Empty meant «niemand gerettet» AND «nicht abgeklärt» AND
+                    «nicht erfasst» at once on the 03.09. Rapport; with this it means only the
+                    last of them.
+                    Offered only while BOTH steppers are empty — the rule «Entfällt» follows one
+                    field up (30.08.): a «Keine» beside a 3 would contradict itself, and once a
+                    number is typed the stepper's ✕ is the way back to empty. Answered, it wears
+                    the same dashed `.rz-none-val` the Kontaktperson does: filled in, but by an
+                    answer rather than a value — a tick would claim something was counted. */}
+                {meta.geretteteNone ? (
+                  <div className="rz-none rz-none-trail">
+                    <span className="rz-none-val">{P.geretteteNoneHint}</span>
+                    {canEdit && (
+                      <button type="button" className="ip-btn"
+                        onClick={() => persist({ geretteteNone: undefined })}>{P.entfaelltUndo}</button>
+                    )}
+                  </div>
+                ) : canEdit && numOrU(geretteteP) === undefined && numOrU(geretteteT) === undefined ? (
+                  <div className="rz-none rz-none-trail">
+                    <button type="button" className="ip-btn"
+                      onClick={() => persist({ gerettete: undefined, geretteteNone: true })}>
+                      {P.geretteteNone}
+                    </button>
+                  </div>
+                ) : null}
                 {/* No ✕ here, unlike the Material strip: this one disappears by itself the moment
                     the fields agree with the Lage, so «weg damit» and «stimmt» are the same tap. */}
                 {geretteteHint && (
@@ -2110,6 +2151,61 @@ export function ReportPreflight({
                 </div>
               )}
             </CheckRow>
+            {/* ⚠️ ABWEICHUNGEN (04.09., Rapport-Review). Until now a divergence between the
+                QR-Bogen and a tablet was a «bitte prüfen» line in the Verlauf and nothing else —
+                so the 03.09. Rapport was closed at 11:41 with three of them standing, and the
+                record could not say whether anybody had looked. It is a step like the seven
+                beside it, and like them it blocks nothing.
+                The row does not merely ACKNOWLEDGE: it shows both values and asks which one
+                holds, so the Rapport ends up with the right answer rather than only with proof
+                that somebody read the warning. The card renders only while there is something to
+                settle — on the ordinary Einsatz, which never produces a divergence at all, this
+                whole block is absent rather than a permanently green row nobody needs. */}
+            {conflicts.length > 0 && (
+              <CheckRow
+                anchor="abweichungen" tab="werwas"
+                done={false}
+                label={A.steps.abweichungen}
+                sub={fillTemplate(C.attendanceConflictOpenCount, { n: conflicts.length })}
+              >
+                <div className="rp-check-extra rp-conf">
+                  {conflicts.map((c) => (
+                    <div key={c.sig} className="rp-conf-item">
+                      <div className="rp-conf-head">
+                        <b>{c.name}</b>
+                        <span>{c.what}</span>
+                      </div>
+                      <div className="rp-conf-sides">
+                        {c.sides.map((side, i) => (
+                          <div key={i} className="rp-conf-side">
+                            <h6>{sideLabel(side)}</h6>
+                            {/* the value under the named source: whichever way the label came
+                                out, the reader has to see WHAT they are choosing */}
+                            <div className="rp-conf-val">{sideValue(side.entry)}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {canEdit && onResolveConflict && (
+                        <div className="rp-conf-acts">
+                          {c.sides.map((side, i) => (
+                            <button key={i} type="button" className="ip-btn"
+                              onClick={() => onResolveConflict(c, i === 0 ? 0 : 1)}>
+                              {fillTemplate(C.attendanceConflictTake, { side: sideLabel(side) })}
+                            </button>
+                          ))}
+                          {/* the third answer, and not a lesser one: the merge may well have
+                              landed right, and «geprüft, beide stimmen» is a real finding */}
+                          <button type="button" className="ip-btn"
+                            onClick={() => onResolveConflict(c, 'both')}>
+                            {C.attendanceConflictKeep}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CheckRow>
+            )}
             {/* Partnerorganisationen sit with Anwesenheit and Mittel: all three answer «who and
                 what was here», and all three are the parts of the rapport that get filled in
                 after the fact. The station's own list is the choice (free text stays possible —

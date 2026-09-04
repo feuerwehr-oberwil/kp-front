@@ -419,6 +419,33 @@ export interface TimelineEvent {
      *  Optional: rows written before this existed fall back to the stripped `text`. */
     text?: string
   }
+  /**
+   * A record divergence and its answer — the same append-only lifecycle the `reminder` above
+   * follows, for the same reason: an open item is never a row with a mutated status.
+   *
+   * ⚠️ Why the row carries STRUCTURE and not just its sentence. Until 04.09. a divergence was a
+   * «bitte prüfen» line and nothing more, so the only thing anybody could do with it was read
+   * it — and the 03.09. Rapport was closed at 11:41 with three of them standing. To let somebody
+   * actually settle one, the row has to still know what the two values WERE; the merge that saw
+   * them is long over by the time the Rapport is filled in.
+   *
+   * `raised` carries `sides`; `resolved` is a LATER row naming the same `sig` and what was
+   * decided. The open set is derived from the pair (lib/attendanceConflict · openConflicts),
+   * never edited in place.
+   */
+  conflict?: {
+    op: 'raised' | 'resolved'
+    /** stable, device-independent identity of the divergence (attendanceConflict ·
+     *  conflictSignature) — the two rows find each other by this and nothing else */
+    sig: string
+    /** the record that diverged: a Person id for an Anwesenheit, a Trupp id for the Atemschutz */
+    key?: string
+    /** `raised`: the two values, in the signature's own sorted order — so both devices write the
+     *  same pair in the same order and index 0/1 means the same thing on either of them */
+    sides?: { source?: AttendanceSource; entry: AttendanceEntry }[]
+    /** `resolved`: which side was taken (index into `sides`), or that both were let stand */
+    choice?: 0 | 1 | 'both'
+  }
   /** enrichment patch: this row carries later-arriving fields (transcript, uploaded media
    *  URL) for the row with id `patchOf`. The journal store folds patches onto their target
    *  at display time and hides the patch row itself — rows are never edited in place
@@ -482,6 +509,19 @@ export interface TimelineEvent {
   // --- map jump target ---
   entityId?: string      // related map entity — select + fly to it on Lage
   coord?: LngLat         // free map point (journal pin) — fly to it on Lage
+  /**
+   * WHICH object this row is about, when the row is deliberately not a jump target — a
+   * deletion (the object is gone) or an edit to a drawing (which has no jump of its own).
+   *
+   * Display-only, and read by exactly one thing: the repeat fold (lib/verlauf · repeatRuns),
+   * which groups a run by text AND object. Rows that carried no object at all grouped by text
+   * alone, so two DIFFERENT symbols removed seconds apart printed as «Feuerwehr gelöscht 2×» —
+   * one thing that happened twice, where two things had each happened once (03.09.: Feuerwehr,
+   * Polizei and Lüfter, all of them pairs). It is deliberately NOT `entityId`: that field is
+   * what makes a row clickable (Journal · targetOf), and a deletion must not offer a jump to
+   * something that no longer exists.
+   */
+  subjectId?: string
   // --- plan jump target ---
   planId?: string        // plan document the event belongs to
   px?: number            // plan-space x (0..1) to recenter on
@@ -1008,7 +1048,23 @@ export interface AttendanceEntry {
    * `'scene'` (see lib/attendanceOrt · ortOf), because before this existed «anwesend» meant «here».
    */
   ort?: AttendanceOrt
+  /**
+   * WHERE this entry was last written — am Kommandoposten (the app) or am QR-Erfassungsbogen.
+   *
+   * ⚠️ It exists for ONE question and only that one: when two devices wrote the same person at
+   * the same moment, the divergence row has to be able to NAME the two sides («vom
+   * Kommandoposten» / «vom Erfassungsbogen») instead of offering a choice between «diese» and
+   * «jene». Nothing else reads it and nothing derives from it — a presence, a time and the
+   * Rapport are the same fact whoever typed them.
+   *
+   * Absent on every entry written before 04.09. and on anything an older client writes, so the
+   * divergence names the two VALUES instead, which is always available.
+   */
+  source?: AttendanceSource
 }
+
+/** `'kp'` = am Kommandoposten (die App) · `'capture'` = am QR-Erfassungsbogen. */
+export type AttendanceSource = 'kp' | 'capture'
 
 /** `'scene'` = am Einsatzort · `'station'` = im Magazin. See AttendanceEntry.ort. */
 export type AttendanceOrt = 'scene' | 'station'

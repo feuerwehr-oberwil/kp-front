@@ -36,13 +36,20 @@ const ALARM_RENOTIFY_MS = 30_000
  * is never muted: the board, the count badge and the NavRail dot stay as loud as they were.
  */
 export function useAtemschutzAlarm({
-  trupps, muted, active, logAlarm,
+  trupps, muted, active, logAlarm, logAlarmCleared,
   intervalMin = cfg.contactIntervalMin, graceSec = cfg.contactGraceSec,
 }: {
   trupps: Trupp[]
   muted: boolean
   active: boolean
-  logAlarm: (id: string, status: Trupp['status']) => void
+  /** ⚠️ `turnus` is the contact stamp the alarm belongs to, and it is what makes the row
+   *  idempotent ACROSS DEVICES (useTruppActions · logTruppAlarm). Every tablet watching the
+   *  same Einsatz crosses into überfällig within a second or two of every other one, and each
+   *  of them used to append its own «Überfällig» line — which is why the 03.09. Einsatz has
+   *  the same alarm twice, four seconds apart, for a Trupp nothing had changed about. */
+  logAlarm: (id: string, status: Trupp['status'], turnus: string) => void
+  /** …and the line that says the alarm is over. Same turnus, same idempotency. */
+  logAlarmCleared: (id: string, turnus: string) => void
   /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec); default = appConfig doctrine */
   intervalMin?: number
   graceSec?: number
@@ -105,9 +112,27 @@ export function useAtemschutzAlarm({
   useEffect(() => {
     if (!active) { alarm.current?.stop(); return }
     let peak = 0
+    /* ⚠️ THE ALARM IS ENDED BY ITS CAUSE GOING AWAY, and the record has to say so (04.09.).
+     * Until now only the crossing was written, so the 03.09. Rapport showed seven «Überfällig»
+     * lines and not one ending — a reader could not tell a crew that had been reached from one
+     * that walked out from one nobody ever answered for. Every alarm this session opened is
+     * closed here the moment the Trupp stops being tier 2 (Funkkontakt, Druckmeldung, Rückzug)
+     * or leaves the Gefahrenbereich, which is the same event the Verlauf already records one
+     * line further up — this row names it AS the end of the alarm. Nothing is quittiert by
+     * hand: an acknowledgement that is not the crew actually being reached would be a second,
+     * weaker kind of proof on a document whose whole purpose is the first kind. */
+    const closeAlarm = (t: Trupp) => {
+      const turnus = alarmedFor.current.get(t.id)
+      if (turnus === undefined) return
+      alarmedFor.current.delete(t.id)
+      if (!demo) logAlarmCleared(t.id, turnus)
+    }
     for (const t of trupps) {
       const l = deriveTruppLive(t, now, intervalMin, graceSec)
       if ((l.status ?? t.status) === 'raus') {
+        // …the Austritt included: a crew standing outside is the strongest answer an alarm can
+        // get, and it is the one the record used to swallow (Fabich, 03.09. 06:50).
+        closeAlarm(t)
         prevSeverity.current.set(t.id, 0)
         prevReason.current.set(t.id, null)
         prevPressureAlert.current.delete(t.id)
@@ -147,8 +172,12 @@ export function useAtemschutzAlarm({
       const turnus = t.lastContactTime ?? t.entryTime ?? ''
       if (!demo && justCrossed && !lowPressure && alarmedFor.current.get(t.id) !== turnus) {
         alarmedFor.current.set(t.id, turnus)
-        logAlarm(t.id, 'ueberfaellig') // crossed into overdue → record once PER TURNUS
+        logAlarm(t.id, 'ueberfaellig', turnus) // crossed into overdue → record once PER TURNUS
       }
+      // …and once it is no longer tier 2, the alarm this session opened is over. Placed AFTER
+      // the crossing so a tier that goes 2 → 2 in one pass cannot open and close in the same
+      // evaluation; `alarmedFor` is the guard either way (closeAlarm no-ops without an entry).
+      if (sev < 2) closeAlarm(t)
       // opt-in early nudge: a soft one-shot pip the moment a Trupp crosses into the amber
       // «Kontakt fällig» lead (sev 0→1). Off by default; muted/demo suppress it like the alarm.
       if (cfg.contactDueChime && !muted && !demo && sev >= 1 && was < 1) chime()
@@ -199,7 +228,7 @@ export function useAtemschutzAlarm({
     // Only ÜBERFÄLLIG (tier 2) makes a sound — the amber "Kontakt fällig" lead stays silent (and
     // board-only), so the tone/wake-lock don't nag before a Trupp is actually overdue.
     alarm.current.set(peak >= 2 ? 2 : 0)
-  }, [trupps, now, muted, active, logAlarm, intervalMin, graceSec, az, demo, alarmBar, alarmBarRueckzug])
+  }, [trupps, now, muted, active, logAlarm, logAlarmCleared, intervalMin, graceSec, az, demo, alarmBar, alarmBarRueckzug])
 
   useEffect(() => () => alarm.current?.stop(), [])
 

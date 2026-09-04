@@ -38,11 +38,22 @@ const SETTLE_MS = 90_000
 
 type Zone = 'scene' | 'away'
 
-const zoneOf = (d: number, prev: Zone | undefined): Zone => {
+/**
+ * Which ring this reading is in, or `null` for the band between them — where the answer is
+ * «unchanged», not a zone.
+ *
+ * ⚠️ `null` rather than a `prev ?? 'scene'` default (04.09.). A vehicle first seen INSIDE the
+ * band has no history to hold, and defaulting it to «scene» asserted the one thing the band
+ * exists to avoid asserting: on 03.09. the TLF and the PIO sat ~200 m out, and every time
+ * their baseline was re-established they were booked as «vor Ort» and then, on the next scatter
+ * past 300 m, wrote «hat den Einsatzort verlassen» again — three times each, at the identical
+ * second, with no arrival in between, in an append-only record. The band now says nothing at
+ * all, in both directions: it neither starts a state nor ends one.
+ */
+const zoneOf = (d: number): Zone | null => {
   if (d <= AT_SCENE_M) return 'scene'
   if (d >= LEFT_M) return 'away'
-  // in the band between the rings nothing changes — that is what the band is for
-  return prev ?? 'scene'
+  return null
 }
 
 export function useVehiclePresenceLog({ vehicles, center, enabled, log }: {
@@ -65,12 +76,12 @@ export function useVehiclePresenceLog({ vehicles, center, enabled, log }: {
   useEffect(() => {
     if (!enabled || !center) return
     const now = Date.now()
-    const seen = new Set<string>()
     for (const v of vehicles) {
       if (!Array.isArray(v.coord)) continue
-      seen.add(v.id)
-      const zone = zoneOf(haversineM(center, v.coord as LngLat), state.current.get(v.id)?.written)
+      const zone = zoneOf(haversineM(center, v.coord as LngLat))
       const cur = state.current.get(v.id)
+      // in the band: no state starts, no state ends — that is what the band is for
+      if (!zone) { if (cur) cur.pending = undefined; continue }
       if (!cur) {
         // FIRST sighting is never a line: the app may have been opened an hour into the
         // Einsatz, and «TLF vor Ort» stamped at the moment somebody unlocked the tablet is a
@@ -90,8 +101,10 @@ export function useVehiclePresenceLog({ vehicles, center, enabled, log }: {
       )
       state.current.set(v.id, { written: zone, since: now })
     }
-    // a vehicle that drops out of the feed entirely is NOT «gone from the Einsatzort» — the
-    // feed went quiet, the tablet lost the network, Traccar restarted. Silence is not an event.
-    for (const id of [...state.current.keys()]) if (!seen.has(id)) state.current.delete(id)
+    // ⚠️ A vehicle that drops out of the feed KEEPS its state (04.09.). It is not «gone from the
+    // Einsatzort» — the feed went quiet, the tablet lost the network, Traccar restarted, and
+    // silence is not an event. That was always the rule; forgetting the vehicle broke it, because
+    // the next sighting then re-baselined it and the arrival it had already been booked for was
+    // swallowed as «first sighting». What the record showed for it was a second departure.
   }, [vehicles, center, enabled])
 }

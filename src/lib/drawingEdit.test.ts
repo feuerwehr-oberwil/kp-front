@@ -11,16 +11,16 @@ const line = (over: Partial<Drawing>): Drawing => ({
 describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
   it('names the Typ letter as the word it means', () => {
     expect(drawingEditChanges(line({}), line({ content: 'S' }))).toEqual(['Typ: Schaum'])
-    expect(drawingEditChanges(line({ content: 'S' }), line({ content: 'H' }))).toEqual(['Typ: Hydroschild'])
+    expect(drawingEditChanges(line({ content: 'S' }), line({ content: 'H' }))).toEqual(['Typ auf Hydroschild geändert'])
   })
 
   it('unsetting the Typ is Wasser, not a cleared field', () => {
-    expect(drawingEditChanges(line({ content: 'S' }), line({}))).toEqual(['Typ: Wasser'])
+    expect(drawingEditChanges(line({ content: 'S' }), line({}))).toEqual(['Typ auf Wasser geändert'])
   })
 
   it('carries the Leitungs-Nummer — the identity the Atemschutzüberwachung reads', () => {
     expect(drawingEditChanges(line({}), line({ lineNo: 3 }))).toEqual(['Leitung Nr.: 3'])
-    expect(drawingEditChanges(line({ lineNo: 3 }), line({}))).toEqual(['Leitung Nr. geleert'])
+    expect(drawingEditChanges(line({ lineNo: 3 }), line({}))).toEqual(['Leitung Nr. entfernt'])
   })
 
   it('names the Stockwerk the line works on, same wording as a symbol', () => {
@@ -32,11 +32,11 @@ describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
   it('reports the Abschluss as one statement, whatever combination of flags carries it', () => {
     expect(drawingEditChanges(line({}), line({ arrow: true }))).toEqual(['Abschluss: Pfeil'])
     expect(drawingEditChanges(line({ arrow: true }), line({ arrow: true, arrowStop: true })))
-      .toEqual(['Abschluss: Pfeil mit Stopp'])
+      .toEqual(['Abschluss auf Pfeil mit Stopp geändert'])
     expect(drawingEditChanges(line({ arrow: true }), line({ teilstueck: true })))
-      .toEqual(['Abschluss: Teilstück'])
+      .toEqual(['Abschluss auf Teilstück geändert'])
     expect(drawingEditChanges(line({ arrow: true, arrowStop: true }), line({})))
-      .toEqual(['Abschluss: Keiner'])
+      .toEqual(['Abschluss auf Keiner geändert'])
   })
 
   it('stays silent on styling and geometry — arranging the picture is not an event', () => {
@@ -82,6 +82,6 @@ describe('drawingLogName', () => {
 describe('drawingEditChanges — the Vegetationsbrand letters', () => {
   it('names N / T / G the way it names S / H / P', () => {
     expect(drawingEditChanges(line({}), line({ content: 'N' }))).toEqual(['Typ: Nasse Haltelinie'])
-    expect(drawingEditChanges(line({ content: 'N' }), line({ content: 'G' }))).toEqual(['Typ: Gegenfeuer'])
+    expect(drawingEditChanges(line({ content: 'N' }), line({ content: 'G' }))).toEqual(['Typ auf Gegenfeuer geändert'])
   })
 })

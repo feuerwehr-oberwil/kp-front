@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppStillDeployed } from './atemschutz'
+import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -415,6 +415,32 @@ describe('truppStillDeployed (the Abschluss question)', () => {
     expect(truppStillDeployed({ ...base, status: 'angemeldet', entryTime: '' })).toBe(false)
     expect(truppStillDeployed({ ...base, status: 'raus', exitTime: base.entryTime })).toBe(false)
     expect(truppStillDeployed({ ...base, exitTime: base.entryTime })).toBe(false)
+  })
+})
+
+// ⚠️ 03.09.: every automatic Atemschutz row named the Truppführer and nobody else, so the
+// record said «Trupp Fabich Mischa überfällig» while two people were inside — and a genuine
+// one-man Trupp (Eichenberger) was indistinguishable from a pair whose second member had never
+// been entered. Both printed one name.
+describe('truppLogName — who a Verlauf row about this Trupp is about', () => {
+  it('names the whole crew, leader first', () => {
+    expect(truppLogName({ name: 'Fabich Mischa', members: ['Dürring Jan'] })).toBe('Fabich Mischa / Dürring Jan')
+  })
+
+  it('invents nobody: a Trupp with no members recorded is exactly its own name', () => {
+    expect(truppLogName({ name: 'Eichenberger Bastian' })).toBe('Eichenberger Bastian')
+    expect(truppLogName({ name: 'Eichenberger Bastian', members: [] })).toBe('Eichenberger Bastian')
+  })
+
+  it('does not print the Truppführer twice when the crew list repeats them', () => {
+    expect(truppLogName({ name: 'Probst Tristan', members: ['Probst Tristan', 'Degen Florian'] }))
+      .toBe('Probst Tristan / Degen Florian')
+  })
+
+  it('drops blanks rather than printing an empty slot', () => {
+    expect(truppLogName({ name: 'Schiely Silvan', members: ['  ', 'Meier Alessandro'] }))
+      .toBe('Schiely Silvan / Meier Alessandro')
+    expect(truppLogName({})).toBe('')
   })
 })
 

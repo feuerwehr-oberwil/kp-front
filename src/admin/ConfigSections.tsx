@@ -3,9 +3,9 @@ import type { AlarmGroup, DeploymentConfig, DeploymentFleet, FleetVehicle } from
 import { legacyFleetToAttributeLists, DEFAULT_MODULES } from '../lib/deploymentConfig'
 import { listReference, listObjects, type ReferenceDataset, type ObjectWithPlans } from '../lib/incidents'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, uploadReference } from '../lib/api/reference'
-import { ApiError } from '../lib/api'
+import { ApiError, apiGet } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
-import { Card, ConfirmButton, Field, Offer, Select, fmtDate } from './ui'
+import { Card, ConfirmButton, Field, NameCombo, Offer, Select, fmtDate } from './ui'
 import { AVAILABLE_LOCALES } from '../config/copy'
 import { ReferenceLayersViewer } from './ReferenceLayersViewer'
 import { FleetAttributesViewer } from './FleetAttributesViewer'
@@ -241,9 +241,42 @@ export function AccentColorField() {
   )
 }
 
+/**
+ * The Personalstamm's display names, for the fields that name a person (today: Kommandant).
+ *
+ * ⚠️ Read from the roster, never typed, because the ORDER is the whole problem. On the 03.09.
+ * Rapport the Kommandant printed as «Paul Hauptmann» beside an Einsatzleiter called «Hauptmann
+ * Paul» — one person, two conventions, because this page had a free text box while every name
+ * that reaches the Rapport from the roster is «Nachname Vorname». Offering the roster's own
+ * strings makes the mismatch unavailable.
+ *
+ * Fails to an EMPTY list, which is a plain text field: a station configuring itself for the
+ * first time has no roster yet, and a page that refuses to take a name until one exists would
+ * be a setup order nobody chose.
+ */
+function useRosterNames(): string[] {
+  const [names, setNames] = useState<string[]>([])
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      try {
+        const people = await apiGet<{ display_name: string; active?: boolean; is_active?: boolean }[]>('/api/personnel')
+        if (!alive) return
+        setNames(people
+          .filter((p) => p.is_active ?? p.active ?? true)
+          .map((p) => p.display_name)
+          .sort((a, b) => a.localeCompare(b, 'de-CH')))
+      } catch { /* no roster (yet) → free text, see above */ }
+    })()
+    return () => { alive = false }
+  }, [])
+  return names
+}
+
 export function IdentitySection() {
   const { draft, set, applyServerAssets } = useConfig()
   const C = appConfig.copy.admin.identity
+  const rosterNames = useRosterNames()
   // An unset `identity.locale` used to render as «Deutsch», which claimed a decision nobody had
   // made — and Select falls back to its FIRST option for any value it does not know, so a
   // legacy or misspelt tag claimed it too. Show the default AS a default instead of silently
@@ -283,12 +316,19 @@ export function IdentitySection() {
             ariaLabel={C.pickLanguage}
           />
         </Field>
+        {/* ⚠️ The Personalstamm first, free text last (04.09., Rapport-Review). Typed by hand
+            this became «Paul Hauptmann» on a Rapport whose Einsatzleiter read «Hauptmann Paul» —
+            the same person in two orders, because every other name on that sheet comes from the
+            roster and this one did not. Picking from the list makes the order unavailable and
+            carries a Kommandantenwechsel along; typing still works, for the station that has no
+            roster loaded yet and for a Kommandant who is not in this one's list. */}
         <Field label={C.kommandant} tip={C.kommandantTip}>
-          <input
-            className="adm-input"
-            type="text"
+          <NameCombo
             value={getPath<string>(draft, ['identity', 'kommandant']) ?? ''}
-            onChange={(e) => set(['identity', 'kommandant'], e.target.value || null)}
+            onChange={(v) => set(['identity', 'kommandant'], v || null)}
+            options={rosterNames}
+            placeholder={C.kommandantPlaceholder}
+            ariaLabel={C.kommandant}
           />
         </Field>
       </div>

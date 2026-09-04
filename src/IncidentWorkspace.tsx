@@ -35,6 +35,7 @@ import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from '.
 import { trackPrintJob } from './lib/printJobToast'
 import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
+import { conflictResolvedRow, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { cartoRasterTiles } from './lib/carto'
 import { useMeasure } from './lib/useMeasure'
@@ -1870,8 +1871,13 @@ export function IncidentWorkspace({
     journal.append({ id: id ?? `e${Date.now()}-${rowSeq.current++}`, t: formatTime(new Date(at)), at, ...rest })
   }
   // map events keep the positional signature, so every existing call site is unchanged
-  const log = (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string) =>
-    pushEvent({ icon, text, kind, audioUrl, entityId, surface: 'map' })
+  // `opts` carries the two things a row may need that are not part of its sentence: `rowId`
+  // mints it under a caller-chosen id (idempotency across devices — see useTruppActions ·
+  // logTruppAlarm), `subjectId` names the object it is ABOUT without making it a jump target
+  // (see types · TimelineEvent.subjectId).
+  const log = (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string,
+    opts?: { rowId?: string; subjectId?: string }) =>
+    pushEvent({ icon, text, kind, audioUrl, entityId, subjectId: opts?.subjectId, surface: 'map' }, opts?.rowId)
   // plan events carry document + (optional) team / coordinate context for jump-back
   const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) =>
     pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor })
@@ -2961,7 +2967,9 @@ export function IncidentWorkspace({
       ? fillTemplate(appConfig.copy.log.selectionDeleted, { n: gone })
       : lone ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(lone) })
       : loneEnt ? fillTemplate(appConfig.copy.log.objectDeleted, { name: entityLogName(loneEnt) })
-      : appConfig.copy.log.drawingDeleted)
+      : appConfig.copy.log.drawingDeleted,
+      // …named by WHAT was removed, so two «Feuerwehr gelöscht» seconds apart stay two rows
+      undefined, undefined, undefined, { subjectId: ids[0] ?? ents[0] })
   }
 
   /** Centre a deliberate jump in the part of the map that remains visible around an editor.
@@ -3326,7 +3334,8 @@ export function IncidentWorkspace({
     }))
     if (selectedId === id) setSelectedId(null)
     if (editNoteId === id) setEditNoteId(null)
-    log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }))
+    log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }),
+      undefined, undefined, undefined, { subjectId: id })
     emit('entity.delete', { id })
     if (ent) connected.forEach((dr) => {
       for (const endpoint of ['start', 'end'] as const) {
@@ -3345,7 +3354,7 @@ export function IncidentWorkspace({
     mirroredTeamNames: () => linkedPlans.flatMap((p) => (board[p.id] ?? []).filter((a) => a.kind === 'resource').map((a) => a.text ?? '')),
   })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
+  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
     useTruppActions({
       trupps, drawings, entities, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
@@ -3516,6 +3525,27 @@ export function IncidentWorkspace({
   /** Step the Anwesenheit back or forward and SAY SO in the Verlauf. The record is append-only, so
    *  the tap's own row stands; this adds the correction beside it, naming whoever moved — which is
    *  the only thing a reader six months later needs from it. */
+  /**
+   * Settle one Anwesenheits-Abweichung from the Rapport: put the chosen value into the record
+   * and append the row that says so. ONE action, because the halves must not drift apart — a
+   * record change with no line, or a line about a change that never landed, are both a worse
+   * record than the «bitte prüfen» warning they replace.
+   *
+   * ⚠️ The warning row STAYS. The Verlauf is append-only: this adds the answer beside the
+   * question, it does not go back and tidy the question away. A record that could be edited to
+   * say a check happened would be no proof that one did, which is the whole 1.6 finding.
+   * ⚠️ «Beide stimmen so» writes NOTHING to the record — the merge already stands, and the point
+   * of that answer is that it was correct. Only the row is appended.
+   */
+  const resolveAttendanceConflict = (open: OpenConflict, choice: 0 | 1 | 'both') => {
+    if (choice !== 'both') {
+      const picked = open.sides[choice]?.entry
+      // …through the history-aware setter, so ↶ takes it back like every other Anwesenheit tap
+      if (picked && open.key) attHist.set((cur) => ({ ...cur, [open.key]: picked }))
+    }
+    journal.append(conflictResolvedRow(open, choice, user?.display_name))
+    emit('attendance.conflict.resolved', { key: open.key, sig: open.sig })
+  }
   const stepAttendance = (dir: 'undo' | 'redo') => {
     const moved = dir === 'undo' ? attHist.undo() : attHist.redo()
     if (!moved) return
@@ -4154,7 +4184,7 @@ export function IncidentWorkspace({
             row paints here too. */}
         {tabLockLost && <TabLockBanner onTakeOver={onTakeOverTab} />}
         <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
-          logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+          logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         <RemindersHost {...reminders.host} />
         {guarded('atemschutz', atemschutzBoard, false)}
         {/* `onBoard` is unconditionally true here — the board IS the screen, and the strip's own
@@ -4177,7 +4207,7 @@ export function IncidentWorkspace({
     <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
-        logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+        logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
       <RemindersHost {...reminders.host} />
 
@@ -5763,6 +5793,7 @@ export function IncidentWorkspace({
           onEditDispatch={canEditIncident && !readOnly ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setMode('anwesenheit'); setRapportReturn(true) }}
           onOpenMittel={() => { setMode('mittel'); setRapportReturn(true) }}
+          onResolveConflict={canWriteRecord ? resolveAttendanceConflict : undefined}
           // Do NOT close the sheet here. On the real path the completion switches the active
           // Einsatz and this whole workspace unmounts, so closing it is redundant; on the demo
           // (and on any refusal) `completeRapport` returns early with a toast — and the sheet

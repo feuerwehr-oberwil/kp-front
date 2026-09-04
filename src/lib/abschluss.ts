@@ -33,13 +33,27 @@ import type { ReportMeta } from './workspace'
 // Fehlalarm has no contact, an Ölspur is not reported back to the ELZ — so without one the
 // rapport of a routine Einsatz could never reach complete, and the «Angaben fehlen noch»
 // confirm stood in front of every print until it was being dismissed unread.
-export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'kontaktperson' | 'kurzbericht' | 'rueckmeldung'
-export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'kontaktperson', 'kurzbericht', 'rueckmeldung']
+//
+// 'abweichungen' was added 2026-09-04, out of the 03.09. Rapport review. When the QR-Bogen and a
+// tablet wrote the same person at the same moment, the merge kept one value and the Verlauf got
+// a «bitte prüfen» line — and that Rapport was closed at 11:41 with three of them standing. A
+// warning in the journal is not proof that anybody looked: it is proof that the app noticed.
+// So an unsettled divergence is a step like the seven above it, and it BLOCKS NOTHING — the
+// button reads «Trotzdem abschliessen», exactly as it does for a missing Kurzbericht. A hard
+// refusal at 02:00 over a Funktion nobody can reconstruct would leave the Einsatz standing open
+// in the Historie for ever, which is the worse record. The step is satisfied by zero open
+// divergences, which is the ordinary case: most Einsätze never produce one at all.
+export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'kontaktperson' | 'kurzbericht' | 'rueckmeldung' | 'abweichungen'
+export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'kontaktperson', 'kurzbericht', 'rueckmeldung', 'abweichungen']
 
 export interface AbschlussFacts {
   reportMeta: ReportMeta
   attendanceCount: number
   mittelCount: number
+  /** Anwesenheits-Abweichungen still waiting for somebody (lib/attendanceConflict ·
+   *  openConflicts). Absent on a caller that does not know about them yet — which reads as
+   *  «none», so an older surface can never show the step as open. */
+  openConflicts?: number
 }
 
 export function stepDone(step: AbschlussStep, f: AbschlussFacts): boolean {
@@ -60,6 +74,8 @@ export function stepDone(step: AbschlussStep, f: AbschlussFacts): boolean {
       return !!f.reportMeta.kontaktperson?.trim() || !!f.reportMeta.kontaktpersonNone
     case 'kurzbericht':
       return !!f.reportMeta.summary?.trim()
+    case 'abweichungen':
+      return (f.openConflicts ?? 0) === 0
     case 'rueckmeldung': {
       if (f.reportMeta.rueckmeldungNone) return true // «Entfällt» — see kontaktperson above
       // BOTH halves. A name with no time does not say when, and a time with nobody's name does

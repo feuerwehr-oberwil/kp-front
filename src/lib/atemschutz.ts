@@ -123,6 +123,29 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
 }
 
 /**
+ * WHO a Verlauf row about this Trupp is about: the Gruppenführer and everyone with them,
+ * «Fabich Mischa / Dürring Jan».
+ *
+ * ⚠️ The whole crew, not the leader alone (04.09., Rapport-Review). `Trupp.name` is the
+ * Truppführer's name and is what every lifecycle and safety row used to print, so the record
+ * said «Trupp Fabich Mischa überfällig» while two people were inside — and «wer genau ist
+ * überfällig» is the one question that row is read for. It is also what made a one-man Trupp
+ * indistinguishable from a pair whose second member was never entered: both printed one name.
+ *
+ * The separator is « / », the way the Atemschutztafel and the Meldeleiste row already read a
+ * crew, and NOT the comma the Anwesenheit's «Unter AS: …» uses — that row lists people who took
+ * on a role, this one names one team.
+ *
+ * Nothing is invented: a Trupp with no members recorded prints exactly its name, which for a
+ * genuine one-man Trupp is the truth and for a half-entered one is the same gap it always was.
+ */
+export function truppLogName(t: { name?: string; members?: readonly string[] }): string {
+  const lead = (t.name ?? '').trim()
+  const rest = (t.members ?? []).map((m) => m.trim()).filter((m) => m && m !== lead)
+  return [lead, ...rest].filter(Boolean).join(' / ')
+}
+
+/**
  * Still out there: eingerückt and never reported back — whatever kind of Trupp it is.
  *
  * ⚠️ NOT `truppInField`. That one gates the ALARM, so it asks the alarm's question — a cylinder

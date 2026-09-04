@@ -187,6 +187,16 @@ const escapeXml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').
  */
 export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   const r = appConfig.copy.report
+  // ── the rows the SERVER wrote about the incident itself, before anything else ──
+  // «Rapport abgeschlossen», «Einsatz abgeschlossen», «Einsatz wiedereröffnet» carry neither
+  // `kind` nor `surface` (backend · journal.append_system_row), so until 04.09. every one of
+  // them fell through the whole chain to `areaLage` and printed as «Kroki Rapport
+  // abgeschlossen» — a Bereich that sends the reader to the map for an act performed in the
+  // Rapport. The `sys` id prefix is the handle: the server mints it, no client id starts with
+  // it (lib/ids · newId, IncidentWorkspace · pushEvent), and it is already on every such row
+  // in every existing record — which an append-only journal needs, because these rows can
+  // never be rewritten to carry a new field.
+  if (e.id.startsWith('sys')) return r.areaSystem
   // ── hand-written first, whatever surface it was written on ──
   // a Checklisten-Haken is a documented decision, not a free note — and it is the only other
   // thing `journal` is written for besides the composer
@@ -670,7 +680,12 @@ export function metaExtrasForPdf(meta: ReportMeta, bounds?: IncidentBounds): {
   // depending on a date that was nowhere on the paper.
   const fmt = spanAwareClock(bounds)
   const clock = (iso?: string) => fmt(iso) ?? ''
-  const gerettete = _geretteteText(meta.gerettete) || undefined
+  // ⚠️ «keine» is a VALUE on the paper, not a blank (04.09.). An empty Gerettet-box meant four
+  // things at once to whoever read the Rapport afterwards; once somebody has answered the
+  // question, the answer prints — and a blank now means only «nicht erfasst».
+  const gerettete = _geretteteText(meta.gerettete)
+    || (meta.geretteteNone ? appConfig.copy.preflight.geretteteNonePrint : '')
+    || undefined
   const rk = meta.rueckmeldungElz
   const rueckmeldungElz = rk && (rk.name || rk.at)
     ? [rk.name, rk.at ? clock(rk.at) : null].filter(Boolean).join(' · ')
@@ -882,12 +897,15 @@ export function normalizeReportMeta(
   const next = { ...prev, ...patch }
   const out = { ...patch }
   let changed = false
-  const clear = (flag: 'kontaktpersonNone' | 'rueckmeldungNone' | 'mittelConfirmedNone') => {
+  const clear = (flag: 'kontaktpersonNone' | 'rueckmeldungNone' | 'mittelConfirmedNone' | 'geretteteNone') => {
     if (!next[flag]) return
     if (prev[flag]) { out[flag] = false; changed = true }
     else if (flag in out) { delete out[flag]; changed = true }
   }
   if (_hasText(next.kontaktperson) || _hasText(next.kontaktpersonTelefon)) clear('kontaktpersonNone')
+  // a counted rescue and «keine» are the same contradiction the two above resolve
+  const g = next.gerettete
+  if ((g?.personen ?? 0) > 0 || (g?.tiere ?? 0) > 0) clear('geretteteNone')
   const rk = next.rueckmeldungElz
   if (rk && (_hasText(rk.name) || _hasText(rk.at))) clear('rueckmeldungNone')
   if ((ctx.mittelCount ?? 0) > 0) clear('mittelConfirmedNone')
@@ -964,6 +982,8 @@ function _structuredMetaLines(k: string, a: unknown, b: unknown): string[] | und
     const value = _geretteteText(b as { personen?: number; tiere?: number } | undefined)
     return [value ? fillTemplate(P.metaGerettete, { value }) : `${META_FIELD_LABELS.gerettete} ${P.metaCleared}`]
   }
+  // …and the answer «es gab keine», which is a statement of its own and not an empty field
+  if (k === 'geretteteNone') return [b ? P.metaGeretteteNone : P.metaGeretteteNoneOff]
   if (k === 'mittelConfirmedNone') return [b ? P.metaMittelNoneOn : P.metaMittelNoneOff]
   // «Entfällt» is a deliberate ANSWER, so it is recorded as one — a blank line in the record
   // looks like something forgotten, which is the whole reason these two fields exist.

@@ -25,7 +25,7 @@ interface MapDrawingDeps {
   beginDrag: () => void
   endDrag: () => void
   emit: (op: string, payload?: Record<string, unknown>) => void
-  log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string) => void
+  log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   setSelectedDrawingId: (id: string | null) => void
   setSelectedId: (id: string | null) => void
   setSelectedDrawIds: (ids: string[]) => void
@@ -90,7 +90,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // (parity with the line tool + the Plan area tool); still fully editable in the DrawEditor.
     const drawing: Drawing = { id, kind: 'area', coords, color: drawColor, width: drawWidth, dashed: drawDashed }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
-    log('area', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol'); emit('draw.add', { id, kind: 'area', drawing })
+    log('area', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'area', drawing })
     // drop into Select with the new area active so its reshape/move/rotate handles are
     // immediately usable (mirrors symbol/shape placement). Staying in 'area' would keep
     // draftKind set, which suppresses the edit handles → the area looks uneditable.
@@ -116,7 +116,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
     // named by drawingLogName, so «Rettungsachse gezeichnet» opens what «Rettungsachse gelöscht»
     // closes — before 31.08. every line, whatever it was drawn with, opened on «Zeichnung erstellt»
-    log('pen', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol'); emit('draw.add', { id, kind: 'line', drawing })
+    log('pen', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'line', drawing })
     // `select: false` = tap-away auto-commit (settleDraft) — see the note on createArea
     if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
     return drawing
@@ -139,7 +139,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     const id = newId('d')
     const drawing: Drawing = { id, kind: 'circle', coords: [center], radiusM, color: appConfig.drawing.circleColor, dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
-    log('circle', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol'); emit('draw.add', { id, kind: 'circle', drawing })
+    log('circle', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'circle', drawing })
     setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
   }
   // apply a line preset to the selected drawing + remember it for the next new line
@@ -192,7 +192,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
           if (tacticalLocked) return
           commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== drawing.id) }))
           emit('draw.delete', { id: drawing.id })
-          log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(drawing) }))
+          log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(drawing) }), undefined, undefined, undefined, { subjectId: drawing.id })
           setTool(wasTool)
           if (wasTool === 'line') setLineMode('nodes')
           setDraftRaw(coords)
@@ -223,7 +223,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     const kind = L.drawKinds[before.kind] ?? L.drawKinds.line
     log('pen', now
       ? fillTemplate(L.drawingLabelSet, { kind, value: now })
-      : fillTemplate(L.drawingLabelCleared, { kind }), 'symbol')
+      : fillTemplate(L.drawingLabelCleared, { kind }), 'symbol', undefined, undefined, { subjectId: before.id })
   }
   /**
    * The label WHILE it is being typed — silent, and one undo step for the whole edit.
@@ -276,7 +276,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       if (!changes.length) return
       log('pen', fillTemplate(appConfig.copy.log.entityEdited, {
         name: drawingLogName(after), changes: changes.join(', '),
-      }), 'symbol')
+      }), 'symbol', undefined, undefined, { subjectId: before.id })
     }, DRAW_LOG_SETTLE_MS)
     drawingLogOpen.current.set(before.id, { base, timer })
   }
@@ -414,7 +414,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // «Zeichnung gelöscht» the record used to close on
     log('close', target
       ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(target) })
-      : appConfig.copy.log.drawingDeleted)
+      : appConfig.copy.log.drawingDeleted, undefined, undefined, undefined, { subjectId: id })
   }
 
   /** One magnetic attach/detach/retarget gesture = one document checkpoint and one audit event. */
