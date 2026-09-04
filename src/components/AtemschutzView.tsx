@@ -2068,11 +2068,25 @@ function TruppForm({
   const showPressure = isPa
   const isEdit = mode === 'edit'
   const isAnderes = auftrag === 'anderes'
-  // ⚠️ The Auftrag no longer BLOCKS. It is behind the fold now, and a Trupp standing at the door
-  // must not wait on a field — the Überwachung exists to run a clock, and the job can be filled
-  // in a tap later (the card says «Auftrag offen» until it is). «Anderes» still needs its word:
-  // it is a label that says nothing on its own.
+  // «Anderes» needs its word: it is a label that says nothing on its own.
   const auftragOk = !isAnderes || ziel.trim().length > 0
+  /**
+   * …and ANMELDEN needs an Auftrag at all (04.09., Feldtest — reversing the 30.08. «the Auftrag no
+   * longer blocks»).
+   *
+   * A Trupp is registered in order to be sent somewhere, and the tap that registers it is the one
+   * moment somebody knows what for. Left open it stayed open: the board filled up with cards
+   * reading «Auftrag offen», and the Rapport printed a crew whose job nobody could reconstruct
+   * afterwards. Either half answers it — a tile («Retten»), or the free text alone («2OG links»),
+   * which is what «Anderes» is for.
+   *
+   * ⚠️ CREATING only. Editing a Trupp that is already in the field must never be blocked: the
+   * clock is running, the operator is correcting something else, and a form that refuses to close
+   * over an empty field is a form that loses the correction. The card carries the gap as «Auftrag
+   * offen» and points back here.
+   */
+  const auftragGiven = (auftrag != null && !isAnderes) || ziel.trim().length > 0
+  const auftragFilled = mode !== 'create' || auftragGiven
   // A linked person already deployed in another active Trupp blocks submit (one person, one
   // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
   // somebody who was assigned elsewhere in the meantime, and that has to be sayable.
@@ -2083,7 +2097,7 @@ function TruppForm({
     return null
   }, [team, assignedIds])
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
-  const canSubmit = auftragOk && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
+  const canSubmit = auftragOk && auftragFilled && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
   /* ── The phone STACK (04.09.) ─────────────────────────────────────────────────────────────
    * Which of the three sections is open. `null` = all collapsed, which is a legitimate state:
    * the whole form is then three lines that read their own answers, and that overview is what
@@ -2168,11 +2182,21 @@ function TruppForm({
     // repeating it would say the same thing twice, so this only points at it. It is rendered
     // outside the sections, so it is on screen whatever is open.
     if (assignedConflict) { flashSection(conflictRef.current); return }
-    if (!auftragOk) {
-      toast(az.saveBlockedAuftrag, { icon: 'warn', tone: 'warn' })
+    // ⚠️ NO dead disabled button, and no hunting for the chevron: a blocked «Trupp anmelden»
+    // OPENS the section that holds the Auftrag (on the phone stack it is behind a fold), rings
+    // both halves of the answer and puts the focus on the first Auftrag tile — the same place the
+    // card's «Auftrag offen» pill sends the operator. The tiles, not the Ziel field: focusing a
+    // text input here throws the on-screen keyboard over the rest of the form (see the note at
+    // «No autofocus» above).
+    if (!auftragOk || !auftragFilled) {
+      toast(auftragOk ? az.saveBlockedAuftragMissing : az.saveBlockedAuftrag, { icon: 'warn', tone: 'warn' })
       pointAt('auftrag', () => auftragRef.current)
-      if (!stack || openSection === 'auftrag') flashSection(zielRef.current)
-      else requestAnimationFrame(() => flashSection(zielRef.current))
+      const ring = () => {
+        flashSection(zielRef.current)
+        auftragRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
+      }
+      if (!stack || openSection === 'auftrag') ring()
+      else requestAnimationFrame(ring)
       return
     }
     if (showPressure && pressure <= 0) {

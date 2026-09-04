@@ -442,6 +442,20 @@ describe('truppLogName — who a Verlauf row about this Trupp is about', () => {
       .toBe('Schiely Silvan / Meier Alessandro')
     expect(truppLogName({})).toBe('')
   })
+
+  /* ⚠️ Who LEADS the Trupp, on the rows where that is part of the fact (04.09., Feldtest): the
+   * Anmeldung printed three equal names, so the record could not say who answered for the crew. */
+  it('marks the Gruppenführer where the caller asks for it', () => {
+    expect(truppLogName({ name: 'Brunner Thomas', members: ['Müller Hans'] }, 'GF'))
+      .toBe('GF Brunner Thomas / Müller Hans')
+  })
+
+  // ⚠️ In FRONT of the name. Behind it the tag would stack with the Anwesenheits-Funktion the
+  // Verlauf appends to a person's first mention (lib/journalLinks): «Brunner Thomas (AS) (GF)».
+  it('does not tag a one-man Trupp — the badge would distinguish him from nobody', () => {
+    expect(truppLogName({ name: 'Brunner Thomas' }, 'GF')).toBe('Brunner Thomas')
+    expect(truppLogName({ name: 'Brunner Thomas', members: ['Brunner Thomas'] }, 'GF')).toBe('Brunner Thomas')
+  })
 })
 
 describe('truppNeverDeployed', () => {

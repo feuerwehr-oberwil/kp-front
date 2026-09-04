@@ -5,16 +5,21 @@
 // (a Druckmeldung must never cost an opening tap); its ± only stages a pending value and the
 // explicit «Bestätigen» commits.
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
 import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
+import { clearAllDrafts } from '../lib/draftKeep'
 import type { AttendanceState, Trupp, TruppReading } from '../types'
 
 afterEach(cleanup)
+// ⚠️ …and the kept DRAFTS with it (lib/draftKeep is a module-level store): a form that was
+// deliberately left blocked here — «Trupp anmelden» without an Auftrag — would otherwise hand its
+// half-typed crew to the next test in this file.
+afterEach(clearAllDrafts)
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({
     matches: false, media: q, onchange: null,
@@ -70,6 +75,10 @@ const typeGuest = (name: string) => {
   fireEvent.change(screen.getByLabelText(az.teamSearchPlaceholder), { target: { value: name } })
   fireEvent.click(screen.getByRole('option', { name: fillTemplate(az.teamGuestAdd, { name }) }))
 }
+/** Answering the Auftrag — required to REGISTER a Trupp since 04.09. (see «the Auftrag is what a
+ *  Trupp is registered FOR» below), so every test that means to CREATE one has to say it. */
+const pickAuftrag = (label = 'Retten') =>
+  fireEvent.click(within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: label }))
 
 describe('the inline Druckmeldung', () => {
   it('offers ± immediately and commits only after a changed value is confirmed', () => {
@@ -576,6 +585,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     // …and gone the moment it is not
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
     typeGuest('Gerber Urs')
+    pickAuftrag('Verkehr')
     fireEvent.click(screen.getByRole('button', { name: az.start }))
     expect(createTrupp).toHaveBeenCalledTimes(1)
     const made = createTrupp.mock.calls[0][0] as Trupp
@@ -636,8 +646,79 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     mount({ createTrupp, trupps: [] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     typeGuest('Meier Thomas')
+    pickAuftrag()
     fireEvent.click(screen.getByRole('button', { name: az.start }))
     expect('kind' in (createTrupp.mock.calls[0][0] as object)).toBe(false)
+  })
+})
+
+/* ── The Auftrag is what a Trupp is registered FOR (04.09., Feldtest) ──────────────────────────
+ * Reverses the 30.08. «the Auftrag no longer blocks» for the CREATE path only: left open at der
+ * Anmeldung it stayed open, so the board filled with «Auftrag offen» cards and the Rapport
+ * printed crews whose job nobody could reconstruct. Blocking is not a disabled button — the tap
+ * opens the section the answer lives in and rings the field, the way every other blocked save on
+ * this form already behaves. */
+describe('the Auftrag a Trupp is registered for', () => {
+  // the phone case below flips the shared useIsPhone mock — put it back, or every later test in
+  // this file gets the compact board
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+
+  it('refuses to register a Trupp with no Auftrag, and registers it once one is given', () => {
+    const createTrupp = vi.fn()
+    mount({ createTrupp, trupps: [] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    typeGuest('Meier Thomas')
+    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    expect(createTrupp).not.toHaveBeenCalled()
+    // the form stays open with everything typed still in it
+    expect(screen.getByRole('button', { name: az.start })).toBeTruthy()
+    pickAuftrag()
+    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    expect(createTrupp).toHaveBeenCalledTimes(1)
+    expect((createTrupp.mock.calls[0][0] as Trupp).auftrag).toBe('retten')
+  })
+
+  // the free text alone answers it too — that is what «Anderes» is for, and a Ziel without a tile
+  // («2OG links») is a complete order
+  it('takes the Ziel text on its own as the answer', () => {
+    const createTrupp = vi.fn()
+    mount({ createTrupp, trupps: [] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    typeGuest('Meier Thomas')
+    fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: '2OG links' } })
+    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    expect(createTrupp).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the collapsed «Auftrag & Leitung» section on the phone and puts the focus on the tiles', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const createTrupp = vi.fn()
+    mount({ createTrupp, trupps: [] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    typeGuest('Meier Thomas')
+    // creating opens the Mannschaft, so the Auftrag is behind a fold — nobody has to find the
+    // chevron for it
+    expect(screen.getByRole('button', { name: new RegExp(az.stackAuftrag), expanded: false })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    expect(createTrupp).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: new RegExp(az.stackAuftrag), expanded: true })).toBeTruthy()
+    // the ring + focus land on the next frame — the fields do not exist until the section opens
+    await waitFor(() => {
+      const tiles = within(screen.getByRole('group', { name: az.auftragLabel })).getAllByRole('button')
+      expect(document.activeElement).toBe(tiles[0])
+    })
+  })
+
+  // ⚠️ EDITING is never blocked: the clock is running, the operator came here to correct
+  // something else, and a form that refuses to close would lose that correction.
+  it('lets a Trupp that is already in the field be saved with the Auftrag still open', async () => {
+    const editTrupp = vi.fn()
+    mount({ editTrupp, trupps: [aktivTrupp()] })
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledTimes(1)
+    expect((editTrupp.mock.calls[0][1] as { auftrag?: string }).auftrag).toBeUndefined()
   })
 })
 

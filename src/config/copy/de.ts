@@ -1646,6 +1646,11 @@ export const de = {
     // short toast alongside the flash on the field itself, so a blocked tap explains itself
     // instead of just sitting there. One per reason, in the same order canSubmit checks them.
     saveBlockedTeam: 'Zuerst einen Gruppenführer eintragen.',
+    // ⚠️ Beim ANMELDEN ist der Auftrag Pflicht (04.09., Feldtest): ein Trupp ohne Auftrag ist eine
+    // Karte, die nicht sagt, wofür die Mannschaft drin ist – und im Rapport eine Zeile, die
+    // niemand mehr rekonstruieren kann. Nur beim Anlegen: an einem laufenden Trupp darf das
+    // Bearbeiten nie blockieren (dort führt die Karte die Lücke als «Auftrag offen»).
+    saveBlockedAuftragMissing: 'Auftrag fehlt.',
     saveBlockedAuftrag: '«Anderes» braucht einen Auftrag/Ziel-Text.',
     saveBlockedPressure: 'Eingangsdruck fehlt.',
     cancel: 'Abbrechen',
@@ -1726,7 +1731,11 @@ export const de = {
     // them, the Rückzug as a plain «Kontakt».
     readingKind: {
       registered: 'Angemeldet', entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck',
-      alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Draussen', resume: 'Wiedereinstieg',
+      // ⚠️ «Austritt», nicht «Draussen» (04.09., Rapport-Review). Diese Spalte heisst «Art» und
+      // benennt das EREIGNIS – der Trupp ist ausgetreten. «Draussen» ist der Zustand danach, und
+      // der steht auf der Karte («Draussen», «Draussen seit»). Auf dem gedruckten Blatt las die
+      // Zeile deshalb quer zu ihren Nachbarn: «Angemeldet / Eintritt / Draussen».
+      alarm: 'Alarmdruck', rueckzug: 'Rückzug', exit: 'Austritt', resume: 'Wiedereinstieg',
       // Die beiden Enden der überwachten Strecke, wenn die Art nachträglich geändert wurde
       // (types · TruppReading). «Unter Atemschutz» trägt den Eingangsdruck der Flasche, die
       // in diesem Moment aufgedreht wurde – der Eintritt des Trupps bleibt, wo er war.
@@ -1820,7 +1829,14 @@ export const de = {
     // status labels
     status: { angemeldet: 'Angemeldet', aktiv: 'Im Einsatz', rueckzug: 'Rückzug', ueberfaellig: 'Überfällig', raus: 'Draussen' } as Record<string, string>,
     // Verlauf templates ({name}, {bar}, {status})
+    //
+    // ⚠️ ZWEI Fassungen, und die Wahl trifft der Druck, nicht die Länge der Zeile (04.09.,
+    // Feldtest): «– Eingangsdruck 0 bar» stand unter jedem Trupp OHNE Atemschutz, der gar keine
+    // Flasche hat, und unter jedem, dessen Druck beim Anmelden noch nicht erfasst war. Eine
+    // Messung, die niemand gemacht hat, in einem Rechtsdokument. 0 bar ist nie ein echter
+    // Eingangsdruck – dieselbe Regel gilt für den erneuten Eintritt weiter unten.
     logRegister: 'Trupp {name} angemeldet – Eingangsdruck {bar} bar',
+    logRegisterPlain: 'Trupp {name} angemeldet',
     // Verlauf row for when somebody changes the safety values. WITH old and new values:
     // «geändert» alone doesn't say whether the threshold got stricter or looser.
     logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',
@@ -1879,6 +1895,8 @@ export const de = {
     logColor: 'Trupp {name}: Farbe geändert',
     logExit: 'Trupp {name}: Austritt',
     logReenter: 'Trupp {name}: erneuter Eintritt – Eingangsdruck {bar} bar',
+    /** …ohne Flasche, also ohne die Zahl – siehe die Notiz bei `logRegister`. */
+    logReenterPlain: 'Trupp {name}: erneuter Eintritt',
     logStandby: 'Trupp {name} bereitgestellt – noch kein Eintritt',
     logAlarm: 'Atemschutz-Alarm: Trupp {name} – {status}',
     /**
@@ -3972,6 +3990,10 @@ export const de = {
     // Funktion kommt, ist es nicht (und «Bemerkung» war ohnehin falsch: bemerkt hat niemand
     // etwas, die App hat eine Funktion gesetzt).
     logRoleGroup: 'Unter {role}: {list}',
+    // …und dieselbe Zeile für einen Trupp OHNE Atemschutz (04.09., Feldtest). «Unter AS» über
+    // einem Verkehrstrupp war eine falsche Aussage darüber, wo jemand war – und «Unter Trupp»
+    // wäre kein Deutsch. Eigene Zeile, gleiche Sache: die Namen sind, was gelesen wird.
+    logRoleGroupTrupp: 'Im Trupp: {list}',
     // ⚠️ The record is APPEND-ONLY, so a step back cannot remove the tap's own row — it writes
     // the correction beside it, naming whoever moved.
     undoTap: 'Letzten Tipp zurücknehmen',
@@ -3996,6 +4018,13 @@ export const de = {
     // onto their Anwesenheits-Zeile so the Personalblatt can tell them from the crew that stayed
     // at the Magazin. Short, because it shares a narrow column with «Fahrer TLF».
     roleAtemschutz: 'AS',
+    // ⚠️ …und für einen Trupp OHNE Atemschutz (04.09., Feldtest). Bis dahin bekam JEDES
+    // Truppmitglied «AS» auf seine Anwesenheitszeile – auch der Verkehrstrupp, der nie eine
+    // Flasche gesehen hat. Der Verlauf druckt diese Bemerkung hinter den Namen (lib/journalLinks),
+    // also stand «Müller Hans (AS)» in einem Rechtsdokument über jemanden, der nicht unter
+    // Atemschutz war. Dieselbe Unterscheidung, die die Personenliste längst macht
+    // («unter AS» / «im Trupp»), nur auf der Zeile selbst.
+    roleTrupp: 'Trupp',
     roleOffizierPlain: 'Offizier',
     // Soft warning in the person picker (Atemschutz): whoever already has a role is probably
     // already committed – they can still be picked, always.
@@ -4049,7 +4078,11 @@ export const de = {
     emptyHintSync: 'Synchronisiere das Personal aus {provider}.',
     retry: 'Erneut versuchen',
     noMatches: 'Keine Treffer.',
-    lockedTitle: 'Im Atemschutz-Trupp – zuerst Trupp draussen melden',
+    // ⚠️ Nennt die TASTE, die den Trupp löst, und zwar wie sie heisst (04.09.). «zuerst Trupp
+    // draussen melden» war eine Umschreibung: auf der Tafel steht «Raus melden», und wer eine
+    // Anweisung liest, sucht danach das Wort daraus. Auch nicht mehr «Atemschutz-Trupp» – die
+    // Sperre gilt für JEDEN Trupp (lib/personnel · assignedPersonIds), auch den ohne Atemschutz.
+    lockedTitle: 'Im Trupp – zuerst über «Raus melden» austreten',
     notInDivera: 'Nicht mehr auf der Personalliste',
     notInSource: 'Nicht mehr in {provider}',
     weg: 'weg',

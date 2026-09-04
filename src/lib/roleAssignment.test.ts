@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AttendanceState, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
-import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, unrecordedCrewNames } from './roleAssignment'
+import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames } from './roleAssignment'
 
 const trupp = (over: Partial<Trupp>): Trupp => ({
   id: 't1', name: 'Trupp 2', entryPressureBar: 300, entryTime: '', lastContactTime: '',
@@ -166,6 +166,15 @@ describe('mergeRoleNote', () => {
     expect(mergeRoleNote('Fahrer TLF, Einsatzleiter', 'Stv. Einsatzleiter')).toBe('Fahrer TLF, Stv. Einsatzleiter')
   })
 
+  /* ⚠️ …and so do «AS» and «Trupp» (04.09.): a place in a Trupp is ONE job, and its Art can be
+   * changed after the fact (useTruppActions · editTrupp · kindPatch). Joined, the crew of a
+   * Verkehrstrupp that later went under PA would read «Trupp, AS». */
+  it('⚠️ AS and Trupp replace each other — one place in one team', () => {
+    expect(mergeRoleNote('Trupp', 'AS')).toBe('AS')
+    expect(mergeRoleNote('AS', 'Trupp')).toBe('Trupp')
+    expect(mergeRoleNote('Fahrer TLF, Trupp', 'AS')).toBe('Fahrer TLF, AS')
+  })
+
   it('handles the empty cases', () => {
     expect(mergeRoleNote(undefined, 'AS')).toBe('AS')
     expect(mergeRoleNote('  ', 'AS')).toBe('AS')
@@ -203,6 +212,24 @@ describe('personStatusHint', () => {
   it('somebody who has gone home is still the more important fact', () => {
     const st: AttendanceState = { ...left, p1: { ...left.p1, note: 'Fahrer TLF' } }
     expect(personStatusHint('p1', st, [])).toMatchObject({ label: A.statusLeft })
+  })
+})
+
+/* ⚠️ Field report 04.09.: «Trupp Brunner Thomas (AS) / Müller Hans (AS) / Schmid Peter (AS)
+ * angemeldet» — about a Trupp OHNE Atemschutz. The «(AS)» is that person's Anwesenheits-Funktion,
+ * printed behind their name by the Verlauf (lib/journalLinks), and it was written for every kind
+ * of Trupp alike. */
+describe('truppRoleNote (what a place in a Trupp writes onto the Anwesenheit)', () => {
+  const A = appConfig.copy.anwesenheit
+
+  it('files a Trupp ohne Atemschutz as «Trupp», on its own crew line', () => {
+    expect(truppRoleNote({ kind: 'einfach' })).toEqual({ role: A.roleTrupp, groupTemplate: A.logRoleGroupTrupp })
+  })
+
+  it('keeps «AS» for a Trupp under Atemschutz — absent kind included (types · TruppKind)', () => {
+    const pa = { role: A.roleAtemschutz, groupTemplate: A.logRoleGroup }
+    expect(truppRoleNote({ kind: 'atemschutz' })).toEqual(pa)
+    expect(truppRoleNote({})).toEqual(pa)
   })
 })
 

@@ -13,7 +13,7 @@ import { fillTemplate } from './format'
 import { intervalsOf, isPresent } from './attendanceIntervals'
 import { ortOf } from './attendanceOrt'
 import { isAtemschutzTrupp } from './atemschutz'
-import type { AttendanceState, Trupp } from '../types'
+import type { AttendanceState, Trupp, TruppKind } from '../types'
 
 /** The roles a conflict is checked for. `el` covers leading the Einsatz and reporting to the
  *  ELZ; `fahrer` covers driving / operating a vehicle. */
@@ -67,6 +67,27 @@ export function rosterFieldRole(
     return { role: 'presence', note: fn ? fillTemplate(A.roleOffizier, { funktion: fn }) : A.roleOffizierPlain }
   }
   return { role: 'fahrer' }
+}
+
+/**
+ * What a place in a Trupp writes onto the Anwesenheit — the Funktion on that person's row, and
+ * the ONE Verlauf line that names the whole crew instead of one row each.
+ *
+ * ⚠️ It depends on the ART of the Trupp (04.09., Feldtest). Every crew member used to be filed as
+ * «AS», the Verkehrstrupp included — and the Verlauf prints that Funktion behind the name on its
+ * first mention (lib/journalLinks), so a row about a Trupp ohne Atemschutz read «Müller Hans
+ * (AS)»: a statement about where somebody was, on the surface the Personalblatt is printed from.
+ * The list has drawn the distinction since 03.09. («unter AS» / «im Trupp»); this is the same
+ * fact written onto the row.
+ *
+ * The group line is carried along rather than derived at the call site because the two do not
+ * take the same shape: «Unter AS: …» is a sentence, «Unter Trupp: …» is not.
+ */
+export function truppRoleNote(t: { kind?: TruppKind }): { role: string; groupTemplate: string } {
+  const A = appConfig.copy.anwesenheit
+  return isAtemschutzTrupp(t)
+    ? { role: A.roleAtemschutz, groupTemplate: A.logRoleGroup }
+    : { role: A.roleTrupp, groupTemplate: A.logRoleGroupTrupp }
 }
 
 /**
@@ -198,12 +219,20 @@ export function unrecordedCrewNames(
  * glyph, or simply moving a name from one field to the other) would otherwise leave the person who
  * stepped back reading «Einsatzleiter, Stv. Einsatzleiter»: an Anwesenheitsliste claiming somebody
  * is both, on the one row a Rapport quotes.
+ *
+ * ⚠️ «AS» and «Trupp» are the second such pair (04.09.): being in a Trupp is ONE job, and the Art
+ * of that Trupp can be changed after the fact (useTruppActions · editTrupp · kindPatch). Without
+ * this the crew of a Verkehrstrupp that later went under PA would read «Trupp, AS» — two jobs for
+ * one place in one team.
  */
 const sameSlot = (a: string, b: string): boolean => {
   const A = appConfig.copy.anwesenheit
-  const pair = [A.roleEinsatzleiter.toLowerCase(), A.roleEinsatzleiterStv.toLowerCase()]
+  const slots = [
+    [A.roleEinsatzleiter.toLowerCase(), A.roleEinsatzleiterStv.toLowerCase()],
+    [A.roleAtemschutz.toLowerCase(), A.roleTrupp.toLowerCase()],
+  ]
   const [x, y] = [a.trim().toLowerCase(), b.trim().toLowerCase()]
-  return pair.includes(x) && pair.includes(y)
+  return slots.some((pair) => pair.includes(x) && pair.includes(y))
 }
 
 export function mergeRoleNote(existing: string | undefined, add: string): string {

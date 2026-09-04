@@ -138,11 +138,22 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
  *
  * Nothing is invented: a Trupp with no members recorded prints exactly its name, which for a
  * genuine one-man Trupp is the truth and for a half-entered one is the same gap it always was.
+ *
+ * `leaderTag` marks the Gruppenführer on the rows where WHO LEADS is part of the fact — the
+ * Anmeldung and the Eintritt (04.09., Feldtest): the crew printed as three equal names, so the
+ * record could not say who was answering for the Trupp. Passed in rather than read from the copy
+ * so this module stays free of the config (the caller hands over `atemschutz.leaderBadge`).
+ *
+ * ⚠️ BEFORE the name, not «(GF)» behind it, and only when somebody is with him. Behind it would
+ * stack: the Verlauf appends each person's Anwesenheits-Funktion to their first mention
+ * (lib/journalLinks), so a tagged leader read «Brunner Thomas (AS) (GF)». And on a one-man Trupp
+ * the tag distinguishes him from nobody.
  */
-export function truppLogName(t: { name?: string; members?: readonly string[] }): string {
+export function truppLogName(t: { name?: string; members?: readonly string[] }, leaderTag?: string): string {
   const lead = (t.name ?? '').trim()
   const rest = (t.members ?? []).map((m) => m.trim()).filter((m) => m && m !== lead)
-  return [lead, ...rest].filter(Boolean).join(' / ')
+  const head = leaderTag && lead && rest.length ? `${leaderTag} ${lead}` : lead
+  return [head, ...rest].filter(Boolean).join(' / ')
 }
 
 /**

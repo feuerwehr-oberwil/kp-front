@@ -380,6 +380,140 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
   })
 })
 
+/* ── What the crew rows SAY (04.09., Feldtest) ────────────────────────────────────────────────
+ * Three findings off one afternoon's screenshots, all in the same sentence:
+ * «Trupp Brunner Thomas (AS) / Müller Hans (AS) / Schmid Peter (AS) angemeldet – Eingangsdruck
+ * 0 bar» — a measurement nobody took, on a Trupp with no cylinder, whose Gruppenführer is
+ * indistinguishable from his AdF. */
+describe('the Anmeldung/Eintritt rows — the crew, the leader, and no invented Druck', () => {
+  const crew = { name: 'Brunner Thomas', members: ['Müller Hans', 'Schmid Peter'] }
+  const fresh = (over: Partial<Trupp>): Trupp => baseTrupp({
+    ...crew, status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [], ...over,
+  })
+  const lined = (t: Trupp) => {
+    const lines: string[] = []
+    return { lines, ...harness(t, undefined, (_i, text) => lines.push(text)) }
+  }
+
+  it('leaves the Eingangsdruck out for a Trupp OHNE Atemschutz — there is no cylinder to read', () => {
+    const { actions, lines } = lined(fresh({ kind: 'einfach', entryPressureBar: 0 }))
+    actions.createTrupp(fresh({ kind: 'einfach', entryPressureBar: 0 }))
+    expect(lines[0]).toBe('Trupp GF Brunner Thomas / Müller Hans / Schmid Peter angemeldet')
+    expect(lines[0]).not.toContain('bar')
+  })
+
+  it('…and for an Atemschutz-Trupp whose gauge was not read: 0 bar is never an Eingangsdruck', () => {
+    const { actions, lines } = lined(fresh({ entryPressureBar: 0 }))
+    actions.createTrupp(fresh({ entryPressureBar: 0 }))
+    expect(lines[0]).not.toContain('bar')
+  })
+
+  it('keeps the Eingangsdruck where one was actually measured', () => {
+    const { actions, lines } = lined(fresh({ entryPressureBar: 300 }))
+    actions.createTrupp(fresh({ entryPressureBar: 300 }))
+    expect(lines[0]).toBe('Trupp GF Brunner Thomas / Müller Hans / Schmid Peter angemeldet – Eingangsdruck 300 bar')
+  })
+
+  it('marks the Gruppenführer on the Eintritt too — and nowhere else', () => {
+    const { actions, lines } = lined(fresh({ entryPressureBar: 300 }))
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(lines[0]).toBe('Trupp GF Brunner Thomas / Müller Hans / Schmid Peter: Eintritt')
+    // a Funkkontakt is about a Trupp that is already in — repeating who leads it on every radio
+    // check would put the tag on three quarters of the Journal
+    actions.recordContact('T1')
+    expect(lines[1]).toBe('Trupp Brunner Thomas / Müller Hans / Schmid Peter: Kontakt bestätigt')
+  })
+
+  it('does not tag a one-man Trupp: the badge distinguishes him from nobody', () => {
+    const solo = fresh({ name: 'Brunner Thomas', members: undefined, entryPressureBar: 300 })
+    const { actions, lines } = lined(solo)
+    actions.createTrupp(solo)
+    expect(lines[0]).toBe('Trupp Brunner Thomas angemeldet – Eingangsdruck 300 bar')
+  })
+})
+
+/* ── One tap, one record (04.09., Feldtest) ───────────────────────────────────────────────────
+ * The same afternoon's Verlauf carried «Austritt 2×» and «erneuter Eintritt … 2×». Every one of
+ * these buttons sits under a finger that has just been told nothing happened — the board
+ * re-sorts, the phone is a beat behind, a second tablet shows the same card — so the tap came
+ * twice. Each test acts, then re-harnesses on the Trupp AS IT NOW STANDS, which is exactly what
+ * the second tap acts on after the re-render (the actions capture `trupps` per render). */
+describe('useTruppActions — a second tap on a state the Trupp already holds records nothing', () => {
+  beforeEach(() => { ui.toasts.length = 0 })
+  const again = (t: Trupp, lines: string[]) => harness(t, undefined, (_i, text) => lines.push(text))
+
+  it('«Raus melden» twice writes ONE Austritt and keeps the exit stamp it recorded', () => {
+    const lines: string[] = []
+    const first = again(baseTrupp({ status: 'aktiv' }), lines)
+    first.actions.setTruppStatus('T1', 'raus')
+    const out = first.state.trupps[0]
+    const second = again(out, lines)
+    second.actions.setTruppStatus('T1', 'raus')
+    expect(lines).toEqual([`Trupp ${out.name}: Austritt`])
+    expect(second.state.trupps[0].exitTime).toBe(out.exitTime)
+    expect(second.state.trupps[0].readings?.filter((r) => r.kind === 'exit')).toHaveLength(1)
+    expect(ui.toasts).toHaveLength(1)
+  })
+
+  it('«Einrücken» twice does not turn the second tap into a «Einsatz fortgesetzt»', () => {
+    const lines: string[] = []
+    const first = again(baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] }), lines)
+    first.actions.setTruppStatus('T1', 'aktiv')
+    const inField = first.state.trupps[0]
+    const second = again(inField, lines)
+    second.actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual([`Trupp ${inField.name}: Eintritt`])
+    expect(second.state.trupps[0].entryTime).toBe(inField.entryTime)
+    expect(second.state.trupps[0].readings?.map((r) => r.kind)).toEqual(['entry'])
+  })
+
+  it('«Wieder einrücken» twice does not restart the deployment it has just started', () => {
+    const lines: string[] = []
+    const first = again(baseTrupp({ status: 'raus', exitTime: '2026-07-06T10:30:00Z', lowestBar: 40 }), lines)
+    const f: TruppFields = { name: 'Keller Anna', pressure: 300 }
+    first.actions.reactivateTrupp('T1', f)
+    const back = first.state.trupps[0]
+    const second = again(back, lines)
+    second.actions.reactivateTrupp('T1', f)
+    expect(lines).toEqual([`Trupp ${back.name}: erneuter Eintritt – Eingangsdruck 300 bar`])
+    expect(second.state.trupps[0].entryTime).toBe(back.entryTime)
+    expect(second.state.trupps[0].readings).toHaveLength(back.readings?.length ?? 0)
+  })
+})
+
+/* ── «Wieder einrücken» is a full edit, and the record has to say so (04.09., Feldtest:
+ * «Funkkanal wird gar nicht protokolliert») ───────────────────────────────────────────────── */
+describe('useTruppActions — what changed on the way back in', () => {
+  const out = (over: Partial<Trupp> = {}) => baseTrupp({
+    status: 'raus', exitTime: '2026-07-06T10:30:00Z', auftrag: 'loeschen', funkkanal: 5, ...over,
+  })
+  const lined = (t: Trupp) => {
+    const lines: string[] = []
+    return { lines, ...harness(t, undefined, (_i, text) => lines.push(text)) }
+  }
+
+  it('names the new Auftrag and the new Funkkanal beside the re-entry row', () => {
+    const { actions, lines } = lined(out())
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300, auftrag: 'retten', ziel: '2OG links', funkkanal: 7 })
+    expect(lines).toEqual([
+      'Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar',
+      'Trupp Keller Anna: Auftrag Retten – 2OG links, Funkkanal 7',
+    ])
+  })
+
+  it('says nothing extra when the Trupp goes back in unchanged — the fresh bottle is not a correction', () => {
+    const { actions, lines } = lined(out({ entryPressureBar: 60 }))
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300, auftrag: 'loeschen', funkkanal: 5 })
+    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar'])
+  })
+
+  it('leaves the Eingangsdruck out of the re-entry row for a Trupp ohne Atemschutz', () => {
+    const { actions, lines } = lined(out({ kind: 'einfach', entryPressureBar: 0 }))
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 0, auftrag: 'loeschen', funkkanal: 5 })
+    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt'])
+  })
+})
+
 // ⚠️ 03.09.: the Rapport carried seven «Überfällig» lines and not one ending, and Fabich's 06:50
 // alarm twice — once per open tablet. Both halves are pinned here.
 describe('the Atemschutz-Alarm rows — what ended it, and once for the whole Einsatz', () => {

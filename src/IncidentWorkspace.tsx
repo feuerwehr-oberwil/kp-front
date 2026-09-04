@@ -28,7 +28,7 @@ import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
-import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
+import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -3739,9 +3739,10 @@ export function IncidentWorkspace({
     }
   }
 
-  /** `grouped` folds the per-person rows into ONE line naming the whole crew — see the Trupp
-   *  caller below for why. */
-  const ensurePresentForRole = (ids: (string | undefined)[], roleNote?: string, grouped = false) => {
+  /** `groupTemplate` folds the per-person rows into ONE line naming the whole crew — see the
+   *  Trupp caller below for why. It is the TEMPLATE and not a flag because the two kinds of Trupp
+   *  read differently: «Unter AS: …» is a sentence, «Unter Trupp: …» is not. */
+  const ensurePresentForRole = (ids: (string | undefined)[], roleNote?: string, groupTemplate?: string) => {
     // Not on an Atemschutz-Link session: its Anwesenheit write is a no-op (the slice never
     // carries attendance), and a Verlauf row claiming «anwesend · AS» over a record that never
     // changed would be a lie on paper. The tablet marks the crew present when it takes the Trupp.
@@ -3782,11 +3783,11 @@ export function IncidentWorkspace({
     // Trupp's own rows, which is three quarters of a screen at 3am saying one thing. Worse, the
     // word was wrong: nobody remarked anything, the app filled a Funktion. The names are what a
     // reader is after, so they go on one line and the field they came from is not mentioned.
-    if (grouped && roleNote) {
+    if (groupTemplate && roleNote) {
       const named = wanted
         .filter((id) => fresh.includes(id) || noted.has(id))
         .map((id) => rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id)
-      if (named.length) log('people', fillTemplate(A.logRoleGroup, { role: roleNote, list: named.join(', ') }), 'team')
+      if (named.length) log('people', fillTemplate(groupTemplate, { role: roleNote, list: named.join(', ') }), 'team')
       return
     }
     for (const id of fresh) {
@@ -3814,10 +3815,16 @@ export function IncidentWorkspace({
    *  Einsatz was absent from the Anwesenheit, from the headcount and from the Personalblatt
    *  printed off it. Same route a typed name on a symbol has always taken (assignTypedName):
    *  known to the roster → the person they are, unknown → a Gast row on THIS Einsatz. */
-  const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds'>) => {
-    const role = appConfig.copy.anwesenheit.roleAtemschutz
+  /* ⚠️ …and the Funktion says WHICH KIND of Trupp (04.09., Feldtest). Every crew member used to
+   *  be filed as «AS», the Verkehrstrupp included — and the Verlauf prints that Bemerkung behind
+   *  the name on its first mention (lib/journalLinks), so a row about a Trupp without Atemschutz
+   *  read «Müller Hans (AS)»: a statement about where somebody was, on the surface the
+   *  Personalblatt is printed from. The list itself has drawn the distinction since 03.09.
+   *  («unter AS» / «im Trupp»); this is the same fact written onto the row. */
+  const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds' | 'kind'>) => {
+    const { role, groupTemplate } = truppRoleNote(f)
     const ids = [f.leaderPersonId, ...(f.memberPersonIds ?? [])]
-    ensurePresentForRole(ids, role, true)
+    ensurePresentForRole(ids, role, groupTemplate)
     // 'presence': being in a Trupp contradicts nothing — the conflict check is about somebody
     // holding a SECOND job (lib/roleAssignment · roleConflictHint)
     for (const name of unrecordedCrewNames(f, (n) => personIdForName(rosterIdByName, n))) {
