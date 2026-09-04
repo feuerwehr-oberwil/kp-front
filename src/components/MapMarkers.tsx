@@ -186,10 +186,13 @@ interface Props {
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker — the map twin of the plan chip's rename pen */
   onTeamRename?: (id: string, name: string) => void
+  /** ⚠️ The ONE surface that still offers a Trupp colour (04.09.) — the marker on the Karte.
+   *  Bound to a Trupp the pick writes the TRUPP (card, plan chip and this marker follow); loose,
+   *  it writes the marker. Neither the form nor the plan nor the mirrors ask any more. */
+  onTeamColor?: (e: Entity, color: string | null) => void
   /** recolour a team marker (null = back to automatic). Takes the ENTITY, because the two cases
    *  write different things: a marker bound to a Trupp recolours the TRUPP (board card and plan
    *  chip follow), a loose one recolours just itself. */
-  onTeamColor?: (e: Entity, color: string | null) => void
   /** clear a team marker's recorded trail (unlocks deletion) — reached via the lock button,
    *  behind a confirm; the everyday bar button only TOGGLES visibility */
   onTeamClearTrail?: (id: string) => void
@@ -784,8 +787,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   renameRef={focusTeam}
                   acts={draggable ? {
                     rename: onTeamRename && ((name) => onTeamRename(e.id, name)),
-                    pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),
                     color: onTeamColor && ((c) => onTeamColor(e, c)),
+                    pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),
                     mark: onTeamMark && (() => onTeamMark(e.id)),
                     clearTrail: () => onTeamClearTrail?.(e.id),
                     remove: () => onDelete(e.id),

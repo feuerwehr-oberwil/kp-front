@@ -29,7 +29,10 @@ import type { Trupp } from '../types'
 export interface TwinTeamActions {
   rename?: (name: string) => void
   pick?: (truppId?: string) => void
-  /** absent on the plan board: a chip's colour is written from the SelectionBar there */
+  /** ⚠️ THE one place a Trupp's colour is chosen (04.09.): the marker on the KARTE. The form
+   *  stopped asking, the plan chip and both mirrors do not offer it — a colour is automatic
+   *  unless somebody deliberately changes it where the picture is actually being read. Optional,
+   *  so every other surface simply does not draw the button. */
   color?: (color: string | null) => void
   mark?: () => void
   clearTrail: () => void
@@ -79,9 +82,9 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
   // a marker bound to a LIVE registered Trupp is named and coloured by the Atemschutz board;
   // offering a second name/palette here would fork the two apart
   const boundAlive = !!truppId && trupps.some((t) => t.id === truppId && !t.removedAt)
+  const setColor = acts?.color
   const rename = acts?.rename
   const pick = acts?.pick
-  const setColor = acts?.color
   const showTrupp = acts?.showTrupp
   const mark = acts?.mark
   const toOriginal = acts?.toOriginal
@@ -150,12 +153,15 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
               ]}
             />
           )}
-          {/* Farbe — for the LOOSE team marker only (placed with the Trupp tool, never registered
-              on the board): it has no other place to be recoloured. A marker bound to a registered
-              Trupp does — the Trupp's own form — and its colour is the Trupp's identity, so a
-              second palette here said the same thing twice. A colour someone else already wears
-              is allowed — «alle Löschtrupps rot». */}
-          {setColor && !boundAlive && (
+          {/* Farbe — and since 04.09. this is the ONLY palette left for a Trupp, on any surface.
+              ⚠️ It is no longer gated on `!boundAlive`. While the form still asked for a colour,
+              a marker bound to a registered Trupp had another place to be recoloured and a second
+              palette here would have said the same thing twice; now it has none, so the bound one
+              needs this button most. Bound, the pick lands on the TRUPP (board card, plan chip
+              and this marker all follow); loose, on the marker itself — the caller decides, this
+              bar just offers the door. A colour someone else already wears is allowed —
+              «alle Löschtrupps rot». */}
+          {setColor && (
             <Popover
               ariaLabel={appConfig.copy.atemschutz.colorLabel}
               popupClassName="wb-pa-colors"

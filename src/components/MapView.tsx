@@ -228,8 +228,9 @@ interface Props {
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker (absent = locked, or a Trupp-bound marker) */
   onTeamRename?: (id: string, name: string) => void
-  /** recolour a team marker (null = automatic) — see MapMarkers */
+  /** see MapMarkers — the marker on the Karte is the only place a colour is still chosen */
   onTeamColor?: (e: Entity, color: string | null) => void
+  /** recolour a team marker (null = automatic) — see MapMarkers */
   onTeamClearTrail?: (id: string) => void
   /** tactical editing is locked (viewer role, Führungsansicht, replay). Everything
    *  stays readable — panning, selecting, the ephemeral Messen path — but no affordance that

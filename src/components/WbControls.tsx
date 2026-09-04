@@ -8,7 +8,6 @@ import { vertexHandleIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
 
 const COLORS = appConfig.drawing.colors
-const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
 /** id namespace for the ink layer's Schraffur — its patterns are scaled against the 1×1 sheet and
  *  must not be handed to the px-space defs beside them (lib/draw · hatchPatternId). */
 const INK_HATCH_SPACE = 'sheet'
@@ -389,7 +388,6 @@ interface DocksProps {
   setAreaMode: (m: 'nodes' | 'freehand') => void
   onFinish: () => void
   onCancelDraft: () => void
-  recolorTeam: (c: string) => void
   /** the selected chip belongs to a REGISTERED Trupp — its colour is edited on the Trupp form */
   resourceBound?: boolean
   /** the SELECTED team's trail visibility — the dock eye toggles just that team */
@@ -416,7 +414,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, width, dashed, marker, setMarker, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, width, dashed, marker, setMarker, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   const NOTES = appConfig.copy.notes
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
@@ -521,7 +519,6 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, widt
           thing twice and buried the trail toggle behind ten swatches. */}
       {selResource && tool === 'pan' && (
         <ToolDock groups={[
-          ...(resourceBound ? [] : [[{ type: 'colorGrid' as const, value: selResource.color ?? '', onChange: recolorTeam, colors: TEAM_COLORS, title: appConfig.copy.whiteboard.teamColor }]]),
           [{ type: 'toggle', icon: trailsShown ? 'eye' : 'eyeoff', label: trailsShown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn, on: trailsShown, disabled: !selResource.trail?.length, onClick: onToggleTrails }],
         ]} />
       )}

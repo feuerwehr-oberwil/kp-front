@@ -208,7 +208,6 @@ export interface ContextPanelProps {
   onColor?: (color: string) => void
   /** recolour a placed Atemschutz-Trupp (null = back to automatic). Present only for a team
    *  marker that is bound to a Trupp — it writes the TRUPP's colour, not just this marker. */
-  onTeamColor?: (color: string | null) => void
 }
 
 // signed storey label for the badge / stepper readout: +2, -1, 0 (EG)
@@ -231,7 +230,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -891,25 +890,14 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
             </div>
           )}
         </>}
-        {/* Truppfarbe — a placed Atemschutz-Trupp is recoloured where the operator is looking, and
-            the pick lands on the TRUPP (board card, plan chip and this marker all wear it). Same
-            palette + «Automatisch» as the Trupp form; a colour two Trupps share is allowed, because
-            «alle Löschtrupps rot» is a legitimate way to read a Lage. */}
-        {onTeamColor && !readOnly && (
-          <div className="ctx-section">
-            <span className="ctx-section-label">{appConfig.copy.atemschutz.colorLabel}</span>
-            <div className="ctx-note-colors">
-              <button className={`ctx-team-auto${entity.color ? '' : ' on'}`} aria-pressed={!entity.color}
-                title={appConfig.copy.atemschutz.colorAutoHint} onClick={() => onTeamColor(null)}>
-                {appConfig.copy.atemschutz.colorAuto}
-              </button>
-              {appConfig.drawing.teamColors.map((c) => (
-                <button key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} style={{ background: c }}
-                  aria-pressed={entity.color === c} aria-label={c} onClick={() => onTeamColor(c)} />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* ⚠️ NO Truppfarbe in this PANEL any more (04.09.). The colour is automatic — one per
+            Trupp, from the station's Auftrag colours or the next free one (Trupp.color) — and it
+            is no longer asked in the Trupp form, on the plan chip or on either mirror. It was a
+            decision nobody was making and four surfaces had to offer.
+            Changing one is still possible in exactly ONE place: the marker's own bar on the Karte
+            (components/TwinTeamPill · acts.color, wired in IncidentWorkspace). That is the
+            surface where a colour is actually read, so it is the surface that may set it — and
+            the panel does not repeat the offer. */}
         {connectedLines.length > 0 && <div className="ctx-section ctx-connections">
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>
           {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}

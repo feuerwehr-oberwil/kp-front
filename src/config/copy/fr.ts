@@ -998,14 +998,21 @@ export const fr: Localizable<Copy> = {
     linkReentryHint: 'Le lien ramène à ce tableau – si la page est fermée par mégarde, il suffit d’ouvrir à nouveau le code QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Binôme',
-    /** the two-step form on ANY phone, for any kind of team (TruppForm · wizard). Step 1 no
-     *  longer asks «who goes in?» — a binôme sans ARI n'entre nulle part, and its kind is chosen
-     *  on that very step (see de.ts). */
-    wizardWho: 'Qui compose le binôme ?',
-    wizardWhat: 'Que font-ils ?',
-    wizardNext: 'Suivant',
-    wizardBack: 'Retour',
-    wizardStep: 'Étape {n} sur 2',
+    /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
+     *  wizard; «Mission et ligne» is one section (see de.ts). */
+    stackTeam: 'Personnel',
+    stackLuft: 'Air et radio',
+    stackAuftrag: 'Mission et ligne',
+    stackTeamEmpty: 'Personne pour l’instant',
+    stackLeader: '{name} ({role})',
+    stackPressure: '{n} bar',
+    stackFunk: 'Canal {n}',
+    stackLine: 'Ligne {n}',
+    stackNoLine: 'Ligne –',
+    // no longer asked in the Trupp form (04.09.) – still offered on the Lage/plan and in admin
+    colorLabel: 'Couleur',
+    colorAuto: 'Automatique',
+    colorAutoHint: 'La couleur du corps pour cette mission, sinon la prochaine libre – une couleur par binôme.',
     // état sync/horloge dans l'en-tête du tableau (voir de.ts)
     syncStand: '{status} – état de {t}',
     clockSkewChip: 'Horloge de l\'appareil décalée ({d} min)',
@@ -1091,9 +1098,6 @@ export const fr: Localizable<Copy> = {
     reenterSubmit: 'Engager',
     reenterStandby: 'Mettre en réserve',
     reenterStandbyHint: 'Annoncer le binôme comme réserve – le compteur de contact ne démarre qu\'à «Engager».',
-    colorLabel: 'Couleur',
-    colorAuto: 'Automatique',
-    colorAutoHint: 'La couleur du corps pour cette mission, sinon la prochaine libre – une couleur par binôme.',
     sinceContact: 'Depuis le dernier contact',
     elapsed: 'Temps d’intervention',
     outFor: 'Sorti depuis',
@@ -1413,7 +1417,6 @@ export const fr: Localizable<Copy> = {
     clearTrail: 'Effacer la trace',
     clearTrailConfirm: 'Supprimer les {n} positions marquées de {name} ? La trace disparaît de la carte et du plan.',
     trailCleared: '{name} : trace effacée',
-    teamColor: 'Couleur',
     trails: 'Traces',
     trailsOn: 'Afficher les traces',
     trailsOff: 'Masquer les traces',

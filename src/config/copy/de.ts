@@ -1438,20 +1438,28 @@ export const de = {
     linkReentryHint: 'Der Link führt zurück auf diese Tafel – wird die Seite versehentlich geschlossen, einfach den QR-Code nochmals öffnen.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Trupp',
-    /** the two-step form on ANY phone (TruppForm · wizard) — the handed-over Tafel since 02.09.,
-     *  the main board's phone layout since 03.09., und seit 03.09. für JEDE Art von Trupp. Step 2
-     *  carries Druck (nur unter Atemschutz), Kanal, Auftrag/Ziel and — outside the link — Leitung
-     *  und Farbe, weshalb die Frage nach dem WAS und nicht nach der Luft gestellt wird (der
-     *  Schlüssel hiess bis 03.09. `wizardAir`).
-     *  ⚠️ Schritt 1 fragt NICHT mehr «Wer geht rein?»: seit der Wizard auch für einen Trupp ohne
-     *  Atemschutz gilt, geht ein Verkehrstrupp nirgends rein – und die Art des Trupps wird auf
-     *  genau diesem Schritt gewählt, die Frage müsste also unter dem Daumen umspringen. Eine
-     *  Formulierung für beide Arten, und sie benennt, was der Schritt liefert: den Trupp. */
-    wizardWho: 'Wer bildet den Trupp?',
-    wizardWhat: 'Was machen sie?',
-    wizardNext: 'Weiter',
-    wizardBack: 'Zurück',
-    wizardStep: 'Schritt {n} von 2',
+    /* ── Der Stapel: das Trupp-Formular auf dem Telefon (TruppForm · stack, 04.09.) ───────────
+     * Löst den zweischrittigen Wizard ab (02.–04.09.). DREI Abschnitte, die immer alle sichtbar
+     * sind; genau einer ist offen, die geschlossenen lesen ihre Antwort im Klartext vor. Damit
+     * ist weder etwas hinter einem Schritt versteckt noch unter einer Falz – und «Trupp anmelden»
+     * steht vom ersten Moment an im Fuss, statt hinter einem «Weiter», das nichts fragt.
+     * ⚠️ Die Titel sind die der FELDER, nicht Fragen: eine zugeklappte Zeile trägt ihre Antwort
+     * daneben, und «Was machen sie? · Retten – 2. OG» liest sich als Dialog, nicht als Formular.
+     * ⚠️ «Auftrag & Leitung» ist EIN Abschnitt (04.09.): die Leitung ist Teil dessen, was der
+     * Trupp tut, und ein eigener vierter Abschnitt für eine Zahl kostete eine Zeile, die man auf
+     * dem Telefon der Mannschaftsliste wegnimmt. */
+    stackTeam: 'Mannschaft',
+    stackLuft: 'Luft & Funk',
+    stackAuftrag: 'Auftrag & Leitung',
+    /** die zugeklappte Mannschaftszeile, solange niemand gewählt ist – der einzige Abschnitt,
+     *  den keine Vorgabe beantworten kann */
+    stackTeamEmpty: 'Noch niemand gewählt',
+    /** «Meier Thomas (GF) · Huber Simon» – der Gruppenführer trägt sein Kürzel mit */
+    stackLeader: '{name} ({role})',
+    stackPressure: '{n} bar',
+    stackFunk: 'Kanal {n}',
+    stackLine: 'Ltg {n}',
+    stackNoLine: 'Ltg –',
     // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein
     // Leben hängt, sagt selbst, ob ihr Stand gesichert und ihre Uhr richtig ist. Leise reicht
     // incidentSwitcher.savedAt; laut trägt der Chip das Kurzlabel des Zustands plus, wie alt
@@ -1604,10 +1612,18 @@ export const de = {
     // waits as a Sicherungstrupp and is started later with «Einrücken».
     reenterStandby: 'Bereitstellen',
     reenterStandbyHint: 'Trupp als Reserve anmelden – die Kontaktuhr startet erst mit «Einrücken».',
-    // board card
+    // ⚠️ Im TRUPP-FORMULAR wird die Farbe nicht mehr gewählt (04.09.) – auf keinem Gerät, auch
+    // nicht auf dem Tablet: sie war die einzige Angabe, die dort nie jemand gesetzt hat, und auf
+    // dem Telefon kostete sie einen ganzen Abschnitt. Ein Trupp, der vorher mit gewählter Farbe
+    // angelegt wurde, behält sie (TruppForm reicht `color` nur noch durch).
+    // Diese drei Schlüssel bleiben trotzdem: dieselbe Wahl gibt es weiterhin DORT, WO DAS BILD
+    // GELESEN WIRD – am gesetzten Trupp auf der Lage (ContextPanel) und an der Trupp-Pille auf
+    // dem Plan (TwinTeamPill) – plus die Vorwahl je Auftrag in der Verwaltung. «Alle Löschtrupps
+    // rot» bleibt damit möglich, es ist nur keine Frage mehr beim Anmelden.
     colorLabel: 'Farbe',
     colorAuto: 'Automatisch',
     colorAutoHint: 'Farbe der Wehr für diesen Auftrag, sonst die nächste freie – jeder Trupp eine andere.',
+    // board card
     sinceContact: 'Seit letztem Kontakt',
     elapsed: 'Einsatzzeit',
     // Break clock: how long the Trupp has been out. The Einsatzzeit stands still from «Raus» on
@@ -2082,7 +2098,6 @@ export const de = {
     clearTrail: 'Spur löschen',
     clearTrailConfirm: 'Alle {n} markierten Positionen von {name} löschen? Die Spur verschwindet von Karte und Plan.',
     trailCleared: '{name}: Spur gelöscht',
-    teamColor: 'Farbe',
     trails: 'Spuren',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',

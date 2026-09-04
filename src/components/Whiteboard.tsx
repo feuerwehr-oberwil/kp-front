@@ -211,8 +211,6 @@ interface Props {
    *  registered finds its Trupp afterwards, instead of having to be deleted and re-placed — which
    *  on a plan chip would throw away its recorded trail. Absent ⇒ no picker (read-only / locked). */
   onTeamTrupp?: (annoId: string, truppId: string | undefined) => void
-  /** recolouring a linked team chip writes the TRUPP's colour (see recolorTeam) */
-  onTruppColor?: (truppId: string, color: string) => void
   /** «Leitung wählen» is armed: the next tap on a drawn line reports it here (and links it to the
    *  waiting Trupp) instead of selecting it. Undefined = normal selection. */
   onPickLine?: (annoId: string) => void
@@ -307,7 +305,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onTruppColor, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, onTwinDrawingFocusOriginal, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, onTwinDrawingFocusOriginal, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -2289,16 +2287,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     patchCommit(a.id, { trail: [] })
     log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: a.text ?? '' }))
   }
-  // Recolouring a team chip recolours the TRUPP, not just this chip: colour is the Trupp's
-  // identity (board card, Lage marker, plan chip all read it), so writing only the chip would
-  // leave two disagreeing answers to «which one is this?» — and the next re-placement would
-  // silently undo the change. onTruppColor is absent on surfaces with no Atemschutz board.
-  const recolorTeam = (c: string) => {
-    if (!selId) return
-    patchCommit(selId, { color: c })
-    const truppId = annos.find((a) => a.id === selId)?.truppId
-    if (truppId) onTruppColor?.(truppId, c)
-  }
+  // ⚠️ No recolouring of a team chip any more (04.09.): a colour is changed on the Karte's
+  // marker or not at all, so there is nothing here to write and nothing to carry to the card.
 
   // a team that carries recorded positions is protected from deletion — its trail
   // is part of the incident record, so it must be cleared deliberately first
@@ -3581,9 +3571,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   // both mirrors wear, so no surface can answer differently for the same Trupp.
                   // The bar only appears while this board may be written on; the anno wrapper
                   // already owns the press, so no `hit` shell is passed.
-                  // ⚠️ No Farbe swatch here, deliberately: a chip's colour is the TRUPP's identity
-                  // and is written from the SelectionBar (recolorTeam), which also carries it to
-                  // the Atemschutz card. Leaving `color` out is what keeps the swatch away.
+                  // ⚠️ No Farbe swatch — and since 04.09. none on the SelectionBar either. The
+                  // colour is automatic, and the ONE place left to change it is the marker's own
+                  // bar on the Karte (the same TwinTeamPill, with `acts.color` passed there and
+                  // nowhere else). A plan chip that offered it too would be a second answer to a
+                  // question the Lage already owns.
                   return (
                     <TwinTeamPill
                       name={a.text ?? ''} time={a.t} color={teamCol}
@@ -3903,7 +3895,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           setDashed={setDashed}
           onFinish={finishShape}
           onCancelDraft={cancelShape}
-          recolorTeam={recolorTeam}
           resourceBound={!!selResource?.truppId && trupps.some((t) => t.id === selResource.truppId && !t.removedAt)}
           trailsShown={!!selResource && !hiddenTrails.has(selResource.id)}
           onToggleTrails={() => { if (selResource) toggleTrail(selResource.id) }}

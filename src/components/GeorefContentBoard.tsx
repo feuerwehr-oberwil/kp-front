@@ -99,7 +99,6 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
   teamActions?: {
     rename: (id: string, name: string) => void
     pick: (id: string, truppId?: string) => void
-    color: (e: Entity, color: string | null) => void
     mark: (id: string) => void
     clearTrail: (id: string) => void
     remove: (id: string) => void
@@ -633,7 +632,6 @@ export function GeorefContentBoard({ entities, drawings, fit, planWidthM, sW, sH
                 acts={{
                   rename: (name) => acts.rename(entity.id, name),
                   pick: (truppId) => acts.pick(entity.id, truppId),
-                  color: (c) => acts.color(entity, c),
                   mark: () => acts.mark(entity.id),
                   clearTrail: () => acts.clearTrail(entity.id),
                   remove: () => acts.remove(entity.id),

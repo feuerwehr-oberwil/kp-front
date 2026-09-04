@@ -11,6 +11,7 @@ import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
 import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
+import { fillTemplate } from '../lib/format'
 import type { AttendanceState, Trupp, TruppReading } from '../types'
 
 afterEach(cleanup)
@@ -24,6 +25,8 @@ beforeAll(() => {
 })
 
 const az = appConfig.copy.atemschutz
+// the doctrine the form starts a fresh cylinder at — the number a closed «Luft & Funk» prints
+const dz = atemschutzDoctrine()
 const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString()
 
 // one Trupp in the field, contact fresh (no alarm, so nothing scrolls/flashes on mount),
@@ -282,27 +285,30 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
   })
 
-  it('opens the Trupp form as two steps: the roster first, Druck and Auftrag behind «Weiter»', () => {
+  it('opens the Trupp form as three sections, one open and the others readable', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp()], createTrupp })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+    // the open one is the Mannschaft; «Luft & Funk» is closed but READS ITS ANSWER OUT, so the
+    // Eingangsdruck is knowable without opening anything
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
-    // the steps walk freely — an empty roster still passes «Weiter»…
-    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
-    expect(screen.getByText(new RegExp(az.wizardWhat))).toBeTruthy()
+    expect(screen.getByRole('button', { name: new RegExp(az.stackLuft) }).textContent)
+      .toContain(fillTemplate(az.stackPressure, { n: dz.defaultPressureBar }))
+    // …and opening it puts the field itself there
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackLuft) }))
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
     // …only the final submit is gated on a valid Trupp — `aria-disabled`, not the native
     // attribute, so a blocked tap still reaches attemptSubmit (which must not submit) and can
     // explain itself instead of the browser silently swallowing the click (field feedback, 02.09.)
     const submitBtn = screen.getByRole('button', { name: az.start })
     expect(submitBtn.getAttribute('aria-disabled')).toBe('true')
-    // the roster is still empty, so the blocked tap walks back to step 1 (where that lives) —
-    // never a step 2 stuck on «Speichern» with nothing to say why (field feedback, 02.09.)
+    // the roster is still empty, so the blocked tap OPENS the section that holds the reason —
+    // never a «Speichern» sitting there with nothing to say why (field feedback, 02.09.)
     fireEvent.click(submitBtn)
     expect(createTrupp).not.toHaveBeenCalled()
-    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: true })).toBeTruthy()
+    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
   })
 
   // ⚠️ NO second card for this board (03.09.). It had one — `cardBig`, with its own condensed
@@ -575,44 +581,69 @@ describe('the board with Trupps that are not under Atemschutz', () => {
   })
 })
 
-/* ── The two-step form on ANY phone (03.09.) ──────────────────────────────────────────────────
- * The wizard was the handed-over board's own layout; the main board's phone view had the same
- * fold and now shares it. What differs outside the link: step 2 additionally carries the «Art des
- * Trupps» tiles at its top plus Leitung und Farbe. Every Art of Trupp walks the same two steps. */
+/* ── The three-section stack on ANY phone (04.09.) ────────────────────────────────────────────
+ * Replaces the two-step wizard of 02.–04.09. Three sections, all on screen, one open, the closed
+ * ones reading their own answers out. What differs outside the link: the «Art des Trupps» tiles
+ * lead «Luft & Funk», and the Ltg-Nr. sits in «Auftrag & Leitung» — which is ONE section, because
+ * the Farbe it used to share a block with is not asked any more, on any layout. */
 describe('the Trupp form on the main board’s phone layout', () => {
   afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
 
-  it('walks two steps and puts Leitung and Farbe on step 2 (they are not on the link’s)', () => {
+  it('puts the Ltg-Nr. in «Auftrag & Leitung» and asks for no colour at all', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
-    expect(screen.queryByText(az.lineNoLabel)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
-    expect(screen.getByText(new RegExp(az.wizardWhat))).toBeTruthy()
-    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    expect(screen.queryByText(az.lineNoLabel)).toBeNull() // its section is closed
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackAuftrag) }))
+    expect(screen.getByText(az.auftragLabel)).toBeTruthy()
+    expect(screen.getByText(az.zielLabel)).toBeTruthy()
     expect(screen.getByText(az.lineNoLabel)).toBeTruthy()
-    expect(screen.getByText(az.colorLabel)).toBeTruthy()
+    // ⚠️ The colour is not a question any more (04.09.) — not here and not on the tablet. It is
+    // still per-Trupp and still automatic; it is simply never asked while registering one. The
+    // choice lives on where the picture is read (ContextPanel, TwinTeamPill), not here.
+    expect(screen.queryByText(az.colorLabel)).toBeNull()
   })
 
-  /* ⚠️ «Art des Trupps» belongs ABOVE THE FIELDS IT GOVERNS, and every one of those (Druck,
-   * Auftrag, Kanal, Ziel) is on step 2 — so on the phone the chooser leads step 2 and step 1 is
-   * the Mannschaft alone (03.09.). The one thing the Art does not govern is who is in the Trupp. */
-  it('leads step 2 with the Art des Trupps chooser and leaves step 1 the Mannschaft alone', () => {
+  /* A closed section is not a table of contents — it carries the ANSWER, which is what makes
+     three collapsed lines a usable form rather than three doors. */
+  it('reads every closed section’s answer out beside its title', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [aktivTrupp()] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    // ⚠️ An OPEN section says nothing beside its title — the fields are right below it, and the
+    // answer twice over is noise. So the Mannschaft has to be closed to be read.
+    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam) }).textContent)
+      .not.toContain(az.stackTeamEmpty)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackTeam) }))
+    // nobody picked yet — the one thing no default can answer, so it is said in as many words
+    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam) }).textContent)
+      .toContain(az.stackTeamEmpty)
+    const luft = screen.getByRole('button', { name: new RegExp(az.stackLuft) }).textContent ?? ''
+    expect(luft).toContain(az.kindAtemschutz)
+    expect(luft).toContain(fillTemplate(az.stackPressure, { n: dz.defaultPressureBar }))
+    // …and an Auftrag nobody has set says so, in the same words the card uses
+    expect(screen.getByRole('button', { name: new RegExp(az.stackAuftrag) }).textContent)
+      .toContain(az.auftragOpen)
+  })
+
+  /* ⚠️ «Art des Trupps» belongs ABOVE THE FIELDS IT GOVERNS — the Druck it adds or drops, the
+   * Auftrag list it narrows — so on the phone it leads «Luft & Funk», and section 1 is the
+   * Mannschaft alone (03.09.). The one thing the Art does not govern is who is in the Trupp. */
+  it('leads «Luft & Funk» with the Art des Trupps chooser and leaves the Mannschaft alone', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     expect(screen.getByText(az.sectionTeam)).toBeTruthy()
     expect(screen.queryByText(az.kindLabel)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackLuft) }))
     expect(screen.getByText(az.kindLabel)).toBeTruthy()
     expect(screen.queryByText(az.sectionTeam)).toBeNull()
   })
 
-  it('a tablet keeps the single screen — the wizard is for 375px, not for touch', () => {
+  it('a tablet keeps the single screen — the stack is for 375px, not for touch', () => {
     mount({ trupps: [aktivTrupp()] }) // useIsPhone false
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    expect(screen.queryByRole('button', { name: az.wizardNext })).toBeNull()
+    expect(screen.queryByRole('button', { name: new RegExp(az.stackLuft) })).toBeNull()
     expect(screen.getByText(az.pressureLabel)).toBeTruthy() // everything is already there
     // …and there the chooser is still FIRST and spans the form, above the two columns it governs
     const body = document.querySelector(`.${s.modalBody}`)
@@ -620,44 +651,55 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(body?.firstElementChild?.textContent).toContain(az.kindLabel)
   })
 
-  /* ⚠️ Reversed on 03.09. This test used to pin «wizard off for a Trupp without Atemschutz».
-   * That made the form RESTRUCTURE itself under the thumb that had just tapped «Ohne Atemschutz»,
-   * which is the jarring part, not the length of step 2. The tap now only adds and drops the
-   * Druck row directly beneath the tiles — ordinary form behaviour — and never moves the step or
-   * touches step 1. */
-  it('keeps the two steps for a Trupp without Atemschutz, with a step 2 that has no Druck', () => {
+  /* ⚠️ Reversed on 03.09., and it still holds: the Art must never restructure the FORM, only
+   * what «Luft & Funk» contains. The tap adds and drops the Druck row inside the open section —
+   * ordinary form behaviour — and never moves which section is open or what the others hold. */
+  it('keeps the same three sections for a Trupp without Atemschutz, minus the Druck', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackLuft) }))
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
     fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
-    // the step itself is unchanged by the tap: same caption, same chooser, same rest of the step
-    expect(screen.getByText(new RegExp(az.wizardWhat))).toBeTruthy()
+    // the section itself is unchanged by the tap: still open, still the chooser, still the Kanal
+    expect(screen.getByRole('button', { name: new RegExp(az.stackLuft), expanded: true })).toBeTruthy()
     expect(screen.getByText(az.kindLabel)).toBeTruthy()
     expect(screen.getByText(az.funkkanalSection)).toBeTruthy()
-    expect(screen.getByText(az.zielLabel)).toBeTruthy()
     // …minus the one field a Verkehrstrupp has no cylinder for
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
-    // and step 1 is untouched — walking back finds the Mannschaft where it was left
-    fireEvent.click(screen.getByRole('button', { name: az.wizardBack }))
-    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+    // and the other sections are untouched — the Mannschaft is where it was left
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackTeam) }))
     expect(screen.getByText(az.sectionTeam)).toBeTruthy()
   })
 
-  /* The walk-back keys off the wizard alone, so a plain Trupp gets the same «Speichern» that
-   * points at the missing Gruppenführer instead of sitting there doing nothing (02.09.). */
-  it('walks a plain Trupp back to step 1 when the Gruppenführer is missing', () => {
+  /* The «point at what blocks the save» path keys off the stack alone, so a plain Trupp gets the
+   * same «Speichern» that opens the section holding the missing Gruppenführer instead of sitting
+   * there doing nothing (02.09.). */
+  it('opens the Mannschaft when a plain Trupp is saved without a Gruppenführer', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ trupps: [aktivTrupp()], createTrupp })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    fireEvent.click(screen.getByRole('button', { name: az.wizardNext }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackLuft) }))
     fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
     fireEvent.click(screen.getByRole('button', { name: az.start }))
     expect(createTrupp).not.toHaveBeenCalled()
-    expect(screen.getByText(new RegExp(az.wizardWho))).toBeTruthy()
+    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: true })).toBeTruthy()
     expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+  })
+
+  /* ⚠️ A section can be CLOSED again, including the one that opened first (field feedback,
+   * 04.09.). Three collapsed lines that each read their own answer is the overview the stack
+   * exists for — locking one open would make it a wizard with extra steps. */
+  it('lets every section be closed again, leaving three lines that still say everything', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [aktivTrupp()] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackTeam) }))
+    expect(screen.queryByText(az.sectionTeam)).toBeNull()
+    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: false })).toBeTruthy()
+    // …and the one control that finishes the job is still right there, never behind a step
+    expect(screen.getByRole('button', { name: az.start })).toBeTruthy()
   })
 
   /* ONE placeholder for every Auftrag (03.09.): «z. B. 2OG links» proposed a storey to a

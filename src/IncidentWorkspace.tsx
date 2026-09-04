@@ -3952,12 +3952,6 @@ export function IncidentWorkspace({
       if (truppId) void adoptTruppMarker(truppId, t.annoId)
       else releaseTruppMarker(t.annoId)
     },
-    // a marker bound to a Trupp paints the TRUPP (card, plan chip and Lage marker follow); a
-    // loose one has no Trupp to write and just takes the colour itself — the native rule
-    color: (t: MapContentTwin, c: string | null) => {
-      if (t.anno.truppId) setTruppColor(t.anno.truppId, c)
-      else editPlanTwinSource(t, { color: c ?? undefined })
-    },
     // marking is the ONLY way a position is recorded, on every surface: a dot exists exactly
     // where somebody chose to log one (useTeamMarkerActions · markTeamPosition)
     mark: (t: MapContentTwin) => {
@@ -4223,13 +4217,16 @@ export function IncidentWorkspace({
             else releaseTruppMarker(entityId)
           }}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
-          onTeamRename={tacticalLocked ? undefined : renameTeam}
-          // a marker bound to a Trupp paints the TRUPP (board card + plan chip follow); a loose
-          // team marker has no Trupp to write, so it just takes the colour itself
+          // ⚠️ The LAST colour picker in the app (04.09.): the marker on the Karte, and only it.
+          // The Trupp form stopped asking, the plan chip and both mirrors never offer it — this
+          // is the deliberate exception, because the Lage is where a colour is actually read.
+          // A marker bound to a Trupp paints the TRUPP (board card + plan chip follow); a loose
+          // team marker has no Trupp to write, so it just takes the colour itself.
           onTeamColor={tacticalLocked ? undefined : (e, c) => {
             if (e.truppId) setTruppColor(e.truppId, c)
             else patchEntity(e.id, { color: c ?? undefined })
           }}
+          onTeamRename={tacticalLocked ? undefined : renameTeam}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
           preparedOverlays={preparedOverlays}
           // Georeferenz twins: every linked plan's symbols, mirrored onto the map. Read-only,
@@ -5415,7 +5412,6 @@ export function IncidentWorkspace({
           twinTeam={tacticalLocked ? undefined : {
             rename: renameTeam,
             pick: (id, truppId) => { if (truppId) void adoptTruppMarker(truppId, id); else releaseTruppMarker(id) },
-            color: (e, c) => { if (e.truppId) setTruppColor(e.truppId, c); else patchEntity(e.id, { color: c ?? undefined }) },
             mark: markTeamPosition,
             clearTrail: (id) => { void clearTeamTrail(id) },
             remove: (id) => { void deleteEntity(id) },
@@ -5594,8 +5590,6 @@ export function IncidentWorkspace({
           onLineRenumber={syncLineNoToTrupp}
           // the plan chip's twin of the map marker's jump — it points at the card too
           onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
-          // the chip's colour grid paints the TRUPP, so its board card and its Lage marker follow
-          onTruppColor={tacticalLocked ? undefined : (truppId, c) => setTruppColor(truppId, c)}
           planScale={planScale}
           onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
         />

@@ -1028,13 +1028,12 @@ export function AtemschutzView({
           lite={!!lite}
           // ⚠️ EVERY phone, not only the handed-over one (03.09.). `compact` is `useIsPhone`, so a
           // tablet — where the whole form stands in one glance — keeps the single screen; the
-          // wizard exists for the 375px case, and the app's own phone layout had exactly the fold
-          // the link board got the wizard for. Outside the link, step 2 additionally carries the
-          // «Art des Trupps» tiles at its top plus Leitung and Farbe (all gated `!lite`), which is
-          // why its caption asks what the Trupp is doing rather than naming the Luft. And EVERY
-          // Art of Trupp walks those two steps — a Trupp ohne Atemschutz simply gets a shorter
-          // step 2 (no Druck) — see TruppForm.
-          wizard={compact}
+          // stack exists for the 375px case, where the single screen puts the fields that start
+          // the safety clock below a fold nobody knows is there. Outside the link the sections
+          // additionally carry the «Art des Trupps» tiles and the Ltg-Nr. (both gated `!lite`),
+          // and EVERY Art of Trupp gets the same three sections — a Trupp ohne Atemschutz simply
+          // has no Druck row inside «Luft & Funk» — see TruppForm.
+          stack={compact}
           onAddGuest={onAddGuest}
           onCancel={() => setForm(null)} onSubmit={submitForm}
         />
@@ -1832,34 +1831,82 @@ function TruppCard({
 /**
  * ONE shared form for create / edit / re-deploy, in one of two shapes.
  *
- * ⚠️ The rule used to be «single screen, never a wizard» (3am tenet) and it is now narrower than
- * that, because the screen it was written for is not the only one any more:
- *   · On anything with room — tablet, desktop — it is ONE screen. Nothing is behind a step,
+ * ⚠️ The rule used to be «single screen, never a wizard» (3am tenet). It is now narrower than
+ * that, because the screen it was written for is not the only one any more — but the WIZARD is
+ * gone again (04.09.), and what replaced it is closer to the original rule than the two steps
+ * ever were:
+ *   · On anything with room — tablet, desktop — it is ONE screen. Nothing is behind a section,
  *     nothing has to be walked to, and the whole Trupp is visible while it is being formed.
- *   · On a PHONE it is two steps (`wizard`): «Wer bildet den Trupp?» with the entire screen for
- *     the roster, then «Was machen sie?». Handed over by QR since 02.09., the main board's phone
- *     layout since 03.09. — the same form, so nobody learns two. The reason is the same one that
- *     turned the phone board into rows: at 375px the single screen put Druck, Kanal and Auftrag
- *     below a fold nobody knew was there, and the fields that start the safety clock were the
- *     ones that fell off. Steps can be walked freely in both directions, editing starts on
- *     step 2, and only the final submit gates on a valid Trupp — a wizard that can trap you at
- *     3am would be worse than the fold.
- *   · ⚠️ EVERY kind of Trupp gets those two steps (03.09.). Until then the wizard was PA-only, so
- *     tapping «Ohne Atemschutz» collapsed the form to one screen and re-flowed everything below
- *     it. THAT was the jarring part, not the length of step 2: a form must not restructure itself
- *     because the Art toggle moved. A plain Trupp's step 2 is simply shorter (Kanal · Auftrag ·
- *     Ziel, and no Druck — `showPressure` already gates it).
- *   · ⚠️ «Art des Trupps» rides with the fields it GOVERNS, so in the wizard it leads step 2 and
- *     step 1 is the Mannschaft alone (03.09.). Adding or dropping the Druck row directly under
- *     the tile that asked for it is ordinary form behaviour; what it must never do is change
- *     which step you are on or what the other step contains.
+ *   · On a PHONE it is a STACK of three sections (`stack`): Mannschaft · Luft & Funk · Auftrag &
+ *     Leitung. All three are on screen at all times; exactly one is open and the other two read
+ *     their own answers out beside their titles («Unter Atemschutz · 300 bar · Kanal 5»), so the
+ *     closed stack IS the form rather than a table of contents for it. Sections can be opened in
+ *     any order and closed again — three answered lines is a legitimate, and useful, state.
+ *   · ⚠️ It was a two-STEP wizard from 02.09. to 04.09., and the reason it went is not that the
+ *     fold it fixed came back — it did not. It is that the wizard grew its OWN fold: step 2
+ *     carried seven fields (Art · Druck · Kanal · Auftrag · Ziel · Leitung · Farbe) and ran off
+ *     the bottom of a 375px screen, while the common Trupp — GF + 2, full cylinder, default
+ *     channel — still had to walk a «Weiter» that asked nothing it had not already answered. The
+ *     stack has no step to walk and no fold to fall off: what does not fit scrolls, and the one
+ *     control that starts the Trupp is pinned in the footer the whole time.
+ *   · ⚠️ EVERY kind of Trupp gets the same three sections (03.09., and unchanged by the rework).
+ *     The Art may add or drop the Druck row inside «Luft & Funk» — ordinary form behaviour — but
+ *     it must never change the SHAPE of the form. Collapsing to one screen under the thumb that
+ *     had just tapped «Ohne Atemschutz» was the jarring part, not the length of a step.
+ *   · ⚠️ «Art des Trupps» rides with the fields it GOVERNS (03.09.): on one screen it spans the
+ *     form above both columns, on the stack it leads «Luft & Funk». Section 1 is the Mannschaft
+ *     alone, because who is in the Trupp is the one thing the Art does not decide.
  *
  * Leads with the AUFTRAG (what the Trupp is sent to do — the order you check them against on every
  * Kontakt), then the Trupp; the Druck section belongs to Atemschutz alone, and «Art des Trupps»
  * is asked once, at creation, because it cannot be changed afterwards (types · Trupp.kind).
+ *
+ * ⚠️ There is NO colour picker any more (04.09.), on any layout. The colour is still per-Trupp
+ * and still automatic — the field simply stopped being asked; see `color` in `submit`.
  */
+
+/**
+ * One row of the phone stack: a 56px header that carries the section's own ANSWER, and the
+ * fields themselves when it is open.
+ *
+ * ⚠️ Module level on purpose. Defined inside `TruppForm` this is a new component type on every
+ * render, so React unmounts and remounts its subtree — and the Mannschaftssuche inside it would
+ * lose the caret on every keystroke.
+ */
+function StackRow({ n, label, summary, due, done, open, onToggle, children }: {
+  n: number
+  label: string
+  /** what the closed row says instead of the fields — «Unter Atemschutz · 300 bar · Kanal 5» */
+  summary: string
+  /** the answer is missing and worth saying so — the ONE amber word in the form */
+  due?: boolean
+  /** answered (a default counts): the number becomes a tick */
+  done: boolean
+  open: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cx(s.sec, open && s.secOpen, done && !open && s.secDone)}>
+      <button type="button" className={s.secHead} aria-expanded={open} onClick={onToggle}>
+        <span className={s.secNo}>{done && !open ? <Icon id="check" /> : n}</span>
+        <span className={s.secTxt}>
+          <b>{label}</b>
+          {/* the answer only when it is not standing right below anyway */}
+          {!open && <span className={cx(due && s.secDue)}>{summary}</span>}
+        </span>
+        <Icon id={open ? 'chevron-down' : 'chevron'} />
+      </button>
+      {open && <div className={s.secBody}>{children}</div>}
+    </div>
+  )
+}
+
+/** Which part of the phone stack is open. Also the id every «point at the field that blocks
+ *  the save» path uses, because a field can only be rung once its section is open. */
+type StackSection = 'team' | 'luft' | 'auftrag'
 function TruppForm({
-  mode, initial, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, lite = false, wizard = false, onAddGuest, onCancel, onSubmit,
+  mode, initial, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, lite = false, stack = false, onAddGuest, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -1878,17 +1925,17 @@ function TruppForm({
   /** the Leitungen drawn on either surface (lib/truppLines · leitungOptions) — offered as
    *  quick-picks so the number is chosen from what exists, not typed blind */
   leitungOptions: LeitungOption[]
-  /** the handed-over «Tafel pur» (see AtemschutzView · lite): drops the Farbe picker (a
-   *  Lage/Plan matter this session cannot see) and the ENTIRE Ltg-Nr. row (reverted, round 2
-   *  review — briefly shown 02.09.). A link holder has no picture to read a hose number off and
-   *  no surface to draw one on, so the field could only ever be a number typed blind — and one
-   *  Leitung, one Trupp is enforced against what is actually drawn regardless (see submitForm's
-   *  takeover confirm). The FU sets it on the KP tablet. */
+  /** the handed-over «Tafel pur» (see AtemschutzView · lite): drops the ENTIRE Ltg-Nr. row
+   *  (reverted, round 2 review — briefly shown 02.09.) and the «Art des Trupps» chooser. A link
+   *  holder has no picture to read a hose number off and no surface to draw one on, so the field
+   *  could only ever be a number typed blind — and one Leitung, one Trupp is enforced against
+   *  what is actually drawn regardless (see submitForm's takeover confirm). The FU sets it on
+   *  the KP tablet. (It used to drop the Farbe picker too; there is no picker any more.) */
   lite?: boolean
-  /** two steps instead of one scroll — set for ANY phone since 03.09. (it was the handed-over
-   *  board's own layout from 02.09.), and for any Art of Trupp. See the two-shapes note above the
-   *  component: nothing about the Art may change the SHAPE of the form, only its step 2. */
-  wizard?: boolean
+  /** three sections instead of one scroll — set for ANY phone, and for any Art of Trupp. See the
+   *  two-shapes note above the component: nothing about the Art may change the SHAPE of the
+   *  form, only what «Luft & Funk» contains. */
+  stack?: boolean
   /** record a hand-typed Gast on the Anwesenheit as well — being put in a Trupp IS being here */
   onAddGuest?: (name: string) => string | undefined
   /** `standby` (re-deploy only) parks the Trupp as Reserve instead of sending it straight in */
@@ -1912,9 +1959,12 @@ function TruppForm({
   const [lineNo, setLineNo] = useState<number | null>(initial?.lineNo ?? null)
   const legacyLine = initial?.lineNo == null ? initial?.lineNumber?.trim() : undefined
   const [funkkanal, setFunkkanal] = useState<number>(initial?.funkkanal ?? defaultFunkkanal)
-  // null = automatic (the station colour for this Auftrag, else the next free palette colour).
-  // A picked colour is used as picked, duplicates included — see Trupp.color.
-  const [color, setColor] = useState<string | null>(initial?.color ?? null)
+  // ⚠️ Read, never written (04.09.): the picker is gone from every layout. `null` means
+  // «automatic» — the station colour for this Auftrag, else the next free palette colour (see
+  // Trupp.color) — and that is what every new Trupp gets. A Trupp created while the picker
+  // existed keeps its colour because the form hands the stored value straight back; editing one
+  // must not repaint a Trupp that is already drawn on the Lage and on the plan.
+  const color = initial?.color ?? null
   // ONE list, leader first (see TruppTeam): `team[0]` IS the Gruppenführer, which is also the
   // order the card, the Rapport and the map tag print. The record on disk keeps its old shape
   // (`name` + `members`), so nothing that ever read a Trupp has to change.
@@ -2007,15 +2057,18 @@ function TruppForm({
   }, [team, assignedIds])
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
   const canSubmit = auftragOk && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
-  const [step, setStep] = useState<1 | 2>(mode === 'create' ? 1 : 2)
-  // ⚠️ The KIND has no say in WHETHER there is a wizard (03.09., see the note above the
-  // component). It used to — `wizard && isPa` — and the price was a form that collapsed from two
-  // steps to one under the thumb that had just tapped «Ohne Atemschutz». A plain Trupp walks the
-  // same two steps; its step 2 is just shorter, because `showPressure` drops the Druck by itself.
-  // ⚠️ `showRest` also carries the «Art des Trupps» chooser (see the JSX): the tiles belong above
-  // the fields they govern, and every one of those is in here.
-  const showTeam = !wizard || step === 1
-  const showRest = !wizard || step === 2
+  /* ── The phone STACK (04.09.) ─────────────────────────────────────────────────────────────
+   * Which of the three sections is open. `null` = all collapsed, which is a legitimate state:
+   * the whole form is then three lines that read their own answers, and that overview is what
+   * the stack is FOR. Editing opens «Luft & Funk» (the Eingangsdruck is what an edit is usually
+   * for), a card gap opens the section that closes it, and creating opens the Mannschaft. */
+  const [openSection, setOpenSection] = useState<StackSection | null>(
+    focusSection === 'auftrag' ? 'auftrag' : mode === 'create' ? 'team' : 'luft',
+  )
+  /** open it, or close it again if it is the open one — three collapsed lines that each read
+   *  their own answer is the overview the stack exists for, so closing must stay possible
+   *  (field feedback 04.09.) */
+  const toggleSection = (id: StackSection) => setOpenSection((cur) => (cur === id ? null : id))
 
   const dropDraft = () => { clearAuftrag(); clearZiel(); clearTeam() }
   const submit = (standby = false) => {
@@ -2036,7 +2089,12 @@ function TruppForm({
       pressure: isPa ? pressure : 0,
       leaderPersonId: team[0].personId,
       memberPersonIds: memberPersonIds.length ? memberPersonIds : undefined,
-      color, // null = automatic
+      // ⚠️ PASSED THROUGH, never chosen (04.09.). The colour picker is gone from every layout;
+      // `null` means «automatic» (the station colour for this Auftrag, else the next free one —
+      // see Trupp.color), which is what a new Trupp now always gets. An OLDER Trupp that was
+      // created while the picker existed keeps the colour it was given: editing must not repaint
+      // a Trupp that is already drawn on the Lage and on the plan.
+      color,
       kind,
     }, standby)
   }
@@ -2053,6 +2111,15 @@ function TruppForm({
     el.classList.add(s.formFlash)
     window.setTimeout(() => el.classList.remove(s.formFlash), 1900)
   }
+  /** Point at a field that is inside a COLLAPSED section: open it first, then ring it on the
+   *  next frame (it does not exist in the DOM until the section opens). On one screen the
+   *  section is already open and this is just the ring. */
+  const pointAt = (id: StackSection, el: () => HTMLElement | null) => {
+    if (stack && openSection !== id) {
+      setOpenSection(id)
+      requestAnimationFrame(() => flashSection(el()))
+    } else flashSection(el())
+  }
   /**
    * «Speichern» while the Trupp isn't valid yet used to just sit there disabled — with Art
    * «Anderes» and an empty Auftrag/Ziel, nothing on screen said why (field feedback, 02.09.:
@@ -2060,286 +2127,283 @@ function TruppForm({
    * is no longer natively `disabled` (which swallows the tap outright and cannot explain
    * itself, and the OS-notification affordance for that ANYWAY-focusable state is `aria-disabled`
    * instead) — a blocked tap now points at and flashes the one field actually holding it back,
-   * in the same precedence `canSubmit` itself checks. A wizard step whose reason lives on the
-   * OTHER step (the team) walks back to it first.
+   * in the same precedence `canSubmit` itself checks. On the stack a reason that lives in a
+   * collapsed section opens that section first (`pointAt`).
    */
   const attemptSubmit = (standby = false) => {
     if (canSubmit) { submit(standby); return }
     if (!leaderOk) {
       toast(az.saveBlockedTeam, { icon: 'warn', tone: 'warn' })
-      if (wizard && step !== 1) { setStep(1); requestAnimationFrame(() => flashSection(teamRef.current)) }
-      else flashSection(teamRef.current)
+      pointAt('team', () => teamRef.current)
       return
     }
     // the conflict already prints its own sentence right on the form (see below) — a toast
-    // repeating it would say the same thing twice, so this only points at it
+    // repeating it would say the same thing twice, so this only points at it. It is rendered
+    // outside the sections, so it is on screen whatever is open.
     if (assignedConflict) { flashSection(conflictRef.current); return }
     if (!auftragOk) {
       toast(az.saveBlockedAuftrag, { icon: 'warn', tone: 'warn' })
-      flashSection(auftragRef.current); flashSection(zielRef.current)
+      pointAt('auftrag', () => auftragRef.current)
+      if (!stack || openSection === 'auftrag') flashSection(zielRef.current)
+      else requestAnimationFrame(() => flashSection(zielRef.current))
       return
     }
     if (showPressure && pressure <= 0) {
       toast(az.saveBlockedPressure, { icon: 'warn', tone: 'warn' })
-      flashSection(pressureRef.current)
+      pointAt('luft', () => pressureRef.current)
     }
   }
 
   const title = mode === 'edit' ? az.formEditTitle : mode === 'redeploy' ? az.formRedeployTitle : az.formCreateTitle
   const submitLabel = mode === 'edit' ? az.save : mode === 'redeploy' ? az.reenterSubmit : az.start
 
+  /* ── What a COLLAPSED section says ────────────────────────────────────────────────────────
+   * Each one reads its own answer out in plain words, so the closed stack IS the form: three
+   * lines that can be checked at a glance. A section whose answer is only a default still says
+   * it — «300 bar · Kanal 5» is a statement to verify, not a blank to remember. */
+  const summaryTeam = team.length
+    ? team.map((m, i) => (i === 0 ? fillTemplate(az.stackLeader, { name: m.name.trim(), role: az.leaderBadge }) : m.name.trim()))
+      .filter(Boolean).join(' · ')
+    : az.stackTeamEmpty
+  const summaryLuft = [
+    isPa ? az.kindAtemschutz : az.kindPlain,
+    showPressure ? fillTemplate(az.stackPressure, { n: pressure }) : null,
+    fillTemplate(az.stackFunk, { n: funkkanal }),
+  ].filter(Boolean).join(' · ')
+  // ⚠️ Auftrag AND Leitung, because they are one section now (04.09.). The Leitung is part of
+  // what the Trupp is doing; a fourth section for one number cost a row the Mannschaftsliste
+  // needs more. On the lite Tafel there is no Ltg field at all, so the line is dropped too.
+  const auftragText = auftrag ? (az.auftragLabels[auftrag] ?? auftrag) : null
+  const summaryAuftrag = [
+    [auftragText, ziel.trim()].filter(Boolean).join(' – ') || az.auftragOpen,
+    lite ? null : lineNo ? fillTemplate(az.stackLine, { n: lineNo }) : az.stackNoLine,
+  ].filter(Boolean).join(' · ')
+
+  /* ── The three groups of fields ───────────────────────────────────────────────────────────
+   * Written once and placed twice: on one screen they fill the two columns, on the stack they
+   * are the bodies of the three sections. That is what keeps the two layouts the same form —
+   * same fields, same order, same words, only a different way of reaching them. */
+  /* ⚠️ While creating one AND while editing one (04.09., commit «the Art of a Trupp can be
+   * changed after the fact») — not on re-deploy: «Wieder einrücken» is about sending the same
+   * Trupp in again, and the two decisions must not ride on one button. The change is not free,
+   * it starts or stops a safety watch; `editTrupp` owns what that writes and the confirm in front
+   * of a downgrade lives in `submitForm`. */
+  const kindChooser = (mode === 'create' || mode === 'edit') && !lite ? (
+    <div className={s.field}>
+      <span>{az.kindLabel}</span>
+      <div className={s.kindSeg} role="radiogroup" aria-label={az.kindLabel}>
+        <button type="button" role="radio" aria-checked={isPa}
+          className={cx(s.kindOpt, isPa && s.on)} onClick={() => setKind('atemschutz')}>
+          <Icon id="gauge" />
+          <span className={s.kindOptTxt}><b>{az.kindAtemschutz}</b><span>{az.kindAtemschutzHint}</span></span>
+        </button>
+        <button type="button" role="radio" aria-checked={!isPa}
+          className={cx(s.kindOpt, !isPa && s.on)} onClick={() => setKind('einfach')}>
+          <Icon id="people" />
+          <span className={s.kindOptTxt}><b>{az.kindPlain}</b><span>{az.kindPlainHint}</span></span>
+        </button>
+      </div>
+    </div>
+  ) : null
+
+  const teamFields = (
+    <div ref={teamRef} className={s.field}>
+      <span>{az.sectionTeam}</span>
+      {/* One list, leader first. A Trupp is valid with exactly one name (the Gruppenführer),
+          so a two-person Trupp, a four-person Trupp and a mis-tap are all one tap apart —
+          which the three fixed slots could not do. */}
+      <TruppTeam
+        value={team} onChange={setTeam}
+        personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
+        assignedIds={assignedIds} rolesById={rolesById} onAddGuest={onAddGuest}
+      />
+    </div>
+  )
+
+  const luftFields = (
+    <>
+      {showPressure && (
+        <div ref={pressureRef} className={s.field}>
+          {/* ⚠️ An UPGRADE asks for a FIRST Eingangsdruck, never «korrigieren» — the latter would
+              claim the Trupp already had one (04.09.). */}
+          <span>{mode === 'redeploy' ? az.newPressureLabel
+            : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel}</span>
+          <PressureStepper value={pressure} onChange={setPressure} compact />
+          {/* said out loud, because the same ± on the CARD does the opposite: there it is a
+              Druckmeldung and resets the contact clock. Here it corrects the record. */}
+          {isEdit && !upgrading && <p className={s.fieldNote}>{az.editPressureHint}</p>}
+        </div>
+      )}
+      {/* Kanal rides with the Druck: two short numbers between two big buttons, the pair you set
+          on every single Trupp.
+          ⚠️ No section headings in here. Uppercase labels over rules cut the form into boxes and
+          each rule cost a row; every field already says what it is, and «AUFTRAG» over a field
+          called «Auftrag / Ziel» was the same word twice. (On the stack the section header IS
+          that heading — which is why it is the only one.) */}
+      <div className={s.field}>
+        <span>{az.funkkanalSection}</span>
+        <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
+      </div>
+    </>
+  )
+
+  const auftragFields = (
+    <>
+      {/* «Auftrag offen» flashes BOTH halves of the answer — «Art» AND «Auftrag / Ziel»
+          (field decision 30.08.): the gap on the card is the pair, not one field. */}
+      <div ref={auftragRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
+        <span>{az.auftragLabel}</span>
+        {/* The list that matches the Trupp's KIND — a Verkehrstrupp was being offered «Löschen»
+            (field report 03.09.). Both lists are six tiles, so the form keeps its shape; and
+            `sichern`/`anderes` are literally the same id on both sides, so switching the tiles
+            above cannot invalidate a value that is already picked. */}
+        <Segmented
+          ariaLabel={az.auftragLabel}
+          value={auftrag ?? undefined}
+          onChange={(v) => setAuftrag(v)}
+          options={auftragTypes.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
+        />
+      </div>
+      <label ref={zielRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
+        <span>{az.zielLabel}</span>
+        {/* ✕: a Trupp that comes back and goes in again gets a NEW order, and the old one is not
+            a starting point for typing it — «2. OG Wohnung Nord, 2 Personen vermisst» had to be
+            select-all-deleted by hand on a phone, mid-Einsatz. */}
+        {/* ⚠️ ONE placeholder, for every Auftrag and both Arten (03.09.). It used to switch —
+            «z. B. 2OG links» normally, the generic sentence only under «Anderes» — and a storey
+            reference is Atemschutz vocabulary: under Auftrag «Verkehr» the example proposed a
+            place that does not exist there. */}
+        <ClearableInput
+          value={ziel} placeholder={az.zielPlaceholder}
+          // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
+          // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
+          maxLength={60}
+          clearLabel={az.zielClear}
+          onChange={(v) => setZiel(stripUnprintable(v))}
+        />
+      </label>
+      {/* The SAME 1–99 number the DrawEditor stamps on a hose — one type on both sides is what
+          lets a Trupp and a drawn Leitung find each other without anyone re-typing anything
+          (lib/truppLines). A Trupp recorded before this was free text keeps its text below; it
+          is never rewritten.
+          ⚠️ NOT on the lite form (reverted, round 2 review — briefly shown 02.09.): a link
+          holder has no picture to read a hose number off and no surface to draw one on, so the
+          field could only ever be a number typed blind — and one Leitung, one Trupp is enforced
+          against what is actually drawn regardless (see submitForm's takeover confirm). The FU
+          sets it on the KP tablet.
+          ⚠️ Since 04.09. the Leitung belongs to THIS group rather than to a section of its own:
+          it is part of what the Trupp is doing, and the Farbe it used to share a block with is
+          gone (see `color` in submit). */}
+      {!lite && (
+        <div className={cx(s.field, s.lineField)}>
+          <span>{az.lineNoLabel}</span>
+          {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
+              isn't drawn yet, the chips are the common case, and stacking them cost three rows
+              of a form that has to fit on a tablet in one glance */}
+          <div className={s.lineRow}>
+            <Stepper
+              value={lineNo} min={1} max={99} placeholder="–"
+              onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
+              ariaLabel={az.lineNoLabel}
+            />
+            {/* The Leitungen that are actually DRAWN. Typing a number blind is how the two sides
+                end up disagreeing — the hose usually exists long before anyone registers the
+                Trupp. A number someone else is on stays pickable (real incidents need
+                corrections) but says whose it is. */}
+            {leitungOptions.length > 0 && (
+              <div className={s.lineOpts}>
+                <span className={s.lineOptsLabel}>{az.lineOptsLabel}</span>
+                {leitungOptions.map((o) => (
+                  <button
+                    key={o.no} type="button"
+                    className={cx(s.lineOpt, lineNo === o.no && s.on, !!o.takenBy && s.taken)}
+                    title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
+                    onClick={() => setLineNo(o.no)}
+                  >
+                    {o.no}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
+        </div>
+      )}
+    </>
+  )
+
   // portal to <body> so the modal escapes the .surface stacking context (z-index 20) and covers
   // the TopBar ("+ Eintrag", z-index 40) instead of rendering beneath it
   return (
-    <Overlay open onClose={onCancel} className={cx(s.modal, wizard && s.modalWizard)} ariaLabel={title}>
+    <Overlay open onClose={onCancel} className={cx(s.modal, stack && s.modalStack)} ariaLabel={title}>
       <div className={s.modalHead}>
         <h3>{title}</h3>
         <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
       </div>
-      {wizard && (
-        <>
-          <div className={s.steps} aria-hidden><span className={s.stepOn} /><span className={cx(step === 2 && s.stepOn)} /></div>
-          {/* both captions are the step's QUESTION — steps can be walked freely, so step 2 must
-              say what it asks even when nobody is picked yet.
-              ⚠️ «Was machen sie?», not «Luft»: outside the handed-over board step 2 also carries
-              Leitung und Farbe, so naming it after the cylinder would describe a third of it —
-              and since 03.09. a Trupp ohne Atemschutz walks the same two steps, where there is no
-              cylinder at all. Both captions therefore hold for BOTH Arten, and neither is
-              kind-aware on purpose — now more than ever: «Art des Trupps» LEADS step 2, so a
-              caption that switched with the tile would rewrite the heading two rows above the
-              thumb that just tapped it. It stays «Was machen sie?» and covers the Art as well —
-              unter oder ohne Atemschutz zu arbeiten IS part of what they do, and a two-clause
-              heading («Was für ein Trupp – und was macht er?») buys nothing a glance can use.
-              Step 1 asks «Wer bildet den Trupp?» and is now purely that — the names, nothing
-              else; «Wer geht rein?» was true only while the wizard was PA-only (copy ·
-              atemschutz.wizardWho). */}
-          <div className={s.stepCap}>
-            {fillTemplate(az.wizardStep, { n: step })} · {step === 1 ? az.wizardWho : az.wizardWhat}
+
+      <div className={s.modalBody}>
+        {stack ? (
+          /* ── PHONE: three sections, all of them always on screen ──────────────────────────
+             Replaces the two-step wizard (02.–04.09.). The wizard fixed the fold it was built
+             for and then grew its own: step 2 carried seven fields and ran off the bottom of a
+             375px screen, and the common Trupp — GF + 2, full cylinder, default channel — still
+             had to walk through a «Weiter» that asked nothing. Here nothing is behind a step,
+             every section says what it holds even while closed, and «Trupp anmelden» sits in
+             the footer from the first moment. */
+          <div className={s.stack}>
+            <StackRow
+              n={1} label={az.stackTeam} summary={summaryTeam} due={!leaderOk} done={leaderOk}
+              open={openSection === 'team'} onToggle={() => toggleSection('team')}
+            >
+              {teamFields}
+            </StackRow>
+            {/* ⚠️ «Art des Trupps» rides with the fields it GOVERNS (03.09.) — the Druck it adds
+                or drops, and the Auftrag list it narrows. So it leads this section rather than
+                standing on one of its own, and section 1 is the Mannschaft alone: who is in the
+                Trupp is the one thing the Art does not decide. */}
+            <StackRow
+              n={2} label={az.stackLuft} summary={summaryLuft} done
+              open={openSection === 'luft'} onToggle={() => toggleSection('luft')}
+            >
+              {kindChooser}
+              {luftFields}
+            </StackRow>
+            <StackRow
+              n={3} label={az.stackAuftrag} summary={summaryAuftrag} due={!auftragText} done={!!auftragText}
+              open={openSection === 'auftrag'} onToggle={() => toggleSection('auftrag')}
+            >
+              {auftragFields}
+            </StackRow>
           </div>
-        </>
-      )}
+        ) : (<>
+          {/* ── ONE SCREEN (tablet, desktop): nothing has to be walked to, and the whole Trupp
+              is visible while it is being formed. ORDER: what starts the clock comes first —
+              who goes in, and with how much air.
+              «Art des Trupps» spans both columns above the fields it governs (see above). */}
+          {kindChooser && <div className={s.formColWide}>{kindChooser}</div>}
+          <div className={s.formCol}>{teamFields}</div>
+          <div className={s.formCol}>{luftFields}{auftragFields}</div>
+        </>)}
 
-        <div className={s.modalBody}>
-          {/* ⚠️ ORDER. What starts the clock comes first: who goes in, and with how much air.
-              Everything else is refinement and lives one tap away — on a phone the old order put
-              five optional fields between the EL and the two mandatory ones. */}
-          {/* ── «Art des Trupps» ────────────────────────────────────────────────────────────
-              While creating one and while EDITING one (04.09. — not on re-deploy, see above),
-              and always ABOVE THE
-              FIELDS IT GOVERNS — it decides what the rest of this form even asks (Druck), which
-              Auftrag list is offered, which section the card lands in and whether the Trupp is on
-              the Atemschutz page of the Rapport. That rule, not a fixed position, is what places
-              it, and the two layouts read it the same way:
-                · one screen (tablet/desktop): the governed fields are the whole form, so the
-                  chooser is first and spans both columns above them.
-                · wizard (phone): the governed fields are step 2, so it leads step 2 — hence
-                  `showRest`, not `showTeam`. The one thing the Art does NOT govern is who is in
-                  the Trupp, which is why step 1 is the Mannschaft alone (03.09.). Ordering it
-                  before the team column in JSX is therefore only about the single-screen case;
-                  in the wizard the two never render together anyway.
-              Never on the handed-over Tafel: that session operates the Atemschutzüberwachung, so
-              «ohne Atemschutz» is not a thing it may create.
-              Two labelled tiles rather than a Segmented pair: the choice is not a yes/no property
-              of a Trupp, it is which of two different things is being registered, and each side
-              says what it brings with it (recognition over recall). */}
-          {(mode === 'create' || mode === 'edit') && !lite && showRest && (
-            <div className={s.formColWide}>
-              <div className={s.field}>
-                <span>{az.kindLabel}</span>
-                <div className={s.kindSeg} role="radiogroup" aria-label={az.kindLabel}>
-                  <button type="button" role="radio" aria-checked={isPa}
-                    className={cx(s.kindOpt, isPa && s.on)} onClick={() => setKind('atemschutz')}>
-                    <Icon id="gauge" />
-                    <span className={s.kindOptTxt}><b>{az.kindAtemschutz}</b><span>{az.kindAtemschutzHint}</span></span>
-                  </button>
-                  <button type="button" role="radio" aria-checked={!isPa}
-                    className={cx(s.kindOpt, !isPa && s.on)} onClick={() => setKind('einfach')}>
-                    <Icon id="people" />
-                    <span className={s.kindOptTxt}><b>{az.kindPlain}</b><span>{az.kindPlainHint}</span></span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showTeam && (
-          <div className={s.formCol}>
-            <div ref={teamRef} className={s.field}>
-              <span>{az.sectionTeam}</span>
-            {/* One list, leader first. A Trupp is valid with exactly one name (the
-                Gruppenführer), so a two-person Trupp, a four-person Trupp and a mis-tap are all
-                one tap apart — which the three fixed slots could not do. */}
-            <TruppTeam
-              value={team} onChange={setTeam}
-              personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
-              assignedIds={assignedIds} rolesById={rolesById} onAddGuest={onAddGuest}
-            />
-            </div>
-          </div>
-          )}
-
-          {showRest && (
-          <div className={s.formCol}>
-            {showPressure && (
-              <div ref={pressureRef} className={s.field}>
-                {/* ⚠️ An UPGRADE is not a correction. The Trupp had no cylinder a moment ago, so
-                    this is a first Eingangsdruck being recorded, not the record being rewritten —
-                    and «Eingangsdruck korrigieren» over an empty stepper would say the opposite of
-                    what is happening (04.09.). */}
-                <span>{mode === 'redeploy' ? az.newPressureLabel
-                  : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel}</span>
-                <PressureStepper value={pressure} onChange={setPressure} compact />
-                {/* said out loud, because the same ± on the CARD does the opposite: there it is a
-                    Druckmeldung and resets the contact clock. Here it corrects the record. */}
-                {isEdit && !upgrading && <p className={s.fieldNote}>{az.editPressureHint}</p>}
-              </div>
-            )}
-
-            {/* Kanal rides with the Druck: two short numbers between two big buttons, the pair
-                you set on every single Trupp. Everything below is the Auftrag — worth having,
-                never a reason to hold a Trupp at the door.
-                ⚠️ No section headings in here. Uppercase labels over rules cut the form into
-                four boxes and each rule cost a row, in a modal sized to a tablet; every field
-                already says what it is, and «AUFTRAG» over a field called «Auftrag / Ziel» was
-                the same word twice. */}
-            <div className={s.field}>
-              <span>{az.funkkanalSection}</span>
-              <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
-            </div>
-
-            {/* «Auftrag offen» flashes BOTH halves of the answer — «Art» AND «Auftrag / Ziel»
-                (field decision 30.08.): the gap on the card is the pair, not one field. */}
-            <div ref={auftragRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
-              <span>{az.auftragLabel}</span>
-              {/* The list that matches the Trupp's KIND — a Verkehrstrupp was being offered
-                  «Löschen» (field report 03.09.). Both lists are six tiles, so the form keeps
-                  its shape; `sichern` and `anderes` are literally the same id on both sides
-                  (config · atemschutz.auftragEinfach), so switching the tiles above cannot
-                  invalidate a value that is already picked. */}
-              <Segmented
-                ariaLabel={az.auftragLabel}
-                value={auftrag ?? undefined}
-                onChange={(v) => setAuftrag(v)}
-                options={auftragTypes.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
-              />
-            </div>
-            <label ref={zielRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
-              <span>{az.zielLabel}</span>
-              {/* ✕: a Trupp that comes back and goes in again gets a NEW order, and the old one
-                  is not a starting point for typing it — «2. OG Wohnung Nord, 2 Personen
-                  vermisst» had to be select-all-deleted by hand on a phone, mid-Einsatz. */}
-              {/* ⚠️ ONE placeholder, for every Auftrag and both Arten (03.09.). It used to switch
-                  — «z. B. 2OG links» normally, the generic sentence only under «Anderes» — and a
-                  storey reference is Atemschutz vocabulary: under Auftrag «Verkehr» the example
-                  proposed a place that does not exist there. */}
-              <ClearableInput
-                value={ziel} placeholder={az.zielPlaceholder}
-                // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
-                // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
-                maxLength={60}
-                clearLabel={az.zielClear}
-                onChange={(v) => setZiel(stripUnprintable(v))}
-              />
-            </label>
-            {/* The SAME 1–99 number the DrawEditor stamps on a hose — one type on both sides is
-                what lets a Trupp and a drawn Leitung find each other without anyone re-typing
-                anything (lib/truppLines). A Trupp recorded before this was free text keeps its
-                text below; it is never rewritten.
-                ⚠️ NOT on the lite form (reverted, round 2 review — briefly shown 02.09. after a
-                field report, «no picture, no point» wasn't a strong enough reason at the time):
-                a link holder has no picture to read a hose number off and no surface to draw one
-                on, so the field could only ever be a number typed blind — and one Leitung, one
-                Trupp is enforced against what is actually drawn regardless (see submitForm's
-                takeover confirm). The FU sets it on the KP tablet. */}
-            {!lite && (
-            <div className={cx(s.field, s.lineField)}>
-              <span>{az.lineNoLabel}</span>
-              {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
-                  isn't drawn yet, the chips are the common case, and stacking them cost three
-                  rows of a form that has to fit on a tablet in one glance */}
-              <div className={s.lineRow}>
-                <Stepper
-                  value={lineNo} min={1} max={99} placeholder="–"
-                  onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
-                  ariaLabel={az.lineNoLabel}
-                />
-                {/* The Leitungen that are actually DRAWN. Typing a number blind is how the two
-                    sides end up disagreeing — the hose usually exists long before anyone
-                    registers the Trupp. A number someone else is on stays pickable (real
-                    incidents need corrections) but says whose it is. */}
-                {leitungOptions.length > 0 && (
-                  <div className={s.lineOpts}>
-                    <span className={s.lineOptsLabel}>{az.lineOptsLabel}</span>
-                    {leitungOptions.map((o) => (
-                      <button
-                        key={o.no} type="button"
-                        className={cx(s.lineOpt, lineNo === o.no && s.on, !!o.takenBy && s.taken)}
-                        title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
-                        onClick={() => setLineNo(o.no)}
-                      >
-                        {o.no}{o.onPlan ? ' ·\u00a0P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
-            </div>
-            )}
-            {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
-                normal case (every Trupp a different one); picking is for when the EL would rather
-                read the picture by role — «alle Löschtrupps rot» — and a duplicate is then the
-                point, not a mistake, so nothing here refuses one. */}
-            {/* Not on the handed-over form: the colour is a Lage/plan matter, and «automatisch» is
-                exactly what a phone at the Eingang should get — one thing less to decide. */}
-            {!lite && (
-            <div className={s.field}>
-              <span>{az.colorLabel}</span>
-              <div className={s.colorRow}>
-                <button
-                  type="button" className={cx(s.colorAuto, color == null && s.on)} aria-pressed={color == null}
-                  title={az.colorAutoHint} onClick={() => setColor(null)}
-                >{az.colorAuto}</button>
-                {appConfig.drawing.teamColors.map((c) => (
-                  <button
-                    key={c} type="button" className={cx(s.colorDot, color === c && s.on)} style={{ background: c }}
-                    aria-label={c} aria-pressed={color === c} onClick={() => setColor(c)}
-                  />
-                ))}
-              </div>
-            </div>
-            )}
-          </div>
-          )}
-
-          {assignedConflict && (
-            <p ref={conflictRef} className={cx(s.formColWide, s.formWarn)}>
-              <Icon id="warn" /><span>{fillTemplate(az.assignedConflict, { name: assignedConflict })}</span>
-            </p>
-          )}
-        </div>
+        {assignedConflict && (
+          <p ref={conflictRef} className={cx(s.formColWide, s.formWarn)}>
+            <Icon id="warn" /><span>{fillTemplate(az.assignedConflict, { name: assignedConflict })}</span>
+          </p>
+        )}
+      </div>
 
       <div className={s.modalFoot}>
-        {/* the house button family — three private classes here were the last of this modal's own
-            design system (see Atemschutz.module.css · .modal) */}
+        {/* the house button family — three private classes here were the last of this modal's
+            own design system (see Atemschutz.module.css · .modal) */}
         {/* the ONLY control that throws the draft away — ✕ and the backdrop keep it */}
-        {wizard && step === 2 ? (
-          <button className="ip-btn ghost" onClick={() => setStep(1)}>{az.wizardBack}</button>
-        ) : (
-          <button className="ip-btn ghost" onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
-        )}
-        {wizard && step === 1 ? (
-          /* never disabled — the steps can be walked freely; only the final submit gates on a
-             valid Trupp (canSubmit) */
-          <button className="ip-btn primary" onClick={() => setStep(2)}>{az.wizardNext}</button>
-        ) : (<>
-        {/* Re-deploy forks here: a re-equipped Trupp is just as often held back as Sicherungstrupp
-            as it is sent straight in. Both buttons take the same filled-in form, so the choice
-            costs nothing — and «Bereitstellen» is the one that must NOT start a contact clock.
-            It is also what actually happens first: a Trupp comes out, gets a fresh bottle and
-            waits. So on re-deploy «Bereitstellen» carries the primary weight and «Einrücken»
-            steps back — the ORDER stays as it was, only the emphasis swaps, so nobody has to
-            re-learn where the button is. */}
+        <button className="ip-btn ghost" onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
+        {/* Re-deploy forks here: a re-equipped Trupp is just as often held back as
+            Sicherungstrupp as it is sent straight in. Both buttons take the same filled-in form,
+            so the choice costs nothing — and «Bereitstellen» is the one that must NOT start a
+            contact clock. It is also what actually happens first: a Trupp comes out, gets a
+            fresh bottle and waits. So on re-deploy «Bereitstellen» carries the primary weight
+            and «Einrücken» steps back — the ORDER stays as it was, only the emphasis swaps, so
+            nobody has to re-learn where the button is. */}
         {/* ⚠️ Under PA only. «Bereitstellen» exists because a re-equipped Trupp is as often held
             back as Sicherungstrupp as it is sent in — and a Sicherungstrupp is by definition a
             crew standing by under Atemschutz. A work squad has one way back in. */}
@@ -2349,14 +2413,14 @@ function TruppForm({
             {az.reenterStandby}
           </button>
         )}
-        {/* ⚠️ `aria-disabled`, not `disabled` (field feedback, 02.09.): a native `disabled` button
-            swallows the tap before it ever reaches a handler, which is exactly what left
+        {/* ⚠️ `aria-disabled`, not `disabled` (field feedback, 02.09.): a native `disabled`
+            button swallows the tap before it ever reaches a handler, which is exactly what left
             «Speichern» unresponsive with nothing to explain why. This one stays clickable and
-            `attemptSubmit` decides — flash the missing field when blocked, submit when not. */}
-        {/* …and it takes the primary weight back when «Bereitstellen» is not there to carry it */}
+            `attemptSubmit` decides — flash the missing field when blocked, submit when not.
+            ⚠️ …and since 04.09. it is the ONLY forward control on a phone as well: there is no
+            «Weiter» in front of it any more. */}
         <button className={cx(mode === 'redeploy' && isPa ? 'ip-btn' : 'ip-btn primary', !canSubmit && s.btnBlocked)}
           aria-disabled={!canSubmit} onClick={() => attemptSubmit()}>{submitLabel}</button>
-        </>)}
       </div>
     </Overlay>
   )

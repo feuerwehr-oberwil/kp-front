@@ -996,14 +996,22 @@ export const en: Localizable<Copy> = {
     linkReentryHint: 'The link leads back to this board – if the page is closed by accident, simply open the QR code again.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     liteNewTab: 'Team',
-    /** the two-step form on ANY phone, for any kind of team (TruppForm · wizard). Step 1 no
-     *  longer asks «who goes in?» — a team without SCBA goes nowhere in, and its kind is chosen
-     *  on that very step (see de.ts). */
-    wizardWho: 'Who is in the team?',
-    wizardWhat: 'What are they doing?',
-    wizardNext: 'Next',
-    wizardBack: 'Back',
-    wizardStep: 'Step {n} of 2',
+    /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
+     *  wizard. Titles name the FIELDS; a collapsed section reads its own answer out beside the
+     *  title, and «Order & line» is one section (see de.ts). */
+    stackTeam: 'Crew',
+    stackLuft: 'Air & radio',
+    stackAuftrag: 'Order & line',
+    stackTeamEmpty: 'Nobody picked yet',
+    stackLeader: '{name} ({role})',
+    stackPressure: '{n} bar',
+    stackFunk: 'Channel {n}',
+    stackLine: 'Line {n}',
+    stackNoLine: 'Line –',
+    // no longer asked in the Trupp form (04.09.) – still offered on the Lage/plan and in admin
+    colorLabel: 'Colour',
+    colorAuto: 'Automatic',
+    colorAutoHint: 'The station colour for this order, else the next free one – every team a different colour.',
     // sync/clock status in the board header (see de.ts)
     syncStand: '{status} – as of {t}',
     clockSkewChip: 'Device clock is off ({d} min)',
@@ -1090,9 +1098,6 @@ export const en: Localizable<Copy> = {
     reenterSubmit: 'Deploy',
     reenterStandby: 'Put on standby',
     reenterStandbyHint: 'Register the team as reserve – the contact clock only starts on «Deploy».',
-    colorLabel: 'Colour',
-    colorAuto: 'Automatic',
-    colorAutoHint: 'The station colour for this order, else the next free one – every team a different colour.',
     sinceContact: 'Since last contact',
     elapsed: 'Deployment time',
     outFor: 'Out for',
@@ -1413,7 +1418,6 @@ export const en: Localizable<Copy> = {
     clearTrail: 'Clear trail',
     clearTrailConfirm: 'Delete all {n} marked positions of {name}? The trail disappears from map and plan.',
     trailCleared: '{name}: trail cleared',
-    teamColor: 'Color',
     trails: 'Trails',
     trailsOn: 'Show trails',
     trailsOff: 'Hide trails',
@@ -3293,7 +3297,7 @@ export const en: Localizable<Copy> = {
       alarmBarRueckzugDisabledTip: 'Disabled in the public demo because the alarm pressure is set to 0.',
       alarmBarRueckzugInvalid: 'Value not stored yet – expected is a whole number above 0 and at most {max} (not above the alarm pressure; the withdrawal line alarms earlier, not later).',
       defaultPressure: 'Entry pressure (bar)',
-      defaultPressureTip: 'Fill pressure the team wizard starts with (e.g. a 300 bar cylinder in service).',
+      defaultPressureTip: 'Fill pressure the Trupp form starts with (e.g. a 300 bar cylinder in service).',
       pressureStep: 'Pressure step (bar)',
       pressureStepTip: 'Step of the ± pressure controls; inputs snap to this grid.',
       pressureMax: 'Pressure maximum (bar)',

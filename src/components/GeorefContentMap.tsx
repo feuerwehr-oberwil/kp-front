@@ -90,7 +90,6 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
   teamActions?: {
     rename: (twin: MapContentTwin, name: string) => void
     pick: (twin: MapContentTwin, truppId?: string) => void
-    color: (twin: MapContentTwin, color: string | null) => void
     mark: (twin: MapContentTwin) => void
     clearTrail: (twin: MapContentTwin) => void
     remove: (twin: MapContentTwin) => void
@@ -528,7 +527,6 @@ export function GeorefContentMap({ twins, zoom, bearing, trupps = [], truppSever
                   acts={{
                     rename: (name) => teamActions!.rename(t, name),
                     pick: (truppId) => teamActions!.pick(t, truppId),
-                    color: (c) => teamActions!.color(t, c),
                     mark: () => teamActions!.mark(t),
                     clearTrail: () => teamActions!.clearTrail(t),
                     remove: () => teamActions!.remove(t),
