@@ -100,6 +100,83 @@ export function entityEditChanges(prev: Entity, next: Entity): string[] {
   return out
 }
 
+/** One open edit window: the state it STARTED in, the freshest state seen, and its timer. */
+export interface EditSettle<T> {
+  /** report one edit — opens a window, or keeps the open one's base and pushes its close out */
+  push(id: string, before: T, after: T): void
+}
+
+/**
+ * A settle window per object: one Verlauf row per EDIT, written once the editing stops.
+ *
+ * The inspector writes on every keystroke, so a row per patch is a row per character typed into a
+ * name field. The row is composed from the state the editing STARTED in against the freshest one
+ * seen — per object, so editing two symbols in the same four seconds stays two rows about two
+ * things.
+ *
+ * ⚠️ `stillEditing` is what makes the window a WINDOW rather than a timeout (04.09.). A plain
+ * settle assumes a pause means «done», and a sentence typed on a tablet is nothing but pauses —
+ * a Notiz went into the 03.09. Rapport as «Notiz «1 Roller in en»», «…in ennen» and «…innen»,
+ * three rows of one sentence. While the caller says the edit is still going on, the window
+ * re-arms instead of closing; last value wins. The Rapportangaben logger solved the same problem
+ * the same way (IncidentWorkspace · saveReportMeta), which is why this is one mechanism.
+ */
+export function createEditSettle<T>({ ms, stillEditing, onSettled }: {
+  ms: number
+  /** is this object still being edited right now? — asked when the window would close */
+  stillEditing: (id: string) => boolean
+  onSettled: (id: string, base: T, latest: T) => void
+}): EditSettle<T> {
+  const open = new Map<string, { base: T; latest: T; timer: ReturnType<typeof setTimeout> }>()
+  const arm = (id: string): ReturnType<typeof setTimeout> => setTimeout(() => {
+    const cur = open.get(id)
+    if (!cur) return
+    if (stillEditing(id)) { cur.timer = arm(id); return }
+    open.delete(id)
+    onSettled(id, cur.base, cur.latest)
+  }, ms)
+  return {
+    push(id, before, after) {
+      const cur = open.get(id)
+      if (cur) clearTimeout(cur.timer)
+      open.set(id, { base: cur?.base ?? before, latest: after, timer: arm(id) })
+    },
+  }
+}
+
+/**
+ * Which of a symbol's roster fields have to be re-filed against the Anwesenheit after an edit.
+ *
+ * A name typed into «Fahrer», «Name» or «Stv.» is a job handed to somebody who is standing there,
+ * and filing it marks them present and writes their Funktion — which is a Verlauf row. So this
+ * has to answer «what actually moved», and nothing else: re-filing an unchanged field re-opens a
+ * presence block somebody closed on purpose and re-states a Funktion that never changed.
+ *
+ * ⚠️ A missing key and an empty one are the SAME thing (04.09.). The panel seeds every preset
+ * field as a row, blank ones included, and commits the whole record — so a symbol that had never
+ * carried a «Bezeichnung» suddenly carried `''`, `undefined !== ''` said a field had moved, and
+ * every roster field on the symbol was re-filed. That is how naming the Einsatzleiter at 08:10
+ * re-stated a Stv. set at 08:01.
+ *
+ * ⚠️ `force`, and a changed NON-roster field, still re-file everybody — deliberately. The
+ * Bemerkung a field writes is built from the symbol's label and its other fields («Fahrer TLF»),
+ * so when one of those moves, the name beside it has to reach the Anwesenheit again even though
+ * the name itself did not change (lib/roleAssignment · rosterFieldRole).
+ */
+export function rosterFieldsToRefile(
+  before: Record<string, string> | undefined,
+  fields: Record<string, string>,
+  rosterFields: readonly string[],
+  opts?: { force?: boolean },
+): { key: string; value: string }[] {
+  const had = (k: string) => (before?.[k] ?? '').trim()
+  const jobChanged = !!opts?.force
+    || Object.entries(fields).some(([k, v]) => !rosterFields.includes(k) && had(k) !== v.trim())
+  return Object.entries(fields)
+    .filter(([k, v]) => rosterFields.includes(k) && !!v.trim() && (jobChanged || had(k) !== v.trim()))
+    .map(([key, value]) => ({ key, value }))
+}
+
 /** The name a Verlauf row calls this symbol — its own label, else the symbol's name. */
 export function entityLogName(e: Entity): string {
   return (e.label ?? '').trim() || e.symbol || appConfig.copy.entities.fallbackObjectName

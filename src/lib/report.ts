@@ -215,6 +215,13 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   // branch: an «Auftrag» with an Erinnerung is still an Auftrag. Covers the whole lifecycle
   // (created, Meldung, erledigt) — every one of those rows is about the item.
   if (e.kind === 'reminder' || e.reminder) return appConfig.copy.journal.noteChip
+  // ⚠️ …and a divergence the sync merge raised is about the ANWESENHEIT, whatever glyph it wears.
+  // Those rows carry icon 'warn' — they ARE a warning, and the Verlauf's disc has to say so
+  // (lib/attendanceConflict · conflictRows) — which the icon chain below cannot map, so «Anwesenheit
+  // Stich Markus: … bitte prüfen» printed under «Kroki» on the 03.09. Rapport. The `conflict`
+  // payload is the honest handle: only the Anwesenheit's rows carry one, both the `raised` and the
+  // `resolved` half of the pair, and it is on every such row ever written.
+  if (e.conflict) return r.areaAnwesenheit
   if (e.kind === 'audio' || e.kind === 'photo' || e.kind === 'journal' || e.pinned) return r.areaManual
   // ── then by ICON, which is what actually separates the writers ──
   // ⚠️ Every row the QR poster writes has NO kind at all (lib/captureClient · row), so a rule
@@ -577,7 +584,7 @@ export function readingBarShown(r: Pick<TruppReading, 'kind' | 'bar'>): boolean 
 export function truppRunTimes(
   readings: readonly Pick<TruppReading, 't' | 'kind'>[] | undefined,
   fallback: { entryTime?: string; exitTime?: string },
-): { entries: string[]; exits: string[] } {
+): { entries: string[]; exits: string[]; registered: string[] } {
   const of = (kind: TruppReading['kind']) =>
     (readings ?? []).filter((r) => r.kind === kind).map((r) => r.t).filter(Boolean)
   const entries = of('entry')
@@ -585,6 +592,13 @@ export function truppRunTimes(
   return {
     entries: entries.length ? entries : ([fallback.entryTime].filter(Boolean) as string[]),
     exits: exits.length ? exits : ([fallback.exitTime].filter(Boolean) as string[]),
+    // ⚠️ The ANMELDUNG travels too (04.09.). A Trupp that never went in prints one line —
+    // «Nicht eingesetzt: …» — and that line carried the Draussen stamp alone, so the sheet said
+    // 06:50 about a crew that had stood ready since 06:32 and the reader had no way to see the
+    // difference. It is a span like every other row in the block, so it prints as one. No
+    // fallback: a log without a `registered` row simply has no Anmeldung to name, and the line
+    // falls back to what it always printed (backend · _meta_bits).
+    registered: of('registered'),
   }
 }
 

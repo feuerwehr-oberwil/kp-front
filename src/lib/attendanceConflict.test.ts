@@ -139,12 +139,12 @@ describe('conflictWhat — what the row actually says', () => {
   // and that cannot be answered from one of them.
   it('names both Funktionen, and calls neither of them discarded', () => {
     expect(conflictWhat(c({ note: 'Fahrer PIO' }, { note: 'AS' })))
-      .toBe('zwei Funktionen erfasst – «Fahrer PIO» und «AS»')
+      .toBe('zwei Funktionen – «Fahrer PIO» und «AS»')
   })
 
   it('does not claim two when only one side carried a Funktion', () => {
-    expect(conflictWhat(c({ note: 'Fahrer PIO' }, {}))).toBe('Funktion «Fahrer PIO» nur auf einem Gerät erfasst')
-    expect(conflictWhat(c({}, { note: 'AS' }))).toBe('Funktion «AS» nur auf einem Gerät erfasst')
+    expect(conflictWhat(c({ note: 'Fahrer PIO' }, {}))).toBe('Funktion «Fahrer PIO» nur auf einem Gerät')
+    expect(conflictWhat(c({}, { note: 'AS' }))).toBe('Funktion «AS» nur auf einem Gerät')
   })
 
   it('names every field that diverged', () => {
@@ -152,7 +152,21 @@ describe('conflictWhat — what the row actually says', () => {
       key: 'p1',
       mine: entry('present', 'Martina Marco', { ort: 'station' }),
       theirs: entry('left', 'Martina Marco', { leftAt: '2026-07-18T20:00:00Z' }),
-    })).toBe('Anwesenheit abweichend erfasst · Standort abweichend erfasst · unterschiedliche Zeiten erfasst')
+    })).toBe('Status abweichend · Standort abweichend · unterschiedliche Zeiten')
+  })
+
+  // ⚠️ 03.09. Rapport: «Anwesenheit Stich Markus: Anwesenheit abweichend erfasst ·
+  // unterschiedliche Zeiten erfasst – bitte prüfen.» The fragments are written INTO a sentence
+  // that has already named the Anwesenheit, and each of them said the same two words again.
+  it('⚠️ says «Anwesenheit» and «erfasst» once — the composed line is what gets printed', () => {
+    const [row] = attendanceConflictRows([{
+      key: 'p1',
+      mine: entry('present', 'Stich Markus', { ort: 'station' }),
+      theirs: entry('left', 'Stich Markus', { leftAt: '2026-07-18T20:00:00Z' }),
+    }], new Set())
+    expect(row.text).toBe('Anwesenheit Stich Markus: Status abweichend · Standort abweichend · unterschiedliche Zeiten – bitte prüfen.')
+    expect(row.text.match(/Anwesenheit/g)).toHaveLength(1)
+    expect(row.text).not.toMatch(/erfasst/)
   })
 
   // an entry written before `ort` existed reads as 'scene' everywhere else — it must not report a

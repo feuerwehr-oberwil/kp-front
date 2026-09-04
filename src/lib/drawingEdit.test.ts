@@ -29,8 +29,20 @@ describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
     expect(drawingEditChanges(line({ floorTag: -1 }), line({}))).toEqual(['Stockwerk entfernt'])
   })
 
+  // ⚠️ 03.09. Rapport: «Pfeil: Abschluss: Pfeil». The caller writes «{name}: {changes}», and a
+  // line whose Abschluss is an arrow IS called «Pfeil» — so naming the value spelled the row's
+  // own name a second time. The value is the first word of the line; the change names the field.
+  it('does not stutter when the value would repeat the drawing’s own name', () => {
+    expect(drawingEditChanges(line({}), line({ arrow: true }))).toEqual(['Abschluss gesetzt'])
+    // …and a CORRECTION says so, with the same word left out
+    expect(drawingEditChanges(line({ teilstueck: true }), line({ arrow: true }))).toEqual(['Abschluss geändert'])
+    // the value survives wherever it is not the name — «Linie: Abschluss auf Teilstück geändert»
+    expect(drawingLogName(line({ teilstueck: true }))).not.toBe('Teilstück')
+    expect(drawingEditChanges(line({ arrow: true }), line({ teilstueck: true })))
+      .toEqual(['Abschluss auf Teilstück geändert'])
+  })
+
   it('reports the Abschluss as one statement, whatever combination of flags carries it', () => {
-    expect(drawingEditChanges(line({}), line({ arrow: true }))).toEqual(['Abschluss: Pfeil'])
     expect(drawingEditChanges(line({ arrow: true }), line({ arrow: true, arrowStop: true })))
       .toEqual(['Abschluss auf Pfeil mit Stopp geändert'])
     expect(drawingEditChanges(line({ arrow: true }), line({ teilstueck: true })))

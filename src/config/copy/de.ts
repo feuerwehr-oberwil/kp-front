@@ -1074,6 +1074,12 @@ export const de = {
     fieldSet: '{field}: {value}',
     fieldChanged: '{field} auf {value} geändert',
     fieldCleared: '{field} entfernt',
+    /** ⚠️ Dieselben zwei Aussagen OHNE Wert – für den einen Fall, in dem der Wert den Namen der
+     *  Zeile wiederholen würde. Eine Linie mit Pfeil-Abschluss heisst «Pfeil» (drawingLogName),
+     *  und mit «{name}: {changes}» davor stand am 03.09. «Pfeil: Abschluss: Pfeil» im Rapport.
+     *  Der Wert steht dann schon als erstes Wort der Zeile; siehe lib/drawingEdit. */
+    fieldSetPlain: '{field} gesetzt',
+    fieldChangedPlain: '{field} geändert',
     labelSet: 'Beschriftung «{value}»',
     labelCleared: 'Beschriftung entfernt',
     floorSet: 'Stockwerk {value}',
@@ -1247,12 +1253,18 @@ export const de = {
     // ⚠️ BEIDE Funktionen, und keine davon als «verworfen». Wer das liest, muss entscheiden,
     // welche stimmt – dafür braucht er beide nebeneinander. Welche gerade im Datensatz steht,
     // ist eine Folge der Zusammenführung (jüngste gewinnt) und nicht die Frage, die sich stellt.
-    attendanceConflictTwoNotes: 'zwei Funktionen erfasst – «{a}» und «{b}»',
+    /* ⚠️ Diese Bruchstücke stehen NIE für sich: sie werden mit « · » aneinandergereiht und in
+       `attendanceConflict` eingesetzt, das «Anwesenheit {name}: » bereits davorgeschrieben hat.
+       Jedes von ihnen sagte das Wort «erfasst» noch einmal, und der Status sagte «Anwesenheit»
+       noch einmal – gedruckt kam «Anwesenheit Stich Markus: Anwesenheit abweichend erfasst ·
+       unterschiedliche Zeiten erfasst – bitte prüfen.» heraus (03.09.). Was doppelt dasteht,
+       steht hier nicht mehr. */
+    attendanceConflictTwoNotes: 'zwei Funktionen – «{a}» und «{b}»',
     // eine Seite trug keine – dann gibt es nichts zu vergleichen, nur eine zu prüfen
-    attendanceConflictOneNote: 'Funktion «{a}» nur auf einem Gerät erfasst',
-    attendanceConflictStatus: 'Anwesenheit abweichend erfasst',
-    attendanceConflictOrt: 'Standort abweichend erfasst',
-    attendanceConflictTimes: 'unterschiedliche Zeiten erfasst',
+    attendanceConflictOneNote: 'Funktion «{a}» nur auf einem Gerät',
+    attendanceConflictStatus: 'Status abweichend',
+    attendanceConflictOrt: 'Standort abweichend',
+    attendanceConflictTimes: 'unterschiedliche Zeiten',
     // nothing above matched — an entry gained a field this row does not know about yet
     attendanceConflictOther: 'abweichende Angaben zusammengeführt',
     /* ⚠️ Eine Abweichung wird ENTSCHIEDEN, nicht bloss quittiert (04.09., Rapport-Review). Der

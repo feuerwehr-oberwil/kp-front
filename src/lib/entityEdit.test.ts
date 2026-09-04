@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { entityEditChanges, entityLogName } from './entityEdit'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile } from './entityEdit'
 import type { Entity } from '../types'
 
 const sym = (over: Partial<Entity>): Entity => ({
@@ -103,5 +103,89 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
   it('calls the symbol by its label, falling back to the symbol name', () => {
     expect(entityLogName(sym({ label: 'EL Widmer' }))).toBe('EL Widmer')
     expect(entityLogName(sym({ label: '  ' }))).toBe('Einsatzleiter')
+  })
+})
+
+// Filing a name against the Anwesenheit marks somebody present and writes their Funktion — one
+// Verlauf row each. So this has to answer «what actually moved» and nothing more.
+describe('rosterFieldsToRefile (which names reach the Anwesenheit)', () => {
+  const ROSTER = ['Name', 'Stv.', 'Fahrer']
+  const refile = (
+    before: Record<string, string> | undefined,
+    fields: Record<string, string>,
+    opts?: { force?: boolean },
+  ) => rosterFieldsToRefile(before, fields, ROSTER, opts).map((f) => f.key)
+
+  it('takes the field somebody typed into, and leaves the rest alone', () => {
+    expect(refile({ 'Name': 'Widmer Céline' }, { 'Name': 'Widmer Céline', 'Stv.': 'Eichenberger Bastian' }))
+      .toEqual(['Stv.'])
+  })
+
+  // ⚠️ 03.09.: naming the Einsatzleiter at 08:10 re-filed — and re-logged — the Stv. set at
+  // 08:01. The panel seeds every preset field as a row and commits the whole record, so a
+  // «Funktion» the symbol had never carried arrived as `''`; against a missing key that read as
+  // a changed field, and a changed non-roster field re-files EVERY name on the symbol.
+  it('⚠️ does not read a seeded blank as a field that moved', () => {
+    expect(refile({ 'Name': 'Widmer Céline' }, { 'Name': 'Widmer Céline', 'Funktion': '' })).toEqual([])
+    expect(refile(undefined, { 'Name': '' })).toEqual([])
+  })
+
+  it('skips a field that was emptied — there is no name left to file', () => {
+    expect(refile({ 'Stv.': 'Eichenberger Bastian' }, { 'Stv.': '' })).toEqual([])
+  })
+
+  // …the deliberate half: the Bemerkung is built from the symbol and its other fields («Fahrer
+  // TLF»), so when one of THOSE moves, the unchanged name beside it has to be filed again.
+  it('re-files every name when the job around it changed, or the symbol was renamed', () => {
+    expect(refile({ 'Fahrer': 'Meier Anna', 'Funktion': 'SiBe' }, { 'Fahrer': 'Meier Anna', 'Funktion': 'AS' }))
+      .toEqual(['Fahrer'])
+    expect(refile({ 'Fahrer': 'Meier Anna' }, { 'Fahrer': 'Meier Anna' }, { force: true })).toEqual(['Fahrer'])
+  })
+})
+
+// ⚠️ 03.09. Rapport: one Notiz reached the journal as three rows — «Notiz «1 Roller in en»»,
+// «…in ennen», «…innen» — because a plain 4 s settle reads every pause as «the edit is over»,
+// and a sentence typed on a tablet is nothing but pauses.
+describe('createEditSettle (one row per edit, not per pause)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  const settle = (typing: () => boolean) => {
+    const rows: { id: string; base: string; latest: string }[] = []
+    const w = createEditSettle<string>({
+      ms: 4000,
+      stillEditing: typing,
+      onSettled: (id, base, latest) => rows.push({ id, base, latest }),
+    })
+    return { w, rows }
+  }
+
+  it('writes ONE row from the state the edit started in to the freshest one', () => {
+    const { w, rows } = settle(() => false)
+    w.push('e1', 'leer', 'in en')
+    vi.advanceTimersByTime(3000)
+    w.push('e1', 'in en', 'in ennen')
+    vi.advanceTimersByTime(4000)
+    expect(rows).toEqual([{ id: 'e1', base: 'leer', latest: 'in ennen' }])
+  })
+
+  it('⚠️ waits while the sentence is still being written, however long the pauses are', () => {
+    let typing = true
+    const { w, rows } = settle(() => typing)
+    w.push('e1', 'leer', 'in en')
+    vi.advanceTimersByTime(60_000)   // several settle windows' worth of pauses
+    expect(rows).toEqual([])
+    w.push('e1', 'in ennen', 'innen')
+    typing = false                    // the caret leaves the field
+    vi.advanceTimersByTime(4000)
+    expect(rows).toEqual([{ id: 'e1', base: 'leer', latest: 'innen' }])
+  })
+
+  it('keeps two objects edited in the same window apart', () => {
+    const { w, rows } = settle(() => false)
+    w.push('e1', 'a', 'a1')
+    w.push('e2', 'b', 'b1')
+    vi.advanceTimersByTime(4000)
+    expect(rows.map((r) => r.id).sort()).toEqual(['e1', 'e2'])
   })
 })

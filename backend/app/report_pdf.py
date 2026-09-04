@@ -25,6 +25,8 @@ import io
 import logging
 import re
 
+from PIL import Image as PILImage
+from PIL import ImageOps
 from pydantic import BaseModel, field_validator, model_validator
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -368,6 +370,10 @@ class TruppIn(BaseModel):
     #: the LAST cycle only, so the header used to print one pair over a table showing another.
     entryTimes: list[str] = []
     exitTimes: list[str] = []
+    #: The Anmeldung(en) of this Trupp — read ONLY by the «Nicht eingesetzt» line, which is the
+    #: one row that has no Eintritt to pair its Draussen stamp with. Optional: a log written
+    #: before 09.08. carries no `registered` row, and that line then prints as it always did.
+    registeredTimes: list[str] = []
     #: legacy single-cycle fields, kept so a payload queued by an older client (a print job
     #: waiting in the relay across a deploy) still composes. Folded into the lists on validation.
     entryTime: str | None = None
@@ -768,6 +774,17 @@ def _styles() -> dict[str, ParagraphStyle]:
     base = getSampleStyleSheet()
     ink = colors.HexColor("#1b2330")
     dim = colors.HexColor("#5b6573")
+
+    # ⚠️ THIN underlines, hung a little lower — for every style that can carry an `<a><u>…</u></a>`
+    # (src/lib/journalLinks.ts · linkMarkup writes them, `_tel_markup` writes the partner ones).
+    # ReportLab's default rule is heavy and sits tight under the baseline, and on the 03.09.
+    # Rapport the addresses and callback numbers in the journal read as struck through rather than
+    # as something to follow. 0.4pt, 18 % of the type size below the baseline: a link on paper is
+    # a hint, not a second sentence. The colour follows the text so the rule is never the darkest
+    # thing in its own line.
+    def link(color: colors.Color) -> dict[str, object]:
+        return {"underlineWidth": 0.4, "underlineOffset": "-0.18*F", "underlineColor": color}
+
     return {
         # the built-in Title style is CENTERED; force left so titles/headings sit at the margin
         # (the real alignment fix is zeroing the Frame side padding below).
@@ -819,7 +836,13 @@ def _styles() -> dict[str, ParagraphStyle]:
             leftIndent=0,
         ),
         "body": ParagraphStyle(
-            "rp_body", parent=base["Normal"], fontSize=10, leading=13.5, textColor=ink, alignment=TA_LEFT
+            "rp_body",
+            parent=base["Normal"],
+            fontSize=10,
+            leading=13.5,
+            textColor=ink,
+            alignment=TA_LEFT,
+            **link(ink),
         ),
         "label": ParagraphStyle(
             "rp_label",
@@ -830,7 +853,8 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica-Bold",
             spaceAfter=0,
         ),
-        "cell": ParagraphStyle("rp_cell", parent=base["Normal"], fontSize=9, leading=12, textColor=ink),
+        # the journal's Eintrag column — where nearly every link on the sheet actually lands
+        "cell": ParagraphStyle("rp_cell", parent=base["Normal"], fontSize=9, leading=12, textColor=ink, **link(ink)),
         "exercise": ParagraphStyle(
             "rp_exercise",
             parent=base["Normal"],
@@ -848,7 +872,7 @@ def _styles() -> dict[str, ParagraphStyle]:
         "subline": ParagraphStyle(
             "rp_subline", parent=base["Normal"], fontSize=8, leading=10.5, textColor=dim, leftIndent=8
         ),
-        "muted": ParagraphStyle("rp_muted", parent=base["Normal"], fontSize=9, leading=12, textColor=dim),
+        "muted": ParagraphStyle("rp_muted", parent=base["Normal"], fontSize=9, leading=12, textColor=dim, **link(dim)),
         "mono": ParagraphStyle(
             "rp_mono", parent=base["Normal"], fontSize=8.5, leading=11, textColor=ink, fontName="Courier"
         ),
@@ -861,7 +885,10 @@ def _styles() -> dict[str, ParagraphStyle]:
         ),
         # compact worksheet rows (roster / Material) — tight leading so a 66er roster
         # plus Material plus signatures still lands on two sheets
-        "rcell": ParagraphStyle("rp_rcell", parent=base["Normal"], fontSize=8.5, leading=10, textColor=ink),
+        # …and the partner table's callback numbers ride in this one (see `_tel_markup`)
+        "rcell": ParagraphStyle(
+            "rp_rcell", parent=base["Normal"], fontSize=8.5, leading=10, textColor=ink, **link(ink)
+        ),
         "rstub": ParagraphStyle(
             "rp_rstub", parent=base["Normal"], fontSize=8.5, leading=10, textColor=colors.HexColor("#969696")
         ),
@@ -1028,17 +1055,28 @@ def _wrap_value(text: str, max_w: float, font: str = "Helvetica", size: float = 
 
 
 def _link_tel_on_canvas(c, text: str, x: float, y: float, size: float) -> None:
-    """Lay a ``tel:`` link annotation over each phone number in canvas-drawn text.
+    """Underline and anchor each phone number in canvas-drawn text as a ``tel:`` link.
 
     ⚠️ The Details box is painted straight onto the canvas (`_FormRows`), not assembled from
     Paragraphs, so there is no markup to hang an `<a>` on: the hotspot has to be measured off the
     very x/y/font the `drawString` used. Without it the one number on the sheet that actually gets
     dialled — the Kontaktperson's, in the Nachbearbeitung the next morning — is the one number
     nobody can tap. `relative=1` because a Flowable draws in its own translated coordinate system.
+
+    ⚠️ …and the RULE is drawn here too (04.09.). A link annotation is invisible on paper and
+    invisible in most PDF readers, so this number was the only address on the whole Rapport with
+    nothing under it — the sheet marked every journal address and every partner's number and then
+    said nothing about the one in its own Details box. Same 0.4pt at 18 % of the type size the
+    Paragraph styles use (`_styles` · link), so a reader sees one treatment everywhere.
     """
     for start, end in _phone_spans(text):
         x0 = x + c.stringWidth(text[:start], "Helvetica", size)
         x1 = x0 + c.stringWidth(text[start:end], "Helvetica", size)
+        c.saveState()
+        c.setStrokeColor(_INK)
+        c.setLineWidth(0.4)
+        c.line(x0, y - 0.18 * size, x1, y - 0.18 * size)
+        c.restoreState()
         # `y` is the baseline; a finger needs the line box, so descend a quarter and rise
         # three quarters of the type size around it
         c.linkURL(_tel(text[start:end]), (x0, y - 0.25 * size, x1, y + 0.75 * size), relative=1)
@@ -1224,9 +1262,46 @@ def _logo_flowable(data: bytes | None) -> Image | None:
     return out
 
 
+#: Re-encoding quality for the one case that needs it — see `_exif_upright`. High enough that a
+#: photo turned the right way up is not visibly worse than the one that printed sideways.
+_UPRIGHT_QUALITY = 92
+
+
+def _exif_upright(data: bytes) -> bytes:
+    """``data`` with its EXIF orientation applied — or the very same bytes, untouched.
+
+    A phone writes the sensor's pixels plus a tag saying which way up they are. ReportLab reads
+    the pixels and ignores the tag, so a landscape photo held upright came off the printer on its
+    side (03.09. Journal). This is the same call `api/media.py · _render_thumb` makes on the
+    thumbnails, for the same reason: a picture on paper has no viewer to rotate it.
+
+    ⚠️ Only a picture that actually CARRIES a rotation is re-encoded. Everything else — the
+    rasterised Kroki, the plan pages, the logo, every PNG — is handed back byte-for-byte, so
+    nothing that already printed correctly can be changed by a round trip through the encoder.
+    And an unreadable file returns unchanged: `_fit_image` below is the one that decides whether
+    it is printable at all, and a rapport is never failed by a photo.
+    """
+    try:
+        with PILImage.open(io.BytesIO(data)) as im:
+            if im.getexif().get(0x0112, 1) in (1, None):  # 0x0112 = Orientation
+                return data
+            upright = ImageOps.exif_transpose(im) or im
+            buf = io.BytesIO()
+            if (im.format or "").upper() == "JPEG":
+                upright.convert("RGB").save(buf, format="JPEG", quality=_UPRIGHT_QUALITY, optimize=True)
+            else:
+                # keeps the alpha a JPEG would flatten — a rotated PNG is rare, silently
+                # losing its transparency on the one printed copy would not be
+                upright.save(buf, format="PNG")
+            return buf.getvalue()
+    except Exception:  # noqa: BLE001 — an undecodable picture is _fit_image's problem, not ours
+        return data
+
+
 def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
     if not data:
         return None
+    data = _exif_upright(data)
     try:
         iw, ih = ImageReader(io.BytesIO(data)).getSize()
     except Exception:  # noqa: BLE001 — unreadable image → no image, never a failed rapport
@@ -2008,7 +2083,20 @@ def compose_report_pdf(
                 # it as «Austritt» claimed the Trupp came out of something it never went into —
                 # on a Sicherungstrupp that is the difference between a crew that was exposed
                 # and one that was not, which is exactly what this sheet is read for.
-                bits.append((L["notDeployed"], ", ".join(tr.exitTimes)))
+                #
+                # ⚠️ As a SPAN, like every other row in this block (04.09.). The bare Draussen
+                # stamp read as the one thing that happened to this crew — the 03.09. sheet said
+                # «Nicht eingesetzt: 06:50» about a Sicherungstrupp that had stood ready since
+                # 06:32, and how long they stood there is the whole of what that row records.
+                # No Anmeldung in the log (a Trupp from before 09.08.) → the old single stamp.
+                bits.append(
+                    (
+                        L["notDeployed"],
+                        f"{tr.registeredTimes[0]} – {tr.exitTimes[-1]}"
+                        if tr.registeredTimes
+                        else ", ".join(tr.exitTimes),
+                    )
+                )
             return bits
 
         # ⚠️ ONE tab stop for the whole section, not one per Trupp. Sized per block, a Trupp with

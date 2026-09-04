@@ -399,8 +399,14 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // Austritte, and the header used to print the LAST pair over the FIRST cycle's rows (see
       // lib/report · truppRunTimes for why the card's own entryTime/exitTime are not the source).
       ...(() => {
-        const { entries, exits } = truppRunTimes(t.readings, { entryTime: t.entryTime, exitTime: t.exitTime })
-        return { entryTimes: entries.map(formatDateTime), exitTimes: exits.map(formatDateTime) }
+        const { entries, exits, registered } = truppRunTimes(t.readings, { entryTime: t.entryTime, exitTime: t.exitTime })
+        return {
+          entryTimes: entries.map(formatDateTime),
+          exitTimes: exits.map(formatDateTime),
+          // only the sheet's «Nicht eingesetzt» line reads this — the Anmeldung of a Trupp that
+          // never went in, so that row can print a span instead of its Draussen stamp alone
+          registeredTimes: registered.map(formatDateTime),
+        }
       })(),
       // ⚠️ A Trupp whose log is empty still has a pressure somebody read off the cylinder and
       // typed in. Trupps registered from 2026-08-09 open their log with it (useTruppActions ·

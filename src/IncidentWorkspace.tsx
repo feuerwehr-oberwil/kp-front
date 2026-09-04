@@ -167,7 +167,7 @@ import { markerOptions, placedTrupps, type PlacedTrupp } from './lib/placedTrupp
 import { serverNowIso } from './lib/serverClock'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
-import { entityEditChanges, entityLogName } from './lib/entityEdit'
+import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
@@ -211,8 +211,26 @@ const META_LOG_SETTLE_MS = 4000
  *  attribute). Free-TEXT only: a settle window held open by a focused Stepper button or a
  *  datetime input would never close — those keep the plain 4 s fallback (decided 29.08.). */
 function isTypingMetaField(): boolean {
-  const el = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null)
-  if (!el?.closest?.('[data-sync]')) return false
+  const el = focusedElement()
+  return !!el?.closest?.('[data-sync]') && isFreeText(el)
+}
+
+/** …and the same question for a symbol's own editor: the ContextPanel marks its free-text blocks
+ *  with `data-entity-edit`. Its Notiz field commits on BLUR, and on a tablet one sentence gets
+ *  blurred and picked up again three times — which is how «Notiz «1 Roller in en»», «…in ennen»
+ *  and «…innen» reached the 03.09. Rapport as three rows. While the caret is back in one of those
+ *  fields the Verlauf row waits (lib/entityEdit · createEditSettle). */
+function isTypingSymbolField(): boolean {
+  const el = focusedElement()
+  return !!el?.closest?.('[data-entity-edit]') && isFreeText(el)
+}
+
+const focusedElement = (): HTMLElement | null =>
+  typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null)
+
+/** Free TEXT only: a window held open by a focused Stepper button or a datetime input would never
+ *  close — those keep the plain settle (decided 29.08.). */
+function isFreeText(el: HTMLElement): boolean {
   if (el.isContentEditable || el.tagName === 'TEXTAREA') return true
   return el.tagName === 'INPUT' && ['text', 'tel', 'search', 'email'].includes((el as HTMLInputElement).type)
 }
@@ -572,21 +590,33 @@ export function IncidentWorkspace({
    * into a name field. The base is the entity as it stood when the editing STARTED, and the
    * line names what actually moved between those two points — per entity, so editing two
    * symbols in the same four seconds stays two rows about two symbols.
+   *
+   * ⚠️ …and the window RE-ARMS while the sentence is still being written (04.09.) — see
+   * `createEditSettle` and `isTypingSymbolField`. A plain settle read every pause as «done» and
+   * put a half-typed Notiz on the Rapport three times.
    */
-  const entityLogBase = useRef(new Map<string, { base: Entity; timer: ReturnType<typeof setTimeout> }>())
+  // ⚠️ Built ONCE per mount, so the open windows survive a re-render. Its callbacks close over
+  // `log` from the render that first opened one — which is safe, and only because `log` writes
+  // through the ref-held journal store (useJournal · append is stable per mount).
+  const entityLogSettle = useRef<EditSettle<Entity> | null>(null)
+  /** Streamed keystrokes, per entity — the on-canvas note editor has no panel to read focus off
+   *  (`noteTextLive` is its only signal), so it says so here instead. */
+  const entityTypedAt = useRef(new Map<string, number>())
   const noteEntityEdit = (before: Entity, after: Entity) => {
-    const open = entityLogBase.current.get(before.id)
-    const base = open?.base ?? before
-    if (open) clearTimeout(open.timer)
-    const timer = setTimeout(() => {
-      entityLogBase.current.delete(before.id)
-      const changes = entityEditChanges(base, after)
-      if (!changes.length) return
-      log('pen', fillTemplate(appConfig.copy.log.entityEdited, {
-        name: entityLogName(after), changes: changes.join(', '),
-      }), 'symbol', undefined, before.id)
-    }, META_LOG_SETTLE_MS)
-    entityLogBase.current.set(before.id, { base, timer })
+    entityLogSettle.current ??= createEditSettle<Entity>({
+      ms: META_LOG_SETTLE_MS,
+      stillEditing: (id) => isTypingSymbolField()
+        || Date.now() - (entityTypedAt.current.get(id) ?? 0) < META_LOG_SETTLE_MS,
+      onSettled: (id, base, latest) => {
+        entityTypedAt.current.delete(id)
+        const changes = entityEditChanges(base, latest)
+        if (!changes.length) return
+        log('pen', fillTemplate(appConfig.copy.log.entityEdited, {
+          name: entityLogName(latest), changes: changes.join(', '),
+        }), 'symbol', undefined, id)
+      },
+    })
+    entityLogSettle.current.push(before.id, before, after)
   }
 
   // one place that edits a single map entity: a discrete undo step + the audit
@@ -1144,6 +1174,9 @@ export function IncidentWorkspace({
   // edit into one undo step + a single audit event on blur. Mirrors the title editor.
   const noteTextLive = (id: string, v: string) => {
     if (tacticalLocked) return // setDocRaw bypasses commit's readOnly gate — a viewer must not type here
+    // …and the Verlauf's settle window learns that this note is still being written: the canvas
+    // editor is not inside a panel, so focus alone cannot tell (see noteEntityEdit)
+    entityTypedAt.current.set(id, Date.now())
     if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
     // a note that has never been resized by hand follows what is typed (lib/notes) — it grows
     // out of the minimum and stops at the maximum, where it wraps as it always did
@@ -3837,17 +3870,10 @@ export function IncidentWorkspace({
    */
   const ROSTER_FIELDS: readonly string[] = appConfig.symbols.rosterFields
   const linkRosterFields = (prev: Entity, fields: Record<string, string>, opts?: { force?: boolean }) => {
-    const before = prev.fields ?? {}
-    // ⚠️ A changed FUNKTION has to reach the person too, and the name beside it did not move —
-    // so «Meier, SiBe» corrected to «Meier, Atemschutz» would otherwise leave the Anwesenheit
-    // saying SiBe forever. The job is what this field records; re-file the name when it changes.
-    // `force` = the SYMBOL changed rather than a field — its label is part of what the Bemerkung
-    // says, so the same names have to be re-filed against the new one.
-    const jobChanged = opts?.force
-      || Object.entries(fields).some(([k, v]) => !ROSTER_FIELDS.includes(k) && before[k] !== v)
-    for (const [k, v] of Object.entries(fields)) {
-      if (!ROSTER_FIELDS.includes(k) || !v.trim()) continue
-      if (before[k] === v && !jobChanged) continue
+    // ⚠️ Which fields actually moved is a decision with edge cases (a seeded blank is not a
+    // change; a changed FUNKTION has to re-file the name beside it), so it lives in
+    // lib/entityEdit · rosterFieldsToRefile with its own tests rather than inline here.
+    for (const { key: k, value: v } of rosterFieldsToRefile(prev.fields, fields, ROSTER_FIELDS, opts)) {
       // which job this field hands out, and what it writes into the Bemerkung — lib ·
       // roleAssignment, so «Fahrer TLF» / «Einsatzleiter» / «Stv. Einsatzleiter» is one
       // decision with tests rather than a chain of conditions inside the workspace
@@ -4780,6 +4806,7 @@ export function IncidentWorkspace({
           onTitleLive={(v) => {
             // stream into the doc so the note-pill / label updates live, but silently —
             // snapshot once for undo, no per-keystroke audit event
+            entityTypedAt.current.set(selected.id, Date.now())
             if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
             setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, label: v } : e)) }))
           }}

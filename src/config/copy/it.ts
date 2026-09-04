@@ -758,6 +758,10 @@ export const it: Localizable<Copy> = {
     fieldSet: '{field}: {value}',
     fieldChanged: '{field} cambiato in {value}',
     fieldCleared: '{field} svuotato',
+    // le stesse due affermazioni SENZA il valore — per l'unico caso in cui nominarlo ripeterebbe
+    // il nome della riga stessa («Pfeil: Abschluss: Pfeil», vedi lib/drawingEdit)
+    fieldSetPlain: '{field} impostato',
+    fieldChangedPlain: '{field} modificato',
     labelSet: 'Etichetta «{value}»',
     labelCleared: 'Etichetta rimossa',
     floorSet: 'Piano {value}',
@@ -922,11 +926,13 @@ export const it: Localizable<Copy> = {
     mediaPending: 'Caricamento',
     mediaFailed: 'Non caricato',
     attendanceConflict: 'Presenza {name}: {what} – controlla.',
-    attendanceConflictTwoNotes: 'due funzioni registrate – «{a}» e «{b}»',
-    attendanceConflictOneNote: 'funzione «{a}» registrata su un solo dispositivo',
-    attendanceConflictStatus: 'presenza registrata in modo diverso',
-    attendanceConflictOrt: 'posizione registrata in modo diverso',
-    attendanceConflictTimes: 'orari registrati in modo diverso',
+    // ⚠️ Frammenti, non frasi: uniti con « · » e inseriti in {what} qui sopra, che ha già scritto
+    // «Presenza {name}: ». Ciò che quella riga dice già non si ripete qui.
+    attendanceConflictTwoNotes: 'due funzioni – «{a}» e «{b}»',
+    attendanceConflictOneNote: 'funzione «{a}» su un solo dispositivo',
+    attendanceConflictStatus: 'stato divergente',
+    attendanceConflictOrt: 'posizione divergente',
+    attendanceConflictTimes: 'orari divergenti',
     truppConflict: 'Protezione respiratoria {name}: modifiche di due dispositivi unite – controlla.',
     attendanceConflictOther: 'voci divergenti unite',
     attendanceConflictResolved: 'Divergenza {name} verificata – {taken}, {by}',

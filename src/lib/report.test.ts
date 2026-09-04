@@ -362,6 +362,22 @@ describe('journalArea · one glyph, one Bereich — without breaking the record'
     // …and a CLIENT row keeps classifying exactly as it did: no local id starts with 'sys'
     expect(journalArea(ev({ id: 'e1788409060031-04', icon: 'hex', kind: 'symbol', text: 'Symbol gesetzt' }), plans)).toBe('Kroki')
   })
+
+  // ⚠️ 03.09.: «Anwesenheit Stich Markus: … – bitte prüfen» printed under «Kroki». The row wears
+  // icon 'warn' on purpose (it IS a warning on the Verlauf's disc), and 'warn' maps to nothing —
+  // so the whole chain fell through to the map. Both halves of the pair are pinned here.
+  it('⚠️ files a sync divergence under «Anwesenheit», whatever glyph it wears', () => {
+    const raised = ev({ id: 'ac1abc', icon: 'warn', text: 'Anwesenheit Stich Markus: Zeiten abweichend – bitte prüfen.',
+      conflict: { op: 'raised', sig: 's1', key: 'p1', sides: [] } })
+    expect(journalArea(raised, plans)).toBe('Anwesenheit')
+    const resolved = ev({ id: 'acr1abc', icon: 'people', kind: 'team', text: 'Abweichung Stich Markus geprüft – …',
+      conflict: { op: 'resolved', sig: 's1', key: 'p1', choice: 0 } })
+    expect(journalArea(resolved, plans)).toBe('Anwesenheit')
+    // …and the Atemschutz twin of the same warning (useIncidentSync · truppConflictRows) has no
+    // payload to route it — it rides on kind:'team' and files under the Trupp board, not «Kroki»
+    const trupp = ev({ id: 'tc1abc', icon: 'warn', kind: 'team', text: 'Trupp Fabich Mischa: … – bitte prüfen.' })
+    expect(journalArea(trupp, plans)).toBe('Trupps')
+  })
 })
 
 describe('journalDisc · what the Verlauf’s disc says a row is', () => {
@@ -782,32 +798,40 @@ describe('truppRunTimes (the Eintritt/Austritt the header prints)', () => {
       r('15:03', 'registered'), r('15:16', 'entry'), r('15:22', 'exit'),
     ]
     expect(truppRunTimes(readings, { entryTime: '15:16', exitTime: '15:22' }))
-      .toEqual({ entries: ['13:44', '15:16'], exits: ['15:03', '15:22'] })
+      .toEqual({ entries: ['13:44', '15:16'], exits: ['15:03', '15:22'], registered: ['15:03'] })
   })
 
   // The log is the record; the card's two scalars are live state the merge may re-resolve from
   // one side, so the header must never take an Austritt the table below it cannot show.
   it('ignores an exitTime the log does not carry', () => {
     expect(truppRunTimes([r('15:16', 'entry'), r('15:27', 'exit')], { entryTime: '15:16', exitTime: '15:22' }))
-      .toEqual({ entries: ['15:16'], exits: ['15:27'] })
+      .toEqual({ entries: ['15:16'], exits: ['15:27'], registered: [] })
   })
 
   it('leaves the Austritt empty while the crew is still in', () => {
     expect(truppRunTimes([r('15:16', 'entry')], { entryTime: '15:16' }))
-      .toEqual({ entries: ['15:16'], exits: [] })
+      .toEqual({ entries: ['15:16'], exits: [], registered: [] })
   })
 
   // …per side, so a Trupp exited before `exit` rows existed (19.08.) still prints its Austritt
   it('falls back to the card for a record written before the log carried that row', () => {
     expect(truppRunTimes([r('13:44', 'entry')], { entryTime: '13:44', exitTime: '15:03' }))
-      .toEqual({ entries: ['13:44'], exits: ['15:03'] })
+      .toEqual({ entries: ['13:44'], exits: ['15:03'], registered: [] })
     expect(truppRunTimes(undefined, { entryTime: '13:44', exitTime: '15:03' }))
-      .toEqual({ entries: ['13:44'], exits: ['15:03'] })
+      .toEqual({ entries: ['13:44'], exits: ['15:03'], registered: [] })
   })
 
   // a Sicherungstrupp stood down without ever going under PA — an exit and no entry at all
   it('reports an exit with no entry, so the sheet can say «Nicht eingesetzt»', () => {
-    expect(truppRunTimes([], { exitTime: '15:03' })).toEqual({ entries: [], exits: ['15:03'] })
+    expect(truppRunTimes([], { exitTime: '15:03' })).toEqual({ entries: [], exits: ['15:03'], registered: [] })
+  })
+
+  // ⚠️ 03.09.: «Nicht eingesetzt: 06:50» named the Draussen stamp of a Sicherungstrupp that had
+  // been standing by since 06:32 — the one row about that crew, and it said the wrong half of it.
+  // The Anmeldung is in the log; it just never travelled to the sheet.
+  it('carries the Anmeldung, so «Nicht eingesetzt» can print the whole wait', () => {
+    expect(truppRunTimes([r('06:32', 'registered'), r('06:50', 'exit')], {}))
+      .toEqual({ entries: [], exits: ['06:50'], registered: ['06:32'] })
   })
 })
 

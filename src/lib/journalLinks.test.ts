@@ -52,6 +52,30 @@ describe('linkRanges', () => {
       expect(linkRanges('(EL)', withEl)).toHaveLength(1)
     })
   })
+
+  // ⚠️ 03.09. Rapport: the Partnerorganisation «Polizei» printed bolded INSIDE «Kantonspolizei»,
+  // which reads as the record naming an organisation that was never there. Whole words are the
+  // rule for every kind now, not just for the command posts.
+  describe('whole words, every kind', () => {
+    const withOrg: JournalLink[] = [...vocab, { name: 'Polizei', kind: 'partner' }]
+
+    it('does NOT mark a term that merely sits inside a longer word', () => {
+      expect(linkRanges('Kantonspolizei vor Ort', withOrg)).toEqual([])
+      expect(linkRanges('Ölbinderfass geleert', vocab)).toEqual([])
+    })
+
+    it('marks it standing on its own, whatever case it was typed in', () => {
+      const r = linkRanges('Polizei vor Ort', withOrg)
+      expect(r).toHaveLength(1)
+      expect(r[0]).toMatchObject({ start: 0, end: 7, kind: 'partner' })
+      expect(linkRanges('polizei vor Ort', withOrg)).toHaveLength(1)
+    })
+
+    it('…and still marks it against the punctuation a sentence puts around it', () => {
+      expect(linkRanges('Meldung an Polizei, dann Rückzug', withOrg)).toHaveLength(1)
+      expect(linkRanges('(Polizei)', withOrg)).toHaveLength(1)
+    })
+  })
 })
 
 // An entry carries the odd address — the Meldung's ticket, a Merkblatt, the Wetterradar somebody
@@ -83,6 +107,44 @@ describe('addresses', () => {
   it('⚠️ wins against the vocabulary — a Fahrzeug «TLF» must not bold up mid-link', () => {
     const parts = linkParts('Plan unter https://example.com/TLF/plan', vocab)
     expect(parts.filter((p) => p.kind).map((p) => p.kind)).toEqual(['url'])
+  })
+
+  // The other two spellings an address is written in — added 04.09. after the printed Rapport
+  // carried both as dead prose.
+  describe('e-mail and the bare domain', () => {
+    const one = (text: string) => linkParts(text, vocab).find((p) => p.kind === 'url')
+
+    it('anchors an e-mail address as mailto:', () => {
+      expect(one('Rückfragen an einsatz@feuerwehr-oberwil.ch')).toMatchObject({
+        text: 'einsatz@feuerwehr-oberwil.ch', href: 'mailto:einsatz@feuerwehr-oberwil.ch',
+      })
+    })
+
+    it('anchors a bare domain, with and without a path', () => {
+      expect(one('Merkblatt auf vkf.ch')).toMatchObject({ text: 'vkf.ch', href: 'https://vkf.ch' })
+      expect(one('siehe vkf.ch/merkblatt/1.')).toMatchObject({
+        text: 'vkf.ch/merkblatt/1', href: 'https://vkf.ch/merkblatt/1',
+      })
+    })
+
+    it('⚠️ claims the domain ONCE — not a second time inside a URL or an address', () => {
+      const kinds = (t: string) => linkParts(t, vocab).filter((p) => p.kind === 'url')
+      expect(kinds('Plan unter https://vkf.ch/a').map((p) => p.text)).toEqual(['https://vkf.ch/a'])
+      expect(kinds('Mail an a@vkf.ch').map((p) => p.text)).toEqual(['a@vkf.ch'])
+    })
+
+    it('⚠️ swallows nothing that merely has a dot in it', () => {
+      const nothing = [
+        'Sicherungstrupp z.B. am Verteiler',
+        'Version 1.2.3 aufgespielt',
+        'Ereignis vom 01.09.2026',
+        'Datei Lageplan.pdf abgelegt',
+        'Meldung an Meier.Anna weitergegeben',
+      ]
+      for (const text of nothing) {
+        expect(linkParts(text, vocab).filter((p) => p.kind === 'url'), text).toEqual([])
+      }
+    })
   })
 })
 

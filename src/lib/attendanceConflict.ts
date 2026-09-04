@@ -111,13 +111,16 @@ export function conflictWhat(c: RecordConflict): string {
 export function conflictRows(
   conflicts: RecordConflict[],
   seen: Set<string>,
-  { idPrefix, text, payload, now = new Date() }: {
+  { idPrefix, text, payload, kind, now = new Date() }: {
     /** short, per-surface id namespace ('ac' | 'tc'), before the timestamp */
     idPrefix: string
     text: (conflict: RecordConflict) => string
     /** the structured half of the row — only the Anwesenheit has one today (see
      *  `attendanceConflictRows`); the Atemschutz reports and is read, not settled. */
     payload?: (conflict: RecordConflict, sig: string) => TimelineEvent['conflict']
+    /** files the row under its surface in the printed Bereich column (journalArea) — the
+     *  Anwesenheit rows are routed by their `conflict` payload, the Trupp rows by `kind`. */
+    kind?: TimelineEvent['kind']
     now?: Date
   },
 ): TimelineEvent[] {
@@ -135,6 +138,7 @@ export function conflictRows(
       t: hhmm(now),
       at: now.toISOString(),
       icon: 'warn',
+      ...(kind ? { kind } : {}),
       text: text(c),
       ...(payload ? { conflict: payload(c, sig) } : {}),
     })
@@ -217,7 +221,7 @@ export function openConflicts(events: readonly TimelineEvent[]): OpenConflict[] 
   return out
 }
 
-/** «Anwesenheit Stich Markus: unterschiedliche Zeiten erfasst – bitte prüfen.» → the middle. Read
+/** «Anwesenheit Stich Markus: unterschiedliche Zeiten – bitte prüfen.» → the middle. Read
  *  off the LIVE template, so it works on rows written in any locale (same trick as
  *  report · startsWithTemplate). Falls back to the whole sentence, which is never wrong. */
 function strippedWhat(text: string): string {

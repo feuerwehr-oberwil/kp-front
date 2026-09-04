@@ -572,3 +572,143 @@ async def test_a_photo_reference_spells_itself_out():
     assert "Bild 1 · Ausweis Lenker" in text
     assert "Bild 2" in text  # no caption — the reference stands on its own
     assert "B1" not in text
+
+
+# ── EXIF orientation ──────────────────────────────────────────────────────────────────────────
+# A phone stores the sensor's pixels and a tag saying which way up they are. Screens read the tag;
+# ReportLab does not — so a landscape photo of the Schadenplatz came off the printer on its side
+# (03.09. Journal), while the very same picture stood upright in the app's own thumbnail.
+
+
+def _exif_jpeg(w: int, h: int, orientation: int) -> bytes:
+    """A JPEG of ``w×h`` STORED pixels carrying an EXIF Orientation tag."""
+    im = PILImage.new("RGB", (w, h), (200, 30, 30))
+    exif = im.getexif()
+    exif[0x0112] = orientation
+    buf = io.BytesIO()
+    im.save(buf, format="JPEG", exif=exif)
+    return buf.getvalue()
+
+
+async def test_a_sideways_photo_is_turned_upright_before_it_is_placed():
+    from app.report_pdf import _fit_image
+
+    # portrait pixels, tag says «a quarter turn» → the picture is landscape once it is upright
+    img = _fit_image(_exif_jpeg(40, 60, 6), 300, 300)
+    assert img is not None
+    assert img.drawWidth > img.drawHeight
+
+
+async def test_a_picture_with_nothing_to_turn_is_handed_on_untouched():
+    """⚠️ The guard that keeps everything else out of the encoder. `_fit_image` places the Kroki,
+    the plan pages, the Beilagen and the logo too — none of those may change because a photo
+    needed rotating."""
+    from app.report_pdf import _exif_upright
+
+    png = _png(40, 28)
+    assert _exif_upright(png) is png
+    upright_jpeg = _exif_jpeg(40, 28, 1)
+    assert _exif_upright(upright_jpeg) is upright_jpeg
+    assert _exif_upright(b"not an image at all") == b"not an image at all"
+
+
+# ── The Atemschutz block's «Nicht eingesetzt» row ─────────────────────────────────────────────
+
+
+async def test_a_trupp_that_never_went_in_prints_its_whole_wait():
+    """⚠️ 03.09.: «Nicht eingesetzt: 06:50» — the Draussen stamp alone, for a Sicherungstrupp that
+    had stood ready since 06:32. How long they stood there IS what that row records, so it prints
+    as a span like every other row in the block."""
+    from app.report_pdf import ReportPayload
+
+    payload = _minimal_payload("x")
+    payload["options"] = {"atemschutz": True}
+    payload["trupps"] = [
+        {
+            "name": "Sicherungstrupp",
+            "registeredTimes": ["03.09.2026 06:32"],
+            "exitTimes": ["03.09.2026 06:50"],
+            "readings": [{"t": "03.09.2026 06:32", "kindLabel": "Angemeldet", "bar": "300"}],
+        }
+    ]
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(payload), {})
+    doc = pdfium.PdfDocument(io.BytesIO(pdf_bytes))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Nicht eingesetzt: 03.09.2026 06:32 – 03.09.2026 06:50" in text
+
+
+async def test_a_trupp_from_before_the_anmeldung_was_logged_keeps_its_single_stamp():
+    """A log written before 09.08. carries no `registered` row — there is no Anmeldung to name,
+    and the line falls back to exactly what it always printed."""
+    from app.report_pdf import ReportPayload
+
+    payload = _minimal_payload("x")
+    payload["options"] = {"atemschutz": True}
+    payload["trupps"] = [{"name": "Sicherungstrupp", "exitTimes": ["03.09.2026 06:50"], "readings": []}]
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(payload), {})
+    doc = pdfium.PdfDocument(io.BytesIO(pdf_bytes))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Nicht eingesetzt: 03.09.2026 06:50" in text
+
+
+# ── What a link LOOKS like on paper ───────────────────────────────────────────────────────────
+# A rapport has no colour to spend, so the underline is the whole signal — and ReportLab's default
+# one is a heavy rule tight under the baseline, which reads as a strike-through rather than a link.
+
+
+async def test_every_style_that_can_carry_a_link_underlines_it_thinly():
+    from app.report_pdf import _styles
+
+    st = _styles()
+    for name in ("cell", "rcell", "body", "muted"):
+        assert st[name].underlineWidth == 0.4, name
+        assert st[name].underlineOffset == "-0.18*F", name
+        assert st[name].underlineColor is not None, name
+
+
+async def test_the_kontaktperson_telefon_is_underlined_like_every_other_link():
+    """⚠️ The Details box is raw canvas: a link annotation there is invisible on paper and in most
+    readers, so this number was the ONE address on the sheet with nothing under it. The rule is
+    drawn by hand, on the same x-span the hotspot claims."""
+    from app.report_pdf import _link_tel_on_canvas
+
+    # the canvas ReportLab hands the Flowable, reduced to what this function touches — the
+    # camel-case names are its API, not ours
+    class _StubCanvas:
+        def __init__(self):
+            self.lines: list[tuple] = []
+            self.links: list[tuple] = []
+            self.width: float | None = None
+
+        def stringWidth(self, text, font, size):  # noqa: N802 — ReportLab API
+            return len(text) * size * 0.5
+
+        def saveState(self):  # noqa: N802 — ReportLab API
+            pass
+
+        def restoreState(self):  # noqa: N802 — ReportLab API
+            pass
+
+        def setStrokeColor(self, color):  # noqa: N802 — ReportLab API
+            pass
+
+        def setLineWidth(self, w):  # noqa: N802 — ReportLab API
+            self.width = w
+
+        def line(self, x0, y0, x1, y1):
+            self.lines.append((x0, y0, x1, y1))
+
+        def linkURL(self, url, rect, relative=0):  # noqa: N802 — ReportLab API
+            self.links.append((url, rect))
+
+    c = _StubCanvas()
+    _link_tel_on_canvas(c, "Tel. 079 123 45 67", x=100.0, y=500.0, size=9)
+    assert len(c.lines) == 1
+    (x0, y0, x1, y1) = c.lines[0]
+    assert y0 == y1 < 500.0  # a rule, and it hangs BELOW the baseline
+    assert c.width == 0.4
+    # …exactly under the number the hotspot covers, and nowhere near the «Tel. » in front of it
+    assert len(c.links) == 1
+    _, (link_x0, _, link_x1, _) = c.links[0]
+    assert (x0, x1) == (link_x0, link_x1)
+    assert x0 > 100.0

@@ -12,7 +12,6 @@ import { ERG_VERSION, lookupErg } from '../lib/erg'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
-import { getDeploymentConfig, type DeploymentMittelItem } from '../lib/deploymentConfig'
 import { compositeSpec } from '../lib/symbolRender'
 
 // detail-field controls: short fixed lists render as directly-tappable segmented tabs (they
@@ -286,14 +285,38 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // "missing leads" — keeps a trailing preset field trailing (Einsatzleiter: Name before Stv.,
   // not Stv. hoisted above Name just because it was blank). Read-only uses the same rows: an
   // empty Fahrer field is still part of the literal source object's sidebar, shown as «–».
-  const [rows, setRows] = useState<Row[]>(() => {
-    const base = toRows(entity.fields)
+  const seedRows = (fields: Record<string, string> | undefined): Row[] => {
+    const base = toRows(fields)
     if (!protectedKeys?.size) return base
     const byKey = new Map(base.map((r) => [r.k.trim(), r]))
     const preset = [...protectedKeys].filter(Boolean).map((k) => byKey.get(k) ?? { k, v: '' })
     const extra = base.filter((r) => !protectedKeys.has(r.k.trim()))
     return [...preset, ...extra]
-  })
+  }
+  const [rows, setRows] = useState<Row[]>(() => seedRows(entity.fields))
+  /** the fields block, so the sync below can tell «somebody is typing in here» from «nobody is» */
+  const fieldsRef = useRef<HTMLDivElement>(null)
+  /** What this panel last WROTE — or what it opened on. The yardstick for the effect below. */
+  const writtenRef = useRef(JSON.stringify(entity.fields ?? {}))
+  // ⚠️ Follow the entity when the fields change from OUTSIDE — the same rule the title below
+  // follows, for a worse failure. `rows` is this panel's own copy, taken once when it opened, and
+  // `commitRows` writes the WHOLE record back: a value another device (or the twin panel on the
+  // other surface) filled in while this panel stood open was invisible here, and the next commit
+  // wrote the stale copy over it. That clears the field, the merge brings it back from the other
+  // device — and the Verlauf ends up with the same «Stv.: Eichenberger Bastian» line twice for
+  // something somebody set once (03.09., 08:01 and 08:10).
+  // Skipped while the caret is in one of these rows: a re-seed there would clobber live typing,
+  // and whoever is typing is about to commit their own record anyway.
+  useEffect(() => {
+    const stored = JSON.stringify(entity.fields ?? {})
+    if (stored === writtenRef.current) return
+    if (fieldsRef.current?.contains(document.activeElement)) return
+    writtenRef.current = stored
+    setRows(seedRows(entity.fields))
+    // seedRows reads protectedKeys — the symbol's own preset, which cannot change while one panel
+    // stays mounted (the caller keys the panel by entity id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity.fields])
   const [notes, setNotes] = useState(entity.notes ?? '')
   // A hand-typed Fahrer while it is being typed. The committed value lives on the surface (the
   // vehicle override), and naming one puts that person on the Anwesenheit — so the draft stays
@@ -350,6 +373,8 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
     setRows(next)
     const rec: Record<string, string> = {}
     for (const { k, v } of next) { const key = stripUnprintable(k).trim(); if (key) rec[key] = stripUnprintable(v) }
+    // …this is now what the entity says, as far as this panel is concerned (see the sync effect)
+    writtenRef.current = JSON.stringify(rec)
     onFields(rec)
   }
   const setRow = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
@@ -546,6 +571,8 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               <textarea
                 ref={noteTextRef}
                 className="ctx-note-input"
+                // …same marker, same reason as the Notizen field further down
+                data-entity-edit=""
                 rows={3}
                 value={title}
                 placeholder={appConfig.copy.whiteboard.textPlaceholder}
@@ -740,9 +767,11 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               carry one and exactly one carries four, so the whole run is glanceable without being
               announced. Titles are kept for the blocks that are genuinely something else: the
               Ausbreitung (two sub-rows), the Mittel-Erfassung, die UN-Gefahr, Notizen, Farbe and
-              the Leitungen. */}
+              the Leitungen.
+              ⚠️ `data-entity-edit` marks the whole block: every field control in it is free text
+              somebody may still be typing — see the Notizen field below. */}
           {(!readOnly || rows.length > 0) && (
-            <div className="ctx-rows">
+            <div className="ctx-rows" ref={fieldsRef} data-entity-edit="">
               {rows.map((r, i) => {
                 const fixed = readOnly || !!protectedKeys?.has(r.k.trim())
                 const field = (
@@ -882,6 +911,12 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               <span className="ctx-section-label">{C.notes}</span>
               <textarea
                 className="ctx-notes-input"
+                // ⚠️ the marker the Verlauf's settle window reads (IncidentWorkspace ·
+                // isTypingSymbolField). This field commits on BLUR, and on a tablet a sentence
+                // gets blurred and picked up again — so the 03.09. Rapport carried «Notiz «1
+                // Roller in en»», «…in ennen» and «…innen» as three rows of one sentence being
+                // written. While the caret is back in here, the row waits.
+                data-entity-edit=""
                 value={notes}
                 placeholder={C.notesPlaceholder}
                 onChange={(e) => setNotes(stripUnprintable(e.target.value))}

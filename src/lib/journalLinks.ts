@@ -72,9 +72,13 @@ export interface JournalLink {
    *  read six months on. (The `role` above is the opposite: it is stable for this Einsatz and does
    *  print.) */
   hint?: string
-  /** match only as a WHOLE word. Off by default: a name is long enough that a substring match is
-   *  almost always the name. It is on for the command posts, where «EL» would otherwise light up
-   *  inside Melder, Keller and Schnellangriff (see commandRoles). */
+  /** marks the COMMAND POSTS («EL», «Stv. EL») — the one kind of term that is a job rather than a
+   *  thing, which the composer reads to decide whether to offer the «→» (JournalComposer).
+   *
+   *  ⚠️ It no longer says anything about MATCHING (04.09.). Whole-word matching used to be opt-in
+   *  here, with everything else matched as a plain substring — and the 03.09. Rapport printed
+   *  «Kantons**polizei**» with the Partnerorganisation bolded inside the word. Every kind is
+   *  word-bounded now; see `linkRanges`. */
   word?: boolean
 }
 
@@ -148,8 +152,9 @@ function commandRoles(people: JournalLink[], heldAt?: Map<string, string>): Jour
       return {
         name: short, kind: 'person' as const, id: holder?.id, present: holder?.present,
         role: holder?.name,
-        // ⚠️ «el» is two letters and lives inside Melder, Schnellangriff, Winkel, Keller … — the
-        // one term in this vocabulary that MUST NOT match inside a word (see linkRanges · word).
+        // marks this as a POST rather than a thing — see JournalLink.word. (It used to be what
+        // kept «el» out of Melder, Schnellangriff, Winkel and Keller; word boundaries are the
+        // rule for every term now.)
         word: true,
       }
     })
@@ -192,6 +197,13 @@ export interface LinkRange {
  * never overlap. Case-insensitive, because an entry typed at 3am is not typed carefully — but
  * the MATCH is on the canonical spelling, so what gets marked is only ever a real name.
  *
+ * ⚠️ WHOLE WORDS, every kind of them (04.09.). This used to be opt-in per term — on for «EL»,
+ * off for names, Partnerorganisationen, Fahrzeuge and Gruppen, on the reasoning that a name is
+ * long enough to be unmistakable — and the 03.09. Rapport printed «Kantonspolizei» with
+ * «polizei» bolded inside the word, which reads as the app naming the wrong organisation. A term
+ * only counts with nothing word-ish on either side of it. Case still does not matter: a
+ * tablet-typed «tlf» is the Fahrzeug, and it is a whole word either way.
+ *
  * ⚠️ Addresses are found FIRST and keep what they claim. A Fahrzeug called «TLF» must not bold
  * up in the middle of a link: it would break the address on paper and split the anchor on
  * screen, for a match that was never the Fahrzeug in the first place. Phone numbers come next,
@@ -214,9 +226,9 @@ export function linkRanges(text: string, vocab: JournalLink[], opts?: MarkOption
       const i = hay.indexOf(needle, from)
       if (i < 0) break
       const end = i + needle.length
-      // …and a `word` term only counts with nothing word-ish on either side of it: «EL» is two
-      // letters, and without this it lit up in Melder, Keller and Schnellangriff.
-      if (l.word && (isWordChar(hay[i - 1]) || isWordChar(hay[end]))) { from = i + 1; continue }
+      // …with nothing word-ish on either side of it: «EL» is two letters and lit up in Melder,
+      // Keller and Schnellangriff, and «Polizei» lit up inside «Kantonspolizei».
+      if (isWordChar(hay[i - 1]) || isWordChar(hay[end])) { from = i + 1; continue }
       if (!overlaps(i, end)) {
         out.push({ start: i, end, kind: l.kind, role: roleSaid ? undefined : l.role })
         roleSaid = true
@@ -233,29 +245,64 @@ function isWordChar(ch: string | undefined): boolean {
 }
 
 /**
- * The addresses in a piece of text.
+ * The addresses in a piece of text — the web ones, the e-mail ones, and the bare domain.
  *
- * Two spellings, because those are the two people write: a full `https://…`, and the bare
- * `www.…` that every browser and every printed Merkblatt still uses. The bare form gets its
- * `https://` in the `href` and keeps the short form on screen — the entry prints what was said.
+ * Three passes, in the order a longer claim has to beat a shorter one: a full `https://…` or the
+ * `www.…` every printed Merkblatt still uses, then e-mail, then the bare `vkf.ch` — the host of a
+ * URL and the domain of an address are both a bare domain, so anything already claimed is left
+ * alone. The short forms keep their short spelling on screen and on paper (the entry prints what
+ * was said); the scheme is added in the `href` only.
+ *
+ * ⚠️ The bare domain is gated on a KNOWN-TLD list and nothing else (04.09.). A Verlauf is full of
+ * text with dots in it that is not an address — «z.B.», «Version 1.2.3», «01.09.2026», a sentence
+ * typed without the space after its full stop — and a matcher that guesses puts a dead link into
+ * the legal record. The list is the handful this Wehr actually sees; anything else has to be
+ * written with its `www.` or its scheme, which is what people do anyway.
  */
+const KNOWN_TLDS = ['swiss', 'info', 'com', 'org', 'net', 'eu', 'ch', 'de', 'at', 'fr', 'it']
+/** …one label, then more of them, then one of the TLDs above, and nothing word-ish behind it. */
+const DOMAIN = String.raw`(?:[\p{L}\p{N}][\p{L}\p{N}-]*\.)+(?:${KNOWN_TLDS.join('|')})(?![\p{L}\p{N}])`
+/** what may FOLLOW a host and still belong to it — the excluded characters are the ones that
+ *  would break the printed markup (see below) */
+const URL_PATH = String.raw`(?:[/?#][^\s<>"«»]*)?`
+
 function urlRanges(text: string): LinkRange[] {
+  const out: LinkRange[] = []
+  const claim = (start: number, raw: string, href: string) => {
+    const end = start + raw.length
+    if (out.some((r) => start < r.end && r.start < end)) return
+    out.push({ start, end, kind: 'url', href })
+  }
+  // ── 1. what somebody wrote out in full ──
   // ⚠️ The excluded characters are not cosmetic: `"` is what closes the href attribute in the
   // printed markup, and `<`/`>` what would open a tag inside it.
   const re = /(?:https?:\/\/|www\.)[^\s<>"«»]+/gi
-  const out: LinkRange[] = []
   for (let m = re.exec(text); m !== null; m = re.exec(text)) {
     // «…undwww.vkf.ch» is a missing space, not an address the writer meant to leave there
     if (isWordChar(text[m.index - 1])) continue
     const raw = trimUrlTail(m[0])
     // a bare scheme, or a «www.» with nothing behind it, is somebody half-way through typing
     if (!/^(?:https?:\/\/|www\.)[^\s/?#]/i.test(raw)) continue
-    out.push({
-      start: m.index, end: m.index + raw.length, kind: 'url',
-      href: /^www\./i.test(raw) ? `https://${raw}` : raw,
-    })
+    claim(m.index, raw, /^www\./i.test(raw) ? `https://${raw}` : raw)
   }
-  return out
+  // ── 2. e-mail: the other address a Meldung leaves behind, and the one nobody can dial ──
+  // BEFORE the bare domain, or the half behind the «@» would be claimed as a website.
+  const mail = new RegExp(String.raw`[\p{L}\p{N}._%+-]+@${DOMAIN}`, 'giu')
+  for (let m = mail.exec(text); m !== null; m = mail.exec(text)) {
+    const raw = trimUrlTail(m[0])
+    claim(m.index, raw, `mailto:${raw}`)
+  }
+  // ── 3. the bare domain ──
+  const bare = new RegExp(DOMAIN + URL_PATH, 'giu')
+  for (let m = bare.exec(text); m !== null; m = bare.exec(text)) {
+    // glued to a word, a dot, an «@» or a dash it is the tail of something longer — a local part
+    // whose address failed the TLD gate, a filename, a hostname already claimed above
+    const prev = text[m.index - 1]
+    if (isWordChar(prev) || prev === '.' || prev === '@' || prev === '-' || prev === '/') continue
+    const raw = trimUrlTail(m[0])
+    claim(m.index, raw, `https://${raw}`)
+  }
+  return out.sort((a, b) => a.start - b.start)
 }
 
 /** Punctuation that ends a sentence rather than an address — «Merkblatt unter www.vkf.ch.» is a

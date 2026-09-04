@@ -758,6 +758,10 @@ export const fr: Localizable<Copy> = {
     fieldSet: '{field} : {value}',
     fieldChanged: '{field} passé à {value}',
     fieldCleared: '{field} vidé',
+    // les deux mêmes énoncés SANS la valeur — pour le seul cas où la nommer répéterait le nom de
+    // la ligne elle-même (« Pfeil : Abschluss : Pfeil », voir lib/drawingEdit)
+    fieldSetPlain: '{field} défini',
+    fieldChangedPlain: '{field} modifié',
     labelSet: 'Étiquette «{value}»',
     labelCleared: 'Étiquette retirée',
     floorSet: 'Étage {value}',
@@ -922,11 +926,13 @@ export const fr: Localizable<Copy> = {
     mediaPending: 'Chargement',
     mediaFailed: 'Non chargé',
     attendanceConflict: 'Présence {name} : {what} – merci de vérifier.',
-    attendanceConflictTwoNotes: 'deux fonctions saisies – «{a}» et «{b}»',
-    attendanceConflictOneNote: 'fonction «{a}» saisie sur un seul appareil',
-    attendanceConflictStatus: 'présence saisie différemment',
-    attendanceConflictOrt: 'emplacement saisi différemment',
-    attendanceConflictTimes: 'heures saisies différemment',
+    // ⚠️ Des fragments, pas des phrases : reliés par « · » et insérés dans {what} ci-dessus, qui a
+    // déjà écrit « Présence {name} : ». Ce que cette ligne dit déjà ne se répète pas ici.
+    attendanceConflictTwoNotes: 'deux fonctions – «{a}» et «{b}»',
+    attendanceConflictOneNote: 'fonction «{a}» sur un seul appareil',
+    attendanceConflictStatus: 'statut divergent',
+    attendanceConflictOrt: 'emplacement divergent',
+    attendanceConflictTimes: 'heures divergentes',
     truppConflict: 'Protection respiratoire {name} : modifications de deux appareils fusionnées – merci de vérifier.',
     attendanceConflictOther: 'saisies divergentes fusionnées',
     attendanceConflictResolved: 'Divergence {name} vérifiée – {taken}, {by}',

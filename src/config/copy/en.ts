@@ -756,6 +756,10 @@ export const en: Localizable<Copy> = {
     fieldSet: '{field}: {value}',
     fieldChanged: '{field} changed to {value}',
     fieldCleared: '{field} cleared',
+    // the same two statements WITHOUT the value — for the one case where naming it would repeat
+    // the row's own name («Pfeil: Abschluss: Pfeil», see lib/drawingEdit)
+    fieldSetPlain: '{field} set',
+    fieldChangedPlain: '{field} changed',
     labelSet: 'Caption «{value}»',
     labelCleared: 'Caption removed',
     floorSet: 'Floor {value}',
@@ -882,11 +886,13 @@ export const en: Localizable<Copy> = {
     detailNachtrag: 'Late entry',
     detailNachtragHint: 'written after the incident closed',
     attendanceConflict: 'Attendance {name}: {what} – please review.',
-    attendanceConflictTwoNotes: 'two roles recorded – «{a}» and «{b}»',
-    attendanceConflictOneNote: 'role «{a}» recorded on one device only',
-    attendanceConflictStatus: 'attendance recorded differently',
-    attendanceConflictOrt: 'location recorded differently',
-    attendanceConflictTimes: 'different times recorded',
+    // ⚠️ Fragments, never sentences: joined with « · » and dropped into {what} above, which has
+    // already said «Attendance {name}: ». Whatever that line says, these must not say again.
+    attendanceConflictTwoNotes: 'two roles – «{a}» and «{b}»',
+    attendanceConflictOneNote: 'role «{a}» on one device only',
+    attendanceConflictStatus: 'status differs',
+    attendanceConflictOrt: 'location differs',
+    attendanceConflictTimes: 'different times',
     attendanceConflictOther: 'diverging entries merged',
     attendanceConflictResolved: 'Divergence {name} checked – {taken}, {by}',
     attendanceConflictByUnknown: 'no name given',

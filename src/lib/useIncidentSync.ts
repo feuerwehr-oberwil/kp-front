@@ -17,6 +17,7 @@ import type { TimelineEvent } from '../types'
 const truppConflictRows = (conflicts: RecordConflict[], seen: Set<string>) =>
   conflictRows(conflicts, seen, {
     idPrefix: 'tc',
+    kind: 'team', // files the row under «Trupps» on paper, not the «Kroki» fallback
     text: (c) => {
       const name = ((c.mine as { name?: string })?.name ?? (c.theirs as { name?: string })?.name ?? c.key).trim()
       return fillTemplate(appConfig.copy.journal.truppConflict, { name })
