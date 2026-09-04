@@ -284,16 +284,22 @@
    gutter — the same gutter the framed block above uses — with a real radius and a gap between
    them. They stay outside that frame: the block is what one ENTERS, these change what is TRUE
    about a Trupp. */
-.actZone { padding: 12px 12px 0; }
+/* ⚠️ The gutter BELOW the buttons belongs to this zone, not to the Sockel under it. It used to be
+   the Sockel's `margin-top`, which is right until the Sockel is empty — a Trupp without
+   Atemschutz has nothing to look up — and then the Verlauf sat straight against the button with
+   no gap at all. The zone that owns the buttons owns the air around them. */
+.actZone { padding: 12px; }
 .actZone:empty { padding: 0; }
 
 /* ── 6 Sockel: everything one LOOKS UP ──────────────────────────────────────────────────────
    The quiet end of the card, on the same dimmed ground as the Verlauf below it: same small rows
    the card has always used (`.metaRow`), no separators, nothing competing with the band. */
-/* The 12px above it is the gutter the inset action row opened up (`.actZone`): the dimmed ground
-   starts below the buttons, not against them. */
+/* The 12px above it is the gutter under the framed block — the dimmed ground starts below it,
+   not against it. When there ARE buttons that gutter is already theirs (`.actZone`'s padding),
+   so the Sockel drops its own and the two never add up to 24px. */
 .plinth { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; padding: 12px 14px;
   background: var(--fill-soft, rgba(0, 0, 0, .045)); border-top: 1px solid var(--glass-edge); }
+.actZone:not(:empty) + .plinth { margin-top: 0; }
 .plinth:empty { margin-top: 0; padding: 0; border-top: 0; }
 
 /* ── 7 Verlauf: the log, with the contact times as its head ─────────────────────────────────── */
