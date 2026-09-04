@@ -865,8 +865,10 @@ export const en: Localizable<Copy> = {
     transcriptAdd: 'Add transcript',
     nachtrag: 'Addendum',
     corrected: 'corrected {t}',
-    repeated: 'repeated {n}×',
-    repeatedTitle: 'This message repeated – every repeat stays in the record.',
+    // ⚠️ the TOTAL number of occurrences, the same number the Rapport prints as «N×» — see the
+    // German base for why «repeated 2×» was two readings of one number
+    repeated: 'in total {n}×',
+    repeatedTitle: 'How often this message stands in the record in total – every one of them is kept.',
     correctHint: 'The original wording stays in the record.',
     viaAtemschutzLink: 'SCBA link',
     viaAtemschutzLinkTitle: 'Entered on the handed-over SCBA board.',
@@ -882,7 +884,7 @@ export const en: Localizable<Copy> = {
     detailCorrected: 'Corrected',
     detailCorrectedFirst: 'first: {text}',
     detailRepeated: 'Repeated',
-    detailRepeatedN: '{n}× until {t}',
+    detailRepeatedN: 'in total {n}× until {t}',
     detailNachtrag: 'Late entry',
     detailNachtragHint: 'written after the incident closed',
     attendanceConflict: 'Attendance {name}: {what} – please review.',
@@ -1206,7 +1208,8 @@ export const en: Localizable<Copy> = {
     logEntryNoAs: 'Team {name}: entry – without SCBA',
     logContact: 'Team {name}: contact confirmed',
     logPressure: 'Team {name}: pressure {bar} bar',
-    logRueckzug: 'Team {name}: withdrawing – counts as radio contact',
+    // ⚠️ says what HAPPENS instead of asserting a contact nobody confirmed — see the German base
+    logRueckzug: 'Team {name} reports withdrawal – contact clock reset',
     // ⚠️ ONE row that takes the withdrawal back and says what holds instead — see the German base
     logContinue: 'Team {name}: withdrawal called off – deployment continued',
     logExit: 'Team {name}: exit',
@@ -1268,6 +1271,9 @@ export const en: Localizable<Copy> = {
     changeFunkkanalCleared: 'Radio channel removed',
     changeColor: 'Colour changed',
     changePressure: 'Entry pressure {from} → {to} bar',
+    // a cylinder opened just now has no «from» — and going the other way the fragment is dropped
+    // entirely (see the German base)
+    changePressureSet: 'Entry pressure {n} bar',
     changeKindPa: 'now under SCBA',
     changeKindPlain: 'no longer under SCBA',
     kindOffTitle: '{name}: end SCBA monitoring?',

@@ -867,8 +867,9 @@ export const it: Localizable<Copy> = {
     transcriptAdd: 'Aggiungi trascrizione',
     nachtrag: 'Aggiunta',
     corrected: 'corretto {t}',
-    repeated: 'ripetuto {n}×',
-    repeatedTitle: 'Questo messaggio si è ripetuto – ogni ripetizione resta nel verbale.',
+    // ⚠️ il numero TOTALE di occorrenze, lo stesso che il rapporto stampa come «N×» — vedi la base tedesca
+    repeated: 'in totale {n}×',
+    repeatedTitle: 'Quante volte in totale il messaggio compare nel verbale – ognuna resta.',
     correctHint: 'Il testo originale resta nel verbale.',
     viaAtemschutzLink: 'Link APR',
     viaAtemschutzLinkTitle: 'Inserito sulla tabella APR ceduta.',
@@ -884,7 +885,7 @@ export const it: Localizable<Copy> = {
     detailCorrected: 'Corretto',
     detailCorrectedFirst: 'prima: {text}',
     detailRepeated: 'Ripetuto',
-    detailRepeatedN: '{n}× fino alle {t}',
+    detailRepeatedN: 'in totale {n}× fino alle {t}',
     detailNachtrag: 'Aggiunta',
     detailNachtragHint: 'inserito dopo la chiusura dell’intervento',
     arrowTitle: 'Inserisci la freccia – chi a chi',
@@ -1198,7 +1199,8 @@ export const it: Localizable<Copy> = {
     logEntryNoAs: 'Squadra {name}: entrata – senza ARA',
     logContact: 'Squadra {name}: contatto confermato',
     logPressure: 'Squadra {name}: pressione {bar} bar',
-    logRueckzug: 'Squadra {name}: ritiro – vale come contatto radio',
+    // ⚠️ dice che cosa SUCCEDE invece di affermare un contatto che nessuno ha confermato
+    logRueckzug: 'Squadra {name} annuncia il ripiegamento – orologio di contatto azzerato',
     // ⚠️ UNA riga che annulla il ripiegamento e dice che cosa vale invece — vedi la base tedesca
     logContinue: 'Squadra {name}: ripiegamento annullato – intervento ripreso',
     logExit: 'Squadra {name}: uscita',
@@ -1267,6 +1269,8 @@ export const it: Localizable<Copy> = {
     changeFunkkanalCleared: 'Canale radio rimosso',
     changeColor: 'Colore modificato',
     changePressure: 'Pressione d\'ingresso {from} → {to} bar',
+    // una bombola aperta adesso non ha un «prima» — vedi la base tedesca
+    changePressureSet: 'Pressione d\'ingresso {n} bar',
     changeKindPa: 'ora sotto ARA',
     changeKindPlain: 'non più sotto ARA',
     kindOffTitle: '{name}: terminare la sorveglianza ARA?',

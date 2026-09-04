@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { allAuftragTypes } from '../config/appConfig'
+import { allAuftragTypes, appConfig } from '../config/appConfig'
 import type { BoardDoc, Drawing, Entity, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 
 // The Zeiten grid is built from the deployment's Gruppen/Fahrzeuge, so the rows have to come
@@ -293,6 +293,25 @@ describe('report journal rows', () => {
     expect(journalRows([e], plans)[0].area).toBe('Manuell')
   })
 
+  /* ⚠️ The crew-row cut is made HERE, off the row's own subject (04.09., Feldtest Manuel): only a
+   * row the app filed under a Trupp prints the Gruppenführer alone. A journal row that merely
+   * mentions the same people keeps every Funktion, on paper as on screen. */
+  it('marks only the Gruppenführer on a row filed under a Trupp', () => {
+    const vocab = [
+      { name: 'Trupp Meier Anna', kind: 'trupp' as const, role: 'AS-GF' },
+      { name: 'Müller Hans', kind: 'person' as const, role: 'AS' },
+    ]
+    const crewRow: TimelineEvent = {
+      id: 'c', t: '14:12', at: '2026-09-04T12:12:00.000Z', icon: 'flag', kind: 'team',
+      text: 'Trupp Meier Anna / Müller Hans: Eintritt', subjectId: 'tr1',
+    }
+    const other: TimelineEvent = { ...crewRow, id: 'o', subjectId: undefined, text: 'Müller Hans meldet Rauch' }
+    const opts = { vocab, truppIds: new Set(['tr1']) }
+    const rows = new Map(journalRows([crewRow, other], plans, undefined, null, opts).map((r) => [r.id, r]))
+    expect(rows.get('c')?.markup).toBe('<b>Trupp Meier Anna</b> (GF) / <b>Müller Hans</b>: Eintritt')
+    expect(rows.get('o')?.markup).toBe('<b>Müller Hans</b> (AS) meldet Rauch')
+  })
+
   it('uses fallback date for legacy HH:MM rows', () => {
     const e: TimelineEvent = { id: 'a', t: '12:34', icon: 'type', text: 'Alt', kind: 'journal' }
     expect(eventIso(e, '2026-06-23T00:00:00.000Z')).toContain('2026-06-23T')
@@ -415,6 +434,13 @@ describe('report proof and Atemschutz labels', () => {
     expect(readingKindLabel('entry')).toBe('Eintritt')
     expect(readingKindLabel('contact')).toBe('Kontakt')
     expect(readingKindLabel('pressure')).toBe('Druck')
+    /* ⚠️ …and the CARD's mini-log says the same words (04.09., Feldtest Manuel). It read
+     * «Angemeldet · Eingerückt · Austritt» — one row in the button's language between two in the
+     * record's. The buttons stay «Einrücken»/«Raus melden»: those are pressed by somebody
+     * standing at the Tafel, the log is read by somebody who was not there. */
+    const az = appConfig.copy.atemschutz.readingKind
+    expect(az.entry).toBe(readingKindLabel('entry'))
+    expect([az.registered, az.entry, az.exit]).toEqual(['Angemeldet', 'Eintritt', 'Austritt'])
   })
 
   it('never prints «Draussen» for a Trupp that was stood down without going in', () => {

@@ -288,8 +288,15 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
   // Atemschutz-Journal as an ordinary radio check — the one row a reconstruction looks for,
   // indistinguishable from the twenty around it.
   it('Rückzug resets the contact clock and appends a Rückzug reading', () => {
-    const { actions, state } = harness(baseTrupp({ status: 'aktiv', lastPressureBar: 140, ...stale }))
+    const lines: string[] = []
+    const { actions, state } = harness(
+      baseTrupp({ status: 'aktiv', lastPressureBar: 140, ...stale }), undefined, (_i, text) => lines.push(text),
+    )
     actions.setTruppStatus('T1', 'rueckzug')
+    // ⚠️ the row DOCUMENTS what happens instead of asserting a contact nobody confirmed (04.09.,
+    // Feldtest Manuel). The clock reset below is unchanged — that is the point: same behaviour,
+    // honest sentence.
+    expect(lines).toEqual(['Trupp Keller Anna meldet Rückzug – Kontaktuhr zurückgesetzt'])
     const t = state.trupps[0]
     expect(t.status).toBe('rueckzug')
     expect(t.lastContactTime).not.toBe(stale.lastContactTime)
@@ -1158,8 +1165,14 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
   // safety watch on or off, and the Verlauf is where somebody reads back what was watched when.
   it('leads with the Art, and says nothing about it when it did not change', () => {
     const az = appConfig.copy.atemschutz
-    expect(truppEditChanges(prev, fields({ kind: 'einfach', pressure: 280 })))
-      .toEqual([az.changeKindPlain, fillTemplate(az.changePressure, { from: '300', to: '280' })])
+    // ⚠️ …and the Eingangsdruck says NOTHING when the watch ends (04.09., Feldtest Manuel):
+    // «Eingangsdruck 300 → 0 bar» read as a measured drop to nothing. The row already says the
+    // Atemschutz ended, and everything measured stays in the Druckprotokoll.
+    expect(truppEditChanges(prev, fields({ kind: 'einfach', pressure: 0 })))
+      .toEqual([az.changeKindPlain])
+    // …and going the other way it is a cylinder opened just now, so there is no «from» to name
+    expect(truppEditChanges({ ...prev, kind: 'einfach', entryPressureBar: 0 }, fields({ kind: 'atemschutz', pressure: 300 })))
+      .toEqual([az.changeKindPa, fillTemplate(az.changePressureSet, { n: '300' })])
     expect(truppEditChanges({ ...prev, kind: 'einfach' }, fields({ kind: 'atemschutz' })))
       .toEqual([az.changeKindPa])
     // an ABSENT kind means Atemschutz, so a plain Trupp edited where the chooser is not shown

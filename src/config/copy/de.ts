@@ -1213,9 +1213,17 @@ export const de = {
     nachtrag: 'Nachtrag',
     // a hand-written line corrected later (append-only patch — both wordings stay in the record)
     corrected: 'korrigiert {t}',
-    // a line the app repeated while nothing changed — the record keeps every repeat
-    repeated: '{n}× wiederholt',
-    repeatedTitle: 'Diese Meldung wiederholte sich – jede Wiederholung bleibt im Protokoll.',
+    /**
+     * Eine Zeile, die die App wiederholt hat, während sich nichts änderte — zusammengefasst auf
+     * die erste, mit ihrer Zahl (lib/verlauf · repeatRuns).
+     *
+     * ⚠️ Die Zahl ist die GESAMTZAHL, nicht die Zahl der Wiederholungen (04.09., Feldtest
+     * Manuel). «2× wiederholt» liess beides zu – zwei Vorkommen oder eine plus zwei –, und auf
+     * dem Rapport steht für dieselbe Zeile «2×». Ein Wort für eine Zahl: hier wie dort ist es,
+     * wie oft die Meldung insgesamt im Protokoll steht.
+     */
+    repeated: 'insgesamt {n}×',
+    repeatedTitle: 'So oft steht diese Meldung insgesamt im Protokoll – jede einzelne bleibt erhalten.',
     correctHint: 'Der ursprüngliche Wortlaut bleibt im Protokoll.',
     // die Zeile kam über den Atemschutz-Link herein — von einem Handy, das nur die Tafel
     // bedient und darum bewusst nach keinem Namen gefragt wurde (types · TimelineEvent.via)
@@ -1239,7 +1247,7 @@ export const de = {
     // the FIRST wording, kept by the append-only patch chain (lib/journalStore · display)
     detailCorrectedFirst: 'zuerst: {text}',
     detailRepeated: 'Wiederholt',
-    detailRepeatedN: '{n}× bis {t}',
+    detailRepeatedN: 'insgesamt {n}× bis {t}',
     detailNachtrag: 'Nachtrag',
     detailNachtragHint: 'nach Einsatzende erfasst',
     // system row appended when a three-way sync merge saw BOTH sides (KP tablet and
@@ -1734,7 +1742,12 @@ export const de = {
     // Both used to be indistinguishable on it — the Alarmdruck as one «Druck» among a column of
     // them, the Rückzug as a plain «Kontakt».
     readingKind: {
-      registered: 'Angemeldet', entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck',
+      // ⚠️ «Eintritt», nicht «Eingerückt» (04.09., Feldtest Manuel). Diese Liste ist das
+      // Protokoll des Trupps, und das Protokoll spricht Eintritt/Austritt – die Karte stand mit
+      // «Eingerückt» zwischen «Angemeldet» und «Austritt» und als einzige Zeile quer dazu. Auf
+      // dem gedruckten Blatt steht dasselbe Wort (report.truppEntry); die Tasten heissen weiter
+      // «Einrücken» – die drückt, wer an der Tafel steht (siehe die Notiz bei logEntry).
+      registered: 'Angemeldet', entry: 'Eintritt', contact: 'Kontakt', pressure: 'Druck',
       // ⚠️ «Austritt», nicht «Draussen» (04.09., Rapport-Review). Diese Spalte heisst «Art» und
       // benennt das EREIGNIS – der Trupp ist ausgetreten. «Draussen» ist der Zustand danach, und
       // der steht auf der Karte («Draussen», «Draussen seit»). Auf dem gedruckten Blatt las die
@@ -1902,7 +1915,12 @@ export const de = {
     logPressure: 'Trupp {name}: Druck {bar} bar',
     // Rückzug and Fortsetzen reset the contact clock; that has to be in the Verlauf, otherwise
     // the clock jumps in the record for no visible reason.
-    logRueckzug: 'Trupp {name}: Rückzug – gilt als Funkkontakt',
+    // ⚠️ Die Zeile SAGT, was passiert, statt einen Kontakt zu behaupten (04.09., Feldtest
+    // Manuel). «Gilt als Funkkontakt» las sich wie ein bestätigter Funkspruch, den niemand
+    // quittiert hat; gemeldet hat der Trupp seinen Rückzug, und die Folge davon ist, dass die
+    // Kontaktuhr neu läuft. Am Verhalten ändert sich nichts – nur daran, was dazu im Protokoll
+    // steht (useTruppActions · setTruppStatus · impliesContact).
+    logRueckzug: 'Trupp {name} meldet Rückzug – Kontaktuhr zurückgesetzt',
     /**
      * ⚠️ EINE Zeile, die zuerst sagt, was aus dem Rückzug wurde (04.09., Feldtest Manuel).
      * Vorher standen «Rückzug» und «Einsatz fortgesetzt» direkt untereinander – gelesen wie ein
@@ -1956,6 +1974,19 @@ export const de = {
     // A corrected Eingangsdruck names BOTH numbers: the record has to show what it used to say,
     // because everything derived from it (Verbrauch, tiefster Druck) was computed from the old one.
     changePressure: 'Eingangsdruck {from} → {to} bar',
+    /**
+     * …ausser die Flasche wurde GERADE ERST aufgedreht (04.09., Feldtest Manuel).
+     *
+     * Beim Hochstufen auf «Unter Atemschutz» stand vorher 0 bar – ein Wert, den niemand gemessen
+     * hat –, und «Eingangsdruck 0 → 300 bar» las sich wie ein Anstieg im Zylinder. Es gibt kein
+     * Vorher: die Flasche ist neu, und die Zeile sagt das. Gleiche Bauweise wie beim ersten
+     * Funkkanal (`changeFunkkanalSet`).
+     * ⚠️ In die andere Richtung steht hier GAR NICHTS: «Eingangsdruck 300 → 0 bar» beim
+     * Zurückstufen las sich wie ein gemessener Absturz auf null. Dass die Überwachung endet,
+     * sagt bereits «nicht mehr unter Atemschutz» in derselben Zeile – und alles Gemessene bleibt
+     * im Druckprotokoll stehen (useTruppActions · editTrupp · kindPatch).
+     */
+    changePressureSet: 'Eingangsdruck {n} bar',
     // Die einzige Änderung im Formular, die eine Überwachung ein- oder ausschaltet – deshalb
     // steht sie in der Verlaufszeile immer zuerst (useTruppActions · truppEditChanges).
     changeKindPa: 'jetzt unter Atemschutz',

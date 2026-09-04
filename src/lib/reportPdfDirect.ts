@@ -259,7 +259,10 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // simply not yet uploaded — the preflight already warns about pending media).
   // Generic Beilagen have no plate on paper: `journalRows` names them INSIDE the row text
   // (lib/report · withFileNames), so they need no field of their own here.
-  const journal = journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at, { includeBookkeeping: draft.options.detailedAudit, vocab: args.vocab })
+  // ⚠️ `truppIds` off the UNFILTERED slice: a row about a Trupp that has since been taken off the
+  // board is still a crew enumeration (see journalRows · truppIds).
+  const journal = journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at,
+    { includeBookkeeping: draft.options.detailedAudit, vocab: args.vocab, truppIds: new Set(trupps.map((t) => t.id)) })
     .map((r) => ({
       timeLabel: r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
       transcriptLines: r.transcriptLines,

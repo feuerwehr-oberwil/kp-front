@@ -159,16 +159,24 @@ export function truppEditChanges(
   // ⚠️ FIRST among the changes, not somewhere in the middle of the sentence: it is the only one
   // here that turns a safety watch on or off, and the Verlauf is where somebody reads back what
   // was being monitored when. The form answers this field from the Trupp's own record wherever
-  // the chooser is not shown (re-deploy, the handed-over Tafel), so it can only differ when
-  // somebody actually pressed one of the two tiles — but an ABSENT kind would compare as
-  // «Atemschutz» and report a downgrade on every plain Trupp, hence the explicit guard.
-  if (f.kind !== undefined && (f.kind === 'atemschutz') !== isAtemschutzTrupp(prev)) {
-    out.unshift(f.kind === 'atemschutz' ? az.changeKindPa : az.changeKindPlain)
-  }
-  // both numbers, because everything already derived from the old one (Verbrauch, tiefster Druck)
-  // was computed against it — «Eingangsdruck geändert» would not let anybody redo that arithmetic
+  // the chooser is not shown (the handed-over Tafel), so it can only differ when somebody
+  // actually pressed one of the two tiles — but an ABSENT kind would compare as «Atemschutz» and
+  // report a downgrade on every plain Trupp, hence the explicit guard.
+  const kindTurned = f.kind !== undefined && (f.kind === 'atemschutz') !== isAtemschutzTrupp(prev)
+  if (kindTurned) out.unshift(f.kind === 'atemschutz' ? az.changeKindPa : az.changeKindPlain)
+  /* The Eingangsdruck, in the words the change deserves (04.09., Feldtest Manuel):
+   * · the Art turned to PLAIN ⇒ nothing at all. There is no cylinder any more, so the form sends
+   *   0 — and «Eingangsdruck 300 → 0 bar» read as a measured drop to nothing on a safety record.
+   *   «nicht mehr unter Atemschutz» stands in the same row and says what actually happened; every
+   *   measurement taken stays in the Druckprotokoll.
+   * · the Art turned to ATEMSCHUTZ ⇒ the new value alone. The cylinder was opened just now, so
+   *   there is no «from» to name; a «0 → 300» would invent a rise inside a bottle.
+   * · otherwise ⇒ both numbers, because everything derived from the old one (Verbrauch, tiefster
+   *   Druck) was computed against it, and «Eingangsdruck geändert» would not let anybody redo
+   *   that arithmetic. */
   if (opts?.pressure !== false && f.pressure !== prev.entryPressureBar) {
-    out.push(fillTemplate(az.changePressure, { from: String(prev.entryPressureBar), to: String(f.pressure) }))
+    if (kindTurned && f.kind === 'atemschutz') out.push(fillTemplate(az.changePressureSet, { n: String(f.pressure) }))
+    else if (!kindTurned) out.push(fillTemplate(az.changePressure, { from: String(prev.entryPressureBar), to: String(f.pressure) }))
   }
   return out
 }

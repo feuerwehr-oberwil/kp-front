@@ -332,7 +332,11 @@ function withFileNames(text: string, files?: { name: string }[]): string {
 
 export function journalRows(
   events: TimelineEvent[], plans: PlanDocument[], fallbackDate?: string, closedAt?: string | null,
-  opts?: { includeBookkeeping?: boolean; vocab?: JournalLink[] },
+  /** `truppIds`: which subjects are Trupps, so a row that enumerates a crew can print the
+   *  Gruppenführer alone instead of a Funktion behind every name (journalLinks · linkMarkup ·
+   *  crewRow). Rows carry their Trupp in `subjectId` (useTruppActions); one written before that
+   *  existed simply keeps every suffix, which is what it printed yesterday. */
+  opts?: { includeBookkeeping?: boolean; vocab?: JournalLink[]; truppIds?: ReadonlySet<string> },
 ): JournalPrintRow[] {
   const closedMs = closedAt ? Date.parse(closedAt) : NaN
   // …and a line the app repeated while nothing changed prints ONCE, with its count — the same
@@ -365,7 +369,8 @@ export function journalRows(
         // ⚠️ NOT gated on the vocabulary: an address is not vocabulary, so a row whose only mark
         // is a URL has to reach the PDF as markup too. `linkMarkup` returns undefined when the
         // row marked nothing, and that is the only case the backend escapes the text itself.
-        markup: linkMarkup(text, opts?.vocab ?? [], escapeXml),
+        markup: linkMarkup(text, opts?.vocab ?? [], escapeXml,
+          { crewRow: !!e.subjectId && !!opts?.truppIds?.has(e.subjectId) }),
         kind: e.kind,
         photoUrls: rowPhotos(e),
         audioUrl: e.audioUrl,

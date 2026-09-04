@@ -867,8 +867,9 @@ export const fr: Localizable<Copy> = {
     transcriptAdd: 'Compléter la transcription',
     nachtrag: 'Complément',
     corrected: 'corrigé {t}',
-    repeated: 'répété {n}×',
-    repeatedTitle: 'Ce message s’est répété – chaque répétition reste au procès-verbal.',
+    // ⚠️ le nombre TOTAL d’occurrences, celui que le rapport imprime en « N× » — voir la base allemande
+    repeated: 'au total {n}×',
+    repeatedTitle: 'Nombre total d’occurrences de ce message au procès-verbal – chacune est conservée.',
     correctHint: 'La formulation initiale reste au procès-verbal.',
     viaAtemschutzLink: 'Lien ARI',
     viaAtemschutzLinkTitle: 'Saisi sur le tableau ARI transmis.',
@@ -884,7 +885,7 @@ export const fr: Localizable<Copy> = {
     detailCorrected: 'Corrigé',
     detailCorrectedFirst: 'd’abord : {text}',
     detailRepeated: 'Répété',
-    detailRepeatedN: '{n}× jusqu’à {t}',
+    detailRepeatedN: 'au total {n}× jusqu’à {t}',
     detailNachtrag: 'Ajout',
     detailNachtragHint: 'saisi après la fin de l’intervention',
     arrowTitle: 'Insérer la flèche – qui à qui',
@@ -1198,7 +1199,8 @@ export const fr: Localizable<Copy> = {
     logEntryNoAs: 'Binôme {name} : entrée – sans ARI',
     logContact: 'Binôme {name} : contact confirmé',
     logPressure: 'Binôme {name} : pression {bar} bar',
-    logRueckzug: 'Binôme {name} : repli – vaut contact radio',
+    // ⚠️ dit ce qui SE PASSE au lieu d’affirmer un contact que personne n’a confirmé
+    logRueckzug: 'Binôme {name} annonce le repli – horloge de contact remise à zéro',
     // ⚠️ UNE ligne qui annule le repli et dit ce qui vaut à la place — voir la base allemande
     logContinue: 'Binôme {name} : repli annulé – intervention poursuivie',
     logExit: 'Binôme {name} : sortie',
@@ -1267,6 +1269,8 @@ export const fr: Localizable<Copy> = {
     changeFunkkanalCleared: 'Canal radio retiré',
     changeColor: 'Couleur modifiée',
     changePressure: 'Pression d\'entrée {from} → {to} bar',
+    // une bouteille ouverte à l’instant n’a pas de « avant » — voir la base allemande
+    changePressureSet: 'Pression d\'entrée {n} bar',
     changeKindPa: 'désormais sous ARI',
     changeKindPlain: 'plus sous ARI',
     kindOffTitle: '{name} : terminer la surveillance ARI ?',

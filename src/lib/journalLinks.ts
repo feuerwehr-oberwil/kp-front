@@ -436,6 +436,25 @@ export function linkParts(text: string, vocab: JournalLink[], opts?: MarkOptions
 }
 
 /**
+ * Is this person's Funktion a GRUPPENFÜHRER's, and what does a crew row call it?
+ *
+ * The note may hold several jobs («AS-GF, Fahrer PIO»), and the leader half is spelled per Art
+ * («AS-GF», «Trupp-GF» — copy · anwesenheit.roleLeader) or has already been trimmed to the bare
+ * badge for a plain Trupp (see `shortRole`). Any of them means the same thing on a crew row, and
+ * there it is printed as the badge alone: the row is about that Trupp, so «AS» is what everybody
+ * in it is.
+ */
+function crewLeaderBadge(role: string): string | undefined {
+  const A = appConfig.copy.anwesenheit
+  const badge = appConfig.copy.atemschutz.leaderBadge
+  const leaderWords = [A.roleAtemschutz, A.roleTrupp]
+    .map((r) => fillTemplate(A.roleLeader, { role: r }).toLowerCase())
+    .concat(badge.toLowerCase())
+  return role.split(',').map((p) => p.trim().toLowerCase()).some((p) => leaderWords.includes(p))
+    ? badge : undefined
+}
+
+/**
  * Marked-up text for the PRINTED journal: every named term in bold, every address and every phone
  * number underlined and anchored. The Rapport has no colour to spend — bold is what a reader
  * already reads as «this is a name», and an underline what they read as «this can be followed».
@@ -452,7 +471,20 @@ export function linkParts(text: string, vocab: JournalLink[], opts?: MarkOptions
  * ⚠️ Returns `undefined` when the row marked nothing at all, so the backend falls back to its own
  * escaping of the plain text rather than storing markup that says nothing (see report.ts).
  */
-export function linkMarkup(text: string, vocab: JournalLink[], esc: (s: string) => string): string | undefined {
+export function linkMarkup(
+  text: string, vocab: JournalLink[], esc: (s: string) => string,
+  /**
+   * `crewRow`: this row ENUMERATES a Trupp — «Trupp Brunner Thomas / Müller Hans / Schmid Peter
+   * angemeldet» (04.09., Feldtest Manuel).
+   *
+   * There, only the Gruppenführer keeps a suffix, and it is the bare «GF». Every other Funktion
+   * on that line — «(AS)», «(Stv. Einsatzleiter, AS)» — says about one person what the row
+   * already says about all of them, three or four times in one sentence, on the one surface with
+   * no room to spare. The SCREEN keeps them all: there the names are tappable people, and the
+   * suffix is what tells you which one you are about to open.
+   */
+  opts?: { crewRow?: boolean },
+): string | undefined {
   const parts = linkParts(text, vocab, { phone: true })
   if (!parts.some((p) => p.kind)) return undefined
   return parts
@@ -461,8 +493,9 @@ export function linkMarkup(text: string, vocab: JournalLink[], esc: (s: string) 
       if (p.kind === 'url' || p.kind === 'phone') {
         return `<a href="${esc(p.href ?? p.text)}"><u>${esc(p.text)}</u></a>`
       }
+      const role = p.role && opts?.crewRow ? crewLeaderBadge(p.role) : p.role
       // the job in plain weight after the bold name: it is context for the name, not a second name
-      return p.role ? `<b>${esc(p.text)}</b> (${esc(p.role)})` : `<b>${esc(p.text)}</b>`
+      return role ? `<b>${esc(p.text)}</b> (${esc(role)})` : `<b>${esc(p.text)}</b>`
     })
     .join('')
 }
