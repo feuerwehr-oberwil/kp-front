@@ -610,8 +610,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
 /* ---------- Lightbox ---------- */
 /* Die Kacheln zeigen die Screenshots klein; ein Klick legt sie bildschirmfüllend
-   über die Seite. Additiv per JS aufgebaut – ohne JS bleibt das Raster ein
-   Raster, nur ohne Zoom. */
+   über die Seite. Der Knopf steht im Markup, JS hängt nur den Handler an –
+   ohne JS bleibt das Raster ein Raster, nur ohne Zoom. */
 .shot-zoom {
   display: block; width: 100%; padding: 0; border: 0;
   background: none; font: inherit; color: inherit; cursor: zoom-in;

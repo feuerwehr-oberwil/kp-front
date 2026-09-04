@@ -82,7 +82,7 @@
         "time": "03:07",
         "tag": "Lage",
         "h3": "Die erste Lage steht.",
-        "p": "FKS-Symbole, Sektoren, Schlauchleitungen und Notizen auf der digitalen Lagekarte.\n            Hydranten, Leitungen und Fahrzeugpositionen liegen als Ebenen drunter."
+        "p": "FKS-Symbole, Sektoren, Schlauchleitungen und Notizen auf der digitalen Lagekarte.\n            Hydranten, Leitungen und Fahrzeugpositionen liegen als zusätzliche Ebenen darunter."
       },
       {
         "time": "03:12",
@@ -117,7 +117,7 @@
       {
         "time": "Danach",
         "tag": "Zeitreise",
-        "h3": "Die Nacht läuft nochmal ab.",
+        "h3": "Die Nacht läuft nochmals ab.",
         "p": "Für die Nachbesprechung spielt die Zeitreise den ganzen Einsatz ab: Lage, Trupps\n            und Verlauf so, wie sie zu jeder Minute standen. Die langen Wartezeiten überspringt\n            sie – aus vier Stunden werden ein paar Minuten."
       }
     ]
@@ -258,8 +258,9 @@
           "<strong>Atemschutzüberwachung</strong>: Druck, Rückzugszeit, Kontaktuhr, Alarme",
           "Trupps auf Karte, Plan und im Geschossstapel – mit eigener Truppfarbe, überall dieselbe",
           "Anwesenheit mit Ankunftszeiten und Dienstgraden",
-          "<strong>Zeitplan</strong>: Schichten pro Person planen, Deckungslinie über den\n            ganzen Einsatz, als Führungsformular druckbar",
+          "<strong>Zeitplan</strong>: Verfügbarkeiten und Schichten pro Person planen, Deckung\n            über den ganzen Einsatz erkennen und als Führungsformular ausgeben",
           "<strong>Standort teilen</strong>: wer den Link öffnet, erscheint als Punkt auf der\n            Lagekarte – freiwillig, und nur für diesen Einsatz",
+          "Einsatz per Link weitergeben; Zugriff ist transparent ausgewiesen und kann jederzeit\n            wieder aufgehoben werden",
           "Mittel und Material mit Bestand und Verbrauch",
           "Checklisten für Führungsunterstützung und Einsatzleitung",
           "Einsatzleiter-Ansicht: mitlesen, ohne etwas zu verschieben"
@@ -271,7 +272,7 @@
           "<strong>Verlauf</strong>, der nur ergänzt und nie umgeschrieben wird",
           "Sprachnotizen mit Transkription, Fotos, Erinnerungen",
           "<strong>Zeitreise</strong>: den Einsatz Minute für Minute nachspielen, Wartezeiten\n            übersprungen – für die Nachbesprechung",
-          "Einsatzrapport als fixfertiges PDF – inkl. Kroki zu einem gewählten Zeitpunkt",
+          "Einsatzrapport als fixfertiges PDF mit Personal, Material, Zeiten, Journal, Kroki,\n            Fotos und Atemschutzüberwachung",
           "Fotos als Beilagen zum Rapport",
           "Partnerorganisationen mit Bemerkung im Rapport",
           "Erfassungsblatt für alle, die etwas beitragen, per QR-Code",

@@ -54,7 +54,7 @@
       "items": [
         "No licence fees",
         "No vendor lock-in",
-        "Run it yourself, extend it yourself"
+        "Run it yourself and adapt it to your needs"
       ]
     }
   },
@@ -228,10 +228,11 @@
           "<strong>SCBA monitoring</strong>: pressure, turnaround time, contact clock, alarms",
           "Teams on the map, on the plan and in the stack of floors – each with its own team colour, the same everywhere",
           "Attendance with arrival times and ranks",
-          "<strong>Shift plan</strong>: plan shifts per person, coverage line across the whole\n            incident, printable as a command form",
+          "<strong>Shift plan</strong>: plan availability and shifts per person, see coverage\n            across the incident and print command forms",
           "<strong>Share location</strong>: whoever opens the link appears as a dot on the\n            situation map – voluntary, and only for this incident",
+          "Share the incident by link; access is clearly indicated and can be revoked at any time",
           "Resources and equipment with stock and consumption",
-          "Checklists for command support and the incident commander",
+          "Checklists for command support and incident command",
           "Incident commander view: read along without moving anything"
         ]
       },
@@ -241,7 +242,7 @@
           "A <strong>log</strong> that is only added to and never rewritten",
           "Voice memos with transcription, photos, reminders",
           "<strong>Replay</strong>: play the incident back minute by minute, waits skipped –\n            for the debrief",
-          "Incident report as a ready-made PDF – including a Kroki sketch at a chosen moment",
+          "Ready-made incident report as a PDF, including crew, resources, times, log, sketch,\n            photos and SCBA monitoring",
           "Photos as attachments to the report",
           "Partner organisations with their remarks in the report",
           "A capture sheet by QR code for everyone who has something to contribute",
@@ -303,7 +304,7 @@
     "items": [
       {
         "q": "Why switch?",
-        "a": "Everyone sees the same situation at the same time – in the command vehicle, on the\n          tablet and at the incident commander. No message is lost on a scrap of paper. The SCBA\n          monitoring speaks up by itself before it gets tight. Less radio traffic for questions\n          that are already answered on the situation picture – and the report is nearly done as\n          you head back, instead of the weekend after. KP Front helps the incident commander keep\n          the situation free of contradictions and make the odd one out visible: a team out of\n          radio contact, an appliance that is nowhere, a check-in that never came."
+        "a": "Everyone sees the same situation at the same time – in the command vehicle, on the\n          tablet and with the incident commander. No message is lost on a scrap of paper. The SCBA\n          monitoring speaks up by itself before it gets tight. Less radio traffic for questions\n          that are already answered on the situation picture – and the report is nearly done as\n          you head back, instead of the weekend after. KP Front helps the incident commander keep\n          the situation free of contradictions and make the odd one out visible: a team out of\n          radio contact, an appliance that is nowhere, a check-in that never came."
       },
       {
         "q": "Who owns the data?",

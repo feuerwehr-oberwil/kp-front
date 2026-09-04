@@ -214,7 +214,7 @@
           <p class="tag">Lage</p>
           <h3>Die erste Lage steht.</h3>
           <p>FKS-Symbole, Sektoren, Schlauchleitungen und Notizen auf der digitalen Lagekarte.
-            Hydranten, Leitungen und Fahrzeugpositionen liegen als Ebenen drunter.</p>
+            Hydranten, Leitungen und Fahrzeugpositionen liegen als zusätzliche Ebenen darunter.</p>
         </div>
       </article>
       <article class="entry">
@@ -270,7 +270,7 @@
         <div class="time">Danach</div><div class="rail" aria-hidden="true"></div>
         <div class="body">
           <p class="tag">Zeitreise</p>
-          <h3>Die Nacht läuft nochmal ab.</h3>
+          <h3>Die Nacht läuft nochmals ab.</h3>
           <p>Für die Nachbesprechung spielt die Zeitreise den ganzen Einsatz ab: Lage, Trupps
             und Verlauf so, wie sie zu jeder Minute standen. Die langen Wartezeiten überspringt
             sie – aus vier Stunden werden ein paar Minuten.</p>
@@ -288,63 +288,81 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="shots/plan.webp" alt="Plan-Ansicht: Objektplan als Whiteboard mit Zeichnung, Symbolen und Massstab" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Vergrössern: Plan">
+          <img src="shots/plan.webp" alt="Plan-Ansicht: Objektplan als Whiteboard mit Zeichnung, Symbolen und Massstab" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Plan</div>
           <div class="cap-s">Objekt- und Einsatzpläne mit taktischen Zeichen, Markierungen und massstabsgetreuem Messen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/atemschutz.webp" alt="Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Vergrössern: Atemschutz">
+          <img src="shots/atemschutz.webp" alt="Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Atemschutz</div>
           <div class="cap-s">Überwachung von Trupps, Zeiten, Drücken und Rückmeldungen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/gebaeude.webp" alt="Gebäude-Ansicht: Geschossstapel mit Truppzuordnung" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Vergrössern: Gebäude">
+          <img src="shots/gebaeude.webp" alt="Gebäude-Ansicht: Geschossstapel mit Truppzuordnung" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Gebäude</div>
           <div class="cap-s">Die Geschosse übereinander – welcher Trupp arbeitet auf welchem Stock</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/verlauf.webp" alt="Verlauf: chronologische Einträge neben der Karte" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Vergrössern: Verlauf">
+          <img src="shots/verlauf.webp" alt="Verlauf: chronologische Einträge neben der Karte" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Verlauf</div>
           <div class="cap-s">Laufende Dokumentation aller wichtigen Ereignisse – mit eingerichtetem Transkriptionsdienst können Sprachnotizen zu Text werden</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/anwesenheit.webp" alt="Anwesenheit: Mannschaftsliste mit Ankunftszeiten" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Vergrössern: Anwesenheit">
+          <img src="shots/anwesenheit.webp" alt="Anwesenheit: Mannschaftsliste mit Ankunftszeiten" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Anwesenheit</div>
           <div class="cap-s">Wer ist eingerückt und seit wann – die Grundlage für Mannschaftsliste und Rapport</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/zeitplan.webp" alt="Zeitplan: Schichtenraster mit einer Zeile pro Person, geplanten und tatsächlichen Balken sowie der Deckungslinie darunter" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Vergrössern: Zeitplan">
+          <img src="shots/zeitplan.webp" alt="Zeitplan: Schichtenraster mit einer Zeile pro Person, geplanten und tatsächlichen Balken sowie der Deckungslinie darunter" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Zeitplan</div>
           <div class="cap-s">Schichten planen bei langen Einsätzen – verfügbar, eingeteilt, tatsächlich da, und wo die Deckung einbricht</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/checkliste.webp" alt="Checkliste: Aufgaben der Führungsunterstützung mit Fortschritt" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Vergrössern: Checklisten">
+          <img src="shots/checkliste.webp" alt="Checkliste: Aufgaben der Führungsunterstützung mit Fortschritt" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Checklisten</div>
           <div class="cap-s">Die Führungs-Checklisten eurer Feuerwehr, mit direkten Sprüngen zu Plan, Verlauf und Werkzeugen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/mittel.webp" alt="Mittel-Ansicht: Materialeinsatz nach Quelle" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Vergrössern: Mittel">
+          <img src="shots/mittel.webp" alt="Mittel-Ansicht: Materialeinsatz nach Quelle" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Mittel</div>
           <div class="cap-s">Material und Verbrauch im Einsatz erfassen, statt nachher zu schätzen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/rapport.webp" alt="Einsatzrapport vor dem Druck: Anwesenheit und Mittel bereits übernommen, darunter die Abschnitte des PDF zum Ankreuzen" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Vergrössern: Rapport">
+          <img src="shots/rapport.webp" alt="Einsatzrapport vor dem Druck: Anwesenheit und Mittel bereits übernommen, darunter die Abschnitte des PDF zum Ankreuzen" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Rapport</div>
           <div class="cap-s">Beim Einrücken fast fertig – kontrollieren, ergänzen, als PDF exportieren, direkt drucken lassen</div>
@@ -405,10 +423,12 @@
           <li><strong>Atemschutzüberwachung</strong>: Druck, Rückzugszeit, Kontaktuhr, Alarme</li>
           <li>Trupps auf Karte, Plan und im Geschossstapel – mit eigener Truppfarbe, überall dieselbe</li>
           <li>Anwesenheit mit Ankunftszeiten und Dienstgraden</li>
-          <li><strong>Zeitplan</strong>: Schichten pro Person planen, Deckungslinie über den
-            ganzen Einsatz, als Führungsformular druckbar</li>
+          <li><strong>Zeitplan</strong>: Verfügbarkeiten und Schichten pro Person planen, Deckung
+            über den ganzen Einsatz erkennen und als Führungsformular ausgeben</li>
           <li><strong>Standort teilen</strong>: wer den Link öffnet, erscheint als Punkt auf der
             Lagekarte – freiwillig, und nur für diesen Einsatz</li>
+          <li>Einsatz per Link weitergeben; Zugriff ist transparent ausgewiesen und kann jederzeit
+            wieder aufgehoben werden</li>
           <li>Mittel und Material mit Bestand und Verbrauch</li>
           <li>Checklisten für Führungsunterstützung und Einsatzleitung</li>
           <li>Einsatzleiter-Ansicht: mitlesen, ohne etwas zu verschieben</li>
@@ -421,7 +441,8 @@
           <li>Sprachnotizen mit Transkription, Fotos, Erinnerungen</li>
           <li><strong>Zeitreise</strong>: den Einsatz Minute für Minute nachspielen, Wartezeiten
             übersprungen – für die Nachbesprechung</li>
-          <li>Einsatzrapport als fixfertiges PDF – inkl. Kroki zu einem gewählten Zeitpunkt</li>
+          <li>Einsatzrapport als fixfertiges PDF mit Personal, Material, Zeiten, Journal, Kroki,
+            Fotos und Atemschutzüberwachung</li>
           <li>Fotos als Beilagen zum Rapport</li>
           <li>Partnerorganisationen mit Bemerkung im Rapport</li>
           <li>Erfassungsblatt für alle, die etwas beitragen, per QR-Code</li>
@@ -700,11 +721,11 @@
   })();
 
   // Bilder-Lightbox: ein Klick auf eine Kachel legt den Screenshot
-  // bildschirmfüllend über die Seite. Der Knopf wird hier erzeugt, damit das
-  // Markup der Kacheln unangetastet bleibt – ohne JS gibt es einfach keinen Zoom.
+  // bildschirmfüllend über die Seite. Der Knopf steht schon im Markup (kein
+  // <button> im <button>, kein Zoom ohne JS) – hier hängt nur der Handler dran.
   (function () {
-    var shots = [].slice.call(document.querySelectorAll('.shot'));
-    if (!shots.length || typeof HTMLDialogElement === 'undefined') return;
+    var btns = [].slice.call(document.querySelectorAll('.shot-zoom'));
+    if (!btns.length || typeof HTMLDialogElement === 'undefined') return;
 
     var dlg = document.createElement('dialog');
     dlg.className = 'lb';
@@ -720,8 +741,8 @@
     var idx = 0;
 
     var show = function (i) {
-      idx = (i + shots.length) % shots.length;
-      var s = shots[idx];
+      idx = (i + btns.length) % btns.length;
+      var s = btns[idx].closest('.shot');
       var src = s.querySelector('img');
       img.src = src.src;
       img.alt = src.alt;
@@ -729,14 +750,7 @@
         + s.querySelector('.cap-s').textContent;
     };
 
-    shots.forEach(function (s, i) {
-      var im = s.querySelector('img');
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'shot-zoom';
-      btn.setAttribute('aria-label', 'Vergrössern: ' + s.querySelector('.cap-t').textContent);
-      im.parentNode.insertBefore(btn, im);
-      btn.appendChild(im);
+    btns.forEach(function (btn, i) {
       btn.addEventListener('click', function () { show(i); dlg.showModal(); });
     });
 

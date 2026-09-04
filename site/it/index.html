@@ -215,7 +215,7 @@
         <div class="time">03:07</div><div class="rail" aria-hidden="true"></div>
         <div class="body">
           <p class="tag">Situazione</p>
-          <h3>La prima situazione è in piedi.</h3>
+          <h3>Il primo quadro della situazione è pronto.</h3>
           <p>Simboli tattici CSP, settori, condotte e note sulla carta digitale della situazione.
             Idranti, condotte e posizioni dei veicoli stanno sotto come livelli.</p>
         </div>
@@ -226,7 +226,7 @@
           <p class="tag">Protezione respiratoria</p>
           <h3>La squadra 1 entra.</h3>
           <p>Pressione, tempo di rientro e orologio di contatto scorrono per ogni squadra. L’app
-            si fa sentire prima che diventi stretta – anche quando nessuno sta guardando l’ora.</p>
+            avvisa prima che il margine diventi critico – anche quando nessuno sta guardando l’ora.</p>
         </div>
       </article>
       <article class="entry">
@@ -253,10 +253,10 @@
         <div class="body">
           <p class="tag">Piano turni</p>
           <h3>Il cambio si pianifica, non si stima.</h3>
-          <p>Se diventa una notte lunga, il piano turni tiene, per ogni persona, da quando a
-            quando è disponibile e quando è impiegata. La linea di copertura mostra dove le
-            persone sono troppo poche – prima che il buco ci sia. Le presenze restano fuori da
-            tutto questo: qui si pianifica, lì si spunta.</p>
+          <p>Se diventa una notte lunga, il piano turni indica, per ogni persona, quando è
+            disponibile e quando è impiegata. La linea di copertura mostra dove le persone sono
+            troppo poche – prima che si crei una carenza di personale. La gestione delle presenze
+            resta separata: qui si pianifica, lì si registra la presenza effettiva.</p>
         </div>
       </article>
       <article class="entry">
@@ -291,63 +291,81 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/plan.webp" alt="Vista Piano: piano d’oggetto come lavagna, con disegno, simboli e scala" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Piano">
+          <img src="../shots/plan.webp" alt="Vista Piano: piano d’oggetto come lavagna, con disegno, simboli e scala" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Piano</div>
           <div class="cap-s">Piani d’oggetto e d’intervento con segni tattici, marcature e misurazione in scala</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/atemschutz.webp" alt="Vista Protezione respiratoria: squadre con pressione e orologio di contatto in corso" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Protezione respiratoria">
+          <img src="../shots/atemschutz.webp" alt="Vista Protezione respiratoria: squadre con pressione e orologio di contatto in corso" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Protezione respiratoria</div>
           <div class="cap-s">Sorveglianza di squadre, tempi, pressioni e riscontri</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/gebaeude.webp" alt="Vista Edificio: piani sovrapposti con l’assegnazione delle squadre" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Edificio">
+          <img src="../shots/gebaeude.webp" alt="Vista Edificio: piani sovrapposti con l’assegnazione delle squadre" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Edificio</div>
           <div class="cap-s">I piani uno sopra l’altro – quale squadra lavora a quale piano</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/verlauf.webp" alt="Diario: voci in ordine cronologico accanto alla carta" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Diario">
+          <img src="../shots/verlauf.webp" alt="Diario: voci in ordine cronologico accanto alla carta" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Diario</div>
           <div class="cap-s">Documentazione continua di tutto ciò che conta – un servizio di trascrizione configurato può convertire le note vocali in testo</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/anwesenheit.webp" alt="Presenze: elenco degli uomini con gli orari di arrivo" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Presenze">
+          <img src="../shots/anwesenheit.webp" alt="Presenze: elenco degli uomini con gli orari di arrivo" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Presenze</div>
           <div class="cap-s">Chi è arrivato e da quando – la base per l’elenco degli uomini e per il rapporto</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/zeitplan.webp" alt="Piano turni: griglia dei turni con una riga per persona, barre pianificate ed effettive e sotto la linea di copertura" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Piano turni">
+          <img src="../shots/zeitplan.webp" alt="Piano turni: griglia dei turni con una riga per persona, barre pianificate ed effettive e sotto la linea di copertura" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Piano turni</div>
           <div class="cap-s">Pianificare i turni negli interventi lunghi – disponibile, impiegato, davvero presente, e dove la copertura cede</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/checkliste.webp" alt="Lista di controllo: compiti del supporto alla condotta con l’avanzamento" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Liste di controllo">
+          <img src="../shots/checkliste.webp" alt="Lista di controllo: compiti del supporto alla condotta con l’avanzamento" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Liste di controllo</div>
           <div class="cap-s">Le liste di controllo della condotta dei vostri pompieri, con accesso diretto a piano, cronologia e strumenti</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/mittel.webp" alt="Vista Mezzi: materiale impiegato per provenienza" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Mezzi">
+          <img src="../shots/mittel.webp" alt="Vista Mezzi: materiale impiegato per provenienza" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Mezzi</div>
           <div class="cap-s">Rilevare materiale e consumo durante l’intervento, invece di stimarli dopo</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/rapport.webp" alt="Rapporto d’intervento prima della stampa: presenze e mezzi già ripresi, sotto le sezioni del PDF da spuntare" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Rapporto">
+          <img src="../shots/rapport.webp" alt="Rapporto d’intervento prima della stampa: presenze e mezzi già ripresi, sotto le sezioni del PDF da spuntare" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Rapporto</div>
           <div class="cap-s">Quasi pronto al rientro – controllare, completare, esportare in PDF, mandare direttamente in stampa</div>
@@ -408,10 +426,12 @@
           <li><strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, orologio di contatto, allarmi</li>
           <li>Squadre sulla carta, sul piano e nei piani sovrapposti – con il proprio colore di squadra, lo stesso ovunque</li>
           <li>Presenze con orari di arrivo e gradi</li>
-          <li><strong>Piano turni</strong>: pianificare i turni per persona, linea di copertura su
-            tutto l’intervento, stampabile come formulario di condotta</li>
+          <li><strong>Piano turni</strong>: pianificare disponibilità e turni per persona,
+            visualizzare la copertura dell’intero intervento e stampare i formulari di condotta</li>
           <li><strong>Condividere la posizione</strong>: chi apre il link appare come punto sulla
             carta della situazione – volontario, e solo per questo intervento</li>
+          <li>Condividere l’intervento tramite link; l’accesso è indicato chiaramente e può essere
+            revocato in qualsiasi momento</li>
           <li>Mezzi e materiale con scorte e consumo</li>
           <li>Liste di controllo per il supporto alla condotta e la direzione dell’intervento</li>
           <li>Vista capo intervento: leggere senza spostare nulla</li>
@@ -424,7 +444,8 @@
           <li>Note vocali con trascrizione, foto, promemoria</li>
           <li><strong>Viaggio nel tempo</strong>: riprodurre l’intervento minuto per minuto, con le
             attese saltate – per il debriefing</li>
-          <li>Rapporto d’intervento come PDF già pronto – incluso il croquis a un momento scelto</li>
+          <li>Rapporto d’intervento pronto in PDF, con personale, materiale, orari, diario, croquis,
+            foto e sorveglianza della protezione respiratoria</li>
           <li>Foto come allegati al rapporto</li>
           <li>Organizzazioni partner con la loro osservazione nel rapporto</li>
           <li>Scheda di rilevamento via codice QR per tutti quelli che hanno qualcosa da aggiungere</li>
@@ -703,11 +724,11 @@
   })();
 
   // Bilder-Lightbox: ein Klick auf eine Kachel legt den Screenshot
-  // bildschirmfüllend über die Seite. Der Knopf wird hier erzeugt, damit das
-  // Markup der Kacheln unangetastet bleibt – ohne JS gibt es einfach keinen Zoom.
+  // bildschirmfüllend über die Seite. Der Knopf steht schon im Markup (kein
+  // <button> im <button>, kein Zoom ohne JS) – hier hängt nur der Handler dran.
   (function () {
-    var shots = [].slice.call(document.querySelectorAll('.shot'));
-    if (!shots.length || typeof HTMLDialogElement === 'undefined') return;
+    var btns = [].slice.call(document.querySelectorAll('.shot-zoom'));
+    if (!btns.length || typeof HTMLDialogElement === 'undefined') return;
 
     var dlg = document.createElement('dialog');
     dlg.className = 'lb';
@@ -723,8 +744,8 @@
     var idx = 0;
 
     var show = function (i) {
-      idx = (i + shots.length) % shots.length;
-      var s = shots[idx];
+      idx = (i + btns.length) % btns.length;
+      var s = btns[idx].closest('.shot');
       var src = s.querySelector('img');
       img.src = src.src;
       img.alt = src.alt;
@@ -732,14 +753,7 @@
         + s.querySelector('.cap-s').textContent;
     };
 
-    shots.forEach(function (s, i) {
-      var im = s.querySelector('img');
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'shot-zoom';
-      btn.setAttribute('aria-label', 'Ingrandisci: ' + s.querySelector('.cap-t').textContent);
-      im.parentNode.insertBefore(btn, im);
-      btn.appendChild(im);
+    btns.forEach(function (btn, i) {
       btn.addEventListener('click', function () { show(i); dlg.showModal(); });
     });
 

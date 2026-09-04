@@ -194,7 +194,9 @@
     <div class="shots-grid">
       {{#shots.items}}
       <figure class="shot">
-        <img src="{{base}}shots/{{file}}" alt="{{alt}}" width="{{w}}" height="{{h}}" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="{{lightbox.zoom}}: {{title}}">
+          <img src="{{base}}shots/{{file}}" alt="{{alt}}" width="{{w}}" height="{{h}}" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">{{title}}</div>
           <div class="cap-s">{{sub}}</div>
@@ -437,11 +439,11 @@
   })();
 
   // Bilder-Lightbox: ein Klick auf eine Kachel legt den Screenshot
-  // bildschirmfüllend über die Seite. Der Knopf wird hier erzeugt, damit das
-  // Markup der Kacheln unangetastet bleibt – ohne JS gibt es einfach keinen Zoom.
+  // bildschirmfüllend über die Seite. Der Knopf steht schon im Markup (kein
+  // <button> im <button>, kein Zoom ohne JS) – hier hängt nur der Handler dran.
   (function () {
-    var shots = [].slice.call(document.querySelectorAll('.shot'));
-    if (!shots.length || typeof HTMLDialogElement === 'undefined') return;
+    var btns = [].slice.call(document.querySelectorAll('.shot-zoom'));
+    if (!btns.length || typeof HTMLDialogElement === 'undefined') return;
 
     var dlg = document.createElement('dialog');
     dlg.className = 'lb';
@@ -457,8 +459,8 @@
     var idx = 0;
 
     var show = function (i) {
-      idx = (i + shots.length) % shots.length;
-      var s = shots[idx];
+      idx = (i + btns.length) % btns.length;
+      var s = btns[idx].closest('.shot');
       var src = s.querySelector('img');
       img.src = src.src;
       img.alt = src.alt;
@@ -466,14 +468,7 @@
         + s.querySelector('.cap-s').textContent;
     };
 
-    shots.forEach(function (s, i) {
-      var im = s.querySelector('img');
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'shot-zoom';
-      btn.setAttribute('aria-label', '{{lightbox.zoom}}: ' + s.querySelector('.cap-t').textContent);
-      im.parentNode.insertBefore(btn, im);
-      btn.appendChild(im);
+    btns.forEach(function (btn, i) {
       btn.addEventListener('click', function () { show(i); dlg.showModal(); });
     });
 

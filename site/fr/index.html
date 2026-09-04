@@ -252,12 +252,12 @@
       <article class="entry">
         <div class="time">04:30</div><div class="rail" aria-hidden="true"></div>
         <div class="body">
-          <p class="tag">Horaires</p>
+          <p class="tag">Plan de relève</p>
           <h3>La relève se planifie, elle ne s’estime pas.</h3>
-          <p>Si la nuit s’annonce longue, les Horaires planifient pour chaque personne de quand à
-            quand elle est disponible et quand elle est engagée. La courbe de couverture montre
-            où il manque du monde – avant que le trou ne soit là. Les Présences n’en sont pas
-            concernées : ici on planifie, là on pointe.</p>
+          <p>Si la nuit s’annonce longue, le plan de relève permet de définir pour chaque personne
+            de quand à quand elle est disponible et quand elle est engagée. La courbe de
+            couverture montre où il manque du monde – avant que le trou ne soit là. La gestion des
+            présences reste indépendante : ici on planifie, là on pointe.</p>
         </div>
       </article>
       <article class="entry">
@@ -292,63 +292,81 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/plan.webp" alt="Vue Plan : plan d’objet comme tableau blanc, avec dessin, symboles et échelle" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Agrandir: Plan">
+          <img src="../shots/plan.webp" alt="Vue Plan : plan d’objet comme tableau blanc, avec dessin, symboles et échelle" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Plan</div>
           <div class="cap-s">Plans d’objet et d’intervention avec signes conventionnels, marquages et mesure à l’échelle</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/atemschutz.webp" alt="Vue Protection respiratoire : équipes avec pression et temps depuis le dernier contact" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Agrandir: Protection respiratoire">
+          <img src="../shots/atemschutz.webp" alt="Vue Protection respiratoire : équipes avec pression et temps depuis le dernier contact" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Protection respiratoire</div>
           <div class="cap-s">Surveillance des équipes, des temps, des pressions et des annonces</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/gebaeude.webp" alt="Vue Bâtiment : étages superposés avec l’affectation des équipes" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Agrandir: Bâtiment">
+          <img src="../shots/gebaeude.webp" alt="Vue Bâtiment : étages superposés avec l’affectation des équipes" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Bâtiment</div>
           <div class="cap-s">Les étages les uns sur les autres – quelle équipe travaille à quel niveau</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/verlauf.webp" alt="Journal : entrées chronologiques à côté de la carte" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Agrandir: Journal">
+          <img src="../shots/verlauf.webp" alt="Journal : entrées chronologiques à côté de la carte" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Journal</div>
           <div class="cap-s">Documentation continue de tous les événements importants – un service de transcription configuré peut convertir les notes vocales en texte</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/anwesenheit.webp" alt="Présences : liste de l’effectif avec les heures d’arrivée" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Agrandir: Présences">
+          <img src="../shots/anwesenheit.webp" alt="Présences : liste de l’effectif avec les heures d’arrivée" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Présences</div>
           <div class="cap-s">Qui est arrivé et depuis quand – la base de la liste d’effectif et du rapport</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/zeitplan.webp" alt="Horaires : grille des tours, une ligne par personne, barres planifiées et réelles, courbe de couverture en dessous" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Agrandir: Plan de relève">
+          <img src="../shots/zeitplan.webp" alt="Plan de relève : grille des tours, une ligne par personne, barres planifiées et réelles, courbe de couverture en dessous" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
-          <div class="cap-t">Horaires</div>
-          <div class="cap-s">Planifier les tours lors d’interventions longues – disponible, engagé, réellement présent, et où la couverture s’effondre</div>
+          <div class="cap-t">Plan de relève</div>
+          <div class="cap-s">Planifier les tours lors d’interventions longues – disponible, engagé, réellement présent, et où la couverture devient insuffisante</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/checkliste.webp" alt="Checklist : tâches de l’aide à la conduite avec l’avancement" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Agrandir: Checklists">
+          <img src="../shots/checkliste.webp" alt="Checklist : tâches de l’aide à la conduite avec l’avancement" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Checklists</div>
           <div class="cap-s">Les checklists de conduite de votre corps, avec accès direct au plan, au journal et aux outils</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/mittel.webp" alt="Vue Moyens : matériel engagé, par provenance" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Agrandir: Moyens">
+          <img src="../shots/mittel.webp" alt="Vue Moyens : matériel engagé, par provenance" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Moyens</div>
           <div class="cap-s">Saisir le matériel et la consommation pendant l’intervention, au lieu de les estimer après</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/rapport.webp" alt="Rapport d’intervention avant impression : présences et moyens déjà repris, en dessous les sections du PDF à cocher" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Agrandir: Rapport">
+          <img src="../shots/rapport.webp" alt="Rapport d’intervention avant impression : présences et moyens déjà repris, en dessous les sections du PDF à cocher" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Rapport</div>
           <div class="cap-s">Presque terminé au retour à la caserne – contrôler, compléter, exporter en PDF, lancer l’impression</div>
@@ -409,10 +427,13 @@
           <li><strong>Surveillance PR</strong> : pression, moment du repli, temps depuis le dernier contact, alarmes</li>
           <li>Équipes sur la carte, sur le plan et dans les étages – avec leur propre couleur, la même partout</li>
           <li>Présences avec heures d’arrivée et grades</li>
-          <li><strong>Horaires</strong> : planifier les tours par personne, courbe de couverture sur
-            toute l’intervention, imprimable comme formulaire de conduite</li>
+          <li><strong>Plan de relève</strong> : planifier les disponibilités et les tours par
+            personne, visualiser la couverture sur toute l’intervention et imprimer les
+            formulaires de conduite</li>
           <li><strong>Partager sa position</strong> : qui ouvre le lien apparaît comme un point sur la
             carte de situation – volontairement, et pour cette intervention seulement</li>
+          <li>Partager l’intervention par lien ; l’accès est clairement signalé et peut être révoqué
+            à tout moment</li>
           <li>Moyens et matériel avec stock et consommation</li>
           <li>Checklists pour l’aide à la conduite et le chef d’intervention</li>
           <li>Vue chef d’intervention : suivre sans rien déplacer</li>
@@ -425,7 +446,8 @@
           <li>Notes vocales avec transcription, photos, rappels</li>
           <li><strong>Rejouer</strong> : repasser l’intervention minute par minute, attentes sautées –
             pour le débriefing</li>
-          <li>Rapport d’intervention en PDF prêt à imprimer – croquis à un instant choisi compris</li>
+          <li>Rapport d’intervention prêt au format PDF, avec effectif, matériel, horaires, journal,
+            croquis, photos et surveillance PR</li>
           <li>Photos en annexe au rapport</li>
           <li>Organisations partenaires avec leur remarque dans le rapport</li>
           <li>Feuille de saisie par code QR, pour tous ceux qui ont quelque chose à apporter</li>
@@ -515,7 +537,7 @@
         <p>À vous. Les cartes, plans et données d’intervention restent sur votre propre
           installation. Les services de carte et d’adresse ne reçoivent que la position demandée ;
           les autres services externes ne fonctionnent que si vous les configurez. Rien n’est
-          envoyé automatiquement au fabricant ou au mainteneur.</p>
+          envoyé automatiquement à un fournisseur externe ni au mainteneur.</p>
       </div>
       <div class="faq-item">
         <h3>Combien cela coûte-t-il ?</h3>
@@ -707,11 +729,11 @@
   })();
 
   // Bilder-Lightbox: ein Klick auf eine Kachel legt den Screenshot
-  // bildschirmfüllend über die Seite. Der Knopf wird hier erzeugt, damit das
-  // Markup der Kacheln unangetastet bleibt – ohne JS gibt es einfach keinen Zoom.
+  // bildschirmfüllend über die Seite. Der Knopf steht schon im Markup (kein
+  // <button> im <button>, kein Zoom ohne JS) – hier hängt nur der Handler dran.
   (function () {
-    var shots = [].slice.call(document.querySelectorAll('.shot'));
-    if (!shots.length || typeof HTMLDialogElement === 'undefined') return;
+    var btns = [].slice.call(document.querySelectorAll('.shot-zoom'));
+    if (!btns.length || typeof HTMLDialogElement === 'undefined') return;
 
     var dlg = document.createElement('dialog');
     dlg.className = 'lb';
@@ -727,8 +749,8 @@
     var idx = 0;
 
     var show = function (i) {
-      idx = (i + shots.length) % shots.length;
-      var s = shots[idx];
+      idx = (i + btns.length) % btns.length;
+      var s = btns[idx].closest('.shot');
       var src = s.querySelector('img');
       img.src = src.src;
       img.alt = src.alt;
@@ -736,14 +758,7 @@
         + s.querySelector('.cap-s').textContent;
     };
 
-    shots.forEach(function (s, i) {
-      var im = s.querySelector('img');
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'shot-zoom';
-      btn.setAttribute('aria-label', 'Agrandir: ' + s.querySelector('.cap-t').textContent);
-      im.parentNode.insertBefore(btn, im);
-      btn.appendChild(im);
+    btns.forEach(function (btn, i) {
       btn.addEventListener('click', function () { show(i); dlg.showModal(); });
     });
 

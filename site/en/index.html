@@ -173,7 +173,7 @@
         <ul>
           <li>No licence fees</li>
           <li>No vendor lock-in</li>
-          <li>Run it yourself, extend it yourself</li>
+          <li>Run it yourself and adapt it to your needs</li>
         </ul>
       </div>
     </div>
@@ -288,63 +288,81 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/plan.webp" alt="Plan view: building plan as a whiteboard with drawing, symbols and scale" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Plan">
+          <img src="../shots/plan.webp" alt="Plan view: building plan as a whiteboard with drawing, symbols and scale" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Plan</div>
           <div class="cap-s">Building and pre-incident plans with tactical symbols, markings and measuring to scale</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/atemschutz.webp" alt="SCBA view: teams with cylinder pressure and a running contact clock" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: SCBA">
+          <img src="../shots/atemschutz.webp" alt="SCBA view: teams with cylinder pressure and a running contact clock" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">SCBA</div>
           <div class="cap-s">Monitoring of teams, times, pressures and check-ins</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/gebaeude.webp" alt="Building view: stack of floors with team assignment" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Building">
+          <img src="../shots/gebaeude.webp" alt="Building view: stack of floors with team assignment" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Building</div>
           <div class="cap-s">The floors stacked up – which team is working on which storey</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/verlauf.webp" alt="Log: chronological entries next to the map" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Log">
+          <img src="../shots/verlauf.webp" alt="Log: chronological entries next to the map" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Log</div>
           <div class="cap-s">Running documentation of everything that matters – voice memos can become text with a configured transcription service</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/anwesenheit.webp" alt="Attendance: crew list with arrival times" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Attendance">
+          <img src="../shots/anwesenheit.webp" alt="Attendance: crew list with arrival times" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Attendance</div>
           <div class="cap-s">Who has turned out and since when – the basis for the crew list and the report</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/zeitplan.webp" alt="Shift plan: shift grid with one row per person, planned and actual bars, and the coverage line below" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Shift plan">
+          <img src="../shots/zeitplan.webp" alt="Shift plan: shift grid with one row per person, planned and actual bars, and the coverage line below" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Shift plan</div>
           <div class="cap-s">Plan shifts on long incidents – available, rostered, actually there, and where coverage breaks down</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/checkliste.webp" alt="Checklist: command support tasks with progress" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Checklists">
+          <img src="../shots/checkliste.webp" alt="Checklist: command support tasks with progress" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Checklists</div>
           <div class="cap-s">Your own command checklists, with direct jumps to plan, log and tools</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/mittel.webp" alt="Resources view: material used, by source" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Resources">
+          <img src="../shots/mittel.webp" alt="Resources view: material used, by source" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Resources</div>
           <div class="cap-s">Record equipment and consumption during the incident instead of estimating afterwards</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/rapport.webp" alt="Incident report before printing: attendance and resources already carried over, with the sections of the PDF to tick below" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Report">
+          <img src="../shots/rapport.webp" alt="Incident report before printing: attendance and resources already carried over, with the sections of the PDF to tick below" width="1500" height="937" loading="lazy" decoding="async">
+        </button>
         <figcaption>
           <div class="cap-t">Report</div>
           <div class="cap-s">Nearly done when you head back – check it, add to it, export as PDF, send it straight to the printer</div>
@@ -405,12 +423,13 @@
           <li><strong>SCBA monitoring</strong>: pressure, turnaround time, contact clock, alarms</li>
           <li>Teams on the map, on the plan and in the stack of floors – each with its own team colour, the same everywhere</li>
           <li>Attendance with arrival times and ranks</li>
-          <li><strong>Shift plan</strong>: plan shifts per person, coverage line across the whole
-            incident, printable as a command form</li>
+          <li><strong>Shift plan</strong>: plan availability and shifts per person, see coverage
+            across the incident and print command forms</li>
           <li><strong>Share location</strong>: whoever opens the link appears as a dot on the
             situation map – voluntary, and only for this incident</li>
+          <li>Share the incident by link; access is clearly indicated and can be revoked at any time</li>
           <li>Resources and equipment with stock and consumption</li>
-          <li>Checklists for command support and the incident commander</li>
+          <li>Checklists for command support and incident command</li>
           <li>Incident commander view: read along without moving anything</li>
         </ul>
       </div>
@@ -421,7 +440,8 @@
           <li>Voice memos with transcription, photos, reminders</li>
           <li><strong>Replay</strong>: play the incident back minute by minute, waits skipped –
             for the debrief</li>
-          <li>Incident report as a ready-made PDF – including a Kroki sketch at a chosen moment</li>
+          <li>Ready-made incident report as a PDF, including crew, resources, times, log, sketch,
+            photos and SCBA monitoring</li>
           <li>Photos as attachments to the report</li>
           <li>Partner organisations with their remarks in the report</li>
           <li>A capture sheet by QR code for everyone who has something to contribute</li>
@@ -497,7 +517,7 @@
       <div class="faq-item">
         <h3>Why switch?</h3>
         <p>Everyone sees the same situation at the same time – in the command vehicle, on the
-          tablet and at the incident commander. No message is lost on a scrap of paper. The SCBA
+          tablet and with the incident commander. No message is lost on a scrap of paper. The SCBA
           monitoring speaks up by itself before it gets tight. Less radio traffic for questions
           that are already answered on the situation picture – and the report is nearly done as
           you head back, instead of the weekend after. KP Front helps the incident commander keep
@@ -698,11 +718,11 @@
   })();
 
   // Bilder-Lightbox: ein Klick auf eine Kachel legt den Screenshot
-  // bildschirmfüllend über die Seite. Der Knopf wird hier erzeugt, damit das
-  // Markup der Kacheln unangetastet bleibt – ohne JS gibt es einfach keinen Zoom.
+  // bildschirmfüllend über die Seite. Der Knopf steht schon im Markup (kein
+  // <button> im <button>, kein Zoom ohne JS) – hier hängt nur der Handler dran.
   (function () {
-    var shots = [].slice.call(document.querySelectorAll('.shot'));
-    if (!shots.length || typeof HTMLDialogElement === 'undefined') return;
+    var btns = [].slice.call(document.querySelectorAll('.shot-zoom'));
+    if (!btns.length || typeof HTMLDialogElement === 'undefined') return;
 
     var dlg = document.createElement('dialog');
     dlg.className = 'lb';
@@ -718,8 +738,8 @@
     var idx = 0;
 
     var show = function (i) {
-      idx = (i + shots.length) % shots.length;
-      var s = shots[idx];
+      idx = (i + btns.length) % btns.length;
+      var s = btns[idx].closest('.shot');
       var src = s.querySelector('img');
       img.src = src.src;
       img.alt = src.alt;
@@ -727,14 +747,7 @@
         + s.querySelector('.cap-s').textContent;
     };
 
-    shots.forEach(function (s, i) {
-      var im = s.querySelector('img');
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'shot-zoom';
-      btn.setAttribute('aria-label', 'Zoom in: ' + s.querySelector('.cap-t').textContent);
-      im.parentNode.insertBefore(btn, im);
-      btn.appendChild(im);
+    btns.forEach(function (btn, i) {
       btn.addEventListener('click', function () { show(i); dlg.showModal(); });
     });
 

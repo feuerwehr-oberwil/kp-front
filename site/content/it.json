@@ -78,14 +78,14 @@
       {
         "time": "03:07",
         "tag": "Situazione",
-        "h3": "La prima situazione è in piedi.",
+        "h3": "Il primo quadro della situazione è pronto.",
         "p": "Simboli tattici CSP, settori, condotte e note sulla carta digitale della situazione.\n            Idranti, condotte e posizioni dei veicoli stanno sotto come livelli."
       },
       {
         "time": "03:12",
         "tag": "Protezione respiratoria",
         "h3": "La squadra 1 entra.",
-        "p": "Pressione, tempo di rientro e orologio di contatto scorrono per ogni squadra. L’app\n            si fa sentire prima che diventi stretta – anche quando nessuno sta guardando l’ora."
+        "p": "Pressione, tempo di rientro e orologio di contatto scorrono per ogni squadra. L’app\n            avvisa prima che il margine diventi critico – anche quando nessuno sta guardando l’ora."
       },
       {
         "time": "03:18",
@@ -103,7 +103,7 @@
         "time": "04:30",
         "tag": "Piano turni",
         "h3": "Il cambio si pianifica, non si stima.",
-        "p": "Se diventa una notte lunga, il piano turni tiene, per ogni persona, da quando a\n            quando è disponibile e quando è impiegata. La linea di copertura mostra dove le\n            persone sono troppo poche – prima che il buco ci sia. Le presenze restano fuori da\n            tutto questo: qui si pianifica, lì si spunta."
+        "p": "Se diventa una notte lunga, il piano turni indica, per ogni persona, quando è\n            disponibile e quando è impiegata. La linea di copertura mostra dove le persone sono\n            troppo poche – prima che si crei una carenza di personale. La gestione delle presenze\n            resta separata: qui si pianifica, lì si registra la presenza effettiva."
       },
       {
         "time": "05:55",
@@ -229,8 +229,9 @@
           "<strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, orologio di contatto, allarmi",
           "Squadre sulla carta, sul piano e nei piani sovrapposti – con il proprio colore di squadra, lo stesso ovunque",
           "Presenze con orari di arrivo e gradi",
-          "<strong>Piano turni</strong>: pianificare i turni per persona, linea di copertura su\n            tutto l’intervento, stampabile come formulario di condotta",
+          "<strong>Piano turni</strong>: pianificare disponibilità e turni per persona,\n            visualizzare la copertura dell’intero intervento e stampare i formulari di condotta",
           "<strong>Condividere la posizione</strong>: chi apre il link appare come punto sulla\n            carta della situazione – volontario, e solo per questo intervento",
+          "Condividere l’intervento tramite link; l’accesso è indicato chiaramente e può essere\n            revocato in qualsiasi momento",
           "Mezzi e materiale con scorte e consumo",
           "Liste di controllo per il supporto alla condotta e la direzione dell’intervento",
           "Vista capo intervento: leggere senza spostare nulla"
@@ -242,7 +243,7 @@
           "Un <strong>diario</strong> che viene solo integrato e mai riscritto",
           "Note vocali con trascrizione, foto, promemoria",
           "<strong>Viaggio nel tempo</strong>: riprodurre l’intervento minuto per minuto, con le\n            attese saltate – per il debriefing",
-          "Rapporto d’intervento come PDF già pronto – incluso il croquis a un momento scelto",
+          "Rapporto d’intervento pronto in PDF, con personale, materiale, orari, diario, croquis,\n            foto e sorveglianza della protezione respiratoria",
           "Foto come allegati al rapporto",
           "Organizzazioni partner con la loro osservazione nel rapporto",
           "Scheda di rilevamento via codice QR per tutti quelli che hanno qualcosa da aggiungere",

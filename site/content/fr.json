@@ -101,9 +101,9 @@
       },
       {
         "time": "04:30",
-        "tag": "Horaires",
+        "tag": "Plan de relève",
         "h3": "La relève se planifie, elle ne s’estime pas.",
-        "p": "Si la nuit s’annonce longue, les Horaires planifient pour chaque personne de quand à\n            quand elle est disponible et quand elle est engagée. La courbe de couverture montre\n            où il manque du monde – avant que le trou ne soit là. Les Présences n’en sont pas\n            concernées : ici on planifie, là on pointe."
+        "p": "Si la nuit s’annonce longue, le plan de relève permet de définir pour chaque personne\n            de quand à quand elle est disponible et quand elle est engagée. La courbe de\n            couverture montre où il manque du monde – avant que le trou ne soit là. La gestion des\n            présences reste indépendante : ici on planifie, là on pointe."
       },
       {
         "time": "05:55",
@@ -151,9 +151,9 @@
         "sub": "Qui est arrivé et depuis quand – la base de la liste d’effectif et du rapport"
       },
       {
-        "alt": "Horaires : grille des tours, une ligne par personne, barres planifiées et réelles, courbe de couverture en dessous",
-        "title": "Horaires",
-        "sub": "Planifier les tours lors d’interventions longues – disponible, engagé, réellement présent, et où la couverture s’effondre"
+        "alt": "Plan de relève : grille des tours, une ligne par personne, barres planifiées et réelles, courbe de couverture en dessous",
+        "title": "Plan de relève",
+        "sub": "Planifier les tours lors d’interventions longues – disponible, engagé, réellement présent, et où la couverture devient insuffisante"
       },
       {
         "alt": "Checklist : tâches de l’aide à la conduite avec l’avancement",
@@ -229,8 +229,9 @@
           "<strong>Surveillance PR</strong> : pression, moment du repli, temps depuis le dernier contact, alarmes",
           "Équipes sur la carte, sur le plan et dans les étages – avec leur propre couleur, la même partout",
           "Présences avec heures d’arrivée et grades",
-          "<strong>Horaires</strong> : planifier les tours par personne, courbe de couverture sur\n            toute l’intervention, imprimable comme formulaire de conduite",
+          "<strong>Plan de relève</strong> : planifier les disponibilités et les tours par\n            personne, visualiser la couverture sur toute l’intervention et imprimer les\n            formulaires de conduite",
           "<strong>Partager sa position</strong> : qui ouvre le lien apparaît comme un point sur la\n            carte de situation – volontairement, et pour cette intervention seulement",
+          "Partager l’intervention par lien ; l’accès est clairement signalé et peut être révoqué\n            à tout moment",
           "Moyens et matériel avec stock et consommation",
           "Checklists pour l’aide à la conduite et le chef d’intervention",
           "Vue chef d’intervention : suivre sans rien déplacer"
@@ -242,7 +243,7 @@
           "<strong>Un journal</strong> qui ne fait que s’allonger et ne se réécrit jamais",
           "Notes vocales avec transcription, photos, rappels",
           "<strong>Rejouer</strong> : repasser l’intervention minute par minute, attentes sautées –\n            pour le débriefing",
-          "Rapport d’intervention en PDF prêt à imprimer – croquis à un instant choisi compris",
+          "Rapport d’intervention prêt au format PDF, avec effectif, matériel, horaires, journal,\n            croquis, photos et surveillance PR",
           "Photos en annexe au rapport",
           "Organisations partenaires avec leur remarque dans le rapport",
           "Feuille de saisie par code QR, pour tous ceux qui ont quelque chose à apporter",
@@ -308,7 +309,7 @@
       },
       {
         "q": "À qui appartiennent les données ?",
-        "a": "À vous. Les cartes, plans et données d’intervention restent sur votre propre\n          installation. Les services de carte et d’adresse ne reçoivent que la position demandée ;\n          les autres services externes ne fonctionnent que si vous les configurez. Rien n’est\n          envoyé automatiquement au fabricant ou au mainteneur."
+        "a": "À vous. Les cartes, plans et données d’intervention restent sur votre propre\n          installation. Les services de carte et d’adresse ne reçoivent que la position demandée ;\n          les autres services externes ne fonctionnent que si vous les configurez. Rien n’est\n          envoyé automatiquement à un fournisseur externe ni au mainteneur."
       },
       {
         "q": "Combien cela coûte-t-il ?",
