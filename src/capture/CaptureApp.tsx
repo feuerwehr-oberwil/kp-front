@@ -390,10 +390,11 @@ export default function CaptureApp() {
    * Add one Beilage: re-encode (a phone hands over a 4–12 MB HEIC the server will not take),
    * upload the bytes, then record the row on the workspace. The row is written only after the
    * upload succeeded — a Beilage that exists but has no file behind it would print as a gap.
+   * Doesn't touch `uploading` itself — the caller (addBeilagen, below) owns that busy state so
+   * a multi-file pick holds ONE flag across the whole batch instead of flickering it per file.
    */
   const addBeilage = async (file: File) => {
-    if (!token || !incident || uploading) return
-    setUploading(true)
+    if (!token || !incident) return
     try {
       const blob = await prepareUploadImage(file)
       const up = await captureApi.uploadPhoto(token, incident.id, blob, file.name || 'beilage.jpg')
@@ -401,6 +402,21 @@ export default function CaptureApp() {
       if (ok) savedToast()
     } catch {
       toast(C.beilagenFailed, { icon: 'warn', tone: 'warn' })
+    }
+  }
+
+  /**
+   * Upload every file from one picker pick, one at a time — this runs on a phone on a bad
+   * connection, so N parallel uploads is the wrong trade. `uploading` is set once for the whole
+   * batch (not per file) so the control stays disabled until the last photo has landed. A file
+   * that fails is toasted by addBeilage above and the loop moves on — one bad photo doesn't cost
+   * the operator the rest of the pick.
+   */
+  const addBeilagen = async (files: File[]) => {
+    if (!token || !incident || uploading || files.length === 0) return
+    setUploading(true)
+    try {
+      for (const file of files) await addBeilage(file)
     } finally {
       setUploading(false)
     }
@@ -1326,8 +1342,8 @@ export default function CaptureApp() {
                   {/* while the upload runs the control eats taps at 60% opacity — the house busy
                       glyph says WHY instead of leaving a silently dead button (App.tsx idiom) */}
                   {uploading ? <Icon id="rotate" className="spin" /> : <Icon id="photo" />}<span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
-                  <input type="file" accept="image/*" disabled={busy || uploading}
-                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void addBeilage(f) }} />
+                  <input type="file" accept="image/*" multiple disabled={busy || uploading}
+                    onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; if (files.length) void addBeilagen(files) }} />
                 </label>
               </div>
             </div>
