@@ -2412,6 +2412,7 @@ export const fr: Localizable<Copy> = {
       + 'que vous le révoquiez.',
     shareCreate: 'Créer le lien',
     shareBusy: 'Création du lien …',
+    shareLoading: 'Chargement du lien …',
     shareCreateFailed: 'La création du lien a échoué.',
     shareCopy: 'Copier l’adresse',
     shareCopied: 'Copié',

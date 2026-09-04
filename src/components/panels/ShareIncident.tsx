@@ -120,9 +120,10 @@ function kindCopy(kind: ShareLinkKind) {
 }
 
 /** The surface itself, and the chooser: the tabs ARE how somebody picks which link they are
- *  handing over. Fetches its own link state per kind, so every door is one line to mount.
- *  `onState` reports the selected kind's link back — the Atemschutz board's own button paints
- *  its «ein Link läuft» tint from it without a second request.
+ *  handing over. Fetches the state of EVERY door it offers on mount, so switching tabs is a pure
+ *  render and never a second loading pass (see the effect below).
+ *  `onState` reports each door's link back as it arrives — the Atemschutz board's own button
+ *  paints its «ein Link läuft» tint from it without a second request.
  *
  *  `archived` drops the Atemschutz tab: that link dies with the Einsatz (404), so after the
  *  Abschluss it is not a choice but a dead end — see `lib/viewLink · shareDoors`. */
@@ -143,6 +144,9 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
   // «noch keiner» flash over a link that exists. Never mints anything — see the effect below.
   const [links, setLinks] = useState<Partial<Record<ShareLinkKind, ShareLink>>>({})
   const link = links[kind] ?? null
+  // ⚠️ «Noch nicht gefragt» and «gibt es keinen» are two different states, and collapsing them
+  // into one `null` is what made this sheet flash. See the pending branch below.
+  const pending = links[kind] === undefined
   const [busy, setBusy] = useState(false)
 
   // `onState` is read through a ref: a caller passing an inline arrow must not re-run the fetch.
@@ -162,11 +166,21 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
   // set on mount, not only cleared on unmount: StrictMode runs mount → cleanup → mount, and a
   // ref left false after that would drop every fetch answer for the life of the sheet
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  /* ⚠️ EVERY door on offer is fetched on MOUNT, not just the one on screen (04.09.). Fetching per
+     tab meant that the first switch swapped in a kind nothing was known about yet, so the sheet
+     fell back to the whole «noch keiner» layout — lede plus «Link erstellen» — and then jumped to
+     the QR block a moment later when the answer arrived. There are at most two doors and the
+     request is same-origin: asking for both up front costs one extra call and makes switching a
+     pure render. `doorKeys` rather than `doors` as the dep — `shareDoors` builds a fresh array
+     every render. */
+  const doorKeys = doors.map((d) => d.kind).join(',')
   useEffect(() => {
-    if (links[kind]) return // already known — switching kinds must not re-ask
-    void fetchShareLink(incidentId, kind).then((l) => { if (mounted.current) setLink(kind, l) }).catch(() => {})
+    for (const d of doors) {
+      if (links[d.kind]) continue // already known — switching kinds must not re-ask
+      void fetchShareLink(incidentId, d.kind).then((l) => { if (mounted.current) setLink(d.kind, l) }).catch(() => {})
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `links` is the cache this reads, not a trigger
-  }, [incidentId, kind])
+  }, [incidentId, doorKeys])
 
   // Empty until there IS a link — `viewLinkUrl` returns '' for a disabled one, and every
   // branch below keys off this rather than off a half-built URL.
@@ -199,6 +213,20 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
     </div>
   )
 
+  /* ⚠️ Nothing to press until the answer is in. Drawing the «Link erstellen» layout for a link
+     that may well already exist is not just the flash somebody reported — the button offered in
+     that window MINTS, so a fast thumb could rotate an address that had already been handed out.
+     A quiet row instead, in the place the sentence will take, and no control at all. */
+  if (pending) {
+    return (
+      <>
+        {picker}
+        <p className="esh-lede esh-pending" aria-busy="true">
+          <Icon id="rotate" className="spin" />{C.shareLoading}
+        </p>
+      </>
+    )
+  }
   if (!url) {
     return (
       <>

@@ -3622,6 +3622,9 @@ export const de = {
       + 'Nachbarwehr danach. Gilt über den Abschluss hinaus, bis du ihn aufhebst.',
     shareCreate: 'Link erstellen',
     shareBusy: 'Link wird erstellt …',
+    // Solange die Antwort noch aussteht: «noch nicht gefragt» ist nicht «gibt es keinen», und
+    // solange das offen ist, darf die Karte weder «Link erstellen» noch eine Adresse behaupten.
+    shareLoading: 'Link wird geladen …',
     shareCreateFailed: 'Link erstellen fehlgeschlagen',
     shareCopy: 'Adresse kopieren',
     shareCopied: 'Kopiert',

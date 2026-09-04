@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { ShareIncident } from './ShareIncident'
 import { appConfig } from '../../config/appConfig'
-import { createShareLink, fetchShareLink, revokeShareLink } from '../../lib/viewLink'
+import { createShareLink, fetchShareLink, revokeShareLink, type ShareLink } from '../../lib/viewLink'
 
 // «Teilen» is ONE surface with TWO doors, and its tabs are the chooser — there is no menu in
 // front of it any more (03.09.). What is worth pinning is what makes handing a link out safe
@@ -123,8 +123,9 @@ describe('… und «Nur Atemschutz – bedienen»', () => {
     await waitFor(() => expect(revokeShareLink).toHaveBeenCalledWith('i1', 'atemschutz'))
   })
 
-  // Switching back must be instant — a second «noch keiner» flash over a link that exists is
-  // how somebody mints a second one by mistake.
+  // Switching must be instant in BOTH directions — a «noch keiner» flash over a link that exists
+  // is how somebody mints a second one by mistake. Both doors are fetched once, on mount, and
+  // no switch adds a call.
   it('remembers each door’s state instead of re-asking', async () => {
     render(<ShareIncident incidentId="i1" />)
     await screen.findByText(C.shareLede)
@@ -133,6 +134,34 @@ describe('… und «Nur Atemschutz – bedienen»', () => {
     fireEvent.click(screen.getByText(C.shareKindFull))
     await screen.findByText(C.shareLede)
     expect(vi.mocked(fetchShareLink).mock.calls).toEqual([['i1', 'view'], ['i1', 'atemschutz']])
+  })
+
+  /* ⚠️ The flash from the field (04.09.): the first switch swapped in a door nothing had been
+   * asked about yet, so the sheet drew the whole «Link erstellen» block over a link that existed
+   * and jumped to the QR a moment later. Beyond the ugliness, the button standing there MINTS —
+   * a fast thumb in that window rotates an address somebody had already been given. */
+  it('never falls back to «Link erstellen» when switching to a door that has one', async () => {
+    vi.mocked(fetchShareLink).mockResolvedValue(on)
+    render(<ShareIncident incidentId="i1" />)
+    await screen.findByText(/\/l\/tok123$/)
+
+    fireEvent.click(screen.getByText(C.shareKindAtem))
+    expect(screen.getByText(C.shareAsLiveLede)).toBeTruthy()
+    expect(screen.queryByText(C.shareCreate)).toBeNull()
+    expect(createShareLink).not.toHaveBeenCalled()
+  })
+
+  it('offers nothing to press while a door’s state is still unknown', async () => {
+    let answer!: (l: ShareLink) => void
+    vi.mocked(fetchShareLink).mockReturnValue(new Promise<ShareLink>((r) => { answer = r }))
+    render(<ShareIncident incidentId="i1" />)
+    // «noch nicht gefragt» is not «gibt es keinen»: no mint button, no address, no claim either way
+    expect(screen.getByText(C.shareLoading)).toBeTruthy()
+    expect(screen.queryByText(C.shareCreate)).toBeNull()
+    expect(screen.queryByText(C.shareLede)).toBeNull()
+
+    answer(off)
+    await screen.findByText(C.shareCreate)
   })
 })
 

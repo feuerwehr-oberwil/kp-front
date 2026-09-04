@@ -1583,6 +1583,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    second label. Inherits the segment's colour, so the active pill keeps its contrast. */
 .esh-kind .useg-btn small { font: 600 11px var(--body); opacity: .8; }
 .esh-lede { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
+/* The window before the link's state is known. Deliberately the quietest thing this sheet can
+   draw — the alternative was the whole «Link erstellen» block for a link that may already exist
+   (see ShareIncident · pending), and a mis-tap there mints a second address. */
+.esh-pending { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-faint); }
+.esh-pending .i { width: 15px; height: 15px; }
 /* The QR is the handover: the Nachbarwehr's phone scans the tablet instead of typing an
    address. Black on white in BOTH themes — it is a machine target, not a surface. */
 .esh-qr { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px;

@@ -2411,6 +2411,7 @@ export const en: Localizable<Copy> = {
       + 'until you revoke it.',
     shareCreate: 'Create link',
     shareBusy: 'Creating link …',
+    shareLoading: 'Loading link …',
     shareCreateFailed: 'Creating the link failed',
     shareCopy: 'Copy address',
     shareCopied: 'Copied',

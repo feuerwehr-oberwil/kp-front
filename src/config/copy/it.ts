@@ -2411,6 +2411,7 @@ export const it: Localizable<Copy> = {
       + 'comune e i corpi vicini dopo. Resta valido oltre la chiusura, finché non lo revochi.',
     shareCreate: 'Crea link',
     shareBusy: 'Creazione del link …',
+    shareLoading: 'Caricamento del link …',
     shareCreateFailed: 'Creazione del link non riuscita',
     shareCopy: 'Copia indirizzo',
     shareCopied: 'Copiato',
