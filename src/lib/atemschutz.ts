@@ -123,6 +123,19 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
 }
 
 /**
+ * Still out there: eingerückt and never reported back — whatever kind of Trupp it is.
+ *
+ * ⚠️ NOT `truppInField`. That one gates the ALARM, so it asks the alarm's question — a cylinder
+ * and a Funkkontakt-Intervall — and deliberately skips a work squad. The Abschluss asks a
+ * different one: is anybody still on the record as being out there? A Trupp ohne Atemschutz whose
+ * Einsatzzeit is still running is exactly that, and closing the Einsatz over it is how a Trupp
+ * ends up on the paper with no Austritt.
+ */
+export function truppStillDeployed(t: Trupp): boolean {
+  return ms(t.entryTime) > 0 && t.status !== 'angemeldet' && t.status !== 'raus' && !t.exitTime
+}
+
+/**
  * Registered at the Tafel and still standing there — angemeldet, never eingerückt.
  *
  * The one state where putting the Trupp's symbol somewhere and its record disagree: the picture

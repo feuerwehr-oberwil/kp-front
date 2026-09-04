@@ -1408,7 +1408,6 @@ export const de = {
     // «Atemschutzüberwachung» über einer Zeile «Verkehr» wäre schlicht falsch. Die abgegebene
     // Tafel («Tafel pur») behält `title`: dort gibt es nur den Atemschutz.
     boardTitle: 'Trupps',
-    subtitle: 'Lückenlose Überwachung jedes Atemschutztrupps',
     // Abschnittsköpfe der Tafel. Die Linie ist die Trennung, das Wort das Versprechen: was oben
     // steht, wird überwacht – was unten steht, nicht.
     sectionAtemschutz: 'Atemschutz',
@@ -3724,6 +3723,11 @@ export const de = {
     unresolvedHours: '{names}: Zeiten laufen rückwärts oder fehlen – nicht in den Einsatzstunden.',
     pendingMedia: '{n} Foto/Audio noch nicht hochgeladen – wird bei Verbindung ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
     pendingMediaConfirm: '{n} Foto/Audio noch nicht hochgeladen – bleiben auf diesem Gerät gespeichert',
+    // Kein fehlendes Feld, sondern ein Zustand: Es hat nie jemand gemeldet, dass diese Trupps
+    // zurück sind. Ab dem Abschluss stehen ihre Uhren auf dem Einsatzende – das hier ist der
+    // letzte Moment, in dem gefragt wird. Ohne Zahlwort-Plural: «Noch im Einsatz: 1» liest sich
+    // genauso wie «Noch im Einsatz: 3».
+    truppsDeployedConfirm: 'Noch im Einsatz: {n} – nie rausgemeldet',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
   },
   // Station print relay — «Ausdrucken» (preflight + capture)

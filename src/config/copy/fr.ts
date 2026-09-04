@@ -981,7 +981,6 @@ export const fr: Localizable<Copy> = {
     title: 'Surveillance ARI',
     // titre du tableau dans l'application complète — il porte les deux sections (voir de.ts)
     boardTitle: 'Binômes',
-    subtitle: 'Surveillance sans faille de chaque binôme ARI',
     sectionAtemschutz: 'ARI',
     sectionAtemschutzEmpty: 'Aucun binôme sous ARI actuellement.',
     sectionPlain: 'Autres binômes',
@@ -2506,6 +2505,7 @@ export const fr: Localizable<Copy> = {
     unresolvedHours: '{names} : les heures sont inversées ou manquent – pas comptées dans les heures d\'intervention.',
     pendingMedia: '{n} photo/audio pas encore téléversés – seront complétés dès qu\'une connexion existe ; peut-être pas encore visibles sur d\'autres appareils.',
     pendingMediaConfirm: '{n} photo/audio pas encore envoyé – conservé sur cet appareil',
+    truppsDeployedConfirm: 'Encore engagés : {n} – jamais annoncés sortis',
   },
   printRelay: {
     send: 'Imprimer',

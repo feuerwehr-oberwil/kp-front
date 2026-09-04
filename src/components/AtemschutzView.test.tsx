@@ -157,6 +157,31 @@ describe('the lifecycle row: quiet button first', () => {
   })
 })
 
+/* A closed Einsatz is a record, not a situation. A Trupp that was never reported out kept
+ * accumulating Einsatzzeit through the night, so the Akte opened the next morning claimed a crew
+ * had been inside for eleven hours — and the überfällig alarm went with it (that half is App's,
+ * see `azMonitoring`). Frozen, every clock reads what it read when the Einsatz ended. */
+describe('an abgeschlossener Einsatz (frozenAt)', () => {
+  it('stops every clock at the Einsatzende instead of counting on', () => {
+    vi.useFakeTimers()
+    try {
+      const entry = Date.now() - 10 * 60_000
+      const trupp = { ...aktivTrupp(), entryTime: new Date(entry).toISOString() }
+      // the Einsatz ended four minutes after this Trupp went in
+      mount({ trupps: [trupp], frozenAt: entry + 4 * 60_000 })
+      const clock = () => screen.getByText(az.elapsed).parentElement!.textContent
+      const atClose = clock()
+      expect(atClose).toContain('4:00')
+
+      // …and a minute of real time later it still reads exactly what it read at the Einsatzende
+      vi.advanceTimersByTime(60_000)
+      expect(clock()).toBe(atClose)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('the Verlauf footer (the removed «Draussen: hh:mm» line, generalised)', () => {
   it('previews the LATEST event with its bar, and expands the full log in place', () => {
     mount()
@@ -195,10 +220,16 @@ describe('pointing to a Trupp', () => {
 describe('the handed-over board (lite)', () => {
   const lite = { subtitle: 'Brand · Hauptstrasse 12, Oberwil' }
 
-  it('names the Einsatz instead of the generic subtitle', () => {
+  // ⚠️ The second header line exists ONLY here. In the full app it used to carry a sentence about
+  // what the board is for («Lückenlose Überwachung jedes Atemschutztrupps») — a claim the operator
+  // standing at the board has already made — and it was dropped on 04.09.
+  it('names the Einsatz on the line the full app does not have at all', () => {
     mount({ lite })
     expect(screen.getByText(lite.subtitle)).toBeTruthy()
-    expect(screen.queryByText(az.subtitle)).toBeNull()
+
+    cleanup()
+    mount()
+    expect(document.querySelector('header p')).toBeNull()
   })
 
   it('drops Platzieren, Leitung and the order menu — and keeps Kontakt and Bearbeiten', async () => {

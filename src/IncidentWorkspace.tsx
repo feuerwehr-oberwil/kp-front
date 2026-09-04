@@ -113,7 +113,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, type AtemschutzAlarmState } from './lib/atemschutz'
+import { isAtemschutzTrupp, truppStillDeployed, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { Whiteboard } from './components/Whiteboard'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -1421,6 +1421,30 @@ export function IncidentWorkspace({
     () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
     [reportMeta, attendance, mittel],
   )
+  /** How many Trupps are still recorded as being out there (lib/atemschutz · truppStillDeployed).
+   *  NOT an ABSCHLUSS_STEP: those are the Rapport's Mindestangaben, and this is a state of the
+   *  Einsatz rather than an empty field — it rides beside them in the confirm, the way pending
+   *  media does. */
+  const truppsStillOut = useMemo(() => trupps.filter(truppStillDeployed).length, [trupps])
+  /** The moment every Trupp clock is read against once the Einsatz is abgeschlossen — after that
+   *  no more time passes on this Einsatz, and a board that kept counting was describing a
+   *  situation that had ended (see AtemschutzView · `frozenAt`).
+   *
+   *  ⚠️ The EINSATZENDE, not `closed_at`: the record is often closed the morning after, and
+   *  freezing on that would have counted the night as Einsatzzeit — the very number this fixes.
+   *  `closed_at` is the fallback for an Einsatz archived without one ever being entered. */
+  const azFrozenAt = useMemo(() => {
+    if (!incidentMeta.is_archived) return undefined
+    const at = Date.parse(reportMeta.endedAt ?? incidentMeta.closed_at ?? '')
+    return Number.isFinite(at) ? at : undefined
+  }, [incidentMeta.is_archived, incidentMeta.closed_at, reportMeta.endedAt])
+  /* ⚠️ …and the ALARM stops with the clocks. It is not a display: it plays a tone and posts an OS
+     notification, and it ran off the live clock regardless of the Einsatz's state — so opening a
+     closed Akte with a Trupp that was never reported out started an überfällig alarm about a
+     crew that went home hours ago. `active: false` stops the tone and reports a silent state, so
+     the TopBar chip and the NavRail dot go quiet with it. Replay was already excluded for the
+     same reason: a read-only past does not alarm. */
+  const azMonitoring = !replayActive && !incidentMeta.is_archived
   /** Resolves TRUE when the Einsatz was actually handed over for closing — the Rapport uses that
    *  to decide whether to forget its scroll position, and a cancelled confirm must not. */
   const confirmAndComplete = useCallback(async (): Promise<boolean> => {
@@ -1432,14 +1456,26 @@ export function IncidentWorkspace({
     const pendingItem = media.pendingCount > 0
       ? [fillTemplate(P.pendingMediaConfirm, { n: media.pendingCount })]
       : []
+    /* ⚠️ A Trupp that was never reported out belongs on this list (04.09.). It is not a missing
+       Angabe — that is what `abschlussMissing` collects — but a fact about the Einsatz being
+       closed over it: nobody said the crew came back, and from here on the board freezes at the
+       Einsatzende, so this is the last moment anybody is asked. The Abschluss still goes through
+       («Trotzdem abschliessen»), and it writes nothing by itself: closing an Einsatz must never
+       put an Austritt on the record that nobody reported. */
+    const truppItem = truppsStillOut > 0
+      ? [fillTemplate(P.truppsDeployedConfirm, { n: truppsStillOut })]
+      : []
+    // …and it counts as an open point for the WORDING, the way a missing Angabe does: the message
+    // and the button both have to say that something is being closed over.
+    const anyOpen = abschlussMissing.length > 0 || truppItem.length > 0
     const ok = await confirmDialog({
       title: A.confirmTitle,
-      message: abschlussMissing.length ? P.exportIncompleteLead : A.confirmMsg,
-      items: [...abschlussMissing.map((s) => A.steps[s]), ...pendingItem],
-      note: abschlussMissing.length ? A.confirmMsg : undefined,
+      message: anyOpen ? P.exportIncompleteLead : A.confirmMsg,
+      items: [...abschlussMissing.map((s) => A.steps[s]), ...truppItem, ...pendingItem],
+      note: anyOpen ? A.confirmMsg : undefined,
       // the button names what is actually about to happen — closing an Einsatz with open points
       // is allowed, and the label is where that is said out loud
-      confirmLabel: abschlussMissing.length ? A.confirmAnyway : A.confirmBtn,
+      confirmLabel: anyOpen ? A.confirmAnyway : A.confirmBtn,
     })
     if (!ok) return false
     // ⚠️ Drain the media queue FIRST, from here. The Abschluss closes the incident and App then
@@ -1451,7 +1487,7 @@ export function IncidentWorkspace({
     // the close went through, so the Rapport's kept scroll position survives a failed Abschluss
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport()
-  }, [abschlussMissing, media, onCompleteRapport])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport])
 
   // upload a captured photo/audio blob and swap the timeline row's session blob: URL for the
   // persistent server URL (so history keeps the media). On failure the blob is persisted to the
@@ -4096,6 +4132,8 @@ export function IncidentWorkspace({
       lite={asLink ? {
         subtitle: [incidentMeta.title, incidentMeta.address].filter(Boolean).join(' · '),
       } : undefined}
+      // a closed Einsatz is a record, not a situation: every clock stands at the Einsatzende
+      frozenAt={azFrozenAt}
     />
   )
 
@@ -4121,7 +4159,7 @@ export function IncidentWorkspace({
             that looked read-only for no reason. The Meldeleiste is mounted at App root, so the
             row paints here too. */}
         {tabLockLost && <TabLockBanner onTakeOver={onTakeOverTab} />}
-        <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
+        <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
           logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         <RemindersHost {...reminders.host} />
         {guarded('atemschutz', atemschutzBoard, false)}
@@ -4144,7 +4182,7 @@ export function IncidentWorkspace({
   return (
     <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
-      <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
+      <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
         logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
       <RemindersHost {...reminders.host} />
@@ -4403,7 +4441,9 @@ export function IncidentWorkspace({
             // used to archive plainly (see confirmAndComplete). The badge puts the check where it
             // can be read before the row is pressed, not only after.
             onArchive={canEditIncident && !readOnly && !incidentMeta.is_archived ? () => { void confirmAndComplete() } : undefined}
-            archiveOpenCount={abschlussMissing.length}
+            // …the Trupps that are still out included: the badge exists so the open points can be
+            // read BEFORE the row is pressed, and «niemand hat den Trupp rausgemeldet» is one.
+            archiveOpenCount={abschlussMissing.length + (truppsStillOut > 0 ? 1 : 0)}
             // «Teilen» — the SAME sheet the Einsatzkopf's button opens, on the same tab. It
             // stays because of the phone: there the Teilen button in the bar has no room
             // (15-mobile.css · .tb-act-teilen), and this is that device's way in, so a phone is

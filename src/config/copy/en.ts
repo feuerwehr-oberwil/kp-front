@@ -979,7 +979,6 @@ export const en: Localizable<Copy> = {
     title: 'SCBA monitoring',
     // the board title in the FULL app — it carries both sections since 03.09. (see de.ts)
     boardTitle: 'Teams',
-    subtitle: 'Gap-free monitoring of every SCBA team',
     sectionAtemschutz: 'SCBA',
     sectionAtemschutzEmpty: 'No team is under SCBA right now.',
     sectionPlain: 'Other teams',
@@ -2502,6 +2501,7 @@ export const en: Localizable<Copy> = {
     unresolvedHours: '{names}: times run backwards or are missing — not in the deployment hours.',
     pendingMedia: '{n} photo/audio not uploaded yet — it will be added once there is a connection; it may not be visible on other devices yet.',
     pendingMediaConfirm: '{n} photo/audio not uploaded yet – kept on this device',
+    truppsDeployedConfirm: 'Still deployed: {n} – never reported out',
   },
   printRelay: {
     send: 'Print',

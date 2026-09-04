@@ -981,7 +981,6 @@ export const it: Localizable<Copy> = {
     title: 'Sorveglianza autoprotezione',
     // titolo della tavola nell'app completa — porta entrambe le sezioni (vedi de.ts)
     boardTitle: 'Squadre',
-    subtitle: 'Sorveglianza senza lacune di ogni squadra ARA',
     sectionAtemschutz: 'ARA',
     sectionAtemschutzEmpty: 'Al momento nessuna squadra è sotto ARA.',
     sectionPlain: 'Altre squadre',
@@ -2504,6 +2503,7 @@ export const it: Localizable<Copy> = {
     unresolvedHours: '{names}: gli orari sono invertiti o mancano – non nelle ore d\'intervento.',
     pendingMedia: '{n} foto/audio non ancora caricati – verranno aggiunti appena c\'è una connessione; forse non ancora visibili su altri dispositivi.',
     pendingMediaConfirm: '{n} foto/audio non ancora caricati – restano su questo dispositivo',
+    truppsDeployedConfirm: 'Ancora in servizio: {n} – mai annunciate uscite',
   },
   printRelay: {
     send: 'Stampa',

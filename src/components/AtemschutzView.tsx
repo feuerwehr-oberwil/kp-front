@@ -70,7 +70,7 @@ export function AtemschutzView({
   trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
-  focus, onShareLink, shareLinkActive = false, lite,
+  focus, onShareLink, shareLinkActive = false, lite, frozenAt,
   syncStatus, lastSyncedAt, clockSkewMs,
 }: {
   trupps: Trupp[]
@@ -167,6 +167,10 @@ export function AtemschutzView({
   lite?: {
     subtitle: string
   }
+  /** Epoch ms to read every clock against instead of the running one — the Einsatzende of an
+   *  abgeschlossener Einsatz (IncidentWorkspace). Absent while the Einsatz is open, which is the
+   *  only state in which a Trupp's time is still passing. */
+  frozenAt?: number
   /** The incident's sync lifecycle (useIncidentSync), rendered in the board's OWN header
    *  (safety review 01.09.): the surface a life depends on must say itself whether what it
    *  shows is saved and current — offline or a failing sync has to be visible without the
@@ -285,11 +289,19 @@ export function AtemschutzView({
   // clock so a phone and a PC watching the same Trupp show the SAME number. They did not — a
   // six-second device-clock difference was six seconds of difference on the board, and the
   // operator has no way to tell which of the two is lying. Offline it IS Date.now().
-  const [now, setNow] = useState(() => serverNow())
+  /* ⚠️ …and it STOPS at the Einsatzende once the Einsatz is abgeschlossen (`frozenAt`, 04.09.).
+   * A closed Einsatz is a record, not a situation: a Trupp that was never reported out kept
+   * accumulating Einsatzzeit through the night, so opening the Akte the next morning showed a
+   * crew «seit 14:12 im Einsatz» — a number about nothing. Frozen, every clock on the board reads
+   * what it read when the Einsatz ended, which is what the paper says too. The tick is not merely
+   * ignored but never started: there is nothing left to count. */
+  const [tick, setTick] = useState(() => serverNow())
   useEffect(() => {
-    const t = setInterval(() => setNow(serverNow()), 1000)
+    if (frozenAt != null) return
+    const t = setInterval(() => setTick(serverNow()), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [frozenAt])
+  const now = frozenAt ?? tick
 
   // the station's Alarmdruck lines — read as scalars, because atemschutzDoctrine() builds a
   // fresh object on every call and a memo keyed on it would recompute on every render
@@ -760,7 +772,9 @@ export function AtemschutzView({
                reads «Trupp». Only the Einsatz's own name earns this line, alongside the shrunk
                sync state (see `syncLine` above); the bell stays right of it, in `.headActs`. */
             <div className={s.headRow}>
-              <h2>{lite ? lite.subtitle : az.subtitle}</h2>
+              {/* focusMode is `lite && compact`, so this is always the Einsatz — the fallback
+                  exists only so the line can never render empty. */}
+              <h2>{lite?.subtitle ?? az.boardTitle}</h2>
               {syncLine}
             </div>
           ) : (
@@ -770,14 +784,15 @@ export function AtemschutzView({
                   reading «Verkehr» would have named something that is not there. The link
                   session sees only the Atemschutz, so for it the old title stays TRUE — and it
                   is the one screen whose holder has nothing else telling them what they are
-                  looking at. The subtitle is unchanged either way: it describes the half of the
-                  board a life depends on. */}
+                  looking at. */}
               <h2>{lite ? az.title : az.boardTitle}</h2>
-              {/* ⚠️ On the handed-over Tafel the subtitle is the EINSATZ, not the generic sentence
-                  about what the board is for. Nothing else on that screen names it, and «welcher
-                  Einsatz ist das» is the first question somebody scanning a code from a stranger's
-                  tablet has. Not a second header — this line already exists. */}
-              <p>{lite ? lite.subtitle : az.subtitle}</p>
+              {/* ⚠️ The second line exists only on the handed-over Tafel, and it is the EINSATZ.
+                  Nothing else on that screen names it, and «welcher Einsatz ist das» is the first
+                  question somebody scanning a code from a stranger's tablet has.
+                  In the full app there is no second line: it used to carry a sentence about what
+                  the board is for («Lückenlose Überwachung jedes Atemschutztrupps»), which is a
+                  claim the operator standing at the board has already made — dropped 04.09. */}
+              {lite && <p>{lite.subtitle}</p>}
               {syncLine}
             </>
           )}

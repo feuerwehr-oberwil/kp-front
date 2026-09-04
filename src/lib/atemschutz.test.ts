@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed } from './atemschutz'
+import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppStillDeployed } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -394,6 +394,27 @@ describe('truppInField / anyTruppInField (1 Hz tick gate)', () => {
       { ...base, id: 'a', status: 'raus', exitTime: base.entryTime },
       { ...base, id: 'b', status: 'aktiv' },
     ])).toBe(true)
+  })
+})
+
+/* The Abschluss asks a different question than the alarm does: not «whose cylinder am I
+ * watching» but «is anybody still on the record as being out there» — so a work squad counts
+ * here where it deliberately does not count for the tick above. */
+describe('truppStillDeployed (the Abschluss question)', () => {
+  const plain: Trupp = { ...base, kind: 'einfach', entryPressureBar: 0, lowestBar: 0 }
+
+  it('counts a Trupp that went in and never came back, Atemschutz or not', () => {
+    expect(truppStillDeployed(base)).toBe(true)
+    expect(truppStillDeployed({ ...base, status: 'rueckzug' })).toBe(true)
+    // …and this is the one that separates it from truppInField
+    expect(truppStillDeployed(plain)).toBe(true)
+    expect(truppInField(plain)).toBe(false)
+  })
+
+  it('is false for one that never went in, or that was reported out', () => {
+    expect(truppStillDeployed({ ...base, status: 'angemeldet', entryTime: '' })).toBe(false)
+    expect(truppStillDeployed({ ...base, status: 'raus', exitTime: base.entryTime })).toBe(false)
+    expect(truppStillDeployed({ ...base, exitTime: base.entryTime })).toBe(false)
   })
 })
 
