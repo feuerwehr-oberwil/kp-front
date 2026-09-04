@@ -7,6 +7,7 @@ composer at the page boundary.
 """
 
 import io
+import itertools
 
 import pypdfium2 as pdfium
 from PIL import Image
@@ -165,6 +166,98 @@ def test_the_kontaktperson_row_carries_the_phone_number():
         compose_report_pdf(ReportPayload.model_validate({**base, "meta": {"kontaktpersonNone": True}}), {})
     )
     assert "Telefon" not in answered
+
+
+def _details_rows(pdf: bytes) -> dict[str, tuple[float, float]]:
+    """The Details box's labels, each with the (x, y) of its own row — the frame of reference for
+    «did this row move, and did the ones under it move with it»."""
+    tp = pdfium.PdfDocument(pdf)[0].get_textpage()
+    rows: dict[str, tuple[float, float]] = {}
+    for i in range(tp.count_rects()):
+        r = tp.get_rect(i)
+        text = tp.get_text_bounded(*r).strip()
+        if text.endswith(":"):
+            rows.setdefault(text[:-1], (r[0], r[3]))
+    return rows
+
+
+def _kontakt_pdf(name: str | None) -> bytes:
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "04.09.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "meta": {"kontaktperson": name, "kontaktpersonTelefon": "079 123 45 67"},
+        }
+    )
+    return compose_report_pdf(payload, {})
+
+
+def test_a_long_kontaktperson_wraps_instead_of_losing_its_second_half():
+    """⚠️ Field report 04.09.: the Details box is drawn straight onto the canvas, and a value too
+    wide for its field was cut by `_fit_text` — «von Wattenwyl-Grossenbacher Marie…». On the one
+    document that is a legal record, a name shortened without a word about it is data loss, and
+    the reader has no way to tell it happened.
+
+    The value wraps onto a SECOND line, starting at its own tab stop (the continuation is the rest
+    of the name, not a new field), and the box grows by exactly that line — the row below has to
+    move down with it, not be printed through."""
+    name = "von Wattenwyl-Grossenbacher Marie-Christine"
+    tp = pdfium.PdfDocument(_kontakt_pdf(name))[0].get_textpage()
+    parts = [
+        (tp.get_rect(i)[0], tp.get_rect(i)[3], tp.get_text_bounded(*tp.get_rect(i)).strip())
+        for i in range(tp.count_rects())
+    ]
+    first = next(p for p in parts if p[2].startswith("von Wattenwyl"))
+    second = next(p for p in parts if "Marie-Christine" in p[2])
+    assert "…" not in first[2] and "…" not in second[2], "the name is still being truncated"
+    assert first[2] + " " + second[2] == name
+    # the continuation starts at the VALUE's tab stop, not back at the label's x
+    label_x = _details_rows(_kontakt_pdf(name))["Kontaktperson"][0]
+    assert abs(second[0] - first[0]) < 1.5, "the second line does not start at the value's column"
+    assert second[0] - label_x > 20, "the second line fell back to the label column"
+    # …and it is a line BELOW, roughly a writing height under the first
+    assert 8 < first[1] - second[1] < 18
+
+    # the row under it moved down by that one line and no more
+    short = _details_rows(_kontakt_pdf("Anna Meier"))
+    grown = _details_rows(_kontakt_pdf(name))
+    gap_short = short["Kontaktperson"][1] - short["Rückmeldung ELZ"][1]
+    gap_grown = grown["Kontaktperson"][1] - grown["Rückmeldung ELZ"][1]
+    assert 8 < gap_grown - gap_short < 18, f"the box grew by {gap_grown - gap_short:.1f} pt, not one line"
+
+
+def test_a_kontaktperson_that_fits_leaves_the_box_exactly_as_it_was():
+    """Wrapping may only happen where it is needed. A name that fits keeps the box's own pitch,
+    tab stops and every row's y identical to a sheet where the field was never filled in — the
+    common case must be untouched by the fix for the rare one."""
+    empty = _details_rows(_kontakt_pdf(None))
+    filled = _details_rows(_kontakt_pdf("Anna Meier"))
+    assert empty.keys() == filled.keys()
+    for label, (x, y) in empty.items():
+        assert (round(x, 3), round(y, 3)) == (round(filled[label][0], 3), round(filled[label][1], 3)), (
+            f"«{label}» moved when a fitting Kontaktperson was printed"
+        )
+    # the box's rows still sit one uniform pitch apart, top row to bottom row
+    order = ["Kategorie", "Adresse / Objekt", "Ausgerückt", "Einsatzleiter", "Kontaktperson", "Rückmeldung ELZ"]
+    pitches = [filled[a][1] - filled[b][1] for a, b in itertools.pairwise(order)]
+    assert max(pitches) - min(pitches) < 0.5, f"the box lost its uniform pitch: {pitches}"
+
+
+def test_a_kontaktperson_too_long_even_for_two_lines_ends_in_an_ellipsis():
+    """A form field is not a paragraph: the wrap is capped at two lines, so a pasted paragraph
+    cannot push the signed part off the page. What it must NOT do is stop silently — the last
+    line still ellipsises, which is the sheet saying «there was more here»."""
+    tp = pdfium.PdfDocument(_kontakt_pdf("Bau" + "genehmigungsverfahren" * 12))[0].get_textpage()
+    lines = [
+        (tp.get_rect(i)[3], tp.get_text_bounded(*tp.get_rect(i)).strip())
+        for i in range(tp.count_rects())
+        if "genehmigungs" in tp.get_text_bounded(*tp.get_rect(i))
+    ]
+    assert len(lines) == 2, f"expected the value capped at two lines, got {len(lines)}"
+    lines.sort(key=lambda p: -p[0])
+    assert not lines[0][1].endswith("…"), "the FIRST line must be full, not truncated"
+    assert lines[1][1].endswith("…"), "the value was clipped without saying so"
 
 
 def test_the_atemschutz_sheet_numbers_its_adf_the_way_the_form_does():

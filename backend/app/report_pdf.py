@@ -977,6 +977,56 @@ def _fit_text(c, text: str, max_w: float, font: str = "Helvetica", size: float =
     return text + "…"
 
 
+#: How far a wrapped form value's second line hangs under the first. Two-thirds of a `pitch`
+#: slot: enough air under 9pt type to read as a continuation of the line above rather than a
+#: field of its own, and short enough that the row still sits clear of the one below it.
+_WRAP_LEAD = 4.0 * mm
+
+#: A form field is not a paragraph — two lines, then the ellipsis. Past that the value is not a
+#: name any more, and letting it grow would push the Details box off the page it shares with the
+#: Kurzbericht.
+_WRAP_MAX_LINES = 2
+
+
+def _break_at(text: str, max_w: float, font: str, size: float) -> int:
+    """Where to cut ``text`` so the first piece fits ``max_w`` — after the last space that still
+    fits, or mid-word when a single unbroken token (a long e-mail address, a Liegenschafts-Nummer)
+    is already too wide on its own. Returns an index ≥ 1, so a caller looping over the remainder
+    always advances."""
+    fit = 0
+    for i in range(1, len(text) + 1):
+        if _str_w(text[:i], font, size) > max_w:
+            break
+        fit = i
+    if fit >= len(text):
+        return len(text)
+    space = text.rfind(" ", 0, fit + 1)
+    return space if space > 0 else max(1, fit)
+
+
+def _wrap_value(text: str, max_w: float, font: str = "Helvetica", size: float = 9) -> list[str]:
+    """Break a form value into the lines it will be drawn on, at most ``_WRAP_MAX_LINES``.
+
+    ⚠️ Measured with `_str_w` rather than a canvas, because `_FormRows` has to know its own
+    height in `__init__` — long before ReportLab hands it something to draw on. Same font and
+    size the drawing uses, or the box would reserve room for a different number of lines than it
+    prints. The LAST line is returned whole: `draw()` runs it through `_fit_text`, so a value too
+    long even for two lines ends in an ellipsis instead of being clipped silently.
+    """
+    if _str_w(text, font, size) <= max_w:
+        return [text]
+    lines: list[str] = []
+    rest = text
+    while rest and len(lines) < _WRAP_MAX_LINES:
+        if len(lines) == _WRAP_MAX_LINES - 1:
+            lines.append(rest)
+            break
+        cut = _break_at(rest, max_w, font, size)
+        lines.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip()
+    return [ln for ln in lines if ln] or [text]
+
+
 def _link_tel_on_canvas(c, text: str, x: float, y: float, size: float) -> None:
     """Lay a ``tel:`` link annotation over each phone number in canvas-drawn text.
 
@@ -1014,12 +1064,47 @@ class _FormRows(Flowable):
         # was 19pt against 13.4pt over the bottom one and 15.2pt between rows — the box read as
         # top-heavy, with «Kategorie» pushed away from the edge it belongs to.
         self.pad_top = max(0.0, self.pad - 5) if boxed else 0
-        self.height = len(rows) * self.pitch + self.pad + self.pad_top - (2.5 * mm if not boxed else 0)
+        inner = self.width - 2 * self.pad
+        self._stops = self._tab_stops(inner)
+        # ⚠️ The geometry is resolved HERE, not in draw(): `height` has to be the truth before
+        # ReportLab has laid anything out, or a wrapped row would print into the row below it and
+        # through the box frame. One computation, read by both.
+        self._geom = [self._row_fields(row, inner) for row in self.rows]
+        self._extra = [max((len(g[4]) for g in row), default=1) - 1 for row in self._geom]
+        self.height = (
+            len(rows) * self.pitch
+            + sum(self._extra) * _WRAP_LEAD
+            + self.pad
+            + self.pad_top
+            - (2.5 * mm if not boxed else 0)
+        )
 
     def wrap(self, availWidth: float, availHeight: float):  # noqa: N803 — ReportLab API
         return self.width, self.height
 
-    def _tab_stops(self, c, inner: float) -> dict[float, float]:
+    def _row_fields(self, row: list[dict], inner: float) -> list[tuple[dict, float, float, float, list[str]]]:
+        """One row resolved to what draw() needs per field: `(field, x, width, value tab stop,
+        value lines)`.
+
+        A value that outruns its field WRAPS onto a second line rather than being ellipsised —
+        on a document that is a legal record, a silently truncated Kontaktperson is data loss.
+        The `sign` / `line` / `time` fields are deliberately left single-line: their rule starts
+        where the printed value ends, and that rule belongs on the row's own baseline.
+        """
+        out: list[tuple[dict, float, float, float, list[str]]] = []
+        offset = 0.0
+        for f in row:
+            x = self.pad + offset
+            w = inner * f["w"]
+            lx = x + self._stops[round(offset, 3)] + 2 * mm
+            value = f.get("value") or ""
+            wrappable = bool(value) and not (f.get("time") or f.get("sign") or f.get("line"))
+            lines = _wrap_value(value, w - (lx - x) - 4 * mm) if wrappable else [value]
+            out.append((f, x, w, lx, lines))
+            offset += w
+        return out
+
+    def _tab_stops(self, inner: float) -> dict[float, float]:
         """One value column per label column: the widest label at a given x sets where every
         value at that x starts. Measuring each label on its own put «Stichwort: Brand» and
         «Adresse / Objekt: Schlossgasse 9» at different indents in the same box, so nothing in
@@ -1030,7 +1115,7 @@ class _FormRows(Flowable):
             x = 0.0
             for f in row:
                 key = round(x, 3)
-                w = c.stringWidth(f"{f['label']}:", "Helvetica", 9.5)
+                w = _str_w(f"{f['label']}:", "Helvetica", 9.5)
                 stops[key] = max(stops.get(key, 0.0), w)
                 x += inner * f["w"]
         return stops
@@ -1041,19 +1126,15 @@ class _FormRows(Flowable):
             c.setStrokeColor(colors.HexColor("#282828"))
             c.setLineWidth(1.1)
             c.rect(0, 0, self.width, self.height)
-        inner = self.width - 2 * self.pad
-        stops = self._tab_stops(c, inner)
-        for i, row in enumerate(self.rows):
-            y = self.height - self.pad_top - (i + 1) * self.pitch + 2.4 * mm  # text baseline
-            x = self.pad
-            offset = 0.0
-            for f in row:
-                w = inner * f["w"]
+        # every wrapped line above this row pushes it — and everything under it — one lead down
+        drop = 0.0
+        for i, row_geom in enumerate(self._geom):
+            y = self.height - self.pad_top - (i + 1) * self.pitch - drop + 2.4 * mm  # text baseline
+            for f, x, w, lx, lines in row_geom:
                 label = f"{f['label']}:"
                 c.setFont("Helvetica", 9.5)
                 c.setFillColor(_LABEL)
                 c.drawString(x, y, label)
-                lx = x + stops[round(offset, 3)] + 2 * mm
                 value = f.get("value") or ""
                 if f.get("time"):
                     c.setFont("Helvetica", 9.5)
@@ -1075,9 +1156,13 @@ class _FormRows(Flowable):
                     sig = bool(f.get("sign"))
                     rule_y = y - 0.6 * mm
                     shown = ""
+                    drawn: list[str] = []
                     if value:
                         c.setFont("Helvetica", 9)
-                        shown = _fit_text(c, value, w - (lx - x) - 4 * mm)
+                        # the last line is the one that can still overrun — a value too long even
+                        # for `_WRAP_MAX_LINES` ends in an ellipsis rather than being clipped
+                        drawn = [*lines[:-1], _fit_text(c, lines[-1], w - (lx - x) - 4 * mm)]
+                        shown = drawn[-1]  # what a rule has to start clear of
                     if not value or sig or f.get("line"):
                         # start clear of whatever is already printed, so the rule is somewhere to
                         # write rather than an underline through the name
@@ -1088,16 +1173,20 @@ class _FormRows(Flowable):
                         c.setDash(0.8, 0.8)
                         c.line(start, rule_y, x + w - 2 * mm, rule_y)
                         c.restoreState()
-                    if shown:
+                    if drawn:
                         c.setFont("Helvetica", 9)
                         c.setFillColor(_INK)
-                        c.drawString(lx, y, shown)
-                        # measured on `shown`, not on the value: a field clipped by _fit_text
-                        # must not carry a hotspot over an ellipsis
-                        if f.get("tel"):
-                            _link_tel_on_canvas(c, shown, lx, y, 9)
-                x += w
-                offset += w
+                        for n, line in enumerate(drawn):
+                            # a continuation starts at the VALUE's tab stop, not under the label:
+                            # the second half of a name is not a second field
+                            ly = y - n * _WRAP_LEAD
+                            c.drawString(lx, ly, line)
+                            # measured on the line as DRAWN, not on the value: a hotspot must sit
+                            # on the line its number actually landed on, and never over an
+                            # ellipsis _fit_text put there
+                            if f.get("tel"):
+                                _link_tel_on_canvas(c, line, lx, ly, 9)
+            drop += self._extra[i] * _WRAP_LEAD
 
 
 #: Letterhead size for the station logo — tall enough to be recognised, short enough that the
