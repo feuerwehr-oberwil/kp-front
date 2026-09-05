@@ -163,8 +163,10 @@ def test_a_forwarded_host_cannot_add_an_allowed_origin_in_production(monkeypatch
         {"host": "front.example.org", "x-forwarded-host": "boese.example", "x-forwarded-proto": "https"}
     )
     origins = _own_origins(req)
-    assert "https://front.example.org" in origins
-    assert "https://boese.example" not in origins
+    # Exact set: PUBLIC_URL and the platform Host both resolve to the one origin, and the
+    # client-suppliable X-Forwarded-Host is not among them. (Equality, not membership, so the
+    # attacker origin's absence is proven and no URL-substring check is implied.)
+    assert origins == {"https://front.example.org"}
 
 
 def test_a_forwarded_host_still_recovers_the_dev_origin_off_production(monkeypatch):
@@ -176,7 +178,9 @@ def test_a_forwarded_host_still_recovers_the_dev_origin_off_production(monkeypat
     req = _fake_request(
         {"host": "backend.internal", "x-forwarded-host": "192.168.1.5:5188", "x-forwarded-proto": "http"}
     )
-    assert "http://192.168.1.5:5188" in _own_origins(req)
+    # Exact-match membership (==, not a URL-substring `in`): the LAN origin the browser loaded is
+    # recovered from the forwarded headers off production.
+    assert any(o == "http://192.168.1.5:5188" for o in _own_origins(req))
 
 
 def test_a_lan_origin_is_a_dev_only_exemption(monkeypatch):
