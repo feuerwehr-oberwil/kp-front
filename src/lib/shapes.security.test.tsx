@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
-import { render } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ShapeGlyph, isSafeColor, rotationInner, shapeAspect, squareInner } from './shapes'
 import { sanitizeWorkspace } from './workspace'
+import { ContextPanel, type SymbolView } from '../components/ContextPanel'
+import { Palette } from '../components/Palette'
+import type { SymbolsApi } from './useSymbols'
 
 type ShapeProps = ComponentProps<typeof ShapeGlyph>
 
@@ -173,5 +176,72 @@ describe('SEC-01 · the load gate neutralises a hostile symbolSvg in cached or s
     })
     expect(g.ws!.entities[0].symbolSvg).toBe(glyph)
     expect(g.dropped).toBe(0)
+  })
+})
+
+// SEC-01 (round 4) · content OUTSIDE the first <svg> subtree. `sanitizeSvg` serialises only the
+// first svg, so a trailing sibling after `</svg>` (or a wrapper) is discarded — but until this fix
+// that discarding did NOT flip `sanitizeSvgResult.modified`, so the load gate (which rewrites the
+// store only when modified) kept the ORIGINAL poisoned bytes and the ContextPanel sink, rendering
+// them raw, executed the trailing <iframe>. This is the class that reopened the finding a 4th time.
+describe('SEC-01 · the load gate stores the SAFE svg when a trailing sibling is dropped', () => {
+  // the exact payload the auditor round-tripped through the workspace PUT/GET
+  const TRAILING_IFRAME = '<svg xmlns="http://www.w3.org/2000/svg"></svg><iframe srcdoc="&lt;script>parent.__sec01=1&lt;/script>"></iframe>'
+  const WRAPPER = '<div><svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg></div>'
+  const TRAILING_SCRIPT = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg><script>window.__sec01=1</script>'
+  const TRAILING_IMG = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg><img src=x onerror="window.__sec01=1">'
+
+  it.each([
+    ['trailing <iframe srcdoc>', TRAILING_IFRAME],
+    ['<div> wrapper', WRAPPER],
+    ['trailing <script>', TRAILING_SCRIPT],
+    ['trailing <img onerror>', TRAILING_IMG],
+  ])('rewrites the store to the clean glyph, not the original: %s', (_name, symbolSvg) => {
+    const g = sanitizeWorkspace({
+      entities: [{ id: 'e1', kind: 'vehicle', coord: [7.5, 47.5], symbolSvg }],
+    })
+    const stored = g.ws!.entities[0].symbolSvg!
+    expect(stored).not.toBe(symbolSvg)      // the gate did NOT keep the poisoned original
+    expect(stored).not.toContain('iframe')
+    expect(stored).not.toContain('script')
+    expect(stored).not.toContain('onerror')
+    expect(stored.startsWith('<svg')).toBe(true)
+    expect(g.dropped).toBe(1)               // counted as a real neutralisation
+  })
+})
+
+// SEC-01 · EVERY `dangerouslySetInnerHTML` that renders an editor-supplied glyph must sanitise at
+// the sink — the finding reopened four times because one sink or another rendered the string raw
+// while only TacticalSymbol was covered. These render the real components with the auditor's exact
+// payload and prove nothing hostile reaches the live DOM even if the stored/props string is dirty.
+describe('SEC-01 · every glyph sink sanitises the string it renders', () => {
+  afterEach(cleanup)
+  const HOSTILE_SVG = '<svg xmlns="http://www.w3.org/2000/svg"></svg><iframe srcdoc="&lt;script>parent.__sec01=1&lt;/script>"></iframe>'
+  const assertClean = (root: ParentNode) => {
+    expect(root.querySelectorAll('iframe, script, img[onerror]')).toHaveLength(0)
+    const onAttrs = [...root.querySelectorAll('*')].flatMap((el) =>
+      [...el.attributes].map((a) => a.name.toLowerCase()).filter((n) => n.startsWith('on')),
+    )
+    expect(onAttrs).toEqual([])
+  }
+
+  it('ContextPanel renders a selected entity\'s glyph sanitised', () => {
+    const entity: SymbolView = { id: 's1', symbol: 'evil', label: 'Brand' }
+    const { container } = render(
+      <ContextPanel entity={entity} svg={HOSTILE_SVG} onClose={vi.fn()} onTitle={vi.fn()} onFields={vi.fn()} onDelete={vi.fn()} />,
+    )
+    assertClean(container)
+  })
+
+  it('Palette renders a pack glyph sanitised', () => {
+    // Palette needs only order + symbols to render its cells; the glyph is the hostile string.
+    const sym: SymbolsApi = {
+      ready: true, error: false, reload: vi.fn(),
+      order: ['Test'],
+      symbols: [{ cat: 'Test', name: 'evil', svg: HOSTILE_SVG }],
+      byName: { evil: HOSTILE_SVG },
+    }
+    render(<Palette sym={sym} onPick={vi.fn()} onClose={vi.fn()} />)
+    assertClean(document.body) // Palette portals to <body>
   })
 })

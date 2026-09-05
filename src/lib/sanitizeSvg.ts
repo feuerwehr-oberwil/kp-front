@@ -109,8 +109,10 @@ const keepAttribute = (name: string, value: string): boolean => {
 interface SanitizeResult {
   /** the safe, re-serialised markup ('' when nothing could be salvaged) */
   svg: string
-  /** true when the input was rejected outright or had anything stripped — the load gate uses this
-   *  to leave a clean glyph's stored bytes untouched and to count only real neutralisations. */
+  /** true when the input was rejected outright, had anything stripped INSIDE the svg, OR carried
+   *  anything OUTSIDE the first svg subtree (a wrapper, a trailing sibling, a prologue) that
+   *  serialising only that subtree discards — the load gate uses this to leave a clean glyph's
+   *  stored bytes untouched and to count only real neutralisations. */
   modified: boolean
 }
 
@@ -152,7 +154,21 @@ function clean(markup: string): SanitizeResult {
   const root = doc.querySelector('svg')
   if (!root) return { svg: '', modified: true }
 
-  let modified = false
+  // ⚠️ SEC-01 round 4 — the load-gate optimisation bug. We serialise the FIRST <svg> subtree ONLY,
+  // so anything ELSE the HTML parser produced is silently discarded by that very choice:
+  //   • a TRAILING SIBLING after `</svg>` — the `<iframe srcdoc>` / `<script>` / `<img onerror>` that
+  //     `querySelector('svg')` walks straight past (the exact payload that reopened this),
+  //   • a WRAPPER around the svg (`<div><svg/></div>`), whose <svg> is not a child of <body>,
+  //   • a DOCTYPE/ENTITY prologue, which the parser leaves as extra <body> content.
+  // Each of those is a genuine neutralisation the load gate MUST see: it keeps the ORIGINAL stored
+  // bytes whenever `modified` is false, so if dropping the trailing <iframe> did not flip the flag
+  // the gate would store the poisoned original. We CANNOT settle this by comparing `root.outerHTML`
+  // to the input string — the HTML serialiser rewrites a legitimate self-closing `<circle/>` to
+  // `<circle></circle>`, so every honest glyph would read as "changed" and lose its byte-identity.
+  // Structural detection is exact instead: the svg is the whole safe payload IFF it is the SOLE
+  // child of <body>; otherwise content outside its subtree was dropped → modified. A bare
+  // `<svg>…</svg>` glyph is the sole body child and unchanged inside → modified stays false.
+  let modified = root.parentNode !== doc.body || doc.body.childNodes.length !== 1
 
   const scrub = (el: Element): void => {
     for (const attr of [...el.attributes]) {
