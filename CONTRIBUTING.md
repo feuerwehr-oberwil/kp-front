@@ -47,8 +47,9 @@ just lint && just test   # both stacks – run before pushing
 
 Or drive the tools directly:
 
-**Frontend** (React 18 + TypeScript, Vite 5, MapLibre GL, Workbox/PWA, Vitest) – uses
-[pnpm](https://pnpm.io/):
+**Frontend** (React 19 + TypeScript, Vite 8, MapLibre GL, Workbox/PWA, Vitest) – uses
+[pnpm](https://pnpm.io/). Use Node 24 LTS (at least 24.15.0); the supported Node ranges
+are recorded in `package.json`:
 
 ```bash
 pnpm install

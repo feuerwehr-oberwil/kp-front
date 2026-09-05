@@ -216,15 +216,19 @@ export default defineConfig(({ mode }) => {
       coverage: { provider: 'v8', include: ['src/lib/**'] },
     },
     build: {
-      rollupOptions: {
+      // Keep Vite 5's browser floor when upgrading the build tool, including older tablets.
+      target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
+      rolldownOptions: {
         output: {
           // Split the two heavyweight libs into their own chunks so they no longer bloat the
           // initial app chunk. maplibre (~800 KB) loads with the map; pdfjs (~1.2 MB incl. the
           // worker) is dynamically imported by PdfViewport, so this chunk only ships when the
           // Plan tab is opened. Result: a smaller initial JS payload → faster tablet first paint.
-          manualChunks: {
-            maplibre: ['maplibre-gl'],
-            pdfjs: ['pdfjs-dist'],
+          codeSplitting: {
+            groups: [
+              { name: 'maplibre', test: /\/node_modules\/maplibre-gl\// },
+              { name: 'pdfjs', test: /\/node_modules\/pdfjs-dist\// },
+            ],
           },
         },
       },

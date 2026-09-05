@@ -55,7 +55,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function setup(cfg: unknown = EMPTY) {
   apiGet.mockResolvedValue(cfg)
-  render(<ConfigProvider><MapSection /></ConfigProvider>)
+  await act(async () => { render(<ConfigProvider><MapSection /></ConfigProvider>) })
   await waitFor(() => expect(boxes().length).toBe(3))
 }
 

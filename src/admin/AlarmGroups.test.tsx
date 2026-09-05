@@ -52,7 +52,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function setup() {
-  render(<ConfigProvider><AlarmsSection /></ConfigProvider>)
+  await act(async () => { render(<ConfigProvider><AlarmsSection /></ConfigProvider>) })
   await waitFor(() => expect(document.querySelectorAll('.adm-formlink').length).toBe(1))
 }
 

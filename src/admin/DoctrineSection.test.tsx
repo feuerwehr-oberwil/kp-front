@@ -69,7 +69,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function open() {
-  render(<ConfigProvider><DoctrineSection /></ConfigProvider>)
+  await act(async () => { render(<ConfigProvider><DoctrineSection /></ConfigProvider>) })
   await waitFor(() => expect(nums().length).toBe(12))
 }
 

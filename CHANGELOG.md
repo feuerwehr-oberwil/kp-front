@@ -31,6 +31,9 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Changed
 
+- Updated React, the map wrapper, Vite, Vitest, jsdom, and pinned CI actions together.
+  Source builds require a supported Node version from `package.json` (Node 24 LTS ≥24.15.0
+  recommended); the container already meets that requirement. The browser build target is unchanged.
 - **The public demo is now a stable front door rather than a station-shaped deployment.** It
   refreshes session-only configuration after automatic login, introduces the shared/resetting
   environment in one compact first-visit card, blocks incident lifecycle actions, suppresses
@@ -49,6 +52,8 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Security
 
+- Storage operations reject symlink aliases and paths outside the configured storage root.
+  Invalid public branding paths return 404. Refreshed vulnerable transitive tooling dependencies.
 - Rotating `ADMIN_SECRET` now invalidates existing admin sessions, demo lifecycle guards fail
   closed even when stored configuration is stale, and webhook secrets are created only during
   the external-system handoff instead of being generated unreadably during installation.

@@ -102,7 +102,7 @@ export const pathSegmentCount = (points: number, isArea: boolean): number =>
 
 export type FC = { type: 'FeatureCollection'; features: any[] }
 export const fc = (features: any[]): FC => ({ type: 'FeatureCollection', features })
-export const lineFeat = (coords: LngLat[], props: any = {}) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: props })
+export const lineFeat = (coords: LngLat[], props: Record<string, unknown> = {}) => ({ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: coords }, properties: props })
 export const polyFeat = (coords: LngLat[], props: any = {}) => ({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]]] }, properties: props })
 
 /** Web-Mercator northing — the y half of the projection, without a map instance. */

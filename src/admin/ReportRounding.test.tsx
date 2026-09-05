@@ -62,7 +62,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function open() {
-  render(<ConfigProvider><ReportSection /></ConfigProvider>)
+  await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
   await waitFor(() => expect(nums().length).toBe(3))
 }
 

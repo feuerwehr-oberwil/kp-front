@@ -31,7 +31,7 @@ can't be undone.** In practice that means –
 
 ## Stack & commands
 
-- **Frontend:** React 18 + TypeScript, Vite 5, MapLibre GL, Workbox/PWA, Vitest. Use **pnpm**.
+- **Frontend:** React 19 + TypeScript, Vite 8, MapLibre GL, Workbox/PWA, Vitest. Use **pnpm**.
 - **Backend:** FastAPI + PostgreSQL, Alembic; one service serving the frontend same-origin (no
   CORS), on Railway or self-hosted via docker-compose. Manage Python with **uv** – see
   [`backend/README.md`](backend/README.md).
