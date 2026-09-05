@@ -1040,7 +1040,10 @@ export function AtemschutzView({
               return (
                 <button
                   key={t.id} type="button" role="tab" aria-selected={t.id === focusId}
-                  className={cx(s.tab, t.id === focusId && s.tabOn, sev === 1 && s.tabWarn, sev >= 2 && s.tabCrit, lv.sinceContactSec == null && s.tabIdle)}
+                  className={cx(s.tab, t.id === focusId && s.tabOn, sev === 1 && s.tabWarn, sev >= 2 && s.tabCrit,
+                    // idle grey = no crew inside (out, or still at the door) — an out AS-Trupp's
+                    // break clock ticks in this quiet tone, same as the card's quiet band
+                    (lv.status === 'raus' || lv.status === 'angemeldet') && s.tabIdle)}
                   onClick={() => setPicked(t.id)}
                 >
                   {/* ⚠️ NO Truppfarbe dot here (round 2 review): the lite board drops every
@@ -1049,7 +1052,8 @@ export function AtemschutzView({
                       is what identifies the Trupp here, so it wraps rather than clips (a name
                       like «Binggeli Michael» was cut mid-word against this chip's width). */}
                   <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
-                  <span className={s.tabClock}>{fmtClock(lv.sinceContactSec)}</span>
+                  {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
+                  <span className={s.tabClock}>{collapsedClock(t, lv).val}</span>
                 </button>
               )
             })}
@@ -1255,6 +1259,31 @@ function PressureInline({ value, onCommit, alarmBar }: {
  *  control that survives onto the row is «Kontakt», because it is the one action the comparison
  *  leads to. Everything else (Druck, Rückzug, Raus, Leitung, Bearbeiten, Entfernen) stays in the
  *  card, one tap deeper — including delete, which is a good place for it to be. */
+/** What a COLLAPSED representation (list row, focus-strip tab) says about time — the same split
+ *  the open card's band makes (`breakClock` there), so the closed and the open view of one Trupp
+ *  never disagree: a crew inside ticks its own clock (Kontakt under PA, Einsatzzeit on a work
+ *  squad), an Atemschutz-Trupp that is out ticks «Draussen seit» in the quiet tone, a work squad
+ *  that is out says nothing, and «Nicht eingesetzt» keeps its static Anmeldezeit. */
+function collapsedClock(t: Trupp, live: TruppLive): { val: string; sub: string } {
+  const az = appConfig.copy.atemschutz
+  const out = live.status === 'raus'
+  if (!isAtemschutzTrupp(t)) {
+    if (out) return { val: '', sub: '' }
+    return { val: fmtClock(t.entryTime ? live.elapsedSec : null), sub: az.elapsed }
+  }
+  if (out) {
+    if (truppNeverDeployed(t)) {
+      const reg = truppRegisteredAt(t)
+      return reg != null
+        ? { val: fmtTime(new Date(reg).toISOString()), sub: az.bandRegisteredAt }
+        : { val: '', sub: '' }
+    }
+    return live.outSec != null ? { val: fmtClock(live.outSec), sub: az.outFor } : { val: '', sub: '' }
+  }
+  if (live.status === 'angemeldet') return { val: fmtClock(null), sub: az.elapsed }
+  return { val: fmtClock(live.sinceContactSec), sub: az.sinceContact }
+}
+
 function TruppRow({
   t, live, alarm, now, color, canEdit, onContact, onOpen, focusNonce, focusScroll = true,
 }: {
@@ -1311,6 +1340,7 @@ function TruppRow({
     return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
   }, [focusNonce, focusScroll])
   const team = (t.members ?? []).filter(Boolean).join(' · ')
+  const clock = collapsedClock(t, live)
   return (
     <button ref={rowRef} type="button" className={cx(s.trow, tone)} onClick={onOpen}
       aria-label={`${t.name} — ${az.status[status] ?? status}`}>
@@ -1335,11 +1365,11 @@ function TruppRow({
         )}
       </span>
       <span className={s.trowState}>{status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)}</span>
+      {/* one derivation with the card's band (collapsedClock) — the row used to freeze a work
+          squad's Einsatzzeit after the exit and show «–:––» for an out crew's break clock */}
       <span className={s.trowClock}>
-        <span className={s.trowClockVal}>
-          {monitored ? fmtClock(live.sinceContactSec) : fmtClock(t.entryTime ? live.elapsedSec : null)}
-        </span>
-        <span className={s.trowSub}>{monitored ? az.sinceContact : az.elapsed}</span>
+        <span className={s.trowClockVal}>{clock.val}</span>
+        <span className={s.trowSub}>{clock.sub}</span>
       </span>
       <span className={s.trowPress}>
         {monitored && <>{live.currentBar}<span className={s.trowPressUnit}> bar</span></>}

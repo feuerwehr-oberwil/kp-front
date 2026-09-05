@@ -275,6 +275,30 @@ describe('the row ⇄ card toggle keeps its place', () => {
   })
 })
 
+/* Field report, 05.09. late: the COLLAPSED views disagreed with the open card — the phone row
+ * froze a work squad's Einsatzzeit after the exit and printed «–:––» where the card ticked the
+ * break clock. One derivation now (`collapsedClock`, shared with the focus-strip tabs), so the
+ * closed and the open view of one Trupp can never tell different times. */
+describe('a collapsed row tells the same time as the open card', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+
+  it('ticks «Draussen seit» on the closed row of an out Atemschutz-Trupp', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
+    const row = document.querySelector(`.${s.trow}`)!
+    expect(row.querySelector(`.${s.trowSub}`)!.textContent).toBe(az.outFor)
+    expect(row.querySelector(`.${s.trowClockVal}`)!.textContent).toMatch(/^0?5:00$/)
+  })
+
+  it('shows no time at all on the closed row of an out work squad', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), kind: 'einfach', status: 'raus', exitTime: iso(5 * 60_000) }] })
+    const row = document.querySelector(`.${s.trow}`)!
+    expect(row.querySelector(`.${s.trowClockVal}`)!.textContent).toBe('')
+    expect(row.querySelector(`.${s.trowSub}`)!.textContent).toBe('')
+  })
+})
+
 describe('the Verlauf footer (the removed «Draussen: hh:mm» line, generalised)', () => {
   it('previews the LATEST event with its bar, and expands the full log in place', () => {
     mount()
