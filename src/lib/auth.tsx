@@ -186,10 +186,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isUnverifiable(e)) {
           if (cached) adoptUser(cached) // unverifiable, not refused — keep the session usable
           else setProbeUnreachable(true)
-        } else if (e instanceof ApiError && e.status === 401) {
-          writeCachedUser(null) // genuinely logged out
-          const demoUser = await tryDemoAutoLogin() // demo → straight in; real stations → login screen
-          if (alive && demoUser) { adoptUser(demoUser); writeCachedUser(demoUser) }
+        } else if (isDenial(e)) {
+          // A reachable refusal, 401 OR 403, clears the cached identity — or a later OFFLINE boot
+          // would restore a login the server has already rejected (SEC-10). Only a 401 means
+          // «not logged in», so only it lets the demo auto-sign-in; a 403 just lands on the login.
+          writeCachedUser(null)
+          if (e instanceof ApiError && e.status === 401) {
+            const demoUser = await tryDemoAutoLogin() // demo → straight in; real stations → login screen
+            if (alive && demoUser) { adoptUser(demoUser); writeCachedUser(demoUser) }
+          }
         }
       } finally {
         if (alive) setLoading(false)

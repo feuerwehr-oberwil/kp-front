@@ -59,11 +59,12 @@ jobs:
         run: pnpm audit --prod --audit-level high
 
       # Full-tree audit (SEC-11): the --prod gate above never sees dev-only tooling (Vite,
-      # Vitest, esbuild, …), so a class of advisories was invisible to CI. Same high/critical
-      # gate as --prod; keep both clean rather than growing an ignore list — a toolchain bump
-      # is the fix, not a suppressed line here.
+      # Vitest, esbuild, …), so a class of advisories was invisible to CI. The full tree is
+      # currently clean (0), so gate at MODERATE — a stricter bar than --prod's high, so a future
+      # Moderate advisory in the toolchain fails CI too. Keep it clean rather than growing an
+      # ignore list — a toolchain bump is the fix, not a suppressed line here.
       - name: Dependency audit, full tree (pnpm audit)
-        run: pnpm audit --audit-level high
+        run: pnpm audit --audit-level moderate
 
       # Blocking LICENSE audit (distinct from the vulnerability audit above): a new prod
       # dependency with an AGPL-incompatible license fails CI. Allowlist + per-package
