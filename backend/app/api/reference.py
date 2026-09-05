@@ -107,6 +107,18 @@ def _load_geojson(storage_key: str) -> dict:
     return json.loads(storage.get_bytes(storage_key))
 
 
+#: The same two headers `api/branding · serve_branding` puts on an admin-uploaded asset, and
+#: for the same reason: `image/svg+xml` is an accepted checklist-diagram type, and an SVG is a
+#: DOCUMENT — navigate straight to it and any `<script>` inside runs on this origin, with the
+#: reader's session. `sandbox` plus a `default-src 'none'` fallback for `script-src` stops that
+#: while leaving the file perfectly good as an `<img src>`, which is how the Checkliste surface
+#: uses it; `nosniff` covers a browser deciding a file was more interesting than its type.
+_SANDBOXED_SVG_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
+}
+
+
 @router.get("/{dataset_id}")
 async def download_reference(
     dataset_id: str,
@@ -134,7 +146,9 @@ async def download_reference(
                 return JSONResponse({**fc, "features": kept}, media_type="application/geo+json")
         except (ValueError, TypeError, OSError):
             pass  # malformed bbox / unreadable → fall through to the full file
-    return FileResponse(storage.local_path(ds.storage_key), media_type=ds.content_type or None)
+    media_type = ds.content_type or None
+    headers = _SANDBOXED_SVG_HEADERS if (media_type or "").startswith("image/svg+xml") else None
+    return FileResponse(storage.local_path(ds.storage_key), media_type=media_type, headers=headers)
 
 
 @router.put("/{dataset_id}", response_model=ReferenceDatasetOut)
