@@ -209,6 +209,13 @@ def approved_tile_template(tile_url: str | None) -> str:
     if _TILE_SLOTS_RE.search(url):
         logger.warning("Kartenquelle enthält unbekannte Platzhalter: %.120s", url)
         return ""
+    # Any brace left after the three known slots (a lone `}` the slot regex cannot see, a
+    # `{z}.png}`) makes `.format()` raise a ValueError in render_base — a 500 instead of the
+    # intended neutral grey base (SEC-03, 05.09.). An unknown template renders grey, never 500.
+    residual = url.replace("{z}", "").replace("{x}", "").replace("{y}", "")
+    if "{" in residual or "}" in residual:
+        logger.warning("Kartenquelle enthält unausgeglichene Klammern: %.120s", url)
+        return ""
     return url
 
 
@@ -352,10 +359,15 @@ def render_base(
 # ----------------------------------------------------------------------------- symbols
 
 
-#: An `href` / `xlink:href` attribute and its quoted value, wherever it sits.
-_HREF_RE = re.compile(r"""\b(?:xlink:)?href\s*=\s*(?P<q>["'])(?P<v>[^"']*)(?P=q)""", re.IGNORECASE)
-#: A CSS `url(...)` reference (gradients, patterns, `@import`).
-_CSS_URL_RE = re.compile(r"""url\(\s*(?P<q>["']?)(?P<v>[^)"']*)(?P=q)\s*\)""", re.IGNORECASE)
+#: An `href` / `xlink:href` attribute and its value. Quote-aware: a double-quoted value runs to
+#: the matching double-quote (and may hold an apostrophe), a single-quoted one to its own quote —
+#: NOT «up to either quote», which left `href="a'b.png"` unmatched so the reference survived the
+#: scrub (SEC-07, 05.09.). The attribute NAME is captured so a neutralised `xlink:href` stays
+#: `xlink:href` and does not collide with a sibling `href` into a duplicate attribute resvg rejects.
+_HREF_RE = re.compile(r"""\b(?P<name>(?:xlink:)?href)\s*=\s*(?:"(?P<hd>[^"]*)"|'(?P<hs>[^']*)')""", re.IGNORECASE)
+#: A CSS `url(...)` reference (gradients, patterns, `@import`), quote-aware in the same way; the
+#: value may also be unquoted, as `url(#id)` and `url(data:…)` are.
+_CSS_URL_RE = re.compile(r"""url\(\s*(?:"(?P<ud>[^"]*)"|'(?P<us>[^']*)'|(?P<uu>[^)"'\s]*))\s*\)""", re.IGNORECASE)
 #: A DTD / entity declaration — the XXE half of an SVG parser.
 _DOCTYPE_RE = re.compile(r"<!DOCTYPE[^>[]*(\[[^\]]*\])?[^>]*>|<!ENTITY[^>]*>", re.IGNORECASE)
 
@@ -383,8 +395,14 @@ def sanitize_svg(svg: str) -> str:
     and every glyph the app actually produces (paths, text, fills, its own `#defs`) is untouched.
     """
     out = _DOCTYPE_RE.sub("", svg)
-    out = _HREF_RE.sub(lambda m: m.group(0) if _local_ref(m.group("v")) else 'href=""', out)
-    return _CSS_URL_RE.sub(lambda m: m.group(0) if _local_ref(m.group("v")) else "none", out)
+    out = _HREF_RE.sub(lambda m: m.group(0) if _local_ref(_group(m, "hd", "hs")) else f'{m.group("name")}=""', out)
+    return _CSS_URL_RE.sub(lambda m: m.group(0) if _local_ref(_group(m, "ud", "us", "uu")) else "none", out)
+
+
+def _group(m: re.Match[str], *names: str) -> str:
+    """The first of the alternation's named groups that actually matched — the quote-aware
+    regexes above capture a value under one of two or three names depending on the quoting."""
+    return next((v for n in names if (v := m.group(n)) is not None), "")
 
 
 def raster_svg(svg: str, size_px: int, height_px: int | None = None) -> Image.Image:
@@ -406,18 +424,27 @@ def raster_svg(svg: str, size_px: int, height_px: int | None = None) -> Image.Im
 
     h = height_px or size_px
     s = max(size_px, h)
-    png = bytes(
-        resvg_py.svg_to_bytes(
-            svg_string=sanitize_svg(svg),
-            width=s,
-            height=s,
-            font_family="DejaVu Sans",
-            sans_serif_family="DejaVu Sans",
-            serif_family="DejaVu Serif",
-            monospace_family="DejaVu Sans Mono",
+    try:
+        png = bytes(
+            resvg_py.svg_to_bytes(
+                svg_string=sanitize_svg(svg),
+                width=s,
+                height=s,
+                font_family="DejaVu Sans",
+                sans_serif_family="DejaVu Sans",
+                serif_family="DejaVu Serif",
+                monospace_family="DejaVu Sans Mono",
+            )
         )
-    )
-    img = Image.open(io.BytesIO(png)).convert("RGBA")
+        img = Image.open(io.BytesIO(png)).convert("RGBA")
+    except Exception:  # noqa: BLE001
+        # ⚠️ A client-resolved `symbolSvg` (vehicles, placards, composed artwork) is caller-authored
+        # text, and this rasteriser feeds the whole-incident Rapport. A glyph resvg refuses to parse
+        # — an unquoted href, a DOCTYPE whose entity value carries a «]», a duplicate attribute — must
+        # become an empty box, never a 500 for everyone on the incident (SEC-01, 05.09.). The pack's
+        # own artwork is static and tested, so this only ever fires on hostile input.
+        logger.warning("SVG konnte nicht gerastert werden — leeres Symbol", exc_info=True)
+        return Image.new("RGBA", (size_px, h), (0, 0, 0, 0))
     if (size_px, h) != (s, s):
         img = img.resize((size_px, h), Image.Resampling.LANCZOS)
     return img
