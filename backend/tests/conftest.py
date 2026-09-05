@@ -149,6 +149,7 @@ async def client(engine, session_factory):
     import httpx
 
     from app.auth.capture_limiter import capture_limiter, position_limiter
+    from app.auth.pin_limiter import pin_limiter
     from app.auth.token_blocklist import token_blocklist
     from app.database import get_db
     from app.main import app
@@ -157,8 +158,12 @@ async def client(engine, session_factory):
     # so a burst-draining rate-limit test can't starve unrelated capture tests. The position
     # bucket is a SECOND singleton with its own sizing; leaving it undrained made a whole file
     # of position tests order-dependent (adding one POST early failed a test much further down).
+    # The PIN/login limiter is a THIRD such singleton: once a guess during cooldown is refused
+    # rather than verified (SEC-08), a bucket left hot by a login/limiter test 429s an unrelated
+    # test that later logs in with the same (account, source) key — reset it too.
     capture_limiter.reset()
     position_limiter.reset()
+    pin_limiter.reset()
 
     async def _override_get_db():
         async with session_factory() as session:
