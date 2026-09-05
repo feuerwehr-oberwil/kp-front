@@ -64,3 +64,36 @@ describe('TacticalSymbol — legacy `floor` keeps rendering after a symbol moves
     expect(container.querySelectorAll('.sym-floor')).toHaveLength(1)
   })
 })
+
+// SEC-01 · TacticalSymbol is the render sink for a placed glyph. `svg` may be an entity's
+// editor-supplied `symbolSvg` (a free string synced through the workspace PUT), written straight
+// to the DOM through `dangerouslySetInnerHTML`. It must be sanitised HERE, once, for every caller.
+describe('TacticalSymbol — sanitises editor-supplied glyph markup at the sink', () => {
+  const HOSTILE = '<svg xmlns="http://www.w3.org/2000/svg"><image href="x" onerror="window.__pwned=1"/><script>window.__pwned=1</script></svg>'
+
+  it('renders no event handler and no <script> from a hostile symbolSvg', () => {
+    const { container } = render(createElement(TacticalSymbol, { svg: HOSTILE, sizePx: 32 }))
+    const attrs = [...container.querySelectorAll('*')].flatMap((el) => [...el.attributes].map((a) => a.name.toLowerCase()))
+    expect(attrs).not.toContain('onerror')
+    expect(container.querySelector('script')).toBeNull()
+  })
+
+  it('also sanitises the composite overlay glyph', () => {
+    const { container } = render(createElement(TacticalSymbol, {
+      svg: '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>', sizePx: 32,
+      overlay: { svg: HOSTILE },
+    }))
+    const attrs = [...container.querySelectorAll('*')].flatMap((el) => [...el.attributes].map((a) => a.name.toLowerCase()))
+    expect(attrs).not.toContain('onerror')
+    expect(container.querySelector('.ts-overlay script')).toBeNull()
+  })
+
+  it('draws a legitimate glyph unchanged — the pack element and its fill survive', () => {
+    const glyph = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="none" stroke="#e8392b"/></svg>'
+    const { container } = render(createElement(TacticalSymbol, { svg: glyph, sizePx: 32 }))
+    const circle = container.querySelector('.ts-rot circle')
+    expect(circle?.getAttribute('stroke')).toBe('#e8392b')
+    // fill="none" still triggers the white-legibility chip (needsWhite reads the raw svg)
+    expect(container.querySelector('.ts-rot.white')).not.toBeNull()
+  })
+})
