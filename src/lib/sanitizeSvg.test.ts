@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { sanitizeSvg, sanitizeSvgResult } from './sanitizeSvg'
+import symbols from '../../dist/tactical-symbols.json'
 
 // SEC-01 · `Entity.symbolSvg` is editor-supplied free text rendered through
 // `dangerouslySetInnerHTML` (lib/symbolRender). This is the authoritative XSS gate: it parses the
@@ -179,6 +180,41 @@ describe('sanitizeSvg · closes the XML→HTML parser-differential', () => {
   })
 })
 
+// SEC-01 (round 4) · content OUTSIDE the first <svg> subtree. `sanitizeSvg` serialises only the
+// first svg, so a trailing sibling after `</svg>`, a wrapping element, or a prologue is discarded —
+// but the discarding must set `modified`, or the load gate (which optimises on `modified: false`)
+// keeps the ORIGINAL poisoned bytes. These pin: the returned svg carries none of the outside
+// content, injecting it fires nothing, and `modified` is true so the gate rewrites the store.
+describe('sanitizeSvg · discards and flags anything outside the first <svg> subtree', () => {
+  const inject = (safe: string) => {
+    ;(window as unknown as Record<string, unknown>).__sec01 = undefined
+    const host = document.createElement('div')
+    host.innerHTML = safe // the sink
+    return {
+      bad: host.querySelectorAll('img, script, iframe, foreignobject').length,
+      probe: (window as unknown as Record<string, unknown>).__sec01,
+    }
+  }
+
+  it.each([
+    // the exact payload the auditor round-tripped through the workspace PUT/GET
+    ['trailing <iframe srcdoc>', '<svg xmlns="http://www.w3.org/2000/svg"></svg><iframe srcdoc="&lt;script>parent.__sec01=1&lt;/script>"></iframe>'],
+    ['trailing <script>', '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg><script>window.__sec01=1</script>'],
+    ['trailing <img onerror>', '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg><img src=x onerror="window.__sec01=1">'],
+    ['<div> wrapper around the svg', '<div><svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg></div>'],
+  ])('neutralises and flags: %s', (_name, payload) => {
+    const res = sanitizeSvgResult(payload)
+    expect(res.modified).toBe(true) // ⇒ the load gate stores res.svg, not the poisoned original
+    expect(res.svg).not.toContain('iframe')
+    expect(res.svg).not.toContain('script')
+    expect(res.svg).not.toContain('onerror')
+    expect(res.svg.startsWith('<svg')).toBe(true) // only the clean glyph survives
+    const r = inject(res.svg)
+    expect(r.bad).toBe(0)
+    expect(r.probe).toBeUndefined()
+  })
+})
+
 describe('sanitizeSvg · legitimate glyphs render identically', () => {
   // a vehicle glyph (lib/useVehiclePositions · vehicleSymbolSvg) and a pack-style symbol: the
   // elements and attributes the app actually emits, none of which is a vector.
@@ -207,5 +243,16 @@ describe('sanitizeSvg · legitimate glyphs render identically', () => {
   it('reports modified only when something was actually stripped', () => {
     expect(sanitizeSvgResult('<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>').modified).toBe(false)
     expect(sanitizeSvgResult('<svg xmlns="http://www.w3.org/2000/svg"><rect onclick="x" width="1"/></svg>').modified).toBe(true)
+  })
+
+  // the shipped FireGIS pack is the app's own trusted output — every bundled glyph must report
+  // modified:false, which is exactly what makes the load gate keep the stored bytes byte-for-byte
+  // (workspace.ts · fixDrawProps rewrites only when modified). Asserted on res.svg would be wrong:
+  // the HTML serialiser rewrites the pack's self-closing `<circle/>` to `<circle></circle>` — hence
+  // we never re-serialise a clean glyph into the store; the byte-identity guarantee lives at the gate.
+  it('reports modified:false for every bundled pack glyph, so the gate keeps its stored bytes', () => {
+    for (const { svg } of symbols.symbols) {
+      expect(sanitizeSvgResult(svg).modified).toBe(false)
+    }
   })
 })
