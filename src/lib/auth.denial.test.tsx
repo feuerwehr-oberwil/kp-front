@@ -172,6 +172,57 @@ describe('sw-media-cache — a denial converges across tabs', () => {
   })
 })
 
+// A refusal in one tab must lock the others, because every tab rides the one session cookie the
+// server just refused. A BroadcastChannel carries the denial; a receiving tab runs the same
+// lockdown WITHOUT re-broadcasting (no echo loop). Immediate where a tab is listening; a tab still
+// converges on its own next 401 regardless. Driven from a second channel, the way another tab would.
+describe('AuthProvider — a denial broadcast from another tab', () => {
+  it('locks this tab too: drops the view, denies the workspace cache, tells the worker', async () => {
+    const result = await signedIn()
+    const otherTab = new BroadcastChannel('kp-auth-denial')
+    otherTab.postMessage('denied')
+
+    await waitFor(() => expect(result.current.user).toBeNull()) // …the gate falls back to the kiosk login
+    expect(denyWorkspaceCache).toHaveBeenCalled()
+    await waitFor(() => expect(syncMediaCacheAuth).toHaveBeenCalledWith(null))
+    expect(idbDel).toHaveBeenCalledWith('kp-front-user') // no offline restore of a dead session
+    expect(setWorkspaceCacheOwner).toHaveBeenLastCalledWith(null)
+    otherTab.close()
+  })
+})
+
+// The other worker hole the auditor named (authMediaCache · controllerchange): a new service
+// worker taking over re-sends the CURRENT context. Once a denial has set that to «logged-out», the
+// re-send can only be «logged-out» — a refused session is never re-granted media access. Driven
+// against the REAL authMediaCache (the rest of this file mocks it) with a stubbed worker container.
+describe('authMediaCache — a denied session is never re-granted on controllerchange', () => {
+  it('re-sends «logged-out», never the stale user grant', async () => {
+    const posted: unknown[] = []
+    let onControllerChange: () => void = () => {}
+    const controller = { postMessage: (m: unknown) => { posted.push(m) } }
+    const fakeSW = {
+      controller,
+      ready: Promise.resolve({ active: controller }),
+      addEventListener: (type: string, h: () => void) => { if (type === 'controllerchange') onControllerChange = h },
+    }
+    const nav = navigator as unknown as { serviceWorker?: unknown }
+    nav.serviceWorker = fakeSW
+    try {
+      const { syncMediaCacheAuth: real } = (await vi.importActual('./authMediaCache')) as typeof import('./authMediaCache')
+      real({ id: 'u1' })        // a legitimate grant
+      real(null)                // …then the session is denied → current becomes «logged-out»
+      await fakeSW.ready        // let the ready.then re-send settle before we isolate the controllerchange
+      await Promise.resolve()
+
+      const before = posted.length
+      onControllerChange()      // a new worker takes over
+      expect(posted.slice(before)).toEqual([{ type: 'kp-media-auth', kind: 'logged-out' }])
+    } finally {
+      delete nav.serviceWorker
+    }
+  })
+})
+
 describe('AuthProvider — the boot probe is refused', () => {
   it.each([401, 403])('an explicit %i clears the cached identity, so no offline boot restores a dead session', async (status) => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)

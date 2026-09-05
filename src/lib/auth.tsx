@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { apiGet, apiPost, ApiError, isUnverifiable, SESSION_EXPIRED_EVENT } from './api'
 import { idbGet, idbSet, idbDel } from './idb'
 import { getDeploymentConfig, isDemoMode, loadDeploymentConfig } from './deploymentConfig'
@@ -117,16 +117,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u)
   }
 
-  /** A reachable server refused this session. The device loses its cached VIEW at once — a null
-   *  user IS the lock, since the kiosk login is what the gate renders then (main · Gate) — while
-   *  everything unsynced stays on disk, gated to the same account's next sign-in
-   *  (api/workspaceSync · denyWorkspaceCache). Deleting the operator's unflushed work because
-   *  their 8 h token ran out would be the worse failure of the two. */
-  const denySession = () => {
+  // Cross-tab denial. The session cookie is shared by every tab, so a refusal in one tab must lock
+  // the others too — otherwise a second tab keeps serving cached reads, and can even re-grant the
+  // media worker on a service-worker controllerchange, until its OWN next server contact notices
+  // (that convergence-on-next-401 still stands — api · SESSION_EXPIRED_EVENT — this only makes it
+  // immediate). One BroadcastChannel carries the denial; a receiver runs the same lockdown locally,
+  // minus the re-broadcast. Proportionate: no shared state, no leader, just a one-shot signal.
+  const denialChannel = useRef<BroadcastChannel | null>(null)
+
+  /** The local half of a denial: lock the workspace cache, drop the view to the kiosk login, and
+   *  forbid an offline restore. Shared by a locally-detected refusal and one another tab broadcast.
+   *  Owner-stamped unsynced work stays on disk, gated to the same account's next sign-in. */
+  const denyLocally = () => {
     denyWorkspaceCache()
     adoptUser(null)       // …and the effect below tells the worker (authMediaCache · «logged-out»)
     writeCachedUser(null) // no offline restore may resurrect a session the server has ended
   }
+
+  /** A reachable server refused this session. The device loses its cached VIEW at once — a null
+   *  user IS the lock, since the kiosk login is what the gate renders then (main · Gate) — while
+   *  everything unsynced stays on disk, gated to the same account's next sign-in
+   *  (api/workspaceSync · denyWorkspaceCache). Deleting the operator's unflushed work because
+   *  their 8 h token ran out would be the worse failure of the two. Also tells the other tabs. */
+  const denySession = () => {
+    denyLocally()
+    denialChannel.current?.postMessage('denied')
+  }
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return // e.g. an old WebView: falls back to next-401 convergence
+    const channel = new BroadcastChannel('kp-auth-denial')
+    denialChannel.current = channel
+    // Another tab was refused. Do NOT re-broadcast (denyLocally, not denySession) — the sender
+    // already told everyone, and echoing would loop.
+    channel.onmessage = (e) => { if (e.data === 'denied') denyLocally() }
+    return () => { channel.close(); denialChannel.current = null }
+    // denyLocally only calls setState + module-level cache gates; no closure can go stale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one channel for the page's life
+  }, [])
 
   // Demo instances skip the login screen: on a fresh visit (no session) auto-sign-in as the
   // demo editor so a visitor lands straight in the action. Fetch the roster, pick the editor,
