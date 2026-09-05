@@ -326,6 +326,13 @@ class Settings(BaseSettings):
     # encrypted credential store still prevents it from being committed or baked into images.
     carto_api_key: str = ""
 
+    # Extra tile HOSTS the server-rendered Rapport may fetch a basemap from, comma-separated
+    # (e.g. "tiles.example.ch"). The three providers the app itself offers are built in
+    # (app/kroki.py · _TILE_PROVIDER_HOSTS); this is the escape hatch for a station running its
+    # own tile server. ⚠️ Env only — the tile template arrives in a caller's request body, so
+    # who may add a destination has to be whoever runs the deployment, not whoever is logged in.
+    report_tile_hosts: str = ""
+
     # --- Web Push (killed-app alarms: Atemschutz überfällig + Wiedervorlagen) ---
     # Generate a VAPID pair once per deployment (see .env.example); push is silently
     # disabled while unset — the in-app tone/notification path keeps working regardless.

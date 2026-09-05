@@ -20,7 +20,9 @@ import hashlib
 import io
 import itertools
 import json
+import logging
 import math
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -28,6 +30,8 @@ import httpx
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from . import carto
+
+logger = logging.getLogger(__name__)
 
 TILE = 256
 _UA = {"User-Agent": "kp-front-kroki/1.0 (+https://github.com/feuerwehr-oberwil/kp-front)"}
@@ -147,12 +151,85 @@ def bounds_view(bounds: tuple[float, float, float, float], width: int, height: i
 
 # ----------------------------------------------------------------------------- tiles
 
+#: The basemap providers this server will fetch tiles from. The Rapport payload NAMES the
+#: basemap the operator was looking at (src/lib/krokiPayload.ts), and that name is a caller
+#: string like any other — before this table it was fetched as given, which made the report
+#: composer a request forwarder from the server's own network position (SEC-03, 05.09.).
+#:
+#: Hosts, not whole templates: a provider's style path is theirs to change (CARTO adds a
+#: basemap, swisstopo a layer) and pinning every path would break printing on a config the
+#: station never touched. The host is what decides where the request goes.
+#:
+#: ⚠️ These are the three base layers the app itself offers (src/data/demoIncident.ts). A
+#: station running its OWN tile server adds its host through REPORT_TILE_HOSTS — an env
+#: setting, i.e. whoever runs the deployment, never a caller and never the admin UI.
+_TILE_PROVIDER_HOSTS = frozenset(
+    {
+        "basemaps.cartocdn.com",
+        "a.basemaps.cartocdn.com",
+        "b.basemaps.cartocdn.com",
+        "c.basemaps.cartocdn.com",
+        "d.basemaps.cartocdn.com",
+        "wmts.geo.admin.ch",
+        "tile.openstreetmap.org",
+    }
+)
+
+#: One tile, capped. A 256px raster tile is a few dozen KB; anything past this is either a
+#: provider fault or a body meant to be read rather than drawn.
+MAX_TILE_BYTES = 2 * 1024 * 1024
+#: Tiles the on-disk cache keeps before it starts dropping its oldest. ~20k × ≤2 MB is the
+#: worst case; in practice a station's repeated renders sit in the low hundreds of MB.
+MAX_CACHE_ENTRIES = 20_000
+#: The `{z}`/`{x}`/`{y}` slots and nothing else — the template is `.format()`ed, and any other
+#: field would either raise or reach into the objects passed in («{z.__class__}»).
+_TILE_SLOTS_RE = re.compile(r"\{(?!(?:z|x|y)\})[^}]*\}")
+
+
+def approved_tile_template(tile_url: str | None) -> str:
+    """The template `render_base` may fetch, or `""` when this server does not know the source.
+
+    Empty rather than an exception on purpose: an unknown basemap prints a grey base under the
+    drawings and symbols, which is what an unreachable tile CDN has always produced. Failing the
+    whole Rapport would make the sheet nobody can redraw by hand hostage to a map style.
+    """
+    from .egress import EgressRefusedError, require_public_https
+
+    url = (tile_url or "").strip()
+    if not url:
+        return ""
+    try:
+        host = require_public_https(url, what="Kartenquelle")
+    except EgressRefusedError as e:
+        logger.warning("Kartenquelle abgelehnt (%s): %.120s", e, url)
+        return ""
+    if host not in _TILE_PROVIDER_HOSTS and host not in _extra_tile_hosts():
+        logger.warning("Kartenquelle ist kein bekannter Kartenanbieter — grauer Kartenhintergrund: %.120s", url)
+        return ""
+    if _TILE_SLOTS_RE.search(url):
+        logger.warning("Kartenquelle enthält unbekannte Platzhalter: %.120s", url)
+        return ""
+    return url
+
+
+def _extra_tile_hosts() -> frozenset[str]:
+    """Additional tile hosts this deployment's operator configured (REPORT_TILE_HOSTS)."""
+    from .config import settings
+
+    return frozenset(h.strip().lower() for h in settings.report_tile_hosts.split(",") if h.strip())
+
 
 class TileCache:
-    """Tiny on-disk tile cache — polite to the tile CDNs and fast for repeated renders."""
+    """Tiny on-disk tile cache — polite to the tile CDNs and fast for repeated renders.
 
-    def __init__(self, cache_dir: Path):
+    Bounded: once the directory holds more than `max_entries` files it drops the oldest half.
+    Unbounded, it grew for the lifetime of the volume — one render of a wide view at z19 writes
+    a few hundred files, and nothing ever removed one.
+    """
+
+    def __init__(self, cache_dir: Path, max_entries: int = MAX_CACHE_ENTRIES):
         self.dir = cache_dir
+        self.max_entries = max_entries
         self.dir.mkdir(parents=True, exist_ok=True)
 
     def get(self, url: str) -> bytes | None:
@@ -160,7 +237,50 @@ class TileCache:
         return p.read_bytes() if p.exists() else None
 
     def put(self, url: str, data: bytes) -> None:
+        if len(data) > MAX_TILE_BYTES:
+            return
         (self.dir / hashlib.sha256(url.encode()).hexdigest()).write_bytes(data)
+        self._prune()
+
+    def _prune(self) -> None:
+        """Drop the oldest half once the cache is over its entry cap. Halving rather than
+        trimming to the line keeps this off the hot path — one scan per few thousand writes."""
+        try:
+            entries = list(self.dir.iterdir())
+            if len(entries) <= self.max_entries:
+                return
+            entries.sort(key=lambda p: p.stat().st_mtime)
+            for p in entries[: len(entries) - self.max_entries // 2]:
+                p.unlink(missing_ok=True)
+        except OSError:  # a cache that cannot be pruned must not fail a Rapport
+            logger.warning("Tile-Cache konnte nicht aufgeräumt werden", exc_info=True)
+
+
+def _fetch_tile(client: httpx.Client, url: str) -> bytes | None:
+    """One tile, with the response-byte cap enforced WHILE reading rather than after.
+
+    A caller-named destination is gone (see `approved_tile_template`), but a provider that
+    answers with an endless body would still be read into memory whole; the cap is what makes
+    that a dropped tile instead of a dead container. Injected clients that are not real httpx
+    clients (tests, in-process doubles) have no `stream` and take the plain path.
+    """
+    if not hasattr(client, "stream"):
+        r = client.get(url)
+        r.raise_for_status()
+        return r.content if len(r.content) <= MAX_TILE_BYTES else None
+    with client.stream("GET", url) as r:
+        r.raise_for_status()
+        ctype = r.headers.get("content-type", "")
+        if ctype and not ctype.startswith("image/"):
+            return None  # a tile is a picture; anything else is a body meant to be read
+        if int(r.headers.get("content-length") or 0) > MAX_TILE_BYTES:
+            return None
+        buf = bytearray()
+        for chunk in r.iter_bytes():
+            buf += chunk
+            if len(buf) > MAX_TILE_BYTES:
+                return None
+        return bytes(buf)
 
 
 def render_base(
@@ -168,7 +288,12 @@ def render_base(
 ) -> Image.Image:
     """Stitch the XYZ raster tiles covering the view. `tile_url` has {z}/{x}/{y} slots.
     Fractional view zoom: tiles come from ceil(z) (crisper than upscaling from floor)
-    and the stitched canvas is resized down to the view's pixel size."""
+    and the stitched canvas is resized down to the view's pixel size.
+
+    ⚠️ `tile_url` must already have passed `approved_tile_template` — the caller-supplied value
+    from a Rapport payload never arrives here unresolved (app/report_pdf.py). An empty template
+    means «no approved basemap»: the neutral background is returned without a single request.
+    """
     # The credential is the SERVER's, never the client's: strip whatever came in, apply ours,
     # and key the cache on the bare template (app/carto.py explains why both halves exist).
     fetch_tpl, cache_tpl = carto.for_fetch(tile_url)
@@ -177,8 +302,12 @@ def render_base(
     tw, th = math.ceil(view.width * f), math.ceil(view.height * f)
     x0, y0 = view.origin[0] * f, view.origin[1] * f
     img = Image.new("RGB", (tw, th), "#e8ecef")
+    if not fetch_tpl:  # no approved basemap — the neutral canvas, and not one request made
+        return img.resize((view.width, view.height), Image.Resampling.LANCZOS)
     own = client is None
-    client = client or httpx.Client(timeout=10, headers=_UA)
+    # ⚠️ `follow_redirects` stays off (httpx's default, pinned here because it is a control):
+    # an approved provider answering «301 → 169.254.169.254» must not move the destination.
+    client = client or httpx.Client(timeout=10, headers=_UA, follow_redirects=False)
     try:
         n = 2**tz
         tx0, ty0 = int(x0 // TILE), int(y0 // TILE)
@@ -192,10 +321,8 @@ def render_base(
             data = cache.get(cache_url) if cache else None
             if data is None:
                 try:
-                    r = client.get(fetch_tpl.format(**slots))
-                    r.raise_for_status()
-                    data = r.content
-                    if cache:
+                    data = _fetch_tile(client, fetch_tpl.format(**slots))
+                    if data and cache:
                         cache.put(cache_url, data)
                 except httpx.HTTPError:
                     return tx, ty, None  # missing tile → keep the neutral background
@@ -225,9 +352,46 @@ def render_base(
 # ----------------------------------------------------------------------------- symbols
 
 
+#: An `href` / `xlink:href` attribute and its quoted value, wherever it sits.
+_HREF_RE = re.compile(r"""\b(?:xlink:)?href\s*=\s*(?P<q>["'])(?P<v>[^"']*)(?P=q)""", re.IGNORECASE)
+#: A CSS `url(...)` reference (gradients, patterns, `@import`).
+_CSS_URL_RE = re.compile(r"""url\(\s*(?P<q>["']?)(?P<v>[^)"']*)(?P=q)\s*\)""", re.IGNORECASE)
+#: A DTD / entity declaration — the XXE half of an SVG parser.
+_DOCTYPE_RE = re.compile(r"<!DOCTYPE[^>[]*(\[[^\]]*\])?[^>]*>|<!ENTITY[^>]*>", re.IGNORECASE)
+
+
+def _local_ref(value: str) -> bool:
+    """A reference the renderer can satisfy WITHOUT leaving this process: a fragment («#g»,
+    for the defs the SVG carries itself) or an inline `data:` payload (how an SVG brandmark
+    carries its raster half). A path, a `file://` and an http(s) URL are all somebody asking
+    this server to go and read something."""
+    v = value.strip()
+    return v.startswith("#") or v.lower().startswith("data:")
+
+
+def sanitize_svg(svg: str) -> str:
+    """Strip every external-resource reference from an SVG before it reaches the rasteriser.
+
+    ⚠️ resvg resolves `<image href="…">` against the FILESYSTEM. A client-resolved glyph
+    (`symbolSvg` — dynamic vehicles, placards, composed Hubretter artwork) is caller-authored
+    text, so without this a Rapport could name any image file the container can read and get it
+    printed into the PDF (SEC-07, 05.09.). Applied to every SVG this module rasterises, not just
+    the client's: the pack's own artwork and the sheets' generated overlays reference nothing
+    external, so the scrub is a no-op on them and there is no second path to forget.
+
+    Scrubbed rather than rejected — a Rapport that loses one decorative reference still prints,
+    and every glyph the app actually produces (paths, text, fills, its own `#defs`) is untouched.
+    """
+    out = _DOCTYPE_RE.sub("", svg)
+    out = _HREF_RE.sub(lambda m: m.group(0) if _local_ref(m.group("v")) else 'href=""', out)
+    return _CSS_URL_RE.sub(lambda m: m.group(0) if _local_ref(m.group("v")) else "none", out)
+
+
 def raster_svg(svg: str, size_px: int, height_px: int | None = None) -> Image.Image:
     """Rasterise an SVG string to an RGBA image (resvg — same renderer for pack
-    symbols and the client-resolved dynamic glyphs like vehicles/placards).
+    symbols and the client-resolved dynamic glyphs like vehicles/placards). Every string goes
+    through `sanitize_svg` first — the client-resolved half is caller-authored text, and resvg
+    reads image references off the filesystem.
     Square by default; `height_px` stretches it (generic shapes with an `aspect`). resvg
     itself keeps the SVG's intrinsic ratio whatever target box it is given, so the stretch
     is done as a PIL resize of a square render at the LARGER side — never an upscale, and
@@ -244,7 +408,7 @@ def raster_svg(svg: str, size_px: int, height_px: int | None = None) -> Image.Im
     s = max(size_px, h)
     png = bytes(
         resvg_py.svg_to_bytes(
-            svg_string=svg,
+            svg_string=sanitize_svg(svg),
             width=s,
             height=s,
             font_family="DejaVu Sans",
@@ -377,8 +541,32 @@ def _spread_dirs(spread: dict) -> dict[str, bool]:
     return out
 
 
+#: A colour a client may have written — the mirror of ``_COLOR_RE`` in app/schemas.py, which
+#: scrubs the same field on the way into a workspace (SEC-01). Hex, an rgb()/hsl() function or
+#: a CSS keyword; nothing that could close an attribute.
+_SAFE_COLOR_RE = re.compile(
+    r"^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$|^(?:rgb|hsl)a?\([\d\s.,%/+-]*\)$|^[a-z]{3,20}$",
+    re.IGNORECASE,
+)
+
+#: The app blue, and the ink anything unrecognisable falls back to (client symbolRender).
+_DEFAULT_INK = "#1f6feb"
+
+
+def _safe_color(color: str | None) -> str:
+    """A colour that may be interpolated into an SVG attribute.
+
+    The Rapport payload carries its own copy of every drawing's colour and does NOT pass through
+    the workspace scrub, so the string arrives here caller-authored. Substituted, never rejected:
+    a hostile colour has nothing to say, and the object still has to print.
+    """
+    c = (color or "").strip()
+    return c if _SAFE_COLOR_RE.match(c) else _DEFAULT_INK
+
+
 def spread_overlay_svg(spread: dict, color: str) -> str:
     """The SpreadArrows overlay as one SVG (same paths/rotations as the client)."""
+    color = _safe_color(color)
 
     def arrow(deg: int, bounded: bool) -> str:
         bar = '<rect x="33" y="1" width="34" height="6" rx="1.5" stroke-width="3"/>' if bounded else ""
@@ -502,6 +690,7 @@ def _teilstueck_fork(overlay: Image.Image, pts: list[tuple[float, float]], color
     """The forward «E»-fork Teilstück coupling at the line tip — the client's
     TeilstueckFork SVG (round caps, clean joins) rasterised via resvg and composited
     at the tip; PIL's fat butt-capped strokes turned into blobs."""
+    color = _safe_color(color)
     tip = pts[-1]
     back = _lookback(pts, max(10.0, width * 2.5))
     ang = math.degrees(math.atan2(tip[1] - back[1], tip[0] - back[0]))
@@ -734,6 +923,7 @@ def _chain_marker(
     overlay: Image.Image, xy: tuple[float, float], marker: str, deg: float, size: int, color: str
 ) -> None:
     """One chain glyph, rasterised from the SAME path the client draws and pasted rotated."""
+    color = _safe_color(color)
     g = _CHAIN_GLYPHS[marker]
     # ⚠️ The triangle's BASE sits at y=0, not its centre — rotated by the segment bearing that
     # puts the base ON the line, teeth to one side, line still visible (mirrors lineStyle.ts).

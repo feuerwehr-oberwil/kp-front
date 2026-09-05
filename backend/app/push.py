@@ -190,8 +190,48 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
 #: alarm sweeps still await a broadcast; every path needs a finite upper bound.
 PUSH_TIMEOUT_SECONDS = 10
 
+#: Sends in flight at once. The blocking sender runs on the default thread pool, which the rest
+#: of the app shares — an unbounded fan-out over every subscribed browser is how a push sweep
+#: starves the request path it was queued from.
+BROADCAST_CONCURRENCY = 8
+
+#: Wall clock for ONE broadcast. A per-endpoint timeout bounds one send; with more rows than
+#: `BROADCAST_CONCURRENCY` the queue behind them is what an awaiting alarm actually waits for,
+#: and an alarm that arrives late is the failure this whole module exists to prevent.
+BROADCAST_DEADLINE_SECONDS = 45
+
 # Strong references to post-commit tasks. asyncio itself holds only weak references.
 _inflight: set[asyncio.Task] = set()
+
+
+def _deliverable():
+    """Subscriptions an alarm may go to: kiosk rows without a user, plus every ACTIVE user's.
+
+    An outer join, not a filter on a joined column — a `user_id` of NULL is a legitimate row
+    (a shared station browser that subscribed before it had a login) and an inner join would
+    silently stop notifying it.
+    """
+    from .models import User
+
+    return (
+        select(PushSubscription)
+        .outerjoin(User, User.id == PushSubscription.user_id)
+        .where((PushSubscription.user_id.is_(None)) | (User.is_active.is_(True)))
+    )
+
+
+def _sendable(endpoint: str) -> bool:
+    """Last gate before the sender: a row stored before the destination policy existed (or
+    written by an older release) must not become an outbound request now. Static checks only —
+    no DNS on the alarm path; registration is where resolution happens (app/api/push.py)."""
+    from .egress import EgressRefusedError, require_public_https
+
+    try:
+        require_public_https(endpoint, what="Push-Endpunkt")
+    except EgressRefusedError as e:
+        logger.warning("Push-Endpunkt übersprungen (%s): %.60s", e, endpoint)
+        return False
+    return True
 
 
 def _send_one(sub: dict, payload: str) -> bool:
@@ -223,8 +263,12 @@ def _send_one(sub: dict, payload: str) -> bool:
 
 
 async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target: str | None) -> int:
-    """Push to every subscribed browser; prunes dead endpoints. Returns the send count."""
-    subs = list((await db.execute(select(PushSubscription))).scalars())
+    """Push to every subscribed browser of an ACTIVE user; prunes dead endpoints.
+
+    Returns the send count. A deactivated login keeps no delivery: the row survives (the person
+    may come back) but the alarm does not follow an account somebody switched off.
+    """
+    subs = [s for s in (await db.execute(_deliverable())).scalars() if _sendable(s.endpoint)]
     if not subs:
         return 0
     payload = json.dumps({"title": title, "body": body, "tag": tag, "target": target})
@@ -233,13 +277,27 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target
     # len(subs) x PUSH_TIMEOUT_SECONDS — twenty subscribed devices with one dead push service
     # meant minutes of hanging, and this is awaited inline in the alarm intake path. Fanned
     # out, the whole sweep costs one timeout regardless of how many endpoints are unreachable.
-    results = await asyncio.gather(
-        *(
-            asyncio.to_thread(_send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload)
-            for s in subs
-        ),
-        return_exceptions=True,
-    )
+    # Bounded on both axes: at most BROADCAST_CONCURRENCY threads, and the whole broadcast
+    # gives up at BROADCAST_DEADLINE_SECONDS rather than holding the alarm path open.
+    gate = asyncio.Semaphore(BROADCAST_CONCURRENCY)
+
+    async def send(s: PushSubscription) -> bool:
+        async with gate:
+            return await asyncio.to_thread(
+                _send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload
+            )
+
+    try:
+        results: list[bool | BaseException] = await asyncio.wait_for(
+            asyncio.gather(*(send(s) for s in subs), return_exceptions=True),
+            timeout=BROADCAST_DEADLINE_SECONDS,
+        )
+    except TimeoutError:
+        # The sends that did land are already delivered; what is dropped is the WAIT, so the
+        # caller (an alarm intake, a due-ness sweep) gets its thread back. Nothing is pruned on
+        # a timeout — a slow push service is not a gone one.
+        logger.warning("Push-Broadcast (%s) nach %ss abgebrochen", tag, BROADCAST_DEADLINE_SECONDS)
+        return 0
 
     dead: list[str] = []
     for s, ok in zip(subs, results, strict=True):
